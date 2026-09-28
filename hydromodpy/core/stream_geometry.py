@@ -22,7 +22,8 @@ partition is how a figure comes to disagree with the number it illustrates.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from typing import Literal
 
 import numpy as np
 
@@ -39,6 +40,12 @@ from hydromodpy.core.stream_network import (
     SimulatedNetwork,
     downstream_closure,
     specific_seepage_threshold,
+)
+from hydromodpy.core.stream_snap import (
+    SnapStreamsConfig,
+    StreamSnap,
+    representation_floor_m,
+    snap_observed_network,
 )
 from hydromodpy.core.topographic_distance import (
     DownslopeMetric,
@@ -61,6 +68,74 @@ OUTLET_SNAP_RINGS = 2
 #: before the gap is logged as a warning. It decides what is LOGGED only.
 CATCHMENT_MISMATCH_WARNING_SHARE = 0.05
 
+ValidityProvenance = Literal["auto", "auto_floor", "declared_accuracy", "user"]
+
+VALIDITY_PROVENANCE_CODE: dict[str, float] = {
+    "auto": 0.0,
+    "auto_floor": 1.0,
+    "declared_accuracy": 2.0,
+    "user": 3.0,
+}
+"""The number a trial publishes as ``validity_length_provenance``, since
+components are floats."""
+
+VALIDITY_PROVENANCE_BY_CODE: dict[float, str] = {
+    code: name for name, code in VALIDITY_PROVENANCE_CODE.items()
+}
+"""The provenance a published code stands for."""
+
+
+@dataclass(frozen=True, slots=True)
+class ValidityLength:
+    """The length Eq. 4 bounds ``Doptim`` by, and what set it.
+
+    ``provenance`` names the term that decided the length: ``"user"`` for a
+    declared ``validity_length``, ``"auto_floor"`` when the snap floor ``F``
+    exceeded ``h``, ``"declared_accuracy"`` when the declared positional
+    accuracy exceeded ``h_obs``, and ``"auto"`` for two cells, the paper.
+    """
+
+    length_m: float
+    provenance: ValidityProvenance
+
+    @property
+    def code(self) -> float:
+        """The provenance as the float a trial publishes."""
+        return VALIDITY_PROVENANCE_CODE[self.provenance]
+
+
+def resolve_validity_length(
+    *,
+    h_obs_m: float,
+    accuracy_m: float | None = None,
+    floor_m: float | None = None,
+    declared_m: float | None = None,
+) -> ValidityLength:
+    """Return the validity length of Eq. 4, in metres.
+
+    A declared length wins. Otherwise ``h = max(h_obs, accuracy)`` when an
+    accuracy is declared, else ``h_obs``. Without a floor the length is
+    ``2 h``, the two pixels of the paper (HESS 27, p. 3225). With the snap
+    floor ``F``, measured in ``diagnose`` and ``apply``, it is
+    ``h + max(h, F)``: one cell for the hydrogeology, and one for the map
+    error the paper budgets (p. 3224), replaced by ``F`` when ``F`` is larger.
+    A floor that is not a number counts as no floor.
+    """
+    if declared_m is not None:
+        return ValidityLength(float(declared_m), "user")
+    h_obs = float(h_obs_m)
+    scale = h_obs
+    provenance: ValidityProvenance = "auto"
+    if accuracy_m is not None and float(accuracy_m) > h_obs:
+        scale = float(accuracy_m)
+        provenance = "declared_accuracy"
+    if floor_m is None or not np.isfinite(floor_m):
+        return ValidityLength(2.0 * scale, provenance)
+    floor = float(floor_m)
+    if floor > scale:
+        provenance = "auto_floor"
+    return ValidityLength(scale + max(scale, floor), provenance)
+
 
 @dataclass(frozen=True, slots=True)
 class NetworkGeometry:
@@ -70,6 +145,13 @@ class NetworkGeometry:
     conditioned graph reaches ``outlet``. ``catchment_mismatch`` is the area of
     the symmetric difference between it and the delineated raster polygon,
     divided by the polygon's area; NaN when no polygon was given.
+
+    ``observed`` is the map the criterion scores: the snapped map when the
+    snap is applied, the raw projection otherwise. ``observed_raw`` is always
+    the raw projection. ``h_obs_m`` is the cell size on the mapped network,
+    the length ``roptim`` is divided by (Eq. 3). ``snap`` is None when the
+    snap is off. ``observed_position_accuracy_m`` is the declared accuracy of
+    the map, which only the validity length reads (:meth:`validity_length`).
     """
 
     metric: DownslopeMetric
@@ -82,13 +164,30 @@ class NetworkGeometry:
     cell_area_m2: np.ndarray
     threshold_m3_s: np.ndarray
     mean_recharge_m_s: float
-    length_scale_m: float
     saturation_cap_m: float
     excluded: np.ndarray | None
     alpha_obs_closure: float
     alpha_obs_closure_catchment: float
     frac_obs_outside_catchment: float
     frac_reachable_obs_raw: float
+    h_obs_m: float = float("nan")
+    observed_raw: np.ndarray | None = None
+    snap: StreamSnap | None = None
+    observed_position_accuracy_m: float | None = None
+
+    def validity_length(self, declared_m: float | None = None) -> ValidityLength:
+        """Return the Eq. 4 length this map is qualified against.
+
+        ``declared_m`` is the output's ``validity_length`` when it is a length,
+        None for ``"auto"``. The floor ``F`` enters only when the snap ran, in
+        ``diagnose`` or ``apply`` (:func:`resolve_validity_length`).
+        """
+        return resolve_validity_length(
+            h_obs_m=self.h_obs_m,
+            accuracy_m=self.observed_position_accuracy_m,
+            floor_m=None if self.snap is None else self.snap.floor_m,
+            declared_m=declared_m,
+        )
 
     @property
     def diagnostics(self) -> dict[str, float]:
@@ -107,8 +206,11 @@ class NetworkGeometry:
         ``catchment_mismatch`` says how far the scored catchment, read on the
         criterion graph, sits from the polygon the geographic step delineated
         on its raster.
+
+        The ``snap_*`` indices travel only when the snap is on: an ``off``
+        trial publishes exactly what it published before the snap existed.
         """
-        return {
+        diagnostics = {
             "alpha_obs_closure": self.alpha_obs_closure,
             "alpha_obs_closure_catchment": self.alpha_obs_closure_catchment,
             "frac_obs_outside_catchment": self.frac_obs_outside_catchment,
@@ -117,6 +219,9 @@ class NetworkGeometry:
             "n_outlet_sealed": float(0.0 if self.observed[self.outlet] else 1.0),
             "R_mean_m_s": self.mean_recharge_m_s,
         }
+        if self.snap is not None:
+            diagnostics.update(self.snap.indices)
+        return diagnostics
 
 
 _last_mean_recharge: float | None = None
@@ -147,23 +252,78 @@ def _warn_if_recharge_moved(recharge: float) -> None:
     )
 
 
-def reference_length(cell_area_m2: np.ndarray, support: np.ndarray) -> float:
-    """Return ``L_ref``, the square root of the MEDIAN cell area.
+def neighbour_spacing_m(
+    cell_centroids: np.ndarray,
+    face_node_connectivity: np.ndarray,
+    *,
+    touching: np.ndarray | None = None,
+) -> float:
+    """Return the median distance between the centres of cells sharing an edge.
 
-    The median, not the mean: on a mesh refined along the streams a handful of
-    large buffer cells inflate the mean, and the two conventions differ enough
-    to move the validity ratio across its bound for a size ratio of three. The
-    same convention is already used elsewhere in the package to normalise a
-    length. The interval width of a calibration reads another size, the median
-    distance between the centres of neighbouring cells (``cell_spacing_m``),
-    because a stream moves from one cell centre to the next. The two agree on
-    a square grid.
+    Two cells are neighbours when they share an edge, whatever the descent the
+    criterion routes on. ``touching`` keeps the pairs of which at least one
+    cell lies in it. At least one, not both: under the crossing rule two
+    successive mapped cells along a diagonal often share only a corner.
     """
-    areas = np.asarray(cell_area_m2, dtype=float).reshape(-1)
-    kept = areas[np.asarray(support, dtype=bool).reshape(-1) & np.isfinite(areas)]
-    if kept.size == 0:
-        raise ValueError("the support holds no cell with a finite area.")
-    return float(np.sqrt(np.median(kept)))
+    centres = np.asarray(cell_centroids, dtype=float)
+    rows = np.asarray(face_node_connectivity, dtype=np.int64)
+    if rows.ndim == 1:
+        rows = rows.reshape(1, -1)
+    rows = rows[: centres.shape[0]]
+    present = rows >= 0
+    # Nodes of each face moved to the front in ring order, so the node after
+    # slot j is slot (j + 1) modulo the face arity.
+    ring = np.take_along_axis(rows, np.argsort(~present, axis=1, kind="stable"), axis=1)
+    arity = present.sum(axis=1)
+    slots = np.arange(rows.shape[1])
+    following = np.take_along_axis(
+        ring, np.mod(slots[None, :] + 1, np.maximum(arity, 1)[:, None]), axis=1
+    )
+    drawn = (slots[None, :] < arity[:, None]) & (ring != following)
+    low = np.minimum(ring, following)[drawn]
+    high = np.maximum(ring, following)[drawn]
+    owner = np.broadcast_to(np.arange(rows.shape[0])[:, None], rows.shape)[drawn]
+    key = low * (int(rows.max(initial=0)) + 1) + high
+    order = np.argsort(key, kind="stable")
+    key, owner = key[order], owner[order]
+    shared = key[1:] == key[:-1]
+    first, second = owner[:-1][shared], owner[1:][shared]
+    keep = first != second
+    if touching is not None:
+        near = np.asarray(touching, dtype=bool).reshape(-1)
+        keep &= near[first] | near[second]
+    delta = centres[first[keep]] - centres[second[keep]]
+    distances = np.hypot(delta[:, 0], delta[:, 1])
+    distances = distances[np.isfinite(distances)]
+    if distances.size == 0:
+        raise ValueError("the mesh holds no two neighbouring cells to measure a cell on.")
+    return float(np.median(distances))
+
+
+def observed_cell_size_m(
+    cell_centroids: np.ndarray,
+    face_node_connectivity: np.ndarray,
+    *,
+    observed: np.ndarray,
+    catchment: np.ndarray,
+) -> float:
+    """Return ``h_obs``, the size of one cell where the mapped network lies.
+
+    It is the median distance between neighbouring cell centres over the
+    mapped cells of the catchment (:func:`neighbour_spacing_m`). The distances
+    ``D_os`` start from those cells, so on a mesh refined along the streams
+    the fine cells set the scale, not the coarse hillslope cells a
+    catchment-wide median can land on. On a regular grid it is the cell size.
+    It is static: the map does not move with ``K``, the simulated network
+    does, and the latter must not set the bound. A catchment holding no mapped
+    cell falls back on the catchment itself, which the criterion refuses
+    further down with a message naming the empty support.
+    """
+    mapped = np.asarray(observed, dtype=bool).reshape(-1) & np.asarray(
+        catchment, dtype=bool
+    ).reshape(-1)
+    touching = mapped if mapped.any() else np.asarray(catchment, dtype=bool).reshape(-1)
+    return neighbour_spacing_m(cell_centroids, face_node_connectivity, touching=touching)
 
 
 def _rings_around(start: int, adjacency: list[set[int]], rings: int) -> np.ndarray:
@@ -263,6 +423,8 @@ def build_network_geometry(
     clipping_warning_share: float = STREAM_CRITERION_DEFAULTS.clipping_warning_share,
     clipping_warning_gap: float = STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
     catchment_mismatch_warning_share: float = CATCHMENT_MISMATCH_WARNING_SHARE,
+    snap: SnapStreamsConfig | None = None,
+    weighting: Literal["cell", "area"] = "cell",
 ) -> NetworkGeometry:
     """Assemble the static geometry of the criterion from mesh primitives.
 
@@ -300,6 +462,16 @@ def build_network_geometry(
     resolved against the mesh once, here, and the one neighbour graph that
     comes out feeds the depression flood, the receiver graph, the downstream
     closure of both networks and the saturation cap alike.
+
+    ``snap`` is the ``[geographic.snap_streams]`` setting, None meaning off.
+    In ``diagnose`` the snapped map, its indices and the floor ``F`` are
+    computed and the raw map is scored; in ``apply`` the snapped map is scored.
+    The length scale is ``h_obs`` (:func:`observed_cell_size_m`), read on the
+    raw map. ``observed_position_accuracy_m`` does not change it: it is kept
+    for the validity length only (:meth:`NetworkGeometry.validity_length`).
+    ``weighting`` is the weighting of the output that scores this geometry;
+    only the floor ``F`` reads it, so ``F`` is averaged like the ``Doptim``
+    it bounds.
     """
     surface = np.asarray(topography, dtype=float).reshape(-1)
     diagonal_neighbors = resolve_diagonal_neighbors(
@@ -421,6 +593,28 @@ def build_network_geometry(
         None if excluded is None else np.asarray(excluded, dtype=bool).reshape(-1) & active
     )
 
+    # Read on the RAW map: the snap radius is counted in it, and the map an
+    # observation was drawn on does not move with the snap.
+    h_obs = observed_cell_size_m(
+        metric.centroids, face_node_connectivity, observed=observed_mask, catchment=catchment
+    )
+    observed_raw = observed_mask
+    stream_snap: StreamSnap | None = None
+    if snap is not None and snap.enabled:
+        stream_snap = snap_observed_network(
+            metric=metric,
+            observed=observed_raw,
+            outlet=outlet,
+            catchment=catchment,
+            cell_area_m2=areas,
+            adjacency=adjacency,
+            h_obs_m=h_obs,
+            settings=snap,
+            water_bodies=excluded_mask,
+        )
+        if snap.mode == "apply":
+            observed_mask = stream_snap.snapped & active
+
     # Open water is surface water: a seepage cell fifty metres from a bank stops
     # at the reservoir, it does not swim across it and carry on to the next
     # mapped reach. Water bodies therefore JOIN the target of both distance
@@ -494,15 +688,38 @@ def build_network_geometry(
             float(alpha_warning_threshold),
         )
 
-    length_scale = reference_length(areas, catchment)
-    if observed_position_accuracy_m:
-        # The error floor is set by the positional accuracy of the mapped
-        # network, which does not depend on the model resolution: a finer mesh
-        # divides the denominator without improving the agreement.
-        length_scale = max(length_scale, float(observed_position_accuracy_m))
-
     recharge = float(mean_recharge_m_s)
     _warn_if_recharge_moved(recharge)
+
+    saturation_cap = longest_descent_length(metric, outlet_mask, within=catchment)
+    if stream_snap is not None:
+        keep = catchment if excluded_mask is None else (catchment & ~excluded_mask)
+        stream_snap = replace(
+            stream_snap,
+            floor_m=representation_floor_m(
+                metric=metric,
+                raw=observed_raw,
+                snapped=stream_snap.snapped & active,
+                outlet=outlet,
+                keep=keep,
+                saturation_cap_m=saturation_cap,
+                water_bodies=excluded_mask,
+                # The same averaging as the scored Doptim, which reads
+                # geometry.cell_area_m2 below under the "area" weighting.
+                weights=areas if weighting == "area" else None,
+            ),
+        )
+        logger.info(
+            "Network criterion: snap %s, radius %.4g m, %d mapped cell(s), p90 displacement "
+            "%.4g m, %.1f%% rejected, length ratio %.3f, floor F = %.4g m.",
+            stream_snap.mode,
+            stream_snap.radius_m,
+            int(stream_snap.raw.sum()),
+            stream_snap.displacement_p90_m,
+            100.0 * stream_snap.rejected_share,
+            stream_snap.length_ratio,
+            stream_snap.floor_m,
+        )
 
     return NetworkGeometry(
         metric=metric,
@@ -515,13 +732,18 @@ def build_network_geometry(
         cell_area_m2=areas,
         threshold_m3_s=specific_seepage_threshold(areas, recharge, ratio=tau_specific_ratio),
         mean_recharge_m_s=recharge,
-        length_scale_m=length_scale,
-        saturation_cap_m=longest_descent_length(metric, outlet_mask, within=catchment),
+        saturation_cap_m=saturation_cap,
         excluded=excluded_mask,
         alpha_obs_closure=alpha,
         alpha_obs_closure_catchment=alpha_catchment,
         frac_obs_outside_catchment=outside,
         frac_reachable_obs_raw=reachable,
+        h_obs_m=h_obs,
+        observed_raw=observed_raw,
+        snap=stream_snap,
+        observed_position_accuracy_m=(
+            float(observed_position_accuracy_m) if observed_position_accuracy_m else None
+        ),
     )
 
 
@@ -597,10 +819,16 @@ def criterion_supports(
 
 
 __all__ = (
+    "VALIDITY_PROVENANCE_BY_CODE",
+    "VALIDITY_PROVENANCE_CODE",
     "CriterionSupports",
     "NetworkGeometry",
+    "ValidityLength",
+    "ValidityProvenance",
     "build_network_geometry",
     "criterion_supports",
-    "reference_length",
+    "neighbour_spacing_m",
+    "observed_cell_size_m",
     "resolve_outlet",
+    "resolve_validity_length",
 )

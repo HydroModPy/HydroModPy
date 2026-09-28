@@ -25,13 +25,13 @@ from pydantic import ValidationError
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
-from hydromodpy.calibration.observations.network_geometry import cell_spacing_m
 from hydromodpy.calibration.optim.tolerance import FIVE_PER_CENT, ONE_MESH_CELL
 from hydromodpy.calibration.preflight import preflight_calibration
 from hydromodpy.calibration.runners.cli_runner import load_toml_calibration, run_calibration_cli
 from hydromodpy.calibration.runners.staged_runner import _phase_config, phase_summaries
 from hydromodpy.calibration.runners.state import build_cache_context, space_from_config
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.stream_geometry import neighbour_spacing_m
 
 pytestmark = pytest.mark.fast
 
@@ -122,15 +122,20 @@ def test_one_cell_is_the_median_distance_between_neighbouring_centres() -> None:
     # at 40 m, three pairs one above the other at 60 m. Diagonals share no edge.
     centres, connectivity = _rectangles(2, 3, dx=40.0, dy=60.0)
 
-    assert cell_spacing_m(centres, connectivity) == pytest.approx(40.0)
+    assert neighbour_spacing_m(centres, connectivity) == pytest.approx(40.0)
 
 
-def test_the_cell_is_measured_where_the_criterion_scores() -> None:
-    # Only the left column is kept: its one pair is stacked, 60 m apart.
+def test_the_cell_is_measured_next_to_the_mapped_cells() -> None:
+    # The right column touches three pairs: two side by side at 40 m, whose
+    # other cell lies outside it, and one stacked at 60 m. At least one of
+    # the two cells is enough, so the median is 40 m.
     centres, connectivity = _rectangles(2, 3, dx=40.0, dy=60.0)
-    within = np.array([True, False, False, True, False, False])
+    touching = np.array([False, False, True, False, False, True])
 
-    assert cell_spacing_m(centres, connectivity, within=within) == pytest.approx(60.0)
+    assert neighbour_spacing_m(centres, connectivity, touching=touching) == pytest.approx(40.0)
+    # One corner cell alone: 40 m to its side, 60 m to the other row.
+    alone = np.array([False, False, True, False, False, False])
+    assert neighbour_spacing_m(centres, connectivity, touching=alone) == pytest.approx(50.0)
 
 
 # -- the default follows what the phase scores ------------------------------

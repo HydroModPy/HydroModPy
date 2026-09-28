@@ -16,6 +16,10 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
   the lockfile is written on every run.
 - ``geographic.bottom_path`` -> one ``[[data.substratum.sources]]`` entry,
   ``[domain.depth_model]`` left as it is (the old key was never read)
+- ``roptim_max`` of a network output under ``[calibration.outputs.<name>]``
+  dropped when it is 2, the paper's bound, which ``validity_length = "auto"``
+  reproduces; any other value is refused, since a ratio has no length without
+  the cell size of the run
 
 This is a migration tool, not a backward-compat shim: the runtime model itself
 never accepts the old keys (``extra="forbid"``). ``migrate_config_doc`` is the
@@ -23,10 +27,11 @@ one pure document-to-document transform; two callers wrap it. ``fix_config_file`
 (reached through ``hmp doctor --fix-config``) rewrites a file on disk once, so a
 project TOML catches up for good. ``migrate_config_doc_on_load`` runs the same
 transform in memory on a payload already parsed by a caller, without touching
-the file it came from, and logs what it changed - meant to be called from
-``HydroModPyConfig.from_toml`` on the raw payload, before validation, so a
-config written for an earlier schema still loads without the doctor having
-run on it first. As of this module, that call site is not yet wired in.
+the file it came from, and logs what it changed. ``HydroModPyConfig.from_toml``
+calls it on the raw payload, before validation, so a config written for an
+earlier schema still loads without the doctor having run on it first. The
+calibration loader reaches it through the root-config provider, since the
+calibration layer does not import this one.
 """
 
 from __future__ import annotations
@@ -76,6 +81,7 @@ def migrate_config_doc(doc: Any) -> list[str]:
     changes.extend(_move_the_bottom_path(doc))
     changes.extend(_flatten_boundary_conditions(doc))
     changes.extend(_drop_the_solver_time_grids(doc))
+    changes.extend(_drop_the_validity_ratio(doc))
 
     simulation = doc.get("simulation")
     if simulation is None:
@@ -195,6 +201,41 @@ def _drop_the_solver_time_grids(doc: Any) -> list[str]:
             continue
         del table["tgrid"]
         changes.append(f"{path}.tgrid dropped (removed from the schema, never read)")
+    return changes
+
+
+#: The ratio bound of Eq. 4 that ``validity_length = "auto"`` reproduces.
+_PAPER_ROPTIM_MAX = 2.0
+
+
+def _drop_the_validity_ratio(doc: Any) -> list[str]:
+    """Drop ``roptim_max`` from the network outputs, replaced by ``validity_length``.
+
+    The bound of Eq. 4 is a length now. ``roptim_max = 2`` said "two cells",
+    which ``validity_length = "auto"``, the default, says too, so the key goes.
+    Another ratio has no exact length without the cell size of the run, which
+    a TOML file does not hold: it is refused with the length to write instead.
+    """
+    outputs = (doc.get("calibration") or {}).get("outputs")
+    if not isinstance(outputs, Mapping):
+        return []
+    changes: list[str] = []
+    for name in list(outputs):
+        output = outputs[name]
+        if not isinstance(output, Mapping) or "roptim_max" not in output:
+            continue
+        value = output["roptim_max"]
+        path = f"calibration.outputs.{name}.roptim_max"
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{path} = {value!r} is not a number; remove it.")
+        if float(value) != _PAPER_ROPTIM_MAX:
+            raise ValueError(
+                f"{path} = {float(value):g} has no exact equivalent: the bound of Eq. 4 is "
+                "now 'validity_length', a length. Replace it by validity_length = "
+                f'"<{float(value):g} times the cell size> m" and remove roptim_max.'
+            )
+        del output["roptim_max"]
+        changes.append(f"{path} dropped (2 cells is validity_length = 'auto', the default)")
     return changes
 
 

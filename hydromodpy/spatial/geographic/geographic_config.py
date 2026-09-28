@@ -8,6 +8,7 @@ from pydantic import Field, ValidationInfo, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
+from hydromodpy.core.stream_snap import SnapStreamsConfig
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.core.units import UREG, LengthMeters
 from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
@@ -629,6 +630,17 @@ class GeographicConfig(HydroModelBase):
             "Optional stream burning of the routing DEM: lower the mapped network "
             "cells so the computed D8 paths follow the observed network, without "
             "touching the model grid top. Applied before the lake carve."
+        ),
+    )
+    snap_streams: Annotated[SnapStreamsConfig, Profile.USER] = Field(
+        default_factory=SnapStreamsConfig,
+        description=(
+            "Optional snapping of the mapped stream network onto the talwegs of the model "
+            "top, read on the network criterion graph. Off by default. 'diagnose' publishes "
+            "the displacement, the rejected cells and the floor F while the raw map is "
+            "scored; 'apply' scores the snapped map. It sits here, beside enforce_streams, "
+            "because it is common to every consumer of the mapped network (criterion, "
+            "figures, burning), not to one calibration output."
         ),
     )
     enforce_lakes: Annotated[LakeEnforcementConfig, Profile.USER] = Field(

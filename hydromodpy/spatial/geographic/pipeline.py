@@ -184,6 +184,9 @@ def _geographic_cache_fingerprint(config: GeographicConfig) -> str:
     # This flag controls cache use; it should not invalidate the underlying
     # generated artifacts when toggled.
     config_payload.pop("reuse_existing_outputs", None)
+    # The snap moves the mapped network onto the model graph after the run.
+    # It changes no geographic product, so toggling it keeps the cache.
+    config_payload.pop("snap_streams", None)
     payload = {
         "schema": _GEOGRAPHIC_CACHE_SCHEMA_VERSION,
         "config": config_payload,

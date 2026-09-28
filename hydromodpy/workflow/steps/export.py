@@ -45,6 +45,7 @@ def step_save_run_artifacts(
     store: Catalog,
 ) -> None:
     """Save optional run artifacts."""
+    step_save_snapped_network(ctx, store=store)
     analysis_cfg = getattr(ctx.cfg, "analysis", None)
     gallery_cfg = (
         getattr(analysis_cfg, "capability_gallery", None) if analysis_cfg is not None else None
@@ -76,6 +77,25 @@ def step_save_run_artifacts(
             run=_Run(ctx.sim_id, store),
             render_figure=_render,
         )
+
+
+def step_save_snapped_network(ctx: WorkflowContext, *, store: Catalog) -> None:
+    """Store the snapped mapped network with the run when the snap is on.
+
+    ``[geographic.snap_streams]`` in ``diagnose`` or ``apply`` moves the mapped
+    network onto the talwegs; the moved map and its displacement are kept as
+    geographic features of the run. It runs before the store is sealed, so the
+    manifest and the package carry them.
+    """
+    snap = getattr(getattr(ctx.cfg, "geographic", None), "snap_streams", None)
+    if snap is None or not snap.enabled or ctx.sim_id is None:
+        return
+    from hydromodpy.results.derive.snapped_network import persist_snapped_networks
+    from hydromodpy.results.run import Run as _Run
+
+    stored = persist_snapped_networks(_Run(ctx.sim_id, store), store)
+    if stored:
+        logger.info("Stored the snapped %s mapped network(s) with the run.", ", ".join(stored))
 
 
 # ---------------------------------------------------------------------------

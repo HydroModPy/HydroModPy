@@ -83,6 +83,8 @@ Sub-models are linked back to their per-section page.
       # river_network = ...  # uses factory default
       # Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve.
       # enforce_streams = ...  # uses factory default
+      # Optional snapping of the mapped stream network onto the talwegs of the model top, read on the network criterion graph. Off by default. 'diagnose' publishes the displacement, the rejected cells and the floor F while the raw map is scored; 'apply' scores the snapped map. It sits here, beside enforce_streams, because it is common to every consumer of the mapped network (criterion, figures, burning), not to one calibration output.
+      # snap_streams = ...  # uses factory default
       # Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top.
       # enforce_lakes = ...  # uses factory default
       # Optional dam structure-carve of the model-top DEM: lower the dam footprint to the valley floor so a cutoff wall sits at the dam on a raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM).

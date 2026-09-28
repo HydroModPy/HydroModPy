@@ -10,9 +10,10 @@ recharge the ratio was measured.
 Four panels carry exactly that. The first shows the value the root search
 closed on and the bracket it closed it in, because the stopping rule of the
 search is the width of that bracket and never the size of the residual. The
-second shows the storage value and its metric. The third puts ``roptim``
-against its bound: it qualifies the result and never withholds it, so the
-value and the breach are drawn together. The fourth splits the cells into
+second shows the storage value and its metric. The third puts ``Doptim``
+against the validity length the trial itself bounded it by (Eq. 4, in
+metres): it qualifies the result and never withholds it, so the value and the
+breach are drawn together. The fourth splits the cells into
 valid, excess and missing, because a residual near zero is either a good fit
 or a large excess cancelling a large gap, and a single number cannot tell
 those two apart.
@@ -32,6 +33,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_BY_CODE
+from hydromodpy.core.stream_snap import SNAP_MODE_CODE
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
@@ -49,8 +52,13 @@ if TYPE_CHECKING:
 
     from hydromodpy.results.run import Run
 
-DEFAULT_ROPTIM_MAX = 2.0
-"""Equation 4 of the method: below it the agreement is declared valid."""
+VALIDITY_PROVENANCE_LABELS: dict[str, str] = {
+    "auto": "two cells, 2 h_obs",
+    "auto_floor": "one cell plus the snap floor F",
+    "declared_accuracy": "widened by the declared positional accuracy",
+    "user": "the declared validity_length",
+}
+"""What set the validity length, as the note under the bar says it."""
 
 CLASS_NAMES: tuple[str, ...] = tuple(CRITERION_NAMES.values())
 """The three classes of the confusion map, in the order the card stacks them."""
@@ -162,7 +170,6 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         parameter_units: str = "-",
         mean_recharge: float | None = None,
         recharge_units: str = "m/s",
-        roptim_max: float = DEFAULT_ROPTIM_MAX,
         **_,
     ) -> MplFigure:
         import matplotlib.pyplot as plt
@@ -199,13 +206,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
             parameter=storage_parameter,
             n_phases=len(stages),
         )
-        self._draw_validity(
-            ax_validity,
-            stages[0].table,
-            root.row,
-            bound=float(roptim_max),
-            output=output,
-        )
+        self._draw_validity(ax_validity, stages[0].table, root.row, output=output)
         self._draw_counts(ax_counts, stages[0].table, root.row, output=output)
 
         fig.suptitle(
@@ -348,24 +349,37 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         table: TrialTable,
         row: int | None,
         *,
-        bound: float,
         output: str | None,
     ) -> None:
-        """Panel three: ``roptim`` against its bound, with the state spelled out."""
+        """Panel three: ``Doptim`` against the trial's validity length, in metres.
+
+        The bound is the ``validity_length_m`` the trial published, never a
+        ratio the card assumes: a declared positional accuracy or a snap floor
+        widens it past ``2 h_obs``, and the verdict the run reports reads it.
+        ``roptim`` is written beside it for the paper's Table 1.
+        """
         title = "Validity of the agreement"
         ax.set_yticks([])
-        ax.set_xlabel("roptim = Doptim / L_ref (-)")
+        ax.set_xlabel("Doptim = (D_so + D_os) / 2 (m)")
         ax.set_title(title)
         ax.grid(True, axis="x", ls=":", lw=0.4)
 
-        value = _diagnostic_at(table, row, "roptim", output=output)
         if row is None:
             # A bare axis would read as an indicator sitting at zero, so the
             # panel drops its scale along with the number it does not have.
             _blank(ax, title, "no root was closed: no calibrated point to qualify")
             return
+        value = _diagnostic_at(table, row, "Doptim", output=output)
+        bound = _diagnostic_at(table, row, "validity_length_m", output=output)
         if value is None:
-            _blank(ax, title, "roptim not published: the agreement is not qualified")
+            _blank(ax, title, "Doptim not published: the agreement is not qualified")
+            return
+        if bound is None:
+            _blank(
+                ax,
+                title,
+                "validity length not published: the agreement is not qualified",
+            )
             return
 
         within = value <= bound
@@ -376,25 +390,33 @@ class MatchingHydrographicNetworkCard(BaseFigure):
             color=_VALID_COLOR if within else _BREACH_COLOR,
             zorder=3,
         )
-        bars[0].set_label(f"roptim = {value:.4g}")
+        bars[0].set_label(f"Doptim = {value:.4g} m")
+        provenance = _validity_provenance(table, row, output=output)
         ax.axvline(
             bound,
             color="black",
             lw=1.3,
             ls="--",
             zorder=4,
-            label=f"bound: roptim <= {bound:.4g}",
+            label=f"bound: Doptim <= {bound:.4g} m",
         )
         state = (
             "within the validity bound" if within else "bound breached, the calibrated value stands"
         )
-        lines = [f"roptim = {value:.4g} {'<=' if within else '>'} {bound:.4g}: {state}"]
-        declared = _diagnostic_at(table, row, "roptim_valid", output=output)
-        if declared is not None and bool(declared >= 0.5) != within:
-            lines.append("the session applied a different bound than the one drawn")
-        _say(ax, "\n".join(lines), xy=(0.5, 0.88), va="top")
+        lines = [f"Doptim = {value:.4g} m {'<=' if within else '>'} {bound:.4g} m: {state}"]
+        if provenance is not None:
+            lines.append(f"validity length: {provenance}")
+        ratio = _diagnostic_at(table, row, "roptim", output=output)
+        h_obs = _diagnostic_at(table, row, "L_ref", output=output)
+        if ratio is not None:
+            scale = f", h_obs = {h_obs:.4g} m" if h_obs is not None else ""
+            lines.append(f"roptim = Doptim / h_obs = {ratio:.4g}{scale}")
+        snap = _snap_breach(table, row, output=output)
+        if snap is not None:
+            lines.append(snap)
+        _say(ax, "\n".join(lines), xy=(0.5, 0.92), va="top")
         ax.set_xlim(0.0, max(value, bound) * 1.3)
-        ax.set_ylim(-0.55, 0.95)
+        ax.set_ylim(-0.55, 1.25)
         ax.legend(loc="lower right", fontsize=8, framealpha=0.9)
 
     def _draw_counts(
@@ -669,6 +691,37 @@ def _diagnostic_at(
         return None
     value = float(table.diagnostic(name, output=output)[row])
     return value if np.isfinite(value) else None
+
+
+def _validity_provenance(table: TrialTable, row: int, *, output: str | None) -> str | None:
+    """Return what set the validity length at one trial, or None when unpublished."""
+    code = _diagnostic_at(table, row, "validity_length_provenance", output=output)
+    name = None if code is None else VALIDITY_PROVENANCE_BY_CODE.get(code)
+    return None if name is None else VALIDITY_PROVENANCE_LABELS[name]
+
+
+def _snap_breach(table: TrialTable, row: int, *, output: str | None) -> str | None:
+    """Return the line saying the applied snap breaks Eq. 4, or None.
+
+    Only ``[geographic.snap_streams] mode = "apply"`` adds this half of the
+    verdict: the snapped map may not move further than its bound on its 90th
+    percentile, nor lose more than its share of rejected cells.
+    """
+    mode = _diagnostic_at(table, row, "snap_mode", output=output)
+    if mode != SNAP_MODE_CODE["apply"]:
+        return None
+    p90 = _diagnostic_at(table, row, "snap_displacement_p90_m", output=output)
+    p90_max = _diagnostic_at(table, row, "snap_displacement_bound_m", output=output)
+    rejected = _diagnostic_at(table, row, "snap_rejected_share", output=output)
+    rejected_max = _diagnostic_at(table, row, "snap_rejected_share_max", output=output)
+    causes: list[str] = []
+    if p90 is None or p90_max is None or p90 > p90_max:
+        causes.append("its displacement p90 exceeds its bound")
+    if rejected is None or rejected_max is None or rejected > rejected_max:
+        causes.append("it rejected more cells than allowed")
+    if not causes:
+        return None
+    return "snapped map breaks Eq. 4: " + " and ".join(causes)
 
 
 def _text_or_none(value: Any) -> str | None:

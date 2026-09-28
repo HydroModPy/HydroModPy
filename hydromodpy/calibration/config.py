@@ -64,6 +64,7 @@ from hydromodpy.core.stream_criterion_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
 )
+from hydromodpy.core.stream_extent import DEFAULT_VISIBLE_FLOW, parse_visible_flow
 from hydromodpy.core.units import Length
 
 SaveRunsMode = Literal["none", "best_n", "all"]
@@ -572,6 +573,100 @@ class CalibOutputLake(ScoresAnObservedRecord, HydroModelBase):
     )
 
 
+class CalibNetworkBoundWeights(HydroModelBase):
+    """How the two bounds of a network output share one calibrated value.
+
+    A root search closes one root per bound and returns the weighted geometric
+    mean, ``log K = minimal * log K*_minimal + maximal * log K*_maximal``. A
+    minimiser has no root to combine and minimises
+    ``minimal * |J_minimal| + maximal * |J_maximal|`` instead, which tends to
+    land on one of the two roots rather than between them.
+    """
+
+    minimal: Annotated[float, Profile.USER] = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Weight of the minimal (permanent) bound. 1 with maximal = 0 "
+        "calibrates on the permanent map alone, the practice of Abherve et al. (2025).",
+    )
+    maximal: Annotated[float, Profile.USER] = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Weight of the maximal (complete) bound.",
+    )
+
+    @model_validator(mode="after")
+    def _sum_to_one(self) -> CalibNetworkBoundWeights:
+        """Refuse weights that do not sum to one: they interpolate between two roots."""
+        total = float(self.minimal) + float(self.maximal)
+        if abs(total - 1.0) > 1e-9:
+            raise ValueError(
+                f"the bound weights sum to {total:g} (minimal = {self.minimal:g}, maximal = "
+                f"{self.maximal:g}). They place the returned value between the two roots in "
+                "log space, so they must sum to one."
+            )
+        return self
+
+
+class CalibNetworkExtent(HydroModelBase):
+    """The transient two-bound mode of a network output.
+
+    Declared, the output stops reading one state. For every complete calendar
+    year of the run, the maximal simulated mask holds the cells flowing at
+    least ``maximal_flowing_steps`` timesteps, and the minimal one the cells
+    flowing at every timestep but at most ``minimal_dry_steps``. A cell enters
+    the mask scored when it meets the rule in at least ``year_quorum`` of the
+    scored years. Each bound is scored once by the distance criterion: the
+    maximal mask against the maximal map, the minimal mask against the minimal
+    map when one is declared. Durations count timesteps, not days.
+    """
+
+    maximal_flowing_steps: Annotated[int, Profile.USER] = Field(
+        default=1,
+        ge=1,
+        description="Timesteps a cell has to flow in a year to enter the maximal mask. "
+        "At most the timestep count of the shortest complete year, checked on the run.",
+    )
+    minimal_dry_steps: Annotated[int, Profile.USER] = Field(
+        default=1,
+        ge=0,
+        description="Timesteps a cell may be dry in a year and stay in the minimal mask. "
+        "The year's timestep count minus this has to stay at least "
+        "maximal_flowing_steps, checked on the run, so the minimal mask sits inside the "
+        "maximal one.",
+    )
+    year_quorum: Annotated[float, Profile.USER] = Field(
+        default=0.5,
+        gt=0.0,
+        le=1.0,
+        description="Share of the scored years in which a cell has to meet a bound's rule "
+        "to enter it: ceil(year_quorum * n_years) years. Warned under three scored years, "
+        "where one half is a union of two.",
+    )
+    visible_flow: Annotated[str, Profile.USER] = Field(
+        default=DEFAULT_VISIBLE_FLOW,
+        description="Routed discharge a cell of the downstream closure has to carry to "
+        "flow: a discharge with its unit ('1 L/s') or a share of the outlet discharge at "
+        "the same timestep ('1%'). '0 L/s' is the geometric definition. Never scaled with "
+        "the cell size. No value is agreed: Zanetti et al. (2024) threshold a simulated "
+        "discharge at 10 L/s, field zero-flow thresholds of 1 to 3 L/s are in use.",
+    )
+    weights: Annotated[CalibNetworkBoundWeights, Profile.USER] = Field(
+        default_factory=CalibNetworkBoundWeights,
+        description="Share of each bound in the value returned when both maps are "
+        "declared. Only the maximal bound is scored without a minimal map.",
+    )
+
+    @field_validator("visible_flow")
+    @classmethod
+    def _readable_visible_flow(cls, value: str) -> str:
+        """Refuse a threshold the criterion could not read at the first trial."""
+        parse_visible_flow(value)
+        return value
+
+
 class CalibOutputNetwork(HydroModelBase):
     """The mapped stream network as a calibration target.
 
@@ -592,6 +687,12 @@ class CalibOutputNetwork(HydroModelBase):
     fitted to a record. The mapped network enters as a geometry, not as a
     series, and exactly one of ``observed_network`` and
     ``stream_geometry_path`` names where it comes from.
+
+    That map is the maximal one, every mapped reach. A minimal map, the
+    permanent reaches, may be declared beside it. In one state the state is
+    then scored on the minimal map and the maximal map is a validation. With
+    ``extent``, a transient run is scored on two bounds, the yearly maximal
+    mask against the maximal map and the minimal mask against the minimal map.
     """
 
     variable: Annotated[str, Profile.USER] = Field(
@@ -631,6 +732,43 @@ class CalibOutputNetwork(HydroModelBase):
         "one the hydrography data family loaded. The way out of 'observed_network' "
         "when neither of its two sources is the one you want scored.",
     )
+    minimal_stream_geometry_path: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Vector file holding the minimal map: the permanent network, which "
+        "the map named by 'observed_network' or 'stream_geometry_path' (the maximal map, "
+        "every mapped reach) contains. Read as it is, never filtered by attribute. The "
+        "maximal map scored is the union of the two, and the share of the minimal map "
+        "outside the maximal one is published. In one state, the state is compared to "
+        "this map and the maximal map is scored beside it as a validation outside the "
+        "cost, as Abherve et al. (2025) do; with 'extent', it is the minimal bound. At "
+        "most one of this and 'minimal_observed_network'.",
+    )
+    minimal_observed_network: Annotated[Literal["data.hydrography"] | None, Profile.USER] = Field(
+        default=None,
+        description="Where the minimal map comes from when it is not an explicit file. "
+        "'data.hydrography' reads the permanent reaches the hydrography data family "
+        "wrote beside its network, which it does only when its source says which "
+        "reaches flow all year. Same role as 'minimal_stream_geometry_path'; at most "
+        "one of the two.",
+    )
+
+    @property
+    def has_minimal_map(self) -> bool:
+        """Whether a minimal (permanent) map is declared, by either route."""
+        return self.minimal_stream_geometry_path is not None or (
+            self.minimal_observed_network is not None
+        )
+
+    @model_validator(mode="after")
+    def _one_minimal_map_at_most(self) -> CalibOutputNetwork:
+        """Refuse two sources for the minimal map: one would be scored, the other named."""
+        if self.minimal_stream_geometry_path is not None and self.minimal_observed_network:
+            raise ValueError(
+                "calibration output declares both 'minimal_observed_network' "
+                f"({self.minimal_observed_network!r}) and 'minimal_stream_geometry_path' "
+                f"({self.minimal_stream_geometry_path!r}). Declare at most one."
+            )
+        return self
 
     @model_validator(mode="after")
     def _validate_observed_network_source(self) -> CalibOutputNetwork:
@@ -703,26 +841,47 @@ class CalibOutputNetwork(HydroModelBase):
     )
     observed_position_accuracy: Annotated[Length | None, Profile.USER] = Field(
         default=None,
-        description="Positional accuracy of the mapped network. The validity ratio is "
-        "normalised by max(cell size, this), because the error floor is set by the "
-        "network's own precision and not by the model resolution. Unset is the "
-        "literal reading of the paper.",
+        description="Positional accuracy of the mapped network. It enters the automatic "
+        "validity length only: the cell size h there is max(h_obs, this), because a map "
+        "is not placed better when the mesh is refined. roptim stays Doptim / h_obs, the "
+        "paper's Eq. 3. Unset is the literal reading of the paper.",
     )
-    roptim_max: Annotated[PositiveFloat, Profile.USER] = Field(
-        default=2.0,
-        description="Validity bound of Eq. 4. It qualifies the result and never "
-        "penalises the cost: a bad ratio says the agreement is coarse, not that the "
-        "calibrated value should be discarded.",
+    validity_length: Annotated[Literal["auto"] | Length, Profile.USER] = Field(
+        default="auto",
+        description="Validity bound of Eq. 4, a length: the calibration is valid when "
+        "Doptim <= this. 'auto' is 2 h, the paper's two cells, where h is h_obs, the cell "
+        "size on the mapped network, raised to 'observed_position_accuracy' when one is "
+        "declared. With [geographic.snap_streams] in 'diagnose' or 'apply', it is "
+        "h + max(h, F), F the floor the snap measured: one cell for the hydrogeology, one "
+        "for the map error, replaced by F when F is larger. A length such as '150 m' is "
+        "used as it is. The bound qualifies the result and never penalises the cost.",
     )
     on_roptim_violation: Annotated[Literal["warn", "error"], Profile.USER] = Field(
         default="warn",
-        description="What a violation of the validity bound does. The bound is read once, "
-        "on the trial the search returns, as the paper reads it at the optimum; every "
-        "trial still records 'roptim' and 'roptim_valid'. 'warn' logs it and returns the "
-        "value, because a calibration is asked for a number. 'error' raises after the "
-        "session is saved, so a staged calibration freezes nothing and runs no phase that "
-        "depends on this one.",
+        description="What a violation of Eq. 4 does: Doptim above 'validity_length', or, "
+        "with [geographic.snap_streams] mode = 'apply', a snap that moved the map further "
+        "than its displacement bound. The bound is read once, on the trial the search "
+        "returns, as the paper reads it at the optimum, and on each bound in the cost of "
+        "the two-bound mode; every trial still records 'roptim', 'roptim_valid' and "
+        "'validity_length_m'. 'warn' logs it and returns the value, because a calibration "
+        "is asked for a number. 'error' raises after the session is saved, so a staged "
+        "calibration freezes nothing and runs no phase that depends on this one.",
     )
+
+    @field_validator("validity_length")
+    @classmethod
+    def _positive_validity_length(cls, value: object) -> object:
+        """Refuse a validity length that is zero or negative."""
+        if value == "auto":
+            return value
+        magnitude = float(value.to("m").magnitude)  # type: ignore[union-attr]
+        if not magnitude > 0.0:
+            raise ValueError(
+                f"validity_length = {magnitude:g} m: a validity length is a positive "
+                "distance, or 'auto'."
+            )
+        return value
+
     max_unreachable_fraction: Annotated[float, Profile.USER] = Field(
         default=0.05,
         ge=0.0,
@@ -794,10 +953,44 @@ class CalibOutputNetwork(HydroModelBase):
             raise ValueError(
                 f"calibration output for the stream network has time={value!r}: a "
                 "network output reads exactly one state, 'last' or 'first'. A "
-                "transient comparison of the minimal and maximal extents is a "
-                "separate mode being designed, not this field."
+                "transient comparison of the minimal and maximal extents is the "
+                "'extent' table of the output, not this field."
             )
         return value
+
+    extent: Annotated[CalibNetworkExtent | None, Profile.USER] = Field(
+        default=None,
+        description="The transient two-bound mode. Unset, the output reads one state, the "
+        "method of the papers. Set, it reads every timestep of a transient run and scores "
+        "the maximal simulated mask against the maximal map and, when "
+        "'minimal_stream_geometry_path' is declared, the minimal mask against the minimal "
+        "map. Refused on a run with a single period or no complete calendar year.",
+    )
+
+    @model_validator(mode="after")
+    def _say_the_extent_once(self) -> CalibOutputNetwork:
+        """Refuse an extent table that contradicts the rest of the output.
+
+        ``time`` names one state, and the two-bound mode reads them all, so only
+        its default may stand beside it. Weights other than the default without
+        a minimal map would weigh a bound that is never scored.
+        """
+        if self.extent is None:
+            return self
+        if self.time != "last":
+            raise ValueError(
+                f"the network output declares an extent table and time = {self.time!r}. "
+                "The two-bound mode reads every timestep of the run; drop 'time'."
+            )
+        weights = self.extent.weights
+        if not self.has_minimal_map and (weights.minimal != 0.5 or weights.maximal != 0.5):
+            raise ValueError(
+                f"the extent table weighs the bounds (minimal = {weights.minimal:g}, maximal "
+                f"= {weights.maximal:g}) and no minimal map is declared, so only the maximal "
+                "bound is scored. Declare 'minimal_stream_geometry_path' or "
+                "'minimal_observed_network', or drop the weights."
+            )
+        return self
 
 
 CalibOutputDecl: TypeAlias = Annotated[

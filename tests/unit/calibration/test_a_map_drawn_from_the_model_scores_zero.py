@@ -82,7 +82,7 @@ def _signed_gap(rule: str) -> tuple[np.ndarray, np.ndarray, dict]:
         distance_to_observed=geo.distance_to_observed,
         distance_to_observed_raw=geo.distance_to_observed_raw,
         cell_area_m2=area,
-        length_scale_m=geo.length_scale_m,
+        length_scale_m=geo.h_obs_m,
         saturation_cap_m=geo.saturation_cap_m,
     )
     return chain, np.asarray(observed, dtype=bool), result.components

@@ -77,6 +77,9 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_the_backend_can_serve_the_outputs(config, calibration))
     findings.extend(_check_the_network_criterion_is_not_asked_to_pick_a_ridge(calibration))
     findings.extend(_check_the_network_search_can_trust_its_release_packages(calibration, config))
+    findings.extend(_check_the_minimal_maps_are_there(calibration, where_from))
+    findings.extend(_check_an_extent_is_scored_on_a_transient_run(calibration, config))
+    findings.extend(_check_a_network_estimator_names_its_network_output(calibration))
     return findings
 
 
@@ -154,15 +157,19 @@ def _check_outputs(calibration: Any, source: Path, project_config: Any) -> list[
 
     The geometry is looked for exactly where the run looks for it, so a file
     preflight calls missing is one the run would call missing too. A declared
-    ``observed_network`` is faced with the project the same way a parameter's
-    name is faced with the catalogue: refused here beside whatever else is
-    wrong, rather than at the first trial.
+    ``observed_network`` or ``minimal_observed_network`` is faced with the
+    project the same way a parameter's name is faced with the catalogue:
+    refused here beside whatever else is wrong, rather than at the first trial.
     """
-    from hydromodpy.calibration.observations.network_source import unresolved_observed_networks
+    from hydromodpy.calibration.observations.network_source import (
+        unresolved_minimal_observed_networks,
+        unresolved_observed_networks,
+    )
     from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
 
     resolve_stream_geometry_paths(calibration, source)
     refused_networks = unresolved_observed_networks(calibration, project_config)
+    refused_minimal_networks = unresolved_minimal_observed_networks(calibration, project_config)
     findings: list[PreflightFinding] = []
     for name, decl in (calibration.outputs or {}).items():
         where = f"[calibration.outputs.{name}]"
@@ -173,6 +180,15 @@ def _check_outputs(calibration: Any, source: Path, project_config: Any) -> list[
                     where,
                     # The finding already names the section in its 'where' column.
                     refused_networks[name].replace(f"{where} ", "", 1),
+                )
+            )
+        if name in refused_minimal_networks:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    # The finding already names the section in its 'where' column.
+                    refused_minimal_networks[name].replace(f"{where} ", "", 1),
                 )
             )
         geometry = getattr(decl, "stream_geometry_path", None)
@@ -524,7 +540,9 @@ def _check_the_budgets(calibration: Any) -> list[PreflightFinding]:
     bisection_adapter.root_search_budget`), so a budget that cannot close the
     bracket even with the root inside the bounds is a configuration error,
     found here rather than after the budget is spent. ``"auto"`` is always
-    enough. Every other engine cannot count, and nothing is checked.
+    enough. Every other engine cannot count, and nothing is checked. A search
+    scored on a network output with two bounds closes two roots, and is
+    counted so.
     """
     from hydromodpy.calibration.optim.adapters.bisection_adapter import (
         BisectionAdapter,
@@ -533,7 +551,8 @@ def _check_the_budgets(calibration: Any) -> list[PreflightFinding]:
     from hydromodpy.calibration.optim.stopping import AUTO_BUDGET, short_budget
 
     findings: list[PreflightFinding] = []
-    for where, method, names, max_iter, tolerance, kwargs in _budgets(calibration):
+    searches = zip(_budgets(calibration), _search_candidates(calibration), strict=True)
+    for (where, method, names, max_iter, tolerance, kwargs), (phase, _, _) in searches:
         if method != BisectionAdapter.name or max_iter == AUTO_BUDGET or len(names) != 1:
             continue
         decl = (calibration.parameters or {}).get(names[0])
@@ -550,6 +569,8 @@ def _check_the_budgets(calibration: Any) -> list[PreflightFinding]:
             )
             if value is not None
         }
+        if kwargs.get("signed_component") in (None, "J_signed"):
+            options["roots"] = _roots_of_the_search(calibration, phase)
         try:
             counted = root_search_budget(float(bounds[0]), float(bounds[1]), **options)
         except (TypeError, ValueError):
@@ -566,6 +587,22 @@ def _check_the_budgets(calibration: Any) -> list[PreflightFinding]:
             )
         findings.append(PreflightFinding(severity, where, detail))
     return findings
+
+
+def _roots_of_the_search(calibration: Any, phase: Any | None) -> int:
+    """Return how many roots a root search closes on the network outputs it scores.
+
+    A whole-file search whose variable names a declared output carries the
+    implicit block the model builds, so the blocks already name that output.
+    One whose variable names none scores no network output, and
+    :func:`_check_a_network_estimator_names_its_network_output` refuses it.
+    """
+    from hydromodpy.calibration.optim.adapters.bisection_adapter import roots_scored
+
+    outputs = _outputs_scored_by_search(calibration, phase)
+    return roots_scored(
+        output for output in outputs.values() if getattr(output, "support", None) == "network"
+    )
 
 
 def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | None, dict]]:
@@ -916,6 +953,126 @@ def _check_the_network_search_can_trust_its_release_packages(
         message = release_package_conductance_conflict(network, flow, moves_k=moves_k)
         if message is not None:
             findings.append(PreflightFinding("error", where, message))
+    return findings
+
+
+def _check_the_minimal_maps_are_there(calibration: Any, source: Path) -> list[PreflightFinding]:
+    """Refuse a ``minimal_stream_geometry_path`` that is not there.
+
+    Looked for where the run looks, anchored on the file that declares it, as
+    ``stream_geometry_path`` is. The run would read it at the first trial.
+    """
+    from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
+
+    resolve_stream_geometry_paths(calibration, source)
+    findings: list[PreflightFinding] = []
+    for name, decl in (calibration.outputs or {}).items():
+        geometry = getattr(decl, "minimal_stream_geometry_path", None)
+        if geometry and not Path(str(geometry)).exists():
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    f"[calibration.outputs.{name}]",
+                    f"minimal_stream_geometry_path {geometry!r} is not there, and none of "
+                    "the places the run looks holds it. The minimal map is read at the "
+                    "first trial, so the run would stop there.",
+                )
+            )
+    return findings
+
+
+def _search_regime(project_config: Any, phase: Any | None) -> str | None:
+    """Return the flow regime one search runs, or ``None`` when nothing says.
+
+    A phase's ``regime`` first, then a ``flow.flow_regime`` its overrides
+    write, then the project's own ``[flow]``.
+    """
+    written = getattr(phase, "regime", None)
+    if written is None:
+        written = (getattr(phase, "overrides", None) or {}).get("flow.flow_regime")
+    if written is None:
+        written = getattr(getattr(project_config, "flow", None), "flow_regime", None)
+    if written is None:
+        return None
+    return str(getattr(written, "value", written)).strip().lower()
+
+
+def _check_an_extent_is_scored_on_a_transient_run(
+    calibration: Any, project_config: Any
+) -> list[PreflightFinding]:
+    """Refuse an extent table on a network output a steady search scores.
+
+    The two-bound mode reads the timesteps of a transient run. A steady run
+    holds one period, and the criterion refuses it at the first trial, after
+    the phases before it have spent their budget.
+    """
+    findings: list[PreflightFinding] = []
+    for phase, where, _ in _search_candidates(calibration):
+        if _search_regime(project_config, phase) != "steady":
+            continue
+        outputs = _outputs_scored_by_search(calibration, phase)
+        for name, output in sorted(outputs.items()):
+            if getattr(output, "extent", None) is None:
+                continue
+            ran_by = "[flow] flow_regime" if phase is None else where
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    f"[calibration.outputs.{name}]",
+                    f"declares an extent table and is scored by a steady search "
+                    f"({ran_by}). The two-bound mode reads the timesteps of a transient "
+                    "run, and a steady run holds one period. Score this output in one "
+                    "state, without the extent table, or run the search transient.",
+                )
+            )
+    return findings
+
+
+def _check_a_network_estimator_names_its_network_output(
+    calibration: Any,
+) -> list[PreflightFinding]:
+    """Refuse a single-metric search on a network estimator whose variable names no network.
+
+    A search with no block takes the single-metric route. It reads the output
+    its ``variable`` names and nothing else, so a network output declared
+    beside it is never scored. The route serves only a station variable, so
+    the search stops at its first trial.
+    """
+    from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
+
+    declared = dict(calibration.outputs or {})
+    findings: list[PreflightFinding] = []
+    for phase, where, _ in _search_candidates(calibration):
+        if phase is None:
+            if calibration.objective_blocks:
+                continue
+            variable, objective = calibration.variable, calibration.objective
+        elif phase.is_single_metric:
+            variable = phase.variable if phase.variable is not None else calibration.variable
+            objective = phase.objective if phase.objective is not None else calibration.objective
+        else:
+            continue
+        if str(objective).strip().lower() not in NETWORK_ESTIMATORS:
+            continue
+        if getattr(declared.get(variable), "support", None) == "network":
+            continue
+        networks = sorted(
+            name
+            for name, output in declared.items()
+            if getattr(output, "support", None) == "network"
+        )
+        named = ", ".join(networks) or "none"
+        findings.append(
+            PreflightFinding(
+                "error",
+                where,
+                f"objective {objective!r} scores a network output, and variable {variable!r} "
+                f"names none this file declares (network outputs: {named}). With no block, "
+                "the search reads only the output its variable names. Name the network "
+                "output in variable, or score it through a [[calibration.objective_blocks]] "
+                "entry.",
+            )
+        )
     return findings
 
 

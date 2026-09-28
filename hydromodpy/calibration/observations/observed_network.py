@@ -5,6 +5,13 @@ a quantity the method corrects: the paper poses it as "a selected stream
 network independent of the DEM". What gets pre-treated when the two disagree is
 the routing surface, not the data.
 
+The one exception is asked for by name: ``[geographic.snap_streams]`` snaps
+the projection made here onto the talwegs of the criterion graph
+(:mod:`hydromodpy.core.stream_snap`). ``diagnose`` publishes what the snap
+would move and scores this projection; ``apply`` scores the snapped map. Either
+way the projection itself is what this module returns, and the displacement is
+published.
+
 One projection serves both directions of the criterion, and it must draw the
 map as thin as the model draws its own network. The simulated network is a
 chain of the descent graph, one cell wide; the criterion's zero is the equality
@@ -174,6 +181,46 @@ def observed_network_mask(
     )
 
 
+def resolve_minimal_network(run_ctx: RunContext, output: Any) -> ObservedNetwork | None:
+    """Return the minimal (permanent) map a network output declares, or None.
+
+    The map arrives as it is: a file, or the permanent reaches the hydrography
+    data family wrote beside its network. Neither is filtered by an attribute
+    here, so the criterion scores the same geometry whatever drew it.
+    """
+    from hydromodpy.calibration.observations.network_source import (
+        UnresolvedObservedNetwork,
+        resolve_network_file,
+        resolve_network_role,
+    )
+
+    choice = getattr(output, "minimal_observed_network", None)
+    path = getattr(output, "minimal_stream_geometry_path", None)
+    if choice == "data.hydrography":
+        resolved = resolve_network_role(
+            run_ctx,
+            "reference_permanent",
+            canonical_source="data.hydrography",
+            message_source="minimal_observed_network = 'data.hydrography'",
+            empty_reason="the permanent part of the loaded network carries no feature",
+        )
+        if resolved is None:
+            raise UnresolvedObservedNetwork(
+                "minimal_observed_network = 'data.hydrography' names the permanent reaches of "
+                "the hydrography network, and this project holds none: the loader writes them "
+                "only when its source says which reaches flow all year. Give the permanent "
+                "map as a file in 'minimal_stream_geometry_path'."
+            )
+        return resolved
+    if not path:
+        return None
+    return resolve_network_file(
+        path,
+        message_source=f"minimal_stream_geometry_path = {path!r}",
+        empty_reason="the file carries no feature",
+    )
+
+
 def _criterion_centres(run_ctx: RunContext, cell_centres: np.ndarray | None) -> np.ndarray:
     """Return the points the criterion samples the top at, one per cell."""
     if cell_centres is not None:
@@ -292,5 +339,6 @@ __all__ = (
     "delineated_catchment_mask",
     "delineated_outlet_xy",
     "observed_network_mask",
+    "resolve_minimal_network",
     "water_body_mask",
 )

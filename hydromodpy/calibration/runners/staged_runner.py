@@ -258,7 +258,8 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     by name from what the calibration declares. An empty selection of outputs
     means the ones its blocks read, and an empty selection of blocks means every
     declared one. A phase declaring its own ``variable`` or ``objective`` takes
-    the single-metric route instead, and inherits neither. ``phases`` is cleared
+    the single-metric route instead: it inherits no block, and keeps only the
+    output its variable names, the phase's or the section's. ``phases`` is cleared
     so the sub-run is an ordinary calibration.
 
     ``objective_blocks`` as a list keeps each named block's declared weight. As a
@@ -301,8 +302,14 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     if decl.is_single_metric:
         # The extractor prefers blocks over the variable whenever both are
         # present, so a phase inheriting the blocks of another one would be
-        # scored on that other criterion without saying so.
-        payload["outputs"] = {}
+        # scored on that other criterion without saying so. The output its
+        # variable names is kept: it holds the declaration the criterion reads
+        # (the maps, the extent table), and the model builds from it the one
+        # implicit block the whole-file (objective, variable) route builds.
+        variable = payload["variable"]
+        payload["outputs"] = {
+            name: value for name, value in payload["outputs"].items() if name == variable
+        }
         payload["objective_blocks"] = []
     else:
         if isinstance(decl.objective_blocks, dict):
@@ -1486,13 +1493,18 @@ def _methods_paragraph_for(
         for key in (
             "tau_specific_ratio",
             "observed_position_accuracy",
+            "validity_length",
             "weighting",
             "diagonal_neighbors",
             "observed_rasterization",
         ):
             value = getattr(output, key, None)
-            if value is not None:
-                chosen.setdefault(key, value)
+            if value is None:
+                continue
+            # A length is a pint quantity; the paragraph prints it in metres.
+            if callable(getattr(value, "to", None)):
+                value = f"{float(value.to('m').magnitude):g} m"
+            chosen.setdefault(key, value)
     conditional_widths = {
         run.name: run.report.extra["parameter_uncertainty_note"]
         for run in runs

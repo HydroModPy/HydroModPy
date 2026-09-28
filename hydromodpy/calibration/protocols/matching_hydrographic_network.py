@@ -127,13 +127,35 @@ class MatchingHydrographicNetwork:
         Deviation(
             key="observed_position_accuracy",
             paper="the validity length is the DEM resolution and nothing else",
-            here="unset, so the paper's reading holds unless a file states it",
+            here="unset, so the paper's reading holds unless a file states it; declared, "
+            "it raises the cell size h of the automatic validity length to "
+            "max(h_obs, accuracy), and never changes roptim",
             why=(
                 "the positional accuracy of the mapped network does not improve "
-                "because the mesh is refined, so without a floor the validity ratio "
+                "because the mesh is refined, so without a floor the validity length "
                 "follows the mesh; declaring it is a departure and is left to the file."
             ),
             paper_value=None,
+        ),
+        Deviation(
+            key="validity_length",
+            paper="Eq. 4, roptim = Doptim / DEMres <= 2: two pixels of the DEM, one of "
+            "them budgeted for the error of the mapped network (HESS p. 3224)",
+            here="'auto', a length in metres: 2 h, h being h_obs, the cell size on the "
+            "mapped network (the DEM pixel on a regular grid, so the paper's bound "
+            "there), raised to observed_position_accuracy when declared. With "
+            "[geographic.snap_streams] in 'diagnose' or 'apply' it is h + max(h, F), F "
+            "the floor the snap measured. A declared length replaces it. roptim is "
+            "still published as Doptim / h_obs, the paper's Eq. 3",
+            why=(
+                "Doptim barely falls as the mesh is refined while two cells do, so a "
+                "bound in cells declares an exact model invalid on a fine mesh for a "
+                "map-to-DEM mismatch the paper itself names as the limit (HESS "
+                "p. 3227). Reading the paper's two pixels as one for the hydrogeology "
+                "and one for the map, and replacing the latter by F when F is larger, "
+                "is an interpretation: the paper never writes 2 = 1 + 1."
+            ),
+            paper_value="auto",
         ),
         Deviation(
             key="diagonal_neighbors",

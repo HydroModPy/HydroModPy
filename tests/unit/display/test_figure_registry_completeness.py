@@ -120,12 +120,12 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "flow_intermittence_map": (
         "hydromodpy.display.figures.flow_intermittence_map.FlowIntermittenceMap",
         "spatial",
-        ("accumulation_flux",),
+        ("release_flux",),
     ),
     "flow_persistence_map": (
         "hydromodpy.display.figures.flow_persistence_map.FlowPersistenceMap",
         "spatial",
-        ("accumulation_flux",),
+        ("release_flux",),
     ),
     "flux_timeseries": ("hydromodpy.display.figures.flux_timeseries.FluxTimeseries", "balance", ()),
     "hydrograph": ("hydromodpy.display.figures.hydrograph.Hydrograph", "timeseries", ()),
@@ -190,6 +190,21 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
         (),
     ),
     "mesh_map": ("hydromodpy.display.figures.mesh_map.MeshMap", "spatial", ("topography",)),
+    "network_extent_bounds_map": (
+        "hydromodpy.display.figures.network_extent_bounds_map.NetworkExtentBoundsMap",
+        "comparison",
+        ("release_flux",),
+    ),
+    "observed_network_snap_histogram": (
+        "hydromodpy.display.figures.observed_network_snap_histogram.ObservedNetworkSnapHistogram",
+        "comparison",
+        ("release_flux",),
+    ),
+    "observed_network_snap_map": (
+        "hydromodpy.display.figures.observed_network_snap_map.ObservedNetworkSnapMap",
+        "comparison",
+        ("release_flux",),
+    ),
     "parameter_cost_profile": (
         "hydromodpy.display.figures.parameter_cost_profile.ParameterCostProfileFigure",
         "timeseries",

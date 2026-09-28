@@ -358,7 +358,10 @@ def _format_calibration_result(result: Any) -> list[str]:
     each one actually took (with how many trials the mean covers) and its
     share at the best trial. A phase reused from disk that could not
     recompute a share prints why instead
-    (``extra["objective_block_shares_absent_note"]``). Returns nothing for a
+    (``extra["objective_block_shares_absent_note"]``). A root search on one
+    bound prints its final ``bracket``; a root search on two bounds prints
+    ``roots`` instead, one line per bound then the spread and the combined
+    value (:func:`_roots_lines`). Returns nothing for a
     result that carries no ``best_parameters`` (a staged calibration's own
     report object, or a run that evaluated no candidate), so the caller stays
     silent rather than guessing.
@@ -415,6 +418,8 @@ def _format_calibration_result(result: Any) -> list[str]:
         lines.append(f"  {_roptim_line(name, verdict)}")
     if extra.get("bracket"):
         lines.append(f"  {_bracket_line(extra['bracket'])}")
+    if extra.get("roots"):
+        lines.extend(f"  {line}" for line in _roots_lines(extra["roots"]))
     if extra.get("search"):
         lines.append(f"  {_search_line(extra['search'])}")
 
@@ -444,17 +449,43 @@ def _format_calibration_result(result: Any) -> list[str]:
 
 
 def _roptim_line(name: str, verdict: Mapping[str, Any]) -> str:
-    """Return the Eq. 4 verdict of one network output, read at the returned trial."""
+    """Return the Eq. 4 verdict of one network output, read at the returned trial.
+
+    Eq. 4 bounds ``Doptim`` by the validity length, in metres; ``roptim`` is
+    printed beside it as the paper's ratio. A failure names its cause: the
+    mismatch itself, or the snap displacement bound of ``mode = "apply"``.
+    """
+    length = verdict.get("validity_length_m")
+    provenance = verdict.get("provenance")
+    bound = f"{float(length):.4g} m" if length is not None else "not published"
+    if provenance:
+        bound += f" ({provenance})"
+    causes = list(verdict.get("causes") or [])
     value = verdict.get("value")
-    bound = float(verdict["bound"])
-    if value is None:
+    optimal = verdict.get("Doptim")
+    if "empty" in causes or optimal is None:
         return (
             f"roptim ({name}): not a number, the simulated network is empty at the "
-            f"returned trial (bound {bound:.3g})"
+            f"returned trial (validity length {bound})"
         )
+    ratio = f"{float(value):.3g}" if value is not None else "not a number"
+    sign = ">" if "doptim" in causes else "<="
+    head = f"roptim ({name}) = {ratio}, Doptim = {float(optimal):.4g} m {sign} {bound}"
     if verdict.get("valid"):
-        return f"roptim ({name}) = {float(value):.3g} <= {bound:.3g}, Eq. 4 holds"
-    return f"roptim ({name}) = {float(value):.3g} > {bound:.3g}, Eq. 4 fails: coarse agreement"
+        return f"{head}, Eq. 4 holds"
+    reasons = []
+    if "doptim" in causes:
+        reasons.append("coarse agreement")
+    snap = verdict.get("snap") or {}
+    if "snap" in causes:
+        reasons.append(
+            "the snap moved the map beyond its bound (p90 displacement "
+            f"{float(snap.get('displacement_p90_m', float('nan'))):.4g} m against "
+            f"{float(snap.get('displacement_bound_m', float('nan'))):.4g} m, "
+            f"{float(snap.get('rejected_share', float('nan'))):.1%} rejected against "
+            f"{float(snap.get('rejected_share_max', float('nan'))):.0%})"
+        )
+    return f"{head}, Eq. 4 fails: " + ", and ".join(reasons or ["not qualified"])
 
 
 def _bracket_line(bracket: Mapping[str, Any]) -> str:
@@ -464,6 +495,38 @@ def _bracket_line(bracket: Mapping[str, Any]) -> str:
         f"bracket on {bracket['parameter']}: [{float(bracket['low']):.6g}, "
         f"{float(bracket['high']):.6g}], width {float(bracket['relative_width']):.2%} ({state})"
     )
+
+
+def _root_line(bound: str, root: Mapping[str, Any]) -> str:
+    """Return one bound's root and its final bracket, in the parameter's own units."""
+    state = "closed" if root.get("closed") else "open, the budget ran out first"
+    return (
+        f"K*_{bound} = {float(root['k_star']):.6g}, bracket [{float(root['low']):.6g}, "
+        f"{float(root['high']):.6g}], width {float(root['relative_width']):.2%} ({state})"
+    )
+
+
+def _roots_lines(roots: Mapping[str, Any]) -> list[str]:
+    """Return the two-root search's per-bound roots, their spread and the combined value.
+
+    One line per bound (:func:`_root_line`), then ``Delta = log10(K*_maximal /
+    K*_minimal)``, then the value the search returns, the weighted geometric
+    mean of the two roots, with its weights.
+    """
+    lines = [_root_line("minimal", roots["minimal"]), _root_line("maximal", roots["maximal"])]
+    delta = roots.get("delta_log10")
+    delta_text = f"{delta:.3g}" if delta is not None else "unknown"
+    lines.append(f"Delta = log10(K*_maximal / K*_minimal) = {delta_text} decade(s)")
+    weights = f"{float(roots['minimal']['weight']):.3g} / {float(roots['maximal']['weight']):.3g}"
+    value = roots.get("value")
+    if value is None:
+        lines.append(f"{roots['parameter']}: not solved (weighted geometric mean, {weights})")
+    else:
+        lines.append(
+            f"{roots['parameter']} = {float(value):.6g}, weighted geometric mean of the "
+            f"two roots ({weights})"
+        )
+    return lines
 
 
 def _search_line(search: Mapping[str, Any]) -> str:

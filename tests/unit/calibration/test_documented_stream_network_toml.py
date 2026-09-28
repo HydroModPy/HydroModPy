@@ -23,14 +23,20 @@ PAGE = (
     / "stream-network-calibration.rst"
 )
 
-BLOCK = re.compile(r"\.\. code-block:: toml\n\n((?:(?:   .*)?\n)+)")
+# Top-level blocks only, the directive at column 0. A block nested in a list
+# item is indented further, and its body would swallow the prose that follows
+# it at three spaces.
+BLOCK = re.compile(r"^\.\. code-block:: toml\n\n((?:(?:   .*)?\n)+)", re.MULTILINE)
 
 
 def _documented_configuration() -> str:
     blocks = BLOCK.findall(PAGE.read_text(encoding="utf-8"))
     assert blocks, f"no TOML block in {PAGE.name}"
-    longest = max(blocks, key=len)
-    return "\n".join(line[3:] for line in longest.splitlines())
+    staged = [
+        block for block in blocks if "base_config" in block and "[[calibration.phases]]" in block
+    ]
+    assert len(staged) == 1, f"expected one staged configuration in {PAGE.name}"
+    return "\n".join(line[3:] for line in staged[0].splitlines())
 
 
 @pytest.fixture

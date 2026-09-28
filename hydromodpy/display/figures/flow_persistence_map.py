@@ -1,4 +1,4 @@
-"""Share of the run each cell spent carrying flow.
+"""Share of the run each cell spent flowing.
 
 A transient run holds one wet-network map per timestep, and reading them one
 after another is how a network that shrinks every summer gets missed. This
@@ -6,8 +6,10 @@ collapses the whole record onto one map: dark where the channel ran all year,
 pale where it only ran at the wettest steps, and out of the ramp entirely
 where nothing ever reached the cell.
 
-The legacy persistency index is the same number, computed on the same field,
-over the whole record rather than over one cycle.
+"Flowing" is the definition the network criterion scores: the downstream
+closure of the seepage cells on the criterion graph, above the visible flow.
+The persistency index of Abherve et al. (2025) is the same share, over the
+whole record rather than over one cycle.
 """
 
 from __future__ import annotations
@@ -20,8 +22,9 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._flow_persistence import (
     FLOW_FIELD,
-    cycles,
-    flowing_stack,
+    cycle_flow,
+    definition_note,
+    flow_unavailable_reason,
     resolve_cycle,
     span_label,
 )
@@ -43,7 +46,7 @@ if TYPE_CHECKING:
 
 @register
 class FlowPersistenceMap(BaseFigure):
-    """Fraction of the simulated timesteps each cell carried accumulated flow.
+    """Fraction of the simulated timesteps each cell flowed.
 
     Options
     -------
@@ -54,8 +57,14 @@ class FlowPersistenceMap(BaseFigure):
         by side: a cell that ran through a wet year and stopped through a dry
         one otherwise reads as dry on one map and as flowing on the other,
         which is two windows disagreeing and not two answers.
-    ``threshold``
-        Accumulated flux above which a cell counts as flowing, in m3/s.
+    ``visible_flow``
+        Routed discharge a cell of the seepage closure must carry to flow:
+        ``"1 L/s"`` (the default of the criterion's two-bound mode), any
+        discharge with its unit, a share of the outlet discharge such as
+        ``"1%"``, or ``"0 L/s"`` for the closure alone.
+    ``tau_specific_ratio``
+        Seepage threshold as a fraction of the recharge a cell receives; the
+        criterion's default when left out.
     ``cmap``
         Sequential palette. Its pale end is cut so no drawn cell is lighter
         than the cells the ramp says nothing about.
@@ -75,20 +84,28 @@ class FlowPersistenceMap(BaseFigure):
         ax: Axes,
         *,
         cycle: str | None = None,
-        threshold: float = 0.0,
+        visible_flow: str | None = None,
+        tau_specific_ratio: float | None = None,
+        diagonal_neighbors: bool | None = None,
         cmap: str = "Blues",
         overlays: tuple[str, ...] | list[str] | None = None,
         **_,
     ) -> Axes:
         from matplotlib.patches import Patch
 
-        flowing = flowing_stack(sim, threshold=threshold)
-        steps = np.arange(flowing.shape[0])
-        if cycle is not None:
-            blocks = cycles(sim, flowing.shape[0])
-            steps = blocks[resolve_cycle(blocks, cycle, figure=self.spec.name)]
-            flowing = flowing[steps]
-        share = 100.0 * flowing.mean(axis=0)
+        flow = cycle_flow(
+            sim,
+            visible_flow=visible_flow,
+            tau_specific_ratio=tau_specific_ratio,
+            diagonal_neighbors=diagonal_neighbors,
+        )
+        if cycle is None:
+            steps = np.sort(np.concatenate(flow.steps))
+            counts = flow.total()
+        else:
+            blocks = dict(zip(flow.labels, flow.steps, strict=True))
+            steps, counts = flow.block(resolve_cycle(blocks, cycle, figure=self.spec.name))
+        share = 100.0 * counts / max(int(steps.size), 1)
         ever = share > 0.0
 
         render_face_field(
@@ -98,7 +115,7 @@ class FlowPersistenceMap(BaseFigure):
             cmap=truncated_palette(cmap, 0.45),
             vmin=0.0,
             vmax=100.0,
-            cbar_label="Timesteps carrying flow (%)",
+            cbar_label="Timesteps flowing (%)",
         )
         apply_overlays(
             ax,
@@ -110,8 +127,8 @@ class FlowPersistenceMap(BaseFigure):
         window = span_label(sim, steps)
         ax.set_title(
             f"{self.spec.title} - {sim.name or sim.sim_id}\n"
-            f"{window + ', ' if window else ''}{flowing.shape[0]} timesteps, "
-            f"{int(ever.sum()):,} cells ever flowing"
+            f"{window + ', ' if window else ''}{steps.size} timesteps, "
+            f"{int(ever.sum()):,} cells ever flowing\n{definition_note(flow)}"
         )
 
         handles = ax.get_legend_handles_labels()[0]
@@ -134,7 +151,7 @@ class FlowPersistenceMap(BaseFigure):
             return reason
         if int(sim.n_timesteps or 0) < 2:
             return "a persistence share needs more than one timestep"
-        return None
+        return flow_unavailable_reason(sim)
 
 
 __all__ = ["FlowPersistenceMap"]

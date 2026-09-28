@@ -748,6 +748,95 @@
         "title": "CalibAggregateDecl",
         "type": "object"
       },
+      "CalibNetworkBoundWeights": {
+        "additionalProperties": false,
+        "description": "How the two bounds of a network output share one calibrated value.\n\nA root search closes one root per bound and returns the weighted geometric\nmean, ``log K = minimal * log K*_minimal + maximal * log K*_maximal``. A\nminimiser has no root to combine and minimises\n``minimal * |J_minimal| + maximal * |J_maximal|`` instead, which tends to\nland on one of the two roots rather than between them.",
+        "properties": {
+          "minimal": {
+            "default": 0.5,
+            "description": "Weight of the minimal (permanent) bound. 1 with maximal = 0 calibrates on the permanent map alone, the practice of Abherve et al. (2025).",
+            "examples": [
+              0.5
+            ],
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Minimal",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "maximal": {
+            "default": 0.5,
+            "description": "Weight of the maximal (complete) bound.",
+            "examples": [
+              0.5
+            ],
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Maximal",
+            "type": "number",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "CalibNetworkBoundWeights",
+        "type": "object"
+      },
+      "CalibNetworkExtent": {
+        "additionalProperties": false,
+        "description": "The transient two-bound mode of a network output.\n\nDeclared, the output stops reading one state. For every complete calendar\nyear of the run, the maximal simulated mask holds the cells flowing at\nleast ``maximal_flowing_steps`` timesteps, and the minimal one the cells\nflowing at every timestep but at most ``minimal_dry_steps``. A cell enters\nthe mask scored when it meets the rule in at least ``year_quorum`` of the\nscored years. Each bound is scored once by the distance criterion: the\nmaximal mask against the maximal map, the minimal mask against the minimal\nmap when one is declared. Durations count timesteps, not days.",
+        "properties": {
+          "maximal_flowing_steps": {
+            "default": 1,
+            "description": "Timesteps a cell has to flow in a year to enter the maximal mask. At most the timestep count of the shortest complete year, checked on the run.",
+            "examples": [
+              1
+            ],
+            "minimum": 1,
+            "title": "Maximal Flowing Steps",
+            "type": "integer",
+            "x-hmp-profile": "user"
+          },
+          "minimal_dry_steps": {
+            "default": 1,
+            "description": "Timesteps a cell may be dry in a year and stay in the minimal mask. The year's timestep count minus this has to stay at least maximal_flowing_steps, checked on the run, so the minimal mask sits inside the maximal one.",
+            "examples": [
+              1
+            ],
+            "minimum": 0,
+            "title": "Minimal Dry Steps",
+            "type": "integer",
+            "x-hmp-profile": "user"
+          },
+          "year_quorum": {
+            "default": 0.5,
+            "description": "Share of the scored years in which a cell has to meet a bound's rule to enter it: ceil(year_quorum * n_years) years. Warned under three scored years, where one half is a union of two.",
+            "examples": [
+              0.5
+            ],
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "title": "Year Quorum",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "visible_flow": {
+            "default": "1 L/s",
+            "description": "Routed discharge a cell of the downstream closure has to carry to flow: a discharge with its unit ('1 L/s') or a share of the outlet discharge at the same timestep ('1%'). '0 L/s' is the geometric definition. Never scaled with the cell size. No value is agreed: Zanetti et al. (2024) threshold a simulated discharge at 10 L/s, field zero-flow thresholds of 1 to 3 L/s are in use.",
+            "examples": [
+              "1 L/s"
+            ],
+            "title": "Visible Flow",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "weights": {
+            "$ref": "#/components/schemas/CalibNetworkBoundWeights",
+            "description": "Share of each bound in the value returned when both maps are declared. Only the maximal bound is scored without a minimal map.",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "CalibNetworkExtent",
+        "type": "object"
+      },
       "CalibObjectiveBlockDecl": {
         "additionalProperties": false,
         "description": "Weighted metric block used by a composite objective.\n\nA block consumes one or more named outputs, applies one metric, and\ncontributes ``weight`` to the final minimization cost. Blocks make mixed\nobjectives explicit, for example combining heads, discharge, and transport\nsignals in one calibration session.",
@@ -1305,7 +1394,7 @@
       },
       "CalibOutputNetwork": {
         "additionalProperties": false,
-        "description": "The mapped stream network as a calibration target.\n\nThe criterion compares a simulated stream network to a mapped one. For\nevery cell of the simulated network the descent to the mapped network is\nmeasured, and reciprocally. The output produces the pair ``(D_so, D_os)``;\nthe metric on top of it is ``distance_gap``, their signed difference in\nabsolute value, whose zero is the balance between an excess of simulated\nstream and a missing one.\n\nIt can drive any parameter that moves where the water table meets the\nsurface. What it identifies depends on what moves: with the homogeneous\nconductivity alone, at fixed geometry and recharge, it identifies ``K/R``,\nthe ratio of Abherve et al. (2023), and not ``K`` itself.\n\nThere is no ``observed_values`` here and there cannot be: the criterion\nbalances two simulated quantities against each other, so nothing in it is\nfitted to a record. The mapped network enters as a geometry, not as a\nseries, and exactly one of ``observed_network`` and\n``stream_geometry_path`` names where it comes from.",
+        "description": "The mapped stream network as a calibration target.\n\nThe criterion compares a simulated stream network to a mapped one. For\nevery cell of the simulated network the descent to the mapped network is\nmeasured, and reciprocally. The output produces the pair ``(D_so, D_os)``;\nthe metric on top of it is ``distance_gap``, their signed difference in\nabsolute value, whose zero is the balance between an excess of simulated\nstream and a missing one.\n\nIt can drive any parameter that moves where the water table meets the\nsurface. What it identifies depends on what moves: with the homogeneous\nconductivity alone, at fixed geometry and recharge, it identifies ``K/R``,\nthe ratio of Abherve et al. (2023), and not ``K`` itself.\n\nThere is no ``observed_values`` here and there cannot be: the criterion\nbalances two simulated quantities against each other, so nothing in it is\nfitted to a record. The mapped network enters as a geometry, not as a\nseries, and exactly one of ``observed_network`` and\n``stream_geometry_path`` names where it comes from.\n\nThat map is the maximal one, every mapped reach. A minimal map, the\npermanent reaches, may be declared beside it. In one state the state is\nthen scored on the minimal map and the maximal map is a validation. With\n``extent``, a transient run is scored on two bounds, the yearly maximal\nmask against the maximal map and the minimal mask against the minimal map.",
         "properties": {
           "variable": {
             "default": "release_flux",
@@ -1362,6 +1451,35 @@
             "default": null,
             "description": "Vector file holding the mapped stream network, read only from here: the criterion resolves no geometry of its own and does not reuse the one the hydrography data family loaded. The way out of 'observed_network' when neither of its two sources is the one you want scored.",
             "title": "Stream Geometry Path",
+            "x-hmp-profile": "user"
+          },
+          "minimal_stream_geometry_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Vector file holding the minimal map: the permanent network, which the map named by 'observed_network' or 'stream_geometry_path' (the maximal map, every mapped reach) contains. Read as it is, never filtered by attribute. The maximal map scored is the union of the two, and the share of the minimal map outside the maximal one is published. In one state, the state is compared to this map and the maximal map is scored beside it as a validation outside the cost, as Abherve et al. (2025) do; with 'extent', it is the minimal bound. At most one of this and 'minimal_observed_network'.",
+            "title": "Minimal Stream Geometry Path",
+            "x-hmp-profile": "user"
+          },
+          "minimal_observed_network": {
+            "anyOf": [
+              {
+                "const": "data.hydrography",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Where the minimal map comes from when it is not an explicit file. 'data.hydrography' reads the permanent reaches the hydrography data family wrote beside its network, which it does only when its source says which reaches flow all year. Same role as 'minimal_stream_geometry_path'; at most one of the two.",
+            "title": "Minimal Observed Network",
             "x-hmp-profile": "user"
           },
           "tau_specific_ratio": {
@@ -1439,24 +1557,47 @@
               }
             ],
             "default": null,
-            "description": "Positional accuracy of the mapped network. The validity ratio is normalised by max(cell size, this), because the error floor is set by the network's own precision and not by the model resolution. Unset is the literal reading of the paper.",
+            "description": "Positional accuracy of the mapped network. It enters the automatic validity length only: the cell size h there is max(h_obs, this), because a map is not placed better when the mesh is refined. roptim stays Doptim / h_obs, the paper's Eq. 3. Unset is the literal reading of the paper.",
             "title": "Observed Position Accuracy",
             "x-hmp-profile": "user"
           },
-          "roptim_max": {
-            "default": 2.0,
-            "description": "Validity bound of Eq. 4. It qualifies the result and never penalises the cost: a bad ratio says the agreement is coarse, not that the calibrated value should be discarded.",
-            "examples": [
-              2.0
+          "validity_length": {
+            "anyOf": [
+              {
+                "const": "auto",
+                "type": "string"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "properties": {
+                  "magnitude": {
+                    "title": "Magnitude",
+                    "type": "string"
+                  },
+                  "units": {
+                    "title": "Units",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "magnitude"
+                ],
+                "type": "object"
+              }
             ],
-            "exclusiveMinimum": 0.0,
-            "title": "Roptim Max",
-            "type": "number",
+            "default": "auto",
+            "description": "Validity bound of Eq. 4, a length: the calibration is valid when Doptim <= this. 'auto' is 2 h, the paper's two cells, where h is h_obs, the cell size on the mapped network, raised to 'observed_position_accuracy' when one is declared. With [geographic.snap_streams] in 'diagnose' or 'apply', it is h + max(h, F), F the floor the snap measured: one cell for the hydrogeology, one for the map error, replaced by F when F is larger. A length such as '150 m' is used as it is. The bound qualifies the result and never penalises the cost.",
+            "examples": [
+              "auto"
+            ],
+            "title": "Validity Length",
             "x-hmp-profile": "user"
           },
           "on_roptim_violation": {
             "default": "warn",
-            "description": "What a violation of the validity bound does. The bound is read once, on the trial the search returns, as the paper reads it at the optimum; every trial still records 'roptim' and 'roptim_valid'. 'warn' logs it and returns the value, because a calibration is asked for a number. 'error' raises after the session is saved, so a staged calibration freezes nothing and runs no phase that depends on this one.",
+            "description": "What a violation of Eq. 4 does: Doptim above 'validity_length', or, with [geographic.snap_streams] mode = 'apply', a snap that moved the map further than its displacement bound. The bound is read once, on the trial the search returns, as the paper reads it at the optimum, and on each bound in the cost of the two-bound mode; every trial still records 'roptim', 'roptim_valid' and 'validity_length_m'. 'warn' logs it and returns the value, because a calibration is asked for a number. 'error' raises after the session is saved, so a staged calibration freezes nothing and runs no phase that depends on this one.",
             "enum": [
               "warn",
               "error"
@@ -1528,6 +1669,19 @@
             ],
             "title": "Time",
             "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "extent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalibNetworkExtent"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The transient two-bound mode. Unset, the output reads one state, the method of the papers. Set, it reads every timestep of a transient run and scores the maximal simulated mask against the maximal map and, when 'minimal_stream_geometry_path' is declared, the minimal mask against the minimal map. Refused on a run with a single period or no complete calendar year.",
             "x-hmp-profile": "user"
           }
         },
@@ -10852,6 +11006,11 @@
           "enforce_streams": {
             "$ref": "#/components/schemas/StreamEnforcementConfig",
             "description": "Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve.",
+            "x-hmp-profile": "user"
+          },
+          "snap_streams": {
+            "$ref": "#/components/schemas/SnapStreamsConfig",
+            "description": "Optional snapping of the mapped stream network onto the talwegs of the model top, read on the network criterion graph. Off by default. 'diagnose' publishes the displacement, the rejected cells and the floor F while the raw map is scored; 'apply' scores the snapped map. It sits here, beside enforce_streams, because it is common to every consumer of the mapped network (criterion, figures, burning), not to one calibration output.",
             "x-hmp-profile": "user"
           },
           "enforce_lakes": {
@@ -20800,6 +20959,61 @@
           }
         },
         "title": "SiteSelectionInputConfig",
+        "type": "object"
+      },
+      "SnapStreamsConfig": {
+        "additionalProperties": false,
+        "description": "Snap the mapped stream network onto the talwegs of the criterion graph.\n\nOff by default. ``diagnose`` computes the snapped map, its indices and the\nfloor ``F`` and publishes them, while the criterion still scores the raw\nmap. ``apply`` scores the snapped map, and Eq. 4 then also bounds the\ndisplacement and the rejected share.",
+        "properties": {
+          "mode": {
+            "default": "off",
+            "description": "'off' computes nothing. 'diagnose' snaps the mapped network, publishes the displacement, the rejected cells, the length change and the floor F, and scores the raw map. 'apply' scores the snapped map; Eq. 4 then also asks the p90 displacement and the rejected share to stay within their bounds.",
+            "enum": [
+              "off",
+              "diagnose",
+              "apply"
+            ],
+            "examples": [
+              "off"
+            ],
+            "title": "Mode",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "radius": {
+            "default": "2 cells",
+            "description": "How far a mapped cell may move. A length ('200 m') or a number of cells ('2 cells'), a cell being h_obs, the median distance between neighbouring cell centres over the mapped cells of the catchment. Two cells is the outlet snapping distance of the paper.",
+            "examples": [
+              "2 cells"
+            ],
+            "title": "Radius",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "max_displacement_p90": {
+            "default": "1 cell",
+            "description": "Bound on the 90th percentile of the displacement, read by Eq. 4 in 'apply' mode. A length or a number of cells of h_obs. Keep it under the radius: a bound equal to the radius never fires.",
+            "examples": [
+              "1 cell"
+            ],
+            "title": "Max Displacement P90",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "max_rejected_share": {
+            "default": 0.1,
+            "description": "Bound on the share of mapped cells of the catchment the snap could not place, read by Eq. 4 in 'apply' mode.",
+            "examples": [
+              0.1
+            ],
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Max Rejected Share",
+            "type": "number",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "SnapStreamsConfig",
         "type": "object"
       },
       "SoilMoistureConfig": {

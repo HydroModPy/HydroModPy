@@ -6,7 +6,7 @@ loaded (clipped, not DEM-derived), the network the DEM pipeline derived
 wiring rather than the resolution logic itself, which
 ``test_an_observed_network_reaches_what_the_project_declares.py`` already
 covers: that ``observed_network_mask`` reads an already-resolved
-``ObservedNetwork`` and never a path, that ``geometry_from_run`` resolves once
+``ObservedNetwork`` and never a path, that ``network_maps_from_run`` resolves once
 per trial and threads the same resolution into the mask and into the trial
 diagnostics, and that the DEM-derived warning fires for that one route alone.
 """
@@ -24,7 +24,7 @@ from hydromodpy.calibration.metrics import solver_extract as _solver_extract
 from hydromodpy.calibration.metrics.solver_extract import extract_outputs
 from hydromodpy.calibration.observations import network_source
 from hydromodpy.calibration.observations import observed_network as observed_module
-from hydromodpy.calibration.observations.network_geometry import geometry_from_run
+from hydromodpy.calibration.observations.network_geometry import network_maps_from_run
 from hydromodpy.calibration.observations.network_source import (
     ObservedNetwork,
     resolve_observed_network,
@@ -62,6 +62,12 @@ def _valley_axis_line() -> LineString:
     )
 
 
+def _maximal_map(run_ctx, output):
+    """The geometry, the resolution and the projection of the one map declared."""
+    maps = network_maps_from_run(run_ctx, output)
+    return maps.maximal, maps.maximal_source, maps.maximal_projection
+
+
 def _lines_gdf() -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(geometry=[_valley_axis_line()], crs=CRS)
 
@@ -77,7 +83,7 @@ def bench():
 
 
 def _fake_run_ctx(bench, *, reference=None, generated=None):
-    """A trial context exposing exactly what geometry_from_run reads."""
+    """A trial context exposing exactly what network_maps_from_run reads."""
     vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
     planar_mesh = SimpleNamespace(
         vertices=vertices, flat_connectivity=connectivity, n_cells=N_CELLS
@@ -188,7 +194,7 @@ class TestGeometryFromRunResolvesOncePerTrial:
 
         monkeypatch.setattr(network_source, "resolve_observed_network", spy)
 
-        geometry, resolved, _projection = geometry_from_run(run_ctx, output)
+        geometry, resolved, _projection = _maximal_map(run_ctx, output)
 
         assert len(calls) == 1
         assert resolved.source == "data.hydrography"
@@ -202,7 +208,7 @@ class TestGeometryFromRunResolvesOncePerTrial:
         run_ctx = _fake_run_ctx(bench, generated=network)
         output = _network_output(observed_network="geographic.river_network")
 
-        _geometry, resolved, _projection = geometry_from_run(run_ctx, output)
+        _geometry, resolved, _projection = _maximal_map(run_ctx, output)
 
         assert resolved.source == "geographic.river_network"
         assert resolved.clipped is True
@@ -214,7 +220,7 @@ class TestGeometryFromRunResolvesOncePerTrial:
         run_ctx = _fake_run_ctx(bench)
         output = _network_output(stream_geometry_path=str(path))
 
-        _geometry, resolved, _projection = geometry_from_run(run_ctx, output)
+        _geometry, resolved, _projection = _maximal_map(run_ctx, output)
 
         assert resolved.source == "path"
         assert resolved.clipped is False
@@ -300,7 +306,7 @@ class TestTheRasterizationReachesTheTrial:
 
         monkeypatch.setattr(observed_module, "observed_network_mask", spy)
 
-        _geometry, _resolved, projection = geometry_from_run(run_ctx, output)
+        _geometry, _resolved, projection = _maximal_map(run_ctx, output)
 
         assert seen["rasterization"] == "touch"
         assert projection.rasterization == "touch"
@@ -337,7 +343,7 @@ class TestTheDemDerivedWarningFiresOnceAndOnlyThere:
         output = _network_output(observed_network="geographic.river_network")
 
         with caplog.at_level(logging.WARNING, logger=NETWORK_SOURCE_LOGGER):
-            geometry_from_run(run_ctx, output)
+            _maximal_map(run_ctx, output)
 
         messages = [record.getMessage() for record in caplog.records]
         assert any("geomorphological" in message for message in messages)
@@ -348,7 +354,7 @@ class TestTheDemDerivedWarningFiresOnceAndOnlyThere:
         output = _network_output(observed_network="data.hydrography")
 
         with caplog.at_level(logging.WARNING, logger=NETWORK_SOURCE_LOGGER):
-            geometry_from_run(run_ctx, output)
+            _maximal_map(run_ctx, output)
 
         assert not any("geomorphological" in record.getMessage() for record in caplog.records)
 
@@ -359,7 +365,7 @@ class TestTheDemDerivedWarningFiresOnceAndOnlyThere:
         output = _network_output(stream_geometry_path=str(path))
 
         with caplog.at_level(logging.WARNING, logger=NETWORK_SOURCE_LOGGER):
-            geometry_from_run(run_ctx, output)
+            _maximal_map(run_ctx, output)
 
         assert not any("geomorphological" in record.getMessage() for record in caplog.records)
 
@@ -369,8 +375,8 @@ class TestTheDemDerivedWarningFiresOnceAndOnlyThere:
         output = _network_output(observed_network="geographic.river_network")
 
         with caplog.at_level(logging.WARNING, logger=NETWORK_SOURCE_LOGGER):
-            geometry_from_run(run_ctx, output)
-            geometry_from_run(run_ctx, output)
+            _maximal_map(run_ctx, output)
+            _maximal_map(run_ctx, output)
 
         fired = [record for record in caplog.records if "geomorphological" in record.getMessage()]
         assert len(fired) == 1

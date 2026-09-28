@@ -33,6 +33,64 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Added
+- A network calibration output takes a minimal (permanent) map beside its maximal one, as a file
+  (`minimal_stream_geometry_path`) or as the permanent reaches of the hydrography data family
+  (`minimal_observed_network = "data.hydrography"`, refused by name when the source says nothing
+  about permanence). The maximal map is scored as the union of the two, and
+  `frac_minimal_outside_maximal` is published.
+- The transient two-bound mode, `[calibration.outputs.<name>.extent]`. For each complete calendar
+  year inside the phase's `scoring_window`, the maximal simulated mask holds the cells flowing at
+  least `maximal_flowing_steps` timesteps and the minimal one the cells dry at most
+  `minimal_dry_steps` timesteps (both 1 by default, counted in timesteps); the years are aggregated
+  by `year_quorum` (0.5) and each bound is scored once with the distance criterion. A cell flows
+  when it is in the downstream closure of the seepage and its routed discharge reaches
+  `visible_flow` ("1 L/s" by default, or a share of the outlet discharge such as "1%").
+  `hydromodpy.core.stream_extent` holds this one definition of flowing for the criterion and the
+  figures.
+- Two bounds, one value: the bisection closes one root per bound on the same trials and returns
+  their weighted geometric mean, log K = w_min log K*_min + w_max log K*_max (`weights`, 0.5 each),
+  evaluated once so every published number comes from a solve. The report and `hmp calibrate`
+  give both roots, both brackets and Delta = log10(K*_max / K*_min); a minimiser's cost is
+  w_min |J_min| + w_max |J_max|. `max_iter = "auto"` budgets both roots.
+- `[geographic.snap_streams]` (`off` by default, `diagnose`, `apply`) moves the mapped network
+  onto the talwegs of the criterion graph, flow-accumulation guided from downstream to upstream,
+  within a radius in metres (2 h_obs by default), rejecting what it cannot attach. Trials publish
+  the displacement (p50, p90), the rejected share, the length ratio and the floor F, the Doptim of
+  the snapped map against the raw one; in `apply` Eq. 4 also bounds the displacement. A run
+  stores its snapped map, and two figures, `observed_network_snap_map` and
+  `observed_network_snap_histogram`, show what moved.
+- `validity_length` on a network output, `"auto"` or a length such as `"150 m"`: Eq. 4 reads
+  Doptim <= validity_length. `"auto"` is 2 h, with h = max(h_obs, observed_position_accuracy), and
+  h + max(h, F) when a snap floor exists. Each trial publishes the length and what set it.
+- `network_extent_bounds_map` draws the maximal and minimal simulated extents of a transient run
+  against its two maps, outside any calibration.
+- Preflight refuses an extent table on a steady search, a minimal map file that does not exist,
+  and a `data.hydrography` minimal map without a declared hydrography source.
+
+### Changed
+- With both maps, a one-state network output is scored on the minimal map, as the WRR 2025 paper
+  calibrates, and the maximal map is published as a validation outside the cost.
+- `L_ref`, the length that normalises roptim and sets the interval width of a network search, is
+  h_obs, the median distance between neighbouring cell centres over the mapped cells of the
+  catchment. Unchanged on a regular grid; the fine cell on a mesh refined along the streams.
+- roptim is always Doptim / h_obs, the paper's Eq. 3; a declared `observed_position_accuracy`
+  enters the validity length only.
+- The persistence figures and `simulated_active_network` in persistence mode count a cell as
+  flowing by the criterion's definition, and the stream-network maps redraw with the settings the
+  run sealed, so they show the partition the trial scored.
+- Toggling `[geographic.snap_streams]` does not invalidate the geographic cache.
+
+### Removed
+- `roptim_max`. The load-time migration and `hmp doctor --fix-config` drop `roptim_max = 2`, which
+  `validity_length = "auto"` reproduces, and refuse any other value with the length to write.
+- `geometry_from_run`, replaced by `network_maps_from_run`, which returns every declared map.
+
+### Fixed
+- A single-metric phase whose variable names a calibration output keeps that output, so a network
+  phase keeps its maps and its extent table.
+- `hmp calibrate` migrates legacy keys in memory when it reads a file, as the project loader does.
+
 ---
 
 ## [v2.0.0a1] - 2026-09-28

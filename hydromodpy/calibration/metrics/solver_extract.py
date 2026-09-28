@@ -7,7 +7,7 @@ mapping helpers that locate observation stations on a structured grid.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
@@ -16,7 +16,13 @@ import pandas as pd
 
 from hydromodpy.calibration.metrics.downslope_network import (
     DISTANCE_METHOD,
-    seepage_distance_cost,
+    MAXIMAL_SUFFIX,
+    MINIMAL_SUFFIX,
+    VALIDATION_SUFFIX,
+    SeepageDistanceResult,
+    score_on_geometry,
+    weighted_pair,
+    with_suffix,
 )
 from hydromodpy.calibration.metrics.gauge_snap import GaugeSnapError, snap_to_most_accumulated
 from hydromodpy.calibration.metrics.observable_scoring import (
@@ -28,11 +34,13 @@ from hydromodpy.calibration.metrics.series import (
     ObservedSeries,
     add_runoff_to_discharge,
     resolve_time_index,
+    time_grid_boundaries,
 )
 from hydromodpy.calibration.observations.network_geometry import (
+    NetworkMaps,
     aquifer_extent,
-    geometry_from_run,
     mesh_cell_m,
+    network_maps_from_run,
 )
 from hydromodpy.core.contracts.observables import (
     ObservableRequest,
@@ -41,6 +49,15 @@ from hydromodpy.core.contracts.observables import (
 )
 from hydromodpy.core.exceptions import ObjectiveError, ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.stream_extent import (
+    Bound,
+    CalendarYears,
+    calendar_years,
+    extent_masks,
+    extent_step_problems,
+    parse_visible_flow,
+    yearly_flow_counts,
+)
 from hydromodpy.core.stream_network import build_simulated_network
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 from hydromodpy.simulation.planning.plan import RunContext
@@ -61,6 +78,7 @@ RELEASE_FLUX_UNIT = "m3/s"
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import (
+        CalibNetworkExtent,
         CalibOutputDecl,
         CalibOutputNetwork,
         CalibOutputPoint,
@@ -249,7 +267,9 @@ def observable_request_for_output(
     if support == "network":
         # The whole per-cell release field, read at the declared timesteps. The
         # backend decides which of its packages count as a resurgence; this
-        # layer never names one.
+        # layer never names one. The two-bound mode reads every timestep.
+        if getattr(output, "extent", None) is not None:
+            times = "all"
         return ObservableRequest(id=name, name=str(output.variable), support="cells", times=times)
     if support == "cell":
         if output.row is None or output.col is None:
@@ -482,6 +502,334 @@ def catchment_saturation(
     return out
 
 
+SHARED_GEOMETRY_KEYS = ("R_mean_m_s", "catchment_mismatch")
+"""Geometry diagnostics that depend on the topography alone, the same for both maps."""
+
+
+def _refuse_an_unreachable_support(
+    name: str, output: CalibOutputNetwork, scored: SeepageDistanceResult, *, bound: str = ""
+) -> None:
+    """Raise when ``D_so`` of a bound in the cost rests on a truncated support."""
+    if scored.status != "failed":
+        return
+    which = f" ({bound} bound)" if bound else ""
+    raise ObjectiveError(
+        f"Output {name!r}{which}: frac_unreachable_so = "
+        f"{scored.components.get('frac_unreachable_so', float('nan')):.1%} of the simulated "
+        "network never reaches the mapped one, over the "
+        f"{output.max_unreachable_fraction:.0%} bound. That target is fixed for the whole "
+        "search, so the trial cannot have shrunk it: the routing surface still holds "
+        "depressions, and averaging D_so over a support truncated by them is a fiction, "
+        "the cells dropped being never a random sample. Condition the surface, or raise "
+        "max_unreachable_fraction knowing what it buys. The reciprocal diagnostic, "
+        "frac_unreachable_os = "
+        f"{scored.components.get('frac_unreachable_os', float('nan')):.1%}, is reported and "
+        "not bounded: it descends onto the simulated network, which the search itself "
+        "retracts at the high end of its bracket."
+    )
+
+
+def _map_components(
+    scored: SeepageDistanceResult,
+    geometry: Any,
+    source: Any,
+    projection: Any,
+) -> dict[str, float]:
+    """Return what one map was scored to, and what qualifies the map itself."""
+    return {
+        **scored.components,
+        **{
+            key: value
+            for key, value in geometry.diagnostics.items()
+            if key not in SHARED_GEOMETRY_KEYS
+        },
+        # What qualifies the geometry the trial was scored against, not the trial.
+        "observed_network_clipped": 1.0 if source.clipped else 0.0,
+        "observed_network_is_dem_derived": 1.0 if source.dem_derived else 0.0,
+        # What the output's observed_rasterization drew: every cell the map
+        # holds on the mesh, and the reaches kept at their midpoint cell.
+        "n_observed_cells": float(int(projection.mask.sum())),
+        "n_observed_features_fallback": float(projection.n_fallback_parts),
+    }
+
+
+def _score_one_state(
+    name: str, output: CalibOutputNetwork, result: ObservableResult, maps: NetworkMaps
+) -> tuple[list[float], dict[str, float]]:
+    """Score the one state a steady run holds, as the papers do.
+
+    Without a minimal map the state is compared to the maximal map, the only
+    one. With both, it is compared to the minimal (permanent) map, as
+    Abherve et al. (2025) calibrate, and the maximal map is scored at the same
+    state as a validation that never reaches the cost.
+    """
+    geometry = maps.maximal
+    simulated = build_simulated_network(
+        result.values,
+        threshold_m3_s=geometry.threshold_m3_s,
+        metric=geometry.metric,
+    )
+    options = _scoring_options(output)
+    if maps.minimal is None:
+        scored = score_on_geometry(simulated, geometry, **options)
+        _refuse_an_unreachable_support(name, output, scored)
+        bound = _map_components(scored, geometry, maps.maximal_source, maps.maximal_projection)
+        return weighted_pair(scored), {**bound, **with_suffix(bound, MAXIMAL_SUFFIX)}
+
+    scored = score_on_geometry(simulated, maps.minimal, **options)
+    _refuse_an_unreachable_support(name, output, scored, bound="minimal")
+    bound = _map_components(scored, maps.minimal, maps.minimal_source, maps.minimal_projection)
+    validation = score_on_geometry(simulated, geometry, **options)
+    if validation.status == "failed":
+        logger.warning(
+            "Output %s: the maximal map, scored as a validation beside the cost, leaves "
+            "%.1f%% of the simulated network unreachable. It never enters the cost.",
+            name,
+            100.0 * validation.components.get("frac_unreachable_so", float("nan")),
+        )
+    checked = _map_components(validation, geometry, maps.maximal_source, maps.maximal_projection)
+    return weighted_pair(scored), {
+        **bound,
+        **with_suffix(bound, MINIMAL_SUFFIX),
+        **with_suffix(checked, VALIDATION_SUFFIX),
+    }
+
+
+def _scoring_options(output: CalibOutputNetwork) -> dict[str, Any]:
+    """Return what every map of one output is scored with.
+
+    ``validity_length_m`` is None for ``"auto"``: each map then resolves its
+    own length, and publishes it with its provenance on every trial.
+    """
+    declared = output.validity_length
+    return {
+        "weighting": output.weighting,
+        "max_unreachable_fraction": float(output.max_unreachable_fraction),
+        "validity_length_m": None if declared == "auto" else _coerce_length_to_m(declared),
+    }
+
+
+def _timestep_edges(
+    name: str, result: ObservableResult, n_times: int, time_bounds: Sequence[Any] | None
+) -> np.ndarray:
+    """Return the ``n_times + 1`` bounds of the release stack's timesteps.
+
+    The run's time-grid bounds when they match the stack, else the stamps the
+    solver served, each closing its period, with the first period as long as
+    the second. Refused when neither dates the stack.
+    """
+    if time_bounds is not None and len(time_bounds) == n_times + 1:
+        stamps = pd.DatetimeIndex(pd.to_datetime(list(time_bounds)))
+    elif result.times is not None and len(result.times) == n_times and n_times >= 2:
+        ends = pd.DatetimeIndex(result.times)
+        stamps = ends.insert(0, ends[0] - (ends[1] - ends[0]))
+    else:
+        raise ObjectiveError(
+            f"Output {name!r}: the extent table sorts the timesteps into calendar years, and "
+            f"the {n_times} timestep(s) of the release field carry no date the time grid of "
+            "the run confirms."
+        )
+    if stamps.tz is not None:
+        stamps = stamps.tz_convert("UTC").tz_localize(None)
+    return stamps.to_numpy(dtype="datetime64[ns]")
+
+
+def _naive_utc(bound: Any) -> pd.Timestamp | None:
+    """Return a window bound as a naive UTC timestamp, the clock of the timestep edges."""
+    if bound is None:
+        return None
+    stamp = pd.Timestamp(bound)
+    if stamp.tz is not None:
+        stamp = stamp.tz_convert("UTC").tz_localize(None)
+    return stamp
+
+
+def _scored_years(
+    name: str,
+    edges: np.ndarray,
+    scoring_window: tuple[Any, Any] | None,
+) -> CalendarYears:
+    """Return the complete calendar years the two-bound mode scores.
+
+    Every complete year of the run, or, when the phase declares a
+    ``scoring_window``, only the complete years the window holds from
+    1 January to 31 December. The window is how a spin-up year leaves the
+    score: without one, a first year whose first step is steady, or starts
+    from an arbitrary initial condition, is scored like the others. Refused by
+    name when no complete year is left, saying which years the run touches
+    and which the window left out.
+    """
+    window = (
+        None
+        if scoring_window is None or all(bound is None for bound in scoring_window)
+        else (_naive_utc(scoring_window[0]), _naive_utc(scoring_window[1]))
+    )
+    years = calendar_years(edges, window=window)
+    if years.years:
+        return years
+    touched = ", ".join(map(str, years.incomplete)) or "none"
+    if years.outside_window:
+        start, end = window if window is not None else (None, None)
+        raise ObjectiveError(
+            f"Output {name!r} declares an extent table and its scoring_window "
+            f"{start or 'open'} to {end or 'open'} holds no complete calendar year of the "
+            f"run: it leaves out {', '.join(map(str, years.outside_window))}"
+            + (f", and the run only touches {touched}" if years.incomplete else "")
+            + ". Each bound is read over whole years; widen the window to hold at least one "
+            "year from 1 January to 31 December, or lengthen the run window."
+        )
+    raise ObjectiveError(
+        f"Output {name!r} declares an extent table and the run covers no complete "
+        f"calendar year (it touches {touched}). "
+        "Each bound is read over whole years; lengthen the run window."
+    )
+
+
+def _score_two_bounds(
+    name: str,
+    output: CalibOutputNetwork,
+    extent: CalibNetworkExtent,
+    result: ObservableResult,
+    maps: NetworkMaps,
+    time_bounds: Sequence[Any] | None,
+    scoring_window: tuple[Any, Any] | None = None,
+) -> tuple[list[float], dict[str, float]]:
+    """Score the yearly extent masks of a transient run against one or two maps.
+
+    The years scored are the complete calendar years of the run, cut to the
+    ``scoring_window`` of the phase when one is declared
+    (:func:`_scored_years`). They are published: ``n_years_scored``,
+    ``first_year_scored``, ``last_year_scored``, and ``year_scored_y<year>``
+    for every year the run touches, 1 when scored and 0 when left out,
+    incomplete or outside the window. The stack is read one year at a time by
+    :func:`hydromodpy.core.stream_extent.yearly_flow_counts`. The maximal mask
+    is scored against the maximal map, the minimal mask against the minimal
+    map when one is declared, and each year's masks the same way as a
+    diagnostic. With one bound the unsuffixed components carry it, as in one
+    state; with two, only the suffixed ones exist and the pair holds both,
+    each weighted.
+    """
+    geometry = maps.maximal
+    stack = np.asarray(result.values)
+    n_times = 1 if stack.ndim == 1 else int(stack.shape[0])
+    if n_times < 2:
+        raise ObjectiveError(
+            f"Output {name!r} declares an extent table and the run holds a single period: a "
+            "steady phase. The two-bound mode reads the timesteps of a transient run; score "
+            "a steady phase in one state, without the extent table."
+        )
+    years = _scored_years(name, _timestep_edges(name, result, n_times, time_bounds), scoring_window)
+    problems = extent_step_problems(
+        years.n_steps,
+        maximal_flowing_steps=extent.maximal_flowing_steps,
+        minimal_dry_steps=extent.minimal_dry_steps,
+    )
+    if problems:
+        raise ObjectiveError(
+            f"Output {name!r}: the extent table cannot be read on this run: "
+            + "; ".join(problems)
+            + "."
+        )
+    visible = parse_visible_flow(extent.visible_flow)
+    counts = yearly_flow_counts(
+        stack,
+        years=years,
+        threshold_m3_s=geometry.threshold_m3_s,
+        metric=geometry.metric,
+        visible_flow=visible,
+        outlet=geometry.outlet,
+    )
+    masks = extent_masks(
+        counts,
+        maximal_flowing_steps=extent.maximal_flowing_steps,
+        minimal_dry_steps=extent.minimal_dry_steps,
+        year_quorum=extent.year_quorum,
+    )
+    options = _scoring_options(output)
+    bounds: list[tuple[Bound, Any, Any, Any, str, float]] = [
+        (
+            "maximal",
+            geometry,
+            maps.maximal_source,
+            maps.maximal_projection,
+            MAXIMAL_SUFFIX,
+            float(extent.weights.maximal),
+        )
+    ]
+    if maps.minimal is not None:
+        bounds.insert(
+            0,
+            (
+                "minimal",
+                maps.minimal,
+                maps.minimal_source,
+                maps.minimal_projection,
+                MINIMAL_SUFFIX,
+                float(extent.weights.minimal),
+            ),
+        )
+    threshold = geometry.threshold_m3_s
+    pair: list[float] = []
+    components: dict[str, float] = {}
+    for bound, bound_geometry, source, projection, suffix, weight in bounds:
+        scored = score_on_geometry(
+            masks.network(bound, threshold_m3_s=threshold), bound_geometry, **options
+        )
+        _refuse_an_unreachable_support(name, output, scored, bound=bound)
+        described = _map_components(scored, bound_geometry, source, projection)
+        if len(bounds) == 1:
+            pair.extend(weighted_pair(scored))
+            components.update(described)
+        else:
+            pair.extend(weighted_pair(scored, weight))
+            components[f"weight{suffix}"] = weight
+        components.update(with_suffix(described, suffix))
+        for year in masks.years:
+            yearly = score_on_geometry(
+                masks.network(bound, threshold_m3_s=threshold, year=year),
+                bound_geometry,
+                **options,
+            )
+            components[f"J_signed{suffix}_y{year}"] = float(yearly.signed_gap)
+            components[f"n_network_sim{suffix}_y{year}"] = yearly.components["n_network_sim"]
+    components.update(
+        {
+            **{f"year_scored_y{year}": 1.0 for year in years.years},
+            **{f"year_scored_y{year}": 0.0 for year in (*years.incomplete, *years.outside_window)},
+            "n_years_scored": float(len(masks.years)),
+            "n_years_outside_window": float(len(years.outside_window)),
+            "n_years_required": float(masks.n_years_required),
+            "first_year_scored": float(masks.years[0]),
+            "last_year_scored": float(masks.years[-1]),
+            "n_steps_min_per_year": float(years.n_steps.min()),
+            "year_quorum": float(extent.year_quorum),
+            "maximal_flowing_steps": float(extent.maximal_flowing_steps),
+            "minimal_dry_steps": float(extent.minimal_dry_steps),
+            "visible_flow_m3_s": visible.discharge_m3_s,
+            "visible_flow_outlet_share": visible.outlet_share,
+        }
+    )
+    logger.info(
+        "Output %s: %d bound(s) scored over %d complete year(s) %s%s, a cell entering a "
+        "mask in %d of them; maximal mask %d cell(s), minimal mask %d cell(s); flowing "
+        "means the closure of the seepage carrying at least %s.",
+        name,
+        len(bounds),
+        len(masks.years),
+        ", ".join(map(str, masks.years)),
+        (
+            f" (outside the scoring_window: {', '.join(map(str, years.outside_window))})"
+            if years.outside_window
+            else ""
+        ),
+        masks.n_years_required,
+        int(masks.maximal.sum()),
+        int(masks.minimal.sum()),
+        visible.label(),
+    )
+    return pair, components
+
+
 def score_network_output(
     run_ctx: RunContext,
     name: str,
@@ -489,60 +837,58 @@ def score_network_output(
     result: ObservableResult,
     *,
     saturated_thickness: ObservableResult | None = None,
+    time_bounds: Sequence[Any] | None = None,
+    scoring_window: tuple[Any, Any] | None = None,
 ) -> tuple[list[float], dict[str, float]]:
-    """Turn one per-cell release field into the pair ``(D_so, D_os)``.
+    """Turn one per-cell release field into the distances a block scores.
 
-    The pair is what a block scores; every other number the criterion produces
-    travels beside it as a diagnostic, which is how a session records thirty
-    quantities per trial without promoting a single run.
+    The value is the pair ``(D_so, D_os)`` of the bound in the cost, or, when
+    two bounds are, the four values ``w_min (D_so, D_os)_minimal`` then
+    ``w_max (D_so, D_os)_maximal``. Every other number the criterion produces
+    travels beside it as a diagnostic, prefixed with the output name, which is
+    how a session records thirty quantities per trial without promoting a
+    single run. The keys a search reads:
+
+    - ``n_bounds_scored``: 1 or 2, the bounds in the cost.
+    - one bound: ``J_signed``, ``D_so``, ``D_os``, ``Doptim``, ``roptim`` and
+      the rest, unsuffixed, plus the same set suffixed ``_minimal`` or
+      ``_maximal`` for the bound it is.
+    - two bounds: only the suffixed sets (``J_signed_minimal``,
+      ``J_signed_maximal``, ...), and ``weight_minimal``, ``weight_maximal``.
+    - one state with both maps: the maximal map suffixed
+      ``_maximal_validation``, outside the cost.
+    - the two-bound mode: ``J_signed_<bound>_y<year>`` per scored year,
+      ``year_scored_y<year>`` (1 scored, 0 left out) per year the run
+      touches, ``n_years_scored`` and the rules it applied.
+    - both maps: ``frac_minimal_outside_maximal``.
+    - every bound: ``roptim_valid`` (``Doptim <= validity_length_m``),
+      ``validity_length_m`` and ``validity_length_provenance``, the code of
+      :data:`hydromodpy.core.stream_geometry.VALIDITY_PROVENANCE_CODE`.
 
     ``saturated_thickness`` is the per-cell field of the same run. It feeds
-    :func:`catchment_saturation` only and never enters the pair.
+    :func:`catchment_saturation` only and never enters the value.
+    ``time_bounds`` are the run's time-grid bounds, which date the timesteps
+    of the two-bound mode. ``scoring_window`` is the phase's ``(start, end)``;
+    the two-bound mode scores only the complete years it holds, which is how
+    a spin-up year leaves the score. One state reads no time axis and ignores
+    it.
 
-    The static geometry is rebuilt here at every trial. It is one graph build
-    and three ``O(n_cells)`` passes, measured under a second on a seven
-    thousand cell mesh, which is nothing beside one solve; hoisting it would
-    mean caching mesh identity across forked trial contexts for no measurable
-    gain.
+    The static geometry is rebuilt here at every trial, once per map. It is
+    one graph build and three ``O(n_cells)`` passes, measured under a second on
+    a seven thousand cell mesh, which is nothing beside one solve; hoisting it
+    would mean caching mesh identity across forked trial contexts for no
+    measurable gain.
     """
     require_release_flux_unit(result.units, name=name)
-    geometry, observed_network, projection = geometry_from_run(run_ctx, output)
-    simulated = build_simulated_network(
-        result.values,
-        threshold_m3_s=geometry.threshold_m3_s,
-        metric=geometry.metric,
-    )
-    scored = seepage_distance_cost(
-        simulated=simulated,
-        observed=geometry.observed,
-        outlet=geometry.outlet,
-        catchment=geometry.catchment,
-        metric=geometry.metric,
-        distance_to_observed=geometry.distance_to_observed,
-        distance_to_observed_raw=geometry.distance_to_observed_raw,
-        cell_area_m2=geometry.cell_area_m2,
-        length_scale_m=geometry.length_scale_m,
-        saturation_cap_m=geometry.saturation_cap_m,
-        excluded=geometry.excluded,
-        weighting=output.weighting,
-        max_unreachable_fraction=float(output.max_unreachable_fraction),
-        roptim_max=float(output.roptim_max),
-    )
-    if scored.status == "failed":
-        raise ObjectiveError(
-            f"Output {name!r}: frac_unreachable_so = "
-            f"{scored.components.get('frac_unreachable_so', float('nan')):.1%} of the simulated "
-            "network never reaches the mapped one, over the "
-            f"{output.max_unreachable_fraction:.0%} bound. That target is fixed for the whole "
-            "search, so the trial cannot have shrunk it: the routing surface still holds "
-            "depressions, and averaging D_so over a support truncated by them is a fiction, "
-            "the cells dropped being never a random sample. Condition the surface, or raise "
-            "max_unreachable_fraction knowing what it buys. The reciprocal diagnostic, "
-            "frac_unreachable_os = "
-            f"{scored.components.get('frac_unreachable_os', float('nan')):.1%}, is reported and "
-            "not bounded: it descends onto the simulated network, which the search itself "
-            "retracts at the high end of its bracket."
+    maps = network_maps_from_run(run_ctx, output)
+    if output.extent is None:
+        pair, scored = _score_one_state(name, output, result, maps)
+        n_bounds = 1
+    else:
+        pair, scored = _score_two_bounds(
+            name, output, output.extent, result, maps, time_bounds, scoring_window
         )
+        n_bounds = len(pair) // 2
 
     # Eq. 4 is not read here. The paper reads it at the optimum, and a search
     # crosses trials far from it on the way: testing every trial warned on
@@ -550,29 +896,19 @@ def score_network_output(
     # closed. The runner reads roptim once, on the trial it returns.
 
     logger.info("Output %s scored with distance method %s.", name, DISTANCE_METHOD)
-
-    # The output of this criterion is the pair (D_so, D_os), two distances in
-    # metres, and not a series. D_so has no support when the network is empty,
-    # so it is rebuilt from D_os and the signed residual rather than read: that
-    # way the pair and the residual the bracket closes on cannot disagree.
-    d_os = float(scored.components["D_os"])
-    pair = [d_os + scored.signed_gap, d_os]
-    # Travel beside alpha_obs_closure: what qualifies the geometry the trial
-    # was scored against, not the trial itself.
-    network_provenance = {
-        "observed_network_clipped": 1.0 if observed_network.clipped else 0.0,
-        "observed_network_is_dem_derived": 1.0 if observed_network.dem_derived else 0.0,
-        # What the output's observed_rasterization drew: every cell the map
-        # holds on the mesh, and the reaches kept at their midpoint cell.
-        "n_observed_cells": float(int(projection.mask.sum())),
-        "n_observed_features_fallback": float(projection.n_fallback_parts),
-    }
+    geometry = maps.maximal
+    shared = {key: geometry.diagnostics[key] for key in SHARED_GEOMETRY_KEYS}
     diagnostics = {
         f"{name}.{key}": float(value)
         for key, value in {
-            **scored.components,
-            **geometry.diagnostics,
-            **network_provenance,
+            **scored,
+            **shared,
+            "n_bounds_scored": float(n_bounds),
+            **(
+                {"frac_minimal_outside_maximal": maps.frac_minimal_outside_maximal}
+                if maps.minimal is not None
+                else {}
+            ),
             **catchment_saturation(run_ctx, geometry, saturated_thickness),
             # One cell of the mesh scored here, the default width of the interval
             # a search on this criterion reports. Measured with the geometry, so
@@ -629,7 +965,12 @@ def _saturated_thickness_or_none(
     return served.get(request.id)
 
 
-def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> ExtractedOutputs:
+def extract_outputs(
+    ctx: Any,
+    outputs: Mapping[str, CalibOutputDecl],
+    *,
+    scoring_window: tuple[Any, Any] | None = None,
+) -> ExtractedOutputs:
     """Ask the flow adapter for every declared output, in one batch.
 
     One adapter resolution and one call per trial, whatever the number of
@@ -639,7 +980,10 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
 
     Returns the scored values per output and, beside them, the diagnostics the
     network criterion produces, which the caller merges into the components of
-    the trial.
+    the trial. ``scoring_window`` is the phase's ``(start, end)``. Only a
+    network output in the two-bound mode reads it here, to score the complete
+    years it holds; every other output is cut to it where it is paired with
+    its record.
     """
     resolved = resolve_flow_adapter(ctx)
     if resolved is None:
@@ -712,7 +1056,13 @@ def extract_outputs(ctx: Any, outputs: Mapping[str, CalibOutputDecl]) -> Extract
         if output.support == "network":
             thickness = _saturated_thickness_or_none(adapter, run_ctx, name, output, time_index)
             simulated[name], scored = score_network_output(
-                run_ctx, name, output, result, saturated_thickness=thickness
+                run_ctx,
+                name,
+                output,
+                result,
+                saturated_thickness=thickness,
+                time_bounds=time_grid_boundaries(ctx),
+                scoring_window=scoring_window,
             )
             diagnostics.update(scored)
             continue

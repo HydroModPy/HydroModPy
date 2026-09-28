@@ -30,7 +30,6 @@ from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.exceptions import ObjectiveError
 from hydromodpy.core.stream_geometry import (
     build_network_geometry,
-    reference_length,
     resolve_outlet,
 )
 from tests._helpers.ugrid_meshes import quad_mesh
@@ -181,12 +180,6 @@ class TestGeometry:
     def test_the_outlet_is_the_largest_drained_area(self, bench) -> None:
         assert resolve_outlet(bench.metric) == cell_id(N_ROWS - 1, AXIS_COL)
 
-    def test_the_reference_length_is_the_median_cell_size(self) -> None:
-        areas = np.array([100.0, 100.0, 10000.0])
-        support = np.ones(3, dtype=bool)
-        # The median, not the mean: one large buffer cell must not set the scale.
-        assert reference_length(areas, support) == pytest.approx(10.0)
-
     def test_the_data_diagnostics_are_reported(self, bench) -> None:
         vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
         geometry = build_network_geometry(
@@ -204,9 +197,10 @@ class TestGeometry:
         assert geometry.alpha_obs_closure == pytest.approx(1.0)
         assert geometry.frac_reachable_obs_raw == pytest.approx(1.0)
         assert geometry.diagnostics["n_outlet_sealed"] == 0.0
-        assert geometry.length_scale_m == pytest.approx(CELL_SIZE)
+        assert geometry.h_obs_m == pytest.approx(CELL_SIZE)
+        assert geometry.validity_length().length_m == pytest.approx(2.0 * CELL_SIZE)
 
-    def test_a_declared_accuracy_raises_the_reference_length(self, bench) -> None:
+    def test_a_declared_accuracy_widens_the_validity_length_only(self, bench) -> None:
         vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
         geometry = build_network_geometry(
             topography=bench.elevation,
@@ -220,8 +214,11 @@ class TestGeometry:
             observed_position_accuracy_m=75.0,
         )
         # The error floor comes from the network's own precision, which a finer
-        # mesh does not improve.
-        assert geometry.length_scale_m == pytest.approx(75.0)
+        # mesh does not improve. It widens Eq. 4, and roptim keeps h_obs.
+        assert geometry.h_obs_m == pytest.approx(CELL_SIZE)
+        validity = geometry.validity_length()
+        assert validity.length_m == pytest.approx(150.0)
+        assert validity.provenance == "declared_accuracy"
 
     def test_an_empty_projection_is_refused(self, bench) -> None:
         vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
@@ -311,7 +308,7 @@ class TestEndToEnd:
             bench,
             stream_file,
             200.0,
-            roptim_max=1e-6,
+            validity_length="1 mm",
             on_roptim_violation="error",
         )
         assert np.isfinite(simulated["net"][0])
@@ -320,9 +317,24 @@ class TestEndToEnd:
     def test_each_trial_still_records_the_ratio_and_its_verdict(
         self, monkeypatch, bench, stream_file
     ) -> None:
-        _, diagnostics = self._extract(monkeypatch, bench, stream_file, 200.0, roptim_max=1e-6)
-        assert diagnostics["net.roptim"] > 1e-6
+        _, diagnostics = self._extract(
+            monkeypatch, bench, stream_file, 200.0, validity_length="1 mm"
+        )
+        assert diagnostics["net.Doptim"] > 1e-3
         assert diagnostics["net.roptim_valid"] == 0.0
+        assert diagnostics["net.validity_length_m"] == pytest.approx(1e-3)
+        assert diagnostics["net.validity_length_provenance"] == 3.0
+
+    def test_an_auto_trial_publishes_two_cells_and_the_paper_ratio(
+        self, monkeypatch, bench, stream_file
+    ) -> None:
+        _, diagnostics = self._extract(monkeypatch, bench, stream_file, 200.0)
+        assert diagnostics["net.validity_length_m"] == pytest.approx(2.0 * CELL_SIZE)
+        assert diagnostics["net.validity_length_provenance"] == 0.0
+        assert diagnostics["net.roptim"] == pytest.approx(diagnostics["net.Doptim"] / CELL_SIZE)
+        assert diagnostics["net.roptim_valid"] == float(
+            diagnostics["net.Doptim"] <= 2.0 * CELL_SIZE
+        )
 
     def test_the_secondary_diagnostics_travel_beside_the_pair(
         self, monkeypatch, bench, stream_file
@@ -371,7 +383,7 @@ class TestTheRefusalOfAnUnreachableSupport:
                 "roptim": 0.0,
             },
         )
-        monkeypatch.setattr(_solver_extract, "seepage_distance_cost", lambda **kwargs: failed)
+        monkeypatch.setattr(_solver_extract, "score_on_geometry", lambda *args, **kwargs: failed)
         with pytest.raises(ObjectiveError) as excinfo:
             _extract(monkeypatch, bench, stream_file, 200.0)
         return str(excinfo.value)

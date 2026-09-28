@@ -9,12 +9,14 @@ declared.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_geometry import NetworkGeometry, build_network_geometry
+from hydromodpy.core.stream_snap import SnapStreamsConfig
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibOutputNetwork
@@ -69,58 +71,6 @@ def dense_face_connectivity(planar_mesh: Any) -> np.ndarray:
     return dense
 
 
-def cell_spacing_m(
-    cell_centroids: np.ndarray,
-    face_node_connectivity: np.ndarray,
-    *,
-    within: np.ndarray | None = None,
-) -> float:
-    """Return the size of one mesh cell: the median distance between neighbouring centres.
-
-    Two cells are neighbours when they share an edge, whatever the descent the
-    criterion routes on. ``within`` keeps the pairs whose two cells both lie in
-    it, the catchment the criterion scores, so the buffer cells of a refined
-    mesh do not set the size. A stream cannot move by less than one cell, which
-    is why this is the default width of an interval read on network distances.
-    ``reference_length`` (square root of the median cell area) normalises the
-    validity ratio; the width uses the centre spacing because a stream moves
-    from one cell centre to the next. The two agree on a square grid.
-    """
-    centres = np.asarray(cell_centroids, dtype=float)
-    rows = np.asarray(face_node_connectivity, dtype=np.int64)
-    if rows.ndim == 1:
-        rows = rows.reshape(1, -1)
-    rows = rows[: centres.shape[0]]
-    present = rows >= 0
-    # Nodes of each face moved to the front in ring order, so the node after
-    # slot j is slot (j + 1) modulo the face arity.
-    ring = np.take_along_axis(rows, np.argsort(~present, axis=1, kind="stable"), axis=1)
-    arity = present.sum(axis=1)
-    slots = np.arange(rows.shape[1])
-    following = np.take_along_axis(
-        ring, np.mod(slots[None, :] + 1, np.maximum(arity, 1)[:, None]), axis=1
-    )
-    drawn = (slots[None, :] < arity[:, None]) & (ring != following)
-    low = np.minimum(ring, following)[drawn]
-    high = np.maximum(ring, following)[drawn]
-    owner = np.broadcast_to(np.arange(rows.shape[0])[:, None], rows.shape)[drawn]
-    key = low * (int(rows.max(initial=0)) + 1) + high
-    order = np.argsort(key, kind="stable")
-    key, owner = key[order], owner[order]
-    shared = key[1:] == key[:-1]
-    first, second = owner[:-1][shared], owner[1:][shared]
-    keep = first != second
-    if within is not None:
-        inside = np.asarray(within, dtype=bool).reshape(-1)
-        keep &= inside[first] & inside[second]
-    delta = centres[first[keep]] - centres[second[keep]]
-    distances = np.hypot(delta[:, 0], delta[:, 1])
-    distances = distances[np.isfinite(distances)]
-    if distances.size == 0:
-        raise ValueError("the mesh holds no two neighbouring cells to measure a cell on.")
-    return float(np.median(distances))
-
-
 def aquifer_extent(
     run_ctx: RunContext, n_cells: int
 ) -> tuple[np.ndarray | None, np.ndarray | None]:
@@ -152,31 +102,95 @@ def aquifer_extent(
 def mesh_cell_m(run_ctx: RunContext, geometry: NetworkGeometry) -> float:
     """Return the size of one cell of the mesh a trial's network criterion scored.
 
-    Read on what :func:`geometry_from_run` already holds: the cell centres the
-    geometry routes on, the connectivity of the same solver mesh, and the
-    catchment it scores. Nothing else of the solver is asked.
+    It is ``h_obs``, the median distance between neighbouring cell centres over
+    the mapped cells of the catchment, the same length ``roptim`` is divided
+    by. The width of an interval and the validity ratio then read one scale,
+    measured where the distances start. On a regular grid it is the cell size.
+    ``run_ctx`` is not read: the geometry already holds the measure.
     """
-    planar_mesh = run_ctx.model.solver_mesh.planar_mesh
-    return cell_spacing_m(
-        geometry.metric.centroids,
-        dense_face_connectivity(planar_mesh),
-        within=geometry.catchment,
+    del run_ctx
+    return float(geometry.h_obs_m)
+
+
+def snap_settings(run_ctx: RunContext) -> SnapStreamsConfig | None:
+    """Return the ``[geographic.snap_streams]`` setting of the run, or None when off.
+
+    The snap is common to every consumer of the mapped network, so it is read
+    from the run configuration and not from the calibration output.
+    """
+    cfg = getattr(getattr(run_ctx, "state", None), "cfg", None)
+    setting = getattr(getattr(cfg, "geographic", None), "snap_streams", None)
+    if setting is None or not setting.enabled:
+        return None
+    return setting
+
+
+@dataclass(frozen=True)
+class NetworkMaps:
+    """The geometry of every map one network output is scored against.
+
+    ``maximal`` is built on the union of the maximal and the minimal maps, so
+    the maximal map contains the minimal one even where the two files
+    disagree; ``frac_minimal_outside_maximal`` publishes by how much they
+    did, as the share of the minimal cells of the scored catchment the
+    maximal map misses. ``maximal_projection`` is the projection of that
+    union, so the cells counted beside the maximal bound are the cells
+    scored. ``minimal`` and its companions are None when the output
+    declares no minimal map, and the share is NaN.
+
+    The two geometries share the surface, the outlet and the catchment, which
+    depend on the topography alone; they differ by the map drawn on them and
+    everything read from it.
+    """
+
+    maximal: NetworkGeometry
+    maximal_source: ObservedNetwork
+    maximal_projection: ObservedNetworkMask
+    minimal: NetworkGeometry | None = None
+    minimal_source: ObservedNetwork | None = None
+    minimal_projection: ObservedNetworkMask | None = None
+    frac_minimal_outside_maximal: float = float("nan")
+
+
+def union_projection(
+    maximal: ObservedNetworkMask, minimal: ObservedNetworkMask
+) -> ObservedNetworkMask:
+    """Return the projection of the union of two maps drawn with one rasterization.
+
+    The mask is the union of the two masks. The reach counts add up, since
+    each counts reaches of its own file.
+    """
+    from hydromodpy.calibration.observations.observed_network import ObservedNetworkMask
+
+    return ObservedNetworkMask(
+        mask=np.asarray(maximal.mask, dtype=bool) | np.asarray(minimal.mask, dtype=bool),
+        rasterization=maximal.rasterization,
+        n_fallback_parts=int(maximal.n_fallback_parts) + int(minimal.n_fallback_parts),
+        n_outside_parts=int(maximal.n_outside_parts) + int(minimal.n_outside_parts),
     )
 
 
-def geometry_from_run(
-    run_ctx: RunContext, output: CalibOutputNetwork
-) -> tuple[NetworkGeometry, ObservedNetwork, ObservedNetworkMask]:
-    """Build the static geometry from the model a trial just ran.
+def share_outside(inner: np.ndarray, outer: np.ndarray, within: np.ndarray) -> float:
+    """Return the share of ``inner`` cells of ``within`` that ``outer`` misses, NaN if none."""
+    inside = np.asarray(inner, dtype=bool).reshape(-1) & np.asarray(within, dtype=bool).reshape(-1)
+    total = int(inside.sum())
+    if total == 0:
+        return float("nan")
+    missed = inside & ~np.asarray(outer, dtype=bool).reshape(-1)
+    return float(missed.sum() / total)
 
-    The observed network is resolved exactly ONCE here, from whichever of the
-    three sources the output declares, and threaded into the mask projection:
-    neither this function nor its caller re-resolves it. The resolution is
-    returned alongside the geometry because its provenance (clipped,
-    DEM-derived) is a trial diagnostic that ``NetworkGeometry`` itself does not
-    carry. The projection is returned for the same reason: how many cells the
-    output's ``observed_rasterization`` drew, and how many reaches it kept at
-    their midpoint cell.
+
+def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> NetworkMaps:
+    """Build the static geometry of every map the output declares, from the model a trial ran.
+
+    Each map is resolved exactly ONCE here, from whichever source the output
+    declares, and threaded into its mask projection: neither this function
+    nor its caller re-resolves it. The resolutions are returned alongside the
+    geometries because their provenance (clipped, DEM-derived) is a trial
+    diagnostic that ``NetworkGeometry`` itself does not carry. The projections
+    are returned for the same reason: how many cells the output's
+    ``observed_rasterization`` drew, and how many reaches it kept at their
+    midpoint cell.
 
     Every attribute read here is named in the error it raises when missing, so
     a backend that does not expose one says which one rather than failing deep
@@ -187,6 +201,7 @@ def geometry_from_run(
         delineated_catchment_mask,
         delineated_outlet_xy,
         observed_network_mask,
+        resolve_minimal_network,
         water_body_mask,
     )
 
@@ -211,9 +226,10 @@ def geometry_from_run(
     # generator seeds written to the DISV file, which is where the mesh
     # sampled the top the criterion routes on. The crossing rule joins them.
     centres = np.asarray(solver_mesh.cell_centroids(), dtype=float)
-    # Resolved once per trial. Neither the mask projection below nor the
-    # caller in metrics/solver_extract.py re-resolves it.
+    # Resolved once per trial. Neither the mask projections below nor the
+    # caller in metrics/solver_extract.py re-resolves them.
     resolved = resolve_observed_network(run_ctx, output)
+    minimal_source = resolve_minimal_network(run_ctx, output)
     # The criterion routes on the TOPOGRAPHIC surface, never on the model's
     # active domain: section 4.4 measures 0.03 to 2.5 per cent of unreachable
     # cells on the first against 10.5 to 14.4 on the second. Cutting the graph
@@ -230,35 +246,90 @@ def geometry_from_run(
         rasterization=output.observed_rasterization,
         cell_centres=centres,
     )
-
-    # The model top, conditioned on the mesh graph by build_network_geometry.
-    # Sampling the raster the geographic step conditioned is NOT equivalent:
-    # that surface is pit-free on its own grid, and reading it at mesh centroids
-    # both grows new pits and drops the cells whose centroid falls on nodata.
-    # Measured on the Nancon, the sampled route left 51.9 per cent of the
-    # simulated support unreachable against 0.0 per cent for the flood on the
-    # mesh graph itself. The raster polygon and the snapped outlet only place
-    # the outlet on that graph; the catchment is read there.
-    geometry = build_network_geometry(
-        topography=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
-        face_node_connectivity=connectivity,
-        vertices=np.asarray(planar_mesh.vertices, dtype=float),
-        observed=projection.mask,
-        cell_area_m2=np.asarray(solver_mesh.cell_areas(), dtype=float).reshape(-1),
-        cell_centroids=centres,
-        mean_recharge_m_s=mean_recharge_m_s(model),
-        tau_specific_ratio=float(output.tau_specific_ratio),
-        inactive_mask=inactive,
-        excluded=water_body_mask(model, n_cells=int(solver_mesh.n_cells)),
-        delineated_catchment=delineated_catchment_mask(run_ctx, planar_mesh, connectivity),
-        delineated_outlet_xy=delineated_outlet_xy(run_ctx),
-        diagonal_neighbors=bool(output.diagonal_neighbors),
-        observed_position_accuracy_m=_accuracy_in_m(output),
-        alpha_warning_threshold=float(output.alpha_warning_threshold),
-        clipping_warning_share=float(output.clipping_warning_share),
-        clipping_warning_gap=float(output.clipping_warning_gap),
+    minimal_projection = (
+        None
+        if minimal_source is None
+        else observed_network_mask(
+            run_ctx,
+            minimal_source,
+            planar_mesh,
+            connectivity,
+            rasterization=output.observed_rasterization,
+            cell_centres=centres,
+        )
     )
-    return geometry, resolved, projection
+
+    # Read once and shared by both maps: none of it depends on the map.
+    topography = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
+    vertices = np.asarray(planar_mesh.vertices, dtype=float)
+    areas = np.asarray(solver_mesh.cell_areas(), dtype=float).reshape(-1)
+    recharge = mean_recharge_m_s(model)
+    excluded = water_body_mask(model, n_cells=int(solver_mesh.n_cells))
+    polygon = delineated_catchment_mask(run_ctx, planar_mesh, connectivity)
+    outlet_xy = delineated_outlet_xy(run_ctx)
+    # One snap setting for every map: in 'apply' each map is scored snapped.
+    snap = snap_settings(run_ctx)
+
+    def on_map(observed: np.ndarray) -> NetworkGeometry:
+        # The model top, conditioned on the mesh graph by build_network_geometry.
+        # Sampling the raster the geographic step conditioned is NOT equivalent:
+        # that surface is pit-free on its own grid, and reading it at mesh
+        # centroids both grows new pits and drops the cells whose centroid falls
+        # on nodata. Measured on the Nancon, the sampled route left 51.9 per cent
+        # of the simulated support unreachable against 0.0 per cent for the flood
+        # on the mesh graph itself. The raster polygon and the snapped outlet
+        # only place the outlet on that graph; the catchment is read there.
+        return build_network_geometry(
+            topography=topography,
+            face_node_connectivity=connectivity,
+            vertices=vertices,
+            observed=observed,
+            cell_area_m2=areas,
+            cell_centroids=centres,
+            mean_recharge_m_s=recharge,
+            tau_specific_ratio=float(output.tau_specific_ratio),
+            inactive_mask=inactive,
+            excluded=excluded,
+            delineated_catchment=polygon,
+            delineated_outlet_xy=outlet_xy,
+            diagonal_neighbors=bool(output.diagonal_neighbors),
+            observed_position_accuracy_m=_accuracy_in_m(output),
+            alpha_warning_threshold=float(output.alpha_warning_threshold),
+            clipping_warning_share=float(output.clipping_warning_share),
+            clipping_warning_gap=float(output.clipping_warning_gap),
+            snap=snap,
+            weighting=output.weighting,
+        )
+
+    if minimal_projection is None:
+        return NetworkMaps(
+            maximal=on_map(projection.mask),
+            maximal_source=resolved,
+            maximal_projection=projection,
+        )
+    # The maximal map contains the minimal one by definition. Two files that
+    # disagree are scored on their union, and the gap is published. The
+    # projection kept for the maximal map is the union too, so the cell counts
+    # published beside it describe the map actually scored.
+    union = union_projection(projection, minimal_projection)
+    maximal = on_map(union.mask)
+    minimal = on_map(minimal_projection.mask)
+    outside = share_outside(minimal_projection.mask, projection.mask, maximal.catchment)
+    if np.isfinite(outside) and outside > 0.0:
+        logger.warning(
+            "The minimal map holds %.1f%% of its catchment cells outside the maximal map. "
+            "The maximal map is scored as the union of the two.",
+            100.0 * outside,
+        )
+    return NetworkMaps(
+        maximal=maximal,
+        maximal_source=resolved,
+        maximal_projection=union,
+        minimal=minimal,
+        minimal_source=minimal_source,
+        minimal_projection=minimal_projection,
+        frac_minimal_outside_maximal=outside,
+    )
 
 
 def _accuracy_in_m(output: CalibOutputNetwork) -> float | None:
@@ -273,10 +344,12 @@ def _accuracy_in_m(output: CalibOutputNetwork) -> float | None:
 
 
 __all__ = (
+    "NetworkMaps",
     "aquifer_extent",
-    "cell_spacing_m",
     "dense_face_connectivity",
-    "geometry_from_run",
     "mean_recharge_m_s",
     "mesh_cell_m",
+    "network_maps_from_run",
+    "share_outside",
+    "snap_settings",
 )

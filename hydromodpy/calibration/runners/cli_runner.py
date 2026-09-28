@@ -92,6 +92,8 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.interrupts import TerminationRequested, terminate_as_interrupt
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_BY_CODE
+from hydromodpy.core.stream_snap import SNAP_MODE_CODE
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.optim.engine import CalibrationSession
@@ -114,14 +116,22 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     file. Reading it raw instead made a ``[calibration]`` section inherited from
     a base configuration invisible here while the pipeline resolved it, so a
     calibration overlay of two lines failed on "No [calibration] section".
+
+    The legacy keys are migrated in memory first, as the project loader does,
+    so a file ``hmp doctor --fix-config`` would fix also runs unfixed.
     """
     from pydantic import ValidationError
 
+    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.core.toml_io.error_locator import format_validation_error
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     raw = load_toml_with_base_config(path)
+    try:
+        get_root_config_provider().migrate_on_load(raw, source=path)
+    except ValueError as exc:
+        raise ConfigError(f"{path}: {exc}") from None
     if "calibration" not in raw:
         raise ValueError(f"No [calibration] section in {path}")
     try:
@@ -177,7 +187,10 @@ def _resolve_parameter_names(cfg: CalibrationConfig, config_path: Path) -> None:
 
 
 def resolve_stream_geometry_paths(cfg: CalibrationConfig, config_path: Path) -> None:
-    """Anchor every relative ``stream_geometry_path`` to the file that declares it.
+    """Anchor every relative geometry path of an output to the file that declares it.
+
+    Both maps are anchored: ``stream_geometry_path``, the maximal one, and
+    ``minimal_stream_geometry_path``, the minimal one.
 
     A path in a TOML is relative to that TOML, the way ``base_config`` is, and a
     bare filename falls back to ``<project>/data/hydrography/`` like every other
@@ -196,24 +209,28 @@ def resolve_stream_geometry_paths(cfg: CalibrationConfig, config_path: Path) -> 
     """
     base = config_path.expanduser().resolve().parent
     for output in cfg.outputs.values():
-        # An output that names its source carries no path, the model refusing both
-        # at once, so the check below already skips it. It also skips every output
-        # that has no such field at all, which is every support but 'network'.
-        declared = getattr(output, "stream_geometry_path", None)
-        if not declared or Path(declared).is_absolute():
-            continue
-        candidate = Path(declared)
-        found = next(
-            (
-                trial
-                for root in (base, base.parent, base.parent.parent)
-                for trial in (root / candidate, root / "data" / "hydrography" / candidate.name)
-                if trial.exists()
-            ),
-            None,
-        )
-        if found is not None:
-            output.stream_geometry_path = str(found.resolve())
+        # The minimal map is anchored the same way as the maximal one: both are
+        # files the same TOML names.
+        for field in ("stream_geometry_path", "minimal_stream_geometry_path"):
+            # An output that names its source carries no path, the model refusing
+            # both at once, so the check below already skips it. It also skips
+            # every output that has no such field at all, which is every support
+            # but 'network'.
+            declared = getattr(output, field, None)
+            if not declared or Path(declared).is_absolute():
+                continue
+            candidate = Path(declared)
+            found = next(
+                (
+                    trial
+                    for root in (base, base.parent, base.parent.parent)
+                    for trial in (root / candidate, root / "data" / "hydrography" / candidate.name)
+                    if trial.exists()
+                ),
+                None,
+            )
+            if found is not None:
+                setattr(output, field, str(found.resolve()))
 
 
 def _api_isolation_needed(parallel: int) -> bool:
@@ -750,6 +767,39 @@ def _conductivity_unit(trial_ctx: Any, param: CalibParameter) -> str:
     return "m/s"
 
 
+def _snap_verdict(
+    name: str, found: Mapping[str, float], *, suffix: str = ""
+) -> dict[str, Any] | None:
+    """Return the displacement half of Eq. 4 when the output scored a snapped map.
+
+    Only ``[geographic.snap_streams] mode = "apply"`` adds it: roptim is then
+    read on the snapped map, and the map itself must not have moved further
+    than ``max_displacement_p90`` on its 90th percentile, nor lost more than
+    ``max_rejected_share`` of its cells. ``diagnose`` scores the raw map and
+    adds nothing to the verdict. ``suffix`` reads the indices of one map of
+    an output scored on several (``_minimal``, ``_maximal``).
+    """
+    if float(found.get(f"{name}.snap_mode{suffix}", 0.0)) != SNAP_MODE_CODE["apply"]:
+        return None
+    values = {
+        key: float(found.get(f"{name}.snap_{key}{suffix}", float("nan")))
+        for key in (
+            "displacement_p90_m",
+            "displacement_bound_m",
+            "rejected_share",
+            "rejected_share_max",
+            "floor_m",
+        )
+    }
+    valid = (
+        math.isfinite(values["displacement_p90_m"])
+        and values["displacement_p90_m"] <= values["displacement_bound_m"]
+        and math.isfinite(values["rejected_share"])
+        and values["rejected_share"] <= values["rejected_share_max"]
+    )
+    return {**values, "valid": valid}
+
+
 def _roptim_verdict_extra(
     outputs: Mapping[str, Any] | None,
     components: Mapping[str, float] | None,
@@ -758,56 +808,137 @@ def _roptim_verdict_extra(
 
     The paper reads ``roptim <= 2`` at the optimum ("At this point", HESS
     27, p. 3225), and so does this: a trial on the way to the root is not the
-    result, and bounding it refused whole brackets. Each trial still carries
-    ``<output>.roptim`` and ``<output>.roptim_valid`` as components.
+    result, and bounding it refused whole brackets. The bound is a length:
+    ``Doptim <= validity_length_m``, which each trial publishes with its
+    provenance beside ``roptim`` and ``roptim_valid``. ``roptim`` is still
+    ``Doptim / h_obs``, the paper's Eq. 3, for comparison with its Table 1.
 
-    Returns ``{"roptim_verdict": {output: {value, bound, L_ref, Doptim,
-    valid}}}``, or nothing when no network output published a ``roptim``. A
-    value above its bound warns once. With ``on_roptim_violation = "error"``
-    it raises :class:`CalibrationError`; the caller has already saved the
+    Returns ``{"roptim_verdict": {key: {value, Doptim, h_obs_m,
+    validity_length_m, provenance, valid, causes}}}``, or nothing when no
+    network output published a ``roptim``. ``causes`` lists what failed:
+    ``"doptim"`` (Doptim above the length), ``"snap"`` (the displacement
+    bound of ``[geographic.snap_streams] mode = "apply"``, under ``snap``) and
+    ``"empty"`` (no simulated network at the returned trial, so nothing to
+    qualify). A failure warns once. With ``on_roptim_violation = "error"`` it
+    raises :class:`CalibrationError`; the caller has already saved the
     session, and a staged calibration stops there, before freezing anything.
-    A ``roptim`` that is not a number, an empty network at the returned
-    trial, is not qualified and counts as a violation.
+
+    An output scored on two bounds has no unsuffixed ``roptim``: Eq. 4 is
+    read on each bound in the cost, under ``<output>_minimal`` and
+    ``<output>_maximal`` (:func:`_roptim_reads`), each against its own length.
     """
     found = components or {}
     verdicts: dict[str, dict[str, Any]] = {}
     fatal: list[str] = []
-    for name, output in sorted((outputs or {}).items()):
-        if output.support != "network" or f"{name}.roptim" not in found:
+    reads = [
+        (name, output, key, suffix)
+        for name, output in sorted((outputs or {}).items())
+        if output.support == "network"
+        for key, suffix in _roptim_reads(name, found)
+    ]
+    for name, output, key, suffix in reads:
+        verdict = _eq4_verdict(name, found, suffix=suffix)
+        verdicts[key] = verdict
+        if verdict["valid"]:
             continue
-        value = float(found[f"{name}.roptim"])
-        bound = float(output.roptim_max)
-        length = float(found.get(f"{name}.L_ref", float("nan")))
-        optimal = float(found.get(f"{name}.Doptim", float("nan")))
-        valid = math.isfinite(value) and value <= bound
-        verdicts[name] = {
-            "value": value if math.isfinite(value) else None,
-            "bound": bound,
-            "L_ref": length if math.isfinite(length) else None,
-            "Doptim": optimal if math.isfinite(optimal) else None,
-            "valid": valid,
-        }
-        if valid:
-            continue
-        if math.isfinite(value):
-            message = (
-                f"Output {name!r}: roptim = {value:.3g} exceeds the bound {bound:.3g}: the "
-                f"mean mismatch Doptim = {optimal:.4g} m is more than {bound:.3g} times "
-                f"L_ref = {length:.4g} m. L_ref is the cell size, floored by "
-                "observed_position_accuracy when the output declares one. It qualifies the "
-                "calibrated value; it does not say the value is wrong."
-            )
-        else:
-            message = (
-                f"Output {name!r}: roptim is not a number at the returned trial, so the "
-                f"bound {bound:.3g} cannot qualify it: the simulated network is empty there."
-            )
+        message = _eq4_violation_message(key, verdict)
         logger.warning(message)
         if output.on_roptim_violation == "error":
             fatal.append(message)
     if fatal:
         raise CalibrationError(" ".join(fatal))
     return {"roptim_verdict": verdicts} if verdicts else {}
+
+
+def _finite_or_none(value: float) -> float | None:
+    return value if math.isfinite(value) else None
+
+
+def _eq4_verdict(name: str, found: Mapping[str, float], *, suffix: str) -> dict[str, Any]:
+    """Return the Eq. 4 verdict of one bound of one output, from its components."""
+    value = float(found[f"{name}.roptim{suffix}"])
+    optimal = float(found.get(f"{name}.Doptim{suffix}", float("nan")))
+    h_obs = float(found.get(f"{name}.L_ref{suffix}", float("nan")))
+    length = float(found.get(f"{name}.validity_length_m{suffix}", float("nan")))
+    code = float(found.get(f"{name}.validity_length_provenance{suffix}", float("nan")))
+    causes: list[str] = []
+    if not math.isfinite(optimal):
+        causes.append("empty")
+    elif not (math.isfinite(length) and optimal <= length):
+        causes.append("doptim")
+    snap = _snap_verdict(name, found, suffix=suffix)
+    if snap is not None and not snap["valid"]:
+        causes.append("snap")
+    verdict: dict[str, Any] = {
+        "value": _finite_or_none(value),
+        "Doptim": _finite_or_none(optimal),
+        "h_obs_m": _finite_or_none(h_obs),
+        "validity_length_m": _finite_or_none(length),
+        "provenance": VALIDITY_PROVENANCE_BY_CODE.get(code),
+        "valid": not causes,
+        "causes": causes,
+    }
+    if snap is not None:
+        verdict["snap"] = snap
+    return verdict
+
+
+def _eq4_violation_message(key: str, verdict: Mapping[str, Any]) -> str:
+    """Say why Eq. 4 fails on one bound, naming every cause."""
+    length = verdict["validity_length_m"]
+    bound = f"{length:.4g} m" if length is not None else "not published"
+    if "empty" in verdict["causes"]:
+        return (
+            f"Output {key!r}: Doptim is not a number at the returned trial, so the validity "
+            f"length {bound} cannot qualify it: the simulated network is empty there."
+        )
+    parts: list[str] = []
+    if "doptim" in verdict["causes"]:
+        ratio = verdict["value"]
+        parts.append(
+            f"the mean mismatch Doptim = {verdict['Doptim']:.4g} m exceeds the validity "
+            f"length {bound} ({verdict['provenance'] or 'provenance unknown'}), roptim = "
+            + (f"{ratio:.3g} cells of h_obs" if ratio is not None else "not a number")
+        )
+    snap = verdict.get("snap")
+    if "snap" in verdict["causes"] and snap is not None:
+        parts.append(
+            "the snap moved the map too far to vouch for it: p90 displacement "
+            f"{snap['displacement_p90_m']:.4g} m against {snap['displacement_bound_m']:.4g} m, "
+            f"{snap['rejected_share']:.1%} of the mapped cells rejected against "
+            f"{snap['rejected_share_max']:.0%}; the map sits far from the talwegs of the model "
+            "top, read the floor snap_floor_m and the snap figures"
+        )
+    return (
+        f"Output {key!r}: Eq. 4 fails: "
+        + "; and ".join(parts)
+        + ". It qualifies the calibrated value; it does not say the value is wrong."
+    )
+
+
+def _roptim_reads(name: str, found: Mapping[str, float]) -> list[tuple[str, str]]:
+    """Return ``(verdict key, component suffix)`` for each roptim Eq. 4 reads on an output.
+
+    One bound in the cost: the unsuffixed ``roptim``, keyed by the output.
+    Two bounds: each bound weighted above zero, keyed ``<output>_<bound>``.
+    The maximal map of a one-state output with both maps is a validation
+    outside the cost, and is not read here.
+    """
+    from hydromodpy.calibration.optim.adapters.bisection_adapter import (
+        BOUNDS_COMPONENT,
+        ROOT_BOUNDS,
+    )
+
+    if f"{name}.roptim" in found:
+        return [(name, "")]
+    if float(found.get(f"{name}.{BOUNDS_COMPONENT}", 1.0)) < 2.0:
+        return []
+    return [
+        (f"{name}_{bound}", f"_{bound}")
+        for bound in ROOT_BOUNDS
+        if f"{name}.roptim_{bound}" in found
+        and float(found.get(f"{name}.weight_{bound}", 1.0)) > 0.0
+    ]
 
 
 def _network_ratios_extra(
@@ -892,6 +1023,12 @@ def _search_outcome_extra(session: CalibrationSession) -> dict[str, Any]:
     ``bracket`` exists only for the root search: the interval whose two ends
     change sign, in physical units, which is what the search proved about the
     root beyond the trial it returns.
+
+    A root search on two bounds publishes ``roots`` instead
+    (:meth:`~hydromodpy.calibration.optim.adapters.bisection_adapter.
+    BisectionAdapter.roots_record`): per bound its root ``k_star``, weight
+    and final bracket, then ``delta_log10 = log10(K*_maximal / K*_minimal)``
+    and the combined ``value``, the trial the search returns.
     """
     from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
 
@@ -908,7 +1045,55 @@ def _search_outcome_extra(session: CalibrationSession) -> dict[str, Any]:
         bracket = session.optimizer.bracket_record()
         if bracket is not None:
             extra["bracket"] = bracket
+        roots = session.optimizer.roots_record()
+        if roots is not None:
+            extra["roots"] = roots
+            _log_the_two_roots(roots)
     return extra
+
+
+def _closes_two_roots(session: CalibrationSession) -> bool:
+    """Whether the search closed one root per bound, and says so once.
+
+    Its value lies between two roots, where the weighted cost is not smallest,
+    so an interval of trials scoring within a width of the lowest cost would
+    sit around one of the roots and not around the value. The width of such an
+    answer is the spread of its roots, published under ``roots``.
+    """
+    from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
+
+    optimizer = session.optimizer
+    if not isinstance(optimizer, BisectionAdapter) or optimizer.roots != 2:
+        return False
+    logger.info(
+        "No interval of trials is reported around a value combined from two roots: its "
+        "width is the spread between them, Delta, reported with the roots."
+    )
+    return True
+
+
+def _log_the_two_roots(roots: Mapping[str, Any]) -> None:
+    """Say the two roots, their spread and the value returned between them."""
+    minimal, maximal = roots["minimal"], roots["maximal"]
+    delta = roots.get("delta_log10")
+    value = roots.get("value")
+    logger.info(
+        "%s: K*_minimal = %.6g (bracket [%.6g, %.6g]), K*_maximal = %.6g (bracket "
+        "[%.6g, %.6g]), Delta = %s decade(s); returned %s = %s, their geometric mean "
+        "weighted %.3g / %.3g.",
+        roots["parameter"],
+        minimal["k_star"],
+        minimal["low"],
+        minimal["high"],
+        maximal["k_star"],
+        maximal["low"],
+        maximal["high"],
+        f"{delta:.3g}" if delta is not None else "unknown",
+        roots["parameter"],
+        f"{value:.6g}" if value is not None else "not solved",
+        minimal["weight"],
+        maximal["weight"],
+    )
 
 
 def _status_of_the_search(
@@ -1087,12 +1272,26 @@ def attach_a_linearized_width(
 
 
 def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: Any) -> dict:
-    """Return everything the engine is constructed with beyond the space and the seed."""
+    """Return everything the engine is constructed with beyond the space and the seed.
+
+    A root search is also told how many roots its network outputs score, so
+    its budget counts both when an output is scored on two bounds.
+    """
+    from hydromodpy.calibration.optim.adapters.bisection_adapter import (
+        BisectionAdapter,
+        roots_scored,
+    )
+
     kwargs = stopping_kwargs(
         cfg.method, space, tolerance=cfg.tolerance, declared=cfg.optimizer_kwargs
     )
     if start_at is not None and engine_traits(cfg.method).accepts_a_start_point:
         kwargs["start_at"] = start_at
+    if cfg.method == BisectionAdapter.name:
+        declared = cfg.outputs or {}
+        kwargs["roots"] = roots_scored(
+            declared[name] for name in _network_outputs_of(cfg) if name in declared
+        )
     return kwargs
 
 
@@ -1485,7 +1684,11 @@ def run_calibration_core(
         best,
         session.history,
     )
-    intervals = _tolerance_intervals_or_none(trace, names, space, width)
+    intervals = (
+        []
+        if _closes_two_roots(session)
+        else _tolerance_intervals_or_none(trace, names, space, width)
+    )
     if correlated:
         for first, second, coefficient in correlated:
             logger.warning(

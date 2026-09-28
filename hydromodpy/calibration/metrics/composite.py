@@ -310,10 +310,10 @@ def build_metric_extractor(
     route taken whenever no ``objective_blocks`` are declared.
 
     ``warmup_periods`` reaches both branches. ``scoring_window`` bounds the
-    scored samples in dates, which only the single-metric branch can do: the
-    composite branch scores plain value vectors that carry no time axis to cut
-    on, so a window declared with objective blocks is refused rather than
-    ignored.
+    scored samples in dates. On the composite branch it cuts the outputs that
+    name a station and picks the years of a two-bound network output; a block
+    on any other output carries no time axis to cut on, so the window is
+    refused there rather than ignored.
     """
     if outputs and objective_blocks:
         return _build_composite_metric_extractor(
@@ -410,7 +410,7 @@ def _build_composite_metric_extractor(
         # NotImplementedError is a RuntimeError, which is why catching the
         # latter to "pass typed errors through" would swallow the former.
         try:
-            extracted = extract_outputs(trial_ctx, outputs)
+            extracted = extract_outputs(trial_ctx, outputs, scoring_window=scoring_window)
         except Exception:
             logger.exception("Output extraction failed")
             raise
@@ -530,7 +530,7 @@ def build_paired_vector_capture(
     def metric_fn(trial_ctx: Any, *, objective: Any = None, variable: Any = None):
         del objective, variable
         paired = scorer.pair(
-            extract_outputs(trial_ctx, outputs).observables,
+            extract_outputs(trial_ctx, outputs, scoring_window=scoring_window).observables,
             boundaries=time_grid_boundaries(trial_ctx),
         )
         order = sorted(paired.simulated)

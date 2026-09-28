@@ -288,7 +288,7 @@ class TestTheExtractor:
         monkeypatch.setattr(
             composite,
             "extract_outputs",
-            lambda ctx, outputs: ExtractedOutputs(
+            lambda ctx, outputs, scoring_window=None: ExtractedOutputs(
                 observables={
                     "outlet": ObservableResult("outlet", np.asarray(sim_outlet), "m3/s", times),
                     "piezo": ObservableResult("piezo", np.asarray(sim_piezo), "m", head_times),

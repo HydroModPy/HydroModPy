@@ -261,7 +261,7 @@ support = "network"
 stream_geometry_path = "nancon_stream_network.gpkg"
 weighting = "area"
 tau_specific_ratio = 1.0e-4
-roptim_max = 2.0
+validity_length = "auto"
 time = "last"
 observed_position_accuracy = "50 m"
 # Explicite depuis la version 1.1 du protocole (le defaut est passe a true) :

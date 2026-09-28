@@ -126,6 +126,192 @@ comfortably inside its own. A simulated network holding its cells by
 construction never retracts, and the criterion then balances against a fixed
 skeleton.
 
+Snapping the mapped network
+---------------------------
+
+Burning conditions the *routing surface* so its D8 paths follow the mapped
+network; it never moves the map. ``[geographic.snap_streams]`` does the
+opposite: it moves the map, cell by cell, onto the talwegs the criterion
+graph already carries, and publishes what the move cost. The two repairs
+answer different questions and neither replaces the other: a network burned
+into the routing raster can still sit off the mesh's own talwegs once the
+mesh floods that raster back (see "Before you start" above), and a snapped
+map still measures a genuine hydrogeological disagreement wherever it was
+never off-talweg to begin with.
+
+Off by default, three modes:
+
+.. code-block:: toml
+
+   [geographic.snap_streams]
+   mode = "diagnose"
+   radius = "2 cells"
+   max_displacement_p90 = "1 cell"
+   max_rejected_share = 0.10
+
+``off``
+   Computes nothing. Every trial publishes exactly what it published before
+   the snap existed.
+``diagnose``
+   Computes the snapped map, its displacement, its rejected cells, the length
+   change and the floor ``F`` (below), and publishes them — but still scores
+   the **raw** map, so nothing about the calibrated value changes.
+``apply``
+   Scores the **snapped** map. Equation 4 then also asks the 90th percentile
+   of the displacement and the share of rejected cells to stay within their
+   bounds, on top of ``Doptim <= validity_length``.
+
+``radius`` and ``max_displacement_p90`` are lengths: a Pint length such as
+``"200 m"``, or a count of cells such as ``"2 cells"`` — one cell being
+``h_obs`` (below), so the same TOML means the same number of mesh cells at
+every resolution. Two cells is the outlet-snapping distance of the paper's
+own ``SnapPourPoints``. It sits under ``[geographic]``, beside
+``enforce_streams``, because it is common to every consumer of the mapped
+network — the criterion, the redrawn figures, and (not wired yet, see
+below) stream burning — not to one calibration output.
+
+The algorithm
+   Flow-accumulation guided snapping, run on the same graph the criterion
+   descends, in the topological order of the mapped network from downstream
+   to upstream:
+
+   1. the mapped cells of the catchment are grouped into connected pieces on
+      the criterion's neighbour graph, each piece rooted at its lowest cell;
+   2. the pieces are walked by a priority flood along the map itself, most
+      accumulated first, so a main stem is processed before the tributaries
+      that join it;
+   3. each mapped cell moves, within the radius, to the free model cell with
+      the highest accumulation whose receiver is already attached — the
+      outlet and the water bodies are attached from the start — which is
+      what keeps every snapped cell continuous to the outlet;
+   4. a cell with no such candidate merges onto the nearest attached cell
+      within the radius instead, counted as merged; with neither, it is
+      rejected and keeps its raw position, so a grossly misplaced reach stays
+      visible to Equation 4 rather than disappearing into a plausible number;
+   5. a talweg cell no mapped cell moved onto is never added: a gap in the
+      map is not bridged, the reach above it attaches one cell lower, and the
+      displacement says so.
+
+   Mapped cells outside the catchment are not scored and are left as they are.
+
+Limits, read before trusting an ``apply`` run
+   A gap in the map drags the whole reach above it down by one cell, and the
+   displacement map shows it. A map that never comes within one radius of the
+   outlet, and never joins a piece that is already attached, is rejected
+   whole rather than partly. On tortuous talwegs a few per cent of cells are
+   rejected even on a well-registered map — 5 to 6 % measured on a noisy
+   synthetic network shifted by one column — so a nonzero ``snap_rejected_share``
+   is not by itself evidence of a bad map. A radius of two cells can also
+   reach into a neighbouring, more accumulated talweg and pull the map onto
+   the wrong branch; watch ``snap_accumulation_percentile_p50`` and the map
+   figure below for that.
+
+   **``apply`` changes what is scored, and that is a risk as much as a fix.**
+   ``roptim`` in ``apply`` mode measures the agreement between the model and
+   the *snapped* map, not the surveyed one, so a badly registered map that
+   ``diagnose`` would have flagged with a large ``snap_displacement_p90_m``
+   can come back looking well calibrated once it is moved onto the model's
+   own talwegs. Run ``diagnose`` first, read the displacement histogram and
+   ``snap_floor_m``, and only turn ``apply`` on once the displacement is
+   small relative to the positional accuracy of the source: a large snap is a
+   sign the DEM and the map disagree structurally, which burning or a better
+   DEM should fix, not a distance the snap should absorb silently.
+
+Published indices
+   Every trial with ``mode != "off"`` publishes, per output (and per bound,
+   suffixed, when two maps are scored): ``snap_mode`` (1 for ``diagnose``, 2
+   for ``apply``), ``snap_radius_m``, ``snap_displacement_p50_m``,
+   ``snap_displacement_p90_m``, ``snap_displacement_bound_m``,
+   ``snap_rejected_share``, ``snap_rejected_share_max``, ``snap_moved_share``,
+   ``snap_merged_share``, ``snap_length_ratio``, ``snap_connected_share``,
+   ``snap_accumulation_percentile_p50``, ``snap_n_cells_raw`` and
+   ``snap_floor_m``.
+
+   ``snap_floor_m`` is ``F``, the ``Doptim`` a model that reproduced the
+   snapped talwegs *exactly* would still score against the raw map, computed
+   with the criterion's own metric, sealed outlet and per-cell weighting. It
+   is the representation error the snap itself introduces: no calibrated
+   value can read as more accurate than ``F``, whatever ``roptim`` says.
+
+Equation 4 in ``apply`` mode
+   The verdict now reads three conditions together: ``Doptim <=
+   validity_length`` on the snapped map, the 90th percentile of the
+   displacement at or under ``max_displacement_p90``, and the rejected share
+   at or under ``max_rejected_share``. In ``diagnose`` mode the verdict still
+   reads ``Doptim`` on the raw map, because the raw map is what was scored;
+   the floor ``F`` only widens the validity length (below). The report names
+   the cause of a failure: the mismatch, the snap, or both.
+
+``h_obs`` replaces the reference length
+   ``L_ref``, the length ``roptim`` and the width of a network output's
+   search interval are read against, is ``h_obs``: the median distance
+   between the centres of neighbouring cells that share an edge, taken over
+   the mapped cells of the catchment (or, absent any, the catchment itself).
+   It replaces the square root of the median cell area, so on a regular grid
+   nothing changes — both read the cell size — but on a mesh refined along
+   the streams the old measure could land on the coarse hillslope cells a
+   catchment-wide median happens to pick, while ``h_obs`` reads the scale
+   where the mapped network actually sits, the fine cells.
+   ``observed_position_accuracy`` no longer touches it: ``roptim`` is
+   ``Doptim / h_obs``, the paper's Equation 3, whatever the output declares.
+   It is read on the **raw** map, even in ``apply`` mode: the radius the snap
+   searches within is counted in the resolution the map was captured at, not
+   in the resolution it was moved onto. ``<output>.cell_spacing_m`` carries
+   the same value.
+
+The validity length
+   Equation 4 is a length in metres: the calibration is valid when ``Doptim
+   <= validity_length``. ``validity_length = "auto"``, the default, reads a
+   cell size ``h``, which is ``h_obs``, raised to
+   ``observed_position_accuracy`` when the output declares one, and then:
+
+   - without the snap, ``2 h``: the paper's two pixels, so ``roptim <= 2``
+     on a regular grid;
+   - with ``[geographic.snap_streams]`` in ``diagnose`` or ``apply``,
+     ``h + max(h, F)``: one cell for the hydrogeology, and one for the map
+     error the paper budgets (HESS p. 3224), replaced by the floor ``F``
+     when ``F`` is larger. At 75 m on the Nançon ``F`` stays under one cell
+     and the bound is the paper's 150 m; at 25 m it is about three cells and
+     the bound widens to about 100 m instead of 50 m.
+
+   A length such as ``validity_length = "300 m"`` replaces the computation.
+   Each map resolves its own length, so the two bounds of the two-bound mode
+   may differ. Every trial publishes ``validity_length_m`` and
+   ``validity_length_provenance``, a code: 0 ``auto`` (two cells), 1
+   ``auto_floor`` (``F`` exceeded ``h``), 2 ``declared_accuracy`` (the
+   declared accuracy exceeded ``h_obs``), 3 ``user`` (a declared length).
+   The former ``roptim_max`` is gone. ``hmp doctor --fix-config`` drops it
+   from a file that sets it to 2, which ``"auto"`` reproduces, and refuses
+   any other value with the length to write instead. ``hmp calibrate`` and
+   ``hmp run`` apply the same migration in memory when they read the file,
+   without rewriting it.
+
+Scope
+   Wired today: the criterion (every network output, one map or two) and its
+   figures. Not wired: ``[geographic.enforce_streams]`` runs on the routing
+   raster inside the geographic step, before the mesh and the criterion graph
+   exist, so it cannot read a snap defined on that graph; using a snapped map
+   to burn the routing surface needs its own bridge and is not built.
+   ``results/derive/snapped_network.py`` can write and read the snapped
+   geometry as a stored entity (one point per cell, with its displacement,
+   status and accumulation percentile), but no pipeline step calls that write
+   yet: it is available to a caller, not automatic.
+
+Two figures read the sealed setting of the run they were asked to draw, so an
+``apply`` run's figures show the snapped map it scored, never the raw one:
+
+``observed_network_snap_map``
+   The raw mapped cells outlined, the snapped map filled, and one segment per
+   raw cell joining it to where it moved, coloured by its status
+   (unchanged, moved, merged, rejected).
+``observed_network_snap_histogram``
+   The displacement, stacked by status, with the ``max_displacement_p90``
+   bound and the search radius drawn as lines, and the rejected count in the
+   key rather than left out of the picture.
+
+Both refuse by name, with a sentence instead of a figure, on a run whose
+``[geographic.snap_streams]`` is ``off``.
+
 Naming the method
 -----------------
 
@@ -200,7 +386,7 @@ The long form, for a variant the protocol does not cover.
    stream_geometry_path = "data/hydrography/streams.gpkg"
    weighting           = "area"
    tau_specific_ratio  = 1.0e-4
-   roptim_max          = 2.0
+   validity_length     = "auto"
    time                = "last"
 
    [[calibration.objective_blocks]]
@@ -368,15 +554,18 @@ Four things in there are not free choices.
    would have named.
 
 The network block, in transient, scores one instant
-   A network output reads exactly one state: ``time = "last"`` (default) or
-   ``"first"``. ``"all"`` and a list of ISO dates are refused at configuration
-   load, so a phase can no longer name a date here and have the criterion score
-   the last stress period instead of it. The block compares one month to the
-   mapped network, the last of the simulated record; pick that month with the
-   phase's ``end_datetime``, not with ``time``. A transient comparison of the
-   minimal and maximal extents is a separate mode being designed. Scoring the
-   seasonal extension itself rather than one instant is the method of
-   :cite:`abherve2024headwater`, and it needs an intermittence record.
+   A network output reads exactly one state unless it declares an ``extent``
+   table: ``time = "last"`` (default) or ``"first"``. ``"all"`` and a list of
+   ISO dates are refused at configuration load, so a phase can no longer name a
+   date here and have the criterion score the last stress period instead of
+   it. The block compares one month to the mapped network, the last of the
+   simulated record; pick that month with the phase's ``end_datetime``, not
+   with ``time``. A transient comparison against the two mapped extents,
+   counted over the calendar years of the run, is the two-bound mode of
+   `Two maps and two bounds`_ below: it reads the maps already declared on
+   this output and needs no observed intermittence record. Scoring against an
+   actual seasonal intermittence record instead is the method of
+   :cite:`abherve2024headwater`, a different observation altogether.
 
 ``objective_blocks`` as a share table, not a list
    The two costs are in different units: ``distance_gap`` is metres and
@@ -404,6 +593,242 @@ No ``method`` on this stage
    is handed ``scipy_nelder_mead`` on its own; ``--list-phases`` prints the
    choice and why. Write ``method`` only to run something else, such as
    ``"cma_es"`` for a global search.
+
+Two maps and two bounds
+-----------------------
+
+Everything above scores one mapped network. A ``support = "network"`` output
+can carry two, and a transient run can then be scored on a definition of
+"flowing" that holds over a year rather than at one instant. Nothing here
+touches ``matching_hydrographic_network``: the protocol still writes the
+paper's two stages exactly as before, and this is an option of the network
+*output*, usable in any phase, hand-written or protocol-expanded.
+
+The maximal map is every mapped reach declared by ``observed_network`` or
+``stream_geometry_path`` — the existing source, and, alone, the default and
+usually the only map a project carries. A minimal map, the *permanent*
+reaches, may be declared beside it:
+
+.. code-block:: toml
+
+   [calibration.outputs.seepage_network]
+   support                      = "network"
+   stream_geometry_path         = "complete_network.gpkg"
+   minimal_stream_geometry_path = "permanent_network.gpkg"
+
+``minimal_observed_network = "data.hydrography"`` reads the permanent
+reaches the hydrography data family wrote beside its own network instead of
+naming a second file — it can only do that when the source says which
+reaches are permanent, BD Topage among them. Declare one route or the other
+for the minimal map, never both, and read it as it is: no attribute filter
+runs in calibration, so a source that mixes permanence classes in one file is
+not something a calibration output can split on its own.
+
+The maximal map scored is the **union** of the two files: wherever the
+minimal map disagrees with the maximal one, the wider of the two is scored,
+never a network the criterion had to fix. ``frac_minimal_outside_maximal``
+publishes how much they disagreed, as the share of the minimal map's cells
+of the scored catchment the maximal map missed before the union. On two
+files digitised independently that share is rarely zero, and it is a
+property of the maps, not of the model — read it once per pair of files, not
+per trial.
+
+Steady state, the papers' case
+   Without a minimal map, the one scored state is compared to the maximal
+   map, exactly as every earlier section of this page describes. **With
+   both maps declared, the state is compared to the minimal (permanent) map
+   instead** — the practice of :cite:`abherve2025climate` — and the maximal
+   map is scored at the same state as a **validation**, published under the
+   suffix ``_maximal_validation`` and never entering the cost. A search
+   pointed at ``J_signed_maximal`` would therefore find nothing: that key
+   does not exist when only one state is scored, by design, so a root
+   search cannot silently close on the validation map instead of the map
+   that drove it.
+
+Transient, the two-bound mode
+   Declaring an ``extent`` table switches the output from one state to every
+   complete calendar year of a transient run:
+
+   .. code-block:: toml
+
+      [calibration.outputs.seepage_network.extent]
+      maximal_flowing_steps = 1
+      minimal_dry_steps     = 1
+      year_quorum           = 0.5
+      visible_flow          = "1 L/s"
+
+      [calibration.outputs.seepage_network.extent.weights]
+      minimal = 0.5
+      maximal = 0.5
+
+   For every complete calendar year — a timestep belongs to the year its
+   *midpoint* falls in, and a year the run does not cover whole is dropped —
+   two masks are built from the count of timesteps each cell flowed that
+   year:
+
+   - the **maximal** simulated mask holds the cells flowing at least
+     ``maximal_flowing_steps`` timesteps of the year;
+   - the **minimal** simulated mask holds the cells flowing at every
+     timestep of the year but at most ``minimal_dry_steps``.
+
+   **Both count TIMESTEPS, never days**: a weekly or a monthly run would
+   otherwise see its rule silently tighten or loosen with the step length. A
+   year of 12 monthly steps and ``maximal_flowing_steps = 1`` asks a cell to
+   flow one month out of twelve; the same default on a daily run asks one day
+   out of 365. Declaring ``minimal_dry_steps`` looser than
+   ``maximal_flowing_steps`` is refused before the first trial, because it
+   would make the permanent mask wider than the complete one, an answer that
+   contradicts what "permanent" and "complete" mean.
+
+   Across years, a cell enters the **climatological** mask scored — the one
+   compared to the map — when it meets its year's rule in at least
+   ``ceil(year_quorum * n_years)`` of the scored years, ``year_quorum``
+   defaulting to one half. Fewer than three scored years logs a warning: with
+   two years, a quorum of one half is their union, which reads less like an
+   ordinary "most years" than it sounds.
+
+   The output is refused, before the first trial, on a single steady period,
+   on a run covering no complete calendar year, or on a step rule the
+   shortest complete year cannot hold (``maximal_flowing_steps`` above its
+   timestep count, or ``minimal_dry_steps`` too generous for it).
+
+   Each bound is then scored **once** by the same distance criterion as the
+   steady mode (``seepage_distance_cost``): the maximal mask against the
+   maximal map, and, when a minimal map is declared, the minimal mask against
+   the minimal map. With one map only, the maximal bound alone is scored.
+   Each scored year is also scored the same way as a diagnostic, published as
+   ``J_signed_<bound>_y<year>`` and ``n_network_sim_<bound>_y<year>``, so a
+   trend across the record is visible without a second search.
+
+"Flowing", one definition for the criterion and the figures
+   A cell flows at a timestep when it lies in the downstream closure of the
+   *seepage* cells — release above :math:`\tau \cdot R \cdot A`, exactly the
+   steady mode's threshold — on the criterion graph, and, unless
+   ``visible_flow`` is ``"0 L/s"``, when its **routed discharge** also
+   reaches ``visible_flow``. The routed discharge is the release of the
+   seepage cells accumulated down the same graph: a seepage flux, never a
+   river discharge, so it carries no runoff and no bed loss. It never
+   decreases downstream, so the flowing mask stays closed downstream
+   whatever the threshold.
+
+   ``visible_flow`` applies only to this transient mode; the steady, one-state
+   paper mode above stays purely geometric (the closure alone), because that
+   is the criterion :cite:`abherve2023` published and measured biases
+   against. Write it as a discharge with its unit, ``"1 L/s"`` or
+   ``"0.002 m3/s"``, or as a share of the outlet's own routed discharge at the
+   same timestep, ``"1%"``; a bare number is refused, because a metre-cube
+   reader and a litre reader would silently disagree. **It is never scaled
+   with the cell size**: a cell's area is a numerical choice, the discharge a
+   field observer would see flowing is not.
+
+   No value is agreed in the literature. The closest precedent thresholds a
+   *simulated* discharge at 10 L/s, a small share of the two virtual
+   catchments' own outlet flow, to map their active network
+   (:cite:`zanetti2024nonperennial`); field zero-flow gauge thresholds of
+   about 1 to 3 L/s are in use to absorb measurement noise at low flow
+   (:cite:`zimmer2020zeroflow`). ``"1 L/s"``, the default, sits at the low end
+   of both. ``"0 L/s"`` recovers the geometric definition exactly, with no
+   discharge test at all.
+
+Combining two bounds into one value
+   Each bound has its own root, :math:`K^*_{minimal}` and
+   :math:`K^*_{maximal}`, found by one bisection sweep that brackets both
+   residuals — ``J_signed_minimal`` and ``J_signed_maximal`` — on the same
+   trials. The value a two-bound search returns is their **weighted geometric
+   mean**,
+
+   .. math::
+
+      \log K = w_{minimal} \log K^*_{minimal} + w_{maximal} \log K^*_{maximal}
+
+   with the weights of ``[calibration.outputs.<name>.extent.weights]``,
+   0.5 / 0.5 by default and required to sum to one. That value is then
+   **evaluated once more**, as an ordinary trial, so every number published
+   beside it — components, Equation 4, the figures — comes from a real solve
+   and not from an interpolation between two others. The report's
+   ``extra.roots`` carries both roots (their trial, residual, weight and
+   final bracket), ``delta_log10 = log10(K*_maximal / K*_minimal)`` and the
+   combined trial id; there is no ``extra.bracket`` and no
+   ``parameter_intervals`` in this mode, because the interval around one
+   value has no meaning between two roots — read ``delta_log10`` as the
+   spread instead. The budget is known before the first solve too: 24
+   evaluations inside the declared bounds on the Nancon's search interval and
+   sweep, 26 to 32 after one to four bracket expansions, against 15 to 23 for
+   a one-bound search on the same interval.
+
+   A minimising engine (Nelder-Mead, CMA-ES, ...) has no root to combine, and
+   minimises
+
+   .. math::
+
+      \mathrm{cost} = w_{minimal} \lvert J_{minimal} \rvert
+                    + w_{maximal} \lvert J_{maximal} \rvert
+
+   instead — the criterion's ``distance_gap`` summed over both weighted
+   pairs. **Caveat**: a weighted sum of two V-shaped costs tends to settle at
+   one of the two roots rather than at a point between them, since moving off
+   either root only ever increases one term. A bisection is the estimator
+   this mode was designed for; a minimiser answers a related but different
+   question.
+
+   A bound weighted zero is not searched at all: weights ``{minimal = 1,
+   maximal = 0}`` reduce a two-root search to one root on the minimal bound,
+   with no wasted solve, the practice of :cite:`abherve2025climate` read
+   literally. Weights other than 0.5 / 0.5 without a minimal map are refused
+   at load: they would weigh a bound that is never scored.
+
+Reading the component keys
+   ``n_bounds_scored`` (1.0 or 2.0) says how many bounds are in the cost, and
+   it is what the search and the reader both key on.
+
+   - **One bound** (no ``extent``, or ``extent`` with one map): the full set
+     of components this page already documents, unsuffixed — ``J_signed``,
+     ``D_so``, ``D_os``, ``Doptim``, ``roptim``, ... — plus the same set again
+     suffixed ``_maximal`` (one map) or ``_minimal`` (one state, both maps).
+   - **Two bounds** (``extent`` and a minimal map, both weights above zero):
+     **only** the suffixed sets exist — ``J_signed_minimal``,
+     ``J_signed_maximal``, ``roptim_minimal``, ``roptim_maximal``, and so on
+     — plus ``weight_minimal`` and ``weight_maximal``. There is no unsuffixed
+     ``J_signed`` to read by accident: a single-root bisection pointed at
+     this output finds nothing, rather than silently closing on whichever
+     bound happens to come first.
+   - **One state with both maps**: the minimal bound's set is the cost, both
+     unsuffixed and again as ``_minimal``; the maximal map's set is published
+     as ``_maximal_validation`` and never as ``_maximal``.
+   - The extent mode adds ``J_signed_<bound>_y<year>`` and
+     ``n_network_sim_<bound>_y<year>`` per scored year and bound, plus
+     ``n_years_scored``, ``n_years_required``, ``first_year_scored``,
+     ``last_year_scored``, ``n_steps_min_per_year``, ``year_quorum``,
+     ``maximal_flowing_steps``, ``minimal_dry_steps``, ``visible_flow_m3_s``
+     and ``visible_flow_outlet_share``.
+   - Any minimal map, in either mode, adds ``frac_minimal_outside_maximal``.
+
+   ``roptim_verdict`` follows the same split: a two-bound output publishes
+   ``roptim_verdict.<output>_minimal`` and ``roptim_verdict.<output>_maximal``
+   instead of one unsuffixed entry, each read at the trial the search
+   returns and each carrying its own ``snap`` verdict when
+   ``[geographic.snap_streams] mode = "apply"``.
+
+Deviations to declare
+   A run using the extent table departs from the papers in five ways that
+   belong in a methods paragraph beside the calibrated value: it scores
+   transient masks over calendar years rather than one steady state; the
+   duration rule is counted in timesteps, not days; a climatological quorum
+   decides which cells count across years; a visible-flow threshold, not only
+   the geometric closure, decides what "flowing" means; and, with two maps,
+   the two bounds are combined with declared weights. The
+   ``matching_hydrographic_network`` protocol itself is unchanged by any of
+   this: it still writes the paper's two steady/transient stages, and the
+   extent table is something a hand-written phase, or a protocol-expanded one
+   edited afterwards, opts into on its network output.
+
+A figure outside any calibration
+   ``network_extent_bounds_map`` draws the maximal and minimal simulated
+   extents of a transient run against the two stored maps without running any
+   search: point ``[display].figures`` at it on a run that stored both
+   ``reference`` (the complete network) and ``reference_permanent`` (the
+   permanent one). See :doc:`/user_guide/figures` for its options; it reports
+   cell counts only, no distance.
 
 Measured on the Nancon
 ----------------------
@@ -441,11 +866,12 @@ not about the machinery, and that is the point of being able to write the
 stage out.
 
 The validity indicator does not clear its bound on this catchment, and every
-trial says so. ``roptim`` is the agreement between the two networks in
-reference lengths, valid at 2 and under. Here it runs from 1.9 to 6.4 over the
-stage one sweep, 2.44 at the retained ``K``, and 2.50 to 2.56 in the transient
-stage. The agreement is therefore coarser than the mesh. This qualifies the
-calibrated value rather than refuting it: a ``K`` read off this example is a
+trial says so. ``roptim`` is the agreement between the two networks in cells
+of ``h_obs``; example 04 declares neither an accuracy nor a snap, so its
+validity length is two cells, 150 m, and it is valid at 2 and under. Here it
+runs from 1.9 to 6.4 over the stage one sweep, 2.44 at the retained ``K``, and
+2.50 to 2.56 in the transient stage. The agreement is therefore coarser than
+the mesh. This qualifies the calibrated value rather than refuting it: a ``K`` read off this example is a
 demonstration, not a number to cite, and the ratio ``K/R`` is what to publish.
 Two diagnostics of the same trials say where it comes from.
 ``alpha_obs_closure_catchment`` is 0.83 against 0.90, and 55 per cent of the
@@ -604,6 +1030,13 @@ produced them, so the keys below read ``seepage_network.J_signed``,
 not a run is promoted; the configuration above promotes one, the best. The ones
 to look at first:
 
+``n_bounds_scored``
+   1.0 for everything on this page above "Two maps and two bounds", 2.0 for an
+   output scoring the transient extent table against both a maximal and a
+   minimal map. It decides which of ``J_signed`` or ``J_signed_minimal`` /
+   ``J_signed_maximal`` exists on a trial; see that section's "Reading the
+   component keys" for the full split.
+
 ``J_signed``
    The signed residual. Its sign says which side of the balance the trial is
    on, and it is what the search brackets. If it never changes sign over the
@@ -616,10 +1049,13 @@ to look at first:
    residual that stopped responding to the parameter rather than a surprising
    value.
 
-``roptim`` and ``roptim_valid``
-   The validity indicator of Equation 4, against the ``roptim_max`` bound (two
-   by default), recorded on every trial. It **qualifies** the result and does
-   not withhold it: a violation warns and the value comes back, unless you set
+``roptim``, ``roptim_valid``, ``validity_length_m``
+   ``roptim`` is ``Doptim / h_obs``, the paper's Equation 3, kept to compare
+   with its Table 1. ``roptim_valid`` is Equation 4, ``Doptim <=
+   validity_length_m``, and ``validity_length_provenance`` says what set the
+   length ("The validity length" above). All three are recorded on every
+   trial. The bound **qualifies** the result and does not withhold it: a
+   violation warns and the value comes back, unless you set
    ``on_roptim_violation = "error"``, which raises instead. And it measures
    agreement, not correctness, so do not read it as a quality score of the
    model.
@@ -627,13 +1063,23 @@ to look at first:
 ``roptim_verdict``
    The bound of Equation 4, read once, on the trial the search returns, the
    way the paper reads it: "At this point" (HESS p. 3225), not on the way
-   there. A report entry per network output,
-   ``{value, bound, L_ref, Doptim, valid}``; a ``roptim`` that is not a
+   there. A report entry per network output, ``{value, Doptim, h_obs_m,
+   validity_length_m, provenance, valid, causes}``: ``value`` is ``roptim``,
+   ``provenance`` the name of what set the length, and ``causes`` lists what
+   failed, ``doptim``, ``snap`` or ``empty``. A ``Doptim`` that is not a
    number, an empty simulated network at the returned trial, counts as a
    violation. With ``on_roptim_violation = "error"`` the raise happens after
    the session is saved, so every trial is still on disk, and a staged
    calibration stops there rather than freezing an unqualified value into a
-   dependent phase.
+   dependent phase. An output scoring two bounds (``n_bounds_scored`` = 2, see
+   "Two maps and two bounds") has no unsuffixed entry: it publishes
+   ``roptim_verdict.<output>_minimal`` and ``roptim_verdict.<output>_maximal``
+   instead, each read on the same returned trial against its own length.
+   ``h_obs_m`` in every entry is ``h_obs``, not the mesh's median cell size
+   ("Snapping the mapped network" above): the cell size where the mapped
+   network itself lies. With ``[geographic.snap_streams] mode = "apply"``,
+   ``valid`` also requires the displacement and rejected-share bounds, and
+   the entry then carries a ``snap`` sub-record; see the same section.
 
 ``R_mean_m_s``
    The denominator of the calibrated ratio. It is what makes the result a
@@ -763,13 +1209,17 @@ release union of the previous section under load.
 The figures
 -----------
 
-Eight figures are registered for this method: ``downslope_distance_crossing``,
+Ten figures are registered for this method: ``downslope_distance_crossing``,
 ``bisection_bracket_trace``, ``parameter_cost_profile``,
 ``matching_hydrographic_network_card``, ``seepage_network_reference_overlay``,
-``seepage_network_confusion_map``, ``downslope_distance_map`` and
-``hydrograph_log_nse``.
+``seepage_network_confusion_map``, ``downslope_distance_map``,
+``hydrograph_log_nse``, ``observed_network_snap_map`` and
+``observed_network_snap_histogram``. ``network_extent_bounds_map``, the two
+simulated extents against the two maps ("Two maps and two bounds" above), is a
+related figure that reads a run directly and needs no calibration session at
+all.
 
-All eight are declared, never scripted. List them in ``[display].figures`` of
+All ten are declared, never scripted. List them in ``[display].figures`` of
 the project or of the calibration TOML and the promoted run renders them like
 any other figure of the gallery:
 
@@ -785,6 +1235,8 @@ any other figure of the gallery:
        "downslope_distance_map",
        "hydrograph_log_nse",
        "matching_hydrographic_network_card",
+       "observed_network_snap_map",
+       "observed_network_snap_histogram",
    ]
 
 The first four read the trials of the session straight off the run. The three
@@ -822,9 +1274,15 @@ the basin it was scored on asks for the whole domain instead:
    [display.overrides.seepage_network_reference_overlay]
    extent = "mesh"
 
-A ninth figure, ``roptim_validity_chart``, compares the calibrated agreement of
-SEVERAL catchments, and a run holds one. It refuses a run-driven render by name
-rather than drawing one point, and it is fed per-site records directly.
+An eleventh figure, ``roptim_validity_chart``, compares the calibrated
+agreement of SEVERAL catchments, and a run holds one. It refuses a run-driven
+render by name rather than drawing one point, and it is fed per-site records
+directly.
+
+The two snap figures, ``observed_network_snap_map`` and
+``observed_network_snap_histogram``, are described under "Snapping the mapped
+network" above; both refuse by name on a run whose
+``[geographic.snap_streams]`` is ``off``.
 
 ``matching_hydrographic_network_card`` is a grid of panels and draws through ``plot()``,
 not through ``render(sim, ax)``.

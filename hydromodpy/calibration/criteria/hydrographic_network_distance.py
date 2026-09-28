@@ -33,7 +33,7 @@ Estimator = Literal["distance_gap", "distance_mean"]
 
 
 def distance_pair(simulated: Sequence[float] | Any) -> tuple[float, float]:
-    """Read the ``(D_so, D_os)`` pair a network output produces."""
+    """Read the ``(D_so, D_os)`` pair a one-bound network output produces."""
     values = np.asarray(simulated, dtype=float).ravel()
     if values.size != 2:
         raise ValueError(
@@ -43,15 +43,36 @@ def distance_pair(simulated: Sequence[float] | Any) -> tuple[float, float]:
     return float(values[0]), float(values[1])
 
 
+def distance_pairs(simulated: Sequence[float] | Any) -> list[tuple[float, float]]:
+    """Read the ``(D_so, D_os)`` pairs a vector of network values holds, in order.
+
+    One pair per bound in the cost. A two-bound output produces two, each
+    already multiplied by its bound's weight, so summing over the pairs is the
+    weighted cost; a one-bound output produces one, unweighted.
+    """
+    values = np.asarray(simulated, dtype=float).ravel()
+    if values.size == 0 or values.size % 2:
+        raise ValueError(
+            "a distance metric scores (D_so, D_os) pairs, one per bound a network output "
+            f"scores; got {values.size} value(s)."
+        )
+    return [(float(values[i]), float(values[i + 1])) for i in range(0, values.size, 2)]
+
+
 def distance_gap(simulated: Sequence[float] | Any) -> float:
     """``abs(D_so - D_os)``, Eq. 1: the cost the root search drives to zero.
 
     It takes no observed vector, structurally: the criterion balances an excess
     of simulated stream against a missing one, both simulated. That is why the
     zero of this cost is an intersection and not a minimum of distance.
+
+    With two bounds the cost is ``w_min |J_min| + w_max |J_max|``, the sum over
+    the weighted pairs. A minimiser needs one number, and this is it; it is
+    not the log-space interpolation between two roots a root search returns,
+    and a weighted sum of two V-shaped costs tends to settle on one root or
+    the other rather than between them.
     """
-    d_so, d_os = distance_pair(simulated)
-    return abs(d_so - d_os)
+    return float(sum(abs(d_so - d_os) for d_so, d_os in distance_pairs(simulated)))
 
 
 def distance_mean(simulated: Sequence[float] | Any) -> float:
@@ -60,9 +81,9 @@ def distance_mean(simulated: Sequence[float] | Any) -> float:
     It is legitimate as a cost in the outer loop that picks between structures
     already balanced at ``J = 0``; using it inside, in place of Eq. 1, is a
     different estimator, and nothing puts its interior minimum at the crossing.
+    With two bounds, the weighted sum of each bound's ``Doptim``.
     """
-    d_so, d_os = distance_pair(simulated)
-    return 0.5 * (d_so + d_os)
+    return float(sum(0.5 * (d_so + d_os) for d_so, d_os in distance_pairs(simulated)))
 
 
 class HydrographicNetworkDistance:
@@ -98,16 +119,29 @@ class HydrographicNetworkDistance:
         simulated: Sequence[float] | Any,
         observed: Sequence[float] | Any | None = None,
     ) -> CriterionResult:
-        """Return the cost in metres, with the pair it was read from."""
+        """Return the cost in metres, with the pairs it was read from.
+
+        One pair has a signed residual. Two bounds have two, which no single
+        number carries: the residual is then None and a root search reads the
+        two signed components the output publishes.
+        """
         del observed  # structurally absent, see the module docstring
-        d_so, d_os = distance_pair(simulated)
-        signed = d_so - d_os
-        cost = abs(signed) if self._estimator == "distance_gap" else 0.5 * (d_so + d_os)
-        return CriterionResult(
-            cost=float(cost),
-            signed_residual=float(signed) if self._estimator == "distance_gap" else None,
-            diagnostics={"D_so": d_so, "D_os": d_os, "J_signed": signed},
-        )
+        pairs = distance_pairs(simulated)
+        gap = self._estimator == "distance_gap"
+        cost = distance_gap(simulated) if gap else distance_mean(simulated)
+        if len(pairs) == 1:
+            d_so, d_os = pairs[0]
+            return CriterionResult(
+                cost=float(cost),
+                signed_residual=float(d_so - d_os) if gap else None,
+                diagnostics={"D_so": d_so, "D_os": d_os, "J_signed": d_so - d_os},
+            )
+        diagnostics: dict[str, float] = {}
+        for index, (d_so, d_os) in enumerate(pairs):
+            diagnostics[f"weighted_D_so_{index}"] = d_so
+            diagnostics[f"weighted_D_os_{index}"] = d_os
+            diagnostics[f"weighted_J_signed_{index}"] = d_so - d_os
+        return CriterionResult(cost=float(cost), signed_residual=None, diagnostics=diagnostics)
 
 
 __all__ = [
@@ -116,4 +150,5 @@ __all__ = [
     "distance_gap",
     "distance_mean",
     "distance_pair",
+    "distance_pairs",
 ]

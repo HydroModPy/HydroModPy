@@ -6,9 +6,13 @@ one, and a reach that ran half of every year. The question a field campaign
 asks is the second one, cycle by cycle, so this map classifies each cell
 within one hydrological cycle instead of averaging over all of them.
 
-Three classes, the legacy ones: perennial when the cell carried flow at every
-timestep of the cycle, intermittent when it carried flow at some of them, dry
-when it never did.
+Three classes, the legacy ones: perennial when the cell flowed at every
+timestep of the cycle, intermittent when it flowed at some of them, dry when it
+never did. "Flowing" is the definition the network criterion scores: the
+downstream closure of the seepage cells on the criterion graph, above the
+visible flow. The perennial class is therefore the yearly minimal extent of
+the criterion with ``minimal_dry_steps = 0``, and the union of the two coloured
+classes its yearly maximal extent with ``maximal_flowing_steps = 1``.
 """
 
 from __future__ import annotations
@@ -21,8 +25,9 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._flow_persistence import (
     FLOW_FIELD,
-    cycles,
-    flowing_stack,
+    cycle_flow,
+    definition_note,
+    flow_unavailable_reason,
     resolve_cycle,
     span_label,
 )
@@ -38,13 +43,13 @@ if TYPE_CHECKING:
 
 
 PERENNIAL_COLOR = "#1f6fb4"
-"""Cells that carried flow at every timestep of the cycle."""
+"""Cells that flowed at every timestep of the cycle."""
 
 INTERMITTENT_COLOR = "#d2762a"
-"""Cells that carried flow at some timesteps of the cycle, not all."""
+"""Cells that flowed at some timesteps of the cycle, not all."""
 
 DRY_COLOR = "#EDEDED"
-"""Cells that carried no flow at any step of the cycle."""
+"""Cells that flowed at no step of the cycle."""
 
 DRY_EDGE = "#C8C8C8"
 """A border on the legend swatch, which is otherwise near-white on white."""
@@ -59,8 +64,13 @@ class FlowIntermittenceMap(BaseFigure):
     ``cycle``
         Label of the cycle to draw, usually a calendar year. Defaults to the
         last complete one.
-    ``threshold``
-        Accumulated flux above which a cell counts as flowing, in m3/s.
+    ``visible_flow``
+        Routed discharge a cell of the seepage closure must carry to flow:
+        ``"1 L/s"`` by default, any discharge with its unit, a share of the
+        outlet discharge such as ``"1%"``, or ``"0 L/s"`` for the closure alone.
+    ``tau_specific_ratio``
+        Seepage threshold as a fraction of the recharge a cell receives; the
+        criterion's default when left out.
     """
 
     spec = FigureSpec(
@@ -77,21 +87,26 @@ class FlowIntermittenceMap(BaseFigure):
         ax: Axes,
         *,
         cycle: str | None = None,
-        threshold: float = 0.0,
+        visible_flow: str | None = None,
+        tau_specific_ratio: float | None = None,
+        diagonal_neighbors: bool | None = None,
         overlays: tuple[str, ...] | list[str] | None = None,
         **_,
     ) -> Axes:
         from matplotlib.colors import BoundaryNorm, ListedColormap
         from matplotlib.patches import Patch
 
-        flowing = flowing_stack(sim, threshold=threshold)
-        blocks = cycles(sim, flowing.shape[0])
+        flow = cycle_flow(
+            sim,
+            visible_flow=visible_flow,
+            tau_specific_ratio=tau_specific_ratio,
+            diagonal_neighbors=diagonal_neighbors,
+        )
+        blocks = dict(zip(flow.labels, flow.steps, strict=True))
         label = resolve_cycle(blocks, cycle, figure=self.spec.name)
-        steps = blocks[label]
-        window = flowing[steps]
+        steps, flowing_steps = flow.block(label)
 
-        flowing_steps = window.sum(axis=0)
-        perennial = flowing_steps == window.shape[0]
+        perennial = (flowing_steps == steps.size) & (flowing_steps > 0)
         intermittent = (flowing_steps > 0) & ~perennial
         classes = np.where(perennial, 0.0, np.where(intermittent, 1.0, np.nan))
 
@@ -109,7 +124,7 @@ class FlowIntermittenceMap(BaseFigure):
         style_relative_km_axes(ax)
         ax.set_title(
             f"{self.spec.title} - {sim.name or sim.sim_id}\n"
-            f"{span_label(sim, steps) or label}, {window.shape[0]} timesteps"
+            f"{span_label(sim, steps) or label}, {steps.size} timesteps\n{definition_note(flow)}"
         )
 
         handles = [
@@ -136,7 +151,7 @@ class FlowIntermittenceMap(BaseFigure):
             return reason
         if int(sim.n_timesteps or 0) < 2:
             return "a cell cannot be called intermittent over a single timestep"
-        return None
+        return flow_unavailable_reason(sim)
 
 
 __all__ = ["FlowIntermittenceMap"]

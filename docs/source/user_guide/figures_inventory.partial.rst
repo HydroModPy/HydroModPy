@@ -34,10 +34,10 @@ Mesh- or raster-backed scalar maps of one persisted field.
      - (no fixed input)
    * - ``flow_intermittence_map``
      - Flow intermittence
-     - fields ``accumulation_flux``
+     - fields ``release_flux``
    * - ``flow_persistence_map``
      - Flow persistence
-     - fields ``accumulation_flux``
+     - fields ``release_flux``
    * - ``mesh_map``
      - Model mesh
      - fields ``topography``
@@ -244,6 +244,15 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - ``matching_hydrographic_network_card``
      - Matching the hydrographic network: two-stage card
      - tables ``calibration_iterations``
+   * - ``network_extent_bounds_map``
+     - Network extent bounds
+     - fields ``release_flux``
+   * - ``observed_network_snap_histogram``
+     - Displacement of the mapped cells
+     - fields ``release_flux``
+   * - ``observed_network_snap_map``
+     - Mapped network snapped onto the talwegs
+     - fields ``release_flux``
    * - ``piezo_timeseries_sim_obs``
      - Piezometric head (sim vs obs)
      - tables ``timeseries``
