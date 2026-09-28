@@ -182,14 +182,14 @@ def test_step_drop_intermediate_budget_keeps_a_user_requested_budget() -> None:
 class _IndexedStore(_RecordingStore):
     """A store whose index answers the two questions the recap asks."""
 
-    def __init__(self) -> None:
+    def __init__(self, duration_s: float | None = 42.0) -> None:
         super().__init__()
+        self._duration_s = duration_s
         self.backend = SimpleNamespace(fetch_one=self._fetch_one)
 
-    @staticmethod
-    def _fetch_one(sql: str, _params: list) -> tuple | None:
+    def _fetch_one(self, sql: str, _params: list) -> tuple | None:
         if "FROM simulations" in sql:
-            return ("nancon_step1",)
+            return ("nancon_step1", self._duration_s)
         return (0.4567,)
 
 
@@ -225,9 +225,29 @@ def test_the_run_recap_waits_for_the_export_phase_to_close(caplog) -> None:
 def test_the_run_recap_prints_at_once_outside_a_phase(caplog) -> None:
     caplog.set_level(logging.INFO, logger="hydromodpy")
     export_module.step_seal_store(
-        SimpleNamespace(sim_id="0123456789abcdef"), store=_IndexedStore(), wall_seconds=0.0
+        SimpleNamespace(sim_id="0123456789abcdef"),
+        store=_IndexedStore(duration_s=None),
+        wall_seconds=0.0,
     )
     assert _recap_lines(caplog)[0] == "Run completed: nancon_step1 [01234567] nse=0.46"
+
+
+def test_the_recap_duration_is_the_catalogs_wall_time_not_the_solver_step_time(
+    caplog,
+) -> None:
+    """D14d: wall_seconds only times run_solver and undercounts the run.
+
+    ``finalize`` has already stamped ``simulations.duration_s`` from
+    ``started_at``/``ended_at`` - the same figure the catalog reports - and
+    the recap must print that, not the much shorter solver-only timer.
+    """
+    caplog.set_level(logging.INFO, logger="hydromodpy")
+    export_module.step_seal_store(
+        SimpleNamespace(sim_id="0123456789abcdef"),
+        store=_IndexedStore(duration_s=26.0),
+        wall_seconds=6.0,
+    )
+    assert _recap_lines(caplog)[0] == "Run completed: nancon_step1 [01234567] 26s nse=0.46"
 
 
 def test_a_recap_the_index_cannot_answer_is_skipped(caplog) -> None:

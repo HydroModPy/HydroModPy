@@ -47,6 +47,8 @@ Each release section includes the following standard categories:
   `.hmp/scratch/_preprocessing/`, which is per project: four runs started together on example
   04 lost three of them in `build_geographic` (a Whitebox panic, a missing `dem_fill.tif`, a
   missing `outlet.shp`).
+- `Run completed: <name> [<id>] <n>s` prints the run's duration, the `duration_s` the catalog
+  stores, instead of the solver step alone (6 s printed for a 19 s run).
 
 ---
 
