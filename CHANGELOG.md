@@ -80,6 +80,9 @@ Each release section includes the following standard categories:
   flowing by the criterion's definition, and the stream-network maps redraw with the settings the
   run sealed, so they show the partition the trial scored.
 - Toggling `[geographic.snap_streams]` does not invalidate the geographic cache.
+- `hmp config template` without `--modules` writes every module, `[calibration]` and
+  `[mesh_catchment]` included. They were left out so the template would validate as written,
+  which it never did.
 
 ### Removed
 - `roptim_max`. The load-time migration and `hmp doctor --fix-config` drop `roptim_max = 2`, which

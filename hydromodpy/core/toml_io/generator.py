@@ -85,11 +85,7 @@ def generate_toml(
     registry = root_sections()
 
     if modules is None:
-        # Default auto-selection: drop opt-in workflow-only sections that are
-        # Optional at the aggregator level and would require more targeted
-        # inputs to validate out-of-the-box (mesh-only and calibration).
-        _OPT_IN = {"mesh_catchment", "calibration"}
-        selected = {k: v for k, v in registry.items() if k not in _OPT_IN}
+        selected = dict(registry)
     else:
         unknown = set(modules) - set(registry)
         if unknown:
