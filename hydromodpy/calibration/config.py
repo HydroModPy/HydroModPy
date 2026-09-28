@@ -1558,19 +1558,18 @@ class CalibPhaseDecl(HydroModelBase):
             "than on a precision refuses this rather than ignore it."
         ),
     )
-    batch_size: Annotated[int, Profile.USER] = Field(
-        default=1,
+    batch_size: Annotated[int | None, Profile.USER] = Field(
+        default=None,
         ge=1,
-        description="Suggestions drawn per ask, at least ``parallel``. A root search "
-        "returns one point at a time during its refinement, whatever this asks for.",
+        description="Suggestions drawn per ask, at least ``parallel``. Unset, the "
+        "phase takes the ``batch_size`` of ``[calibration]``.",
     )
-    parallel: Annotated[int, Profile.USER] = Field(
-        default=1,
+    parallel: Annotated[int | None, Profile.USER] = Field(
+        default=None,
         ge=1,
         description="Trials of this phase solved side by side, each in its own folder. "
-        "A grid or a random search gains the most: its points do not depend on one "
-        "another. A root search and a simplex propose one point at a time and gain "
-        "nothing. Each trial holds its own model in memory.",
+        "Unset, the phase takes the ``parallel`` of ``[calibration]``, which also "
+        "reaches the phases a protocol writes.",
     )
     parameters: Annotated[list[str], Profile.USER] = Field(
         min_length=1,
@@ -2013,10 +2012,12 @@ class CalibrationConfig(HydroModelBase):
         default=1,
         ge=1,
         description=(
-            "Trials solved side by side, each in its own folder. A grid or a random "
-            "search gains the most: its points do not depend on one another. A root "
-            "search and a simplex propose one point at a time and gain nothing. Each "
-            "trial holds its own model in memory; 1 solves them one after the other."
+            "Trials solved side by side, each in its own folder, for every phase that "
+            "sets none of its own. A grid or a random search evaluates its points "
+            "together; a root search cuts its bracket into parallel + 1 parts; a "
+            "simplex evaluates the candidates of one step together and keeps the "
+            "sequential answer. Each trial holds its own model in memory; 1 solves "
+            "them one after the other."
         ),
     )
     reject_water_budget_above: Annotated[float | None, Profile.USER] = Field(
@@ -2417,6 +2418,16 @@ class CalibrationConfig(HydroModelBase):
             merged["perturbation"] = None
         merged.update(written)
         return CalibUncertaintyDecl.model_validate(merged)
+
+    def parallel_for(self, phase: CalibPhaseDecl | None = None) -> int:
+        """Return how many trials a search solves side by side: the phase's, else the section's."""
+        own = None if phase is None else phase.parallel
+        return int(self.parallel if own is None else own)
+
+    def batch_size_for(self, phase: CalibPhaseDecl | None = None) -> int:
+        """Return how many suggestions a search draws per ask: the phase's, else the section's."""
+        own = None if phase is None else phase.batch_size
+        return int(self.batch_size if own is None else own)
 
     def interval_width_for(self, phase: CalibPhaseDecl | None = None) -> Any:
         """Return the width a search reads its interval with, and where it comes from.

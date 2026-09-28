@@ -12,6 +12,7 @@ The engine now declares the same three facts, and preflight reads them.
 from __future__ import annotations
 
 import textwrap
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -68,6 +69,26 @@ bounds = [1e-7, 1e-3]
 
 [calibration.parameters.Sy]
 bounds = [1e-3, 0.35]
+
+[calibration.outputs.net]
+support = "network"
+stream_geometry_path = "PROJECT_ROOT/net.gpkg"
+
+[[calibration.objective_blocks]]
+name = "gap"
+metric = "distance_gap"
+uses_outputs = ["net"]
+"""
+
+
+_WORKERS_ON_A_ROOT_SEARCH = """
+[calibration]
+method = "bisection"
+parallel = 4
+batch_size = 4
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
 
 [calibration.outputs.net]
 support = "network"
@@ -169,31 +190,27 @@ class TestWhatPreflightCatches:
 
         assert "not registered" in _messages(findings)
 
-    def test_asking_a_serial_engine_for_workers_is_only_a_warning(self, tmp_path) -> None:
-        (tmp_path / "net.gpkg").write_bytes(b"")
-        findings = _check(
-            tmp_path,
-            """
-            [calibration]
-            method = "bisection"
-            parallel = 4
-            batch_size = 4
+    def test_asking_a_serial_engine_for_workers_is_only_a_warning(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        from hydromodpy.calibration.optim.adapters.bisection_adapter import BisectionAdapter
 
-            [calibration.parameters.K]
-            bounds = [1e-7, 1e-3]
-
-            [calibration.outputs.net]
-            support = "network"
-            stream_geometry_path = "PROJECT_ROOT/net.gpkg"
-
-            [[calibration.objective_blocks]]
-            name = "gap"
-            metric = "distance_gap"
-            uses_outputs = ["net"]
-            """,
+        # The root search cuts its bracket side by side now. Declared serial
+        # here, it stands for any engine that returns one point at a time.
+        monkeypatch.setattr(
+            BisectionAdapter, "traits", replace(BisectionAdapter.traits, supports_parallel=False)
         )
+        (tmp_path / "net.gpkg").write_bytes(b"")
+        findings = _check(tmp_path, _WORKERS_ON_A_ROOT_SEARCH)
 
         assert [finding.severity for finding in findings] == ["warning"]
+        assert "buys nothing" in findings[0].detail
+
+    def test_a_root_search_takes_workers(self, tmp_path) -> None:
+        (tmp_path / "net.gpkg").write_bytes(b"")
+        findings = _check(tmp_path, _WORKERS_ON_A_ROOT_SEARCH)
+
+        assert findings == []
 
     def test_a_sound_root_search_passes(self, tmp_path) -> None:
         (tmp_path / "net.gpkg").write_bytes(b"")

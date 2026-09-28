@@ -1366,6 +1366,9 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
         kwargs["roots"] = roots_scored(
             declared[name] for name in _network_outputs_of(cfg) if name in declared
         )
+        # The width the engine asks for, so the counted budget, and "auto"
+        # sized from it, count the bracket cut into that many parts.
+        kwargs["batch"] = max(cfg.batch_size, cfg.parallel)
     return kwargs
 
 

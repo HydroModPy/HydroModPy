@@ -62,6 +62,14 @@ Each release section includes the following standard categories:
   values SciPy's rules read: the path, the answer, the evaluation count and the status are SciPy's,
   call for call, at every `parallel`. The candidates solved and not read stay in the history,
   marked `speculative_unused` in the journal, and spend no budget.
+- The root search uses `parallel`: its sweep is solved at once, and each round cuts the bracket
+  into `parallel + 1` parts in log instead of two, both roots of a two-bound search at the same
+  time. On the Nancon bounds, one root takes 6 rounds (20 solves) at 4 against 15 rounds today,
+  two roots 8 rounds (26) against 24. The root lies in the same stopping-width bracket; `parallel
+  = 1` repeats today's search trial for trial, and the counted budget follows the width.
+- Every phase takes the `parallel` and `batch_size` of `[calibration]` unless it sets its own
+  (`CalibrationConfig.parallel_for`, `batch_size_for`): the phases a protocol writes declare none,
+  so the section's value reached none of them.
 - `Run completed: <name> [<id>] <n>s` prints the run's duration, the `duration_s` the catalog
   stores, instead of the solver step alone (6 s printed for a 19 s run).
 - The help of `[simulation] if_exists` says what `replace` does: it trashes the predecessor,

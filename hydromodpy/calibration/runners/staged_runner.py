@@ -293,8 +293,8 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     payload["method"] = cfg.method_for(decl)[0]
     payload["max_iter"] = decl.max_iter
     payload["tolerance"] = decl.tolerance
-    payload["batch_size"] = decl.batch_size
-    payload["parallel"] = decl.parallel
+    payload["batch_size"] = cfg.batch_size_for(decl)
+    payload["parallel"] = cfg.parallel_for(decl)
     payload["method_options"] = dict(decl.method_options)
     # The phase's own keys over [calibration.uncertainty]: the method, its
     # restarts or its perturbation, and the width the interval is read with.

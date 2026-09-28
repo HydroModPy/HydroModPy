@@ -447,6 +447,14 @@ def test_two_bounds_are_counted_as_two_roots(tmp_path: Path) -> None:
     assert _engine_kwargs(cfg, _space(), start_at=None)["roots"] == 2
 
 
+def test_the_root_search_is_told_the_width_the_engine_asks(tmp_path: Path) -> None:
+    cfg = _load(tmp_path)
+
+    assert _engine_kwargs(cfg, _space(), start_at=None)["batch"] == 1
+    wide = cfg.model_copy(update={"parallel": 4})
+    assert _engine_kwargs(wide, _space(), start_at=None)["batch"] == 4
+
+
 @pytest.mark.parametrize(
     ("minimal", "extent"),
     [

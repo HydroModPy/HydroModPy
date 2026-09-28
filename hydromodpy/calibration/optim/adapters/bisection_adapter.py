@@ -40,6 +40,23 @@ two roots and their spread ``Delta = log10(K*_max / K*_min)`` are published in
 its root would move nothing, and a missing sign change on it would refuse a
 search that does not depend on it.
 
+**Side by side.** An engine that asks for ``n`` points at once gets ``n``.
+The sweep is fixed in advance, so it is handed out ``n`` points at a time, in
+order. A bracket is then cut by ``n`` points into ``n + 1`` equal parts in the
+log variable, all solved together, and the part whose ends change sign is kept;
+a round that needs fewer points to reach the tolerance places only those. With
+two roots the ``n`` points of a round are shared between the two brackets: one
+each first, then one at a time to the bracket that would stay widest, and a
+bracket both bounds share is cut once. One point per ask is the binary search,
+trial for trial: the midpoint, and one root after the other.
+
+When one round leaves several parts that change sign, the residual is not
+monotone there. The part kept is the one binary bisection keeps: its halvings
+are followed through the points evaluated, as far as each midpoint is one of
+them, which is all the way when ``n + 1`` is a power of two. Past the last
+midpoint evaluated, the lowest crossing left is kept, the rule the sweep
+already applies to crossings of one width.
+
 The budget is known before the first solve (:func:`root_search_budget`). With
 ``d`` the declared interval in decades, ``t = log10(1 + rel_tol)``, ``S`` sweep
 points (two when ``sweep_points`` is zero), ``s = d / (S - 1)`` the sweep step,
@@ -64,6 +81,12 @@ nominal case is refused before the first solve. When a budget still runs out,
 the adapter publishes the halvings its brackets still need
 (:attr:`BisectionAdapter.evaluations_remaining`), and the engine grants exactly
 those, once.
+
+With ``n`` points per ask, ``h(w)`` becomes the evaluations that close the
+bracket ``n`` cuts at a time, and the two brackets of a two-root search are
+closed together; ``n = 1`` gives the counts above. More evaluations, far fewer
+rounds: on the Nancon with four points, one root costs 20 evaluations in 6
+rounds instead of 15 in 15, two roots 26 in 8 instead of 24 in 24.
 """
 
 from __future__ import annotations
@@ -123,6 +146,64 @@ def _halvings(width: float, tolerance: float) -> int:
     return math.ceil(math.log2(width / tolerance))
 
 
+def _points_to_close(width: float, tolerance: float) -> int:
+    """Return the fewest cut points that close a bracket *width* wide in one round."""
+    if width <= tolerance:
+        return 0
+    return max(1, math.ceil(width / tolerance) - 1)
+
+
+def _share(widths: Sequence[float], tolerance: float, points: int) -> list[int]:
+    """Share one round of *points* cut points between brackets *widths* wide.
+
+    Each open bracket takes one point in turn, so a single point goes to the
+    first open bracket, as the binary search always did. The rest go one at a
+    time to the bracket that would stay widest after the round, the first on a
+    tie. A bracket never takes more points than closing it this round needs.
+    """
+    needs = [_points_to_close(width, tolerance) for width in widths]
+    shares = [0] * len(needs)
+    left = max(0, int(points))
+    for index, need in enumerate(needs):
+        if left and need:
+            shares[index] = 1
+            left -= 1
+    while left:
+        wanting = [index for index, need in enumerate(needs) if shares[index] < need]
+        if not wanting:
+            break
+        widest = max(wanting, key=lambda index: widths[index] / (shares[index] + 1))
+        shares[widest] += 1
+        left -= 1
+    return shares
+
+
+def _cut_evaluations(widths: Sequence[float], tolerance: float, batch: int) -> int:
+    """Return the evaluations that close brackets *widths* wide, *batch* cuts per round.
+
+    The rounds share their points as :func:`_share` shares them. One point per
+    round is the binary search: ``h(w)`` halvings per bracket.
+    """
+    if batch <= 1:
+        return sum(_halvings(width, tolerance) for width in widths)
+    current = [float(width) for width in widths]
+    evaluations = 0
+    while True:
+        shares = _share(current, tolerance, batch)
+        if not any(shares):
+            return evaluations
+        current = [width / (share + 1) for width, share in zip(current, shares, strict=True)]
+        evaluations += sum(shares)
+
+
+def _check_batch(batch: int) -> int:
+    """Return *batch* when it is at least one point per ask, raise otherwise."""
+    count = int(batch)
+    if count < 1:
+        raise OptimizerError(f"a root search asks at least one point at a time, got {batch!r}.")
+    return count
+
+
 def _sweep_size(sweep_points: int) -> int:
     """Return how many points the sweep evaluates: the two bounds when it is zero."""
     return 2 if sweep_points <= 0 else max(2, int(sweep_points))
@@ -137,23 +218,29 @@ def _check_roots(roots: int) -> int:
 
 
 def _budget_in_log_space(
-    width: float, tolerance: float, sweep_points: int, bracket_expand: int, roots: int = 1
+    width: float,
+    tolerance: float,
+    sweep_points: int,
+    bracket_expand: int,
+    roots: int = 1,
+    batch: int = 1,
 ) -> CountedBudget:
-    """Count the evaluations for an interval *width* decades wide, per expansion."""
+    """Count the evaluations for an interval *width* decades wide, per expansion.
+
+    *batch* is the points asked at once; one gives the binary search's count.
+    """
     points = _sweep_size(sweep_points)
-    inside = _halvings(width / (points - 1), tolerance)
-    after_one_decade = _halvings(1.0, tolerance)
+    sweep_step = width / (points - 1)
     expansions = range(1, max(0, int(bracket_expand)) + 1)
     if roots == 1:
-        nominal = points + inside
-        expanded = [points + 2 * step + after_one_decade for step in expansions]
+        nominal = points + _cut_evaluations((sweep_step,), tolerance, batch)
+        after = _cut_evaluations((1.0,), tolerance, batch)
+        expanded = [points + 2 * step + after for step in expansions]
     else:
         # One more solve, at the combined value, once both brackets are closed.
-        nominal = points + 2 * inside + 1
-        expanded = [
-            points + 2 * step + after_one_decade + max(inside, after_one_decade) + 1
-            for step in expansions
-        ]
+        nominal = points + _cut_evaluations((sweep_step, sweep_step), tolerance, batch) + 1
+        after = _cut_evaluations((1.0, max(sweep_step, 1.0)), tolerance, batch)
+        expanded = [points + 2 * step + after + 1 for step in expansions]
     return CountedBudget(counts=(nominal, *expanded))
 
 
@@ -165,6 +252,7 @@ def root_search_budget(
     sweep_points: int = DEFAULT_SWEEP_POINTS,
     bracket_expand: int = DEFAULT_BRACKET_EXPAND,
     roots: int = 1,
+    batch: int = 1,
 ) -> CountedBudget:
     """Return the evaluations the root search needs, per bracket expansion.
 
@@ -177,6 +265,10 @@ def root_search_budget(
     value. ``worst`` is the largest count. On the Nancon, [1e-7, 1e-3] with
     seven points and one per cent, one root counts 15, 17, 19, 21 and 23, two
     roots 24, 26, 28, 30 and 32.
+
+    ``batch`` is the points the engine asks at once, ``max(batch_size,
+    parallel)``. Each bracket is then cut ``batch`` points at a time and the
+    halvings become those rounds' evaluations; one gives the counts above.
     """
     low, high = float(lower), float(upper)
     if not (0.0 < low < high):
@@ -191,7 +283,18 @@ def root_search_budget(
         int(sweep_points),
         int(bracket_expand),
         _check_roots(roots),
+        _check_batch(batch),
     )
+
+
+def _within(pair: tuple[float, float], low: float, high: float) -> bool:
+    """Whether the interval *pair* lies inside ``[low, high]``, ends included."""
+    return pair[0] >= low - _SAME_POINT and pair[1] <= high + _SAME_POINT
+
+
+def _residual_near(pairs: Sequence[tuple[float, float]], x: float) -> float | None:
+    """Return the residual evaluated at *x*, None when no point there was evaluated."""
+    return next((value for point, value in pairs if abs(point - x) <= _SAME_POINT), None)
 
 
 def roots_scored(outputs: Iterable[Any]) -> int:
@@ -265,7 +368,11 @@ class RootTarget:
 
 @register_optimizer("bisection")
 class BisectionAdapter:
-    """Bracket the sign change of a residual, or of two, then close each bracket."""
+    """Bracket the sign change of a residual, or of two, then close each bracket.
+
+    ``batch`` is the points the engine asks at once, which the budget is counted
+    for before the first ask. From the first ask on, the widest ask seen counts.
+    """
 
     name = "bisection"
 
@@ -273,7 +380,7 @@ class BisectionAdapter:
         max_parameters=1,
         required_transform="log",
         needs_signed_residual=True,
-        supports_parallel=False,
+        supports_parallel=True,
         restarts_explore_differently=False,
         tolerance_option="rel_tol",
         tolerance_reads="relative_value",
@@ -290,6 +397,7 @@ class BisectionAdapter:
         sweep_points: int = DEFAULT_SWEEP_POINTS,
         bracket_expand: int = DEFAULT_BRACKET_EXPAND,
         roots: int = 1,
+        batch: int = 1,
     ) -> None:
         del seed  # a root search is deterministic
         if space.dim != 1:
@@ -321,6 +429,8 @@ class BisectionAdapter:
         self._declared_roots = (
             _check_roots(roots) if self._signed_component == _DEFAULT_SIGNED_COMPONENT else 1
         )
+        self._batch = _check_batch(batch)
+        self._widest_ask: int | None = None
         # The paper's relative criterion on K/R becomes an absolute width in the
         # log variable, which is what the search actually halves.
         self._tolerance = math.log10(1.0 + float(rel_tol))
@@ -340,6 +450,7 @@ class BisectionAdapter:
         self._targets: tuple[RootTarget, ...] | None = None
         self._brackets: dict[str, tuple[float, float]] = {}
         self._combined_trial: int | None = None
+        self._round_due = False
         self._done = False
         self._trial_id = 0
 
@@ -434,7 +545,11 @@ class BisectionAdapter:
         return [self._low + step * index for index in range(count)]
 
     def _find_bracket(self, target: RootTarget) -> tuple[float, float] | None:
-        """Return the tightest pair of consecutive points that change sign."""
+        """Return the tightest pair of consecutive points that change sign.
+
+        Crossings of one width inside the bracket the last round cut are
+        settled as binary bisection settles them (:meth:`_as_bisection_keeps`).
+        """
         pairs = self._evaluated(target.component)
         found: list[tuple[float, float]] = []
         for (x_low, r_low), (x_high, r_high) in zip(pairs[:-1], pairs[1:], strict=False):
@@ -452,7 +567,54 @@ class BisectionAdapter:
                 target.component,
                 len(found),
             )
-        return min(found, key=lambda pair: pair[1] - pair[0])
+        tightest = min(found, key=lambda pair: pair[1] - pair[0])
+        return self._as_bisection_keeps(target, pairs, found, tightest)
+
+    def _as_bisection_keeps(
+        self,
+        target: RootTarget,
+        pairs: list[tuple[float, float]],
+        found: list[tuple[float, float]],
+        tightest: tuple[float, float],
+    ) -> tuple[float, float]:
+        """Return the crossing binary bisection keeps among several of one width.
+
+        One round of cuts can leave several parts of the last bracket that
+        change sign, when the residual is not monotone there. Binary bisection
+        evaluates the midpoint, keeps the half whose ends change sign, and goes
+        on. Those halvings are followed here through the points evaluated, as
+        long as each midpoint is one of them. Past the last one, the lowest
+        crossing left is kept, as the sweep keeps the first of its crossings.
+        Any other case keeps the tightest crossing, the first on a tie.
+        """
+        previous = self._brackets.get(target.component)
+        if previous is None:
+            return tightest
+        span = tightest[1] - tightest[0]
+        low, high = previous
+        tied = [
+            pair
+            for pair in found
+            if math.isclose(pair[1] - pair[0], span, rel_tol=1e-9, abs_tol=_SAME_POINT)
+            and _within(pair, low, high)
+        ]
+        if len(tied) < 2:
+            return tightest
+        while len(tied) > 1:
+            middle = 0.5 * (low + high)
+            at_low = _residual_near(pairs, low)
+            at_middle = _residual_near(pairs, middle)
+            if at_low is None or at_middle is None or at_middle == 0.0:
+                break
+            if at_low * at_middle < 0.0:
+                high = middle
+            else:
+                low = middle
+            kept = [pair for pair in tied if _within(pair, low, high)]
+            if not kept:
+                break
+            tied = kept
+        return tied[0]
 
     def _expand(self) -> bool:
         """Widen the interval by one decade on both sides. False when exhausted."""
@@ -497,12 +659,14 @@ class BisectionAdapter:
         """Decide what to evaluate next, once a batch has been told.
 
         The sweep, an expansion and the combined value are evaluated whole.
-        Midpoints are recomputed after every batch: with two brackets, the
-        midpoint of one may fall in the other and narrow it too.
+        Brackets are recomputed after every batch: with two brackets, a point
+        cutting one may fall in the other and narrow it too. The cut points of
+        the next round are placed at the next ask, once its width is known.
         """
         if self._pending and self._pending_kind != "bisect":
             return
         self._pending = []
+        self._round_due = False
         if self._combined_trial is not None:
             # The combined value is the last solve; its residuals move no bracket.
             self._done = True
@@ -524,18 +688,40 @@ class BisectionAdapter:
                 self._refuse(missing[0])
             return
         self._brackets = {key: value for key, value in brackets.items() if value is not None}
-        middles: list[float] = []
-        for low, high in self._brackets.values():
-            middle = 0.5 * (low + high)
-            if high - low > self._tolerance and not any(
-                abs(middle - seen) <= _SAME_POINT for seen in middles
-            ):
-                middles.append(middle)
-        if middles:
-            self._pending = middles
+        if self._open_spans():
             self._pending_kind = "bisect"
+            self._round_due = True
             return
         self._plan_the_combined_value()
+
+    def _open_spans(self) -> list[tuple[float, float]]:
+        """Return the brackets still wider than the tolerance, a shared one once."""
+        spans: list[tuple[float, float]] = []
+        for low, high in self._brackets.values():
+            if high - low > self._tolerance and not any(
+                abs(low - seen_low) <= _SAME_POINT and abs(high - seen_high) <= _SAME_POINT
+                for seen_low, seen_high in spans
+            ):
+                spans.append((low, high))
+        return spans
+
+    def _cuts(self, points: int) -> list[float]:
+        """Place one round of at most *points* cut points in the open brackets.
+
+        Each bracket takes its share of the round (:func:`_share`) as equal
+        parts in the log variable. A single point is the midpoint, computed as
+        the binary search always computed it. A point already placed in
+        another bracket is not proposed twice.
+        """
+        spans = self._open_spans()
+        shares = _share([high - low for low, high in spans], self._tolerance, points)
+        placed: list[float] = []
+        for (low, high), share in zip(spans, shares, strict=True):
+            for index in range(1, share + 1):
+                x = ((share + 1 - index) * low + index * high) / (share + 1)
+                if not any(abs(x - seen) <= _SAME_POINT for seen in placed):
+                    placed.append(x)
+        return placed
 
     def _plan_the_combined_value(self) -> None:
         """Every bracket is closed: evaluate the combined value, or stop."""
@@ -576,11 +762,20 @@ class BisectionAdapter:
     # -- the ask / tell contract -------------------------------------------- #
 
     def ask(self, n: int = 1) -> list[ParamSuggestion]:
-        """Return up to ``n`` points, or nothing when every bracket is closed."""
+        """Return up to ``n`` points, or nothing when every bracket is closed.
+
+        Sweep and expansion points come ``n`` at a time, in order. A round of
+        cuts places at most ``n`` points, once per told batch.
+        """
         if self._done:
             return []
+        points = max(1, int(n))
+        self._widest_ask = max(self._widest_ask or 0, points)
+        if self._round_due:
+            self._round_due = False
+            self._pending = self._cuts(points)
         out: list[ParamSuggestion] = []
-        while self._pending and len(out) < max(1, int(n)):
+        while self._pending and len(out) < points:
             x = self._pending.pop(0)
             self._trial_id += 1
             self._points[self._trial_id] = x
@@ -825,8 +1020,9 @@ class BisectionAdapter:
         """Evaluations the declared bounds, sweep, tolerance and roots need, per expansion.
 
         Read by the engine before the first solve: ``"auto"`` budgets its worst
-        case, a budget below its nominal case is refused. See
-        :func:`root_search_budget`.
+        case, a budget below its nominal case is refused. Counted for the
+        declared ``batch`` until the first ask, then for the widest ask seen.
+        See :func:`root_search_budget`.
         """
         low, high = self._declared
         return _budget_in_log_space(
@@ -835,13 +1031,20 @@ class BisectionAdapter:
             self._sweep_points,
             self._max_expansions,
             self._declared_roots,
+            self._points_per_round,
         )
+
+    @property
+    def _points_per_round(self) -> int:
+        """The points a round may place: the widest ask seen, else the declared batch."""
+        return self._widest_ask if self._widest_ask is not None else self._batch
 
     @property
     def evaluations_remaining(self) -> int | None:
         """Evaluations the current brackets still need, or None before they are found.
 
-        ``ceil(log2(width / t))`` per open bracket, plus the solve at the
+        ``ceil(log2(width / t))`` per open bracket with one point per ask, the
+        evaluations of the rounds of cuts with more; plus the solve at the
         combined value with two roots; zero once the search is done. Before
         every sign change is found the sweep or an expansion is still running,
         and what follows it is not known yet.
@@ -852,9 +1055,8 @@ class BisectionAdapter:
             return None
         if self._done:
             return 0
-        needed = sum(
-            _halvings(high - low, self._tolerance) for low, high in self._brackets.values()
-        )
+        widths = [high - low for low, high in self._open_spans()]
+        needed = _cut_evaluations(widths, self._tolerance, self._points_per_round)
         if len(self._targets) == 2 and self._combined_result() is None:
             needed += 1
         return needed

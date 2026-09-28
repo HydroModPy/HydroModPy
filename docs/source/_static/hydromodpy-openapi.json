@@ -2104,25 +2104,33 @@
             "x-hmp-profile": "user"
           },
           "batch_size": {
-            "default": 1,
-            "description": "Suggestions drawn per ask, at least ``parallel``. A root search returns one point at a time during its refinement, whatever this asks for.",
-            "examples": [
-              1
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "minimum": 1,
+            "default": null,
+            "description": "Suggestions drawn per ask, at least ``parallel``. Unset, the phase takes the ``batch_size`` of ``[calibration]``.",
             "title": "Batch Size",
-            "type": "integer",
             "x-hmp-profile": "user"
           },
           "parallel": {
-            "default": 1,
-            "description": "Trials of this phase solved side by side, each in its own folder. A grid or a random search gains the most: its points do not depend on one another. A root search and a simplex propose one point at a time and gain nothing. Each trial holds its own model in memory.",
-            "examples": [
-              1
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "minimum": 1,
+            "default": null,
+            "description": "Trials of this phase solved side by side, each in its own folder. Unset, the phase takes the ``parallel`` of ``[calibration]``, which also reaches the phases a protocol writes.",
             "title": "Parallel",
-            "type": "integer",
             "x-hmp-profile": "user"
           },
           "parameters": {
@@ -2654,7 +2662,7 @@
           },
           "parallel": {
             "default": 1,
-            "description": "Trials solved side by side, each in its own folder. A grid or a random search gains the most: its points do not depend on one another. A root search and a simplex propose one point at a time and gain nothing. Each trial holds its own model in memory; 1 solves them one after the other.",
+            "description": "Trials solved side by side, each in its own folder, for every phase that sets none of its own. A grid or a random search evaluates its points together; a root search cuts its bracket into parallel + 1 parts; a simplex evaluates the candidates of one step together and keeps the sequential answer. Each trial holds its own model in memory; 1 solves them one after the other.",
             "examples": [
               1
             ],
