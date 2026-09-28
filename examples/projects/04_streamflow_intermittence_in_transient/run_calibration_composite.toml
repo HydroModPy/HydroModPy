@@ -1,0 +1,65 @@
+# Nancon, K and Sy together in one transient search, on two criteria at once:
+# the seepage network of October 2002 and the gauged discharge. Where
+# run_calibration.toml chains two stages, this file composes the criteria.
+#
+#   hmp calibrate run_calibration_composite.toml --list-phases   the blocks and their shares
+#   hmp run       run_calibration_composite.toml                 about one hour: 60 runs of 1 min
+
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "nancon_intermittence_mf6_composite"
+description = "Nancon, K and Sy together, monthly transient, network and hydrograph."
+
+[calibration]
+seed = 42
+rerun_best_with_outputs = true
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+
+# The network of one month against the permanent map. October 2002 is the
+# driest month, the state a map of permanent reaches describes.
+[calibration.outputs.seepage_network]
+support = "network"
+stream_geometry_path = "nancon_stream_network.gpkg"
+time = "2002-10-15"
+
+[calibration.outputs.hydrograph]
+support = "point"
+variable = "discharge"
+observes = "NANCON"
+
+# The gap divided by the validity length (150 m here), so it adds to an NSE.
+[[calibration.objective_blocks]]
+name = "network"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+normalize_cost = true
+
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+uses_outputs = ["hydrograph"]
+
+[[calibration.phases]]
+name = "conductivity_and_storage"
+description = "K and Sy together, monthly transient, on the gauge and the October 2002 network."
+parameters = ["K", "Sy"]
+regime = "transient"
+# Shares of the cost, normalised to sum to one.
+objective_blocks = { hydrograph = 0.7, network = 0.3 }
+# Two parameters and a cost with plateaus: a global sampler, reproducible
+# with the seed above. It stops on budget only.
+method = "optuna"
+max_iter = 60
+
+# 2000 is spin-up: both criteria are read from 2001 on.
+[calibration.phases.scoring_window]
+start = "2001-01-01"

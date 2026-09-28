@@ -1,59 +1,48 @@
-# Nancon, the complete simulation: three years at a monthly step, with storage
-# and the observed forcing. K, Sy and Ss are assumed here, not calibrated;
-# run_calibration.toml fits K and Sy. Under a minute on 21406 cells.
+# Step 4: step 3 in monthly transient over 2000-2002, forced by the local
+# monthly recharge and runoff. K, Sy and Ss are assumed, not calibrated.
 #
-#   hmp run examples/projects/04_streamflow_intermittence_in_transient/step4_transient.toml
+#   hmp run step4_transient.toml
 
-base_config = "step2_local_data.toml"
+base_config = "step3_api_data.toml"
 
 [simulation]
 name = "nancon_step4_transient"
 
-# One month is the schema default, and 2000-2002 is the window the observed
-# series cover. The first period is solved steady and gives the transient run
-# its initial heads, so no [flow.ic] is needed.
+# One month is the default step. The first period is solved steady and gives
+# the initial heads.
 [simulation.time]
 start_datetime = "2000-01-01"
 end_datetime = "2002-12-31"
 
-# The per-cell seepage. Without it the run stores heads and budgets, and which
-# reaches dry up and when has no field to be read off.
-[simulation.results.derived]
-release_flux = true
-
 [flow]
-# Restated although transient is also the schema default: step 1 declared
-# steady, and an inherited value is not undone by a default.
+# Restated: an inherited "steady" is not undone by the default.
 flow_regime = "transient"
 param_list = ["K", "Sy", "Ss"]
 
-# Sy is not restated: step 1 declares it at 0.05 and the value is inherited.
-# Only Ss is new here.
-
-# Only matters where the aquifer is confined, which on 30 m of free-surface
-# regolith is nowhere. Declared because MODFLOW 6 asks for a value.
+# Only matters where the aquifer is confined; MODFLOW 6 asks for a value.
 [flow.param.Ss.field]
 kind = "homogeneous"
 unit = "m-1"
 value = 1e-5
 
-# The two families step 2 declares, plus the two this step forces with. A list
-# replaces the parent's, so the four are written out.
+# A list replaces the parent's, so the four families are written out.
 [data]
 types = ["hydrography", "hydrometry", "recharge", "runoff"]
 
-# The 36 monthly rates supersede the single mean of step 1: a series loaded
-# from a data source replaces [flow.sinks_sources.recharge] entirely, value and
-# unit alike.
+# 36 monthly rates replace the steady mean of step 1.
 [[data.recharge.sources]]
 source = "custom"
 path = "recharge"
 station_ids = ["NANCON"]
 
-# Surface runoff is not a flow package: it is the share of the gauged discharge
-# the groundwater model does not produce. Without it the simulated baseflow is
-# compared against a total it cannot reach.
+# The share of the gauged discharge the groundwater model does not produce.
 [[data.runoff.sources]]
 source = "custom"
 path = "runoff"
 station_ids = ["NANCON"]
+
+# What enters and leaves, the gauge against the simulation, and the seepage
+# of October 2002, the driest month.
+[display]
+time = "2002-10-15"
+figures = ["flux_timeseries", "hydrograph_sim_obs", "seepage_map"]

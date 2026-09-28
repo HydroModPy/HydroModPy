@@ -422,7 +422,7 @@ The long form, for a variant the protocol does not cover.
    objective_blocks  = ["abherve_gap"]
    freeze_on_success = true
 
-   [calibration.phases.optimizer_kwargs]
+   [calibration.phases.method_options]
    rel_tol      = 0.01
    sweep_points = 7
 
@@ -447,7 +447,7 @@ The long form, for a variant the protocol does not cover.
    start = "2012-01-01"
    end   = "2015-12-31"
 
-   [calibration.phases.optimizer_kwargs]
+   [calibration.phases.method_options]
    points_per_dim = 9
 
    [calibration.phases.overrides]
@@ -462,18 +462,11 @@ staged mode. Without it nothing changes for an existing configuration.
 
 The shipped version of that file is
 ``examples/projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml``.
-It inherits the project next door, which names the protocol, so it starts by
-dropping the name:
+It inherits the project next door, which declares no calibration, and
+writes the two stages as phases.
 
-.. code-block:: toml
-
-   base_config = "project.toml"
-
-   [calibration]
-   protocol__delete = true
-
-Run ``hmp calibrate project.toml --list-phases`` in that directory and the two
-stages the name expands to are the two stages that file writes out. Nothing
+Run ``hmp calibrate run_calibration.toml --list-phases`` in that directory and
+the two stages the name expands to are the two stages that file writes out. Nothing
 downstream can tell them apart: the runner records ``phase_name`` and
 ``phase_index`` from the declarations whichever way they were written, and the
 four calibration figures read those records rather than the protocol. What the
@@ -494,30 +487,31 @@ in one phase, each with its own share of the cost.
    support  = "point"
    variable = "discharge"
    observes = "NANCON"
-   x        = 389285.910
-   y        = 6816518.749
 
    [[calibration.objective_blocks]]
-   name         = "network_extension"
-   metric       = "distance_gap"
-   uses_outputs = ["seepage_network"]
+   name           = "network_extension"
+   metric         = "distance_gap"
+   uses_outputs   = ["seepage_network"]
+   normalize_cost = true
 
    [[calibration.objective_blocks]]
    name         = "hydrograph"
    metric       = "nse_log"
    uses_outputs = ["gauged_discharge"]
-   warmup       = 12
 
    [[calibration.phases]]
    name             = "transient_storage"
    max_iter         = 30
    tolerance        = 0.05
    parameters       = ["Sy"]
-   objective_blocks = { hydrograph = 100, network_extension = 1 }
+   objective_blocks = { hydrograph = 0.8, network_extension = 0.2 }
    depends_on       = "steady_conductivity"
    regime           = "transient"
 
-Four things in there are not free choices.
+   [calibration.phases.scoring_window]
+   start = "2001-01-01"
+
+Five things in there are not free choices.
 
 ``support = "point"`` with ``observes``, for the gauge
    The single-metric route declares no output, so a stage that scores two
@@ -528,7 +522,10 @@ Four things in there are not free choices.
    whole-catchment series where it placed none, with the basin's runoff added.
    A discharge station is deliberately never placed by the coordinates written
    beside it, so the second case is the ordinary one, and the run logs one line
-   naming the station when it takes it. The same target written
+   naming the station when it takes it. ``hmp calibrate --list-phases`` prints
+   it as ``discharge, station NANCON (whole-catchment series)``. An ``x``, ``y``
+   or ``geometry`` written beside ``observes`` is not read, and loading warns
+   so, unless ``snap_radius`` is set. The same target written
    ``support = "boundary"`` on the drain
    validates and scores the drain budget instead, which is baseflow without
    runoff and not what a gauge records.
@@ -564,40 +561,48 @@ Four things in there are not free choices.
    ``snap_radius`` nothing moves, which keeps every existing project where it
    was.
 
-``warmup`` rather than ``scoring_window``, for the spin-up
-   A window cuts a loaded record on its dates. A network output is scored on
-   the pair ``(D_so, D_os)``, which carries none, so a phase declaring a window
-   beside a network block is refused rather than scored over the whole run
-   under the name of a windowed one. A count of samples applies to the block
-   that has a record, and twelve monthly samples are the same span the window
-   would have named.
+``scoring_window``, for the spin-up of both blocks
+   ``start = "2001-01-01"`` is the first date scored, and 2000 is simulated
+   and not scored. A series keeps its stamps inside the window. The network
+   output reads one state, dated at the stamp that closes the period it
+   reads: the last month here, stamped 2003-01-01, inside the window. A
+   window that does not hold that stamp is refused, naming both, by
+   ``hmp calibrate --check`` and at the first trial, rather than scored under
+   the name of a windowed cost. ``warmup`` and ``warmup_periods`` still load
+   but count samples, twelve being a year at a monthly step and twelve days
+   at a daily one; the window names the same span at any step.
 
 The network block, in transient, scores one instant
    A network output reads exactly one state unless it declares an ``extent``
-   table: ``time = "last"`` (default) or ``"first"``. ``"all"`` and a list of
-   ISO dates are refused at configuration load, so a phase can no longer name a
-   date here and have the criterion score the last stress period instead of
-   it. The block compares one month to the mapped network, the last of the
-   simulated record; pick that month with the phase's ``end_datetime``, not
-   with ``time``. A transient comparison against the two mapped extents,
-   counted over the calendar years of the run, is the two-bound mode of
+   table: ``time = "last"`` (default), ``"first"``, or an ISO date such as
+   ``"2002-10-15"``, which reads the state of the period that holds it,
+   ``[start, end)``. The extraction serves the criterion that row and no
+   other. On a steady phase the one period spans the whole record, so every
+   date of it reads its one state and the same output serves both stages.
+   ``"all"`` and a list of dates are refused at configuration load. A
+   transient comparison against the two mapped extents, counted over the
+   calendar years of the run, is the two-bound mode of
    `Two maps and two bounds`_ below: it reads the maps already declared on
    this output and needs no observed intermittence record. Scoring against an
    actual seasonal intermittence record instead is the method of
    :cite:`abherve2024headwater`, a different observation altogether.
 
-``objective_blocks`` as a share table, not a list
+``normalize_cost`` on the network block, then a share table
    The two costs are in different units: ``distance_gap`` is metres and
-   ``1 - nse_log`` is a pure number. ``normalize_cost`` is refused on both, for
-   opposite reasons, the first fitting no record to take a spread from and the
-   second being already dimensionless. A table, ``{ block = share, ... }``,
-   gives the phase its own balance between the two instead of a weight
-   declared once on the block itself, which would also apply to any other
-   phase that reads it. Shares are normalized to sum to one, so the trial cost
-   above is ``0.0099 * |gap| + 0.990 * (1 - NSElog)``. Set the ratio against
-   the magnitudes the first stage published rather than by halves, and read
-   ``network_extension.total`` and ``hydrograph.total``, which every trial
-   reports, to see what it bought.
+   ``1 - nse_log`` is a pure number. ``normalize_cost = true`` on the network
+   block divides each distance by the output's ``validity_length`` (Eq. 4,
+   ``"auto"`` = 2 h_obs, 150 m on the Nancon mesh), so the gap is counted in
+   validity lengths and a gap of one costs as much as an NSE of zero. It stays
+   refused on ``nse_log``, already dimensionless. A table,
+   ``{ block = share, ... }``, then gives the phase its own balance between two
+   pure numbers instead of a weight declared once on the block itself, which
+   would also apply to any other phase that reads it. Shares are normalized to
+   sum to one, so the trial cost above is
+   ``0.2 * |gap| / L + 0.8 * (1 - NSElog)``. Read ``network_extension.total``
+   and ``hydrograph.total``, which every trial reports, to see what it bought.
+   Without ``normalize_cost`` the table is an exchange rate between metres and
+   an efficiency, and ``{ hydrograph = 100, network_extension = 1 }`` was the
+   spelling it needed.
 
 ``regime = "transient"`` in place of an override
    The first stage writes ``regime = "steady"``, and this one restates

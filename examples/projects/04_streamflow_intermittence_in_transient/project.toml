@@ -2,9 +2,10 @@
 # between wet winters and dry summers, the seepage cells and the active network
 # expand and contract.
 #
-#   hmp run       <this file>    simulate at the values below
-#   hmp calibrate <this file>    K from the mapped network, Sy from the gauge,
-#                                [calibration] below says how
+# The frozen reference of the example: the step files teach, this one is
+# compared. The run_calibration*.toml files calibrate it.
+#
+#   hmp run project.toml
 
 [workflow]
 mode = "simulation"
@@ -113,103 +114,11 @@ kind = "homogeneous"
 unit = "m-1"
 value = 1e-5
 
-# K from the extent of the mapped network in steady state, then Sy from the
-# gauged hydrograph with K frozen: stage one is Abherve et al. (2023),
-# 10.5194/hess-27-3221-2023, stage two Abherve et al. (2025, WRR),
-# 10.1029/2025WR040083. run_calibration.toml runs it as is;
-# run_calibration_protocol_by_hand.toml writes the same two stages out;
-# run_calibration_by_hand.toml writes them out and deviates once.
-#
-#   hmp calibrate <this file> --list-phases   each stage: method, width, what it compares
-#   hmp calibrate <this file> --expand        the stages the protocol writes, as TOML
-#   hmp calibrate <this file> --check         every problem at once, no solve
-[calibration]
-seed = 42
-# The best trial of each stage is replayed as a full simulation, with its
-# outputs, beside the assumed-values run.
-save_runs = "best_n"
-save_best_n = 1
-rerun_best_with_outputs = true
-# Every trial keeps the cost of each block, raw and normalised, not only the
-# totals.
-persist_iteration_detail = "full"
-
-# The bounds are all this file adds: K and Sy are both searched in log space,
-# the default of their catalogue entries.
-[calibration.parameters.K]
-bounds = [1e-7, 1e-3]
-
-[calibration.parameters.Sy]
-bounds = [5e-3, 0.35]
-
-# The mapped network stage one is scored on. The gauge is not declared here:
-# the protocol adds it as `hydrograph`, a point output that observes NANCON,
-# the one station [[data.hydrometry.sources]] lists. With several stations,
-# name the one to score with `observed_station_id`.
-#
-# The map is the permanent class of BD TOPO alone: 945 reaches, 181.7 km. The
-# criterion draws it one cell wide ("crossing"), descends D8 on the model top
-# filled from the domain border, and scores the catchment of its own outlet.
-# Eq. 4 qualifies the result, Doptim <= validity_length, "auto" being 2 h_obs,
-# 150 m on this 75 m grid.
-[calibration.outputs.seepage_network]
-support = "network"
-stream_geometry_path = "nancon_stream_network.gpkg"
-# validity_length = "300 m"
-#
-# One map is the 2023 method. The 2025 paper scores the permanent map and
-# validates on the complete one. The example ships no complete map, so both
-# lines change together: stream_geometry_path names the complete map, and this
-# file becomes the minimal one. Never the same file twice, --check misses it.
-# stream_geometry_path = "<complete map, not shipped>.gpkg"
-# minimal_stream_geometry_path = "nancon_stream_network.gpkg"
-#
-# Or both from BD TOPAGE: set [[data.hydrography.sources]] source = "bdtopage"
-# as step 3 does, drop stream_geometry_path, and set observed_network and
-# minimal_observed_network to "data.hydrography". A custom file carries no
-# permanence; --check passes it and the first trial fails.
-#
-# The transient two-bound mode scores the yearly maximal and minimal simulated
-# extents against the two maps. A steady stage refuses it, so it belongs to a
-# transient network phase written by hand.
-# [calibration.outputs.seepage_network.extent]
-# visible_flow = "1 L/s"
-
-# Stage one moves K alone over one steady period, the whole of
-# [simulation.time], by bisection on the signed network gap, and freezes it.
-# Stage two moves Sy alone in monthly transient, by Nelder-Mead on the NSE of
-# the log discharge at the gauge. The papers fix both methods; the options
-# below set budgets and precisions only. The bisection budgets itself
-# ("auto", 23 solves at worst on these bounds), the simplex does not.
-[calibration.protocol]
-name = "matching_hydrographic_network"
-# The precision at which a stage stops, relative to its parameter: one per cent
-# on K, the paper's, five on Sy. Not the width of the reported interval.
-steady_tolerance = 0.01
-# Each evaluation of stage two is a 36-month run: 30 of them, not 120.
-transient_max_iter = 30
-transient_tolerance = 0.05
-
-# A coarse log sweep before the bisection, to check the monotonicity the method
-# assumes.
-[calibration.protocol.steady_engine_options]
-sweep_points = 7
-
-# 2000 is simulated and not scored. The protocol leaves the first year out
-# unwritten; the window is written so the figure below and the by-hand files
-# read the same dates.
-[calibration.protocol.scoring_window]
-start = "2001-01-01"
-end = "2002-12-31"
-
-# No [calibration.uncertainty]: each stage reports the width its criterion
-# calls for. Around K, the values within one mesh cell of network gap, h_obs,
-# 75 m on this grid; around Sy, those within 5 % of the best cost. The
-# interval never moves the calibrated value.
-
-
 [display]
 on_error = "raise"
+# Every one-instant figure draws October 2002, the driest month of the record.
+# The default, the last period, is a December with a nearly full network.
+time = "2002-10-15"
 
 # The catchment, what enters and leaves it, the gauge, then the four that
 # answer which reaches dry up and when. `hmp viz show <name>` renders any other
@@ -237,16 +146,9 @@ figures = [
     "matching_hydrographic_network_card",
 ]
 
-# Every figure that draws one instant draws the same one: step 34 of 36,
-# October 2002, the driest month of the record. The default, the last timestep,
-# is a December where the network is nearly full.
-[display.overrides.seepage_map]
-timestep = 33
-
 # South to north through the outlet, so the section cuts the tributaries
 # across. The west-east default crosses the valley once, at the southern edge.
 [display.overrides.cross_section]
-timestep = 33
 orientation = "sn"
 
 # Persistence answers over the three years, intermittence classifies inside one
@@ -255,7 +157,6 @@ orientation = "sn"
 [display.overrides.flow_intermittence_map]
 cycle = "2002"
 
-# The window [calibration.protocol.scoring_window] scores, shaded on the figure
-# so the samples the NSElog reads are visible.
+# The window the calibrations score, 2000 being spin-up, shaded on the figure.
 [display.overrides.hydrograph_log_nse]
 scoring_window = ["2001-01-01", "2002-12-31"]

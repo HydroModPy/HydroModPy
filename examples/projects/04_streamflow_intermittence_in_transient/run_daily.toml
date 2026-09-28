@@ -1,6 +1,6 @@
 # Nancon, the same model at a daily step. Only what the step changes is written
-# here: the step, the forcing that carries it, the name, and the figures that
-# index one. Everything else comes from project.toml.
+# here: the step, the forcing that carries it, the name and two figures.
+# The figure date, 2002-10-15, comes from project.toml and follows the step.
 #
 #   hmp run examples/projects/04_streamflow_intermittence_in_transient/run_daily.toml
 
@@ -31,12 +31,3 @@ station_ids = ["NANCON_REA"]
 # `figures = [...]` would replace them.
 [display]
 figures__append = ["duration_curve", "recession"]
-
-# 15 October 2002 is step 1019 of 1096 here and was step 34 of 36 in the
-# parent. Anything indexed by step has to follow the step.
-[display.overrides.seepage_map]
-timestep = 1018
-
-# `orientation = "sn"` survives the merge; only `timestep` is replaced.
-[display.overrides.cross_section]
-timestep = 1018

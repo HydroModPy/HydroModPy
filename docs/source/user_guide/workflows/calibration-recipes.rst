@@ -50,9 +50,11 @@ swept over a bounded range and scored against one observed discharge series.
 
 Two lines carry most of the modelling decision. ``bounds`` states what the site
 could plausibly be, and a range far wider than the evidence buys a search over
-a region the data already excludes. ``warmup_periods`` drops the head of the
-record from the score, because that stretch is still forgetting the initial
-condition; size it by raising it until the objective stops moving.
+a region the data already excludes. ``scoring_window.start`` is the first date
+scored, which leaves the head of the record out, because that stretch is still
+forgetting the initial condition; move it later until the objective stops
+moving. A date names the same span at any time step, where a count of samples
+does not.
 
 .. literalinclude:: ../recipes/calibration_single_gauge.toml
    :language: toml
@@ -115,7 +117,7 @@ stages by hand, or drop the stages to let the protocol write them. The long
 form, and the deviation it buys that a name cannot express, are in
 :doc:`stream-network-calibration`;
 ``examples/projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml``
-ships it against the same catchment as the protocol next door.
+ships the faithful long form against the same catchment as the protocol next door.
 
 Every option under ``[calibration.protocol]`` has a default that reproduces the
 published method, so the shortest form of this recipe is one line:
@@ -136,19 +138,24 @@ Read what a name expands to without running it:
 
    hmp calibrate calibration_matching_hydrographic_network.toml --expand
 
-It prints the two stages and their objective blocks as TOML, ready to paste
-into a file with ``protocol__delete = true``, plus the ``[calibration.outputs]``
-entry the transient stage adds when the gauging station is known from the
-file alone. A file that loads several stations keeps the protocol's older
-form there instead, a single ``variable`` and ``objective`` naming no output.
+It prints the whole ``[calibration]`` section the name stands for, as TOML: the
+parameters and outputs the file declares, the ``[calibration.outputs]`` entry
+the transient stage adds when the gauging station is known from the file alone,
+and the two stages with their objective blocks. Pasted in place of the
+protocol, it runs the same stages. When the protocol comes from a
+``base_config``, the header adds that a file pasting it under that same base
+also writes ``protocol__delete = true``. A file that loads several stations
+keeps the protocol's older form for the transient stage, a single ``variable``
+and ``objective`` naming no output.
 
 The transient stage prints with a ``scoring_window`` even when the file writes
 none. Its first year starts from an initial condition the run did not produce,
 so the protocol scores it from one year after the ``start_datetime`` of
 ``[simulation.time]``, for every block the stage scores. A ``scoring_window`` under
 ``[calibration.protocol]`` replaces that start, and one under ``[calibration]``
-or a ``warmup_periods`` there removes it; a window starting on the run's own
-first day scores the spin-up year too. A run of one year or less has nothing
+removes it; a window starting on the run's own first day scores the spin-up
+year too. A date in a protocol window that does not parse is refused when the
+file is read. A run of one year or less has nothing
 past its spin-up and is scored whole. The protocol record lists the rule as the
 ``spin_up_year`` departure: the published application scores June to October
 of one drought year, a window no default can carry.
@@ -173,16 +180,24 @@ frozen, and scores it on two blocks: ``nse_log`` on the gauge, declared as a
 same network output. That second block is the one thing the named protocol
 does not offer; writing the stages out is what makes room for it.
 
-Stage two gives the two blocks a share table, ``{ hydrograph = 100,
-network_extension = 1 }``, instead of a weight on each block: this stage sets
+Stage two gives the two blocks a share table, ``{ hydrograph = 0.8,
+network_share = 0.2 }``, instead of a weight on each block: this stage sets
 its own balance, normalised to sum to one, without touching what another
-phase might read from the same blocks. Stage two also names no ``method``: the
-hydrograph block is not signed, so the phase has a cost to minimise and gets
-``scipy_nelder_mead`` on its own; ``--list-phases`` prints the choice and why.
+phase might read from the same blocks. ``network_share`` is the network gap
+with ``normalize_cost = true``, divided by the output's ``validity_length``
+(Eq. 4, ``"auto"`` = 2 h_obs), so both blocks are pure numbers and a share is
+a share rather than an exchange rate between metres and an efficiency. Stage
+one keeps the gap in metres, where its interval is read in mesh cells. Stage
+two also names no ``method``: the hydrograph block is not signed, so the phase
+has a cost to minimise and gets ``scipy_nelder_mead`` on its own;
+``--list-phases`` prints the choice and why.
 
-``warmup`` sits on the hydrograph block rather than on a ``scoring_window``. A
-window is refused there: it would apply to every block of the stage, and the
-network block scored alongside the hydrograph carries no dates to cut on.
+``scoring_window.start`` on stage two leaves the spin-up year out of both
+blocks. The hydrograph keeps its months from that date on. The network output
+reads one state, dated at the stamp that closes its period, the last month
+here, and the window has to hold that stamp: ``hmp calibrate --check`` names
+both when it does not. ``time = "2003-08-15"`` on the output would read the
+state of August 2003 instead, the period that holds that date.
 
 .. literalinclude:: ../recipes/calibration_staged_by_hand.toml
    :language: toml
@@ -191,9 +206,9 @@ Start here when a stage of the published method needs to say more than its
 name can, or to read in one place what ``protocol =
 "matching_hydrographic_network"`` expands into. The two files agree on every
 stage, criterion and override; only the second objective block differs.
-``examples/projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml``
-is the same shape run against a real catchment, with the trial numbers the
-weighting was chosen from.
+``examples/projects/04_streamflow_intermittence_in_transient/run_calibration_composite.toml``
+weights the network and the hydrograph in one transient phase against a real
+catchment.
 
 Checking before the solver starts
 ---------------------------------
