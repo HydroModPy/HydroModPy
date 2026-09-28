@@ -13,11 +13,8 @@ Cache management:
 - ``hmp data archive <out>``: archive the cache + lockfile to a portable file.
 - ``hmp data restore <in>``: restore a cache archive into the workspace.
 
-Package exchange:
+Package exchange (``hmp export <run> all --format package`` writes one):
 
-- ``hmp data export <project>``: export geographic data or simulation results.
-- ``hmp data export-package <sim_ref>``: bundle a simulation as a portable
-  ``.hmp`` archive (tar.zst with RO-Crate manifest).
 - ``hmp data import <package>``: import a ``.hmp`` archive and dematerialise
   its bundled inputs into a project catalog.
 """
@@ -31,8 +28,6 @@ from hydromodpy.cli.commands.data import (
     add,
     archive,
     check,
-    export,
-    export_package,
     get,
     import_cmd,
     ls,
@@ -53,8 +48,6 @@ ACTIONS = (
     prune,
     archive,
     restore,
-    export,
-    export_package,
     import_cmd,
 )
 

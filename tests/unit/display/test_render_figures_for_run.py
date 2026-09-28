@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.progress import MILESTONE_KEY
 from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figure import FigureSpec
@@ -286,11 +287,12 @@ def test_summary_names_every_requested_figure_that_produced_nothing(
     assert "1 skipped: na_calibration (stub is not applicable)" in summary
 
 
-def test_summary_is_a_warning_when_a_requested_figure_is_missing(
+def test_summary_is_info_when_every_skip_is_inapplicable_by_nature(
     tmp_path, patched_registry, runs_module, hmp_log_records
 ):
-    # WARNING so the line survives quiet mode: an output the user asked for
-    # and did not get must never disappear.
+    # A calibration figure on a plain run is not something the user can fix:
+    # the showcase lists them on purpose. One milestone line counts them, and
+    # the next line, at INFO (--verbose), names each one with its reason.
     report = runs_module.render_figures_for_run(
         _StubRun(),
         _skip_config("na_calibration", "piezometric_map"),
@@ -298,9 +300,49 @@ def test_summary_is_a_warning_when_a_requested_figure_is_missing(
     )
     runs_module.log_render_summary(report, destination=tmp_path / "figures")
 
+    records = [r for r in hmp_log_records if "runs" in r.name and r.levelno >= logging.INFO]
+    assert [r.levelname for r in records] == ["INFO", "INFO"]
+    assert getattr(records[0], MILESTONE_KEY, False) is True
+    assert records[0].getMessage().endswith("; 1 not applicable to this run")
+    assert getattr(records[1], MILESTONE_KEY, False) is False
+    assert "na_calibration (stub is not applicable)" in records[1].getMessage()
+
+
+def test_summary_is_a_warning_when_a_config_option_would_have_kept_the_figure(
+    tmp_path, patched_registry, runs_module, hmp_log_records
+):
+    # WARNING so the line survives quiet mode: the user can act on it.
+    report = runs_module.render_figures_for_run(
+        _StubRun(),
+        _skip_config("na_calibration", "nd_active_network", "piezometric_map"),
+        output_dir=tmp_path / "figures",
+    )
+    runs_module.log_render_summary(report, destination=tmp_path / "figures")
+
+    assert [s.actionable for s in report.skipped] == [False, True]
     records = [r for r in hmp_log_records if "figure(s)" in r.getMessage()]
     assert [r.levelname for r in records] == ["WARNING"]
     assert "na_calibration" in records[0].getMessage()
+    assert "nd_active_network" in records[0].getMessage()
+
+
+def test_summary_is_a_warning_when_a_figure_failed_to_render(
+    tmp_path, patched_registry, runs_module, hmp_log_records
+):
+    stub = patched_registry.setdefault("piezometric_map", _StubFigure("piezometric_map"))
+
+    def _boom(sim, **kw):
+        raise RuntimeError("no data")
+
+    stub.plot = _boom
+    report = runs_module.render_figures_for_run(
+        _StubRun(), _skip_config("piezometric_map"), output_dir=tmp_path / "figures"
+    )
+    runs_module.log_render_summary(report, destination=tmp_path / "figures")
+
+    assert report.skipped[0].actionable is True
+    records = [r for r in hmp_log_records if "figure(s)" in r.getMessage()]
+    assert [r.levelname for r in records] == ["WARNING"]
 
 
 def test_summary_is_info_when_the_whole_batch_rendered(

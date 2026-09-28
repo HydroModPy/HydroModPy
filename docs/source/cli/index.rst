@@ -17,8 +17,8 @@ intent rather than exhaustive flag tables.
 Command inventory
 -----------------
 
-Thirteen families group their own sub-actions; six verbs sit directly under
-:command:`hmp`.
+Thirteen families group their own sub-actions; seven verbs sit directly
+under :command:`hmp`.
 
 .. list-table::
    :header-rows: 1
@@ -36,10 +36,10 @@ Thirteen families group their own sub-actions; six verbs sit directly under
    * - :doc:`hmp catalog <catalog>`
      - ``ls``, ``query``, ``show``, ``point``, ``gc``, ``reindex``,
        ``delete``, ``restore``, ``trash``, ``tag``, ``note``, ``rename``,
-       ``diff``, ``watch``, ``export``, ``import``, ``rerun``
+       ``diff``, ``watch``, ``import``, ``rerun``
    * - ``hmp data``
      - ``ls``, ``get``, ``check``, ``add``, ``remove``, ``prune``,
-       ``archive``, ``restore``, ``export``, ``export-package``, ``import``
+       ``archive``, ``restore``, ``import``
    * - :doc:`hmp viz <viz>`
      - ``list``, ``show``, ``gallery``
    * - ``hmp config``
@@ -69,6 +69,9 @@ Thirteen families group their own sub-actions; six verbs sit directly under
      - Run a workflow from a TOML config.
    * - :doc:`hmp calibrate <run>`
      - Run a calibration workflow from a TOML config.
+   * - :doc:`hmp export <export>`
+     - Export data of a run: fields, series, layers, the budget, or the
+       whole run as a ``.hmp`` package.
    * - :doc:`hmp spinup <run>`
      - Cyclic spin-up: restart each cycle until heads and lake stage
        converge.
@@ -97,6 +100,7 @@ Families
    :maxdepth: 1
 
    run
+   export
    project
    example
    catalog

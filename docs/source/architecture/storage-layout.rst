@@ -77,6 +77,7 @@ Layout of a project root, as written today:
        |-- index.duckdb     the index rebuilt from runs/ and sessions/
        |-- logs/            hydromodpy_debug.log
        |-- checkpoints/     resolved workflow manifests, for resume
+       |-- identity_notice.json  what the creator and licence warning told
        |-- running/         live-run heartbeat sidecars
        |-- scratch/         solver working directory
        `-- trash/           orphan stores and figures quarantined by gc
@@ -88,6 +89,11 @@ The project config file is ``project.toml``, and
 never on a database file: a project stays a project after its index is
 deleted. A workspace-level ``workspace.toml`` is optional metadata
 written by ``hmp workspace init``; it carries no part of this contract.
+A run sealed without ``creator_name``, ``creator_institution`` or a known
+licence warns once per workspace. ``.hmp/identity_notice.json``, beside
+``workspace.toml`` or at the project root when there is none, records the
+warning, and later runs report the gap at ``--verbose`` only. Deleting the
+file brings the warning back once.
 
 ``hydromodpy.lock`` is a declared project-root entry, covered by
 ``test_the_reproducibility_lock_is_a_declared_project_entry`` in
@@ -675,15 +681,16 @@ with a rationale.
 Portable ``.hmp`` packages
 --------------------------
 
-``hmp catalog export <ref> -o run.hmp`` bundles the run seal (manifest,
+``hmp export <ref> all --format package`` bundles the run seal (manifest,
 provenance, frozen config), a one-simulation DuckDB snapshot and the
 Zarr and Parquet stores into one ``tar.zst`` archive with a SHA-256 per
-file; several references produce a single multi-run container. The Zarr
-store is packed to ``fields.zarr.zip`` **inside the archive only**, and
-import unpacks it back to a directory store, so nothing on disk ever
-stays zipped. Without ``-o`` the archive lands in the current directory,
-named after the run. A run whose config enables ``[export] package``
-writes its archive under ``share/<label>/`` instead.
+file. The Zarr store is packed to ``fields.zarr.zip`` **inside the archive
+only**, and import unpacks it back to a directory store, so nothing on disk
+ever stays zipped. The archive lands in ``share/<run>/<run>.hmp`` unless
+``--folder`` or ``--file`` names another place. A run whose config holds an
+``[[export]]`` block with ``format = "package"`` writes the same archive at
+the end of the run, after the seal. ``Catalog.export_package_multi`` still
+writes a multi-run container from Python; no verb exposes it.
 ``hmp catalog import run.hmp`` verifies the magic and every checksum,
 then re-materialises the runs in the target project.
 

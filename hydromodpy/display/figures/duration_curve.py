@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.units.labels import axis_label
+from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 
@@ -33,7 +33,7 @@ class DurationCurveFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: str = "_catchment",
+        station: str = CATCHMENT_OUTLET_STATION,
         variable: str = "discharge",
         log_y: bool = True,
         **_,
@@ -52,5 +52,5 @@ class DurationCurveFigure(BaseFigure):
             ax.set_yscale("log")
         ax.set_xlim(0, 100)
         ax.grid(True, ls=":", lw=0.4)
-        ax.set_title(f"Duration curve - {sim.name or sim.sim_id} @ {station}")
+        ax.set_title(f"Duration curve - {sim.name or sim.sim_id} @ {station_label(station)}")
         return ax

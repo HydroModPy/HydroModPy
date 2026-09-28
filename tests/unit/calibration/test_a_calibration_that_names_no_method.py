@@ -154,26 +154,26 @@ def test_list_phases_names_the_reason(tmp_path, capsys) -> None:
     assert lines[5].split("\t")[:4] == ["5", "k_written", "grid", ""]
 
 
-def test_optimizer_kwargs_without_a_method_are_refused() -> None:
-    with pytest.raises(ValidationError, match="optimizer_kwargs and no method"):
+def test_method_options_without_a_method_are_refused() -> None:
+    with pytest.raises(ValidationError, match="method_options and no method"):
         CalibPhaseDecl.model_validate(
-            {"name": "p", "parameters": ["K"], "optimizer_kwargs": {"sweep_points": 3}}
+            {"name": "p", "parameters": ["K"], "method_options": {"sweep_points": 3}}
         )
-    with pytest.raises(ValidationError, match=r"\[calibration\] gives optimizer_kwargs"):
-        CalibrationConfig.model_validate({"optimizer_kwargs": {"points_per_dim": 3}})
+    with pytest.raises(ValidationError, match=r"\[calibration\] gives method_options"):
+        CalibrationConfig.model_validate({"method_options": {"points_per_dim": 3}})
 
 
-def test_optimizer_kwargs_beside_a_method_are_kept() -> None:
+def test_method_options_beside_a_method_are_kept() -> None:
     phase = CalibPhaseDecl.model_validate(
         {
             "name": "p",
             "method": "bisection",
             "parameters": ["K"],
-            "optimizer_kwargs": {"sweep_points": 3},
+            "method_options": {"sweep_points": 3},
         }
     )
 
-    assert phase.optimizer_kwargs == {"sweep_points": 3}
+    assert phase.method_options == {"sweep_points": 3}
 
 
 def test_the_default_is_no_longer_grid() -> None:

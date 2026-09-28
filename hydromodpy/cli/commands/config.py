@@ -306,7 +306,16 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
             if "hydrometry" in raw_toml:
                 load_hydrometry_config_for_site_selection(path)
         else:
-            HydroModPyConfig.from_toml(path)
+            from hydromodpy.workflow.steps.validate import (
+                check_export_variables,
+                check_time_selectors,
+            )
+
+            cfg = HydroModPyConfig.from_toml(path)
+            # The checks step 0 of `hmp run` makes, so a date or an export name
+            # is refused here and not after the solve.
+            check_export_variables(cfg)
+            check_time_selectors(cfg)
     except tomllib.TOMLDecodeError as exc:
         print(f"Invalid TOML syntax: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)

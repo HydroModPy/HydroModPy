@@ -223,7 +223,7 @@ def test_sim_obs_figures_align_only_overlapping_samples(mpl, tmp_path) -> None:
 
     fig, ax = mpl.subplots()
     HydrographSimObs().render(run, ax)
-    assert [line.get_label() for line in ax.lines] == ["sim", "obs (obs-a)"]
+    assert [line.get_label() for line in ax.lines] == ["simulated", "observed (obs-a)"]
     # The record covers 01-01, 01-02 and 01-04. Each is drawn at the stamp that
     # closes its day; the days the record skips stay gaps instead of taking the
     # nearest sample, as they used to.
@@ -287,7 +287,7 @@ def test_hydrograph_sim_obs_fetches_gauge_obs_not_sim_station(mpl) -> None:
 
     fig, ax = mpl.subplots()
     HydrographSimObs().render(_GaugeRun(), ax)
-    assert [line.get_label() for line in ax.lines] == ["sim", "obs (NANCON)"]
+    assert [line.get_label() for line in ax.lines] == ["simulated", "observed (NANCON)"]
     mpl.close(fig)
 
 
@@ -315,7 +315,7 @@ def test_hydrograph_sim_obs_marks_single_sample_series(mpl) -> None:
 
     fig, ax = mpl.subplots()
     HydrographSimObs().render(_SteadyRun(), ax)
-    assert [line.get_label() for line in ax.lines] == ["sim", "obs (NANCON)"]
+    assert [line.get_label() for line in ax.lines] == ["simulated", "observed (NANCON)"]
     assert ax.lines[0].get_marker() == "o"
     assert ax.lines[1].get_marker() == "o"
     mpl.close(fig)
@@ -451,15 +451,44 @@ def test_particle_tracks_draws_valid_tracks(monkeypatch, mpl) -> None:
 
 
 def test_base_figure_plot_writes_png_metadata(mpl, tmp_path) -> None:
-    path = tmp_path / "hydrograph.png"
+    # The metadata names the period the map drew, not the selector it was
+    # asked with: a date the display resolved is a step here.
+    run = _Run()
+    run.period_edges = pd.date_range("2020-01-01", periods=4, freq="D")
+    path = tmp_path / "piezometric_map.png"
 
-    fig = Hydrograph().plot(_Run(), save_path=path, variable="discharge", timestep=2)
+    fig = PiezometricMap().plot(run, save_path=path, timestep=1)
 
     try:
         info = read_png_metadata(path)
         assert info["sim_id"] == "sim-a"
-        assert info["field"] == "discharge"
-        assert info["time"] == "2"
+        assert info["time"] == "2020-01-02/2020-01-03"
         assert info["crs_epsg"] == "2154"
+    finally:
+        mpl.close(fig)
+
+
+def test_png_metadata_names_the_period_by_index_on_a_run_without_dates(mpl, tmp_path) -> None:
+    run = _Run()
+    run.period_edges = None
+    path = tmp_path / "piezometric_map.png"
+
+    fig = PiezometricMap().plot(run, save_path=path, timestep=-1)
+
+    try:
+        assert read_png_metadata(path)["time"] == "period -1"
+    finally:
+        mpl.close(fig)
+
+
+def test_png_metadata_carries_no_time_for_a_figure_given_no_instant(mpl, tmp_path) -> None:
+    path = tmp_path / "hydrograph.png"
+
+    fig = Hydrograph().plot(_Run(), save_path=path, variable="discharge")
+
+    try:
+        info = read_png_metadata(path)
+        assert info["field"] == "discharge"
+        assert "time" not in info
     finally:
         mpl.close(fig)

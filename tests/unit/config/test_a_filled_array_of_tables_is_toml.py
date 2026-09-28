@@ -36,7 +36,7 @@ _STAGED = {
             "parameters": ["K"],
             "variable": "discharge",
             "objective": "nse",
-            "optimizer_kwargs": {"sweep_points": 7},
+            "method_options": {"sweep_points": 7},
             "overrides": {
                 "flow.flow_regime": "steady",
                 "simulation.time.start_datetime": "2000-01-01T00:00:00",
@@ -50,7 +50,7 @@ _STAGED = {
             "variable": "discharge",
             "objective": "nse_log",
             "depends_on": "steady_conductivity",
-            "optimizer_kwargs": {},
+            "method_options": {},
             "overrides": {"flow.flow_regime": "transient"},
         },
     ],
@@ -79,7 +79,7 @@ def test_the_entry_parses_and_keeps_its_dotted_keys_whole(written: dict) -> None
 
 
 def test_an_empty_mapping_survives_as_an_empty_table(written: dict) -> None:
-    assert written["phases"][1]["optimizer_kwargs"] == {}
+    assert written["phases"][1]["method_options"] == {}
 
 
 def test_the_staged_calibration_reloads_into_itself(written: dict) -> None:

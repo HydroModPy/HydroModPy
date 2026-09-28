@@ -1,0 +1,27 @@
+# The [export] section of a resolved run config written before the export
+# tables were reshaped: runs/nancon_intermittence_mf6/config.toml of example 04,
+# 2026-09-16. A run seals its resolved config and `hmp run --resume` replays it,
+# so this shape has to keep loading. Every format is off: it wrote nothing.
+
+[simulation]
+name = "nancon_intermittence_mf6" # Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug.
+tags = [] # Free-text tags attached at registration; editable later via 'hmp catalog tag'.
+if_exists = "replace" # Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable) and takes the name; ``fail`` raises an error.
+description = "Nancon catchment, monthly transient 2000-2002, seasonal seepage intermittence." # Short free-text description of the simulation intent.
+
+
+[export]
+netcdf = false
+csv_timeseries = false
+vtu = false
+geotiff = false
+shapefile = false
+package = false
+times = "last" # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several collapses to the last for them and the run says so; only the NetCDF export carries the whole selection.
+artifacts = [] # Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.
+
+[export.variables] # Which variables to include in exports.
+head = true
+concentration = false
+derived = true
+

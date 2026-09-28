@@ -38,6 +38,7 @@ drawn beside the scored map and never mixed into its verdict.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -242,7 +243,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         storage_parameter: str | None = None,
         session_id: str | None = None,
         output: str | None = None,
-        parameter_units: str = "-",
+        parameter_units: str | None = None,
         mean_recharge: float | None = None,
         recharge_units: str = "m/s",
         roots: Mapping[str, Any] | None = None,
@@ -286,6 +287,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
             if recharge is not None
             else "mean recharge not declared: the ratio is not a conductivity"
         )
+        units = parameter_units or _declared_units(stages[0], searches[0].parameter)
         if len(searches) == len(BOUNDS):
             self._draw_two_roots(
                 ax_root,
@@ -293,7 +295,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
                 reading,
                 roots=roots,
                 label=stages[0].label,
-                units=parameter_units,
+                units=units,
                 recharge_line=recharge_line,
             )
         else:
@@ -301,7 +303,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
                 ax_root,
                 searches[0],
                 label=stages[0].label,
-                units=parameter_units,
+                units=units,
                 recharge_line=recharge_line,
             )
         self._draw_storage(
@@ -309,6 +311,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
             stages[1] if len(stages) > 1 else None,
             parameter=storage_parameter,
             n_phases=len(stages),
+            next_phase=_next_declared_phase(sim, stages),
         )
         self._draw_validity(ax_validity, table, reading, output=output)
         self._draw_counts(ax_counts, table, reading, output=output)
@@ -494,9 +497,22 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         *,
         parameter: str | None,
         n_phases: int,
+        next_phase: str | None = None,
     ) -> None:
-        """Panel two: the storage value and the metric it was fitted on."""
+        """Panel two: the storage value and the metric it was fitted on.
+
+        A run promoted from the first phase is drawn before the second one
+        starts. When the file declares a second phase, the panel names it as
+        the one that comes next rather than as a stage that was never asked.
+        """
         if stage is None:
+            if next_phase is not None:
+                _blank(
+                    ax,
+                    f"Stage 2 - {next_phase}",
+                    f"comes next: this run closes stage 1,\n{next_phase} starts from it",
+                )
+                return
             _blank(
                 ax,
                 "Stage 2 - not run",
@@ -511,8 +527,8 @@ class MatchingHydrographicNetworkCard(BaseFigure):
             title = f"{title} (2 of {n_phases})"
         fit = _storage_fit(stage, parameter=parameter)
         ax.set_title(title)
-        ax.set_xlabel(f"{fit.parameter} (-)")
-        ax.set_ylabel(f"{fit.objective_name} (-)")
+        ax.set_xlabel(f"{fit.parameter} ({_declared_units(stage, fit.parameter)})")
+        ax.set_ylabel(f"cost, {fit.objective_name} (-)")
         ax.margins(x=0.10)
         ax.grid(True, ls=":", lw=0.4)
 
@@ -540,7 +556,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
                 label=f"{fit.parameter} = {fit.value:.4g}",
             )
             lines.append(f"{fit.parameter} = {fit.value:.4g}")
-            lines.append(f"{fit.objective_name} = {fit.objective:.4g}")
+            lines.append(f"cost ({fit.objective_name}) = {fit.objective:.4g}")
         if fit.n_failed:
             lines.append(f"{fit.n_failed} of {fit.values.size} trials failed")
         _clear_bottom(ax)
@@ -781,6 +797,11 @@ def _stage_chain(sim: Run, *, session_id: str | None) -> list[_Stage]:
     The order is the one the sessions declare through ``phase_index``, never
     the order the trials happen to sit in the table. A run whose trials name
     no session is one phase.
+
+    A promoted run carries the trials of the phase it came from only. The
+    other phases of its chain, the sessions sharing its root, are read by
+    session id, so the run promoted from the second phase still draws the
+    first one.
     """
     frame = _iterations_frame(sim)
     known = _session_rows(sim)
@@ -792,6 +813,15 @@ def _stage_chain(sim: Run, *, session_id: str | None) -> list[_Stage]:
         target = str(session_id)
         root = _root_id(known.get(target, {}), target)
         seen = [sid for sid in seen if _root_id(known.get(sid, {}), sid) == root] or [target]
+    tables = {sid: trial_table(sim, session_id=sid) for sid in seen}
+    roots = {_root_id(known.get(sid, {}), sid) for sid in seen}
+    for sid, row in known.items():
+        if sid in tables or _root_id(row, sid) not in roots:
+            continue
+        table = _chained_table(sim, sid)
+        if table is not None:
+            seen.append(sid)
+            tables[sid] = table
     if not seen:
         return [
             _Stage(
@@ -812,11 +842,80 @@ def _stage_chain(sim: Run, *, session_id: str | None) -> list[_Stage]:
             _Stage(
                 session_id=sid,
                 label=label,
-                table=trial_table(sim, session_id=sid),
+                table=tables[sid],
                 descriptor=descriptor,
             )
         )
     return stages
+
+
+def _chained_table(sim: Run, session_id: str) -> TrialTable | None:
+    """Return the trials of another phase of the chain, or None when it has none.
+
+    A phase that recorded no trial yet, or a run-shaped adapter that carries
+    only its own phase, is not a stage the card can draw; the stages it does
+    hold still draw.
+    """
+    try:
+        return trial_table(sim, session_id=session_id)
+    except ValueError:
+        # calibration_trials raises ValueError for "no trial recorded", which
+        # here means only that this phase has nothing to draw.
+        return None
+
+
+def _next_declared_phase(sim: Run, stages: list[_Stage]) -> str | None:
+    """Return the name of the phase declared after the drawn ones, if any.
+
+    Read from the configuration the run was replayed with: a staged
+    calibration writes its phases into ``[[calibration.phases]]``, and the
+    run promoted from the first phase is drawn before the second one exists.
+    """
+    snapshot = getattr(sim, "config_snapshot", None)
+    calibration = snapshot.get("calibration") if isinstance(snapshot, Mapping) else None
+    phases = calibration.get("phases") if isinstance(calibration, Mapping) else None
+    if not isinstance(phases, list) or len(phases) <= len(stages):
+        return None
+    following = phases[len(stages)]
+    name = following.get("name") if isinstance(following, Mapping) else None
+    return _text_or_none(name) or _STAGE_LABELS[1]
+
+
+def _session_config(descriptor: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Return the configuration a session recorded, parsed from the index text."""
+    config = descriptor.get("config")
+    if isinstance(config, str):
+        try:
+            config = json.loads(config)
+        except json.JSONDecodeError:
+            return {}
+    return config if isinstance(config, Mapping) else {}
+
+
+def _objective_label(descriptor: Mapping[str, Any]) -> str:
+    """Return the metric a phase scored on, as its objective blocks name it.
+
+    A phase scored through ``objective_blocks`` records the calibration's
+    default ``objective`` as its session objective name, which is not the
+    metric it used; the blocks are.
+    """
+    blocks = _session_config(descriptor).get("objective_blocks")
+    metrics = [
+        str(block["metric"])
+        for block in blocks or ()
+        if isinstance(block, Mapping) and _text_or_none(block.get("metric"))
+    ]
+    if metrics:
+        return " + ".join(dict.fromkeys(metrics))
+    return _text_or_none(descriptor.get("objective_name")) or "objective"
+
+
+def _declared_units(stage: _Stage, parameter: str) -> str:
+    """Return the units the session declared for ``parameter``, ``-`` when none."""
+    parameters = _session_config(stage.descriptor).get("parameters")
+    declared = parameters.get(parameter) if isinstance(parameters, Mapping) else None
+    units = declared.get("units") if isinstance(declared, Mapping) else None
+    return _text_or_none(units) or "-"
 
 
 def _iterations_frame(sim: Run) -> pd.DataFrame:
@@ -1105,7 +1204,7 @@ def _storage_fit(stage: _Stage, *, parameter: str | None) -> _StorageFit:
         parameter=name,
         values=values,
         objectives=objectives,
-        objective_name=_text_or_none(stage.descriptor.get("objective_name")) or "objective",
+        objective_name=_objective_label(stage.descriptor),
         value=float(values[row]) if row is not None else float("nan"),
         objective=float(objectives[row]) if row is not None else float("nan"),
         row=row,

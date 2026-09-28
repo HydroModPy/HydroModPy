@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.style import place_legend
@@ -123,7 +124,7 @@ class RecessionPowerLaw(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: str = "_catchment",
+        station: str = CATCHMENT_OUTLET_STATION,
         variable: str = "discharge",
         component: str | None = None,
         a: float | None = None,

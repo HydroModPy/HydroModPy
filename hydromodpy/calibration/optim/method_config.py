@@ -1,16 +1,17 @@
-"""Discriminated union for the calibration method + optimizer kwargs.
+"""Discriminated union for the calibration method and its options.
 
-The legacy schema accepted ``method: str`` together with a free-form
-``optimizer_kwargs: dict[str, Any]``. Mismatches between the two only
-surfaced at runtime, in the depths of an optimizer adapter, and made TOML
-authoring fragile (``method = "cma_es"`` with ``optimizer_kwargs = {"n_trials": 50}``
-silently validates and crashes later).
+A file writes ``method: str`` beside a free-form ``method_options`` table
+(``optimizer_kwargs`` before it was renamed). Mismatches between the two used to
+surface at runtime only, in the depths of an optimizer adapter, and made TOML
+authoring fragile (``method = "cma_es"`` with ``method_options = {"n_trials": 50}``
+validated and crashed later).
 
 This module exposes one ``BaseModel`` per registered optimizer and a
 ``CalibrationMethodConfig`` discriminated union keyed by ``method``. A
-helper :func:`validate_method_kwargs` converts the legacy
-``(method, optimizer_kwargs)`` pair into a typed config so callers detect
-unknown keys eagerly.
+helper :func:`validate_method_kwargs` converts the
+``(method, method_options)`` pair into a typed config so callers detect
+unknown keys eagerly, and :func:`method_options_problem` says in one sentence
+what an engine refuses, for a load-time refusal or a preflight finding.
 
 Adding a new optimizer requires three steps:
 
@@ -22,9 +23,10 @@ Adding a new optimizer requires three steps:
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from collections.abc import Mapping
+from typing import Annotated, Any, Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 # All method configs forbid unknown keys so typos and method/kwarg
 # mismatches raise at validation time instead of leaking into the adapter
@@ -196,17 +198,105 @@ _METHOD_CONFIG_ADAPTER: TypeAdapter[CalibrationMethodConfig] = TypeAdapter(Calib
 
 def validate_method_kwargs(
     method: str,
-    optimizer_kwargs: dict[str, Any] | None,
+    method_options: Mapping[str, Any] | None,
 ) -> CalibrationMethodConfig:
-    """Validate ``(method, optimizer_kwargs)`` against the discriminated union.
+    """Validate ``(method, method_options)`` against the discriminated union.
 
     Raises :class:`pydantic.ValidationError` when ``method`` is unknown or
-    when ``optimizer_kwargs`` carries keys foreign to that optimizer.
+    when ``method_options`` carries keys foreign to that optimizer.
     """
     payload: dict[str, Any] = {"method": method}
-    if optimizer_kwargs:
-        payload.update(optimizer_kwargs)
+    if method_options:
+        payload.update(method_options)
     return _METHOD_CONFIG_ADAPTER.validate_python(payload)
+
+
+_MODELS_BY_METHOD: dict[str, type[BaseModel]] = {
+    member.model_fields["method"].default: member
+    for member in get_args(get_args(CalibrationMethodConfig)[0])
+}
+
+
+def typed_methods() -> frozenset[str]:
+    """Return the methods this module carries a model for.
+
+    An engine registered by a plugin may have none. Its options are then left to
+    its own constructor, which is the only one that knows them.
+    """
+    return frozenset(_MODELS_BY_METHOD)
+
+
+def method_options_problem(method: str, method_options: Mapping[str, Any] | None) -> str | None:
+    """Return why ``method`` refuses ``method_options``, or ``None`` when it takes them.
+
+    The sentence names the keys the engine does not know and lists the ones it
+    does, so the reader can fix the file without opening this module. ``None``
+    too for a method this module has no model for.
+    """
+    model = _MODELS_BY_METHOD.get(str(method))
+    if model is None:
+        return None
+    try:
+        validate_method_kwargs(str(method), method_options)
+    except ValidationError as exc:
+        unknown = sorted(
+            str(error["loc"][-1]) for error in exc.errors() if error["type"] == "extra_forbidden"
+        )
+        wrong = [
+            f"{error['loc'][-1]} = {error['input']!r} ({error['msg']})"
+            for error in exc.errors()
+            if error["type"] != "extra_forbidden" and error["loc"]
+        ]
+        accepted = sorted(name for name in model.model_fields if name != "method")
+        parts: list[str] = []
+        if unknown:
+            known = ", ".join(accepted) if accepted else "none"
+            parts.append(
+                f"{method!r} does not take {', '.join(unknown)}; the options it takes are: {known}"
+            )
+        if wrong:
+            parts.append(f"{method!r} refuses {'; '.join(wrong)}")
+        return ". ".join(parts) + "." if parts else str(exc)
+    return None
+
+
+def method_options_are_its_defaults(method: str, method_options: Mapping[str, Any]) -> bool:
+    """Say whether ``method_options`` only write out what ``method`` does anyway.
+
+    ``sweep_points = 7`` beside a bisection whose default is seven changes
+    nothing. ``False`` for a method this module has no model for, and for
+    options it refuses: nothing to compare them with.
+    """
+    model = _MODELS_BY_METHOD.get(str(method))
+    if model is None:
+        return False
+    try:
+        written = validate_method_kwargs(str(method), method_options).model_dump()
+    except ValidationError:
+        return False
+    return written == model().model_dump()
+
+
+def default_relative_precision(method: str, method_options: Mapping[str, Any]) -> float | None:
+    """Return the relative precision ``method`` stops at when a file states none.
+
+    Only for a method whose stopping option already is a relative precision on
+    the parameter, the bisection's ``rel_tol``: its default is then the number
+    a file would write as ``tolerance``. ``None`` for a method that reads the
+    precision as a width in its own variable, which has no such number, and when
+    ``method_options`` already sets that option.
+    """
+    from hydromodpy.calibration.optim.optimizer import engine_traits
+
+    model = _MODELS_BY_METHOD.get(str(method))
+    traits = engine_traits(str(method))
+    option = traits.tolerance_option
+    if model is None or option is None or traits.tolerance_reads != "relative_value":
+        return None
+    if option in method_options:
+        return None
+    value = model().model_dump().get(option)
+    return float(value) if value is not None else None
 
 
 __all__ = [
@@ -220,5 +310,9 @@ __all__ = [
     "GPMappingMethodConfig",
     "DaMhGpMethodConfig",
     "CalibrationMethodConfig",
+    "default_relative_precision",
+    "method_options_are_its_defaults",
+    "method_options_problem",
+    "typed_methods",
     "validate_method_kwargs",
 ]

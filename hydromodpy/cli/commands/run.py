@@ -416,6 +416,12 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     # workflows, which have no epilogue of their own, and for --verbose.
     if workflow == "simulation" and verbosity in ("quiet", "normal"):
         return
+    # A calibration ends on what it found and where to read it, one line per
+    # phase; the full dict of phases, protocol and deviations is --verbose.
+    if workflow == "calibration" and verbosity in ("quiet", "normal"):
+        if verbosity == "normal" and isinstance(summary, Mapping):
+            _print_calibration_recap(summary, config_path)
+        return
 
     print(f"Workflow '{workflow}' complete: {config_path.name}", file=sys.stderr)
     if summary is None:
@@ -428,6 +434,71 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         if value is None:
             continue
         print(f"  {key}: {value}", file=sys.stderr)
+
+
+def _print_calibration_recap(summary: Mapping[str, Any], config_path: Path) -> None:
+    """Name the file and its protocol, one line per phase, then where to read on.
+
+    A phase line gives its method, its number of runs, each best value with its
+    unit and interval, and the best cost with the metric it is. A single-phase
+    summary is read as one phase.
+    """
+    from hydromodpy.results.catalog.storage_paths import run_dirname
+
+    phases = summary.get("phases")
+    if not isinstance(phases, list):
+        phases = [{"phase": None, "index": 0, "report": summary}]
+    head = f"Calibration {config_path.name} done"
+    protocol = summary.get("protocol")
+    if isinstance(protocol, Mapping) and protocol.get("name"):
+        head += f": protocol {protocol['name']} {protocol.get('version') or ''}".rstrip()
+    print(head, file=sys.stderr)
+
+    figures: list[str] = []
+    sessions: list[str] = []
+    for position, phase in enumerate(phases):
+        report = phase.get("report") or {}
+        extra = report.get("extra") or {}
+        units = extra.get("parameter_units") or {}
+        intervals = {
+            str(item.get("name")): item
+            for item in extra.get("parameter_intervals") or ()
+            if isinstance(item, Mapping)
+        }
+        values = []
+        for name, value in (report.get("best_parameters") or {}).items():
+            unit = units.get(name) or "-"
+            text = f"{name} = {float(value):.4g}" + ("" if unit == "-" else f" {unit}")
+            if name in intervals:
+                bounds = intervals[name]
+                text += f" in [{float(bounds['lower']):.4g}, {float(bounds['upper']):.4g}]"
+            values.append(text)
+        parts = [f"{report.get('method')}, {int(report.get('n_iterations') or 0)} runs"]
+        parts.append(", ".join(values) if values else "no best value")
+        best = report.get("best_objective")
+        if best is not None:
+            metric = extra.get("cost_metric")
+            parts.append(f"cost {float(best):.4g}" + (f" ({metric})" if metric else ""))
+        if extra.get("reused_from_disk"):
+            parts.append("reused from a previous session")
+        label = f"{int(phase.get('index', position)) + 1}"
+        if phase.get("phase"):
+            label += f" {phase['phase']}"
+        print(f"  {label}: " + ", ".join(parts), file=sys.stderr)
+        workspace = report.get("workspace")
+        if report.get("best_run_name") and workspace:
+            run_dir = Path(workspace) / "runs" / run_dirname(report["best_run_name"])
+            figures.append(display_path(run_dir / "figures"))
+        if report.get("session_dir"):
+            sessions.append(display_path(report["session_dir"]))
+
+    if figures:
+        print(f"  Best runs: {', '.join(figures)}", file=sys.stderr)
+    if sessions:
+        label = "Sessions:" if len(sessions) > 1 else "Session: "
+        print(f"  {label} {', '.join(sessions)}", file=sys.stderr)
+    if summary.get("methods_path"):
+        print(f"  Methods:   {display_path(summary['methods_path'])}", file=sys.stderr)
 
 
 class FrozenVerificationError(RuntimeError):

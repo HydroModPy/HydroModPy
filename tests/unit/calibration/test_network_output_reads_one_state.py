@@ -1,8 +1,10 @@
-"""A network output's ``time`` reads exactly one state: 'last' or 'first'.
+"""A network output's ``time`` reads exactly one state: 'last', 'first' or a date.
 
 Decision 9 (etude-reseau-observe-2026-09-27.md, option B): 'all' and a list of
 dates used to reach the criterion as the whole stack, silently scored at its
 last state instead of the one named. Both are refused at configuration load.
+One date names one state, the period that holds it, and is served that row
+(``test_a_network_state_is_read_at_its_date.py``).
 """
 
 from __future__ import annotations
@@ -39,7 +41,7 @@ def test_time_all_is_refused() -> None:
         CalibOutputNetwork(**_kwargs(time="all"))
     message = str(excinfo.value)
     assert "one state" in message
-    assert "'last' or 'first'" in message
+    assert "'last', 'first' or one date" in message
     assert "'extent' table" in message
 
 
@@ -48,4 +50,4 @@ def test_time_list_of_dates_is_refused() -> None:
         CalibOutputNetwork(**_kwargs(time=["2002-08-31"]))
     message = str(excinfo.value)
     assert "one state" in message
-    assert "'last' or 'first'" in message
+    assert "'last', 'first' or one date" in message

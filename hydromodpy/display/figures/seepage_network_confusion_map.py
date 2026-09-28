@@ -37,6 +37,7 @@ from hydromodpy.display.figures._stream_comparison import (
     checked_cells,
     class_label,
     comparison_from_run,
+    dated_title,
     draw_cells,
     map_extent,
     map_legend,
@@ -95,7 +96,8 @@ class SeepageNetworkConfusionMap(BaseFigure):
     the criterion scores. Any backend persisting those draws the same map.
 
     ``extent`` picks the frame: ``catchment`` crops to the delineated
-    watershed, ``mesh`` keeps the whole modelled domain.
+    watershed, ``mesh`` keeps the whole modelled domain. The title names the
+    stress period whose state was compared.
     """
 
     spec = FigureSpec(
@@ -158,7 +160,7 @@ class SeepageNetworkConfusionMap(BaseFigure):
 
         style_map_axes(ax)
         overlay_watershed_contour(ax, sim, color="#404040", linewidth=0.9, alpha=0.7)
-        ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}")
+        ax.set_title(dated_title(f"{self.spec.title} - {sim.name or sim.sim_id}", sim, timestep))
 
         window = map_extent(sim, polygons, extent=extent)
         notes = [threshold_note(comparison), f"frame: {window.name}"]

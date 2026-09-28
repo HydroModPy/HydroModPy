@@ -570,32 +570,6 @@ def diff_simulations(ref_a: str, ref_b: str, *, workspace: Any) -> dict:
         return catalog.diff(ref_a, ref_b)
 
 
-def export_package_run(sim_ref: str, *, workspace: Any, output: str | None = None) -> dict:
-    """Export the run referenced by ``sim_ref`` as a portable ``.hmp`` archive."""
-    with _open_project_catalog(workspace) as catalog:
-        sid = catalog.resolve(sim_ref)
-        run_name = catalog[sid].name or sid[:8]
-        dest = Path(output).expanduser() if output else Path.cwd() / f"{run_name}.hmp"
-        produced = catalog.export_package(sid, dest)
-        catalog.record_export(sid, kind="hmp", path=produced)
-        return {"sim_id": sid, "path": str(produced)}
-
-
-def export_package_runs(sim_refs: list[str], *, workspace: Any, output: str | None = None) -> dict:
-    """Export several runs as ONE portable multi-run ``.hmp`` container.
-
-    Returns ``{"sim_ids": [...], "path": ...}``. Each run is a self-contained
-    single-run archive nested in the container; ``import`` restores them all.
-    """
-    dest = Path(output).expanduser() if output else Path.cwd() / "runs.hmp"
-    with _open_project_catalog(workspace) as catalog:
-        sids = [catalog.resolve(ref) for ref in sim_refs]
-        produced = catalog.export_package_multi(sids, dest)
-        for sid in sids:
-            catalog.record_export(sid, kind="hmp", path=produced)
-    return {"sim_ids": sids, "path": str(produced)}
-
-
 def import_package_run(package_path: Any, *, workspace: Any, force: bool = False) -> dict:
     """Import a single- or multi-run ``.hmp`` archive (catalog created if absent).
 

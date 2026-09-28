@@ -13,6 +13,7 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, cast
 
+from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError, ExportError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.progress import MILESTONE
@@ -152,14 +153,20 @@ def step_seal_store(
     run directory. Whatever reads the *complete* run - the portable package
     first of all - must therefore run after this call and before the scope
     that owns ``store`` closes it.
+
+    The run recap is read here, while the handle is open, and printed once the
+    enclosing phase has printed its checkmark: after the package and the
+    scratch cleanup, as the last lines of the run.
     """
     store.finalize(ctx.sim_id, status=status)
-    _log_run_epilogue(ctx, store=store, wall_seconds=wall_seconds, status=status)
+    lines = _run_epilogue_lines(ctx, store=store, wall_seconds=wall_seconds, status=status)
+    if lines:
+        progress.after_phase(partial(_log_run_epilogue, lines))
 
 
-def _log_run_epilogue(
+def _run_epilogue_lines(
     ctx: WorkflowContext, *, store: Catalog, wall_seconds: float, status: str
-) -> None:
+) -> tuple[str, ...]:
     """Best-effort self-teaching epilogue: identity card + next commands."""
     try:
         sid = str(ctx.sim_id)
@@ -172,16 +179,18 @@ def _log_run_epilogue(
         )
         metric = f" nse={nse[0]:.2f}" if nse and nse[0] is not None else ""
         duration = f" {wall_seconds:.0f}s" if wall_seconds else ""
-        logger.info("Run %s: %s [%s]%s%s", status, name, sid[:8], duration, metric, extra=MILESTONE)
-        logger.info(
-            "next: hmp catalog show %s | hmp catalog diff %s <other> | hmp catalog export %s",
-            name,
-            name,
-            name,
-            extra=MILESTONE,
-        )
     except Exception:  # noqa: BLE001 - the epilogue must never disrupt a run
-        return
+        return ()
+    return (
+        f"Run {status}: {name} [{sid[:8]}]{duration}{metric}",
+        f"next: hmp catalog show {name} | hmp catalog diff {name} <other> "
+        f"| hmp export {name} --list",
+    )
+
+
+def _log_run_epilogue(lines: tuple[str, ...]) -> None:
+    for line in lines:
+        logger.info("%s", line, extra=MILESTONE)
 
 
 # ---------------------------------------------------------------------------
@@ -343,7 +352,8 @@ class ExportStep:
                 step_save_run_artifacts(ctx, wall_seconds, store=store)
                 plan = ctx.execution.simulation_plan
                 packaged = plan is not None and ctx.sim_id is not None
-                export_package: Callable[[], None] | None = None
+                export_package: Callable[[], list[Path]] | None = None
+                exported: list[Path] = []
                 if packaged:
                     from hydromodpy.simulation.extraction.post_run import (
                         auto_export_package,
@@ -352,12 +362,15 @@ class ExportStep:
                     )
                     from hydromodpy.simulation.planning.plan import RunContext
 
-                    export_cfg = ctx.cfg.export
+                    export_requests = list(ctx.cfg.export)
                     save_catalog = bool(results_cfg.persistence.save_catalog)
-                    auto_export_results(
+                    # The data requests run before the intermediate budget is
+                    # dropped and before the seal: a per-cell budget field is
+                    # still there to be exported.
+                    exported = auto_export_results(
                         sim_id=ctx.sim_id,
                         store=store,
-                        export_config=export_cfg,
+                        export_requests=export_requests,
                         save_catalog=save_catalog,
                         run_id=ctx.setup.run_id,
                     )
@@ -375,7 +388,7 @@ class ExportStep:
                         auto_export_package,
                         sim_id=ctx.sim_id,
                         store=store,
-                        export_config=export_cfg,
+                        export_requests=export_requests,
                         save_catalog=save_catalog,
                         run_id=ctx.setup.run_id,
                     )
@@ -383,9 +396,17 @@ class ExportStep:
                 # Seal first, package second: the archive must carry the
                 # manifest and the provenance the seal writes, and the packer
                 # reads the index and the live Zarr through the same handle.
+                # The metadata views render the seal too.
                 step_seal_store(ctx, store=store, wall_seconds=wall_seconds)
                 if export_package is not None:
-                    export_package()
+                    from hydromodpy.core.state.paths import share_dir_for
+                    from hydromodpy.simulation.extraction.post_run import announce_exports
+
+                    exported.extend(export_package())
+                    announce_exports(
+                        exported,
+                        share_dir_for(store.project_path) / (ctx.setup.run_id or ctx.sim_id[:8]),
+                    )
         step_cleanup_scratch(
             ctx,
             keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),

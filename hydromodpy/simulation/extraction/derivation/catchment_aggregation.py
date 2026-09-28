@@ -296,10 +296,10 @@ def _add_runoff_to_discharge_series(
     if runoff_grp is None:
         if sim_id not in _RUNOFF_WARNING_EMITTED:
             logger.warning(
-                "catchment discharge: no runoff forcing in Zarr for sim %s — "
-                "writing DRN baseflow only (mismatch with total streamflow obs).",
-                sim_id,
+                "Simulated discharge is baseflow only: the run has no runoff forcing, "
+                "so it underestimates a gauged total streamflow."
             )
+            logger.debug("No forcing/runoff group in the fields store of run %s.", sim_id)
             _RUNOFF_WARNING_EMITTED.add(sim_id)
         return discharge
 

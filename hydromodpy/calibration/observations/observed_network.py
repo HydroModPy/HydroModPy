@@ -150,14 +150,7 @@ def observed_network_mask(
         n_fallback = crossed.n_fallback_parts
         n_outside = crossed.n_outside_parts
         if n_outside:
-            logger.warning(
-                "Mapped stream network (%s): %d reach(es) cross no centre segment and enter "
-                "no mesh cell, so no cell holds them and the criterion leaves them out. "
-                "They lie off the mesh, often in the sliver between the clip polygon and "
-                "the cells.",
-                observed.source,
-                n_outside,
-            )
+            _report_unplaced_reaches(run_ctx, observed, polygons, vertices, mesh_crs, n_outside)
     logger.info(
         "Mapped stream network (%s%s): %d feature(s) projected onto %d mesh cell(s) by the "
         "%s rule%s%s.",
@@ -179,6 +172,171 @@ def observed_network_mask(
         n_fallback_parts=int(n_fallback),
         n_outside_parts=int(n_outside),
     )
+
+
+_UNPLACED_REPORTS: dict[tuple[Any, ...], tuple[int, int, float]] = {}
+"""The unplaced-reach counts already reported in this process, by placement.
+
+A calibration builds the network criterion once per trial on the same map and
+the same mesh. The geometry work behind the report (reprojection, a cell
+tree, the catchment read from disk) then runs once, and the report is logged
+once; later builds of the same placement only log at DEBUG.
+"""
+
+_UNPLACED_REPORTS_MAX = 32
+
+
+def _report_unplaced_reaches(
+    run_ctx: RunContext,
+    observed: ObservedNetwork,
+    polygons: np.ndarray,
+    vertices: np.ndarray,
+    mesh_crs: str,
+    n_outside: int,
+) -> None:
+    """Say which of the reaches that enter no mesh cell matter.
+
+    A map is often drawn wider than the catchment, so reaches off the model
+    domain are expected and are logged at INFO. A reach inside the domain that
+    still enters no cell lies in the sliver between the domain outline and the
+    cells: the model holds that stream and the criterion does not see it, so
+    only those reaches are worth a warning, with their count and length.
+
+    A map clipped to the catchment lies inside the domain by construction. An
+    unclipped map on a run without a delineated catchment has no outline to
+    test against, and its reaches are read as off the domain.
+
+    Both counts and the length come from one list of unplaced parts, so the
+    printed count and length always describe the same reaches.
+    """
+    key = _placement_key(run_ctx, observed, polygons, vertices, mesh_crs, n_outside)
+    known = _UNPLACED_REPORTS.get(key)
+    if known is not None:
+        logger.debug(
+            "Mapped stream network (%s): placement unchanged since the last build, "
+            "%d reach(es) inside and %d outside the model domain enter no mesh cell.",
+            observed.source,
+            known[0],
+            known[1],
+        )
+        return
+    unplaced = _unplaced_parts(observed, polygons, mesh_crs)
+    if observed.clipped:
+        inside_lengths = [float(part.length) for part in unplaced]
+    else:
+        outline = _domain_outline(run_ctx, mesh_crs)
+        inside_lengths = (
+            []
+            if outline is None
+            else [
+                float(part.intersection(outline).length)
+                for part in unplaced
+                if part.intersects(outline)
+            ]
+        )
+    n_inside = len(inside_lengths)
+    n_off = len(unplaced) - n_inside
+    if len(_UNPLACED_REPORTS) >= _UNPLACED_REPORTS_MAX:
+        _UNPLACED_REPORTS.clear()
+    _UNPLACED_REPORTS[key] = (n_inside, n_off, float(sum(inside_lengths)))
+    if n_off:
+        logger.info(
+            "Mapped stream network (%s): %d reach(es) lie outside the model domain and enter "
+            "no mesh cell, so the criterion leaves them out, as expected for a map wider than "
+            "the catchment.",
+            observed.source,
+            n_off,
+        )
+    if n_inside:
+        logger.warning(
+            "Mapped stream network (%s): %d reach(es) inside the model domain, %.0f m in all, "
+            "enter no mesh cell, so the criterion leaves them out. They lie in the sliver "
+            "between the domain outline and the cells.",
+            observed.source,
+            n_inside,
+            sum(inside_lengths),
+        )
+
+
+def _placement_key(
+    run_ctx: RunContext,
+    observed: ObservedNetwork,
+    polygons: np.ndarray,
+    vertices: np.ndarray,
+    mesh_crs: str,
+    n_outside: int,
+) -> tuple[Any, ...]:
+    """Fingerprint what decides which reaches enter no cell: the map, the mesh, the outline."""
+    import hashlib
+
+    frame = observed.geometry
+    mesh_digest = hashlib.blake2b(
+        np.ascontiguousarray(vertices, dtype=float).tobytes(), digest_size=16
+    ).hexdigest()
+    shp = getattr(getattr(run_ctx.state.setup, "geographic", None), "watershed_shp", None)
+    outline_stamp: tuple[str, float] | None = None
+    if shp is not None and not observed.clipped:
+        path = Path(str(shp))
+        outline_stamp = (str(path), path.stat().st_mtime if path.exists() else -1.0)
+    return (
+        observed.source,
+        str(observed.path),
+        bool(observed.clipped),
+        str(observed.crs),
+        len(frame),
+        tuple(float(value) for value in frame.total_bounds),
+        str(mesh_crs),
+        int(polygons.shape[0]),
+        mesh_digest,
+        outline_stamp,
+        int(n_outside),
+    )
+
+
+def _unplaced_parts(observed: ObservedNetwork, polygons: np.ndarray, mesh_crs: str) -> list[Any]:
+    """Return the line parts of the map, in the mesh CRS, that touch no cell polygon.
+
+    The parts are split as the crossing rule splits them: every line of a
+    multi-part or collection geometry, with a positive length.
+    """
+    import geopandas as gpd
+    import shapely
+    from shapely.strtree import STRtree
+
+    series = gpd.GeoSeries(list(observed.geometry.geometry), crs=observed.crs).to_crs(mesh_crs)
+    parts: list[Any] = []
+    pending = [geometry for geometry in series if geometry is not None]
+    while pending:
+        geometry = pending.pop(0)
+        for part in shapely.get_parts(geometry):
+            if part.geom_type in ("MultiLineString", "GeometryCollection"):
+                pending.append(part)
+            elif (
+                part.geom_type in ("LineString", "LinearRing")
+                and not part.is_empty
+                and part.length > 0.0
+            ):
+                parts.append(part)
+    cells = [polygon for polygon in polygons if polygon is not None]
+    if not parts or not cells:
+        return parts
+    hit, _ = STRtree(cells).query(parts, predicate="intersects")
+    touched = set(int(index) for index in hit)
+    return [part for index, part in enumerate(parts) if index not in touched]
+
+
+def _domain_outline(run_ctx: RunContext, mesh_crs: str) -> Any | None:
+    """Return the delineated catchment in the mesh CRS, or None when the run has none."""
+    import geopandas as gpd
+    import shapely
+
+    shp = getattr(getattr(run_ctx.state.setup, "geographic", None), "watershed_shp", None)
+    if shp is None or not Path(str(shp)).exists():
+        return None
+    frame = gpd.read_file(str(shp))
+    if frame.empty or frame.crs is None:
+        return None
+    return shapely.union_all(list(frame.to_crs(mesh_crs).geometry))
 
 
 def resolve_minimal_network(run_ctx: RunContext, output: Any) -> ObservedNetwork | None:

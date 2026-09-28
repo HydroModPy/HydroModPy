@@ -199,19 +199,30 @@ def test_display_step_summary_names_a_figure_the_run_could_not_produce(
     handler = logging.Handler()
     handler.emit = records.append
     summary_logger = get_logger("hydromodpy.display.runs")
+    previous_level = summary_logger.level
+    summary_logger.setLevel(logging.INFO)
     summary_logger.addHandler(handler)
     try:
         DisplayStep().run(state)
     finally:
         summary_logger.removeHandler(handler)
+        summary_logger.setLevel(previous_level)
 
-    messages = [r.getMessage() for r in records if "figure(s)" in r.getMessage()]
-    assert messages == [
-        "Rendered 0/1 figure(s) -> "
-        f"{runs_dir_for(tmp_path) / 'baseline' / RUN_FIGURES_DIRNAME}; 1 skipped: "
-        "calibration_convergence (missing catalog table(s): calibration_trials)"
+    # No config option unblocks it, so it is no warning: a milestone line
+    # counts it and an INFO line (--verbose) names it with its reason.
+    assert [(r.levelname, r.getMessage()) for r in records] == [
+        (
+            "INFO",
+            "Rendered 0/1 figure(s) -> "
+            f"{runs_dir_for(tmp_path) / 'baseline' / RUN_FIGURES_DIRNAME}; "
+            "1 not applicable to this run",
+        ),
+        (
+            "INFO",
+            "Not applicable to this run: "
+            "calibration_convergence (missing catalog table(s): calibration_trials)",
+        ),
     ]
-    assert [r.levelname for r in records if "figure(s)" in r.getMessage()] == ["WARNING"]
 
 
 def test_display_step_renders_before_the_export_step_seals_the_run():

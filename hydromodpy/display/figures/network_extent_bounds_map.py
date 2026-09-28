@@ -38,6 +38,7 @@ from hydromodpy.display.figures._stream_comparison import (
     checked_cells,
     class_label,
     draw_cells,
+    flowing_words,
     map_extent,
     map_legend,
     select_cells,
@@ -265,12 +266,7 @@ def extent_notes(extents: NetworkExtents, year: int | None) -> list[str]:
     if extents.years.outside_window:
         left_out = ", ".join(str(item) for item in extents.years.outside_window)
         rule += f"; outside the scoring window: {left_out}"
-    visible = (
-        "no visible-flow threshold"
-        if extents.visible_flow.geometric
-        else f"visible flow {extents.visible_flow.label()}"
-    )
-    lines = [rule, f"flowing: seepage closure, tau = {extents.tau_specific_ratio:g}, {visible}"]
+    lines = [rule, flowing_words(extents.tau_specific_ratio, extents.visible_flow)]
     for bound in ("minimal", "maximal"):
         if bound == "minimal" and extents.minimal_observed is None:
             continue

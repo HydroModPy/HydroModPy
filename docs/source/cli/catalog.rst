@@ -287,19 +287,20 @@ Example::
 Sharing and re-running
 ----------------------
 
-export / import
-~~~~~~~~~~~~~~~~
+import
+~~~~~~
 
-Synopsis: ``hmp catalog export <ref> [-o FILE.hmp]`` / ``hmp catalog import <FILE.hmp> [--force]``
+Synopsis: ``hmp catalog import <FILE.hmp> [--force]``
 
-Write a run as a portable ``.hmp`` archive (config snapshot, provenance, Zarr
-fields, timeseries, RO-Crate) and restore it into any workspace with checksum
-verification. The simulation identity survives the round-trip.
+Restore a portable ``.hmp`` archive (config snapshot, provenance, Zarr
+fields, timeseries, RO-Crate) into any workspace with checksum verification.
+The simulation identity survives the round-trip. ``hmp export <ref> all
+--format package`` writes the archive; see :doc:`export`.
 
 Example::
 
-   hmp catalog export cheze_baseline.v3 -o paper.hmp
-   hmp catalog import paper.hmp
+   hmp export cheze_baseline.v3 all --format package --file paper.hmp
+   hmp catalog import share/cheze_baseline.v3/paper.hmp
 
 rerun
 ~~~~~

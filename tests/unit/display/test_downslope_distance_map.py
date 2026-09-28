@@ -388,7 +388,7 @@ def test_the_note_names_the_measurement_and_its_threshold(mpl) -> None:
         assert _cells(ax, "0-75 m") == column_cells(AXIS_COLUMN)
         note = legend_note(ax)
         assert note.startswith("D_so: how far each of the simulated cells")
-        assert "seepage threshold: none (tau = 0)" in note
+        assert "every cell releasing groundwater counts as seepage" in note
         assert "no cell" not in note
     finally:
         mpl.close(fig)
@@ -400,7 +400,7 @@ def test_the_note_names_the_threshold_the_partition_was_cut_at(mpl) -> None:
     DownslopeDistanceMap().render(_two_branch_run(), ax, tau_specific_ratio=0.25)
 
     try:
-        assert "tau = 0.25 of the mean recharge" in legend_note(ax)
+        assert "a cell counts as seepage above 25 % of its recharge" in legend_note(ax)
     finally:
         mpl.close(fig)
 

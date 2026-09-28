@@ -25,11 +25,14 @@ def _json_payload(cfg: HydroModPyConfig) -> dict:
     return cfg.model_dump(mode="json", exclude_none=True)
 
 
-def _root_instances(cfg: HydroModPyConfig) -> dict[str, BaseModel]:
-    instances: dict[str, BaseModel] = {}
+def _root_instances(cfg: HydroModPyConfig) -> dict[str, BaseModel | list[BaseModel]]:
+    instances: dict[str, BaseModel | list[BaseModel]] = {}
     for name in HydroModPyConfig.model_fields:
         value = getattr(cfg, name)
         if isinstance(value, BaseModel):
+            instances[name] = value
+        elif isinstance(value, list) and all(isinstance(item, BaseModel) for item in value):
+            # A repeated root section such as [[export]].
             instances[name] = value
     return instances
 

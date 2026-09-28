@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.figures.sfr_reach_timeseries import (
     STATE_UNITS,
     no_reach_series_reason,
@@ -66,9 +67,10 @@ class SfrLongitudinalProfile(BaseFigure):
         ax.plot(reaches, values, color="steelblue", lw=1.2, marker="o", ms=4)
         ax.set_xlabel("reach number (downstream-increasing)")
         ax.set_ylabel(f"{variable} ({STATE_UNITS.get(variable, 'm³/s')})")
+        when = instant_label(sim, timestep) or (f"{stamp:%Y-%m-%d}" if stamp is not None else "")
         ax.set_title(
             f"SFR {variable} profile - {sim.name or sim.sim_id} @ {network_id}"
-            + (f" ({stamp:%Y-%m-%d})" if stamp is not None else "")
+            + (f" ({when})" if when else "")
         )
         ax.grid(True, ls=":", lw=0.4)
         return ax

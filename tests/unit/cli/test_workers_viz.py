@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import logging
 from pathlib import Path
 from types import SimpleNamespace
@@ -123,6 +124,69 @@ def _one_run_workspace(monkeypatch, tmp_path: Path, figure: _Figure) -> None:
     monkeypatch.setattr("hydromodpy.core.state.paths.resolve_project_root", lambda start: tmp_path)
     monkeypatch.setattr("hydromodpy.results.catalog.Catalog", _OneRunCatalog)
     monkeypatch.setattr("hydromodpy.display.runs._get_figure", lambda name: figure)
+
+
+class _SealedRunCatalog(_OneRunCatalog):
+    """One run whose sealed ``[display]`` names October and a south-north cut."""
+
+    def __getitem__(self, sid: str) -> SimpleNamespace:
+        from hydromodpy.display.config import DisplayConfig
+
+        display = DisplayConfig().model_dump(mode="json")
+        display.update(time="2002-10-15", overrides={"cross_section": {"orientation": "sn"}})
+        return SimpleNamespace(
+            name="sim-a",
+            config_snapshot={"display": display},
+            step_at=lambda time: {"2002-10-15": 33, "first": 0}[time],
+        )
+
+
+class _InstantFigure:
+    """A map that draws one instant and records what it was asked for."""
+
+    def __init__(self) -> None:
+        self.drawn: list[dict] = []
+
+    def unavailable_reason(self, sim: SimpleNamespace) -> None:
+        return None
+
+    def plot(self, sim, *, save_path: Path, timestep=None, orientation="we", **_) -> str:
+        self.drawn.append({"timestep": timestep, "orientation": orientation})
+        save_path.write_bytes(b"png")
+        return "figure"
+
+
+@pytest.mark.parametrize(("time", "step"), [(None, 33), ("first", 0)])
+def test_a_redraw_applies_the_display_of_the_run_and_time_replaces_its_instant(
+    monkeypatch, tmp_path, time, step
+) -> None:
+    figure = _InstantFigure()
+    _one_run_workspace(monkeypatch, tmp_path, figure)
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", _SealedRunCatalog)
+
+    viz_worker.render_figure("abc123", "cross_section", workspace=tmp_path, time=time)
+
+    assert figure.drawn == [{"timestep": step, "orientation": "sn"}]
+
+
+def test_viz_show_passes_time_to_the_worker(monkeypatch) -> None:
+    from hydromodpy.cli.commands.viz import show
+
+    seen: dict[str, object] = {}
+
+    def _worker(sim_ref, figure, **kwargs):
+        seen.update(kwargs, sim_ref=sim_ref, figure=figure)
+        return Path("out.png")
+
+    monkeypatch.setattr("hydromodpy.cli._workers.viz.render_figure", _worker)
+    parser = argparse.ArgumentParser()
+    show.register(parser.add_subparsers())
+    args = parser.parse_args(["show", "abc123", "seepage_map", "--time", "2002-10-15"])
+
+    show.run(args)
+
+    assert seen["time"] == "2002-10-15"
+    assert seen["figure"] == "seepage_map"
 
 
 def test_an_output_without_a_suffix_is_written_and_named_as_png(monkeypatch, tmp_path) -> None:
@@ -351,20 +415,77 @@ def test_render_gallery_summarizes_a_figure_it_could_not_produce(monkeypatch, tm
     handler = logging.Handler()
     handler.emit = records.append
     summary_logger = get_logger("hydromodpy.display.runs")
+    previous_level = summary_logger.level
+    summary_logger.setLevel(logging.INFO)
     summary_logger.addHandler(handler)
     try:
         paths = viz_worker.render_gallery(config, no_show=True)
     finally:
         summary_logger.removeHandler(handler)
+        summary_logger.setLevel(previous_level)
 
     assert paths == [tmp_path / "figures" / "baseline" / "piezometric_map.png"]
-    summaries = [r for r in records if "figure(s)" in r.getMessage()]
-    assert [r.levelname for r in summaries] == ["WARNING"]
-    assert summaries[0].getMessage().startswith("Rendered 1/2 figure(s)")
-    assert (
-        "1 skipped: calibration_convergence (missing catalog table(s): calibration_trials)"
-        in summaries[0].getMessage()
+    # Each run gets its summary as on the run path: a figure inapplicable to
+    # the run is counted, then named at INFO, never dropped.
+    messages = [(r.levelname, r.getMessage()) for r in records]
+    assert [level for level, _ in messages] == ["INFO", "INFO"]
+    assert messages[0][1].startswith("Rendered 1/2 figure(s)")
+    assert messages[0][1].endswith("; 1 not applicable to this run")
+    assert messages[1][1] == (
+        "Not applicable to this run: "
+        "calibration_convergence (missing catalog table(s): calibration_trials)"
     )
+
+
+def test_render_gallery_reads_an_old_key_as_hmp_run_does(monkeypatch, tmp_path) -> None:
+    # `hmp run` renames the old per-figure `timestep` in memory before
+    # validation. The gallery reads the same file the same way, so the two
+    # commands load and report an old key alike.
+    import warnings
+
+    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
+
+    config = tmp_path / "model.toml"
+    config.write_text(
+        '[display]\nfigures = ["seepage_map"]\n[display.overrides.seepage_map]\ntimestep = 33\n',
+        encoding="utf-8",
+    )
+
+    class FakeCatalog:
+        def __init__(self, root: Path, *, read_only: bool = False) -> None:
+            self.root = root
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info: object) -> None:
+            return None
+
+        def list_simulations(self, **kwargs: object) -> pd.DataFrame:
+            return pd.DataFrame({"sim_id": ["abcd1111"], "name": ["baseline"]})
+
+        def __getitem__(self, sim_id: str) -> SimpleNamespace:
+            return SimpleNamespace(name="baseline")
+
+    seen: list[object] = []
+
+    def _render(sim, cfg, *, output_dir, figure_names):
+        seen.append(cfg)
+        return FigureRenderReport(requested=(), rendered=(), written=(), skipped=())
+
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
+    monkeypatch.setattr(
+        "hydromodpy.display.runs.resolve_run_output_dir",
+        lambda cfg, *, project_root, run_name, sim_id: project_root / "figures" / run_name,
+    )
+    monkeypatch.setattr("hydromodpy.display.runs.render_figures_for_run", _render)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        viz_worker.render_gallery(config, no_show=True)
+
+    assert seen[0].overrides == {"seepage_map": {"time": 33}}
+    assert not [w for w in caught if issubclass(w.category, ConfigKeyRenamedWarning)]
 
 
 def test_render_gallery_rejects_ambiguous_sim_prefix(monkeypatch, tmp_path) -> None:

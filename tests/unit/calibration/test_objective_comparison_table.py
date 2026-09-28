@@ -121,7 +121,9 @@ def test_a_point_block_that_observes_names_the_station_and_its_data_family(
 
     hydrograph = rows["hydrograph"]
     assert hydrograph["metric"] == "nse_log"
-    assert hydrograph["quantity"] == "discharge (point, (10, 20))"
+    # The x and y written beside `observes` are never read, so the row says
+    # what the run reads: the station's discharge, here the catchment series.
+    assert hydrograph["quantity"] == "discharge, station G1 (whole-catchment series)"
     assert hydrograph["source"] == "station G1 ([data.hydrometry])"
 
 

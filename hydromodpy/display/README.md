@@ -22,7 +22,7 @@ It holds three things of unequal weight:
 
 ## What a user can rely on
 
-Figures are the part of HydroModPy the user sees most. Every figure follows three
+Figures are the part of HydroModPy the user sees most. Every figure follows five
 rules.
 
 1. **A figure shows a quantity, not a tool.** It draws a field, a flux, a budget,
@@ -40,7 +40,22 @@ rules.
    reason by `hmp viz list --run`. It never raises from inside `render` and never
    writes a placeholder PNG. A lumped run (GR4J) has no grid, so every map is
    refused and the discharge figures stay offered.
-3. **One name on every surface.** A figure has one name, written in
+3. **An instant is a date.** A figure that draws one instant is asked for it by
+   `time`: a date, `"first"` or `"last"`, in `[display] time` for the whole
+   gallery or in `[display.overrides.<figure>]` for one. `runs._resolve_time`
+   is the one place a date meets a run: it calls `Run.step_at` and hands the
+   figure the step as `timestep`, the internal channel the maps read. The user
+   never writes `timestep`. In a TOML the old key is renamed to `time` on load
+   by `config/config_migration.py` (INFO line, `hmp doctor --fix-config`
+   persists it); a `DisplayConfig` built from a dict renames it in its own
+   before-validator, with a `ConfigKeyRenamedWarning`. A date
+   the run does not hold skips the figure with its reason.
+4. **An option is a parameter.** The keys `[display.overrides.<figure>]` takes
+   are the named parameters of the figure's `plot` and `render`, read along the
+   MRO while a `**` parameter forwards them (`figure.option_names_of`). A key
+   the figure does not take is refused at config load, with the list. A new
+   figure option therefore needs no declaration beyond its parameter.
+5. **One name on every surface.** A figure has one name, written in
    `[display].figures`, `hmp viz show <run> <name>` and `hmp.figure(run, "<name>")`.
    A renamed figure keeps its old name in `former_names`, so project files that
    use it still load. `[display]` fields are `USER` when they choose what to
@@ -88,7 +103,7 @@ hydromodpy/display/
 ├── figures/               one figure per file, flat, discovered automatically
 │   ├── _scalar_face_map.py    base of the "one value per mesh face" maps
 │   ├── _stream_comparison.py, _routing_surface.py, _flow_persistence.py, _trial_diagnostics.py,
-│   │   _observed.py, _memo.py
+│   │   _observed.py, _memo.py, _instant.py (how a title names the period it draws)
 │   │                          helpers shared between figures (private to figures/)
 │   ├── lake_level_fit.py      public helper, not registered, read by reporting
 │   └── <name>.py              the registered figures
@@ -96,8 +111,10 @@ hydromodpy/display/
 │   rendering the figures of a run ([display])
 ├── config.py              DisplayConfig, the [display] TOML section
 ├── runs.py                render_figures_for_run (a run, the [display] list), render_figure (one figure),
+│                          figure_options_from_run (the [display] a run was drawn with),
 │                          figure_availability (what a run supports, and why not the rest),
-│                          matplotlib_backend (Agg or interactive for the length of a render)
+│                          matplotlib_backend (Agg or interactive for the length of a render);
+│                          _resolve_time turns a date into the stress period the run stored
 ├── png_metadata.py        provenance written into each PNG (sim_id, field, step, EPSG, version)
 │
 │   shared tools
@@ -257,7 +274,7 @@ Another package of `hydromodpy/` imports only these modules (the `public` list o
 |---|---|
 | `hydromodpy.display` | `get`, `list_figures`, `names`, `register`, `BaseFigure`, `FigureSpec` |
 | `hydromodpy.display.config` | `DisplayConfig` |
-| `hydromodpy.display.figure_registry` | `get`, `resolve`, `names` |
+| `hydromodpy.display.figure_registry` | `get`, `resolve`, `names`, `figure_option_names` |
 | `hydromodpy.display.runs` | rendering the figures of a run, and their availability |
 | `hydromodpy.display.quicklook.viz` | `hmp.viz` |
 | `hydromodpy.display.maps.axes`, `hydromodpy.display.maps.ugrid`, `hydromodpy.display.maps.geo` | map tools reused by `reporting` |

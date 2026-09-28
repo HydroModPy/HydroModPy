@@ -33,6 +33,16 @@ _NONE_TYPE = type(None)
 _BOOLEAN_FIELDS: dict[type[BaseModel], frozenset[str]] = {}
 
 
+class ConfigKeyRenamedWarning(FutureWarning):
+    """A configuration file wrote a key under the name it used to have.
+
+    The reader of this warning is the person who wrote the file, not a developer
+    of the package, which is what ``FutureWarning`` is for. A
+    ``DeprecationWarning`` raised from a validator is hidden by Python's default
+    filters, and the rename it announces then happens in silence.
+    """
+
+
 def _annotation_leaves(annotation: Any) -> list[Any]:
     """Return the leaf types of *annotation*, unwrapping ``Annotated`` and unions."""
     origin = get_origin(annotation)
@@ -214,11 +224,13 @@ class HydroModelBase(BaseModel):
                     f"{cls.__name__} was given both {old!r} and {new!r}; {old!r} is the "
                     f"old spelling of {new!r}, so keep one."
                 )
+            # stacklevel=1 names this file. The caller is pydantic, which the
+            # console routing reads as a third-party deprecation and hides.
             warnings.warn(
                 f"{old!r} is now called {new!r} ({cls.__name__}); the old spelling still "
                 "loads and will stop being read in a later version.",
-                DeprecationWarning,
-                stacklevel=2,
+                ConfigKeyRenamedWarning,
+                stacklevel=1,
             )
             migrated[new] = migrated.pop(old)
         return migrated

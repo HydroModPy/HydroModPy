@@ -103,9 +103,9 @@ Data and storage
    **Cause.** ``hmp data import <path>`` was pointed at a missing or moved
    ``.hmp`` archive.
 
-   **Fix.** Confirm the archive path. ``hmp catalog export <ref> -o
-   <file>.hmp`` prints the archive it wrote; that path is the one
-   ``hmp data import`` expects.
+   **Fix.** Confirm the archive path. ``hmp export <ref> all --format
+   package`` prints the archive it wrote, ``share/<ref>/<ref>.hmp`` by
+   default; that path is the one ``hmp data import`` expects.
 
 .. dropdown:: ``CSV time series not found`` / ``NetCDF file not found``
    :icon: database
@@ -124,7 +124,7 @@ Calibration and runtime
    :icon: zap
 
    **Cause.** ``[calibration] method`` was set to ``cma_es`` or
-   ``[calibration.optimizer_kwargs] sampler = "cmaes"`` for ``optuna``,
+   ``[calibration.method_options] sampler = "cmaes"`` for ``optuna``,
    but the optional CMA-ES dependencies are not installed. The default
    ``optuna`` TPE sampler is installed by the base package.
 

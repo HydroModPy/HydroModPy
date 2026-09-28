@@ -79,6 +79,8 @@ from hydromodpy.calibration.runners.cli_runner import (
     run_calibration_core,
 )
 from hydromodpy.calibration.runners.phase_regime import phase_overrides, regime_overrides
+from hydromodpy.calibration.runners.promotion import promoted_run_name
+from hydromodpy.calibration.runners.recap import session_directory, write_methods
 from hydromodpy.calibration.runners.restarts import RestartSpread, run_restarts
 from hydromodpy.calibration.runners.resume import fingerprint_matches, reusable_stage
 from hydromodpy.calibration.runners.state import (
@@ -192,6 +194,10 @@ class StagedCalibrationReport:
     completed. It is the only object by which someone who did not produce the
     number can know what it rests on without reading Python."""
 
+    methods_path: Path | None = None
+    """The ``methods.md`` file the paragraph was written to, in the root session
+    folder. ``None`` when there is no paragraph or no session folder."""
+
     restart_spreads: tuple[RestartSpread, ...] = ()
     """Where the restarts of each phase landed, when the file asked for restarts.
 
@@ -225,6 +231,8 @@ class StagedCalibrationReport:
             summary["protocol"] = self.protocol
         if self.methods_paragraph is not None:
             summary["methods_paragraph"] = self.methods_paragraph
+        if self.methods_path is not None:
+            summary["methods_path"] = str(self.methods_path)
         if self.reused_from_disk:
             summary["reused_from_disk"] = list(self.reused_from_disk)
         if self.restart_spreads:
@@ -286,7 +294,7 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     payload["tolerance"] = decl.tolerance
     payload["batch_size"] = decl.batch_size
     payload["parallel"] = decl.parallel
-    payload["optimizer_kwargs"] = dict(decl.optimizer_kwargs)
+    payload["method_options"] = dict(decl.method_options)
     # The phase's own keys over [calibration.uncertainty]: the method, its
     # restarts or its perturbation, and the width the interval is read with.
     payload["uncertainty"] = cfg.uncertainty_for(decl).model_dump()
@@ -950,12 +958,12 @@ def _output_where(output: CalibOutputDecl) -> str:
     """
     support = str(getattr(output, "support", ""))
     if support == "point":
+        if getattr(output, "observes", None) is not None:
+            # The station's record places it; an x or y written beside it is
+            # never read, so it is never printed as where the value comes from.
+            return _station_where(output)
         if getattr(output, "geometry", None) is not None:
             return "its declared geometry"
-        if getattr(output, "x", None) is None or getattr(output, "y", None) is None:
-            # The schema requires 'x'/'y', 'geometry' or 'observes': none of the
-            # first two here means the station's own record locates the point.
-            return "its observed station's own cell"
         return f"({_length_text(output.x)}, {_length_text(output.y)})"
     if support == "boundary":
         return f"boundary {output.boundary_id!r}"
@@ -968,11 +976,37 @@ def _output_where(output: CalibOutputDecl) -> str:
     return ""
 
 
+def _station_where(output: CalibOutputDecl) -> str:
+    """Return where a point output that observes a station reads its simulated value.
+
+    The same rule the extraction applies
+    (:func:`hydromodpy.calibration.metrics.solver_extract.observable_request_for_output`).
+    A discharge station is not placed by its coordinate, so without a snap it
+    is scored on the whole-catchment series. A snap moves it onto the most
+    drained cell near its record. Any other variable is read in the cell its
+    record falls in. The cell itself is only known once the mesh exists.
+    """
+    station = f"station {output.observes}"
+    if str(getattr(output, "variable", "")) != "discharge":
+        return f"{station} (the cell its record falls in)"
+    radius = getattr(output, "snap_radius", None)
+    if radius is None:
+        return f"{station} (whole-catchment series)"
+    metres = radius.to("m") if callable(getattr(radius, "to", None)) else radius
+    return f"{station} (the most drained cell within {_length_text(metres)} m of its record)"
+
+
 def _output_quantity(output: CalibOutputDecl) -> str:
-    """Return the simulated quantity one output reads: variable, support, where."""
+    """Return the simulated quantity one output reads: variable, support, where.
+
+    A point output that observes a station reads ``discharge, station NANCON
+    (whole-catchment series)``: the station says where, not the support.
+    """
     variable = str(getattr(output, "variable", ""))
     support = str(getattr(output, "support", ""))
     where = _output_where(output)
+    if support == "point" and getattr(output, "observes", None) is not None:
+        return f"{variable}, {where}"
     return f"{variable} ({support}, {where})" if where else f"{variable} ({support})"
 
 
@@ -1310,6 +1344,9 @@ def run_staged_calibration(
                 _ws=ws_root,
                 _passed_start=passed_start,
                 _width=plan.width,
+                _run_name=promoted_run_name(
+                    trial_ctx, decl.name if len(cfg.phases or []) > 1 else None
+                ),
             ):
                 # The first restart, or the only search, starts from the passed
                 # values. The other restarts start from their own draws.
@@ -1328,6 +1365,7 @@ def run_staged_calibration(
                     chain=_chain,
                     start_at=_passed_start if start_at is None else start_at,
                     interval_width=_width,
+                    run_name=_run_name,
                 )
 
             restarts = _declared_restarts(phase_cfg)
@@ -1377,6 +1415,18 @@ def run_staged_calibration(
         ran.add(decl.name)
 
     steady_window = _steady_window_summary(cfg, runs, raw)
+    methods = (
+        _methods_paragraph_for(
+            cfg,
+            runs,
+            frozen,
+            backend=_backend_name(raw),
+            steady_window=steady_window,
+            geographic=_geographic_choices(raw),
+        )
+        if cfg.protocol is not None
+        else None
+    )
     staged = StagedCalibrationReport(
         phases=tuple(runs),
         frozen=tuple(frozen),
@@ -1384,23 +1434,28 @@ def run_staged_calibration(
         protocol=(
             protocol_record(cfg.protocol.name, cfg.protocol) if cfg.protocol is not None else None
         ),
-        methods_paragraph=(
-            _methods_paragraph_for(
-                cfg,
-                runs,
-                frozen,
-                backend=_backend_name(raw),
-                steady_window=steady_window,
-                geographic=_geographic_choices(raw),
-            )
-            if cfg.protocol is not None
-            else None
-        ),
+        methods_paragraph=methods,
+        methods_path=_write_methods_beside_the_root(runs, str(root_session_id), methods),
         restart_spreads=tuple(restart_spreads),
         reused_from_disk=tuple(reused_from_disk),
         steady_window=steady_window,
     )
     return staged if return_report else staged.to_dict()
+
+
+def _write_methods_beside_the_root(
+    runs: list[PhaseRun], root_session_id: str, methods: str | None
+) -> Path | None:
+    """Write the methods paragraph into the root session folder, and return its path.
+
+    The paragraph is prose a reader copies into a report, too long for a
+    console. ``None`` when there is no paragraph or no session folder.
+    """
+    workspace = runs[0].report.workspace if runs else None
+    if methods is None or workspace is None:
+        return None
+    root_dir = session_directory(Path(workspace), root_session_id)
+    return write_methods(root_dir, methods) if root_dir is not None else None
 
 
 def _backend_name(document: Mapping[str, Any]) -> str | None:

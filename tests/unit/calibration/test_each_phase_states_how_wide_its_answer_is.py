@@ -457,7 +457,7 @@ method = "grid"
 max_iter = 9
 evaluator = "test_gap_in_metres"
 use_cache = false
-optimizer_kwargs = {{ points_per_dim = 9 }}
+method_options = {{ points_per_dim = 9 }}
 {uncertainty}
 
 [calibration.parameters.K]

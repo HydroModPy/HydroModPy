@@ -1,6 +1,8 @@
 """``hmp viz show`` - thin wrapper around :func:`hydromodpy.display.runs.render_figure`.
 
-A figure the run cannot feed is refused with its reason (exit code 1), as
+The figure is drawn with the options the run's own ``[display]`` gave it, so
+it redraws the figure the run drew; ``--time`` names another instant. A
+figure the run cannot feed is refused with its reason (exit code 1), as
 ``hmp.figure`` refuses it.
 """
 
@@ -30,6 +32,14 @@ def register(subparsers) -> argparse.ArgumentParser:
         type=Path,
         help="Output file path (default: runs/<run>/figures/<figure>.png)",
     )
+    parser.add_argument(
+        "--time",
+        default=None,
+        help=(
+            'Instant a map draws: a date (2002-10-15), "first" or "last". '
+            "Default: the one the run's [display] names, else the figure's own"
+        ),
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -44,7 +54,11 @@ def run(args: argparse.Namespace) -> None:
 
     try:
         save = render_figure(
-            args.sim_ref, args.figure, workspace=args.workspace, output=args.output
+            args.sim_ref,
+            args.figure,
+            workspace=args.workspace,
+            output=args.output,
+            time=args.time,
         )
     except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
         print(str(exc), file=sys.stderr)

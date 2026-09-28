@@ -64,9 +64,23 @@ def test_expand_prints_the_header_and_the_written_sections(tmp_path, capsys) -> 
     printed = capsys.readouterr().out
     assert "# Expanded from protocol matching_hydrographic_network, version 1.2" in printed
     assert "Abherve et al. 2023, 10.5194/hess-27-3221-2023" in printed
-    assert "protocol__delete = true" in printed
+    assert "[calibration.parameters.K]" in printed
+    assert "[calibration.outputs.streams]" in printed
     assert "[[calibration.objective_blocks]]" in printed
     assert "[[calibration.phases]]" in printed
+
+
+def test_the_protocol_delete_hint_is_only_for_an_inherited_protocol(tmp_path, capsys) -> None:
+    """A file that names the protocol itself has nothing inherited to drop."""
+    own = _write(tmp_path, _PROTOCOL)
+    _run(own, expand=True)
+    assert "protocol__delete" not in capsys.readouterr().out
+
+    (tmp_path / "project.toml").write_text(_PROTOCOL, encoding="utf-8")
+    child = tmp_path / "run_calibration.toml"
+    child.write_text('base_config = "project.toml"\n', encoding="utf-8")
+    _run(child, expand=True)
+    assert "# protocol__delete = true" in capsys.readouterr().out
 
 
 def test_expand_on_a_file_without_a_protocol_says_so(tmp_path, capsys) -> None:
@@ -80,7 +94,7 @@ def test_expand_on_a_file_without_a_protocol_says_so(tmp_path, capsys) -> None:
 
 
 def test_expand_prints_pasteable_toml(tmp_path, capsys) -> None:
-    """The body, comments aside, parses back to the same phases and blocks."""
+    """The body, comments aside, parses back to the whole section, protocol aside."""
     path = _write(tmp_path, _PROTOCOL)
 
     _run(path, expand=True)
@@ -94,6 +108,7 @@ def test_expand_prints_pasteable_toml(tmp_path, capsys) -> None:
         "transient_storage",
     ]
     assert parsed["calibration"]["objective_blocks"][0]["name"] == "network_extension"
+    assert set(parsed["calibration"]["parameters"]) == {"K", "Sy"}
     assert "protocol" not in parsed["calibration"]
 
 

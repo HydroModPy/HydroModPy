@@ -40,7 +40,12 @@ from hydromodpy.core.config_kit.introspect import (
     resolve_profile,
 )
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.registry import root_scalar_fields, root_sections
+from hydromodpy.core.config_kit.registry import (
+    repeated_root_sections,
+    root_scalar_fields,
+    root_sections,
+)
+from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.toml_io.dynamic_examples_protocol import (
     get_dynamic_flow_examples_provider,
 )
@@ -105,8 +110,14 @@ def generate_toml(
     lines = _header(profile, [*selected_root_names, *list(selected.keys())])
     lines.extend(_root_scalars(scalar_fields, threshold))
 
+    repeated = repeated_root_sections()
     for section_name, model_cls in selected.items():
         section_values = (overrides or {}).get(section_name)
+        if section_name in repeated:
+            lines.extend(
+                _repeated_root_section(section_name, model_cls, threshold, values=section_values)
+            )
+            continue
         lines.extend(_section(section_name, model_cls, threshold, values=section_values))
         if section_name == "flow":
             lines.extend(_flow_dynamic_examples(threshold))
@@ -118,7 +129,7 @@ def generate_toml(
 
 
 def generate_toml_from_instances(
-    instances: dict[str, BaseModel],
+    instances: _abc_Mapping[str, BaseModel | list[BaseModel]],
     output_path: str | Path | None = None,
     profile: str = "user",
     *,
@@ -130,14 +141,16 @@ def generate_toml_from_instances(
 
     Works with **any** Pydantic model -- not limited to registered modules.
     Supports ``list[BaseModel]`` fields (rendered as ``[[section.sources]]``).
+    A list of models is a repeated root section: one ``[[name]]`` block per
+    entry, as ``[[export]]`` is written.
 
     When *output_path* is given, ``Path`` values are automatically
     relativised to the output directory.
 
     Parameters
     ----------
-    instances : dict of {section_name: model_instance}
-        E.g. ``{"hydrometry": cfg_h, "piezometry": cfg_p}``.
+    instances : dict of {section_name: model_instance or list of them}
+        E.g. ``{"hydrometry": cfg_h, "export": cfg.export}``.
     output_path : str, Path, or None
         If provided, write the result to this file.
     profile : str
@@ -183,6 +196,24 @@ def generate_toml_from_instances(
         lines.extend(_header(profile, list(instances.keys())))
 
     for section_name, model in instances.items():
+        if isinstance(model, list):
+            entries: list[dict] = []
+            for entry in model:
+                entry_values = entry.model_dump(
+                    exclude_defaults=exclude_defaults,
+                    exclude_none=exclude_none,
+                )
+                _restore_variant_tags(entry, entry_values)
+                if toml_dir:
+                    _relativize_paths_in_dict(entry_values, toml_dir)
+                entries.append(entry_values)
+            if model:
+                lines.extend(
+                    _repeated_root_section(
+                        section_name, type(model[0]), threshold, entries, from_instance=True
+                    )
+                )
+            continue
         values = model.model_dump(
             exclude_defaults=exclude_defaults,
             exclude_none=exclude_none,
@@ -1182,44 +1213,108 @@ def _section(
             if isinstance(raw, list):
                 items = raw
 
-        if items:
-            for item_dict in items:
-                lines.append(_line(f"[[{sub_section}]]"))
-                for key, val in item_dict.items():
-                    # Add field description from the item model class
-                    if key in item_cls.model_fields:
-                        _render_field_comment(lines, item_cls.model_fields[key])
-                    if val is None:
-                        # TOML has no null, so ``key =`` is not a line; the key
-                        # stays out and reload restores the default it holds.
-                        lines.append(f"# {key} =")
-                    else:
-                        lines.append(_line(f"{_fmt_key(key)} = {_fmt(val)}"))
-                    lines.append("")
-        elif has_instance_value or _from_instance:
-            # A config that does not carry this table does not want it; the
-            # example entry below is a template gesture, and its placeholders
-            # are not values a reload accepts.
-            continue
-        else:
-            # Template mode: show an example entry with defaults. A table the
-            # model does not declare by itself stays commented out: writing it
-            # is what turns the feature on, so a template must not do it for
-            # the reader.
-            optional = _declares_nothing(field_info)
-            emit = (lambda text: f"# {text}") if optional else _line
-            if optional:
-                lines.append(f"# Example entry, one [[{sub_section}]] block per entry.")
-            lines.append(emit(f"[[{sub_section}]]"))
-            for fname, finfo, _flevel in iter_fields_by_profile(item_cls, threshold):
-                if _toml_excluded(finfo):
-                    continue
-                _render_field_comment(lines, finfo)
-                default = _default_value(finfo)
-                if default is not _UNDEFINED and default is not None:
-                    lines.append(emit(f"{fname} = {_fmt(default)}"))
-                else:
-                    lines.append(emit(f"{fname} = {_placeholder(finfo)}"))
-                lines.append("")
+        lines.extend(
+            _array_of_tables(
+                sub_section,
+                field_info,
+                item_cls,
+                threshold,
+                items=items,
+                has_instance_value=has_instance_value,
+                from_instance=_from_instance,
+                line=_line,
+            )
+        )
 
+    return lines
+
+
+def _array_of_tables(
+    table: str,
+    field_info: FieldInfo | None,
+    item_cls: type[BaseModel],
+    threshold: int,
+    *,
+    items: list[dict] | None,
+    has_instance_value: bool,
+    from_instance: bool,
+    line: typing.Callable[[str], str],
+) -> list[str]:
+    """Render the ``[[table]]`` blocks of a repeated table, or one example entry."""
+    lines: list[str] = []
+    if items:
+        for item_dict in items:
+            lines.append(line(f"[[{table}]]"))
+            for key, val in item_dict.items():
+                # Add field description from the item model class
+                if key in item_cls.model_fields:
+                    _render_field_comment(lines, item_cls.model_fields[key])
+                if val is None:
+                    # TOML has no null, so ``key =`` is not a line; the key
+                    # stays out and reload restores the default it holds.
+                    lines.append(f"# {key} =")
+                else:
+                    lines.append(line(f"{_fmt_key(key)} = {_fmt(val)}"))
+                lines.append("")
+        return lines
+    if has_instance_value or from_instance:
+        # A config that does not carry this table does not want it; the
+        # example entry below is a template gesture, and its placeholders
+        # are not values a reload accepts.
+        return lines
+
+    # Template mode: show an example entry with defaults. A table the model
+    # does not declare by itself stays commented out: writing it is what turns
+    # the feature on, so a template must not do it for the reader.
+    optional = field_info is None or _declares_nothing(field_info)
+    emit = (lambda text: f"# {text}") if optional else line
+    if optional:
+        lines.append(f"# Example entry, one [[{table}]] block per entry.")
+    lines.append(emit(f"[[{table}]]"))
+    for fname, finfo, _flevel in iter_fields_by_profile(item_cls, threshold):
+        if _toml_excluded(finfo):
+            continue
+        _render_field_comment(lines, finfo)
+        default = _default_value(finfo)
+        if default is not _UNDEFINED and default is not None:
+            lines.append(emit(f"{fname} = {_fmt(default)}"))
+        else:
+            lines.append(emit(f"{fname} = {_placeholder(finfo)}"))
+        lines.append("")
+    return lines
+
+
+def _repeated_root_section(
+    section_name: str,
+    item_cls: type[BaseModel],
+    threshold: int,
+    values: list[dict] | None = None,
+    *,
+    from_instance: bool = False,
+) -> list[str]:
+    """Generate a root array of tables such as ``[[export]]``.
+
+    The banner comes from the entry model and the description from the root
+    field. The body is the entries in *values*. With none, a template shows
+    one example entry and a config written from instances shows nothing.
+    """
+    field_info = get_root_config_provider().root_model().model_fields.get(section_name)
+    title = (item_cls.__doc__ or section_name).strip().split("\n")[0]
+    lines = ["", "# " + "-" * 70, f"# {title}", "# " + "-" * 70]
+    if field_info is not None and field_info.description:
+        lines.append("")
+        _append_comment_text(lines, field_info.description)
+    lines.append("")
+    lines.extend(
+        _array_of_tables(
+            section_name,
+            field_info,
+            item_cls,
+            threshold,
+            items=values if isinstance(values, list) else None,
+            has_instance_value=False,
+            from_instance=from_instance,
+            line=lambda text: text,
+        )
+    )
     return lines

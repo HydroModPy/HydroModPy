@@ -326,14 +326,16 @@ def test_list_fields_matches_has_field(catalog):
 
 def test_exportable_fields_include_the_virtual_ones(catalog):
     """A default run exports its water table, not just the raw head."""
-    from hydromodpy.cli.commands.data.export import _exportable_fields
+    from hydromodpy.core.config_kit.export_spec import ExportKind
+    from hydromodpy.results.exporters.vocabulary import list_exportable
 
     sid = _seed_head_and_topography(catalog)
 
-    fields = _exportable_fields(catalog, sid)
+    names = list_exportable(catalog[sid])
+    fields = {name for name, kind in names.items() if kind is ExportKind.field}
 
     assert "head" in fields
-    assert {"watertable_elevation", "watertable_depth", "seepage_mask"} <= set(fields)
+    assert {"watertable_elevation", "watertable_depth", "seepage_mask"} <= fields
 
 
 def test_view_names_the_flag_when_a_derived_field_was_never_computed(catalog):

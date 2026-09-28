@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.units.labels import axis_label
+from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 
@@ -33,7 +33,7 @@ class RecessionCurveFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: str = "_catchment",
+        station: str = CATCHMENT_OUTLET_STATION,
         variable: str = "discharge",
         min_length: int = 5,
         **_,
@@ -63,6 +63,6 @@ class RecessionCurveFigure(BaseFigure):
         ax.set_ylabel(axis_label(variable))
         ax.grid(True, which="both", ls=":", lw=0.4)
         ax.set_title(
-            f"Recession curves - {sim.name or sim.sim_id} @ {station} ({len(limbs)} limbs)"
+            f"Recession curves - {sim.name or sim.sim_id} @ {station_label(station)} ({len(limbs)} limbs)"
         )
         return ax

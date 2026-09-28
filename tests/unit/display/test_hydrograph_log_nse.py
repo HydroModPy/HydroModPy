@@ -130,7 +130,7 @@ def test_draws_the_hydrograph_of_a_run_without_observations(mpl) -> None:
     try:
         assert _line(ax, "simulated total").get_ydata().tolist() == [2.0, 1.0, 0.5, 1.5]
         assert not [label for label in _labels(ax) if label.startswith("observed")]
-        assert "no observed" in _note(ax)
+        assert "no observed discharge for this run" in _note(ax)
     finally:
         mpl.close(fig)
 
@@ -206,7 +206,8 @@ def test_says_when_no_split_is_available(mpl) -> None:
 
     try:
         assert not [label for label in _labels(ax) if label.startswith(("drainage", "runoff"))]
-        assert "no drainage / runoff split" in _note(ax)
+        assert "total discharge only" in _note(ax)
+        assert "=" not in _note(ax)
     finally:
         mpl.close(fig)
 
@@ -227,7 +228,8 @@ def test_a_split_component_on_a_foreign_clock_is_reported_absent(mpl) -> None:
 
     try:
         assert not [label for label in _labels(ax) if label.startswith(("drainage", "runoff"))]
-        assert "no drainage / runoff split" in _note(ax)
+        assert "total discharge only" in _note(ax)
+        assert "=" not in _note(ax)
     finally:
         mpl.close(fig)
 
@@ -255,7 +257,7 @@ def test_says_when_the_simulated_series_holds_no_finite_sample(mpl) -> None:
     HydrographLogNseFigure().render(_Run([float("nan")] * 4), ax)
 
     try:
-        assert "no finite sample" in _note(ax)
+        assert "no simulated discharge value" in _note(ax)
     finally:
         mpl.close(fig)
 
@@ -266,7 +268,7 @@ def test_says_when_the_simulated_series_is_empty(mpl) -> None:
     HydrographLogNseFigure().render(_Run([], n_days=0), ax)
 
     try:
-        assert "no finite sample" in _note(ax)
+        assert "no simulated discharge value" in _note(ax)
     finally:
         mpl.close(fig)
 
@@ -385,16 +387,42 @@ def test_annotates_the_nse_log_value(mpl) -> None:
         mpl.close(fig)
 
 
-def test_says_when_neither_the_window_nor_the_score_was_given(mpl) -> None:
+def test_says_nothing_of_a_window_or_a_score_it_was_not_given(mpl) -> None:
+    """An absent score is not a caveat: the note leaves it out, no call syntax."""
     fig, ax = mpl.subplots()
 
     HydrographLogNseFigure().render(_run(), ax)
 
     try:
         note = _note(ax)
-        assert "no scoring window" in note
-        assert "NSElog not given" in note
+        assert "scoring window" not in note
+        assert "NSElog" not in note
+        assert "=" not in note
         assert not [patch for patch in ax.patches if "scoring window" in str(patch.get_label())]
+    finally:
+        mpl.close(fig)
+
+
+def test_a_run_with_nothing_missing_draws_no_note(mpl) -> None:
+    run = _run(components={"drainage": [1.5, 0.9, 0.45, 1.0]})
+    fig, ax = mpl.subplots()
+
+    HydrographLogNseFigure().render(run, ax)
+
+    try:
+        assert _note(ax) == ""
+    finally:
+        mpl.close(fig)
+
+
+def test_the_catchment_outlet_is_named_in_the_title(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    HydrographLogNseFigure().render(_run(), ax)
+
+    try:
+        assert ax.get_title().endswith("@ catchment outlet")
+        assert "_catchment" not in ax.get_title()
     finally:
         mpl.close(fig)
 

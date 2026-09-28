@@ -30,6 +30,14 @@ N = 12
 CELL = 75.0
 
 
+@pytest.fixture(autouse=True)
+def _fresh_unplaced_reports():
+    """Each test sees its placement for the first time."""
+    observed_module._UNPLACED_REPORTS.clear()
+    yield
+    observed_module._UNPLACED_REPORTS.clear()
+
+
 def _centre(row: int, col: int) -> tuple[float, float]:
     return ((col + 0.5) * CELL, (row + 0.5) * CELL)
 
@@ -123,4 +131,148 @@ def test_a_reach_off_the_mesh_is_reported_as_left_out(caplog) -> None:
 
     assert int(drawn.mask.sum()) == 8
     assert drawn.n_outside_parts == 1
-    assert "1 reach(es) cross no centre segment and enter no mesh cell" in caplog.text
+    # A clipped map lies inside the catchment, so its reach is in the domain.
+    assert "1 reach(es) inside the model domain, 10 m in all, enter no mesh cell" in (caplog.text)
+
+
+def _unclipped(*extra: LineString) -> ObservedNetwork:
+    return ObservedNetwork(
+        source="path",
+        geometry=gpd.GeoDataFrame(
+            geometry=[LineString([_centre(k, k) for k in range(2, 10)]), *extra], crs=CRS
+        ),
+        crs=CRS,
+        clipped=False,
+        dem_derived=False,
+        path="map.gpkg",
+    )
+
+
+def _run_ctx_with_catchment(tmp_path, *, margin: float):
+    """A run whose delineated catchment overhangs the grid by ``margin`` metres."""
+    from shapely.geometry import box
+
+    shp = tmp_path / "watershed.shp"
+    side = N * CELL
+    gpd.GeoDataFrame(
+        geometry=[box(-margin, -margin, side + margin, side + margin)], crs=CRS
+    ).to_file(shp)
+    ctx = _run_ctx()
+    ctx.state.setup.geographic.watershed_shp = str(shp)
+    return ctx
+
+
+def test_a_map_wider_than_the_catchment_only_informs(tmp_path, caplog) -> None:
+    # A reach 5 km off the grid: the map is wider than the catchment, as the
+    # BD Topage extract of a department is.
+    far = LineString([(5000.0, 5000.0), (5100.0, 5000.0)])
+    vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
+
+    with caplog.at_level(logging.INFO, logger=observed_module.__name__):
+        drawn = observed_network_mask(
+            _run_ctx_with_catchment(tmp_path, margin=40.0),
+            _unclipped(far),
+            SimpleNamespace(vertices=vertices),
+            connectivity,
+        )
+
+    assert drawn.n_outside_parts == 1
+    warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert warnings == []
+    assert "1 reach(es) lie outside the model domain" in caplog.text
+
+
+def test_a_reach_inside_the_catchment_that_enters_no_cell_warns(tmp_path, caplog) -> None:
+    far = LineString([(5000.0, 5000.0), (5100.0, 5000.0)])
+    sliver = LineString([(300.0, -30.0), (310.0, -30.0)])
+    vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
+
+    with caplog.at_level(logging.INFO, logger=observed_module.__name__):
+        drawn = observed_network_mask(
+            _run_ctx_with_catchment(tmp_path, margin=40.0),
+            _unclipped(far, sliver),
+            SimpleNamespace(vertices=vertices),
+            connectivity,
+        )
+
+    assert drawn.n_outside_parts == 2
+    (warning,) = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+    assert "1 reach(es) inside the model domain, 10 m in all, enter no mesh cell" in warning
+    assert "1 reach(es) lie outside the model domain" in caplog.text
+
+
+def test_an_unclipped_map_without_a_catchment_only_informs(caplog) -> None:
+    far = LineString([(5000.0, 5000.0), (5100.0, 5000.0)])
+    vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
+
+    with caplog.at_level(logging.INFO, logger=observed_module.__name__):
+        observed_network_mask(
+            _run_ctx(), _unclipped(far), SimpleNamespace(vertices=vertices), connectivity
+        )
+
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
+
+
+def test_the_count_and_the_length_describe_the_same_reaches(tmp_path, caplog) -> None:
+    # One feature of two sliver parts, 10 m and 20 m, inside the catchment.
+    from shapely.geometry import MultiLineString
+
+    split = MultiLineString([[(300.0, -30.0), (310.0, -30.0)], [(500.0, -20.0), (520.0, -20.0)]])
+    vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
+
+    with caplog.at_level(logging.WARNING, logger=observed_module.__name__):
+        drawn = observed_network_mask(
+            _run_ctx_with_catchment(tmp_path, margin=40.0),
+            _unclipped(split),
+            SimpleNamespace(vertices=vertices),
+            connectivity,
+        )
+
+    assert drawn.n_outside_parts == 2
+    (warning,) = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+    assert "2 reach(es) inside the model domain, 30 m in all, enter no mesh cell" in warning
+
+
+def test_a_second_build_of_the_same_placement_skips_the_geometry_work(
+    tmp_path, caplog, monkeypatch
+) -> None:
+    sliver = LineString([(300.0, -30.0), (310.0, -30.0)])
+    vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
+    run_ctx = _run_ctx_with_catchment(tmp_path, margin=40.0)
+    calls: list[int] = []
+    measured = observed_module._unplaced_parts
+
+    def _counting(*args, **kwargs):
+        calls.append(1)
+        return measured(*args, **kwargs)
+
+    monkeypatch.setattr(observed_module, "_unplaced_parts", _counting)
+
+    with caplog.at_level(logging.INFO, logger=observed_module.__name__):
+        for _ in range(3):
+            drawn = observed_network_mask(
+                run_ctx, _unclipped(sliver), SimpleNamespace(vertices=vertices), connectivity
+            )
+
+    assert drawn.n_outside_parts == 1
+    assert len(calls) == 1
+    warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert len(warnings) == 1
+
+
+def test_a_new_placement_is_measured_again(tmp_path, caplog) -> None:
+    sliver = LineString([(300.0, -30.0), (310.0, -30.0)])
+    other = LineString([(500.0, -20.0), (540.0, -20.0)])
+    vertices, connectivity = quad_mesh(N, N, cell_size=CELL)
+    run_ctx = _run_ctx_with_catchment(tmp_path, margin=40.0)
+
+    with caplog.at_level(logging.WARNING, logger=observed_module.__name__):
+        for reach in (sliver, other):
+            observed_network_mask(
+                run_ctx, _unclipped(reach), SimpleNamespace(vertices=vertices), connectivity
+            )
+
+    messages = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+    assert len(messages) == 2
+    assert "10 m in all" in messages[0]
+    assert "40 m in all" in messages[1]

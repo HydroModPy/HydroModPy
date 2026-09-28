@@ -20,6 +20,7 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.maps.transect import build_transect, layer_interfaces
 from hydromodpy.display.style import place_legend
 
@@ -133,7 +134,24 @@ class CrossSection(BaseFigure):
         ax.set_xlim(float(distance[transect.inside].min()), float(distance[transect.inside].max()))
         ax.grid(True, ls=":", lw=0.4, alpha=0.6)
         place_legend(ax, fontsize=8, framealpha=0.9)
-        ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}\n{_line_label(transect)}")
+        anchor = _anchor_words(sim, line=line, through=through)
+        subtitle = ", ".join(
+            part
+            for part in (instant_label(sim, step), section_words(transect, anchor=anchor))
+            if part
+        )
+        ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}\n{subtitle}")
+        ax.annotate(
+            _line_label(transect),
+            xy=(0.995, 0.015),
+            xycoords="axes fraction",
+            ha="right",
+            va="bottom",
+            fontsize=7,
+            color="0.35",
+            bbox={"facecolor": "white", "alpha": 0.7, "edgecolor": "none", "pad": 1.5},
+            zorder=7,
+        )
         return ax
 
     @staticmethod
@@ -211,9 +229,57 @@ class CrossSection(BaseFigure):
         )
 
 
+_HEADINGS = (
+    "west to east",
+    "southwest to northeast",
+    "south to north",
+    "southeast to northwest",
+    "east to west",
+    "northeast to southwest",
+    "north to south",
+    "northwest to southeast",
+)
+"""The direction a section runs, by 45-degree sector counter-clockwise from east."""
+
+
+def heading_words(dx: float, dy: float) -> str:
+    """Return the direction a line runs from its first point to its last, in words."""
+    angle = float(np.degrees(np.arctan2(dy, dx))) % 360.0
+    return _HEADINGS[int(((angle + 22.5) % 360.0) // 45.0)]
+
+
+def section_words(transect, *, anchor: str = "") -> str:
+    """Return how a first-time reader is told where the section runs.
+
+    ``"south to north through the outlet, 11.6 km"``: the direction, the
+    point the line was placed through, and the length. Coordinates are left
+    to a small caption on the panel.
+    """
+    dx = float(transect.x[-1] - transect.x[0])
+    dy = float(transect.y[-1] - transect.y[0])
+    length = float(transect.distance[-1])
+    span = f"{length / 1000.0:.1f} km" if length >= 1000.0 else f"{length:.0f} m"
+    where = f"{heading_words(dx, dy)} {anchor}".strip()
+    return f"{where}, {span}"
+
+
+def _anchor_words(sim: Run, *, line, through) -> str:
+    """Return the point the default line passes through, in words, or ``""``."""
+    if line is not None:
+        return ""
+    if through is not None:
+        x, y = (float(value) for value in through)
+        return f"through ({x:,.0f}, {y:,.0f})"
+    try:
+        outlet = sim.outlet
+    except (RuntimeError, KeyError, ValueError, AttributeError):
+        outlet = None
+    # Without an outlet the default line crosses the middle of the mesh.
+    return "through the outlet" if outlet is not None else "through the middle of the mesh"
+
+
 def _line_label(transect) -> str:
-    """Return a short human description of the sampled line."""
+    """Return the end points of the sampled line, in projected coordinates."""
     x0, y0 = transect.x[0], transect.y[0]
     x1, y1 = transect.x[-1], transect.y[-1]
-    length = transect.distance[-1]
-    return f"({x0:,.0f}, {y0:,.0f}) -> ({x1:,.0f}, {y1:,.0f}), {length:,.0f} m"
+    return f"from ({x0:,.0f}, {y0:,.0f}) to ({x1:,.0f}, {y1:,.0f})"

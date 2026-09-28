@@ -540,9 +540,9 @@ def test_the_figure_is_requestable_from_a_toml() -> None:
     assert isinstance(figure_registry.get("boundary_package_map"), BoundaryPackageMap)
     config = DisplayConfig(
         figures=["boundary_package_map"],
-        overrides={"boundary_package_map": {"timestep": 0}},
+        overrides={"boundary_package_map": {"time": "2002-10-15", "over": "step"}},
     )
-    assert config.overrides["boundary_package_map"]["timestep"] == 0
+    assert config.overrides["boundary_package_map"] == {"time": "2002-10-15", "over": "step"}
 
 
 def test_the_view_is_the_catchment_not_the_buffered_mesh() -> None:

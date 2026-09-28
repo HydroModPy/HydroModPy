@@ -28,7 +28,7 @@ VIEW_FILENAMES: dict[str, str] = {
     "stac": STAC_ITEM_VIEW_FILENAME,
     "prov": PROV_VIEW_FILENAME,
 }
-"""Each view format, by the name ``hmp data export --format`` already uses."""
+"""Each view format, by the name ``hmp export <run> --format`` already uses."""
 
 GENERATED_VIEWS: frozenset[str] = frozenset(VIEW_FILENAMES.values())
 """Every name a generated view may take at the top level of a directory."""

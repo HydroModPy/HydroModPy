@@ -23,7 +23,7 @@ import pandas as pd
 if TYPE_CHECKING:
     import geopandas as gpd
 
-    from hydromodpy.core.config_kit.export_spec import ExportSpec
+    from hydromodpy.core.config_kit.export_spec import ExportRequest
 
 # Filter columns that map to a real simulations.* column (no dim join).
 _SIMULATION_DIRECT_FILTERS: frozenset[str] = frozenset(
@@ -336,99 +336,67 @@ class ReadsMixin:
             return self._backend.query(query, params)
         return self._backend.query(query)
 
-    def export(self, ref: str | UUID, spec: ExportSpec) -> Path:
-        """Export one artifact described by *spec* for simulation *ref*.
+    def export(
+        self, ref: str | UUID, request: ExportRequest, *, default_folder: Path | str | None = None
+    ) -> list[Path]:
+        """Write what one export request asks of run *ref*; return the files written.
 
         *ref* is resolved through :meth:`resolve` (full UUID, prefix, or a
-        unique name), so callers never need the raw catalog UUID. The output
-        format comes from ``spec.fmt`` (or is inferred from the destination
-        extension when the spec was built).
+        unique name). The request names data and the format follows it: a
+        field at one date goes to GeoTIFF, over several dates to one NetCDF,
+        a series or the budget to CSV, a vector layer to GeoPackage, a raster
+        layer to GeoTIFF (see :mod:`hydromodpy.results.exporters.request`).
+        Files land in ``default_folder`` when the request names no folder,
+        ``share/<run>/`` when that is None too. Each file is recorded in
+        ``export_log``.
         """
-        from hydromodpy.core.config_kit.export_spec import ExportFormat
-
-        def _single_ts(t: object) -> int:
-            if t is None or t == "last":
-                return -1
-            if t == "first":
-                return 0
-            return int(t)  # type: ignore[arg-type]
-
-        def _nc_ts(t: object) -> list[int] | None:
-            if t is None or t == "all":
-                return None
-            if t == "first":
-                return [0]
-            if t == "last":
-                return [-1]
-            if isinstance(t, list):
-                return [int(x) for x in t]
-            return [int(t)]  # type: ignore[arg-type]
+        from hydromodpy.core.config_kit.export_spec import format_from_path
+        from hydromodpy.core.state.paths import share_dir_for
+        from hydromodpy.results.exporters.request import ExportTarget, export_request
 
         sid = self.resolve(ref)
-        dest = Path(spec.dest)
-        fmt = spec.fmt
+        share = share_dir_for(self.project_path)
+        if default_folder is None:
+            row = self._backend.fetch_one("SELECT name FROM simulations WHERE sim_id = ?", [sid])
+            default_folder = share / ((row[0] if row and row[0] else None) or sid[:8])
+        target = ExportTarget(
+            default_folder=Path(default_folder),
+            share_folder=share,
+            model_crs=lambda: self._export_crs_for(sid),
+            default_resolution=lambda: self._default_resolution(sid),
+            global_attrs=lambda: self._export_global_attrs(sid),
+        )
+        written = export_request(self, sid, request, target)
+        for path in written:
+            fmt = format_from_path(path) or request.output_format
+            kind = fmt.value if fmt is not None else path.suffix.lstrip(".")
+            self.record_export(sid, kind=kind, path=path)
+        return written
 
-        if fmt is ExportFormat.hmp:
-            return self.export_package(sid, dest)
+    def _export_global_attrs(self, sim_id: str) -> dict:
+        """The ACDD block the seal writes, composed for a file exported before the seal.
 
-        if fmt is ExportFormat.csv:
-            from hydromodpy.results.exporters.csv import export_csv
+        The same composition as :meth:`finalize`: the run row, its environment,
+        the licence of its inputs, the identity ``workspace.toml`` declares and
+        the extent in degrees. Nothing is written to the store.
+        """
+        from hydromodpy.results.catalog.lifecycle import (
+            _declared_bounds_in_degrees,
+            _declared_identity,
+        )
+        from hydromodpy.results.catalog.writes_helpers import run_licence
+        from hydromodpy.results.zarr_store.acdd import compose_acdd_root_attrs
 
-            var = None if (isinstance(spec.var, str) and spec.var == "*") else spec.var_list[0]
-            return export_csv(self._db, sid, dest, variable=var)
-
-        zarr_path = str(self.fields_path_for(sid))
-
-        if fmt is ExportFormat.netcdf:
-            from hydromodpy.results.exporters.netcdf import export_netcdf
-
-            return export_netcdf(zarr_path, sid, spec.var_list, dest, timesteps=_nc_ts(spec.time))
-
-        # Single-timestep raster / mesh formats.
-        timestep = _single_ts(spec.time)
-        variable = spec.var_list[0]
-
-        if fmt is ExportFormat.vtu:
-            from hydromodpy.results.exporters.vtu import export_vtu
-
-            return export_vtu(zarr_path, sid, variable, timestep, dest, layer=spec.layer)
-
-        if fmt is ExportFormat.geotiff:
-            from hydromodpy.results.exporters.geotiff import export_geotiff
-
-            resolution = (
-                spec.resolution if spec.resolution is not None else self._default_resolution(sid)
-            )
-            crs = spec.crs if spec.crs is not None else self._export_crs_for(sid)
-            return export_geotiff(
-                zarr_path,
-                sid,
-                variable,
-                timestep,
-                dest,
-                layer=spec.layer,
-                resolution=resolution,
-                crs=crs,
-                nodata=spec.nodata,
-            )
-
-        if fmt is ExportFormat.shapefile:
-            from hydromodpy.results.exporters.shapefile import export_shapefile
-
-            crs = spec.crs if spec.crs is not None else self._export_crs_for(sid)
-            return export_shapefile(
-                zarr_path, sid, variable, timestep, dest, layer=spec.layer, crs=crs
-            )
-
-        if fmt is ExportFormat.geopackage:
-            from hydromodpy.results.exporters.geopackage import export_geopackage
-
-            crs = spec.crs if spec.crs is not None else self._export_crs_for(sid)
-            return export_geopackage(
-                zarr_path, sid, variable, timestep, dest, layer=spec.layer, crs=crs
-            )
-
-        raise ValueError(f"Unsupported export format '{fmt}'")
+        sim_row = self._fetch_simulation_row(sim_id)  # type: ignore[attr-defined]
+        return compose_acdd_root_attrs(
+            sim_row={
+                **(sim_row or {}),
+                "license": run_licence(self._backend, sim_id, self._workspace),
+            },
+            runs_env=self._fetch_runs_environment_row(sim_id),  # type: ignore[attr-defined]
+            project_table=_declared_identity(self._workspace),
+            geographic_bounds=_declared_bounds_in_degrees(sim_row),
+        )
 
     def list_exports(self, ref: str | UUID) -> list[dict]:
         """Return the artefacts recorded for *ref* in ``export_log``.

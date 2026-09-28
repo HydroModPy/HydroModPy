@@ -19,9 +19,9 @@ from typing import Annotated
 import pytest
 from pydantic import Field, ValidationError
 
-from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.simulation.planning.export_config import ExportConfig
+from hydromodpy.display.config import DisplayConfig
 from hydromodpy.spatial.domain.depth_model_config import ConstantThicknessDepthModel
 
 
@@ -73,7 +73,7 @@ def test_a_field_that_admits_both_still_takes_a_string() -> None:
 
 def test_the_old_spelling_of_a_boolean_key_is_refused_too() -> None:
     """The rename lands first, so the refusal names the spelling to write."""
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(ConfigKeyRenamedWarning):
         with pytest.raises(ValidationError, match="geotiff = 'yes' is quoted"):
             _Toggles.model_validate({"raster": "yes"})
 
@@ -88,7 +88,7 @@ def test_a_quantity_string_still_parses() -> None:
     assert ConstantThicknessDepthModel.model_validate({"thickness": "30.0 m"}).thickness == 30.0
 
 
-def test_the_export_section_refuses_a_quoted_toggle() -> None:
-    with pytest.raises(ValidationError, match="geotiff = 'yes' is quoted"):
-        ExportConfig.model_validate({"geotiff": "yes"})
-    assert ExportConfig.model_validate({"geotiff": True}).geotiff is True
+def test_a_real_section_refuses_a_quoted_switch() -> None:
+    with pytest.raises(ValidationError, match="save = 'yes' is quoted"):
+        DisplayConfig.model_validate({"save": "yes"})
+    assert DisplayConfig.model_validate({"save": True}).save is True

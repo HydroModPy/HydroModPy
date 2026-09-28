@@ -11,7 +11,6 @@ import hashlib
 import json
 import logging
 import uuid
-from collections.abc import Iterator
 from pathlib import Path
 
 import numpy as np
@@ -26,13 +25,6 @@ from hydromodpy.results.catalog.writes_helpers import run_licence
 from hydromodpy.results.export.context import build_context
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.parquet_io import read_kv_metadata
-
-
-@pytest.fixture(autouse=True)
-def _fresh_warning_memory() -> Iterator[None]:
-    lifecycle._WARNED_WORKSPACES.clear()
-    yield
-    lifecycle._WARNED_WORKSPACES.clear()
 
 
 def _input(root: Path, name: str, **sidecar: object) -> Path:
@@ -132,6 +124,14 @@ def test_the_unix_account_is_never_the_creator(tmp_path: Path) -> None:
     assert "creator_name" not in attrs
 
 
+def _sealed_without(caplog: pytest.LogCaptureFixture, level: int) -> list[str]:
+    return [
+        r.getMessage()
+        for r in caplog.records
+        if "sealed without" in r.getMessage() and r.levelno == level
+    ]
+
+
 def test_the_warning_is_said_once_per_workspace(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -139,15 +139,81 @@ def test_the_warning_is_said_once_per_workspace(
     with Catalog(tmp_path) as catalog:
         for _ in range(3):
             _seal(catalog, _register(catalog, []))
-    records = [r for r in caplog.records if "is sealed without" in r.getMessage()]
-    warnings = [r for r in records if r.levelno == logging.WARNING]
-    infos = [r for r in records if r.levelno == logging.INFO]
+    warnings = _sealed_without(caplog, logging.WARNING)
     assert len(warnings) == 1
-    assert len(infos) == 2
-    message = warnings[0].getMessage()
-    assert "creator_name and creator_institution under [workspace]" in message
+    assert len(_sealed_without(caplog, logging.INFO)) == 2
+    (message,) = warnings
+    assert message.startswith(
+        "Runs of this workspace are sealed without creator_name, creator_institution "
+        "and a known licence. "
+    )
+    assert 'Add creator_name = "..." and creator_institution = "..." under [workspace]' in message
     assert "workspace.toml" in message
-    assert "'license' key of the sidecar" in message
+    assert "'license' key of each input sidecar" in message
+    # Two sentences, nothing a reader has to decode.
+    assert message.count(". ") == 1
+    assert "—" not in message
+    assert "--verbose" not in message
+
+
+def test_a_later_process_of_the_same_workspace_is_not_warned_again(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Each ``hmp run`` is a new process: the fact lives on disk, not in memory."""
+    caplog.set_level(logging.INFO, logger="hydromodpy")
+    with Catalog(tmp_path) as catalog:
+        _seal(catalog, _register(catalog, []))
+    marker = tmp_path / ".hmp" / lifecycle.IDENTITY_NOTICE_FILENAME
+    assert json.loads(marker.read_text(encoding="utf-8"))["missing"] == [
+        "a known licence",
+        "creator_institution",
+        "creator_name",
+    ]
+    caplog.clear()
+    with Catalog(tmp_path) as catalog:
+        sid = _register(catalog, [])
+        _seal(catalog, sid)
+    assert _sealed_without(caplog, logging.WARNING) == []
+    (info,) = _sealed_without(caplog, logging.INFO)
+    assert info.startswith(f"Run {sid[:8]} is sealed without creator_name")
+
+
+def test_a_deleted_marker_brings_the_warning_back_once(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.WARNING, logger="hydromodpy")
+    with Catalog(tmp_path) as catalog:
+        _seal(catalog, _register(catalog, []))
+        (tmp_path / ".hmp" / lifecycle.IDENTITY_NOTICE_FILENAME).unlink()
+        _seal(catalog, _register(catalog, []))
+        _seal(catalog, _register(catalog, []))
+    assert len(_sealed_without(caplog, logging.WARNING)) == 2
+
+
+def test_a_new_gap_is_news_and_warns_again(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.WARNING, logger="hydromodpy")
+    dem = _input(tmp_path, "dem.tif", source="osm", license="ODbL-1.0")
+    with Catalog(tmp_path) as catalog:
+        _seal(catalog, _register(catalog, [dem]))
+        _seal(catalog, _register(catalog, []))
+    first, second = _sealed_without(caplog, logging.WARNING)
+    assert "a known licence" not in first
+    assert "a known licence" in second
+
+
+def test_the_marker_sits_beside_the_workspace_toml(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    write_workspace_toml(tmp_path, project_name="ws", creator_name="", creator_email="a@b.c")
+    project = tmp_path / "projects" / "demo"
+    project.mkdir(parents=True)
+    caplog.set_level(logging.WARNING, logger="hydromodpy")
+    with Catalog(project) as catalog:
+        _seal(catalog, _register(catalog, []))
+    assert (tmp_path / ".hmp" / lifecycle.IDENTITY_NOTICE_FILENAME).is_file()
+    assert not (project / ".hmp" / lifecycle.IDENTITY_NOTICE_FILENAME).exists()
 
 
 def test_a_determined_licence_drops_out_of_the_warning(
@@ -157,9 +223,9 @@ def test_a_determined_licence_drops_out_of_the_warning(
     dem = _input(tmp_path, "dem.tif", source="osm", license="ODbL-1.0")
     with Catalog(tmp_path) as catalog:
         _seal(catalog, _register(catalog, [dem]))
-    (warning,) = [r for r in caplog.records if "is sealed without" in r.getMessage()]
-    assert "a determined license" not in warning.getMessage()
-    assert "sidecar" not in warning.getMessage()
+    (warning,) = _sealed_without(caplog, logging.WARNING)
+    assert "a known licence" not in warning
+    assert "sidecar" not in warning
 
 
 def test_another_workspace_is_told_too(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
@@ -169,8 +235,7 @@ def test_another_workspace_is_told_too(tmp_path: Path, caplog: pytest.LogCapture
         root.mkdir()
         with Catalog(root) as catalog:
             _seal(catalog, _register(catalog, []))
-    warnings = [r for r in caplog.records if "is sealed without" in r.getMessage()]
-    assert len(warnings) == 2
+    assert len(_sealed_without(caplog, logging.WARNING)) == 2
 
 
 def _record(catalog: Catalog, sid: str, variable: str, source: str, digest: str | None) -> None:

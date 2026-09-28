@@ -77,8 +77,8 @@ They earn their place in two situations: as the initial guess of the auxiliary
 steady solve itself (which is what ``steady_state`` uses internally), and as a
 deliberately crude start followed by a burn-in long enough that the choice
 stops mattering. If you use one, exclude that burn-in from any calibration
-score with ``[calibration] warmup_periods`` or ``scoring_window``, and size it
-by raising it until the objective stops moving.
+score with ``[calibration.scoring_window] start``, the first date scored, and
+move it later until the objective stops moving.
 
 A state a previous run reached
 -------------------------------

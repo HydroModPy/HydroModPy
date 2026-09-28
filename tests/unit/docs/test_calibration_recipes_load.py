@@ -111,6 +111,18 @@ def test_the_single_gauge_recipe_scores_one_series(tmp_path) -> None:
     assert cfg.objective_blocks == []
     assert cfg.variable == "discharge"
     assert list(cfg.parameters) == ["K"]
+    assert cfg.warmup_periods == 0
+    assert cfg.scoring_window is not None
+    assert cfg.scoring_window.start == "2001-01-01"
+
+
+@pytest.mark.parametrize("name", _NAMES)
+def test_no_recipe_counts_its_spin_up_in_samples(name: str) -> None:
+    """A spin-up is written in dates, which mean the same span at any step."""
+    text = (RECIPES / f"{name}.toml").read_text(encoding="utf-8")
+    written = [line for line in text.splitlines() if not line.lstrip().startswith("#")]
+    assert not any(line.lstrip().startswith(("warmup ", "warmup=")) for line in written)
+    assert not any(line.lstrip().startswith("warmup_periods") for line in written)
 
 
 def test_the_multi_objective_weights_read_as_shares(tmp_path) -> None:
@@ -144,7 +156,9 @@ def test_the_staged_by_hand_recipe_writes_the_same_two_stages(tmp_path) -> None:
         "transient_storage",
     ]
     assert cfg.phases[0].objective_blocks == ["network_extension"]
-    assert cfg.phases[1].objective_blocks == {"hydrograph": 100, "network_extension": 1}
+    assert cfg.phases[1].objective_blocks == {"hydrograph": 0.8, "network_share": 0.2}
+    assert cfg.phases[1].scoring_window is not None
+    assert cfg.phases[1].scoring_window.start == "2001-01-01"
     assert cfg.phases[1].depends_on == "steady_conductivity"
     assert cfg.phases[0].regime == "steady"
     assert cfg.phases[1].regime == "transient"
@@ -155,5 +169,7 @@ def test_the_staged_by_hand_recipe_writes_the_same_two_stages(tmp_path) -> None:
 
     blocks = {block.name: block for block in cfg.objective_blocks}
     assert blocks["hydrograph"].metric == "nse_log"
-    assert blocks["hydrograph"].warmup == 12
+    assert blocks["hydrograph"].warmup is None
     assert blocks["network_extension"].metric == "distance_gap"
+    assert blocks["network_extension"].normalize_cost is False
+    assert blocks["network_share"].normalize_cost is True

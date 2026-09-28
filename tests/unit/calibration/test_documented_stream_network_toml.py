@@ -71,7 +71,7 @@ def test_the_network_output_and_its_block_are_paired(loaded) -> None:
 def test_the_two_stages_carry_what_the_page_claims(loaded) -> None:
     cfg, _raw = loaded
     steady, transient = cfg.phases
-    assert steady.optimizer_kwargs == {"rel_tol": 0.01, "sweep_points": 7}
+    assert steady.method_options == {"rel_tol": 0.01, "sweep_points": 7}
     assert steady.freeze_on_success is True
     assert transient.objective == "nse_log"
     assert transient.scoring_window.start == "2012-01-01"

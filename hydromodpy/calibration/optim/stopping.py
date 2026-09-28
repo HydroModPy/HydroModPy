@@ -165,7 +165,7 @@ def stopping_kwargs(
 ) -> dict[str, Any]:
     """Return the engine kwargs with *tolerance* written in the engine's own option.
 
-    ``declared`` is what the file wrote under ``optimizer_kwargs``, which stays
+    ``declared`` is what the file wrote under ``method_options``, which stays
     the escape hatch for reproducing a published call in the engine's own units.
     Stating both the precision and the option it writes is refused: two numbers
     for one rule, silently ranked, is how a configuration stops meaning what it
@@ -191,7 +191,7 @@ def stopping_kwargs(
         )
     if option in kwargs:
         raise ValueError(
-            f"{TOLERANCE_FIELD} and optimizer_kwargs.{option} both set the "
+            f"{TOLERANCE_FIELD} and method_options.{option} both set the "
             f"stopping rule of {method!r}. Keep one: the precision, read on the "
             "parameter, or the engine's own option, which reproduces a published "
             "call verbatim."

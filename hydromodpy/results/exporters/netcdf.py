@@ -12,13 +12,17 @@ reason: once the CF way, once the way MDAL reads it.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import xarray as xr
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
+from hydromodpy.results.derive.virtual_fields import field_descriptor
+from hydromodpy.results.exporters._fields import is_timed, resolve_zarr_path
 from hydromodpy.results.zarr_store import SimulationZarr
 
 logger = get_logger(__name__)
@@ -31,6 +35,8 @@ def export_netcdf(
     output_path: str | Path,
     *,
     timesteps: list[int] | None = None,
+    values: Mapping[str, np.ndarray] | None = None,
+    global_attrs: Mapping[str, Any] | None = None,
 ) -> Path:
     """Export selected fields to a NetCDF-4 file with UGRID topology.
 
@@ -47,7 +53,14 @@ def export_netcdf(
     output_path : str or Path
         Destination ``.nc`` file.
     timesteps : list[int], optional
-        Subset of timestep indices to export. ``None`` exports all.
+        Subset of timestep indices to export. ``None`` exports all. A static
+        field (topography, a conductivity) is written once, without time.
+    values : mapping of str to numpy.ndarray, optional
+        Fields the caller computed, by name, each a ``(len(timesteps),
+        n_cells)`` stack. The store is not read for them.
+    global_attrs : mapping, optional
+        Global attributes laid over the ones the store holds: the ACDD block
+        of the run when it is exported before the seal writes it.
 
     Returns
     -------
@@ -70,7 +83,8 @@ def export_netcdf(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    descriptors = {name: field_registry.get(name) for name in variables}
+    descriptors = {name: field_descriptor(name) for name in variables}
+    computed = dict(values or {})
 
     sz = SimulationZarr(zarr_path)
     try:
@@ -101,10 +115,15 @@ def export_netcdf(
     # the simulation_id explicitly. The Zarr root advertises
     # ``CF-1.11, ACDD-1.3, UGRID-1.0`` already, so this is mostly defensive
     # in case the store was migrated from an older layout.
-    for key, value in root_attrs.items():
-        ds.attrs[key] = value
+    for key, value in {**root_attrs, **dict(global_attrs or {})}.items():
+        if value is None:
+            continue
+        ds.attrs[key] = int(value) if isinstance(value, bool) else value
     ds.attrs.setdefault("Conventions", "CF-1.11, ACDD-1.3, UGRID-1.0")
     ds.attrs["simulation_id"] = sim_id
+    # The mesh says how large it is; a root written before the seal says 0.
+    ds.attrs["n_cells"] = int(connectivity.shape[0])
+    ds.attrs["n_layers"] = max(int(len(z_interfaces)) - 1, 1)
 
     # Mesh topology variable (scalar placeholder per UGRID convention)
     ds["mesh2d"] = xr.DataArray(
@@ -155,42 +174,29 @@ def export_netcdf(
         if "time" in grp:
             zarr_time = np.asarray(grp["time"][:])
             zarr_time_attrs = dict(grp["time"].attrs)
-        # Locate each requested variable in the Zarr hierarchy
+        ts_idx = None if timesteps is None else [int(t) for t in timesteps]
         for var_name in variables:
             descriptor = descriptors[var_name]
-            arr = _resolve_zarr_path(grp, descriptor.zarr_path)
-            if arr is None:
-                data = _derive_stack(sz, sim_id, var_name, timesteps, zarr_time)
-                if data is None:
-                    logger.warning(
-                        "Variable '%s' (zarr_path=%r) not present in sim %s, skipping",
-                        var_name,
-                        descriptor.zarr_path,
-                        sim_id,
-                    )
-                    continue
+            timed = is_timed(descriptor)
+            if var_name in computed:
+                data = np.asarray(computed[var_name])
             else:
-                data = arr[:]
-                ts_idx = list(range(data.shape[0])) if timesteps is None else timesteps
-                data = data[ts_idx]
-
-            attrs = {**field_registry.cf_attrs(var_name), "mesh": "mesh2d", "location": "face"}
-            if data.ndim == 3:
-                # One variable per layer. A UGRID reader binds a dataset to the
-                # face dimension and ignores any array carrying a third one, so
-                # a (time, layer, face) field is simply invisible in QGIS. A
-                # single-layer model keeps the bare name.
-                n_layers = data.shape[1]
-                for index in range(n_layers):
-                    name = var_name if n_layers == 1 else f"{var_name}_layer{index + 1}"
-                    layer_attrs = dict(attrs)
-                    if n_layers > 1 and layer_attrs.get("long_name"):
-                        layer_attrs["long_name"] = f"{layer_attrs['long_name']} (layer {index + 1})"
-                    ds[name] = xr.DataArray(
-                        data[:, index, :], dims=("time", "n_face"), attrs=layer_attrs
-                    )
-            elif data.ndim == 2:
-                ds[var_name] = xr.DataArray(data, dims=("time", "n_face"), attrs=attrs)
+                arr = resolve_zarr_path(grp, descriptor.zarr_path)
+                if arr is None:
+                    data = _derive_stack(sz, sim_id, var_name, ts_idx, zarr_time)
+                    if data is None:
+                        logger.warning(
+                            "Variable '%s' (zarr_path=%r) not present in sim %s, skipping",
+                            var_name,
+                            descriptor.zarr_path,
+                            sim_id,
+                        )
+                        continue
+                else:
+                    data = np.asarray(arr[:])
+                    if timed and ts_idx is not None:
+                        data = data[ts_idx]
+            _add_field(ds, var_name, data, timed=timed, attrs=_field_attrs(var_name))
     finally:
         sz.close()
 
@@ -240,6 +246,48 @@ def export_netcdf(
     return output_path
 
 
+def _field_attrs(name: str) -> dict[str, object]:
+    """Return the CF attributes of one field, the rebuilt-only ones included."""
+    if field_registry.has(name):
+        attrs = field_registry.cf_attrs(name)
+    else:
+        descriptor = field_descriptor(name)
+        attrs = {
+            "long_name": descriptor.long_name,
+            "units": descriptor.units,
+            "cell_methods": descriptor.cell_methods,
+        }
+        if descriptor.valid_min is not None:
+            attrs["valid_min"] = descriptor.valid_min
+        if descriptor.valid_max is not None:
+            attrs["valid_max"] = descriptor.valid_max
+    return {**attrs, "mesh": "mesh2d", "location": "face"}
+
+
+def _add_field(
+    ds: xr.Dataset, var_name: str, data: np.ndarray, *, timed: bool, attrs: dict[str, object]
+) -> None:
+    """Add one field to the dataset, one variable per layer.
+
+    A UGRID reader binds a dataset to the face dimension and ignores any array
+    carrying a third one, so a (time, layer, face) field is simply invisible
+    in QGIS. A single-layer model keeps the bare name.
+    """
+    dims = ("time", "n_face") if timed else ("n_face",)
+    layered = data.ndim == (3 if timed else 2)
+    if not layered:
+        ds[var_name] = xr.DataArray(data, dims=dims, attrs=attrs)
+        return
+    n_layers = data.shape[1] if timed else data.shape[0]
+    for index in range(n_layers):
+        name = var_name if n_layers == 1 else f"{var_name}_layer{index + 1}"
+        layer_attrs = dict(attrs)
+        if n_layers > 1 and layer_attrs.get("long_name"):
+            layer_attrs["long_name"] = f"{layer_attrs['long_name']} (layer {index + 1})"
+        layer_data = data[:, index, :] if timed else data[index]
+        ds[name] = xr.DataArray(layer_data, dims=dims, attrs=layer_attrs)
+
+
 def _mdal_crs_attrs(crs_attrs: dict[str, object]) -> dict[str, object]:
     """CRS attributes MDAL reads, for the ``projected_coordinate_system`` variable.
 
@@ -286,18 +334,3 @@ def _derive_stack(sz, sim_id: str, variable: str, timesteps, zarr_time) -> np.nd
         return None
     indices = list(range(n_time)) if timesteps is None else [int(t) % n_time for t in timesteps]
     return derive_field_stack(sz, sim_id, variable, indices)
-
-
-def _resolve_zarr_path(grp, zarr_path: str):
-    """Resolve a registry zarr_path inside the simulation group, or None if absent."""
-    parts = zarr_path.split("/")
-    cursor = grp
-    for part in parts[:-1]:
-        sub = cursor.get(part)
-        if sub is None:
-            return None
-        cursor = sub
-    leaf = parts[-1]
-    if leaf in cursor:
-        return cursor[leaf]
-    return None

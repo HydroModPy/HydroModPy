@@ -15,7 +15,10 @@ Vocabulary:
 - ``status``: a transient sub-operation spinner. Leaves no trace on the
   console once finished.
 - ``task`` / ``track``: a progress bar over a known (or unknown) total,
-  manually advanced or wrapping an iterable.
+  manually advanced or wrapping an iterable. A bar over zero items has
+  nothing to show and is never drawn.
+- ``after_phase``: a line a step prints about its own outcome, held back
+  until the phase has printed its checkmark.
 """
 
 from __future__ import annotations
@@ -26,7 +29,7 @@ import os
 import sys
 import threading
 import time
-from collections.abc import Generator, Iterable, Iterator
+from collections.abc import Callable, Generator, Iterable, Iterator
 from contextlib import contextmanager
 
 from rich.console import Console
@@ -202,7 +205,9 @@ class _ProgressManager:
             return False
         return console.is_terminal or console.is_jupyter
 
-    def acquire(self, description: str, total: float | None, kind: str) -> TaskHandle:
+    def acquire(
+        self, description: str, total: float | None, kind: str, *, render: bool = True
+    ) -> TaskHandle:
         # Assigned and emitted unconditionally (modulo suppression): the
         # NDJSON sink is fed whether or not rendering is enabled, which is
         # the one case (no terminal) that matters to it. Suppression is
@@ -220,7 +225,7 @@ class _ProgressManager:
             suppressed=task_suppressed,
         )
         with self._lock:
-            if not self.render_enabled():
+            if not render or not self.render_enabled():
                 return TaskHandle(
                     None,
                     None,
@@ -305,6 +310,41 @@ def _fmt_duration(seconds: float) -> str:
     return f"{hours}h {minutes:02d}m"
 
 
+# One list of deferred callbacks per open phase, innermost last.
+_open_phases = threading.local()
+
+
+def _phase_stack() -> list[list[Callable[[], None]]]:
+    stack = getattr(_open_phases, "stack", None)
+    if stack is None:
+        stack = []
+        _open_phases.stack = stack
+    return stack
+
+
+def after_phase(callback: Callable[[], None]) -> None:
+    """Run ``callback`` once the innermost open phase has printed its checkmark.
+
+    A step that reports its own outcome, like the run recap, would otherwise
+    print above its own checkmark and before its last work is done. Outside
+    any phase the callback runs at once. When the phase fails the callback
+    is dropped: the error is what the console must end on.
+    """
+    stack = _phase_stack()
+    if stack:
+        stack[-1].append(callback)
+    else:
+        callback()
+
+
+def _run_deferred(callbacks: list[Callable[[], None]]) -> None:
+    for callback in callbacks:
+        try:
+            callback()
+        except Exception:  # noqa: BLE001 - a report line must never fail a run
+            logger.debug("deferred phase callback failed", exc_info=True)
+
+
 @contextmanager
 def phase(description: str) -> Generator[TaskHandle, None, None]:
     """Top-level step: live spinner, permanent checkmark line when done."""
@@ -317,22 +357,32 @@ def phase(description: str) -> Generator[TaskHandle, None, None]:
         # them even though it drops ordinary INFO.
         logger.info("%s", description, extra=MILESTONE)
     handle = _manager.acquire(description, None, "status")
+    stack = _phase_stack()
+    stack.append([])
     t0 = time.perf_counter()
     try:
         yield handle
     except BaseException:
+        dropped = stack.pop()
         _manager.release(handle, state="failed")
         if rendering:
             console.print(
                 f"[red]✗[/red] {description} [dim]({_fmt_duration(time.perf_counter() - t0)})[/dim]"
             )
-        logger.debug("phase failed: %s (%.1fs)", description, time.perf_counter() - t0)
+        logger.debug(
+            "phase failed: %s (%.1fs), %d deferred line(s) dropped",
+            description,
+            time.perf_counter() - t0,
+            len(dropped),
+        )
         raise
+    deferred = stack.pop()
     dt = time.perf_counter() - t0
     _manager.release(handle)
     if rendering:
         console.print(f"[green]✓[/green] {description} [dim]({_fmt_duration(dt)})[/dim]")
     logger.debug("phase done: %s (%.1fs)", description, dt)
+    _run_deferred(deferred)
 
 
 @contextmanager
@@ -360,14 +410,19 @@ def task(
     total: float | None = None,
     unit: str = "it",
 ) -> Generator[TaskHandle, None, None]:
-    """Manually advanced progress bar. ``unit="bytes"`` renders sizes."""
-    if not _manager.render_enabled():
-        if _is_suppressed():
+    """Manually advanced progress bar. ``unit="bytes"`` renders sizes.
+
+    A total of zero means there is nothing to do: the bar is not drawn and
+    the start is logged at DEBUG only, so no "0/0" line reaches the console.
+    """
+    empty = total == 0
+    if not _manager.render_enabled() or empty:
+        if _is_suppressed() or empty:
             logger.debug("%s", description)
         else:
             logger.info("%s", description)
     kind = "bytes" if unit == "bytes" else "bar"
-    handle = _manager.acquire(description, total, kind)
+    handle = _manager.acquire(description, total, kind, render=not empty)
     t0 = time.perf_counter()
     try:
         yield handle
@@ -421,6 +476,7 @@ __all__ = [
     "MILESTONE_KEY",
     "ConsoleLogHandler",
     "TaskHandle",
+    "after_phase",
     "console",
     "make_console_handler",
     "phase",

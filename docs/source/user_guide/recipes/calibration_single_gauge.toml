@@ -34,15 +34,17 @@ seed = 42
 variable = "discharge"
 objective = "nse_log"
 
-# The first year is still forgetting its initial condition. Dropping it from the
-# score keeps that memory out of the calibrated value. Size it by raising it
-# until the objective stops moving, not by picking a round number.
-warmup_periods = 365
-
 # Keep one full simulation: the best trial, replayed with every output.
 save_runs = "best_n"
 save_best_n = 1
 rerun_best_with_outputs = true
+
+# The first year is still forgetting its initial condition. Scoring from the
+# second keeps that memory out of the calibrated value. A date means the same
+# span at any time step. Move it later until the objective stops moving, not
+# by picking a round number.
+[calibration.scoring_window]
+start = "2001-01-01"
 
 # `K` is the id this project declares in [flow].param_list, and it is resolved
 # against what the project exposes: neither the path nor the log space a

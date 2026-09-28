@@ -375,13 +375,26 @@ def mean_objective_block_shares(
     return {name: total / n for name, total in sums.items()}, n
 
 
+def scores_network_distances(needs: Any) -> bool:
+    """Whether a criterion's cost is a distance between two networks.
+
+    Its scale is not read off a record, which it has none of: it is the
+    validity length of the output, the length Eq. 4 qualifies a match with.
+    """
+    return not needs.needs_observations and "network" in tuple(needs.reads_supports)
+
+
 def refuse_a_normalisation_that_means_nothing(block: str, metric: str) -> None:
     """Refuse ``normalize_cost`` where dividing by a reference scale says nothing.
 
     The verdict comes from the criterion itself: it declares whether its cost is
-    already a pure number, and whether it fits observations at all. Reading those
-    two answers rather than two lists held here is what stops the lists from
-    drifting away from the kernels they describe.
+    already a pure number, whether it fits observations at all, and which
+    supports it reads. Reading those answers rather than lists held here is
+    what stops the lists from drifting away from the kernels they describe.
+
+    A network distance is normalised by its output's validity length, so a gap
+    counted in validity lengths adds to an efficiency as a pure number. Any
+    other criterion with no observations has no scale to divide by.
     """
     from hydromodpy.calibration.criteria import criterion_for
 
@@ -394,7 +407,7 @@ def refuse_a_normalisation_that_means_nothing(block: str, metric: str) -> None:
             "this one's weight by a figure that belongs to its data. Set the share you "
             "want in 'weight' and leave normalize_cost off."
         )
-    if not needs.needs_observations:
+    if not needs.needs_observations and not scores_network_distances(needs):
         raise ValueError(
             f"Block {block!r}: normalize_cost = true has nothing to read a scale from "
             f"for {metric!r}. That criterion balances two simulated quantities, so no "
@@ -413,6 +426,11 @@ class ConfigBlockObjective:
 
     ``timeless_outputs`` names the outputs whose values carry no time axis, on
     which a burn-in in samples is refused rather than applied.
+
+    ``distance_scales`` gives, per network output, the validity length of each
+    distance it produces. A block that normalises a network distance divides
+    each distance by its own length before the criterion reads them, so the
+    cost is counted in validity lengths.
     """
 
     def __init__(
@@ -426,6 +444,7 @@ class ConfigBlockObjective:
         transform: str = "identity",
         warmup: int = 0,
         timeless_outputs: Iterable[str] = (),
+        distance_scales: Mapping[str, Sequence[float]] | None = None,
     ) -> None:
         from hydromodpy.calibration.criteria import criterion_for
 
@@ -478,9 +497,43 @@ class ConfigBlockObjective:
         if normalize_cost:
             refuse_a_normalisation_that_means_nothing(self.name, metric_key)
         self._normalize_cost = bool(normalize_cost)
+        self._scales_distances = self._normalize_cost and scores_network_distances(needs)
+        self._distance_scales: dict[str, np.ndarray] = {
+            str(output): np.asarray(list(scales), dtype=float).ravel()
+            for output, scales in (distance_scales or {}).items()
+        }
         self._transform_name = str(transform).strip().lower() if transform else "identity"
         self._transform_fn = _resolve_transform(self._transform_name)
         self._reference_scale = self._compute_reference_scale(observed)
+
+    def _distances_in_validity_lengths(
+        self, parts: Sequence[np.ndarray]
+    ) -> tuple[np.ndarray, float]:
+        """Divide each output's distances by its validity lengths.
+
+        Returns the divided vector and the mean length it was divided by, the
+        one number a report names as the scale. Refused by name when the trial
+        published no length for an output, or one that is not a positive
+        distance: a cost divided by an unknown is no share of anything.
+        """
+        divided: list[np.ndarray] = []
+        used: list[np.ndarray] = []
+        for output_name, part in zip(self._outputs, parts, strict=True):
+            scales = self._distance_scales.get(output_name)
+            if scales is None or scales.size != part.size:
+                raise ValueError(
+                    f"Block {self.name!r}: normalize_cost = true divides the distances of "
+                    f"output {output_name!r} by its validity length, and the trial published "
+                    f"{'none' if scales is None else f'{scales.size} for {part.size} values'}."
+                )
+            if not np.all(np.isfinite(scales)) or np.any(scales <= 0.0):
+                raise ValueError(
+                    f"Block {self.name!r}: output {output_name!r} published validity lengths "
+                    f"{scales.tolist()} m; a distance is divided by a positive length."
+                )
+            divided.append(part / scales)
+            used.append(scales)
+        return np.concatenate(divided), float(np.mean(np.concatenate(used)))
 
     @staticmethod
     def _compute_reference_scale(observed: np.ndarray) -> float:
@@ -565,12 +618,19 @@ class ConfigBlockObjective:
                 total=float("inf"),
                 components={f"{self.name}.raw_cost": float("inf")},
             )
-        normalized = cost / self._reference_scale if self._normalize_cost else cost
+        reference_scale = self._reference_scale
+        if self._scales_distances:
+            # Each distance by its own validity length, before the criterion
+            # adds them: two bounds of one output may carry two lengths.
+            divided, reference_scale = self._distances_in_validity_lengths(scored_parts)
+            normalized = float(self._criterion.score(divided).cost)
+        else:
+            normalized = cost / reference_scale if self._normalize_cost else cost
         transformed = float(self._transform_fn(normalized))
         components = {
             f"{self.name}.raw_cost": float(cost),
             f"{self.name}.normalized_cost": float(normalized),
-            f"{self.name}.reference_scale": float(self._reference_scale),
+            f"{self.name}.reference_scale": float(reference_scale),
             f"{self.name}.n_values": float(observed.size),
         }
         if self._metric in LOG_METRICS:
@@ -582,6 +642,7 @@ def build_objective_from_config(
     cfg: Any,
     *,
     observed_by_output: Mapping[str, Iterable[float]] | None = None,
+    distance_scales: Mapping[str, Sequence[float]] | None = None,
 ) -> Objective:
     """Assemble an :class:`Objective` from a :class:`CalibrationConfig`.
 
@@ -599,6 +660,11 @@ def build_objective_from_config(
     instead of being read off the declaration. What it names wins over
     ``observed_values``; every other output is read from its declaration as
     before.
+
+    ``distance_scales`` gives the validity lengths a trial published for its
+    network outputs, which a block with ``normalize_cost`` on a network
+    distance divides by. Like the aligned records, they are known only once the
+    trial has run, so the objective is then built per trial.
     """
     blocks = getattr(cfg, "objective_blocks", None) or []
     outputs = getattr(cfg, "outputs", None) or {}
@@ -641,6 +707,7 @@ def build_objective_from_config(
                 transform=transform,
                 warmup=warmup,
                 timeless_outputs=timeless_outputs,
+                distance_scales=distance_scales,
             )
         )
     if len(block_objectives) == 1:

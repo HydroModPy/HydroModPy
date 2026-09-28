@@ -74,14 +74,12 @@ observed_position_accuracy = "50 m"
 
 # `support = "point"` with `observes` reads what a gauge measures: the record
 # is aligned on the simulated timestamps, so the block scores a real chronicle
-# rather than a vector transcribed into this file. x and y are still required
-# by the schema and are written here as the coordinates of the gauge, even
-# though they are never read once `observes` is set.
+# rather than a vector transcribed into this file. The station's own record
+# places it, so no x or y: written beside `observes`, they are not read, and
+# loading warns so.
 [calibration.outputs.gauged_discharge]
 variable = "discharge"
 support = "point"
-x = 349875.0
-y = 6810320.0
 observes = "J7branch"
 
 # --- How stage two adds the two criteria -------------------------------------
@@ -95,16 +93,20 @@ name = "network_extension"
 metric = "distance_gap"
 uses_outputs = ["seepage_network"]
 
+# The same gap divided by the output's validity_length: a pure number, counted
+# in validity lengths, which adds to the efficiency below as a share and not
+# as an exchange rate between metres and an efficiency. Stage one keeps the
+# gap in metres above, where its interval is read in mesh cells.
+[[calibration.objective_blocks]]
+name = "network_share"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+normalize_cost = true
+
 [[calibration.objective_blocks]]
 name = "hydrograph"
 metric = "nse_log"
 uses_outputs = ["gauged_discharge"]
-# The first 12 monthly samples, the spin-up year, dropped from this block
-# alone. A `scoring_window` would say the same thing in dates, and it is
-# refused here: it cuts a record on its dates, and the network block scored
-# alongside it in stage two carries none. A count of samples means the same
-# span at this output frequency and applies only to the block that has one.
-warmup = 12
 
 # --- Stage one: K against the mapped network, in steady state ---------------
 #
@@ -135,7 +137,7 @@ freeze_on_success = true
 # A coarse logarithmic sweep before the bisection. It checks the monotonicity
 # the method assumes instead of supposing it, and it sees every crossing
 # rather than the first. Set it to 0 for the pure bisection of the paper.
-[calibration.phases.optimizer_kwargs]
+[calibration.phases.method_options]
 sweep_points = 7
 
 # --- Stage two: Sy against the hydrograph and the network, transient --------
@@ -155,12 +157,16 @@ max_iter = 60
 tolerance = 0.05
 parameters = ["Sy"]
 # A share table, not a list: this stage sets its own balance between the two
-# blocks instead of taking their declared weight, an exchange rate between
-# metres of network offset and an efficiency score that nothing in the
-# machinery can set. Normalized to sum to one, so the trial cost is
-# 0.0099 * |gap in m| + 0.990 * (1 - NSElog). Read `network_extension.total`
-# and `hydrograph.total`, published per trial, to see what the ratio bought,
-# and set it from those numbers rather than by halves.
-objective_blocks = { hydrograph = 100, network_extension = 1 }
+# blocks instead of taking their declared weight. Both are pure numbers, so the
+# shares mean what they say. Normalized to sum to one, so the trial cost is
+# 0.8 * (1 - NSElog) + 0.2 * |gap| / validity_length. Read `hydrograph.total`
+# and `network_share.total`, published per trial, to see what the shares bought.
+objective_blocks = { hydrograph = 0.8, network_share = 0.2 }
 depends_on = "steady_conductivity"
 regime = "transient"
+
+# 2000 is spin-up: simulated, not scored. The window holds every block of the
+# stage alike: the hydrograph keeps its months from 2001, and the network state
+# read, the last month, stamped 2006-01-01, lies inside it.
+[calibration.phases.scoring_window]
+start = "2001-01-01"

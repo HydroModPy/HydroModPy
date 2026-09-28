@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -7,6 +8,7 @@ import pytest
 
 import hydromodpy.workflow.steps.export as export_module
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import PipelineState
 
 
@@ -175,3 +177,60 @@ def test_step_drop_intermediate_budget_keeps_a_user_requested_budget() -> None:
     export_module.step_drop_intermediate_budget(ctx, store=_ZarrStore(handle))
 
     assert handle.dropped == []
+
+
+class _IndexedStore(_RecordingStore):
+    """A store whose index answers the two questions the recap asks."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.backend = SimpleNamespace(fetch_one=self._fetch_one)
+
+    @staticmethod
+    def _fetch_one(sql: str, _params: list) -> tuple | None:
+        if "FROM simulations" in sql:
+            return ("nancon_step1",)
+        return (0.4567,)
+
+
+def _recap_lines(caplog) -> list[str]:
+    return [
+        r.getMessage()
+        for r in caplog.records
+        if r.getMessage().startswith(("Run completed", "next: hmp catalog"))
+    ]
+
+
+def test_the_run_recap_waits_for_the_export_phase_to_close(caplog) -> None:
+    """Package and cleanup run after the seal: the recap must come after them."""
+    from hydromodpy.core import progress
+
+    caplog.set_level(logging.INFO, logger="hydromodpy")
+    store = _IndexedStore()
+    ctx = SimpleNamespace(sim_id="0123456789abcdef")
+    with progress.phase("export"):
+        export_module.step_seal_store(ctx, store=store, wall_seconds=42.0)
+        assert _recap_lines(caplog) == []
+        get_logger("hydromodpy.test").info("package written")
+    lines = _recap_lines(caplog)
+    assert lines == [
+        "Run completed: nancon_step1 [01234567] 42s nse=0.46",
+        "next: hmp catalog show nancon_step1 | hmp catalog diff nancon_step1 <other> "
+        "| hmp export nancon_step1 --list",
+    ]
+    messages = [r.getMessage() for r in caplog.records]
+    assert messages.index("package written") < messages.index(lines[0])
+
+
+def test_the_run_recap_prints_at_once_outside_a_phase(caplog) -> None:
+    caplog.set_level(logging.INFO, logger="hydromodpy")
+    export_module.step_seal_store(
+        SimpleNamespace(sim_id="0123456789abcdef"), store=_IndexedStore(), wall_seconds=0.0
+    )
+    assert _recap_lines(caplog)[0] == "Run completed: nancon_step1 [01234567] nse=0.46"
+
+
+def test_a_recap_the_index_cannot_answer_is_skipped(caplog) -> None:
+    caplog.set_level(logging.INFO, logger="hydromodpy")
+    export_module.step_seal_store(SimpleNamespace(sim_id="sim-123"), store=_RecordingStore())
+    assert _recap_lines(caplog) == []

@@ -20,6 +20,8 @@ from hydromodpy.core.field_routing import (
     warn_on_geometric_seepage_fallback,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results import field_registry
+from hydromodpy.results.field_registry import SHAPE_TIME_FACE, FieldDescriptor
 
 logger = get_logger(__name__)
 
@@ -126,14 +128,110 @@ def _outflow_drain(store: Any, sim_id: str, timestep: int) -> np.ndarray:
     return drain_budget_to_positive_outflow(drn, n_cells=n_cells)
 
 
+SIMULATED_ACTIVE_NETWORK = "simulated_active_network"
+"""The cells the network criterion counts as flowing: 1 where a stream flows, else 0."""
+
+SIMULATED_ACTIVE_NETWORK_DESCRIPTOR = FieldDescriptor(
+    public_name=SIMULATED_ACTIVE_NETWORK,
+    zarr_path=f"derived/{SIMULATED_ACTIVE_NETWORK}",
+    standard_name="",
+    long_name="Simulated stream network: 1 where the network criterion counts the cell as flowing",
+    units="1",
+    shape=SHAPE_TIME_FACE,
+    cell_methods="time: point area: maximum",
+    derived_by="core",
+    valid_min=0.0,
+    valid_max=1.0,
+)
+"""The descriptor of the simulated network, a field rebuilt on read and never stored.
+
+It is not in the field registry: the registry lists what a store can hold,
+and this field is only ever computed, from the run and its catalog."""
+
+
+def field_descriptor(name: str) -> FieldDescriptor:
+    """Return the descriptor of a field, the rebuilt-only simulated network included."""
+    if name == SIMULATED_ACTIVE_NETWORK:
+        return SIMULATED_ACTIVE_NETWORK_DESCRIPTOR
+    return field_registry.get(name)
+
+
+def simulated_active_network_stack(run: Any, timesteps: Sequence[int]) -> np.ndarray:
+    """Return the simulated stream network of ``run`` at each of ``timesteps``.
+
+    A ``(len(timesteps), n_cells)`` float array of 1 and 0: 1 where the network
+    criterion counts the cell as flowing at that step. "Flowing" is the
+    definition the criterion scores and the stream maps draw
+    (:func:`hydromodpy.core.stream_extent.flowing_cells`), cut with the
+    settings of the run's sealed network output: its seepage threshold, its
+    graph and its visible flow. A run that sealed none takes the criterion's
+    defaults. The graph is built once for every step.
+
+    Raises
+    ------
+    ValueError
+        The run cannot say which cells flow: no ``release_flux``, no network
+        to build the graph on, or no recharge for a positive threshold.
+    """
+    from hydromodpy.core.stream_extent import flowing_cells, parse_visible_flow
+    from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
+    from hydromodpy.results.derive.stream_extent import (
+        FLOW_FIELD,
+        flow_geometry_from_run,
+        unavailable_reason_for_flow,
+    )
+
+    settings = network_criterion_settings(run)
+    reason = unavailable_reason_for_flow(run, tau_specific_ratio=settings.tau_specific_ratio)
+    if reason is not None:
+        raise ValueError(f"{SIMULATED_ACTIVE_NETWORK} is not available for this run: {reason}.")
+    geometry = flow_geometry_from_run(
+        run,
+        tau_specific_ratio=settings.tau_specific_ratio,
+        diagonal_neighbors=settings.diagonal_neighbors,
+        observed_rasterization=settings.observed_rasterization,
+        weighting=settings.weighting,
+        observed_position_accuracy_m=settings.observed_position_accuracy_m,
+    )
+    visible = parse_visible_flow(settings.extent_rules.visible_flow)
+    n_cells = int(geometry.metric.graph.active.size)
+    stack = np.zeros((len(timesteps), n_cells), dtype="float64")
+    for row, step in enumerate(timesteps):
+        release = np.asarray(run.field(FLOW_FIELD, timestep=int(step)), dtype=float).reshape(-1)
+        state = flowing_cells(
+            release,
+            threshold_m3_s=geometry.threshold_m3_s,
+            metric=geometry.metric,
+            visible_flow=visible,
+            outlet=geometry.outlet,
+        )
+        stack[row] = np.asarray(state.flowing, dtype=bool).reshape(-1)
+    return stack
+
+
+def _simulated_active_network(store: Any, sim_id: str, timestep: int) -> np.ndarray:
+    """One step of the simulated network, read through the run's catalog."""
+    if not callable(getattr(store, "resolve", None)):
+        raise KeyError(
+            f"{SIMULATED_ACTIVE_NETWORK} is rebuilt from the run and its catalog, "
+            "not from a field store alone."
+        )
+    from hydromodpy.results.run import Run
+
+    return simulated_active_network_stack(Run(str(sim_id), store), [int(timestep)])[0]
+
+
 # Registry: variable name -> computation function(store, sim_id, timestep)
 # Only cheap derivations belong here.  accumulation_flux requires whitebox D8
 # routing and must be pre-computed in the derive phase (see derived.py).
+# The simulated network is the exception: it needs the catalog, and an export
+# over several steps builds its graph once through simulated_active_network_stack.
 VIRTUAL_FIELDS: dict[str, Any] = {
     "watertable_elevation": _watertable_elevation,
     "watertable_depth": _watertable_depth,
     "seepage_mask": _seepage_mask,
     "outflow_drain": _outflow_drain,
+    SIMULATED_ACTIVE_NETWORK: _simulated_active_network,
 }
 
 # Virtual fields derivable from the persisted head alone (plus mesh topography).

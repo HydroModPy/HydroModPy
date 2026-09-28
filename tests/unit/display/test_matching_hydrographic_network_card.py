@@ -340,14 +340,14 @@ def test_stage_two_reports_the_storage_value_and_its_metric(mpl) -> None:
     try:
         ax = _panel(fig, "Stage 2")
         assert ax.get_xlabel() == "specific_yield (-)"
-        assert ax.get_ylabel() == "nse (-)"
+        assert ax.get_ylabel() == "cost, nse (-)"
         assert "storage" in ax.get_title()
 
         best = _line(ax, "specific_yield =")
         assert best.get_xdata()[0] == pytest.approx(0.05)
         note = _texts(ax)
         assert "specific_yield = 0.05" in note
-        assert "nse = 0.11" in note
+        assert "cost (nse) = 0.11" in note
     finally:
         mpl.close(fig)
 

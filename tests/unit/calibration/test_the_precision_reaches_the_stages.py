@@ -122,7 +122,7 @@ def test_saying_the_precision_twice_is_refused_before_the_first_solve(tmp_path: 
         variable = "discharge"
         objective = "nse"
 
-        [calibration.phases.optimizer_kwargs]
+        [calibration.phases.method_options]
         xatol = 0.3
         """,
         network=False,

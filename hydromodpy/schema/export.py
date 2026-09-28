@@ -36,7 +36,7 @@ from hydromodpy.config.schema_export import (
     _ensure_root_sections,
     export_schema,
 )
-from hydromodpy.core.config_kit.registry import root_scalar_fields
+from hydromodpy.core.config_kit.registry import repeated_root_sections, root_scalar_fields
 
 SCHEMA_FILE = "config.json"
 META_FILE = "config_meta.json"
@@ -73,18 +73,22 @@ def build_config_meta() -> dict[str, Any]:
             }
         )
 
+    repeated = repeated_root_sections()
     ordered_sections: list[dict[str, Any]] = []
     for name in sections:
         if name not in root_props:
             # The root model may not expose every registered section.
             continue
         entry = root_props[name]
+        # A repeated section ([[export]]) is an array whose items carry the ref.
+        node = entry.get("items", {}) if name in repeated else entry
         ordered_sections.append(
             {
                 "name": name,
                 "title": entry.get("title", name),
                 "description": entry.get("description"),
-                "ref": entry.get("$ref") or entry.get("allOf", [{}])[0].get("$ref"),
+                "ref": node.get("$ref") or node.get("allOf", [{}])[0].get("$ref"),
+                "repeated": name in repeated,
             }
         )
 

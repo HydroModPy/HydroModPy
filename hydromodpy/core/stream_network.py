@@ -107,9 +107,10 @@ def build_simulated_network(
     """Turn a per-cell release flux into a seepage mask and its stream network.
 
     ``release_flux`` is ``(n_cells,)`` or ``(n_times, n_cells)`` in m3/s,
-    positive when the aquifer feeds the surface. A transient stack is read at
-    its last timestep: phase one of the method runs a single steady period, and
-    a mask defined over several states would not be a state.
+    positive when the aquifer feeds the surface. A stack is read at its last
+    row, because a mask defined over several states would not be a state. The
+    caller picks the state: the calibration extraction serves the one row its
+    output's ``time`` names, the first, the last or the period holding a date.
 
     The threshold is applied strictly, so a cell releasing exactly its
     threshold is not a stream, and the comparison is made on the flux rather

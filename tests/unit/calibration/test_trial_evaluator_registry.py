@@ -72,7 +72,7 @@ def _config(**overrides: object) -> CalibrationConfig:
         "method": "grid",
         "max_iter": 5,
         "parameters": {"k": {"path": "flow.properties.k_aquifer", "bounds": [1e-6, 1e-2]}},
-        "optimizer_kwargs": {"points_per_dim": 5},
+        "method_options": {"points_per_dim": 5},
     }
     payload.update(overrides)
     return CalibrationConfig.model_validate(payload)
@@ -310,7 +310,7 @@ class TestASearchRunsOnANamedEvaluator:
             'evaluator = "test_quadratic"\n'
             'method = "grid"\n'
             "max_iter = 3\n"
-            "optimizer_kwargs = { points_per_dim = 3 }\n"
+            "method_options = { points_per_dim = 3 }\n"
             "[calibration.parameters.k]\n"
             'path = "flow.properties.k_aquifer"\n'
             "bounds = [1e-6, 1e-2]\n"
@@ -341,7 +341,7 @@ class TestASearchRunsOnANamedEvaluator:
             'evaluator = "test_quadratic"\n'
             'method = "grid"\n'
             "max_iter = 3\n"
-            "optimizer_kwargs = { points_per_dim = 3 }\n"
+            "method_options = { points_per_dim = 3 }\n"
             "[calibration.parameters.k]\n"
             'path = "flow.properties.k_aquifer"\n'
             "bounds = [1e-6, 1e-2]\n"
@@ -460,7 +460,7 @@ class TestWhatNeedsTheModelIsRefusedNotFaked:
             'evaluator = "test_quadratic"\n'
             'method = "grid"\n'
             "max_iter = 3\n"
-            "optimizer_kwargs = { points_per_dim = 3 }\n"
+            "method_options = { points_per_dim = 3 }\n"
             "[calibration.uncertainty]\n"
             'method = "linearized"\n'
             "perturbation = 0.01\n"

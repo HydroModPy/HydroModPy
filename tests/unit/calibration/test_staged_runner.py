@@ -20,7 +20,7 @@ from hydromodpy.calibration.report import CalibrationReport
 from hydromodpy.calibration.runners import staged_runner
 from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 from hydromodpy.calibration.runners.trial import TrialContext
-from hydromodpy.core.exceptions import CalibrationError, ConfigValidationError
+from hydromodpy.core.exceptions import CalibrationError, ConfigError, ConfigValidationError
 
 K_PATH = "flow.param.K.field.value"
 SY_PATH = "flow.param.Sy.field.value"
@@ -129,7 +129,7 @@ parameters = ["Sy"]
 
 # ``rel_tol`` is a setting of the one-dimensional root search. The second phase
 # searches on a grid, which has no such knob, so this table cannot build the
-# calibration of its second phase -- and nothing says so until its turn.
+# calibration of its second phase. Loading the file says so, naming the phase.
 BAD_SECOND_PHASE = """
 [[calibration.phases]]
 name = "steady_k"
@@ -144,7 +144,7 @@ method = "grid"
 max_iter = 30
 objective_blocks = ["h_block"]
 parameters = ["Sy"]
-optimizer_kwargs = { rel_tol = 0.01 }
+method_options = { rel_tol = 0.01 }
 """
 
 
@@ -221,6 +221,7 @@ class FakeRunner:
         chain=None,
         start_at=None,
         interval_width=None,
+        run_name=None,
     ) -> CalibrationReport:
         self.calls.append(
             SimpleNamespace(
@@ -233,6 +234,7 @@ class FakeRunner:
                 start_at=start_at,
                 seed=cfg.seed,
                 interval_width=interval_width,
+                run_name=run_name,
             )
         )
         best = {name: self.values[name] for name in cfg.parameters}
@@ -453,14 +455,14 @@ def test_a_calibration_without_phases_is_refused(tmp_path, runner) -> None:
 def test_a_phase_that_cannot_be_built_is_refused_before_the_first_one_runs(
     tmp_path, runner
 ) -> None:
-    """The phase table validates against the calibration, not against itself.
+    """A phase option its method does not take is refused when the file loads.
 
     ``transient_sy`` narrows to a grid search while carrying a setting of the
-    root search, so the calibration it builds declares an optimizer keyword its
-    own method refuses. The refusal used to wait for its turn, by which time
-    ``steady_k`` had spent its twelve solves.
+    root search, so its method_options name a key its own method refuses. The
+    refusal used to wait for its turn, by which time ``steady_k`` had spent its
+    twelve solves. Loading the file now refuses it, naming the phase and the key.
     """
-    with pytest.raises(ConfigValidationError, match="transient_sy"):
+    with pytest.raises(ConfigError, match="phase 'transient_sy' method_options: 'grid'"):
         run_staged_calibration(_write(tmp_path, BAD_SECOND_PHASE))
 
     assert runner.calls == []
@@ -552,6 +554,25 @@ def test_the_chain_links_each_phase_to_the_previous_one(tmp_path, runner) -> Non
     assert first.session_id != second.session_id
     assert (first.phase_index, second.phase_index) == (0, 1)
     assert (first.phase_name, second.phase_name) == ("steady_k", "transient_sy")
+
+
+def test_each_phase_promotes_its_best_run_under_the_file_and_phase_names(tmp_path, runner) -> None:
+    # The baseline of the fake carries no [simulation] name, so the file stem
+    # stands in for it.
+    run_staged_calibration(_write(tmp_path))
+
+    assert [call.run_name for call in runner.calls] == [
+        "calibration_steady_k",
+        "calibration_transient_sy",
+    ]
+
+
+def test_a_calibration_of_one_phase_promotes_under_the_file_name_alone(tmp_path, runner) -> None:
+    one_phase = TWO_PHASES.split('\n[[calibration.phases]]\nname = "transient_sy"')[0]
+
+    run_staged_calibration(_write(tmp_path, one_phase))
+
+    assert [call.run_name for call in runner.calls] == ["calibration"]
 
 
 def test_the_report_carries_the_chain_of_the_run(tmp_path, runner) -> None:

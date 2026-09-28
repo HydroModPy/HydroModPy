@@ -121,7 +121,7 @@ def write_views(
 ) -> tuple[Path, ...]:
     """Write the requested views of a sealed directory inside it.
 
-    *formats* takes the names ``hmp data export --format`` uses: ``rocrate``,
+    *formats* takes the names ``hmp export <run> --format`` uses: ``rocrate``,
     ``stac`` and ``prov``. The context is built once and shared by all three,
     so they describe the same seal.
     """

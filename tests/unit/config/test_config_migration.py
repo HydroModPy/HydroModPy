@@ -70,10 +70,11 @@ def test_promotes_export_to_top_level(tmp_path: Path) -> None:
     assert any("simulation.results.export -> [export]" in c for c in changes)
 
     parsed = tomllib.loads(path.read_text())
-    assert "export" in parsed
-    assert parsed["export"]["csv_timeseries"] is True
-    assert parsed["export"]["geotiff"] is True
-    assert parsed["export"]["artifacts"][0]["var"] == "head"
+    assert parsed["export"] == [
+        {"variables": "all", "format": "csv"},
+        {"variables": ["head"], "format": "geotiff", "time": "last"},
+        {"variables": "head", "file": "h.tif"},
+    ]
     # the buried section is gone
     assert "export" not in parsed.get("simulation", {}).get("results", {})
 
@@ -86,7 +87,7 @@ def test_export_promotion_skips_when_top_level_exists(tmp_path: Path) -> None:
     changes = fix_config_file(path)
     assert any("top-level [export] already set" in c for c in changes)
     parsed = tomllib.loads(path.read_text())
-    assert parsed["export"]["netcdf"] is True
+    assert parsed["export"] == [{"variables": ["head"], "format": "netcdf", "time": "last"}]
     assert "export" not in parsed.get("simulation", {}).get("results", {})
 
 
@@ -294,14 +295,14 @@ def test_migrates_a_config_carrying_a_byte_order_mark(tmp_path: Path) -> None:
 def test_expands_the_export_variables_boolean_table(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
-        "[export]\n[export.variables]\nhead = true\nconcentration = false\nderived = true\n"
-        "budget = true\npathlines = true\n",
+        "[export]\ngeotiff = true\n[export.variables]\nhead = true\nconcentration = false\n"
+        "derived = true\nbudget = true\npathlines = true\n",
     )
     changes = fix_config_file(path)
     assert any("export.variables (boolean table) -> list" in c for c in changes)
 
-    parsed = tomllib.loads(path.read_text())["export"]
-    assert parsed["variables"] == [
+    (block,) = tomllib.loads(path.read_text())["export"]
+    assert block["variables"] == [
         "head",
         "watertable_elevation",
         "watertable_depth",
@@ -310,40 +311,155 @@ def test_expands_the_export_variables_boolean_table(tmp_path: Path) -> None:
     assert fix_config_file(path) == []
 
 
-def test_export_variables_all_off_becomes_an_empty_list(tmp_path: Path) -> None:
+def test_export_variables_all_off_is_carried_as_an_empty_list(tmp_path: Path) -> None:
+    """The request keeps what the file said; the loader then refuses an empty list."""
     path = _write(
         tmp_path,
-        "[export]\n[export.variables]\nhead = false\nconcentration = false\n",
+        "[export]\nnetcdf = true\n[export.variables]\nhead = false\nconcentration = false\n",
     )
     changes = fix_config_file(path)
     assert any("-> list []" in c for c in changes)
-    assert tomllib.loads(path.read_text())["export"]["variables"] == []
-
-
-def test_export_variables_left_alone_when_already_a_list(tmp_path: Path) -> None:
-    path = _write(tmp_path, '[export]\nvariables = ["head"]\n')
-    assert fix_config_file(path) == []
-    assert tomllib.loads(path.read_text())["export"]["variables"] == ["head"]
+    assert tomllib.loads(path.read_text())["export"][0]["variables"] == []
 
 
 def test_renames_export_times_to_time(tmp_path: Path) -> None:
-    path = _write(tmp_path, '[export]\ntimes = "last"\n')
+    path = _write(tmp_path, '[export]\ngeotiff = true\ntimes = "first"\n')
     changes = fix_config_file(path)
     assert any("export.times -> export.time" in c for c in changes)
 
-    parsed = tomllib.loads(path.read_text())["export"]
-    assert parsed["time"] == "last"
-    assert "times" not in parsed
+    (block,) = tomllib.loads(path.read_text())["export"]
+    assert block["time"] == "first"
+    assert "times" not in block
     assert fix_config_file(path) == []
 
 
 def test_export_times_dropped_when_time_already_set(tmp_path: Path) -> None:
-    path = _write(tmp_path, '[export]\ntime = "all"\ntimes = "last"\n')
+    path = _write(tmp_path, '[export]\nnetcdf = true\ntime = "all"\ntimes = "last"\n')
     changes = fix_config_file(path)
     assert any("export.time already set" in c for c in changes)
-    parsed = tomllib.loads(path.read_text())["export"]
-    assert parsed["time"] == "all"
-    assert "times" not in parsed
+    (block,) = tomllib.loads(path.read_text())["export"]
+    # "all" is the default of a request: the whole simulation.
+    assert block == {"variables": ["head"], "format": "netcdf"}
+
+
+def test_each_format_toggle_becomes_one_request_in_the_order_it_ran() -> None:
+    """The export and the artifact of example 04 step 5, before the reshape."""
+    doc = tomllib.loads(
+        "[export]\ngeotiff = true\ncsv_timeseries = true\ntime = 33\nresolution = 50.0\n"
+        'variables = ["head", "watertable_depth"]\npackage = true\noutput_dir = "deliver"\n\n'
+        '[[export.artifacts]]\nvar = ["head", "watertable_depth"]\ndest = "fields.nc"\n'
+        'time = "all"\n\n'
+        '[[export.artifacts]]\nvar = "*"\nfmt = "csv"\ndest = "series.csv"\n\n'
+        '[[export.artifacts]]\nvar = "head"\nfmt = "hmp"\ndest = "run.hmp"\n'
+    )
+
+    changes = migrate_config_doc(doc)
+
+    assert doc["export"] == [
+        {"variables": "all", "format": "csv", "folder": "deliver"},
+        {
+            "variables": ["head", "watertable_depth"],
+            "format": "geotiff",
+            "resolution": 50.0,
+            "time": 33,
+            "folder": "deliver",
+        },
+        {"variables": ["head", "watertable_depth"], "file": "fields.nc", "folder": "deliver"},
+        {"variables": "all", "format": "csv", "file": "series.csv", "folder": "deliver"},
+        {"variables": "all", "format": "package", "file": "run.hmp", "folder": "deliver"},
+        {"variables": "all", "format": "package", "folder": "deliver"},
+    ]
+    assert changes == [
+        "[export] toggles and artifacts -> 6 [[export]] block(s) "
+        "(csv, geotiff, by extension, csv, package, package)"
+    ]
+
+
+def test_the_requests_of_a_migrated_table_load(tmp_path: Path) -> None:
+    """What the migration writes is what the model reads: the round trip holds."""
+    from hydromodpy.core.config_kit.export_spec import ExportFormat, load_export_requests
+
+    path = _write(
+        tmp_path,
+        "[export]\ngeotiff = true\ncsv_timeseries = true\ntime = 33\n"
+        'variables = ["head", "watertable_depth"]\n\n'
+        '[[export.artifacts]]\nvar = ["head", "watertable_depth"]\ndest = "fields.nc"\n'
+        'time = "all"\n',
+    )
+    fix_config_file(path)
+
+    requests = load_export_requests(tomllib.loads(path.read_text())["export"])
+
+    assert [request.output_format for request in requests] == [
+        ExportFormat.csv,
+        ExportFormat.geotiff,
+        ExportFormat.netcdf,
+    ]
+    assert requests[1].time == 33
+
+
+def test_an_archive_artifact_naming_a_variable_loads_as_the_whole_run() -> None:
+    """The old spec wrote the whole run whatever an archive named; the request says so."""
+    from hydromodpy.core.config_kit.export_spec import (
+        EXPORT_ALL,
+        ExportFormat,
+        load_export_requests,
+    )
+
+    doc = tomllib.loads(
+        "[export]\n\n"
+        '[[export.artifacts]]\nvar = "head"\nfmt = "hmp"\ndest = "run.hmp"\ntime = 3\n\n'
+        '[[export.artifacts]]\nvar = ["head"]\ndest = "copy.hmp"\ncrs = "EPSG:4326"\n'
+        "resolution = 25.0\n"
+    )
+
+    migrate_config_doc(doc)
+
+    assert doc["export"] == [
+        {"variables": "all", "format": "package", "file": "run.hmp"},
+        {"variables": "all", "file": "copy.hmp"},
+    ]
+    requests = load_export_requests(doc["export"])
+    assert [request.output_format for request in requests] == [
+        ExportFormat.package,
+        ExportFormat.package,
+    ]
+    assert all(request.variables == EXPORT_ALL for request in requests)
+
+
+def test_a_table_with_every_format_off_is_dropped_without_a_word(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The resolved config every sealed run holds: `hmp run --resume` replays it."""
+    body = (
+        "[export]\nnetcdf = false\ncsv_timeseries = false\nvtu = false\ngeotiff = false\n"
+        'shapefile = false\ngeopackage = false\npackage = false\nvariables = ["head"]\n'
+        'time = "last"\nartifacts = []\n'
+    )
+    doc = tomllib.loads(body)
+    with caplog.at_level("INFO", logger="hydromodpy"):
+        changes = migrate_config_doc_on_load(doc, source="runs/x/config.toml")
+
+    assert "export" not in doc
+    assert len(changes) == 1
+    assert [record for record in caplog.records if record.levelname == "INFO"] == []
+
+    path = _write(tmp_path, body)
+    assert fix_config_file(path) == changes
+    assert "export" not in tomllib.loads(path.read_text())
+
+
+def test_a_request_written_as_a_table_is_left_for_the_loader_to_refuse() -> None:
+    doc = tomllib.loads('[export]\nvariables = "head"\nformat = "netcdf"\n')
+
+    assert migrate_config_doc(doc) == []
+    assert doc["export"] == {"variables": "head", "format": "netcdf"}
+
+
+def test_an_array_of_requests_is_current() -> None:
+    doc = tomllib.loads('[[export]]\nvariables = "head"\ntime = "2002-10-15"\n')
+
+    assert migrate_config_doc(doc) == []
 
 
 def test_migrate_config_doc_on_load_leaves_a_current_doc_untouched(
@@ -359,55 +475,117 @@ def test_migrate_config_doc_on_load_leaves_a_current_doc_untouched(
 def test_migrate_config_doc_on_load_migrates_in_memory_and_logs_once(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    doc = tomllib.loads('[export]\ntimes = "last"\n[export.variables]\nhead = true\n')
+    doc = tomllib.loads(
+        '[export]\ngeotiff = true\ntimes = "last"\n[export.variables]\nhead = true\n'
+    )
     with caplog.at_level("INFO"):
         changes = migrate_config_doc_on_load(doc, source="run/config.toml")
 
     assert changes == [
         "export.variables (boolean table) -> list ['head']",
         "export.times -> export.time ('last')",
+        "[export] toggles and artifacts -> 1 [[export]] block(s) (geotiff)",
     ]
-    assert doc["export"]["variables"] == ["head"]
-    assert doc["export"]["time"] == "last"
-    assert "times" not in doc["export"]
+    assert doc["export"] == [{"variables": ["head"], "format": "geotiff", "time": "last"}]
 
     assert len(caplog.records) == 1
     message = caplog.records[0].message
     assert "run/config.toml" in message
-    assert "2 legacy key" in message
+    assert "3 legacy key" in message
     assert "hmp doctor" in message
 
 
-def test_frozen_export_config_from_example_04_migrates_and_loads(tmp_path: Path) -> None:
+_FROZEN_V1 = Path(__file__).parent / "fixtures" / "frozen_run_config_export_v1.toml"
+
+
+def test_frozen_export_config_from_example_04_migrates_and_loads() -> None:
     """Regression test for the frozen run config this migration exists for.
 
-    ``runs/<name>/config.toml`` for the old ``[export.variables]`` boolean
-    submodel and ``export.times`` key no longer loads without this migration
-    (two Pydantic errors). ``migrate_config_doc`` must fix both in one pass,
-    on the plain dict shape ``tomllib``/``load_toml_with_base_config`` hands
-    back, without ever writing to disk.
+    A resolved ``runs/<name>/config.toml`` of example 04 written before the
+    reshape holds the ``[export.variables]`` boolean table, ``export.times``
+    and every format off. ``migrate_config_doc`` carries it across in one
+    pass, on the plain dict ``tomllib`` hands back, without writing to disk.
     """
-    source = Path(
-        "examples/projects/04_streamflow_intermittence_in_transient/"
-        "runs/nancon_intermittence_mf6/config.toml"
-    )
-    original_bytes = source.read_bytes()
+    original_bytes = _FROZEN_V1.read_bytes()
     doc = tomllib.loads(original_bytes.decode("utf-8"))
 
     changes = migrate_config_doc(doc)
 
-    assert doc["export"]["variables"] == [
-        "head",
-        "watertable_elevation",
-        "watertable_depth",
-        "seepage_mask",
-    ]
-    assert doc["export"]["time"] == "last"
-    assert "times" not in doc["export"]
-    assert any("export.variables" in c for c in changes)
-    assert any("export.times -> export.time" in c for c in changes)
+    # Every format was off: the run wrote nothing, and the migration says so once.
+    assert "export" not in doc
+    assert changes == ["[export] dropped: every format was off, so it wrote nothing"]
+    assert doc["simulation"]["name"] == "nancon_intermittence_mf6"
     # migrate_config_doc mutates the in-memory payload only, never the file
-    assert source.read_bytes() == original_bytes
+    assert _FROZEN_V1.read_bytes() == original_bytes
+
+
+def test_renames_a_figure_timestep_to_time(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        '[display]\nfigures = ["seepage_map"]\n\n'
+        "[display.overrides.seepage_map]\ntimestep = 33 # October 2002\n\n"
+        '[display.overrides.cross_section]\norientation = "sn"\n',
+    )
+
+    changes = fix_config_file(path)
+
+    assert changes == [
+        "display.overrides.seepage_map.timestep -> display.overrides.seepage_map.time (33)"
+    ]
+    overrides = tomllib.loads(path.read_text())["display"]["overrides"]
+    assert overrides == {"seepage_map": {"time": 33}, "cross_section": {"orientation": "sn"}}
+    assert fix_config_file(path) == []
+
+
+def test_a_figure_that_says_both_is_left_for_the_loader_to_refuse() -> None:
+    """Both spellings may name different instants: picking one would hide it."""
+    doc = {"display": {"overrides": {"seepage_map": {"timestep": 33, "time": "2002-10-15"}}}}
+    phase = {"display.overrides.seepage_map.timestep": 0, "display.overrides.seepage_map.time": 1}
+    doc["calibration"] = {"phases": [{"overrides": dict(phase)}]}
+
+    assert migrate_config_doc(doc) == []
+    assert doc["display"]["overrides"]["seepage_map"] == {"timestep": 33, "time": "2002-10-15"}
+    assert doc["calibration"]["phases"][0]["overrides"] == phase
+
+
+def test_renames_the_dotted_timestep_a_calibration_phase_overrides(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        '[[calibration.phases]]\nname = "steady"\n\n'
+        "[calibration.phases.overrides]\n"
+        '"display.overrides.seepage_map.timestep" = 0\n'
+        '"display.overrides.cross_section.timestep" = 0\n'
+        '"flow.flow_regime" = "steady"\n',
+    )
+
+    changes = fix_config_file(path)
+
+    assert changes == [
+        'calibration.phases[0].overrides."display.overrides.seepage_map.timestep" -> '
+        '"display.overrides.seepage_map.time"',
+        'calibration.phases[0].overrides."display.overrides.cross_section.timestep" -> '
+        '"display.overrides.cross_section.time"',
+    ]
+    overrides = tomllib.loads(path.read_text())["calibration"]["phases"][0]["overrides"]
+    assert overrides == {
+        "flow.flow_regime": "steady",
+        "display.overrides.seepage_map.time": 0,
+        "display.overrides.cross_section.time": 0,
+    }
+
+
+def test_renames_a_phase_timestep_written_as_nested_tables() -> None:
+    doc = {
+        "calibration": {
+            "phases": [{"overrides": {"display": {"overrides": {"seepage_map": {"timestep": 0}}}}}]
+        }
+    }
+
+    changes = migrate_config_doc(doc)
+
+    phase = doc["calibration"]["phases"][0]
+    assert phase["overrides"]["display"]["overrides"]["seepage_map"] == {"time": 0}
+    assert len(changes) == 1
 
 
 def test_moves_the_bottom_path_to_the_substratum_and_leaves_the_depth_model(

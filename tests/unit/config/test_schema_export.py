@@ -98,6 +98,7 @@ def test_root_sections_lists_expected_keys():
         "flow",
         "simulation",
         "solver",
+        "export",
     ):
         assert key in sections, f"missing section {key!r}"
     assert scalars == {}

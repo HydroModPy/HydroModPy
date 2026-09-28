@@ -107,10 +107,10 @@ transient_method = "scipy_nelder_mead"
 transient_max_iter = 120
 transient_tolerance = 0.05
 
-# Options of the bisection itself, the engine steady_method names. The coarse log
+# Options of the bisection itself, the method steady_method names. The coarse log
 # sweep it runs before bracketing checks the monotonicity the method assumes
 # instead of supposing it; 7 is what it does anyway, 0 gives the pure bisection.
-[calibration.protocol.steady_engine_options]
+[calibration.protocol.steady_method_options]
 sweep_points = 7
 
 # The transient stage still has to simulate 1995 to reach 1996 with a state it

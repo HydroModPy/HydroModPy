@@ -55,6 +55,7 @@ from hydromodpy.config.toml_section_loader import (
     load_standard_section,
 )
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.export_spec import ExportRequest, load_export_requests
 from hydromodpy.core.config_kit.introspect import (
     collect_profile_violations,
     resolve_profile,
@@ -80,7 +81,6 @@ from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
-from hydromodpy.simulation.planning.export_config import ExportConfig
 from hydromodpy.simulation.planning.observation_config import ObservationConfig
 from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
@@ -410,15 +410,14 @@ class HydroModPyConfig(HydroModelBase):
     )
     display: Annotated[DisplayConfig, Profile.USER] = Field(
         default_factory=DisplayConfig,
-        description=("Optional display and export toggles loaded from the [display] section."),
+        description="The figures a run draws, loaded from the [display] section.",
     )
-    export: Annotated[ExportConfig, Profile.USER] = Field(
-        default_factory=ExportConfig,
+    export: Annotated[list[ExportRequest], Profile.USER] = Field(
+        default_factory=list,
         description=(
-            "Automated export configuration loaded from the top-level [export] "
-            "section. Controls which formats (CSV time series, GeoTIFF, NetCDF, "
-            "VTU, shapefile), which variables and timesteps are written after a "
-            "run, and whether a portable '.hmp' archive is produced."
+            "The exports written at the end of a run, one [[export]] block per request, "
+            "in the order of the file. Each block says what (variables), when (time or "
+            "period) and where (folder or file); the format follows the data."
         ),
     )
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
@@ -969,7 +968,7 @@ class HydroModPyConfig(HydroModelBase):
             "modflownwt": ({}, _std(ModflowConfig)),
             "modflow6": ({}, _std(Modflow6Config)),
             "display": ({}, _std(DisplayConfig)),
-            "export": ({}, _std(ExportConfig)),
+            "export": ([], lambda data, _b: load_export_requests(data)),
             "persistence": ({}, _std(PersistenceConfig)),
             "observation": ({}, _std(ObservationConfig)),
             "analysis": (None, _load_optional_analysis_section),

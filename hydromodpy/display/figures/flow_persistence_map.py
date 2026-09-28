@@ -23,20 +23,27 @@ from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._flow_persistence import (
     FLOW_FIELD,
     cycle_flow,
-    definition_note,
     flow_unavailable_reason,
+    frame_note,
     resolve_cycle,
     span_label,
+)
+from hydromodpy.display.figures._stream_comparison import (
+    MapExtentName,
+    catchment_cells,
+    map_extent,
+    map_legend,
+    veil_outside_catchment,
 )
 from hydromodpy.display.figures.accumulation_map import (
     GROUND_COLOR,
     GROUND_EDGE,
     truncated_palette,
 )
-from hydromodpy.display.maps.axes import style_relative_km_axes
+from hydromodpy.display.maps.axes import style_map_axes
+from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import render_face_field
-from hydromodpy.display.style import place_legend
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -68,6 +75,9 @@ class FlowPersistenceMap(BaseFigure):
     ``cmap``
         Sequential palette. Its pale end is cut so no drawn cell is lighter
         than the cells the ramp says nothing about.
+    ``extent``
+        ``"catchment"`` (default) crops to the delineated watershed and counts
+        the cells inside it; ``"mesh"`` keeps the whole modelled domain.
     """
 
     spec = FigureSpec(
@@ -75,7 +85,7 @@ class FlowPersistenceMap(BaseFigure):
         title="Flow persistence",
         kind="spatial",
         required_fields=(FLOW_FIELD,),
-        default_figsize=(7.0, 5.5),
+        default_figsize=(7.0, 6.4),
     )
 
     def render(
@@ -89,6 +99,7 @@ class FlowPersistenceMap(BaseFigure):
         diagonal_neighbors: bool | None = None,
         cmap: str = "Blues",
         overlays: tuple[str, ...] | list[str] | None = None,
+        extent: MapExtentName = "catchment",
         **_,
     ) -> Axes:
         from matplotlib.patches import Patch
@@ -117,22 +128,28 @@ class FlowPersistenceMap(BaseFigure):
             vmax=100.0,
             cbar_label="Timesteps flowing (%)",
         )
+        polygons = face_polygons(sim)
+        frame = map_extent(sim, polygons, extent=extent)
+        counted = catchment_cells(sim, polygons) if extent == "catchment" else None
+        if counted is not None:
+            veil_outside_catchment(ax, sim, frame)
+        scope = np.ones_like(ever) if counted is None else counted
         apply_overlays(
             ax,
             sim,
             ("watershed", "outlet") if overlays is None else overlays,
             timestep=0,
         )
-        style_relative_km_axes(ax)
+        style_map_axes(ax)
         window = span_label(sim, steps)
         ax.set_title(
             f"{self.spec.title} - {sim.name or sim.sim_id}\n"
             f"{window + ', ' if window else ''}{steps.size} timesteps, "
-            f"{int(ever.sum()):,} cells ever flowing\n{definition_note(flow)}"
+            f"{int((ever & scope).sum()):,} cells ever flowing"
         )
 
         handles = ax.get_legend_handles_labels()[0]
-        never = int((~ever).sum())
+        never = int((~ever & scope).sum())
         if never:
             handles.append(
                 Patch(
@@ -141,8 +158,8 @@ class FlowPersistenceMap(BaseFigure):
                     label=f"never flowing ({never:,} cells)",
                 )
             )
-        if handles:
-            place_legend(ax, handles=handles, fontsize=9, framealpha=0.9)
+        map_legend(ax, handles, note=frame_note(flow, counted), ncols=max(len(handles), 1))
+        frame.apply(ax)
         return ax
 
     def unavailable_reason(self, sim: Run) -> str | None:

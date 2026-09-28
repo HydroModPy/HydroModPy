@@ -226,6 +226,16 @@ class NetworkGeometry:
 
 _last_mean_recharge: float | None = None
 
+RECHARGE_MOVE_TOLERANCE: float = 1e-6
+"""Relative change of the mean recharge below which two builds read the same R.
+
+Two builds of one session average the same forcing in a different order, and
+float sums then differ in the last digits (9.074855002572016e-09 against
+9.074854999999997e-09). That is noise, not a move of the ratio's denominator.
+"""
+
+_alpha_warned: bool = False
+
 
 def _warn_if_recharge_moved(recharge: float) -> None:
     """Warn when the recharge changes between two geometries of one process.
@@ -236,19 +246,41 @@ def _warn_if_recharge_moved(recharge: float) -> None:
     session, and two consecutive builds can legitimately belong to two
     projects; a refusal would abort those, while the ``R_mean_m_s`` diagnostic
     already records the value per trial and the warning only makes the move
-    visible while it happens.
+    visible while it happens. A relative change under
+    :data:`RECHARGE_MOVE_TOLERANCE` is float noise and stays silent.
     """
     global _last_mean_recharge
     previous, _last_mean_recharge = _last_mean_recharge, recharge
-    if previous is None or previous == recharge:
+    if previous is None or np.isclose(recharge, previous, rtol=RECHARGE_MOVE_TOLERANCE, atol=0.0):
         return
     logger.warning(
-        "The mean recharge moved between two network criterion builds: %r then %r m/s. "
+        "The mean recharge moved between two network criterion builds: %.4g then %.4g m/s. "
         "The criterion calibrates the ratio K/R, so a bound of one per cent holds on the "
         "conductivity only while R stays put. Freeze the recharge for the whole session, "
         "or read R_mean_m_s per trial before reading the calibrated value as a K.",
         previous,
         recharge,
+    )
+
+
+def _report_poor_alpha(alpha_catchment: float, threshold: float) -> None:
+    """Say once per process that the map and the model top disagree.
+
+    Every trial of a session and every promoted run rebuilds the geometry on
+    the same top and the same map, so the number barely moves. The first build
+    warns; the later ones log at INFO, which ``--verbose`` shows.
+    """
+    global _alpha_warned
+    log = logger.info if _alpha_warned else logger.warning
+    _alpha_warned = True
+    log(
+        "The mapped stream network agrees poorly with the model top "
+        "(alpha_obs_closure_catchment = %.3f, below %.2f), so the distances carry a "
+        "top-versus-map disagreement on top of the hydrogeology. This does not mean the "
+        "routing DEM was left unburned: the criterion descends the raw top by design, so "
+        "this alpha differs from the one the geographic step reports.",
+        alpha_catchment,
+        threshold,
     )
 
 
@@ -676,17 +708,7 @@ def build_network_geometry(
             alpha_catchment,
         )
     if np.isfinite(alpha_catchment) and alpha_catchment < float(alpha_warning_threshold):
-        logger.warning(
-            "The mapped stream network agrees poorly with the MODEL TOP: "
-            "alpha_obs_closure_catchment = %.3f, below %.2f. A large share of the D8 trace "
-            "leaving the mapped cells falls outside the network, so the distances carry a "
-            "top-versus-map disagreement on top of the hydrogeology. This is NOT evidence "
-            "the routing DEM was left unburned: the criterion descends the raw top by "
-            "design, never the burned surface, so read this beside the alpha the geographic "
-            "step reports and expect the two to differ.",
-            alpha_catchment,
-            float(alpha_warning_threshold),
-        )
+        _report_poor_alpha(alpha_catchment, float(alpha_warning_threshold))
 
     recharge = float(mean_recharge_m_s)
     _warn_if_recharge_moved(recharge)

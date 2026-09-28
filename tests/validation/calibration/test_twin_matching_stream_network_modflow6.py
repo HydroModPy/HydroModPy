@@ -187,7 +187,7 @@ max_iter = 20
 tolerance = {rel_tol!r}
 save_runs = "none"
 
-[calibration.optimizer_kwargs]
+[calibration.method_options]
 sweep_points = 7
 
 [calibration.parameters.K]

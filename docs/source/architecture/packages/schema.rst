@@ -15,7 +15,8 @@ Sub-modules
 
   - ``config.json`` -- full JSON Schema of ``HydroModPyConfig``;
   - ``config_meta.json`` -- ordered TOML sections, UI groups,
-    titles;
+    titles; ``repeated`` marks an array of tables such as
+    ``[[export]]``;
   - ``field_validators.json`` -- flat
     ``field_path -> validator_type`` (enum, number, date, ...).
 

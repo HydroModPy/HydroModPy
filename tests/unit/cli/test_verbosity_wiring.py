@@ -35,8 +35,6 @@ FAMILY_LEAF_COMMANDS = (
     ("data", "prune"),
     ("data", "archive"),
     ("data", "restore"),
-    ("data", "export"),
-    ("data", "export-package"),
     ("data", "import"),
     ("catalog", "ls"),
     ("catalog", "query"),
@@ -52,7 +50,6 @@ FAMILY_LEAF_COMMANDS = (
     ("catalog", "rename"),
     ("catalog", "diff"),
     ("catalog", "watch"),
-    ("catalog", "export"),
     ("catalog", "import"),
     ("catalog", "rerun"),
     ("project", "new"),
@@ -78,8 +75,6 @@ RUN_MODULES = (
     "hydromodpy.cli.commands.data.prune",
     "hydromodpy.cli.commands.data.archive",
     "hydromodpy.cli.commands.data.restore",
-    "hydromodpy.cli.commands.data.export",
-    "hydromodpy.cli.commands.data.export_package",
     "hydromodpy.cli.commands.data.import_cmd",
     "hydromodpy.cli.commands.catalog.ls",
     "hydromodpy.cli.commands.catalog.query",
@@ -95,7 +90,6 @@ RUN_MODULES = (
     "hydromodpy.cli.commands.catalog.rename",
     "hydromodpy.cli.commands.catalog.diff",
     "hydromodpy.cli.commands.catalog.watch",
-    "hydromodpy.cli.commands.catalog.export",
     "hydromodpy.cli.commands.catalog.import_archive",
     "hydromodpy.cli.commands.catalog.rerun",
     "hydromodpy.cli.commands.project.new",
@@ -104,6 +98,7 @@ RUN_MODULES = (
     "hydromodpy.cli.commands.project.delete",
     "hydromodpy.cli.commands.report",
     "hydromodpy.cli.commands.spinup",
+    "hydromodpy.cli.commands.export",
 )
 
 
@@ -142,6 +137,12 @@ def test_family_leaf_offers_verbosity_shorthands(group: str, action: str) -> Non
     opts = _option_strings(_leaf_parser(group, action))
     missing = VERBOSITY_OPTIONS - opts
     assert not missing, f"{group} {action} is missing {missing}"
+
+
+def test_export_offers_verbosity_shorthands() -> None:
+    opts = _option_strings(_leaf_parser("export"))
+    missing = VERBOSITY_OPTIONS - opts
+    assert not missing, f"export is missing {missing}"
 
 
 def test_spinup_offers_verbosity_shorthands() -> None:
