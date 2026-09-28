@@ -71,6 +71,10 @@ Each release section includes the following standard categories:
   `last` and `first` only, so the promotion of `run_calibration_composite.toml`
   (`time = "2002-10-15"`) failed in its display step. The period rule moved to
   `core.time.selection.resolve_state`, shared by the calibration and the results layer.
+- Every run a calibration promotes keeps its watershed. The export step of the first promotion
+  dropped the session's shared preprocessing tree, so with `save_runs = "all"` the next ones
+  had no watershed: their catchment discharge summed the whole domain (PBIAS -95 % on the
+  daily API grid of example 04) and 6 of 15 figures did not apply.
 
 ---
 

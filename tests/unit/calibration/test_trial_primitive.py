@@ -365,6 +365,45 @@ class TestRunTrialLight:
         assert captured["overrides"] is None
 
 
+class TestPromotion:
+    def test_a_promotion_leaves_the_preprocessing_tree_to_the_next_one(
+        self, tmp_path: Path
+    ) -> None:
+        """Every kept trial is promoted from one shared preprocessing tree.
+
+        The export step of the first promotion used to drop it, so the next
+        promoted runs found no watershed to ingest and summed their catchment
+        series over the whole domain.
+        """
+        from types import SimpleNamespace
+
+        from hydromodpy.calibration.runners.trial import promote_prepared_trial
+        from hydromodpy.workflow.steps.export import step_cleanup_preprocessing
+
+        stable = tmp_path / ".hmp" / "scratch" / "_preprocessing"
+        (stable / "geographic").mkdir(parents=True)
+        (stable / "geographic" / "watershed.shp").write_bytes(b"x" * 64)
+
+        trial_ctx, steps = _make_trial_context(tmp_path, earliest=6)
+        trial_ctx.ctx.setup.geographic = SimpleNamespace(stable_folder=str(stable))
+        seen: list[bool] = []
+
+        def _export(state: PipelineState) -> PipelineState:
+            ctx = state.get("ctx")
+            seen.append((stable / "geographic" / "watershed.shp").is_file())
+            step_cleanup_preprocessing(ctx, keep=bool(state.get("keep_preprocessing")))
+            ctx.sim_id = ctx.reserved_sim_id
+            return state.advance(step_index=state.step_index + 1, step_name="export")
+
+        steps[8].run = _export  # type: ignore[assignment]
+
+        promote_prepared_trial(trial_ctx, {"K": 1.0}, name="best", sim_id="a" * 32)
+        promote_prepared_trial(trial_ctx, {"K": 2.0}, name="best_trial_0002", sim_id="b" * 32)
+
+        assert seen == [True, True]
+        assert stable.is_dir()
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
