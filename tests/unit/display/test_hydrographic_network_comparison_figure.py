@@ -90,3 +90,56 @@ def test_hydrographic_network_difference_role_figures_render(tmp_path: Path) -> 
         assert rendered is not None
         assert len(rendered.axes) == 1
         assert out.exists()
+
+
+class _PermanenceStubRun(_StubRun):
+    """A run whose map holds 1 km of permanent and 0.5 km of intermittent reaches."""
+
+    def __init__(self, *, with_permanent: bool = True) -> None:
+        super().__init__()
+        self._reference = gpd.GeoDataFrame(
+            {"permanence": ["permanent", "intermittent"]},
+            geometry=[
+                LineString([(0.0, 0.0), (1000.0, 0.0)]),
+                LineString([(1000.0, 0.0), (1000.0, 500.0)]),
+            ],
+            crs="EPSG:2154",
+        )
+        self._permanent = self._reference.iloc[[0]].copy() if with_permanent else None
+
+    def has_hydrographic_network(self, role: str = "generated") -> bool:
+        if role == "reference_permanent":
+            return self._permanent is not None
+        return role in ("reference", "generated")
+
+    def hydrographic_network(self, role: str = "generated"):
+        if role == "reference_permanent" and self._permanent is not None:
+            return self._permanent
+        return super().hydrographic_network(role)
+
+
+def test_permanence_figure_splits_the_map_into_its_two_bounds(tmp_path: Path) -> None:
+    matplotlib.use("Agg", force=True)
+    fig = get("hydrographic_network_permanence")
+    stub = _PermanenceStubRun()
+    assert fig.unavailable_reason(stub) is None
+
+    rendered = fig.plot(stub, save_path=tmp_path / "permanence.png")
+
+    legend = rendered.axes[0].get_legend()
+    labels = [text.get_text() for text in legend.get_texts()]
+    assert labels == [
+        "permanent, minimal map: 1.00 km, 1 reaches",
+        "maximal map beyond it: 0.50 km, 1 reaches",
+    ]
+    note = legend.get_title().get_text()
+    assert "intermittent: 0.50 km, 1 reaches" in note
+    assert "permanent: 1.00 km, 1 reaches" in note
+
+
+def test_permanence_figure_names_a_source_without_permanence() -> None:
+    reason = get("hydrographic_network_permanence").unavailable_reason(
+        _PermanenceStubRun(with_permanent=False)
+    )
+    assert reason is not None
+    assert "reference_permanent" in reason

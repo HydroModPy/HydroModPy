@@ -226,6 +226,9 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - ``hydrographic_network_generated_extra_only``
      - Generated extra-only view
      - (no fixed input)
+   * - ``hydrographic_network_permanence``
+     - Permanent and intermittent network
+     - (no fixed input)
    * - ``hydrographic_network_reference``
      - Reference hydrographic network
      - (no fixed input)

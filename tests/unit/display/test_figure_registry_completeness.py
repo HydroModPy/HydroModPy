@@ -154,6 +154,11 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "comparison",
         (),
     ),
+    "hydrographic_network_permanence": (
+        "hydromodpy.display.figures.hydrographic_network.HydrographicNetworkPermanenceFigure",
+        "comparison",
+        (),
+    ),
     "hydrographic_network_reference": (
         "hydromodpy.display.figures.hydrographic_network.HydrographicNetworkReferenceFigure",
         "comparison",

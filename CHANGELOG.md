@@ -91,6 +91,9 @@ Each release section includes the following standard categories:
   h + max(h, F) when a snap floor exists. Each trial publishes the length and what set it.
 - `network_extent_bounds_map` draws the maximal and minimal simulated extents of a transient run
   against its two maps, outside any calibration.
+- `hydrographic_network_permanence` draws the mapped network split by permanence: the permanent
+  reaches (the minimal map) over the reaches the complete map adds, with the length and reach
+  count of each class. It needs a hydrography source that says which reaches flow all year.
 - Preflight refuses an extent table on a steady search, a minimal map file that does not exist,
   and a `data.hydrography` minimal map without a declared hydrography source.
 
