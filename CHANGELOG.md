@@ -33,6 +33,10 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [v2.0.0a1] - 2026-09-28
+
 ### Removed
 - `reference_values` from calibration protocols and from `protocol_record`.
 - The `hydromodpy.optimizer` entry-point group. A method it listed was refused
@@ -606,10 +610,6 @@ Each release section includes the following standard categories:
   `--list-phases` says so. Two phases that freeze the same path no longer
   refuse each other: the later one wins, and the report and `--list-phases`
   name both, the later as re-opened.
-
----
-
-## [v2.0.0a1] - 2026-09-21
 
 ### Removed
 - `[modflownwt.tgrid]` is gone from the schema, following `[modflow6.tgrid]`.
