@@ -549,8 +549,10 @@ def require_resolvable_counts(
 ) -> None:
     """Refuse a transformed accumulation whose values float32 can no longer order.
 
-    ``max_stored_value`` is the largest value the **raster** carries, read back
-    from the file. The comparison happens in that stored space rather than on a
+    ``max_stored_value`` is the largest value the **raster** carries where the
+    caller ranks cells, read back from the file: for a delineation, the search
+    windows of its outlets, since a regional river carrying more cells than
+    float32 can tell apart does not affect an outlet that never reads it. The comparison happens in that stored space rather than on a
     count recovered with ``exp``: exponentiating a value that turns out not to be
     a logarithm overflows, and the refusal would then quote a count no grid could
     hold instead of naming the real problem.

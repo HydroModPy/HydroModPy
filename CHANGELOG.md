@@ -90,6 +90,9 @@ Each release section includes the following standard categories:
 - `geometry_from_run`, replaced by `network_maps_from_run`, which returns every declared map.
 
 ### Fixed
+- A delineation refuses a log-transformed accumulation only where its outlets snap. The float32
+  ranking bound was read on the whole regional raster, so a filled DEM whose main river drains
+  more than a million cells refused an outlet on a tributary (example 04).
 - A single-metric phase whose variable names a calibration output keeps that output, so a network
   phase keeps its maps and its extent table.
 - `hmp calibrate` migrates legacy keys in memory when it reads a file, as the project loader does.
