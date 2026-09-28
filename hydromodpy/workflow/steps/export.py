@@ -17,7 +17,7 @@ from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError, ExportError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.progress import MILESTONE
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIRNAME
+from hydromodpy.core.state.paths import PREPROCESSING_DIRNAME, active_run_scratch
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
@@ -218,12 +218,11 @@ def step_cleanup_scratch(
 ) -> None:
     """Remove the solver scratch folders unless keep_solver_files is True.
 
-    Every child of ``.hmp/scratch/`` goes but the geographic
-    ``_preprocessing/`` tree, which belongs to the session and which
-    :func:`step_cleanup_preprocessing` is the one entitled to drop. A run
-    holds the project run lock (``core.workspace.path_registry.project_run_lock``),
-    so no other run of the project owns a folder here: what is swept beside
-    this run's own folder was left by runs that ended.
+    Every child of the run's own scratch folder goes (``.hmp/scratch/<run>/``,
+    ``core.state.paths.scratch_dir_for``) but the geographic ``_preprocessing/``
+    tree, which belongs to the session and which
+    :func:`step_cleanup_preprocessing` is the one entitled to drop. Another run
+    of the project works in another folder, so nothing of it is touched.
     """
     if keep_solver_files:
         return
@@ -264,7 +263,7 @@ def _remove_scratch_path(ctx: WorkflowContext, target: Path) -> None:
 def step_cleanup_preprocessing(ctx: WorkflowContext, *, keep: bool = False) -> int:
     """Remove the geographic preprocessing tree and return the bytes freed.
 
-    ``.hmp/scratch/_preprocessing`` hangs off the *project root*, while the
+    ``.hmp/scratch/<run>/_preprocessing`` hangs off the *project root*, while the
     solver scratch follows ``workspace.output_root`` when one is set: with a
     redirected output root, :func:`step_cleanup_scratch` never reaches it. It
     is dropped here unless ``[geographic] write_intermediates`` asked to keep
@@ -282,15 +281,18 @@ def step_cleanup_preprocessing(ctx: WorkflowContext, *, keep: bool = False) -> i
 
 
 def step_drop_empty_scratch(ctx: WorkflowContext) -> None:
-    """Remove ``.hmp/scratch/`` once nothing is left under it."""
+    """Remove the run's scratch folder, then ``.hmp/scratch/``, once nothing is left under them."""
     workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
     if workspace is None:
         return
-    try:
-        workspace.solver_scratch_folder.rmdir()
-    except OSError:
-        # Still holding the preprocessing tree or a solver folder: not ours to force.
-        return
+    folder = Path(workspace.solver_scratch_folder)
+    for target in (folder, folder.parent) if active_run_scratch() else (folder,):
+        try:
+            target.rmdir()
+        except OSError:
+            # Still holding the preprocessing tree, a solver folder or another
+            # run's folder: not ours to force.
+            return
 
 
 def _release_cleanup_handles(ctx: WorkflowContext) -> None:

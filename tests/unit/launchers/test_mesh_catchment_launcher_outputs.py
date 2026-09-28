@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
 
 from ._mesh_catchment_builders import (
@@ -15,6 +15,8 @@ from ._mesh_catchment_builders import (
     _minimal_geology_config,
     _patch_dummy_geographic_builders,
 )
+
+PREPROCESSING_DIR = preprocessing_dir(Path())
 
 
 def test_mesh_catchment_launcher_cleanup_mode_removes_geographic_outputs(

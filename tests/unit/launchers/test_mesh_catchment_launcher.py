@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
 
@@ -14,6 +14,8 @@ from ._mesh_catchment_builders import (
     _minimal_cfg,
     _patch_dummy_geographic_builders,
 )
+
+PREPROCESSING_DIR = preprocessing_dir(Path())
 
 
 def test_mesh_catchment_launcher_run_uses_default_outputs(monkeypatch, tmp_path: Path) -> None:

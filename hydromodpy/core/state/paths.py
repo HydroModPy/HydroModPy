@@ -12,6 +12,10 @@ of truth without depending on a higher layer.
 from __future__ import annotations
 
 import os
+import re
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
@@ -121,9 +125,137 @@ def reports_dir_for(project_root: Path) -> Path:
     return share_dir_for(project_root) / REPORTS_DIRNAME
 
 
-def scratch_dir_for(output_root: Path) -> Path:
-    """Return ``<root>/.hmp/scratch``, the solver working directory."""
+#: Environment variable naming the scratch folder of the run this process is inside.
+#: A subprocess inherits it, so a child run launched by a run works in its folder.
+RUN_SCRATCH_ENV = "HMP_RUN_SCRATCH"
+
+#: Folder of the geographic, data and mesh preprocessing, inside a run's scratch.
+PREPROCESSING_DIRNAME = "_preprocessing"
+
+_RUN_SCRATCH_SUFFIX = re.compile(r"\.p(\d+)$")
+_RUN_SCRATCH_GUARD = threading.Lock()
+_run_scratch_depth = 0
+
+
+def scratch_root_for(output_root: Path) -> Path:
+    """Return ``<root>/.hmp/scratch``, which holds the scratch folder of every run."""
     return internal_dir(output_root) / "scratch"
+
+
+def active_run_scratch() -> str | None:
+    """Return the scratch folder name of the run this process is inside, or None."""
+    return os.environ.get(RUN_SCRATCH_ENV, "").strip() or None
+
+
+def scratch_dir_for(output_root: Path) -> Path:
+    """Return the solver working directory of the current run.
+
+    Inside a run (:func:`run_scratch`) it is ``<root>/.hmp/scratch/<run>``, one
+    folder per run, so two runs of one project work side by side: neither reads
+    the preprocessing, the shared recharge or the solver files of the other, and
+    a run that ends sweeps only its own. Outside any run it is the bare
+    ``<root>/.hmp/scratch``.
+    """
+    key = active_run_scratch()
+    root = scratch_root_for(output_root)
+    return root / key if key else root
+
+
+def preprocessing_dir(project_root: Path) -> Path:
+    """Return the preprocessing folder of the current run, under its scratch."""
+    return scratch_dir_for(project_root) / PREPROCESSING_DIRNAME
+
+
+def kept_preprocessing_dir(project_root: Path) -> Path | None:
+    """Return the preprocessing folder a finished run kept on disk, or None.
+
+    A run keeps its tree only when asked to (``[geographic] write_intermediates``).
+    A reader after the run is inside no run, so it looks for the bare folder,
+    then for the most recent one a run left in its own scratch folder.
+    """
+    root = scratch_root_for(project_root)
+    bare = root / PREPROCESSING_DIRNAME
+    if bare.is_dir():
+        return bare
+    kept = [path for path in root.glob(f"*/{PREPROCESSING_DIRNAME}") if path.is_dir()]
+    return max(kept, key=lambda path: path.stat().st_mtime) if kept else None
+
+
+def _run_scratch_name(label: str) -> str:
+    stem = re.sub(r"[^A-Za-z0-9_-]+", "_", label).strip("_")[:24] or "run"
+    return f"{stem}.p{os.getpid()}"
+
+
+def _process_is_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def sweep_dead_run_scratch(project_root: Path) -> list[Path]:
+    """Remove the scratch folders of runs whose process no longer runs.
+
+    A run sweeps its own folder when it ends. One that was killed cannot, so the
+    next run of the project removes the folders named after a dead process.
+    POSIX only: elsewhere a process cannot be probed and nothing is removed.
+    """
+    import shutil
+
+    if os.name != "posix":
+        return []
+    root = scratch_root_for(project_root)
+    if not root.is_dir():
+        return []
+    removed: list[Path] = []
+    for child in root.iterdir():
+        match = _RUN_SCRATCH_SUFFIX.search(child.name)
+        if not child.is_dir() or match is None:
+            continue
+        pid = int(match.group(1))
+        if pid == os.getpid() or _process_is_alive(pid):
+            continue
+        shutil.rmtree(child, ignore_errors=True)
+        removed.append(child)
+    return removed
+
+
+@contextmanager
+def run_scratch(project_root: Path, label: str) -> Iterator[str]:
+    """Give the run this process starts its own folder under ``.hmp/scratch/``.
+
+    The outermost call names the folder after ``label`` and this process, and
+    exports it through :data:`RUN_SCRATCH_ENV`; nested calls (the trials, phases
+    and promotions of a calibration session) and child processes work in the
+    same folder. On entry it also removes the folders of runs that were killed.
+    On exit it removes the run's folder when nothing is left in it.
+    """
+    global _run_scratch_depth
+    with _RUN_SCRATCH_GUARD:
+        inherited = active_run_scratch()
+        owner = inherited is None and _run_scratch_depth == 0
+        key = inherited or _run_scratch_name(label)
+        if owner:
+            os.environ[RUN_SCRATCH_ENV] = key
+        _run_scratch_depth += 1
+    if owner:
+        sweep_dead_run_scratch(project_root)
+    try:
+        yield key
+    finally:
+        with _RUN_SCRATCH_GUARD:
+            _run_scratch_depth -= 1
+            if owner:
+                os.environ.pop(RUN_SCRATCH_ENV, None)
+        if owner:
+            for folder in (scratch_root_for(project_root) / key, scratch_root_for(project_root)):
+                try:
+                    folder.rmdir()
+                except OSError:
+                    break
 
 
 def running_sidecar_dir(workspace: Path) -> Path:
@@ -373,12 +505,15 @@ __all__: Iterable[str] = (
     "INDEX_FILENAME",
     "INTERNAL_DIRNAME",
     "PROJECTS_DIRNAME",
+    "PREPROCESSING_DIRNAME",
     "PROJECT_MARKER_FILENAME",
     "REPORTS_DIRNAME",
     "RUNS_DIRNAME",
+    "RUN_SCRATCH_ENV",
     "SESSIONS_DIRNAME",
     "SHARE_DIRNAME",
     "WORKSPACE_TOML_FILENAME",
+    "active_run_scratch",
     "cache_dir",
     "catalog_path_for",
     "decode_workspace_path",
@@ -386,19 +521,24 @@ __all__: Iterable[str] = (
     "encode_workspace_path",
     "from_workspace_relative",
     "internal_dir",
+    "kept_preprocessing_dir",
     "is_project_root",
     "is_under_workspace",
     "is_workspace_root",
+    "preprocessing_dir",
     "project_roots_under",
     "reports_dir_for",
     "resolve_project_root",
     "resolve_workspace",
     "running_sidecar_dir",
     "running_sidecar_path",
+    "run_scratch",
     "runs_dir_for",
     "scratch_dir_for",
+    "scratch_root_for",
     "share_dir_for",
     "state_dir",
+    "sweep_dead_run_scratch",
     "to_workspace_relative",
     "to_workspace_uri",
 )

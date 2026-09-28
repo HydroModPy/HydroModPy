@@ -39,6 +39,18 @@ FigureKind = Literal[
 ]
 
 
+class FigureNotApplicable(ValueError):
+    """Raised by a figure that finds, while reading the run, that it does not apply.
+
+    :meth:`BaseFigure.unavailable_reason` refuses a run before drawing, from
+    the run alone. Some refusals depend on the options too: a figure that
+    reads one calibrated parameter applies to a session that sampled two once
+    ``parameter`` names one. Such a figure raises this instead, and the batch
+    renderer skips it with the message as its reason, as it skips an
+    unavailable figure, whatever ``on_error`` says.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class FigureSpec:
     """Static metadata describing one figure type.

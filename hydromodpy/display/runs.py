@@ -31,6 +31,7 @@ from hydromodpy.core.state.paths import display_path
 from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.display import get as _get_figure
 from hydromodpy.display import list_figures as _list_figures
+from hydromodpy.display.figure import FigureNotApplicable
 from hydromodpy.display.style import apply_theme
 
 if TYPE_CHECKING:
@@ -430,6 +431,11 @@ def render_figures_for_run(
                     save_path=save_path,
                     **options,
                 )
+            except FigureNotApplicable as exc:
+                reason = str(exc)
+                actionable = _log_skipped_figure(name, fig, sim, reason)
+                skipped.append(SkippedFigure(name=name, reason=reason, actionable=actionable))
+                continue
             except Exception as exc:
                 # One line per figure that fails, at WARNING so it is visible.
                 if display_cfg.on_error == "raise":

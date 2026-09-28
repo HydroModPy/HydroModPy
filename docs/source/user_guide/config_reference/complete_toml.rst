@@ -91,7 +91,7 @@ Sub-models are linked back to their per-section page.
       # dam_carve = ...  # uses factory default
       # If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace.
       reuse_existing_outputs = false
-      # Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/_preprocessing/ is removed after ingestion into the run field store.
+      # Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/<run>/_preprocessing/ is removed after ingestion into the run field store.
       write_intermediates = false
 
 .. dropdown:: ``[domain]`` (DomainConfig)
@@ -498,7 +498,7 @@ Sub-models are linked back to their per-section page.
       [mesh_catchment]
       # Meshing compliance target. 'geology_only' conforms the mesh to geology interfaces only, 'rivers_only' conforms the mesh to river traces only, and 'geology_rivers' enforces both sets of constraints in one mesh.
       constraints_mode = "geology_rivers"
-      # Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `.hmp/scratch/_preprocessing/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used.
+      # Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `.hmp/scratch/<run>/_preprocessing/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used.
       # output_mesh = ...  # default = None
       # Optional JSON sidecar path for QA metrics, cleaned-input diagnostics, and summary metadata describing the generated mesh. When omitted, the launcher writes it next to the default mesh output.
       # output_summary_json = ...  # default = None
@@ -516,11 +516,11 @@ Sub-models are linked back to their per-section page.
       figure_dpi = 300
       # Pixel density used when rendering the regional overview figure. Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy.
       figure_regional_dpi = 220
-      # Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `.hmp/scratch/_preprocessing/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
+      # Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `.hmp/scratch/<run>/_preprocessing/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
       output_layout = "standard"
       # If true, open the generated overview figure interactively at the end of the run. Keep it false for batch or headless execution.
       show_plot = false
-      # Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `.hmp/scratch/_preprocessing/geographic` and `.hmp/scratch/_preprocessing/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.
+      # Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `.hmp/scratch/<run>/_preprocessing/geographic` and `.hmp/scratch/<run>/_preprocessing/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.
       geographic_outputs_mode = "keep"
       # River-constraint section used when constraints_mode includes rivers. The default behavior is to reuse the in-memory river trace already built by the geographic pipeline.
       # rivers = ...  # uses factory default
@@ -572,9 +572,9 @@ Sub-models are linked back to their per-section page.
       max_iter = "auto"
       # How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other transform there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.
       # tolerance = ...  # default = None
-      # Number of suggestions drawn per ask (for parallel optimizers).
+      # Number of suggestions drawn per ask, at least ``parallel``.
       batch_size = 1
-      # Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop.
+      # Trials solved side by side, each in its own folder, for every phase that sets none of its own. A grid or a random search evaluates its points together; a root search cuts its bracket into parallel + 1 parts; a simplex evaluates the candidates of one step together and keeps the sequential answer. Each trial holds its own model in memory; 1 solves them one after the other.
       parallel = 1
       # Percent water-balance discrepancy past which a trial is rejected instead of scored. The solver reports the figure on every run; unset, it is recorded and nothing acts on it, so a run at twelve per cent is ranked beside one that closed even though part of the water it routed came from nowhere. There is no default because there is no universal value: a steady solve on a coarse mesh closes to a fraction of a per cent, a transient one with a lake and a routed network legitimately sits higher.
       # reject_water_budget_above = ...  # default = None

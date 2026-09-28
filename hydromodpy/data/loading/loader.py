@@ -22,8 +22,9 @@ from pydantic import BaseModel
 
 from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.time import resolve_simulation_time_window_dates
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR, WorkspacePathRegistry
+from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, VariableSpec
 from hydromodpy.data.loading.plan import DataLoadPlan
 from hydromodpy.data.loading.store import DataStore
@@ -179,7 +180,7 @@ class DataManagersRuntimeLoader:
             if spec.export_stable_subdir:
                 workspace_paths = self._workspace_paths(result)
                 export_dir = (
-                    workspace_paths.project_root / PREPROCESSING_DIR / spec.export_stable_subdir
+                    preprocessing_dir(workspace_paths.project_root) / spec.export_stable_subdir
                 )
 
             load_result = self._require_store().load_variable(
@@ -380,7 +381,7 @@ class DataManagersRuntimeLoader:
                 base_raster=(
                     None if geographic is None else getattr(geographic, "watershed_dem", None)
                 ),
-                stable_folder=workspace_paths.project_root / PREPROCESSING_DIR,
+                stable_folder=preprocessing_dir(workspace_paths.project_root),
             )
         except Exception as exc:
             self._handle_data_loading_error(result, "hydrography", exc)

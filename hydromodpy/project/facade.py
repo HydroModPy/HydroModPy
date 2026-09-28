@@ -47,7 +47,7 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import ConfigMissingError, PipelineError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.workspace.path_registry import project_run_lock
+from hydromodpy.core.state.paths import run_scratch
 from hydromodpy.project.accessors import ProjectDataAccessor, ProjectRunsAccessor
 from hydromodpy.project.catalog import ProjectCatalog
 from hydromodpy.project.runner import ProjectRunner, _pin_parent_sim_id
@@ -450,7 +450,8 @@ class Project:
         hydromodpy.results.run.Run
             Per-simulation result view returned by successful runs.
         """
-        with project_run_lock(Path(self.config.workspace.project_root)):
+        label = name or self.config.simulation.name or "run"
+        with run_scratch(Path(self.config.workspace.project_root), label):
             return self._runner.run(
                 name=name,
                 resume=resume,

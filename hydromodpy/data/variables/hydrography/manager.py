@@ -95,10 +95,10 @@ class HydrographyManager(SourceTable):
     ) -> None:
         self.config = config
         self._base_raster = base_raster
-        from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+        from hydromodpy.core.state.paths import preprocessing_dir
         from hydromodpy.spatial.delineation import get_whitebox_backend
 
-        base = Path(stable_folder) if stable_folder else Path(out_path) / PREPROCESSING_DIR
+        base = Path(stable_folder) if stable_folder else preprocessing_dir(Path(out_path))
         self._data_folder = base / "hydrography"
         self._data_folder.mkdir(parents=True, exist_ok=True)
         self._backend = get_whitebox_backend()

@@ -42,22 +42,34 @@ Each release section includes the following standard categories:
   the installed metadata. An editable install keeps the number it was installed at, so a
   checkout bumped to 2.0.0a2 still reported 2.0.0a1 in `hmp doctor`, run provenance and PNG
   metadata.
-- Two `hmp run` of one project no longer break each other's preprocessing. The geographic and
-  mesh builds hold `.hmp/locks/preprocessing.lock` while they write
-  `.hmp/scratch/_preprocessing/`, which is per project: four runs started together on example
-  04 lost three of them in `build_geographic` (a Whitebox panic, a missing `dem_fill.tif`, a
-  missing `outlet.shp`). A run also holds a shared use of that tree from its geographic build
-  to its cleanup, and a cleanup drops the tree only when no other run of the project holds one:
-  the last run out drops it, instead of the first one pulling it from under the others.
-- The runs of one project take turns. A simulation (`Project.simulate`, so `hmp run`) and a
-  calibration session (`run_calibration_cli`, `run_staged_calibration`,
-  `run_calibration_programmatic`, with every trial, phase and promotion inside) hold
-  `.hmp/locks/project-run.lock` from start to end; a run that has to wait says so once.
-  `.hmp/scratch/` is per project: run concurrently, the calibrations of example 04 read the
-  network another run wrote (no permanent reaches), shared one `_shared_recharge` across
-  different recharges, and a run that ended swept the solver folders of the others ("Solver
-  output directory is missing", "CBC file not found"). Runs of different projects stay
-  parallel.
+- Several runs of one project run at once. Each run, or each calibration session with its
+  trials, phases and promotions, works in its own `.hmp/scratch/<config>.p<pid>/`
+  (`core.state.paths.run_scratch`): its preprocessing, its solver folders and the recharge its
+  trials share. `.hmp/scratch/` was shared by the whole project, so on example 04 four runs
+  started together lost three in `build_geographic` (a Whitebox panic, a missing
+  `dem_fill.tif`, a missing `outlet.shp`), concurrent calibrations read the network another run
+  wrote and shared one `_shared_recharge` across different recharges, and a run that ended
+  swept the solver folders of all the others ("Solver output directory is missing", "CBC file
+  not found"). A child process inherits its parent's folder through `HMP_RUN_SCRATCH`; the next
+  run of the project removes the folders of killed runs. `PREPROCESSING_DIR` is replaced by
+  `core.state.paths.preprocessing_dir(root)`.
+- `batch_size` and `parallel` of a calibration and of a phase are user options, and `parallel`
+  alone now runs trials side by side: a batch holds at least `parallel` trials, where a batch of
+  one serialized them. Measured on the composite of example 04, 8 trials at `parallel = 4` take
+  278 s for 695 s of solves. `run_calibration_api_daily.toml` solves its five K at once.
+- `scipy_nelder_mead` runs on a port of SciPy 1.18.1's Nelder-Mead that evaluates the candidates of
+  one step side by side (reflection, contractions, expansion, shrink points) and keeps only the
+  values SciPy's rules read: the path, the answer, the evaluation count and the status are SciPy's,
+  call for call, at every `parallel`. The candidates solved and not read stay in the history,
+  marked `speculative_unused` in the journal, and spend no budget.
+- The root search uses `parallel`: its sweep is solved at once, and each round cuts the bracket
+  into `parallel + 1` parts in log instead of two, both roots of a two-bound search at the same
+  time. On the Nancon bounds, one root takes 6 rounds (20 solves) at 4 against 15 rounds today,
+  two roots 8 rounds (26) against 24. The root lies in the same stopping-width bracket; `parallel
+  = 1` repeats today's search trial for trial, and the counted budget follows the width.
+- Every phase takes the `parallel` and `batch_size` of `[calibration]` unless it sets its own
+  (`CalibrationConfig.parallel_for`, `batch_size_for`): the phases a protocol writes declare none,
+  so the section's value reached none of them.
 - `Run completed: <name> [<id>] <n>s` prints the run's duration, the `duration_s` the catalog
   stores, instead of the solver step alone (6 s printed for a 19 s run).
 - The help of `[simulation] if_exists` says what `replace` does: it trashes the predecessor,
@@ -109,6 +121,11 @@ Each release section includes the following standard categories:
     instead, `[8.094e-05, 8.115e-05]` for a summary of `[7.499e-05, 1e-4]`, and its `rise`
     option is removed.
   - The axes carry their units: `K (m/s)`, `|D_so - D_os| (m)`, `1 - NSElog (-)`.
+- A figure that finds while reading the run that it does not apply raises
+  `display.figure.FigureNotApplicable`, and the batch skips it with its reason whatever
+  `on_error` says. The one-parameter calibration figures do so on a session that sampled
+  several parameters together: the composite of example 04 (K and Sy) failed its promotion on
+  `downslope_distance_crossing` under `on_error = "raise"`.
 - The figures of a run redraw the stream network with the mean recharge its trials scored
   with. The trials averaged the rate the forcing gives each period; the redraw averaged the
   budget, where a steady spin-up period holds the record mean in place of its month (8.656e-9

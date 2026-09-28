@@ -20,8 +20,8 @@ from hydromodpy.core.contracts.solver_registry import (
     get_solver_registry_provider,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 
 try:
     import rasterio
@@ -208,7 +208,7 @@ def _structured_bounds_from_config(config_path: Path) -> tuple[float, float, flo
             config_path,
         )
         return None
-    geographic_dir = project_root / PREPROCESSING_DIR / "geographic"
+    geographic_dir = preprocessing_dir(project_root) / "geographic"
     for raster_path in _candidate_structured_support_rasters(geographic_dir):
         if not raster_path.exists():
             continue

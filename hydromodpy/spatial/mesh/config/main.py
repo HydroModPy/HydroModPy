@@ -50,7 +50,7 @@ class MeshCatchmentConfig(HydroModelBase):
         description=(
             "Optional `.msh` output path for the generated planar mesh. "
             "When omitted, the launcher writes the mesh to "
-            "`.hmp/scratch/_preprocessing/mesh/mesh_catchment.msh` "
+            "`.hmp/scratch/<run>/_preprocessing/mesh/mesh_catchment.msh` "
             "inside the active catchment workspace in standard layout, or directly to "
             "`workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used."
         ),
@@ -123,7 +123,7 @@ class MeshCatchmentConfig(HydroModelBase):
         default="standard",
         description=(
             "Dedicated-launcher output layout. "
-            "Use 'standard' to keep final mesh artifacts under `.hmp/scratch/_preprocessing/mesh/`, "
+            "Use 'standard' to keep final mesh artifacts under `.hmp/scratch/<run>/_preprocessing/mesh/`, "
             "or 'flat' to write final mesh artifacts directly under `workspace.project_root` "
             "while keeping intermediate runtime folders out of that final directory."
         ),
@@ -139,8 +139,8 @@ class MeshCatchmentConfig(HydroModelBase):
         default="keep",
         description=(
             "Control what happens to intermediate geographic preprocessing artifacts after the mesh run. "
-            "Use 'keep' to preserve the canonical `.hmp/scratch/_preprocessing/geographic` and "
-            "`.hmp/scratch/_preprocessing/demcorrecflow` folders, or 'cleanup' to delete them at the end of "
+            "Use 'keep' to preserve the canonical `.hmp/scratch/<run>/_preprocessing/geographic` and "
+            "`.hmp/scratch/<run>/_preprocessing/demcorrecflow` folders, or 'cleanup' to delete them at the end of "
             "the dedicated mesh launcher once the mesh outputs and exchange bundle have been written."
         ),
     )

@@ -22,7 +22,7 @@ from typing import Any
 
 from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.spatial.mesh.config import (
     MeshCatchmentConfig,
     parse_mesh_catchment_batch_config_data,
@@ -561,8 +561,8 @@ def _workspace_stable_folder(workspace_like: object) -> Path:
     """Return the canonical preprocessing folder for one workspace-like object."""
     output_root = getattr(workspace_like, "output_root", None)
     if output_root is not None:
-        return Path(output_root) / PREPROCESSING_DIR
-    return Path(workspace_like.project_root) / PREPROCESSING_DIR
+        return preprocessing_dir(Path(output_root))
+    return preprocessing_dir(Path(workspace_like.project_root))
 
 
 __all__ = [

@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon
 
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
@@ -37,6 +37,8 @@ from ._test_hydrography_full_builders import (
     _make_lines_gdf,
     _write_dummy_tif,
 )
+
+PREPROCESSING_DIR = preprocessing_dir(Path())
 
 # =====================================================================
 # 5. LoadResult contract

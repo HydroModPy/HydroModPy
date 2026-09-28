@@ -8,13 +8,15 @@ import numpy as np
 import pytest
 
 import validation_cases.shared.runtime as runtime
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+from hydromodpy.core.state.paths import preprocessing_dir
 from validation_cases.shared.loaders import load_case_tolerances, load_time_series_fields
 from validation_cases.shared.runtime import (
     resolve_validation_results_dir,
     run_launcher_validation_case,
     write_validation_fields_to_store,
 )
+
+PREPROCESSING_DIR = preprocessing_dir(Path())
 
 MINIMAL_SIMULATION_WORKFLOW = '[workflow]\nmode = "simulation"\n'
 

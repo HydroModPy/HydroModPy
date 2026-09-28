@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
 
@@ -19,6 +19,8 @@ from ._mesh_catchment_builders import (
     _patch_dummy_geographic_builders,
     _write_test_raster,
 )
+
+PREPROCESSING_DIR = preprocessing_dir(Path())
 
 
 def test_mesh_catchment_launcher_batch_runs_selected_outlet_and_writes_manifest(

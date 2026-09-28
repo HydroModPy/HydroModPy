@@ -865,51 +865,58 @@ A figure outside any calibration
 Measured on the Nancon
 ----------------------
 
-The two files of example 04 were run side by side on 2026-09-23, same code and
-same machine, after the stress-period alignment fix: a monthly stamp closes its
-month, so the gauge is compared with the month the stamp ends (commit
-``e6c5e50f5``). A score taken before that fix is not comparable with these.
+The calibration files of example 04 were run on 2026-09-28, same code and same
+machine. Every stage two scores from 2001-01-01, 2000 being spin-up, and a
+monthly stamp closes its month, so the gauge is compared with the month the
+stamp ends (commit ``e6c5e50f5``). A score taken before that fix is not
+comparable with these.
 
 .. list-table::
    :header-rows: 1
-   :widths: 22 39 39
+   :widths: 16 28 28 28
 
    * -
-     - ``project.toml``, the protocol
+     - ``run_calibration.toml``, the protocol
      - ``run_calibration_by_hand.toml``
+     - ``run_calibration_bdtopage.toml``
    * - stage one
-     - ``K`` = 9.763e-05 m/s, signed gap 2.7 m, 15 trials
+     - ``K`` = 8.107e-05 m/s, signed gap -1.96 m, 15 trials
      - identical, to the trial
+     - two roots, ``K*`` = 2.564e-05 on the permanent map and 1.358e-06 on
+       the complete one, combined 5.9e-06, 24 trials
    * - stage two
-     - ``Sy`` = 0.047, NSElog 0.921, 6 trials
-     - ``Sy`` = 0.063, NSElog 0.898, 14 trials
-   * - December network gap
-     - not scored
-     - 17.3 m
+     - ``Sy`` = 0.045, NSElog 0.916, 8 trials
+     - identical, to the trial
+     - ``Sy`` = 0.056, NSElog 0.922, 6 trials
 
-Scoring the network as well as the gauge moves the storage by about a third,
-from 0.047 to 0.063, and costs 0.023 of NSElog. Over the fourteen trials the
-gap took four values, from 24.2 m at ``Sy`` = 0.042 to 15.2 m at 0.098: the
-simulated network retracts by whole cells, which sets the region, and the
-hydrograph does the fine work inside it. Neither term rode along: the network
-term weighed 0.15 to 0.24 of the trial cost and the hydrograph term 0.09 to
-0.14. Which of the two storages suits the site is a judgement about the site,
-not about the machinery, and that is the point of being able to write the
-stage out.
+The file written by hand reproduces the protocol to the trial, which is what it
+is for: the recipe written out as two phases, each key visible.
 
-The validity indicator does not clear its bound on this catchment, and every
-trial says so. ``roptim`` is the agreement between the two networks in cells
-of ``h_obs``; example 04 declares neither an accuracy nor a snap, so its
-validity length is two cells, 150 m, and it is valid at 2 and under. Here it
-runs from 1.9 to 6.4 over the stage one sweep, 2.44 at the retained ``K``, and
-2.50 to 2.56 in the transient stage. The agreement is therefore coarser than
-the mesh. This qualifies the calibrated value rather than refuting it: a ``K`` read off this example is a
-demonstration, not a number to cite, and the ratio ``K/R`` is what to publish.
-Two diagnostics of the same trials say where it comes from.
-``alpha_obs_closure_catchment`` is 0.83 against 0.90, and 55 per cent of the
-mapped stream cells lie outside the delineated catchment, in a buffer where
-nothing requires a cell to descend into the network. Clipping the mapped
-network to the catchment is what would move them.
+The gauge does not tell the conductivities apart. From 5.9e-06 to 8.1e-05, a
+factor of fourteen, the stage two fit stays between 0.914 and 0.922 of NSElog,
+and the whole simplex of the protocol moves it from 0.9154 to 0.9160. At a
+monthly step the hydrograph follows the recharge it is given: it reads ``Sy``,
+within about ten per cent, and leaves ``K`` to the network. Its volume is short
+by 20 to 21 per cent at every calibrated point, because the recharge and
+runoff files of the example carry 79 per cent of the gauged volume over
+2000-2002, which no parameter changes.
+
+The two BD Topage roots are 1.28 decades apart, so no homogeneous ``K`` holds
+both maps. Inside the catchment the simulated extent grows by a factor of about
+1.4 from its yearly minimum to its maximum, the maps by a factor of 2.83. The
+combined value holds neither bound, and the permanent one fails Eq. 4 at it
+(``Doptim`` = 209.8 m against 150 m).
+
+The validity indicator clears its bound at the protocol's ``K``. ``roptim`` is
+the agreement between the two networks in cells of ``h_obs``; example 04
+declares neither an accuracy nor a snap, so its validity length is two cells,
+150 m, and it is valid at 2 and under. It runs from 1.43 to 10.3 over the stage
+one sweep and is 1.51 at the retained ``K`` (``Doptim`` = 113.3 m).
+``alpha_obs_closure_catchment`` is 0.78 against 0.90: the mapped network agrees
+poorly with the model top, so the distances carry that disagreement on top of
+the hydrogeology. A ``K`` read off this example is a demonstration, not a number
+to cite, and the ratio ``K/R`` is what to publish, here with ``R`` =
+9.075e-09 m/s.
 
 What each choice buys you
 -------------------------

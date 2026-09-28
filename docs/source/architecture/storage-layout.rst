@@ -79,10 +79,19 @@ Layout of a project root, as written today:
        |-- checkpoints/     resolved workflow manifests, for resume
        |-- identity_notice.json  what the creator and licence warning told
        |-- running/         live-run heartbeat sidecars
-       |-- scratch/         solver working directory
+       |-- scratch/         solver working directory, one folder per run
        `-- trash/           orphan stores and figures quarantined by gc
 
 ``runs/``, ``sessions/``, ``share/`` and ``.hmp/`` are ignored by git.
+
+Each run, or each calibration session with its trials, phases and
+promotions, works in its own ``.hmp/scratch/<config>.p<pid>/``: its
+preprocessing, its solver folders and the recharge its trials share.
+Several runs of one project therefore run at once without reading each
+other's files, and a run that ends sweeps only its own folder. A child
+process inherits its parent's folder through ``HMP_RUN_SCRATCH``, and the
+next run of the project removes the folders of runs whose process was
+killed (:func:`~hydromodpy.core.state.paths.run_scratch`).
 
 The project config file is ``project.toml``, and
 :func:`~hydromodpy.core.state.paths.resolve_project_root` anchors on it,

@@ -14,11 +14,6 @@ from typing import Any
 import geopandas as gpd
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.workspace.path_registry import (
-    preprocessing_unused,
-    project_root_of_internal_path,
-    release_preprocessing_use,
-)
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
 )
@@ -270,11 +265,9 @@ def cleanup_stable_folder(geographic: Any, *, keep: bool = False) -> int:
     nothing: the backend writes a raster to disk and caches it afterwards
     (``whitebox_workflows_backend/raster.py:_write_raster``), so every entry of
     that cache already has its file. ``keep`` therefore keeps the rasters.
-
-    Another run of the same project may still read the tree: a run holds a
-    shared use of it from its geographic build on, and the tree is dropped
-    only when no other run holds one. The last run out drops it.
     """
+    import shutil
+
     backend = resolve_delineation_backend()
     if backend_has_callables(backend, "raster", "clear_raster_cache"):
         backend.raster.clear_raster_cache()
@@ -285,26 +278,6 @@ def cleanup_stable_folder(geographic: Any, *, keep: bool = False) -> int:
     stable_path = Path(stable)
     if not stable_path.is_dir():
         return 0
-    project_root = project_root_of_internal_path(stable_path)
-    if project_root is None:
-        return _drop_tree(stable_path)
-    release_preprocessing_use(project_root)
-    with preprocessing_unused(project_root) as unused:
-        if not unused:
-            logger.info(
-                "Kept %s: another run of this project still reads it, the last one drops it",
-                stable_path,
-            )
-            return 0
-        return _drop_tree(stable_path)
-
-
-def _drop_tree(stable_path: Path) -> int:
-    """Remove the preprocessing tree and return the bytes freed."""
-    import shutil
-
-    if not stable_path.is_dir():
-        return 0
     freed = _directory_size(stable_path)
     shutil.rmtree(stable_path, ignore_errors=True)
     logger.info(
@@ -312,7 +285,23 @@ def _drop_tree(stable_path: Path) -> int:
         stable_path,
         freed / 1e6,
     )
+    _drop_empty_parents(stable_path)
     return freed
+
+
+def _drop_empty_parents(stable_path: Path) -> None:
+    """Remove the run's scratch folder, then ``.hmp/scratch/``, once they hold nothing.
+
+    A ``Project`` drops its tree when it closes, after the run's own scratch
+    scope ended, so the folder the tree sat in is left empty behind it.
+    """
+    parent = stable_path.parent
+    targets = [parent] if parent.name == "scratch" else [parent, parent.parent]
+    for target in targets:
+        try:
+            target.rmdir()
+        except OSError:
+            return
 
 
 def _directory_size(root: Path) -> int:

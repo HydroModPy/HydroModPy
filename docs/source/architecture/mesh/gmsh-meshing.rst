@@ -19,7 +19,7 @@ Module: ``hydromodpy/spatial/geographic/core/river_network.py``.
 Trigger: ``geographic.river_network.enabled = true``. The geographic
 pipeline then produces a generated network that feeds the canonical
 ``HydrographicNetwork(role="generated")`` concept. Files written under
-``.hmp/scratch/_preprocessing/geographic/``:
+``.hmp/scratch/<run>/_preprocessing/geographic/``:
 
 - ``river_streams.tif``: raster of stream cells.
 - ``river_streams_pruned.tif``: same, after optional pruning.

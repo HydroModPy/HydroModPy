@@ -68,9 +68,9 @@ class Subbasin:
 
         stable = getattr(geographic, "stable_folder", None)
         if stable is None:
-            from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+            from hydromodpy.core.state.paths import preprocessing_dir
 
-            stable = os.path.join(out_path, PREPROCESSING_DIR)
+            stable = str(preprocessing_dir(Path(out_path)))
         self.subbasin_path = os.path.join(str(stable), "subbasin")
         if not os.path.exists(self.subbasin_path):
             create_folder(self.subbasin_path)

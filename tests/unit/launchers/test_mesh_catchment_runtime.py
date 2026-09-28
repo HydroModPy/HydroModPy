@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 from hydromodpy.spatial.mesh.launcher import runtime as mesh_runtime
 
@@ -16,6 +16,8 @@ from ._mesh_catchment_builders import (
     _DummyGeographicFeatures,
     _DummyWorkspace,
 )
+
+PREPROCESSING_DIR = preprocessing_dir(Path())
 
 
 def test_mesh_runtime_require_mesh_section_returns_typed_model() -> None:

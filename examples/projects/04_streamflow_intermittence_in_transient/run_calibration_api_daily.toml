@@ -95,6 +95,9 @@ objective_blocks = ["hydrograph"]
 method = "grid"
 max_iter = 5
 method_options = { points_per_dim = 5 }
+# The five K do not depend on one another, so they are solved side by side,
+# each in its own folder: the grid takes the time of its slowest run.
+parallel = 5
 
 # 2015 is spin-up: simulated, not scored.
 [calibration.phases.scoring_window]

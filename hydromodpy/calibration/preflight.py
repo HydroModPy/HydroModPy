@@ -560,7 +560,8 @@ def _check_the_budgets(calibration: Any) -> list[PreflightFinding]:
     found here rather than after the budget is spent. ``"auto"`` is always
     enough. Every other engine cannot count, and nothing is checked. A search
     scored on a network output with two bounds closes two roots, and is
-    counted so.
+    counted so. It is counted for the points the engine asks at once,
+    ``max(batch_size, parallel)``, since each round of cuts places that many.
     """
     from hydromodpy.calibration.optim.adapters.bisection_adapter import (
         BisectionAdapter,
@@ -589,6 +590,7 @@ def _check_the_budgets(calibration: Any) -> list[PreflightFinding]:
         }
         if kwargs.get("signed_component") in (None, "J_signed"):
             options["roots"] = _roots_of_the_search(calibration, phase)
+        options["batch"] = max(calibration.batch_size_for(phase), calibration.parallel_for(phase))
         try:
             counted = root_search_budget(float(bounds[0]), float(bounds[1]), **options)
         except (TypeError, ValueError):
@@ -767,7 +769,7 @@ def _searches(calibration: Any) -> list[tuple[str, str, list[str], set[str], int
             calibration.method_for(phase)[0],
             list(phase.parameters),
             _metrics_of(list(phase.objective_blocks), phase.objective),
-            int(phase.parallel),
+            calibration.parallel_for(phase),
         )
         for phase in calibration.phases
     ]
