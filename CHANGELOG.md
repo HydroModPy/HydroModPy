@@ -56,6 +56,10 @@ Each release section includes the following standard categories:
   zone, or the domain one when there is no catchment, and the figures name the frame. They
   summed both zones: the catchment lies inside the MODFLOW 6 domain, so its water was counted
   twice (1.68 m3/s of recharge drawn for 1.09 on the domain and 0.59 on the catchment).
+- `seepage_network_confusion_map` and `network_extent_bounds_map` count every legend class on
+  the frame they declare. "no stream" counted the whole grid (20 548 cells) under "frame: the
+  delineated catchment", and the both-bounds extents counted the domain (1234 cells) next to
+  scored counts taken in the catchment (714).
 
 ---
 

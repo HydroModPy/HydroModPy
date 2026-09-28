@@ -31,8 +31,8 @@ from hydromodpy.display.figures._stream_comparison import (
     AGREEMENT_COLORS,
     CASING_COLOR,
     CELL_WEIGHT_PT,
-    MapExtent,
     MapExtentName,
+    catchment_cells,
     cell_count,
     checked_cells,
     class_label,
@@ -163,31 +163,30 @@ class SeepageNetworkConfusionMap(BaseFigure):
         ax.set_title(dated_title(f"{self.spec.title} - {sim.name or sim.sim_id}", sim, timestep))
 
         window = map_extent(sim, polygons, extent=extent)
+        scope = catchment_cells(sim, polygons) if extent == "catchment" else None
         notes = [threshold_note(comparison), f"frame: {window.name}"]
-        map_legend(ax, _legend_handles(agreement, window), note="\n".join(notes))
+        map_legend(ax, _legend_handles(agreement, scope), note="\n".join(notes))
         window.apply(ax)
         return ax
 
 
-def _legend_handles(agreement: np.ndarray, window: MapExtent) -> list[Patch]:
+def _legend_handles(agreement: np.ndarray, scope: np.ndarray | None) -> list[Patch]:
     """Return one legend patch per class, sized by the cells it holds.
 
     The three classes are always listed, an empty one included: a class the
     model produced nothing for is a result, and a legend that drops it reads
-    as a figure that was never asked the question. They are counted over the
-    whole mesh, which is what the criterion averages; the ground is counted
-    over the frame instead, since it is not a published number and a reader
-    checking it counts the grey they can see.
+    as a figure that was never asked the question. Every count, including the
+    ground, is taken over ``scope``: the declared frame, not the whole mesh a
+    cropped map still holds cells of.
     """
     from matplotlib.patches import Patch
 
+    keep = np.ones_like(agreement, dtype=bool) if scope is None else np.asarray(scope, dtype=bool)
     handles: list[Patch] = []
     for value in _LEGEND_ORDER:
-        selected = agreement == value
-        if value == AGREEMENT_NEITHER:
-            selected = selected & window.inside
-            if not selected.any():
-                continue
+        selected = (agreement == value) & keep
+        if value == AGREEMENT_NEITHER and not selected.any():
+            continue
         handles.append(
             Patch(
                 facecolor=AGREEMENT_COLORS[value],

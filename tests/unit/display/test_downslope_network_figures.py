@@ -469,23 +469,23 @@ def test_the_map_opens_on_the_catchment_and_says_so(mpl) -> None:
         mpl.close(fig)
 
 
-def test_the_ground_is_counted_on_what_the_frame_shows(mpl) -> None:
-    # The three classes are the numbers a trial publishes and stay whole; the
-    # ground is not, and a reader checks it by looking at the grey in front of
-    # them. Counted over the mesh it contradicted the page: on the Nancon the
-    # key said 58 714 cells of no stream in a window holding 53 703.
+def test_every_count_is_taken_on_what_the_frame_shows(mpl) -> None:
+    # Every count in the key, the three classes and the ground alike, is
+    # taken over the declared frame, not the whole mesh. Counted over the
+    # mesh it contradicted the page: on the Nancon the key said 20 548 cells
+    # of no stream in a window holding 11 488.
     fig, ax = mpl.subplots()
 
     SeepageNetworkConfusionMap().render(_partition_run(catchment_columns=[1, 2, 3]), ax)
 
     try:
-        # The frame holds the three middle columns, nine cells, four of which
-        # the criterion classifies. The criterion scores the catchment of its
-        # own graph, the whole valley here, so the excess cell of column 4
-        # counts in the class and not in the ground of the frame.
+        # The frame holds the three middle columns, nine cells. The excess
+        # cell of column 4 sits outside it, so it counts in neither the
+        # class nor the ground of the frame, and the four remaining
+        # classified cells leave five for the ground.
         assert legend_labels(ax) == [
             "valid: simulated and mapped (2 cells)",
-            "excess: simulated only (2 cells)",
+            "excess: simulated only (1 cell)",
             "missing: mapped only (1 cell)",
             "no stream (5 cells)",
         ]
