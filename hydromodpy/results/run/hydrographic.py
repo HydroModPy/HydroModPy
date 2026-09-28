@@ -1,10 +1,11 @@
 """Hydrographic-network accessors for :class:`hydromodpy.results.run.Run`.
 
 Mixin that exposes the canonical hydrographic-network roles persisted with a
-simulation (``reference``, ``generated``, ``simulated_active``) and their
-geometric comparison helpers. Mixed into :class:`Run`; it assumes ``self``
-has ``_sim_id`` and ``_catalog`` set by :meth:`Run.__init__`, and access to
-``self.geographic`` (provided by :class:`RunGeographicMixin`).
+simulation (``reference``, ``reference_permanent``, ``generated``,
+``simulated_active``) and their geometric comparison helpers. Mixed into
+:class:`Run`; it assumes ``self`` has ``_sim_id`` and ``_catalog`` set by
+:meth:`Run.__init__`, and access to ``self.geographic`` (provided by
+:class:`RunGeographicMixin`).
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ class RunHydrographicMixin:
 
         feature_names = set(self._catalog.list_geographic_features(self._sim_id))
         roles: list[str] = []
-        for role in ("reference", "generated", "simulated_active"):
+        for role in ("reference", "reference_permanent", "generated", "simulated_active"):
             feature_name = canonical_feature_name_for_role(role)
             if feature_name is not None and feature_name in feature_names:
                 roles.append(role)
@@ -46,7 +47,7 @@ class RunHydrographicMixin:
         if feature_name is None:
             raise ValueError(
                 "Unknown hydrographic-network role. Expected one of: "
-                "reference, generated, simulated_active."
+                "reference, reference_permanent, generated, simulated_active."
             )
         try:
             return self.geographic(feature_name)
@@ -68,7 +69,7 @@ class RunHydrographicMixin:
         if contract.get("canonical_feature_name") is None:
             raise ValueError(
                 "Unknown hydrographic-network role. Expected one of: "
-                "reference, generated, simulated_active."
+                "reference, reference_permanent, generated, simulated_active."
             )
         return contract
 

@@ -1,7 +1,7 @@
 """``build_network_geometry`` must not rebuild the adjacency it already paid for.
 
-Given a delineated catchment, the function builds the neighbour graph once to
-flood it (:func:`fill_depressions_on_graph`) before descending it. Handing that
+The function builds the neighbour graph once to flood the model top from the
+domain border (:func:`fill_depressions_on_graph`) before descending it. Handing that
 same graph to the downslope metric instead of letting it rebuild its own is
 what makes ``diagonal_neighbors=True`` affordable on a real mesh: two probes
 meant to compare a D4 and a D8 descent both exhausted memory rebuilding the
@@ -90,11 +90,12 @@ class TestTheAdjacencyIsBuiltOnce:
 
         assert calls["n"] == 1
 
-    def test_without_a_catchment_nothing_is_built_early_to_reuse(
+    def test_without_a_catchment_the_flood_still_runs_on_the_one_graph(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """No flood runs without a delineated catchment, so the metric builds its own."""
+        """The flood is seeded on the domain border, so it runs with or without a polygon."""
         calls, wrapper = _counting(topographic_distance_module.shared_node_adjacency)
+        monkeypatch.setattr(stream_geometry_module, "shared_node_adjacency", wrapper)
         monkeypatch.setattr(topographic_distance_module, "shared_node_adjacency", wrapper)
 
         _build(diagonal_neighbors=True, delineated_catchment=None)

@@ -18,13 +18,23 @@ that names a stopping option can run out of budget before meeting it, and that
 search did not converge: its answer is wherever the budget happened to end. An
 engine that names none stops on its budget by design, so spending it is its
 rule and not a failure.
+
+The budget itself follows the same logic. An engine that can count the
+evaluations its rule needs, before the first solve, publishes that count
+(:class:`CountedBudget`): ``max_iter = "auto"`` then budgets its worst case, a
+declared number below its nominal case is refused, and at run time the engine
+is granted exactly what it says it still needs, once. An engine that cannot
+count gets no extension: a search stopped by its budget is reported as not
+converged, and a re-run with a larger ``max_iter`` replays the trials already
+solved from the params-hash cache.
 """
 
 from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from hydromodpy.calibration.optim.optimizer import EngineTraits, engine_traits
 
@@ -47,14 +57,103 @@ def stopping_rule(optimizer: Any) -> str:
     return BUDGET_RULE
 
 
-def budget_extension(max_iter: int) -> int:
+AUTO_BUDGET = "auto"
+"""The ``max_iter`` that asks the engine to size its own budget."""
+
+UNCOUNTED_BUDGET = 100
+"""What ``"auto"`` budgets for an engine that cannot count its evaluations."""
+
+
+@dataclass(frozen=True)
+class CountedBudget:
+    """The evaluations an engine needs to meet its rule, counted before the first solve.
+
+    ``counts[e]`` is what the search spends when its answer needs ``e`` steps of
+    ``step`` beyond the declared setting. For the root search a step is one
+    bracket expansion: ``counts[0]`` is a root inside the declared bounds,
+    ``counts[e]`` a root found after ``e`` expansions.
+    """
+
+    counts: tuple[int, ...]
+    step: str = "bracket expansion"
+
+    @property
+    def nominal(self) -> int:
+        """Evaluations when the answer lies where the file said: ``counts[0]``."""
+        return self.counts[0]
+
+    @property
+    def worst(self) -> int:
+        """The most the engine can spend before it meets its rule or refuses."""
+        return max(self.counts)
+
+    def steps_covered(self, max_iter: int) -> int:
+        """Return how many steps *max_iter* covers, each one and all before it."""
+        covered = 0
+        for index, count in enumerate(self.counts[1:], start=1):
+            if count > max_iter:
+                break
+            covered = index
+        return covered
+
+
+def resolve_budget(optimizer: Any, max_iter: int | str) -> int:
+    """Return the evaluation budget *optimizer* runs with.
+
+    An integer is taken as written. ``"auto"`` is the worst case of an engine
+    that publishes a :class:`CountedBudget` as ``counted_budget``, and
+    :data:`UNCOUNTED_BUDGET` for any other engine.
+    """
+    if max_iter == AUTO_BUDGET:
+        counted = getattr(optimizer, "counted_budget", None)
+        if isinstance(counted, CountedBudget):
+            return counted.worst
+        return UNCOUNTED_BUDGET
+    if isinstance(max_iter, str):
+        raise ValueError(f'max_iter is a positive integer or "auto", got {max_iter!r}.')
+    return int(max_iter)
+
+
+def short_budget(
+    counted: CountedBudget, max_iter: int
+) -> tuple[Literal["error", "warning"], str] | None:
+    """Judge a declared budget against what the engine counted, before any solve.
+
+    Below the nominal count the search cannot meet its rule even when the answer
+    is where the file said, so it is an error. Between the nominal and the worst
+    count it is a warning that says how many steps the budget covers.
+    """
+    budget = int(max_iter)
+    if budget >= counted.worst:
+        return None
+    if budget < counted.nominal:
+        return "error", (
+            f"max_iter = {budget} is below the {counted.nominal} evaluations this search "
+            f"needs to meet its stopping rule even with no {counted.step}. Write "
+            f'max_iter = "auto" ({counted.worst} here, its worst case), or at least '
+            f"{counted.nominal}."
+        )
+    steps = len(counted.counts) - 1
+    return "warning", (
+        f"max_iter = {budget} covers {counted.steps_covered(budget)} {counted.step}(s) "
+        f"of the {steps} the search may take; the worst case needs {counted.worst}. "
+        f'max_iter = "auto" budgets that.'
+    )
+
+
+def remaining_grant(remaining: Any, max_iter: int) -> int:
     """Return the evaluations granted once when the budget ends before the rule.
 
-    Half the initial budget, rounded up, so 48 buys 24 more. One extension and
-    not a loop: a search that needs more than one and a half times what was
-    declared is a configuration to fix, not a budget to stretch in silence.
+    *remaining* is what the engine says it still needs, and it is granted exactly,
+    never a fraction of the budget. Nothing is granted when the engine cannot
+    count it, or when it exceeds half the budget: a search that far from its rule
+    is a configuration to fix, not a budget to stretch in silence.
     """
-    return max(0, math.ceil(int(max_iter) / 2))
+    if not isinstance(remaining, int) or isinstance(remaining, bool) or remaining <= 0:
+        return 0
+    if remaining > math.ceil(int(max_iter) / 2):
+        return 0
+    return remaining
 
 
 def stopping_kwargs(
@@ -149,9 +248,14 @@ def search_width(parameter: Any, tolerance: float) -> float:
 
 
 __all__ = [
+    "AUTO_BUDGET",
     "BUDGET_RULE",
     "TOLERANCE_FIELD",
-    "budget_extension",
+    "UNCOUNTED_BUDGET",
+    "CountedBudget",
+    "remaining_grant",
+    "resolve_budget",
+    "short_budget",
     "engine_stopping_value",
     "search_width",
     "stopping_kwargs",

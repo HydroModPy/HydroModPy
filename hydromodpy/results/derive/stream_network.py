@@ -257,6 +257,7 @@ def network_comparison_from_run(
         mean_recharge_m_s=_mean_recharge_m_s(sim, areas, ratio=tau_specific_ratio),
         tau_specific_ratio=float(tau_specific_ratio),
         delineated_catchment=_delineated_catchment(sim, polygons, mesh.crs),
+        delineated_outlet_xy=_delineated_outlet_xy(sim),
         diagonal_neighbors=bool(diagonal_neighbors),
         observed_position_accuracy_m=observed_position_accuracy_m,
         alpha_warning_threshold=float(alpha_warning_threshold),
@@ -328,12 +329,33 @@ def _delineated_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.n
     )
 
 
+def _delineated_outlet_xy(sim: Run) -> tuple[float, float] | None:
+    """Return the snapped outlet the geographic step delineated from, or ``None``.
+
+    The trial places its outlet from this same point, so the redraw closes the
+    same catchment. ``None`` for a catchment drawn as a polygon.
+    """
+    from hydromodpy.results.run.geographic import geographic_metadata
+
+    meta = geographic_metadata(sim)
+    try:
+        point = (float(meta["x_outlet_snapped"]), float(meta["y_outlet_snapped"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+    return point if np.all(np.isfinite(point)) else None
+
+
 def _mean_recharge_m_s(sim: Run, areas: np.ndarray, *, ratio: float) -> float:
-    """Return the mean recharge rate of the run, in m/s.
+    """Return the time-mean recharge rate of the run, in m/s.
 
     Read back from the budget the solver wrote, never from the TOML: the
-    threshold is a fraction of what the model RECEIVED. A zero ratio makes the
-    threshold zero whatever the recharge is, so the run is not asked for one.
+    threshold is a fraction of what the model RECEIVED. It is the mean over
+    every timestep and every cell, the unweighted mean the criterion takes
+    over the recharge periods of the built model
+    (``calibration.observations.network_geometry.mean_recharge_m_s``). The
+    last timestep alone is one day of a transient run: 4.5 times the mean on
+    the daily Nancon run. A zero ratio makes the threshold zero whatever the
+    recharge is, so the run is not asked for one.
     """
     if float(ratio) == 0.0:
         return 0.0
@@ -344,14 +366,20 @@ def _mean_recharge_m_s(sim: Run, areas: np.ndarray, *, ratio: float) -> float:
             "persisted no recharge budget. Enable it, or set tau_specific_ratio = 0 to "
             "read the purely geometric criterion."
         )
-    recharge_m3_s = np.asarray(sim.field("recharge", timestep=-1), dtype=float).reshape(-1)
-    usable = np.isfinite(recharge_m3_s) & np.isfinite(areas) & (areas > 0.0)
-    if not np.any(usable):
+    n_steps = sim.n_timesteps
+    total = 0.0
+    count = 0
+    for index in range(int(n_steps)) if n_steps else (-1,):
+        recharge_m3_s = np.asarray(sim.field("recharge", timestep=index), dtype=float).reshape(-1)
+        usable = np.isfinite(recharge_m3_s) & np.isfinite(areas) & (areas > 0.0)
+        total += float(np.sum(recharge_m3_s[usable] / areas[usable]))
+        count += int(usable.sum())
+    if count == 0:
         raise ValueError(
             f"stream comparison unavailable for {sim.sim_id}: its recharge budget holds "
             "no finite value on a cell of finite area."
         )
-    return float(np.mean(recharge_m3_s[usable] / areas[usable]))
+    return total / count
 
 
 def agreement_label(value: int) -> str:

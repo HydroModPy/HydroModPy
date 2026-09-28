@@ -33,6 +33,15 @@ class HydrographySourceConfig(HydroModelBase):
     installed next to the build that exported it.
     """
 
+    model_retired_keys = frozenset({"typename"})
+    """``typename`` chose the BD Topage layer, and the only right one is fixed now.
+
+    It defaulted to ``CoursEau``, the named rivers, which leaves out most of the
+    intermittent network and says nothing of permanence. BD Topage is the reaches
+    layer, full stop. The key stays accepted, and ignored, so the runs sealed
+    while it existed keep replaying.
+    """
+
     source: Annotated[str, Profile.USER] = Field(
         ...,
         description=(
@@ -45,7 +54,8 @@ class HydrographySourceConfig(HydroModelBase):
             "value_docs": {
                 "custom": "Loads a river network from a local vector or raster file you provide.",
                 "osm": "Downloads waterway geometries from OpenStreetMap.",
-                "bdtopage": "Downloads the French BD Topage reference network from the Sandre WFS.",
+                "bdtopage": "Downloads every reach of the French BD Topage network from the "
+                "Sandre WFS, each with its permanence, and writes the permanent network too.",
                 "euhydro": "Downloads the EEA EU-Hydro continental-scale river network.",
             }
         },
@@ -66,13 +76,9 @@ class HydrographySourceConfig(HydroModelBase):
     )
 
     # --- BD Topage (Sandre WFS) ---
-    typename: Annotated[str, Profile.DEV] = Field(
-        default="sa:CoursEau_FXX_Topage2025",
-        description="WFS typename for BD Topage.",
-    )
     page_size: Annotated[int, Profile.DEV] = Field(
-        default=2000,
-        description="WFS pagination page size (BD Topage).",
+        default=50_000,
+        description="WFS pagination page size (BD Topage), in features.",
     )
 
     # --- EU-Hydro (EEA REST) ---

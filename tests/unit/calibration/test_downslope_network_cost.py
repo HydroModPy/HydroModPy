@@ -97,6 +97,29 @@ def _evaluate(bench, geometry, observed, threshold, **kwargs):
     )
 
 
+def _divided_valley(first_row: int) -> np.ndarray:
+    """The V valley with a divide between ``first_row - 1`` and ``first_row``.
+
+    The rows above the divide slope north and leave the domain through its
+    northern border; the rows below keep the valley and its southern outlet.
+    The catchment of that outlet on the graph is therefore rows ``first_row``
+    and below, and the rows above are a buffer that does not drain into it.
+    """
+    rows = np.arange(N_ROWS, dtype=float)[:, None]
+    cols = np.arange(N_COLS, dtype=float)[None, :]
+    divide = float(first_row) - 0.5
+    return (1000.0 - np.abs(rows - divide) + 2.0 * np.abs(cols - AXIS_COL)).reshape(-1)
+
+
+def _rows_from(first_row: int) -> np.ndarray:
+    """Every cell of the rows ``first_row`` and below."""
+    mask = np.zeros(N_CELLS, dtype=bool)
+    for row in range(first_row, N_ROWS):
+        for col in range(N_COLS):
+            mask[cell_id(row, col)] = True
+    return mask
+
+
 class TestSimulatedNetwork:
     def test_the_threshold_is_strict(self, bench) -> None:
         flux = np.array([0.0, 1.0, 2.0] + [0.0] * (N_CELLS - 3))
@@ -429,33 +452,27 @@ class TestRechargeProvenance:
 class TestSaturationCapSupport:
     """``L_cap`` has to be a length of the CATCHMENT, not of the model domain.
 
-    The flood is seeded on the single catchment outlet and walks the whole
-    active surface, so after it every active cell holds a descent to that
-    outlet. A maximum taken over the graph therefore follows the model domain,
-    while ``L_cap`` is the value most of ``D_os`` takes at the high end of a
-    bracket. The bench makes the two differ by construction: the top third of
-    the valley is declared out of the catchment while staying in the mesh, and
-    its cells reach the outlet by a path that crosses the whole catchment
-    first, so they are strictly longer than anything inside it.
+    The flood is seeded on the border of the domain and the catchment is what
+    descends to the outlet on that graph, so a buffer beyond the divide never
+    reaches the outlet: the cap is a length of the basin by construction.
+    ``L_cap`` is the value most of ``D_os`` takes at the high end of a bracket,
+    so a buffer that could reach the outlet across the divide would set it.
     """
 
     FIRST_ROW = 20
 
     def _geometry(self, bench, **kwargs):
+        del bench
         vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
-        catchment = np.zeros(N_CELLS, dtype=bool)
-        for row in range(self.FIRST_ROW, N_ROWS):
-            for col in range(N_COLS):
-                catchment[cell_id(row, col)] = True
         return build_network_geometry(
-            topography=bench.elevation,
+            topography=_divided_valley(self.FIRST_ROW),
             face_node_connectivity=connectivity,
             vertices=vertices,
             observed=observed_network("aligned"),
             cell_area_m2=np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
             mean_recharge_m_s=3.2e-8,
             tau_specific_ratio=1e-2,
-            delineated_catchment=catchment,
+            delineated_catchment=_rows_from(self.FIRST_ROW),
             **kwargs,
         )
 
@@ -470,18 +487,17 @@ class TestSaturationCapSupport:
         assert geometry.saturation_cap_m == pytest.approx(float(to_outlet[inside].max()))
         assert np.all(to_outlet[inside] <= geometry.saturation_cap_m + 1e-9)
 
-    def test_the_cap_ignores_what_lies_outside_the_catchment(self, bench) -> None:
+    def test_nothing_beyond_the_divide_reaches_the_outlet(self, bench) -> None:
         geometry = self._geometry(bench)
         outlet_mask = np.zeros(N_CELLS, dtype=bool)
         outlet_mask[geometry.outlet] = True
         to_outlet = downslope_distance_to_mask(geometry.metric, outlet_mask)
 
-        outside = ~geometry.catchment & np.isfinite(to_outlet)
-        # The rows above the catchment stay in the graph and reach the outlet by
-        # crossing the catchment first, so their descent is strictly longer.
-        assert outside.any()
-        assert float(to_outlet[outside].max()) > geometry.saturation_cap_m
-        assert longest_descent_length(geometry.metric, outlet_mask) > geometry.saturation_cap_m
+        assert np.array_equal(geometry.catchment, _rows_from(self.FIRST_ROW))
+        assert not np.any(np.isfinite(to_outlet[~geometry.catchment]))
+        assert longest_descent_length(geometry.metric, outlet_mask) == pytest.approx(
+            geometry.saturation_cap_m
+        )
 
     def test_an_empty_support_is_refused_by_name(self, bench) -> None:
         geometry = self._geometry(bench)
@@ -629,21 +645,26 @@ class TestAlphaIsMeasuredOnTheScoredSupport:
     hydrography of a department gets loaded, the catchment is one basin of it.
     Outside the catchment the mesh is a buffer, so nothing there is required to
     descend into the network, and the trace of those reaches inflates the
-    closure without adding to the numerator. Measured on the Nancon, the raw
-    linework puts 1362 of its 2479 mapped cells outside the catchment and reads
-    0.306 on the mesh against 0.693 on the catchment: a factor of two that says
-    nothing about the agreement being tested.
+    closure without adding to the numerator. Measured on the Nancon when one
+    outlet sealed the whole mesh, the raw linework put 1362 of its 2479 mapped
+    cells outside the catchment and read 0.306 on the mesh against 0.693 on the
+    catchment: a factor of two that says nothing about the agreement tested.
+
+    The clipped bench holds a divide above row ``FIRST_ROW``: the rows north
+    of it drain off the domain, so the catchment of the southern outlet is the
+    rows below it, on the graph as on the polygon.
     """
 
     FIRST_ROW = 20
 
-    def _geometry(self, bench, catchment, case="aligned"):
+    def _geometry(self, bench, catchment, case="aligned", observed=None):
+        clipped = not bool(np.all(catchment))
         vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL_SIZE)
         return build_network_geometry(
-            topography=bench.elevation,
+            topography=_divided_valley(self.FIRST_ROW) if clipped else bench.elevation,
             face_node_connectivity=connectivity,
             vertices=vertices,
-            observed=observed_network(case),
+            observed=observed_network(case) if observed is None else observed,
             cell_area_m2=np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
             mean_recharge_m_s=3.2e-8,
             tau_specific_ratio=1e-2,
@@ -651,11 +672,7 @@ class TestAlphaIsMeasuredOnTheScoredSupport:
         )
 
     def _clipped_catchment(self):
-        catchment = np.zeros(N_CELLS, dtype=bool)
-        for row in range(self.FIRST_ROW, N_ROWS):
-            for col in range(N_COLS):
-                catchment[cell_id(row, col)] = True
-        return catchment
+        return _rows_from(self.FIRST_ROW)
 
     @pytest.mark.parametrize("case", ["aligned", "shifted", "hole", "truncated"])
     def test_both_ratios_are_the_ones_the_masks_hold(self, bench, case) -> None:
@@ -683,14 +700,32 @@ class TestAlphaIsMeasuredOnTheScoredSupport:
         assert geometry.frac_obs_outside_catchment == pytest.approx(outside / mapped)
 
     def test_a_clipping_that_does_not_move_the_ratio_stays_silent(self, bench, caplog) -> None:
+        # The axis is mapped on both sides of the divide, down to the northern
+        # border and down to the outlet, so each reach closes on itself.
+        observed = np.zeros(N_CELLS, dtype=bool)
+        observed[[cell_id(row, AXIS_COL) for row in range(N_ROWS)]] = True
+        with caplog.at_level("WARNING"):
+            geometry = self._geometry(bench, self._clipped_catchment(), observed=observed)
+
+        # A third of the mapped cells are out, over ground that routes on its
+        # own, so both ratios read 1.000 and there is nothing to report.
+        assert geometry.frac_obs_outside_catchment > 0.10
+        assert geometry.alpha_obs_closure == pytest.approx(1.0)
+        messages = " ".join(record.getMessage() for record in caplog.records)
+        assert "outside the scored catchment" not in messages
+
+    def test_a_reach_beyond_the_divide_that_moves_the_ratio_is_reported(
+        self, bench, caplog
+    ) -> None:
+        # Rows 12 to 19 of the axis are mapped beyond the divide and drain north
+        # through twelve unmapped cells: that trace alone moves the mesh ratio.
         with caplog.at_level("WARNING"):
             geometry = self._geometry(bench, self._clipped_catchment())
 
-        # A sixth of the mapped cells are out, over ground that routes the same
-        # way, so both ratios read 1.000 and there is nothing to report.
-        assert geometry.frac_obs_outside_catchment > 0.10
+        assert geometry.alpha_obs_closure_catchment == pytest.approx(1.0)
+        assert geometry.alpha_obs_closure < 0.9
         messages = " ".join(record.getMessage() for record in caplog.records)
-        assert "outside the delineated catchment" not in messages
+        assert "outside the scored catchment" in messages
 
     def test_the_top_versus_map_warning_never_prescribes_a_burn(self, bench, caplog) -> None:
         with caplog.at_level("WARNING"):

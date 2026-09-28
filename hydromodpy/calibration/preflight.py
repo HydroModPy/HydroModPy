@@ -72,6 +72,7 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_the_regimes(calibration, where_from))
     findings.extend(_check_engines(calibration))
     findings.extend(_check_the_precision_can_be_honoured(calibration))
+    findings.extend(_check_the_budgets(calibration))
     findings.extend(_check_the_interval_widths(calibration))
     findings.extend(_check_the_backend_can_serve_the_outputs(config, calibration))
     findings.extend(_check_the_network_criterion_is_not_asked_to_pick_a_ridge(calibration))
@@ -510,6 +511,84 @@ def _declared_precisions(
             phase.tolerance,
             dict(phase.optimizer_kwargs or {}),
             calibration.uncertainty_for(phase).restarts,
+        )
+        for phase in calibration.phases
+    ]
+
+
+def _check_the_budgets(calibration: Any) -> list[PreflightFinding]:
+    """Refuse a root-search budget below its nominal count, announce one below its worst.
+
+    The root search counts its evaluations from its bounds, sweep, tolerance and
+    bracket expansions (:func:`~hydromodpy.calibration.optim.adapters.
+    bisection_adapter.root_search_budget`), so a budget that cannot close the
+    bracket even with the root inside the bounds is a configuration error,
+    found here rather than after the budget is spent. ``"auto"`` is always
+    enough. Every other engine cannot count, and nothing is checked.
+    """
+    from hydromodpy.calibration.optim.adapters.bisection_adapter import (
+        BisectionAdapter,
+        root_search_budget,
+    )
+    from hydromodpy.calibration.optim.stopping import AUTO_BUDGET, short_budget
+
+    findings: list[PreflightFinding] = []
+    for where, method, names, max_iter, tolerance, kwargs in _budgets(calibration):
+        if method != BisectionAdapter.name or max_iter == AUTO_BUDGET or len(names) != 1:
+            continue
+        decl = (calibration.parameters or {}).get(names[0])
+        bounds = list(getattr(decl, "bounds", None) or ())
+        if len(bounds) != 2:
+            continue
+        rel_tol = tolerance if tolerance is not None else kwargs.get("rel_tol")
+        options = {
+            key: value
+            for key, value in (
+                ("rel_tol", rel_tol),
+                ("sweep_points", kwargs.get("sweep_points")),
+                ("bracket_expand", kwargs.get("bracket_expand")),
+            )
+            if value is not None
+        }
+        try:
+            counted = root_search_budget(float(bounds[0]), float(bounds[1]), **options)
+        except (TypeError, ValueError):
+            # Bounds or options the other checks already refuse.
+            continue
+        verdict = short_budget(counted, int(max_iter))
+        if verdict is None:
+            continue
+        severity, detail = verdict
+        if getattr(calibration, "protocol", None) is not None:
+            detail += (
+                " A protocol stage takes its max_iter from [calibration.protocol] "
+                "steady_max_iter or transient_max_iter."
+            )
+        findings.append(PreflightFinding(severity, where, detail))
+    return findings
+
+
+def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | None, dict]]:
+    """Return one entry per search: where its budget is written, its engine and its options."""
+    if not calibration.phases:
+        return [
+            (
+                "[calibration]",
+                calibration.method_for()[0],
+                sorted(calibration.parameters or {}),
+                calibration.max_iter,
+                calibration.tolerance,
+                dict(calibration.optimizer_kwargs or {}),
+            )
+        ]
+    return [
+        (
+            f"[[calibration.phases]] {phase.name!r}",
+            calibration.method_for(phase)[0],
+            list(phase.parameters),
+            phase.max_iter,
+            phase.tolerance,
+            dict(phase.optimizer_kwargs or {}),
         )
         for phase in calibration.phases
     ]

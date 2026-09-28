@@ -54,7 +54,12 @@ from pydantic import Field, TypeAdapter, ValidationError, field_validator, model
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import NonEmptyStr, NonNegativeInt, PositiveFloat
+from hydromodpy.core.config_kit.types import (
+    NonEmptyStr,
+    NonNegativeInt,
+    PositiveFloat,
+    PositiveInt,
+)
 from hydromodpy.core.stream_criterion_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
@@ -139,10 +144,14 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         "several decades, which is what a root search wants; any registered engine is "
         "accepted.",
     )
-    steady_max_iter: Annotated[int, Profile.USER] = Field(
-        default=20,
-        ge=1,
-        description="Evaluation budget of stage one.",
+    steady_max_iter: Annotated[PositiveInt | Literal["auto"], Profile.USER] = Field(
+        default="auto",
+        description="Evaluation budget of stage one. 'auto' lets an engine that counts "
+        "its evaluations size it: the bisection budgets its worst case, S + 2E + "
+        "ceil(log2(1 / t)) for a root found after its E bracket expansions, 23 on "
+        "[1e-7, 1e-3] m/s with seven sweep points and one per cent; any other engine "
+        "gets 100. A number below the bisection's nominal count, S + ceil(log2(s / t)) "
+        "for a root inside the bounds (15 there), is refused before the first solve.",
     )
     steady_tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
@@ -177,7 +186,10 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
     transient_max_iter: Annotated[int, Profile.USER] = Field(
         default=120,
         ge=1,
-        description="Evaluation budget of stage two.",
+        description="Evaluation budget of stage two. The simplex cannot count what it "
+        "needs, so it gets no extension: a stage two that spends this before its "
+        "tolerance is reported as not converged, and a re-run with a larger budget "
+        "replays the trials already solved from the cache.",
     )
     transient_tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
@@ -752,11 +764,40 @@ class CalibOutputNetwork(HydroModelBase):
         "catchment over ground that routes the same way leaves the two ratios equal, "
         "and reporting it there would be noise on every ordinary project.",
     )
-    time: Annotated[OutputTime, Profile.USER] = Field(
+    time: Annotated[Literal["last", "first"], Profile.USER] = Field(
         default="last",
-        description="Which timesteps the release flux is read at. Phase one runs a "
-        "single steady period, so 'last' is the whole run.",
+        description="Which single state the release flux is read at: 'last' (default) "
+        "or 'first'. Phase one runs a single steady period, so 'last' is the whole "
+        "run. 'all' and a list of dates are refused: the network branch always keeps "
+        "one state (the last one it is served), so either would silently score that "
+        "state instead of the one named.",
     )
+
+    @field_validator("time", mode="before")
+    @classmethod
+    def _check_single_state(cls, value: object) -> object:
+        """Refuse a selector that reads more than the one declared state.
+
+        ``build_simulated_network`` (``hydromodpy/core/stream_network.py``) always
+        keeps the last row of whatever stack it is served. Requesting 'last' or
+        'first' serves it exactly one row, so both are read correctly. Requesting
+        'all' or a list of dates serves it the whole stack, still scored at the
+        last row: the network would be scored at a state other than the one the
+        file names, without warning.
+
+        Runs before the field's own type check so this message, not the generic
+        "not a valid enumeration member" one, is what a 'all' or a list of dates
+        gets. The type itself is narrowed to ``Literal["last", "first"]`` so the
+        generated schema and OpenAPI export never advertise the values refused here.
+        """
+        if value == "all" or isinstance(value, list):
+            raise ValueError(
+                f"calibration output for the stream network has time={value!r}: a "
+                "network output reads exactly one state, 'last' or 'first'. A "
+                "transient comparison of the minimal and maximal extents is a "
+                "separate mode being designed, not this field."
+            )
+        return value
 
 
 CalibOutputDecl: TypeAlias = Annotated[
@@ -1140,10 +1181,13 @@ class CalibPhaseDecl(HydroModelBase):
             "with the list installed here."
         ),
     )
-    max_iter: Annotated[int, Profile.USER] = Field(
-        default=100,
-        ge=1,
-        description="Maximum number of evaluations for this phase.",
+    max_iter: Annotated[PositiveInt | Literal["auto"], Profile.USER] = Field(
+        default="auto",
+        description="Maximum number of evaluations for this phase. 'auto' lets an "
+        "engine that counts its evaluations size it: the bisection budgets its worst "
+        "case, and refuses before the first solve a number below its nominal count "
+        "(see [calibration].max_iter). Any other engine gets 100 from 'auto', and no "
+        "extension when it spends them before its stopping rule.",
     )
     tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
@@ -1559,10 +1603,24 @@ class CalibrationConfig(HydroModelBase):
             "no other evaluator."
         ),
     )
-    max_iter: Annotated[int, Profile.USER] = Field(
-        default=100,
-        ge=1,
-        description="Maximum number of calibration iterations.",
+    max_iter: Annotated[PositiveInt | Literal["auto"], Profile.USER] = Field(
+        default="auto",
+        description=(
+            "Maximum number of evaluations of the search. 'auto' lets an engine that "
+            "counts its evaluations before the first solve size its own budget. Only "
+            "the bisection does: with d the declared interval in decades, t = "
+            "log10(1 + rel_tol), S the sweep points (2 when sweep_points is 0), s = d / "
+            "(S - 1) and E = bracket_expand, a root inside the bounds costs S + "
+            "ceil(log2(s / t)) and one found after e expansions S + 2e + "
+            "ceil(log2(1 / t)); 'auto' budgets the largest, 23 on [1e-7, 1e-3] m/s "
+            "with seven points and one per cent (15 inside the bounds). A number "
+            "below the nominal count is refused before the first solve, one below the "
+            "worst case is announced, and a budget that still runs out gets exactly "
+            "the halvings left, once. Any other engine gets 100 from 'auto' and no "
+            "extension: a search that spends its budget before its own stopping rule "
+            "is reported as not converged, and a re-run with a larger max_iter "
+            "replays the trials already solved from the cache."
+        ),
     )
     tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,

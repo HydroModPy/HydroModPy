@@ -347,11 +347,10 @@ def longest_descent_length(
 
     ``within`` restricts the maximum to a catchment, and a caller that measures
     on a catchment must pass it. The graph spans the whole active surface, and
-    a depression flood seeded on one outlet gives EVERY active cell a descent
-    to it, so without the restriction the cap is the longest descent anywhere
-    on the buffered model domain: it would then follow the domain buffer rather
-    than the basin, while being the value most of ``D_os`` takes at the high end
-    of a bracket.
+    a mask that is not a single catchment outlet (a network, a lake) is reached
+    from cells far outside the basin, so without the restriction the cap would
+    follow the domain buffer rather than the basin, while being the value most
+    of ``D_os`` takes at the high end of a bracket.
     """
     distance = downslope_distance_to_mask(metric, outlet_mask)
     finite = np.isfinite(distance)

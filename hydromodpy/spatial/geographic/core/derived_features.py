@@ -87,6 +87,11 @@ class GeographicDerivedFeatures:
         """Return the canonical reference hydrographic network when available."""
         return self.hydrographic_networks.reference
 
+    @property
+    def reference_permanent_hydrographic_network(self) -> HydrographicNetwork | None:
+        """Return the permanent part of the reference network when its source said which."""
+        return self.hydrographic_networks.reference_permanent
+
     @classmethod
     def from_domain_geographic_context(
         cls,
@@ -166,14 +171,21 @@ def attach_reference_hydrographic_network(
     if hydrography_load_result is None:
         return geographic_features
 
+    watershed_shp = geographic_features.boundaries.watershed_shp
     reference = HydrographicNetwork.from_hydrography_load_result(
         hydrography_load_result,
-        watershed_shp=geographic_features.boundaries.watershed_shp,
+        watershed_shp=watershed_shp,
+    )
+    reference_permanent = HydrographicNetwork.permanent_from_hydrography_load_result(
+        hydrography_load_result,
+        watershed_shp=watershed_shp,
     )
     networks = geographic_features.hydrographic_networks
     return replace(
         geographic_features,
-        hydrographic_networks=replace(networks, reference=reference),
+        hydrographic_networks=replace(
+            networks, reference=reference, reference_permanent=reference_permanent
+        ),
     )
 
 

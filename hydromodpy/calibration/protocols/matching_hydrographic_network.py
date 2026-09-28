@@ -171,7 +171,8 @@ class MatchingHydrographicNetwork:
             here="the catchment's own outlet cell is sealed into the target of D_so, "
             "beside the mapped network and any water body",
             why=(
-                "every simulated flowpath ends at the outlet by construction, so "
+                "the scored catchment is every cell whose descent reaches the outlet, "
+                "so every simulated flowpath in it ends there by construction, and "
                 "without sealing it in, the outlet cell would count as unmatched "
                 "seepage for the sole reason that it is the basin's exit, not because "
                 "the network disagrees with the map."
@@ -230,14 +231,22 @@ class MatchingHydrographicNetwork:
         ),
         Deviation(
             key="dem_correc_type",
-            paper="FillDepressions: every depression is raised to its pour point",
-            here="'breach' by default: a channel is carved through the barrier at "
-            "the depression's own minimal elevation change",
+            paper="FillDepressions on the DEM, which then serves both the catchment "
+            "delineation and the distances",
+            here="'breach' by default for the raster delineation, which only builds "
+            "the model domain and places the outlet; the criterion fills the model "
+            "top on the mesh graph by a priority flood seeded on the domain border, "
+            "and reads its catchment there, upstream of the outlet",
             why=(
-                "breaching moves far fewer cells than filling and leaves hillslope "
-                "elevations closer to the DEM the criterion measures distances "
-                "against; WhiteboxTools documents it as the preferred remedy for "
-                "exactly this reason. 'fill' reproduces the paper's own tool."
+                "breaching moves far fewer cells than filling, which is what a "
+                "delineation on a fine DEM with road embankments needs; WhiteboxTools "
+                "documents it as the preferred remedy. The criterion does not descend "
+                "that raster: sampled on another mesh it grows new pits, so the top is "
+                "filled on the graph the distances use, the paper's fill. What is left "
+                "of the departure reaches the criterion only through the outlet and "
+                "the domain, and the gap between the raster polygon and the scored "
+                "catchment is published per trial as catchment_mismatch (0.2 per cent "
+                "on the Nancon grid). 'fill' reproduces the paper's own tool."
             ),
         ),
         Deviation(

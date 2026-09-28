@@ -34,12 +34,21 @@ if TYPE_CHECKING:
     from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 
 
-HydrographicNetworkRole = Literal["reference", "generated", "mesh_constraint", "simulated_active"]
+HydrographicNetworkRole = Literal[
+    "reference", "reference_permanent", "generated", "mesh_constraint", "simulated_active"
+]
 ScalarMetric = float | int | bool | str | None
 HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME = "hydrographic_network_reference"
+HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME = "hydrographic_network_reference_permanent"
 HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME = "hydrographic_network_generated"
 HYDROGRAPHIC_NETWORK_SIMULATED_ACTIVE_FEATURE_NAME = "hydrographic_network_simulated_active"
 HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME = "streams.shp"
+HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_VECTOR_FILENAME = "streams_permanent.shp"
+"""The reaches of the reference network that flow all year, beside ``streams.shp``.
+
+Written by the hydrography loader when its network says which reaches are
+permanent, and absent otherwise.
+"""
 HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME = "streams.tif"
 HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME = "river_network.shp"
 HYDROGRAPHIC_NETWORK_GENERATED_SUMMARY_FILENAME = "river_network_summary.json"
@@ -47,12 +56,14 @@ HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME = "hydrography_streams"
 
 _ROLE_TO_FEATURE_NAME: dict[str, str] = {
     "reference": HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
+    "reference_permanent": HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
     "generated": HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     "simulated_active": HYDROGRAPHIC_NETWORK_SIMULATED_ACTIVE_FEATURE_NAME,
 }
 
 _ROLE_TO_VECTOR_FILENAME: dict[str, str] = {
     "reference": HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME,
+    "reference_permanent": HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_VECTOR_FILENAME,
     "generated": HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME,
 }
 
@@ -306,10 +317,17 @@ class HydrographicNetwork:
     metadata: Mapping[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        valid_roles = {"reference", "generated", "mesh_constraint", "simulated_active"}
+        valid_roles = {
+            "reference",
+            "reference_permanent",
+            "generated",
+            "mesh_constraint",
+            "simulated_active",
+        }
         if str(self.role) not in valid_roles:
             raise ValueError(
-                "role must be one of: reference, generated, mesh_constraint, simulated_active."
+                "role must be one of: reference, reference_permanent, generated, "
+                "mesh_constraint, simulated_active."
             )
         if str(self.source_kind).strip() == "":
             raise ValueError("source_kind cannot be empty")
@@ -388,6 +406,40 @@ class HydrographicNetwork:
         )
 
     @classmethod
+    def permanent_from_hydrography_load_result(
+        cls,
+        hydrography_load_result,
+        *,
+        watershed_shp: str | Path | None = None,
+        source_kind: str = "hydrography_loaded",
+    ) -> HydrographicNetwork | None:
+        """Lift the permanent part of a hydrography LoadResult, or None when it has none.
+
+        The loader writes it only when its network says which reaches flow all
+        year; a network that does not say has no permanent part, and returning
+        the full one under this role would be a wrong answer.
+        """
+        record = _hydrography_field(hydrography_load_result)
+        vector_path = _string_path(_record_metadata(record).get("permanent_vector_path"))
+        if vector_path is None or not Path(vector_path).exists():
+            return None
+        crs = str(getattr(record, "crs", "") or "") or None
+        vector = cls(
+            role="reference_permanent", source_kind=source_kind, vector_path=vector_path
+        ).read_vector()
+        if vector is not None and vector.crs is not None:
+            crs = str(vector.crs)
+        return cls(
+            role="reference_permanent",
+            source_kind=source_kind,
+            vector_path=vector_path,
+            crs=crs,
+            watershed_shp=watershed_shp,
+            metrics=_compute_vector_metrics(vector_path, watershed_shp=watershed_shp),
+            metadata={"result_type": type(hydrography_load_result).__name__},
+        )
+
+    @classmethod
     def from_river_network_products(
         cls,
         river_network_products: RiverNetworkProducts,
@@ -455,10 +507,13 @@ class HydrographicNetworks:
     reference: HydrographicNetwork | None = None
     generated: HydrographicNetwork | None = None
     simulated_active: HydrographicNetwork | None = None
+    reference_permanent: HydrographicNetwork | None = None
+    """The reaches of ``reference`` that flow all year, when its source says which."""
 
     def iter_available(self):
         """Yield the available networks in a stable order."""
-        for network in (self.reference, self.generated, self.simulated_active):
+        networks = (self.reference, self.reference_permanent, self.generated, self.simulated_active)
+        for network in networks:
             if network is not None:
                 yield network
 
@@ -470,6 +525,8 @@ __all__ = [
     "HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME",
     "HYDROGRAPHIC_NETWORK_GENERATED_SUMMARY_FILENAME",
     "HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME",
+    "HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME",
+    "HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_VECTOR_FILENAME",
     "HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME",
     "HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME",
     "HYDROGRAPHIC_NETWORK_REFERENCE_VECTOR_FILENAME",

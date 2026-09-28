@@ -185,6 +185,7 @@ def geometry_from_run(
     from hydromodpy.calibration.observations.network_source import resolve_observed_network
     from hydromodpy.calibration.observations.observed_network import (
         delineated_catchment_mask,
+        delineated_outlet_xy,
         observed_network_mask,
         water_body_mask,
     )
@@ -213,13 +214,13 @@ def geometry_from_run(
     # Resolved once per trial. Neither the mask projection below nor the
     # caller in metrics/solver_extract.py re-resolves it.
     resolved = resolve_observed_network(run_ctx, output)
-    # The criterion routes on the TOPOGRAPHIC catchment, never on the model's
+    # The criterion routes on the TOPOGRAPHIC surface, never on the model's
     # active domain: section 4.4 measures 0.03 to 2.5 per cent of unreachable
     # cells on the first against 10.5 to 14.4 on the second. Cutting the graph
     # on the model domain also breaks the catchment into pieces the flood
     # cannot cross, and the descent then stops at the domain boundary rather
     # than at a stream. The domain restricts what the SOLVER computes; the
-    # supports are restricted by the catchment, below.
+    # supports are restricted by the catchment the graph closes, below.
     inactive = ~np.isfinite(np.asarray(solver_mesh.top, dtype=float).reshape(-1))
     projection = observed_network_mask(
         run_ctx,
@@ -236,7 +237,8 @@ def geometry_from_run(
     # both grows new pits and drops the cells whose centroid falls on nodata.
     # Measured on the Nancon, the sampled route left 51.9 per cent of the
     # simulated support unreachable against 0.0 per cent for the flood on the
-    # mesh graph itself.
+    # mesh graph itself. The raster polygon and the snapped outlet only place
+    # the outlet on that graph; the catchment is read there.
     geometry = build_network_geometry(
         topography=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
         face_node_connectivity=connectivity,
@@ -249,6 +251,7 @@ def geometry_from_run(
         inactive_mask=inactive,
         excluded=water_body_mask(model, n_cells=int(solver_mesh.n_cells)),
         delineated_catchment=delineated_catchment_mask(run_ctx, planar_mesh, connectivity),
+        delineated_outlet_xy=delineated_outlet_xy(run_ctx),
         diagonal_neighbors=bool(output.diagonal_neighbors),
         observed_position_accuracy_m=_accuracy_in_m(output),
         alpha_warning_threshold=float(output.alpha_warning_threshold),

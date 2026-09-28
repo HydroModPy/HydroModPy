@@ -33,6 +33,10 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [v2.0.0a1] - 2026-09-28
+
 ### Removed
 - `reference_values` from calibration protocols and from `protocol_record`.
 - The `hydromodpy.optimizer` entry-point group. A method it listed was refused
@@ -109,6 +113,13 @@ Each release section includes the following standard categories:
   Python for the context alone.
 
 ### Added
+- BD Topage reaches carry a canonical `permanence` column (`permanent`, `intermittent`,
+  `ephemeral`, `dry`, `unknown`, vocabulary in `hydromodpy/data/source/permanence.py`) beside
+  `PersistanceTH`. The download writes its permanent reaches to
+  `hydrography_bdtopage_permanent_<hash>.gpkg` beside `hydrography_bdtopage_<hash>.gpkg`, the run
+  clips them to `streams_permanent.shp` beside `streams.shp` and keeps them as the
+  `reference_permanent` hydrographic network. A network that says nothing about permanence has no
+  permanent part.
 - `CatchmentDomainProducts` and the geographic cache manifest record `buffer_rule`,
   `buffer_declared` and `buffer_area_increase`, so a domain says how its margin was drawn.
 - A MODFLOW 6 twin validation case for the stream-network criterion. A planar hillslope run at
@@ -269,6 +280,33 @@ Each release section includes the following standard categories:
   `protocol__delete = true`.
 
 ### Changed
+- `[[data.hydrography.sources]] source = "bdtopage"` downloads `TronconHydrographique_FXX_Topage2026`,
+  every reach, the hydrographic extent. `CoursEau`, the named rivers it read before, left out most
+  of the intermittent network (441 of 694 km over the upper Ille). The layer is fixed: `typename`
+  is retired, accepted with a warning and ignored so sealed runs replay. The Sandre is asked over a
+  Lambert-93 box with `SRSNAME`, in GeoPackage pages of 50 000. Site selection reads the same
+  layer.
+- A fetched hydrography network is named as every variable names what it fetched,
+  `hydrography_<source>_<box hash>.gpkg` (was `<source>_<bbox>.gpkg`), and kept in the CRS the
+  source answered in; the stream burn's download is `hydrography_<source>_burn_<box hash>.gpkg`
+  (was `burn_<source>_<bbox>.gpkg`). A BD Topage download made before, which holds the named
+  rivers, is never served again, and each burn download is fetched once more.
+- A bisection counts its budget before the first solve. `max_iter` and the protocol's
+  `steady_max_iter` default to `"auto"`, the worst-case count from the bounds, the sweep points,
+  `rel_tol` and the bracket expansions (23 on the Nancon, 15 when the root lies inside the
+  bounds). A declared number below the nominal count is refused by `hmp calibrate --check` and
+  before the first solve; below the worst case it warns. If the budget still runs out, the search
+  gets exactly the halvings it lacks, once. Other engines get no extension: a search stopped by its
+  budget before its own rule is not converged and freezes nothing.
+- A network calibration output reads one state, `time = "last"` or `"first"`. `"all"` and date
+  lists, which were accepted and then ignored for the last stress period, are refused at load.
+- The stream-network criterion reads one surface. It fills the model top on the mesh graph with a
+  priority flood seeded on the border of the domain, snaps the outlet on that graph within two
+  cells to the most accumulated cell, and scores the cells upstream of it. The raster polygon only
+  builds the domain and places the outlet; each trial publishes `catchment_mismatch`, the share of
+  the polygon that differs, and warns above 5 %. Sealing one outlet used to let the seepage of the
+  buffer drain into the scored catchment: on a 75 m proxy of the Nancon, 16 % more network cells
+  and a root shifted by 24 %.
 - `geographic.catchment.buff_area = "N%"` enlarges the catchment area by N per cent, as
   Abherve et al. (2023) describe the domain. The buffer distance is solved on the real polygon,
   then snapped to the DEM grid. On the Nancon the margin falls from 825 m to 150 m and the box
@@ -429,6 +467,14 @@ Each release section includes the following standard categories:
   resume it refused the session it had itself written.
 
 ### Fixed
+- The BD Topage download no longer stops at the first page shorter than requested: the Sandre
+  pages over index candidates, so such a page is not the last one, and a box holding more than one
+  page lost the rest. Pages are counted against the announced total, and a shortfall or a repeated
+  feature raises.
+- The hydrography cache no longer serves an answer fetched for another question over the same box
+  (another BD Topage vintage, other OSM waterway types): an entry records what it was fetched for.
+- A stream comparison redrawn from a run sets its seepage threshold with the mean recharge over
+  the run, as the criterion does, instead of the recharge of the last timestep.
 - The delineation summary shows `buff_area` as declared, with its distance and area increase,
   instead of a value labelled m2. The reference catchment-delineation case accepts `"20%"` and
   distance strings.
@@ -564,10 +610,6 @@ Each release section includes the following standard categories:
   `--list-phases` says so. Two phases that freeze the same path no longer
   refuse each other: the later one wins, and the report and `--list-phases`
   name both, the later as re-opened.
-
----
-
-## [v2.0.0a1] - 2026-09-21
 
 ### Removed
 - `[modflownwt.tgrid]` is gone from the schema, following `[modflow6.tgrid]`.

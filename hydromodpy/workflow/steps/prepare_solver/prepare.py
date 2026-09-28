@@ -447,12 +447,17 @@ def _persist_reference_hydrographic_feature(
     *,
     store: SimulationStore,
 ) -> bool:
-    """Persist the imported hydrography vector as one canonical feature."""
+    """Persist the imported hydrography vector as one canonical feature.
+
+    Its permanent part, when the loader wrote one, goes beside it under its own
+    feature name, so a run read back later still has both.
+    """
     if ctx.sim_id is None:
         return False
 
     from hydromodpy.spatial.geographic.core.hydrographic_network import (
         HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
+        HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
         HydrographicNetwork,
     )
 
@@ -462,7 +467,34 @@ def _persist_reference_hydrographic_feature(
     )
     if network is None:
         network = HydrographicNetwork.from_hydrography_load_result(hydrography_load_result)
+    permanent = (
+        getattr(features, "reference_permanent_hydrographic_network", None)
+        if features is not None
+        else None
+    )
+    if permanent is None:
+        permanent = HydrographicNetwork.permanent_from_hydrography_load_result(
+            hydrography_load_result
+        )
 
+    written = _persist_network_feature(
+        ctx, network, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, store=store
+    )
+    if written and permanent is not None:
+        _persist_network_feature(
+            ctx, permanent, HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME, store=store
+        )
+    return written
+
+
+def _persist_network_feature(
+    ctx: WorkflowContext,
+    network: object,
+    feature_name: str,
+    *,
+    store: SimulationStore,
+) -> bool:
+    """Write one network's vector as the geographic feature *feature_name*."""
     vector_path = getattr(network, "vector_path", None)
     if vector_path in (None, "") or not Path(str(vector_path)).exists():
         return False
@@ -473,14 +505,10 @@ def _persist_reference_hydrographic_feature(
             return False
         if gdf.crs is None and getattr(network, "crs", None) not in (None, ""):
             gdf = gdf.set_crs(str(network.crs), allow_override=True)
-        store.write_geographic_feature(
-            ctx.sim_id,
-            HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
-            gdf,
-        )
+        store.write_geographic_feature(ctx.sim_id, feature_name, gdf)
         return True
     except Exception:
-        logger.debug("Failed to persist hydrographic network reference feature")
+        logger.debug("Failed to persist hydrographic network feature %s", feature_name)
         return False
 
 

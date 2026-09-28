@@ -26,12 +26,24 @@ Returning the better of the two ends would be a minimised mean distance in
 disguise, which is exactly the drift this whole criterion exists to correct, so
 the adapter raises and prints both residuals.
 
-The budget is known before the first solve. The sweep costs its points, and each
-bisection step halves one sweep interval, so the evaluations needed to close the
-bracket follow from the bounds, the sweep and the tolerance alone
-(:func:`evaluations_to_close_the_bracket`). The engine reads it to warn at the
-start of a session whose ``max_iter`` falls short, rather than after the last
-solve.
+The budget is known before the first solve (:func:`root_search_budget`). With
+``d`` the declared interval in decades, ``t = log10(1 + rel_tol)``, ``S`` sweep
+points (two when ``sweep_points`` is zero), ``s = d / (S - 1)`` the sweep step
+and ``E = bracket_expand``:
+
+- a root inside the declared bounds costs ``N_nominal = S + ceil(log2(s / t))``;
+- a root found after ``e`` expansions costs ``S + 2e + ceil(log2(1 / t))``, since
+  each expansion evaluates two new ends and leaves a bracket one decade wide;
+- ``N_worst`` is the largest of those, reached at ``e = E`` whenever the sweep
+  step is at most a decade.
+
+On the Nancon, [1e-7, 1e-3] m/s, seven sweep points and one per cent: 15
+evaluations inside the bounds, 17, 19, 21 and 23 after one to four expansions.
+``max_iter = "auto"`` budgets 23; a declared 10 is refused before the first
+solve; 20, the default before ``"auto"``, covers two expansions. When a budget
+still runs out, the adapter publishes the halvings its bracket still needs
+(:attr:`BisectionAdapter.evaluations_remaining`), and the engine grants exactly
+those, once.
 """
 
 from __future__ import annotations
@@ -47,6 +59,7 @@ from hydromodpy.calibration.optim.optimizer import (
     register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.calibration.optim.stopping import CountedBudget
 from hydromodpy.core.exceptions import ObjectiveError, OptimizerError
 from hydromodpy.core.logging import get_logger
 
@@ -56,6 +69,15 @@ LOG10_ONE_PERCENT = 4.32137e-3
 """``log10(1.01)``: the paper's "K/R varies by less than one per cent", written
 in the log variable the search actually walks."""
 
+DEFAULT_REL_TOL = 0.01
+"""The paper's one per cent on K/R."""
+
+DEFAULT_SWEEP_POINTS = 7
+"""Points of the coarse log sweep run before the bisection."""
+
+DEFAULT_BRACKET_EXPAND = 4
+"""Decade-wide expansions on both sides allowed before a missing root is refused."""
+
 _DEFAULT_SIGNED_COMPONENT = "J_signed"
 
 
@@ -64,33 +86,49 @@ def _same_cost(first: float, second: float) -> bool:
     return math.isclose(first, second, rel_tol=1e-9, abs_tol=1e-12)
 
 
-def _evaluations_in_log_space(width: float, tolerance: float, sweep_points: int) -> int:
-    """Count sweep points plus halvings for an interval *width* decades wide."""
-    points = 2 if sweep_points <= 0 else max(2, int(sweep_points))
-    step = float(width) / (points - 1)
-    if step <= tolerance:
-        return points
-    return points + math.ceil(math.log2(step / tolerance))
+def _halvings(width: float, tolerance: float) -> int:
+    """Return how many halvings bring a bracket *width* wide to *tolerance*."""
+    if width <= tolerance:
+        return 0
+    return math.ceil(math.log2(width / tolerance))
 
 
-def evaluations_to_close_the_bracket(
+def _sweep_size(sweep_points: int) -> int:
+    """Return how many points the sweep evaluates: the two bounds when it is zero."""
+    return 2 if sweep_points <= 0 else max(2, int(sweep_points))
+
+
+def _budget_in_log_space(
+    width: float, tolerance: float, sweep_points: int, bracket_expand: int
+) -> CountedBudget:
+    """Count the evaluations for an interval *width* decades wide, per expansion."""
+    points = _sweep_size(sweep_points)
+    nominal = points + _halvings(width / (points - 1), tolerance)
+    after_one_decade = _halvings(1.0, tolerance)
+    expanded = [
+        points + 2 * expansions + after_one_decade
+        for expansions in range(1, max(0, int(bracket_expand)) + 1)
+    ]
+    return CountedBudget(counts=(nominal, *expanded))
+
+
+def root_search_budget(
     lower: float,
     upper: float,
     *,
-    rel_tol: float = 0.01,
-    sweep_points: int = 7,
-) -> int:
-    """Return how many evaluations the root search needs to close its bracket.
+    rel_tol: float = DEFAULT_REL_TOL,
+    sweep_points: int = DEFAULT_SWEEP_POINTS,
+    bracket_expand: int = DEFAULT_BRACKET_EXPAND,
+) -> CountedBudget:
+    """Return the evaluations the root search needs, per bracket expansion.
 
-    ``lower`` and ``upper`` are the declared bounds in physical units. The sweep
-    spends ``sweep_points`` evaluations (the two bounds when it is zero) and
-    leaves a bracket one sweep interval wide; each bisection step halves it, and
-    the search stops once it is no wider than ``log10(1 + rel_tol)`` decades.
-
-    It is a lower bound in one case only: a root outside the declared bounds
-    costs two evaluations per decade of expansion, plus the halvings of a wider
-    bracket. On the Nancon, [1e-7, 1e-3] with seven sweep points and one per
-    cent gives 7 + 8 = 15, the count the session recorded.
+    ``lower`` and ``upper`` are the declared bounds in physical units. With ``d``
+    the interval in decades, ``t = log10(1 + rel_tol)``, ``S`` the sweep points
+    (two when zero) and ``s = d / (S - 1)``:
+    ``nominal = S + ceil(log2(s / t))``, a root found after ``e`` expansions
+    costs ``S + 2e + ceil(log2(1 / t))``, and ``worst`` is the largest count.
+    On the Nancon, [1e-7, 1e-3] with seven points and one per cent, the counts
+    are 15, 17, 19, 21 and 23.
     """
     low, high = float(lower), float(upper)
     if not (0.0 < low < high):
@@ -99,10 +137,11 @@ def evaluations_to_close_the_bracket(
         )
     if float(rel_tol) <= 0.0:
         raise ValueError(f"rel_tol must be strictly positive, got {rel_tol}.")
-    return _evaluations_in_log_space(
+    return _budget_in_log_space(
         math.log10(high) - math.log10(low),
         math.log10(1.0 + float(rel_tol)),
         int(sweep_points),
+        int(bracket_expand),
     )
 
 
@@ -155,10 +194,10 @@ class BisectionAdapter:
         space: ParameterSpace,
         *,
         seed: int | None = None,
-        rel_tol: float = 0.01,
+        rel_tol: float = DEFAULT_REL_TOL,
         signed_component: str = _DEFAULT_SIGNED_COMPONENT,
-        sweep_points: int = 7,
-        bracket_expand: int = 4,
+        sweep_points: int = DEFAULT_SWEEP_POINTS,
+        bracket_expand: int = DEFAULT_BRACKET_EXPAND,
     ) -> None:
         del seed  # a root search is deterministic
         if space.dim != 1:
@@ -453,14 +492,32 @@ class BisectionAdapter:
         return self._bracket is not None and self._done
 
     @property
-    def evaluations_needed(self) -> int:
-        """Evaluations the declared bounds, sweep and tolerance need to close the bracket.
+    def counted_budget(self) -> CountedBudget:
+        """Evaluations the declared bounds, sweep and tolerance need, per expansion.
 
-        Read by the engine at the start of a session, to warn when ``max_iter``
-        falls short. See :func:`evaluations_to_close_the_bracket`.
+        Read by the engine before the first solve: ``"auto"`` budgets its worst
+        case, a budget below its nominal case is refused. See
+        :func:`root_search_budget`.
         """
         low, high = self._declared
-        return _evaluations_in_log_space(high - low, self._tolerance, self._sweep_points)
+        return _budget_in_log_space(
+            high - low, self._tolerance, self._sweep_points, self._max_expansions
+        )
+
+    @property
+    def evaluations_remaining(self) -> int | None:
+        """Halvings the current bracket still needs, or None before one is found.
+
+        ``ceil(log2(width / t))``, zero once the bracket is closed. Before a sign
+        change the sweep or an expansion is still running, and what follows it
+        is not known yet.
+        """
+        if self._bracket is None:
+            return None
+        if self._done:
+            return 0
+        low, high = self._bracket
+        return _halvings(high - low, self._tolerance)
 
     @property
     def bracket(self) -> tuple[float, float] | None:
@@ -494,8 +551,11 @@ class BisectionAdapter:
 
 
 __all__ = [
-    "BisectionAdapter",
+    "DEFAULT_BRACKET_EXPAND",
+    "DEFAULT_REL_TOL",
+    "DEFAULT_SWEEP_POINTS",
     "LOG10_ONE_PERCENT",
-    "evaluations_to_close_the_bracket",
+    "BisectionAdapter",
+    "root_search_budget",
     "signed_residual",
 ]

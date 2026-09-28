@@ -132,6 +132,51 @@ Minimal example
    [[data.hydrography.sources]]
    source = "bdtopage"
 
+Permanent and intermittent reaches
+""""""""""""""""""""""""""""""""""
+
+BD Topage is read from one layer, ``sa:TronconHydrographique_FXX_Topage2026``:
+every reach of metropolitan France, named or not. That is the hydrographic
+extent; its permanent reaches are the network that still flows at low water.
+Each reach carries ``PersistanceTH`` as the Sandre writes it, and the canonical
+``permanence`` column the loader reads: ``permanent``, ``intermittent``,
+``ephemeral``, ``dry`` or ``unknown``.
+
+The download lands in the data folder of the workspace
+(``<workspace>/data/hydrography/``) under the name every variable gives what it
+fetched, ``<variable>_<source>[_<product>]_<box hash>``, as
+``geology_brgm_1m_<hash>.gpkg`` does:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 45 55
+
+   * - File
+     - Content
+   * - ``hydrography_bdtopage_<hash>.gpkg``
+     - Every reach touching the box, with its attributes and ``permanence``,
+       in Lambert-93. The catalogue serves it back for any box it contains.
+   * - ``hydrography_bdtopage_permanent_<hash>.gpkg``
+     - The permanent reaches of the same box.
+   * - ``hydrography_bdtopage_burn_<hash>.gpkg``
+     - The reaches around the outlet that the stream burn downloads before
+       the catchment exists.
+
+A run then clips the network to its catchment. The clipped copies sit in the
+preprocessing scratch of the project, under the names the geographic pipeline
+reads, ``streams.shp`` and ``streams_permanent.shp``, and the run keeps them as
+its ``reference`` and ``reference_permanent`` networks. ``observed_network =
+"data.hydrography"`` reads ``reference``.
+
+A network that says nothing about permanence, a ``custom`` file without the
+column or an OSM download, has no permanent part: no permanent file is written,
+and one left by an earlier run is removed. Reaches from such a source
+concatenated with BD Topage ones are ``unknown``, never permanent by default.
+
+The Sandre is asked over a Lambert-93 box, and the pages are counted against
+the total the server announces: a page shorter than requested is not the last
+one.
+
 Operational checks
 """"""""""""""""""
 

@@ -246,9 +246,11 @@ Exhaustive option reference:
        default; ``cma_es`` and the Optuna ``cmaes`` sampler require the
        calibration extra.
    * - ``max_iter``
-     - integer >= 1
-     - ``100``
-     - Maximum number of trial evaluations.
+     - integer >= 1 / ``"auto"``
+     - ``"auto"``
+     - Maximum number of trial evaluations. ``"auto"`` is the worst-case count
+       of a ``bisection`` (see :doc:`../../user_guide/workflows/calibration-recipes`),
+       ``100`` for any other engine.
    * - ``save_runs``
      - ``none`` / ``best_n`` / ``all``
      - ``none``

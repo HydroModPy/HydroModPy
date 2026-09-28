@@ -60,7 +60,7 @@ SCAN_ROOTS: tuple[Path, ...] = (HMP_ROOT,)
 # scan that depends on another gate running first is a scan with a hole in it.
 LITERAL_PATTERN = re.compile(r"""(["'])(?:application|image|text|video|audio)/[^"']*\1""")
 
-# The four literals in the package that are not artefact media types, and so
+# The three literals in the package that are not artefact media types, and so
 # not the table's business. Each entry is (path suffix, the media type string
 # itself) -- never the surrounding line, so the entry survives a reformat of
 # code this slice does not own. A new literal in the same file still fails.
@@ -72,11 +72,6 @@ ALLOWLIST: tuple[tuple[str, str], ...] = (
     # Content-Type a local dev server writes on its own HTTP responses.
     ("cli/commands/dev/manage/server.py", "text/html; charset=utf-8"),
     ("cli/commands/dev/manage/server.py", "application/json; charset=utf-8"),
-    # A query parameter the BD TOPAGE API defines, sent to it verbatim.
-    (
-        "data/variables/hydrography/apis/bdtopage.py",
-        "application/json; subtype=geojson",
-    ),
     # The Accept header the GitHub API requires.
     ("physics/hydrology/pyhelp/core/paths.py", "application/vnd.github+json"),
 )

@@ -77,7 +77,10 @@ seeps along it by construction. The criterion measures its distances on that
 top, so the ratio it recomputes on the solver mesh and publishes per trial as
 ``alpha_obs_closure`` describes a different surface. On the Nancon the routing
 DEM reaches ``alpha = 0.994`` after a 30 m burn while ``alpha_obs_closure``
-sits at 0.306, and ``alpha_obs_closure_catchment`` at 0.693. Read the three:
+sat at 0.306, and ``alpha_obs_closure_catchment`` at 0.693, when one outlet
+sealed the whole mesh. With the flood seeded on the domain border the buffer
+reaches leave through the border, and the first two come close (0.81 and 0.77
+on a 75 m proxy of the same basin). Read the three:
 the first says the delineation and the flow paths follow the map, the third
 says how much of the criterion's own measurement is a top-versus-map
 disagreement, and the gap between the second and the third is the mapped
@@ -365,14 +368,15 @@ Four things in there are not free choices.
    would have named.
 
 The network block, in transient, scores one instant
-   A network output is read at the **last stress period** of the run, whatever
-   its ``time`` field says: ``"all"`` and a list of ISO dates both reach the
-   criterion as the whole stack, which is then taken at its last state. The
-   block therefore compares one month to the mapped network, the last of the
-   simulated record. Pick that month with the phase's ``end_datetime``, not
-   with ``time``. Scoring the seasonal extension itself rather than one instant
-   is the method of :cite:`abherve2024headwater`, and it needs an intermittence
-   record.
+   A network output reads exactly one state: ``time = "last"`` (default) or
+   ``"first"``. ``"all"`` and a list of ISO dates are refused at configuration
+   load, so a phase can no longer name a date here and have the criterion score
+   the last stress period instead of it. The block compares one month to the
+   mapped network, the last of the simulated record; pick that month with the
+   phase's ``end_datetime``, not with ``time``. A transient comparison of the
+   minimal and maximal extents is a separate mode being designed. Scoring the
+   seasonal extension itself rather than one instant is the method of
+   :cite:`abherve2024headwater`, and it needs an intermittence record.
 
 ``objective_blocks`` as a share table, not a list
    The two costs are in different units: ``distance_gap`` is metres and
@@ -466,6 +470,34 @@ What each choice buys you
    the paper assumes rather than supposing it, it sees every crossing, and the
    crossing curves come out of the same solves. Set it to zero for the pure
    bisection of the paper.
+
+``max_iter`` of the bisection
+   Its budget is known before the first solve, so the default ``"auto"`` lets
+   the search count it. With ``d`` the declared interval in decades,
+   ``t = log10(1 + rel_tol)``, ``S`` sweep points (two when ``sweep_points`` is
+   zero), ``s = d / (S - 1)`` the sweep step and ``E = bracket_expand``:
+
+   - a root inside the bounds costs ``S + ceil(log2(s / t))``, the nominal count;
+   - a root found after ``e`` expansions costs ``S + 2e + ceil(log2(1 / t))``,
+     since each expansion evaluates two new ends and leaves a bracket one
+     decade wide;
+   - ``"auto"`` budgets the largest of these, the worst case.
+
+   On the Nancon, ``[1e-7, 1e-3]`` m/s, seven sweep points and one per cent:
+   15 inside the bounds, then 17, 19, 21 and 23 after one to four expansions,
+   so ``"auto"`` is 23. The ``20`` the protocol used as its default covered two
+   expansions; the ``18`` written above covers one, and
+   ``hmp calibrate --check`` says so. A number below the nominal count is
+   refused, by ``--check`` and again before the first solve, with the count to
+   write. If the budget still runs out, for instance on failed trials, the
+   search is granted exactly the halvings its bracket still needs, once, with
+   a warning, and only if they fit in half the budget.
+
+   Nelder-Mead, stage two by default, cannot count what it needs and gets no
+   extension. Spending ``max_iter`` before its tolerance leaves the stage not
+   converged: the report says so, the session closes as ``partial``, nothing
+   is frozen and a stage that depends on it is refused. Run it again with a
+   larger ``max_iter``: the trials already solved come back from the cache.
 
 ``[calibration.phases.overrides]``
    The two stages do not run the same model: the first is steady and reads a
@@ -628,8 +660,9 @@ to look at first:
 
 ``alpha_obs_closure`` and ``frac_reachable_obs_raw``
    How much of the criterion's own measurement is a top-versus-map
-   disagreement, and how much of the mapped support has a descent that reaches
-   the network at all. ``alpha_obs_closure`` is measured on the model top and
+   disagreement, and how much of the scored catchment has a descent that
+   reaches the mapped network without the sealed outlet. ``alpha_obs_closure``
+   is measured on the model top and
    not on the burned routing DEM, so a low value is not evidence the burning
    was skipped: read it beside the ``alpha`` of the geographic step, as the
    second item of "Before you start" says. They describe the geometry, not the
@@ -638,15 +671,26 @@ to look at first:
 
 ``alpha_obs_closure_catchment`` and ``frac_obs_outside_catchment``
    The same ratio on the support the criterion actually scores, and the share
-   of the mapped cells that sit outside the delineated catchment. Outside the
+   of the mapped cells that sit outside the scored catchment. Outside the
    catchment the mesh is a buffer: nothing there is required to descend into
    the network, so a linework wider than the catchment inflates the closure of
    ``alpha_obs_closure`` without adding to its numerator. On the Nancon 55 per
-   cent of the mapped cells are out, and the two ratios read 0.306 and 0.693.
+   cent of the mapped cells are out, and the two ratios read 0.306 and 0.693
+   while one outlet sealed the whole mesh.
    **Read the catchment one to judge the agreement**, and the whole-mesh one
    only to see how much linework the criterion carries beyond the basin. A run
    whose ``reference`` network is already clipped, which is what the data
    pipeline persists, has the two agree.
+
+``catchment_mismatch``
+   The catchment the criterion scores is read on its own graph: every cell
+   whose descent on the model top, flooded from the domain border, reaches the
+   outlet. The outlet is the most accumulated cell within two cells of the
+   pour point the geographic step snapped. The raster polygon of the
+   delineation only builds the domain and places that outlet, and this number
+   is the area of their symmetric difference over the area of the polygon. A
+   value above 0.05 is logged as a warning: an outlet on another branch, or a
+   mesh much coarser than the DEM. On the Nancon grid at 75 m it reads 0.002.
 
 ``frac_unreachable_so`` and ``frac_unreachable_os``
    The share of each support whose descent ends without meeting its target.
