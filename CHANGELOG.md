@@ -62,6 +62,10 @@ Each release section includes the following standard categories:
   scored counts taken in the catchment (714).
 - A GeoPackage or Shapefile export of `simulated_active_network` holds the active cells only,
   with their attribute. It wrote every cell of the grid (21 406 polygons, 610 active, 5 MB).
+- The calibrated discharge adds a gridded runoff (SIM2, `extent = "watershed"`), reduced to its
+  watershed mean as the run stores it. The objective read runoff stations only, so
+  `run_calibration_api_daily.toml` scored the drain alone against the total gauged flow while
+  its runs reported drain plus runoff, which pushed K onto the lower bound.
 
 ---
 
