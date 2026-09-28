@@ -8,6 +8,7 @@ manifest. It only runs from a source checkout: a wheel does not carry
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import re
 from dataclasses import dataclass
@@ -18,6 +19,7 @@ from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.examples.manifest import (
     ExampleEntry,
     ExampleFile,
+    ExampleStation,
     catalog_path,
     render_catalog,
 )
@@ -109,10 +111,8 @@ def _build_entry(spec: ExampleSpec, root: Path) -> ExampleEntry:
         _describe(root, path, f"projects/{spec.directory}/{path.name}")
         for path in _authored_files(project_dir)
     ]
-    data = [
-        _describe(root, path, f"data/{path.parent.name}/{path.name}")
-        for path in _data_files(project_dir, root / "examples" / "data")
-    ]
+    data_files, stations = _data_files(project_dir, root / "examples" / "data")
+    data = [_describe(root, path, f"data/{path.parent.name}/{path.name}") for path in data_files]
     if not any(item.dest.endswith(f"/{spec.entry_config}") for item in authored):
         raise ConfigError(
             f"Whitelisted example {spec.id} names entry_config={spec.entry_config!r}, "
@@ -127,6 +127,7 @@ def _build_entry(spec: ExampleSpec, root: Path) -> ExampleEntry:
         entry_config=spec.entry_config,
         files=tuple(sorted(authored, key=lambda item: item.dest)),
         data=tuple(sorted(data, key=lambda item: item.dest)),
+        stations=stations,
     )
 
 
@@ -149,8 +150,10 @@ def _authored_configs(project_dir: Path) -> list[Path]:
     return [path for path in _authored_files(project_dir) if path.suffix == ".toml"]
 
 
-def _data_files(project_dir: Path, data_root: Path) -> list[Path]:
-    """Resolve every data file the project's authored TOMLs reference.
+def _data_files(
+    project_dir: Path, data_root: Path
+) -> tuple[list[Path], tuple[ExampleStation, ...]]:
+    """Resolve every data file and station row the project's authored TOMLs reference.
 
     Each config is read through the run pipeline's own loader, so a variant
     that only overrides ``station_ids`` inherits the ``source`` and ``path``
@@ -159,10 +162,13 @@ def _data_files(project_dir: Path, data_root: Path) -> list[Path]:
     variants are all shipped, so each one has to find its inputs.
     """
     found: set[Path] = set()
+    stations: dict[tuple[str, str], ExampleStation] = {}
     for config in _authored_configs(project_dir):
         document = load_toml_with_base_config(config)
         found.update(_references(document, data_root, config))
-    return sorted(found)
+        for station in _station_rows(document, data_root, config):
+            stations[(station.dest, station.id)] = station
+    return sorted(found), tuple(stations[key] for key in sorted(stations))
 
 
 def _references(document: dict, data_root: Path, config: Path) -> set[Path]:
@@ -223,6 +229,47 @@ def _source_files(variable: str, source: dict, data_root: Path, config: Path) ->
             f"so the manifest cannot tell which files the example needs."
         )
     return [_station_file(folder, station, config) for station in stations]
+
+
+def _station_rows(document: dict, data_root: Path, config: Path) -> list[ExampleStation]:
+    """Return the registry row of every station a folder source names.
+
+    A station file carries values only: its coordinates, CRS and unit live in
+    ``<variable>_custom_LOC.csv``, and a load without that row fails.
+    """
+    rows: list[ExampleStation] = []
+    data_section = document.get("data")
+    if not isinstance(data_section, dict):
+        return rows
+    for variable, section in data_section.items():
+        if not isinstance(section, dict):
+            continue
+        for source in section.get("sources", ()):
+            if not isinstance(source, dict) or source.get("source") != "custom":
+                continue
+            if not source.get("path") or Path(str(source["path"])).suffix:
+                continue
+            registry = data_root / variable / f"{variable}_custom_LOC.csv"
+            if not registry.is_file():
+                raise ConfigError(
+                    f"{config.name} reads {variable} stations, and {registry} does not exist."
+                )
+            with registry.open(newline="", encoding="utf-8") as handle:
+                known = {row["id"]: row for row in csv.DictReader(handle)}
+            for station in source.get("station_ids", ()):
+                row = known.get(str(station))
+                if row is None:
+                    raise ConfigError(
+                        f"{config.name} asks for station {station!r}, which has no row in "
+                        f"{registry}."
+                    )
+                rows.append(
+                    ExampleStation(
+                        dest=f"data/{variable}/{registry.name}",
+                        row=tuple((key, value) for key, value in row.items() if key is not None),
+                    )
+                )
+    return rows
 
 
 def _station_file(folder: Path, station: str, config: Path) -> Path:

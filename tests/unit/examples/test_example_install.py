@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -10,7 +11,7 @@ import pytest
 from hydromodpy.core.exceptions import CacheCorruptionError, DataRequestError
 from hydromodpy.examples import blobs
 from hydromodpy.examples.install import install_example
-from hydromodpy.examples.manifest import ExampleEntry, ExampleFile
+from hydromodpy.examples.manifest import ExampleEntry, ExampleFile, ExampleStation
 
 _DEM = b"a regional DEM, shared by several examples\n"
 _STEP = b'[simulation]\nname = "tiny"\n'
@@ -186,3 +187,62 @@ def test_blobs_are_sharded_by_the_first_two_hex_digits() -> None:
     path = blobs.blob_path(sha)
     assert path.name == sha
     assert path.parent.name == sha[:2]
+
+
+_REGISTRY = "data/hydrometry/hydrometry_custom_LOC.csv"
+_NANCON = (
+    ("id", "NANCON"),
+    ("x", "389285.910"),
+    ("y", "6816518.749"),
+    ("crs", "EPSG:2154"),
+    ("unit", "m3/s"),
+    ("constant", "false"),
+)
+
+
+def _with_station(entry: ExampleEntry) -> ExampleEntry:
+    return replace(entry, stations=(ExampleStation(dest=_REGISTRY, row=_NANCON),))
+
+
+def test_a_station_row_joins_the_scaffolded_registry(source_tree, catalog_entry, workspace) -> None:
+    """`hmp workspace init` writes a registry with a header and no row."""
+    registry = workspace / _REGISTRY
+    registry.parent.mkdir(parents=True)
+    registry.write_text("id,x,y,crs,unit\nMINE,1,2,EPSG:2154,m3/s\n", encoding="utf-8")
+
+    report = install_example(
+        _with_station(catalog_entry), workspace=workspace, source=str(source_tree)
+    )
+
+    lines = registry.read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "id,x,y,crs,unit,constant"
+    assert lines[1] == "MINE,1,2,EPSG:2154,m3/s,"
+    assert lines[2] == "NANCON,389285.910,6816518.749,EPSG:2154,m3/s,false"
+    assert report.stations_written == [f"{_REGISTRY} (station NANCON)"]
+
+
+def test_a_second_install_leaves_the_registry_alone(source_tree, catalog_entry, workspace) -> None:
+    entry = _with_station(catalog_entry)
+    install_example(entry, workspace=workspace, source=str(source_tree))
+    before = (workspace / _REGISTRY).read_bytes()
+
+    report = install_example(entry, workspace=workspace, source=str(source_tree))
+
+    assert (workspace / _REGISTRY).read_bytes() == before
+    assert report.stations_written == []
+    assert report.kept == []
+
+
+def test_an_edited_station_row_is_kept_unless_forced(source_tree, catalog_entry, workspace) -> None:
+    registry = workspace / _REGISTRY
+    registry.parent.mkdir(parents=True)
+    registry.write_text("id,x,y,crs,unit\nNANCON,0,0,EPSG:2154,l/s\n", encoding="utf-8")
+    entry = _with_station(catalog_entry)
+
+    kept = install_example(entry, workspace=workspace, source=str(source_tree))
+    assert kept.kept == [f"{_REGISTRY} (station NANCON)"]
+    assert "NANCON,0,0" in registry.read_text(encoding="utf-8")
+
+    forced = install_example(entry, workspace=workspace, source=str(source_tree), force=True)
+    assert forced.stations_written == [f"{_REGISTRY} (station NANCON)"]
+    assert "NANCON,389285.910" in registry.read_text(encoding="utf-8")

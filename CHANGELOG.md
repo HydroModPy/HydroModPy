@@ -33,6 +33,12 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Fixed
+- `hmp example add 04` merges the rows of the stations it reads (NANCON, NANCON_REA) into the
+  workspace registries `data/<variable>/<variable>_custom_LOC.csv`. `hmp workspace init` writes
+  those registries empty, so every hydrometry, recharge and runoff load failed and the full
+  transient runs diverged. A row already there with other values is kept unless `--force`.
+
 ---
 
 ## [v2.0.0a2] - 2026-09-28
