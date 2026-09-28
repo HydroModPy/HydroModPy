@@ -22,6 +22,10 @@ Autour des étapes :
 - `run_calibration.toml` : calage de K puis Sy par le protocole publié.
 - `run_calibration_by_hand.toml` : le même calage, écrit en deux phases.
 - `run_calibration_composite.toml` : K et Sy ensemble, réseau et hydrogramme pondérés.
+- `run_calibration_bdtopage.toml` : le calage en deux phases sur BD Topage. K sur les deux
+  bornes de l'extension, le réseau permanent et le réseau complet, puis Sy sur le débit.
+- `run_calibration_api_daily.toml` : tout par API sauf le MNT (BD Topage, Hub'Eau, SIM2),
+  journalier 2015-2020. K prend cinq valeurs fixées, chaque run est gardé avec ses figures.
 
 ## Commandes
 
@@ -31,12 +35,14 @@ Depuis ce dossier, après `pip install hydromodpy` :
 hmp run step1_minimal.toml          # puis step2 à step5
 hmp calibrate run_calibration.toml --check
 hmp calibrate run_calibration.toml --list-phases
-hmp run run_calibration.toml        # idem pour les deux autres fichiers de calage
+hmp run run_calibration.toml        # idem pour les autres fichiers de calage
 hmp export nancon_step5_export --list
 ```
 
 L'étape 3 lit BD Topage et Hub'Eau : il faut un accès réseau au premier lancement, les
-réponses sont ensuite en cache. Le calage composite dure environ une heure.
+réponses sont ensuite en cache ; de même pour `run_calibration_bdtopage.toml` et
+`run_calibration_api_daily.toml`. Le calage composite et le calage BD Topage durent
+chacun environ une heure.
 
 ## Où sont les sorties
 

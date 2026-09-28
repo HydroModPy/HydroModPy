@@ -1,0 +1,124 @@
+# Nancon, K and Sy calibrated by hand on BD Topage and the gauge. The map is
+# fetched instead of read off disk, with the permanence of every reach: the
+# permanent reaches are the minimal map, all reaches the maximal one.
+#   1. K alone, monthly transient, until the simulated extents match both
+#      maps: the yearly minimal extent the permanent reaches, the yearly
+#      maximal extent all of them.
+#   2. Sy alone, monthly transient, K frozen, on the gauged discharge.
+# Needs network access at the first run, the download is cached after it.
+#
+#   hmp calibrate run_calibration_bdtopage.toml --check         every problem at once
+#   hmp calibrate run_calibration_bdtopage.toml --list-phases   both phases, before any solve
+#   hmp run       run_calibration_bdtopage.toml                 about one hour: 24 to 32 runs, then 30
+
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "nancon_intermittence_mf6_bdtopage"
+description = "Nancon, K from the permanent and complete BD Topage maps, then Sy from the gauge."
+
+# BD Topage instead of the local map: every reach with its permanence, the
+# permanent ones written apart. The download box comes from the watershed.
+[data.hydrography]
+sources__delete = true
+
+[[data.hydrography.sources]]
+source = "bdtopage"
+
+[calibration]
+rerun_best_with_outputs = true
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+
+[calibration.parameters.Sy]
+bounds = [5e-3, 0.35]
+
+# The maximal map is every reach data.hydrography loaded, the minimal map the
+# permanent reaches it wrote beside them.
+[calibration.outputs.seepage_network]
+support = "network"
+observed_network = "data.hydrography"
+minimal_observed_network = "data.hydrography"
+
+# Two bounds over the scored years instead of one state. Monthly steps: the
+# maximal extent flows at least one month of a year, the minimal one is dry at
+# most one month. Two scored years, so a cell has to meet the rule in both.
+[calibration.outputs.seepage_network.extent]
+maximal_flowing_steps = 1
+minimal_dry_steps = 1
+year_quorum = 1.0
+visible_flow = "1 L/s"
+
+# Equal shares: log K returned halfway between the two roots.
+[calibration.outputs.seepage_network.extent.weights]
+minimal = 0.5
+maximal = 0.5
+
+# The loaded record of station NANCON, on the simulated months.
+[calibration.outputs.hydrograph]
+support = "point"
+variable = "discharge"
+observes = "NANCON"
+
+# Eq. 1 on each bound: the gap in metres, zero where the simulated extent
+# reaches as far as its map.
+[[calibration.objective_blocks]]
+name = "network_extent"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+
+# NSE on log discharge, which weights the recessions where storage shows.
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+uses_outputs = ["hydrograph"]
+
+# Phase one: K alone, Sy at its project value. One sweep, then one bisection
+# per bound on the same trials, each a 36-month run.
+[[calibration.phases]]
+name = "transient_conductivity"
+description = "Match the yearly minimal and maximal simulated extents to the permanent and complete BD Topage maps by moving K, monthly transient."
+parameters = ["K"]
+regime = "transient"
+objective_blocks = ["network_extent"]
+method = "bisection"
+
+# 2000 is spin-up: simulated, not counted in the extents.
+[calibration.phases.scoring_window]
+start = "2001-01-01"
+
+# Phase two: Sy alone, K from phase one. It does not start if phase one did
+# not close both brackets.
+[[calibration.phases]]
+name = "transient_storage"
+description = "Read Sy from the observed hydrograph, K frozen, monthly transient, scored from 2001-01-01 on."
+parameters = ["Sy"]
+regime = "transient"
+objective_blocks = ["hydrograph"]
+method = "scipy_nelder_mead"
+max_iter = 30
+tolerance = 0.05
+depends_on = "transient_conductivity"
+
+[calibration.phases.scoring_window]
+start = "2001-01-01"
+
+# The two maps first, then the extents each phase scored and the hydrograph.
+# The last three only apply to a run the calibration promoted.
+[display]
+figures = [
+    "watershed_id_card",
+    "hydrographic_network_permanence",
+    "network_extent_bounds_map",
+    "hydrograph_log_nse",
+    "flow_persistence_map",
+    "seepage_network_confusion_map",
+
+    "bisection_bracket_trace",
+    "parameter_cost_profile",
+    "matching_hydrographic_network_card",
+]

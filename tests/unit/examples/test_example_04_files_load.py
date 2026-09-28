@@ -18,6 +18,8 @@ EXAMPLE_04 = Path(__file__).resolve().parents[3] / (
 FILES = sorted(path.name for path in EXAMPLE_04.glob("*.toml"))
 CALIBRATIONS = (
     "run_calibration.toml",
+    "run_calibration_api_daily.toml",
+    "run_calibration_bdtopage.toml",
     "run_calibration_by_hand.toml",
     "run_calibration_composite.toml",
 )
