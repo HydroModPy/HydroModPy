@@ -6,7 +6,8 @@ comment K et Sy se calent sur le réseau cartographié et sur le débit jaugé.
 
 ## Les fichiers, dans l'ordre
 
-Chaque étape hérite de la précédente (`base_config`) et n'écrit que ce qui change.
+Chaque étape hérite d'une autre (`base_config`) et n'écrit que ce qui change. L'étape 3 est
+une variante de l'étape 2 sur données d'API ; l'étape 4 repart des données locales de l'étape 2.
 
 1. `step1_minimal.toml` : permanent, MNT local, un K, une recharge moyenne.
 2. `step2_local_data.toml` : ajoute le réseau cartographié et la station, en fichiers locaux.
@@ -34,8 +35,8 @@ hmp run run_calibration.toml        # idem pour les deux autres fichiers de cala
 hmp export nancon_step5_export --list
 ```
 
-Les étapes 3 à 5 lisent BD Topage et Hub'Eau : il faut un accès réseau au premier lancement,
-les réponses sont ensuite en cache. Le calage composite dure environ une heure.
+L'étape 3 lit BD Topage et Hub'Eau : il faut un accès réseau au premier lancement, les
+réponses sont ensuite en cache. Le calage composite dure environ une heure.
 
 ## Où sont les sorties
 

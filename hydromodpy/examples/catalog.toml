@@ -21,8 +21,8 @@ entry_config = "step1_minimal.toml"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/README.md"
 dest = "projects/04_streamflow_intermittence_in_transient/README.md"
-size = 1960
-sha256 = "703d9d952f4a731f6eff00966df871bcab62d314d839adae8397bd958db6a493"
+size = 2059
+sha256 = "360eeef2ebe265add14bc4a862c4f948bae3f2fb3bcb06f2c20daa9c3c0eebca"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/project.toml"
@@ -75,14 +75,14 @@ sha256 = "1ccaa6f5981f49f4eac32472e4c437b61e34ec22c58a747fdee0a7d793be0b08"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step4_transient.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/step4_transient.toml"
-size = 1364
-sha256 = "f947bc81cac46446d0197811dfd960c875f88518012d9c3b55a17631ee4a9a15"
+size = 1445
+sha256 = "342a55ab645f8f242bf39d5e06ec96c7a8ed5c344151832d3ae49eb4f254950f"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step5_export.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/step5_export.toml"
-size = 1909
-sha256 = "a848ca6b8f0fb86b75e100faaa75add2bf59667b6e5b805f9b42c461d4922ae6"
+size = 2023
+sha256 = "29ea8ae3ffea577d70ab23da3265c0497e41df180485fa9a1e14f85fd3585c65"
 
 [[example.data]]
 repo_path = "examples/data/dem/DEM_armorican_massif.tif"

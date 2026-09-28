@@ -9,13 +9,11 @@ base_config = "step4_transient.toml"
 [simulation]
 name = "nancon_step5_export"
 
-# The catchment and the BD Topage network with its permanent class: GeoPackage.
+# The catchment and the mapped network: GeoPackage. The same words export the
+# BD Topage network of step 3 and its permanent class, after the fact:
+#   hmp export nancon_step3_api hydrographic_network_reference hydrographic_network_reference_permanent
 [[export]]
-variables = [
-    "watershed",
-    "hydrographic_network_reference",
-    "hydrographic_network_reference_permanent",
-]
+variables = ["watershed", "hydrographic_network_reference"]
 
 # The same catchment as a Shapefile.
 [[export]]

@@ -1,9 +1,10 @@
-# Step 4: step 3 in monthly transient over 2000-2002, forced by the local
+# Step 4: step 2 in monthly transient over 2000-2002, forced by the local
 # monthly recharge and runoff. K, Sy and Ss are assumed, not calibrated.
+# It builds on the local data of step 2; step 3 is the same model on API data.
 #
 #   hmp run step4_transient.toml
 
-base_config = "step3_api_data.toml"
+base_config = "step2_local_data.toml"
 
 [simulation]
 name = "nancon_step4_transient"
