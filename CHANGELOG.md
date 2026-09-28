@@ -100,6 +100,13 @@ Each release section includes the following standard categories:
     instead, `[8.094e-05, 8.115e-05]` for a summary of `[7.499e-05, 1e-4]`, and its `rise`
     option is removed.
   - The axes carry their units: `K (m/s)`, `|D_so - D_os| (m)`, `1 - NSElog (-)`.
+- The figures of a run redraw the stream network with the mean recharge its trials scored
+  with. The trials averaged the rate the forcing gives each period; the redraw averaged the
+  budget, where a steady spin-up period holds the record mean in place of its month (8.656e-9
+  against 9.075e-9 m/s on the monthly Nancon), so the drawn network was cut at another
+  threshold than the scored one and "The mean recharge moved" was logged for an unchanged
+  forcing. Both now apply one rule (`core.stream_recharge`) to the forcing, the redraw reading
+  the station forcing the run stores; a real change of data or window still warns.
 
 ---
 

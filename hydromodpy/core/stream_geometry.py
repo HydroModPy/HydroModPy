@@ -248,6 +248,10 @@ def _warn_if_recharge_moved(recharge: float) -> None:
     already records the value per trial and the warning only makes the move
     visible while it happens. A relative change under
     :data:`RECHARGE_MOVE_TOLERANCE` is float noise and stays silent.
+
+    A trial and the redraw of a run read ``R`` by one rule
+    (:mod:`hydromodpy.core.stream_recharge`), so a move is a move of the
+    forcing, never of the way it was averaged.
     """
     global _last_mean_recharge
     previous, _last_mean_recharge = _last_mean_recharge, recharge
