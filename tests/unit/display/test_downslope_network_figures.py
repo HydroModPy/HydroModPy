@@ -741,6 +741,120 @@ def test_bracket_trace_keeps_a_failed_evaluation_on_the_zero_line(mpl) -> None:
         mpl.close(fig)
 
 
+def test_bracket_trace_keeps_every_marker_clear_of_its_note(mpl) -> None:
+    # Example 04: trial 7 of the steady bisection sits at -1468 m, the lowest
+    # residual, and the note in the lower left corner covered its marker.
+    from ._calibration_journal import STEADY_J, STEADY_K
+
+    run = _session_run(
+        STEADY_K,
+        [{"D_so": 0.0, "D_os": 0.0, "J_signed": residual} for residual in STEADY_J],
+    )
+    fig = BisectionBracketTraceFigure().plot(run)
+
+    try:
+        fig.canvas.draw()
+        ax = fig.axes[0]
+        note = ax.texts[0].get_bbox_patch().get_window_extent()
+        markers = np.vstack(
+            [
+                np.asarray(collection.get_offsets())
+                for collection in ax.collections
+                if str(collection.get_label()).startswith("D_so - D_os")
+            ]
+        )
+        assert len(markers) == len(STEADY_J)
+        low, high = ax.get_ylim()
+        assert all(low < y < high for _x, y in markers)
+        points = ax.transData.transform(markers)
+        assert not any(note.contains(x, y) for x, y in points)
+        assert not note.overlaps(ax.get_legend().get_window_extent())
+    finally:
+        mpl.close(fig)
+
+
+def _two_root_run(tmp_path):
+    from ._calibration_journal import (
+        K_SPACE,
+        TWO_ROOT_CONFIG,
+        TWO_ROOTS,
+        journal_run,
+        two_root_rows,
+    )
+
+    return journal_run(
+        tmp_path,
+        two_root_rows(),
+        method="bisection",
+        phase="transient_conductivity",
+        config=TWO_ROOT_CONFIG,
+        search_space=K_SPACE,
+        best_trial=24,
+        root_search=TWO_ROOTS,
+    )
+
+
+def test_bracket_trace_is_available_on_a_search_over_two_bounds(tmp_path) -> None:
+    # Two bounds publish J_signed_minimal and J_signed_maximal, never J_signed.
+    assert BisectionBracketTraceFigure().unavailable_reason(_two_root_run(tmp_path)) is None
+
+
+def test_bracket_trace_draws_both_residuals_both_brackets_and_each_root(mpl, tmp_path) -> None:
+    from ._calibration_journal import TWO_ROOT_J
+
+    fig, ax = mpl.subplots()
+
+    BisectionBracketTraceFigure().render(_two_root_run(tmp_path), ax)
+
+    try:
+        for bound in ("minimal", "maximal"):
+            series = next(
+                collection
+                for collection in ax.collections
+                if collection.get_label() == f"D_so - D_os, {bound} bound"
+            )
+            assert np.asarray(series.get_offsets())[:, 1].tolist() == pytest.approx(
+                TWO_ROOT_J[bound]
+            )
+            assert any(
+                collection.get_label() == f"bracket {bound}" for collection in ax.collections
+            )
+        rings = {
+            str(collection.get_label()): np.asarray(collection.get_offsets())[0]
+            for collection in ax.collections
+            if str(collection.get_label()).startswith("K*_")
+        }
+        # Each root is ringed at the evaluation that closed it: trials 15 and 23.
+        assert rings["K*_minimal = 2.564e-05"][0] == pytest.approx(15 - 0.12)
+        assert rings["K*_maximal = 1.358e-06"][0] == pytest.approx(23 + 0.12)
+        returned = next(line for line in ax.lines if str(line.get_label()).startswith("returned"))
+        assert returned.get_xdata()[0] == pytest.approx(24.0)
+        note = ax.texts[0].get_text()
+        assert "K*_minimal = 2.564e-05, bracket [2.548e-05, 2.564e-05]" in note
+        assert "K*_maximal = 1.358e-06, bracket [1.358e-06, 1.366e-06]" in note
+        assert "Delta = log10(K*_maximal / K*_minimal) = -1.28 decade(s)" in note
+        assert "returned K = 5.9e-06" in note
+    finally:
+        mpl.close(fig)
+
+
+def test_crossing_labels_the_parameter_with_the_unit_the_session_declared(mpl) -> None:
+    run = _crossing_run()
+    run.calibration_iterations["parameters"] = [
+        {"K": {"value": block["K_over_R"]["value"], "units": "m/s"}}
+        for block in run.calibration_iterations["parameters"]
+    ]
+    fig, ax = mpl.subplots()
+
+    DownslopeDistanceCrossingFigure().render(run, ax)
+
+    try:
+        assert ax.get_xlabel() == "K (m/s)"
+        assert ax.get_ylabel() == "Downslope distance (m)"
+    finally:
+        mpl.close(fig)
+
+
 class TestTheHeavyRebuildIsShared:
     """Six figures of one gallery ask for the same comparison. It is built once.
 

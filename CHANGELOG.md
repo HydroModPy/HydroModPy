@@ -89,6 +89,17 @@ Each release section includes the following standard categories:
   its objective blocks, and drops the `variable`/`objective` pair a block-scored phase leaves at
   its defaults. It wrote `project = "calibration"`, `objective_name = "nse"` and
   `variable = "head"` for a network phase scored on `distance_gap`.
+- The calibration figures read what they need from the session journal:
+  - `parameter_cost_profile` marks the trial the calibration returned, not the lowest cost:
+    the BD Topage profile named K = 1e-7 for a returned K of 5.9e-6.
+  - `matching_hydrographic_network_card` of a two-bound search shows Delta, the combined value,
+    the validity and the cells without being passed the roots.
+  - `bisection_bracket_trace` draws a two-bound search, both residual series and both roots.
+  - `parameter_cost_profile` and `calibration_progress` share the interval of the calibration
+    summary (one mesh cell for a distance cost, 5 % otherwise). The profile drew a +10 % rise
+    instead, `[8.094e-05, 8.115e-05]` for a summary of `[7.499e-05, 1e-4]`, and its `rise`
+    option is removed.
+  - The axes carry their units: `K (m/s)`, `|D_so - D_os| (m)`, `1 - NSElog (-)`.
 
 ---
 

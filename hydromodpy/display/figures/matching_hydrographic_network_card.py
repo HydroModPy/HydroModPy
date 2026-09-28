@@ -30,8 +30,10 @@ only ``<key>_minimal`` and ``<key>_maximal``: the first panel then shows one
 bracket per bound, and the two panels underneath show both bounds side by
 side, read at the trial the search returned, which is where the run reads
 Eq. 4. The two roots, their spread ``Delta`` and the combined value live in
-the report (``extra["roots"]``), not in the trials, and are written when the
-caller passes them. A one-state output with both maps scores the minimal map
+the report (``extra["roots"]``) and in the session journal (``root_search``),
+not in the trials. When the caller passes no record, the card reads the
+journal of the run's project, so the card a run draws on its own shows them
+too. A one-state output with both maps scores the minimal map
 and publishes the maximal one as a validation (``<key>_maximal_validation``),
 drawn beside the scored map and never mixed into its verdict.
 """
@@ -51,6 +53,11 @@ from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.core.stream_snap import SNAP_MODE_CODE
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._calibration_session import (
+    completed_descriptor,
+    returned_row,
+    two_roots,
+)
 from hydromodpy.display.figures._stream_comparison import (
     AGREEMENT_COLORS,
     CRITERION_NAMES,
@@ -209,7 +216,8 @@ class MatchingHydrographicNetworkCard(BaseFigure):
     so a conductivity read off the card without it would be a fiction.
     ``roots`` is the ``extra["roots"]`` record of a two-root search report:
     the trials hold each bound's bracket, but not ``Delta`` nor the combined
-    value, which only the report carries.
+    value. Left unset, the record is read from the session journal of the
+    first phase, which keeps it under ``root_search``.
     """
 
     spec = FigureSpec(
@@ -254,6 +262,8 @@ class MatchingHydrographicNetworkCard(BaseFigure):
 
         stages = _stage_chain(sim, session_id=session_id)
         table = stages[0].table
+        if roots is None:
+            roots = two_roots(stages[0].descriptor)
         recharge = _mean_recharge(table, mean_recharge, output=output)
         if _scores_two_bounds(table, output=output):
             searches = tuple(
@@ -836,7 +846,9 @@ def _stage_chain(sim: Run, *, session_id: str | None) -> list[_Stage]:
     ordered = sorted(seen, key=lambda sid: (_phase_index(known.get(sid, {}), position[sid]), sid))
     stages: list[_Stage] = []
     for index, sid in enumerate(ordered):
-        descriptor = known.get(sid, {})
+        # The index keeps no trial number and no root search record; the
+        # journal of the session holds both.
+        descriptor = completed_descriptor(sim, sid, known.get(sid, {}))
         label = _text_or_none(descriptor.get("phase_name")) or _STAGE_LABELS[min(index, 1)]
         stages.append(
             _Stage(
@@ -1057,15 +1069,15 @@ def _two_bound_reading(
     """Return the trial a two-root search returned, and its two bounds.
 
     The run reads Eq. 4 on that trial, once per bound, so the card does too.
-    It is the combined trial of the roots record when the report is passed,
-    else the best trial the session declared. A bound weighted zero is not
-    searched and the run reads no verdict on it; the card still draws it.
+    It is the combined trial of the roots record, else the trial the session
+    declared it returned. A bound weighted zero is not searched and the run
+    reads no verdict on it; the card still draws it.
     """
     record = roots or {}
     declared = _int_or_none(record.get("combined_trial_id"))
-    if declared is None:
-        declared = _int_or_none(stage.descriptor.get("best_trial"))
-    row = _trial_row(stage.table.frame, declared)
+    row = None if declared is None else stage.table.row_of_trial(declared)
+    if row is None:
+        row = returned_row(stage.table, stage.descriptor)
     views: list[_MapView] = []
     for bound in BOUNDS:
         weight = _diagnostic_at(stage.table, row, f"weight_{bound}", output=output)
@@ -1089,15 +1101,6 @@ def _two_bound_reading(
         views=tuple(views),
         missing="the returned trial is not known",
     )
-
-
-def _trial_row(frame: pd.DataFrame, trial: int | None) -> int | None:
-    """Return the row of one trial number, or None when it is not in the table."""
-    if trial is None or "iteration" not in frame.columns:
-        return None
-    numbers = pd.to_numeric(frame["iteration"], errors="coerce").to_numpy(dtype="float64")
-    matches = np.flatnonzero(numbers == float(trial))
-    return int(matches[0]) if matches.size else None
 
 
 def _root_entry(record: Mapping[str, Any], bound: str) -> Mapping[str, Any]:
