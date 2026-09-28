@@ -1,0 +1,137 @@
+# Nancon on public data only, the DEM excepted: BD Topage for the network,
+# Hub'Eau for the gauge, SIM2 for the recharge and the runoff. Daily step,
+# 2015-2020, 2015 left out as spin-up, so five years are scored.
+#
+# No search: K takes five fixed values, one full run each, and every run is
+# kept with its figures. The best on the gauge is promoted under the phase
+# name, the four others with a _trial_<n> suffix.
+#
+# Needs network access at the first run; the downloads are cached after it.
+# Ten daily solves of 2192 steps: five trials, then five promoted replays.
+#
+#   hmp calibrate run_calibration_api_daily.toml --check
+#   hmp calibrate run_calibration_api_daily.toml --list-phases
+#   hmp run       run_calibration_api_daily.toml
+
+base_config = "project.toml"
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "nancon_api_daily"
+description = "Nancon, daily 2015-2020 on BD Topage, Hub'Eau and SIM2, K on five fixed values."
+
+# Every [data.<type>] section reads this window: no date is repeated below.
+[simulation.time]
+start_datetime = "2015-01-01"
+end_datetime = "2020-12-31"
+step_value = "1 day"
+
+# `sources__delete` drops the local source of project.toml, so each family
+# below has only its API source. The DEM stays the local file.
+[data.hydrography]
+sources__delete = true
+
+# Every reach with its permanence, the permanent ones written apart.
+[[data.hydrography.sources]]
+source = "bdtopage"
+
+[data.hydrometry]
+sources__delete = true
+
+# Hub'Eau daily mean discharge of "Le Nançon à Lécousse - Pont aux Anes".
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+station_ids = ["J001401001"]
+
+[data.recharge]
+sources__delete = true
+
+# Meteo-France SIM2 reanalysis, 8 km grid, drainage (DRAINC_Q), averaged over
+# the watershed.
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+[data.runoff]
+sources__delete = true
+
+# SIM2 surface runoff (RUNC_Q): the share of the gauged discharge the
+# groundwater model does not produce.
+[[data.runoff.sources]]
+source = "sim2"
+extent = "watershed"
+
+[calibration]
+# Every trial becomes a full run and renders the figures of [display].
+save_runs = "all"
+
+# Log space by default: five points from 1e-6 to 1e-4 are
+# 1e-6, 3.16e-6, 1e-5, 3.16e-5 and 1e-4 m/s. Sy stays at 0.05 (project.toml).
+[calibration.parameters.K]
+bounds = [1e-6, 1e-4]
+
+# The Hub'Eau record of the gauge, on the simulated days.
+[calibration.outputs.hydrograph]
+support = "point"
+variable = "discharge"
+observes = "J001401001"
+
+# NSE on log discharge, which weights the recessions where storage shows.
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+uses_outputs = ["hydrograph"]
+
+# One phase, a regular grid instead of a search: five runs, whatever the cost.
+[[calibration.phases]]
+name = "conductivity_grid"
+description = "K on five fixed values, daily transient, ranked on the Hub'Eau discharge from 2016-01-01 on."
+parameters = ["K"]
+regime = "transient"
+objective_blocks = ["hydrograph"]
+method = "grid"
+max_iter = 5
+method_options = { points_per_dim = 5 }
+
+# 2015 is spin-up: simulated, not scored.
+[calibration.phases.scoring_window]
+start = "2016-01-01"
+
+# Drawn for each of the five runs. A figure that fails is logged and the run
+# goes on, so one API gap does not cost the figures of a whole run.
+[display]
+on_error = "warn"
+# One-instant figures draw September 2019, the end of a dry summer.
+time = "2019-09-15"
+figures = [
+    "watershed_id_card",
+    "hydrographic_network_permanence",
+    "hydrograph_log_nse",
+    "hydrograph_sim_obs",
+    "duration_curve",
+    "recession",
+    "flux_timeseries",
+    "watertable_depth_map",
+    "seepage_map",
+    "cross_section",
+    "network_extent_bounds_map",
+    "flow_persistence_map",
+    "flow_intermittence_map",
+    "seepage_network_confusion_map",
+    "parameter_cost_profile",
+]
+
+# The seepage of February 2020, near the largest saturated extent of the record.
+[display.overrides.seepage_map]
+time = "2020-02-15"
+
+# The scored window, shaded.
+[display.overrides.hydrograph_log_nse]
+scoring_window = ["2016-01-01", "2020-12-31"]
+
+# One hydrological year inside the run instead of the 2002 of project.toml.
+[display.overrides.flow_intermittence_map]
+cycle = "2019"

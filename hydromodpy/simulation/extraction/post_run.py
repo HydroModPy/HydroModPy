@@ -9,15 +9,15 @@ from __future__ import annotations
 
 import inspect
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.config_kit.export_spec import RUN_FORMATS, ExportRequest
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.progress import MILESTONE
 from hydromodpy.core.state.paths import display_path, share_dir_for
-from hydromodpy.simulation.planning.export_config import ExportConfig
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 
@@ -61,7 +61,7 @@ def post_run_results(
     sim_id: str,
     results_config: ResultsConfig,
     store: Any,
-    export_config: ExportConfig | None = None,
+    export_requests: Sequence[ExportRequest] = (),
     keep_solver_files: bool | None = None,
     run_id: str | None = None,
 ) -> None:
@@ -79,8 +79,10 @@ def post_run_results(
         The ``[simulation.results]`` config block.
     store : Catalog
         The open result store.
-    export_config : ExportConfig, optional
-        The top-level ``[export]`` block. Defaults to :class:`ExportConfig`.
+    export_requests : sequence of ExportRequest, optional
+        The ``[[export]]`` blocks of the run, in the order of the file. The
+        package and metadata requests are left to :func:`auto_export_package`,
+        which runs on the sealed run.
     run_id : str, optional
         Human-readable run identifier used to name export subdirectories.
         Falls back to the first 8 characters of *sim_id* when absent.
@@ -102,13 +104,14 @@ def post_run_results(
         results_config=results_config,
         store=store,
     )
-    auto_export_results(
+    written = auto_export_results(
         sim_id=sim_id,
         store=store,
-        export_config=export_config or ExportConfig(),
+        export_requests=export_requests,
         save_catalog=results_config.persistence.save_catalog,
         run_id=run_id,
     )
+    announce_exports(written, share_dir_for(store.project_path) / (run_id or sim_id[:8]))
     cleanup_solver_outputs(
         ctx=ctx,
         results_config=results_config,
@@ -343,51 +346,52 @@ def sample_declared_observation_points(*, ctx: RunContext, sim_id: str, store: A
         return 0
 
 
+def is_run_request(request: ExportRequest) -> bool:
+    """Return whether a request writes the whole run: the package or a metadata view.
+
+    Those read the seal, so they run after it; every other request runs before.
+    """
+    return request.output_format in RUN_FORMATS
+
+
 def auto_export_results(
     *,
     sim_id: str,
     store: Any,
-    export_config: ExportConfig,
+    export_requests: Sequence[ExportRequest],
     save_catalog: bool,
     run_id: str | None = None,
-) -> None:
-    """Run automated exports for one simulation when configured."""
-    if not save_catalog:
-        return
+) -> list[Path]:
+    """Write the ``[[export]]`` requests of one run that read its data, not its seal.
 
-    export_label = run_id or sim_id[:8]
-    _auto_export(sim_id, store, export_config, export_label=export_label)
+    Files land in ``share/<run>/`` unless a request names a folder or a file.
+    Returns the files written; :func:`announce_exports` says it on the console.
+    """
+    if not save_catalog:
+        return []
+    requests = [request for request in export_requests if not is_run_request(request)]
+    return _auto_export(sim_id, store, requests, label=run_id or sim_id[:8])
 
 
 def auto_export_package(
     *,
     sim_id: str,
     store: Any,
-    export_config: ExportConfig,
+    export_requests: Sequence[ExportRequest],
     save_catalog: bool,
     run_id: str | None = None,
-) -> None:
-    """Write the portable ``.hmp`` archive when ``[export].package`` is set.
+) -> list[Path]:
+    """Write the package and metadata requests of one run.
 
     Called on a *sealed* run, while the store is still open: the archive
-    bundles the run seal (manifest, provenance, frozen config) and the packer
-    still needs the index and the live Zarr directory.
+    bundles the run seal (manifest, provenance, frozen config), the views
+    render it, and the packer still needs the index and the live Zarr
+    directory. Returns the files written.
     """
-    if not save_catalog or not export_config.package:
-        return
-
-    label = run_id or sim_id[:8]
-    base_dir = (
-        Path(export_config.output_dir)
-        if export_config.output_dir
-        else share_dir_for(store.project_path)
-    )
-    output_dir = base_dir / label
-    output_dir.mkdir(parents=True, exist_ok=True)
-    dest = output_dir / f"{Path(label).name}.hmp"
-    store.export_package(sim_id, dest)
-    store.record_export(sim_id, kind="hmp", path=dest)
-    _write_run_card(output_dir, sim_id, label)
+    if not save_catalog:
+        return []
+    requests = [request for request in export_requests if is_run_request(request)]
+    return _auto_export(sim_id, store, requests, label=run_id or sim_id[:8])
 
 
 def cleanup_solver_outputs(
@@ -431,119 +435,58 @@ def _accepts_kwarg(callable_obj: Any, name: str) -> bool:
     )
 
 
-def _single_timestep(selector: Any) -> int | str:
-    """Collapse a time selector to one timestep for single-timestep formats."""
-    if isinstance(selector, int):
-        return selector
-    if isinstance(selector, list):
-        return selector[-1] if selector else "last"
-    if selector == "all":
-        return "last"
-    return selector
-
-
-def _time_token(selector: int | str) -> str:
-    """Filename token for a single-timestep selector (e.g. 't3', 'last')."""
-    return f"t{selector}" if isinstance(selector, int) else str(selector)
-
-
 def _auto_export(
     sim_id: str,
     store: Any,
-    export: ExportConfig,
+    requests: Sequence[ExportRequest],
     *,
-    export_label: str = "",
-) -> None:
-    """Run automated exports based on the top-level ``[export]`` config.
+    label: str,
+) -> list[Path]:
+    """Write each request in the order of the file and say once where they went.
 
-    Exports are written to ``share/{export_label}/`` so that the published
-    tree is organized by human-readable run name, not UUID.
+    A request that fails does not stop the next one; the failures are raised
+    together once every request had its turn. Exports are written to
+    ``share/<label>/`` so the published tree is organized by run name, not
+    UUID.
     """
-    from hydromodpy.core.config_kit.export_spec import ExportSpec
-
-    label = export_label or sim_id[:8]
-    base_dir = Path(export.output_dir) if export.output_dir else share_dir_for(store.project_path)
-    output_dir = base_dir / label
-
-    specs: list[ExportSpec] = []
-
-    # Format toggles -> one spec per artifact. Single-timestep rasters use the
-    # configured times selector collapsed to one step; NetCDF honors the full
-    # selector (it is multi-step capable).
-    if export.any_enabled():
-        var_names = list(export.variables)
-        raster_time = _single_timestep(export.time)
-        token = _time_token(raster_time)
-        if export.csv_timeseries:
-            specs.append(ExportSpec(var="*", dest=output_dir / "timeseries.csv"))
-        if var_names:
-            if export.netcdf:
-                specs.append(
-                    ExportSpec(var=var_names, dest=output_dir / "fields.nc", time=export.time)
-                )
-            for var in var_names:
-                if export.vtu:
-                    specs.append(
-                        ExportSpec(
-                            var=var, dest=output_dir / f"{var}_{token}.vtu", time=raster_time
-                        )
-                    )
-                if export.geotiff:
-                    specs.append(
-                        ExportSpec(
-                            var=var,
-                            dest=output_dir / f"{var}_{token}.tif",
-                            time=raster_time,
-                            resolution=export.resolution,
-                        )
-                    )
-                if export.shapefile:
-                    specs.append(
-                        ExportSpec(
-                            var=var, dest=output_dir / f"{var}_{token}.shp", time=raster_time
-                        )
-                    )
-                if export.geopackage:
-                    specs.append(
-                        ExportSpec(
-                            var=var, dest=output_dir / f"{var}_{token}.gpkg", time=raster_time
-                        )
-                    )
-
-    # Explicit artifact specs (the full contract). Relative dests resolve under
-    # the run export directory; absolute dests are kept verbatim.
-    for art in export.artifacts:
-        dest = art.dest if art.dest.is_absolute() else output_dir / art.dest
-        specs.append(art.model_copy(update={"dest": dest}))
-
-    if not specs:
-        return
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-    _write_run_card(output_dir, sim_id, label)
+    if not requests:
+        return []
+    output_dir = share_dir_for(store.project_path) / label
     failures: list[str] = []
-    written = 0
-    for spec in specs:
+    written: list[Path] = []
+    for index, request in enumerate(requests):
         try:
-            out_path = store.export(sim_id, spec)
-            kind = spec.fmt.value if spec.fmt is not None else Path(out_path).suffix.lstrip(".")
-            store.record_export(sim_id, kind=kind, path=out_path)
-            written += 1
+            written.extend(store.export(sim_id, request, default_folder=output_dir))
         except Exception as exc:
-            failures.append(f"{Path(spec.dest).name}: {exc}")
+            failures.append(f"export request {index + 1} ({_describe(request)}): {exc}")
 
+    if any(path.parent == output_dir for path in written):
+        _write_run_card(output_dir, sim_id, label)
+    if failures:
+        raise RuntimeError(f"Auto-export failed for sim {sim_id}: " + "; ".join(failures))
+    return written
+
+
+def announce_exports(written: Sequence[Path], output_dir: Path) -> None:
+    """Say on the console how many files the exports of a run wrote, and where.
+
+    The exporters name every file they write, one INFO line each. This is the
+    one line the default verbosity keeps, printed once for the whole run.
+    """
     if written:
-        # The exporters name every file they write, one INFO line each. This
-        # is the one line the default verbosity keeps: how many, and where.
         logger.info(
             "Exported %d file(s) -> %s",
-            written,
+            len(written),
             display_path(output_dir),
             extra=MILESTONE,
         )
 
-    if failures:
-        raise RuntimeError(f"Auto-export failed for sim {sim_id}: " + "; ".join(failures))
+
+def _describe(request: ExportRequest) -> str:
+    """Name a request in an error: its variables and its format."""
+    names = request.variables if isinstance(request.variables, str) else ", ".join(request.names)
+    fmt = request.output_format
+    return f"variables = {names}" + (f", format = {fmt.value}" if fmt is not None else "")
 
 
 def _write_run_card(output_dir: Path, sim_id: str, label: str) -> None:

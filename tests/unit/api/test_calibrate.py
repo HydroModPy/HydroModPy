@@ -820,27 +820,28 @@ foo = "bar"
 """
 
 
-def test_calibrate_expand_returns_only_what_the_protocol_writes(tmp_path: Path) -> None:
-    """A protocol file expands to its two written sections, no ``protocol`` key."""
+def test_calibrate_expand_returns_the_whole_section(tmp_path: Path) -> None:
+    """A protocol file expands to its whole section, pasteable, with no ``protocol`` key."""
     config = _write_toml(tmp_path / "calib.toml", _PROTOCOL_TOML)
 
     result = hmp.calibrate(config, expand=True)
 
-    assert set(result["calibration"]) == {"objective_blocks", "phases", "outputs"}
+    assert set(result["calibration"]) == {"parameters", "outputs", "objective_blocks", "phases"}
     phases = result["calibration"]["phases"]
     assert [phase["name"] for phase in phases] == ["steady_conductivity", "transient_storage"]
     assert result["calibration"]["objective_blocks"] == [
         {"name": "network_extension", "metric": "distance_gap", "uses_outputs": ["streams"]},
         {"name": "hydrograph", "metric": "nse_log", "uses_outputs": ["hydrograph"]},
     ]
-    # The protocol's own output, not the file's: "streams" already sits in the
-    # file and stays out of what --expand adds.
-    assert set(result["calibration"]["outputs"]) == {"hydrograph"}
+    # The file's own network output and the gauge the protocol adds, together:
+    # a section with only the protocol's additions would not load on its own.
+    assert set(result["calibration"]["outputs"]) == {"streams", "hydrograph"}
     assert result["calibration"]["outputs"]["hydrograph"] == {
         "variable": "discharge",
         "support": "point",
         "observes": "G1",
     }
+    assert set(result["calibration"]["parameters"]) == {"K", "Sy"}
 
 
 _PROTOCOL_TOML_WITH_ITS_OWN_HYDROGRAPH = """
@@ -868,21 +869,15 @@ station_ids = ["G1"]
 """
 
 
-def test_calibrate_expand_does_not_repeat_an_output_the_file_already_declares(
+def test_calibrate_expand_lists_an_output_the_file_already_declares_once(
     tmp_path: Path,
 ) -> None:
-    """A sealed run's own dump of the hydrograph output must not read as new.
-
-    The file spells out every default the protocol's own fresh write leaves
-    out (``time``, ``reducer``, ``diagonal_neighbors``); comparing raw dicts
-    would show it again under ``outputs`` as though the protocol had just
-    added it.
-    """
+    """A sealed run's own dump of the hydrograph output is one output, not two."""
     config = _write_toml(tmp_path / "calib.toml", _PROTOCOL_TOML_WITH_ITS_OWN_HYDROGRAPH)
 
     result = hmp.calibrate(config, expand=True)
 
-    assert set(result["calibration"]) == {"objective_blocks", "phases"}
+    assert set(result["calibration"]["outputs"]) == {"streams", "hydrograph"}
 
 
 def test_calibrate_expand_names_the_protocol_and_its_first_reference(tmp_path: Path) -> None:
@@ -895,7 +890,24 @@ def test_calibrate_expand_names_the_protocol_and_its_first_reference(tmp_path: P
         "name": "matching_hydrographic_network",
         "version": "1.2",
         "citation": "Abherve et al. 2023, 10.5194/hess-27-3221-2023",
+        "inherited": False,
     }
+
+
+def test_calibrate_expand_says_when_the_protocol_comes_from_the_base_config(
+    tmp_path: Path,
+) -> None:
+    """Only then does a file pasting the section under that base drop a protocol."""
+    _write_toml(tmp_path / "project.toml", _PROTOCOL_TOML)
+    config = _write_toml(
+        tmp_path / "run_calibration.toml",
+        'base_config = "project.toml"\n\n[calibration]\nseed = 3\n',
+    )
+
+    result = hmp.calibrate(config, expand=True)
+
+    assert result["protocol"]["inherited"] is True
+    assert result["calibration"]["seed"] == 3
 
 
 def test_calibrate_expand_on_a_file_without_a_protocol_returns_its_own_section(
@@ -910,41 +922,23 @@ def test_calibrate_expand_on_a_file_without_a_protocol_returns_its_own_section(
 
 
 def test_calibrate_expand_round_trips_through_a_hand_written_file(tmp_path: Path) -> None:
-    """Pasting the printed section into a plain file expands to the same phases.
+    """The printed section alone, pasted into a plain file, is the same calibration.
 
     A hand-written file drops the protocol table (``protocol__delete = true`` in
-    a real ``base_config`` chain; here there is none to inherit from, so the
-    key is simply absent) and keeps the phases and blocks the protocol wrote.
-    Expanding it again -- a no-op, since it names no protocol -- must return
-    the exact phases and blocks the protocol expansion produced.
+    a real ``base_config`` chain; here there is none to inherit from) and keeps
+    everything else. Expanding it again -- a no-op, since it names no protocol
+    -- must return the exact section the protocol expansion produced.
     """
     protocol_config = _write_toml(tmp_path / "protocol.toml", _PROTOCOL_TOML)
     expanded = hmp.calibrate(protocol_config, expand=True)
 
     written = dump_toml({"calibration": expanded["calibration"]})
-    hand_written = _write_toml(
-        tmp_path / "hand_written.toml",
-        f"""
-[calibration.parameters.K]
-
-[calibration.parameters.Sy]
-
-[calibration.outputs.streams]
-support = "network"
-stream_geometry_path = "streams.gpkg"
-
-{written}
-""",
-    )
+    hand_written = _write_toml(tmp_path / "hand_written.toml", written)
 
     round_tripped = hmp.calibrate(hand_written, expand=True)
 
     assert round_tripped["protocol"] is None
-    assert round_tripped["calibration"]["phases"] == expanded["calibration"]["phases"]
-    assert (
-        round_tripped["calibration"]["objective_blocks"]
-        == expanded["calibration"]["objective_blocks"]
-    )
+    assert round_tripped["calibration"] == expanded["calibration"]
 
 
 def test_calibrate_expand_refuses_list_phases(tmp_path: Path) -> None:

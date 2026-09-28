@@ -693,7 +693,7 @@ def calibrate_groundwater(
     bounds: Mapping[str, tuple[float, float]] | None = None,
     max_iter: int = 50,
     seed: int | None = None,
-    optimizer_kwargs: Mapping[str, Any] | None = None,
+    method_options: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run a calibration of the groundwater_1d case and return a summary.
 
@@ -716,8 +716,9 @@ def calibrate_groundwater(
         Maximum number of evaluations (ask/tell rounds) for the engine.
     seed : int | None
         Seed forwarded to the optimizer factory when it accepts one.
-    optimizer_kwargs : Mapping[str, Any] | None
-        Extra keyword arguments passed to :func:`build_optimizer`.
+    method_options : Mapping[str, Any] | None
+        Options of the method, passed to :func:`build_optimizer`, as
+        ``method_options`` in a ``[calibration]`` section.
 
     Returns
     -------
@@ -733,7 +734,7 @@ def calibrate_groundwater(
     suggestion_log: dict[int, dict[str, float]] = {}
     evaluator = _make_tracking_evaluator(simulator, chronicle["obs_vector"], suggestion_log)
 
-    factory_kwargs: dict[str, Any] = dict(optimizer_kwargs or {})
+    factory_kwargs: dict[str, Any] = dict(method_options or {})
     if seed is not None and "seed" not in factory_kwargs:
         factory_kwargs["seed"] = seed
     optimizer = build_optimizer(method, space, **factory_kwargs)

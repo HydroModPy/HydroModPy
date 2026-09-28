@@ -306,7 +306,7 @@ def fetch_ign_dem(
         finally:
             for dataset_handle in datasets:
                 dataset_handle.close()
-        mosaic = _normalize_dem_nodata(mosaic)
+        mosaic = _mask_sea(_normalize_dem_nodata(mosaic))
 
         profile = {
             "driver": "GTiff",
@@ -528,6 +528,31 @@ def _normalize_dem_nodata(mosaic):
     return data
 
 
+def _mask_sea(mosaic):
+    """Set the BD ALTI sea to nodata.
+
+    BD ALTI writes the sea as 0 m, not as nodata. A zero-valued region that
+    touches the raster edge or a nodata cell is sea; an inland one is kept.
+    Left in place, the sea is one flat plateau that the breach step cannot
+    route in reasonable time.
+    """
+
+    import numpy as np
+    from scipy import ndimage
+
+    data = np.asarray(mosaic)
+    for band in data:
+        zero = band == 0.0
+        if not zero.any():
+            continue
+        seed = ndimage.binary_dilation(band == -9999.0)
+        seed[0, :] = seed[-1, :] = seed[:, 0] = seed[:, -1] = True
+        labels, _ = ndimage.label(zero)
+        sea_labels = np.unique(labels[seed & zero])
+        band[np.isin(labels, sea_labels[sea_labels > 0])] = -9999.0
+    return data
+
+
 def _processed_metadata_path(raster_path: Path) -> Path:
     return raster_path.with_suffix(".json")
 
@@ -542,7 +567,7 @@ def _processed_cache_request(
     crs: str | None,
 ) -> dict[str, object]:
     return {
-        "schema_version": "ign_geoplateforme_dem_processed_v1",
+        "schema_version": "ign_geoplateforme_dem_processed_v2",
         "dataset": dataset,
         "resolution_m": float(resolution_m),
         "file_format": file_format.upper(),

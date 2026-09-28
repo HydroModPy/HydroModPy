@@ -43,7 +43,9 @@ Files emitted by ``hmp dev schema export``
    * - ``config.json``
      - Full JSON Schema of ``HydroModPyConfig``
    * - ``config_meta.json``
-     - Ordered TOML sections, UI groups, titles
+     - Ordered TOML sections, UI groups, titles. A section with
+       ``repeated: true`` (``[[export]]``) is an array of tables, one
+       block per entry, and its ``ref`` names the model of one entry.
    * - ``field_validators.json``
      - Flat mapping ``field_path -> validator_type``
 

@@ -1,74 +1,129 @@
-"""Tests for the top-level ``[export]`` section (simulation/planning/export_config.py)."""
+"""``[[export]]`` on the root config: an array of requests, each refusal naming its block."""
 
 from __future__ import annotations
 
+import textwrap
+from pathlib import Path
+
 import pytest
-from pydantic import ValidationError
 
-from hydromodpy.simulation.planning.export_config import ExportConfig
+from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.config_kit.export_spec import ExportRequest, load_export_requests
+from hydromodpy.core.exceptions import ConfigValidationError
 
+_HEAD = """\
+[workspace]
+project_root = "{root}"
 
-class TestExportConfig:
-    def test_defaults(self):
-        cfg = ExportConfig()
-        assert cfg.csv_timeseries is False
-        assert cfg.netcdf is False
-        assert cfg.package is False
-        assert cfg.time == "last"
-        assert cfg.variables == ["head"]
+[workflow]
+mode = "simulation"
 
-    def test_any_enabled_false(self):
-        cfg = ExportConfig(netcdf=False, csv_timeseries=False)
-        assert cfg.any_enabled() is False
+[geographic]
+source_mode = "synthetic"
 
-    def test_any_enabled_true(self):
-        cfg = ExportConfig(netcdf=True)
-        assert cfg.any_enabled() is True
-
-    def test_geopackage_toggle(self):
-        cfg = ExportConfig(geopackage=True)
-        assert cfg.geopackage is True
-        assert cfg.any_enabled() is True
-
-    def test_package_toggle(self):
-        cfg = ExportConfig(package=True)
-        assert cfg.package is True
-
-    def test_time_selectors(self):
-        assert ExportConfig(time="all").time == "all"
-        assert ExportConfig(time="first").time == "first"
-        assert ExportConfig(time=3).time == 3
-        assert ExportConfig(time=[0, 2, 4]).time == [0, 2, 4]
-
-    def test_time_rejects_garbage(self):
-        with pytest.raises(ValidationError):
-            ExportConfig(time="middle")
-
-    def test_time_rejects_empty_list(self):
-        with pytest.raises(ValidationError):
-            ExportConfig(time=[])
-
-    def test_output_dir(self):
-        cfg = ExportConfig(output_dir="/tmp/exports")
-        assert cfg.output_dir == "/tmp/exports"
-
-    def test_extra_field_rejected(self):
-        with pytest.raises(ValidationError):
-            ExportConfig.model_validate({"unknown": True})
-
-    def test_variables_is_a_flat_list(self):
-        cfg = ExportConfig(variables=["head", "release_flux"])
-        assert cfg.variables == ["head", "release_flux"]
+"""
 
 
-class TestTopLevelWiring:
-    def test_export_is_top_level_on_root_config(self):
-        from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+def _load(tmp_path: Path, body: str) -> HydroModPyConfig:
+    path = tmp_path / "project.toml"
+    path.write_text(
+        _HEAD.format(root=tmp_path.as_posix()) + textwrap.dedent(body), encoding="utf-8"
+    )
+    return HydroModPyConfig.from_toml(path)
 
-        assert "export" in HydroModPyConfig.model_fields
-        assert HydroModPyConfig.model_fields["export"].default_factory is ExportConfig
 
-    def test_results_config_has_no_export(self):
-        from hydromodpy.simulation.planning.results_config import ResultsConfig
+def test_a_config_without_export_writes_nothing(tmp_path: Path) -> None:
+    assert _load(tmp_path, "").export == []
 
-        assert "export" not in ResultsConfig.model_fields
+
+def test_the_blocks_load_in_the_order_of_the_file(tmp_path: Path) -> None:
+    cfg = _load(
+        tmp_path,
+        """\
+        [[export]]
+        variables = ["head", "watertable_depth"]
+        time = 2002-10-15
+
+        [[export]]
+        variables = "all"
+        format = "package"
+        """,
+    )
+
+    assert [request.variables for request in cfg.export] == [
+        ["head", "watertable_depth"],
+        "all",
+    ]
+    # A bare TOML date reads as the date it names.
+    assert cfg.export[0].time == "2002-10-15"
+
+
+def test_a_refusal_names_its_block(tmp_path: Path) -> None:
+    with pytest.raises(ConfigValidationError, match=r"export\[1\].*time and period"):
+        _load(
+            tmp_path,
+            """\
+            [[export]]
+            variables = "head"
+
+            [[export]]
+            variables = "head"
+            time = "last"
+            period = ["2000-01-01", "2000-12-31"]
+            """,
+        )
+
+
+def test_a_misspelt_key_is_refused_with_its_block(tmp_path: Path) -> None:
+    with pytest.raises(ConfigValidationError, match=r"export\[0\]\.fomat"):
+        _load(tmp_path, '[[export]]\nvariables = "head"\nfomat = "netcdf"\n')
+
+
+def test_a_request_written_as_a_table_is_refused_with_the_spelling_to_write(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ConfigValidationError, match=r"write \[\[export\]\]"):
+        _load(tmp_path, '[export]\nvariables = "head"\nformat = "netcdf"\n')
+
+
+def test_the_old_table_of_toggles_still_loads(tmp_path: Path) -> None:
+    cfg = _load(tmp_path, '[export]\ngeotiff = true\nvariables = ["head"]\ntime = 3\n')
+
+    assert cfg.export == [ExportRequest(variables=["head"], format="geotiff", time=3)]
+
+
+def test_the_loader_reads_an_empty_document_as_no_request() -> None:
+    assert load_export_requests(None) == []
+    assert load_export_requests([]) == []
+
+
+def test_export_is_a_top_level_list_on_the_root_config() -> None:
+    field = HydroModPyConfig.model_fields["export"]
+    assert field.default_factory is list
+
+
+def test_results_config_has_no_export() -> None:
+    from hydromodpy.simulation.planning.results_config import ResultsConfig
+
+    assert "export" not in ResultsConfig.model_fields
+
+
+def test_the_requests_survive_the_resolved_config_round_trip(tmp_path: Path) -> None:
+    """A run seals its resolved config and a resume loads it back."""
+    cfg = _load(
+        tmp_path,
+        """\
+        [[export]]
+        variables = "discharge"
+        period = ["2001-01-01", "2002-12-31"]
+
+        [[export]]
+        variables = "watertable_depth"
+        time = "last"
+        file = "depth_wgs84.tif"
+        crs = "EPSG:4326"
+        """,
+    )
+    frozen = cfg.to_toml(tmp_path / "resolved.toml", profile="expert")
+
+    assert HydroModPyConfig.from_toml(frozen).export == cfg.export

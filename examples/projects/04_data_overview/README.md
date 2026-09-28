@@ -1,11 +1,10 @@
 # 04 - Data overview
 
-A small unnamed catchment in Brittany (EPSG:2154), delineated from an outlet
-coordinate on the regional 75 m DEM. `[workflow].mode = "overview"` runs the
-data-only pipeline: no mesh, no solver. It builds the catchment and a
-50 m constant-thickness domain, loads geology, hydrography, hydrometry,
-intermittency and coastal water level data, and renders a panel of context
-figures.
+The Nançon at Lécousse, a 64.6 km² catchment near Fougères (Ille-et-Vilaine,
+EPSG:2154), built from one outlet coordinate and nothing else.
+`[workflow].mode = "overview"` runs the data-only pipeline: no mesh, no
+solver. Every layer comes from a public French service; no file ships with
+this example, the DEM included.
 
 ## Run
 
@@ -13,25 +12,33 @@ figures.
 hmp run examples/projects/04_data_overview/project.toml
 ```
 
-Runtime: about 20 s, most of it spent fetching Hub'Eau, ONDE and SHOM data
-over the network.
+Needs network access. No service asks for a key. About 30 s once the caches
+exist. The first run also downloads the BD ALTI archive of the department and
+the BRGM departmental map; everything lands in `examples/data/`.
 
 ## Data
 
-| Source | Family | Role |
+| Family | Source | Role |
 |---|---|---|
-| `dem/DEM_armorican_massif.tif` | dem | regional 75 m DEM, catchment delineation |
-| BRGM 1:1 000 000 geology, provider `brgm_1m` | geology | geological context map |
-| `hydrography/regional_stream_network.shp` (`FID`) | hydrography | custom stream network overlay |
-| Hub'Eau, product `QmnJ` | hydrometry | monthly discharge, 2019-2025 |
-| Hub'Eau, ONDE stations | intermittency | intermittency observations, 2019-2025 |
-| SHOM sea level | oceanic | nearest tide gauge, January 2003 |
+| dem | IGN Geoplateforme, BD ALTI 25 m | catchment delineation, elevation maps |
+| geology | BRGM 1:50 000 departmental map | lithology map |
+| hydrography | Sandre BD TOPAGE | reference stream network |
+| hydrometry | Hub'Eau, product `QmnJ` | daily discharge at Lécousse |
+| piezometry | Hub'Eau, product `level` | groundwater level at Louvigné-du-Désert |
+| intermittency | Hub'Eau ONDE | flow-state observations |
+| water_quality | Hub'Eau river quality | nitrates, water temperature, conductivity |
+| precipitation, etp | Météo-France SIM2 | monthly climatic summary |
+
+No section names a path or a bounding box, and only the piezometer is named:
+no piezometer lies inside the catchment, so the nearest one still recording,
+11 km north, is asked for by its BSS code. Every other source is asked over
+the delineated watershed, and every time series inherits the `[overview]`
+window, 2019 to 2025.
 
 ## What it shows
 
-The `[overview.panels]` table turns each figure on or off independently:
-DEM, geology and hydrography maps, a stats card, discharge and intermittency
-time series, and a station inventory. Piezometry, climatic summary and water
-quality panels are declared but switched off here because this catchment has
-no data for them; the panel table is the place to toggle what a data-overview
-run reports without touching the loading logic.
+One figure per panel of `[overview.panels]`, all on by default: the regional
+situation, DEM with stations, geology and BD TOPAGE maps, a stats card, the
+discharge, piezometry, ONDE and water quality series, the P/ETP monthly
+summary and a station inventory. To turn one off, add the table and set its
+key to `false`.

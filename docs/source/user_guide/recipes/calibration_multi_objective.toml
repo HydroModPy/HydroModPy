@@ -56,7 +56,8 @@ bounds = [5e-3, 0.35]
 # `observes` names a station the project loaded. Its record is aligned on the
 # simulated timestamps, so a block scores a real chronicle rather than a vector
 # transcribed into this file. The data family follows `variable`: discharge from
-# hydrometry, head from piezometry, stage from lake_levels.
+# hydrometry, head from piezometry, stage from lake_levels. A station's own record
+# places it, so a point output that observes one writes no x or y.
 
 [calibration.outputs.outlet_discharge]
 variable = "discharge"
@@ -67,8 +68,6 @@ observes = "J7branch"
 [calibration.outputs.piezometer_p1]
 variable = "head"
 support = "point"
-x = 348120.0
-y = 6812450.0
 observes = "BSS001ABCD"
 
 [calibration.outputs.lake_level]

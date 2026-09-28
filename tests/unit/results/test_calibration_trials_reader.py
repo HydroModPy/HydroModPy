@@ -135,3 +135,35 @@ def test_a_run_shaped_adapter_is_read_from_its_own_rows() -> None:
 def test_anything_else_is_refused_by_name() -> None:
     with pytest.raises(ValueError, match="no calibration trial can be read"):
         calibration_trials(object())
+
+
+def test_a_named_session_is_read_even_when_the_run_holds_no_row_of_it(catalog) -> None:
+    """The run promoted from a second phase reads the first phase by its id."""
+    _insert_trials(catalog, 3)
+    other_phase_run = "55555555-5555-5555-5555-555555555555"
+    catalog.backend.execute(
+        """
+        INSERT INTO calibration_iterations
+            (session_id, iteration, sim_id, params_hash, parameters,
+             objective_value, metrics, status, from_cache, duration_s)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            "66666666-6666-6666-6666-666666666666",
+            0,
+            other_phase_run,
+            "hash-sy",
+            '{"Sy": 0.05}',
+            0.1,
+            "{}",
+            "completed",
+            False,
+            1.0,
+        ],
+    )
+    run = Run(other_phase_run, catalog)
+
+    frame = calibration_trials(run, session_id=SESSION_ID)
+    assert len(frame) == 3
+    # The journal writes a session id as bare hex; the index keeps a UUID.
+    assert len(calibration_trials(run, session_id=SESSION_ID.replace("-", ""))) == 3

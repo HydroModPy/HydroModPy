@@ -1,4 +1,9 @@
-"""Tests for simulation/results/exporters/ - format-specific exporters."""
+"""Format-level behaviour of the exporters, reached through ``Catalog.export``.
+
+Each test writes one request to an exact ``file``: the format follows its
+extension. What a request writes by default, by kind and by date, is pinned in
+``tests/unit/results/test_an_export_request_writes_what_it_names.py``.
+"""
 
 from __future__ import annotations
 
@@ -11,9 +16,15 @@ import pytest
 import xarray as xr
 from pydantic import ValidationError
 
-from hydromodpy.core.config_kit.export_spec import ExportSpec
-from hydromodpy.core.exceptions import UnknownFieldError
+from hydromodpy.core.config_kit.export_spec import ExportRequest
+from hydromodpy.core.exceptions import ExportError
 from tests._helpers.fixtures_catalog import simulation_catalog
+
+
+def _export(catalog, sid, **request) -> Path:
+    """Write one request that names its file and return that file."""
+    (written,) = catalog.export(sid, ExportRequest(**request))
+    return written
 
 
 @pytest.fixture
@@ -84,7 +95,8 @@ class TestNetCDFExport:
     def test_roundtrip(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "export.nc"
-        result = catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
+        result = _export(catalog, sid, variables="head", file=out)
+        assert result == out
         assert result.exists()
 
         ds = xr.open_dataset(out, decode_times=False)
@@ -116,7 +128,7 @@ class TestNetCDFExport:
             )
 
         out = tmp_path / "multi.nc"
-        catalog.export(sid, ExportSpec(var=["head", "watertable_depth"], fmt="netcdf", dest=out))
+        _export(catalog, sid, variables=["head", "watertable_depth"], file=out)
         ds = xr.open_dataset(out, decode_times=False)
         assert "head_layer1" in ds
         assert "watertable_depth" in ds
@@ -126,7 +138,7 @@ class TestNetCDFExport:
     def test_timestep_subset(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "subset.nc"
-        catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out, time=[0, 2]))
+        _export(catalog, sid, variables="head", file=out, time=[0, 2])
         ds = xr.open_dataset(out, decode_times=False)
         assert ds["head_layer1"].shape[0] == 2
         np.testing.assert_array_equal(ds["time"].values, np.array([0, 172800]))
@@ -137,49 +149,59 @@ class TestCSVExport:
     def test_basic(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "ts.csv"
-        result = catalog.export(sid, ExportSpec(var="*", fmt="csv", dest=out))
+        result = _export(catalog, sid, variables="discharge", file=out)
         assert result.exists()
         df = pd.read_csv(out)
         assert len(df) == 10
-        assert "station_id" in df.columns
-        assert "variable" in df.columns
+        assert list(df.columns) == ["datetime", "station_id", "variable", "value", "unit"]
         assert df["station_id"].iloc[0] == "outlet"
 
     def test_filter_variable(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
-        # Add another variable
         idx = pd.date_range("2020-01-01", periods=5, freq="D")
         catalog.write_timeseries(
             sid,
             "outlet",
-            "head",
+            "stage",
             pd.Series(range(5), index=idx, dtype=float),
         )
         out = tmp_path / "filtered.csv"
-        catalog.export(sid, ExportSpec(var="discharge", fmt="csv", dest=out))
+        _export(catalog, sid, variables="discharge", file=out)
         df = pd.read_csv(out)
         assert all(df["variable"] == "discharge")
 
-    def test_empty_result(self, catalog_with_data):
+    def test_several_series_share_one_file(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
-        out = tmp_path / "empty.csv"
-        catalog.export(sid, ExportSpec(var="nonexistent", fmt="csv", dest=out))
-        df = pd.read_csv(out)
-        assert len(df) == 0
+        idx = pd.date_range("2020-01-01", periods=5, freq="D")
+        catalog.write_timeseries(
+            sid, "outlet", "stage", pd.Series(range(5), index=idx, dtype=float)
+        )
+        out = tmp_path / "both.csv"
+        _export(catalog, sid, variables=["discharge", "stage"], file=out)
+        assert set(pd.read_csv(out)["variable"]) == {"discharge", "stage"}
 
 
 class TestVTUExport:
-    def test_basic(self, catalog_with_data):
+    def test_one_layer_asked_keeps_the_bare_name(self, catalog_with_data):
         meshio = pytest.importorskip("meshio")
 
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "field.vtu"
-        result = catalog.export(sid, ExportSpec(var="head", fmt="vtu", dest=out, time=0, layer=0))
+        result = _export(catalog, sid, variables="head", file=out, time=0, layer=0)
         assert result.exists()
         mesh = meshio.read(str(out))
         assert "head" in mesh.cell_data
         total_cells = sum(len(cd) for cd in mesh.cell_data["head"])
         assert total_cells == 6
+
+    def test_without_a_layer_every_layer_is_written(self, catalog_with_data):
+        meshio = pytest.importorskip("meshio")
+
+        catalog, sid, tmp_path = catalog_with_data
+        out = tmp_path / "layers.vtu"
+        _export(catalog, sid, variables="head", file=out, time=0)
+        mesh = meshio.read(str(out))
+        assert {"head_layer1", "head_layer2"} <= set(mesh.cell_data)
 
 
 class TestGeoTIFFExport:
@@ -188,10 +210,7 @@ class TestGeoTIFFExport:
 
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "field.tif"
-        result = catalog.export(
-            sid,
-            ExportSpec(var="head", fmt="geotiff", dest=out, time=0, layer=0, resolution=0.5),
-        )
+        result = _export(catalog, sid, variables="head", file=out, time=0, layer=0, resolution=0.5)
         assert result.exists()
         with rasterio.open(str(out)) as src:
             assert src.count == 1
@@ -207,10 +226,7 @@ class TestGeoTIFFExport:
 
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "field_cog.tif"
-        catalog.export(
-            sid,
-            ExportSpec(var="head", fmt="geotiff", dest=out, time=0, layer=0, resolution=0.5),
-        )
+        _export(catalog, sid, variables="head", file=out, time=0, layer=0, resolution=0.5)
         with rasterio.open(str(out)) as src:
             profile = src.profile
             assert profile.get("tiled") is True
@@ -221,7 +237,18 @@ class TestGeoTIFFExport:
             tags = src.tags()
             assert tags.get("HMP_SIM_ID") == str(sid)
             assert tags.get("HMP_VARIABLE") == "head"
+            assert tags.get("HMP_UNITS") == "m"
             assert "HMP_TIMESTAMP" in tags
+
+    def test_a_resolution_left_out_follows_the_mesh(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
+        out = tmp_path / "auto.tif"
+        assert _export(catalog, sid, variables="head", file=out, time=0, layer=0).exists()
+
+    def test_a_field_of_several_layers_needs_a_layer(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
+        with pytest.raises(ValueError, match="holds 2 layers and a GeoTIFF holds one"):
+            _export(catalog, sid, variables="head", file=tmp_path / "top.tif", time=0)
 
 
 class TestShapefileExport:
@@ -230,29 +257,37 @@ class TestShapefileExport:
 
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "cells.shp"
-        result = catalog.export(
-            sid,
-            ExportSpec(var="head", fmt="shapefile", dest=out, time=0, layer=0),
-        )
+        result = _export(catalog, sid, variables="head", file=out, time=0, layer=0)
         assert result.exists()
         gdf = gpd.read_file(str(out))
         assert len(gdf) == 6
         assert "head" in gdf.columns
         assert "cell_id" in gdf.columns
 
+    @pytest.mark.parametrize("suffix", [".shp", ".gpkg"])
+    def test_a_field_of_several_layers_needs_a_layer(self, catalog_with_data, suffix):
+        catalog, sid, tmp_path = catalog_with_data
+        with pytest.raises(ValueError, match="Write layer = 0"):
+            _export(catalog, sid, variables="head", file=tmp_path / f"cells{suffix}", time=0)
+
 
 class TestExportErrors:
     def test_unknown_format(self, catalog_with_data):
         _catalog, _sid, tmp_path = catalog_with_data
-        # An unknown format is rejected at spec construction, before any I/O.
+        # An unknown format is rejected at request construction, before any I/O.
         with pytest.raises(ValidationError):
-            ExportSpec(var="head", fmt="parquet", dest=tmp_path / "out.pq")
+            ExportRequest(variables="head", format="parquet", file=tmp_path / "out.pq")
 
-    def test_missing_variable_netcdf(self, catalog_with_data):
+    def test_a_name_no_run_holds_is_refused(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
-        out = tmp_path / "missing.nc"
-        with pytest.raises(UnknownFieldError, match="nonexistent_field"):
-            catalog.export(sid, ExportSpec(var="nonexistent_field", fmt="netcdf", dest=out))
+        with pytest.raises(ExportError, match="no run can export 'nonexistent_field'"):
+            _export(catalog, sid, variables="nonexistent_field", file=tmp_path / "missing.nc")
+
+    def test_a_name_this_run_does_not_hold_is_refused_with_what_it_holds(self, catalog_with_data):
+        catalog, sid, tmp_path = catalog_with_data
+        with pytest.raises(ExportError, match="holds no 'recharge'") as refused:
+            _export(catalog, sid, variables="recharge", file=tmp_path / "recharge.nc")
+        assert "head" in str(refused.value)
 
 
 class TestNetCDFForQgis:
@@ -265,7 +300,7 @@ class TestNetCDFForQgis:
         catalog.write_crs(sid, crs_wkt=CRS.from_epsg(2154).to_wkt(), epsg_code=2154)
 
         out = tmp_path / "crs.nc"
-        catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
+        _export(catalog, sid, variables="head", file=out)
 
         ds = xr.open_dataset(out, decode_times=False)
         try:
@@ -285,7 +320,7 @@ class TestNetCDFForQgis:
         # The fixture stores "EPSG:2154" in place of a WKT, which pyproj cannot
         # turn into WKT1. The code has to survive on its own.
         out = tmp_path / "crs_epsg_only.nc"
-        catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
+        _export(catalog, sid, variables="head", file=out)
 
         ds = xr.open_dataset(out, decode_times=False)
         try:
@@ -298,7 +333,7 @@ class TestNetCDFForQgis:
     def test_face_coordinates_are_declared_on_the_mesh(self, catalog_with_data):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "mesh.nc"
-        catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
+        _export(catalog, sid, variables="head", file=out)
 
         ds = xr.open_dataset(out, decode_times=False)
         try:
@@ -310,7 +345,7 @@ class TestNetCDFForQgis:
     def test_a_failed_export_leaves_the_previous_file_alone(self, catalog_with_data, monkeypatch):
         catalog, sid, tmp_path = catalog_with_data
         out = tmp_path / "kept.nc"
-        catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
+        _export(catalog, sid, variables="head", file=out)
         before = out.read_bytes()
 
         def fail_midway(self, path, *args, **kwargs):
@@ -319,7 +354,7 @@ class TestNetCDFForQgis:
 
         monkeypatch.setattr(xr.Dataset, "to_netcdf", fail_midway)
         with pytest.raises(OSError):
-            catalog.export(sid, ExportSpec(var="head", fmt="netcdf", dest=out))
+            _export(catalog, sid, variables="head", file=out)
 
         assert out.read_bytes() == before
         assert not (tmp_path / "kept.nc.tmp").exists()
@@ -338,7 +373,7 @@ class TestNetCDFForQgis:
             )
 
         out = tmp_path / "one_layer.nc"
-        catalog.export(sid, ExportSpec(var="recharge", fmt="netcdf", dest=out))
+        _export(catalog, sid, variables="recharge", file=out)
 
         ds = xr.open_dataset(out, decode_times=False)
         try:
@@ -419,7 +454,7 @@ class TestExportReprojection:
 
         catalog, sid, tmp_path, bounds = catalog_on_lambert93
         out = tmp_path / "native.tif"
-        catalog.export(sid, ExportSpec(var="head", dest=out, time=0, resolution=100.0))
+        _export(catalog, sid, variables="head", file=out, time=0, resolution=100.0)
 
         with rasterio.open(str(out)) as src:
             assert src.crs.to_epsg() == 2154
@@ -430,9 +465,7 @@ class TestExportReprojection:
 
         catalog, sid, tmp_path, bounds = catalog_on_lambert93
         out = tmp_path / "wgs84.tif"
-        catalog.export(
-            sid, ExportSpec(var="head", dest=out, time=0, resolution=100.0, crs="EPSG:4326")
-        )
+        _export(catalog, sid, variables="head", file=out, time=0, resolution=100.0, crs="EPSG:4326")
 
         lon_min, lat_min, lon_max, lat_max = _lonlat_envelope(bounds)
         with rasterio.open(str(out)) as src:
@@ -454,8 +487,14 @@ class TestExportReprojection:
 
         catalog, sid, tmp_path, _bounds = catalog_on_lambert93
         out = tmp_path / "mask_wgs84.tif"
-        catalog.export(
-            sid, ExportSpec(var="seepage_mask", dest=out, time=0, resolution=100.0, crs="EPSG:4326")
+        _export(
+            catalog,
+            sid,
+            variables="seepage_mask",
+            file=out,
+            time=0,
+            resolution=100.0,
+            crs="EPSG:4326",
         )
 
         with rasterio.open(str(out)) as src:
@@ -468,7 +507,7 @@ class TestExportReprojection:
 
         catalog, sid, tmp_path, bounds = catalog_on_lambert93
         out = tmp_path / "cells_wgs84.gpkg"
-        catalog.export(sid, ExportSpec(var="head", dest=out, time=0, crs="EPSG:4326"))
+        _export(catalog, sid, variables="head", file=out, time=0, crs="EPSG:4326")
 
         gdf = gpd.read_file(str(out))
         lon_min, lat_min, lon_max, lat_max = _lonlat_envelope(bounds)
@@ -481,7 +520,7 @@ class TestExportReprojection:
 
         catalog, sid, tmp_path, bounds = catalog_on_lambert93
         out = tmp_path / "cells_native.gpkg"
-        catalog.export(sid, ExportSpec(var="head", dest=out, time=0))
+        _export(catalog, sid, variables="head", file=out, time=0)
 
         gdf = gpd.read_file(str(out))
         assert gdf.crs.to_epsg() == 2154

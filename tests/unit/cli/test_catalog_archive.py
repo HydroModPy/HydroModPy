@@ -1,4 +1,4 @@
-"""Round-trip for ``hmp catalog export`` / ``hmp catalog import``."""
+"""Round-trip for ``hmp export <run> all --format package`` / ``hmp catalog import``."""
 
 from __future__ import annotations
 
@@ -7,36 +7,41 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli._workers.catalog import (
-    export_package_run,
-    export_package_runs,
-    import_package_run,
-)
+from hydromodpy.cli._workers.catalog import import_package_run
 from hydromodpy.results.catalog import Catalog
+from tests._helpers.cli_runner import CliRunner
 
 
-def test_export_import_preserves_identity(tmp_path: Path) -> None:
-    src = tmp_path / "src"
+def _sealed_run(workspace: Path, name: str = "baseline") -> str:
     sid = str(uuid.uuid4())
-    with Catalog(src) as catalog:
+    with Catalog(workspace) as catalog:
         catalog.register_simulation(
             sid,
             project="cheze",
             solver="modflow6",
-            name="baseline",
+            name=name,
             n_cells=4,
             n_layers=1,
             config={"k": 1},
         )
         catalog.finalize(sid, status="completed")
+    return sid
 
+
+def test_export_import_preserves_identity(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    sid = _sealed_run(src)
     archive = tmp_path / "paper.hmp"
-    exported = export_package_run("baseline", workspace=src, output=str(archive))
-    assert Path(exported["path"]).is_file()
-    assert exported["sim_id"] == sid
+
+    result = CliRunner().invoke(
+        ["export", "baseline", "all", "--format", "package", "--file", str(archive), "-w", str(src)]
+    )
+    assert result.exit_code == 0, result.stderr
+    assert result.stdout.strip() == str(archive)
+    assert archive.is_file()
 
     dst = tmp_path / "dst"
-    imported = import_package_run(exported["path"], workspace=dst)
+    imported = import_package_run(archive, workspace=dst)
     assert imported["sim_ids"] == [sid]
 
     with Catalog(dst, read_only=True) as fresh:
@@ -48,52 +53,16 @@ def test_import_missing_archive_raises(tmp_path: Path) -> None:
         import_package_run(tmp_path / "absent.hmp", workspace=tmp_path / "ws")
 
 
-def test_export_package_run_records_in_export_log(tmp_path: Path) -> None:
+def test_the_package_is_recorded_in_the_export_log(tmp_path: Path) -> None:
     src = tmp_path / "src"
-    sid = str(uuid.uuid4())
-    with Catalog(src) as catalog:
-        catalog.register_simulation(
-            sid, project="cheze", solver="modflow6", name="baseline", n_cells=4, n_layers=1
-        )
-        catalog.finalize(sid, status="completed")
+    sid = _sealed_run(src)
 
-    export_package_run("baseline", workspace=src, output=str(tmp_path / "paper.hmp"))
+    result = CliRunner().invoke(
+        ["export", "baseline", "all", "--format", "package", "-w", str(src)]
+    )
+    assert result.exit_code == 0, result.stderr
 
     with Catalog(src, read_only=True) as fresh:
-        kinds = [e["kind"] for e in fresh.list_exports(sid)]
-    assert "hmp" in kinds
-
-
-def test_export_multiple_runs_roundtrips_as_one_container(tmp_path: Path) -> None:
-    src = tmp_path / "src"
-    names = ["trial-007", "trial-013"]
-    sids = []
-    with Catalog(src) as catalog:
-        for name in names:
-            sid = str(uuid.uuid4())
-            catalog.register_simulation(
-                sid,
-                project="cheze",
-                solver="modflow6",
-                name=name,
-                n_cells=4,
-                n_layers=1,
-                config={"k": 1},
-            )
-            catalog.finalize(sid, status="completed")
-            sids.append(sid)
-
-    archive = tmp_path / "paper2026.hmp"
-    result = export_package_runs(names, workspace=src, output=str(archive))
-
-    # one container holding both runs
-    assert Path(result["path"]) == archive
-    assert archive.is_file()
-    assert sorted(result["sim_ids"]) == sorted(sids)
-
-    # import restores both runs into a fresh workspace, identities preserved
-    dst = tmp_path / "dst"
-    imported = import_package_run(str(archive), workspace=dst)
-    assert sorted(imported["sim_ids"]) == sorted(sids)
-    with Catalog(dst, read_only=True) as fresh:
-        assert {fresh["trial-007"].sim_id, fresh["trial-013"].sim_id} == set(sids)
+        exports = fresh.list_exports(sid)
+    assert [entry["kind"] for entry in exports] == ["package"]
+    assert exports[0]["rel_path"] == "share/baseline/baseline.hmp"

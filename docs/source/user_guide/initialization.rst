@@ -45,18 +45,19 @@ window from the objective (next section).
 Burn-in excluded from calibration
 ---------------------------------
 
-``[calibration] warmup_periods = N`` (see
-:doc:`/user_guide/config_reference/calibration`) drops the first ``N`` periods of every
-observed and simulated series before the objective metric is computed. The
-window where the state still depends on the initial condition then does not
-enter the calibration. The default is ``0`` (no exclusion).
+``[calibration.scoring_window] start = "<date>"`` (see
+:doc:`/user_guide/config_reference/calibration`) is the first date scored: every
+series keeps only its stamps from that date on, and a network output read in one
+state has to be dated inside the window. The stretch where the state still
+depends on the initial condition then does not enter the calibration. A phase
+writes its own ``[calibration.phases.scoring_window]``, which replaces the
+section's. Unset, nothing is excluded.
 
-Size ``warmup_periods`` by **initial-condition insensitivity**: increase it until
-the objective stops changing. The correct length is the point past which the
-metric no longer depends on how the run was started, not a fixed guess.
-
-The exclusion is applied per output, so a multi-output objective block drops the
-first ``N`` periods of each series independently.
+Place ``start`` by **initial-condition insensitivity**: move it later until the
+objective stops changing. The correct date is the point past which the metric no
+longer depends on how the run was started, not a fixed guess. A date names the
+same span at any time step. ``warmup_periods``, a count of samples whose span
+follows the step, still loads for older files.
 
 Adaptive time stepping
 ----------------------
@@ -87,9 +88,9 @@ Choosing a strategy
    * - Situation
      - Recommended setup
    * - Flow only, insensitive to the start
-     - Steady warm-up (default); ``warmup_periods`` optional.
+     - Steady warm-up (default); ``scoring_window.start`` optional.
    * - Long chronicle, calibrated
-     - Steady warm-up plus a ``warmup_periods`` sized by initial-condition
+     - Steady warm-up plus a ``scoring_window.start`` placed by initial-condition
        insensitivity.
    * - Reservoir with a fluctuating pool
      - As above; enable ``mf6_ats`` if the littoral wet/dry periods stress the

@@ -186,10 +186,12 @@ def _expand_parameters(frame: pd.DataFrame) -> tuple[pd.DataFrame, tuple[str, ..
     if "parameters" in frame.columns:
         rows = [_mapping(value) for value in frame["parameters"]]
         names = sorted({str(key) for row in rows for key in row})
-        for name in names:
-            if name not in frame.columns:
-                frame[name] = [_parameter_value(row.get(name)) for row in rows]
-        return frame, tuple(names)
+        columns = {
+            name: [_parameter_value(row.get(name)) for row in rows]
+            for name in names
+            if name not in frame.columns
+        }
+        return _joined(frame, columns), tuple(names)
     flat = tuple(
         str(column)
         for column in frame.columns
@@ -203,6 +205,7 @@ def _expand_metrics(frame: pd.DataFrame) -> pd.DataFrame:
     if "metrics" not in frame.columns:
         return frame
     rows = [_mapping(value) for value in frame["metrics"]]
+    columns: dict[str, list[float]] = {}
     for key in sorted({str(name) for row in rows for name in row}):
         if key in frame.columns:
             continue
@@ -212,8 +215,21 @@ def _expand_metrics(frame: pd.DataFrame) -> pd.DataFrame:
             # block) is not a curve, and an all-NaN column would only pollute
             # the name resolution of the ones that are.
             continue
-        frame[key] = values
-    return frame
+        columns[key] = values
+    return _joined(frame, columns)
+
+
+def _joined(frame: pd.DataFrame, columns: Mapping[str, list[float]]) -> pd.DataFrame:
+    """Return ``frame`` with ``columns`` appended in one concatenation.
+
+    A network criterion publishes about a hundred diagnostics per trial.
+    Inserting them one by one fragments the frame, and pandas then warns on
+    the console of every promoted run.
+    """
+    if not columns:
+        return frame
+    added = pd.DataFrame(dict(columns), index=frame.index)
+    return pd.concat([frame, added], axis=1)
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:

@@ -250,11 +250,11 @@ def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
     _seed_minimal_simulation(workspace, project="foo", sim_id=sim_id)
 
     nc_out = tmp_path / "head.nc"
-    from hydromodpy.core.config_kit.export_spec import ExportSpec
+    from hydromodpy.core.config_kit.export_spec import ExportRequest
 
     try:
         with hmp.open(workspace, create=True) as catalog:
-            catalog.export(sim_id, ExportSpec(var="head", fmt="netcdf", dest=nc_out))
+            catalog.export(sim_id, ExportRequest(variables="head", file=nc_out))
     except KeyError as exc:
         # export_netcdf raises KeyError (not ValueError) when the store has no
         # UGRID mesh; the synthetic fixture seeds a head field but no mesh.

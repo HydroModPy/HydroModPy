@@ -115,7 +115,7 @@ class TestCalibrate:
                 "xi": (200.0, 240.0),
             },
             max_iter=32,
-            optimizer_kwargs={"points_per_dim": 2},
+            method_options={"points_per_dim": 2},
         )
         assert result["best"] is not None
         assert result["params_best"]
@@ -129,7 +129,7 @@ class TestCalibrate:
         result = calibrate_groundwater(
             method="grid",
             max_iter=8,
-            optimizer_kwargs={"points_per_dim": 2},
+            method_options={"points_per_dim": 2},
         )
         assert result["best"] is not None
         # The returned chronicle is usable downstream.

@@ -23,6 +23,7 @@ import numpy as np
 from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.stream_extent import DEFAULT_VISIBLE_FLOW, VisibleFlow, parse_visible_flow
 from hydromodpy.display.figures._memo import RunMemo
+from hydromodpy.display.figures._stream_comparison import flowing_words
 from hydromodpy.results.derive.stream_extent import (
     FLOW_FIELD,
     block_flow_counts,
@@ -45,6 +46,7 @@ __all__ = (
     "cycles",
     "definition_note",
     "flow_geometry",
+    "frame_note",
     "flow_unavailable_reason",
     "resolve_cycle",
     "span_label",
@@ -147,13 +149,18 @@ def cycle_flow(
 
 
 def definition_note(flow: CycleFlow) -> str:
-    """Return how "flowing" was cut, for the title of a persistence map."""
-    visible = (
-        "no visible-flow threshold"
-        if flow.visible_flow.geometric
-        else f"visible flow {flow.visible_flow.label()}"
-    )
-    return f"flowing: seepage closure, tau = {flow.tau_specific_ratio:g}, {visible}"
+    """Return how "flowing" was cut, in words, for the note of a persistence map."""
+    return flowing_words(flow.tau_specific_ratio, flow.visible_flow)
+
+
+def frame_note(flow: CycleFlow, counted: np.ndarray | None) -> str:
+    """Return the note under a persistence map: how "flowing" was cut, where cells count.
+
+    ``counted`` is the catchment mask the key counts over, ``None`` when the
+    key counts every cell of the mesh.
+    """
+    where = "in the catchment" if counted is not None else "over the whole mesh"
+    return f"{definition_note(flow)}\ncells counted {where}"
 
 
 def cycles(sim: Run, n_steps: int) -> dict[str, np.ndarray]:

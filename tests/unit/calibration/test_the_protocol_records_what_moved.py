@@ -11,7 +11,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from hydromodpy.calibration.config import CalibrationProtocolDecl
+from hydromodpy.calibration.config import (
+    CalibOutputNetwork,
+    CalibOutputPoint,
+    CalibrationProtocolDecl,
+)
 from hydromodpy.calibration.protocols import (
     protocol_options_away_from_the_recipe,
     protocol_record,
@@ -119,7 +123,11 @@ def test_the_value_a_file_actually_set_is_reported_even_when_it_is_false() -> No
 
     cfg = SimpleNamespace(
         calibration=SimpleNamespace(
-            outputs={"net": SimpleNamespace(support="network", diagonal_neighbors=False)}
+            outputs={
+                "net": CalibOutputNetwork.model_construct(
+                    support="network", diagonal_neighbors=False
+                )
+            }
         )
     )
     assert _values_this_file_set(cfg, ["diagonal_neighbors"]) == {"diagonal_neighbors": False}
@@ -133,9 +141,27 @@ def test_a_gauge_s_own_diagonal_neighbors_is_not_read_as_the_network_s() -> None
     cfg = SimpleNamespace(
         calibration=SimpleNamespace(
             outputs={
-                "gauge": SimpleNamespace(support="point", diagonal_neighbors=False),
-                "net": SimpleNamespace(support="network", diagonal_neighbors=True),
+                "gauge": CalibOutputPoint.model_construct(
+                    support="point", diagonal_neighbors=False
+                ),
+                "net": CalibOutputNetwork.model_construct(
+                    support="network", diagonal_neighbors=True
+                ),
             }
         )
     )
     assert _values_this_file_set(cfg, ["diagonal_neighbors"]) == {"diagonal_neighbors": True}
+
+
+def test_a_default_the_file_left_unwritten_is_not_claimed_by_it() -> None:
+    # "this file sets True" for a value the file never wrote sent the reader
+    # looking for a line that is not there.
+    from hydromodpy.cli.commands.calibrate import _values_in_force, _values_this_file_set
+
+    cfg = SimpleNamespace(
+        calibration=SimpleNamespace(
+            outputs={"net": CalibOutputNetwork.model_construct(support="network")}
+        )
+    )
+    assert _values_this_file_set(cfg, ["diagonal_neighbors"]) == {}
+    assert _values_in_force(cfg, ["diagonal_neighbors"]) == {"diagonal_neighbors": True}

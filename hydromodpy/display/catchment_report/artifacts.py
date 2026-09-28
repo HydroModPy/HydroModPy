@@ -83,12 +83,11 @@ DEFAULT_ARTIFACT_SPECS: tuple[ReportArtifactSpec, ...] = (
         artifact_candidate("overview_figures", "map_regional_context.png"),
         artifact_candidate("data_overview_figures", "map_regional_context.png"),
     ),
-    artifact_spec("dem_context", artifact_candidate("overview_figures", "map_dem_context.png")),
+    artifact_spec("dem_context", artifact_candidate("overview_figures", "map_dem.png")),
     artifact_spec("dem_map", artifact_candidate("overview_figures", "map_dem.png")),
     artifact_spec("geology_map", artifact_candidate("overview_figures", "map_geology.png")),
     artifact_spec(
         "hydrography_map",
-        artifact_candidate("overview_figures", "map_hydrography_data.png"),
         artifact_candidate("overview_figures", "map_hydrography.png"),
     ),
     artifact_spec(
@@ -250,7 +249,7 @@ def generate_generated_network_context_figure(
     )
     fig.tight_layout()
     target = figures_dir / "hydrographic_network_generated_context.png"
-    fig.savefig(target, dpi=160)
+    fig.savefig(target, dpi=160, bbox_inches="tight")
     plt.close(fig)
     copied[_GENERATED_NETWORK_FIGURE] = target
 

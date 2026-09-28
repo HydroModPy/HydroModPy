@@ -35,6 +35,7 @@ from hydromodpy.display.figures._stream_comparison import (
     cell_count,
     checked_cells,
     comparison_from_run,
+    dated_title,
     draw_cells,
     map_extent,
     map_legend,
@@ -197,7 +198,7 @@ class SeepageNetworkReferenceOverlay(BaseFigure):
         ax.autoscale_view()
         apply_overlays(ax, sim, _DEFAULT_OVERLAYS if overlays is None else overlays)
         style_map_axes(ax)
-        ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}")
+        ax.set_title(dated_title(f"{self.spec.title} - {sim.name or sim.sim_id}", sim, timestep))
 
         handles = [
             Patch(

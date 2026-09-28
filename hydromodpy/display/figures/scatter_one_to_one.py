@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.units.labels import axis_label
+from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._observed import observed_series
@@ -34,7 +34,7 @@ class ScatterOneToOne(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: str = "_catchment",
+        station: str = CATCHMENT_OUTLET_STATION,
         variable: str = "discharge",
         observed_station: str | None = None,
         **_,
@@ -80,7 +80,7 @@ class ScatterOneToOne(BaseFigure):
         ax.set_xlabel(f"observed {label}")
         ax.set_ylabel(f"simulated {label}")
         ax.set_aspect("equal", adjustable="datalim")
-        ax.set_title(f"1:1 - {sim.name or sim.sim_id} @ {station}")
+        ax.set_title(f"1:1 - {sim.name or sim.sim_id} @ {station_label(station)}")
         ax.grid(True, ls=":", lw=0.4)
         ax.legend(loc="lower right")
         return ax

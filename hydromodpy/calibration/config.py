@@ -45,11 +45,19 @@ Enriched TOML (twin-benchmark style)::
 
 from __future__ import annotations
 
+import datetime
 from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, TypeAdapter, ValidationError, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    Field,
+    TypeAdapter,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
@@ -96,6 +104,38 @@ CalibrationMethod = NonEmptyStr
 OutputTime = Literal["all", "last", "first"] | list[str]
 
 
+def _a_window_of_dates(window: dict[str, str]) -> dict[str, str]:
+    """Read a ``{start, end}`` table as a :class:`CalibScoringWindow`.
+
+    The value stays a table: the protocol copies it into the phase it writes,
+    and its record prints it. Reading it here makes a bad date fail when the
+    file is loaded, not when the stage it bounds starts.
+    """
+    CalibScoringWindow.model_validate(window)
+    return dict(window)
+
+
+def _a_steady_span(window: dict[str, str]) -> dict[str, str]:
+    """Read a steady span, which needs both of its bounds."""
+    missing = [key for key in ("start", "end") if not window.get(key)]
+    if missing:
+        raise ValueError(
+            f"steady_window needs both 'start' and 'end'; missing {', '.join(missing)}."
+        )
+    return _a_window_of_dates(window)
+
+
+ProtocolScoringWindow: TypeAlias = Annotated[
+    dict[Literal["start", "end"], str], AfterValidator(_a_window_of_dates)
+]
+"""A ``{start, end}`` table of ISO dates, either bound optional."""
+
+ProtocolSteadySpan: TypeAlias = Annotated[
+    dict[Literal["start", "end"], str], AfterValidator(_a_steady_span)
+]
+"""A ``{start, end}`` table of ISO dates, both bounds required."""
+
+
 class MatchingHydrographicNetworkOptions(HydroModelBase):
     """What a file may say about the protocol beyond naming it.
 
@@ -104,6 +144,11 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
     engines are free: the method is the pair of criteria and the order they run
     in, not the optimizer that walks them.
     """
+
+    model_legacy_keys = {
+        "steady_engine_options": "steady_method_options",
+        "transient_engine_options": "transient_method_options",
+    }
 
     name: Annotated[Literal["matching_hydrographic_network"], Profile.USER] = Field(
         description="Protocol identifier.",
@@ -161,19 +206,19 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         "per cent. Unset takes the engine's default, which for the bisection is that "
         "same one per cent.",
     )
-    steady_engine_options: Annotated[dict[str, Any], Profile.DEV] = Field(
+    steady_method_options: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
-        description="Options of the stage-one engine itself, named as that engine "
-        "names them. Which ones exist depends on steady_method, and the model of "
-        "each engine is in calibration.optim.method_config. A key the engine does not "
-        "know is refused before the first solver call. The escape hatch for "
-        "reproducing a published call; a "
-        "precision is said once, in steady_tolerance.",
+        description="Options of the stage-one method, named as that method names "
+        "them: for the bisection, sweep_points, bracket_expand, rel_tol and "
+        "signed_component. Which ones exist depends on steady_method; a key the "
+        "method does not know is refused when the file loads. Used to reproduce a "
+        "published call; a precision is said once, in steady_tolerance.",
     )
-    steady_window: Annotated[dict[str, str] | None, Profile.USER] = Field(
+    steady_window: Annotated[ProtocolSteadySpan | None, Profile.USER] = Field(
         default=None,
-        description="Dates the steady stage averages, as {start, end}. Unset takes the "
-        "whole [simulation.time] window.",
+        description="Dates the steady stage averages, as {start, end}, both ISO 8601 "
+        "and both required. A date that does not parse is refused when the file is "
+        "read. Unset takes the whole [simulation.time] window.",
     )
     transient_metric: Annotated[str, Profile.USER] = Field(
         default="nse_log",
@@ -197,11 +242,11 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         description="How precisely stage two has to pin the storage before it stops, "
         "as a relative precision on the storage coefficient.",
     )
-    transient_engine_options: Annotated[dict[str, Any], Profile.DEV] = Field(
+    transient_method_options: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
-        description="Options of the stage-two engine itself, named as that engine "
-        "names them, and refused when it does not know them. Which ones exist depends "
-        "on transient_method.",
+        description="Options of the stage-two method, named as that method names "
+        "them, and refused when the file loads if it does not know them. Which ones "
+        "exist depends on transient_method.",
     )
     discharge_variable: Annotated[str, Profile.USER] = Field(
         default="discharge",
@@ -211,14 +256,15 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         default=None,
         description="Gauge whose cost drives stage two. Required when several stations are loaded.",
     )
-    scoring_window: Annotated[dict[str, str] | None, Profile.USER] = Field(
+    scoring_window: Annotated[ProtocolScoringWindow | None, Profile.USER] = Field(
         default=None,
-        description="Dates bounding the samples stage two scores on, as {start, end}, "
-        "for every block it scores, a network one included. Unset, and with neither "
-        "scoring_window nor warmup_periods on [calibration], stage two scores from one "
-        "year after [simulation.time].start_datetime: the first year is spin-up. A run "
-        "of one year or less is scored whole. Write start = the run's own start to "
-        "score the spin-up year too.",
+        description="Dates bounding the samples stage two scores on, as {start, end} in "
+        "ISO 8601, either one optional, for every block it scores, a network one "
+        "included. A date that does not parse is refused when the file is read. Unset, "
+        "and with no scoring_window on [calibration], stage two scores from one year "
+        "after [simulation.time].start_datetime: the first year is spin-up. A run of "
+        "one year or less is scored whole. Write start = the run's own start to score "
+        "the spin-up year too.",
     )
 
     @model_validator(mode="before")
@@ -228,6 +274,48 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         if isinstance(data, str):
             return {"name": data}
         return data
+
+    @model_validator(mode="after")
+    def _check_each_stage_method_takes_its_options(self) -> MatchingHydrographicNetworkOptions:
+        """Refuse a stage option its method does not take, under the key the file wrote.
+
+        The phase the protocol writes would refuse it too, but under the name of
+        a phase the file never wrote.
+        """
+        for stage in ("steady", "transient"):
+            _check_the_method_takes_its_options(
+                "[calibration.protocol]",
+                getattr(self, f"{stage}_method"),
+                getattr(self, f"{stage}_method_options"),
+                key=f"{stage}_method_options",
+            )
+        return self
+
+    def stage_options_run_as_their_method_does(self) -> frozenset[str]:
+        """Return the stage options written to what their method runs anyway.
+
+        The recipe leaves a stage's method options and its precision to the
+        method. ``steady_method_options = {sweep_points = 7}`` or
+        ``steady_tolerance = 0.01`` beside a bisection, whose defaults are seven
+        points and one per cent, restate the recipe and do not move off it.
+        """
+        from hydromodpy.calibration.optim.method_config import (
+            default_relative_precision,
+            method_options_are_its_defaults,
+        )
+
+        same: set[str] = set()
+        for stage in ("steady", "transient"):
+            method = str(getattr(self, f"{stage}_method"))
+            options = dict(getattr(self, f"{stage}_method_options") or {})
+            if options and method_options_are_its_defaults(method, options):
+                same.add(f"{stage}_method_options")
+            precision = getattr(self, f"{stage}_tolerance")
+            if precision is not None and default_relative_precision(method, options) == float(
+                precision
+            ):
+                same.add(f"{stage}_tolerance")
+        return frozenset(same)
 
 
 CalibrationProtocolDecl: TypeAlias = MatchingHydrographicNetworkOptions
@@ -370,11 +458,14 @@ class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
     )
     x: Annotated[Length | None, Profile.USER] = Field(
         default=None,
-        description="X coordinate. Accepts a bare number (metres) or a pint string like '100 m'.",
+        description="X coordinate. Accepts a bare number (metres) or a pint string like "
+        "'100 m'. Beside 'observes' it is not read, and loading warns so, unless "
+        "snap_radius is set and the station's record carries no coordinate.",
     )
     y: Annotated[Length | None, Profile.USER] = Field(
         default=None,
-        description="Y coordinate. Accepts a bare number (metres) or a pint string like '100 m'.",
+        description="Y coordinate. Accepts a bare number (metres) or a pint string like "
+        "'100 m'. Beside 'observes' it is not read, as for 'x'.",
     )
     time: Annotated[OutputTime, Profile.USER] = Field(
         default="all",
@@ -421,7 +512,33 @@ class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
                 "'observes' names a station: its own record locates the point instead."
             )
         _check_snap_radius(self.snap_radius, self.variable, support="point")
+        self._warn_about_a_position_nobody_reads()
         return self
+
+    def _warn_about_a_position_nobody_reads(self) -> None:
+        """Warn when x, y or geometry sit beside 'observes' and nothing reads them.
+
+        A station named in 'observes' is located by its own record, so a
+        position written beside it is ignored. Only a snap reads it, and only
+        when the record carries no coordinate of its own. A warning and not a
+        refusal: files written before this check still load.
+        """
+        if self.observes is None or self.snap_radius is not None:
+            return
+        written = [key for key in ("x", "y", "geometry") if getattr(self, key) is not None]
+        if not written:
+            return
+        import warnings
+
+        warnings.warn(
+            f"an output observes station {self.observes!r} and also writes "
+            f"{', '.join(written)}. The station's own record locates it, so "
+            f"{'they are' if len(written) > 1 else 'it is'} not read. Drop "
+            f"{'them' if len(written) > 1 else 'it'}, or set snap_radius, the one "
+            "option that falls back on a written position.",
+            UserWarning,
+            stacklevel=1,
+        )
 
 
 class CalibOutputBoundary(ScoresAnObservedRecord, HydroModelBase):
@@ -927,39 +1044,49 @@ class CalibOutputNetwork(HydroModelBase):
         "catchment over ground that routes the same way leaves the two ratios equal, "
         "and reporting it there would be noise on every ordinary project.",
     )
-    time: Annotated[Literal["last", "first"], Profile.USER] = Field(
+    time: Annotated[Literal["last", "first"] | str, Profile.USER] = Field(
         default="last",
-        description="Which single state the release flux is read at: 'last' (default) "
-        "or 'first'. Phase one runs a single steady period, so 'last' is the whole "
-        "run. 'all' and a list of dates are refused: the network branch always keeps "
-        "one state (the last one it is served), so either would silently score that "
-        "state instead of the one named.",
+        description="Which single state the release flux is read at: 'last' (default), "
+        "'first', or an ISO date such as '2002-10-15', which reads the state of the "
+        "period that holds it, [start, end). That state is dated at its period's end, "
+        "which is the date a scoring_window is compared with. A steady phase runs one "
+        "period over its window, so every date of that window reads its one state and "
+        "one output serves both regimes. 'all' and a list of dates are refused: a "
+        "network output reads one state.",
     )
 
     @field_validator("time", mode="before")
     @classmethod
     def _check_single_state(cls, value: object) -> object:
-        """Refuse a selector that reads more than the one declared state.
+        """Refuse a selector that reads more than one state, and read a date.
 
-        ``build_simulated_network`` (``hydromodpy/core/stream_network.py``) always
-        keeps the last row of whatever stack it is served. Requesting 'last' or
-        'first' serves it exactly one row, so both are read correctly. Requesting
-        'all' or a list of dates serves it the whole stack, still scored at the
-        last row: the network would be scored at a state other than the one the
-        file names, without warning.
+        The extraction serves ``build_simulated_network``
+        (``hydromodpy/core/stream_network.py``) the one row this names, so 'last',
+        'first' and a date are each scored at the state the file names. 'all' or
+        a list would name several states for one mask.
 
-        Runs before the field's own type check so this message, not the generic
-        "not a valid enumeration member" one, is what a 'all' or a list of dates
-        gets. The type itself is narrowed to ``Literal["last", "first"]`` so the
-        generated schema and OpenAPI export never advertise the values refused here.
+        Runs before the field's own type check so this message, not a generic
+        type error, is what 'all' or a list of dates gets. A TOML date written
+        bare reads as a date and is kept as its ISO spelling.
         """
         if value == "all" or isinstance(value, list):
             raise ValueError(
                 f"calibration output for the stream network has time={value!r}: a "
-                "network output reads exactly one state, 'last' or 'first'. A "
+                "network output reads exactly one state, 'last', 'first' or one date. A "
                 "transient comparison of the minimal and maximal extents is the "
                 "'extent' table of the output, not this field."
             )
+        if isinstance(value, datetime.date):
+            value = value.isoformat()
+        if isinstance(value, str) and value not in ("last", "first"):
+            try:
+                datetime.datetime.fromisoformat(value.strip())
+            except ValueError as exc:
+                raise ValueError(
+                    f"calibration output for the stream network has time={value!r}: write "
+                    "'last', 'first' or an ISO date such as '2002-10-15'."
+                ) from exc
+            return value.strip()
         return value
 
     extent: Annotated[CalibNetworkExtent | None, Profile.USER] = Field(
@@ -1142,8 +1269,13 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     )
     normalize_cost: Annotated[bool, Profile.USER] = Field(
         default=False,
-        description="When True, divide the block cost by a reference scale "
-        "(observed std fallback mean absolute value).",
+        description="When True, divide the block cost by a reference scale, so it adds "
+        "to other blocks as a pure number and a share means a share. On a residual "
+        "metric (rmse, mae) the scale is the standard deviation of the observations, "
+        "their mean absolute value when that is zero. On a network distance "
+        "(distance_gap, distance_mean) it is the output's validity_length, 2 h_obs "
+        "under 'auto': a gap of one validity length costs 1, as much as an NSE of 0 on "
+        "nse_log. Refused on an efficiency score, already a pure number.",
     )
     transform: Annotated[ObjectiveTransform, Profile.USER] = Field(
         default="identity",
@@ -1160,12 +1292,14 @@ class CalibObjectiveBlockDecl(HydroModelBase):
             }
         },
     )
-    warmup: Annotated[NonNegativeInt | None, Profile.USER] = Field(
+    warmup: Annotated[NonNegativeInt | None, Profile.EXPERT] = Field(
         default=None,
         description=(
-            "Burn-in periods dropped from this block only, overriding "
-            "[calibration].warmup_periods. Leave unset to inherit it; set it to 0 to "
-            "switch the burn-in off for this block."
+            "Burn-in samples dropped from this block only, overriding "
+            "[calibration].warmup_periods. A count of samples, so twelve means a year "
+            "at a monthly step and twelve days at a daily one. Write "
+            "scoring_window.start instead, a date that means the same span at any step "
+            "and bounds a network state too. Kept so older files load unchanged."
         ),
     )
 
@@ -1255,11 +1389,31 @@ def _same_instant(a: Any, b: Any) -> bool:
         return False
 
 
-_OPTIONS_WITHOUT_AN_ENGINE = (
-    "{where} gives optimizer_kwargs and no method. They are options of one engine, "
+_OPTIONS_WITHOUT_A_METHOD = (
+    "{where} gives method_options and no method. They are options of one method, "
     "and a search that names no method gets the one its criteria call for. Write "
     "method beside them, or drop them."
 )
+
+
+def _check_the_method_takes_its_options(
+    where: str, method: str | None, options: Mapping[str, Any], *, key: str = "method_options"
+) -> None:
+    """Refuse options with no method, and options the method written does not take.
+
+    Checked when the file loads, so a phase-two option its method does not know
+    is refused before phase one spends its budget. A method this package has no
+    model for, a plugin's, is left to its own constructor.
+    """
+    if not options:
+        return
+    if method is None:
+        raise ValueError(_OPTIONS_WITHOUT_A_METHOD.format(where=where))
+    from hydromodpy.calibration.optim.method_config import method_options_problem
+
+    problem = method_options_problem(method, options)
+    if problem is not None:
+        raise ValueError(f"{where} {key}: {problem}")
 
 
 UncertaintyMethod = Literal["cost_profile", "multistart", "linearized"]
@@ -1353,6 +1507,8 @@ class CalibPhaseDecl(HydroModelBase):
     all the way out.
     """
 
+    model_legacy_keys = {"optimizer_kwargs": "method_options"}
+
     name: Annotated[NonEmptyStr, Profile.USER] = Field(
         description="Phase identifier, unique in the calibration and used in the "
         "session directory and in the report.",
@@ -1369,9 +1525,9 @@ class CalibPhaseDecl(HydroModelBase):
             "and every one of its blocks is signed (distance_gap), since the answer is "
             "then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. "
             "hmp calibrate --list-phases prints the method and why. Write it to "
-            "depart from that choice, and whenever optimizer_kwargs are given. "
+            "depart from that choice, and whenever method_options are given. "
             "Built-ins: 'grid' (regular sweep, sized by "
-            "optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of "
+            "method_options.points_per_dim), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
             "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', "
             "'da_mh_gp'. An unknown name is refused when the optimizer is built, "
@@ -1444,10 +1600,13 @@ class CalibPhaseDecl(HydroModelBase):
         default=None,
         description="Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one. Overrides the calibration-level value for this phase.",
     )
-    optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
+    method_options: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
-        description="Extra keyword arguments forwarded to this phase's optimizer. They "
-        "belong to one engine, so a phase that gives them names its method.",
+        description="Options of this phase's method, named as that method names "
+        "them: sweep_points for 'bisection', points_per_dim for 'grid', sampler for "
+        "'optuna'. They belong to one method, so a phase that gives them writes "
+        "method beside them. A key the method does not take is refused when the "
+        "file loads. hmp calibrate --check names the phase.",
     )
     regime: Annotated[Literal["steady", "transient"] | None, Profile.USER] = Field(
         default=None,
@@ -1476,7 +1635,10 @@ class CalibPhaseDecl(HydroModelBase):
     )
     scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
         default=None,
-        description="Dates bounding the samples this phase scores on.",
+        description="Dates bounding the samples this phase scores on, replacing "
+        "[calibration].scoring_window. start = the first date scored leaves a spin-up "
+        "out of every block alike. A network output read in one state is dated at the "
+        "stamp of that state, which has to lie inside the window.",
     )
     depends_on: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -1514,14 +1676,16 @@ class CalibPhaseDecl(HydroModelBase):
 
     @model_validator(mode="after")
     def _name_the_engine_the_options_belong_to(self) -> CalibPhaseDecl:
-        """Refuse optimizer_kwargs on a phase that names no method.
+        """Refuse method_options on a phase that names no method, or that its method refuses.
 
-        The options belong to one engine, and a phase that names none gets the
-        one its criteria call for. The options would then reach an engine the
-        file never chose.
+        The options belong to one method, and a phase that names none gets the
+        one its criteria call for. The options would then reach a method the
+        file never chose. An option the method does not take is refused here,
+        when the file loads, and not when this phase starts.
         """
-        if self.optimizer_kwargs and self.method is None:
-            raise ValueError(_OPTIONS_WITHOUT_AN_ENGINE.format(where=f"phase {self.name!r}"))
+        _check_the_method_takes_its_options(
+            f"phase {self.name!r}", self.method, self.method_options
+        )
         return self
 
     @model_validator(mode="after")
@@ -1738,6 +1902,8 @@ class CalibrationConfig(HydroModelBase):
     from ``objective`` and ``variable`` if the matching output exists.
     """
 
+    model_legacy_keys = {"optimizer_kwargs": "method_options"}
+
     protocol: Annotated[CalibrationProtocolDecl | None, Profile.USER] = Field(
         default=None,
         description=(
@@ -1758,10 +1924,10 @@ class CalibrationConfig(HydroModelBase):
             "'bisection' when it moves one parameter in log space and every one of its "
             "blocks is signed (distance_gap), since the answer is then a zero to find; "
             "'scipy_nelder_mead' otherwise, a cost to minimise. Write it to depart from "
-            "that choice, and whenever optimizer_kwargs are given. A phase of "
+            "that choice, and whenever method_options are given. A phase of "
             "[[calibration.phases]] names its own. "
             "Built-ins: 'grid' (regular sweep, sized by "
-            "optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of "
+            "method_options.points_per_dim), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
             "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', "
             "'da_mh_gp'. An unknown name is refused when the optimizer is built, "
@@ -1861,23 +2027,25 @@ class CalibrationConfig(HydroModelBase):
             "with a lake and a routed network legitimately sits higher."
         ),
     )
-    warmup_periods: Annotated[int, Profile.USER] = Field(
+    warmup_periods: Annotated[int, Profile.EXPERT] = Field(
         default=0,
         ge=0,
         description=(
-            "Spin-up (burn-in) periods excluded from every objective block. The first "
-            "warmup_periods of each observed/simulated series are dropped before the "
-            "metric, so the window where the state still depends on the initial condition "
-            "does not bias the calibration. Default 0 (no exclusion). Size it by "
-            "increasing it until the objective stops changing (initial-condition "
-            "insensitivity), not a fixed guess."
+            "Spin-up samples dropped from the start of every series before its metric. "
+            "A count of samples, so its span follows the time step. Write "
+            "scoring_window.start instead, a date that means the same span at any step "
+            "and bounds a network state too. Kept so older files load unchanged. "
+            "Default 0 (no exclusion)."
         ),
     )
     scoring_window: Annotated[CalibScoringWindow | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Dates bounding the samples every metric is computed on. Mutually "
-            "exclusive with warmup_periods, which counts samples instead of dates."
+            "Dates bounding the samples every metric is computed on: the way to leave a "
+            "spin-up out, with start = the first date scored. A series keeps its stamps "
+            "inside the window; a network output read in one state is dated at the stamp "
+            "of that state, which has to lie inside it. A phase's own window replaces "
+            "this one. Mutually exclusive with warmup_periods."
         ),
     )
     phases: Annotated[list[CalibPhaseDecl] | None, Profile.USER] = Field(
@@ -1947,10 +2115,13 @@ class CalibrationConfig(HydroModelBase):
         default=None,
         description="Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one.",
     )
-    optimizer_kwargs: Annotated[dict[str, Any], Profile.DEV] = Field(
+    method_options: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
-        description="Extra keyword arguments forwarded to the optimizer adapter. They "
-        "belong to one engine, so a calibration that gives them names its method.",
+        description="Options of the method, named as that method names them: "
+        "points_per_dim for 'grid', sampler for 'optuna', sweep_points for "
+        "'bisection'. They belong to one method, so a calibration that gives them "
+        "writes method beside them. A key the method does not take is refused when "
+        "the file loads.",
     )
     parameters: Annotated[dict[str, CalibParameterDecl], Profile.USER] = Field(
         default_factory=dict,
@@ -2104,9 +2275,12 @@ class CalibrationConfig(HydroModelBase):
         whatever share their own magnitude happened to buy.
 
         The criterion declares whether its cost carries a unit; the outputs a
-        block reads say which unit that is. A member is addable when it is
-        dimensionless or normalised, and a sum of two that are neither, in
-        different families, is refused.
+        block reads say which unit that is. A network distance is its own
+        family, a length between two networks, whatever variable the release
+        field is read from. A member is addable when it is dimensionless or
+        normalised, and a sum of two that are neither, in different families,
+        is refused. A network distance normalises by the output's validity
+        length, a residual by the spread of its observations.
         """
         from hydromodpy.calibration.criteria import criterion_for
 
@@ -2121,6 +2295,9 @@ class CalibrationConfig(HydroModelBase):
             except ValueError:
                 continue
             if needs.cost_is_dimensionless:
+                continue
+            if not needs.needs_observations and "network" in needs.reads_supports:
+                raw[str(block.name)] = (f"network distance in {needs.cost_unit or 'm'}",)
                 continue
             families = tuple(
                 sorted(
@@ -2140,20 +2317,21 @@ class CalibrationConfig(HydroModelBase):
             raise ValueError(
                 f"these blocks add costs that carry different units: {listed}. The sum "
                 "would let the unit set the weighting instead of 'weight'. Declare "
-                "normalize_cost = true on each of them, or score them on a metric whose "
-                "cost is already a pure number."
+                "normalize_cost = true on each of them (a network distance is then "
+                "counted in validity lengths, a residual in the spread of its "
+                "observations), or score them on a metric whose cost is already a pure "
+                "number."
             )
         return self
 
     @model_validator(mode="after")
     def _name_the_engine_the_options_belong_to(self) -> CalibrationConfig:
-        """Refuse optimizer_kwargs on a section that names no method.
+        """Refuse method_options on a section that names no method, or that its method refuses.
 
-        Same reason as on a phase: the options belong to one engine, and the one a
+        Same reason as on a phase: the options belong to one method, and the one a
         section gets when it names none follows from its criteria.
         """
-        if self.optimizer_kwargs and self.method is None:
-            raise ValueError(_OPTIONS_WITHOUT_AN_ENGINE.format(where="[calibration]"))
+        _check_the_method_takes_its_options("[calibration]", self.method, self.method_options)
         return self
 
     @model_validator(mode="after")
@@ -2180,7 +2358,7 @@ class CalibrationConfig(HydroModelBase):
         """Verify the method this calibration runs is registered and its kwargs validate.
 
         The discriminated union :data:`CalibrationMethodConfig` raises eagerly
-        when ``optimizer_kwargs`` carries keys foreign to ``method`` so the
+        when ``method_options`` carries keys foreign to ``method`` so the
         failure happens at config-load time instead of inside the adapter
         constructor. A method left unwritten is checked as :meth:`method_for`
         chooses it.
@@ -2194,7 +2372,7 @@ class CalibrationConfig(HydroModelBase):
             raise ValueError(
                 f"Unknown calibration method {method!r}. Available methods: {available}"
             )
-        validate_method_kwargs(method, self.optimizer_kwargs)
+        validate_method_kwargs(method, self.method_options)
 
     def method_for(self, phase: CalibPhaseDecl | None = None) -> tuple[str, str | None]:
         """Return the method this calibration, or one of its phases, runs, and why.
@@ -2312,8 +2490,9 @@ class CalibrationConfig(HydroModelBase):
         Read as :meth:`_criteria_scored_by` reads the criteria: a single-metric
         phase scores its own ``objective`` or the section's, and a search with
         no block scores the section's ``objective``. A block with a transform is
-        no longer in metres. A distance cannot be normalised, so that case does
-        not arise, and the single-metric route has no transform.
+        no longer in metres, and neither is one with ``normalize_cost``, whose
+        distance is counted in validity lengths. The single-metric route has
+        neither.
         """
         from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
 
@@ -2323,7 +2502,9 @@ class CalibrationConfig(HydroModelBase):
         if not blocks:
             return str(self.objective) in NETWORK_ESTIMATORS
         return all(
-            str(block.metric) in NETWORK_ESTIMATORS and block.transform == "identity"
+            str(block.metric) in NETWORK_ESTIMATORS
+            and block.transform == "identity"
+            and not block.normalize_cost
             for block in blocks
         )
 

@@ -27,6 +27,7 @@ from hydromodpy.calibration.metrics.downslope_network import (
 from hydromodpy.calibration.metrics.gauge_snap import GaugeSnapError, snap_to_most_accumulated
 from hydromodpy.calibration.metrics.observable_scoring import (
     dated_series,
+    network_state_period,
     select_observable_times,
     slice_time,
 )
@@ -59,6 +60,8 @@ from hydromodpy.core.stream_extent import (
     yearly_flow_counts,
 )
 from hydromodpy.core.stream_network import build_simulated_network
+from hydromodpy.core.time.period_aggregation import period_edges
+from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 from hydromodpy.simulation.planning.plan import RunContext
 from hydromodpy.solver.base.registry import get_solver_adapter
@@ -432,6 +435,83 @@ def _last_state(values: Any) -> np.ndarray:
     """Return the last timestep of a per-cell field, as the network reads it."""
     field = np.asarray(values, dtype=float)
     return field[-1, :] if field.ndim == 2 else field.reshape(-1)
+
+
+def _stack_edges(
+    result: ObservableResult, n_times: int, time_bounds: Sequence[Any] | None
+) -> Sequence[Any] | None:
+    """Return the ``n_times + 1`` period bounds of a served stack, or ``None``.
+
+    The run's time-grid bounds when they match the stack, else the edges its
+    own stamps imply, each stamp closing its period.
+    """
+    if time_bounds is not None and len(time_bounds) == n_times + 1:
+        return tuple(time_bounds)
+    times = result.times
+    if times is None or len(times) != n_times or n_times < 2:
+        return None
+    edges = period_edges(times)
+    return tuple(edges) if len(edges) == n_times + 1 else None
+
+
+def network_state_row(
+    name: str,
+    output: CalibOutputNetwork,
+    result: ObservableResult,
+    time_bounds: Sequence[Any] | None,
+) -> tuple[ObservableResult, int | None]:
+    """Return the one state a network output reads, as a single row.
+
+    ``time`` names it: ``"last"``, ``"first"`` or a date, whose period
+    ``[s, e)`` holds it (:func:`network_state_period`). A backend serves one
+    row for ``"first"`` and ``"last"`` and the whole stack for a date, so the
+    row is picked here, and ``build_simulated_network`` is served that row
+    alone. The index returned is the row picked in the stack served, ``None``
+    when it was served one state already. A date the run does not hold is
+    refused by name rather than read at another state.
+    """
+    stack = np.asarray(result.values, dtype=float)
+    n_times = int(stack.shape[0]) if stack.ndim == 2 else 1
+    edges = _stack_edges(result, n_times, time_bounds)
+    try:
+        index = network_state_period(output.time, edges, n_periods=n_times)
+    except TimeSelectionError as exc:
+        raise ObjectiveError(
+            f"Output {name!r}: time = {output.time!r} names no state of this run: {exc}"
+        ) from exc
+    if stack.ndim != 2:
+        return result, None
+    times = result.times
+    row = replace(
+        result,
+        values=stack[index : index + 1, :],
+        times=None if times is None or len(times) != n_times else times[index : index + 1],
+    )
+    return row, (index if n_times > 1 else None)
+
+
+def _thickness_at(
+    name: str, thickness: ObservableResult | None, index: int | None, n_times: int
+) -> ObservableResult | None:
+    """Return the saturated thickness at the state the network was read at.
+
+    ``None`` when it cannot be told: a field served on another number of
+    timesteps than the release flux has no row known to be the same state,
+    and ``d_sat_m`` is then left out rather than read at another one.
+    """
+    if thickness is None or index is None:
+        return thickness
+    field = np.asarray(thickness.values, dtype=float)
+    if field.ndim != 2 or field.shape[0] != n_times:
+        logger.warning(
+            "No d_sat_m for output %s: the saturated thickness holds %d timestep(s), the "
+            "release flux %d, so its state at the one scored is unknown.",
+            name,
+            1 if field.ndim != 2 else field.shape[0],
+            n_times,
+        )
+        return None
+    return replace(thickness, values=field[index : index + 1, :])
 
 
 def _area_mean(values: np.ndarray, cells: np.ndarray, areas: np.ndarray) -> float:
@@ -866,12 +946,15 @@ def score_network_output(
       :data:`hydromodpy.core.stream_geometry.VALIDITY_PROVENANCE_CODE`.
 
     ``saturated_thickness`` is the per-cell field of the same run. It feeds
-    :func:`catchment_saturation` only and never enters the value.
+    :func:`catchment_saturation` only and never enters the value; it is read
+    at the same state as the release flux.
     ``time_bounds`` are the run's time-grid bounds, which date the timesteps
-    of the two-bound mode. ``scoring_window`` is the phase's ``(start, end)``;
-    the two-bound mode scores only the complete years it holds, which is how
-    a spin-up year leaves the score. One state reads no time axis and ignores
-    it.
+    of the two-bound mode and the state one state reads, named by the
+    output's ``time`` (:func:`network_state_row`). ``scoring_window`` is the
+    phase's ``(start, end)``; the two-bound mode scores only the complete
+    years it holds, which is how a spin-up year leaves the score. The scorer
+    checks that it holds the one state
+    (:func:`~hydromodpy.calibration.metrics.observable_scoring.refuse_a_network_state_outside_the_window`).
 
     The static geometry is rebuilt here at every trial, once per map. It is
     one graph build and three ``O(n_cells)`` passes, measured under a second on
@@ -882,6 +965,10 @@ def score_network_output(
     require_release_flux_unit(result.units, name=name)
     maps = network_maps_from_run(run_ctx, output)
     if output.extent is None:
+        served = np.asarray(result.values)
+        n_times = int(served.shape[0]) if served.ndim == 2 else 1
+        result, index = network_state_row(name, output, result, time_bounds)
+        saturated_thickness = _thickness_at(name, saturated_thickness, index, n_times)
         pair, scored = _score_one_state(name, output, result, maps)
         n_bounds = 1
     else:

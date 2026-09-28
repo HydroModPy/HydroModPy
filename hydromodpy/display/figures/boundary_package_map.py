@@ -48,6 +48,7 @@ import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_relative_km_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.maps.overlays import apply_overlays
@@ -283,14 +284,8 @@ def _note(sim: Run, step: int, over: str, *, acting_cells: int, n_faces: int) ->
 
 
 def _step_label(sim: Run, step: int) -> str:
-    """Return the date of one step, or its rank when the run carries no clock."""
-    try:
-        index = sim.time_index
-    except Exception:
-        index = None
-    if index is not None and 0 <= step < len(index):
-        return f"{index[step]:%Y-%m-%d}"
-    return f"step {step + 1}"
+    """Return the period of one step, or its rank when the run carries no clock."""
+    return instant_label(sim, step) or f"step {step + 1}"
 
 
 def _legend_handles(

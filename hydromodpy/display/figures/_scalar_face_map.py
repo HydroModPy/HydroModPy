@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, ClassVar
 import numpy as np
 
 from hydromodpy.display.figure import BaseFigure
+from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.maps.axes import style_relative_km_axes
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import last_timestep, render_face_field
@@ -68,10 +69,10 @@ class ScalarFaceMap(BaseFigure):
         return self.axis_label_for(self.field_name())
 
     def title(self, sim: Run, *, timestep: int) -> str:
-        """Return the axes title, dated when the run carries a time axis."""
+        """Return the axes title, naming the period drawn when the run has dates."""
         base = f"{self.spec.title} - {sim.name or sim.sim_id}"
-        stamp = _timestamp_label(sim, timestep)
-        return f"{base}\n{stamp}" if stamp else base
+        period = instant_label(sim, timestep)
+        return f"{base}\n{period}" if period else base
 
     def render(
         self,
@@ -109,17 +110,6 @@ class ScalarFaceMap(BaseFigure):
         if handles:
             place_legend(ax, fontsize=8, framealpha=0.9)
         return ax
-
-
-def _timestamp_label(sim: Run, timestep: int) -> str:
-    """Return the ISO date of ``timestep``, or an empty string when unknown."""
-    try:
-        index = sim.time_index
-    except Exception:
-        return ""
-    if timestep < 0 or timestep >= len(index):
-        return ""
-    return f"{index[timestep]:%Y-%m-%d} (step {timestep + 1}/{len(index)})"
 
 
 __all__ = ["ScalarFaceMap"]

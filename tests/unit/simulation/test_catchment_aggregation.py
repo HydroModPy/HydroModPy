@@ -181,6 +181,23 @@ class TestAddRunoffToDischarge:
 
         pd.testing.assert_series_equal(out, discharge)
 
+    def test_no_runoff_forcing_warns_once_per_run_in_plain_words(self, caplog):
+        idx = pd.date_range("2020-01-01", periods=2, freq="D")
+        discharge = pd.Series([1.0, 2.0], index=idx, name="discharge")
+        sim_id = str(uuid4())
+        with caplog.at_level("WARNING"):
+            for _ in range(3):
+                _add_runoff_to_discharge_series(
+                    discharge, sim_id, store=None, grp=_FakeRootGroup(forcing=None)
+                )
+        (message,) = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+        assert message == (
+            "Simulated discharge is baseflow only: the run has no runoff forcing, "
+            "so it underestimates a gauged total streamflow."
+        )
+        assert sim_id not in message
+        assert "—" not in message
+
     def test_runoff_added_in_m3_per_s_on_aligned_timestamps(self, monkeypatch):
         # Area chosen so the unit conversion gives a round number.
         # runoff_m3s = mm_per_day * 1e-3 * area_m2 / 86400.

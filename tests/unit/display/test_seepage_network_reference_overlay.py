@@ -159,7 +159,7 @@ def test_overlay_names_the_threshold_it_was_drawn_at(mpl) -> None:
     SeepageNetworkReferenceOverlay().render(_flank_run(), ax, tau_specific_ratio=0.25)
 
     try:
-        assert "tau = 0.25 of the mean recharge" in legend_note(ax)
+        assert "a cell counts as seepage above 25 % of its recharge" in legend_note(ax)
     finally:
         mpl.close(fig)
 

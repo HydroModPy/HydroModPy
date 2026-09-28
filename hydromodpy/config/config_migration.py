@@ -9,6 +9,12 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
   ``derived``, and the dead ``budget``/``pathlines`` toggles) -> flat
   ``export.variables`` list of the names it turned on
 - ``export.times`` -> ``export.time`` (when ``time`` is not already set)
+- the ``[export]`` table of format toggles and ``[[export.artifacts]]`` -> one
+  ``[[export]]`` request per toggle and per artifact; a table with every
+  format off wrote nothing and is dropped without a word
+- ``[display.overrides.<figure>] timestep`` -> ``time``, and the dotted
+  calibration phase override ``"display.overrides.<figure>.timestep"`` ->
+  ``"display.overrides.<figure>.time"``
 - ``[modflow6.tgrid]`` and ``[modflownwt.tgrid]`` dropped: neither backend
   read them, at the root and under a comparison or testbed overlay
 - ``solver_scratch`` and ``persistence.save_lock`` dropped: both drove
@@ -42,6 +48,7 @@ from typing import Any
 
 import tomlkit
 
+from hydromodpy.core.config_kit.export_spec import RUN_FORMATS, format_from_path
 from hydromodpy.core.logging import get_logger
 
 _logger = get_logger(__name__)
@@ -120,23 +127,235 @@ def migrate_config_doc_on_load(doc: Any, *, source: str | Path | None = None) ->
     already current.
     """
     changes = migrate_config_doc(doc)
-    if changes:
+    loud = [change for change in changes if change not in _QUIET_CHANGES]
+    if loud:
         where = f"{source}" if source is not None else "config"
         _logger.info(
             "%s: migrated %d legacy key(s) on load, not persisted to disk "
             "(run `hmp doctor --fix-config %s` to persist): %s",
             where,
-            len(changes),
+            len(loud),
             source if source is not None else "<path>",
-            "; ".join(changes),
+            "; ".join(loud),
         )
+    elif changes:
+        _logger.debug("%s: %s", source or "config", "; ".join(changes))
     return changes
 
 
 def _finish(doc: Any, changes: list[str]) -> list[str]:
     """Run the migrations that must see the promoted top-level tables."""
-    changes.extend(_migrate_export_variables(doc))
-    changes.extend(_rename_export_times(doc))
+    export_changes = _migrate_export_variables(doc)
+    export_changes.extend(_rename_export_times(doc))
+    exploded = _explode_export_table(doc)
+    if exploded == [_EMPTY_EXPORT_DROPPED]:
+        # The older spellings of a table that wrote nothing lead nowhere either.
+        changes.extend(exploded)
+    else:
+        changes.extend(export_changes)
+        changes.extend(exploded)
+    changes.extend(_rename_display_timestep(doc))
+    return changes
+
+
+_EMPTY_EXPORT_DROPPED = "[export] dropped: every format was off, so it wrote nothing"
+
+# Changes that alter nothing a run does. Every sealed run holds such a table in
+# its resolved config.toml, and `hmp run --resume` replays it, so saying it on
+# every load would be noise.
+_QUIET_CHANGES = frozenset({_EMPTY_EXPORT_DROPPED})
+
+# The keys of the [export] table of format toggles, in the order its exports ran.
+_EXPORT_TOGGLES = ("netcdf", "vtu", "geotiff", "shapefile", "geopackage")
+_EXPORT_TABLE_KEYS = frozenset(
+    {
+        *_EXPORT_TOGGLES,
+        "csv_timeseries",
+        "package",
+        "output_dir",
+        "variables",
+        "time",
+        "resolution",
+        "artifacts",
+    }
+)
+# The selectors a request writing the whole run refuses.
+_RUN_REFUSED_KEYS = ("period", "crs", "resolution", "layer")
+_ARTIFACT_KEYS = {
+    "var": "variables",
+    "fmt": "format",
+    "dest": "file",
+    "time": "time",
+    "layer": "layer",
+    "resolution": "resolution",
+    "crs": "crs",
+    "nodata": "nodata",
+}
+
+
+def _plain(value: Any) -> Any:
+    """Return a tomlkit item as the plain Python value it holds."""
+    return value.unwrap() if hasattr(value, "unwrap") else value
+
+
+def _export_block(block: dict[str, Any], *, time: Any, folder: Any) -> dict[str, Any]:
+    """Add the time and the folder the old table gave every export."""
+    if time is not None and time != "all":
+        block["time"] = time
+    if folder:
+        block["folder"] = folder
+    return block
+
+
+def _artifact_block(artifact: Mapping[str, Any], folder: Any) -> dict[str, Any]:
+    """Return one ``[[export.artifacts]]`` entry as an ``[[export]]`` request."""
+    block: dict[str, Any] = {}
+    for old, new in _ARTIFACT_KEYS.items():
+        if old in artifact:
+            block[new] = _plain(artifact[old])
+    if block.get("variables") == "*":
+        block["variables"] = "all"
+    if block.get("format") == "hmp":
+        block["format"] = "package"
+    time = block.pop("time", None)
+    if _writes_the_run(block):
+        # The old spec let an archive carry a variable and selectors, and wrote
+        # the whole run anyway. The request says so, and keeps no selector.
+        block["variables"] = "all"
+        for key in _RUN_REFUSED_KEYS:
+            block.pop(key, None)
+        time = None
+    return _export_block(block, time=time, folder=folder)
+
+
+def _writes_the_run(block: Mapping[str, Any]) -> bool:
+    """Return whether a request writes the whole run, by its format or its file."""
+    fmt = block.get("format")
+    if fmt is None and block.get("file") is not None:
+        named = format_from_path(str(block["file"]))
+        fmt = named.value if named is not None else None
+    return fmt in {run_format.value for run_format in RUN_FORMATS}
+
+
+def _export_blocks(table: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Return the requests the old ``[export]`` table made, in the order they ran.
+
+    A format toggle wrote every name of ``variables`` at ``time``, into
+    ``output_dir``; ``csv_timeseries`` wrote every series; ``package`` wrote
+    the archive last. The defaults are the ones the table had.
+    """
+    export = _plain(table)
+    folder = export.get("output_dir")
+    variables = list(export.get("variables", ["head"]))
+    time = export.get("time", "last")
+    blocks: list[dict[str, Any]] = []
+    if export.get("csv_timeseries"):
+        blocks.append(
+            _export_block({"variables": "all", "format": "csv"}, time=None, folder=folder)
+        )
+    for toggle in _EXPORT_TOGGLES:
+        if not export.get(toggle):
+            continue
+        block: dict[str, Any] = {"variables": variables, "format": toggle}
+        if toggle == "geotiff" and export.get("resolution") is not None:
+            block["resolution"] = export["resolution"]
+        blocks.append(_export_block(block, time=time, folder=folder))
+    blocks.extend(_artifact_block(artifact, folder) for artifact in export.get("artifacts") or ())
+    if export.get("package"):
+        blocks.append(
+            _export_block({"variables": "all", "format": "package"}, time=None, folder=folder)
+        )
+    return blocks
+
+
+def _explode_export_table(doc: Any) -> list[str]:
+    """Rewrite the ``[export]`` table of format toggles as ``[[export]]`` requests.
+
+    The table crossed every format turned on with one variable list and one
+    time, and ``[[export.artifacts]]`` described single files with keys of its
+    own. Each toggle and each artifact becomes one request. A table with
+    every format off and no artifact wrote nothing and is dropped.
+
+    A table holding a key the old table never had is left as it is: it is a
+    request written as a table, and the loader says to write ``[[export]]``.
+    """
+    table = doc.get("export")
+    if not isinstance(table, Mapping) or not set(table) <= _EXPORT_TABLE_KEYS:
+        return []
+    blocks = _export_blocks(table)
+    if not blocks:
+        del doc["export"]
+        return [_EMPTY_EXPORT_DROPPED]
+    if hasattr(table, "unwrap"):
+        requests = tomlkit.aot()
+        for block in blocks:
+            item = tomlkit.table()
+            item.update(block)
+            item.add(tomlkit.nl())
+            requests.append(item)
+        doc["export"] = requests
+    else:
+        doc["export"] = blocks
+    formats = ", ".join(str(block.get("format", "by extension")) for block in blocks)
+    return [f"[export] toggles and artifacts -> {len(blocks)} [[export]] block(s) ({formats})"]
+
+
+def _rename_timestep(table: Any, where: str) -> list[str]:
+    """Rename the ``timestep`` of one figure's options to ``time``.
+
+    A table holding both is left as it is: the two may name different
+    instants, and the display loader refuses it with the line to delete.
+    """
+    if not isinstance(table, Mapping) or "timestep" not in table or "time" in table:
+        return []
+    value = table["timestep"]
+    del table["timestep"]
+    table["time"] = value
+    return [f"{where}.timestep -> {where}.time ({_plain(value)!r})"]
+
+
+def _rename_display_timestep(doc: Any) -> list[str]:
+    """Rename the figure option ``timestep`` to ``time``, a date or a step.
+
+    It is written in ``[display.overrides.<figure>]`` and, as a dotted path,
+    in the ``overrides`` of a calibration phase.
+    """
+    changes: list[str] = []
+    overrides = (doc.get("display") or {}).get("overrides")
+    if isinstance(overrides, Mapping):
+        for figure in list(overrides):
+            changes.extend(_rename_timestep(overrides[figure], f"display.overrides.{figure}"))
+    phases = (doc.get("calibration") or {}).get("phases")
+    if isinstance(phases, Mapping):
+        phases = [phases]
+    for index, phase in enumerate(phases or ()):
+        phase_overrides = phase.get("overrides") if isinstance(phase, Mapping) else None
+        if isinstance(phase_overrides, Mapping):
+            changes.extend(_rename_phase_timesteps(phase_overrides, index))
+    return changes
+
+
+def _rename_phase_timesteps(overrides: Any, index: int) -> list[str]:
+    """Rename the ``timestep`` a calibration phase writes into a figure's options."""
+    where = f"calibration.phases[{index}].overrides"
+    changes: list[str] = []
+    for key in list(overrides):
+        parts = str(key).split(".")
+        if len(parts) != 4 or parts[:2] != ["display", "overrides"] or parts[3] != "timestep":
+            continue
+        renamed = ".".join([*parts[:3], "time"])
+        if renamed in overrides:
+            # Both reach the figure once the phase is applied; the display
+            # loader refuses that pair and names the line to delete.
+            continue
+        value = overrides[key]
+        del overrides[key]
+        overrides[renamed] = value
+        changes.append(f'{where}."{key}" -> "{renamed}"')
+    nested = (overrides.get("display") or {}).get("overrides")
+    if isinstance(nested, Mapping):
+        for figure in list(nested):
+            changes.extend(_rename_timestep(nested[figure], f"{where}.display.overrides.{figure}"))
     return changes
 
 
@@ -152,7 +371,7 @@ def _migrate_export_variables(doc: Any) -> list[str]:
     survive the expansion.
     """
     export = doc.get("export")
-    if export is None:
+    if not isinstance(export, Mapping):
         return []
     variables = export.get("variables")
     if variables is None or not isinstance(variables, Mapping):
@@ -171,7 +390,7 @@ def _migrate_export_variables(doc: Any) -> list[str]:
 def _rename_export_times(doc: Any) -> list[str]:
     """Rename ``export.times`` to ``export.time``, matching ``[[export.artifacts]]``."""
     export = doc.get("export")
-    if export is None or "times" not in export:
+    if not isinstance(export, Mapping) or "times" not in export:
         return []
     value = export["times"]
     if "time" not in export:

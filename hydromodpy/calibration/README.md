@@ -102,7 +102,7 @@ hydromodpy/calibration/
   runners/      cli_runner.py  staged_runner.py  programmatic_runner.py
                 trial.py  contracts.py  sandbox.py  verdict.py  materialize.py
                 phase_regime.py (steady or transient, as config overrides)
-                pipeline_evaluator.py  promotion.py  restarts.py  resume.py
+                pipeline_evaluator.py  promotion.py  recap.py  restarts.py  resume.py
                 state.py (store and params-hash context)  failure_watch.py
   reporting/    network_transient_html.py  network_transient/
   lumped/  cases/
@@ -169,7 +169,10 @@ is read rather than inside the adapter.
 7. **Write.** Each trial goes to the session journal, then to the DuckDB index
    (`persistence.py`).
 8. **Promote.** `runners/promotion.py` replays the best trials through the full
-   pipeline and links each to its simulation id.
+   pipeline and links each to its simulation id. The best one is named
+   `<simulation name>_<phase>`, or the simulation name alone for one phase.
+   `runners/recap.py` records what the console recap of `hmp run` prints
+   (units, cost metric, session folder) and writes `methods.md`.
 9. **Report.** `report.py` reads the session back;
    `hydromodpy/reporting/calibration_report.py` (another layer) renders it.
 
@@ -202,9 +205,23 @@ Blocks are declared once under `[[calibration.objective_blocks]]`. A phase
 lists the ones it scores, or gives each a share. Shares are normalised to sum
 to one, so `{ hydrograph = 70, network = 30 }` reads as 70 % and 30 % of the
 cost. The share of a cost counts the same as an influence only when the costs
-are comparable: an efficiency and a distance in metres are not, so
-normalise the blocks first (`normalize_cost`) or choose
-`[calibration.aggregate] weighting = "error"`.
+are comparable. An efficiency (`nse_log`) is a pure number and a network
+distance is in metres, so write `normalize_cost = true` on the network block:
+each distance is then divided by the output's `validity_length` (Eq. 4,
+`"auto"` = 2 h_obs), and a gap of one validity length costs 1, as much as an
+NSE of 0. `normalize_cost` stays refused on the efficiency, already a pure
+number, and `[calibration.aggregate] weighting = "error"` does not apply to
+this pair: it needs residuals and an error model on each observation.
+
+A spin-up is left out by dates: `scoring_window.start` on the phase (or on
+`[calibration]`) is the first date scored, for every block alike. A series
+keeps its stamps inside the window. A network output reads one state, dated
+at the stamp that closes its period: `time = "last"` (the default),
+`"first"`, or a date such as `"2002-10-15"`, which reads the period that
+holds it. The window has to hold that stamp, and `hmp calibrate --check` says
+so before any solve when it does not. `warmup` and `warmup_periods` count
+samples, so their span follows the time step; they still load, for older
+files.
 
 The declarations the hand-written examples below share (the published
 method writes its own objective blocks):
@@ -232,13 +249,20 @@ metric = "distance_gap"
 uses_outputs = ["streams"]
 
 [[calibration.objective_blocks]]
+name = "network_share"         # the same gap, counted in validity lengths
+metric = "distance_gap"
+uses_outputs = ["streams"]
+normalize_cost = true
+
+[[calibration.objective_blocks]]
 name = "hydrograph"
 metric = "nse_log"
 uses_outputs = ["gauge"]
 ```
 
 **K first, then Sy with K fixed.** K alone in steady state against the mapped
-network, then Sy alone in transient against the gauge and the network.
+network, then Sy alone in transient against the gauge and the network, 2000
+left out as spin-up.
 
 ```toml
 [[calibration.phases]]
@@ -252,8 +276,11 @@ max_iter = 18
 name = "sy_transient"
 parameters = ["Sy"]            # K holds what k_steady found
 regime = "transient"
-objective_blocks = { hydrograph = 99, network = 1 }   # an efficiency against metres
+objective_blocks = { hydrograph = 0.8, network_share = 0.2 }   # two pure numbers
 max_iter = 30
+
+[calibration.phases.scoring_window]
+start = "2001-01-01"           # the network state read, December 2002, lies inside
 ```
 
 **Both at once.** One phase, both parameters, one regime. Two parameters and
@@ -317,13 +344,16 @@ report = project.calibrate(
     },
     objective_blocks=[
         {"name": "network", "metric": "distance_gap", "uses_outputs": ["streams"]},
+        {"name": "network_share", "metric": "distance_gap", "uses_outputs": ["streams"],
+         "normalize_cost": True},
         {"name": "hydrograph", "metric": "nse_log", "uses_outputs": ["gauge"]},
     ],
     phases=[
         {"name": "k_steady", "parameters": ["K"], "regime": "steady",
          "objective_blocks": ["network"], "max_iter": 18},
         {"name": "sy_transient", "parameters": ["Sy"], "regime": "transient",
-         "objective_blocks": {"hydrograph": 99, "network": 1}, "max_iter": 30},
+         "objective_blocks": {"hydrograph": 0.8, "network_share": 0.2}, "max_iter": 30,
+         "scoring_window": {"start": "2001-01-01"}},
     ],
 )
 ```

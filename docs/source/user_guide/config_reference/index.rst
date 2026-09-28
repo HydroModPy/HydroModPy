@@ -137,7 +137,7 @@ Sections
 
       **[display]**
       ^^^
-      Optional display and export toggles loaded from the [display] section.
+      The figures a run draws, loaded from the [display] section.
 
    .. grid-item-card::
       :link: export
@@ -146,7 +146,7 @@ Sections
 
       **[export]**
       ^^^
-      Automated export configuration loaded from the top-level [export] section. Controls which formats (CSV time series, GeoTIFF, NetCDF, VTU, shapefile), which variables and timesteps are written after a run, and whether a portable '.hmp' archive is produced.
+      The exports written at the end of a run, one [[export]] block per request, in the order of the file. Each block says what (variables), when (time or period) and where (folder or file); the format follows the data.
 
    .. grid-item-card::
       :link: persistence

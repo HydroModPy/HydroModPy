@@ -386,10 +386,12 @@ Sub-models are linked back to their per-section page.
       # figures = ...  # uses factory default
       # Behaviour when a figure that IS applicable fails while rendering. 'warn' logs and continues (default, keeps a long run alive); 'raise' propagates, which is what example and CI configs want so a broken figure cannot pass unnoticed.
       on_error = "warn"
-      # Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``).
+      # The instant every figure that draws one instant shows: a date ("2002-10-15"), "first" or "last". Each such figure draws the stress period that holds the date, so the same date names the same month on a monthly, a daily or a one-period steady run. A `time` in `[display.overrides.<figure>]` wins over it. Unset, each figure picks its own instant: the last period, or for the stream-network maps the state their calibration criterion read. A date outside a run skips the figure with the reason.
+      # time = ...  # default = None
+      # Per-figure options, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``). A key the figure does not take is refused at load, with the list of the keys it takes. A figure that draws one instant takes `time`.
       # overrides = ...  # uses factory default
 
-.. dropdown:: ``[export]`` (ExportConfig)
+.. dropdown:: ``[export]`` (ExportRequest)
    :icon: gear
 
    See :doc:`export` for the full description.
@@ -397,30 +399,26 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [export]
-      # Export to NetCDF-4/UGRID.
-      netcdf = false
-      # Export time series to CSV at the end of the run. Off by default: the canonical time series lives in tables.parquet; CSV is an on-demand export. The only toggle that ignores 'variables'.
-      csv_timeseries = false
-      # Export to VTU (ParaView). One timestep per file.
-      vtu = false
-      # Export to GeoTIFF. One timestep per file.
-      geotiff = false
-      # Export to Shapefile. One timestep per file.
-      shapefile = false
-      # Export to GeoPackage. One timestep per file.
-      geopackage = false
-      # Also write a portable '<run>.hmp' archive (config, provenance, fields, timeseries, RO-Crate) after the run finalizes. The one-line switch for 'this run must be shareable forever'.
-      package = false
-      # Output directory for exports. Defaults to project results folder.
-      # output_dir = ...  # default = None
-      # Field names to export, e.g. ['head', 'watertable_depth']. These are the run's own field names: 'hmp data export <project> --sim <name> --list' prints the ones a given run holds. A name the field registry does not know is refused before the solve, not by this schema. One file is written per name for vtu, geotiff and shapefile; the NetCDF export holds them all. Ignored by csv_timeseries.
-      variables = ["head"]
-      # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps. A vtu, a geotiff and a shapefile hold ONE timestep per file, so a selector naming several is refused while any of them is on; only the NetCDF export carries the whole selection. Same spelling as [[export.artifacts]] time.
-      time = "last"
-      # GeoTIFF pixel size in CRS units for toggle exports. Auto-derived from the grid when omitted.
+      # What to export: a name, a list of names, or "all" for everything the run holds. One namespace covers the mesh fields (head, watertable_depth, seepage_mask...), the series (discharge, discharge_obs...), the vector layers (watershed, hydrographic_network_reference...), the raster layers (watershed_dem...) and the table budget; 'hmp export <run> --list' prints what a run holds. A name no run can hold is refused before the solve.
+      # variables = []  # REQUIRED
+      # The instants to write: a date "YYYY-MM-DD", "first", "last", or a list of them. A date takes the stress period that holds it. A format that holds one instant (GeoTIFF, Shapefile, GeoPackage, VTU) writes one file per date. Left out, the whole simulation is written. Cannot be given with period.
+      # time = ...  # default = None
+      # A window of the simulation, [start, end], two dates "YYYY-MM-DD". Every stress period it overlaps is written. Cannot be given with time.
+      # period = ...  # default = None
+      # The file format. Left out, each data takes its natural format, or the one the extension of 'file' names. 'package' writes the portable .hmp archive of the run; 'stac', 'rocrate' and 'prov' write its metadata. Those four describe the whole run and take variables = "all" only.
+      # format = ...  # default = None
+      # The folder the files are written to, with automatic names. A relative folder is read from the project's share/ directory. Defaults to share/<run>/.
+      # folder = ...  # default = None
+      # One exact file to write; its extension gives the format. A relative file is read from 'folder'. Only for a request that writes one file: several files need 'folder' and automatic names.
+      # file = ...  # default = None
+      # Output CRS, e.g. 'EPSG:4326'. Rasters and vector layers are reprojected from the model CRS. NetCDF, VTU and CSV do not reproject and refuse it. Left out, the model CRS is kept.
+      # crs = ...  # default = None
+      # Pixel size of a GeoTIFF of a field, in units of the output CRS. Derived from the mesh when left out. Refused on a request that writes no raster.
       # resolution = ...  # default = None
-      # Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.
-      # artifacts = ...  # uses factory default
+      # Model layer of a 3D field. Left out, every layer a format can hold.
+      # layer = ...  # default = None
+      # Fill value of the cells a raster has no data for.
+      nodata = -9999.0
 
 .. dropdown:: ``[persistence]`` (PersistenceConfig)
    :icon: gear
@@ -564,7 +562,7 @@ Sub-models are linked back to their per-section page.
       [calibration]
       # Published calibration method this file runs, named instead of retyped. A protocol writes the stages, their criteria and the model regimes they need, so the file states only what belongs to the site. Write the name alone, or a table carrying it plus the names this file uses for the parameters and outputs the method moves. Registered: 'matching_hydrographic_network' (Abherve et al., 2023, doi:10.5194/hess-27-3221-2023). A file that declares its own phases or objective blocks cannot also name a protocol.
       # protocol = ...  # default = None
-      # Optimization method. Unset, it follows from what the calibration scores: 'bisection' when it moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. Write it to depart from that choice, and whenever optimizer_kwargs are given. A phase of [[calibration.phases]] names its own. Built-ins: 'grid' (regular sweep, sized by optimizer_kwargs.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.
+      # Optimization method. Unset, it follows from what the calibration scores: 'bisection' when it moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. Write it to depart from that choice, and whenever method_options are given. A phase of [[calibration.phases]] names its own. Built-ins: 'grid' (regular sweep, sized by method_options.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.
       # method = ...  # default = None
       # What turns one parameter sample into a cost. Unset runs the HydroModPy pipeline, which is what every calibrated number in this repository was produced with. A string and not an enumeration: the values that resolve depend on what is installed beside HydroModPy, which is how a surrogate or a foreign model is named without a patch. This build also ships 'analytic_bowl', which runs no model and scores a closed-form surface whose minimum is the midpoint of each parameter's interval: it rehearses a whole search -- space, optimizer, stopping rule, report -- in milliseconds, against an answer known in advance.
       # evaluator = ...  # default = None
@@ -580,9 +578,9 @@ Sub-models are linked back to their per-section page.
       parallel = 1
       # Percent water-balance discrepancy past which a trial is rejected instead of scored. The solver reports the figure on every run; unset, it is recorded and nothing acts on it, so a run at twelve per cent is ranked beside one that closed even though part of the water it routed came from nowhere. There is no default because there is no universal value: a steady solve on a coarse mesh closes to a fraction of a per cent, a transient one with a lake and a routed network legitimately sits higher.
       # reject_water_budget_above = ...  # default = None
-      # Spin-up (burn-in) periods excluded from every objective block. The first warmup_periods of each observed/simulated series are dropped before the metric, so the window where the state still depends on the initial condition does not bias the calibration. Default 0 (no exclusion). Size it by increasing it until the objective stops changing (initial-condition insensitivity), not a fixed guess.
+      # Spin-up samples dropped from the start of every series before its metric. A count of samples, so its span follows the time step. Write scoring_window.start instead, a date that means the same span at any step and bounds a network state too. Kept so older files load unchanged. Default 0 (no exclusion).
       warmup_periods = 0
-      # Dates bounding the samples every metric is computed on. Mutually exclusive with warmup_periods, which counts samples instead of dates.
+      # Dates bounding the samples every metric is computed on: the way to leave a spin-up out, with start = the first date scored. A series keeps its stamps inside the window; a network output read in one state is dated at the stamp of that state, which has to lie inside it. A phase's own window replaces this one. Mutually exclusive with warmup_periods.
       # scoring_window = ...  # default = None
       # Stages run one after the other, each calibrating its own parameters and freezing them for the next. Declaring this table is what switches the runner to staged mode; without it nothing changes for an existing configuration. The default is None and not an empty list on purpose: the resume lock hashes the configuration with exclude_none, so an absent table leaves that hash untouched and checkpoints stay resumable.
       # phases = ...  # default = None
@@ -604,8 +602,8 @@ Sub-models are linked back to their per-section page.
       variable = "head"
       # Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one.
       # observed_station_id = ...  # default = None
-      # Extra keyword arguments forwarded to the optimizer adapter. They belong to one engine, so a calibration that gives them names its method.
-      # optimizer_kwargs = ...  # uses factory default
+      # Options of the method, named as that method names them: points_per_dim for 'grid', sampler for 'optuna', sweep_points for 'bisection'. They belong to one method, so a calibration that gives them writes method beside them. A key the method does not take is refused when the file loads.
+      # method_options = ...  # uses factory default
       # Per-parameter declarations (bounds, transform, prior, path).
       # parameters = ...  # uses factory default
       # Named observables extracted from each candidate run.

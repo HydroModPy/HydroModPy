@@ -10,5 +10,6 @@ without any simulation result.
 from __future__ import annotations
 
 from hydromodpy.display.overview.report import generate_overview_report
+from hydromodpy.display.overview.web import overview_web_report_path
 
-__all__ = ["generate_overview_report"]
+__all__ = ["generate_overview_report", "overview_web_report_path"]

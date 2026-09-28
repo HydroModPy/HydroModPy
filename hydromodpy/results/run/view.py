@@ -12,7 +12,10 @@ xarray / UGRID readers (``dataset``, ``to_xarray_batch``) live on the
 :class:`hydromodpy.results.run.array.RunArrayProvider` exposed as
 ``run.array``; the point interrogation (one cell, after the fact) lives on
 :class:`hydromodpy.results.run.point.RunPointProvider` exposed as
-``run.probe``. Derived catchment views are module-level functions in
+``run.probe``; the stress periods placed on the calendar (``edges``,
+``step_at``, ``steps_for``) live on
+:class:`hydromodpy.results.run.periods.RunPeriods` exposed as
+``run.periods``. Derived catchment views are module-level functions in
 :mod:`hydromodpy.results.derive.views` (``saturated_fraction``, ``drainage_density``,
 ``persistence``, ``catchment_mean``, ``recharge_forcing``).
 
@@ -36,12 +39,14 @@ module-level functions in :mod:`hydromodpy.results.derive.views` and consume a
 Public API
 ----------
 - ``Run``: instantiated by ``Catalog`` resolution methods. Also
-  exposes ``run.array`` for xarray / UGRID readers and ``run.probe`` for
-  point interrogation.
+  exposes ``run.array`` for xarray / UGRID readers, ``run.probe`` for
+  point interrogation and ``run.periods`` for date lookups.
 - :class:`hydromodpy.results.run.array.RunArrayProvider` exposes
   ``dataset`` and ``to_xarray_batch``.
 - :class:`hydromodpy.results.run.point.RunPointProvider` exposes
   ``series`` and ``declared``.
+- :class:`hydromodpy.results.run.periods.RunPeriods` exposes
+  ``edges``, ``step_at`` and ``steps_for``.
 
 Cross-refs
 ----------
@@ -56,7 +61,7 @@ from __future__ import annotations
 
 import json as _json
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
@@ -64,6 +69,7 @@ from hydromodpy.results.errors import RunNotFoundError
 from hydromodpy.results.run.array import RunArrayProvider
 from hydromodpy.results.run.geographic import RunGeographicMixin
 from hydromodpy.results.run.hydrographic import RunHydrographicMixin
+from hydromodpy.results.run.periods import RunPeriods
 from hydromodpy.results.run.point import RunPointProvider
 from hydromodpy.results.run.timeseries import RunTimeseriesMixin
 
@@ -149,6 +155,7 @@ class Run(
         self._row: dict | None = None
         self.array = RunArrayProvider(self)
         self.probe = RunPointProvider(self)
+        self.periods = RunPeriods(self)
 
     def _iter_runs(self) -> tuple[Run, ...]:
         """Runs this object stands for, so ``probe`` serves one run and a set alike."""
@@ -188,43 +195,57 @@ class Run(
 
     def export(
         self,
-        var: str | list[str],
-        dest: str | Path,
+        variables: str | list[str],
         *,
-        fmt: str | None = None,
-        time: int | Literal["first", "last", "all"] | None = None,
-        layer: int | None = None,
-        resolution: float | None = None,
+        time: Any = None,
+        period: tuple[Any, Any] | None = None,
+        format: str | None = None,
+        folder: str | Path | None = None,
+        file: str | Path | None = None,
         crs: str | None = None,
+        resolution: float | None = None,
+        layer: int | None = None,
         nodata: float = -9999.0,
-    ) -> Path:
-        """Export one or more variables of this run to a standalone file.
+    ) -> list[Path]:
+        """Export data of this run to files; return the files written.
 
-        The natural Python gesture: no UUID handling, the run already knows
-        which simulation to read. ``fmt`` is optional when ``dest`` has a known
-        extension (``.nc``, ``.tif``, ``.csv``, ``.shp``, ``.vtu``, ``.hmp``).
+        The words of an ``[[export]]`` block: ``variables`` says what (a name,
+        a list, or ``"all"``), ``time`` or ``period`` when, ``folder`` or
+        ``file`` where. The format follows the data unless ``format`` or the
+        extension of ``file`` names one: a field at one date goes to GeoTIFF,
+        over several dates to one NetCDF, a series or the budget to CSV, a
+        vector layer to GeoPackage, a raster layer to GeoTIFF. Files land in
+        ``share/<run>/`` by default; a relative ``folder`` is read from
+        ``share/``.
 
         Examples
         --------
-        >>> run.export("head", "head.tif", time="last", resolution=50)  # doctest: +SKIP
+        >>> run.export("all")  # doctest: +SKIP
+        >>> run.export(["head", "watertable_depth"], time="2001-08-15")  # doctest: +SKIP
+        >>> run.export("discharge", period=("2001-01-01", "2002-12-31"))  # doctest: +SKIP
         >>> run.export(
-        ...     ["head", "watertable_depth"], "fields.nc", time="all"
+        ...     "watertable_depth", time="last", file="nappe_wgs84.tif", crs="EPSG:4326"
         ... )  # doctest: +SKIP
-        >>> run.export("*", "timeseries.csv")  # doctest: +SKIP
+        >>> run.export("all", format="package")  # doctest: +SKIP
         """
-        from hydromodpy.core.config_kit.export_spec import ExportSpec
+        from hydromodpy.core.config_kit.export_spec import ExportRequest
 
-        spec = ExportSpec(
-            var=var,
-            dest=Path(dest),
-            fmt=fmt,
-            time=time,
-            layer=layer,
-            resolution=resolution,
-            crs=crs,
-            nodata=nodata,
+        fields = {
+            "variables": variables,
+            "time": time,
+            "period": period,
+            "format": format,
+            "folder": folder,
+            "file": file,
+            "crs": crs,
+            "resolution": resolution,
+            "layer": layer,
+            "nodata": nodata,
+        }
+        request = ExportRequest.model_validate(
+            {key: value for key, value in fields.items() if value is not None}
         )
-        return self._catalog.export(self._sim_id, spec)
+        return self._catalog.export(self._sim_id, request)
 
     # -- Mutations (require a writable catalog) -------------------------------
 

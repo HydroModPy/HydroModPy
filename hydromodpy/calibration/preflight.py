@@ -80,6 +80,9 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(_check_the_minimal_maps_are_there(calibration, where_from))
     findings.extend(_check_an_extent_is_scored_on_a_transient_run(calibration, config))
     findings.extend(_check_a_network_estimator_names_its_network_output(calibration))
+    findings.extend(
+        _check_the_scoring_windows_hold_what_they_score(calibration, config, where_from)
+    )
     return findings
 
 
@@ -335,11 +338,16 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
 
     An engine refuses an impossible pairing in its constructor, which is right
     but late: a staged calibration builds phase two's optimizer when phase two
-    starts, after phase one has spent its whole budget.
+    starts, after phase one has spent its whole budget. Its method_options are
+    faced with the method here too. Loading a file already refuses them, but a
+    configuration assembled in Python without validation reaches this check
+    without that refusal, and the finding names the phase either way.
     """
+    from hydromodpy.calibration.optim.method_config import method_options_problem
     from hydromodpy.calibration.optim.optimizer import available_optimizers, engine_traits
 
     known = set(available_optimizers())
+    options_of = {entry[0]: entry[3] for entry in _declared_precisions(calibration)}
     findings: list[PreflightFinding] = []
     for where, method, names, metrics, parallel in _searches(calibration):
         if method not in known:
@@ -351,6 +359,16 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                 )
             )
             continue
+        problem = method_options_problem(method, options_of.get(where))
+        if problem is not None:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    f"method_options: {problem} The run would stop when this search "
+                    "starts, after the searches before it have spent their budget.",
+                )
+            )
         traits = engine_traits(method)
         if traits.max_parameters is not None and len(names) > traits.max_parameters:
             findings.append(
@@ -495,7 +513,7 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
                 PreflightFinding(
                     "error",
                     where,
-                    f"tolerance and optimizer_kwargs.{traits.tolerance_option} both set "
+                    f"tolerance and method_options.{traits.tolerance_option} both set "
                     f"the stopping rule of {method!r}. Keep one.",
                 )
             )
@@ -516,7 +534,7 @@ def _declared_precisions(
                 "[calibration]",
                 calibration.method_for()[0],
                 calibration.tolerance,
-                dict(calibration.optimizer_kwargs or {}),
+                dict(calibration.method_options or {}),
                 calibration.uncertainty.restarts,
             )
         ]
@@ -525,7 +543,7 @@ def _declared_precisions(
             f"[[calibration.phases]] {phase.name!r}",
             calibration.method_for(phase)[0],
             phase.tolerance,
-            dict(phase.optimizer_kwargs or {}),
+            dict(phase.method_options or {}),
             calibration.uncertainty_for(phase).restarts,
         )
         for phase in calibration.phases
@@ -615,7 +633,7 @@ def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | N
                 sorted(calibration.parameters or {}),
                 calibration.max_iter,
                 calibration.tolerance,
-                dict(calibration.optimizer_kwargs or {}),
+                dict(calibration.method_options or {}),
             )
         ]
     return [
@@ -625,7 +643,7 @@ def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | N
             list(phase.parameters),
             phase.max_iter,
             phase.tolerance,
-            dict(phase.optimizer_kwargs or {}),
+            dict(phase.method_options or {}),
         )
         for phase in calibration.phases
     ]
@@ -1074,6 +1092,134 @@ def _check_a_network_estimator_names_its_network_output(
             )
         )
     return findings
+
+
+def _check_the_scoring_windows_hold_what_they_score(
+    calibration: Any, project_config: Any, source: Path
+) -> list[PreflightFinding]:
+    """Refuse a scoring window that cannot hold what its search scores.
+
+    The run refuses it at the first trial of the search, after the phases
+    before it have spent their budget. Two cases. A block on an output with no
+    date, a vector typed into the file, has nothing a window can cut. A network
+    output read in one state is dated at the stamp that closes the period it
+    reads, the first, the last or the one holding its date, and the window has
+    to hold that stamp. The stamp is read on the time grid the search runs:
+    one period over the steady window for a steady phase, the project's own
+    grid otherwise. A date on ``time`` that grid does not hold is refused too,
+    window or not. A phase that rewrites ``[simulation.time]`` in its own
+    overrides is left to the run.
+    """
+    import pandas as pd
+
+    from hydromodpy.calibration.metrics.observable_scoring import (
+        network_state_period,
+        refuse_window_without_dates,
+    )
+    from hydromodpy.calibration.metrics.observed_pairing import observing_outputs
+    from hydromodpy.core.time.selection import TimeSelectionError
+
+    findings: list[PreflightFinding] = []
+    document: list[Mapping[str, Any] | None] = []
+    for phase, where, _ in _search_candidates(calibration):
+        if phase is not None and phase.is_single_metric:
+            continue
+        blocks = (
+            _phase_named_blocks(calibration, list(phase.objective_blocks))
+            if phase is not None
+            else list(calibration.objective_blocks or [])
+        )
+        if not blocks:
+            continue
+        outputs = _outputs_scored_by_search(calibration, phase)
+        edges = _search_edges(project_config, phase, source, document)
+        declared = getattr(phase, "scoring_window", None) or calibration.scoring_window
+        # Validated when the file was read, so both bounds parse.
+        window = (
+            None
+            if declared is None
+            else tuple(
+                None if bound is None else pd.Timestamp(bound)
+                for bound in (declared.start, declared.end)
+            )
+        )
+        read = {str(name) for block in blocks for name in block.uses_outputs}
+        for name in sorted(read & set(outputs)):
+            output = outputs[name]
+            if output.support != "network" or getattr(output, "extent", None) is not None:
+                continue
+            if edges is None or output.time in ("first", "last"):
+                continue
+            try:
+                network_state_period(output.time, edges, n_periods=len(edges) - 1)
+            except TimeSelectionError as exc:
+                findings.append(
+                    PreflightFinding(
+                        "error",
+                        f"[calibration.outputs.{name}]",
+                        f"time = {output.time!r} names no state of the run {where} scores "
+                        f"it in: {exc}",
+                    )
+                )
+                edges = None
+        try:
+            refuse_window_without_dates(
+                outputs, blocks, window, observing_outputs(outputs), boundaries=edges
+            )
+        except ValueError as exc:
+            findings.append(PreflightFinding("error", where, str(exc)))
+    return findings
+
+
+def _search_edges(
+    project_config: Any,
+    phase: Any | None,
+    source: Path,
+    document: list[Mapping[str, Any] | None],
+) -> tuple[Any, ...] | None:
+    """Return the period bounds of the time grid one search runs, or ``None``.
+
+    A steady phase runs one period over its steady window, read from the raw
+    document as the run reads it. Any other search runs the project's grid.
+    ``None`` when that cannot be told here: a phase that rewrites
+    ``[simulation.time]`` in its overrides, a steady window the regime check
+    already refuses, or a project with no dated grid. ``document`` caches the
+    raw document between searches, read once.
+    """
+    import pandas as pd
+
+    from hydromodpy.core.time.selection import grid_edges
+    from hydromodpy.core.time.window import resolve_simulation_time_grid
+
+    overrides = getattr(phase, "overrides", None) or {}
+    if any(str(path).startswith("simulation.time.") for path in overrides):
+        return None
+    if getattr(phase, "regime", None) == "steady":
+        from hydromodpy.calibration.runners.phase_regime import regime_overrides
+        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+        if not document:
+            try:
+                document.append(load_toml_with_base_config(source))
+            except (OSError, ValueError):
+                document.append(None)
+        if document[0] is None:
+            return None
+        try:
+            written = regime_overrides(phase, document[0])
+        except ValueError:
+            return None
+        start = pd.Timestamp(written["simulation.time.start_datetime"])
+        # Spelled with a unit: ``pd.Timedelta(days=n)`` warns under the pinned NumPy.
+        span = pd.Timedelta(int(written["simulation.time.step_value"]), unit="D")
+        return (start, start + span)
+    try:
+        edges = grid_edges(resolve_simulation_time_grid(project_config))
+    except (TypeError, ValueError):
+        # A [simulation.time] the run cannot read is refused by the run itself,
+        # with its own message; this check has no grid to date a state on.
+        return None
+    return None if edges is None else tuple(edges)
 
 
 def _missing(

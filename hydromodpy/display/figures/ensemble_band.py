@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.core.units.labels import axis_label
+from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 
@@ -41,7 +41,7 @@ class EnsembleBandFigure(BaseFigure):
         sim: Any,
         ax: Axes,
         *,
-        station: str = "_catchment",
+        station: str = CATCHMENT_OUTLET_STATION,
         variable: str = "discharge",
         observed: Any | None = None,
         q_low: float = 0.1,
@@ -85,7 +85,7 @@ class EnsembleBandFigure(BaseFigure):
             )
         ax.set_xlabel("Date")
         ax.set_ylabel(axis_label(variable))
-        ax.set_title(f"Ensemble envelope - {len(series)} runs @ {station}")
+        ax.set_title(f"Ensemble envelope - {len(series)} runs @ {station_label(station)}")
         ax.grid(True, ls=":", lw=0.4)
         ax.legend()
         return ax

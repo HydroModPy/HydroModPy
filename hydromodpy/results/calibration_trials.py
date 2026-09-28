@@ -16,6 +16,7 @@ frame, so a figure has one call to make and no shape to test for.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 import pandas as pd
 
@@ -35,7 +36,7 @@ def _rows_carried_by(source: Any) -> pd.DataFrame | None:
     return rows.copy() if isinstance(rows, pd.DataFrame) else pd.DataFrame(list(rows))
 
 
-def _rows_in_the_catalog(run: Run) -> pd.DataFrame:
+def _rows_in_the_catalog(run: Run, session_id: str | None = None) -> pd.DataFrame:
     """Return the trials of the calibration this run belongs to.
 
     Keyed on the SESSION, not on the run. A promoted run carries the single row
@@ -43,10 +44,19 @@ def _rows_in_the_catalog(run: Run) -> pd.DataFrame:
     the calibration: read by sim_id, the crossing of two distances and the trace
     of a bisection both come back as one point.
 
+    A named ``session_id`` is read directly, whether or not this run carries a
+    row of it: the run promoted from the second phase of a chain reads the
+    trials of the first phase this way.
+
     A run that belongs to no session falls back to its own rows, which is what
     a run-shaped adapter with a hand-built table gets.
     """
     backend = run._catalog.backend  # noqa: SLF001 - same package, one reader
+    if session_id is not None:
+        return backend.query(
+            f"SELECT * FROM {_TABLE} WHERE session_id = ? ORDER BY iteration",  # noqa: S608
+            [_session_key(session_id)],
+        )
     sid = run._sim_id  # noqa: SLF001
     sessions = backend.query(
         f"SELECT DISTINCT session_id FROM {_TABLE} WHERE sim_id = ?",  # noqa: S608
@@ -65,6 +75,14 @@ def _rows_in_the_catalog(run: Run) -> pd.DataFrame:
     )
 
 
+def _session_key(session_id: str) -> UUID | str:
+    """Return a session id as the UUID the index stores, bare hex or dashed alike."""
+    try:
+        return UUID(str(session_id))
+    except ValueError:
+        return str(session_id)
+
+
 def calibration_trials(source: Run | Any, *, session_id: str | None = None) -> pd.DataFrame:
     """Return the calibration iterations recorded for ``source``.
 
@@ -73,8 +91,11 @@ def calibration_trials(source: Run | Any, *, session_id: str | None = None) -> p
     source
         A run, or the run-shaped adapter the calibration report builds.
     session_id
-        Keep only the trials of that session. A source whose rows carry no
-        session column is returned whole: it already is one session.
+        Keep only the trials of that session. A run reads that session from
+        the catalog even when it carries no row of it, which is how the run
+        promoted from one phase reads the other phases of its chain. A source
+        whose rows carry no session column is returned whole: it already is
+        one session.
 
     Raises
     ------
@@ -90,10 +111,11 @@ def calibration_trials(source: Run | Any, *, session_id: str | None = None) -> p
                 f"no calibration trial can be read from {type(source).__name__}: "
                 f"it carries no {_TABLE} and is not a run."
             )
-        frame = _rows_in_the_catalog(source)
+        frame = _rows_in_the_catalog(source, session_id)
 
     if session_id is not None and "session_id" in frame.columns:
-        frame = frame[frame["session_id"].astype(str) == str(session_id)]
+        wanted = str(_session_key(session_id))
+        frame = frame[frame["session_id"].map(lambda value: str(_session_key(value))) == wanted]
 
     if frame.empty:
         scope = "" if session_id is None else f" for session {session_id!r}"

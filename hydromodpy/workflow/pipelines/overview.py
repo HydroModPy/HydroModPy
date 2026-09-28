@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core import progress
 from hydromodpy.core.contracts.overview import DataOverviewState
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.logging import get_logger
@@ -71,20 +72,28 @@ class DataOverviewLauncher:
         self._bootstrap_stream_geometry(state)
 
         # Phase 2: Geographic (watershed delineation)
-        self._setup_geographic(state)
+        with progress.phase("Delineating the catchment"):
+            self._setup_geographic(state)
 
         # Phase 3: Data loading
-        self._load_data(state)
+        with progress.phase("Loading data"):
+            self._load_data(state)
 
         # Phase 4: Report generation
-        report_paths = self._generate_report(state)
+        with progress.phase("Drawing the report"):
+            report_paths = self._generate_report(state)
 
+        from hydromodpy.display.overview import overview_web_report_path
+
+        web_report = overview_web_report_path(state) if report_paths else None
         return {
             "mode": "data_overview",
-            "report_paths": [str(p) for p in report_paths],
+            "name": getattr(self.cfg.overview, "name", None) or None,
             "catchment_area_km2": (
                 state.domain_geographic.catchment_area_km2 if state.domain_geographic else None
             ),
+            "report_paths": [str(p) for p in report_paths],
+            "web_report": str(web_report) if web_report and web_report.is_file() else None,
         }
 
     # ------------------------------------------------------------------
@@ -120,11 +129,12 @@ class DataOverviewLauncher:
         if state.workspace is not None and state.workspace.paths.data_path is not None:
             cache_dir = state.workspace.paths.data_path / "dem"
 
-        resolved = resolve_dem_path_from_data_sources(
-            state.cfg,
-            config_path=self.config_path,
-            cache_dir=cache_dir,
-        )
+        with progress.phase("Fetching the DEM"):
+            resolved = resolve_dem_path_from_data_sources(
+                state.cfg,
+                config_path=self.config_path,
+                cache_dir=cache_dir,
+            )
         if resolved is None:
             raise ConfigMissingError(
                 "No dem_init_path and no [data.dem] source configured. "

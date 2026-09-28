@@ -155,7 +155,7 @@ def _config(**overrides: object) -> CalibrationConfig:
     payload: dict[str, object] = {
         "method": "grid",
         "max_iter": 9,
-        "optimizer_kwargs": {"points_per_dim": 3},
+        "method_options": {"points_per_dim": 3},
         "parameters": {
             "k": {"path": "flow.properties.k_aquifer", "bounds": [1e-6, 1e-2], "transform": "log"},
             "porosity": {"path": "flow.properties.porosity", "bounds": [0.01, 0.3]},

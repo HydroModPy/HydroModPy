@@ -61,7 +61,7 @@ def test_stage_one_keeps_the_scripts_mean_offset_and_nelder_mead(calibration) ->
     steady = calibration.phases[0]
     assert steady.method == "scipy_nelder_mead"
     assert steady.max_iter == 60
-    assert steady.optimizer_kwargs == {
+    assert steady.method_options == {
         "maxiter": 30,
         "maxfev": 60,
         "xatol": 0.30,
@@ -101,7 +101,7 @@ def test_stage_one_meets_its_own_tolerance_well_inside_scipys_cap(calibration) -
     steady = calibration.phases[0]
     lower, upper = calibration.parameters["K"].bounds
     space = ParameterSpace([CalibParameter(name="K", lower=lower, upper=upper, transform="log")])
-    optimizer = ScipyNelderMead(space, **steady.optimizer_kwargs)
+    optimizer = ScipyNelderMead(space, **steady.method_options)
     engine = CalibrationEngine(
         space=space, optimizer=optimizer, evaluator=_replay, max_iter=steady.max_iter
     )
@@ -133,7 +133,7 @@ def test_stage_two_reads_storage_from_the_hydrograph_with_conductivity_frozen(ca
     assert storage.parameters == ["Sy"]
     assert storage.objective_blocks == [HYDROGRAPH_BLOCK]
     assert storage.max_iter == 120
-    assert storage.optimizer_kwargs["xatol"] == pytest.approx(3.7e-5)
+    assert storage.method_options["xatol"] == pytest.approx(3.7e-5)
     # The reference scores the whole calibration window, with no spin-up year cut.
     # The protocol leaves the first year out by default, so the file says so.
     assert storage.scoring_window is not None

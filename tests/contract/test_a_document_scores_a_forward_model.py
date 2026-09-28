@@ -70,7 +70,7 @@ project_root = "{workspace.as_posix()}"
 evaluator = "scored_forward_model"
 {names_model}method = "grid"
 max_iter = 25
-optimizer_kwargs = {{ points_per_dim = 5 }}
+method_options = {{ points_per_dim = 5 }}
 
 [calibration.parameters.k]
 path = "flow.properties.k_aquifer"

@@ -174,7 +174,7 @@ workflow:
 
 The default sampler is Optuna's TPE sampler. The adapter also accepts
 ``sampler = "random"``, ``sampler = "cmaes"``, or ``sampler = "nsga"`` through
-``[calibration.optimizer_kwargs]`` when the corresponding Optuna dependencies
+``[calibration.method_options]`` when the corresponding Optuna dependencies
 are installed. The standard platform install includes Optuna and the default
 TPE sampler; the ``calibration`` extra adds packages such as ``cma`` and
 ``cmaes`` for the CMA-ES variants.
@@ -207,7 +207,7 @@ Its main limits are:
 
 - the answer remains budget-dependent;
 - the default TPE sampler needs enough trials before it becomes informative;
-- sampler-specific options belong in ``optimizer_kwargs`` and should not
+- sampler-specific options belong in ``method_options`` and should not
   replace HydroModPy's objective and persistence configuration.
 
 CMA-ES

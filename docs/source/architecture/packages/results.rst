@@ -60,6 +60,16 @@ Run API
   ``provenance`` (DataFrame).
 - **Time series**: ``timeseries(variable, station, period=None)``,
   ``observed(variable, station=None)``.
+- **Time axis**: ``time_index`` (the end stamp of each stress period).
+  ``run.periods`` places the periods on the calendar:
+  ``run.periods.edges`` (the ``n + 1`` edges, period ``i`` is
+  ``[edges[i], edges[i + 1])``, ``None`` for a steady run without
+  a window), ``run.periods.step_at(time)`` (the period that holds a
+  date, ``"first"``, ``"last"`` or an index) and
+  ``run.periods.steps_for(time=None, period=None)``. Both read the date through
+  ``hydromodpy.core.time.selection``, the resolver figures and exports
+  share. A steady run over a window has one period: every date of the
+  window resolves to 0.
 - **Budgets**: ``budget(component=None, zone_id=None,
   period=None)``, ``mass_balance``.
 - **Field arrays**: ``field(variable, timestep=-1, layer=None)``,

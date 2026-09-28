@@ -103,15 +103,16 @@ the wiring required.
 Declaring the options
 ----------------------
 
-Registering the class is not enough: ``optimizer_kwargs`` is validated
+Registering the class is not enough: ``method_options`` is validated
 against a typed model before it ever reaches the adapter constructor. Add a
 ``BaseModel`` for ``mymethod`` in ``hydromodpy/calibration/optim/method_config.py``,
 with ``method: Literal["mymethod"]`` and one field per accepted constructor
 keyword, and list it in the ``CalibrationMethodConfig`` union at the bottom
-of that module. ``CalibrationConfig.validate_registry`` calls
-``validate_method_kwargs``, which raises on an unknown key or a wrong type
-at config-load time, instead of inside the adapter where the message is
-much less helpful.
+of that module. A phase, ``[calibration]`` and the protocol's
+``steady_method_options`` / ``transient_method_options`` are checked against
+it when the file loads, by ``method_options_problem``: an unknown key or a
+wrong type is refused there, naming the phase, instead of inside the adapter
+when that phase starts. ``hmp calibrate --check`` runs the same check.
 
 Search methods ship with HydroModPy and are not plugged from outside. A
 search of your own does not go through this registry: write an object
@@ -168,7 +169,7 @@ and dropped: a run reporting that it honoured a request it never read is worse
 than a run refusing the request.
 
 Everything a stopping rule needs beyond that precision stays in
-``optimizer_kwargs``, in the engine's own units, which is how a published call is
+``method_options``, in the engine's own units, which is how a published call is
 reproduced verbatim. Stating both the precision and the option it writes is
 refused, before the first solve.
 

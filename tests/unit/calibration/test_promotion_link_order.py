@@ -172,6 +172,7 @@ def _promote(catalog, session_id, monkeypatch, *, cfg=None, fail: bool = False):
         session_id=session_id,
         best=None,
         override_paths={"K": "flow.param.K.field.value"},
+        run_name="nancon_steady",
     )
     return result, seen
 

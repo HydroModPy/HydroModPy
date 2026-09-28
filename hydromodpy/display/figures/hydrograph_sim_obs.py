@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.core.units.labels import axis_label
+from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import style_date_axis
@@ -38,7 +38,7 @@ class HydrographSimObs(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: str = "_catchment",
+        station: str = CATCHMENT_OUTLET_STATION,
         variable: str = "discharge",
         log_y: bool = False,
         **_,
@@ -51,7 +51,7 @@ class HydrographSimObs(BaseFigure):
         ax.plot(
             sim_ts.index,
             sim_ts.values,
-            label="sim",
+            label="simulated",
             color="steelblue",
             lw=1.2,
             marker=sim_marker,
@@ -68,7 +68,7 @@ class HydrographSimObs(BaseFigure):
         has_aligned = False
         for station_id, group in obs_df.groupby("station_id"):
             obs_ts = normalize_datetime_series(
-                group.set_index("datetime")["value"].rename(f"obs ({station_id})")
+                group.set_index("datetime")["value"].rename(f"observed ({station_id})")
             )
             obs_aligned = observed_on_simulation_index(
                 obs_ts, sim_ts.index, method=method, start=start
@@ -80,7 +80,7 @@ class HydrographSimObs(BaseFigure):
             ax.plot(
                 obs_aligned.index,
                 obs_aligned.values,
-                label=f"obs ({station_id})",
+                label=f"observed ({station_id})",
                 color="black",
                 lw=0.9,
                 ls="--",
@@ -95,8 +95,8 @@ class HydrographSimObs(BaseFigure):
         ax.set_ylabel(axis_label(variable))
         if log_y:
             ax.set_yscale("log")
-        ax.set_title(f"Hydrograph sim vs obs - {sim.name or sim.sim_id} @ {station}")
+        ax.set_title(f"Hydrograph sim vs obs - {sim.name or sim.sim_id} @ {station_label(station)}")
         ax.grid(True, ls=":", lw=0.4)
-        ax.legend(fontsize=13, framealpha=0.94)
+        ax.legend(fontsize=9, framealpha=0.94)
         style_date_axis(ax)
         return ax

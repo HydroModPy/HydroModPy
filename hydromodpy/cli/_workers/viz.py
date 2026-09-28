@@ -12,16 +12,22 @@ def render_figure(
     *,
     workspace: Any = None,
     output: Any = None,
+    time: str | None = None,
 ) -> Path:
     """Render one registered figure for a simulation. Returns the file written.
 
-    Without an explicit ``output`` the figure is written inside the run it
-    describes, at ``runs/<run>/figures/<figure>.png``; an ``output`` without a
-    suffix is written as ``<output>.png``. The index is opened read-only:
-    rendering a figure reads a run, it never rewrites its index. A figure the
-    run cannot feed raises ``ValueError`` with its reason and writes no PNG.
+    The figure gets the options the run's own ``[display]`` gave it (its
+    ``time`` and its ``[display.overrides]``), so it redraws the figure the
+    run drew. ``time`` replaces the instant: a date, ``"first"`` or
+    ``"last"``. Without an explicit ``output`` the figure is written inside
+    the run it describes, at ``runs/<run>/figures/<figure>.png``; an
+    ``output`` without a suffix is written as ``<output>.png``. The index is
+    opened read-only: rendering a figure reads a run, it never rewrites its
+    index. A figure the run cannot feed raises ``ValueError`` with its reason
+    and writes no PNG.
     """
     from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.display.runs import figure_options_from_run
     from hydromodpy.display.runs import render_figure as render_one_figure
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
@@ -39,8 +45,11 @@ def render_figure(
         )
         if save.suffix == "":
             save = save.with_suffix(".png")
+        options = figure_options_from_run(sim, figure)
+        if time is not None:
+            options["time"] = time
         save.parent.mkdir(parents=True, exist_ok=True)
-        render_one_figure(figure, sim, save=save)
+        render_one_figure(figure, sim, save=save, **options)
         return save
 
 
@@ -75,6 +84,7 @@ def render_gallery(
     Each run gets its own summary line, so a figure the gallery was asked for
     and could not produce is reported here exactly as it is on the run path.
     """
+    from hydromodpy.config.config_migration import migrate_config_doc_on_load
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.runs import (
@@ -90,6 +100,9 @@ def render_gallery(
         raise ValueError(f"Expected a TOML file: {target_path}")
 
     raw_toml = load_toml_with_base_config(target_path)
+    # The same in-memory migration `hmp run` applies, so an old key loads and
+    # is reported the same way on both commands.
+    migrate_config_doc_on_load(raw_toml, source=target_path)
     display_cfg = DisplayConfig.model_validate(raw_toml.get("display", {}))
     if no_show:
         display_cfg.show = False

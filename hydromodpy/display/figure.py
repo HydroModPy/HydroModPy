@@ -10,6 +10,8 @@ solver, a raw output file or a ``ProjectState``.
 
 from __future__ import annotations
 
+import functools
+import inspect
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -75,6 +77,41 @@ class FigureSpec:
     required_tables: tuple[str, ...] = ()
     required_solvers: tuple[str, ...] = ()
     default_figsize: tuple[float, float] = (7.0, 5.0)
+
+
+def _period_drawn(sim: Run, timestep: object) -> str | None:
+    """Return the stress period a figure drew, for the PNG metadata.
+
+    An ISO 8601 interval, ``"2002-10-01/2002-11-01"``, its end exclusive,
+    when the run has dates, else ``"period <i>"``. ``None`` when the figure
+    was given no instant.
+    """
+    if timestep is None or isinstance(timestep, bool):
+        return None
+    try:
+        index = int(timestep)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        return str(timestep)
+    try:
+        edges = sim.periods.edges
+    except (AttributeError, RuntimeError, ValueError):
+        # A stand-in run or a run without a stored grid: the index is all there is.
+        edges = None
+    if edges is None or len(edges) < 2:
+        return f"period {index}"
+    n = len(edges) - 1
+    position = index + n if index < 0 else index
+    if not 0 <= position < n:
+        return f"period {index}"
+    start, end = edges[position], edges[position + 1]
+    return f"{_iso(start)}/{_iso(end)}"
+
+
+def _iso(stamp) -> str:
+    """Return a timestamp as a date at midnight, else to the second."""
+    if stamp == stamp.normalize():
+        return stamp.strftime("%Y-%m-%d")
+    return stamp.strftime("%Y-%m-%dT%H:%M:%S")
 
 
 @runtime_checkable
@@ -147,7 +184,7 @@ class BaseFigure(ABC):
                 dpi=dpi,
                 sim=sim,
                 field=opts.get("variable") or opts.get("field"),
-                time=opts.get("time") or opts.get("timestep"),
+                time=_period_drawn(sim, opts.get("timestep")),
             )
         return fig
 
@@ -213,3 +250,57 @@ def _extract_crs_epsg(sim: Run) -> int | None:
         return crs_epsg(sim)
     except Exception:  # provenance is optional; it never costs the PNG
         return None
+
+
+# Arguments a caller of ``plot`` fills itself, never an option a user writes.
+_NOT_OPTIONS = frozenset({"self", "sim", "ax", "dpi", "save_path", "timestep"})
+
+
+def _walk_keywords(cls: type, method: str) -> tuple[set[str], bool]:
+    """Collect the keyword names ``method`` accepts along the MRO of ``cls``.
+
+    A ``**`` parameter named other than ``_`` forwards to the next definition
+    up the MRO, so the walk goes on. A ``**_`` swallows what is left, so the
+    walk stops there. Returns the names and whether the walk reached
+    :meth:`BaseFigure.plot`, which forwards its ``**opts`` to ``render``.
+    """
+    found: set[str] = set()
+    for klass in cls.__mro__:
+        func = klass.__dict__.get(method)
+        if func is None:
+            continue
+        rest: str | None = None
+        for param in inspect.signature(func).parameters.values():
+            if param.kind is inspect.Parameter.VAR_KEYWORD:
+                rest = param.name
+            elif param.kind in (
+                inspect.Parameter.KEYWORD_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            ):
+                found.add(param.name)
+        if klass is BaseFigure:
+            return found, True
+        if rest is None or rest == "_":
+            return found, False
+    return found, False
+
+
+@functools.cache
+def option_names_of(cls: type) -> frozenset[str]:
+    """Return the options a user may write for the figure class ``cls``.
+
+    They are the named parameters of its ``plot`` and ``render``, read along
+    the MRO while a ``**`` parameter forwards them. ``figsize`` comes from
+    :meth:`BaseFigure.plot`. A figure that draws one instant takes ``time``,
+    which the display layer resolves to the step it draws; the internal
+    ``timestep`` is never a user option. ``dpi`` belongs to ``[display]``.
+    """
+    found, forwards = _walk_keywords(cls, "plot")
+    if forwards:
+        render_names, _ = _walk_keywords(cls, "render")
+        found |= render_names
+    draws_one_instant = "timestep" in found
+    found -= _NOT_OPTIONS
+    if draws_one_instant:
+        found.add("time")
+    return frozenset(found)

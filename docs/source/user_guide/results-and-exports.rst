@@ -266,75 +266,171 @@ Time series and geographic features go through the same
    q = hmp.read(run, "discharge", sel={"station": "_catchment"})  # pandas Series
    watershed = hmp.read(run, "watershed")                         # GeoDataFrame
 
-Exporting
----------
+Exports a run writes itself
+---------------------------
 
-:func:`hydromodpy.export` (and its ``run.export`` equivalent) picks the
-format from the destination suffix, or from an explicit ``fmt``.
+Each ``[[export]]`` block of the run config is one request, written at the end
+of the run in the order of the file. A block says what (``variables``), when
+(``time`` or ``period``) and where (``folder`` or ``file``). Only ``variables``
+is required; the format follows the data.
 
-.. code-block:: python
+.. code-block:: toml
 
-   hmp.export(run, "head", "share/head.nc")
-   hmp.export(run, "watertable_elevation", "share/wt.tif", time="last")
-   hmp.export(run, "head", "share/head.vtu", time="last")
-   hmp.export(run, "discharge", "share/discharge.csv")
+   # The water table in the driest month: one GeoTIFF per variable.
+   [[export]]
+   variables = ["head", "watertable_depth"]
+   time = "2002-10-15"
+
+   # The record of the water table: one NetCDF.
+   [[export]]
+   variables = ["head", "watertable_depth"]
+   file = "water_table_2000_2002.nc"
+
+   # The catchment and the mapped network: one GeoPackage each.
+   [[export]]
+   variables = ["watershed", "hydrographic_network_reference"]
+
+   # Gauged and simulated discharge over two years: CSV.
+   [[export]]
+   variables = ["discharge", "discharge_obs"]
+   period = ["2001-01-01", "2002-12-31"]
+
+   # The portable archive of the run.
+   [[export]]
+   variables = "all"
+   format = "package"
 
 .. list-table::
    :header-rows: 1
-   :widths: 16 20 64
+   :widths: 30 35 35
+
+   * - Data
+     - One date
+     - Several dates, a period, or the whole run
+   * - Mesh field (``head``, ``watertable_depth``, ``seepage_mask``...)
+     - GeoTIFF, one file per variable
+     - NetCDF, one file for every field of the block
+   * - Series (``discharge``, ``discharge_obs``...), table ``budget``
+     - CSV
+     - CSV
+   * - Vector layer (``watershed``, ``hydrographic_network_reference``...)
+     - GeoPackage
+     - GeoPackage
+   * - Raster layer (``watershed_dem``, ``watershed_fill``)
+     - GeoTIFF
+     - GeoTIFF
+
+- ``time`` takes a date, ``"first"``, ``"last"`` or a list of them. A date
+  takes the stress period that holds it, so one date names the same month on a
+  monthly and on a daily run. ``period`` takes two dates.
+- ``format`` forces a format: ``netcdf``, ``geotiff``, ``csv``,
+  ``geopackage``, ``shapefile``, ``vtu``. A format that holds one instant
+  (GeoTIFF, Shapefile, GeoPackage, VTU) writes one file per date.
+  ``package``, ``stac``, ``rocrate`` and ``prov`` describe the whole run and
+  take ``variables = "all"`` only.
+- ``folder`` defaults to ``share/<run>/``; a relative folder is read from
+  ``share/``. ``file`` names one exact file inside the folder, and its
+  extension gives the format.
+- ``crs`` reprojects a raster or a vector layer; NetCDF, VTU and CSV refuse it.
+  ``resolution`` sizes the pixels of a GeoTIFF of a field.
+
+``hmp config check`` refuses a block before any solve: a name no run can
+export, a date outside ``[simulation.time]``, ``time`` with ``period``, a
+``file`` on a request that writes several files, a format a data cannot take,
+two blocks writing one file. Each refusal names its block, ``export[2]``.
+A file written for the older ``[export]`` table of format toggles still loads;
+``hmp doctor --fix-config`` rewrites it as ``[[export]]`` blocks.
+
+Exporting a finished run
+------------------------
+
+The same words work after the run, from Python and from the command line.
+:func:`hydromodpy.export` and ``run.export`` take the keys of a block as
+arguments and return the files they wrote.
+
+.. code-block:: python
+
+   run.export("all")
+   run.export(["head", "watertable_depth"], time="2002-10-15")
+   run.export(["discharge", "discharge_obs"], period=("2001-01-01", "2002-12-31"))
+   run.export("watertable_depth", time="last", file="depth_wgs84.tif", crs="EPSG:4326")
+   hmp.export(run, "all", format="package")
+
+.. code-block:: bash
+
+   hmp export <run> --list
+   hmp export <run> all
+   hmp export <run> head watertable_depth --time 2002-10-15
+   hmp export <run> discharge discharge_obs --period 2001-01-01 2002-12-31
+   hmp export <run> watershed hydrographic_network_reference
+   hmp export <run> watertable_depth --time last --file depth_wgs84.tif --crs EPSG:4326
+   hmp export <run> all --format package
+
+``--list`` prints what this run can export, grouped by kind: fields, series,
+vector layers, raster layers, tables. Two runs rarely hold the same names:
+``[simulation.results]`` decides what each one persists. ``hmp export``
+prints the path of each file it writes, one per line; ``-w`` names the
+project when it is not the current directory.
+
+What each file holds:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 16 16 68
 
    * - Format
      - Suffix
      - Notes
    * - CSV
      - ``.csv``
-     - Time series and tables.
+     - Series: ``datetime, station_id, variable, value, unit``. Times are the
+       run's clock, naive, ``2002-10-01 00:00:00``. The simulated catchment
+       series is the station ``catchment``. Observations are clipped to the
+       simulated window, or to ``period``. The budget has one row per period,
+       zone and component, with ``period_start`` and ``period_end``.
    * - NetCDF
      - ``.nc``
-     - NetCDF-4 with a UGRID-1.0 mesh, every timestep unless ``time``
-       narrows it. Opens in QGIS as a mesh layer; see the note below.
+     - NetCDF-4 with a UGRID-1.0 mesh, every field of the request, the dates
+       asked for. Carries the ACDD metadata of the run. Opens in QGIS as a
+       mesh layer; see the note below.
    * - GeoTIFF
      - ``.tif``
-     - Cloud-optimised raster. Requires a CRS on the run; pass
-       ``resolution`` to override the pixel size derived from the grid.
-   * - Shapefile
-     - ``.shp``
-     - One polygon per cell, for legacy GIS tooling.
+     - Cloud-optimised raster. The pixel size follows the mesh unless
+       ``resolution`` is given. Tags name the run, the variable, its units
+       and the period (``HMP_PERIOD``).
    * - GeoPackage
      - ``.gpkg``
-     - Same geometry, single-file container.
+     - A vector layer as stored, or one polygon per cell carrying a field.
+   * - Shapefile
+     - ``.shp``
+     - The same, for software that reads nothing else.
    * - VTU
      - ``.vtu``
-     - Mesh plus field, for ParaView.
+     - Mesh plus field, every layer, for ParaView.
    * - ``.hmp``
      - ``.hmp``
      - Portable package: config, provenance, fields, tables, manifest.
 
-The same surface from the command line:
+A file of one instant is named by the date asked (``head_2002-10-15.tif``),
+or by its period when the request names none (``head_2002-10.tif`` on a
+monthly run). A NetCDF holding several fields is ``<run>_fields.nc``.
 
-.. code-block:: bash
+A field of several layers in a format of one layer (GeoTIFF, GeoPackage,
+Shapefile) needs ``layer``: the top layer of a multi-layer model can be dry.
+``watertable_elevation``, ``watertable_depth`` and ``seepage_mask`` hold one
+value per cell and never need it. NetCDF and VTU keep every layer.
 
-   hmp data export <project> --list
-   hmp data export <project> --sim <ref> --var head --netcdf --output share/head
-   hmp data export <project> --sim <ref> --var watertable_elevation --geotiff --resolution 50
-   hmp data export <project> --raster watershed_dem --geotiff
+``simulated_active_network`` is the stream network the model simulates: 1 on
+the cells the network criterion counts as flowing at that date, 0 elsewhere,
+cut with the settings of the run's calibration output (the criterion's
+defaults when it sealed none). It is a field like the others: a GeoTIFF or a
+GeoPackage at a date, a NetCDF over the run. It needs the run's
+``release_flux`` and a stored hydrographic network.
 
-``--list`` prints the field names ``--var`` accepts, the geographic rasters
-and features, then every run of the project. Fields, rasters and features are
-read from one run, named in each heading: the one ``--sim`` selects when given,
-otherwise the last live one. Two runs of the same project rarely expose the
-same fields, since ``[simulation.results]`` decides what each one persists.
-
-``hmp data export`` writes into a **directory** (``--output``, default
-``share/<name>/``), one file per variable and per timestep. ``--geotiff``
-requires ``--resolution`` here, unlike the Python call which derives the
-pixel size from the grid.
-
-``--format stac``/``rocrate``/``prov`` are the exception: each one is a
-generated view of the run itself, rendered from the seal alone, so with no
-``--output`` it is written inside the run directory, beside
-``manifest.json``, not under ``share/``. Naming ``--output`` explicitly still
-redirects it there, like every other format.
+``stac``, ``rocrate`` and ``prov`` are generated views of the run itself,
+rendered from the seal: without ``folder`` or ``file`` they are written
+inside the run directory, beside ``manifest.json``, where the paths they name
+resolve.
 
 Opening a NetCDF export in QGIS
 -------------------------------
@@ -357,13 +453,13 @@ Packaging a run for exchange
 
 .. code-block:: bash
 
-   hmp catalog export <ref> -o share/paper_run.hmp
-   hmp catalog import share/paper_run.hmp
+   hmp export <ref> all --format package --file paper_run.hmp
+   hmp catalog import share/<ref>/paper_run.hmp
 
 .. code-block:: python
 
-   catalog.export_package(run.sim_id, "share/paper_run.hmp")
-   catalog.import_package("share/paper_run.hmp")
+   run.export("all", format="package", file="paper_run.hmp")
+   catalog.import_package("share/<ref>/paper_run.hmp")
 
 The archive carries the frozen config, the provenance, the fields and the
 tables, with checksums verified on import. The run identity survives the
@@ -385,8 +481,8 @@ found:
 
    indexed 3 run(s) and 1 session(s)
      baseline_run
-     optuna_iter_0013
-     optuna_iter_0016
+     nancon_calibrated
+     nancon_calibrated_trial_0016
      20260726-104019-optuna-5ecea3e0
      calibration_iterations: 20 row(s)
      calibration_sessions: 1 row(s)

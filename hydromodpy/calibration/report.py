@@ -68,6 +68,12 @@ class CalibrationReport:
         Count of iterations promoted to full simulations after the loop.
     workspace
         Workspace root the session was written to.
+    best_run_name
+        Name the catalog registered the promoted best run under, the folder
+        ``runs/<best_run_name>``. ``None`` when nothing was promoted.
+    session_dir
+        Folder the session journalled its trials in,
+        ``sessions/<date>-<method>-<id8>``. ``None`` when no journal was written.
     extra
         Free-form metadata (callers may attach anything extra here).
     """
@@ -99,6 +105,8 @@ class CalibrationReport:
     from. See :func:`hydromodpy.calibration.optim.objective.objective_block_shares`
     for how a share is defined."""
     workspace: Path | None = None
+    best_run_name: str | None = None
+    session_dir: Path | None = None
     extra: dict[str, Any] = field(default_factory=dict)
     store_factory: Callable[[Path], Any] | None = field(
         default=None,
@@ -170,6 +178,10 @@ class CalibrationReport:
             }
         if self.workspace is not None:
             payload["workspace"] = str(self.workspace)
+        if self.best_run_name is not None:
+            payload["best_run_name"] = self.best_run_name
+        if self.session_dir is not None:
+            payload["session_dir"] = str(self.session_dir)
         if self.extra:
             payload["extra"] = dict(self.extra)
         return payload

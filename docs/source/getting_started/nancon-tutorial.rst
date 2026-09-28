@@ -92,9 +92,9 @@ Before touching any real data, confirm the install works:
 
    hmp run ~/hydromodpy/projects/example/run_demo.toml
 
-This finishes in well under a minute on a cached solver install, and prints
-``Run completed: demo [<id>] ...`` on success. If it fails, run
-``hmp doctor`` before going further.
+This finishes in well under a minute on a cached solver install, and ends
+with ``Run completed: demo [<id>] ...`` on success, below the ``✓ export``
+line. If it fails, run ``hmp doctor`` before going further.
 
 5. Get the Nançon example onto your machine
 ---------------------------------------------
@@ -236,32 +236,41 @@ step4_transient.toml — run ``nancon_step4_transient``, ``base_config = "step2_
    step 1, not fitted ones.
 
 step5_export.toml — run ``nancon_step5_export``, ``base_config = "step4_transient.toml"``
-   Adds a declarative ``[export]`` and a ``[display]`` figure list, four
+   Adds ``[[export]]`` blocks and a ``[display]`` figure list, four
    ``base_config`` levels deep. Run this last:
 
    .. code-block:: bash
 
       hmp run ~/hydromodpy/projects/04_streamflow_intermittence_in_transient/step5_export.toml
 
-   A format toggle such as ``geotiff = true`` writes one file per name in
-   ``export.variables``, not one file, so naming four fields there makes
-   this run produce six artifacts under ``share/nancon_step5_export/``:
+   Each ``[[export]]`` block is one request: what (``variables``), when
+   (``time`` or ``period``), where (``folder`` or ``file``). The format
+   follows the data, so a block such as
+
+   .. code-block:: toml
+
+      [[export]]
+      variables = ["head", "watertable_depth"]
+      time = "2002-10-15"
+
+   writes one GeoTIFF per variable for October 2002 under
+   ``share/nancon_step5_export/``:
 
    .. code-block:: text
 
-      head_t33.tif                  the simulated head, October 2002
-      watertable_elevation_t33.tif  the three derived fields, same instant
-      watertable_depth_t33.tif
-      seepage_mask_t33.tif
-      timeseries.csv                every series, all 36 steps
-      fields_2000_2002.nc           the explicit [[export.artifacts]] entry
+      head_2002-10-15.tif               the simulated head, October 2002
+      watertable_depth_2002-10-15.tif   the depth to the water table
+      nancon_step5_export_fields.nc     several dates of fields: one NetCDF
+      watershed.gpkg                    the catchment, for QGIS
+      discharge.csv                     the simulated discharge, dated
 
-   ``netcdf``, ``vtu``, ``shapefile`` and ``package`` are toggles beside
-   ``geotiff``; ``[[export.artifacts]]`` names one file instead, its format
-   taken from the destination extension, and is the only form that writes
-   several timesteps into one file. The four ``[display]`` figures land in
-   the run's ``figures/`` directory; use ``hmp viz show`` (section 7) to
-   render any other registered figure for this run on demand.
+   A field over several dates goes to one NetCDF, a series or the budget to
+   CSV, the catchment and the networks to GeoPackage, the DEM to GeoTIFF;
+   ``format = "package"`` writes the portable ``.hmp`` archive. The console
+   says it in one line, ``Exported N file(s) -> share/nancon_step5_export``.
+   The four ``[display]`` figures land in the run's ``figures/`` directory;
+   use ``hmp viz show`` (section 7) to render any other registered figure
+   for this run on demand, and ``hmp export`` to write any other data.
 
 Try a variation without writing a file
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -292,6 +301,8 @@ creating a new file that outlives the experiment.
 
    hmp viz list                                              # every registered figure name
    hmp viz show nancon_step5_export watershed_id_card         # re-render one figure on demand
+   hmp export nancon_step5_export --list                      # every data the run can export
+   hmp export nancon_step5_export watershed_dem               # the DEM, as a GeoTIFF
    hmp catalog ls                                             # every run in this workspace
    hmp catalog show nancon_step5_export --detail              # metadata, metrics, Zarr layout
 
@@ -307,7 +318,7 @@ method those two files run.
 
 - :doc:`../user_guide/concepts/workspace-layout` for the resolution rules
   behind ``data/<variable>/`` and ``--workspace``.
-- :doc:`../user_guide/results-and-exports` for what ``[export]`` can write
-  besides GeoTIFF.
+- :doc:`../user_guide/results-and-exports` for what ``[[export]]`` and
+  ``hmp export`` can write.
 - :doc:`simulation-walkthrough` for a second end-to-end case, with Gmsh
   meshing instead of a structured grid.

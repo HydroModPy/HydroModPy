@@ -68,7 +68,16 @@ from hydromodpy.calibration.persistence import (
 )
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.calibration.runners.failure_watch import ConsecutiveFailureWatch
-from hydromodpy.calibration.runners.promotion import promote_iterations
+from hydromodpy.calibration.runners.promotion import (
+    promote_iterations,
+    promoted_run_name,
+    registered_run_name,
+)
+from hydromodpy.calibration.runners.recap import (
+    cost_metric_label,
+    parameter_units,
+    session_directory,
+)
 from hydromodpy.calibration.runners.restarts import run_restarts
 from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.state import (
@@ -1297,7 +1306,7 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
     )
 
     kwargs = stopping_kwargs(
-        cfg.method, space, tolerance=cfg.tolerance, declared=cfg.optimizer_kwargs
+        cfg.method, space, tolerance=cfg.tolerance, declared=cfg.method_options
     )
     if start_at is not None and engine_traits(cfg.method).accepts_a_start_point:
         kwargs["start_at"] = start_at
@@ -1367,6 +1376,7 @@ def run_calibration_core(
     chain: SessionChain | None = None,
     start_at: Any | None = None,
     interval_width: IntervalWidth | None = None,
+    run_name: str | None = None,
 ) -> CalibrationReport:
     """Heart of the calibration loop. Caller-agnostic.
 
@@ -1394,6 +1404,10 @@ def run_calibration_core(
 
     ``chain`` names the session and places it in a chain of phases. A
     standalone calibration leaves it unset and gets a fresh session id.
+
+    ``run_name`` is the name the best trial is promoted under. Unset, it is
+    the ``[simulation]`` name, followed by the phase name when ``chain`` places
+    the session in a chain (:func:`promoted_run_name`).
 
     ``cfg_path`` is also what a declared ``stream_geometry_path`` is anchored
     on. The three entry points converge here and all three pass it, whereas only
@@ -1463,6 +1477,13 @@ def run_calibration_core(
             "There is no pipeline to replay them through. Refused here rather than at the end "
             "of a search that would have had nothing to promote."
         )
+    # Named before the search, so a name too long for a run folder is refused
+    # before the first trial rather than after the last one.
+    promoted_name = (
+        run_name or promoted_run_name(trial_ctx, chain.phase_name if chain is not None else None)
+        if trial_ctx is not None and (cfg.save_runs != "none" or cfg.rerun_best_with_outputs)
+        else None
+    )
 
     session_id = chain.session_id if chain is not None else uuid.uuid4().hex
     persistence.start_session(
@@ -1605,6 +1626,7 @@ def run_calibration_core(
     promotion_count = 0
     promotion_failures: list[str] = []
     best_sim_id: str | None = None
+    best_run_name: str | None = None
     best: EvaluationResult | None = None
 
     try:
@@ -1639,9 +1661,11 @@ def run_calibration_core(
                 session_id=session_id,
                 best=best,
                 override_paths=override_paths,
+                run_name=str(promoted_name),
             )
             if best_sim_id is not None:
                 _persist_observed_for_report(catalog, trial_ctx, cfg.variable)
+                best_run_name = registered_run_name(catalog, best_sim_id)
 
         n_total = len(session.history)
         n_ok = sum(1 for h in session.history if h.status in ("completed", "cached"))
@@ -1746,6 +1770,9 @@ def run_calibration_core(
     )
     extra.update(_search_outcome_extra(session))
     extra.update(_roptim_verdict_extra(cfg.outputs, best.components if best else None))
+    # Read by the console recap, which cannot reach the configuration.
+    extra["parameter_units"] = parameter_units(cfg)
+    extra["cost_metric"] = cost_metric_label(cfg)
 
     return CalibrationReport(
         session_id=session_id,
@@ -1760,6 +1787,8 @@ def run_calibration_core(
         save_runs=cfg.save_runs,
         promoted=promotion_count,
         workspace=workspace,
+        best_run_name=best_run_name,
+        session_dir=session_directory(workspace, session_id),
         store_factory=lambda path: factory(path, cfg.persistence),
     )
 

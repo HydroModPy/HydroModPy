@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.units.labels import axis_label
+from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._observed import observed_series
@@ -54,7 +54,7 @@ class Residuals(BaseFigure):
         self,
         sim: Run,
         *,
-        station: str = "_catchment",
+        station: str = CATCHMENT_OUTLET_STATION,
         variable: str = "discharge",
         observed_station: str | None = None,
         bins: int = 30,
@@ -92,7 +92,7 @@ class Residuals(BaseFigure):
         ax_ts.set_xlabel("Date")
         ax_ts.set_ylabel(f"residual {axis_label(variable)}")
         ax_ts.grid(True, ls=":", lw=0.4)
-        ax_ts.set_title(f"Residuals - {sim.name or sim.sim_id} @ {station}")
+        ax_ts.set_title(f"Residuals - {sim.name or sim.sim_id} @ {station_label(station)}")
         style_date_axis(ax_ts)
 
         ax_hist.hist(

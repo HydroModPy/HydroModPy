@@ -32,6 +32,18 @@ def test_run_does_not_expose_deprecated_helpers() -> None:
     assert not hasattr(Run, "cell_field_active_mask")
 
 
+def test_run_places_its_periods_on_the_calendar_through_one_provider() -> None:
+    """Date lookups live on ``run.periods``, as field readers live on ``run.array``."""
+    from hydromodpy.results.run.periods import RunPeriods
+
+    run = Run("sim", catalog=None)  # type: ignore[arg-type]
+    assert isinstance(run.periods, RunPeriods)
+    for name in ("edges", "step_at", "steps_for"):
+        assert hasattr(RunPeriods, name)
+    for name in ("period_edges", "step_at", "steps_for"):
+        assert not hasattr(Run, name)
+
+
 def test_run_keeps_canonical_field_readers() -> None:
     """``run.field`` and ``run.array.{dataset,to_xarray_batch}`` remain."""
     assert hasattr(Run, "field")

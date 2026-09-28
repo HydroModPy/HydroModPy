@@ -33,7 +33,27 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [v2.0.0a2] - 2026-09-28
+
 ### Added
+- `[[export]]`: one block per export request (`variables`, `time`, `period`, `format`, `folder`,
+  `file`, `crs`, `resolution`, `layer`, `nodata`). The format follows the data: GeoTIFF for a field at
+  one date, NetCDF for several dates, CSV for series and the budget, GeoPackage for vector layers.
+  The catchment, the mapped networks, `watershed_dem`, the water budget and the virtual field
+  `simulated_active_network` become exportable. `format` also takes `package`, `stac`, `rocrate`, `prov`.
+- `hmp export SIM_REF [variables...]` speaks the same words (`--time`, `--period`, `--format`, `--file`,
+  `--crs`...), and `hmp export SIM_REF --list` prints what a run can export, by kind.
+- `hydromodpy.core.time.selection` and `Run.step_at`, `Run.steps_for`, `Run.period_edges`: one
+  date-to-stress-period resolver for figures and exports.
+- `[display] time` and a per-figure `time` name the instant a map draws as a date, `first` or `last`;
+  a steady calibration phase resolves any date of its record, so no phase override is needed.
+  `hmp.figure(..., time=...)` and `hmp viz show --time` take it too.
+- A network calibration output takes an ISO date in `time`; `normalize_cost = true` on
+  `distance_gap` and `distance_mean` divides by the validity length, so phase shares are real shares.
+- A calibration ends with a short recap in normal mode (one line per phase, best values with their
+  interval, where the best runs are) and writes its methods paragraph to `methods.md`.
 - `[geographic.snap_streams]` in `apply` mode reaches every consumer of the mapped network:
   stream burning snaps the map on the raster's own D8 graph before burning it, a mesh built along
   a mapped network (`rivers.source = "file"`) follows the snapped lines, and the network cells,
@@ -75,10 +95,34 @@ Each release section includes the following standard categories:
   h + max(h, F) when a snap floor exists. Each trial publishes the length and what set it.
 - `network_extent_bounds_map` draws the maximal and minimal simulated extents of a transient run
   against its two maps, outside any calibration.
+- `hydrographic_network_permanence` draws the mapped network split by permanence: the permanent
+  reaches (the minimal map) over the reaches the complete map adds, with the length and reach
+  count of each class. It needs a hydrography source that says which reaches flow all year.
 - Preflight refuses an extent table on a steady search, a minimal map file that does not exist,
   and a `data.hydrography` minimal map without a declared hydrography source.
+- `hmp run` on an overview ends on the catchment, its area, the web report and the figures folder;
+  `--verbose` keeps the full recap. The overview shows its phases and the data families load
+  under one progress bar.
 
 ### Changed
+- `optimizer_kwargs` is now `method_options`, and the protocol's `*_engine_options` are
+  `*_method_options`; the old names load with a warning. Options are checked when the file loads
+  and by `hmp calibrate --check`. The rename changes every calibration `params_hash` once.
+- The per-figure `timestep` is now `time`; old files load, `hmp doctor --fix-config` rewrites them.
+  An unknown key in `[display.overrides.<figure>]` is refused at load.
+- An old `[export]` table of format toggles or `[[export.artifacts]]` loads as `[[export]]` blocks.
+- `hmp calibrate --check` prints only real departures from the paper; the full record is at `-v`.
+  `--expand` prints the whole pasteable section. `--list-phases` prints shares below 1 % and names the
+  station a point output observes.
+- A scoring window is accepted beside a network output read in one state; it is refused only when
+  it does not hold that state. `warmup` and `warmup_periods` move to the expert profile.
+- Promoted calibration runs are named `<simulation name>_<phase>` instead of `<method>_iter_NNNN`.
+- Figures: `seepage_map` draws two classes; maps open on the catchment in projected metres; titles
+  name the period drawn and say `catchment outlet`; the identity card drops its status and id rows
+  and wraps long names; the network maps state the seepage threshold in words.
+- Normal console: the licence warning prints once per workspace; `Run completed` prints last; the
+  figure summary warns only when a config option would have kept a skipped figure; the runoff and
+  outlet messages are one sentence each.
 - `[geographic].dem_correc_type` defaults to `"fill"`, the paper's FillDepressions, instead of
   `"breach"`. A file that writes `"breach"` keeps it, and the Methods paragraph and
   `hmp calibrate --check` name it as a departure from the paper.
@@ -106,11 +150,22 @@ Each release section includes the following standard categories:
   which it never did.
 
 ### Removed
+- `hmp data export`, `hmp data export-package` and `hmp catalog export`: `hmp export` replaces them.
+- The `[export]` format toggles, `output_dir`, `[[export.artifacts]]` and `var`, `fmt`, `dest`.
 - `roptim_max`. The load-time migration and `hmp doctor --fix-config` drop `roptim_max = 2`, which
   `validity_length = "auto"` reproduces, and refuse any other value with the length to write.
 - `geometry_from_run`, replaced by `network_maps_from_run`, which returns every declared map.
 
 ### Fixed
+- `hmp calibrate --check` names an option a phase-two method refuses, instead of failing after phase
+  one spent its budget.
+- The network criterion no longer warns that the mean recharge moved on float noise.
+- The protocol card of the second promoted run draws the first stage instead of empty panels.
+- `flux_timeseries` draws each flux over its own period, not one period late.
+- Exported NetCDF files carry the mesh size and ACDD metadata; CSV times are naive ISO times of the
+  run clock, observed series are clipped to the simulated window, and the simulated discharge is
+  exported under `catchment`, not `_catchment`.
+- A renamed configuration key now warns in normal mode.
 - The MODFLOW 6 and MODFLOW-NWT routing context falls back on the `[geographic]` default, no
   longer on a hard-coded `"breach"`.
 - A delineation refuses a log-transformed accumulation only where its outlets snap. The float32
@@ -119,6 +174,15 @@ Each release section includes the following standard categories:
 - A single-metric phase whose variable names a calibration output keeps that output, so a network
   phase keeps its maps and its extent table.
 - `hmp calibrate` migrates legacy keys in memory when it reads a file, as the project loader does.
+- A station read back from the data cache keeps the variable its download gave it (`discharge`,
+  `groundwater_level`, `lake_level`), not the family name. A Hub'Eau gauge was stored as
+  `hydrometry_obs` from its second run on, and the hydrograph figures and the calibration did not
+  find it.
+- An IGN BD ALTI DEM sets its sea to nodata: the zero-valued regions touching the raster edge or a
+  nodata cell. The sea was one flat plateau the breach step could not route in reasonable time.
+  `py7zr` is declared, the fallback the BD ALTI archives are extracted with when `7z` is absent.
+- A station named in `station_ids` survives the watershed mask, as `nearest = true` already did.
+  A piezometer or gauge asked for by id was dropped when it sat outside the catchment.
 
 ---
 

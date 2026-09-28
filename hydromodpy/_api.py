@@ -361,10 +361,10 @@ def calibrate(
     expand
         Return the ``[calibration]`` section a protocol unfolds into, instead
         of running anything. Needs ``config`` to be a TOML path. A file naming
-        a protocol gets only ``objective_blocks`` and ``phases``, the keys the
-        protocol writes; a file naming none gets its own section back
-        unchanged. Refused together with ``phase`` or ``list_phases``: expand
-        answers what would run, it does not run it.
+        a protocol gets the whole section it unfolds into, without the
+        ``protocol`` key, so it can be pasted in its place; a file naming none
+        gets its own section back unchanged. Refused together with ``phase``
+        or ``list_phases``: expand answers what would run, it does not run it.
     kwargs
         Options forwarded to the underlying calibration runner. The
         ``headless`` keyword controls the project initialization for the
@@ -378,8 +378,9 @@ def calibrate(
         descriptions when ``list_phases`` is set. A ``dict`` with
         ``"calibration"`` and ``"protocol"`` keys when ``expand`` is set:
         ``"protocol"`` is ``None`` for a file naming no protocol, else a
-        ``dict`` with ``"name"``, ``"version"`` and ``"citation"`` (the first
-        reference, short form).
+        ``dict`` with ``"name"``, ``"version"``, ``"citation"`` (the first
+        reference, short form) and ``"inherited"`` (true when the protocol
+        comes from the ``base_config``).
 
     Raises
     ------
@@ -485,19 +486,18 @@ def _expand_calibration_section(target: Path) -> dict[str, Any]:
     :func:`hydromodpy.calibration.protocols.expand_calibration_protocol`. A
     file naming no protocol gets its own section back, ``protocol`` key
     aside: nothing was unfolded, so there is nothing else to say. A file
-    naming one gets :data:`~hydromodpy.calibration.protocols.WRITTEN_SECTIONS`
-    (``objective_blocks``, ``phases``) in full, plus any output the protocol
-    introduced under ``outputs`` that the file did not already declare (a
-    protocol may add one, such as the point output its transient stage reads,
-    beside the network output the file supplies itself): the rest of the
-    section -- parameters, the file's own outputs, seed -- already sits in
-    the file or its ``base_config`` and does not need restating.
+    naming one gets the whole section the protocol unfolds into, ``protocol``
+    key aside: parameters, outputs, the blocks and phases it writes, and every
+    other key the file or its ``base_config`` set. Pasted in place of the
+    protocol, it runs the same stages.
+
+    ``protocol["inherited"]`` says whether the protocol comes from the
+    ``base_config`` rather than from ``target`` itself. A file that pastes the
+    section under that same base then has to drop the inherited protocol.
     """
-    from hydromodpy.calibration.protocols import (
-        WRITTEN_SECTIONS,
-        expand_calibration_protocol,
-        get_protocol,
-    )
+    import tomllib
+
+    from hydromodpy.calibration.protocols import expand_calibration_protocol, get_protocol
     from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
@@ -522,21 +522,13 @@ def _expand_calibration_section(target: Path) -> dict[str, Any]:
     name = declaration if isinstance(declaration, str) else declaration.get("name")
     protocol = get_protocol(str(name))
     expanded_calibration = expanded.get("calibration") or {}
-    section = {
-        key: expanded_calibration[key] for key in WRITTEN_SECTIONS if key in expanded_calibration
-    }
-    from hydromodpy.calibration.config import outputs_agree
-
-    declared_outputs = calibration.get("outputs") or {}
-    produced_outputs = expanded_calibration.get("outputs") or {}
-    new_outputs = {
-        output_name: decl
-        for output_name, decl in produced_outputs.items()
-        if output_name not in declared_outputs
-        or not outputs_agree(declared_outputs[output_name], decl)
-    }
-    if new_outputs:
-        section["outputs"] = new_outputs
+    section = {key: value for key, value in expanded_calibration.items() if key != "protocol"}
+    try:
+        own = tomllib.loads(target.read_text(encoding="utf-8-sig"))
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigError(f"{target} cannot be read: {exc}") from exc
+    own_calibration = own.get("calibration")
+    inherited = not (isinstance(own_calibration, dict) and "protocol" in own_calibration)
     citation = None
     if protocol.references:
         reference = protocol.references[0]
@@ -545,7 +537,12 @@ def _expand_calibration_section(target: Path) -> dict[str, Any]:
         )
     return {
         "calibration": section,
-        "protocol": {"name": protocol.name, "version": protocol.version, "citation": citation},
+        "protocol": {
+            "name": protocol.name,
+            "version": protocol.version,
+            "citation": citation,
+            "inherited": inherited,
+        },
     }
 
 
@@ -784,7 +781,7 @@ def read(
     >>> da = hmp.read(run, "head")  # lazy DataArray  # doctest: +SKIP
     >>> arr = hmp.read(run, "head", time=-1, layer=0)  # ndarray  # doctest: +SKIP
     >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})  # doctest: +SKIP
-    >>> gdf = hmp.read(run, "watershed_polygon")  # doctest: +SKIP
+    >>> gdf = hmp.read(run, "watershed")  # doctest: +SKIP
     """
     from hydromodpy.results.derive.reading import read_variable
 
@@ -797,6 +794,7 @@ def figure(
     *,
     save: Any = None,
     dpi: int = 150,
+    time: Any = None,
     **opts: Any,
 ) -> Any:
     """Render one registered figure for a simulation Run.
@@ -805,7 +803,8 @@ def figure(
     same names, the same options, so a figure produced by ``hmp run`` can be
     reproduced (or re-styled) from a script without importing anything from
     the display internals. List the names with
-    :func:`hydromodpy.display.list_figures`.
+    :func:`hydromodpy.display.list_figures`. The options are the figure's
+    own; the run's ``[display]`` is not applied (``hmp viz show`` applies it).
 
     Parameters
     ----------
@@ -818,9 +817,15 @@ def figure(
         ``<name>.png`` appended.
     dpi
         Raster resolution used when saving.
+    time
+        The instant a figure that draws one instant shows: a date
+        (``"2002-10-15"``, or a ``datetime.date``), ``"first"`` or ``"last"``.
+        The figure draws the stress period that holds the date. ``None``
+        leaves the figure its own default, usually the last period.
     **opts
         Figure-specific options, identical to the ``[display.overrides]``
-        entries (``timestep``, ``overlays``, ``cmap``, ``units``, ...).
+        entries (``overlays``, ``cmap``, ``orientation``, ...). A key the
+        figure does not take is refused with the list of the keys it takes.
 
     Returns
     -------
@@ -832,7 +837,8 @@ def figure(
     KeyError
         If ``name`` is not registered.
     ValueError
-        If the run does not carry what the figure needs.
+        If an option is not one the figure takes, if the run does not carry
+        what the figure needs, or if ``time`` names no period of the run.
 
     Examples
     --------
@@ -840,45 +846,56 @@ def figure(
     >>> cat = hmp.open("~/ws/projects/aber")  # doctest: +SKIP
     >>> run = cat.latest()  # doctest: +SKIP
     >>> hmp.figure(run, "cross_section", orientation="sn")  # doctest: +SKIP
+    >>> hmp.figure(run, "seepage_map", time="2002-10-15")  # doctest: +SKIP
     """
     from hydromodpy.display.runs import render_figure
 
+    if time is not None:
+        opts["time"] = time
     return render_figure(name, sim, save=save, dpi=dpi, **opts)
 
 
 def export(
     sim: Any,
-    var: str | list[str],
-    dest: Any,
+    variables: str | list[str],
     *,
-    fmt: str | None = None,
-    time: int | str | None = None,
-    layer: int | None = None,
-    resolution: float | None = None,
+    time: Any = None,
+    period: tuple[Any, Any] | None = None,
+    format: str | None = None,
+    folder: Any = None,
+    file: Any = None,
     crs: str | None = None,
+    resolution: float | None = None,
+    layer: int | None = None,
     nodata: float = -9999.0,
-) -> Path:
-    """Export a variable from a simulation to a standalone file.
+) -> list[Path]:
+    """Export data of a simulation to files; return the files written.
 
-    Functional mirror of :func:`read`: same selector (``sim`` / ``var`` /
-    ``time`` / ``layer``) plus an output format and destination. ``sim`` must
-    be a :class:`~hydromodpy.results.run.Run`, as returned by
+    The words of an ``[[export]]`` block and of ``hmp export``: ``variables``
+    says what (a name, a list, or ``"all"``: ``hmp export <run> --list``
+    prints what a run holds), ``time`` or ``period`` when, ``folder`` or
+    ``file`` where. The format follows the data unless ``format`` or the
+    extension of ``file`` names one: a field at one date goes to GeoTIFF, one
+    file per variable; over several dates to one NetCDF; a series or the
+    budget to CSV; a vector layer (``watershed``, a network) to GeoPackage; a
+    raster layer (``watershed_dem``) to GeoTIFF. ``format="package"`` writes
+    the portable ``.hmp`` archive of the run. Files land in ``share/<run>/``.
+
+    ``sim`` must be a :class:`~hydromodpy.results.run.Run`, as returned by
     ``hmp.open(workspace)[ref]`` or ``catalog.latest()``.
-
-    ``fmt`` is optional when ``dest`` carries a known extension
-    (``.nc`` -> netcdf, ``.tif`` -> geotiff, ``.csv`` -> csv, ``.shp`` ->
-    shapefile, ``.vtu`` -> vtu, ``.hmp`` -> portable package).
 
     Examples
     --------
     >>> import hydromodpy as hmp
     >>> run = hmp.open("~/hmp_workspace")["transient_nwt"]  # doctest: +SKIP
+    >>> hmp.export(run, "all")  # doctest: +SKIP
     >>> hmp.export(
-    ...     run, "head", "head.tif", time="last", resolution=50
+    ...     run, ["head", "watertable_depth"], time="2001-08-15"
     ... )  # doctest: +SKIP
     >>> hmp.export(
-    ...     run, ["head", "watertable_depth"], "fields.nc", time="all"
+    ...     run, "discharge", period=("2001-01-01", "2002-12-31")
     ... )  # doctest: +SKIP
+    >>> hmp.export(run, "all", format="package")  # doctest: +SKIP
     """
     from hydromodpy.results.run import Run
 
@@ -888,13 +905,15 @@ def export(
             f"Obtain one with hmp.open(workspace)[ref] or catalog.latest()."
         )
     return sim.export(
-        var,
-        dest,
-        fmt=fmt,
+        variables,
         time=time,
-        layer=layer,
-        resolution=resolution,
+        period=period,
+        format=format,
+        folder=folder,
+        file=file,
         crs=crs,
+        resolution=resolution,
+        layer=layer,
         nodata=nodata,
     )
 

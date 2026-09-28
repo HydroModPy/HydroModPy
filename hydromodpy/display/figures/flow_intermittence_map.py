@@ -26,15 +26,22 @@ from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._flow_persistence import (
     FLOW_FIELD,
     cycle_flow,
-    definition_note,
     flow_unavailable_reason,
+    frame_note,
     resolve_cycle,
     span_label,
 )
-from hydromodpy.display.maps.axes import style_relative_km_axes
+from hydromodpy.display.figures._stream_comparison import (
+    MapExtentName,
+    catchment_cells,
+    map_extent,
+    map_legend,
+    veil_outside_catchment,
+)
+from hydromodpy.display.maps.axes import style_map_axes
+from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import render_face_field
-from hydromodpy.display.style import place_legend
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -71,6 +78,9 @@ class FlowIntermittenceMap(BaseFigure):
     ``tau_specific_ratio``
         Seepage threshold as a fraction of the recharge a cell receives; the
         criterion's default when left out.
+    ``extent``
+        ``"catchment"`` (default) crops to the delineated watershed and counts
+        the cells inside it; ``"mesh"`` keeps the whole modelled domain.
     """
 
     spec = FigureSpec(
@@ -78,7 +88,7 @@ class FlowIntermittenceMap(BaseFigure):
         title="Flow intermittence",
         kind="spatial",
         required_fields=(FLOW_FIELD,),
-        default_figsize=(7.0, 5.5),
+        default_figsize=(7.0, 6.4),
     )
 
     def render(
@@ -91,6 +101,7 @@ class FlowIntermittenceMap(BaseFigure):
         tau_specific_ratio: float | None = None,
         diagonal_neighbors: bool | None = None,
         overlays: tuple[str, ...] | list[str] | None = None,
+        extent: MapExtentName = "catchment",
         **_,
     ) -> Axes:
         from matplotlib.colors import BoundaryNorm, ListedColormap
@@ -115,34 +126,42 @@ class FlowIntermittenceMap(BaseFigure):
         collection = render_face_field(ax, sim, classes, cmap=palette, colorbar=False)
         collection.set_norm(BoundaryNorm([-0.5, 0.5, 1.5], palette.N))
 
+        polygons = face_polygons(sim)
+        frame = map_extent(sim, polygons, extent=extent)
+        counted = catchment_cells(sim, polygons) if extent == "catchment" else None
+        if counted is not None:
+            veil_outside_catchment(ax, sim, frame)
+        scope = np.ones_like(perennial) if counted is None else counted
         apply_overlays(
             ax,
             sim,
             ("watershed", "outlet") if overlays is None else overlays,
             timestep=int(steps[-1]),
         )
-        style_relative_km_axes(ax)
+        style_map_axes(ax)
         ax.set_title(
             f"{self.spec.title} - {sim.name or sim.sim_id}\n"
-            f"{span_label(sim, steps) or label}, {steps.size} timesteps\n{definition_note(flow)}"
+            f"{span_label(sim, steps) or label}, {steps.size} timesteps"
         )
 
-        handles = [
+        handles = ax.get_legend_handles_labels()[0]
+        handles += [
             Patch(
                 facecolor=PERENNIAL_COLOR,
-                label=f"perennial ({int(perennial.sum()):,} cells)",
+                label=f"perennial ({int((perennial & scope).sum()):,} cells)",
             ),
             Patch(
                 facecolor=INTERMITTENT_COLOR,
-                label=f"intermittent ({int(intermittent.sum()):,} cells)",
+                label=f"intermittent ({int((intermittent & scope).sum()):,} cells)",
             ),
             Patch(
                 facecolor=DRY_COLOR,
                 edgecolor=DRY_EDGE,
-                label=f"dry ({int((flowing_steps == 0).sum()):,} cells)",
+                label=f"dry ({int(((flowing_steps == 0) & scope).sum()):,} cells)",
             ),
         ]
-        place_legend(ax, handles=handles, fontsize=9, framealpha=0.9)
+        map_legend(ax, handles, note=frame_note(flow, counted), ncols=len(handles))
+        frame.apply(ax)
         return ax
 
     def unavailable_reason(self, sim: Run) -> str | None:

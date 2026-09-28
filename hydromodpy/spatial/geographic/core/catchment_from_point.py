@@ -157,10 +157,10 @@ def extract_catchment_from_point(
     # delineation actually started from it, because nothing downstream can tell.
     log = logger.warning if catchment.snap_distance_m > 0.5 * float(snap_dist) else logger.info
     log(
-        "Outlet snapped %.1f m (of %d m allowed), from (%.2f, %.2f) to (%.2f, %.2f). "
-        "The catchment is delineated from the snapped point.",
+        "Outlet moved %.0f m (limit %.0f m) onto the flow network, "
+        "from (%.0f, %.0f) to (%.0f, %.0f).",
         catchment.snap_distance_m,
-        int(snap_dist),
+        float(snap_dist),
         x_outlet,
         y_outlet,
         catchment.snapped_x,

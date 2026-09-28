@@ -1,49 +1,39 @@
-# Nancon, the model of step 2 with the network and the gauge fetched instead of
-# read off disk. Only the provenance changes, so read it beside step 2 rather
-# than after it. Needs network access; both services are French national ones
-# and neither asks for a key. The DEM stays the local file of step 1:
-# `source = "ign_geoplateforme_dem"` assembles the IGN BD ALTI at 25 m, another
-# surface, and the model would no longer be step 2's.
+# Step 3: step 2 with the network and the gauge fetched from French national
+# APIs, BD Topage and Hub'Eau, instead of read off disk. Only the sources
+# change. Needs network access, no key.
 #
-#   hmp run examples/projects/04_streamflow_intermittence_in_transient/step3_api_data.toml
+#   hmp run step3_api_data.toml
 
-base_config = "step1_minimal.toml"
+base_config = "step2_local_data.toml"
 
 [simulation]
 name = "nancon_step3_api"
 
-[data]
-types = ["hydrography", "hydrometry"]
+# `sources__delete` drops step 2's list, so no local key leaks into the new one.
+[data.hydrography]
+sources__delete = true
 
-# BD TOPAGE, the Sandre reference network: every reach with its permanence,
-# 1196 over the download box, 426 of them permanent, which are also written
-# beside it as the permanent network. No path and no layer name: the box comes
-# from the delineated watershed, which is why step 1 sets [geographic]
-# crs_project. It is not step 2's map, which holds the permanent BD TOPO class
-# alone, so the network differs and the heads do not.
+# BD Topage: every reach with its permanence, the permanent ones kept apart.
+# The download box comes from the delineated watershed.
 [[data.hydrography.sources]]
 source = "bdtopage"
 
-# A local CSV is read over whatever period it covers; an API has to be told
-# one, and this steady run declares no [simulation.time]. The window is the one
-# step 4 simulates.
+# An API needs a period; the one step 4 simulates.
 [data.hydrometry]
+sources__delete = true
 date_start = "2000-01-01"
 date_end = "2002-12-31"
 
-# Hub'Eau. `QmnJ` is the daily mean discharge, and a series finer than the run
-# is averaged over each stress period, so the same line serves a monthly and a
-# daily step. `QmM`, the monthly product, would only serve the monthly one.
-#
-# The station is named rather than discovered inside the watershed. Discovery
-# works here and finds this one, but what it finds depends on the delineated
-# catchment, so a snap that moves changes the record the run is scored on.
-# J001401001 is "Le Nançon à Lécousse - Pont aux Anes"; the other station of
-# the same site, J001401002, holds nothing over 2000-2002.
+# Hub'Eau daily mean discharge of "Le Nançon à Lécousse - Pont aux Anes".
 [[data.hydrometry.sources]]
 source = "hubeau"
 product = "QmnJ"
 station_ids = ["J001401001"]
 
-# Nothing else, for the reason step 2 gives. The heads come out identical to
-# step 2's to the bit: same model, two provenances.
+# The BD Topage network, all reaches then the permanent class.
+[display]
+figures = [
+    "watershed_id_card",
+    "hydrographic_network_reference",
+    "seepage_network_confusion_map",
+]

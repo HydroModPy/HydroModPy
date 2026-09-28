@@ -207,13 +207,14 @@ directories on disk.
 
 .. code-block:: bash
 
-   hmp catalog export demo -o share/demo.hmp
-   hmp catalog import share/demo.hmp
+   hmp export demo all --format package
+   hmp catalog import share/demo/demo.hmp
 
 The ``.hmp`` archive bundles the frozen configuration, the provenance, the
-fields and the tables, with checksums verified on import. To export a single
-variable in a GIS or ParaView format instead, use ``hmp data export``; see
-:doc:`../user_guide/results-and-exports`.
+fields and the tables, with checksums verified on import. To hand over data
+in a GIS or ParaView format instead, name it: ``hmp export demo --list``
+prints what the run holds, and ``hmp export demo head --time last`` writes
+a GeoTIFF; see :doc:`../user_guide/results-and-exports`.
 
 For the full command surface, see :doc:`/cli/index`.
 

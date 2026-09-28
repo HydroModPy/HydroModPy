@@ -132,7 +132,7 @@ method = "grid"
 max_iter = 3
 evaluator = "test_first_trial_probe"
 use_cache = false
-optimizer_kwargs = { points_per_dim = 3 }
+method_options = { points_per_dim = 3 }
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]

@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
+from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.figures._memo import RunMemo
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
@@ -44,6 +45,7 @@ if TYPE_CHECKING:
     from matplotlib.collections import PolyCollection
     from matplotlib.legend import Legend
 
+    from hydromodpy.core.stream_extent import VisibleFlow
     from hydromodpy.results.run import Run
 
 GROUND_COLOR = "#EDEDED"
@@ -101,6 +103,9 @@ which cells the map measured on at all, before any colour of the scale does.
 
 MAP_MARGIN_RATIO = 0.04
 """Blank margin kept around a cropped frame, as a fraction of its longest side."""
+
+VEIL_ALPHA = 0.65
+"""Opacity of the white veil laid over the frame outside the catchment."""
 
 _LEGEND_FONT_SIZE = 9.0
 _LEGEND_MIN_FONT_SIZE = 6.0
@@ -160,7 +165,7 @@ def comparison_from_run(
         "diagonal_neighbors": bool(
             settings.diagonal_neighbors if diagonal_neighbors is None else diagonal_neighbors
         ),
-        "timestep": int(settings.timestep if timestep is None else timestep),
+        "timestep": _state_step(settings.timestep, timestep),
         "observed_rasterization": settings.observed_rasterization,
         "weighting": settings.weighting,
         "observed_position_accuracy_m": settings.observed_position_accuracy_m,
@@ -172,11 +177,62 @@ def comparison_from_run(
     )
 
 
+def compared_timestep(sim: Run, timestep: int | None = None, *, output: str | None = None) -> int:
+    """Return the stress period a stream comparison reads the state of.
+
+    The one a caller names, else the one the run's sealed network output
+    scored, else the criterion's default. A negative index counts from the
+    end, as the comparison reads it.
+    """
+    settings = network_criterion_settings(sim, output=output)
+    return _state_step(settings.timestep, timestep)
+
+
+def dated_title(title: str, sim: Run, timestep: int | None = None) -> str:
+    """Return ``title`` with the period whose state the comparison read, when dated."""
+    period = instant_label(sim, compared_timestep(sim, timestep))
+    return f"{title}\n{period}" if period else title
+
+
+def _state_step(sealed: int, asked: int | None) -> int:
+    """Return the period a caller asked for, or the sealed one."""
+    return int(sealed if asked is None else asked)
+
+
 def class_label(value: int) -> str:
     """Return the legend label of one agreement class, under both its names."""
     name = CRITERION_NAMES.get(int(value))
     label = agreement_label(value)
     return label if name is None else f"{name}: {label}"
+
+
+def seepage_threshold_words(ratio: float) -> str:
+    """Say in words when a cell counts as seepage, for a map note.
+
+    The criterion calls the threshold ``tau_specific_ratio``: a cell seeps
+    when the groundwater it releases exceeds that fraction of the recharge it
+    receives. A reader of a figure gets the sentence, never the symbol.
+    """
+    ratio = float(ratio)
+    if ratio == 0.0:
+        return "every cell releasing groundwater counts as seepage"
+    if ratio >= 1.0:
+        return f"a cell counts as seepage above {ratio:g} times its recharge"
+    return f"a cell counts as seepage above {100.0 * ratio:g} % of its recharge"
+
+
+def flowing_words(ratio: float, visible_flow: VisibleFlow) -> str:
+    """Say in words when a cell counts as flowing, for a map note.
+
+    A cell flows when it lies downstream of a seepage cell on the criterion
+    graph and, unless the visible flow is zero, carries at least that flow.
+    """
+    reach = (
+        "every cell downstream of seepage flows"
+        if visible_flow.geometric
+        else f"a cell downstream of seepage flows from {visible_flow.label()}"
+    )
+    return f"{seepage_threshold_words(ratio)}; {reach}"
 
 
 def threshold_note(comparison: NetworkComparison) -> str:
@@ -185,10 +241,7 @@ def threshold_note(comparison: NetworkComparison) -> str:
     The three classes move with it, so a map that does not carry it leaves a
     reader guessing which of several partitions is on the page.
     """
-    ratio = comparison.tau_specific_ratio
-    if ratio == 0.0:
-        return "seepage threshold: none (tau = 0), every releasing cell is a stream"
-    return f"seepage threshold: tau = {ratio:g} of the mean recharge a cell receives"
+    return seepage_threshold_words(comparison.tau_specific_ratio)
 
 
 def annotate_note(ax: Axes, text: str) -> None:
@@ -400,8 +453,8 @@ def _whole_mesh(bounds: tuple[float, float, float, float], n_cells: int, name: s
     return MapExtent(bounds=bounds, inside=np.ones(n_cells, dtype=bool), name=name)
 
 
-def _catchment_bounds(sim: Run) -> tuple[float, float, float, float] | None:
-    """Return the bounding box of the delineated catchment, in mesh coordinates."""
+def _watershed(sim: Run):
+    """Return the delineated catchment in mesh coordinates, or None without one."""
     try:
         watershed = sim.geographic(_WATERSHED_FEATURE)
     except _MISSING_FEATURE:
@@ -411,6 +464,65 @@ def _catchment_bounds(sim: Run) -> tuple[float, float, float, float] | None:
     mesh_crs = getattr(sim.mesh, "crs", None)
     if mesh_crs and watershed.crs is not None and str(watershed.crs) != str(mesh_crs):
         watershed = watershed.to_crs(mesh_crs)
+    return watershed
+
+
+def catchment_cells(sim: Run, polygons: Sequence[np.ndarray]) -> np.ndarray | None:
+    """Return which cells have their centre inside the delineated catchment.
+
+    ``None`` when the run declares no catchment. A map counts its classes
+    over these cells, so the numbers in its key are the ones a reader sees
+    inside the outline.
+    """
+    import shapely
+
+    watershed = _watershed(sim)
+    if watershed is None:
+        return None
+    outline = shapely.union_all(watershed.geometry.to_numpy())
+    centres = np.asarray([polygon.mean(axis=0)[:2] for polygon in polygons], dtype="float64")
+    return np.asarray(shapely.contains_xy(outline, centres[:, 0], centres[:, 1]), dtype=bool)
+
+
+def veil_outside_catchment(ax: Axes, sim: Run, window: MapExtent) -> None:
+    """Pale out what a cropped frame shows beyond the catchment outline.
+
+    A frame is a rectangle and a catchment is not: the corners of the frame
+    hold cells of the model that are not the catchment. They stay visible,
+    for context, under a white veil, so the eye reads the catchment first.
+    """
+    import shapely
+    from matplotlib.patches import PathPatch
+    from matplotlib.path import Path as MplPath
+
+    watershed = _watershed(sim)
+    if watershed is None:
+        return
+    xmin, xmax, ymin, ymax = window.bounds
+    outline = shapely.union_all(watershed.geometry.to_numpy())
+    outside = shapely.box(xmin, ymin, xmax, ymax).difference(outline)
+    if outside.is_empty:
+        return
+    parts = getattr(outside, "geoms", [outside])
+    vertices: list[np.ndarray] = []
+    codes: list[np.ndarray] = []
+    for part in parts:
+        for ring in (part.exterior, *part.interiors):
+            coords = np.asarray(ring.coords)[:, :2]
+            ring_codes = np.full(len(coords), MplPath.LINETO, dtype=np.uint8)
+            ring_codes[0] = MplPath.MOVETO
+            ring_codes[-1] = MplPath.CLOSEPOLY
+            vertices.append(coords)
+            codes.append(ring_codes)
+    path = MplPath(np.concatenate(vertices), np.concatenate(codes))
+    ax.add_patch(PathPatch(path, facecolor="white", edgecolor="none", alpha=VEIL_ALPHA, zorder=4))
+
+
+def _catchment_bounds(sim: Run) -> tuple[float, float, float, float] | None:
+    """Return the bounding box of the delineated catchment, in mesh coordinates."""
+    watershed = _watershed(sim)
+    if watershed is None:
+        return None
     xmin, ymin, xmax, ymax = (float(value) for value in watershed.total_bounds)
     if not np.isfinite([xmin, xmax, ymin, ymax]).all() or xmax <= xmin or ymax <= ymin:
         return None
@@ -441,16 +553,23 @@ __all__ = (
     "CELL_WEIGHT_PT",
     "CRITERION_NAMES",
     "GROUND_COLOR",
+    "VEIL_ALPHA",
     "MapExtent",
     "MapExtentName",
     "annotate_note",
+    "catchment_cells",
     "cell_count",
     "checked_cells",
     "class_label",
+    "compared_timestep",
     "comparison_from_run",
+    "dated_title",
     "draw_cells",
+    "flowing_words",
     "map_extent",
     "map_legend",
+    "seepage_threshold_words",
     "select_cells",
     "threshold_note",
+    "veil_outside_catchment",
 )

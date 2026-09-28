@@ -118,31 +118,48 @@ def test_monthly_mean_from_points_averages_stations_and_leaves_missing_months_na
     assert np.isnan(monthly[3])
 
 
-def test_render_water_quality_transfers_grouped_series_to_lines(mpl) -> None:
+def test_render_water_quality_draws_one_strip_per_parameter(mpl) -> None:
     fig, ax = mpl.subplots()
     index = pd.to_datetime(["2020-01-01", "2020-01-02"])
     series_by_param = {
         "NO3": {"S1": pd.Series([1.0, 2.0], index=index)},
-        "CL": {"S2": pd.Series([4.0, 5.0], index=index)},
+        "CL": {"S1": pd.Series([4.0, 5.0], index=index), "S2": pd.Series([6.0, 7.0], index=index)},
     }
 
-    panels.render_water_quality(
+    axes = panels.render_water_quality(
         ax,
         series_by_param=series_by_param,
         title="Water quality",
         date_start="2019-12-31",
         date_end="2020-01-03",
+        units={"NO3": "mg(NO3)/L"},
+        station_names={"S2": "La riviere"},
     )
 
     try:
-        assert [line.get_label() for line in ax.lines] == ["NO3 (S1)", "CL (S2)"]
-        assert ax.lines[0].get_ydata().tolist() == [1.0, 2.0]
-        assert ax.lines[1].get_ydata().tolist() == [4.0, 5.0]
-        assert ax.get_legend() is not None
-        assert ax.get_xlim()[0] <= ax.convert_xunits(pd.Timestamp("2019-12-31"))
-        assert ax.get_xlim()[1] >= ax.convert_xunits(pd.Timestamp("2020-01-03"))
+        assert len(axes) == 2
+        assert axes[0].get_ylabel() == "NO3 (mg(NO3)/L)"
+        assert axes[1].get_ylabel() == "CL"
+        assert [line.get_label() for line in axes[1].lines] == ["S1", "S2 La riviere"]
+        assert axes[0].lines[0].get_color() == axes[1].lines[0].get_color()
+        assert axes[1].lines[1].get_ydata().tolist() == [6.0, 7.0]
+        assert axes[0].get_legend() is not None
+        assert axes[0].get_xlim()[0] <= axes[0].convert_xunits(pd.Timestamp("2019-12-31"))
     finally:
         mpl.close(fig)
+
+
+@pytest.mark.fast
+def test_water_quality_does_not_join_analyses_across_a_sampling_gap() -> None:
+    serie = pd.Series(
+        [1.0, 2.0, 3.0], index=pd.to_datetime(["2020-01-01", "2020-02-01", "2021-01-01"])
+    )
+
+    broken = panels._break_gaps(serie, 120)
+
+    assert broken.isna().sum() == 1
+    assert broken.dropna().tolist() == [1.0, 2.0, 3.0]
+    assert broken.index.is_monotonic_increasing
 
 
 def test_render_climatic_summary_places_monthly_precip_and_etp_bars(mpl) -> None:
@@ -177,32 +194,36 @@ def test_render_climatic_summary_places_monthly_precip_and_etp_bars(mpl) -> None
         mpl.close(fig)
 
 
-def test_render_intermittency_uses_discrete_flow_state_axis(mpl) -> None:
+def test_render_intermittency_draws_one_flow_state_strip_per_station(mpl) -> None:
     fig, ax = mpl.subplots()
     df = pd.DataFrame(
-        {"O1": [1.0, 5.0], "O2": [np.nan, 3.0]},
+        {"O1": [1.0, 5.0], "O2": [np.nan, 3.0], "O3": [np.nan, np.nan]},
         index=pd.to_datetime(["2020-01-01", "2020-02-01"]),
     )
 
-    panels.render_intermittency(
+    axes = panels.render_intermittency(
         ax,
         df=df,
         title="ONDE",
         date_start="2020-01-01",
         date_end="2020-03-01",
+        station_names={"O1": "Le ruisseau"},
     )
 
     try:
-        assert len(ax.lines) == 2
-        assert [tick.get_text() for tick in ax.get_yticklabels()] == [
-            "1: Dry",
-            "2: Non-visible",
-            "3: Weak",
-            "4: Acceptable",
-            "5: Visible",
+        assert len(axes) == 2
+        assert [sub.get_title() for sub in axes] == ["O1 - Le ruisseau", "O2"]
+        assert [tick.get_text() for tick in axes[0].get_yticklabels()] == [
+            "Dry",
+            "Invisible",
+            "Low",
+            "Acceptable",
+            "Visible",
         ]
-        assert ax.get_ylim() == pytest.approx((0.5, 5.5))
-        assert ax.get_legend() is not None
+        assert axes[0].get_ylim() == pytest.approx((0.5, 5.5))
+        dry, visible = axes[0].collections[0].get_facecolors()
+        assert tuple(dry[:3]) == pytest.approx((0.5, 0.0, 0.0), abs=0.01)
+        assert tuple(visible[:3]) == pytest.approx((0.0, 0.0, 0.5), abs=0.01)
     finally:
         mpl.close(fig)
 
@@ -337,7 +358,16 @@ def test_map_panels_render_minimal_raster_without_optional_vectors(tmp_path, mpl
                 "marker": "o",
                 "color": "white",
                 "group": "Hydrometry",
-            }
+            },
+            {
+                "x": 5100.0,
+                "y": 5190.0,
+                "crs": None,
+                "label": "P1",
+                "marker": "^",
+                "color": "skyblue",
+                "group": "Piezometry",
+            },
         ],
         title="DEM",
     )
@@ -351,10 +381,49 @@ def test_map_panels_render_minimal_raster_without_optional_vectors(tmp_path, mpl
 
     try:
         assert axes[0].get_title() == "DEM"
-        assert axes[0].get_legend() is not None
+        legend = axes[0].get_legend()
+        assert [text.get_text() for text in legend.get_texts()] == [
+            "Hydrometry",
+            "Piezometry (off map, 7 km NE)",
+        ]
         assert axes[1].lines[0].get_marker() == "*"
         assert axes[2].get_title() == "Geo"
         assert all(axis.get_aspect() == 1.0 for axis in axes)
+    finally:
+        mpl.close(fig)
+
+
+def test_regional_context_map_draws_the_stations_it_covers(tmp_path, mpl) -> None:
+    rasterio = pytest.importorskip("rasterio")
+    from rasterio.transform import from_origin
+
+    dem = tmp_path / "regional.tif"
+    with rasterio.open(
+        dem,
+        "w",
+        driver="GTiff",
+        height=2,
+        width=2,
+        count=1,
+        dtype="float32",
+        transform=from_origin(0.0, 20000.0, 10000.0, 10000.0),
+    ) as dst:
+        dst.write(np.ones((1, 2, 2), dtype="float32"))
+
+    fig, ax = mpl.subplots()
+    panels.render_regional_context_map(
+        ax,
+        regional_dem_path=str(dem),
+        station_points=[
+            {"x": 15000.0, "y": 18000.0, "crs": None, "marker": "^", "group": "Piezometry"}
+        ],
+        title="Regional",
+    )
+
+    try:
+        assert ax.collections[-1].get_offsets().tolist() == [[15000.0, 18000.0]]
+        labels = [text.get_text() for text in ax.get_legend().get_texts()]
+        assert labels == ["Bassin versant", "Piezometry"]
     finally:
         mpl.close(fig)
 

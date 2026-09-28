@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import style_date_axis
@@ -35,7 +36,7 @@ class Hydrograph(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: str = "_catchment",
+        station: str = CATCHMENT_OUTLET_STATION,
         variable: str = "discharge",
         log_y: bool = False,
         **_,
@@ -46,13 +47,13 @@ class Hydrograph(BaseFigure):
             raise KeyError(
                 f"hydrograph: no '{variable}' series at station '{station}' for sim {sim.sim_id}"
             ) from exc
-        ax.plot(ts.index, ts.values, label="sim", color="steelblue", lw=1.2)
+        ax.plot(ts.index, ts.values, label="simulated", color="steelblue", lw=1.2)
         ax.set_xlabel("Date")
-        ax.set_ylabel(f"{variable} (m³/s)")
+        ax.set_ylabel(axis_label(variable))
         if log_y:
             ax.set_yscale("log")
-        ax.set_title(f"Hydrograph - {sim.name or sim.sim_id} @ {station}")
+        ax.set_title(f"Hydrograph - {sim.name or sim.sim_id} @ {station_label(station)}")
         ax.grid(True, ls=":", lw=0.4)
-        ax.legend(fontsize=13, framealpha=0.94)
+        ax.legend(fontsize=9, framealpha=0.94)
         style_date_axis(ax)
         return ax

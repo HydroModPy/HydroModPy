@@ -335,13 +335,13 @@ class MatchingHydrographicNetwork:
             "steady_method",
             "steady_max_iter",
             "steady_tolerance",
-            "steady_engine_options",
+            "steady_method_options",
             "steady_window",
             "transient_metric",
             "transient_method",
             "transient_max_iter",
             "transient_tolerance",
-            "transient_engine_options",
+            "transient_method_options",
             "discharge_variable",
             "observed_station_id",
             "scoring_window",
@@ -678,8 +678,8 @@ def _phases(
         steady["steady_window"] = dict(opts.steady_window)
     if opts.steady_tolerance is not None:
         steady["tolerance"] = float(opts.steady_tolerance)
-    if opts.steady_engine_options:
-        steady["optimizer_kwargs"] = dict(opts.steady_engine_options)
+    if opts.steady_method_options:
+        steady["method_options"] = dict(opts.steady_method_options)
     if opts.storage is None:
         return [steady]
 
@@ -713,13 +713,56 @@ def _phases(
         transient["objective"] = opts.transient_metric
     if opts.transient_tolerance is not None:
         transient["tolerance"] = float(opts.transient_tolerance)
-    if opts.transient_engine_options:
-        transient["optimizer_kwargs"] = dict(opts.transient_engine_options)
+    if opts.transient_method_options:
+        transient["method_options"] = dict(opts.transient_method_options)
     if opts.scoring_window is not None:
         transient["scoring_window"] = dict(opts.scoring_window)
     elif scored_from is not None:
         transient["scoring_window"] = {"start": scored_from}
     return [steady, transient]
+
+
+def options_the_recipe_already_runs(
+    opts: MatchingHydrographicNetworkOptions, calibration: Any, time: Any
+) -> frozenset[str]:
+    """Return the options a file wrote to the value the recipe runs anyway.
+
+    The recipe leaves a stage's method options and its precision to the method,
+    and the spin-up window to the run's first year. A file that writes the same
+    thing out, ``sweep_points = 7`` beside a bisection whose default is seven,
+    has not moved off the recipe, and ``hmp calibrate --check`` must not say it
+    has. ``calibration`` is the validated ``[calibration]`` section and ``time``
+    ``[simulation.time]``.
+    """
+    same = set(opts.stage_options_run_as_their_method_does())
+    if opts.scoring_window is not None and _is_the_spin_up_window(
+        opts.scoring_window, calibration, time
+    ):
+        same.add("scoring_window")
+    return frozenset(same)
+
+
+def _is_the_spin_up_window(window: Mapping[str, Any], calibration: Any, time: Any) -> bool:
+    """Say whether a declared window scores what the default spin-up window scores.
+
+    That default opens one year after the run starts and runs to its end. It is
+    only the recipe's when nothing on ``[calibration]`` bounds the scoring.
+    """
+    if getattr(calibration, "scoring_window", None) is not None:
+        return False
+    if getattr(calibration, "warmup_periods", None):
+        return False
+    start = getattr(time, "start_datetime", None)
+    end = getattr(time, "end_datetime", None)
+    first_scored = _date_past_the_spin_up(start, end)
+    if first_scored is None or window.get("start") is None:
+        return False
+    if pd.Timestamp(window["start"]) != pd.Timestamp(first_scored):
+        return False
+    written_end = window.get("end")
+    if written_end is None:
+        return True
+    return end is not None and pd.Timestamp(written_end) >= pd.Timestamp(end)
 
 
 __all__ = [
@@ -729,5 +772,6 @@ __all__ = [
     "STEADY_STAGE",
     "TRANSIENT_STAGE",
     "MatchingHydrographicNetwork",
+    "options_the_recipe_already_runs",
     "why_the_spin_up_year_is_scored",
 ]

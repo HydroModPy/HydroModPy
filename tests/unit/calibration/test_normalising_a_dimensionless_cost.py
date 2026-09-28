@@ -12,9 +12,9 @@ costs on a common footing: it multiplies one block's weight by a number that
 belongs to its data, silently. Two blocks written with equal weights come out
 unequal, and nothing in the report says by how much.
 
-The network distances have a unit, metres, but no observed vector to take a
-scale from: their reference collapses to one and the normalisation is a no-op
-wearing the name of a correction.
+The network distances have a unit, metres, and no observed vector to take a
+scale from. Their scale is the validity length of the output, which
+``test_a_network_distance_is_counted_in_validity_lengths.py`` covers.
 """
 
 from __future__ import annotations
@@ -64,16 +64,20 @@ class TestWhatIsRefused:
         assert "nse" in message
         assert "weight" in message
 
-    def test_normalising_a_network_distance_is_refused(self) -> None:
-        """Its reference scale comes from a pair of zeros and collapses to one."""
-        with pytest.raises(ValueError, match="distance_gap"):
-            ConfigBlockObjective(
-                name="net",
-                metric="distance_gap",
-                uses_outputs=["net"],
-                observed_by_output={"net": (0.0, 0.0)},
-                normalize_cost=True,
-            )
+    def test_normalising_a_network_distance_never_reads_an_observed_scale(self) -> None:
+        """Its scale is the validity length a trial publishes, not a pair of zeros.
+
+        Without one the trial is refused by name rather than divided by one.
+        """
+        block = ConfigBlockObjective(
+            name="net",
+            metric="distance_gap",
+            uses_outputs=["net"],
+            observed_by_output={"net": (0.0, 0.0)},
+            normalize_cost=True,
+        )
+        with pytest.raises(ValueError, match="validity length"):
+            block.evaluate({"net": [120.0, 80.0]})
 
 
 class TestWhatIsUntouched:

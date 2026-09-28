@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 import pandas as pd
 
+from hydromodpy.calibration.metrics.downslope_network import MAXIMAL_SUFFIX, MINIMAL_SUFFIX
 from hydromodpy.calibration.metrics.observed_pairing import (
     PairedOutputs,
     observing_outputs,
@@ -44,6 +45,7 @@ from hydromodpy.calibration.optim.objective import build_objective_from_config
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.period_aggregation import period_edges
+from hydromodpy.core.time.selection import TimeSelectionError, period_label, resolve_instant
 from hydromodpy.results.derive.time_alignment import first_period_start, time_method_for
 
 if TYPE_CHECKING:
@@ -121,22 +123,26 @@ def refuse_window_without_dates(
     objective_blocks: list[CalibObjectiveBlockDecl],
     scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None,
     observing: Mapping[str, str],
+    *,
+    boundaries: Sequence[Any] | None = None,
 ) -> None:
     """Refuse a window on the blocks whose outputs carry no dates to cut on.
 
     An output that names a station is aligned on the simulated timestamps, so a
     window applies to it exactly. A network output with an extent table is
     scored by calendar year, and the window picks those years at extraction.
-    One scored positionally has no date to compare a bound against: honouring
-    the window is impossible, and dropping it would report a cost over the
-    whole run under the name of a windowed one.
+    A network output read in one state is dated at the stamp of that state:
+    the window holds it or not, which needs the run's time grid, so it is
+    checked when ``boundaries`` are given
+    (:func:`refuse_a_network_state_outside_the_window`). One scored
+    positionally has no date to compare a bound against: honouring the window
+    is impossible, and dropping it would report a cost over the whole run under
+    the name of a windowed one.
     """
     if scoring_window is None or not any(bound is not None for bound in scoring_window):
         return
     dated = set(observing) | {
-        str(name)
-        for name, output in outputs.items()
-        if output.support == "network" and getattr(output, "extent", None) is not None
+        str(name) for name, output in outputs.items() if output.support == "network"
     }
     dateless_by_block: dict[str, list[str]] = {}
     for block in objective_blocks:
@@ -147,18 +153,145 @@ def refuse_window_without_dates(
         )
         if dateless:
             dateless_by_block[str(block.name)] = dateless
-    if not dateless_by_block:
+    if dateless_by_block:
+        start, end = scoring_window
+        listed = "; ".join(
+            f"block {name!r} on output(s) {outputs_}"
+            for name, outputs_ in dateless_by_block.items()
+        )
+        raise ValueError(
+            f"scoring_window {_day(start)} to {_day(end)} cannot be applied to {listed}: "
+            "those outputs are scored on extracted value vectors, which carry no time axis "
+            "to cut on. Point them at a loaded record with 'observes', or score on a single "
+            "variable."
+        )
+    if boundaries is not None:
+        refuse_a_network_state_outside_the_window(
+            outputs, objective_blocks, scoring_window, boundaries
+        )
+
+
+def network_state_period(time: Any, boundaries: Sequence[Any] | None, *, n_periods: int) -> int:
+    """Return the index of the period a one-state network output reads.
+
+    ``time`` is the output's ``"first"``, ``"last"`` or ISO date, resolved as
+    :func:`hydromodpy.core.time.selection.resolve_instant` does: a date reads
+    the period ``[s, e)`` that holds it. A steady phase runs one period over
+    its window, so every date of that window reads its one state. A run of one
+    period with no dates serves that state to any selector: nothing is there to
+    tell a date from another. ``boundaries`` are the run's ``n_periods + 1``
+    time-grid bounds, or ``None``.
+    """
+    edges = boundaries if boundaries is not None and len(boundaries) >= 2 else None
+    if edges is None and n_periods == 1:
+        return 0
+    return resolve_instant(time, edges, n_periods=n_periods)
+
+
+def network_state_stamp(time: Any, boundaries: Sequence[Any] | None) -> pd.Timestamp | None:
+    """Return the stamp of the state a one-state network output reads, or ``None``.
+
+    The stamp closes its period, as every state of the run is stamped. ``None``
+    when the run carries no time grid to date it with.
+    """
+    if boundaries is None or len(boundaries) < 2:
+        return None
+    index = network_state_period(time, boundaries, n_periods=len(boundaries) - 1)
+    return _naive_utc(boundaries[index + 1])
+
+
+def refuse_a_network_state_outside_the_window(
+    outputs: Mapping[str, CalibOutputDecl],
+    objective_blocks: list[CalibObjectiveBlockDecl],
+    scoring_window: tuple[Any, Any] | None,
+    boundaries: Sequence[Any] | None,
+) -> None:
+    """Refuse a network state the window does not hold, naming both.
+
+    A network output read in one state is dated at the stamp that closes the
+    period it reads, and the window keeps a stamp from ``start`` to ``end``,
+    both included, as it keeps the stamps of a series. A state outside the
+    window would be scored under the name of a windowed cost. A date the run
+    does not hold is refused here too, by the output that names it. Nothing is
+    checked without a time grid: the stamp is unknown there.
+    """
+    if scoring_window is None or not any(bound is not None for bound in scoring_window):
         return
-    start, end = scoring_window
-    listed = "; ".join(
-        f"block {name!r} on output(s) {outputs_}" for name, outputs_ in dateless_by_block.items()
-    )
-    raise ValueError(
-        f"scoring_window {start} to {end} cannot be applied to {listed}: those outputs "
-        "are scored on extracted value vectors, which carry no time axis to cut on. "
-        "Point them at a loaded record with 'observes', use warmup_periods, which "
-        "counts samples, or score on a single variable."
-    )
+    if boundaries is None or len(boundaries) < 2:
+        return
+    start, end = (_naive_utc(bound) for bound in scoring_window)
+    read = {str(name) for block in objective_blocks for name in block.uses_outputs}
+    for name in sorted(read):
+        output = outputs.get(name)
+        if output is None or output.support != "network":
+            continue
+        if getattr(output, "extent", None) is not None:
+            continue
+        time = getattr(output, "time", "last")
+        try:
+            index = network_state_period(time, boundaries, n_periods=len(boundaries) - 1)
+        except TimeSelectionError as exc:
+            raise ValueError(f"network output {name!r} has time = {time!r}: {exc}") from exc
+        stamp = _naive_utc(boundaries[index + 1])
+        if (start is None or stamp >= start) and (end is None or stamp <= end):
+            continue
+        raise ValueError(
+            f"scoring_window {_day(start)} to {_day(end)} does not hold the network state "
+            f"output {name!r} is scored on: time = {time!r} reads the state of "
+            f"{period_label(index, boundaries)}, stamped {_day(stamp)} at the end of its "
+            "period. Move the window, or set the output's time to a date inside it."
+        )
+
+
+def network_distance_scales(
+    outputs: Mapping[str, CalibOutputDecl], diagnostics: Mapping[str, float] | None
+) -> dict[str, list[float]]:
+    """Return, per network output, the validity length of each value it produces.
+
+    A one-bound output produces the pair ``(D_so, D_os)`` of its scored bound,
+    whose validity length it publishes unsuffixed. A two-bound output produces
+    the minimal pair then the maximal one, each with its own length. The
+    lengths are the scale ``normalize_cost`` divides a distance by. An output
+    whose lengths were not published is left out, and a block that normalises
+    it refuses the trial by name.
+    """
+    scales: dict[str, list[float]] = {}
+    found = diagnostics or {}
+    for name, output in outputs.items():
+        if output.support != "network":
+            continue
+        n_bounds = int(found.get(f"{name}.n_bounds_scored", 1.0))
+        if n_bounds == 2:
+            keys = (
+                f"{name}.validity_length_m{MINIMAL_SUFFIX}",
+                f"{name}.validity_length_m{MAXIMAL_SUFFIX}",
+            )
+        else:
+            keys = (f"{name}.validity_length_m",)
+        if not all(key in found for key in keys):
+            continue
+        scales[str(name)] = [float(found[key]) for key in keys for _ in (0, 1)]
+    return scales
+
+
+def _naive_utc(value: Any) -> pd.Timestamp | None:
+    """Return an instant as a naive UTC timestamp, ``None`` when unset."""
+    if value is None:
+        return None
+    stamp = pd.Timestamp(value)
+    if stamp.tz is not None:
+        stamp = stamp.tz_convert("UTC").tz_localize(None)
+    return stamp
+
+
+def _day(value: Any) -> str:
+    """Return a window bound as a reader writes it: its date at midnight, else the instant."""
+    if value is None:
+        return "open"
+    stamp = pd.Timestamp(value)
+    if stamp == stamp.normalize():
+        return stamp.strftime("%Y-%m-%d")
+    return stamp.isoformat()
 
 
 class ObservableScorer:
@@ -196,9 +329,24 @@ class ObservableScorer:
         # A discharge is averaged over each period, a head or a lake stage is
         # read at the stamp: fixed by the declared variable, once.
         self._time_methods: dict[str, str] = output_time_methods(outputs)
-        self._composite: Objective | None = (
-            None if self._observed else build_objective_from_config(self._cfg)
+        # A normalised network distance is divided by the validity length the
+        # trial itself publishes, so its objective is built per trial.
+        self._scales_distances: bool = any(
+            block.normalize_cost
+            and any(
+                getattr(outputs.get(str(name)), "support", None) == "network"
+                for name in block.uses_outputs
+            )
+            for block in objective_blocks
         )
+        self._composite: Objective | None = (
+            None
+            if self._observed or self._scales_distances
+            else build_objective_from_config(self._cfg)
+        )
+        # The window is faced with the network states once, on the first time
+        # grid a trial brings: every trial of a search runs the same grid.
+        self._states_checked: bool = False
 
     def pair(
         self,
@@ -262,8 +410,14 @@ class ObservableScorer:
 
         ``boundaries`` are the run's time-grid bounds. A dated output takes
         the start of its first period from them, which a single steady stamp
-        cannot tell on its own (:func:`selected_period_start`).
+        cannot tell on its own (:func:`selected_period_start`). They also date
+        the state a network output is read at, which the window has to hold.
         """
+        if not self._states_checked and boundaries is not None and len(boundaries) >= 2:
+            refuse_a_network_state_outside_the_window(
+                self._outputs, self._cfg.objective_blocks, self._scoring_window, boundaries
+            )
+            self._states_checked = True
         simulated: dict[str, Sequence[float]] = {}
         series: dict[str, pd.Series] = {}
         starts: dict[str, Any] = {}
@@ -288,12 +442,23 @@ class ObservableScorer:
         objective = self._composite
         paired_counts: dict[str, int] = {}
         paired_dates: dict[str, tuple[pd.Timestamp, pd.Timestamp]] = {}
+        observed_by_output: Mapping[str, Sequence[float]] | None = None
         if self._observed:
             paired = self._align(series, starts)
             simulated.update(paired.simulated)
             paired_counts = dict(paired.n_paired)
             paired_dates = dict(paired.dates)
-            objective = build_objective_from_config(self._cfg, observed_by_output=paired.observed)
+            observed_by_output = paired.observed
+        if objective is None:
+            objective = build_objective_from_config(
+                self._cfg,
+                observed_by_output=observed_by_output,
+                distance_scales=(
+                    network_distance_scales(self._outputs, diagnostics)
+                    if self._scales_distances
+                    else None
+                ),
+            )
         try:
             value = objective.evaluate(simulated)
         except Exception as exc:

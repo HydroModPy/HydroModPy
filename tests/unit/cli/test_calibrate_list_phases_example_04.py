@@ -1,6 +1,6 @@
 """``--list-phases`` output of example 04 is frozen, through the CLI path.
 
-Both files declare two phases, and both now print, under each phase line,
+Each file declares its phases, and each prints, under each phase line,
 what its blocks (or its single metric) compare with what. The table reads
 declarations only, so this needs no more of the example's data on disk than
 loading the two TOML files already needs (``load_toml_calibration`` resolves
@@ -52,34 +52,30 @@ def test_the_protocol_file_shows_a_network_row_and_a_hydrograph_block_row(capsys
     )
     assert lines[2].startswith("1\ttransient_storage\tscipy_nelder_mead\t")
     assert lines[3] == (
-        "    hydrograph\tnse_log\tshare 100%\tdischarge (point, its observed station's "
-        "own cell)\tvs station NANCON ([data.hydrometry])"
+        "    hydrograph\tnse_log\tshare 100%\tdischarge, station NANCON (whole-catchment "
+        "series)\tvs station NANCON ([data.hydrometry])"
     )
     assert len(lines) == 4
 
 
-def test_the_by_hand_file_shows_a_point_row_that_observes_a_station(capsys) -> None:
-    out = _list_phases(EXAMPLE_04 / "run_calibration_by_hand.toml", capsys)
+def test_the_composite_file_shows_one_phase_with_two_shares(capsys) -> None:
+    out = _list_phases(EXAMPLE_04 / "run_calibration_composite.toml", capsys)
 
     lines = out.splitlines()
-    assert lines[0].startswith("0\tsteady_conductivity\tbisection\t")
+    assert lines[0].startswith("0\tconductivity_and_storage\toptuna\t")
+    # A share table {hydrograph = 0.7, network = 0.3}, the network gap normalised.
     assert lines[1] == (
-        f"    network_extension\tdistance_gap\tshare 100%\trelease_flux (network)\tvs {GEOMETRY}"
+        f"    network\tdistance_gap\tshare 30%\trelease_flux (network)\tvs {GEOMETRY}"
     )
-    assert lines[2].startswith("1\ttransient_storage\tscipy_nelder_mead (cost to minimise)\t")
-    # A share table {hydrograph = 100, network_extension = 1}, normalised.
-    assert lines[3] == (
-        f"    network_extension\tdistance_gap\tshare 1%\trelease_flux (network)\tvs {GEOMETRY}"
+    assert lines[2] == (
+        "    hydrograph\tnse_log\tshare 70%\tdischarge, station NANCON (whole-catchment "
+        "series)\tvs station NANCON ([data.hydrometry])"
     )
-    assert lines[4] == (
-        "    hydrograph\tnse_log\tshare 99%\tdischarge (point, (389285.91, 6816518.749))"
-        "\tvs station NANCON ([data.hydrometry])"
-    )
-    assert len(lines) == 5
+    assert len(lines) == 3
 
 
 def test_the_protocol_written_by_hand_lists_what_the_protocol_lists(capsys) -> None:
     protocol = _list_phases(EXAMPLE_04 / "run_calibration.toml", capsys)
-    by_hand = _list_phases(EXAMPLE_04 / "run_calibration_protocol_by_hand.toml", capsys)
+    by_hand = _list_phases(EXAMPLE_04 / "run_calibration_by_hand.toml", capsys)
 
     assert by_hand == protocol

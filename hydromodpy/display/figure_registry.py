@@ -10,7 +10,7 @@ import importlib
 import warnings
 from collections.abc import Iterable
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, option_names_of
 
 _REGISTRY: dict[str, type[BaseFigure]] = {}
 _FORMER_NAMES: dict[str, str] = {}
@@ -76,3 +76,16 @@ def names() -> Iterable[str]:
     """Iterate over the names of registered figures."""
     _ensure_figures_registered()
     return sorted(_REGISTRY)
+
+
+def figure_option_names(name: str) -> frozenset[str]:
+    """Return the keys ``[display.overrides.<name>]`` accepts.
+
+    They are the named parameters of the figure's ``plot`` and ``render``,
+    read along the MRO while a ``**`` parameter forwards them. ``figsize``
+    comes from :meth:`BaseFigure.plot`. A figure that draws one instant
+    accepts ``time``, which the display layer resolves to the step it draws;
+    the internal ``timestep`` is never a user option. ``dpi`` belongs to
+    ``[display]`` itself.
+    """
+    return option_names_of(_REGISTRY[resolve(name)])

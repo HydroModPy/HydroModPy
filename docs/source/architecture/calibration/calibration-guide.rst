@@ -128,7 +128,18 @@ Node by node:
   ``calibration_iterations.sim_id`` is written before the replay, not
   after it: the last step of the promoted run renders the figures, and
   the ones about the calibration only draw when an iteration row names
-  that run. A promotion that fails clears the link again.
+  that run. A promotion that fails clears the link again. The best trial
+  is promoted as ``<name>_<phase>``, ``<name>`` being the ``[simulation]``
+  name of the file, or as ``<name>`` for a calibration of one phase;
+  another kept trial is ``<name>_<phase>_trial_<iteration>``. Two
+  calibration files of one project thus promote two names, and a file run
+  again gets the ``.v2`` the catalog gives any taken name.
+- **Console recap**: in normal mode ``hmp run`` ends a calibration on one
+  line naming the file and its protocol, one line per phase (method,
+  number of runs, each best value with its unit and interval, the best
+  cost and its metric), then the ``runs/<name>/figures`` folders, the
+  session folders and ``methods.md``, the methods paragraph written into
+  the root session folder. ``--verbose`` prints the full summary dict.
 - **``hmp report render <session_ref>``**: post-processing CLI that
   reads the session descriptor and its trial log, renders the six
   calibration figures, and emits a standalone HTML report at
@@ -285,11 +296,13 @@ Exhaustive option reference:
      - ``1``
      - Suggestions drawn per ``ask``. Reserved for future parallel
        trials. Leave at ``1`` today.
-   * - ``optimizer_kwargs``
+   * - ``method_options``
      - dict
      - ``{}``
-     - Extra kwargs forwarded to the sampler (for example
-       ``{sampler = "cmaes"}`` for Optuna).
+     - Options of the method, named as it names them (for example
+       ``{sampler = "cmaes"}`` for Optuna). Written with ``method``; a key
+       the method does not take is refused when the file loads.
+       ``optimizer_kwargs``, its old name, still loads with a warning.
 
 Per-parameter declarations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -395,7 +408,7 @@ Recipe cheat sheet
        ``seed = 42``
    * - Multi-dim continuous (3+ params)
      - ``method = "optuna"``,
-       ``optimizer_kwargs = {sampler = "cmaes"}``,
+       ``method_options = {sampler = "cmaes"}``,
        ``max_iter = 300``
    * - Local refinement near a known optimum
      - ``method = "scipy_nelder_mead"``, ``max_iter = 80``
@@ -719,18 +732,21 @@ Optimization methods
 Engine options
 ~~~~~~~~~~~~~~
 
-``method`` names the engine; the options block carries that engine's own
-settings. The block is ``[calibration.optimizer_kwargs]`` at the top level and
-``[calibration.phases.optimizer_kwargs]`` per phase, and the
+``method`` names the engine; ``method_options`` carries that engine's own
+settings. The block is ``[calibration.method_options]`` at the top level and
+``[calibration.phases.method_options]`` per phase, and the
 ``matching_hydrographic_network`` protocol spells it
-``[calibration.protocol.steady_engine_options]`` and
-``[calibration.protocol.transient_engine_options]`` because it configures two
-engines at once.
+``[calibration.protocol.steady_method_options]`` and
+``[calibration.protocol.transient_method_options]`` because it configures two
+engines at once. The old names, ``optimizer_kwargs``,
+``steady_engine_options`` and ``transient_engine_options``, still load and warn
+with the new one.
 
 One model per engine in :mod:`hydromodpy.calibration.optim.method_config`, all
-``extra="forbid"``, so a key the engine does not know is refused when
-``validate_registry()`` runs and not inside an adapter constructor. Each row
-below lists every key that engine accepts, and
+``extra="forbid"``, so a key the engine does not know is refused when the file
+loads, naming the phase or the protocol key it was written under, and not when
+that phase starts or inside an adapter constructor. ``hmp calibrate --check``
+reports it the same way. Each row below lists every key that engine accepts, and
 ``tests/unit/docs/test_the_engine_options_are_the_ones_that_exist.py`` fails
 when the two drift apart.
 
@@ -946,7 +962,8 @@ Return dict keys:
 .. code-block:: text
 
    session_id, method, n_iterations, best_objective,
-   best_sim_id, duration_s, save_runs, promoted
+   best_sim_id, duration_s, save_runs, promoted,
+   best_run_name, session_dir
 
 Low-level primitives
 ~~~~~~~~~~~~~~~~~~~~

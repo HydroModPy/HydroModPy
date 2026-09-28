@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -146,3 +148,73 @@ def test_extract_catchment_from_point_rejects_empty_watershed_polygon(
             crs_project="EPSG:2154",
             backend=backend,
         )
+
+
+class _SnappingEngine:
+    """An engine that snaps the outlet by a fixed distance and delineates."""
+
+    def __init__(self, tmp_path: Path, distance_m: float) -> None:
+        self._tmp_path = tmp_path
+        self._distance_m = distance_m
+
+    def delineate(self, accumulation, outlets, **_kwargs):
+        (outlet,) = outlets
+        return (
+            SimpleNamespace(
+                mask_path=self._tmp_path / "watershed.tif",
+                boundary_path=self._tmp_path / "watershed.shp",
+                snapped_x=389175.004,
+                snapped_y=6816449.6,
+                snap_distance_m=self._distance_m,
+            ),
+        )
+
+
+def _snap_records(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    distance_m: float,
+) -> list[logging.LogRecord]:
+    monkeypatch.setattr(
+        "hydromodpy.spatial.geographic.core.catchment_from_point.terrain_registry.create",
+        lambda engine_id, backend=None: _SnappingEngine(tmp_path, distance_m),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.spatial.geographic.core.catchment_from_point.ensure_crs",
+        lambda *args, **kwargs: None,
+    )
+    caplog.set_level(logging.INFO, logger="hydromodpy")
+    products = extract_catchment_from_point(
+        x_outlet=389285.91,
+        y_outlet=6816518.749,
+        snap_dist=150,
+        accumulation=fake_accumulation(acc=tmp_path / "acc.tif", direc=tmp_path / "d.tif"),
+        output_dir=tmp_path / "geo",
+        crs_project="EPSG:2154",
+    )
+    assert products.snap_distance_m == distance_m
+    return [r for r in caplog.records if r.getMessage().startswith("Outlet moved")]
+
+
+def test_a_long_snap_is_one_short_sentence_rounded_to_the_metre(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    (record,) = _snap_records(monkeypatch, tmp_path, caplog, 130.54)
+    assert record.levelno == logging.WARNING
+    assert record.getMessage() == (
+        "Outlet moved 131 m (limit 150 m) onto the flow network, "
+        "from (389286, 6816519) to (389175, 6816450)."
+    )
+
+
+def test_a_short_snap_stays_below_the_normal_console(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The threshold is unchanged: half the allowed distance."""
+    (record,) = _snap_records(monkeypatch, tmp_path, caplog, 75.0)
+    assert record.levelno == logging.INFO

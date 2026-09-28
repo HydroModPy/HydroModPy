@@ -56,7 +56,7 @@ def test_a_geometric_threshold_draws_a_run_without_recharge(mpl) -> None:
     fig, ax = mpl.subplots()
     NetworkExtentBoundsMap().render(_without_recharge(), ax, tau_specific_ratio=0.0)
 
-    assert "seepage closure, tau = 0," in legend_note(ax)
+    assert "every cell releasing groundwater counts as seepage;" in legend_note(ax)
 
 
 def test_the_default_threshold_on_a_run_without_recharge_is_told_so(mpl) -> None:
@@ -79,7 +79,7 @@ def test_both_bounds_count_each_extent_and_each_map(mpl) -> None:
     assert "minimal: 1 valid, 0 excess, 1 missing" in note
     assert "maximal: 3 valid, 0 excess, 0 missing" in note
     assert "kept in >= 1 of 2 complete year(s) (2001-2002" in note
-    assert "visible flow 1 L/s" in note
+    assert "flows from 1 L/s" in note
     assert "climatological extents over 2001-2002" in ax.get_title()
 
 
@@ -149,7 +149,10 @@ def test_the_map_draws_the_rules_the_run_was_scored_by(mpl) -> None:
 
     assert legend_labels(ax)[0] == "simulated minimal extent (0 cells)"
     note = legend_note(ax)
-    assert "seepage closure, tau = 0, visible flow 5 L/s" in note
+    assert (
+        "every cell releasing groundwater counts as seepage; "
+        "a cell downstream of seepage flows from 5 L/s"
+    ) in note
     assert "criterion settings: calibration output 'streams'" in note
 
 

@@ -1,31 +1,32 @@
-# Nancon, step 1 plus the mapped river network, read from local files. Only
-# what surveyed data on disk changes is written here. Still steady.
+# Step 2: step 1 plus the mapped river network and the gauge, read from local
+# files. Still steady: the network is compared with the simulated seepage.
 #
-#   hmp run examples/projects/04_streamflow_intermittence_in_transient/step2_local_data.toml
+#   hmp run step2_local_data.toml
 
 base_config = "step1_minimal.toml"
 
 [simulation]
 name = "nancon_step2_local"
 
+# The per-cell seepage the network comparison reads.
+[simulation.results.derived]
+release_flux = true
+
 [data]
 types = ["hydrography", "hydrometry"]
 
-# Both files sit under examples/data/ and are named, not pathed: the project
-# store resolves them. The network is the permanent class of BD TOPO alone,
-# the reaches that flow all year.
+# The permanent reaches of BD TOPO, under examples/data/hydrography/.
 [[data.hydrography.sources]]
 source = "custom"
 path = "nancon_stream_network.gpkg"
 
-# The gauge at the outlet, daily 1982-2022. A steady run reads none of it; it
-# is declared so step 4 inherits an observed hydrograph.
+# The gauge at the outlet, daily 1982-2022. Step 4 scores against it.
 [[data.hydrometry.sources]]
 source = "custom"
 path = "hydrometry"
 station_ids = ["NANCON"]
 
-# The network is data here, not a model input: nothing is burnt into the DEM.
-# A burn would only reshape the routing surface of the delineation, which the
-# drainage boundary does not read, and the calibration of project.toml fills
-# and descends the model top itself.
+# The card now draws the mapped network; the confusion map sets it against
+# the simulated seepage cells.
+[display]
+figures = ["watershed_id_card", "seepage_network_confusion_map"]

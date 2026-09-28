@@ -65,6 +65,11 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "comparison",
         (),
     ),
+    "calibration_progress": (
+        "hydromodpy.display.figures.calibration_progress.CalibrationProgressFigure",
+        "timeseries",
+        (),
+    ),
     "calibration_trace": (
         "hydromodpy.display.figures.calibration_trace.CalibrationTraceFigure",
         "timeseries",
@@ -151,6 +156,11 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
     ),
     "hydrographic_network_generated_extra_only": (
         "hydromodpy.display.figures.hydrographic_network_comparison.HydrographicNetworkGeneratedExtraOnlyFigure",
+        "comparison",
+        (),
+    ),
+    "hydrographic_network_permanence": (
+        "hydromodpy.display.figures.hydrographic_network.HydrographicNetworkPermanenceFigure",
         "comparison",
         (),
     ),

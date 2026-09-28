@@ -727,7 +727,13 @@ class TestAlphaIsMeasuredOnTheScoredSupport:
         messages = " ".join(record.getMessage() for record in caplog.records)
         assert "outside the scored catchment" in messages
 
-    def test_the_top_versus_map_warning_never_prescribes_a_burn(self, bench, caplog) -> None:
+    def test_the_top_versus_map_warning_never_prescribes_a_burn(
+        self, bench, caplog, monkeypatch
+    ) -> None:
+        # The warning prints once per process; this test reads it as the first.
+        from hydromodpy.core import stream_geometry
+
+        monkeypatch.setattr(stream_geometry, "_alpha_warned", False)
         with caplog.at_level("WARNING"):
             geometry = self._geometry(bench, np.ones(N_CELLS, dtype=bool), case="shifted")
 

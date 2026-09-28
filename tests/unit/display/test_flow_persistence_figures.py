@@ -83,7 +83,9 @@ def test_the_persistence_share_is_the_fraction_of_steps_flowing(mpl) -> None:
     assert drawn[OUTLET] == pytest.approx(100.0)
     assert drawn[HEAD] == pytest.approx(SEASONAL_SHARE)
     assert not np.isfinite(drawn[HILLSLOPE])
-    assert "visible flow 1 L/s" in ax.get_title()
+    note = ax.figure.legends[0].get_title().get_text()
+    assert "a cell downstream of seepage flows from 1 L/s" in note
+    assert "tau" not in note and "tau" not in ax.get_title()
 
 
 def test_the_persistence_share_can_be_read_over_one_cycle_like_intermittence(mpl) -> None:

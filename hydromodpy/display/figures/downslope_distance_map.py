@@ -50,6 +50,7 @@ from hydromodpy.display.figures._stream_comparison import (
     cell_count,
     checked_cells,
     comparison_from_run,
+    dated_title,
     draw_cells,
     map_extent,
     map_legend,
@@ -259,8 +260,12 @@ class DownslopeDistanceMap(BaseFigure):
         style_map_axes(ax)
         overlay_watershed_contour(ax, sim, color="#404040", linewidth=0.9, alpha=0.7)
         ax.set_title(
-            f"{self.spec.title}: {reading.origin} down to {reading.target}\n"
-            f"{reading.symbol} - {sim.name or sim.sim_id}"
+            dated_title(
+                f"{self.spec.title}: {reading.origin} down to {reading.target}\n"
+                f"{reading.symbol} - {sim.name or sim.sim_id}",
+                sim,
+                timestep,
+            )
         )
 
         handles = [

@@ -1,7 +1,7 @@
 """Tests for the discriminated-union ``CalibrationMethodConfig``.
 
-The legacy schema accepted ``method: str + optimizer_kwargs: dict[str, Any]``
-and only failed at runtime when the kwargs were foreign to the chosen
+A file writes ``method: str`` beside a free-form ``method_options`` table,
+which used to fail only at runtime when an option was foreign to the chosen
 method. The discriminated union promotes those failures to validation time
 and dumps a clear Pydantic error.
 """

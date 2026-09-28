@@ -27,7 +27,7 @@ Pick the tier
      - Allowed to write to ``tmp_path``; <= 10 s per test.
    * - ``e2e``
      - One full user scenario through ``hmp run`` /
-       ``hmp catalog export`` / ``hmp data add``.
+       ``hmp export`` / ``hmp data add``.
      - Mid-size case; reads back persisted artefacts.
    * - ``regression``
      - Detect drift in a known workflow output.

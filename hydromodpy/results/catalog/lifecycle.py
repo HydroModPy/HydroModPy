@@ -13,6 +13,7 @@ finished.
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -22,7 +23,13 @@ from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.io.parquet import merge_file_metadata
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import PROJECTS_DIRNAME, RUNS_DIRNAME, WORKSPACE_TOML_FILENAME
+from hydromodpy.core.state.paths import (
+    PROJECTS_DIRNAME,
+    RUNS_DIRNAME,
+    WORKSPACE_TOML_FILENAME,
+    display_path,
+    internal_dir,
+)
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
@@ -44,8 +51,10 @@ logger = get_logger(__name__)
 # ACDD identity a deposit needs. Only ``workspace.toml`` may declare it.
 _DECLARED_IDENTITY_KEYS = ("creator_name", "creator_institution")
 
-# Workspaces already told, in this process, what their runs are sealed without.
-_WARNED_WORKSPACES: set[str] = set()
+# Marker under ``<workspace>/.hmp/`` that records what the identity warning
+# already told this workspace. A file, not a process-level set: every
+# ``hmp run`` is its own process, and the warning must not repeat on each.
+IDENTITY_NOTICE_FILENAME = "identity_notice.json"
 
 # Every CRS WKT2 (and WKT1) string opens with one of these keywords.
 _WKT_PREFIXES = ("PROJCRS", "GEOGCRS", "PROJCS", "GEOGCS", "COMPOUNDCRS", "BOUNDCRS")
@@ -190,43 +199,89 @@ def _declared_identity(root: Path | None) -> dict[str, str]:
     }
 
 
+_UNKNOWN_LICENCE = "a known licence"
+
+
+def _identity_notice_path(root: Path | None) -> Path | None:
+    """Return the marker recording what this workspace was already told.
+
+    It sits in the ``.hmp/`` folder next to the ``workspace.toml`` that
+    governs ``root``, or in ``root/.hmp/`` when no such file exists yet.
+    """
+    if root is None:
+        return None
+    toml_path = _workspace_toml_path(root)
+    base = toml_path.parent if toml_path is not None else Path(root).expanduser().resolve()
+    return internal_dir(base) / IDENTITY_NOTICE_FILENAME
+
+
+def _already_told(marker: Path | None) -> set[str]:
+    """Return the gaps the marker says this workspace was warned about."""
+    if marker is None or not marker.is_file():
+        return set()
+    try:
+        told = json.loads(marker.read_text(encoding="utf-8")).get("missing", [])
+    except (OSError, ValueError, AttributeError) as exc:
+        logger.debug("Could not read %s: %s", marker, exc)
+        return set()
+    return {str(item) for item in told} if isinstance(told, list) else set()
+
+
+def _remember_told(marker: Path | None, missing: list[str]) -> None:
+    """Record the gaps just warned about. A read-only workspace warns again."""
+    if marker is None:
+        return
+    try:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(json.dumps({"missing": sorted(missing)}) + "\n", encoding="utf-8")
+    except OSError as exc:
+        logger.debug("Could not write %s: %s", marker, exc)
+
+
+def _human_join(items: list[str]) -> str:
+    """Join ``["a", "b", "c"]`` as ``"a, b and c"``."""
+    if len(items) <= 1:
+        return "".join(items)
+    return f"{', '.join(items[:-1])} and {items[-1]}"
+
+
 def _warn_about_undeclared_identity(sid: str, attrs: dict, root: Path | None = None) -> None:
     """Say what a sealed run lacks: once per workspace, then at verbose level.
 
-    A calibration seals dozens of runs of one workspace, and the same warning
-    for each of them buries the lines that matter. The first run of a
-    workspace warns and names the keys to set. Every later one logs at INFO,
-    which the console shows from ``--verbose`` on.
+    Every ``hmp run`` is a new process, and a calibration seals dozens of runs
+    of one workspace: the same warning on each buries the lines that matter.
+    The first run of a workspace warns and names what to add. A marker under
+    the workspace ``.hmp/`` folder records it, so every later run logs at
+    INFO, which the console shows from ``--verbose`` on. A gap the marker does
+    not list yet is news, and warns again.
     """
     missing = [key for key in _DECLARED_IDENTITY_KEYS if not attrs.get(key)]
     if attrs.get("license") == UNDETERMINED_LICENSE:
-        missing.append("a determined license")
+        missing.append(_UNKNOWN_LICENCE)
     if not missing:
         return
-    toml_path = _workspace_toml_path(root)
-    key = str(toml_path or (Path(root).expanduser().resolve() if root is not None else ""))
-    if key in _WARNED_WORKSPACES:
-        logger.info("Run %s is sealed without %s.", sid[:8], ", ".join(missing))
+    marker = _identity_notice_path(root)
+    if set(missing) <= _already_told(marker):
+        logger.info("Run %s is sealed without %s.", sid[:8], _human_join(missing))
         return
-    _WARNED_WORKSPACES.add(key)
     advice: list[str] = []
     identity = [name for name in _DECLARED_IDENTITY_KEYS if name in missing]
     if identity:
-        where = str(toml_path) if toml_path is not None else WORKSPACE_TOML_FILENAME
-        advice.append(f"Set {' and '.join(identity)} under [workspace] in {where}.")
-    if "a determined license" in missing:
-        advice.append(
-            "The license is derived from the run inputs: declare it in the 'license' "
-            "key of the sidecar (<file>.json) of each input whose source states none."
-        )
+        toml_path = _workspace_toml_path(root)
+        if toml_path is None and root is not None:
+            toml_path = Path(root).expanduser().resolve() / WORKSPACE_TOML_FILENAME
+        where = display_path(toml_path) if toml_path is not None else WORKSPACE_TOML_FILENAME
+        keys = " and ".join(f'{name} = "..."' for name in identity)
+        advice.append(f"Add {keys} under [workspace] in {where}")
+    if _UNKNOWN_LICENCE in missing:
+        advice.append("a licence comes from the 'license' key of each input sidecar (<file>.json)")
+    text = "; ".join(advice)
     logger.warning(
-        "Run %s is sealed without %s, so a reader cannot tell who produced it or "
-        "under which terms it may be reused. %s Later runs of this workspace "
-        "report it at --verbose.",
-        sid[:8],
-        ", ".join(missing),
-        " ".join(advice),
+        "Runs of this workspace are sealed without %s. %s.",
+        _human_join(missing),
+        text[:1].upper() + text[1:],
     )
+    _remember_told(marker, missing)
 
 
 def _declared_bounds_in_degrees(sim_row: dict | None) -> dict[str, float] | None:

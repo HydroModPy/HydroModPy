@@ -17,8 +17,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.units.labels import AXIS_LABELS, axis_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._instant import run_edges
 from hydromodpy.display.maps.axes import style_date_axis
 
 if TYPE_CHECKING:
@@ -46,6 +48,8 @@ _STORAGE_PREFIX = "storage"
 # happens on a few periods), not a distributed flux, so they read as bars,
 # not as a step line that flattens to zero between pumping periods.
 _BAR_COMPONENTS: frozenset[str] = frozenset({"well"})
+# Depth equivalent of a flux over the active model domain.
+_DEPTH_UNIT = "mm/period over the model domain"
 
 
 @register
@@ -95,18 +99,20 @@ class FluxTimeseries(BaseFigure):
         if net.empty or not len(net.columns):
             raise ValueError("budget holds no boundary flux component to plot")
 
-        index, xlabel = _time_axis(sim, net.index)
+        index, end, xlabel = _time_axis(sim, net.index)
         scale, ylabel = _scaling(sim, units, index)
 
         line_components = [c for c in net.columns if c not in _BAR_COMPONENTS]
         bar_components = [c for c in net.columns if c in _BAR_COMPONENTS]
 
-        # Distributed fluxes hold over each stress period -> step lines.
+        # Distributed fluxes hold over each stress period -> step lines, each
+        # step drawn over its period, from its start to the start of the next.
+        steps_x = index.append(pd.Index([end]))
         for component in line_components:
             values = np.asarray(net[component], dtype="float64") * scale
             ax.step(
-                index,
-                values,
+                steps_x,
+                np.append(values, values[-1]),
                 where="post",
                 lw=1.8,
                 color=_COMPONENT_COLORS.get(component),
@@ -140,7 +146,7 @@ class FluxTimeseries(BaseFigure):
                     linewidth=0.4,
                     label=" ".join(component.split("_")),
                 )
-            unit_token = "mm/period" if "mm" in ylabel else "m3/s"
+            unit_token = "mm/period" if _DEPTH_UNIT in ylabel else AXIS_LABELS["flux"][1]
             bar_ax.set_ylabel(f"Managed pumping ({unit_token})", color=bar_color)
             bar_ax.tick_params(axis="y", labelcolor=bar_color)
             _align_zero_axes(ax, bar_ax)
@@ -160,22 +166,26 @@ class FluxTimeseries(BaseFigure):
         return ax
 
 
-def _time_axis(sim: Run, timesteps: pd.Index) -> tuple[pd.Index, str]:
-    """Return the calendar index when the run has one, else the step number."""
-    try:
-        stamps = sim.time_index
-    except Exception:
-        return timesteps, "Stress period"
-    if len(stamps) != len(timesteps):
-        return timesteps, "Stress period"
-    return stamps, "Date"
+def _time_axis(sim: Run, timesteps: pd.Index) -> tuple[pd.Index, object, str]:
+    """Return the start of each period, the end of the last one, and the axis label.
+
+    A run stamps each period with its end. A flux holds over its period, so
+    it is drawn from the period start: drawn from the stamp, every month
+    would show the flux of the month before. A run without dates falls back
+    to the stress-period number.
+    """
+    edges = run_edges(sim)
+    if edges is None or len(edges) - 1 != len(timesteps):
+        steps = pd.Index(timesteps)
+        return steps, steps[-1] + 1, "Stress period"
+    return edges[:-1], edges[-1], "Date"
 
 
 def _scaling(sim: Run, units: str, index: pd.Index) -> tuple[float, str]:
     """Return the multiplicative factor and axis label for the requested units."""
     token = str(units).strip().lower()
     if token in ("m3/s", "m3 s-1", ""):
-        return 1.0, "Flux (m3/s)"
+        return 1.0, axis_label("flux")
     if token not in ("mm/period", "mm"):
         raise ValueError(f"flux_timeseries: unsupported units '{units}' (m3/s or mm/period)")
     from hydromodpy.display.maps.mesh_geometry import domain_area_m2
@@ -187,7 +197,7 @@ def _scaling(sim: Run, units: str, index: pd.Index) -> tuple[float, str]:
     if not area:
         raise ValueError("mm/period requires a positive model domain area")
     seconds = _period_seconds(index)
-    return 1000.0 * seconds / float(area), "Flux (mm/period over model domain)"
+    return 1000.0 * seconds / float(area), axis_label("flux", _DEPTH_UNIT)
 
 
 def _period_seconds(index: pd.Index) -> float:

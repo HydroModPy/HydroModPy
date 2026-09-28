@@ -362,7 +362,7 @@ def test_confusion_map_follows_the_seepage_threshold_it_is_asked_for(mpl) -> Non
         assert _class_cells(ax, AGREEMENT_MISSING) == column_cells(AXIS_COLUMN)
         assert _class_cells(ax, AGREEMENT_VALID) == []
         assert _class_cells(ax, AGREEMENT_EXCESS) == []
-        assert "tau = 1e+06" in legend_note(ax)
+        assert "above 1e+06 times its recharge" in legend_note(ax)
     finally:
         mpl.close(fig)
 
@@ -373,7 +373,7 @@ def test_confusion_map_names_the_threshold_it_was_drawn_at(mpl) -> None:
     SeepageNetworkConfusionMap().render(_partition_run(), ax, tau_specific_ratio=0.25)
 
     try:
-        assert "tau = 0.25 of the mean recharge" in legend_note(ax)
+        assert "a cell counts as seepage above 25 % of its recharge" in legend_note(ax)
     finally:
         mpl.close(fig)
 

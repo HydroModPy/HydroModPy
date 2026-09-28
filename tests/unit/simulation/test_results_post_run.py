@@ -229,46 +229,88 @@ class TestPostRunResults:
 
 
 class _RecordingStore:
-    """Fake store that records the ExportSpecs ``_auto_export`` builds, without exporting."""
+    """Fake store that records the requests ``_auto_export`` hands it, writing empty files."""
 
-    def __init__(self, project_path: Path):
+    def __init__(self, project_path: Path, *, failing: tuple[str, ...] = ()):
         self.project_path = project_path
-        self.specs: list = []
+        self.requests: list = []
+        self.failing = failing
 
-    def export(self, sim_id, spec):
-        self.specs.append(spec)
-        return spec.dest
+    def export(self, sim_id, request, *, default_folder):
+        self.requests.append(request)
+        if request.variables in self.failing:
+            raise ValueError(f"cannot write {request.variables}")
+        default_folder.mkdir(parents=True, exist_ok=True)
+        path = default_folder / f"{request.variables}.out"
+        path.write_text("")
+        return [path]
 
-    def record_export(self, sim_id, *, kind, path):
-        pass
+
+def _requests(*blocks: dict) -> list:
+    from hydromodpy.core.config_kit.export_spec import load_export_requests
+
+    return load_export_requests(list(blocks))
 
 
-class TestAutoExportGeopackageWiring:
-    """``export.geopackage`` must build one .gpkg spec per variable, one timestep, like shapefile."""
+class TestAutoExportRequests:
+    """``[[export]]`` blocks run in the order of the file; the run formats wait for the seal."""
 
-    def test_one_gpkg_spec_per_variable(self, tmp_path):
-        from hydromodpy.simulation.planning.export_config import ExportConfig
-
+    def test_the_data_requests_run_in_file_order_and_the_run_formats_wait(self, tmp_path):
         store = _RecordingStore(tmp_path)
-        export = ExportConfig(geopackage=True, variables=["head", "seepage_mask"], time="last")
-
-        post_run_module._auto_export(
-            "sim-1",
-            store,
-            export,
-            export_label="run1",
+        requests = _requests(
+            {"variables": "head", "time": "last"},
+            {"variables": "all", "format": "package"},
+            {"variables": "discharge"},
         )
 
-        dests = [Path(spec.dest).name for spec in store.specs]
-        assert dests == ["head_last.gpkg", "seepage_mask_last.gpkg"]
-        assert all(spec.time == "last" for spec in store.specs)
+        written = post_run_module.auto_export_results(
+            sim_id="sim-1", store=store, export_requests=requests, save_catalog=True, run_id="run1"
+        )
+        assert [request.variables for request in store.requests] == ["head", "discharge"]
+        assert [path.name for path in written] == ["head.out", "discharge.out"]
+        assert (tmp_path / "share" / "run1" / "RUN.txt").is_file()
 
-    def test_geopackage_off_writes_nothing(self, tmp_path):
-        from hydromodpy.simulation.planning.export_config import ExportConfig
+        store.requests.clear()
+        packaged = post_run_module.auto_export_package(
+            sim_id="sim-1", store=store, export_requests=requests, save_catalog=True, run_id="run1"
+        )
+        assert [request.output_format.value for request in store.requests] == ["package"]
+        assert [path.name for path in packaged] == ["all.out"]
 
+    def test_a_failed_request_does_not_stop_the_next_one(self, tmp_path):
+        store = _RecordingStore(tmp_path, failing=("head",))
+        requests = _requests({"variables": "head"}, {"variables": "discharge"})
+
+        with pytest.raises(RuntimeError, match=r"export request 1 \(variables = head\)"):
+            post_run_module.auto_export_results(
+                sim_id="sim-1",
+                store=store,
+                export_requests=requests,
+                save_catalog=True,
+                run_id="run1",
+            )
+        assert [request.variables for request in store.requests] == ["head", "discharge"]
+
+    def test_no_catalog_writes_nothing(self, tmp_path):
         store = _RecordingStore(tmp_path)
-        export = ExportConfig(shapefile=True, variables=["head"], time="last")
+        written = post_run_module.auto_export_results(
+            sim_id="sim-1",
+            store=store,
+            export_requests=_requests({"variables": "head"}),
+            save_catalog=False,
+        )
+        assert written == []
+        assert store.requests == []
 
-        post_run_module._auto_export("sim-1", store, export, export_label="run1")
+    def test_the_console_says_once_how_many_files_and_where(self, tmp_path, caplog):
+        import logging
 
-        assert all(not str(spec.dest).endswith(".gpkg") for spec in store.specs)
+        caplog.set_level(logging.INFO, logger=post_run_module.logger.name)
+        post_run_module.announce_exports(
+            [tmp_path / "a.tif", tmp_path / "b.csv"], tmp_path / "share" / "run1"
+        )
+        post_run_module.announce_exports([], tmp_path / "share" / "run1")
+        lines = [record.getMessage() for record in caplog.records]
+        assert len(lines) == 1
+        assert lines[0].startswith("Exported 2 file(s) -> ")
+        assert lines[0].endswith("run1")

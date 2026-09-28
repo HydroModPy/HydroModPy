@@ -44,7 +44,9 @@ Sub-modules
        kernel does not depend on sibling layers.
    * - ``core/time/``
      - Calendar and simulation time-window helpers reused by physics and
-        solver layers. Neutral time-grid generation lives in
+        solver layers. ``selection.py`` turns a date, ``"first"``,
+        ``"last"`` or an index into a stress period, and labels a period
+        (``"2002-10"``). Neutral time-grid generation lives in
         ``discretization/time``.
    * - ``core/toml_io/``
      - TOML readers and writers used by ``HydroModPyConfig.from_toml``.

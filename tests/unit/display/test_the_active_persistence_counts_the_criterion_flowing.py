@@ -86,8 +86,9 @@ def test_the_map_draws_the_criterion_share_and_names_its_definition(mpl) -> None
     assert np.isnan(drawn[HILLSLOPE]), "a cell that never flows is ground"
     assert "flowing persistence" in ax.get_title()
     note = legend_note(ax)
-    assert "flowing as the network criterion scores it" in note
-    assert "tau = 0.0001, visible flow 1 L/s" in note
+    assert "a cell counts as seepage above 0.01 % of its recharge" in note
+    assert "a cell downstream of seepage flows from 1 L/s" in note
+    assert "tau" not in note
     assert "the share of the timesteps each cell flows, drawn uncut" in note
     assert "criterion settings: the defaults, this run sealed no network output" in note
     assert "accumulation_flux" not in note
@@ -102,7 +103,7 @@ def test_the_run_sealed_visible_flow_cuts_the_summer_outlet(mpl) -> None:
 
     assert _drawn_share(ax)[OUTLET] == pytest.approx(WINTER_STEPS / N_STEPS)
     note = legend_note(ax)
-    assert "visible flow 5 L/s" in note
+    assert "flows from 5 L/s" in note
     assert "criterion settings: calibration output 'streams'" in note
 
 

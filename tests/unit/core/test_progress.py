@@ -165,3 +165,88 @@ def test_rendering_disabled_in_child_process(live_console, monkeypatch):
     with core_progress.phase("Child phase"):
         pass
     assert "✓" not in live_console.getvalue()
+
+
+def _progress_records() -> tuple[logging.Handler, list[logging.LogRecord]]:
+    handler = logging.Handler()
+    records: list[logging.LogRecord] = []
+    handler.emit = records.append
+    get_logger("hydromodpy.core.progress").addHandler(handler)
+    return handler, records
+
+
+def test_a_bar_over_zero_items_is_never_drawn(live_console):
+    """No "Data families 0/0" bar when a run loads no data family."""
+    with core_progress.task("Data families", total=0) as handle:
+        assert handle._progress is None
+        assert core_progress._manager._progress is None
+    assert "0/0" not in live_console.getvalue()
+
+
+def test_a_bar_over_zero_items_logs_nothing_above_debug(disabled_console):
+    handler, records = _progress_records()
+    try:
+        with core_progress.task("Data families", total=0):
+            pass
+    finally:
+        get_logger("hydromodpy.core.progress").removeHandler(handler)
+    assert records
+    assert all(r.levelno == logging.DEBUG for r in records)
+
+
+def test_a_bar_over_some_items_is_still_drawn(live_console):
+    with core_progress.task("Data families", total=2) as handle:
+        assert handle._progress is not None
+        handle.advance(2)
+
+
+def test_after_phase_prints_below_the_checkmark(live_console):
+    """The run recap belongs under the checkmark of the step that reports it."""
+
+    def recap() -> None:
+        core_progress.console.print("Run completed: demo")
+
+    with core_progress.phase("export"):
+        core_progress.after_phase(recap)
+        core_progress.console.print("inside the phase")
+    output = live_console.getvalue()
+    assert output.index("inside the phase") < output.index("✓")
+    assert output.index("✓") < output.index("Run completed: demo")
+
+
+def test_after_phase_waits_for_the_innermost_phase_only(live_console):
+    seen: list[str] = []
+    with core_progress.phase("calibration"):
+        with core_progress.phase("export"):
+            core_progress.after_phase(lambda: seen.append("recap"))
+            assert seen == []
+        assert seen == ["recap"]
+
+
+def test_after_phase_outside_a_phase_runs_at_once():
+    seen: list[str] = []
+    core_progress.after_phase(lambda: seen.append("now"))
+    assert seen == ["now"]
+
+
+def test_after_phase_is_dropped_when_the_phase_fails(live_console):
+    seen: list[str] = []
+    with pytest.raises(RuntimeError):
+        with core_progress.phase("export"):
+            core_progress.after_phase(lambda: seen.append("recap"))
+            raise RuntimeError("packaging failed")
+    assert seen == []
+    # The stack is balanced again: a later call outside a phase runs at once.
+    core_progress.after_phase(lambda: seen.append("later"))
+    assert seen == ["later"]
+
+
+def test_a_failing_deferred_line_never_fails_the_phase(live_console):
+    def broken() -> None:
+        raise ValueError("boom")
+
+    seen: list[str] = []
+    with core_progress.phase("export"):
+        core_progress.after_phase(broken)
+        core_progress.after_phase(lambda: seen.append("next"))
+    assert seen == ["next"]

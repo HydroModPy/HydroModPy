@@ -11,7 +11,9 @@ window whose samples entered the score and annotates the score itself.
 The scoring window and the ``NSElog`` value are calibration notions and this
 layer may not reach into ``calibration``, so both arrive as ``render()``
 arguments. Without them the hydrograph is still drawn, unshaded and
-unannotated: this figure must stay readable on a plain run.
+unannotated: this figure must stay readable on a plain run. The note under
+the curves says in plain words what a reader must not assume, and says
+nothing about what was simply not asked for.
 
 A log axis and a discharge that reaches zero do not mix. The convention here
 is the metric's own: ``log_nse`` adds an offset ``eps`` before taking the
@@ -29,7 +31,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.units.labels import AXIS_LABELS, axis_label
+from hydromodpy.core.units.labels import (
+    AXIS_LABELS,
+    CATCHMENT_OUTLET_STATION,
+    axis_label,
+    station_label,
+)
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import style_date_axis
@@ -109,7 +116,7 @@ class HydrographLogNseFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: str = "_catchment",
+        station: str = CATCHMENT_OUTLET_STATION,
         variable: str = _DEFAULT_VARIABLE,
         drainage: pd.Series | np.ndarray | None = None,
         runoff: pd.Series | np.ndarray | None = None,
@@ -178,35 +185,37 @@ class HydrographLogNseFigure(BaseFigure):
         ax.set_xlabel("Date")
         ax.set_ylabel(axis_label(variable))
         ax.grid(True, which="both", ls=":", lw=0.4)
-        ax.set_title(f"Hydrograph on a log axis - {sim.name or sim.sim_id} @ {station}")
+        ax.set_title(
+            f"Hydrograph on a log axis - {sim.name or sim.sim_id} @ {station_label(station)}"
+        )
         # The legend takes the upper right and the note the floor: the note
         # runs to whatever width its longest line needs and an upper corner is
         # not wide enough for both, while the band under the log floor is empty
         # by construction, the limits being set from that floor down.
         ax.legend(loc="upper right", fontsize=8.5, framealpha=0.9)
-        ax.annotate(
-            "\n".join(
-                _note_lines(
-                    nse_log=nse_log,
-                    window=window,
-                    n_samples=int(index.size),
-                    split_note=split_note,
-                    variable=variable,
-                    has_total=_has_data(total),
-                    has_observed=bool(observed),
-                    floor=level,
-                    unit=_unit_of(variable),
-                    on_floor=[(label, count) for label, count, _ in on_floor],
-                )
-            ),
-            xy=(0.02, 0.02),
-            xycoords="axes fraction",
-            ha="left",
-            va="bottom",
-            fontsize=8.5,
-            bbox={"facecolor": "white", "alpha": 0.9, "edgecolor": "#c8c8c8"},
-            zorder=7,
+        lines = _note_lines(
+            nse_log=nse_log,
+            window=window,
+            n_samples=int(index.size),
+            split_note=split_note,
+            variable=variable,
+            has_total=_has_data(total),
+            has_observed=bool(observed),
+            floor=level,
+            unit=_unit_of(variable),
+            on_floor=[(label, count) for label, count, _ in on_floor],
         )
+        if lines:
+            ax.annotate(
+                "\n".join(lines),
+                xy=(0.02, 0.02),
+                xycoords="axes fraction",
+                ha="left",
+                va="bottom",
+                fontsize=8.5,
+                bbox={"facecolor": "white", "alpha": 0.9, "edgecolor": "#c8c8c8"},
+                zorder=7,
+            )
         style_date_axis(ax)
         return ax
 
@@ -323,10 +332,7 @@ def _split(
         parts["runoff"] = total - parts["drainage"]
         derived.add("runoff")
     if parts["drainage"] is None:
-        return [], (
-            "no drainage / runoff split available on this run: the total only, "
-            "pass drainage= or runoff= to show what the storage parameter moves"
-        )
+        return [], "total discharge only: this run stores no groundwater / surface split"
     labels = {"drainage": "drainage (groundwater", "runoff": "runoff (surface"}
     components = [
         (
@@ -446,17 +452,17 @@ def _note_lines(
     unit: str,
     on_floor: list[tuple[str, int]],
 ) -> list[str]:
-    """Return the annotation, one line per thing a reader must not assume."""
+    """Return the annotation, one line per thing a reader must not assume.
+
+    A score or a window the caller did not give is not a caveat: the line is
+    left out rather than stating the absence.
+    """
     lines = []
     if not has_total:
-        lines.append(f"the simulated {variable} series holds no finite sample: nothing is drawn")
-    if nse_log is None:
-        lines.append("NSElog not given: the score is a calibration notion, pass nse_log=")
-    else:
+        lines.append(f"the run holds no simulated {variable} value: nothing is drawn")
+    if nse_log is not None:
         lines.append(f"NSElog = {float(nse_log):.3f}")
-    if window is None:
-        lines.append("no scoring window given: every sample is drawn, none is marked as scored")
-    else:
+    if window is not None:
         start, end, scored = window
         lines.append(
             f"scoring window {start:%Y-%m-%d} to {end:%Y-%m-%d}: "
@@ -465,10 +471,13 @@ def _note_lines(
     if split_note is not None:
         lines.append(split_note)
     if not has_observed:
-        lines.append("no observed series on this run: nothing to score against")
+        lines.append(f"no observed {variable} for this run")
     if on_floor:
         counts = ", ".join(f"{label} {count}" for label, count in on_floor)
-        lines.append(f"log floor {floor:.3g} {unit}: {counts} of {n_samples} samples drawn on it")
+        lines.append(
+            f"flows at or below {floor:.3g} {unit} are drawn on the log floor: "
+            f"{counts} of {n_samples} samples"
+        )
     return lines
 
 

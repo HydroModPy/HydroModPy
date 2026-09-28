@@ -17,7 +17,7 @@ from hydromodpy.display.overview.web import (
 
 
 def test_overview_web_report_uses_canonical_blocks(tmp_path: Path) -> None:
-    figure = tmp_path / "figures" / "overview" / "map_dem_context.png"
+    figure = tmp_path / "figures" / "overview" / "map_dem.png"
     figure.parent.mkdir(parents=True)
     figure.write_bytes(b"fake-png")
 
@@ -29,7 +29,7 @@ def test_overview_web_report_uses_canonical_blocks(tmp_path: Path) -> None:
     assert "Localisation" in html
     assert "Inventaire des donnees" in html
     assert "Recharge et pompages" in html
-    assert "map_dem_context.png" in html
+    assert "map_dem.png" in html
     assert "report-level" not in html
     assert "workflow_header" not in html
     assert "Maillage" not in html
@@ -50,7 +50,7 @@ def test_overview_blocks_skip_absent_sections(tmp_path: Path) -> None:
 
 
 def test_overview_has_explicit_hydrographic_network_block(tmp_path: Path) -> None:
-    figure = tmp_path / "figures" / "overview" / "map_hydrography_data.png"
+    figure = tmp_path / "figures" / "overview" / "map_hydrography.png"
     figure.parent.mkdir(parents=True)
     figure.write_bytes(b"fake-png")
     state = _overview_state(tmp_path)
@@ -66,7 +66,7 @@ def test_overview_has_explicit_hydrographic_network_block(tmp_path: Path) -> Non
     by_id = {block.block_id: block for block in blocks}
 
     assert by_id["hydrographic_network"].title == "Reseau hydrographique"
-    assert by_id["hydrographic_network"].figures[0].figure_id == "map_hydrography_data"
+    assert by_id["hydrographic_network"].figures[0].figure_id == "map_hydrography"
 
 
 def test_overview_review_pages_write_three_levels(tmp_path: Path) -> None:

@@ -43,6 +43,7 @@ from hydromodpy.display.figures._stream_comparison import (
     MapExtentName,
     cell_count,
     draw_cells,
+    flowing_words,
     map_extent,
     map_legend,
     select_cells,
@@ -222,15 +223,7 @@ class FlowingPersistence:
 
     def definition(self) -> str:
         """Return the line naming the definition of flowing the map draws."""
-        visible = (
-            "no visible-flow threshold"
-            if self.visible_flow.geometric
-            else f"visible flow {self.visible_flow.label()}"
-        )
-        return (
-            f"flowing as the network criterion scores it: seepage closure, "
-            f"tau = {self.settings.tau_specific_ratio:g}, {visible}"
-        )
+        return flowing_words(self.settings.tau_specific_ratio, self.visible_flow)
 
 
 def flowing_persistence(

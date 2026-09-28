@@ -7,11 +7,9 @@ Covers the pair of operations a user runs when sharing a simulation:
 
 Two corner cases are exercised:
 - A fresh, minimal source workspace (Zarr field + Parquet timeseries).
-- The reusable ``simulation_regression`` fixture pattern. The CLI export
-  verb does not exist yet (no ``hmp export-package`` subcommand), so we
-  drive the export through ``catalog.export_package`` which is the same
-  underlying entry point a future CLI verb would call. This is recorded
-  in the test docstring so the gap is visible to reviewers.
+- The reusable ``simulation_regression`` fixture pattern, exported through
+  ``catalog.export_package``, the entry point ``hmp export <run> all
+  --format package`` calls; the last test drives that verb itself.
 """
 
 from __future__ import annotations
@@ -37,12 +35,6 @@ from hydromodpy.results.exporters.hmp_package import (
     ZARR_ARCHIVE_NAME,
 )
 from hydromodpy.schema.generated_views import RO_CRATE_VIEW_FILENAME
-
-# `hmp export-package` is not a registered CLI verb in this codebase: the
-# export is driven via the ``catalog.export_package`` API (also used by the
-# unit and e2e suites). The CLI re-import is driven via ``hmp data import``.
-# This is the documented gap for the F2 audit.
-CLI_EXPORT_PACKAGE_VERB_EXISTS = False
 
 
 def _sha256_file(path: Path) -> str:
@@ -216,19 +208,45 @@ def test_export_then_cli_import_roundtrip(tmp_path: Path) -> None:
 
 
 @pytest.mark.integration
-def test_cli_export_package_verb_status() -> None:
-    """Document the current CLI surface for the .hmp package export.
+def test_cli_export_writes_the_package_the_import_reads(tmp_path: Path) -> None:
+    """``hmp export <run> all --format package`` then ``hmp data import``, both as CLI verbs."""
+    import hydromodpy as hmp
 
-    The F2 audit asked for a ``hmp export-package`` CLI verb. The
-    implementation in this repository exposes ``catalog.export_package``
-    on the Python API only: the user-facing CLI today ships ``hmp import``
-    / ``hmp add`` for ingestion but no dedicated CLI verb for export.
-    This test fails fast as soon as a CLI verb is added so the helper
-    can be flipped on, and skips otherwise.
-    """
-    if not CLI_EXPORT_PACKAGE_VERB_EXISTS:
-        pytest.skip(
-            "`hmp export-package` is not a registered CLI verb; tests drive the export "
-            "via `catalog.export_package` (Python API). Once a CLI verb lands, set "
-            "CLI_EXPORT_PACKAGE_VERB_EXISTS=True and add the wiring test here."
-        )
+    src_workspace = tmp_path / "source_ws"
+    dst_workspace = tmp_path / "target_ws"
+    sim_id = str(uuid4())
+    with hmp.open(src_workspace, create=True) as catalog:
+        _populate_simulation(catalog, project="roundtrip", sim_id=sim_id)
+
+    exported = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "hydromodpy",
+            "export",
+            "roundtrip_sim",
+            "all",
+            "--format",
+            "package",
+            "-w",
+            str(src_workspace),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert exported.returncode == 0, exported.stderr
+    archive_path = Path(exported.stdout.strip())
+    assert archive_path == src_workspace / "share" / "roundtrip_sim" / "roundtrip_sim.hmp"
+
+    imported = subprocess.run(
+        [sys.executable, "-m", "hydromodpy", "data", "import", str(archive_path)]
+        + ["-w", str(dst_workspace)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert imported.returncode == 0, imported.stderr
+    assert sim_id in imported.stdout

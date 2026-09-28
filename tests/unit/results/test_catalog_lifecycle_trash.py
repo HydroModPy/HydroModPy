@@ -447,41 +447,43 @@ def test_finalize_writes_the_index_row_snapshot(catalog):
 
 
 # ---------------------------------------------------------------------------
-# [export].package writes a .hmp while the store is open (regression: the step
+# A package request writes a .hmp while the store is open (regression: the step
 # must package BEFORE finalize closes the store, never with store=None)
 # ---------------------------------------------------------------------------
 
 
 def test_auto_export_package_writes_hmp_and_logs_it(catalog):
+    from hydromodpy.core.config_kit.export_spec import ExportRequest
     from hydromodpy.simulation.extraction.post_run import auto_export_package
-    from hydromodpy.simulation.planning.export_config import ExportConfig
 
     sid = str(uuid.uuid4())
     catalog.register_simulation(
         sid, project="p", solver="modflow6", name="shareme", n_cells=4, n_layers=1, config={"k": 1}
     )
-    auto_export_package(
+    written = auto_export_package(
         sim_id=sid,
         store=catalog,
-        export_config=ExportConfig(package=True),
+        export_requests=[ExportRequest(variables="all", format="package")],
         save_catalog=True,
         run_id="shareme",
     )
     archive = share_dir_for(catalog.project_path) / "shareme" / "shareme.hmp"
+    assert written == [archive]
     assert archive.is_file()
-    assert "hmp" in [e["kind"] for e in catalog.list_exports(sid)]
+    assert "package" in [e["kind"] for e in catalog.list_exports(sid)]
 
 
-def test_auto_export_package_noop_when_disabled(catalog):
+def test_auto_export_package_noop_without_a_package_request(catalog):
+    from hydromodpy.core.config_kit.export_spec import ExportRequest
     from hydromodpy.simulation.extraction.post_run import auto_export_package
-    from hydromodpy.simulation.planning.export_config import ExportConfig
 
     sid = _register(catalog, "plain")
-    auto_export_package(
+    written = auto_export_package(
         sim_id=sid,
         store=catalog,
-        export_config=ExportConfig(package=False),
+        export_requests=[ExportRequest(variables="head", time="last")],
         save_catalog=True,
         run_id="plain",
     )
-    assert not (catalog.project_path / "exports" / "plain").exists()
+    assert written == []
+    assert not (share_dir_for(catalog.project_path) / "plain").exists()
