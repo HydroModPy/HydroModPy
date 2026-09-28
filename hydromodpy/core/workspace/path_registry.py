@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from filelock import FileLock
+
+from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.state.paths import (
     INTERNAL_DIRNAME,
     REPORTS_DIRNAME,
@@ -18,6 +21,31 @@ from hydromodpy.core.state.paths import (
 #: then ingested into the project store and cleaned up.
 PREPROCESSING_DIRNAME = "_preprocessing"
 PREPROCESSING_DIR = f"{INTERNAL_DIRNAME}/scratch/{PREPROCESSING_DIRNAME}"
+
+#: Inter-process lock guarding the whole preprocessing tree, one per project.
+PREPROCESSING_LOCK_FILENAME = "preprocessing.lock"
+PREPROCESSING_LOCK_TIMEOUT_SECONDS = 900.0
+
+
+def preprocessing_lock(project_root: Path) -> FileLock:
+    """Return the (unacquired) inter-process lock for ``PREPROCESSING_DIR``.
+
+    ``.hmp/scratch/_preprocessing/`` is per *project*, not per run: two
+    ``hmp run`` invocations on the same project both write and read it while
+    they build the geographic and mesh preprocessing, so racing through it
+    interleaves one run's writes with the other's reads (a Whitebox panic, a
+    missing ``dem_fill.tif``, a missing ``outlet.shp``). Holding this lock for
+    the whole of that phase serializes it across concurrent runs of the same
+    project, without changing where anything lives on disk.
+
+    The lock file itself sits in ``.hmp/locks/``, beside the project's other
+    inter-process locks (the Zarr write locks, ``index.duckdb.lock``).
+    """
+    lock_dir = Path(project_root) / INTERNAL_DIRNAME / "locks"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = lock_dir / PREPROCESSING_LOCK_FILENAME
+    return FileLock(native_io_path(lock_path), timeout=PREPROCESSING_LOCK_TIMEOUT_SECONDS)
+
 
 if TYPE_CHECKING:
     from hydromodpy.core.workspace.config import WorkspaceConfig

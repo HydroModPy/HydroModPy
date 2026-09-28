@@ -12,7 +12,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.rng import RngManager
 from hydromodpy.core.state.global_index import auto_register_projects
 from hydromodpy.core.workspace import Workspace
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR, preprocessing_lock
 from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain.build import build_domain, read_substratum_source
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
@@ -667,19 +667,23 @@ class BuildGeographicStep:
         requested_support_ids = state.get("requested_spatial_support_ids", ())
         registry = state.get("spatial_support_registry")
 
-        step_setup(
-            ctx,
-            requested_spatial_support_ids=requested_support_ids,
-            requested_domain_supports=requested_supports,
-            reuse_existing_outputs=reuse_existing_outputs,
-            run_id=state.get("run_name"),
-        )
-        step_spatial_supports(
-            ctx,
-            phase="setup",
-            requested_domain_supports=requested_supports,
-            registry=registry,
-        )
+        # Two concurrent runs of the same project both write and read
+        # .hmp/scratch/_preprocessing/ here; the lock serializes that phase
+        # across processes so neither sees the other's half-written files.
+        with preprocessing_lock(Path(ctx.cfg.workspace.project_root)):
+            step_setup(
+                ctx,
+                requested_spatial_support_ids=requested_support_ids,
+                requested_domain_supports=requested_supports,
+                reuse_existing_outputs=reuse_existing_outputs,
+                run_id=state.get("run_name"),
+            )
+            step_spatial_supports(
+                ctx,
+                phase="setup",
+                requested_domain_supports=requested_supports,
+                registry=registry,
+            )
 
         return state.advance(
             step_index=state.step_index + 1,

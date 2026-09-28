@@ -42,6 +42,11 @@ Each release section includes the following standard categories:
   the installed metadata. An editable install keeps the number it was installed at, so a
   checkout bumped to 2.0.0a2 still reported 2.0.0a1 in `hmp doctor`, run provenance and PNG
   metadata.
+- Two `hmp run` of one project no longer break each other's preprocessing. The geographic and
+  mesh builds hold `.hmp/locks/preprocessing.lock` while they write
+  `.hmp/scratch/_preprocessing/`, which is per project: four runs started together on example
+  04 lost three of them in `build_geographic` (a Whitebox panic, a missing `dem_fill.tif`, a
+  missing `outlet.shp`).
 
 ---
 

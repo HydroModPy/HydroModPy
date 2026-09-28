@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError, MeshError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.workspace.path_registry import preprocessing_lock
 from hydromodpy.spatial.domain.build import read_substratum_source
 from hydromodpy.spatial.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
@@ -438,18 +439,22 @@ class BuildMeshStep:
         requested_supports = state.get("requested_domain_supports") or {}
         registry = state.get("spatial_support_registry")
 
-        step_spatial_supports(
-            ctx,
-            phase="data",
-            requested_domain_supports=requested_supports,
-            registry=registry,
-        )
-        step_mesh(
-            ctx,
-            mesh_section_data=state.get("mesh_section_data"),
-            constraints_mode=state.get("constraints_mode"),
-        )
-        step_mesh_input(ctx, external_mesh_input=state.get("external_mesh_input"))
+        # Same shared .hmp/scratch/_preprocessing/ tree the geographic build
+        # locks; mesh building still reads and writes it, so a concurrent run
+        # of this project must not interleave with it either.
+        with preprocessing_lock(Path(ctx.cfg.workspace.project_root)):
+            step_spatial_supports(
+                ctx,
+                phase="data",
+                requested_domain_supports=requested_supports,
+                registry=registry,
+            )
+            step_mesh(
+                ctx,
+                mesh_section_data=state.get("mesh_section_data"),
+                constraints_mode=state.get("constraints_mode"),
+            )
+            step_mesh_input(ctx, external_mesh_input=state.get("external_mesh_input"))
 
         return state.advance(
             step_index=state.step_index + 1,
