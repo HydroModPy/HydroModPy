@@ -38,6 +38,10 @@ Each release section includes the following standard categories:
   workspace registries `data/<variable>/<variable>_custom_LOC.csv`. `hmp workspace init` writes
   those registries empty, so every hydrometry, recharge and runoff load failed and the full
   transient runs diverged. A row already there with other values is kept unless `--force`.
+- `hydromodpy.__version__` reads the `pyproject.toml` of the checkout it is imported from before
+  the installed metadata. An editable install keeps the number it was installed at, so a
+  checkout bumped to 2.0.0a2 still reported 2.0.0a1 in `hmp doctor`, run provenance and PNG
+  metadata.
 
 ---
 
