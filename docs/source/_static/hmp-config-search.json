@@ -11204,7 +11204,7 @@
     "anchor": "simulation-if-exists",
     "page": "simulation.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L387",
-    "description": "Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable) and takes the name; ``f"
+    "description": "Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable, keeps its own name and "
   },
   {
     "path": "simulation.description",
@@ -11227,7 +11227,7 @@
     "section": "simulation",
     "anchor": "simulation-scientific-objective",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L403",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L404",
     "description": "Scientific objective used for catalog and ML stratification."
   },
   {
@@ -11239,7 +11239,7 @@
     "section": "simulation",
     "anchor": "simulation-contact-email",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L407",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L408",
     "description": "Contact email for the simulation metadata."
   },
   {
@@ -11251,7 +11251,7 @@
     "section": "simulation",
     "anchor": "simulation-doi",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L411",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L412",
     "description": "DOI or reference identifier for the simulation metadata."
   },
   {
@@ -11263,7 +11263,7 @@
     "section": "simulation",
     "anchor": "simulation-study-area-name",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L415",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L416",
     "description": "Human-readable study area name."
   },
   {
@@ -11275,7 +11275,7 @@
     "section": "simulation",
     "anchor": "simulation-outlet-x",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L419",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L420",
     "description": "Outlet X coordinate in the project CRS units."
   },
   {
@@ -11287,7 +11287,7 @@
     "section": "simulation",
     "anchor": "simulation-outlet-y",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L423",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L424",
     "description": "Outlet Y coordinate in the project CRS units."
   },
   {
@@ -11456,7 +11456,7 @@
     "section": "simulation",
     "anchor": "simulation-results",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L443",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L444",
     "description": "Results storage and export configuration loaded from [simulation.results]. Controls Catalog, derived variables, and automated exports."
   },
   {
@@ -11708,7 +11708,7 @@
     "section": "simulation",
     "anchor": "simulation-rng-seed",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L451",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L452",
     "description": "Master RNG seed for the simulation. When set, every stochastic consumer (mesh point sampling, synthetic forcing, ...) derives its own deterministic sub-seed via ``hydromodpy.core.rng.RngManager``. Persisted in ``runs_environment.rng_seed`` "
   },
   {

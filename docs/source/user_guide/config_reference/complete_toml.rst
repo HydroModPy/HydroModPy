@@ -277,7 +277,7 @@ Sub-models are linked back to their per-section page.
       name = ""
       # Free-text tags attached at registration; editable later via 'hmp catalog tag'.
       # tags = ...  # uses factory default
-      # Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable) and takes the name; ``fail`` raises an error.
+      # Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable, keeps its own name and version) and registers the new run under the next free ``stem.vN``; ``fail`` raises an error.
       if_exists = "version"
       # Short free-text description of the simulation intent.
       description = ""

@@ -72,7 +72,7 @@ Fields
 
    :bdg-primary:`str` :bdg-secondary:`default = "version"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L387>`__
 
-      Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable) and takes the name; ``fail`` raises an error.
+      Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable, keeps its own name and version) and registers the new run under the next free ``stem.vN``; ``fail`` raises an error.
 
    .. rst-class:: hmp-field-values
 
@@ -106,7 +106,7 @@ Fields
         <code class="hmp-field-name">scientific_objective</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L403>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L404>`__
 
       Scientific objective used for catalog and ML stratification.
 
@@ -122,7 +122,7 @@ Fields
         <code class="hmp-field-name">contact_email</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L407>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L408>`__
 
       Contact email for the simulation metadata.
 
@@ -138,7 +138,7 @@ Fields
         <code class="hmp-field-name">doi</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L411>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L412>`__
 
       DOI or reference identifier for the simulation metadata.
 
@@ -154,7 +154,7 @@ Fields
         <code class="hmp-field-name">study_area_name</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L415>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L416>`__
 
       Human-readable study area name.
 
@@ -170,7 +170,7 @@ Fields
         <code class="hmp-field-name">outlet_x</code>
       </div>
 
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L419>`__
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L420>`__
 
       Outlet X coordinate in the project CRS units.
 
@@ -186,7 +186,7 @@ Fields
         <code class="hmp-field-name">outlet_y</code>
       </div>
 
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L423>`__
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L424>`__
 
       Outlet Y coordinate in the project CRS units.
 
@@ -500,7 +500,7 @@ Fields
         <code class="hmp-field-toml">[simulation.results]</code>
       </div>
 
-   :bdg-primary:`ResultsConfig` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L443>`__
+   :bdg-primary:`ResultsConfig` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L444>`__
 
       Results storage and export configuration loaded from [simulation.results]. Controls Catalog, derived variables, and automated exports.
 
@@ -874,7 +874,7 @@ Fields
         <code class="hmp-field-name">rng_seed</code>
       </div>
 
-   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L451>`__
+   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/config.py#L452>`__
 
       Master RNG seed for the simulation. When set, every stochastic consumer (mesh point sampling, synthetic forcing, ...) derives its own deterministic sub-seed via ``hydromodpy.core.rng.RngManager``. Persisted in ``runs_environment.rng_seed`` so the run can be re-executed from the catalog snapshot.
 
