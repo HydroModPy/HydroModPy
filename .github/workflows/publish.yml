@@ -98,7 +98,7 @@ jobs:
       - name: Install SBOM tooling
         run: |
           pip install --upgrade pip
-          pip install "cyclonedx-bom>=4.6"
+          pip install "cyclonedx-bom>=7,<8"
 
       - name: Install built wheel into fresh venv
         run: |
@@ -111,7 +111,7 @@ jobs:
           mkdir -p sbom
           cyclonedx-py environment /tmp/hmp-sbom \
             --output-format JSON \
-            --outfile sbom/hydromodpy-sbom.cdx.json
+            --output-file sbom/hydromodpy-sbom.cdx.json
 
       - uses: actions/upload-artifact@v4
         with:
