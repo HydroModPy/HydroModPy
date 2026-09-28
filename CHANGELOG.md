@@ -109,6 +109,11 @@ Each release section includes the following standard categories:
     instead, `[8.094e-05, 8.115e-05]` for a summary of `[7.499e-05, 1e-4]`, and its `rise`
     option is removed.
   - The axes carry their units: `K (m/s)`, `|D_so - D_os| (m)`, `1 - NSElog (-)`.
+- A figure that finds while reading the run that it does not apply raises
+  `display.figure.FigureNotApplicable`, and the batch skips it with its reason whatever
+  `on_error` says. The one-parameter calibration figures do so on a session that sampled
+  several parameters together: the composite of example 04 (K and Sy) failed its promotion on
+  `downslope_distance_crossing` under `on_error = "raise"`.
 - The figures of a run redraw the stream network with the mean recharge its trials scored
   with. The trials averaged the rate the forcing gives each period; the redraw averaged the
   budget, where a steady spin-up period holds the record mean in place of its month (8.656e-9

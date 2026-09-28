@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.display.figure import FigureNotApplicable
 from hydromodpy.results.calibration_trials import calibration_trials
 
 if TYPE_CHECKING:
@@ -74,11 +75,12 @@ class TrialTable:
                 )
             return name, _numeric_column(self.frame, name)
         if not self.parameters:
-            raise ValueError("the session recorded no sampled parameter.")
+            raise FigureNotApplicable("the session recorded no sampled parameter.")
         if len(self.parameters) > 1:
-            raise ValueError(
+            raise FigureNotApplicable(
                 "this figure reads one calibrated parameter, and the session sampled "
-                f"{', '.join(self.parameters)}. Name the one to read."
+                f"{', '.join(self.parameters)} together. Name the one to read with "
+                "parameter = ..."
             )
         only = self.parameters[0]
         return only, _numeric_column(self.frame, only)
