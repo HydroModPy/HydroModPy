@@ -683,7 +683,7 @@ class GeographicConfig(HydroModelBase):
         default=False,
         description=(
             "Keep intermediate rasters and shapefiles on disk after geographic "
-            "preprocessing. When false (default), .hmp/scratch/_preprocessing/ is "
+            "preprocessing. When false (default), .hmp/scratch/<run>/_preprocessing/ is "
             "removed after ingestion into the run field store."
         ),
     )

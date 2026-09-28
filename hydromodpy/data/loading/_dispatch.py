@@ -24,7 +24,7 @@ class VariableSpec:
       ``[overview]`` dates (water_quality).
 
     ``export_stable_subdir`` triggers a post-load ``manager.export`` into
-    ``<workspace>/<PREPROCESSING_DIR>/<subdir>/`` (currently intermittency).
+    ``core.state.paths.preprocessing_dir(<workspace>) / <subdir>`` (currently intermittency).
 
     ``loader_method`` names a dedicated method on
     :class:`DataManagersRuntimeLoader` for variables with unique side-effects

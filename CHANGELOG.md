@@ -42,22 +42,17 @@ Each release section includes the following standard categories:
   the installed metadata. An editable install keeps the number it was installed at, so a
   checkout bumped to 2.0.0a2 still reported 2.0.0a1 in `hmp doctor`, run provenance and PNG
   metadata.
-- Two `hmp run` of one project no longer break each other's preprocessing. The geographic and
-  mesh builds hold `.hmp/locks/preprocessing.lock` while they write
-  `.hmp/scratch/_preprocessing/`, which is per project: four runs started together on example
-  04 lost three of them in `build_geographic` (a Whitebox panic, a missing `dem_fill.tif`, a
-  missing `outlet.shp`). A run also holds a shared use of that tree from its geographic build
-  to its cleanup, and a cleanup drops the tree only when no other run of the project holds one:
-  the last run out drops it, instead of the first one pulling it from under the others.
-- The runs of one project take turns. A simulation (`Project.simulate`, so `hmp run`) and a
-  calibration session (`run_calibration_cli`, `run_staged_calibration`,
-  `run_calibration_programmatic`, with every trial, phase and promotion inside) hold
-  `.hmp/locks/project-run.lock` from start to end; a run that has to wait says so once.
-  `.hmp/scratch/` is per project: run concurrently, the calibrations of example 04 read the
-  network another run wrote (no permanent reaches), shared one `_shared_recharge` across
-  different recharges, and a run that ended swept the solver folders of the others ("Solver
-  output directory is missing", "CBC file not found"). Runs of different projects stay
-  parallel.
+- Several runs of one project run at once. Each run, or each calibration session with its
+  trials, phases and promotions, works in its own `.hmp/scratch/<config>.p<pid>/`
+  (`core.state.paths.run_scratch`): its preprocessing, its solver folders and the recharge its
+  trials share. `.hmp/scratch/` was shared by the whole project, so on example 04 four runs
+  started together lost three in `build_geographic` (a Whitebox panic, a missing
+  `dem_fill.tif`, a missing `outlet.shp`), concurrent calibrations read the network another run
+  wrote and shared one `_shared_recharge` across different recharges, and a run that ended
+  swept the solver folders of all the others ("Solver output directory is missing", "CBC file
+  not found"). A child process inherits its parent's folder through `HMP_RUN_SCRATCH`; the next
+  run of the project removes the folders of killed runs. `PREPROCESSING_DIR` is replaced by
+  `core.state.paths.preprocessing_dir(root)`.
 - `Run completed: <name> [<id>] <n>s` prints the run's duration, the `duration_s` the catalog
   stores, instead of the solver step alone (6 s printed for a 19 s run).
 - The help of `[simulation] if_exists` says what `replace` does: it trashes the predecessor,

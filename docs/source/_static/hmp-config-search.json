@@ -1018,7 +1018,7 @@
     "anchor": "geographic-write-intermediates",
     "page": "geographic.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L682",
-    "description": "Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/_preprocessing/ is removed after ingestion into the run field store."
+    "description": "Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/<run>/_preprocessing/ is removed after ingestion into the run field store."
   },
   {
     "path": "domain.zone_ids",
@@ -15640,7 +15640,7 @@
     "anchor": "mesh-catchment-output-mesh",
     "page": "mesh_catchment.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L48",
-    "description": "Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `.hmp/scratch/_preprocessing/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspa"
+    "description": "Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `.hmp/scratch/<run>/_preprocessing/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `w"
   },
   {
     "path": "mesh_catchment.output_summary_json",
@@ -15748,7 +15748,7 @@
     "anchor": "mesh-catchment-output-layout",
     "page": "mesh_catchment.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L122",
-    "description": "Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `.hmp/scratch/_preprocessing/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime fold"
+    "description": "Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `.hmp/scratch/<run>/_preprocessing/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtim"
   },
   {
     "path": "mesh_catchment.show_plot",
@@ -15772,7 +15772,7 @@
     "anchor": "mesh-catchment-geographic-outputs-mode",
     "page": "mesh_catchment.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/config/main.py#L138",
-    "description": "Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `.hmp/scratch/_preprocessing/geographic` and `.hmp/scratch/_preprocessing/demcorrecflow` folders, or 'cleanup' "
+    "description": "Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `.hmp/scratch/<run>/_preprocessing/geographic` and `.hmp/scratch/<run>/_preprocessing/demcorrecflow` folders, o"
   },
   {
     "path": "mesh_catchment.rivers",

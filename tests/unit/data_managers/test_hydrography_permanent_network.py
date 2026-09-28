@@ -15,7 +15,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import LineString
 
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.data.source.permanence import PERMANENCE_COLUMN
 from hydromodpy.data.variables.hydrography.config import HydrographyConfig
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
@@ -23,6 +23,8 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
 )
 
 from ._test_hydrography_full_builders import WhiteboxStubBackend, _fake_inputs
+
+PREPROCESSING_DIR = preprocessing_dir(Path())
 
 pytestmark = pytest.mark.fast
 

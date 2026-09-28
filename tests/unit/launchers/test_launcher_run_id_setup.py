@@ -8,8 +8,8 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.state.run_state import WorkflowContext
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.workflow.steps.setup import step_setup
 
@@ -21,6 +21,8 @@ from ._launcher_run_id_builders import (
     _patch_launcher_deps,
     _standard_geographic_cfg,
 )
+
+PREPROCESSING_DIR = preprocessing_dir(Path())
 
 
 def test_run_setup_uses_simulation_name(monkeypatch) -> None:

@@ -122,7 +122,9 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(
     import rasterio
     from rasterio.transform import from_origin
 
-    from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+    from hydromodpy.core.state.paths import preprocessing_dir
+
+    PREPROCESSING_DIR = preprocessing_dir(Path())
 
     project_root = tmp_path / "structured_project"
     geographic_dir = project_root / PREPROCESSING_DIR / "geographic"

@@ -105,7 +105,9 @@ def test_resolve_bundle_cells_rebuilds_structured_centroids_from_preprocessing(
     """Structured centroids come from the geographic preprocessing raster."""
     rasterio = pytest.importorskip("rasterio")
     import hydromodpy
-    from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+    from hydromodpy.core.state.paths import preprocessing_dir
+
+    PREPROCESSING_DIR = preprocessing_dir(Path())
 
     hydromodpy.bootstrap()
     geographic_dir = tmp_path / PREPROCESSING_DIR / "geographic"
@@ -145,7 +147,9 @@ def test_resolve_bundle_cells_warns_when_structured_support_raster_is_absent(
     pytest.importorskip("rasterio")
     import hydromodpy
     from hydromodpy.core.logging import get_logger
-    from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+    from hydromodpy.core.state.paths import preprocessing_dir
+
+    PREPROCESSING_DIR = preprocessing_dir(Path())
 
     hydromodpy.bootstrap()
     records: list[logging.LogRecord] = []

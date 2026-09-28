@@ -4,12 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.spatial.geographic.core.river_network import (
     build_river_network_products,
     resolve_stream_threshold_cells,
 )
 from hydromodpy.spatial.geographic.geographic_config import RiverNetworkConfig
+
+PREPROCESSING_DIR = preprocessing_dir(Path())
 
 
 class _FailIfCalledBackend:

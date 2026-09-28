@@ -33,7 +33,7 @@ from hydromodpy.calibration.runners.state import (
 )
 from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.calibration.runners.trial import TrialMetricFn, prepare_trials
-from hydromodpy.core.workspace.path_registry import holds_project_run_lock
+from hydromodpy.core.workspace.path_registry import in_run_scratch
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.report import CalibrationReport
@@ -121,8 +121,9 @@ def _project_root(project: Any, workspace: Path | str | None) -> Path:
     return Path.cwd()
 
 
-@holds_project_run_lock(
+@in_run_scratch(
     lambda cfg, **kw: _project_root(kw["project"], kw.get("workspace")),
+    lambda cfg, **_kw: "calibration",
     check=lambda *_a, **kw: refuse_an_objective_that_is_not_an_entry_point(kw.get("objective")),
 )
 def run_calibration_programmatic(

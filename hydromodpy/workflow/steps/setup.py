@@ -11,12 +11,8 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.rng import RngManager
 from hydromodpy.core.state.global_index import auto_register_projects
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.workspace import Workspace
-from hydromodpy.core.workspace.path_registry import (
-    PREPROCESSING_DIR,
-    hold_preprocessing_use,
-    preprocessing_lock,
-)
 from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain.build import build_domain, read_substratum_source
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
@@ -53,7 +49,7 @@ def build_geographic_runtime(
     if callable(uses_synthetic) and uses_synthetic():
         return build_synthetic_geographic(
             config=geographic_cfg.synthetic,
-            output_dir=Path(workspace.project_root) / PREPROCESSING_DIR / "geographic",
+            output_dir=preprocessing_dir(Path(workspace.project_root)) / "geographic",
             workspace=workspace,
         )
     return CatchmentDelineation(
@@ -671,27 +667,19 @@ class BuildGeographicStep:
         requested_support_ids = state.get("requested_spatial_support_ids", ())
         registry = state.get("spatial_support_registry")
 
-        # Two concurrent runs of the same project both write and read
-        # .hmp/scratch/_preprocessing/ here; the lock serializes that phase
-        # across processes so neither sees the other's half-written files.
-        # The shared use, taken first, keeps another run's cleanup from
-        # dropping the tree while this run still reads it.
-        project_root = Path(ctx.cfg.workspace.project_root)
-        hold_preprocessing_use(project_root)
-        with preprocessing_lock(project_root):
-            step_setup(
-                ctx,
-                requested_spatial_support_ids=requested_support_ids,
-                requested_domain_supports=requested_supports,
-                reuse_existing_outputs=reuse_existing_outputs,
-                run_id=state.get("run_name"),
-            )
-            step_spatial_supports(
-                ctx,
-                phase="setup",
-                requested_domain_supports=requested_supports,
-                registry=registry,
-            )
+        step_setup(
+            ctx,
+            requested_spatial_support_ids=requested_support_ids,
+            requested_domain_supports=requested_supports,
+            reuse_existing_outputs=reuse_existing_outputs,
+            run_id=state.get("run_name"),
+        )
+        step_spatial_supports(
+            ctx,
+            phase="setup",
+            requested_domain_supports=requested_supports,
+            registry=registry,
+        )
 
         return state.advance(
             step_index=state.step_index + 1,

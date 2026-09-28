@@ -133,9 +133,9 @@ def _derive_flat_runtime_project_root(*, final_project_root: Path) -> Path:
 def _cleanup_geographic_artifacts(*, workspace: object) -> list[str]:
     """Delete intermediate geographic folders from one workspace."""
     root = Path(getattr(workspace, "project_root", "."))
-    from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+    from hydromodpy.core.state.paths import preprocessing_dir
 
-    stable = root / PREPROCESSING_DIR
+    stable = preprocessing_dir(root)
     deleted: list[str] = []
     for folder in (stable / "geographic", stable / "demcorrecflow"):
         if not folder.exists():

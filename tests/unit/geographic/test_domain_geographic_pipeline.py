@@ -10,9 +10,9 @@ import rasterio
 from rasterio.transform import from_origin
 
 from hydromodpy.core.exceptions import EmptyCatchmentError
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.core.workspace.config import WorkspaceConfig
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
 from hydromodpy.spatial.geographic import GeographicConfig
 from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
     build_domain_geographic_context,
@@ -20,6 +20,8 @@ from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
 )
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from tests._helpers.terrain_doubles import fake_flow_products
+
+PREPROCESSING_DIR = preprocessing_dir(Path())
 
 
 def _write_dem(path: Path) -> None:

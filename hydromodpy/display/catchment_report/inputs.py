@@ -5,8 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from hydromodpy.core.state.paths import runs_dir_for, share_dir_for
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR
+from hydromodpy.core.state.paths import (
+    kept_preprocessing_dir,
+    preprocessing_dir,
+    runs_dir_for,
+    share_dir_for,
+)
 from hydromodpy.display.catchment_report.settings import CatchmentReportSettings
 from hydromodpy.results.catalog.storage_paths import run_dirname
 from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
@@ -147,7 +151,7 @@ class CatchmentReportInputs:
                 / run_dirname(simulation_name)
                 / RUN_FIGURES_DIRNAME
             ),
-            geographic_scratch=(simulation_workspace_dir / PREPROCESSING_DIR / "geographic"),
+            geographic_scratch=_kept_geographic(simulation_workspace_dir),
             generated_network_root=runs_dir_for(simulation_workspace_dir),
             context_html=context_outputs_dir / "web" / "index.html",
             overview_standard_html=(
@@ -167,6 +171,12 @@ class CatchmentReportInputs:
             pipeline_stream_run_logs=pipeline_stream_run_logs,
             pipeline_strict_figure_postflight=pipeline_strict_figure_postflight,
         )
+
+
+def _kept_geographic(project_dir: Path) -> Path:
+    """Return the geographic folder the simulation run kept, or where it would sit."""
+    kept = kept_preprocessing_dir(project_dir)
+    return (kept or preprocessing_dir(project_dir)) / "geographic"
 
 
 def _context_summary_name(context_outputs_dir: Path, site_label: str) -> str:

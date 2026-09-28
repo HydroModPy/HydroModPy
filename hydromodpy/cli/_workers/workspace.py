@@ -150,7 +150,7 @@ def clean_workspace(
         CATALOG_FILENAME,
         catalog_path_for,
         runs_dir_for,
-        scratch_dir_for,
+        scratch_root_for,
         share_dir_for,
     )
 
@@ -197,8 +197,8 @@ def clean_workspace(
         targets.append(share_dir_for(workspace_root))
         targets.extend(share_dir_for(p) for p in sorted(workspace_root.glob("projects/*")))
     if "scratch" in selected:
-        targets.extend(scratch_dir_for(p) for p in sorted(workspace_root.glob("projects/*")))
-        targets.append(scratch_dir_for(workspace_root))
+        targets.extend(scratch_root_for(p) for p in sorted(workspace_root.glob("projects/*")))
+        targets.append(scratch_root_for(workspace_root))
     if "figures" in selected:
         targets.extend(
             share_dir_for(p) / "figures" for p in sorted(workspace_root.glob("projects/*"))

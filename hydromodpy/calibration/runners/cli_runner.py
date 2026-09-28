@@ -104,7 +104,7 @@ from hydromodpy.core.interrupts import TerminationRequested, terminate_as_interr
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.core.stream_snap import SNAP_MODE_CODE
-from hydromodpy.core.workspace.path_registry import holds_project_run_lock, project_root_of_config
+from hydromodpy.core.workspace.path_registry import in_run_scratch, project_root_of_config
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.optim.engine import CalibrationSession
@@ -1864,8 +1864,9 @@ def run_calibration_core(
 # ---------------------------------------------------------------------------
 
 
-@holds_project_run_lock(
+@in_run_scratch(
     lambda config_path, **kw: project_root_of_config(config_path, kw.get("workspace")),
+    lambda config_path, **_kw: Path(config_path).stem,
     check=lambda *_a, **kw: refuse_an_objective_that_is_not_an_entry_point(kw.get("objective")),
 )
 def run_calibration_cli(
