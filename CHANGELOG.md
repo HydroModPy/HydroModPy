@@ -49,6 +49,15 @@ Each release section includes the following standard categories:
   missing `outlet.shp`). A run also holds a shared use of that tree from its geographic build
   to its cleanup, and a cleanup drops the tree only when no other run of the project holds one:
   the last run out drops it, instead of the first one pulling it from under the others.
+- The runs of one project take turns. A simulation (`Project.simulate`, so `hmp run`) and a
+  calibration session (`run_calibration_cli`, `run_staged_calibration`,
+  `run_calibration_programmatic`, with every trial, phase and promotion inside) hold
+  `.hmp/locks/project-run.lock` from start to end; a run that has to wait says so once.
+  `.hmp/scratch/` is per project: run concurrently, the calibrations of example 04 read the
+  network another run wrote (no permanent reaches), shared one `_shared_recharge` across
+  different recharges, and a run that ended swept the solver folders of the others ("Solver
+  output directory is missing", "CBC file not found"). Runs of different projects stay
+  parallel.
 - `Run completed: <name> [<id>] <n>s` prints the run's duration, the `duration_s` the catalog
   stores, instead of the solver step alone (6 s printed for a 19 s run).
 - The help of `[simulation] if_exists` says what `replace` does: it trashes the predecessor,

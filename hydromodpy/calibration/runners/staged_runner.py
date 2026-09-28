@@ -94,6 +94,7 @@ from hydromodpy.calibration.runners.state import (
 from hydromodpy.calibration.runners.trial import TrialMetricFn, prepare_trials
 from hydromodpy.core.exceptions import CalibrationError, ConfigValidationError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.workspace.path_registry import holds_project_run_lock, project_root_of_config
 
 if TYPE_CHECKING:
     import numpy as np
@@ -1164,6 +1165,10 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+@holds_project_run_lock(
+    lambda config_path, **kw: project_root_of_config(config_path, kw.get("workspace")),
+    check=lambda *_a, **kw: refuse_an_objective_that_is_not_an_entry_point(kw.get("objective")),
+)
 def run_staged_calibration(
     config_path: Path | str,
     *,

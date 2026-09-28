@@ -218,9 +218,12 @@ def step_cleanup_scratch(
 ) -> None:
     """Remove the solver scratch folders unless keep_solver_files is True.
 
-    Only the run's own children of ``.hmp/scratch/`` go: the geographic
-    ``_preprocessing/`` tree living beside them belongs to the session, and
-    :func:`step_cleanup_preprocessing` is the one entitled to drop it.
+    Every child of ``.hmp/scratch/`` goes but the geographic
+    ``_preprocessing/`` tree, which belongs to the session and which
+    :func:`step_cleanup_preprocessing` is the one entitled to drop. A run
+    holds the project run lock (``core.workspace.path_registry.project_run_lock``),
+    so no other run of the project owns a folder here: what is swept beside
+    this run's own folder was left by runs that ended.
     """
     if keep_solver_files:
         return

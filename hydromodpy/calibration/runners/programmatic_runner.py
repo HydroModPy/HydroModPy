@@ -33,6 +33,7 @@ from hydromodpy.calibration.runners.state import (
 )
 from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.calibration.runners.trial import TrialMetricFn, prepare_trials
+from hydromodpy.core.workspace.path_registry import holds_project_run_lock
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.report import CalibrationReport
@@ -104,6 +105,26 @@ def _write_python_mode_document(
     return doc_path
 
 
+def _project_root(project: Any, workspace: Path | str | None) -> Path:
+    """Return the project root a programmatic calibration runs in.
+
+    ``workspace`` wins, then the workspace of the project's built context,
+    then the current directory.
+    """
+    if workspace is not None:
+        return Path(workspace).expanduser().resolve()
+    ws_obj = getattr(project, "_ctx", None)
+    ws_setup = getattr(ws_obj, "setup", None) if ws_obj is not None else None
+    ws_root_obj = getattr(ws_setup, "workspace", None) if ws_setup is not None else None
+    if ws_root_obj is not None:
+        return Path(ws_root_obj.project_root)
+    return Path.cwd()
+
+
+@holds_project_run_lock(
+    lambda cfg, **kw: _project_root(kw["project"], kw.get("workspace")),
+    check=lambda *_a, **kw: refuse_an_objective_that_is_not_an_entry_point(kw.get("objective")),
+)
 def run_calibration_programmatic(
     cfg: CalibrationConfig,
     *,
@@ -132,16 +153,7 @@ def run_calibration_programmatic(
     """
     refuse_an_objective_that_is_not_an_entry_point(objective)
 
-    if workspace is not None:
-        ws_root = Path(workspace).expanduser().resolve()
-    else:
-        ws_obj = getattr(project, "_ctx", None)
-        ws_setup = getattr(ws_obj, "setup", None) if ws_obj is not None else None
-        ws_root_obj = getattr(ws_setup, "workspace", None) if ws_setup is not None else None
-        if ws_root_obj is not None:
-            ws_root = Path(ws_root_obj.project_root)
-        else:
-            ws_root = Path.cwd()
+    ws_root = _project_root(project, workspace)
 
     src_path = getattr(project, "_config_path", None)
 
