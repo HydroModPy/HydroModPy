@@ -373,6 +373,10 @@ def _build_metrics(
     error = metadata.get("error")
     if error:
         payload["error"] = str(error)
+    # A speculative engine solved this candidate and its rules did not read it:
+    # the trial is real, but it is not on the path of the search.
+    if metadata.get("speculative_unused"):
+        payload["speculative_unused"] = 1.0
     return payload or None
 
 

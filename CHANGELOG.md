@@ -57,6 +57,11 @@ Each release section includes the following standard categories:
   alone now runs trials side by side: a batch holds at least `parallel` trials, where a batch of
   one serialized them. Measured on the composite of example 04, 8 trials at `parallel = 4` take
   278 s for 695 s of solves. `run_calibration_api_daily.toml` solves its five K at once.
+- `scipy_nelder_mead` runs on a port of SciPy 1.18.1's Nelder-Mead that evaluates the candidates of
+  one step side by side (reflection, contractions, expansion, shrink points) and keeps only the
+  values SciPy's rules read: the path, the answer, the evaluation count and the status are SciPy's,
+  call for call, at every `parallel`. The candidates solved and not read stay in the history,
+  marked `speculative_unused` in the journal, and spend no budget.
 - `Run completed: <name> [<id>] <n>s` prints the run's duration, the `duration_s` the catalog
   stores, instead of the solver step alone (6 s printed for a 19 s run).
 - The help of `[simulation] if_exists` says what `replace` does: it trashes the predecessor,

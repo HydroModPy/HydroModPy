@@ -1,24 +1,27 @@
 """SciPy optimizer adapter.
 
-Exposes scipy.optimize methods behind the ask/tell Protocol. SciPy's API is
-push-based (it calls the objective), so we drive it as a generator via a
-queue: ``ask()`` pops the next candidate SciPy wants evaluated, ``tell()``
-feeds the objective value back.
+Exposes scipy.optimize methods behind the ask/tell Protocol.
 
 Supported methods:
-    - ``"scipy_de"`` → scipy.optimize.differential_evolution
-    - ``"scipy_nelder_mead"`` → scipy.optimize.minimize(method="Nelder-Mead")
+    - ``"scipy_de"`` → scipy.optimize.differential_evolution. SciPy's API is
+      push-based (it calls the objective), so it runs in a thread behind a
+      queue: ``ask()`` pops the next candidate SciPy wants evaluated,
+      ``tell()`` feeds the objective value back.
+    - ``"scipy_nelder_mead"`` → scipy.optimize.minimize(method="Nelder-Mead"),
+      reproduced call for call by :mod:`hydromodpy.calibration.optim.nelder_mead`
+      so that one step's candidates can be solved side by side.
 """
 
 from __future__ import annotations
 
 import queue
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, MutableMapping
 from typing import Any
 
 import numpy as np
 
+from hydromodpy.calibration.optim.nelder_mead import CandidateKey, SpeculativeNelderMead
 from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
     EngineTraits,
@@ -139,8 +142,8 @@ class _ScipyAdapterBase:
             if slot == 0:
                 point = self._bridge.next_point()
             else:
-                # SciPy DE / Nelder-Mead are sequential (workers=1): the next
-                # point is only produced after the current one is told back.
+                # SciPy DE is sequential (workers=1): the next point is only
+                # produced after the current one is told back.
                 # Never block here, or ask(n>1) would deadlock; return only the
                 # points already queued (typically one).
                 point = self._bridge.next_point_nowait()
@@ -236,13 +239,26 @@ class ScipyDE(_ScipyAdapterBase):
 
 
 @register_optimizer("scipy_nelder_mead")
-class ScipyNelderMead(_ScipyAdapterBase):
-    """scipy.optimize.minimize(method='Nelder-Mead') adapter."""
+class ScipyNelderMead:
+    """Nelder-Mead simplex that reproduces scipy.optimize.minimize(method='Nelder-Mead').
+
+    The simplex is SciPy's algorithm, ported call for call in
+    :mod:`hydromodpy.calibration.optim.nelder_mead`, run with ``adaptive=True``,
+    a bound-scaled initial simplex and an objective clipped to the bounds.
+
+    ``ask(1)`` hands out the points SciPy would evaluate, in SciPy's order.
+    ``ask(n)`` adds the other candidates of the same step, so ``parallel``
+    solves them side by side. The simplex reads only the values SciPy would
+    have read: the path, the best trial and the stopping point are the
+    sequential ones whatever the width. A trial it did not read is marked
+    ``speculative_unused`` in its metadata and does not count toward the budget
+    (:meth:`counted`).
+    """
 
     # scipy's xatol is an absolute width in the variable the simplex walks, which
     # is the transformed one here.
     traits = EngineTraits(
-        supports_parallel=False,
+        supports_parallel=True,
         accepts_a_start_point=True,
         tolerance_option="xatol",
         tolerance_reads="search_width",
@@ -261,12 +277,22 @@ class ScipyNelderMead(_ScipyAdapterBase):
         fatol: float | None = None,
         start_at: Any | None = None,
     ):
+        self.space = space
+        self._seed = seed
         self._maxiter = 100 if maxiter is None else int(maxiter)
         self._maxfev = self._maxiter if maxfev is None else int(maxfev)
         self._xatol = None if xatol is None else float(xatol)
         self._fatol = None if fatol is None else float(fatol)
         self._start_at = None if start_at is None else np.asarray(start_at, dtype=float).ravel()
-        super().__init__(space, seed=seed)
+        bounds = [(p.lower_transformed, p.upper_transformed) for p in space.parameters]
+        self._lower = np.array([b[0] for b in bounds], dtype=float)
+        self._upper = np.array([b[1] for b in bounds], dtype=float)
+        self._simplex = self._make_simplex()
+        self._trial_id = 0
+        self._pending: dict[int, CandidateKey] = {}
+        self._told: dict[CandidateKey, EvaluationResult] = {}
+        self._used: list[EvaluationResult] = []
+        self._counted = 0
 
     def _initial_point(self, lower: np.ndarray, upper: np.ndarray) -> np.ndarray:
         """Return where the simplex is built, the prior centre unless told otherwise.
@@ -285,12 +311,8 @@ class ScipyNelderMead(_ScipyAdapterBase):
             )
         return np.clip(self._start_at, lower, upper)
 
-    def _make_method(self) -> Callable[[Callable], object]:
-        from scipy.optimize import minimize
-
-        bounds = self._bounds_transformed()
-        lower = np.array([b[0] for b in bounds], dtype=float)
-        upper = np.array([b[1] for b in bounds], dtype=float)
+    def _make_simplex(self) -> SpeculativeNelderMead:
+        lower, upper = self._lower, self._upper
         x0 = self._initial_point(lower, upper)
         # Bound-scaled initial simplex (10 % of range per axis) gives
         # Nelder-Mead a wider starting spread than scipy's 5 %-of-x0
@@ -301,29 +323,84 @@ class ScipyNelderMead(_ScipyAdapterBase):
         initial_simplex = np.tile(x0, (n + 1, 1))
         for i in range(n):
             initial_simplex[i + 1, i] = float(np.clip(x0[i] + delta[i], lower[i], upper[i]))
+        tolerances: dict[str, float] = {}
+        if self._xatol is not None:
+            tolerances["xatol"] = self._xatol
+        if self._fatol is not None:
+            tolerances["fatol"] = self._fatol
+        return SpeculativeNelderMead(
+            x0,
+            initial_simplex=initial_simplex,
+            maxiter=self._maxiter,
+            maxfev=self._maxfev,
+            adaptive=True,
+            **tolerances,
+        )
 
-        def run(obj: Callable[[np.ndarray], float]) -> object:
-            def clipped(x: np.ndarray) -> float:
-                return obj(np.clip(np.asarray(x, dtype=float), lower, upper))
-
-            options: dict[str, object] = {
-                "maxiter": self._maxiter,
-                "maxfev": self._maxfev,
-                "adaptive": True,
-                "initial_simplex": initial_simplex,
+    def ask(self, n: int = 1) -> list[ParamSuggestion]:
+        out: list[ParamSuggestion] = []
+        for proposal in self._simplex.propose(n):
+            self._trial_id += 1
+            point = np.clip(np.asarray(proposal.point, dtype=float), self._lower, self._upper)
+            values = {
+                p.name: p.to_physical(float(point[i])) for i, p in enumerate(self.space.parameters)
             }
-            if self._xatol is not None:
-                options["xatol"] = self._xatol
-            if self._fatol is not None:
-                options["fatol"] = self._fatol
-            return minimize(
-                clipped,
-                x0,
-                method="Nelder-Mead",
-                options=options,
-            )
+            self._pending[self._trial_id] = proposal.key
+            out.append(ParamSuggestion(trial_id=self._trial_id, values=values, source="ask"))
+        return out
 
-        return run
+    def suggest_next(self) -> ParamSuggestion:
+        got = self.ask(1)
+        if not got:
+            raise StopIteration("scipy optimizer finished")
+        return got[0]
+
+    def tell(self, results: list[EvaluationResult]) -> None:
+        read_before = len(self._simplex.used)
+        for r in results:
+            key = self._pending.pop(r.trial_id, None)
+            if key is None:
+                if not self._pending:
+                    continue
+                # A result that names no pending trial answers the oldest one,
+                # as the SciPy bridge this replaces read its values in order.
+                key = self._pending.pop(next(iter(self._pending)))
+            value = r.objective_value
+            if r.status != "completed" or not np.isfinite(value):
+                value = FAILED_EVAL_COST
+            self._told[key] = r
+            self._simplex.receive(key, float(value))
+        read_now = self._simplex.used[read_before:]
+        self._used.extend(self._told.pop(call.key) for call in read_now)
+        self._counted = len(read_now)
+        for key in [k for k in self._told if self._simplex.fate(k) == "unused"]:
+            metadata = self._told.pop(key).metadata
+            if isinstance(metadata, MutableMapping):
+                metadata["speculative_unused"] = True
+
+    def counted(self, results: list[EvaluationResult]) -> int:
+        """Return how many evaluations the last ``tell`` spent from the budget.
+
+        Only the ones the simplex read count. A speculative candidate it never
+        read was solved for nothing and costs no budget, so a parallel run stops
+        where the sequential one stops.
+        """
+        return self._counted
+
+    def best(self) -> EvaluationResult | None:
+        """Return the lowest completed evaluation the simplex read."""
+        valid = [r for r in self._used if r.status == "completed"]
+        if not valid:
+            return None
+        return min(valid, key=lambda r: r.objective_value)
+
+    def converged(self) -> bool:
+        """Whether SciPy's run would end with ``success``: its tolerance, not a cap."""
+        result = self._simplex.result
+        return result is not None and result.success
+
+    def close(self) -> None:
+        self._simplex.close()
 
 
 __all__ = ["ScipyDE", "ScipyNelderMead"]

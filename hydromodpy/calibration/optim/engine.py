@@ -112,6 +112,12 @@ class CalibrationSession:
         return end - self.started_at
 
 
+def _speculative_unused(result: EvaluationResult) -> bool:
+    """Whether a speculative engine solved this result and did not read it."""
+    metadata = getattr(result, "metadata", None) or {}
+    return bool(metadata.get("speculative_unused"))
+
+
 @dataclass
 class CalibrationEngine:
     """Drive an ask/tell loop until convergence or budget is exhausted.
@@ -161,12 +167,12 @@ class CalibrationEngine:
         try:
             if judged:
                 self._judge_the_budget(budget)
-            ran_dry = self._run_until(budget, 0, session, reporter)
+            ran_dry, n_done = self._run_until(budget, 0, session, reporter)
             if judged and not ran_dry and not self.optimizer.converged():
                 session.extension = self._extension(budget, session)
                 if session.extension:
-                    self._run_until(
-                        budget + session.extension, len(session.history), session, reporter
+                    _, n_done = self._run_until(
+                        budget + session.extension, n_done, session, reporter
                     )
             session.converged = (not judged) or bool(self.optimizer.converged())
             if not session.converged:
@@ -176,7 +182,7 @@ class CalibrationEngine:
                     "where the budget ended, not an answer. Raise max_iter or loosen "
                     "the tolerance; a re-run replays the trials already solved from "
                     "the cache.",
-                    len(session.history),
+                    n_done,
                     budget,
                     session.extension,
                     session.stopping_rule,
@@ -223,11 +229,13 @@ class CalibrationEngine:
         n_done: int,
         session: CalibrationSession,
         reporter: ProgressReporter | _NoopProgress,
-    ) -> bool:
+    ) -> tuple[bool, int]:
         """Ask and tell until *budget* is spent or the optimizer stops.
 
-        Returns True when the optimizer ran out of suggestions: more budget
-        would buy nothing, so no extension is granted then.
+        Returns whether the optimizer ran out of suggestions, and the count of
+        evaluations spent. Ran dry means more budget would buy nothing, so no
+        extension is granted then. Only the evaluations the optimizer counts
+        (:meth:`_counted`) spend the budget.
         """
         while n_done < budget:
             # A batch holds at least ``parallel`` trials: ``parallel`` alone must
@@ -235,22 +243,38 @@ class CalibrationEngine:
             take = min(max(self.batch_size, self.parallel), budget - n_done)
             suggestions = self.optimizer.ask(n=take)
             if not suggestions:
-                return True
+                return True, n_done
             results = self._evaluate_batch(suggestions)
+            # Told first: a speculative engine marks the results it did not read
+            # only then, and the journal row must carry that mark.
+            self.optimizer.tell(results)
             for sugg, result in zip(suggestions, results, strict=True):
                 session.history.append(result)
-                reporter.update(sugg.trial_id, result)
+                if not _speculative_unused(result):
+                    reporter.update(sugg.trial_id, result)
                 if self.on_iteration is not None:
                     self.on_iteration(sugg, result)
-            self.optimizer.tell(results)
             # A method that labels its own progress knows the batch only now.
             refresh = getattr(reporter, "refresh", None)
             if callable(refresh):
                 refresh()
-            n_done += len(results)
+            n_done += self._counted(results)
             if self.optimizer.converged():
-                return False
-        return False
+                return False, n_done
+        return False, n_done
+
+    def _counted(self, results: list[EvaluationResult]) -> int:
+        """Return how many of the results just told spend the budget.
+
+        Every result does, unless the optimizer says otherwise through an
+        optional ``counted(results)``. A speculative engine solves candidates
+        it may not read; those cost no budget, so a parallel run stops where
+        the sequential one stops. They stay in the history all the same.
+        """
+        counted = getattr(self.optimizer, "counted", None)
+        if callable(counted):
+            return int(counted(results))
+        return len(results)
 
     def _judge_the_budget(self, budget: int) -> None:
         """Refuse a budget below the nominal count, announce one below the worst.
