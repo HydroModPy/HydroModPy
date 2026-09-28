@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from filelock import FileLock
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows has no flock
+    fcntl = None
 
 from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.state.paths import (
@@ -45,6 +53,91 @@ def preprocessing_lock(project_root: Path) -> FileLock:
     lock_dir.mkdir(parents=True, exist_ok=True)
     lock_path = lock_dir / PREPROCESSING_LOCK_FILENAME
     return FileLock(native_io_path(lock_path), timeout=PREPROCESSING_LOCK_TIMEOUT_SECONDS)
+
+
+#: File whose shared locks mark the processes still reading the preprocessing tree.
+PREPROCESSING_USERS_FILENAME = "preprocessing.users"
+
+_HELD_USES: dict[str, int] = {}
+"""The descriptor holding this process's shared lock, per project root."""
+
+
+def _users_path(project_root: Path) -> Path:
+    lock_dir = Path(project_root) / INTERNAL_DIRNAME / "locks"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    return lock_dir / PREPROCESSING_USERS_FILENAME
+
+
+def hold_preprocessing_use(project_root: Path) -> None:
+    """Mark this process as a reader of the project's preprocessing tree.
+
+    A run reads ``.hmp/scratch/_preprocessing/`` well after it built it: the
+    data load, the network criterion and the store ingestion all go back to
+    it. The run that ends first must not drop the tree under another one, so
+    each run holds a shared lock from its geographic build until its own
+    cleanup (:func:`release_preprocessing_use`), and a cleanup drops the tree
+    only when it can take the lock exclusively (:func:`preprocessing_unused`).
+    The last run out drops it.
+
+    Idempotent within a process. A no-op where ``fcntl`` is missing (Windows):
+    the tree is then dropped by whichever run ends, as before.
+    """
+    if fcntl is None:
+        return
+    key = str(Path(project_root).resolve())
+    if key in _HELD_USES:
+        return
+    fd = os.open(native_io_path(_users_path(project_root)), os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_SH)
+    except OSError:
+        os.close(fd)
+        raise
+    _HELD_USES[key] = fd
+
+
+def release_preprocessing_use(project_root: Path) -> None:
+    """Drop the shared lock :func:`hold_preprocessing_use` took, if any."""
+    fd = _HELD_USES.pop(str(Path(project_root).resolve()), None)
+    if fd is not None:
+        os.close(fd)
+
+
+@contextmanager
+def preprocessing_unused(project_root: Path) -> Iterator[bool]:
+    """Yield whether no other process still reads the preprocessing tree.
+
+    Holds the build lock throughout, so no run starts building meanwhile, and,
+    when it yields ``True``, the exclusive lock of the users file too, so no
+    run starts reading. A caller drops the tree only on ``True``. Release this
+    process's own use first, or it counts as another reader.
+    """
+    with preprocessing_lock(project_root):
+        if fcntl is None:
+            yield True
+            return
+        fd = os.open(native_io_path(_users_path(project_root)), os.O_RDWR | os.O_CREAT, 0o644)
+        try:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                yield False
+                return
+            try:
+                yield True
+            finally:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+
+
+def project_root_of_internal_path(path: Path) -> Path | None:
+    """Return the project root above a path under its ``.hmp/`` folder, or None."""
+    resolved = Path(path).resolve()
+    for parent in resolved.parents:
+        if parent.name == INTERNAL_DIRNAME:
+            return parent.parent
+    return None
 
 
 if TYPE_CHECKING:

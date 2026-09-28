@@ -12,7 +12,11 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.rng import RngManager
 from hydromodpy.core.state.global_index import auto_register_projects
 from hydromodpy.core.workspace import Workspace
-from hydromodpy.core.workspace.path_registry import PREPROCESSING_DIR, preprocessing_lock
+from hydromodpy.core.workspace.path_registry import (
+    PREPROCESSING_DIR,
+    hold_preprocessing_use,
+    preprocessing_lock,
+)
 from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain.build import build_domain, read_substratum_source
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
@@ -670,7 +674,11 @@ class BuildGeographicStep:
         # Two concurrent runs of the same project both write and read
         # .hmp/scratch/_preprocessing/ here; the lock serializes that phase
         # across processes so neither sees the other's half-written files.
-        with preprocessing_lock(Path(ctx.cfg.workspace.project_root)):
+        # The shared use, taken first, keeps another run's cleanup from
+        # dropping the tree while this run still reads it.
+        project_root = Path(ctx.cfg.workspace.project_root)
+        hold_preprocessing_use(project_root)
+        with preprocessing_lock(project_root):
             step_setup(
                 ctx,
                 requested_spatial_support_ids=requested_support_ids,

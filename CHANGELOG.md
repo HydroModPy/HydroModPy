@@ -46,7 +46,9 @@ Each release section includes the following standard categories:
   mesh builds hold `.hmp/locks/preprocessing.lock` while they write
   `.hmp/scratch/_preprocessing/`, which is per project: four runs started together on example
   04 lost three of them in `build_geographic` (a Whitebox panic, a missing `dem_fill.tif`, a
-  missing `outlet.shp`).
+  missing `outlet.shp`). A run also holds a shared use of that tree from its geographic build
+  to its cleanup, and a cleanup drops the tree only when no other run of the project holds one:
+  the last run out drops it, instead of the first one pulling it from under the others.
 - `Run completed: <name> [<id>] <n>s` prints the run's duration, the `duration_s` the catalog
   stores, instead of the solver step alone (6 s printed for a 19 s run).
 - The help of `[simulation] if_exists` says what `replace` does: it trashes the predecessor,
