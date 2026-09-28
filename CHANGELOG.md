@@ -49,6 +49,9 @@ Each release section includes the following standard categories:
   missing `outlet.shp`).
 - `Run completed: <name> [<id>] <n>s` prints the run's duration, the `duration_s` the catalog
   stores, instead of the solver step alone (6 s printed for a 19 s run).
+- The help of `[simulation] if_exists` says what `replace` does: it trashes the predecessor,
+  which keeps its name, and registers the new run under the next free `name.vN`. It said the
+  new run took the name.
 
 ---
 
