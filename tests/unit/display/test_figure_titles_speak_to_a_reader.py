@@ -86,7 +86,9 @@ def test_no_title_prints_the_internal_station_id(mpl, figure) -> None:
 
 
 def _dated(edges) -> SimpleNamespace:
-    return SimpleNamespace(period_edges=None if edges is None else pd.DatetimeIndex(edges))
+    return SimpleNamespace(
+        periods=SimpleNamespace(edges=None if edges is None else pd.DatetimeIndex(edges))
+    )
 
 
 def test_a_monthly_state_is_titled_by_its_month_not_its_closing_stamp() -> None:
@@ -114,7 +116,7 @@ def test_a_run_exposing_only_its_end_stamps_is_still_labelled() -> None:
 
 
 def test_a_scalar_map_title_names_the_period_it_draws() -> None:
-    run = SimpleNamespace(sim_id="sim-a", name="nancon", period_edges=MONTHLY)
+    run = SimpleNamespace(sim_id="sim-a", name="nancon", periods=SimpleNamespace(edges=MONTHLY))
 
     title = PiezometricMap().title(run, timestep=33)
 
@@ -124,7 +126,7 @@ def test_a_scalar_map_title_names_the_period_it_draws() -> None:
 
 def test_the_confusion_map_names_the_state_it_compared(mpl) -> None:
     run = comparison_run(seepage_cells=[cell(AXIS_COLUMN, 2)])
-    run.period_edges = pd.DatetimeIndex(["2002-10-01", "2002-11-01"])
+    run.periods = SimpleNamespace(edges=pd.DatetimeIndex(["2002-10-01", "2002-11-01"]))
     fig, ax = mpl.subplots()
 
     SeepageNetworkConfusionMap().render(run, ax)
@@ -171,7 +173,9 @@ def test_a_section_subtitle_is_a_sentence_before_any_coordinate() -> None:
 class _BudgetRun:
     sim_id = "sim-a"
     name = "nancon"
-    period_edges = pd.DatetimeIndex(["2002-01-01", "2002-02-01", "2002-03-01", "2002-04-01"])
+    periods = SimpleNamespace(
+        edges=pd.DatetimeIndex(["2002-01-01", "2002-02-01", "2002-03-01", "2002-04-01"])
+    )
 
     def budget(self) -> pd.DataFrame:
         return pd.DataFrame(
@@ -201,7 +205,7 @@ def test_a_flux_is_drawn_over_its_own_period(mpl) -> None:
 
     recharge = next(line for line in ax.lines if line.get_label() == "recharge")
     starts = mdates.date2num(pd.DatetimeIndex(recharge.get_xdata()).to_pydatetime())
-    edges = mdates.date2num(_BudgetRun.period_edges.to_pydatetime())
+    edges = mdates.date2num(_BudgetRun.periods.edges.to_pydatetime())
     # January is drawn from 1 January to 1 February, not from its closing stamp.
     assert starts.tolist() == pytest.approx(edges.tolist())
     assert recharge.get_ydata().tolist() == [3.0, 2.0, 1.0, 1.0]

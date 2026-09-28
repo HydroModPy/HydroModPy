@@ -27,7 +27,7 @@ from hydromodpy.display import runs as _runs
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.figure import FigureSpec
 from hydromodpy.display.runs import log_render_summary, render_figure, render_figures_for_run
-from hydromodpy.results.run import Run
+from hydromodpy.results.run.periods import RunPeriods
 
 OCTOBER = "2002-10-15"
 
@@ -47,21 +47,30 @@ class _Figure:
         self.drawn.append({"timestep": timestep, "cmap": cmap, **_})
 
 
+class _Periods(RunPeriods):
+    """The real ``run.periods`` lookups over given edges, with no catalog behind."""
+
+    def __init__(self, edges, n_timesteps: int) -> None:
+        self.edges = edges
+        self._n_timesteps = n_timesteps
+
+    def _count(self) -> int:
+        return self._n_timesteps
+
+
 class _Run:
     """A run as the time selector reads it: its period edges, nothing else.
 
-    ``step_at`` is the real :meth:`Run.step_at`, bound to this stand-in.
+    ``periods`` holds the real :meth:`RunPeriods.step_at`.
     """
 
     solver = "modflow6"
-    step_at = Run.step_at
 
     def __init__(self, edges) -> None:
-        self.period_edges = None if edges is None else pd.DatetimeIndex(edges)
         self.n_timesteps = 1 if edges is None else len(edges) - 1
-
-    def _period_count(self) -> int:
-        return self.n_timesteps
+        self.periods = _Periods(
+            None if edges is None else pd.DatetimeIndex(edges), self.n_timesteps
+        )
 
     def has_field(self, _name: str) -> bool:
         return True

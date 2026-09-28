@@ -43,7 +43,7 @@ rules.
 3. **An instant is a date.** A figure that draws one instant is asked for it by
    `time`: a date, `"first"` or `"last"`, in `[display] time` for the whole
    gallery or in `[display.overrides.<figure>]` for one. `runs._resolve_time`
-   is the one place a date meets a run: it calls `Run.step_at` and hands the
+   is the one place a date meets a run: it calls `run.periods.step_at` and hands the
    figure the step as `timestep`, the internal channel the maps read. The user
    never writes `timestep`. In a TOML the old key is renamed to `time` on load
    by `config/config_migration.py` (INFO line, `hmp doctor --fix-config`

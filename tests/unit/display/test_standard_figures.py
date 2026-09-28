@@ -454,7 +454,7 @@ def test_base_figure_plot_writes_png_metadata(mpl, tmp_path) -> None:
     # The metadata names the period the map drew, not the selector it was
     # asked with: a date the display resolved is a step here.
     run = _Run()
-    run.period_edges = pd.date_range("2020-01-01", periods=4, freq="D")
+    run.periods = SimpleNamespace(edges=pd.date_range("2020-01-01", periods=4, freq="D"))
     path = tmp_path / "piezometric_map.png"
 
     fig = PiezometricMap().plot(run, save_path=path, timestep=1)
@@ -470,7 +470,7 @@ def test_base_figure_plot_writes_png_metadata(mpl, tmp_path) -> None:
 
 def test_png_metadata_names_the_period_by_index_on_a_run_without_dates(mpl, tmp_path) -> None:
     run = _Run()
-    run.period_edges = None
+    run.periods = SimpleNamespace(edges=None)
     path = tmp_path / "piezometric_map.png"
 
     fig = PiezometricMap().plot(run, save_path=path, timestep=-1)

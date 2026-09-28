@@ -31,7 +31,8 @@ and optionally ``format``.
    The step 0 check of ``hmp run`` and ``hmp config check`` call the same
    function, so the plan checked before the solve is the plan written.
 4. The request writer resolves the dates to stress periods
-   (``Run.step_at``, ``Run.steps_for``) and calls the exporter of each file.
+   (``run.periods.step_at``, ``run.periods.steps_for``) and calls the
+   exporter of each file.
 
 Files to touch
 --------------

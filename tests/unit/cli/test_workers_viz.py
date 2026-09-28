@@ -137,7 +137,7 @@ class _SealedRunCatalog(_OneRunCatalog):
         return SimpleNamespace(
             name="sim-a",
             config_snapshot={"display": display},
-            step_at=lambda time: {"2002-10-15": 33, "first": 0}[time],
+            periods=SimpleNamespace(step_at=lambda time: {"2002-10-15": 33, "first": 0}[time]),
         )
 
 

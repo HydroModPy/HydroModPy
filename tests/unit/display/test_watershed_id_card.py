@@ -56,8 +56,8 @@ def _run(*, edges=None) -> SimpleNamespace:
         n_cells=21_406,
         n_layers=1,
         n_timesteps=1_096 if edges is None else len(edges) - 1,
-        period_edges=(
-            pd.date_range("2000-01-01", "2003-01-01", freq="D") if edges is None else edges
+        periods=SimpleNamespace(
+            edges=pd.date_range("2000-01-01", "2003-01-01", freq="D") if edges is None else edges
         ),
         geographic=lambda feature: watershed,
         geographic_raster=lambda name: raster,
@@ -92,7 +92,7 @@ def test_a_monthly_run_says_monthly() -> None:
 
 def test_a_row_the_run_does_not_hold_is_left_out() -> None:
     run = _run()
-    run.period_edges = None
+    run.periods = SimpleNamespace(edges=None)
     run.geographic = lambda feature: (_ for _ in ()).throw(KeyError(feature))
 
     rows = dict(identity_rows(run))

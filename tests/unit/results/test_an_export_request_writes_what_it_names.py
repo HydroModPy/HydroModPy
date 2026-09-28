@@ -432,8 +432,9 @@ def test_an_empty_time_list_is_refused_before_any_file(dated_run) -> None:
 def test_a_selection_of_no_period_is_an_export_error(dated_run, monkeypatch) -> None:
     """A series asked over no period says so, never as a SQL syntax error."""
     from hydromodpy.core.exceptions import ExportError
+    from hydromodpy.results.run.periods import RunPeriods
 
     catalog, sid, _share = dated_run
-    monkeypatch.setattr(type(catalog[sid]), "steps_for", lambda self, **_: ())
+    monkeypatch.setattr(RunPeriods, "steps_for", lambda self, **_: ())
     with pytest.raises(ExportError, match="selects no stress period"):
         catalog.export(sid, ExportRequest(variables="discharge", time="last"))
