@@ -9,7 +9,7 @@ TOML section: ``[display]``
 
 Pydantic model: ``DisplayConfig`` defined in ``hydromodpy.display.config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L22>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L67>`__
 
 Display behaviour resolved from the ``[display]`` TOML section.
 
@@ -36,7 +36,7 @@ Fields
         <code class="hmp-field-name">enabled</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L25>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L70>`__
 
       Master switch. When False, no figure is rendered or saved.
 
@@ -52,7 +52,7 @@ Fields
         <code class="hmp-field-name">backend</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L29>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L74>`__
 
       Matplotlib backend. 'auto' selects Agg in headless mode and a GUI backend when ``show`` is enabled.
 
@@ -72,7 +72,7 @@ Fields
         <code class="hmp-field-name">preset</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "default"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L36>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "default"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L81>`__
 
       Named theme applied before rendering any figure.
 
@@ -99,7 +99,7 @@ Fields
         <code class="hmp-field-name">show</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L49>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L94>`__
 
       Open an interactive window via ``matplotlib.pyplot.show``.
 
@@ -115,7 +115,7 @@ Fields
         <code class="hmp-field-name">save</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L53>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L98>`__
 
       Write rendered figures to disk under ``output_dir``.
 
@@ -131,7 +131,7 @@ Fields
         <code class="hmp-field-name">output_dir</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "figures"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L57>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "figures"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L102>`__
 
       Name of the figures directory inside the run directory (<project>/runs/<run>/<output_dir>/). Declared as a name, not a path, so it stays anchored to the run it describes.
 
@@ -147,7 +147,7 @@ Fields
         <code class="hmp-field-name">dpi</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 150` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L65>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 150` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L110>`__
 
       DPI used when saving raster figures.
 
@@ -163,7 +163,7 @@ Fields
         <code class="hmp-field-name">cmap</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "viridis"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L70>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "viridis"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L115>`__
 
       Force ONE colormap onto every spatial figure. Writing it at all is the decision, not the value: each figure otherwise picks a scale suited to what it shows, reversed for a depth, diverging for a difference, discrete for an indicator, and this replaces all of them. Writing the default spelled out is therefore NOT a no-op, unlike everywhere else. Leave it out unless one scale for everything is what you want.
 
@@ -179,7 +179,7 @@ Fields
         <code class="hmp-field-name">figures</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L81>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L126>`__
 
       Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp viz gallery`). Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
 
@@ -195,13 +195,29 @@ Fields
         <code class="hmp-field-name">on_error</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "warn"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L93>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "warn"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L138>`__
 
       Behaviour when a figure that IS applicable fails while rendering. 'warn' logs and continues (default, keeps a long run alive); 'raise' propagates, which is what example and CI configs want so a broken figure cannot pass unnoticed.
 
    .. rst-class:: hmp-field-values
 
    **One of:** ``"warn"`` ``"raise"``
+
+
+.. index:: ! time
+
+.. container:: hmp-field hmp-field-level-user
+   :name: display-time
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="display.time">
+        <code class="hmp-field-name">time</code>
+      </div>
+
+   :bdg-primary:`str | int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L147>`__
+
+      The instant every figure that draws one instant shows: a date ("2002-10-15"), "first" or "last". Each such figure draws the stress period that holds the date, so the same date names the same month on a monthly, a daily or a one-period steady run. A `time` in `[display.overrides.<figure>]` wins over it. Unset, each figure picks its own instant: the last period, or for the stream-network maps the state their calibration criterion read. A date outside a run skips the figure with the reason.
 
 
 .. index:: ! overrides
@@ -217,9 +233,9 @@ Fields
         <code class="hmp-field-toml">[display.overrides.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`dict[str, dict]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L102>`__
+   :bdg-primary:`dict[str, dict]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L160>`__
 
-      Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``).
+      Per-figure options, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``). A key the figure does not take is refused at load, with the list of the keys it takes. A figure that draws one instant takes `time`.
 
 
 Starter TOML snippet
@@ -244,6 +260,7 @@ Starter TOML snippet
       # cmap = "viridis"
       # figures = ...  # uses factory default
       # on_error = "warn"
+      # time = ...  # default = None
       # [display.overrides.<id>]
 
 Entity-relationship diagram
