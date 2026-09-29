@@ -69,6 +69,7 @@ from hydromodpy.calibration.persistence import (
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate
 from hydromodpy.calibration.runners.failure_watch import ConsecutiveFailureWatch
+from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention, retention_capacity
 from hydromodpy.calibration.runners.promotion import (
     promote_iterations,
     promoted_run_name,
@@ -615,6 +616,31 @@ def _persist_observed_for_report(catalog: Any, trial_ctx: Any, variable: str) ->
 # ---------------------------------------------------------------------------
 # Core loop (caller-agnostic)
 # ---------------------------------------------------------------------------
+
+
+def _keep_trial_solves(cfg: CalibrationConfig, trial_ctx: TrialContext | None) -> None:
+    """Give the session a retention of trial solves when it promotes any.
+
+    A promoted trial then reads the solve its trial left on disk instead of
+    being solved again. A session that promotes nothing keeps nothing: each
+    trial deletes its solver folder on exit, as before.
+    """
+    if trial_ctx is None:
+        return
+    retention = TrialSolveRetention(retention_capacity(cfg))
+    trial_ctx.kept_solves = retention if retention.keeps_any else None
+
+
+def _release_trial_solves(trial_ctx: TrialContext | None) -> None:
+    """Delete the trial solves the session still keeps, and detach the retention.
+
+    Runs on every exit path, beside :func:`_release_session_scratch`, and never
+    raises: a folder that cannot be removed is left to the run scratch sweep.
+    """
+    if trial_ctx is None or trial_ctx.kept_solves is None:
+        return
+    retention, trial_ctx.kept_solves = trial_ctx.kept_solves, None
+    retention.release()
 
 
 def _release_session_scratch(trial_ctx: TrialContext | None) -> None:
@@ -1677,6 +1703,7 @@ def run_calibration_core(
         on_iteration=on_iteration,
     )
 
+    _keep_trial_solves(cfg, trial_ctx)
     t0 = time.perf_counter()
     session: CalibrationSession | None = None
     final_status = "failed"
@@ -1752,6 +1779,7 @@ def run_calibration_core(
         final_error = str(exc)
         raise
     finally:
+        _release_trial_solves(trial_ctx)
         _release_session_scratch(trial_ctx)
         elapsed = time.perf_counter() - t0
         n_iter = len(session.history) if session is not None else 0

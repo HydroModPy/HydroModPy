@@ -45,7 +45,12 @@ class DerivedConfig(HydroModelBase):
     )
     release_flux: Annotated[bool, Profile.DEV] = Field(
         default=False,
-        description="Positive total groundwater release flux from drains and surface excess.",
+        description=(
+            "Make available the positive per-cell groundwater release flux (m3/s): "
+            "drains and DRN-TO-MVR, SFR streams, LAK lakes and the surface excess. "
+            "It is rebuilt on read from the per-cell budget terms, which this option "
+            "turns on and keeps in the store; no array of its own is written."
+        ),
     )
     accumulation_flux: Annotated[bool, Profile.DEV] = Field(
         default=False,

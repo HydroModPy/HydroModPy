@@ -125,6 +125,137 @@ def drain_budget_stack_to_positive_outflow(
     return _positive_outflow_from_signed(stack)
 
 
+# Canonical public name of the DRN-TO-MVR budget record (see
+# solver.modflow_common.budget_components.canonical_budget_component).
+DRN_TO_MVR_KEYS = ("drain_to_mover",)
+
+#: Persisted budget components that carry groundwater OUT of the aquifer to the
+#: surface, beside the drain, each with the sign a value takes when it LEAVES.
+#:
+#: The two conventions really do meet here. MODFLOW signs a budget from the
+#: aquifer's point of view, so ``stream`` (SFR) and ``lake`` (LAK) are negative
+#: when the aquifer loses water. The Boussinesq ``surface_excess`` is already an
+#: outflow and is positive. Reading them all with one clamp silently dropped
+#: whichever half had the other sign, which is how a run with its streams in SFR
+#: reported the drain alone.
+SURFACE_RELEASE_BUDGETS: dict[str, float] = {
+    "stream": -1.0,
+    "lake": -1.0,
+    "surface_excess": 1.0,
+}
+
+
+RELEASE_BUDGET_KEYS: tuple[str, ...] = (
+    *DRAIN_BUDGET_KEYS,
+    *DRN_TO_MVR_KEYS,
+    *SURFACE_RELEASE_BUDGETS,
+)
+"""Every per-cell budget term :func:`release_flux_stack` reads."""
+
+
+def drain_stack_with_mover(budget: Any, drn_key: str | None, start: int, stop: int) -> Any:
+    """DRN budget rows ``[start, stop)`` summed with the DRN-TO-MVR record.
+
+    With ``route_drainage``, the in-watershed drain flux lives in the DRN-TO-MVR
+    record, not the plain DRN one, so the derived spatial fields must include
+    both to show catchment drainage rather than only the buffer. Both records
+    share one sign convention. Returns None when neither record is present.
+    """
+    stacks: list[np.ndarray] = []
+    if drn_key is not None:
+        stacks.append(np.asarray(budget[drn_key][start:stop], dtype="float64"))
+    for mvr_key in DRN_TO_MVR_KEYS:
+        if mvr_key in budget:
+            stacks.append(np.asarray(budget[mvr_key][start:stop], dtype="float64"))
+            break
+    if not stacks:
+        return None
+    base = stacks[0]
+    for extra in stacks[1:]:
+        if extra.shape == base.shape:
+            base = base + extra
+    return base
+
+
+def positive_cell_flux_stack(component_stack: Any, *, n_cells: int) -> np.ndarray:
+    """Return positive per-cell volumetric outflow from a ``(time, ...)`` stack."""
+    stack = np.asarray(component_stack, dtype=float)
+    if stack.size == 0:
+        return np.zeros((stack.shape[0] if stack.ndim else 0, int(n_cells)), dtype="float64")
+    if stack.ndim == 2:
+        stack = stack[:, None, :]
+    per_step = int(np.prod(stack.shape[1:]))
+    if per_step % int(n_cells) == 0:
+        values = stack.reshape(stack.shape[0], -1, int(n_cells))
+    else:
+        values = stack.reshape(stack.shape[0], stack.shape[1], -1)
+    if values.shape[-1] != int(n_cells):
+        raise ValueError(
+            f"Budget component has {values.shape[-1]} cells after reshape; expected {n_cells}."
+        )
+    finite = np.isfinite(values) & (values > -9000.0)
+    positive = np.where(finite, np.maximum(values, 0.0), 0.0)
+    return positive.sum(axis=1).astype("float64", copy=False)
+
+
+def has_release_budget(budget: Any) -> bool:
+    """Say whether a budget group holds a path the release flux is built from."""
+    if find_drain_budget_key(budget) is not None:
+        return True
+    return any(name in budget for name in SURFACE_RELEASE_BUDGETS)
+
+
+def release_flux_stack(budget: Any, *, n_cells: int, start: int, stop: int) -> np.ndarray:
+    """Sum every path groundwater takes out of the aquifer, rows ``[start, stop)``.
+
+    Every path, not the drain alone. A run whose streams are in SFR sends most
+    of its water through the stream package: measured on the Nancon, 1.3276 of
+    the 2.1018 m3/s left through ``stream`` and 0.7986 through ``drain``, and a
+    ``release_flux`` holding the drain alone reported dry land over 63 per cent
+    of the outgoing water, exactly where a stream-network criterion aims.
+
+    This union is not the calibration criterion's, and it differs in both
+    directions. Summed here: the drain and DRN-TO-MVR, plus ``stream`` (SFR),
+    ``lake`` (LAK) and the Boussinesq ``surface_excess``. Read off the binary
+    budget by the calibration extractor: DRN, DRN-TO-MVR, SFR and a CHD
+    restricted to its stream-role cells. So a lake enters this field and never
+    the criterion, and a stream-role constant head enters the criterion and
+    never this field. A persisted ``constant_head`` component carries no role,
+    so adding it here would count every constant head the run declares, an
+    ocean or a lateral boundary included, as groundwater released to the
+    surface. Scoring this field against a mapped network therefore measures a
+    neighbouring quantity, not the one the criterion balanced.
+
+    Every step is computed on its own rows only, so a slice of the result is
+    the result over that slice. The stack is non-negative and finite, in the
+    m3/s of the budget terms.
+
+    Raises
+    ------
+    KeyError
+        The group holds no release path at all.
+    """
+    drn_key = find_drain_budget_key(budget)
+    extra = [name for name in SURFACE_RELEASE_BUDGETS if name in budget]
+    if drn_key is None and not extra:
+        raise KeyError(
+            "No release budget field: expected a drain component or one of "
+            f"{sorted(SURFACE_RELEASE_BUDGETS)}."
+        )
+    n_steps = int(stop) - int(start)
+    if n_steps <= 0:
+        return np.empty((0, int(n_cells)), dtype="float64")
+    release = np.zeros((n_steps, int(n_cells)), dtype="float64")
+    drn_stack = drain_stack_with_mover(budget, drn_key, int(start), int(stop))
+    if drn_stack is not None:
+        release += drain_budget_stack_to_positive_outflow(drn_stack, n_cells=n_cells)
+    for name in extra:
+        stack = np.asarray(budget[name][int(start) : int(stop)], dtype="float64")
+        release += positive_cell_flux_stack(stack * SURFACE_RELEASE_BUDGETS[name], n_cells=n_cells)
+    release = np.maximum(release, 0.0)
+    return np.where(np.isfinite(release), release, 0.0)
+
+
 def active_surface_mask(topography: Any, *, nodata_floor: float = -9000.0) -> np.ndarray:
     """Return True for cells with a finite, non-nodata surface elevation."""
     surface = np.asarray(topography, dtype=float).reshape(-1)
@@ -448,7 +579,10 @@ __all__ = [
     "DOMAIN_BUDGET_ZONE",
     "DRAIN_BAND_DEPTH_ATTR",
     "DRAIN_BUDGET_KEYS",
+    "DRN_TO_MVR_KEYS",
     "DownhillGraph",
+    "RELEASE_BUDGET_KEYS",
+    "SURFACE_RELEASE_BUDGETS",
     "accumulate_on_downhill_graph",
     "active_surface_mask",
     "build_downhill_graph",
@@ -458,6 +592,10 @@ __all__ = [
     "drain_budget_stack_to_positive_outflow",
     "drain_budget_to_positive_outflow",
     "drain_band_depth",
+    "drain_stack_with_mover",
     "find_drain_budget_key",
+    "has_release_budget",
+    "positive_cell_flux_stack",
+    "release_flux_stack",
     "seepage_mask",
 ]

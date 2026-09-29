@@ -17,7 +17,7 @@ Refer to ``reports_db/03_zarr_stores.md`` and
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +26,7 @@ import zarr
 from filelock import FileLock
 from upath import UPath
 
+from hydromodpy.core.field_precision import DEFAULT_FIELD_PRECISION, FieldPrecision
 from hydromodpy.results.zarr_store import zarr_finalizer, zarr_reader, zarr_writer
 from hydromodpy.results.zarr_store.zarr_finalizer import (
     LOCK_TIMEOUT_SECONDS,
@@ -58,11 +59,23 @@ def _file_lock_for_store(path: Path) -> FileLock:
 
 
 class SimulationZarr:
-    """Per-simulation Zarr v3 store. Atomic, locked, CF-1.11 + ACDD-1.3."""
+    """Per-simulation Zarr v3 store. Atomic, locked, CF-1.11 + ACDD-1.3.
 
-    def __init__(self, path: Path | UPath | str, *, balanced: bool = True) -> None:
+    ``field_precision`` is the precision the time-varying fields are written
+    in (see :mod:`hydromodpy.core.field_precision`). It only governs writes:
+    a store reads the same whatever precision the handle was opened with.
+    """
+
+    def __init__(
+        self,
+        path: Path | UPath | str,
+        *,
+        balanced: bool = True,
+        field_precision: FieldPrecision = DEFAULT_FIELD_PRECISION,
+    ) -> None:
         self._path = Path(str(path))
         self._balanced = bool(balanced)
+        self._field_precision: FieldPrecision = field_precision
         self._on_close: Callable[[SimulationZarr], None] | None = None
         if is_zip_store_path(self._path):
             self._store: Any = zarr.storage.ZipStore(str(self._path), mode="r")
@@ -85,6 +98,7 @@ class SimulationZarr:
         cell_types: list[str] | None = None,
         geographic_fingerprint: str | None = None,
         balanced: bool = True,
+        field_precision: FieldPrecision = DEFAULT_FIELD_PRECISION,
     ) -> SimulationZarr:
         path, store, root = initialise_root(
             path,
@@ -98,6 +112,7 @@ class SimulationZarr:
         instance._store = store
         instance._root = root
         instance._balanced = bool(balanced)
+        instance._field_precision = field_precision
         instance._on_close = None
         instance._lock = _file_lock_for_store(path)
         return instance
@@ -121,6 +136,11 @@ class SimulationZarr:
     @property
     def balanced(self) -> bool:
         return self._balanced
+
+    @property
+    def field_precision(self) -> FieldPrecision:
+        """Precision the time-varying fields of this handle are written in."""
+        return self._field_precision
 
     # -- Geographic fingerprint ---------------------------------------------
 
@@ -289,6 +309,20 @@ class SimulationZarr:
     ) -> np.ndarray:
         return zarr_reader.read_field(self, variable, timestep, subgroup=subgroup, layer=layer)
 
+    def read_field_range(
+        self,
+        variable: str,
+        start: int,
+        stop: int,
+        *,
+        subgroup: str | None = None,
+        layer: int | None = None,
+    ) -> np.ndarray:
+        """Read timesteps ``[start, stop)`` in one slice; row ``i`` is ``read_field`` at ``start + i``."""
+        return zarr_reader.read_field_range(
+            self, variable, start, stop, subgroup=subgroup, layer=layer
+        )
+
     def read_time(self) -> np.ndarray | None:
         """Return the CF ``/time`` axis as ``datetime64[ns]``, or ``None``.
 
@@ -436,9 +470,9 @@ class SimulationZarr:
         """Consolidate Zarr metadata into a single ``.zmetadata`` entry."""
         zarr_finalizer.consolidate_metadata(self._store, self._path)
 
-    def drop_group(self, name: str) -> int:
-        """Delete a top-level group; returns the bytes freed on disk."""
-        return zarr_finalizer.drop_group(self, name)
+    def drop_group(self, name: str, *, keep: Collection[str] = ()) -> int:
+        """Delete a top-level group but the members named in ``keep``; return bytes freed."""
+        return zarr_finalizer.drop_group(self, name, keep=keep)
 
     def close(self) -> None:
         zarr_finalizer.close(self)

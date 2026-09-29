@@ -42,8 +42,31 @@ source = "custom"
 path = "runoff"
 station_ids = ["NANCON"]
 
-# What enters and leaves, the gauge against the simulation, and the seepage
-# of October 2002, the driest month.
+# What enters and leaves, the gauge against the simulation, the seepage of
+# October 2002, the driest month, then which cells flow and for how long:
+# the share of the three years each cell flows, and its class in 2002.
 [display]
 time = "2002-10-15"
-figures = ["flux_timeseries", "hydrograph_sim_obs", "seepage_map"]
+figures = [
+    "flux_timeseries",
+    "hydrograph_sim_obs",
+    "seepage_map",
+    "flow_persistence_map",
+    "flow_intermittence_map",
+]
+
+# One hydrological year, the driest of the record.
+[display.overrides.flow_intermittence_map]
+cycle = "2002"
+
+# The exports of steps 1 and 2, now of a transient run: the GeoTIFFs hold
+# December 2002, the last month. Two blocks more for what a record adds.
+
+# The water table over the 36 months: one NetCDF chronicle.
+[[export__append]]
+variables = ["head", "watertable_depth"]
+
+# Simulated and gauged discharge over the run: CSV, the model monthly and
+# the gauge daily.
+[[export__append]]
+variables = ["discharge", "discharge_obs"]

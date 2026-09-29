@@ -207,7 +207,10 @@ list, and ``<key>__append`` adds to it instead of replacing it; a bare
 step1_minimal.toml — run ``nancon_step1_minimal``, no ``base_config``
    The shortest config that runs to completion on the Nançon catchment:
    steady state, the local DEM, one homogeneous ``K``, and a drainage
-   boundary. Nothing here is optional; this is the floor.
+   boundary. It draws five figures and writes three exports to
+   ``share/nancon_step1_minimal/``: the catchment, the water table and the
+   seepage cells as GeoTIFF, and the budget. Each later step inherits these
+   exports and appends its own with ``[[export__append]]``.
 
    .. code-block:: bash
 
@@ -222,12 +225,13 @@ step2_local_data.toml — run ``nancon_step2_local``, ``base_config = "step1_min
    criterion looks at. So this step buys you data on disk, not a different
    result.
 
-step3_api_data.toml — run ``nancon_step3_api``, ``base_config = "step1_minimal.toml"``
+step3_api_data.toml — run ``nancon_step3_api``, ``base_config = "step2_local_data.toml"``
    The same model as step 2, but the hydrography comes from the BD TOPAGE
-   API and the hydrometry from Hub'Eau instead of local files. It is a
-   **sibling** of step 2, not a child: both inherit only from step 1, and
-   both should produce a comparable network from two different sources.
-   Running it needs network access; step 2 does not.
+   API and the hydrometry from Hub'Eau instead of local files:
+   ``sources__delete = true`` drops the local sources it inherits. It also
+   exports the permanent BD TOPAGE reaches beside all of them. Running it
+   needs network access; step 2 does not. Step 4 builds on step 2, so the
+   API variant stays a side branch.
 
 step4_transient.toml — run ``nancon_step4_transient``, ``base_config = "step2_local_data.toml"``
    Switches to monthly transient, 2000-2002, with storage and the observed
@@ -236,8 +240,9 @@ step4_transient.toml — run ``nancon_step4_transient``, ``base_config = "step2_
    step 1, not fitted ones.
 
 step5_export.toml — run ``nancon_step5_export``, ``base_config = "step4_transient.toml"``
-   Adds ``[[export]]`` blocks and a ``[display]`` figure list, four
-   ``base_config`` levels deep. Run this last:
+   Writes one ``[[export]]`` block per kind of data, four ``base_config``
+   levels deep. A top-level ``export__delete = true`` drops the blocks steps
+   1 to 4 declared, so the list is this file's alone. Run this last:
 
    .. code-block:: bash
 
@@ -268,7 +273,7 @@ step5_export.toml — run ``nancon_step5_export``, ``base_config = "step4_transi
    CSV, the catchment and the networks to GeoPackage, the DEM to GeoTIFF;
    ``format = "package"`` writes the portable ``.hmp`` archive. The console
    says it in one line, ``Exported N file(s) -> share/nancon_step5_export``.
-   The four ``[display]`` figures land in the run's ``figures/`` directory;
+   The eight ``[display]`` figures land in the run's ``figures/`` directory;
    use ``hmp viz show`` (section 7) to render any other registered figure
    for this run on demand, and ``hmp export`` to write any other data.
 

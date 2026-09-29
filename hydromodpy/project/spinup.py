@@ -149,7 +149,15 @@ def run_spinup(
         cfg.flow.restart_from,
         cfg.flow.ic,
     )
+    persistence = getattr(getattr(cfg.simulation, "results", None), "persistence", None)
+    saved_precision = getattr(persistence, "field_precision", None)
     try:
+        # A cycle's stored heads start the next cycle and, once converged, the
+        # production run: they are written exact, so the rounding of the compact
+        # precision (up to 2**-17 of the head) never enters a restart nor the
+        # comparison against tol_head.
+        if persistence is not None:
+            persistence.field_precision = "exact"
         # A dedicated, shorter representative window keeps each cycle cheap. Set it
         # before prepare() so the data step loads forcing for the cycle window.
         if settings.window_start is not None:
@@ -230,6 +238,8 @@ def run_spinup(
             cfg.flow.restart_from,
             cfg.flow.ic,
         ) = _saved_config
+        if persistence is not None:
+            persistence.field_precision = saved_precision
 
 
 def _tag_spinup_cycles(project: Project, cycles: list[SpinupCycle], *, converged: bool) -> None:

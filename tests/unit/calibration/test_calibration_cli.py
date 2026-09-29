@@ -153,8 +153,18 @@ def fake_pipeline(monkeypatch, tmp_path):
             raw_toml=raw,
         )
 
-    def _fake_promote(trial_ctx, values, *, name=None, tags=(), session_id=None, sim_id=None):
-        del trial_ctx, tags
+    def _fake_promote(
+        trial_ctx,
+        values,
+        *,
+        name=None,
+        tags=(),
+        session_id=None,
+        sim_id=None,
+        kept=None,
+        spared=(),
+    ):
+        del trial_ctx, tags, kept, spared
         sim_id = sim_id or uuid.uuid4().hex
         promoted.append(
             {

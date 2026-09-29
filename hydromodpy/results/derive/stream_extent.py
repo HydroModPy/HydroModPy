@@ -347,16 +347,23 @@ def flowing_share(
 
 
 def _release_rows(sim: Run, steps: np.ndarray, n_cells: int) -> np.ndarray:
-    """Return the release field at ``steps`` as a ``(len(steps), n_cells)`` stack."""
-    rows = np.empty((steps.size, n_cells), dtype=float)
-    for position, step in enumerate(steps.tolist()):
-        values = np.asarray(sim.field(FLOW_FIELD, timestep=int(step)), dtype=float).reshape(-1)
-        if values.size != n_cells:
-            raise ValueError(
-                f"{FLOW_FIELD} holds {values.size} cells at timestep {step} and the mesh "
-                f"holds {n_cells}; they were not written for the same run."
-            )
-        rows[position] = values
+    """Return the release field at ``steps`` as a ``(len(steps), n_cells)`` stack.
+
+    Consecutive steps are read as one range, the store opened once for them
+    (:func:`hydromodpy.results.run.geographic.field_steps`).
+    """
+    from hydromodpy.results.run.geographic import field_steps
+
+    order = np.asarray(steps, dtype=np.int64).reshape(-1)
+    if order.size == 0:
+        return np.empty((0, n_cells), dtype=float)
+    rows = np.asarray(field_steps(sim, FLOW_FIELD, order.tolist()), dtype=float)
+    rows = rows.reshape(order.size, -1)
+    if rows.shape[1] != n_cells:
+        raise ValueError(
+            f"{FLOW_FIELD} holds {rows.shape[1]} cells at timestep {int(order[0])} and the mesh "
+            f"holds {n_cells}; they were not written for the same run."
+        )
     return rows
 
 

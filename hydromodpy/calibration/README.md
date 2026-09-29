@@ -104,6 +104,7 @@ hydromodpy/calibration/
                 phase_regime.py (steady or transient, as config overrides)
                 pipeline_evaluator.py  promotion.py  recap.py  restarts.py  resume.py
                 state.py (store and params-hash context)  failure_watch.py
+                kept_solves.py (trial solves kept on disk for their promotion)
   reporting/    network_transient_html.py  network_transient/
   lumped/  cases/
 ```
@@ -171,6 +172,10 @@ is read rather than inside the adapter.
 8. **Promote.** `runners/promotion.py` replays the best trials through the full
    pipeline and links each to its simulation id. The best one is named
    `<simulation name>_<phase>`, or the simulation name alone for one phase.
+   A trial the session may promote keeps its solver folder
+   (`runners/kept_solves.py`), and its promotion goes on from extraction on
+   that folder instead of solving again; the run is tagged
+   `promoted_from_trial:<id>`. A trial with no kept solve is solved again.
    `runners/recap.py` records what the console recap of `hmp run` prints
    (units, cost metric, session folder) and writes `methods.md`.
 9. **Report.** `report.py` reads the session back;

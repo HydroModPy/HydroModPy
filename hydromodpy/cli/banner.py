@@ -12,17 +12,21 @@ _PY_STYLE = "bold #FFC20E"
 _TAGLINE_STYLE = "dim"
 
 _LETTER_LINES = [
-    r"      __  __          __           __  ____          ________     ",
-    r"     / / / /         / /          /  \/   /         / / __  /     ",
-    r"    / /_/ /_  ______/ /________  /       /___  ____/ / /_/ /_  __ ",
-    r"   / __  / / / / __  / ___/ __ \/ /\,-/ / __ \/ __  / ____/ / / / ",
-    r"  / / / / /_/ / /_/ / /  / /_/ / /   / / /_/ / /_/ / /   / /_/ /  ",
-    r" /_/ /_/\__, /_____/_/   \____/_/   /_/\____/_____/_/____\__, /   ",
+    r"      __  __          __             __  ____          __  ______    ",
+    r"     / / / /         / /            /  \/   /         / / / __  /    ",
+    r"    / /_/ /_  ______/ /________    /       /___  ____/ / / /_/ /_  __",
+    r"   / __  / / / / __  / ___/ __ \  / /\,-/ / __ \/ __  / / ____/ / / /",
+    r"  / / / / /_/ / /_/ / /  / /_/ / / /   / / /_/ / /_/ / / /   / /_/ / ",
+    r" /_/ /_/\__, /_____/_/   \____/ /_/   /_/\____/_____/ /_/____\__, /  ",
 ]
-# Per-line column splits between the Hydro, Mod and Py letter groups.
-# The font is slanted, so the boundaries shift left on lower lines.
-_SPLITS = [(34, 55), (33, 55), (33, 54), (32, 53), (32, 52), (31, 53)]
-_FOOTER = r"       /____/ Hydrological Modelling in Python /_____________/    "
+# Per-line column splits between the Hydro, Mod and Py letter groups. The
+# slanted font joins neighbour letters with a shared stroke, so the art keeps
+# a blank column where the color changes: every letter is drawn whole in its
+# group's color. The boundaries shift left on lower lines, following the slant.
+_SPLITS = [(37, 59), (36, 58), (35, 57), (34, 56), (33, 55), (32, 54)]
+_FOOTER = r"       /____/   Hydrological Modelling in Python   /_____________/"
+# Starts of the Hydro y descender, the tagline and the swash under Py.
+_FOOTER_SPLITS = (7, 13, 51)
 
 _banner_printed = False
 
@@ -34,10 +38,11 @@ def _banner() -> Text:
         text.append(line[:hydro_end], style=_HYDRO_STYLE)
         text.append(line[hydro_end:mod_end], style=_MOD_STYLE)
         text.append(line[mod_end:] + "\n", style=_PY_STYLE)
-    text.append(_FOOTER[:7])
-    text.append(_FOOTER[7:13], style=_HYDRO_STYLE)
-    text.append(_FOOTER[13:47], style=_TAGLINE_STYLE)
-    text.append(_FOOTER[47:62] + "\n", style=_PY_STYLE)
+    descender, tagline, swash = _FOOTER_SPLITS
+    text.append(_FOOTER[:descender])
+    text.append(_FOOTER[descender:tagline], style=_HYDRO_STYLE)
+    text.append(_FOOTER[tagline:swash], style=_TAGLINE_STYLE)
+    text.append(_FOOTER[swash:] + "\n", style=_PY_STYLE)
     return text
 
 

@@ -548,7 +548,9 @@ class RegistrationMixin:
         if dirname is not None:
             self._paths.cache_dirname(sid, dirname)
         if zarr_final is not None:
-            zarr_obj = self._track_zarr_handle(SimulationZarr(zarr_final))
+            zarr_obj = self._track_zarr_handle(
+                SimulationZarr(zarr_final, field_precision=self._persistence.field_precision)
+            )
         return RegistrationResult(
             sim_id=sid,
             name=final_name,

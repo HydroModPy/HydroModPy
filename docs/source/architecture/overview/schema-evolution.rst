@@ -103,7 +103,10 @@ Principles
 5. **Breaking reader change.** Any change to shape, dtype, column
    order, or semantics of an existing field triggers a version bump and
    a migration. Pure refactors that do not touch disk do not bump the
-   version.
+   version. The float width of a Zarr field is the exception: float32
+   (``field_precision = "compact"``) or float64 (``"exact"``) is a
+   per-store choice declared in each array's metadata, and every reader
+   returns float64 from both, so it is not a reader change.
 
 6. **Export/import boundary.** A ``.hmp`` archive carries ``format`` and
    ``format_version`` in its own manifest, plus a SHA-256 for every file

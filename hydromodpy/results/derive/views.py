@@ -135,9 +135,13 @@ def _stack_field(sim: Run, variable: str) -> np.ndarray:
     per figure.
 
     A field absent from the store is not an error: derived fields are off by
-    default and are rebuilt on read, so the miss falls back to ``Run.field``
-    (the single virtual-aware read path) instead of failing.
+    default and are rebuilt on read. The miss is rebuilt on the same open
+    handle when the store holds what it needs, and otherwise falls back to
+    ``Run.field`` (the single virtual-aware read path), which names the
+    option to enable when nothing can rebuild it.
     """
+    from hydromodpy.results.derive.virtual_fields import derive_field_stack
+
     n = sim.n_timesteps or 1
     sz = sim._catalog.open_zarr(sim._sim_id)
     try:
@@ -149,7 +153,8 @@ def _stack_field(sim: Run, variable: str) -> np.ndarray:
                     np.asarray(sz.read_field(variable, t, layer=None)).ravel() for t in range(n)
                 ]
             except KeyError:
-                frames = None
+                derived = derive_field_stack(sz, sim._sim_id, variable, range(n))
+                frames = None if derived is None else list(derived.reshape(n, -1))
     finally:
         sz.close()
     if frames is None:

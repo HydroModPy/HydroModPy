@@ -104,8 +104,18 @@ def test_the_best_trial_takes_the_name_and_a_kept_one_its_trial_number(
     ]
     names: list[str] = []
 
-    def _fake(trial_ctx, values, *, name=None, tags=(), session_id=None, sim_id=None):
-        del trial_ctx, values, tags, session_id
+    def _fake(
+        trial_ctx,
+        values,
+        *,
+        name=None,
+        tags=(),
+        session_id=None,
+        sim_id=None,
+        kept=None,
+        spared=(),
+    ):
+        del trial_ctx, values, tags, session_id, kept, spared
         names.append(str(name))
         return sim_id
 
@@ -115,7 +125,7 @@ def test_the_best_trial_takes_the_name_and_a_kept_one_its_trial_number(
 
     count, failures, best_sim_id = promote_iterations(
         cfg=_cfg(),
-        trial_ctx=object(),
+        trial_ctx=SimpleNamespace(kept_solves=None),
         catalog=None,
         persistence=_Persistence(rows),
         session_id=uuid.uuid4().hex,

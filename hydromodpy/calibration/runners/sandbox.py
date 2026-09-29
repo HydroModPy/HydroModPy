@@ -9,7 +9,9 @@ each other's input/output files.
 ``model_name_override`` so the solver writes into its own ``<scratch>/<model>/``
 folder (the shared, read-only preprocessing under ``<scratch>/`` stays shared).
 It is a context manager (RAII): on exit it removes the trial's solver output
-directories. Set ``HMP_KEEP_TRIAL_SCRATCH=1`` to retain them for debugging.
+directories, unless the session retention took them over for a promotion
+(:meth:`TrialSandbox.keep_outputs`). Set ``HMP_KEEP_TRIAL_SCRATCH=1`` to retain
+them all for debugging.
 """
 
 from __future__ import annotations
@@ -70,6 +72,7 @@ class TrialSandbox:
     ) -> None:
         self.model_name = f"{_sanitize(base_model_name)}_trial{int(trial_id):06d}"
         self._keep = keep_trial_scratch() if keep is None else bool(keep)
+        self._handed_over = False
         self._execution: Any | None = None
         # Eager output dir: the trial writes into <scratch>/<model_name>/, so a
         # diverged / timed-out / crashed trial (which never records a success in
@@ -87,7 +90,12 @@ class TrialSandbox:
         """Record the forked execution registry whose outputs to clean up."""
         self._execution = execution
 
-    def _output_dirs(self) -> list[Path]:
+    def keep_outputs(self) -> None:
+        """Leave the solver outputs in place on exit: the session retention owns them now."""
+        self._handed_over = True
+
+    def output_dirs(self) -> list[Path]:
+        """Return every folder this trial's solver wrote into, once each."""
         registry = getattr(self._execution, "output_dirs_by_run_id", None) or {}
         candidates = [Path(p) for p in registry.values() if p]
         if self._eager_dir is not None:
@@ -105,11 +113,13 @@ class TrialSandbox:
         return self
 
     def __exit__(self, *exc_info: object) -> bool:
+        if self._handed_over:
+            return False
         if self._keep:
-            for path in self._output_dirs():
+            for path in self.output_dirs():
                 logger.debug("Kept trial output %s (%s set)", path, KEEP_ENV_VAR)
             return False
-        for path in self._output_dirs():
+        for path in self.output_dirs():
             shutil.rmtree(path, ignore_errors=True)
         return False
 

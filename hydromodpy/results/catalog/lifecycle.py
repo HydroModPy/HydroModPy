@@ -339,7 +339,9 @@ class LifecycleMixin:
             fields.parent.mkdir(parents=True, exist_ok=True)
             created = SimulationZarr.create(fields, n_cells=0, n_layers=1)
             created.close()
-        return self._track_zarr_handle(SimulationZarr(fields))
+        return self._track_zarr_handle(
+            SimulationZarr(fields, field_precision=self._persistence.field_precision)
+        )
 
     def _fetch_simulation_row(self, sim_id: str) -> dict | None:
         """Return the ``simulations`` row as a plain dict for ACDD composition."""

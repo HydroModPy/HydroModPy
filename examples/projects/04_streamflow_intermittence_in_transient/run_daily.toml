@@ -1,6 +1,7 @@
 # Nancon, the same model at a daily step. Only what the step changes is written
-# here: the step, the forcing that carries it, the name and two figures.
-# The figure date, 2002-10-15, comes from project.toml and follows the step.
+# here: the step, the forcing that carries it, the name and three figures.
+# The figure date, 2002-10-15, comes from project.toml and follows the step,
+# and so do the four exports of project.toml: the discharge CSV is now daily.
 #
 #   hmp run examples/projects/04_streamflow_intermittence_in_transient/run_daily.toml
 
@@ -27,7 +28,8 @@ station_ids = ["NANCON_REA"]
 station_ids = ["NANCON_REA"]
 
 # 36 monthly points were too few to read a duration curve or a recession off,
-# 1096 daily ones are not. `__append` adds to the parent's figures; a plain
+# 1096 daily ones are not. The linear hydrograph shows the storms the log axis
+# flattens. `__append` adds to the parent's figures; a plain
 # `figures = [...]` would replace them.
 [display]
-figures__append = ["duration_curve", "recession"]
+figures__append = ["hydrograph_sim_obs", "duration_curve", "recession"]

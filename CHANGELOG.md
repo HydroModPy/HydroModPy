@@ -33,6 +33,37 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Changed
+- Time-varying fields are stored in float32 with the mantissa rounded to 16 kept bits
+  (`[simulation.results.persistence] field_precision = "compact"`, the default; `"exact"` keeps
+  float64). The error is at most 2**-17 of the value, under 1 mm on a 130 m head, and a rounded
+  array carries the CF `quantization` attributes. `release_flux` and `fluxes_from_budget` are
+  rebuilt on read from the budget terms instead of stored. A daily 6-year run of example 04 goes
+  from 1375 to 397 MB, a monthly one from 16 to 5.5 MB; its NSE moves by 7e-8. Stores written
+  before read as they did. A spin-up writes its cycles exact, since their heads start the next
+  cycle and the production run.
+- A field is read over a range of timesteps with the store opened once
+  (`results.run.geographic.field_range`, `field_steps`), and the flow-state figures use it: the
+  15 figures of a daily example 04 run render in 17 s instead of about 2 min, the same pixels.
+- A calibration promotes a trial from the solve the trial already ran: the trial's MODFLOW
+  folder is kept while it may be promoted (every trial under `save_runs = "all"`, the
+  `save_best_n` or the best otherwise), and the promotion resumes at extraction instead of
+  writing inputs and solving again. The promoted run is the same, all Zarr arrays bit for bit,
+  and is tagged `promoted_from_trial:<N>`; a trial that was not kept is replayed as before, with
+  the reason logged. On the daily API grid of example 04 a promotion no longer spends its ~7 min
+  of solve. The kept folders are released on every exit path.
+- The CLI banner draws every letter whole in its color. The slanted font joined the Hydro "o" to
+  the "M" and the Mod "d" to the "P" with a shared stroke, so the color changed inside a letter
+  and the "P" had no yellow stem. The art keeps a blank column at both joins, four columns wider.
+
+### Fixed
+- The scan of `data/<variable>/` before a run removes an orphan sidecar, one whose data file is
+  gone, when it holds nothing the file does not give back (hash, CRS, bbox, undetermined licence).
+  Git ignores the sidecars HydroModPy writes, so a data file a commit removed left its sidecar in
+  every clone, and every `hmp run` of that workspace warned `auto_scan skipped` about it, lake
+  sidecars included for a run without a lake. A sidecar with a stated licence or notes is kept
+  and reported as kept; `hmp data check` says which of the two the next scan does.
+
 ---
 
 ## [v2.0.0a3] - 2026-09-29

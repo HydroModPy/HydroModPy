@@ -2,8 +2,9 @@
 
 Covers the registry API (register / get / list / ordered_names / apply),
 the canonical default derivations (watertable_elevation, watertable_depth,
-seepage_mask, fluxes_from_budget) against a tiny in-memory Zarr store, and
-the DeriveStep wiring through a minimal stub context.
+seepage_mask) against a tiny in-memory Zarr store, and the DeriveStep wiring
+through a minimal stub context. ``fluxes_from_budget`` is rebuilt on read, so
+its tests live in ``tests/unit/results/test_fields_rebuilt_on_read.py``.
 """
 
 from __future__ import annotations
@@ -145,7 +146,6 @@ def test_default_registry_has_canonical_entries():
         "watertable_elevation",
         "watertable_depth",
         "seepage_mask",
-        "fluxes_from_budget",
     }
     # Protocol compliance
     for name in registry.list():
@@ -283,35 +283,6 @@ def test_seepage_mask_prefers_solver_surface_excess_budget(tmp_path):
     np.testing.assert_array_equal(mask[1], [0.0, 1.0, 0.0, 0.0])
 
 
-def test_fluxes_from_budget_divides_by_cell_area(tmp_path):
-    sz = _make_zarr(
-        tmp_path,
-        cell_area=[10.0, 10.0, 10.0, 10.0],
-        drn=np.array([[100.0, 0.0, -50.0, 20.0], [10.0, 20.0, 30.0, 40.0]]),
-    )
-    results = registry.apply(sz, names=["fluxes_from_budget"])
-    assert [r.status for r in results] == ["computed"]
-    flux = np.asarray(sz.root["derived"]["fluxes_from_budget"][:])
-    np.testing.assert_array_almost_equal(flux[0], [10.0, 0.0, -5.0, 2.0])
-    np.testing.assert_array_almost_equal(flux[1], [1.0, 2.0, 3.0, 4.0])
-
-
-def test_fluxes_from_budget_skipped_without_budget(tmp_path):
-    sz = _make_zarr(tmp_path, cell_area=[10.0, 10.0, 10.0, 10.0])
-    results = registry.apply(sz, names=["fluxes_from_budget"])
-    assert results[0].status == "skipped"
-    assert "budget" in results[0].reason.lower()
-
-
-def test_fluxes_from_budget_skipped_without_cell_area(tmp_path):
-    sz = _make_zarr(
-        tmp_path,
-        drn=np.array([[100.0, 0.0, -50.0, 20.0], [10.0, 20.0, 30.0, 40.0]]),
-    )
-    results = registry.apply(sz, names=["fluxes_from_budget"])
-    assert results[0].status == "skipped"
-
-
 # ---------------------------------------------------------------------------
 # DeriveStep wiring
 # ---------------------------------------------------------------------------
@@ -385,15 +356,12 @@ def test_derive_step_runs_registry(tmp_path):
     state = PipelineState(run_id="r", data={"ctx": ctx})
     out = DeriveStep().run(state)
     assert out.step_name == "derive"
-    # All four derivations must have produced outputs.
+    # The three registry derivations produced outputs; the unit budget flux
+    # is not written, it is rebuilt on read.
     derived = sz.root["derived"]
-    for name in (
-        "watertable_elevation",
-        "watertable_depth",
-        "seepage_mask",
-        "fluxes_from_budget",
-    ):
+    for name in ("watertable_elevation", "watertable_depth", "seepage_mask"):
         assert name in derived, f"{name} not written"
+    assert "fluxes_from_budget" not in derived
 
 
 def test_derive_step_without_ctx_raises():
@@ -419,12 +387,7 @@ def test_derive_step_without_head_is_noop(tmp_path):
     # No head → derived group must remain empty of our canonical names.
     derived = sz.root.get("derived")
     if derived is not None:
-        for name in (
-            "watertable_elevation",
-            "watertable_depth",
-            "seepage_mask",
-            "fluxes_from_budget",
-        ):
+        for name in ("watertable_elevation", "watertable_depth", "seepage_mask"):
             assert name not in derived
 
 
@@ -432,27 +395,3 @@ def test_registry_accessible_via_public_api():
     from hydromodpy.workflow.internals import derived as derived_pkg
 
     assert "watertable_elevation" in derived_pkg.registry.list()
-
-
-def test_fluxes_from_budget_needs_the_mesh_geometry_and_says_so(tmp_path):
-    # No vertices, no connectivity: the areas cannot be rebuilt and the
-    # derivation has to skip with a sentence rather than divide by nothing.
-    sz = _make_zarr(tmp_path, drn=np.array([[100.0, 0.0, -50.0, 20.0], [10.0, 20.0, 30.0, 40.0]]))
-    results = registry.apply(sz, names=["fluxes_from_budget"])
-
-    assert results[0].status == "skipped"
-    assert "cell area" in str(results[0].reason).lower()
-
-
-def test_the_areas_come_from_the_geometry_and_not_from_a_stored_array(tmp_path):
-    # Uneven cells, so an implementation reading a constant or a mean is caught.
-    sz = _make_zarr(
-        tmp_path,
-        cell_area=[10.0, 20.0, 40.0, 80.0],
-        drn=np.array([[100.0, 100.0, 100.0, 100.0], [10.0, 20.0, 30.0, 40.0]]),
-    )
-    results = registry.apply(sz, names=["fluxes_from_budget"])
-
-    assert [r.status for r in results] == ["computed"]
-    flux = np.asarray(sz.root["derived"]["fluxes_from_budget"][:])
-    np.testing.assert_array_almost_equal(flux[0], [10.0, 5.0, 2.5, 1.25])

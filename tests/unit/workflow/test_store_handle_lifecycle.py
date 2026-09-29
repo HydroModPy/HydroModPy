@@ -249,6 +249,24 @@ def test_step_cleanup_scratch_spares_the_preprocessing_tree(tmp_path: Path) -> N
     assert preprocessing.is_dir()
 
 
+def test_step_cleanup_scratch_spares_the_folders_another_promotion_owns(tmp_path: Path) -> None:
+    """A calibration keeps trial solver folders for their own promotion."""
+    from hydromodpy.workflow.steps import export as export_module
+
+    scratch = tmp_path / ".solver_scratch"
+    promoted = scratch / "run_trial000001"
+    kept = scratch / "run_trial000002"
+    shared = scratch / "_shared_recharge"
+    for folder in (promoted, kept, shared):
+        folder.mkdir(parents=True)
+
+    export_module.step_cleanup_scratch(_scratch_ctx(scratch), spare=(str(kept),))
+
+    assert kept.is_dir()
+    assert not promoted.exists()
+    assert not shared.exists()
+
+
 def test_step_drop_empty_scratch_only_removes_an_empty_folder(tmp_path: Path) -> None:
     from hydromodpy.workflow.steps import export as export_module
 

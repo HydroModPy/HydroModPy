@@ -653,6 +653,9 @@ def _run_once(config: Path, run_name: str, *, timeout: int) -> float:
         "run",
         "--no-lock",
         "--no-display",
+        # Exports land in share/, which deleting the run leaves behind.
+        "--set",
+        "export=[]",
         "--set",
         f"simulation.name={run_name}",
         str(config),

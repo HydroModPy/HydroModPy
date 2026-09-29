@@ -120,10 +120,11 @@ on_error = "raise"
 # The default, the last period, is a December with a nearly full network.
 time = "2002-10-15"
 
-# The catchment, what enters and leaves it, the gauge, then the four that
-# answer which reaches dry up and when. `hmp viz show <name>` renders any other
-# figure on demand, network_extent_bounds_map among them: the yearly maximal
-# and minimal simulated extents against the map.
+# The catchment, what enters and leaves it, the gauge, the water table, then
+# the five that answer which reaches dry up, when, and how far from the map.
+# `hmp viz show <name>` renders any other figure on demand,
+# network_extent_bounds_map among them: the yearly maximal and minimal
+# simulated extents against the map.
 #
 # hydrograph_log_nse draws the same series as hydrograph_sim_obs on the axis an
 # intermittent catchment is read on, and marks the window stage two scores.
@@ -137,10 +138,12 @@ figures = [
     "flux_timeseries",
     "hydrograph_log_nse",
     "cross_section",
+    "watertable_depth_map",
     "seepage_map",
     "flow_persistence_map",
     "flow_intermittence_map",
     "seepage_network_confusion_map",
+    "downslope_distance_map",
 
     "downslope_distance_crossing",
     "bisection_bracket_trace",
@@ -163,3 +166,23 @@ cycle = "2002"
 # The window the calibrations score, 2000 being spin-up, shaded on the figure.
 [display.overrides.hydrograph_log_nse]
 scoring_window = ["2001-01-01", "2002-12-31"]
+
+# What each run writes to share/<run>/. The files based on this one inherit
+# the four blocks: a calibration writes them for every run it promotes.
+
+# The catchment and the mapped network: GeoPackage.
+[[export]]
+variables = ["watershed", "hydrographic_network_reference"]
+
+# The water table and the seepage cells of October 2002: one GeoTIFF each.
+[[export]]
+variables = ["watertable_depth", "seepage_mask"]
+time = "2002-10-15"
+
+# Simulated and gauged discharge over the run: CSV.
+[[export]]
+variables = ["discharge", "discharge_obs"]
+
+# The water budget of every period: CSV.
+[[export]]
+variables = "budget"

@@ -301,7 +301,11 @@ def derive_catchment_domain(
     watershed_box_buff_path = out_dir / watershed_box_buff_name
 
     buff_gdf = catchment_gdf.copy()
-    buff_gdf["geometry"] = buff_gdf.geometry.buffer(buff_dist, resolution=BUFFER_QUAD_SEGS)
+    # Shapely's own buffer: GeoSeries.buffer names this argument resolution before
+    # geopandas 1.2 and quad_segs from it, and the declared range covers both.
+    buff_gdf["geometry"] = [
+        geom.buffer(buff_dist, quad_segs=BUFFER_QUAD_SEGS) for geom in buff_gdf.geometry
+    ]
     buff_gdf.to_file(str(watershed_buff_path))
     ensure_crs(watershed_buff_path, target_crs)
 

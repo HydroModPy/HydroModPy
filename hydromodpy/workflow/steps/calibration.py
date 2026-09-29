@@ -21,6 +21,7 @@ from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.orchestrator import standard_steps
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.steps.data import apply_structural_updates_from_data
+from hydromodpy.workflow.steps.run_solver import RunSolverStep
 from hydromodpy.workflow.steps.setup import (
     collect_requested_support_ids,
     resolve_support_configs,
@@ -116,6 +117,16 @@ class WorkflowTrialPipelineProvider(TrialPipelineProvider):
 
     def make_pipeline(self, steps: Sequence[TrialStep]) -> TrialPipelineRunner:
         return Pipeline(steps)
+
+    def with_solver_launcher(
+        self,
+        steps: Sequence[TrialStep],
+        launcher: Any,
+    ) -> tuple[TrialStep, ...]:
+        return tuple(
+            RunSolverStep(launcher=launcher) if step.name == RunSolverStep.name else step
+            for step in steps
+        )
 
     def make_state(self, run_id: str, data: Mapping[str, Any]) -> Any:
         return PipelineState(run_id=run_id, data=dict(data))

@@ -53,6 +53,13 @@ def test_the_export_step_writes_one_request_per_kind() -> None:
     assert len(cfg.export) == 11
 
 
+@pytest.mark.parametrize("name", FILES)
+def test_each_file_draws_figures_and_writes_exports(name: str) -> None:
+    cfg = HydroModPyConfig.from_toml(EXAMPLE_04 / name)
+    assert cfg.display.figures
+    assert cfg.export
+
+
 @pytest.mark.parametrize("name", CALIBRATIONS)
 def test_each_calibration_passes_the_preflight(name: str, capsys) -> None:
     code = calibrate_cmd.run(

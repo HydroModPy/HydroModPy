@@ -366,3 +366,24 @@ def test_drop_group_removes_the_arrays_and_reports_the_freed_bytes(catalog):
         assert sz.drop_group("budget") == 0
     finally:
         sz.close()
+
+
+def test_drop_group_can_keep_the_members_a_field_is_rebuilt_from(catalog):
+    """An intermediate budget sheds its other terms and keeps the named ones."""
+    sid = _seed_field(catalog)
+    for name in ("drain", "recharge", "storage_sy"):
+        catalog.write_field_stack(
+            sid, name, np.array([[-1.0, -2.0], [-3.0, -4.0]]), subgroup="budget"
+        )
+
+    sz = catalog.open_zarr(sid)
+    try:
+        freed = sz.drop_group("budget", keep=("drain", "stream"))
+        assert freed > 0
+        assert sorted(sz.root["budget"].array_keys()) == ["drain"]
+        assert not (sz.path / "budget" / "recharge").exists()
+        np.testing.assert_allclose(sz.root["budget"]["drain"][:], [[-1.0, -2.0], [-3.0, -4.0]])
+        assert sz.drop_group("budget", keep=("stream",)) > 0
+        assert "budget" not in sz.root
+    finally:
+        sz.close()

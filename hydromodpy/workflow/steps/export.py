@@ -22,7 +22,7 @@ from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.results.catalog import Catalog
@@ -114,7 +114,12 @@ def step_drop_intermediate_budget(ctx: WorkflowContext, *, store: SimulationStor
     the derive phase and by the figures, then removed. It runs last in the
     export step, after every consumer of the run and just before the store
     is sealed.
+
+    ``release_flux`` is rebuilt on read from the budget terms that carry water
+    out of the aquifer, so a run that asked for it keeps those terms and drops
+    the others: the field stays available once the run is sealed.
     """
+    from hydromodpy.core.field_routing import RELEASE_BUDGET_KEYS
     from hydromodpy.workflow.steps.planning import BUDGET_SPATIAL_FLAG
 
     if BUDGET_SPATIAL_FLAG not in tuple(getattr(ctx, "forced_results_flags", ())):
@@ -122,16 +127,19 @@ def step_drop_intermediate_budget(ctx: WorkflowContext, *, store: SimulationStor
     sim_id = ctx.sim_id
     if sim_id is None:
         return
+    results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
+    keep = RELEASE_BUDGET_KEYS if results_cfg.derived.release_flux else ()
     sz = store.open_zarr(sim_id)
     try:
-        freed = sz.drop_group("budget")
+        freed = sz.drop_group("budget", keep=keep)
     finally:
         sz.close()
     if freed:
         logger.info(
-            "Dropped the intermediate per-cell budget from the store (%.2f MB freed). "
+            "Dropped the intermediate per-cell budget from the store (%.2f MB freed%s). "
             "Set [simulation.results.budget] spatial_fields = true to keep it.",
             freed / 1e6,
+            ", release_flux terms kept" if keep else "",
         )
 
 
@@ -216,6 +224,7 @@ def step_cleanup_scratch(
     ctx: WorkflowContext,
     *,
     keep_solver_files: bool = False,
+    spare: Iterable[str | Path] = (),
 ) -> None:
     """Remove the solver scratch folders unless keep_solver_files is True.
 
@@ -224,6 +233,10 @@ def step_cleanup_scratch(
     tree, which belongs to the session and which
     :func:`step_cleanup_preprocessing` is the one entitled to drop. Another run
     of the project works in another folder, so nothing of it is touched.
+
+    ``spare`` names folders someone else still owns: the solver folders of the
+    calibration trials a session keeps for their own promotion. A child holding
+    one of them stays.
     """
     if keep_solver_files:
         return
@@ -233,9 +246,14 @@ def step_cleanup_scratch(
     scratch = workspace.solver_scratch_folder
     if not scratch.exists():
         return
+    spared = {Path(folder).resolve() for folder in spare}
     for target in sorted(scratch.iterdir()):
-        if target.name != PREPROCESSING_DIRNAME:
-            _remove_scratch_path(ctx, target)
+        if target.name == PREPROCESSING_DIRNAME:
+            continue
+        resolved = target.resolve()
+        if any(folder == resolved or resolved in folder.parents for folder in spared):
+            continue
+        _remove_scratch_path(ctx, target)
 
 
 def _remove_scratch_path(ctx: WorkflowContext, target: Path) -> None:
@@ -347,6 +365,7 @@ class ExportStep:
         "ctx",
         "export_paths",
         "keep_preprocessing",
+        "kept_scratch",
         "wall_seconds",
     )
     writes: ClassVar[tuple[str, ...]] = (
@@ -429,6 +448,7 @@ class ExportStep:
         step_cleanup_scratch(
             ctx,
             keep_solver_files=bool(getattr(results_cfg, "keep_solver_files", False)),
+            spare=tuple(state.get("kept_scratch", ()) or ()),
         )
         step_cleanup_preprocessing(ctx, keep=bool(state.get("keep_preprocessing")))
         step_drop_empty_scratch(ctx)

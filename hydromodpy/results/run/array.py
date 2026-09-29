@@ -15,6 +15,7 @@ import numpy as np
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.errors import FieldNotFoundError
+from hydromodpy.results.zarr_store.zarr_reader import field_array_view
 
 if TYPE_CHECKING:
     import xarray as xr
@@ -203,11 +204,7 @@ class RunArrayProvider:
                 dims = face_shapes[desc.shape]
                 if len(dims) != arr.ndim:
                     continue
-                if da is None:
-                    values = np.asarray(arr)
-                else:
-                    chunks = arr.chunks if arr.chunks else "auto"
-                    values = da.from_array(arr, chunks=chunks)
+                values = field_array_view(arr, da)
                 data_vars[name] = xr.DataArray(
                     values,
                     dims=dims,
@@ -299,13 +296,7 @@ class RunArrayProvider:
                     dims = ("cell",)
                 else:
                     dims = tuple(f"d{i}" for i in range(source.ndim))
-                if derived is not None:
-                    values = derived
-                elif da is None:
-                    values = np.asarray(arr)
-                else:
-                    chunks = arr.chunks if arr.chunks else "auto"
-                    values = da.from_array(arr, chunks=chunks)
+                values = derived if derived is not None else field_array_view(arr, da)
                 if shape == field_registry.SHAPE_TIME_LAYER_FACE and values.ndim == 2:
                     values = values[:, np.newaxis, :]
                 if time_slice is not None and dims and dims[0] == "time":
@@ -332,22 +323,11 @@ def _virtual_field_stack(run, sz, name: str) -> np.ndarray | None:
     Reuses the already-open Zarr handle so a whole-run stack costs one
     open instead of one per timestep.
     """
-    from hydromodpy.results.derive.virtual_fields import (
-        ZarrFieldSource,
-        available_virtual_fields,
-        read_field_or_virtual,
-    )
+    from hydromodpy.results.derive.virtual_fields import derive_field_stack
 
-    if name not in available_virtual_fields(sz.root):
-        return None
-    source = ZarrFieldSource(sz, run._sim_id)
     n_steps = int(run.n_timesteps or 1)
-    return np.stack(
-        [
-            np.asarray(read_field_or_virtual(source, run._sim_id, name, t)).ravel()
-            for t in range(n_steps)
-        ]
-    )
+    stack = derive_field_stack(sz, run._sim_id, name, range(n_steps))
+    return None if stack is None else stack.reshape(n_steps, -1)
 
 
 def _bbox_select_ugrid(ds, grid, bbox, face_dim):

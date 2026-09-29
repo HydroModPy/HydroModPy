@@ -12,6 +12,7 @@ The module is idempotent: re-scanning an unchanged workspace is a no-op.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -60,6 +61,7 @@ class ScanReport:
     skipped: list[Path] = field(default_factory=list)
     errors: list[tuple[Path, str]] = field(default_factory=list)
     orphan_sidecars: list[Path] = field(default_factory=list)
+    removed_sidecars: list[Path] = field(default_factory=list)
 
     @property
     def n_changed(self) -> int:
@@ -72,11 +74,15 @@ class ScanReport:
             f"Skipped : {len(self.skipped):3d}",
             f"Errors  : {len(self.errors):3d}",
             f"Orphans : {len(self.orphan_sidecars):3d}",
+            f"Removed : {len(self.removed_sidecars):3d}",
         ]
         for path, msg in self.errors:
             lines.append(f"  ! {path}: {msg}")
         for sidecar in self.orphan_sidecars:
-            lines.append(f"  ! {sidecar}: {_orphan_message(sidecar)}")
+            declared = _declares_something(sidecar)
+            lines.append(f"  ! {sidecar}: {_orphan_message(sidecar, declared=declared)}")
+        for sidecar in self.removed_sidecars:
+            lines.append(f"  - {sidecar}: {_removed_message(sidecar)}")
         return "\n".join(lines)
 
 
@@ -239,12 +245,64 @@ def _iter_orphan_sidecars(custom_dir: Path, prefix: str) -> list[Path]:
     return out
 
 
-def _orphan_message(sidecar: Path) -> str:
+def _declares_something(sidecar: Path) -> bool:
+    """Whether a sidecar holds what only a person could have written.
+
+    That is a stated licence or a note. The rest (hash, CRS, bbox, source) is
+    read from the data file and written again when the file is registered.
+    An unreadable sidecar counts as declared, so it is never removed unread.
+    """
+    from hydromodpy.schema.sources import is_determined
+
+    try:
+        payload = json.loads(sidecar.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return True
+    if not isinstance(payload, dict):
+        return True
+    return is_determined(payload.get("license")) or bool(payload.get("notes"))
+
+
+def _orphan_message(sidecar: Path, *, declared: bool) -> str:
+    data_name = sidecar.name.removesuffix(SIDECAR_SUFFIX)
+    if not declared:
+        return (
+            f"orphan sidecar, its data file {data_name} is missing. "
+            "The next scan removes it: it holds nothing the data file does not give back."
+        )
+    return (
+        f"orphan sidecar, its data file {data_name} is missing and it holds "
+        "a licence or notes someone declared. Restore the data file or remove the sidecar."
+    )
+
+
+def _removed_message(sidecar: Path) -> str:
     data_name = sidecar.name.removesuffix(SIDECAR_SUFFIX)
     return (
-        f"orphan sidecar, its data file {data_name} is missing. "
-        "Restore the data file or remove the sidecar."
+        f"orphan sidecar removed, its data file {data_name} is missing "
+        "and it held nothing the data file does not give back."
     )
+
+
+def _settle_orphan(sidecar: Path, report: ScanReport) -> None:
+    """Remove an orphan sidecar that declares nothing, keep and report the others.
+
+    Git ignores the sidecars HydroModPy writes, so a data file removed by a
+    commit leaves its sidecar behind in every clone. Only the user can say
+    what to do with a licence or a note, never with a bare hash.
+    """
+    if _declares_something(sidecar):
+        report.orphan_sidecars.append(sidecar)
+        logger.warning("auto_scan kept %s: %s", sidecar, _orphan_message(sidecar, declared=True))
+        return
+    try:
+        sidecar.unlink(missing_ok=True)
+    except OSError as exc:
+        report.orphan_sidecars.append(sidecar)
+        logger.warning("auto_scan could not remove the orphan sidecar %s: %s", sidecar, exc)
+        return
+    report.removed_sidecars.append(sidecar)
+    logger.info("auto_scan: %s: %s", sidecar, _removed_message(sidecar))
 
 
 _RASTER_SUFFIXES = frozenset({".asc", ".tif", ".tiff"})
@@ -456,8 +514,7 @@ def scan_custom(
     try:
         for spec in VARIABLES:
             for sidecar in _iter_orphan_sidecars(_custom_dir(workspace, spec), spec.file_prefix):
-                report.orphan_sidecars.append(sidecar)
-                logger.warning("auto_scan skipped %s: %s", sidecar, _orphan_message(sidecar))
+                _settle_orphan(sidecar, report)
             scanner = _SCANNERS.get(spec.kind)
             if scanner is None:
                 continue
@@ -505,7 +562,8 @@ def check_custom(
             continue
 
         for sidecar in _iter_orphan_sidecars(custom_dir, spec.file_prefix):
-            issues.append((sidecar, _orphan_message(sidecar)))
+            declared = _declares_something(sidecar)
+            issues.append((sidecar, _orphan_message(sidecar, declared=declared)))
 
         if spec.kind == "timeseries":
             loc = custom_dir / f"{spec.file_prefix}_custom_LOC.csv"

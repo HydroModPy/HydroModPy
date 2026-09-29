@@ -12,6 +12,11 @@ name = "nancon_step2_local"
 [simulation.results.derived]
 release_flux = true
 
+# The per-cell recharge: a cell counts as seepage above a share of it. The
+# distance map needs it here, the persistence maps of step 4 too.
+[simulation.results.budget]
+spatial_fields = true
+
 [data]
 types = ["hydrography", "hydrometry"]
 
@@ -26,7 +31,18 @@ source = "custom"
 path = "hydrometry"
 station_ids = ["NANCON"]
 
-# The card now draws the mapped network; the confusion map sets it against
-# the simulated seepage cells.
+# The mapped network alone, then against the simulated seepage cells: the
+# confusion map says which cells agree, the distance map how far each
+# simulated cell descends before it reaches the map.
 [display]
-figures = ["watershed_id_card", "seepage_network_confusion_map"]
+figures = [
+    "watershed_id_card",
+    "hydrographic_network_reference",
+    "seepage_network_confusion_map",
+    "downslope_distance_map",
+]
+
+# Step 1's three exports, plus the mapped network as a GeoPackage.
+# `__append` adds a block to the inherited ones.
+[[export__append]]
+variables = "hydrographic_network_reference"

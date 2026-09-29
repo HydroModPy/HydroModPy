@@ -9,7 +9,8 @@ workflow layer.
 This module defines:
 
 - a :class:`TrialPipelineProvider` Protocol that bundles every callable the
-  trial primitive needs from the workflow layer,
+  trial primitive needs from the workflow layer, the launcher of the solver
+  step included,
 - a registration pair (:func:`register_trial_pipeline_provider` /
   :func:`get_trial_pipeline_provider`) the bootstrap wires up at import time.
 
@@ -64,6 +65,18 @@ class TrialPipelineProvider(Protocol):
 
     def make_pipeline(self, steps: Sequence[TrialStep]) -> TrialPipelineRunner:
         """Build a pipeline runner over the given steps."""
+
+    def with_solver_launcher(
+        self,
+        steps: Sequence[TrialStep],
+        launcher: Any,
+    ) -> tuple[TrialStep, ...]:
+        """Return ``steps`` with the run-solver step driven by ``launcher``.
+
+        ``launcher`` conforms to the workflow ``Launcher`` protocol. A trial
+        passes one that records what each run produced; a promotion passes one
+        that hands over a kept trial solve instead of solving.
+        """
 
     def make_state(self, run_id: str, data: Mapping[str, Any]) -> Any:
         """Build a fresh pipeline state from ``run_id`` and an initial data mapping."""

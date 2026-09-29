@@ -7,6 +7,7 @@ from uuid import uuid4
 import numpy as np
 import pytest
 
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.solver.boussinesq.assembly import assemble_steady_residual
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
@@ -95,7 +96,10 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
         encoding="utf-8",
     )
 
-    catalog = Catalog(tmp_path / "workspace")
+    # Exact precision: this checks the extractor numbers, not the storage rounding.
+    catalog = Catalog(
+        tmp_path / "workspace", persistence=PersistenceConfig(field_precision="exact")
+    )
     sim_id = str(uuid4())
     registration = catalog.register_simulation(
         sim_id,

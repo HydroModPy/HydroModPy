@@ -17,10 +17,13 @@ Three public entry points:
   :class:`TrialResult`.
 - :func:`promote_prepared_trial` - run the persistent downstream pipeline
   from the prepared context, writing Zarr + Parquet + catalog rows for
-  the top-N iterations without repeating setup work.
+  the top-N iterations without repeating setup work. Given the solve a
+  trial kept, it reads that solve instead of solving again.
 
-The storage contract is strict: ``run_trial_light`` never writes to
-disk. Only promotion creates simulation artefacts.
+The storage contract is strict: ``run_trial_light`` never writes to the
+store. Only promotion creates simulation artefacts. A trial the session
+may promote leaves its solver folder in the run scratch
+(:mod:`~hydromodpy.calibration.runners.kept_solves`).
 
 Workflow access goes through :func:`get_trial_pipeline_provider` so the
 calibration package never imports the workflow package directly.
@@ -45,6 +48,12 @@ from hydromodpy.calibration.runners.contracts import (
     TrialStep,
     get_trial_pipeline_provider,
     get_trial_promotion_provider,
+)
+from hydromodpy.calibration.runners.kept_solves import (
+    KeptSolve,
+    KeptSolveLauncher,
+    RecordingLauncher,
+    TrialSolveRetention,
 )
 from hydromodpy.calibration.runners.sandbox import TrialSandbox
 from hydromodpy.calibration.runners.verdict import water_budget_verdict
@@ -129,6 +138,9 @@ class TrialContext:
         Source TOML path.
     raw_toml : Mapping[str, Any]
         Parsed TOML, used to rebuild per-trial contexts.
+    kept_solves : TrialSolveRetention or None
+        Which trial solves stay on disk for their promotion. The calibration
+        core sets it for the span of one session; a fork never carries it.
     """
 
     base_cfg: BaseModel
@@ -144,6 +156,7 @@ class TrialContext:
     requested_domain_supports: Mapping[str, object] = field(default_factory=dict)
     spatial_support_registry: Any = None
     mesh_runtime_sections: Mapping[str, object] = field(default_factory=dict)
+    kept_solves: TrialSolveRetention | None = None
 
     def fork(
         self,
@@ -433,7 +446,8 @@ def run_trial_light(
         Unique trial id. When set, the trial runs under a private
         :class:`TrialSandbox` identity (its own ``model_name_override`` folder)
         so concurrent trials never share solver input/output files, and the
-        trial's solver output is cleaned up afterwards.
+        trial's solver output is cleaned up afterwards, unless the session
+        retention (``trial_ctx.kept_solves``) keeps it for a promotion.
     """
     provider = get_trial_pipeline_provider()
     base_setup = getattr(getattr(trial_ctx, "ctx", None), "setup", None)
@@ -445,6 +459,8 @@ def run_trial_light(
         else None
     )
     flow_overrides = sandbox.flow_overrides if sandbox is not None else None
+    retention = trial_ctx.kept_solves if sandbox is not None else None
+    recorder = RecordingLauncher() if retention is not None and retention.keeps_any else None
 
     t0 = time.monotonic()
     with progress.suppressed(), sandbox or nullcontext():
@@ -468,6 +484,8 @@ def run_trial_light(
         # reconciliation: a trial draws nothing, so no figure gets to turn a
         # derived flag on and force the per-cell budget no step would drop.
         downstream_slice = forked.downstream_steps[forked.earliest : 9]
+        if recorder is not None:
+            downstream_slice = provider.with_solver_launcher(downstream_slice, recorder)
         state = provider.make_state(
             "calibration-trial",
             {
@@ -517,19 +535,30 @@ def run_trial_light(
                 error="metric_fn returned a non-finite objective",
             )
 
-    # A run whose water balance does not close routed water that came from
-    # nowhere, so its cost is not comparable to a run that closed. Rejecting it
-    # here, before it is scored, is what stops it being ranked and promoted.
-    verdict = water_budget_verdict(metrics, threshold=reject_water_budget_above)
-    if verdict is not None and not verdict.passed:
-        return TrialResult(
-            values=dict(values),
-            metrics=dict(metrics),
-            primary_metric=float("nan"),
-            status="failed",
-            duration_s=time.monotonic() - t0,
-            error=verdict.message,
-        )
+        # A run whose water balance does not close routed water that came from
+        # nowhere, so its cost is not comparable to a run that closed. Rejecting
+        # it here, before it is scored, is what stops it being ranked and promoted.
+        verdict = water_budget_verdict(metrics, threshold=reject_water_budget_above)
+        if verdict is not None and not verdict.passed:
+            return TrialResult(
+                values=dict(values),
+                metrics=dict(metrics),
+                primary_metric=float("nan"),
+                status="failed",
+                duration_s=time.monotonic() - t0,
+                error=verdict.message,
+            )
+
+        # Offered while the sandbox is still open: a solve the retention keeps
+        # must not be deleted by the exit below.
+        if (
+            retention is not None
+            and sandbox is not None
+            and recorder is not None
+            and trial_id is not None
+            and retention.offer(trial_id, float(primary), sandbox.output_dirs(), recorder.results)
+        ):
+            sandbox.keep_outputs()
 
     return TrialResult(
         values=dict(values),
@@ -576,12 +605,23 @@ def promote_prepared_trial(
     tags: Sequence[str] = (),
     session_id: str | None = None,
     sim_id: str | None = None,
+    kept: KeptSolve | None = None,
+    spared: Sequence[Path] = (),
 ) -> str:
     """Run a full promoted simulation from an already prepared trial context.
 
     ``sim_id`` reserves the id of the promoted run instead of letting the
     pipeline mint one. A caller can then write everything keyed on that id
     before the run reaches its last step, which renders the figures.
+
+    ``kept`` is the solve the trial of ``values`` left on disk. The run is then
+    registered as usual and goes on from extraction on that solve: the solver
+    step hands it over instead of writing inputs and solving, so the store, the
+    tables, the figures and the seal are those a replay writes. The run is
+    tagged ``promoted_from_trial:<id>``. Without it, the run is solved again.
+
+    ``spared`` names the solver folders of other kept trials, which the export
+    step of this run must leave in the run scratch for their own promotion.
     """
     provider = get_trial_pipeline_provider()
     forked = trial_ctx.fork(values)
@@ -605,6 +645,7 @@ def promote_prepared_trial(
             # the next ones with no watershed to ingest, so their catchment
             # series summed the whole domain. The session end drops it.
             "keep_preprocessing": True,
+            "kept_scratch": tuple(str(folder) for folder in spared),
             "spatial_support_registry": forked.spatial_support_registry,
             "requested_spatial_support_ids": forked.requested_spatial_support_ids,
             "requested_domain_supports": forked.requested_domain_supports,
@@ -615,7 +656,9 @@ def promote_prepared_trial(
     start_index = (
         min(forked.earliest, prepare_index) if prepare_index is not None else forked.earliest
     )
-    downstream_slice = forked.downstream_steps[start_index:]
+    downstream_slice: Sequence[TrialStep] = forked.downstream_steps[start_index:]
+    if kept is not None:
+        downstream_slice = provider.with_solver_launcher(downstream_slice, KeptSolveLauncher(kept))
 
     try:
         final = provider.make_pipeline(downstream_slice).run(state)
@@ -636,6 +679,8 @@ def promote_prepared_trial(
     tag_list: list[str] = list(tags)
     if session_id:
         tag_list.append(f"calibration:{session_id}")
+    if kept is not None:
+        tag_list.append(f"promoted_from_trial:{kept.trial_id}")
     if tag_list:
         _attach_tags_to_simulation(final_ctx, produced, tag_list)
 

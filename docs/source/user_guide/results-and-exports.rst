@@ -137,8 +137,9 @@ on the directory raises. For raw access, open the group with ``zarr``:
 Derived fields are rebuilt at read time
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The store persists primary variables. Four fields are **not** stored: they
-are recomputed on every read, from the head and the mesh topography.
+The store persists primary variables. Six fields are **not** stored: they
+are recomputed on every read, from the head, the per-cell budget and the
+mesh.
 
 .. list-table::
    :header-rows: 1
@@ -156,6 +157,16 @@ are recomputed on every read, from the head and the mesh topography.
    * - ``outflow_drain``
      - the per-cell drain budget field, summed over layers, sign-corrected
        to a positive outflow. Needs the spatial budget to be persisted.
+   * - ``release_flux``
+     - every budget term that carries water out of the aquifer (drain and
+       DRN-TO-MVR, SFR streams, LAK lakes, surface excess), each made a
+       positive outflow and summed per cell, in m3/s. Asking for it with
+       ``[simulation.results.derived] release_flux = true`` keeps those terms
+       in the store.
+   * - ``fluxes_from_budget``
+     - the drain budget field (the recharge one when there is no drain),
+       summed over layers and divided by the cell area, in m/s. Needs the
+       spatial budget to be persisted.
 
 They read exactly like a stored field:
 
@@ -166,7 +177,23 @@ They read exactly like a stored field:
 Because they are computed, they load eagerly and ignore laziness. That is
 also why a run with no persisted budget still exposes
 ``watertable_elevation``, ``watertable_depth`` and ``seepage_mask``, but not
-``outflow_drain``.
+``outflow_drain`` or ``fluxes_from_budget``. A run written before
+``release_flux`` and ``fluxes_from_budget`` were rebuilt on read still holds
+them under ``derived/``, and the stored array is what a read returns.
+
+Stored precision
+~~~~~~~~~~~~~~~~
+
+The time-varying fields (head, per-cell budget terms, stored derived fields,
+concentrations) are float32 with their mantissa rounded to 16 bits, set by
+``[simulation.results.persistence] field_precision = "compact"``. Each value
+moves by at most 2**-17 of itself, 7.6e-6 relative: 1 mm on a 130 m head.
+The store is about three times smaller than in float64. Such an array carries
+the CF attributes ``quantization = "quantization_info"`` and
+``quantization_nsb = 16``. ``field_precision = "exact"`` keeps float64. Mesh
+geometry, topography, thicknesses, indices, coordinates and timestamps are
+never rounded. :func:`hydromodpy.read` and every reader of the library hand
+back float64 either way; raw ``zarr`` access sees the stored float32.
 
 ``manifest.json``, ``provenance.json``, ``annotations.json``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
