@@ -33,6 +33,10 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [v2.0.0a4] - 2026-09-29
+
 ### Changed
 - Time-varying fields are stored in float32 with the mantissa rounded to 16 kept bits
   (`[simulation.results.persistence] field_precision = "compact"`, the default; `"exact"` keeps
@@ -55,6 +59,14 @@ Each release section includes the following standard categories:
 - The CLI banner draws every letter whole in its color. The slanted font joined the Hydro "o" to
   the "M" and the Mod "d" to the "P" with a shared stroke, so the color changed inside a letter
   and the "P" had no yellow stem. The art keeps a blank column at both joins, four columns wider.
+- Every file of example 04 draws more figures and writes exports to `share/<run>/`. Step 1
+  declares three `[[export]]` blocks, steps 2 to 4 append theirs with `[[export__append]]`, and
+  step 5 drops them with `export__delete = true` to write its own eleven. `project.toml` exports
+  the catchment and its network, the water table and the seepage cells of October 2002, the
+  discharge and the budget, which every calibration writes for each run it promotes; the daily
+  API grid writes its own, dated 2019. Step 2 keeps the per-cell recharge, which the distance map
+  and the persistence maps of step 4 read. The composite calibration draws its cost profile and
+  its distance crossing against K instead of four figures that did not apply to two parameters.
 
 ### Fixed
 - The scan of `data/<variable>/` before a run removes an orphan sidecar, one whose data file is
@@ -63,6 +75,14 @@ Each release section includes the following standard categories:
   every clone, and every `hmp run` of that workspace warned `auto_scan skipped` about it, lake
   sidecars included for a run without a lake. A sidecar with a stated licence or notes is kept
   and reported as kept; `hmp data check` says which of the two the next scan does.
+- A calibration whose gauge comes from an API cache promotes its runs again. A station read back
+  from its cached `_LOC.csv` carried numpy values, and a one-station file reads an integer
+  column as `int64`, which the catalog refused to write as JSON: every promotion of the daily API
+  grid of example 04 failed on its second launch. A station location now holds plain Python
+  values, whatever reader built it.
+- The catchment buffer no longer warns `The resolution argument to buffer is deprecated` under
+  geopandas 1.2, which renamed it `quad_segs`; 1.1 still requires the old name, and the declared
+  range covers both, so the buffer calls shapely directly.
 
 ---
 
