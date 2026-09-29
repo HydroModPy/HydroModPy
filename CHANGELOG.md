@@ -33,6 +33,10 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [v2.0.0a3] - 2026-09-29
+
 ### Changed
 - On a terminal, a console log line starts with a glyph for its level, like the phase checkmarks:
   `✗` error, `!` warning, `›` milestone, `·` debug. A long line wraps under its message, not
