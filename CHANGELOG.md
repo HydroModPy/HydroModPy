@@ -38,6 +38,14 @@ Each release section includes the following standard categories:
   the "M" and the Mod "d" to the "P" with a shared stroke, so the color changed inside a letter
   and the "P" had no yellow stem. The art keeps a blank column at both joins, four columns wider.
 
+### Fixed
+- The scan of `data/<variable>/` before a run removes an orphan sidecar, one whose data file is
+  gone, when it holds nothing the file does not give back (hash, CRS, bbox, undetermined licence).
+  Git ignores the sidecars HydroModPy writes, so a data file a commit removed left its sidecar in
+  every clone, and every `hmp run` of that workspace warned `auto_scan skipped` about it, lake
+  sidecars included for a run without a lake. A sidecar with a stated licence or notes is kept
+  and reported as kept; `hmp data check` says which of the two the next scan does.
+
 ---
 
 ## [v2.0.0a3] - 2026-09-29
