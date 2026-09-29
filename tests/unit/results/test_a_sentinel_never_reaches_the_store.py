@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from hydromodpy.core.field_precision import MAX_RELATIVE_ERROR
 from hydromodpy.core.nodata import SENTINEL_ABS_THRESHOLD
 from hydromodpy.results.zarr_store import SimulationZarr
 
@@ -65,9 +66,11 @@ def test_a_physical_value_at_the_threshold_survives(fresh_store: SimulationZarr)
 
     fresh_store.write_field_stack("head", values, n_timesteps=1)
 
-    stored = np.asarray(fresh_store.root["head"][:])
-    assert stored[0, 0] == SENTINEL_ABS_THRESHOLD
-    assert stored[0, 1] == -SENTINEL_ABS_THRESHOLD
+    stored = np.asarray(fresh_store.root["head"][:], dtype="float64")
+    # Kept, then rounded to the compact precision like any other value.
+    np.testing.assert_allclose(
+        stored[0, :2], [SENTINEL_ABS_THRESHOLD, -SENTINEL_ABS_THRESHOLD], rtol=MAX_RELATIVE_ERROR
+    )
     assert np.isnan(stored[0, 2])
 
 

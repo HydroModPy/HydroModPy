@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.field_precision import MAX_RELATIVE_ERROR
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.storage.array_fingerprint import fingerprint
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
@@ -72,11 +73,12 @@ class TestFullCycle:
 
         catalog.finalize(sid, status="completed")
 
+        # Stored in the compact precision: equal within its relative bound.
         result = catalog.query_field(sid, "head", 2)
-        np.testing.assert_array_almost_equal(result, all_vals[2])
+        np.testing.assert_allclose(result, all_vals[2], rtol=MAX_RELATIVE_ERROR, atol=0.0)
 
         result_layer = catalog.query_field(sid, "head", 2, layer=0)
-        np.testing.assert_array_almost_equal(result_layer, all_vals[2, 0])
+        np.testing.assert_allclose(result_layer, all_vals[2, 0], rtol=MAX_RELATIVE_ERROR, atol=0.0)
 
     def test_finalize_flushes_open_zarr_handles(self, catalog):
         sid = str(uuid4())

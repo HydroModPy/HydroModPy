@@ -2,6 +2,7 @@
 
 ``PersistenceConfig`` is the orthogonal save/no-save knob shared by every
 write path: the DuckDB Catalog and the per-run Zarr and Parquet artifacts.
+It also says how precisely the Zarr store keeps its time-varying fields.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.field_precision import DEFAULT_FIELD_PRECISION, FieldPrecision
 
 CompressionCodec = Literal["none", "zstd", "lz4", "gzip", "snappy"]
 
@@ -34,6 +36,19 @@ class PersistenceConfig(HydroModelBase):
         default=True,
         description="Persist per-simulation field arrays (head, concentration, "
         "derived) into the Zarr store.",
+    )
+    field_precision: Annotated[FieldPrecision, Profile.USER] = Field(
+        default=DEFAULT_FIELD_PRECISION,
+        description=(
+            "Precision of the time-varying field arrays of fields.zarr: heads, per-cell "
+            "budget terms, derived fields, concentrations. 'compact' stores float32 with "
+            "the mantissa rounded to nearest at 16 bits: each value moves by at most "
+            "2**-17 of itself (7.6e-6 relative, so at most 1 mm on a 130 m head and "
+            "7.6e-9 m3/s on a 1e-3 m3/s cell flux), and a daily run takes about a "
+            "third of the disk. 'exact' keeps every value as computed, float64. "
+            "Mesh geometry, topography, layer thickness, indices, coordinates and "
+            "timestamps are never rounded."
+        ),
     )
     save_parquet: Annotated[bool, Profile.USER] = Field(
         default=True,

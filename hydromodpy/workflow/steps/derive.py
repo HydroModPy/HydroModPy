@@ -110,13 +110,12 @@ class DeriveStep:
         plan = ctx.execution.simulation_plan
         results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
 
-        # Registry first (needs head): it can persist watertable_elevation/depth,
-        # seepage_mask and budget fluxes slab-wise. These are OFF by default:
-        # figures recompute them on the fly from head, so only the config-enabled
+        # Registry first (needs head): it can persist watertable_elevation/depth
+        # and seepage_mask slab-wise. These are OFF by default: figures
+        # recompute them on the fly from head, so only the config-enabled
         # fields are materialised. Running it before compute_derived lets an enabled
         # pass reuse the slab-written water table.
         enabled = self._enabled_registry_names(results_cfg)
-        forced = tuple(getattr(ctx, "forced_results_flags", ()) or ())
         derived_names: list[str] = []
         with run_catalog(ctx) as store:
             try:
@@ -137,7 +136,7 @@ class DeriveStep:
                             derived_names.append(result.name)
                             logger.debug("DeriveStep: computed '%s'", result.name)
                         else:
-                            self._log_skipped_derived(result, forced=forced)
+                            self._log_skipped_derived(result)
                 elif not enabled:
                     logger.debug("DeriveStep: no derived field enabled, registry skipped")
                 else:
@@ -174,19 +173,12 @@ class DeriveStep:
         )
 
     @staticmethod
-    def _log_skipped_derived(result: DerivedResult, *, forced: tuple[str, ...]) -> None:
+    def _log_skipped_derived(result: DerivedResult) -> None:
         """Report a registry field that was enabled and did not get computed.
 
-        Loud by default: the config asked for the field, so an empty ``/derived``
-        entry cannot pass in silence. ``fluxes_from_budget`` is the exception
-        when the per-cell budget was switched on by reconciliation rather than
-        by the user: nobody asked for that field, it only rode along.
+        Loud: the config asked for the field, so an empty ``/derived`` entry
+        cannot pass in silence.
         """
-        from hydromodpy.workflow.steps.planning import BUDGET_SPATIAL_FLAG
-
-        if result.name == "fluxes_from_budget" and BUDGET_SPATIAL_FLAG in forced:
-            logger.debug("DeriveStep: skipped '%s' (%s)", result.name, result.reason)
-            return
         logger.warning(
             "Derived field '%s' is enabled in [simulation.results] but was not computed: %s.",
             result.name,
@@ -198,8 +190,9 @@ class DeriveStep:
         """Registry derived fields to persist, per the results config.
 
         Watertable/seepage fields are off by default: figures recompute them on
-        the fly from head. ``fluxes_from_budget`` rides on the budget spatial
-        opt-in. A dependent field pulls in its upstream (watertable_elevation).
+        the fly from head. A dependent field pulls in its upstream
+        (watertable_elevation). ``fluxes_from_budget`` is never persisted: it is
+        rebuilt on read from the per-cell budget and the mesh.
         """
         derived = results_cfg.derived
         names: set[str] = set()
@@ -209,8 +202,6 @@ class DeriveStep:
             names.update(("watertable_elevation", "watertable_depth"))
         if derived.seepage_areas:
             names.update(("watertable_elevation", "seepage_mask"))
-        if results_cfg.budget.spatial_fields:
-            names.add("fluxes_from_budget")
         return sorted(names)
 
 

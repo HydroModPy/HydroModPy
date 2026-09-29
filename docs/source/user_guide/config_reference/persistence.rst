@@ -9,7 +9,7 @@ TOML section: ``[persistence]``
 
 Pydantic model: ``PersistenceConfig`` defined in ``hydromodpy.core.config_kit.persistence``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L19>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L21>`__
 
 Orthogonal switch governing every persistence sink.
 
@@ -43,7 +43,7 @@ Fields
         <code class="hmp-field-name">save_catalog</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L28>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L30>`__
 
       Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped.
 
@@ -59,9 +59,29 @@ Fields
         <code class="hmp-field-name">save_zarr</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L33>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L35>`__
 
       Persist per-simulation field arrays (head, concentration, derived) into the Zarr store.
+
+
+.. index:: ! field_precision
+
+.. container:: hmp-field hmp-field-level-user
+   :name: persistence-field-precision
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="persistence.field_precision">
+        <code class="hmp-field-name">field_precision</code>
+      </div>
+
+   :bdg-primary:`str` :bdg-secondary:`default = "compact"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L40>`__
+
+      Precision of the time-varying field arrays of fields.zarr: heads, per-cell budget terms, derived fields, concentrations. 'compact' stores float32 with the mantissa rounded to nearest at 16 bits: each value moves by at most 2**-17 of itself (7.6e-6 relative, so at most 1 mm on a 130 m head and 7.6e-9 m3/s on a 1e-3 m3/s cell flux), and a daily run takes about a third of the disk. 'exact' keeps every value as computed, float64. Mesh geometry, topography, layer thickness, indices, coordinates and timestamps are never rounded.
+
+   .. rst-class:: hmp-field-values
+
+   **One of:** ``"compact"`` ``"exact"``
 
 
 .. index:: ! save_parquet
@@ -75,7 +95,7 @@ Fields
         <code class="hmp-field-name">save_parquet</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L38>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L53>`__
 
       Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.
 
@@ -91,7 +111,7 @@ Fields
         <code class="hmp-field-name">compression</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L58>`__
 
       Codec DECLARED for Zarr field arrays and Parquet tables. The writers carry their own codec (zstd) and do not read this field, so changing it changes nothing today; it records the intent and is the field a writer would read once the choice is threaded through.
 
@@ -111,7 +131,7 @@ Fields
         <code class="hmp-field-name">compression_level</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 5` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L52>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 5` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L67>`__
 
       Compression level DECLARED for those writers. Same as the codec: core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not read this field. The default says 5 rather than 3 so the declaration at least matches the bytes actually written.
 
@@ -132,6 +152,7 @@ Starter TOML snippet
       [persistence]
       # save_catalog = true
       # save_zarr = true
+      # field_precision = "compact"
       # save_parquet = true
 
 Entity-relationship diagram

@@ -8,7 +8,9 @@ import pytest
 
 import hydromodpy.workflow.steps.export as export_module
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.field_routing import RELEASE_BUDGET_KEYS
 from hydromodpy.core.logging import get_logger
+from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.workflow.internals.state import PipelineState
 
 
@@ -133,10 +135,12 @@ class _FakeZarr:
     def __init__(self, present: bool) -> None:
         self.present = present
         self.dropped: list[str] = []
+        self.kept: list[tuple[str, ...]] = []
         self.closed = 0
 
-    def drop_group(self, name: str) -> int:
+    def drop_group(self, name: str, *, keep: tuple[str, ...] = ()) -> int:
         self.dropped.append(name)
+        self.kept.append(tuple(keep))
         return 12_730_000 if self.present else 0
 
     def close(self) -> None:
@@ -159,12 +163,33 @@ def test_step_drop_intermediate_budget_removes_a_reconciled_budget() -> None:
     ctx = SimpleNamespace(
         sim_id="sim-123",
         forced_results_flags=("derived.accumulation_flux", "budget.spatial_fields"),
+        effective_results_config=ResultsConfig(derived={"accumulation_flux": True}),
     )
 
     export_module.step_drop_intermediate_budget(ctx, store=_ZarrStore(handle))
 
     assert handle.dropped == ["budget"]
+    assert handle.kept == [()]
     assert handle.closed == 1
+
+
+def test_a_run_that_asked_for_release_flux_keeps_the_terms_it_is_rebuilt_from() -> None:
+    # release_flux is served on read from the budget terms that carry water out
+    # of the aquifer: dropping them would make the field vanish at the seal.
+    handle = _FakeZarr(present=True)
+    ctx = SimpleNamespace(
+        sim_id="sim-123",
+        forced_results_flags=("budget.spatial_fields",),
+        effective_results_config=ResultsConfig(derived={"release_flux": True}),
+    )
+
+    export_module.step_drop_intermediate_budget(ctx, store=_ZarrStore(handle))
+
+    assert handle.dropped == ["budget"]
+    assert handle.kept == [RELEASE_BUDGET_KEYS]
+    assert {"drain", "drain_to_mover", "stream", "lake", "surface_excess"} == set(
+        RELEASE_BUDGET_KEYS
+    )
 
 
 def test_step_drop_intermediate_budget_keeps_a_user_requested_budget() -> None:

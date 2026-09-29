@@ -432,7 +432,8 @@ suffix would break those readers.
    |-- geographic/   created on demand for the geographic rasters
    |-- head          root array, (time, layer, cell)
    |-- time          root array, the CF time axis
-   `-- crs           root array, the CF grid mapping
+   |-- crs           root array, the CF grid mapping
+   `-- quantization_info  root array, present when a field is rounded
 
 ``meta``, ``mesh``, ``state``, ``particles`` and ``forcing`` are created
 at store init. ``derived``, ``budget`` and ``geographic`` are not
@@ -448,6 +449,41 @@ values are masked to NaN at write time. Chunks target about 1 MiB.
 Sharding switches on when a variable's total footprint
 (``n_timesteps * layer_bytes_per_step``) exceeds 100 MiB, with shards
 capped near 64 MiB.
+
+**Precision.** ``[simulation.results.persistence] field_precision`` sets how
+the time-varying fields are kept: every array written through
+``write_field`` or ``write_field_stack`` (head, per-cell budget terms,
+stored derived fields, concentrations). ``compact``, the default, stores
+float32 whose mantissa is rounded to nearest at 16 bits
+(:mod:`hydromodpy.core.field_precision`): a value moves by at most 2**-17
+of itself, 7.6e-6 relative, NaN stays NaN and no finite value becomes
+infinite. The zeroed low bits are what bitshuffle and zstd pack away: the
+daily six-year MODFLOW 6 run of example 04 (2192 steps, 21 406 cells)
+drops from 1.38 GB to 0.40 GB, its two derived arrays included. Such
+an array carries the CF-1.11 quantization attributes
+``quantization = "quantization_info"`` and ``quantization_nsb = 16``, and
+the root holds the ``quantization_info`` container with
+``algorithm = "bitround"``. ``exact`` stores float64 as computed. Mesh
+geometry, vertices, connectivity, topography, layer thickness, z
+interfaces, static parameter fields, indices, coordinates and timestamps
+are never rounded. Every library reader returns float fields as float64
+whichever precision the store holds.
+
+**Fields rebuilt on read.** ``release_flux`` and ``fluxes_from_budget`` are
+not stored: the readers rebuild them from the per-cell budget terms
+(:mod:`hydromodpy.results.derive.virtual_fields`) with the function that
+used to compute them before writing, so a step read equals the step that
+would have been stored. ``[simulation.results.derived] release_flux`` keeps
+its meaning, making the field available: it turns the per-cell budget on
+and keeps the terms the field is built from when the rest of that budget is
+dropped as an intermediate. A store written before holds
+``derived/release_flux`` and ``derived/fluxes_from_budget`` in float64, and
+every reader returns the stored array first, so it reads as it always did.
+
+Neither change bumps ``zarr_schema_version``: the layout, the names, the
+shapes and the meaning of every stored array are unchanged, the float width
+is declared by each array's own Zarr metadata, and both an old store and a
+new one read the same through every reader.
 
 Per-run Parquet directory
 -------------------------

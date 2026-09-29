@@ -16,6 +16,11 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import zarr
 
+from hydromodpy.core.field_precision import (
+    KEPT_MANTISSA_BITS,
+    QUANTIZATION_ALGORITHM,
+    to_storage_precision,
+)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.nodata import SENTINEL_ABS_THRESHOLD
 from hydromodpy.results import field_registry
@@ -480,6 +485,46 @@ def write_crs(
 
 # -- Fields ------------------------------------------------------------------
 
+QUANTIZATION_VARIABLE = "quantization_info"
+"""Root container variable that describes the rounding of compact fields (CF-1.11 8.4)."""
+
+
+def _stamp_quantization(store_obj: SimulationZarr, array: zarr.Array) -> None:
+    """Say on ``array`` that it holds rounded values, and how they were rounded.
+
+    CF-1.11 section 8.4 names the attributes: ``quantization`` points at a
+    container variable carrying the algorithm, and ``quantization_nsb`` gives
+    the mantissa bits kept. A reader can then tell a compact field from an
+    exact one without comparing it to anything.
+    """
+    root = store_obj._root
+    if QUANTIZATION_VARIABLE not in root:
+        _write_array(
+            store_obj,
+            root,
+            QUANTIZATION_VARIABLE,
+            np.zeros((), dtype="int32"),
+            dimension_names=(),
+            attrs={
+                "algorithm": QUANTIZATION_ALGORITHM,
+                "implementation": (
+                    "hydromodpy.core.field_precision.round_mantissa: round to nearest, "
+                    "ties to even, from float64, then an exact cast to float32"
+                ),
+            },
+        )
+    update_attrs(
+        array,
+        {"quantization": QUANTIZATION_VARIABLE, "quantization_nsb": KEPT_MANTISSA_BITS},
+    )
+
+
+def _to_stored_field(store_obj: SimulationZarr, values: np.ndarray) -> tuple[np.ndarray, bool]:
+    """Mask sentinels, then cast to the store precision; say whether it rounded."""
+    cleaned = mask_sentinels(np.asarray(values))
+    stored = to_storage_precision(cleaned, store_obj.field_precision)
+    return stored, stored is not cleaned
+
 
 def _field_target(store_obj: SimulationZarr, subgroup: str | None) -> zarr.Group:
     """Return the group holding field arrays, creating ``subgroup`` if needed."""
@@ -499,6 +544,7 @@ def _create_field_array(
     n_timesteps: int,
     per_step_shape: tuple[int, ...],
     dtype: np.dtype,
+    quantized: bool = False,
 ) -> None:
     """Create the (time, ...) array for ``variable`` with balanced chunks/shards."""
     itemsize = int(np.dtype(dtype).itemsize)
@@ -558,6 +604,8 @@ def _create_field_array(
     else:
         target.create_array(variable, **create_kwargs)
     attach_field_attrs(target, variable)
+    if quantized:
+        _stamp_quantization(store_obj, target[variable])
 
 
 def write_field(
@@ -569,10 +617,13 @@ def write_field(
     n_timesteps: int | None = None,
     subgroup: str | None = None,
 ) -> None:
-    """Append one timestep slice to ``variable`` under ``subgroup`` or root."""
+    """Append one timestep slice to ``variable`` under ``subgroup`` or root.
+
+    The values are written in the handle's ``field_precision``.
+    """
     with store_obj._guard_write():
         target = _field_target(store_obj, subgroup)
-        values = mask_sentinels(np.asarray(values))
+        values, quantized = _to_stored_field(store_obj, values)
         if values.ndim not in (1, 2):
             raise ValueError(f"Expected 1D or 2D values, got shape {values.shape}")
 
@@ -586,6 +637,7 @@ def write_field(
                 n_timesteps=int(n_timesteps),
                 per_step_shape=tuple(int(s) for s in values.shape),
                 dtype=values.dtype,
+                quantized=quantized,
             )
 
         arr = target[variable]
@@ -637,11 +689,12 @@ def write_field_stack(
     sharded array trigger one read-modify-write of a whole multi-MB shard per
     timestep, which dominated long transient extractions. Use
     ``timestep_offset`` with a total ``n_timesteps`` to stream large arrays in
-    time slabs without holding the full stack in memory.
+    time slabs without holding the full stack in memory. The values are
+    written in the handle's ``field_precision``.
     """
     with store_obj._guard_write():
         target = _field_target(store_obj, subgroup)
-        values = mask_sentinels(np.asarray(values))
+        values, quantized = _to_stored_field(store_obj, values)
         if values.ndim not in (2, 3):
             raise ValueError(f"Expected a (time, ...) stack, got shape {values.shape}")
 
@@ -666,6 +719,7 @@ def write_field_stack(
                 n_timesteps=total,
                 per_step_shape=per_step_shape,
                 dtype=values.dtype,
+                quantized=quantized,
             )
 
         arr = target[variable]
@@ -1016,6 +1070,7 @@ __all__ = [
     "field_name_from_target",
     "harmonize_axis_references",
     "maybe_shards",
+    "QUANTIZATION_VARIABLE",
     "write_acdd_root_attrs",
     "write_crs",
     "write_field",

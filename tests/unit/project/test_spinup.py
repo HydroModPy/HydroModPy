@@ -171,3 +171,27 @@ def test_run_spinup_tags_intermediate_and_converged(tmp_path: Path) -> None:
     tag_by_sid = dict(project.tags)
     assert tag_by_sid[result.cycles[-1].sim_id] == "spinup-converged"
     assert all(tag_by_sid[c.sim_id] == "spinup-intermediate" for c in result.cycles[:-1])
+
+
+def test_the_cycles_store_exact_heads_and_the_project_gets_its_precision_back(
+    tmp_path: Path,
+) -> None:
+    zarrs = [
+        _write_cycle_zarr(tmp_path / "c0.zarr", [[0.0, 0.0, 0.0]], {"lac0": 80.0}),
+        _write_cycle_zarr(tmp_path / "c1.zarr", [[0.0, 0.0, 0.0]], {"lac0": 80.0}),
+    ]
+    cfg = _stub_config()
+    cfg.simulation.results = SimpleNamespace(persistence=SimpleNamespace(field_precision="compact"))
+    seen: list[str] = []
+    project = _StubProject(cfg, zarrs)
+    simulate = project.simulate
+
+    def _record(*, name: str):
+        seen.append(cfg.simulation.results.persistence.field_precision)
+        return simulate(name=name)
+
+    project.simulate = _record
+    run_spinup(project, spinup=SpinupConfig(max_cycles=2, tol_head=0.01, tol_stage=0.01))
+
+    assert seen == ["exact", "exact"]
+    assert cfg.simulation.results.persistence.field_precision == "compact"

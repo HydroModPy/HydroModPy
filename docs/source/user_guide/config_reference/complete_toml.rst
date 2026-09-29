@@ -432,6 +432,8 @@ Sub-models are linked back to their per-section page.
       save_catalog = true
       # Persist per-simulation field arrays (head, concentration, derived) into the Zarr store.
       save_zarr = true
+      # Precision of the time-varying field arrays of fields.zarr: heads, per-cell budget terms, derived fields, concentrations. 'compact' stores float32 with the mantissa rounded to nearest at 16 bits: each value moves by at most 2**-17 of itself (7.6e-6 relative, so at most 1 mm on a 130 m head and 7.6e-9 m3/s on a 1e-3 m3/s cell flux), and a daily run takes about a third of the disk. 'exact' keeps every value as computed, float64. Mesh geometry, topography, layer thickness, indices, coordinates and timestamps are never rounded.
+      field_precision = "compact"
       # Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.
       save_parquet = true
       # Codec DECLARED for Zarr field arrays and Parquet tables. The writers carry their own codec (zstd) and do not read this field, so changing it changes nothing today; it records the intent and is the field a writer would read once the choice is threaded through.

@@ -25,17 +25,19 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import ExtractError
-from hydromodpy.core.field_routing import drain_budget_to_positive_outflow
+from hydromodpy.core.field_routing import (
+    drain_budget_to_positive_outflow,
+    positive_cell_flux_stack,
+)
 from hydromodpy.simulation.extraction.derivation.derived import (
+    _check_release_flux_budget,
     _compute_accumulation_flux,
     _compute_concentration_seepage,
     _compute_mass_accumulated,
     _compute_mass_seepage,
     _compute_outflow_drain,
     _compute_release_accumulation_flux,
-    _compute_release_flux,
     _drain_outflow_stack,
-    _positive_cell_flux_stack,
     compute_derived,
 )
 from tests._helpers.fixtures_catalog import simulation_catalog
@@ -274,7 +276,7 @@ class TestReleaseFluxNonNegative:
                 subgroup="budget",
             )
 
-        _compute_release_flux(sid, catalog, n_ts, n_cells)
+        _check_release_flux_budget(sid, catalog)
 
         for t in range(n_ts):
             rf = catalog.query_field(sid, "release_flux", t)
@@ -492,7 +494,7 @@ class TestDrainRoutingChain:
             catalog, n_ts=n_ts, n_cells=n_cells, drn_stack=drn, surface_excess=sexc
         )
 
-        _compute_release_flux(sid, catalog, n_ts, n_cells)
+        _check_release_flux_budget(sid, catalog)
         _compute_release_accumulation_flux(sid, catalog, n_ts, n_cells)
 
         for t in range(n_ts):
@@ -576,7 +578,7 @@ class TestMeshGraphRouting:
 
 
 class TestPositiveCellFlux:
-    """_positive_cell_flux_stack sums only finite, positive per-cell contributions.
+    """positive_cell_flux_stack sums only finite, positive per-cell contributions.
 
     The single-field helper was folded into the time-vectorised stack version;
     one timestep with shape ``(1, layers, cells)`` reproduces the old behaviour.
@@ -593,14 +595,14 @@ class TestPositiveCellFlux:
                 ]
             ]
         )  # shape (time=1, layers=2, cells=4)
-        out = _positive_cell_flux_stack(stack, n_cells=n_cells)[0]
+        out = positive_cell_flux_stack(stack, n_cells=n_cells)[0]
         # cell0: 1.0+0.5; cell1: 0+4.0; cell2: 3.0+0(nan); cell3: 0(nodata)+2.0
         assert np.allclose(out, [1.5, 4.0, 3.0, 2.0])
         assert np.all(out >= 0.0)
         assert out.shape == (n_cells,)
 
     def test_empty_stack_returns_zeros(self):
-        out = _positive_cell_flux_stack(np.empty((0, 1, 3)), n_cells=3)
+        out = positive_cell_flux_stack(np.empty((0, 1, 3)), n_cells=3)
         assert out.shape == (0, 3)
 
 

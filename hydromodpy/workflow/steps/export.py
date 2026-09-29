@@ -114,7 +114,12 @@ def step_drop_intermediate_budget(ctx: WorkflowContext, *, store: SimulationStor
     the derive phase and by the figures, then removed. It runs last in the
     export step, after every consumer of the run and just before the store
     is sealed.
+
+    ``release_flux`` is rebuilt on read from the budget terms that carry water
+    out of the aquifer, so a run that asked for it keeps those terms and drops
+    the others: the field stays available once the run is sealed.
     """
+    from hydromodpy.core.field_routing import RELEASE_BUDGET_KEYS
     from hydromodpy.workflow.steps.planning import BUDGET_SPATIAL_FLAG
 
     if BUDGET_SPATIAL_FLAG not in tuple(getattr(ctx, "forced_results_flags", ())):
@@ -122,16 +127,19 @@ def step_drop_intermediate_budget(ctx: WorkflowContext, *, store: SimulationStor
     sim_id = ctx.sim_id
     if sim_id is None:
         return
+    results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
+    keep = RELEASE_BUDGET_KEYS if results_cfg.derived.release_flux else ()
     sz = store.open_zarr(sim_id)
     try:
-        freed = sz.drop_group("budget")
+        freed = sz.drop_group("budget", keep=keep)
     finally:
         sz.close()
     if freed:
         logger.info(
-            "Dropped the intermediate per-cell budget from the store (%.2f MB freed). "
+            "Dropped the intermediate per-cell budget from the store (%.2f MB freed%s). "
             "Set [simulation.results.budget] spatial_fields = true to keep it.",
             freed / 1e6,
+            ", release_flux terms kept" if keep else "",
         )
 
 

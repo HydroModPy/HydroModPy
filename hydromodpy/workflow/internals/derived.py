@@ -1,8 +1,8 @@
 """Derived-field registry for the pipeline ``derive`` step.
 
-Derived fields (watertable elevation/depth, seepage mask, cell-averaged
-fluxes) are computed from primary solver outputs already persisted in the
-Zarr store (``head``, ``budget``, ``mesh``). This module exposes:
+Derived fields (watertable elevation/depth, seepage mask) are computed from
+primary solver outputs already persisted in the Zarr store (``head``,
+``budget``, ``mesh``). This module exposes:
 
 - :class:`DerivedComputation` - a ``Protocol`` that any derivation must
   implement. A computation declares its output name, its required input
@@ -12,8 +12,11 @@ Zarr store (``head``, ``budget``, ``mesh``). This module exposes:
   ``register``, ``get``, ``list``, and an ``apply`` helper that honours
   topological order and skips entries whose inputs are missing.
 - :data:`registry` - the module-level singleton pre-populated with the
-  canonical derivations (watertable elevation/depth, seepage mask,
-  cell-averaged fluxes).
+  canonical derivations (watertable elevation/depth, seepage mask).
+
+The cell-averaged budget flux ``fluxes_from_budget`` is not stored: it is
+rebuilt on read from the per-cell budget and the mesh
+(:mod:`hydromodpy.results.derive.virtual_fields`).
 
 Heavy solver-specific post-processing (flopy multilayer water-table,
 whitebox drain routing) stays in
@@ -112,33 +115,6 @@ def _topography(sim_zarr: SimulationZarr, n_cells: int) -> np.ndarray | None:
             return None
         return np.full(n_cells, float(z_intf[0]))
     return None
-
-
-def _cell_area(sim_zarr: SimulationZarr, n_cells: int) -> np.ndarray | None:
-    """Per-cell area, computed from the mesh geometry the run persisted.
-
-    A run stores its vertices and its face-node connectivity, never an area
-    array: asking for ``mesh/cell_area`` made ``fluxes_from_budget`` skip on
-    every backend, since nothing has ever written it. The polygons are the
-    same ones every other reader rebuilds, so the areas agree cell for cell
-    with what the solver was given.
-    """
-    from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
-
-    mesh = sim_zarr.root.get("mesh")
-    if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
-        return None
-    polygons = cell_polygons(
-        np.asarray(mesh["vertices"][:], dtype="float64"),
-        np.asarray(mesh["face_node_connectivity"][:]),
-    )
-    areas = np.array(
-        [0.0 if polygon is None else float(polygon.area) for polygon in polygons],
-        dtype="float64",
-    )
-    if areas.size < n_cells or not np.any(areas > 0.0):
-        return None
-    return areas[:n_cells]
 
 
 def _head_shape(sim_zarr: SimulationZarr) -> tuple[int, int, int]:
@@ -294,45 +270,6 @@ def _surface_excess_stack(
     return None
 
 
-def _run_fluxes_from_budget(sim_zarr: SimulationZarr) -> DerivedResult:
-    budget_grp = sim_zarr.root.get("budget")
-    if budget_grp is None or len(list(budget_grp.array_keys())) == 0:
-        return DerivedResult(
-            name="fluxes_from_budget",
-            status="skipped",
-            reason="no budget fields available",
-        )
-    n_timesteps, _n_layers, n_cells = _head_shape(sim_zarr)
-    area = _cell_area(sim_zarr, n_cells)
-    if area is None:
-        return DerivedResult(
-            name="fluxes_from_budget",
-            status="skipped",
-            reason="cell area unavailable: the run persisted no mesh geometry to derive it from",
-        )
-    # Pick the first scalar-like budget component available (the pure
-    # helper operates component-by-component). Most simulations record a
-    # drain/recharge component; leave others untouched.
-    component_name: str | None = None
-    for candidate in ("drain", "recharge"):
-        if candidate in budget_grp:
-            component_name = candidate
-            break
-    if component_name is None:
-        return DerivedResult(
-            name="fluxes_from_budget",
-            status="skipped",
-            reason="no known budget component to normalise",
-        )
-    comp_stack = np.asarray(budget_grp[component_name][:], dtype="float64")[:n_timesteps]
-    if comp_stack.ndim == 3:
-        comp_stack = comp_stack.sum(axis=1)
-    comp_stack = comp_stack.reshape(comp_stack.shape[0], -1)[:, :n_cells]
-    flux = np.asarray(_pure.fluxes_from_budget(comp_stack, area), dtype="float64")
-    _write_derived_stack(sim_zarr, "fluxes_from_budget", flux[:, :n_cells])
-    return DerivedResult(name="fluxes_from_budget", status="computed")
-
-
 # ---------------------------------------------------------------------------
 # Registry.
 # ---------------------------------------------------------------------------
@@ -482,15 +419,6 @@ def _build_default_registry() -> DerivedRegistry:
             required_derived=("watertable_elevation",),
             description="Boolean mask where the water table reaches the surface.",
             func=_run_seepage_mask,
-        )
-    )
-    reg.register(
-        _Computation(
-            name="fluxes_from_budget",
-            required_inputs=("head",),
-            required_derived=(),
-            description="Per-cell flux (m/d) derived from a budget component.",
-            func=_run_fluxes_from_budget,
         )
     )
     return reg

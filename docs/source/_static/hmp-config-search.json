@@ -11468,7 +11468,7 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L99",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L104",
     "description": "Simulation-run persistence switch passed to the result catalog (DuckDB rows, Zarr fields, Parquet tables)."
   },
   {
@@ -11480,7 +11480,7 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence-save-catalog",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L28",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L30",
     "description": "Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped."
   },
   {
@@ -11492,8 +11492,20 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence-save-zarr",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L33",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L35",
     "description": "Persist per-simulation field arrays (head, concentration, derived) into the Zarr store."
+  },
+  {
+    "path": "simulation.results.persistence.field_precision",
+    "name": "field_precision",
+    "type": "Literal['compact', 'exact']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-results-persistence-field-precision",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L40",
+    "description": "Precision of the time-varying field arrays of fields.zarr: heads, per-cell budget terms, derived fields, concentrations. 'compact' stores float32 with the mantissa rounded to nearest at 16 bits: each value moves by at most 2**-17 of itself "
   },
   {
     "path": "simulation.results.persistence.save_parquet",
@@ -11504,7 +11516,7 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence-save-parquet",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L38",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L53",
     "description": "Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files."
   },
   {
@@ -11516,7 +11528,7 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence-compression",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L58",
     "description": "Codec DECLARED for Zarr field arrays and Parquet tables. The writers carry their own codec (zstd) and do not read this field, so changing it changes nothing today; it records the intent and is the field a writer would read once the choice i"
   },
   {
@@ -11528,7 +11540,7 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence-compression-level",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L52",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L67",
     "description": "Compression level DECLARED for those writers. Same as the codec: core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not read this field. The default says 5 rather than 3 so the declaration at least matches the bytes actually w"
   },
   {
@@ -11540,7 +11552,7 @@
     "section": "simulation",
     "anchor": "simulation-results-keep-solver-files",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L106",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L111",
     "description": "Keep raw solver output files (.hds, .cbc, .lst) after ingestion."
   },
   {
@@ -11552,7 +11564,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L110",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L115",
     "description": "Derived variable computation toggles."
   },
   {
@@ -11601,7 +11613,7 @@
     "anchor": "simulation-results-derived-release-flux",
     "page": "simulation.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L46",
-    "description": "Positive total groundwater release flux from drains and surface excess."
+    "description": "Make available the positive per-cell groundwater release flux (m3/s): drains and DRN-TO-MVR, SFR streams, LAK lakes and the surface excess. It is rebuilt on read from the per-cell budget terms, which this option turns on and keeps in the st"
   },
   {
     "path": "simulation.results.derived.accumulation_flux",
@@ -11612,7 +11624,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-accumulation-flux",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L50",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L55",
     "description": "Drain flux routed on the drainage network."
   },
   {
@@ -11624,7 +11636,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-release-accumulation-flux",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L54",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L59",
     "description": "Release flux routed on surface drainage paths."
   },
   {
@@ -11636,7 +11648,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-outflow-drain",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L58",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L63",
     "description": "Positive per-cell drain outflow summed over layers."
   },
   {
@@ -11648,7 +11660,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-concentration-seepage",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L62",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L67",
     "description": "Concentration at seepage cells only. Requires transport."
   },
   {
@@ -11660,7 +11672,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-mass-seepage",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L66",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L71",
     "description": "Mass flux at seepage cells. Requires transport + budget."
   },
   {
@@ -11672,7 +11684,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-mass-accumulated",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L75",
     "description": "Cumulative mass_seepage over time."
   },
   {
@@ -11684,7 +11696,7 @@
     "section": "simulation",
     "anchor": "simulation-results-budget",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L114",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L119",
     "description": "Budget extraction configuration."
   },
   {
@@ -11696,7 +11708,7 @@
     "section": "simulation",
     "anchor": "simulation-results-budget-spatial-fields",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/simulation/planning/results_config.py#L84",
     "description": "Persist per-cell budget fields (DRN, RCH, etc.) into Zarr. Off by default: the lumped per-component budget still lands in the budgets table, and the catchment scalars (discharge, well pumping) are derived from it. Turn it on to map or expor"
   },
   {
@@ -13557,7 +13569,7 @@
     "section": "persistence",
     "anchor": "persistence-save-catalog",
     "page": "persistence.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L28",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L30",
     "description": "Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped."
   },
   {
@@ -13569,8 +13581,20 @@
     "section": "persistence",
     "anchor": "persistence-save-zarr",
     "page": "persistence.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L33",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L35",
     "description": "Persist per-simulation field arrays (head, concentration, derived) into the Zarr store."
+  },
+  {
+    "path": "persistence.field_precision",
+    "name": "field_precision",
+    "type": "Literal['compact', 'exact']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "persistence",
+    "anchor": "persistence-field-precision",
+    "page": "persistence.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L40",
+    "description": "Precision of the time-varying field arrays of fields.zarr: heads, per-cell budget terms, derived fields, concentrations. 'compact' stores float32 with the mantissa rounded to nearest at 16 bits: each value moves by at most 2**-17 of itself "
   },
   {
     "path": "persistence.save_parquet",
@@ -13581,7 +13605,7 @@
     "section": "persistence",
     "anchor": "persistence-save-parquet",
     "page": "persistence.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L38",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L53",
     "description": "Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files."
   },
   {
@@ -13593,7 +13617,7 @@
     "section": "persistence",
     "anchor": "persistence-compression",
     "page": "persistence.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L58",
     "description": "Codec DECLARED for Zarr field arrays and Parquet tables. The writers carry their own codec (zstd) and do not read this field, so changing it changes nothing today; it records the intent and is the field a writer would read once the choice i"
   },
   {
@@ -13605,7 +13629,7 @@
     "section": "persistence",
     "anchor": "persistence-compression-level",
     "page": "persistence.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L52",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L67",
     "description": "Compression level DECLARED for those writers. Same as the codec: core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not read this field. The default says 5 rather than 3 so the declaration at least matches the bytes actually w"
   },
   {
@@ -18675,7 +18699,7 @@
     "section": "calibration",
     "anchor": "calibration-persistence-save-catalog",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L28",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L30",
     "description": "Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped."
   },
   {
@@ -18687,8 +18711,20 @@
     "section": "calibration",
     "anchor": "calibration-persistence-save-zarr",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L33",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L35",
     "description": "Persist per-simulation field arrays (head, concentration, derived) into the Zarr store."
+  },
+  {
+    "path": "calibration.persistence.field_precision",
+    "name": "field_precision",
+    "type": "Literal['compact', 'exact']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "calibration",
+    "anchor": "calibration-persistence-field-precision",
+    "page": "calibration.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L40",
+    "description": "Precision of the time-varying field arrays of fields.zarr: heads, per-cell budget terms, derived fields, concentrations. 'compact' stores float32 with the mantissa rounded to nearest at 16 bits: each value moves by at most 2**-17 of itself "
   },
   {
     "path": "calibration.persistence.save_parquet",
@@ -18699,7 +18735,7 @@
     "section": "calibration",
     "anchor": "calibration-persistence-save-parquet",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L38",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L53",
     "description": "Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files."
   },
   {
@@ -18711,7 +18747,7 @@
     "section": "calibration",
     "anchor": "calibration-persistence-compression",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L43",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L58",
     "description": "Codec DECLARED for Zarr field arrays and Parquet tables. The writers carry their own codec (zstd) and do not read this field, so changing it changes nothing today; it records the intent and is the field a writer would read once the choice i"
   },
   {
@@ -18723,7 +18759,7 @@
     "section": "calibration",
     "anchor": "calibration-persistence-compression-level",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L52",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/persistence.py#L67",
     "description": "Compression level DECLARED for those writers. Same as the codec: core/io/parquet.py and core/io/geoparquet.py hold level 5 and do not read this field. The default says 5 rather than 3 so the declaration at least matches the bytes actually w"
   },
   {

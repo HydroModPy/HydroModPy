@@ -1,13 +1,17 @@
 """On-the-fly derived fields computed from stored primary variables.
 
 The store only persists primary variables (head, budget spatial fields,
-topography). Derived quantities like watertable_elevation and seepage_mask
-are computed transparently by ``query_field()`` when not found in Zarr.
+topography). Derived quantities like watertable_elevation, seepage_mask,
+release_flux and fluxes_from_budget are computed transparently by
+``query_field()`` when not found in Zarr. A store written before they were
+served on read may still hold ``derived/release_flux`` or
+``derived/fluxes_from_budget``: every reader tries the stored array first, so
+such a run reads exactly as it did.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import numpy as np
@@ -16,12 +20,15 @@ from hydromodpy.core.field_routing import (
     drain_band_depth,
     drain_budget_to_positive_outflow,
     find_drain_budget_key,
+    has_release_budget,
+    release_flux_stack,
     seepage_mask,
     warn_on_geometric_seepage_fallback,
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.field_registry import SHAPE_TIME_FACE, FieldDescriptor
+from hydromodpy.results.zarr_store.zarr_reader import step_range_bounds
 
 logger = get_logger(__name__)
 
@@ -128,6 +135,143 @@ def _outflow_drain(store: Any, sim_id: str, timestep: int) -> np.ndarray:
     return drain_budget_to_positive_outflow(drn, n_cells=n_cells)
 
 
+def _head_cell_count(root: Any) -> int:
+    """Number of cells along the face axis of the stored head."""
+    return int(root["head"].shape[-1])
+
+
+ROWS_PER_PASS_ELEMENTS = 2_000_000
+"""Steps times cells a whole-range rebuild computes in one pass (16 MB in float64)."""
+
+
+def _in_passes(
+    compute: Callable[[int, int], np.ndarray], start: int, stop: int, n_cells: int
+) -> np.ndarray:
+    """Join ``compute(first, last)`` over ``[start, stop)`` run in bounded passes.
+
+    A pass over a whole daily run allocates temporaries of hundreds of MB and
+    runs several times slower than small passes whose memory is reused. Every
+    step reads its own rows only, so the joined passes equal one pass.
+    """
+    per_pass = max(1, ROWS_PER_PASS_ELEMENTS // max(1, int(n_cells)))
+    out = np.empty((max(0, int(stop) - int(start)), int(n_cells)), dtype="float64")
+    for first in range(int(start), int(stop), per_pass):
+        last = min(first + per_pass, int(stop))
+        out[first - int(start) : last - int(start)] = compute(first, last)
+    return out
+
+
+def _one_step(rows: Callable[[Any, int, int], np.ndarray], root: Any, timestep: int) -> np.ndarray:
+    """Return step ``timestep`` of a whole-range rebuild; a negative step counts from the end."""
+    step = int(timestep)
+    if step < 0:
+        step += int(root["head"].shape[0])
+    return rows(root, step, step + 1)[0]
+
+
+def release_flux_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return ``release_flux`` over steps ``[start, stop)`` from the stored budget.
+
+    The ``(stop - start, n_cells)`` stack is the one the post-run derivation
+    used to store (:func:`hydromodpy.core.field_routing.release_flux_stack`),
+    step for step: every step reads its own budget rows only.
+    """
+    budget = root.get("budget")
+    if budget is None:
+        raise KeyError("No budget spatial fields stored - enable budget.spatial_fields")
+    if not has_release_budget(budget):
+        raise KeyError("No release budget field: expected a drain, stream, lake or surface excess")
+    n_cells = _head_cell_count(root)
+    return _in_passes(
+        lambda first, last: release_flux_stack(budget, n_cells=n_cells, start=first, stop=last),
+        start,
+        stop,
+        n_cells,
+    )
+
+
+def _release_flux(store: Any, sim_id: str, timestep: int) -> np.ndarray:
+    """Every path groundwater takes out of the aquifer at one step, in m3/s."""
+    sz = store.open_zarr(sim_id)
+    try:
+        return _one_step(release_flux_rows, sz.root, timestep)
+    finally:
+        sz.close()
+
+
+FLUX_BUDGET_COMPONENTS = ("drain", "recharge")
+"""Budget terms ``fluxes_from_budget`` normalises, the first one present wins."""
+
+
+def cell_area_from_mesh(root: Any, n_cells: int) -> np.ndarray | None:
+    """Per-cell area in m2, computed from the mesh geometry the run persisted.
+
+    A run stores its vertices and its face-node connectivity, never an area
+    array. The polygons are the same ones every other reader rebuilds, so the
+    areas agree cell for cell with what the solver was given. None when the
+    store has no geometry or no cell of positive area.
+    """
+    from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
+
+    mesh = root.get("mesh")
+    if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
+        return None
+    polygons = cell_polygons(
+        np.asarray(mesh["vertices"][:], dtype="float64"),
+        np.asarray(mesh["face_node_connectivity"][:]),
+    )
+    areas = np.array(
+        [0.0 if polygon is None else float(polygon.area) for polygon in polygons],
+        dtype="float64",
+    )
+    if areas.size < n_cells or not np.any(areas > 0.0):
+        return None
+    return areas[:n_cells]
+
+
+def fluxes_from_budget_rows(root: Any, start: int, stop: int) -> np.ndarray:
+    """Return ``fluxes_from_budget`` over steps ``[start, stop)``.
+
+    The first stored term of :data:`FLUX_BUDGET_COMPONENTS`, summed over
+    layers, divided by the cell area: m3/s over m2, so m/s. Cells of no area
+    are NaN. This is the computation the derive step used to store.
+    """
+    from hydromodpy.results.derive.derived import fluxes_from_budget
+
+    budget = root.get("budget")
+    if budget is None:
+        raise KeyError("No budget spatial fields stored - enable budget.spatial_fields")
+    component = next((name for name in FLUX_BUDGET_COMPONENTS if name in budget), None)
+    if component is None:
+        raise KeyError(
+            f"No budget component to normalise: expected one of {FLUX_BUDGET_COMPONENTS}"
+        )
+    n_cells = _head_cell_count(root)
+    area = cell_area_from_mesh(root, n_cells)
+    if area is None:
+        raise KeyError(
+            "Cell area unavailable: the run persisted no mesh geometry to derive it from"
+        )
+
+    def compute(first: int, last: int) -> np.ndarray:
+        stack = np.asarray(budget[component][first:last], dtype="float64")
+        if stack.ndim == 3:
+            stack = stack.sum(axis=1)
+        stack = stack.reshape(stack.shape[0], -1)[:, :n_cells]
+        return np.asarray(fluxes_from_budget(stack, area), dtype="float64")[:, :n_cells]
+
+    return _in_passes(compute, start, stop, n_cells)
+
+
+def _fluxes_from_budget(store: Any, sim_id: str, timestep: int) -> np.ndarray:
+    """One budget term per unit cell area at one step, in m/s."""
+    sz = store.open_zarr(sim_id)
+    try:
+        return _one_step(fluxes_from_budget_rows, sz.root, timestep)
+    finally:
+        sz.close()
+
+
 SIMULATED_ACTIVE_NETWORK = "simulated_active_network"
 """The cells the network criterion counts as flowing: 1 where a stream flows, else 0."""
 
@@ -173,13 +317,14 @@ def simulated_active_network_stack(run: Any, timesteps: Sequence[int]) -> np.nda
         The run cannot say which cells flow: no ``release_flux``, no network
         to build the graph on, or no recharge for a positive threshold.
     """
-    from hydromodpy.core.stream_extent import flowing_cells, parse_visible_flow
+    from hydromodpy.core.stream_extent import CHUNK_ELEMENTS, flowing_cells, parse_visible_flow
     from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
     from hydromodpy.results.derive.stream_extent import (
         FLOW_FIELD,
         flow_geometry_from_run,
         unavailable_reason_for_flow,
     )
+    from hydromodpy.results.run.geographic import field_steps
 
     settings = network_criterion_settings(run)
     reason = unavailable_reason_for_flow(run, tau_specific_ratio=settings.tau_specific_ratio)
@@ -195,17 +340,21 @@ def simulated_active_network_stack(run: Any, timesteps: Sequence[int]) -> np.nda
     )
     visible = parse_visible_flow(settings.extent_rules.visible_flow)
     n_cells = int(geometry.metric.graph.active.size)
-    stack = np.zeros((len(timesteps), n_cells), dtype="float64")
-    for row, step in enumerate(timesteps):
-        release = np.asarray(run.field(FLOW_FIELD, timestep=int(step)), dtype=float).reshape(-1)
-        state = flowing_cells(
-            release,
-            threshold_m3_s=geometry.threshold_m3_s,
-            metric=geometry.metric,
-            visible_flow=visible,
-            outlet=geometry.outlet,
-        )
-        stack[row] = np.asarray(state.flowing, dtype=bool).reshape(-1)
+    steps = [int(step) for step in timesteps]
+    stack = np.zeros((len(steps), n_cells), dtype="float64")
+    per_pass = max(1, CHUNK_ELEMENTS // max(1, n_cells))
+    for first in range(0, len(steps), per_pass):
+        chunk = steps[first : first + per_pass]
+        releases = np.asarray(field_steps(run, FLOW_FIELD, chunk), dtype=float)
+        for offset, release in enumerate(releases.reshape(len(chunk), -1)):
+            state = flowing_cells(
+                release,
+                threshold_m3_s=geometry.threshold_m3_s,
+                metric=geometry.metric,
+                visible_flow=visible,
+                outlet=geometry.outlet,
+            )
+            stack[first + offset] = np.asarray(state.flowing, dtype=bool).reshape(-1)
     return stack
 
 
@@ -231,7 +380,18 @@ VIRTUAL_FIELDS: dict[str, Any] = {
     "watertable_depth": _watertable_depth,
     "seepage_mask": _seepage_mask,
     "outflow_drain": _outflow_drain,
+    "release_flux": _release_flux,
+    "fluxes_from_budget": _fluxes_from_budget,
     SIMULATED_ACTIVE_NETWORK: _simulated_active_network,
+}
+
+# Virtual fields that also have a whole-range computation, function(root,
+# start, stop). A reader wanting many steps takes it: one pass over the budget
+# chunks instead of one store opening per step. Each row equals the per-step
+# result, since both are the same function over their own rows.
+VIRTUAL_FIELD_ROWS: dict[str, Any] = {
+    "release_flux": release_flux_rows,
+    "fluxes_from_budget": fluxes_from_budget_rows,
 }
 
 # Virtual fields derivable from the persisted head alone (plus mesh topography).
@@ -263,17 +423,25 @@ def available_virtual_fields(root: Any) -> list[str]:
     derived group", so ``has_field``, ``list_fields`` and the readers cannot
     disagree. The water table needs the stored head, the depth and the
     seepage mask additionally need a surface elevation, and the drain
-    outflow needs the per-cell drain budget.
+    outflow needs the per-cell drain budget. The release flux needs the head
+    (for its cell count) and a budget path out of the aquifer; the unit
+    fluxes need the head, a drain or recharge term and the mesh geometry.
     """
     names: list[str] = []
+    mesh = root.get("mesh")
     if "head" in root:
         names.append("watertable_elevation")
-        mesh = root.get("mesh")
         if mesh is not None and ("topography" in mesh or "z_interfaces" in mesh):
             names.extend(("watertable_depth", "seepage_mask"))
     budget = root.get("budget")
     if budget is not None and find_drain_budget_key(budget) is not None:
         names.append("outflow_drain")
+    if "head" in root and budget is not None:
+        if has_release_budget(budget):
+            names.append("release_flux")
+        has_geometry = mesh is not None and "vertices" in mesh and "face_node_connectivity" in mesh
+        if has_geometry and any(name in budget for name in FLUX_BUDGET_COMPONENTS):
+            names.append("fluxes_from_budget")
     return sorted(names)
 
 
@@ -294,6 +462,10 @@ def read_field_or_virtual(
     try:
         return sz.read_field(variable, timestep, layer=layer)
     except KeyError:
+        rows = VIRTUAL_FIELD_ROWS.get(variable)
+        if rows is not None and variable in available_virtual_fields(sz.root):
+            # Rebuilt on the handle already open, not on a second opening.
+            return _one_step(rows, sz.root, timestep)
         result = compute_virtual_field(source, str(sim_id), variable, timestep)
         if result is None:
             raise KeyError(f"Variable '{variable}' not found for sim={sim_id}") from None
@@ -302,6 +474,67 @@ def read_field_or_virtual(
         return result
     finally:
         sz.close()
+
+
+def read_field_range_or_virtual(
+    source: Any,
+    sim_id: str,
+    variable: str,
+    start: int,
+    stop: int,
+    layer: int | None = None,
+) -> np.ndarray:
+    """Read timesteps ``[start, stop)`` of one field with the store opened once.
+
+    Row ``i`` of the stack is what :func:`read_field_or_virtual` returns at
+    step ``start + i``, bit for bit. A stored array is sliced directly. A field
+    of :data:`VIRTUAL_FIELD_ROWS` is rebuilt over the range in passes. The
+    simulated network builds its graph once for the range. Any other virtual
+    field is rebuilt step by step on the handle already open. Negative bounds
+    count from the end. Raises ``KeyError`` when the variable is neither
+    persisted nor derivable, ``IndexError`` when the range leaves the time axis.
+    """
+    sz = source.open_zarr(sim_id)
+    try:
+        try:
+            return sz.read_field_range(variable, start, stop, layer=layer)
+        except KeyError:
+            return _virtual_range(source, sz, str(sim_id), variable, start, stop, layer)
+    finally:
+        sz.close()
+
+
+def _virtual_range(
+    source: Any,
+    sz: Any,
+    sim_id: str,
+    variable: str,
+    start: int,
+    stop: int,
+    layer: int | None,
+) -> np.ndarray:
+    """Rebuild a field that is not stored over ``[start, stop)``, on the open ``sz``."""
+    root = sz.root
+    first, last = int(start), int(stop)
+    if "head" in root:
+        first, last = step_range_bounds(start, stop, int(root["head"].shape[0]))
+    rows = VIRTUAL_FIELD_ROWS.get(variable)
+    if rows is not None and variable in available_virtual_fields(root):
+        return rows(root, first, last)
+    if variable == SIMULATED_ACTIVE_NETWORK and callable(getattr(source, "resolve", None)):
+        from hydromodpy.results.run import Run
+
+        return simulated_active_network_stack(Run(sim_id, source), range(first, last))
+    if variable not in VIRTUAL_FIELDS:
+        raise KeyError(f"Variable '{variable}' not found for sim={sim_id}")
+    borrowed = ZarrFieldSource(sz, sim_id)
+    steps = [
+        np.asarray(read_field_or_virtual(borrowed, sim_id, variable, step, layer=layer))
+        for step in range(first, last)
+    ]
+    if not steps:
+        return np.empty((0, _head_cell_count(root) if "head" in root else 0), dtype="float64")
+    return np.stack(steps)
 
 
 class _BorrowedZarr:
@@ -316,6 +549,11 @@ class _BorrowedZarr:
 
     def read_field(self, variable: str, timestep: int, *, layer: int | None = None) -> np.ndarray:
         return self._handle.read_field(variable, timestep, layer=layer)
+
+    def read_field_range(
+        self, variable: str, start: int, stop: int, *, layer: int | None = None
+    ) -> np.ndarray:
+        return self._handle.read_field_range(variable, start, stop, layer=layer)
 
     def close(self) -> None:
         return None
@@ -367,8 +605,17 @@ def derive_field_stack(
     variable: str,
     timesteps: Sequence[int],
 ) -> np.ndarray | None:
-    """Rebuild ``variable`` over ``timesteps`` from an open Zarr handle, or None."""
+    """Rebuild ``variable`` over ``timesteps`` from an open Zarr handle, or None.
+
+    A field of :data:`VIRTUAL_FIELD_ROWS` is computed once over the range the
+    steps span, then the asked rows are picked out of it.
+    """
     if variable not in available_virtual_fields(handle.root):
         return None
+    steps = np.asarray([int(t) for t in timesteps], dtype=np.int64)
+    rows = VIRTUAL_FIELD_ROWS.get(variable)
+    if rows is not None and steps.size:
+        first = int(steps.min())
+        return rows(handle.root, first, int(steps.max()) + 1)[steps - first]
     source = ZarrFieldSource(handle, sim_id)
-    return np.stack([np.asarray(source.query_field(sim_id, variable, int(t))) for t in timesteps])
+    return np.stack([np.asarray(source.query_field(sim_id, variable, int(t))) for t in steps])

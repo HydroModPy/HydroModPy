@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import warnings
+from collections.abc import Collection
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -96,9 +97,18 @@ def consolidate_metadata(store: Any, path: Path) -> None:
         logger.warning("consolidate_metadata failed for %s: %s", path, exc)
 
 
-def drop_group(store_obj: SimulationZarr, name: str) -> int:
+def _bytes_under(path: Path) -> int:
+    """Return the bytes of every file below ``path``, 0 when it is absent."""
+    if not path.is_dir():
+        return 0
+    return sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
+
+
+def drop_group(store_obj: SimulationZarr, name: str, *, keep: Collection[str] = ()) -> int:
     """Delete a top-level group from a live directory store.
 
+    ``keep`` names members of the group to leave in place: every other member
+    is deleted, and the group itself only when nothing it keeps is present.
     Returns the number of bytes freed on disk (0 when the group is absent).
     """
     root = store_obj.root
@@ -107,11 +117,19 @@ def drop_group(store_obj: SimulationZarr, name: str) -> int:
     if not store_obj._path.is_dir():
         raise RuntimeError(f"Cannot drop group '{name}' from a read-only store: {store_obj._path}")
     group_dir = windows_long_path(store_obj._path / name)
-    freed = 0
-    if group_dir.is_dir():
-        freed = sum(f.stat().st_size for f in group_dir.rglob("*") if f.is_file())
+    group = root[name]
+    kept = [member for member in keep if member in group]
     with guard_write(store_obj._lock, store_obj._path):
-        del root[name]
+        if not kept:
+            freed = _bytes_under(group_dir)
+            del root[name]
+            return freed
+        freed = 0
+        for member in list(group.keys()):
+            if member in kept:
+                continue
+            freed += _bytes_under(windows_long_path(group_dir / member))
+            del group[member]
     return freed
 
 

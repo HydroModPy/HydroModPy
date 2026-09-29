@@ -17,10 +17,8 @@ import pytest
 
 zarr = pytest.importorskip("zarr")
 
-from hydromodpy.simulation.extraction.derivation.derived import (  # noqa: E402
-    _SURFACE_RELEASE_BUDGETS,
-    _release_flux_stack,
-)
+from hydromodpy.core.field_routing import SURFACE_RELEASE_BUDGETS  # noqa: E402
+from hydromodpy.simulation.extraction.derivation.derived import _release_flux_stack  # noqa: E402
 
 N_CELLS = 6
 
@@ -137,7 +135,7 @@ def test_a_component_that_is_not_a_release_path_is_ignored(stack) -> None:
 def test_each_declared_path_carries_the_sign_of_its_convention() -> None:
     # MODFLOW signs from the aquifer's point of view; the Boussinesq surface
     # excess is already an outflow. One clamp for both silently dropped a half.
-    assert _SURFACE_RELEASE_BUDGETS == {"stream": -1.0, "lake": -1.0, "surface_excess": 1.0}
+    assert SURFACE_RELEASE_BUDGETS == {"stream": -1.0, "lake": -1.0, "surface_excess": 1.0}
 
 
 def test_the_boussinesq_excess_keeps_its_own_convention(stack) -> None:

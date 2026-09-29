@@ -450,12 +450,19 @@ def _budget_mean_recharge_m_s(sim: Run, areas: np.ndarray, *, ratio: float) -> f
             "persisted no recharge budget. Enable it, or set tau_specific_ratio = 0 to "
             "read the purely geometric criterion."
         )
+    from hydromodpy.core.stream_extent import CHUNK_ELEMENTS
+    from hydromodpy.results.run.geographic import field_steps
+
     n_steps = sim.n_timesteps
+    steps = list(range(int(n_steps))) if n_steps else [-1]
+    per_pass = max(1, CHUNK_ELEMENTS // max(1, int(areas.size)))
     rates: list[np.ndarray] = []
-    for index in range(int(n_steps)) if n_steps else (-1,):
-        recharge_m3_s = np.asarray(sim.field("recharge", timestep=index), dtype=float).reshape(-1)
-        usable = np.isfinite(recharge_m3_s) & np.isfinite(areas) & (areas > 0.0)
-        rates.append(recharge_m3_s[usable] / areas[usable])
+    for first in range(0, len(steps), per_pass):
+        chunk = steps[first : first + per_pass]
+        stack = np.asarray(field_steps(sim, "recharge", chunk), dtype=float)
+        for recharge_m3_s in stack.reshape(len(chunk), -1):
+            usable = np.isfinite(recharge_m3_s) & np.isfinite(areas) & (areas > 0.0)
+            rates.append(recharge_m3_s[usable] / areas[usable])
     try:
         return criterion_mean_recharge(rates)
     except ValueError as exc:

@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -49,6 +49,21 @@ def _optional_dask_array():
             _DASK_FALLBACK_WARNED = True
         return None
     return da
+
+
+def field_array_view(arr: Any, da: Any | None) -> Any:
+    """Return a stored array as numpy (``da`` None) or lazy dask, floats in float64.
+
+    A compact store keeps its fields in float32. The cast is lazy under dask
+    and exact, so a reader gets the dtype an exact store would give it.
+    """
+    if da is None:
+        values = np.asarray(arr)
+    else:
+        values = da.from_array(arr, chunks=arr.chunks if arr.chunks else "auto")
+    if np.issubdtype(values.dtype, np.floating) and values.dtype != np.float64:
+        values = values.astype(np.float64)
+    return values
 
 
 def get_geographic_fingerprint(store_obj: SimulationZarr) -> str | None:
@@ -121,27 +136,78 @@ def read_field(
     """Read ``variable`` from ``subgroup`` (or auto), sliced at ``timestep``.
 
     ``timestep`` is ignored for static fields (see :func:`_is_time_resolved`).
+    A float field comes back as float64 whatever precision it was stored in,
+    so a compact store and an exact one hand their readers the same dtype.
     """
-    time_resolved = _is_time_resolved(variable)
+    array = _stored_array(store_obj, variable, subgroup)
+    data = array[int(timestep)] if _is_time_resolved(variable) else array[:]
+    if layer is not None and data.ndim == 2:
+        data = data[layer]
+    return _as_float64(data)
 
-    def _select(array) -> np.ndarray:
-        return array[int(timestep)] if time_resolved else array[:]
 
+def read_field_range(
+    store_obj: SimulationZarr,
+    variable: str,
+    start: int,
+    stop: int,
+    *,
+    subgroup: str | None = None,
+    layer: int | None = None,
+) -> np.ndarray:
+    """Read ``variable`` over timesteps ``[start, stop)`` as one stack.
+
+    Row ``i`` is what :func:`read_field` returns at step ``start + i``: the
+    same lookup, the same layer selection, floats in float64. The slice is
+    read in one call, so each chunk is decoded once for the whole range. A
+    static field is repeated once per step, as a step-by-step read gives it.
+    Negative bounds count from the end of the time axis. A range that leaves
+    the axis raises ``IndexError``, as a step outside it does.
+    """
+    array = _stored_array(store_obj, variable, subgroup)
+    if not _is_time_resolved(variable):
+        row = read_field(store_obj, variable, 0, subgroup=subgroup, layer=layer)
+        return np.repeat(row[None], len(range(int(start), int(stop))), axis=0)
+    first, last = step_range_bounds(start, stop, int(array.shape[0]))
+    data = array[first:last]
+    if layer is not None and data.ndim == 3:
+        data = data[:, layer]
+    return _as_float64(data)
+
+
+def step_range_bounds(start: int, stop: int, n_steps: int) -> tuple[int, int]:
+    """Return ``[start, stop)`` on a time axis of ``n_steps``, negatives from the end.
+
+    Raises ``IndexError`` when the range leaves the axis or runs backwards,
+    where a slice would silently return fewer rows than asked.
+    """
+    first = int(start) + n_steps if int(start) < 0 else int(start)
+    last = int(stop) + n_steps if int(stop) < 0 else int(stop)
+    if not 0 <= first <= last <= n_steps:
+        raise IndexError(
+            f"timesteps [{start}, {stop}) out of bounds for a time axis of length {n_steps}"
+        )
+    return first, last
+
+
+def _stored_array(store_obj: SimulationZarr, variable: str, subgroup: str | None) -> Any:
+    """Return the stored array of ``variable``, from ``subgroup`` or the first group holding it."""
     if subgroup:
         target = store_obj._root[subgroup]
         if variable not in target:
             raise KeyError(f"Variable '{variable}' not found in subgroup '{subgroup}'")
-        data = _select(target[variable])
-    else:
-        for loc_name in (None, "state", "derived", "budget", "mesh"):
-            loc = store_obj._root if loc_name is None else store_obj._root.get(loc_name)
-            if loc is not None and variable in loc:
-                data = _select(loc[variable])
-                break
-        else:
-            raise KeyError(f"Variable '{variable}' not found")
-    if layer is not None and data.ndim == 2:
-        return data[layer]
+        return target[variable]
+    for loc_name in (None, "state", "derived", "budget", "mesh"):
+        loc = store_obj._root if loc_name is None else store_obj._root.get(loc_name)
+        if loc is not None and variable in loc:
+            return loc[variable]
+    raise KeyError(f"Variable '{variable}' not found")
+
+
+def _as_float64(data: np.ndarray) -> np.ndarray:
+    """Return ``data`` with a float dtype widened to float64, exactly."""
+    if np.issubdtype(data.dtype, np.floating) and data.dtype != np.float64:
+        return data.astype(np.float64)
     return data
 
 
@@ -248,11 +314,7 @@ def to_xarray(store_obj: SimulationZarr):
         dims = _shape_dims(desc.shape)
         if len(dims) != arr.ndim:
             dims = tuple(f"dim_{i}" for i in range(arr.ndim))
-        values = (
-            np.asarray(arr)
-            if da is None
-            else da.from_array(arr, chunks=arr.chunks if arr.chunks else "auto")
-        )
+        values = field_array_view(arr, da)
         data_vars[name] = xr.Variable(
             dims,
             values,
@@ -279,9 +341,11 @@ def to_xarray(store_obj: SimulationZarr):
 
 
 __all__ = [
+    "field_array_view",
     "get_geographic_fingerprint",
     "is_consolidated",
     "read_field",
+    "read_field_range",
     "lake_abacus_lakes",
     "read_forcing_timeseries",
     "read_geographic_raster",
@@ -291,5 +355,6 @@ __all__ = [
     "root_attrs_json",
     "set_drain_band_depth",
     "set_geographic_fingerprint",
+    "step_range_bounds",
     "to_xarray",
 ]

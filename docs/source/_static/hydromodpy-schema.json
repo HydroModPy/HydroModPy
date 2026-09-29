@@ -4921,7 +4921,7 @@
         },
         "release_flux": {
           "default": false,
-          "description": "Positive total groundwater release flux from drains and surface excess.",
+          "description": "Make available the positive per-cell groundwater release flux (m3/s): drains and DRN-TO-MVR, SFR streams, LAK lakes and the surface excess. It is rebuilt on read from the per-cell budget terms, which this option turns on and keeps in the store; no array of its own is written.",
           "examples": [
             false
           ],
@@ -17124,6 +17124,20 @@
           ],
           "title": "Save Zarr",
           "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "field_precision": {
+          "default": "compact",
+          "description": "Precision of the time-varying field arrays of fields.zarr: heads, per-cell budget terms, derived fields, concentrations. 'compact' stores float32 with the mantissa rounded to nearest at 16 bits: each value moves by at most 2**-17 of itself (7.6e-6 relative, so at most 1 mm on a 130 m head and 7.6e-9 m3/s on a 1e-3 m3/s cell flux), and a daily run takes about a third of the disk. 'exact' keeps every value as computed, float64. Mesh geometry, topography, layer thickness, indices, coordinates and timestamps are never rounded.",
+          "enum": [
+            "compact",
+            "exact"
+          ],
+          "examples": [
+            "compact"
+          ],
+          "title": "Field Precision",
+          "type": "string",
           "x-hmp-profile": "user"
         },
         "save_parquet": {

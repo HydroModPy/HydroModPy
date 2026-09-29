@@ -15,7 +15,11 @@ from hydromodpy.core.field_routing import (
     build_downhill_graph,
     drain_band_depth,
     drain_budget_stack_to_positive_outflow,
+    drain_stack_with_mover,
     find_drain_budget_key,
+    has_release_budget,
+    positive_cell_flux_stack,
+    release_flux_stack,
     seepage_mask,
     warn_on_geometric_seepage_fallback,
 )
@@ -164,8 +168,8 @@ def compute_derived(
     if flags.get("seepage_areas"):
         _compute_seepage_mask(sim_id, store, n_timesteps, n_cells)
 
-    if flags.get("release_flux") or flags.get("release_accumulation_flux"):
-        _compute_release_flux(sim_id, store, n_timesteps, n_cells)
+    if flags.get("release_flux"):
+        _check_release_flux_budget(sim_id, store)
 
     if flags.get("accumulation_flux"):
         _compute_accumulation_flux(sim_id, store, n_timesteps, n_cells)
@@ -238,7 +242,7 @@ def _compute_seepage_mask(
                 return
 
     if surface_excess_stack is not None:
-        excess = _positive_cell_flux_stack(surface_excess_stack[:n_timesteps], n_cells=n_cells)
+        excess = positive_cell_flux_stack(surface_excess_stack[:n_timesteps], n_cells=n_cells)
         wt = None
     else:
         excess = None
@@ -263,35 +267,6 @@ def _watertable_stack_from_head(head_stack: np.ndarray) -> np.ndarray:
     return wt
 
 
-# Canonical public name of the DRN-TO-MVR budget record (see
-# solver.modflow_common.budget_components.canonical_budget_component).
-_DRN_TO_MVR_KEYS = ("drain_to_mover",)
-
-
-def _drn_raw_stack_with_mvr(budget_grp: Any, drn_key: str | None, n_timesteps: int) -> Any:
-    """DRN budget stack summed with the DRN-TO-MVR record (same sign convention).
-
-    With ``route_drainage``, the in-watershed drain flux lives in the DRN-TO-MVR
-    record, not the plain DRN one, so the derived spatial fields must include
-    both to show catchment drainage rather than only the buffer. Returns None
-    when neither record is present.
-    """
-    stacks: list[np.ndarray] = []
-    if drn_key is not None:
-        stacks.append(np.asarray(budget_grp[drn_key][:], dtype="float64")[:n_timesteps])
-    for mvr_key in _DRN_TO_MVR_KEYS:
-        if mvr_key in budget_grp:
-            stacks.append(np.asarray(budget_grp[mvr_key][:], dtype="float64")[:n_timesteps])
-            break
-    if not stacks:
-        return None
-    base = stacks[0]
-    for extra in stacks[1:]:
-        if extra.shape == base.shape:
-            base = base + extra
-    return base
-
-
 def _drain_outflow_stack(
     sim_id: str,
     store: Any,
@@ -307,7 +282,7 @@ def _drain_outflow_stack(
         if int(n_timesteps) <= 0:
             return np.empty((0, int(n_cells)), dtype="float64")
         drn_key = find_drain_budget_key(budget_grp)
-        drn_stack = _drn_raw_stack_with_mvr(budget_grp, drn_key, n_timesteps)
+        drn_stack = drain_stack_with_mover(budget_grp, drn_key, 0, int(n_timesteps))
         if drn_stack is None:
             raise KeyError("No DRN or DRN-TO-MVR budget field")
     return drain_budget_stack_to_positive_outflow(drn_stack, n_cells=n_cells)
@@ -336,153 +311,46 @@ def _compute_accumulation_flux(
     )
 
 
-def _positive_cell_flux_stack(component_stack: Any, *, n_cells: int) -> np.ndarray:
-    """Return positive per-cell volumetric outflow from a ``(time, ...)`` stack."""
-    stack = np.asarray(component_stack, dtype=float)
-    if stack.size == 0:
-        return np.zeros((stack.shape[0] if stack.ndim else 0, int(n_cells)), dtype="float64")
-    if stack.ndim == 2:
-        stack = stack[:, None, :]
-    per_step = int(np.prod(stack.shape[1:]))
-    if per_step % int(n_cells) == 0:
-        values = stack.reshape(stack.shape[0], -1, int(n_cells))
-    else:
-        values = stack.reshape(stack.shape[0], stack.shape[1], -1)
-    if values.shape[-1] != int(n_cells):
-        raise ValueError(
-            f"Budget component has {values.shape[-1]} cells after reshape; expected {n_cells}."
-        )
-    finite = np.isfinite(values) & (values > -9000.0)
-    positive = np.where(finite, np.maximum(values, 0.0), 0.0)
-    return positive.sum(axis=1).astype("float64", copy=False)
-
-
-#: Persisted budget components that carry groundwater OUT of the aquifer to the
-#: surface, beside the drain, each with the sign a value takes when it LEAVES.
-#:
-#: The two conventions really do meet here. MODFLOW signs a budget from the
-#: aquifer's point of view, so ``stream`` (SFR) and ``lake`` (LAK) are negative
-#: when the aquifer loses water. The Boussinesq ``surface_excess`` is already an
-#: outflow and is positive. Reading them all with one clamp silently dropped
-#: whichever half had the other sign, which is how a run with its streams in SFR
-#: reported the drain alone.
-_SURFACE_RELEASE_BUDGETS: dict[str, float] = {
-    "stream": -1.0,
-    "lake": -1.0,
-    "surface_excess": 1.0,
-}
-
-
 def _release_flux_stack(
     sim_id: str,
     store: Any,
     n_timesteps: int,
     n_cells: int,
 ) -> np.ndarray:
-    """Sum every path groundwater takes out of the aquifer, as a solver-neutral stack.
+    """Read the release flux of the whole run from the stored budget terms.
 
-    Every path, not the drain alone. A run whose streams are in SFR sends most
-    of its water through the stream package: measured on the Nancon, 1.3276 of
-    the 2.1018 m3/s left through ``stream`` and 0.7986 through ``drain``, and a
-    ``release_flux`` holding the drain alone reported dry land over 63 per cent
-    of the outgoing water, exactly where a stream-network criterion aims.
-
-    This union is not the calibration criterion's, and it differs in both
-    directions. Persisted here: the drain and DRN-TO-MVR, plus ``stream``
-    (SFR), ``lake`` (LAK) and the Boussinesq ``surface_excess``. Read off the
-    binary budget by the calibration extractor: DRN, DRN-TO-MVR, SFR and a CHD
-    restricted to its stream-role cells. So a lake enters this field and never
-    the criterion, and a stream-role constant head enters the criterion and
-    never this field.
-
-    The two cannot become one declaration as they stand. A persisted
-    ``constant_head`` component carries no role, so adding it here would count
-    every constant head the run declares, an ocean or a lateral boundary
-    included, as groundwater released to the surface. And ``simulation`` may
-    not import ``solver``, so this list cannot read the criterion's; the
-    reverse edge is allowed, so a shared declaration would have to live below
-    both. Scoring this field against a mapped network therefore measures a
-    neighbouring quantity, not the one the criterion balanced.
+    The union itself is :func:`hydromodpy.core.field_routing.release_flux_stack`,
+    the function the readers rebuild ``release_flux`` with, so the routed field
+    and the field a reader sees start from one computation.
     """
     with _zarr_root(store, sim_id) as grp:
         budget_grp = grp.get("budget")
         if budget_grp is None:
             raise KeyError("No budget fields")
-
-        drn_key = find_drain_budget_key(budget_grp)
-        extra = [name for name in _SURFACE_RELEASE_BUDGETS if name in budget_grp]
-        if drn_key is None and not extra:
-            raise KeyError(
-                "No release budget field: expected a drain component or one of "
-                f"{sorted(_SURFACE_RELEASE_BUDGETS)}."
-            )
-
-        if int(n_timesteps) <= 0:
-            return np.empty((0, int(n_cells)), dtype="float64")
-        release = np.zeros((int(n_timesteps), int(n_cells)), dtype="float64")
-        drn_stack = _drn_raw_stack_with_mvr(budget_grp, drn_key, n_timesteps)
-        if drn_stack is not None:
-            release += drain_budget_stack_to_positive_outflow(drn_stack, n_cells=n_cells)
-        for name in extra:
-            stack = np.asarray(budget_grp[name][:], dtype="float64")
-            outward = stack[:n_timesteps] * _SURFACE_RELEASE_BUDGETS[name]
-            release += _positive_cell_flux_stack(outward, n_cells=n_cells)
-    return release
+        return release_flux_stack(budget_grp, n_cells=int(n_cells), start=0, stop=int(n_timesteps))
 
 
-def _compute_release_flux(
-    sim_id: str,
-    store: Any,
-    n_timesteps: int,
-    n_cells: int,
-) -> None:
-    """Total positive groundwater release flux per cell.
+def _check_release_flux_budget(sim_id: str, store: Any) -> None:
+    """Refuse a run that asked for ``release_flux`` and cannot serve it.
 
-    ``release_flux`` is a solver-neutral postprocessing field. It combines
-    positive drain outflow and positive saturation/surface-excess outflow when
-    those budget components are present. The components are intentionally not
-    distinguished in the resulting diagnostic field.
+    Nothing is written. ``release_flux`` is rebuilt on read from the per-cell
+    budget terms (:mod:`hydromodpy.results.derive.virtual_fields`), by the same
+    function that computed it here before it was stored. Storing it added one
+    of the heaviest arrays of a run for a value every reader recomputes
+    exactly. The option keeps its meaning, "make it available": a run whose
+    budget holds no release path is refused here, loudly, as before.
     """
-    try:
-        release_stack = _release_flux_stack(sim_id, store, n_timesteps, n_cells)
-    except KeyError as exc:
-        raise _budget_dependency_error("release_flux", sim_id, exc) from exc
-
-    _write_derived_stack(
-        sim_id,
-        store,
-        "release_flux",
-        release_stack,
-        n_timesteps,
-        n_cells,
-    )
-    logger.debug("Derived release_flux for sim %s", sim_id)
-
-
-def _read_derived_stack(
-    store: Any,
-    sim_id: str,
-    variable: str,
-    *,
-    n_timesteps: int,
-    n_cells: int,
-) -> np.ndarray:
-    """Read one derived time-face stack directly from the Zarr store."""
     with _zarr_root(store, sim_id) as grp:
-        derived = grp.get("derived")
-        if derived is None or variable not in derived:
-            raise KeyError(f"Missing derived/{variable}")
-        stack = np.asarray(derived[variable][:], dtype="float64")
-    if stack.ndim == 1:
-        stack = stack.reshape(1, -1)
-    stack = stack.reshape(stack.shape[0], -1)
-    if stack.shape[0] < int(n_timesteps):
-        raise ValueError(
-            f"derived/{variable} has {stack.shape[0]} timesteps, expected {n_timesteps}."
-        )
-    if stack.shape[1] != int(n_cells):
-        raise ValueError(f"derived/{variable} has {stack.shape[1]} cells, expected {n_cells}.")
-    return stack[:n_timesteps]
+        budget_grp = grp.get("budget")
+        if budget_grp is None:
+            cause = KeyError("No budget fields")
+        elif not has_release_budget(budget_grp):
+            cause = KeyError(
+                "No release budget field: expected a drain, stream, lake or surface excess"
+            )
+        else:
+            return
+    raise _budget_dependency_error("release_flux", sim_id, cause)
 
 
 def _write_derived_stack(
@@ -577,13 +445,7 @@ def _compute_release_accumulation_flux(
 ) -> None:
     """Route ``release_flux`` downstream and persist it as a separate field."""
     try:
-        release_stack = _read_derived_stack(
-            store,
-            sim_id,
-            "release_flux",
-            n_timesteps=n_timesteps,
-            n_cells=n_cells,
-        )
+        release_stack = _release_flux_stack(sim_id, store, n_timesteps, n_cells)
     except (KeyError, ValueError) as exc:
         raise _budget_dependency_error("release_accumulation_flux", sim_id, exc) from exc
 
