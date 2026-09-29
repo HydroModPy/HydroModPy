@@ -43,7 +43,8 @@ def test_an_uncatalogued_run_skips_store_work_but_cleans_scratch(monkeypatch) ->
     def fail_save(*_args, **_kwargs) -> None:
         raise AssertionError("step_save_run_artifacts should not run without an index")
 
-    def fake_cleanup(ctx, *, keep_solver_files: bool) -> None:
+    def fake_cleanup(ctx, *, keep_solver_files: bool, spare=()) -> None:
+        del spare
         calls.append(("cleanup", ctx, keep_solver_files))
 
     monkeypatch.setattr(export_module, "step_save_run_artifacts", fail_save)
@@ -73,7 +74,8 @@ def test_a_lightweight_run_never_opens_the_index(monkeypatch) -> None:
     def fail_open(_ctx):
         raise AssertionError("a lightweight run must not open the index")
 
-    def fake_cleanup(ctx, *, keep_solver_files: bool) -> None:
+    def fake_cleanup(ctx, *, keep_solver_files: bool, spare=()) -> None:
+        del spare
         calls.append(f"cleanup:{keep_solver_files}")
 
     monkeypatch.setattr(export_module, "run_catalog", fail_open)

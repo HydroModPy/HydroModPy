@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -153,8 +154,18 @@ def _promote(catalog, session_id, monkeypatch, *, cfg=None, fail: bool = False):
     """Run the promotion with a fake pipeline that reports the gate it saw."""
     seen: dict[str, dict[str, str | None]] = {}
 
-    def _fake_promote(trial_ctx, values, *, name=None, tags=(), session_id=None, sim_id=None):
-        del trial_ctx, values, name, tags, session_id
+    def _fake_promote(
+        trial_ctx,
+        values,
+        *,
+        name=None,
+        tags=(),
+        session_id=None,
+        sim_id=None,
+        kept=None,
+        spared=(),
+    ):
+        del trial_ctx, values, name, tags, session_id, kept, spared
         # A pipeline mints its own id when none was reserved, which is what the
         # promotion used to leave it to do.
         promoted = sim_id or str(uuid.uuid4())
@@ -166,7 +177,7 @@ def _promote(catalog, session_id, monkeypatch, *, cfg=None, fail: bool = False):
     monkeypatch.setattr(promotion_module, "promote_prepared_trial", _fake_promote)
     result = promote_iterations(
         cfg=cfg or _cfg(),
-        trial_ctx=object(),
+        trial_ctx=SimpleNamespace(kept_solves=None),
         catalog=catalog,
         persistence=_StubPersistence(_rows()),
         session_id=session_id,

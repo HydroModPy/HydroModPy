@@ -14,6 +14,10 @@ the pipeline returned made every session figure report itself unavailable for
 a reason that stopped being true one instruction later. Each promotion
 therefore reserves its run id, writes the link, and clears it again when the
 run fails, so a link never names a run that does not exist.
+
+A promoted trial whose solve the session kept is not solved again: the run is
+registered and goes on from extraction on the kept solver folder. A trial with
+no kept solve is replayed, and the log says why, once per run.
 """
 
 from __future__ import annotations
@@ -172,15 +176,17 @@ def promote_iterations(
     if not top:
         return 0, [], None
 
+    retention = trial_ctx.kept_solves
     best_trial = best.trial_id if best is not None else int(top[0]["iteration"])
     failures: list[str] = []
     best_sim_id: str | None = None
     count = 0
     for row in progress.track(top, "Promoting calibrated runs"):
+        iteration = int(row["iteration"])
         promoted_as = (
             run_name
-            if int(row["iteration"]) == best_trial
-            else run_name + _TRIAL_SUFFIX.format(iteration=int(row["iteration"]))
+            if iteration == best_trial
+            else run_name + _TRIAL_SUFFIX.format(iteration=iteration)
         )
         logger.debug("Promoting %s", promoted_as)
         values = {
@@ -188,6 +194,16 @@ def promote_iterations(
             for name in override_paths
             if name in row["parameters"]
         }
+        kept, why_not = (
+            retention.take(iteration)
+            if retention is not None
+            else (None, "this session keeps no trial solve")
+        )
+        if kept is None:
+            logger.info(
+                "Promoting %s by solving trial %d again: %s.", promoted_as, iteration, why_not
+            )
+        spared = retention.spared_folders(iteration) if retention is not None else ()
         sim_id = str(uuid.uuid4())
         # Linked first: the promoted run renders its figures as its own last
         # step, and the ones about the calibration read this link.
@@ -200,12 +216,16 @@ def promote_iterations(
                     name=promoted_as,
                     session_id=session_id,
                     sim_id=sim_id,
+                    kept=kept,
+                    spared=spared,
                 )
         except Exception as exc:
             update_iter_sim_id(catalog, session_id, row["iteration"], None)
             logger.exception("Promotion failed for iteration %d.", row["iteration"])
             failures.append(f"iteration {row['iteration']}: {exc}")
             continue
+        if kept is not None and retention is not None:
+            retention.promoted(iteration)
         count += 1
         if best is not None and int(row["iteration"]) == best.trial_id:
             best_sim_id = sim_id

@@ -45,6 +45,13 @@ Each release section includes the following standard categories:
 - A field is read over a range of timesteps with the store opened once
   (`results.run.geographic.field_range`, `field_steps`), and the flow-state figures use it: the
   15 figures of a daily example 04 run render in 17 s instead of about 2 min, the same pixels.
+- A calibration promotes a trial from the solve the trial already ran: the trial's MODFLOW
+  folder is kept while it may be promoted (every trial under `save_runs = "all"`, the
+  `save_best_n` or the best otherwise), and the promotion resumes at extraction instead of
+  writing inputs and solving again. The promoted run is the same, all Zarr arrays bit for bit,
+  and is tagged `promoted_from_trial:<N>`; a trial that was not kept is replayed as before, with
+  the reason logged. On the daily API grid of example 04 a promotion no longer spends its ~7 min
+  of solve. The kept folders are released on every exit path.
 - The CLI banner draws every letter whole in its color. The slanted font joined the Hydro "o" to
   the "M" and the Mod "d" to the "P" with a shared stroke, so the color changed inside a letter
   and the "P" had no yellow stem. The art keeps a blank column at both joins, four columns wider.

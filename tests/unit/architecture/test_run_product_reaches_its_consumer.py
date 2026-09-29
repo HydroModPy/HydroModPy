@@ -55,6 +55,9 @@ REGISTRY_READERS = {
     "calibration/metrics/solver_extract.py",
     # Pipeline scope: lists the scratch directories a trial has to clear.
     "calibration/runners/sandbox.py",
+    # A launcher, the runner's own role: a promotion hands over the solve its
+    # trial kept, recording each run's model and folder as the runner does.
+    "calibration/runners/kept_solves.py",
 }
 
 # ``RunContext.of`` is the construction path for every consumer that runs after
