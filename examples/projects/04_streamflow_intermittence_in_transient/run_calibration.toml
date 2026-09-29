@@ -40,3 +40,8 @@ name = "matching_hydrographic_network"
 # Stage two: each trial is a 36-month run, about one minute.
 transient_max_iter = 30
 transient_tolerance = 0.05   # 5 % on Sy
+
+# The figures and the exports of project.toml, for the best run of each
+# stage, plus the gauged discharge against the simulated one, month by month.
+[display]
+figures__append = ["scatter_one_to_one"]

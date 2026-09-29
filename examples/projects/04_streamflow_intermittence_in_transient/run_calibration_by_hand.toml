@@ -72,3 +72,8 @@ depends_on = "steady_conductivity"
 # 2000 is spin-up: simulated, not scored.
 [calibration.phases.scoring_window]
 start = "2001-01-01"
+
+# The figures and the exports of project.toml, for the best run of each
+# phase, plus the gauged discharge against the simulated one, month by month.
+[display]
+figures__append = ["scatter_one_to_one"]

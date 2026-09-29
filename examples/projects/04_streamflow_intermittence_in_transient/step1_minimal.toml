@@ -61,7 +61,37 @@ value = 0.05
 [flow.sinks_sources.recharge]
 values = 0.78
 
-# The catchment and where the water table reaches the surface.
+# The catchment, the depth to the water table and where it reaches the
+# surface, a section through the outlet, and what enters and leaves.
 [display]
 on_error = "raise"
-figures = ["watershed_id_card", "seepage_map"]
+figures = [
+    "watershed_id_card",
+    "watertable_depth_map",
+    "seepage_map",
+    "cross_section",
+    "water_budget",
+]
+
+# South to north through the outlet, so the section cuts the tributaries
+# across. The west-east default crosses the valley once, at the southern edge.
+[display.overrides.cross_section]
+orientation = "sn"
+
+# What the run writes to share/nancon_step1_minimal/. A block says what
+# (variables) and when (time); the format follows the data. The next steps
+# inherit these three blocks.
+
+# The catchment outline: GeoPackage.
+[[export]]
+variables = "watershed"
+
+# The water table and the seepage cells: one GeoTIFF each. "last" is the one
+# state of a steady run, and the last month of a transient one.
+[[export]]
+variables = ["watertable_depth", "seepage_mask"]
+time = "last"
+
+# The water budget: CSV.
+[[export]]
+variables = "budget"

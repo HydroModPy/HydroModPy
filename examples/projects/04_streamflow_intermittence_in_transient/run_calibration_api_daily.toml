@@ -3,17 +3,21 @@
 # 2015-2020, 2015 left out as spin-up, so five years are scored.
 #
 # No search: K takes five fixed values, one full run each, and every run is
-# kept with its figures. The best on the gauge is promoted under the phase
-# name, the four others with a _trial_<n> suffix.
+# kept with its figures and its exports. The best on the gauge is promoted
+# under the simulation name, the four others with a _trial_<n> suffix.
 #
 # Needs network access at the first run; the downloads are cached after it.
-# Ten daily solves of 2192 steps: five trials, then five promoted replays.
+# Five daily solves of 2192 steps: a promoted run reuses the solve of its trial.
 #
 #   hmp calibrate run_calibration_api_daily.toml --check
 #   hmp calibrate run_calibration_api_daily.toml --list-phases
 #   hmp run       run_calibration_api_daily.toml
 
 base_config = "project.toml"
+
+# The exports of project.toml name October 2002, outside this record. They are
+# dropped, and the blocks at the end of this file replace them.
+export__delete = true
 
 [workflow]
 mode = "calibration"
@@ -124,7 +128,9 @@ figures = [
     "flow_persistence_map",
     "flow_intermittence_map",
     "seepage_network_confusion_map",
+    "downslope_distance_map",
     "parameter_cost_profile",
+    "calibration_progress",
 ]
 
 # The seepage of February 2020, near the largest saturated extent of the record.
@@ -138,3 +144,29 @@ scoring_window = ["2016-01-01", "2020-12-31"]
 # One hydrological year inside the run instead of the 2002 of project.toml.
 [display.overrides.flow_intermittence_map]
 cycle = "2019"
+
+# What each of the five runs writes to share/<run>/.
+
+# The catchment and both BD Topage maps, all reaches and the permanent ones:
+# GeoPackage.
+[[export]]
+variables = [
+    "watershed",
+    "hydrographic_network_reference",
+    "hydrographic_network_reference_permanent",
+]
+
+# The water table and the seepage cells at the end of the dry summer of 2019:
+# one GeoTIFF each.
+[[export]]
+variables = ["watertable_depth", "seepage_mask"]
+time = "2019-09-15"
+
+# Simulated and gauged discharge, day by day over the scored years: CSV.
+[[export]]
+variables = ["discharge", "discharge_obs"]
+period = ["2016-01-01", "2020-12-31"]
+
+# The daily water budget: CSV.
+[[export]]
+variables = "budget"

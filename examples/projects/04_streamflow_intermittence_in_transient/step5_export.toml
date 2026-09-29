@@ -6,12 +6,15 @@
 
 base_config = "step4_transient.toml"
 
+# Steps 1 to 4 already export a few files. This step writes its own list
+# instead: the inherited blocks are dropped first.
+export__delete = true
+
 [simulation]
 name = "nancon_step5_export"
 
-# The catchment and the mapped network: GeoPackage. The same words export the
-# BD Topage network of step 3 and its permanent class, after the fact:
-#   hmp export nancon_step3_api hydrographic_network_reference hydrographic_network_reference_permanent
+# The catchment and the mapped network: GeoPackage. Step 3 writes the same
+# for BD Topage, with the permanent reaches apart.
 [[export]]
 variables = ["watershed", "hydrographic_network_reference"]
 
@@ -67,11 +70,15 @@ format = "vtu"
 variables = "all"
 format = "package"
 
+# One figure beside most exports: the same data, drawn instead of written.
 [display]
 figures = [
     "watershed_id_card",
     "flux_timeseries",
     "hydrograph_sim_obs",
+    "watertable_depth_map",
     "seepage_map",
     "seepage_network_confusion_map",
+    "downslope_distance_map",
+    "flow_persistence_map",
 ]

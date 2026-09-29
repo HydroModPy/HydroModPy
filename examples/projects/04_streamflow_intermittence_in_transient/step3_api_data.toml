@@ -30,10 +30,18 @@ source = "hubeau"
 product = "QmnJ"
 station_ids = ["J001401001"]
 
-# The BD Topage network, all reaches then the permanent class.
+# The BD Topage network, all reaches then the permanent class, then the
+# simulated seepage against all reaches.
 [display]
 figures = [
     "watershed_id_card",
     "hydrographic_network_reference",
+    "hydrographic_network_permanence",
     "seepage_network_confusion_map",
+    "downslope_distance_map",
 ]
+
+# Step 2's exports, where the network is now all BD Topage reaches, plus the
+# permanent reaches as a GeoPackage of their own.
+[[export__append]]
+variables = "hydrographic_network_reference_permanent"

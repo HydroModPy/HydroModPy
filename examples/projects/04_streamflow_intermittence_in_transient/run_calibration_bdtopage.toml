@@ -107,18 +107,28 @@ depends_on = "transient_conductivity"
 [calibration.phases.scoring_window]
 start = "2001-01-01"
 
-# The two maps first, then the extents each phase scored and the hydrograph.
-# The last three only apply to a run the calibration promoted.
+# The two maps first, then the extents each phase scored, the hydrograph and
+# the seepage of October 2002. The last four only apply to a run the
+# calibration promoted; the bracket trace reads the K phase only.
 [display]
 figures = [
     "watershed_id_card",
     "hydrographic_network_permanence",
     "network_extent_bounds_map",
     "hydrograph_log_nse",
+    "seepage_map",
     "flow_persistence_map",
+    "flow_intermittence_map",
     "seepage_network_confusion_map",
+    "downslope_distance_map",
 
+    "calibration_progress",
     "bisection_bracket_trace",
     "parameter_cost_profile",
     "matching_hydrographic_network_card",
 ]
+
+# The four exports of project.toml, where the network is all BD Topage
+# reaches, plus the permanent reaches, the minimal map.
+[[export__append]]
+variables = "hydrographic_network_reference_permanent"

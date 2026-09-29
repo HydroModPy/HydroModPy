@@ -63,3 +63,30 @@ max_iter = 60
 # 2000 is spin-up: both criteria are read from 2001 on.
 [calibration.phases.scoring_window]
 start = "2001-01-01"
+
+# Its own figure list: the bisection figures of project.toml read a search on
+# K alone. The cost profile and the distance crossing read K here, each trial
+# at its own Sy. The exports are those of project.toml.
+[display]
+figures = [
+    "watershed_id_card",
+    "flux_timeseries",
+    "hydrograph_log_nse",
+    "scatter_one_to_one",
+    "watertable_depth_map",
+    "seepage_map",
+    "flow_persistence_map",
+    "flow_intermittence_map",
+    "seepage_network_confusion_map",
+    "downslope_distance_map",
+
+    "calibration_progress",
+    "parameter_cost_profile",
+    "downslope_distance_crossing",
+]
+
+[display.overrides.parameter_cost_profile]
+parameter = "K"
+
+[display.overrides.downslope_distance_crossing]
+parameter = "K"

@@ -13,7 +13,7 @@ une variante de l'étape 2 sur données d'API ; l'étape 4 repart des données l
 2. `step2_local_data.toml` : ajoute le réseau cartographié et la station, en fichiers locaux.
 3. `step3_api_data.toml` : les mêmes données, prises aux API BD Topage et Hub'Eau.
 4. `step4_transient.toml` : transitoire mensuel 2000-2002, recharge et ruissellement observés.
-5. `step5_export.toml` : exporte les résultats, un bloc `[[export]]` par format.
+5. `step5_export.toml` : la vitrine des exports, un bloc `[[export]]` par format.
 
 Autour des étapes :
 
@@ -46,7 +46,13 @@ chacun environ une heure.
 
 ## Où sont les sorties
 
+Chaque fichier dessine ses figures et écrit ses exports. L'étape 1 déclare trois exports,
+les étapes 2 à 4 en héritent et en ajoutent (`[[export__append]]`), l'étape 5 repart
+d'une liste vide (`export__delete`). Les fichiers de calage écrivent les exports de
+`project.toml` pour chaque run promu ; celui sur API a les siens, datés de 2019.
+
 - figures : `runs/<nom>/figures/`
 - exports : `share/<nom>/`
 
-`<nom>` est le `[simulation] name` du fichier lancé, par exemple `nancon_step5_export`.
+`<nom>` est le nom du run : le `[simulation] name` du fichier lancé, par exemple
+`nancon_step5_export`, suivi du nom de la phase pour un calage en plusieurs phases.
