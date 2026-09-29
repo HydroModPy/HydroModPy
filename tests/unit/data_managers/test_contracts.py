@@ -1,7 +1,9 @@
 """Tests for contracts (PointRecord, StationLocation, FieldRecord, LoadResult)."""
 
+import json
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -28,6 +30,13 @@ class TestStationLocation:
         d = loc.to_dict()
         assert d["id"] == "A"
         assert d["name"] == "Test"
+
+    def test_numpy_metadata_writes_to_json(self):
+        metadata = {"influence": np.int64(1), "active": np.bool_(True), "altitude": np.float64(1.5)}
+        loc = StationLocation(id="A", x=1.0, y=2.0, crs="EPSG:2154", metadata=metadata)
+        assert json.loads(json.dumps(loc.to_dict()))["influence"] == 1
+        assert type(loc.metadata["influence"]) is int
+        assert type(loc.metadata["active"]) is bool
 
 
 class TestPointRecord:
