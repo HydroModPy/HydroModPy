@@ -33,6 +33,11 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Changed
+- The CLI banner draws every letter whole in its color. The slanted font joined the Hydro "o" to
+  the "M" and the Mod "d" to the "P" with a shared stroke, so the color changed inside a letter
+  and the "P" had no yellow stem. The art keeps a blank column at both joins, four columns wider.
+
 ---
 
 ## [v2.0.0a3] - 2026-09-29
