@@ -7,6 +7,7 @@ import logging
 
 import pytest
 from rich.console import Console
+from rich.text import Text
 
 from hydromodpy.core import progress as core_progress
 from hydromodpy.core.logging import get_logger
@@ -112,12 +113,41 @@ def test_nested_phase_status_task(live_console):
     assert "Outer" in output
 
 
-def test_console_log_handler_prints_formatted_record(live_console):
+def _handled(message: str, level: int = logging.INFO, **extra) -> str:
     handler = core_progress.ConsoleLogHandler()
-    handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
-    record = logging.LogRecord("hydromodpy.x", logging.INFO, __file__, 1, "hello", None, None)
+    record = logging.LogRecord("hydromodpy.x", level, __file__, 1, message, None, None)
+    record.__dict__.update(extra)
     handler.emit(record)
-    assert "[INFO] hello" in live_console.getvalue()
+    return Text.from_ansi(core_progress.console.file.getvalue()).plain
+
+
+@pytest.mark.parametrize(
+    ("level", "glyph"),
+    [
+        (logging.DEBUG, "·"),
+        (logging.INFO, "›"),
+        (logging.WARNING, "!"),
+        (logging.ERROR, "✗"),
+        (logging.CRITICAL, "✗"),
+    ],
+)
+def test_console_log_handler_marks_the_level_with_a_glyph(live_console, level, glyph):
+    assert _handled("hello", level) == f"{glyph} hello\n"
+
+
+def test_console_log_handler_wraps_under_the_message(live_console):
+    text = _handled("word " * 60, logging.WARNING)
+    lines = text.splitlines()
+    assert len(lines) > 1
+    assert lines[0].startswith("! word")
+    assert all(line.startswith("  word") for line in lines[1:])
+    assert all(len(line) <= 100 and not line.endswith(" ") for line in lines)
+
+
+def test_console_log_handler_prints_a_hint_without_glyph(live_console):
+    assert _handled("next: hmp catalog show run", **core_progress.HINT) == (
+        "  next: hmp catalog show run\n"
+    )
 
 
 def test_fmt_duration():

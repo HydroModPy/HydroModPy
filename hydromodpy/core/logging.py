@@ -18,6 +18,11 @@ checkmarks, what a run wrote, how it ended. Emit one with
 :mod:`hydromodpy.core.progress` defines. Everything else stays out of
 the way at ``normal`` and is one ``--verbose`` away.
 
+On a terminal a console line starts with a glyph for its level, the
+grammar of the phase checkmarks: ``✗`` error, ``!`` warning, ``›``
+milestone, ``·`` debug. A hint (``extra=HINT``) prints dim, without one.
+A pipe keeps the ``[LEVEL]`` labels.
+
 Only the console is filtered: the project debug log,
 ``.hmp/logs/hydromodpy_debug.log``, records DEBUG whatever the console
 shows, so nothing is lost by running quiet.
@@ -66,7 +71,7 @@ class _MilestoneFilter(logging.Filter):
 
 
 class _ConsoleFormatter(logging.Formatter):
-    """Prefix a line with its level, except the ones at INFO and below.
+    """Prefix a plain line with its level, except the ones at INFO and below.
 
     At ``normal`` the only INFO lines left are milestones, and a
     ``[INFO]`` in front of each adds a column of noise to the four lines
@@ -81,6 +86,21 @@ class _ConsoleFormatter(logging.Formatter):
         if record.levelno <= logging.INFO:
             return self._plain.format(record)
         return super().format(record)
+
+
+def _console_formatter(mode: str, handler: logging.Handler) -> logging.Formatter:
+    """Console format for *mode* on *handler*.
+
+    The rich handler of a terminal marks the level with a glyph, so its
+    lines drop the ``[LEVEL]`` label. A plain stream (pipe, CI) keeps it,
+    where a grep looks for it.
+    """
+    location = "[%(name)s] [%(module)s:%(lineno)d] " if mode == "debug" else ""
+    if isinstance(handler, core_progress.ConsoleLogHandler):
+        return logging.Formatter(f"{location}%(message)s")
+    if mode == "normal":
+        return _ConsoleFormatter()
+    return logging.Formatter(f"[%(levelname)s] {location}%(message)s")
 
 
 class _DedupFilter(logging.Filter):
@@ -205,17 +225,11 @@ class LogManager:
 
         console_handler = core_progress.make_console_handler()
         console_handler.setLevel(_CONSOLE_LEVELS[self.mode])
-        if self.mode == "debug":
-            console_handler.setFormatter(
-                logging.Formatter("[%(levelname)s] [%(name)s] [%(module)s:%(lineno)d] %(message)s")
-            )
-        elif self.mode == "normal":
-            console_handler.setFormatter(_ConsoleFormatter())
+        console_handler.setFormatter(_console_formatter(self.mode, console_handler))
+        if self.mode != "debug":
             console_handler.addFilter(_DedupFilter())
+        if self.mode == "normal":
             console_handler.addFilter(_MilestoneFilter())
-        else:
-            console_handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
-            console_handler.addFilter(_DedupFilter())
         self.logger.addHandler(console_handler)
 
         # Add user log if specified and not already added
