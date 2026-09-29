@@ -47,6 +47,7 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 from rich.table import Table
+from rich.text import Text
 
 from hydromodpy.core import progress_ndjson
 
@@ -58,6 +59,12 @@ MILESTONE_KEY = "hmp_milestone"
 MILESTONE: dict[str, bool] = {MILESTONE_KEY: True}
 """``extra=`` payload for a milestone. Lives here, not in ``core.logging``,
 because ``core.logging`` imports this module and the reverse would cycle."""
+
+HINT_KEY = "hmp_hint"
+"""Record attribute marking a milestone that only suggests what to do next."""
+
+HINT: dict[str, bool] = {MILESTONE_KEY: True, HINT_KEY: True}
+"""``extra=`` payload for a hint: a milestone the terminal prints dim, without a glyph."""
 
 # Verbosity levels that still draw the live display. "quiet" has nothing to
 # show and "debug" wants scrolling lines it can copy out of a pipe.
@@ -450,16 +457,48 @@ def track(
             handle.advance()
 
 
+# Level glyphs of a console log line, highest floor first. Same grammar as
+# the phase checkmarks, so a warning reads like a step, not like a log dump.
+_LEVEL_GLYPHS = (
+    (logging.ERROR, "✗", "bold red"),
+    (logging.WARNING, "!", "bold yellow"),
+    (logging.INFO, "›", "cyan"),
+    (logging.NOTSET, "·", "dim"),
+)
+
+
+def _glyph_line(record: logging.LogRecord, message: str, width: int) -> Text:
+    """Render ``<glyph> <message>``, wrapped under the message's first character."""
+    if getattr(record, HINT_KEY, False):
+        glyph, glyph_style, text_style = " ", "", "dim"
+    else:
+        glyph, glyph_style = next(
+            (mark, style) for floor, mark, style in _LEVEL_GLYPHS if record.levelno >= floor
+        )
+        text_style = ""
+    line = Text()
+    for index, part in enumerate(Text(message).wrap(console, max(width - 2, 20))):
+        if index == 0:
+            line.append(glyph, style=glyph_style)
+            line.append(" ")
+        else:
+            line.append("\n  ")
+        line.append(part.plain.rstrip(), style=text_style)
+    return line
+
+
 class ConsoleLogHandler(logging.Handler):
     """Logging handler that prints through the shared rich console.
 
     Routing log lines through the console keeps them from corrupting
     the live progress display: rich renders them above the live area.
+    The level is a glyph in front of the message, so the formatter
+    should not print it again.
     """
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            console.print(self.format(record), markup=False, highlight=False, soft_wrap=True)
+            console.print(_glyph_line(record, self.format(record), console.width), soft_wrap=True)
         except Exception:
             self.handleError(record)
 
@@ -472,6 +511,8 @@ def make_console_handler() -> logging.Handler:
 
 
 __all__ = [
+    "HINT",
+    "HINT_KEY",
     "MILESTONE",
     "MILESTONE_KEY",
     "ConsoleLogHandler",

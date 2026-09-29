@@ -7,6 +7,7 @@ import logging
 
 import pytest
 from rich.console import Console
+from rich.text import Text
 
 from hydromodpy.core import progress as core_progress
 from hydromodpy.core.logging import (
@@ -59,11 +60,27 @@ def test_normal_keeps_milestones_and_warnings(console_output):
     assert "a debug line" not in text
 
 
-def test_normal_prints_a_milestone_without_a_level_prefix(console_output):
+def test_a_terminal_marks_the_level_with_a_glyph(console_output):
     _emit("normal")
-    text = console_output.getvalue()
+    text = Text.from_ansi(console_output.getvalue()).plain
     assert "[INFO]" not in text
+    assert "[WARNING]" not in text
+    assert "› a milestone line" in text
+    assert "! a warning line" in text
+
+
+def test_a_pipe_keeps_the_level_label(capsys):
+    original = core_progress.console
+    previous = current_verbosity()
+    core_progress.console = Console(file=io.StringIO(), force_terminal=False)
+    try:
+        _emit("normal")
+    finally:
+        core_progress.console = original
+        set_verbosity(previous)
+    text = capsys.readouterr().err
     assert "[WARNING] a warning line" in text
+    assert "[INFO]" not in text
 
 
 def test_verbose_keeps_every_info_line(console_output):

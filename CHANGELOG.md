@@ -33,6 +33,12 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Changed
+- On a terminal, a console log line starts with a glyph for its level, like the phase checkmarks:
+  `✗` error, `!` warning, `›` milestone, `·` debug. A long line wraps under its message, not
+  under the glyph. The `next:` line of the run recap prints dim, without a glyph
+  (`core.progress.HINT`). A pipe keeps the `[WARNING]` labels, and the log files are unchanged.
+
 ### Fixed
 - `hmp example add 04` merges the rows of the stations it reads (NANCON, NANCON_REA) into the
   workspace registries `data/<variable>/<variable>_custom_LOC.csv`. `hmp workspace init` writes

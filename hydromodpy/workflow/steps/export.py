@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError, ExportError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.progress import MILESTONE
+from hydromodpy.core.progress import HINT, MILESTONE
 from hydromodpy.core.state.paths import PREPROCESSING_DIRNAME, active_run_scratch
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
@@ -202,8 +202,9 @@ def _run_epilogue_lines(
 
 
 def _log_run_epilogue(lines: tuple[str, ...]) -> None:
-    for line in lines:
-        logger.info("%s", line, extra=MILESTONE)
+    recap, next_commands = lines
+    logger.info("%s", recap, extra=MILESTONE)
+    logger.info("%s", next_commands, extra=HINT)
 
 
 # ---------------------------------------------------------------------------
