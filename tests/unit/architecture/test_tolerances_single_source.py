@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 47 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 51 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 47 loadable rows split into three enforcement classes (W5 classification):
+The 51 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 47 loadable TOLERANCES.md rows.
+# W5 classification of the 51 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -100,6 +100,14 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "twin_stream_network_calibration_mf6__d_sat_m_at_the_returned_trial_against_the_truth_run",
         "twin_stream_network_calibration_mf6__k_optim_m_s_k_over_r_t_over_r_m_t_optim_m2_s_"
         "against_k_r_mean_m_s_and_d_sat_m_of_the_returned_trial",
+        # Soil reservoir kernel, asserted in tests/unit/physics/.
+        "soil_reservoir_kernel_balance_float64__per_column_sum_t_residual_sum_t_p_and_per_day_"
+        "max_residual_max_p",
+        "soil_transit_store_impulse__max_absolute_error_against_q_0_50_1_k_a_q_t_1_50_k_a_2_exp_"
+        "t_1_k_mm",
+        "soil_transit_store_impulse_volume__sum_t_q_50_over_60_k_days_mm",
+        "soil_spin_up_settling__largest_change_mm_of_the_end_of_year_soil_or_transit_storage_"
+        "between_the_last_two_repetitions",
     }
 )
 
@@ -200,7 +208,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 47, sorted(loadable)
+    assert len(loadable) == 51, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"

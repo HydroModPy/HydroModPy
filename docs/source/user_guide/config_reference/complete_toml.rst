@@ -223,7 +223,7 @@ Sub-models are linked back to their per-section page.
       # bc = ...  # uses factory default
       # Typed sinks/sources payload (for example pumping wells).
       # sinks_sources = ...  # uses factory default
-      # Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.
+      # Explicitly activated sink/source names for this flow run: 'recharge', 'wells', 'etp'. 'etp' means three things. Under MODFLOW-NWT the loaded ETP drives the EVT package. Under MODFLOW 6 it acts only in soil mode ([flow.sinks_sources.recharge.soil]), where it sends the ETP the soil left unmet to the EVT package; outside soil mode MODFLOW 6 ignores it and says so. Boussinesq rejects it at solver-contract validation. An empty list means no sink/source package is assembled by the solver.
       # example: active_sinks_sources = ["recharge"]
       # example: active_sinks_sources = ["recharge", "wells"]
       # example: active_sinks_sources = ["etp"]

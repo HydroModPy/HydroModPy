@@ -6898,7 +6898,7 @@
           "x-hmp-profile": "user"
         },
         "active_sinks_sources": {
-          "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.",
+          "description": "Explicitly activated sink/source names for this flow run: 'recharge', 'wells', 'etp'. 'etp' means three things. Under MODFLOW-NWT the loaded ETP drives the EVT package. Under MODFLOW 6 it acts only in soil mode ([flow.sinks_sources.recharge.soil]), where it sends the ETP the soil left unmet to the EVT package; outside soil mode MODFLOW 6 ignores it and says so. Boussinesq rejects it at solver-contract validation. An empty list means no sink/source package is assembled by the solver.",
           "examples": [
             [
               "recharge"
@@ -7062,7 +7062,7 @@
             }
           ],
           "default": 2.0,
-          "description": "Distance below the topographic surface (m) where the EVT extraction surface sits. MODFLOW EVT extracts water linearly between this surface and surface - extinction_depth. Legacy default was DEM - 2 m.",
+          "description": "Distance (m) the EVT surface sits below its reference. Under MODFLOW-NWT the reference is the topographic surface and the default is 2 m. In soil mode under MODFLOW 6 the reference is the drain elevation of the cell (the top, or the top minus half of solver.drain_band_depth_m) and the default is 0 m, since the soil reservoir has already taken the ETP it could.",
           "examples": [
             2.0
           ],
@@ -7092,12 +7092,12 @@
             }
           ],
           "default": 1.0,
-          "description": "EVT extinction depth (m): below surface_offset + extinction_depth, evapotranspiration is zero. Legacy default was 1 m.",
+          "description": "Depth (m) below the EVT surface where the water table stops evaporating; the rate falls linearly between the surface and this depth. 1 m by default. Read by MODFLOW-NWT, and by MODFLOW 6 in soil mode for the ETP the soil left unmet.",
           "examples": [
             1.0
           ],
           "title": "Extinction Depth",
-          "x-hmp-profile": "dev"
+          "x-hmp-profile": "user"
         },
         "spatial_mode": {
           "default": "auto",
@@ -9559,6 +9559,19 @@
             0.0
           ],
           "title": "Values",
+          "x-hmp-profile": "user"
+        },
+        "soil": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SoilReservoirConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Soil reservoir that computes the recharge from the daily precipitation and ETP loaded under [data.precipitation] and [data.etp], MODFLOW 6 only. It replaces [data.recharge]. Check it alone with `hmp run <file> --until load_data`, which prints its water budget in mm/year and writes no run.",
           "x-hmp-profile": "user"
         },
         "heterogeneous_source": {
@@ -20978,6 +20991,146 @@
         "source"
       ],
       "title": "SoilMoistureSourceConfig",
+      "type": "object"
+    },
+    "SoilReservoirConfig": {
+      "additionalProperties": false,
+      "description": "Daily soil reservoir that turns precipitation and ETP into recharge.\n\nRead by the recharge binder of every run and of every calibration trial;\nMODFLOW 6 only. See ``physics/hydrology/soil_reservoir/kernel.py`` for the\nequations.",
+      "properties": {
+        "ru": {
+          "calibrable": {
+            "bounds": null,
+            "description": "",
+            "is_the_value_of_its_instance": false,
+            "prior": "uniform",
+            "transform": "identity",
+            "units": "mm"
+          },
+          "description": "Available water capacity of the soil (r\u00e9serve utile), in mm of water: what the roots can draw between field capacity and wilting point. A bare number is in mm; \"120 mm\" and \"12 cm\" also read. Between 0 and 1000 mm. Required, since it belongs to the site. In doubt, start from 150 mm and compare the recharge the soil alone prints for 50 to 250 mm with the gauged discharge (hmp run <file> --until load_data). With [data.soil_capacity], it is the mean capacity of the SAFRAN cells, and the raster spreads it over classes inside each cell. Calibrate it with [calibration.parameters.ru].",
+          "examples": [
+            1.0
+          ],
+          "title": "Ru",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "alpha": {
+          "calibrable": {
+            "bounds": [
+              0.3,
+              1.0
+            ],
+            "description": "",
+            "is_the_value_of_its_instance": false,
+            "prior": "uniform",
+            "transform": "identity",
+            "units": "-"
+          },
+          "default": 0.6,
+          "description": "Share of ru above which the soil evaporates at the full rate kc x ETP. Below alpha x ru, ETR falls linearly with the stored water. It is 1 - p of FAO-56 and LP of HBV. Above 0, at most 1. Kept fixed by default: the discharge alone hardly constrains it.",
+          "examples": [
+            0.6
+          ],
+          "title": "Alpha",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "kc": {
+          "calibrable": {
+            "bounds": [
+              0.7,
+              1.3
+            ],
+            "description": "",
+            "is_the_value_of_its_instance": false,
+            "prior": "uniform",
+            "transform": "identity",
+            "units": "-"
+          },
+          "default": 1.0,
+          "description": "Crop coefficient applied to the loaded ETP: the soil evaporates at most kc x ETP a day. 1.0 takes the ETP as loaded, a reference grass. Between 0 and 2. Kept fixed by default: kc and ru move the same annual volume.",
+          "examples": [
+            1.0
+          ],
+          "title": "Kc",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "impervious_fraction": {
+          "default": 0.0,
+          "description": "Share of the area that is sealed (roofs, roads). The rain that falls on it runs off at once, with no infiltration and no evaporation, and reaches the streams, the lakes and the gauged discharge. The soil reservoir covers the rest of the area. From 0 up to, not including, 1.",
+          "examples": [
+            0.0
+          ],
+          "title": "Impervious Fraction",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "bypass_fraction": {
+          "calibrable": {
+            "bounds": [
+              0.0,
+              0.3
+            ],
+            "description": "",
+            "is_the_value_of_its_instance": false,
+            "prior": "uniform",
+            "transform": "identity",
+            "units": "-"
+          },
+          "default": 0.0,
+          "description": "Share of the rain on the unsealed area that skips the soil through macropores and joins the recharge the same day, even when the soil is dry. From 0 up to, not including, 1. Keep it at 0 while K and Sy are calibrated: a bypass can rebuild the summer recharge the soil reservoir removes.",
+          "examples": [
+            0.0
+          ],
+          "title": "Bypass Fraction",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "transit_time": {
+          "calibrable": {
+            "bounds": [
+              0.0,
+              30.0
+            ],
+            "description": "",
+            "is_the_value_of_its_instance": false,
+            "prior": "uniform",
+            "transform": "identity",
+            "units": "day"
+          },
+          "default": 0.0,
+          "description": "Mean time the water leaving the soil takes to cross the unsaturated zone down to the water table, in days. A linear reservoir with this time constant delays and smooths the recharge; 0 sends it the same day. A bare number is in days; \"5 days\" also reads. At most 30 days: a longer delay would rebuild the slow groundwater memory MODFLOW computes itself.",
+          "examples": [
+            0.0
+          ],
+          "title": "Transit Time",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "spinup": {
+          "default": "first_year",
+          "description": "State of the soil on the first day. \"first_year\" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last one year at least. \"none\" starts from a full soil, the state of a soil in a wet winter.",
+          "enum": [
+            "first_year",
+            "none"
+          ],
+          "examples": [
+            "first_year"
+          ],
+          "title": "Spinup",
+          "type": "string",
+          "value_docs": {
+            "first_year": "Repeat the first year until the soil storage settles.",
+            "none": "Start from a full soil and an empty transit store."
+          },
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "ru"
+      ],
+      "title": "SoilReservoirConfig",
       "type": "object"
     },
     "SolverConfig": {

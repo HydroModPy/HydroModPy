@@ -10187,8 +10187,104 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-values",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L32",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L33",
     "description": "Recharge payload: scalar, list (one per stress period), mapping {kper: value}, or runtime series. The 'matching_hydrographic_network' protocol calibrates conductivity against the ratio K/R in its steady stage and requires this value held fr"
+  },
+  {
+    "path": "flow.sinks_sources.recharge.soil",
+    "name": "soil",
+    "type": "SoilReservoirConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-recharge-soil",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L68",
+    "description": "Soil reservoir that computes the recharge from the daily precipitation and ETP loaded under [data.precipitation] and [data.etp], MODFLOW 6 only. It replaces [data.recharge]. Check it alone with `hmp run <file> --until load_data`, which prin"
+  },
+  {
+    "path": "flow.sinks_sources.recharge.soil.ru",
+    "name": "ru",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-recharge-soil-ru",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L31",
+    "description": "Available water capacity of the soil (r\u00e9serve utile), in mm of water: what the roots can draw between field capacity and wilting point. A bare number is in mm; \"120 mm\" and \"12 cm\" also read. Between 0 and 1000 mm. Required, since it belong"
+  },
+  {
+    "path": "flow.sinks_sources.recharge.soil.alpha",
+    "name": "alpha",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-recharge-soil-alpha",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L46",
+    "description": "Share of ru above which the soil evaporates at the full rate kc x ETP. Below alpha x ru, ETR falls linearly with the stored water. It is 1 - p of FAO-56 and LP of HBV. Above 0, at most 1. Kept fixed by default: the discharge alone hardly co"
+  },
+  {
+    "path": "flow.sinks_sources.recharge.soil.kc",
+    "name": "kc",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-recharge-soil-kc",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L56",
+    "description": "Crop coefficient applied to the loaded ETP: the soil evaporates at most kc x ETP a day. 1.0 takes the ETP as loaded, a reference grass. Between 0 and 2. Kept fixed by default: kc and ru move the same annual volume."
+  },
+  {
+    "path": "flow.sinks_sources.recharge.soil.impervious_fraction",
+    "name": "impervious_fraction",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-recharge-soil-impervious-fraction",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L65",
+    "description": "Share of the area that is sealed (roofs, roads). The rain that falls on it runs off at once, with no infiltration and no evaporation, and reaches the streams, the lakes and the gauged discharge. The soil reservoir covers the rest of the are"
+  },
+  {
+    "path": "flow.sinks_sources.recharge.soil.bypass_fraction",
+    "name": "bypass_fraction",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-recharge-soil-bypass-fraction",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L74",
+    "description": "Share of the rain on the unsealed area that skips the soil through macropores and joins the recharge the same day, even when the soil is dry. From 0 up to, not including, 1. Keep it at 0 while K and Sy are calibrated: a bypass can rebuild t"
+  },
+  {
+    "path": "flow.sinks_sources.recharge.soil.transit_time",
+    "name": "transit_time",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-recharge-soil-transit-time",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L85",
+    "description": "Mean time the water leaving the soil takes to cross the unsaturated zone down to the water table, in days. A linear reservoir with this time constant delays and smooths the recharge; 0 sends it the same day. A bare number is in days; \"5 day"
+  },
+  {
+    "path": "flow.sinks_sources.recharge.soil.spinup",
+    "name": "spinup",
+    "type": "Literal['first_year', 'none']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-recharge-soil-spinup",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L97",
+    "description": "State of the soil on the first day. \"first_year\" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last one year at least. \"none\" starts from a full soi"
   },
   {
     "path": "flow.sinks_sources.recharge.heterogeneous_source",
@@ -10199,7 +10295,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-heterogeneous-source",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L67",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L78",
     "description": "Optional raw data source for heterogeneous (2D per-cell) recharge. When set, the solver adapter discretizes FieldRecords onto the MODFLOW grid instead of using the scalar 'values' field. Expected: LoadResult with FieldRecords."
   },
   {
@@ -10211,7 +10307,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-first-clim",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L42",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L43",
     "description": "Period-0 policy when values is a sequence: 'mean' (series average), 'first' (first element), or a numeric scalar."
   },
   {
@@ -10223,7 +10319,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L51",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L52",
     "description": "Units of the recharge data source. Data-manager outputs use mm/day by convention; override when providing values in another unit (e.g. 'm/day'). Converted to m/s at runtime via factor_to_m_per_s()."
   },
   {
@@ -10235,7 +10331,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-negative-to-evt",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L92",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L103",
     "description": "When true, negative recharge values are routed to the solver EVT package and RCH receives the non-negative clipped recharge."
   },
   {
@@ -10247,7 +10343,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-spatial-mode",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L99",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L110",
     "description": "How to interpret spatial data: 'auto' (points->homogeneous, fields->heterogeneous), 'homogeneous' (force spatial averaging), 'heterogeneous' (force per-cell discretization, including point-to-grid interpolation when stations have coordinate"
   },
   {
@@ -10259,7 +10355,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-interpolation-method",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L108",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L119",
     "description": "Spatial interpolation method for gridded/point data onto the MODFLOW grid. Options: 'nearest', 'linear', 'idw'."
   },
   {
@@ -10332,19 +10428,19 @@
     "anchor": "flow-sinks-sources-etp-surface-offset",
     "page": "flow.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L61",
-    "description": "Distance below the topographic surface (m) where the EVT extraction surface sits. MODFLOW EVT extracts water linearly between this surface and surface - extinction_depth. Legacy default was DEM - 2 m."
+    "description": "Distance (m) the EVT surface sits below its reference. Under MODFLOW-NWT the reference is the topographic surface and the default is 2 m. In soil mode under MODFLOW 6 the reference is the drain elevation of the cell (the top, or the top min"
   },
   {
     "path": "flow.sinks_sources.etp.extinction_depth",
     "name": "extinction_depth",
     "type": "Any",
-    "profile": "dev",
+    "profile": "user",
     "stability": "stable",
     "section": "flow",
     "anchor": "flow-sinks-sources-etp-extinction-depth",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L71",
-    "description": "EVT extinction depth (m): below surface_offset + extinction_depth, evapotranspiration is zero. Legacy default was 1 m."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L73",
+    "description": "Depth (m) below the EVT surface where the water table stops evaporating; the rate falls linearly between the surface and this depth. 1 m by default. Read by MODFLOW-NWT, and by MODFLOW 6 in soil mode for the ETP the soil left unmet."
   },
   {
     "path": "flow.sinks_sources.etp.spatial_mode",
@@ -10355,7 +10451,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-etp-spatial-mode",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L83",
     "description": "How to interpret spatial data: 'auto' (points->homogeneous, fields->heterogeneous), 'homogeneous', or 'heterogeneous'."
   },
   {
@@ -10367,7 +10463,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-etp-interpolation-method",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L86",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L90",
     "description": "Spatial interpolation method for gridded/point data onto the MODFLOW grid. Options: 'nearest', 'linear', 'idw'."
   },
   {
@@ -10380,7 +10476,7 @@
     "anchor": "flow-active-sinks-sources",
     "page": "flow.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L194",
-    "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.",
+    "description": "Explicitly activated sink/source names for this flow run: 'recharge', 'wells', 'etp'. 'etp' means three things. Under MODFLOW-NWT the loaded ETP drives the EVT package. Under MODFLOW 6 it acts only in soil mode ([flow.sinks_sources.recharge",
     "examples": [
       "[\"recharge\"]",
       "[\"recharge\", \"wells\"]",
@@ -10396,7 +10492,7 @@
     "section": "flow",
     "anchor": "flow-active-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L204",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L207",
     "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake",
     "examples": [
       "[\"ocean\"]",

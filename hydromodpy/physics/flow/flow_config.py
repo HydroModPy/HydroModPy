@@ -194,10 +194,13 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
     active_sinks_sources: Annotated[list[IdentifierStr], Profile.USER] = Field(
         default_factory=list,
         description=(
-            "Explicitly activated sink/source names for this flow run. "
-            "Allowed values: 'recharge', 'wells', 'etp'. "
-            "Boussinesq currently rejects 'etp' at solver-contract validation. "
-            "An empty list means no sink/source package is assembled by the solver."
+            "Explicitly activated sink/source names for this flow run: 'recharge', "
+            "'wells', 'etp'. 'etp' means three things. Under MODFLOW-NWT the loaded "
+            "ETP drives the EVT package. Under MODFLOW 6 it acts only in soil mode "
+            "([flow.sinks_sources.recharge.soil]), where it sends the ETP the soil "
+            "left unmet to the EVT package; outside soil mode MODFLOW 6 ignores it "
+            "and says so. Boussinesq rejects it at solver-contract validation. An "
+            "empty list means no sink/source package is assembled by the solver."
         ),
         examples=[["recharge"], ["recharge", "wells"], ["etp"]],
     )

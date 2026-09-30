@@ -9,9 +9,11 @@ import warnings
 from collections.abc import Iterable, Mapping
 from numbers import Real
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time import validate_recharge_coverage
 from hydromodpy.core.units import convert_payload_to_m_per_s
 from hydromodpy.physics.forcing.validation import (
@@ -19,7 +21,23 @@ from hydromodpy.physics.forcing.validation import (
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
+from hydromodpy.solver.modflow6.builders.boundary_conditions import collapse_identical_periods
 from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
+
+logger = get_logger(__name__)
+
+# Trial sandbox override: a phase that samples a recharge parameter writes its
+# recharge into its own folder instead of the calibration-wide shared one
+# (calibration.runners.trial._trial_owns_its_recharge).
+PRIVATE_TRIAL_RECHARGE_KEY: str = "trial_owns_its_recharge"
+TRIAL_RECHARGE_DIRNAME: str = "_recharge"
+
+ETP_IGNORED_OUTSIDE_SOIL_MODE = (
+    'flow.active_sinks_sources lists "etp", and MODFLOW 6 draws no ETP from the water '
+    "table outside soil mode: the loaded ETP is ignored, as before. Declare "
+    "[flow.sinks_sources.recharge.soil] to send the ETP the soil leaves unmet to the "
+    'EVT package, or remove "etp" from flow.active_sinks_sources.'
+)
 
 
 def sanitize_numeric_payload(payload: object) -> object:
@@ -283,15 +301,16 @@ def bind_heterogeneous_recharge(model, recharge_cfg: object) -> None:
     )
 
 
-def resolve_deferred_heterogeneous_recharge(model) -> None:
-    """Discretize stored heterogeneous recharge after solver_mesh is available."""
-    het_source = getattr(model, "_heterogeneous_recharge_source", None)
-    if het_source is None:
-        return
+def _discretize_heterogeneous_source(
+    model, source: object, *, interpolation_method: str, source_unit: str
+) -> dict[int, np.ndarray] | None:
+    """Discretize one gridded or located-point source onto the solver mesh.
 
+    Shared by the aquifer recharge and the soil residual ETP: both hand a
+    ``LoadResult``-like ``source`` and get back ``{kper: (ncpl,) m/s}``, or
+    ``None`` when ``source`` carries neither fields nor points.
+    """
     sim_window = model.time_grid.window if model.time_grid is not None else None
-    interp_method = getattr(model, "_heterogeneous_interpolation_method", "nearest")
-    source_unit = getattr(model, "_heterogeneous_source_unit", "mm/day")
     use_structured = bool(getattr(model.solver_mesh, "is_structured", False))
     if use_structured:
         from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
@@ -314,43 +333,56 @@ def resolve_deferred_heterogeneous_recharge(model) -> None:
             planar_mesh = solver_planar
 
     # Prefer fields; fall back to located points.
-    if getattr(het_source, "has_fields", False):
+    if getattr(source, "has_fields", False):
         if use_structured:
-            raw_arrays = discretize_fields_on_sgrid(
-                load_result=het_source,
+            return discretize_fields_on_sgrid(
+                load_result=source,
                 sgrid=model.solver_mesh,
                 nper=int(model.nper),
                 simulation_window=sim_window,
-                method=interp_method,
+                method=interpolation_method,
             )
-        else:
-            raw_arrays = discretize_fields_on_planar_mesh(
-                load_result=het_source,
-                planar_mesh=planar_mesh,
-                nper=int(model.nper),
-                simulation_window=sim_window,
-                method=interp_method,
-            )
-    elif getattr(het_source, "has_points", False):
+        return discretize_fields_on_planar_mesh(
+            load_result=source,
+            planar_mesh=planar_mesh,
+            nper=int(model.nper),
+            simulation_window=sim_window,
+            method=interpolation_method,
+        )
+    if getattr(source, "has_points", False):
         if use_structured:
-            raw_arrays = discretize_points_on_sgrid(
-                load_result=het_source,
+            return discretize_points_on_sgrid(
+                load_result=source,
                 sgrid=model.solver_mesh,
                 nper=int(model.nper),
                 simulation_window=sim_window,
-                method=interp_method,
+                method=interpolation_method,
                 source_unit=source_unit,
             )
-        else:
-            raw_arrays = discretize_points_on_planar_mesh(
-                load_result=het_source,
-                planar_mesh=planar_mesh,
-                nper=int(model.nper),
-                simulation_window=sim_window,
-                method=interp_method,
-                source_unit=source_unit,
-            )
-    else:
+        return discretize_points_on_planar_mesh(
+            load_result=source,
+            planar_mesh=planar_mesh,
+            nper=int(model.nper),
+            simulation_window=sim_window,
+            method=interpolation_method,
+            source_unit=source_unit,
+        )
+    return None
+
+
+def resolve_deferred_heterogeneous_recharge(model) -> None:
+    """Discretize stored heterogeneous recharge after solver_mesh is available."""
+    het_source = getattr(model, "_heterogeneous_recharge_source", None)
+    if het_source is None:
+        return
+
+    raw_arrays = _discretize_heterogeneous_source(
+        model,
+        het_source,
+        interpolation_method=getattr(model, "_heterogeneous_interpolation_method", "nearest"),
+        source_unit=getattr(model, "_heterogeneous_source_unit", "mm/day"),
+    )
+    if raw_arrays is None:
         model._heterogeneous_recharge_source = None
         return
 
@@ -369,6 +401,108 @@ def resolve_deferred_heterogeneous_recharge(model) -> None:
     model.recharge = raw_arrays
     model._evt_rate_payload = evt_payload
     model._heterogeneous_recharge_source = None
+
+
+def bind_soil_etp_from_flow(model) -> None:
+    """Resolve the soil residual ETP source MODFLOW 6 draws through EVTA.
+
+    Outside soil mode MODFLOW 6 has never read the ETP ``"etp"`` activates in
+    ``flow.active_sinks_sources``; a project without a soil section keeps that
+    behaviour, with one warning added (``ETP_IGNORED_OUTSIDE_SOIL_MODE``).
+    """
+    model._soil_etp_source = None
+    active = getattr(model.flow, "active_sinks_sources", [])
+    if "etp" not in active:
+        return
+
+    sinks_sources = getattr(model.flow, "sinks_sources", {})
+    etp_cfg = sinks_sources.get("etp") if isinstance(sinks_sources, Mapping) else None
+    if etp_cfg is None or not etp_cfg.from_soil_reservoir:
+        logger.warning(ETP_IGNORED_OUTSIDE_SOIL_MODE)
+        return
+
+    if etp_cfg.heterogeneous_source is None:
+        raise RuntimeError(
+            "the soil residual ETP reached MODFLOW 6 without its grid; "
+            "apply_etp_load_result_to_flow must pass the FieldRecord through."
+        )
+
+    model._soil_etp_source = etp_cfg.heterogeneous_source
+    model._soil_etp_interpolation_method = etp_cfg.interpolation_method
+    model._soil_evt_surface_offset_m = float(etp_cfg.surface_offset.to("m").magnitude)
+    model._soil_evt_extinction_depth_m = float(etp_cfg.extinction_depth.to("m").magnitude)
+
+
+def resolve_deferred_soil_etp(model) -> None:
+    """Discretize the soil residual ETP after solver_mesh is available."""
+    source = getattr(model, "_soil_etp_source", None)
+    if source is None:
+        model._soil_etp_rate = None
+        return
+    model._soil_etp_rate = _discretize_heterogeneous_source(
+        model,
+        source,
+        interpolation_method=getattr(model, "_soil_etp_interpolation_method", "nearest"),
+        source_unit="mm/day",
+    )
+
+
+def build_soil_evta_payload(
+    model,
+    solver_mesh,
+    *,
+    ocean_support_mask: np.ndarray,
+    stream_support_mask: np.ndarray,
+    lake_cell_ids: Iterable[int],
+    drain_active: bool,
+    shared_dir: str | None,
+) -> tuple[dict[int, np.ndarray] | dict[int, dict], np.ndarray, float] | None:
+    """Build the EVTA payload for the ETP the soil reservoir leaves unmet.
+
+    Vectorised over cells and periods: the list builder's double loop
+    (``build_evt_stress_period_data``) would run 4.4e8 iterations at a
+    Nancon-sized chronicle (243 552 cells x 1826 periods). ``None`` outside
+    soil mode, so the caller keeps the routed-recharge EVT path untouched.
+    """
+    soil_rate = getattr(model, "_soil_etp_rate", None)
+    if soil_rate is None:
+        return None
+
+    ncpl = int(model.ncpl)
+    top_flat = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
+    # Same exclusion as the routed-recharge EVT list builder: the lake's own
+    # rainfall is handled by LAK, and CHD cells never receive MF6 ET.
+    skip = np.asarray(ocean_support_mask, dtype=bool).reshape(-1) | np.asarray(
+        stream_support_mask, dtype=bool
+    ).reshape(-1)
+    for cid in lake_cell_ids:
+        if 0 <= int(cid) < ncpl:
+            skip[int(cid)] = True
+
+    rate_by_period: dict[int, np.ndarray] = {}
+    for kper in range(int(model.nper)):
+        raw_value = soil_rate.get(kper, 0.0) if isinstance(soil_rate, Mapping) else soil_rate
+        rate = as_recharge_flat(model, raw_value, kper=kper).copy()
+        rate[skip] = 0.0
+        rate_by_period[kper] = rate
+    rate_by_period = collapse_identical_periods(rate_by_period)
+
+    rate_payload = externalize_recharge_spd(
+        rate_by_period,
+        basename=model.model_name_mf6,
+        shared_dir=shared_dir,
+        package="evta",
+    )
+
+    # The EVT surface follows the DRN elevation of the cell: the soil has
+    # already taken the ETP it could, so the residual only draws from the
+    # water that would otherwise reach the drain.
+    band_depth = float(getattr(model, "drain_band_depth_m", 0.0))
+    band_term = 0.5 * band_depth if drain_active and band_depth > 0.0 else 0.0
+    surface_offset_m = float(getattr(model, "_soil_evt_surface_offset_m", 0.0))
+    surface = top_flat - band_term - surface_offset_m
+    depth = float(getattr(model, "_soil_evt_extinction_depth_m", 1.0))
+    return rate_payload, surface, depth
 
 
 def scalar_to_flat(model, value: float) -> np.ndarray:
@@ -521,14 +655,19 @@ def mask_recharge_on_lake_cells(
 
 RECHARGE_BINARY_MIN_PERIODS = 64
 
+# READARRAY header text MF6 ignores on read (tests/integration/
+# test_shared_recharge_equivalence.py:97-99); kept for a human reading the file.
+_HEADER_TEXT_BY_PACKAGE: dict[str, str] = {"rcha": "RECHARGE", "evta": "RATE"}
+
 
 def externalize_recharge_spd(
     spd: dict[int, np.ndarray],
     *,
     basename: str,
     shared_dir: str | os.PathLike[str] | None = None,
+    package: Literal["rcha", "evta"] = "rcha",
 ) -> dict[int, np.ndarray] | dict[int, dict]:
-    """Route long transient recharge stacks to external binary array files.
+    """Route long transient recharge or soil-ETP stacks to external binary files.
 
     FloPy formats INTERNAL arrays value by value, which dominates
     ``write_simulation`` on multi-thousand-period chronicles. External binary
@@ -542,17 +681,19 @@ def externalize_recharge_spd(
     references them (``filename`` without ``data``), instead of re-writing
     thousands of files per trial under the GIL. The write is atomic
     (temp + rename), so concurrent first-generation trials never read a partial
-    file.
+    file. ``package`` picks the file names and the binary header text: RCHA
+    (recharge, the default) keeps its files byte for byte, EVTA (the soil
+    residual ETP) writes alongside it under the same digest scheme.
     """
     if len(spd) < RECHARGE_BINARY_MIN_PERIODS:
         return spd
     if shared_dir is not None:
-        return _shared_recharge_spd(spd, Path(shared_dir))
+        return _shared_recharge_spd(spd, Path(shared_dir), package=package)
     return {
         kper: {
             "factor": 1.0,
             "data": arr,
-            "filename": f"{basename}.rcha.{kper}.bin",
+            "filename": f"{basename}.{package}.{kper}.bin",
             "binary": True,
         }
         for kper, arr in spd.items()
@@ -570,7 +711,7 @@ def _recharge_digest(spd: dict[int, np.ndarray]) -> str:
     return hasher.hexdigest()
 
 
-def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int) -> None:
+def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int, *, text: str) -> None:
     """Write one recharge period to ``target`` in the exact MF6 binary format.
 
     Idempotent and race-safe: skips a complete existing target, and otherwise
@@ -594,7 +735,7 @@ def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int) -> None
     header = BinaryHeader.create(
         bintype="head",
         precision="double",
-        text="RECHARGE",
+        text=text,
         ncol=ncpl,
         nrow=1,
         ilay=1,
@@ -628,14 +769,17 @@ def _write_shared_recharge_bin(target: Path, arr: np.ndarray, kper: int) -> None
         raise
 
 
-def _shared_recharge_spd(spd: dict[int, np.ndarray], shared_dir: Path) -> dict[int, dict]:
-    """Write the trial-invariant recharge once and return reference-only specs."""
+def _shared_recharge_spd(
+    spd: dict[int, np.ndarray], shared_dir: Path, *, package: str = "rcha"
+) -> dict[int, dict]:
+    """Write the trial-invariant stack once and return reference-only specs."""
     shared_dir.mkdir(parents=True, exist_ok=True)
     digest = _recharge_digest(spd)
+    text = _HEADER_TEXT_BY_PACKAGE[package]
     out: dict[int, dict] = {}
     for kper, arr in spd.items():
-        target = shared_dir / f"rcha_{digest}.{kper}.bin"
-        _write_shared_recharge_bin(target, np.asarray(arr, dtype=np.float64), kper)
+        target = shared_dir / f"{package}_{digest}.{kper}.bin"
+        _write_shared_recharge_bin(target, np.asarray(arr, dtype=np.float64), kper, text=text)
         out[kper] = {"factor": 1.0, "filename": str(target), "binary": True}
     return out
 
@@ -763,10 +907,15 @@ def evt_list_spd_to_array_payload(
 
 
 __all__ = [
+    "ETP_IGNORED_OUTSIDE_SOIL_MODE",
+    "PRIVATE_TRIAL_RECHARGE_KEY",
+    "TRIAL_RECHARGE_DIRNAME",
     "as_recharge_flat",
     "bind_heterogeneous_recharge",
     "bind_recharge_from_flow",
+    "bind_soil_etp_from_flow",
     "build_evt_stress_period_data",
+    "build_soil_evta_payload",
     "evt_list_spd_to_array_payload",
     "clip_negative_payload",
     "copy_runtime_payload",
@@ -778,6 +927,7 @@ __all__ = [
     "payload_has_negative_values",
     "recharge_to_spd",
     "resolve_deferred_heterogeneous_recharge",
+    "resolve_deferred_soil_etp",
     "sanitize_numeric_payload",
     "scalar_to_flat",
     "series_like_to_scalar",

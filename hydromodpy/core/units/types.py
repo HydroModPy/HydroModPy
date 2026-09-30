@@ -278,6 +278,13 @@ LengthMeters = Annotated[
 """Length in metres expressed as ``float``. Accepts ``"100 m"``, ``"1 km"``, ``50.0``."""
 
 
+LengthMillimeters = Annotated[
+    float,
+    BeforeValidator(_coerce_to_canonical_float("mm")),
+]
+"""Length in millimetres expressed as ``float``. Accepts ``"120 mm"``, ``"12 cm"``, ``120``."""
+
+
 AreaSquareMeters = Annotated[
     float,
     BeforeValidator(_coerce_to_canonical_float("m**2")),
@@ -297,6 +304,13 @@ DurationSeconds = Annotated[
     BeforeValidator(_coerce_to_canonical_float("s")),
 ]
 """Duration in seconds expressed as ``float``. Accepts ``"1 day"``, ``"3600 s"``."""
+
+
+DurationDays = Annotated[
+    float,
+    BeforeValidator(_coerce_to_canonical_float("day")),
+]
+"""Duration in days expressed as ``float``. Accepts ``"5 days"``, ``"1 week"``, ``5``."""
 
 
 HydraulicConductivityMPerS = Annotated[
@@ -322,6 +336,7 @@ __all__ = [
     "Area",
     "AreaSquareMeters",
     "Dimensionless",
+    "DurationDays",
     "DurationSeconds",
     "FlowRate",
     "FluxDensityMPerS",
@@ -329,6 +344,7 @@ __all__ = [
     "HydraulicConductivityMPerS",
     "Length",
     "LengthMeters",
+    "LengthMillimeters",
     "SpecificStorage",
     "SpecificYield",
     "Time",

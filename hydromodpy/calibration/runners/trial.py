@@ -401,6 +401,18 @@ def prepare_trials(
 # Lightweight evaluation
 # ---------------------------------------------------------------------------
 
+_RECHARGE_PREFIX = "flow.sinks_sources.recharge."
+
+
+def _trial_owns_its_recharge(trial_ctx: TrialContext) -> bool:
+    """Whether the phase samples a value the recharge is computed from."""
+    space = trial_ctx.parameter_space
+    if space is not None:
+        paths = [param.effective_path for param in space if param.effective_path]
+    else:
+        paths = list(trial_ctx.override_paths.values())
+    return any(path.startswith(_RECHARGE_PREFIX) for path in paths)
+
 
 def run_trial_light(
     trial_ctx: TrialContext,
@@ -459,6 +471,12 @@ def run_trial_light(
         else None
     )
     flow_overrides = sandbox.flow_overrides if sandbox is not None else None
+    if flow_overrides is not None and _trial_owns_its_recharge(trial_ctx):
+        # Same string as solver.modflow6.builders.recharge.PRIVATE_TRIAL_RECHARGE_KEY,
+        # not imported: calibration_layout.yaml's solver_access only allows
+        # hydromodpy.solver.base, never a backend package (test_package_layouts.py,
+        # test_calibration_reaches_solver_only_through_generic_ports).
+        flow_overrides = {**flow_overrides, "trial_owns_its_recharge": True}
     retention = trial_ctx.kept_solves if sandbox is not None else None
     recorder = RecordingLauncher() if retention is not None and retention.keeps_any else None
 

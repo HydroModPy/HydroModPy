@@ -6358,9 +6358,154 @@ Fields
                     <code class="hmp-field-name">values</code>
                   </div>
 
-               :bdg-primary:`Any` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L32>`__
+               :bdg-primary:`Any` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L33>`__
 
                   Recharge payload: scalar, list (one per stress period), mapping {kper: value}, or runtime series. The 'matching_hydrographic_network' protocol calibrates conductivity against the ratio K/R in its steady stage and requires this value held frozen there.
+
+
+            .. index:: ! soil
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: flow-sinks-sources-recharge-soil
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.recharge.soil">
+                    <code class="hmp-field-name">soil</code>
+                    <span class="hmp-field-arrow">in TOML:</span>
+                    <code class="hmp-field-toml">[flow.sinks_sources.recharge.soil]</code>
+                  </div>
+
+               :bdg-primary:`SoilReservoirConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L68>`__
+
+                  Soil reservoir that computes the recharge from the daily precipitation and ETP loaded under [data.precipitation] and [data.etp], MODFLOW 6 only. It replaces [data.recharge]. Check it alone with `hmp run <file> --until load_data`, which prints its water budget in mm/year and writes no run.
+
+               .. dropdown:: Fields of ``SoilReservoirConfig``
+                  :icon: list-unordered
+                  :animate: fade-in-slide-down
+
+                  .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                  .. index:: ! ru
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-recharge-soil-ru
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.recharge.soil.ru">
+                          <code class="hmp-field-name">ru</code>
+                        </div>
+
+                     :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L31>`__
+
+                        Available water capacity of the soil (réserve utile), in mm of water: what the roots can draw between field capacity and wilting point. A bare number is in mm; "120 mm" and "12 cm" also read. Between 0 and 1000 mm. Required, since it belongs to the site. In doubt, start from 150 mm and compare the recharge the soil alone prints for 50 to 250 mm with the gauged discharge (hmp run <file> --until load_data). With [data.soil_capacity], it is the mean capacity of the SAFRAN cells, and the raster spreads it over classes inside each cell. Calibrate it with [calibration.parameters.ru].
+
+
+                  .. index:: ! alpha
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-recharge-soil-alpha
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.recharge.soil.alpha">
+                          <code class="hmp-field-name">alpha</code>
+                        </div>
+
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.6` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L46>`__
+
+                        Share of ru above which the soil evaporates at the full rate kc x ETP. Below alpha x ru, ETR falls linearly with the stored water. It is 1 - p of FAO-56 and LP of HBV. Above 0, at most 1. Kept fixed by default: the discharge alone hardly constrains it.
+
+
+                  .. index:: ! kc
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-recharge-soil-kc
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.recharge.soil.kc">
+                          <code class="hmp-field-name">kc</code>
+                        </div>
+
+                     :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L56>`__
+
+                        Crop coefficient applied to the loaded ETP: the soil evaporates at most kc x ETP a day. 1.0 takes the ETP as loaded, a reference grass. Between 0 and 2. Kept fixed by default: kc and ru move the same annual volume.
+
+
+                  .. index:: ! impervious_fraction
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-recharge-soil-impervious-fraction
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.recharge.soil.impervious_fraction">
+                          <code class="hmp-field-name">impervious_fraction</code>
+                        </div>
+
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L65>`__
+
+                        Share of the area that is sealed (roofs, roads). The rain that falls on it runs off at once, with no infiltration and no evaporation, and reaches the streams, the lakes and the gauged discharge. The soil reservoir covers the rest of the area. From 0 up to, not including, 1.
+
+
+                  .. index:: ! bypass_fraction
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-recharge-soil-bypass-fraction
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.recharge.soil.bypass_fraction">
+                          <code class="hmp-field-name">bypass_fraction</code>
+                        </div>
+
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L74>`__
+
+                        Share of the rain on the unsealed area that skips the soil through macropores and joins the recharge the same day, even when the soil is dry. From 0 up to, not including, 1. Keep it at 0 while K and Sy are calibrated: a bypass can rebuild the summer recharge the soil reservoir removes.
+
+
+                  .. index:: ! transit_time
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-recharge-soil-transit-time
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.recharge.soil.transit_time">
+                          <code class="hmp-field-name">transit_time</code>
+                        </div>
+
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L85>`__
+
+                        Mean time the water leaving the soil takes to cross the unsaturated zone down to the water table, in days. A linear reservoir with this time constant delays and smooths the recharge; 0 sends it the same day. A bare number is in days; "5 days" also reads. At most 30 days: a longer delay would rebuild the slow groundwater memory MODFLOW computes itself.
+
+
+                  .. index:: ! spinup
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-recharge-soil-spinup
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.recharge.soil.spinup">
+                          <code class="hmp-field-name">spinup</code>
+                        </div>
+
+                     :bdg-primary:`str` :bdg-secondary:`default = "first_year"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L97>`__
+
+                        State of the soil on the first day. "first_year" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last one year at least. "none" starts from a full soil, the state of a soil in a wet winter.
+
+                     .. rst-class:: hmp-field-values
+
+                     ``"first_year"``
+                        Repeat the first year until the soil storage settles.
+
+                     ``"none"``
+                        Start from a full soil and an empty transit store.
+
+
 
 
             .. index:: ! heterogeneous_source
@@ -6374,7 +6519,7 @@ Fields
                     <code class="hmp-field-name">heterogeneous_source</code>
                   </div>
 
-               :bdg-primary:`Any` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L67>`__
+               :bdg-primary:`Any` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L78>`__
 
                   Optional raw data source for heterogeneous (2D per-cell) recharge. When set, the solver adapter discretizes FieldRecords onto the MODFLOW grid instead of using the scalar 'values' field. Expected: LoadResult with FieldRecords.
 
@@ -6390,7 +6535,7 @@ Fields
                     <code class="hmp-field-name">first_clim</code>
                   </div>
 
-               :bdg-primary:`str | float` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L42>`__
+               :bdg-primary:`str | float` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L43>`__
 
                   Period-0 policy when values is a sequence: 'mean' (series average), 'first' (first element), or a numeric scalar.
 
@@ -6404,7 +6549,7 @@ Fields
                     <code class="hmp-field-name">units</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "mm/day"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L51>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "mm/day"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L52>`__
 
                   Units of the recharge data source. Data-manager outputs use mm/day by convention; override when providing values in another unit (e.g. 'm/day'). Converted to m/s at runtime via factor_to_m_per_s().
 
@@ -6420,7 +6565,7 @@ Fields
                     <code class="hmp-field-name">negative_to_evt</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L92>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L103>`__
 
                   When true, negative recharge values are routed to the solver EVT package and RCH receives the non-negative clipped recharge.
 
@@ -6436,7 +6581,7 @@ Fields
                     <code class="hmp-field-name">spatial_mode</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L99>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L110>`__
 
                   How to interpret spatial data: 'auto' (points->homogeneous, fields->heterogeneous), 'homogeneous' (force spatial averaging), 'heterogeneous' (force per-cell discretization, including point-to-grid interpolation when stations have coordinates).
 
@@ -6456,7 +6601,7 @@ Fields
                     <code class="hmp-field-name">interpolation_method</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "nearest"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L108>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "nearest"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L119>`__
 
                   Spatial interpolation method for gridded/point data onto the MODFLOW grid. Options: 'nearest', 'linear', 'idw'.
 
@@ -6559,12 +6704,12 @@ Fields
 
                :bdg-primary:`Any` :bdg-secondary:`default = 2.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L61>`__
 
-                  Distance below the topographic surface (m) where the EVT extraction surface sits. MODFLOW EVT extracts water linearly between this surface and surface - extinction_depth. Legacy default was DEM - 2 m.
+                  Distance (m) the EVT surface sits below its reference. Under MODFLOW-NWT the reference is the topographic surface and the default is 2 m. In soil mode under MODFLOW 6 the reference is the drain elevation of the cell (the top, or the top minus half of solver.drain_band_depth_m) and the default is 0 m, since the soil reservoir has already taken the ETP it could.
 
 
             .. index:: ! extinction_depth
 
-            .. container:: hmp-field hmp-field-level-dev
+            .. container:: hmp-field hmp-field-level-user
                :name: flow-sinks-sources-etp-extinction-depth
 
                .. raw:: html
@@ -6573,9 +6718,9 @@ Fields
                     <code class="hmp-field-name">extinction_depth</code>
                   </div>
 
-               :bdg-primary:`Any` :bdg-secondary:`default = 1.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L71>`__
+               :bdg-primary:`Any` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L73>`__
 
-                  EVT extinction depth (m): below surface_offset + extinction_depth, evapotranspiration is zero. Legacy default was 1 m.
+                  Depth (m) below the EVT surface where the water table stops evaporating; the rate falls linearly between the surface and this depth. 1 m by default. Read by MODFLOW-NWT, and by MODFLOW 6 in soil mode for the ETP the soil left unmet.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -6587,7 +6732,7 @@ Fields
                     <code class="hmp-field-name">spatial_mode</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L79>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L83>`__
 
                   How to interpret spatial data: 'auto' (points->homogeneous, fields->heterogeneous), 'homogeneous', or 'heterogeneous'.
 
@@ -6605,7 +6750,7 @@ Fields
                     <code class="hmp-field-name">interpolation_method</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "nearest"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L86>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "nearest"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L90>`__
 
                   Spatial interpolation method for gridded/point data onto the MODFLOW grid. Options: 'nearest', 'linear', 'idw'.
 
@@ -6631,7 +6776,7 @@ Fields
 
    :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L194>`__
 
-      Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.
+      Explicitly activated sink/source names for this flow run: 'recharge', 'wells', 'etp'. 'etp' means three things. Under MODFLOW-NWT the loaded ETP drives the EVT package. Under MODFLOW 6 it acts only in soil mode ([flow.sinks_sources.recharge.soil]), where it sends the ETP the soil left unmet to the EVT package; outside soil mode MODFLOW 6 ignores it and says so. Boussinesq rejects it at solver-contract validation. An empty list means no sink/source package is assembled by the solver.
 
    .. admonition:: Examples
       :class: hmp-field-examples
@@ -6652,7 +6797,7 @@ Fields
         <code class="hmp-field-name">active_bc</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L204>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L207>`__
 
       Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake', 'reservoir'. 'lake'/'reservoir' build a MODFLOW 6 LAK advanced package and are only supported by the modflow6 backend. An empty list means no boundary-condition package is assembled by the solver.
 

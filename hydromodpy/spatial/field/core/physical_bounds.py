@@ -93,6 +93,14 @@ PHYSICAL_BOUNDS: dict[str, PhysicalBound] = {
     "thickness": PhysicalBound("m", 0.0, 10_000.0, "aquifer thickness"),
     # ---- Fluxes --------------------------------------------------------
     "recharge": PhysicalBound("mm/day", -5000.0, 5000.0, "recharge flux"),
+    # ---- Soil reservoir ---
+    "soil_ru": PhysicalBound("mm", 0.0, 1000.0, "soil available water capacity"),
+    "soil_alpha": PhysicalBound("-", 0.01, 1.0, "share of ru below which ETR falls"),
+    "soil_kc": PhysicalBound("-", 0.0, 2.0, "crop coefficient"),
+    "soil_bypass_fraction": PhysicalBound(
+        "-", 0.0, 0.99, "share of the rain that bypasses the soil"
+    ),
+    "soil_transit_time": PhysicalBound("day", 0.0, 30.0, "transit time below the soil"),
     # ---- Solver tolerances ---------------------------------------------
     "nwt_headtol": PhysicalBound("m", 1e-8, 1.0, "NWT head tolerance"),
     "nwt_fluxtol": PhysicalBound("-", 1e-4, 1e5, "NWT flux tolerance"),

@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 79 tolerances enforced today. Every tolerance
+The table below records the 83 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -107,6 +107,10 @@ must carry a rationale before it is merged.
 | 77 | Twin stream-network calibration (MF6) | `\|J_signed\|` at the returned trial | `<= cell_spacing_m` (2 m) | **Derived.** Within 1 % of `K_true` the simulated network differs from the mapped one by at most two cells, each one or two cells from it, which averaged over about 220 cells is about 0.03 m. One cell spacing is the smallest move of a stream, and the width the criterion itself reports around K | Same module. Measured 0 m |
 | 78 | Twin stream-network calibration (MF6) | `d_sat_m` at the returned trial against the truth run | `rel <= 1e-3` | **Derived.** The sweep gives `d dsat / d ln K` of about 1.06 m around the truth, so 1 % on K moves `dsat` by 0.011 m, 3.6e-4 of 29.47 m; the band is 2.8 times that | Same module. Measured 1.6e-4. The truth `dsat` is recomputed from the truth heads with the extractor's own clipping, `saturated_thickness_from_head_history` |
 | 79 | Twin stream-network calibration (MF6) | `k_optim_m_s`, `k_over_r`, `t_over_r_m`, `t_optim_m2_s` against `K`, `R_mean_m_s` and `d_sat_m` of the returned trial | `rel 1e-12` | **Machine epsilon.** Each is one product or quotient of values the report read off that trial | Same module. Guards the wiring of the published ratios of Abherve et al. (2023), Table 1, not their physics |
+| 80 | Soil reservoir kernel balance (float64) | per column `\|sum_t residual\| / sum_t P`, and per day `max \|residual\| / max P` | `1e-12` | **Machine epsilon.** Each day adds a handful of float64 operations exact to about 1e-16; 3650 days stay four orders under the band | Measured 3.0e-16 cumulative and 8.7e-16 daily on 3650 d x 100 columns, four parameter sets with a sealed share, a bypass, transit times from 0.2 to 30 d and columns of zero capacity (`scratch/recharge-sol-implementation-2026-09-30/scripts/spec/probe_kernel_spec.py`). `tests/unit/physics/test_the_soil_balance_closes_to_machine_precision.py` |
+| 81 | Soil transit store impulse | max absolute error against `Q(0) = 50(1 - k a)`, `Q(t>=1) = 50 k a^2 exp(-(t-1)/k)`, mm | `1e-12` | **Machine epsilon.** The exponential scheme is the exact solution of the daily step, so only rounding remains on a 50 mm pulse | Measured 3.6e-15 to 1.6e-14 mm for k = 0.5 to 30 d. `tests/unit/physics/test_an_impulse_through_the_transit_store_follows_the_exponential_reservoir.py` |
+| 82 | Soil transit store impulse volume | `\|sum_t Q - 50\|` over `60 k` days, mm | `1e-12` | **Machine epsilon.** The tail beyond `60 k` days holds `50 exp(-60)`, below 1e-24 mm | Measured 7e-15 mm. Same module |
+| 83 | Soil spin-up settling | largest change, mm, of the end-of-year soil or transit storage between the last two repetitions | `0.1` | **Hydrological.** 1e-3 of a 100 mm capacity, far under the 7 mm first-year error the method leaves against a reference state (`revues/phase1-hydrologie.md` §3) | Two repetitions on 2015 at the Nancon (spec probe). `tests/unit/physics/test_the_spinup_settles_on_a_year_that_refills_the_soil.py` |
 
 ## Update policy
 

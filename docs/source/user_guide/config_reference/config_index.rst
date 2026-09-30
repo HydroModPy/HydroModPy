@@ -5047,43 +5047,91 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-values>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L32>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L33>`__
+   * - ``flow.sinks_sources.recharge.soil``
+     - ``SoilReservoirConfig | None``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-recharge-soil>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L68>`__
+   * - ``flow.sinks_sources.recharge.soil.ru``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-recharge-soil-ru>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L31>`__
+   * - ``flow.sinks_sources.recharge.soil.alpha``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-recharge-soil-alpha>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L46>`__
+   * - ``flow.sinks_sources.recharge.soil.kc``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-recharge-soil-kc>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L56>`__
+   * - ``flow.sinks_sources.recharge.soil.impervious_fraction``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-recharge-soil-impervious-fraction>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L65>`__
+   * - ``flow.sinks_sources.recharge.soil.bypass_fraction``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-recharge-soil-bypass-fraction>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L74>`__
+   * - ``flow.sinks_sources.recharge.soil.transit_time``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-recharge-soil-transit-time>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L85>`__
+   * - ``flow.sinks_sources.recharge.soil.spinup``
+     - ``Literal['first_year', 'none']``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-recharge-soil-spinup>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L97>`__
    * - ``flow.sinks_sources.recharge.heterogeneous_source``
      - ``Any``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-heterogeneous-source>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L67>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L78>`__
    * - ``flow.sinks_sources.recharge.first_clim``
      - ``str | float``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-first-clim>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L42>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L43>`__
    * - ``flow.sinks_sources.recharge.units``
      - ``str``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-units>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L51>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L52>`__
    * - ``flow.sinks_sources.recharge.negative_to_evt``
      - ``bool``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-negative-to-evt>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L92>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L103>`__
    * - ``flow.sinks_sources.recharge.spatial_mode``
      - ``Literal['auto', 'homogeneous', 'heterogeneous']``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-spatial-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L99>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L110>`__
    * - ``flow.sinks_sources.recharge.interpolation_method``
      - ``Literal['nearest', 'linear', 'idw']``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-interpolation-method>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L108>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/recharge.py#L119>`__
    * - ``flow.sinks_sources.etp``
      - ``FlowEtpConfig | None``
      - user
@@ -5122,22 +5170,22 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L61>`__
    * - ``flow.sinks_sources.etp.extinction_depth``
      - ``Any``
-     - dev
+     - user
      - -
      - `flow <flow.html#flow-sinks-sources-etp-extinction-depth>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L71>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L73>`__
    * - ``flow.sinks_sources.etp.spatial_mode``
      - ``Literal['auto', 'homogeneous', 'heterogeneous']``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-etp-spatial-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L79>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L83>`__
    * - ``flow.sinks_sources.etp.interpolation_method``
      - ``Literal['nearest', 'linear', 'idw']``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-etp-interpolation-method>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L86>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/etp.py#L90>`__
    * - ``flow.active_sinks_sources``
      - ``list[str]``
      - user
@@ -5149,7 +5197,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-active-bc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L204>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/flow_config.py#L207>`__
    * - ``flow.flow_regime``
      - ``Literal['steady', 'transient']``
      - user
