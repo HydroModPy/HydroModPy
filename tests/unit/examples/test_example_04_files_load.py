@@ -33,6 +33,7 @@ def test_the_example_ships_the_expected_files() -> None:
         "step3_api_data.toml",
         "step4_transient.toml",
         "step5_export.toml",
+        "step6_soil_reservoir.toml",
     ]
     assert set(CALIBRATIONS) <= set(FILES)
     assert "run_calibration_protocol_by_hand.toml" not in FILES

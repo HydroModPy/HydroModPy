@@ -42,6 +42,12 @@ antecedent state and it says nothing about the lake stage. For a strongly
 seasonal system, or a reservoir with a fluctuating pool, also exclude a burn-in
 window from the objective (next section).
 
+A run whose recharge comes from a soil reservoir
+(:doc:`soil-reservoir-recharge`) refuses a steady first period: its daily
+recharge is zero after a dry day. Write ``first_period_steady = false`` and
+``[flow.ic] type = "steady_state"``, which start the run from the steady
+state under the mean recharge of the whole run.
+
 Burn-in excluded from calibration
 ---------------------------------
 

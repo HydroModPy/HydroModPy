@@ -132,6 +132,7 @@ def apply_etp_load_result_to_flow(
     flow: Flow,
     etp_result: LoadResultProto | None,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
+    from_soil_reservoir: bool = False,
 ) -> bool:
     """Inject ETP from a data-manager LoadResult into flow.
 
@@ -144,7 +145,11 @@ def apply_etp_load_result_to_flow(
     a base ``flow.sinks_sources['etp']`` already exists; otherwise the
     typed config is created from scratch with sensible defaults that
     reproduce the legacy behaviour (``DEM - 2 m`` ET surface, 1 m
-    extinction depth).
+    extinction depth). ``from_soil_reservoir=True`` is what the soil
+    binder passes: the EVT surface defaults to 0 m below the drain
+    elevation instead of 2 m below the topographic surface, unless the
+    file wrote ``surface_offset`` itself, and the returned config is
+    marked so MODFLOW 6 knows this ETP is what the soil left unmet.
 
     Returns True if ETP was successfully injected, False otherwise.
     """
@@ -160,14 +165,17 @@ def apply_etp_load_result_to_flow(
     first_clim = "mean"
     spatial_mode = "auto"
     interpolation_method = "nearest"
-    surface_offset = 2.0
+    surface_offset = 0.0 if from_soil_reservoir else 2.0
     extinction_depth = 1.0
     if etp_cfg is not None:
         first_clim = getattr(etp_cfg, "first_clim", first_clim)
         spatial_mode = getattr(etp_cfg, "spatial_mode", spatial_mode)
         interpolation_method = getattr(etp_cfg, "interpolation_method", interpolation_method)
         surface_offset_q = getattr(etp_cfg, "surface_offset", None)
-        if surface_offset_q is not None:
+        fields_set = getattr(etp_cfg, "model_fields_set", set())
+        if surface_offset_q is not None and (
+            not from_soil_reservoir or "surface_offset" in fields_set
+        ):
             surface_offset = float(surface_offset_q.to("m").magnitude)
         extinction_depth_q = getattr(etp_cfg, "extinction_depth", None)
         if extinction_depth_q is not None:
@@ -186,18 +194,19 @@ def apply_etp_load_result_to_flow(
     if resolved is None:
         return False
 
-    flow.set_etp(
-        FlowEtpConfig(
-            values=resolved.series if resolved.series is not None else 0.0,
-            first_clim=first_clim,
-            units="m/s",
-            heterogeneous_source=resolved.heterogeneous_source,
-            spatial_mode=resolved.spatial_mode,
-            interpolation_method=resolved.interpolation_method,
-            surface_offset=surface_offset,
-            extinction_depth=extinction_depth,
-        )
+    etp_config = FlowEtpConfig(
+        values=resolved.series if resolved.series is not None else 0.0,
+        first_clim=first_clim,
+        units="m/s",
+        heterogeneous_source=resolved.heterogeneous_source,
+        spatial_mode=resolved.spatial_mode,
+        interpolation_method=resolved.interpolation_method,
+        surface_offset=surface_offset,
+        extinction_depth=extinction_depth,
     )
+    if from_soil_reservoir:
+        etp_config._from_soil_reservoir = True
+    flow.set_etp(etp_config)
     return True
 
 

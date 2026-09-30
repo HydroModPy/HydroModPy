@@ -117,7 +117,7 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [data]
-      # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.
+      # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.
       # types = ...  # uses factory default
       # Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geology, which can use its default typed config).
       inference_mode = "warn"
@@ -171,6 +171,8 @@ Sub-models are linked back to their per-section page.
       # soil_moisture = ...  # default = None
       # Substratum configuration (aquifer-bottom raster, elevation or thickness).
       # substratum = ...  # default = None
+      # Soil capacity configuration (RU raster read by the soil reservoir, [flow.sinks_sources.recharge.soil]).
+      # soil_capacity = ...  # default = None
 
 .. dropdown:: ``[flow]`` (FlowConfig)
    :icon: gear
@@ -223,7 +225,7 @@ Sub-models are linked back to their per-section page.
       # bc = ...  # uses factory default
       # Typed sinks/sources payload (for example pumping wells).
       # sinks_sources = ...  # uses factory default
-      # Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.
+      # Explicitly activated sink/source names for this flow run: 'recharge', 'wells', 'etp'. 'etp' means three things. Under MODFLOW-NWT the loaded ETP drives the EVT package. Under MODFLOW 6 it acts only in soil mode ([flow.sinks_sources.recharge.soil]), where it sends the ETP the soil left unmet to the EVT package; outside soil mode MODFLOW 6 ignores it and says so. Boussinesq rejects it at solver-contract validation. An empty list means no sink/source package is assembled by the solver.
       # example: active_sinks_sources = ["recharge"]
       # example: active_sinks_sources = ["recharge", "wells"]
       # example: active_sinks_sources = ["etp"]

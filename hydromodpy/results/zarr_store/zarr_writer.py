@@ -11,6 +11,7 @@ of hidden state and can be unit-tested in isolation.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -808,6 +809,91 @@ def write_forcing_field(
             attrs={"unit": str(unit), "source": str(source)},
             compressors=BLOSC_ZSTD,
         )
+
+
+# -- Soil reservoir columns (per-run) ----------------------------------------
+
+# Fixed per-column arrays of the soil reservoir group: name -> (dtype, units,
+# long_name). Unlike ``series``, these carry no per-call metadata: the set of
+# columns is closed (spec section 6.2), so a caller passing an unknown one
+# fails on the dict lookup below.
+_SOIL_COLUMN_ARRAYS: dict[str, tuple[str, str, str]] = {
+    "cell_index": ("int32", "1", "Flat (y, x) index of the SAFRAN cell"),
+    "class_index": ("int32", "1", "Soil capacity class inside the cell"),
+    "x": ("float64", "m", "Cell centre x, CRS of the run"),
+    "y": ("float64", "m", "Cell centre y, CRS of the run"),
+    "ru_mm": ("float64", "mm", "Soil available water capacity of the column"),
+    "cell_fraction": ("float64", "1", "Share of its cell the column covers"),
+    "basin_weight": ("float64", "1", "Weight of the column in the basin mean"),
+}
+
+
+def write_soil_columns(
+    store_obj: SimulationZarr,
+    *,
+    timestamps: np.ndarray,
+    series: Mapping[str, tuple[np.ndarray, str, str, str]],
+    columns: Mapping[str, np.ndarray],
+    attrs: Mapping[str, object],
+) -> None:
+    """Persist the soil reservoir columns under ``forcing/soil``.
+
+    ``series`` maps a daily flux or state name to ``(values, units,
+    cell_methods, long_name)``, ``(record, soil_column)`` shaped. ``columns``
+    maps the fixed per-column arrays of :data:`_SOIL_COLUMN_ARRAYS`,
+    ``(soil_column,)`` shaped. ``attrs`` is stamped on the group as-is.
+    """
+    with store_obj._guard_write():
+        ensure_child_dir(store_obj, store_obj._root, "forcing")
+        forcing = store_obj._root.require_group("forcing")
+        ensure_child_dir(store_obj, forcing, "soil")
+        soil = forcing.require_group("soil")
+
+        ts = np.asarray(timestamps, dtype="datetime64[ns]").view("int64")
+        _write_array(
+            store_obj,
+            soil,
+            "timestamps",
+            ts,
+            dimension_names=(field_registry.AXIS_RECORD,),
+            attrs={
+                "units": "nanoseconds since 1970-01-01T00:00:00",
+                "calendar": "proleptic_gregorian",
+                "standard_name": "time",
+                "long_name": "Day of each soil record",
+                "axis": "T",
+            },
+            compressors=BLOSC_ZSTD,
+        )
+
+        for name, (values, units, cell_methods, long_name) in series.items():
+            _write_array(
+                store_obj,
+                soil,
+                name,
+                np.asarray(values, dtype="float64"),
+                dimension_names=(field_registry.AXIS_RECORD, field_registry.AXIS_SOIL_COLUMN),
+                attrs={
+                    "units": str(units),
+                    "cell_methods": str(cell_methods),
+                    "long_name": str(long_name),
+                },
+                compressors=BLOSC_ZSTD,
+            )
+
+        for name, values in columns.items():
+            dtype, units, long_name = _SOIL_COLUMN_ARRAYS[name]
+            _write_array(
+                store_obj,
+                soil,
+                name,
+                np.asarray(values, dtype=dtype),
+                dimension_names=(field_registry.AXIS_SOIL_COLUMN,),
+                attrs={"units": units, "long_name": long_name},
+                compressors=BLOSC_ZSTD,
+            )
+
+        update_attrs(soil, dict(attrs))
 
 
 # -- Geographic rasters (per-run) -------------------------------------------

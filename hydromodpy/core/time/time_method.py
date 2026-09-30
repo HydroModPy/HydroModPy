@@ -71,6 +71,8 @@ OBSERVABLE_TIME_METHODS: Mapping[str, TimeMethod] = {
     "stage": "point",
     "volume": "point",
     "surface_area": "point",
+    "soil_storage": "point",
+    "transit_storage": "point",
 }
 """Time method of the observable names the field registry does not describe."""
 

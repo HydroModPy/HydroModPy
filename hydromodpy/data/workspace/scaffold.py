@@ -174,6 +174,15 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "substratum (fond de l'aquifere)",
         "geotiff_cog",
     ),
+    VariableSpec(
+        "soil_capacity",
+        "soil_capacity",
+        "raster",
+        "raster",
+        "mm",
+        "reserve utile du sol",
+        "geotiff_cog",
+    ),
 )
 
 

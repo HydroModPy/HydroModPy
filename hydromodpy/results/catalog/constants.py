@@ -84,6 +84,7 @@ PARQUET_VIEW_NAMES: tuple[str, ...] = (
     "provenance",
     "observation_points",
     "sfr_reaches",
+    "soil_budget",
 )
 
 

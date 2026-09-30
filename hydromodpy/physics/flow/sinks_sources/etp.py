@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, PrivateAttr, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -62,18 +62,22 @@ class FlowEtpConfig(HydroModelBase):
         default=2.0,
         ge=0.0,
         description=(
-            "Distance below the topographic surface (m) where the EVT "
-            "extraction surface sits. MODFLOW EVT extracts water linearly "
-            "between this surface and surface - extinction_depth. Legacy "
-            "default was DEM - 2 m."
+            "Distance (m) the EVT surface sits below its reference. Under "
+            "MODFLOW-NWT the reference is the topographic surface and the "
+            "default is 2 m. In soil mode under MODFLOW 6 the reference is the "
+            "drain elevation of the cell (the top, or the top minus half of "
+            "solver.drain_band_depth_m) and the default is 0 m, since the soil "
+            "reservoir has already taken the ETP it could."
         ),
     )
-    extinction_depth: Annotated[Length, Profile.DEV] = Field(
+    extinction_depth: Annotated[Length, Profile.USER] = Field(
         default=1.0,
         gt=0.0,
         description=(
-            "EVT extinction depth (m): below surface_offset + extinction_depth, "
-            "evapotranspiration is zero. Legacy default was 1 m."
+            "Depth (m) below the EVT surface where the water table stops "
+            "evaporating; the rate falls linearly between the surface and this "
+            "depth. 1 m by default. Read by MODFLOW-NWT, and by MODFLOW 6 in "
+            "soil mode for the ETP the soil left unmet."
         ),
     )
     spatial_mode: Annotated[SpatialMode, Profile.DEV] = Field(
@@ -90,6 +94,13 @@ class FlowEtpConfig(HydroModelBase):
             "MODFLOW grid. Options: 'nearest', 'linear', 'idw'."
         ),
     )
+
+    _from_soil_reservoir: bool = PrivateAttr(default=False)
+
+    @property
+    def from_soil_reservoir(self) -> bool:
+        """Whether this ETP is what the soil reservoir left unmet."""
+        return self._from_soil_reservoir
 
     @field_validator("first_clim", mode="before")
     @classmethod

@@ -7,13 +7,17 @@ comment K et Sy se calent sur le réseau cartographié et sur le débit jaugé.
 ## Les fichiers, dans l'ordre
 
 Chaque étape hérite d'une autre (`base_config`) et n'écrit que ce qui change. L'étape 3 est
-une variante de l'étape 2 sur données d'API ; l'étape 4 repart des données locales de l'étape 2.
+une variante de l'étape 2 sur données d'API ; l'étape 4 repart des données locales de
+l'étape 2 ; l'étape 6 repart de `project.toml`.
 
 1. `step1_minimal.toml` : permanent, MNT local, un K, une recharge moyenne.
 2. `step2_local_data.toml` : ajoute le réseau cartographié et la station, en fichiers locaux.
 3. `step3_api_data.toml` : les mêmes données, prises aux API BD Topage et Hub'Eau.
 4. `step4_transient.toml` : transitoire mensuel 2000-2002, recharge et ruissellement observés.
 5. `step5_export.toml` : la vitrine des exports, un bloc `[[export]]` par format.
+6. `step6_soil_reservoir.toml` : journalier 2015-2020, la recharge calculée par un réservoir
+   sol à partir de la pluie et de l'ETP SIM2 ; l'ETP que le sol n'a pas satisfaite est prise
+   à la nappe.
 
 Autour des étapes :
 
@@ -33,6 +37,7 @@ Depuis ce dossier, après `pip install hydromodpy` :
 
 ```bash
 hmp run step1_minimal.toml          # puis step2 à step5
+hmp run step6_soil_reservoir.toml --until load_data   # le sol seul : bilan en mm/an, aucun run écrit
 hmp calibrate run_calibration.toml --check
 hmp calibrate run_calibration.toml --list-phases
 hmp run run_calibration.toml        # idem pour les autres fichiers de calage
@@ -40,9 +45,9 @@ hmp export nancon_step5_export --list
 ```
 
 L'étape 3 lit BD Topage et Hub'Eau : il faut un accès réseau au premier lancement, les
-réponses sont ensuite en cache ; de même pour `run_calibration_bdtopage.toml` et
-`run_calibration_api_daily.toml`. Le calage composite et le calage BD Topage durent
-chacun environ une heure.
+réponses sont ensuite en cache ; de même pour `run_calibration_bdtopage.toml`,
+`run_calibration_api_daily.toml` et `step6_soil_reservoir.toml` (pluie et ETP SIM2). Le
+calage composite et le calage BD Topage durent chacun environ une heure.
 
 ## Où sont les sorties
 

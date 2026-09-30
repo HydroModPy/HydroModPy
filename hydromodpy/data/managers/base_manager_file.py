@@ -124,7 +124,7 @@ class RasterFileManager(BaseFileManager):
             FieldRecord(
                 variable=self.VARIABLE_NAME,
                 source="custom",
-                unit="m",
+                unit=self.INTERNAL_UNIT,
                 data=data,
                 bbox=bbox,
                 crs=crs,

@@ -16,6 +16,7 @@ from hydromodpy.physics.forcing.validation import (
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
 )
+from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
 
 
 class FlowRechargeConfig(HydroModelBase):
@@ -63,6 +64,16 @@ class FlowRechargeConfig(HydroModelBase):
             "held frozen there."
         ),
         json_schema_extra=field_metadata(calibrable=Calibrable(units="m/s")),
+    )
+    soil: Annotated[SoilReservoirConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Soil reservoir that computes the recharge from the daily precipitation "
+            "and ETP loaded under [data.precipitation] and [data.etp], MODFLOW 6 "
+            "only. It replaces [data.recharge]. Check it alone with "
+            "`hmp run <file> --until load_data`, which prints its water budget in "
+            "mm/year and writes no run."
+        ),
     )
     heterogeneous_source: Annotated[Any, Profile.DEV] = Field(
         default=None,
@@ -130,5 +141,15 @@ class FlowRechargeConfig(HydroModelBase):
             ensure_non_negative_numeric_payload(
                 self.values,
                 label="flow.sinks_sources.recharge.values",
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _refuse_a_recharge_rate_beside_a_soil_reservoir(self):
+        if self.soil is not None and "values" in self.model_fields_set:
+            raise ValueError(
+                f"flow.sinks_sources.recharge.values = {self.values!r} is ignored "
+                "when [flow.sinks_sources.recharge.soil] computes the recharge: "
+                "remove values, or remove the soil section to impose this rate."
             )
         return self

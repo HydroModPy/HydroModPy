@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.physics.flow import Flow
     from hydromodpy.results.catalog.protocol import SimulationStore
+    from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
     from hydromodpy.spatial.domain import Domain
 
 logger = get_logger(__name__)
@@ -293,9 +294,17 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> No
     loaded = ctx.loaded_data
     written = 0
 
+    # getattr, not ctx.setup.soil_forcings: some callers of this step (and a
+    # few regression test doubles) hand it a context with no .setup at all.
+    soil = getattr(getattr(ctx, "setup", None), "soil_forcings", None)
+    sources = [(f.name, getattr(loaded, f.name, None)) for f in dataclasses.fields(loaded)]
+    if soil is not None:
+        # loaded.recharge and loaded.runoff are None in soil mode (R1, R2): no
+        # duplicate key reaches the loop below.
+        sources += [("recharge", soil.recharge), ("runoff", soil.runoff)]
+
     try:
-        for f in dataclasses.fields(loaded):
-            obj = getattr(loaded, f.name, None)
+        for name, obj in sources:
             if obj is None:
                 continue
 
@@ -347,7 +356,7 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> No
                     logger.debug("Failed to persist geology forcing")
                 continue
 
-            if f.name == "hydrography":
+            if name == "hydrography":
                 try:
                     record = _hydrography_field_record(obj)
                     if record is not None:
@@ -376,9 +385,9 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> No
                         df = rec.data
                         timestamps = pd.to_datetime(df["datetime"]).values
                         values = df["value"].values.astype("float64")
-                        station = getattr(rec, "station_id", None) or f.name
+                        station = getattr(rec, "station_id", None) or name
                         sz.write_forcing_timeseries(
-                            f.name,
+                            name,
                             station,
                             timestamps,
                             values,
@@ -389,7 +398,7 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> No
                     except Exception:
                         logger.debug(
                             "Failed to persist forcing %s:%s",
-                            f.name,
+                            name,
                             getattr(rec, "station_id", "?"),
                         )
 
@@ -401,7 +410,7 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> No
                         if arr is None:
                             continue
                         sz.write_forcing_field(
-                            f"{f.name}_{rec.variable}",
+                            f"{name}_{rec.variable}",
                             arr,
                             unit=getattr(rec, "unit", ""),
                             source=getattr(rec, "source", ""),
@@ -410,7 +419,7 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> No
                     except Exception:
                         logger.debug(
                             "Failed to persist forcing field %s:%s",
-                            f.name,
+                            name,
                             getattr(rec, "variable", "?"),
                         )
 
@@ -419,12 +428,12 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> No
             # station-shaped copy so post-processing (catchment discharge)
             # can read the forcing back. Same reduction as the SFR / LAK
             # forcing binders, so both accountings stay consistent.
-            if f.name in _WATERSHED_MEAN_FORCINGS and fields_list and not points:
+            if name in _WATERSHED_MEAN_FORCINGS and fields_list and not points:
                 series = _watershed_mean_series(obj)
                 if series is not None:
                     try:
                         sz.write_forcing_timeseries(
-                            f.name,
+                            name,
                             _WATERSHED_MEAN_STATION,
                             np.asarray(series.index.values, dtype="datetime64[ns]"),
                             series.to_numpy(dtype="float64"),
@@ -433,12 +442,151 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> No
                         )
                         written += 1
                     except Exception:
-                        logger.debug("Failed to persist watershed-mean forcing %s", f.name)
+                        logger.debug("Failed to persist watershed-mean forcing %s", name)
+
+        # Not wrapped like the rest of the loop: a broken soil write is a bug
+        # in this feature, not a flaky external source, and must not be
+        # swallowed into a silent debug line.
+        if soil is not None:
+            _persist_soil_columns(sz, soil)
     finally:
         sz.close()
 
+    if soil is not None:
+        store.write_view(ctx.sim_id, "soil_budget", _soil_budget_rows(soil))
+
     if written:
         logger.debug("Persisted %d forcing datasets for sim %s", written, ctx.sim_id)
+
+
+def _soil_budget_rows(soil: object) -> list[dict[str, object]]:
+    """Build the ``soil_budget`` rows: one per column and year, plus a basin row."""
+    from hydromodpy.physics.hydrology.soil_reservoir.kernel import annual_budget
+
+    columns = soil.columns
+    ru_mm = soil.parameters.ru_mm
+    budget = annual_budget(
+        soil.years, soil.precipitation, soil.etp, soil.fluxes, columns.basin_weight
+    )
+    n_years, n_columns = budget.precipitation.shape
+
+    rows: list[dict[str, object]] = []
+    for j in range(n_columns):
+        column_id = f"{int(columns.cell_index[j])}.{int(columns.class_index[j])}"
+        for i in range(n_years):
+            rows.append(
+                {
+                    "column_id": column_id,
+                    "cell_index": int(columns.cell_index[j]),
+                    "class_index": int(columns.class_index[j]),
+                    "x": float(columns.x[j]),
+                    "y": float(columns.y[j]),
+                    "ru_mm": float(ru_mm[j]),
+                    "basin_weight": float(columns.basin_weight[j]),
+                    "year": int(budget.years[i]),
+                    "days": int(budget.days[i]),
+                    "precipitation_mm": float(budget.precipitation[i, j]),
+                    "etp_mm": float(budget.etp[i, j]),
+                    "etr_mm": float(budget.etr[i, j]),
+                    "residual_etp_mm": float(budget.residual_etp[i, j]),
+                    "recharge_mm": float(budget.recharge[i, j]),
+                    "runoff_mm": float(budget.runoff[i, j]),
+                    "soil_storage_change_mm": float(budget.soil_storage_change[i, j]),
+                    "transit_storage_change_mm": float(budget.transit_storage_change[i, j]),
+                    "balance_residual_mm": float(budget.residual[i, j]),
+                }
+            )
+
+    basin_ru_mm = float(np.sum(ru_mm * columns.basin_weight))
+    for i in range(n_years):
+        rows.append(
+            {
+                "column_id": _WATERSHED_MEAN_STATION,
+                "cell_index": None,
+                "class_index": None,
+                "x": None,
+                "y": None,
+                "ru_mm": basin_ru_mm,
+                "basin_weight": 1.0,
+                "year": int(budget.years[i]),
+                "days": int(budget.days[i]),
+                "precipitation_mm": float(budget.basin("precipitation")[i]),
+                "etp_mm": float(budget.basin("etp")[i]),
+                "etr_mm": float(budget.basin("etr")[i]),
+                "residual_etp_mm": float(budget.basin("residual_etp")[i]),
+                "recharge_mm": float(budget.basin("recharge")[i]),
+                "runoff_mm": float(budget.basin("runoff")[i]),
+                "soil_storage_change_mm": float(budget.basin("soil_storage_change")[i]),
+                "transit_storage_change_mm": float(budget.basin("transit_storage_change")[i]),
+                "balance_residual_mm": float(budget.basin("residual")[i]),
+            }
+        )
+    return rows
+
+
+def _persist_soil_columns(sz: SimulationZarr, soil: object) -> None:
+    """Write the soil reservoir's daily columns under ``forcing/soil``."""
+    fluxes = soil.fluxes
+    config = soil.config
+    columns = soil.columns
+    series = {
+        "etr": (fluxes.etr, "mm/day", "time: mean", "Actual evapotranspiration of the soil"),
+        "residual_etp": (
+            fluxes.residual_etp,
+            "mm/day",
+            "time: mean",
+            "ETP the soil left unmet",
+        ),
+        "recharge": (
+            fluxes.recharge,
+            "mm/day",
+            "time: mean",
+            "Recharge sent to the water table",
+        ),
+        "runoff": (fluxes.runoff, "mm/day", "time: mean", "Runoff of the sealed share"),
+        "soil_storage": (
+            fluxes.soil_storage,
+            "mm",
+            "time: point",
+            "Soil water storage at the end of the day",
+        ),
+        "transit_storage": (
+            fluxes.transit_storage,
+            "mm",
+            "time: point",
+            "Transit store at the end of the day",
+        ),
+    }
+    columns_arrays = {
+        "cell_index": columns.cell_index,
+        "class_index": columns.class_index,
+        "x": columns.x,
+        "y": columns.y,
+        "ru_mm": soil.parameters.ru_mm,
+        "cell_fraction": columns.cell_fraction,
+        "basin_weight": columns.basin_weight,
+    }
+    attrs = {
+        "source": "soil_reservoir",
+        "crs": soil.crs,
+        "ru_mm": config.ru,
+        "alpha": config.alpha,
+        "kc": config.kc,
+        "impervious_fraction": config.impervious_fraction,
+        "bypass_fraction": config.bypass_fraction,
+        "transit_time_days": config.transit_time,
+        "spinup": config.spinup,
+        "spinup_cycles": int(soil.spinup_cycles),
+        "never_full_columns": int(soil.never_full_columns),
+        "n_cells": int(np.unique(columns.cell_index).size),
+        "n_columns": int(columns.cell_index.shape[0]),
+    }
+    sz.write_soil_columns(
+        timestamps=soil.days,
+        series=series,
+        columns=columns_arrays,
+        attrs=attrs,
+    )
 
 
 def _persist_reference_hydrographic_feature(

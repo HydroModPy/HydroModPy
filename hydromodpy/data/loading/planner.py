@@ -14,6 +14,10 @@ Current inference scope (V3)
 - ``substratum`` is never inferred: the domain layer reads its raster path
   directly from config, before the data step runs, so it is loaded only when
   listed in ``[data].types``.
+- ``[flow.sinks_sources.recharge.soil]`` -> activate precipitation and etp
+- ``[data.soil_capacity]`` declared -> activate ``soil_capacity`` (the section
+  can be written without listing it in ``data.types``, like the other
+  typed sections)
 """
 
 from __future__ import annotations
@@ -43,6 +47,7 @@ class DataPlanner:
         requested_spatial_support_ids: Sequence[str] | None = None,
         raw_toml: Mapping[str, Any] | None = None,
         flow_active_bc: Sequence[str] | None = None,
+        flow_soil_reservoir: bool = False,
     ) -> DataLoadPlan:
         """Resolve data-manager types from explicit and inferred declarations.
 
@@ -65,6 +70,10 @@ class DataPlanner:
         flow_active_bc:
             Validated `flow.active_bc` list used for boundary-condition-driven
             inference (`stream`/`ocean`).
+        flow_soil_reservoir:
+            Whether ``[flow.sinks_sources.recharge.soil]`` is declared. A plain
+            bool, not the config object: the planner lives in `data/`, which
+            must not import `physics`.
         """
         explicit_types = tuple(config.types)
         inferred_types: list[str] = []
@@ -131,6 +140,24 @@ class DataPlanner:
                         lake_family,
                         f"inferred from flow.active_bc containing '{lake_token}'",
                     )
+
+        if flow_soil_reservoir:
+            for soil_forcing in ("precipitation", "etp"):
+                if soil_forcing not in explicit_set:
+                    self._add_inference(
+                        inferred_types,
+                        reasons_by_type,
+                        soil_forcing,
+                        "inferred from [flow.sinks_sources.recharge.soil]",
+                    )
+
+        if config.soil_capacity is not None and "soil_capacity" not in explicit_set:
+            self._add_inference(
+                inferred_types,
+                reasons_by_type,
+                "soil_capacity",
+                "inferred from [data.soil_capacity] beside [flow.sinks_sources.recharge.soil]",
+            )
 
         if config.inference_mode == "strict":
             self._enforce_strict_mode(config, inferred_types)

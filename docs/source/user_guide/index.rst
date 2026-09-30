@@ -277,6 +277,7 @@ Use these pages once you have generated or opened result pages:
    catchment-report
    solvers
    initialization
+   soil-reservoir-recharge
    modflow6-prt
    modflow6-lake
    modflow6-sfr

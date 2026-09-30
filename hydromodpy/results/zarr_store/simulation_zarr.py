@@ -394,6 +394,10 @@ class SimulationZarr:
     ) -> tuple[np.ndarray, np.ndarray, dict]:
         return zarr_reader.read_forcing_timeseries(self, variable, station_id)
 
+    def write_soil_columns(self, **arrays: Any) -> None:
+        """Persist the soil reservoir columns under ``forcing/soil``."""
+        zarr_writer.write_soil_columns(self, **arrays)
+
     # -- Geographic rasters --------------------------------------------------
 
     def write_geographic_raster(

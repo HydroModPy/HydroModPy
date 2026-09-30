@@ -24,9 +24,12 @@ class EtpSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     paths, masks, units, and cache refresh behavior.
     """
 
-    source: Annotated[Literal["custom", "sim2"], Profile.USER] = Field(
+    source: Annotated[Literal["custom", "sim2", "explore2"], Profile.USER] = Field(
         ...,
-        description="Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
+        description=(
+            "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, "
+            "'explore2' for a local DRIAS Explore2 NetCDF (no network)."
+        ),
     )
 
     # --- Custom source fields ---
@@ -36,7 +39,10 @@ class EtpSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
         InputFile(role="etp", category="data"),
     ] = Field(
         default=None,
-        description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+        description=(
+            "Directory containing location file and chronicle CSVs, or a single .nc/.tif file. "
+            "For source = 'explore2', the local DRIAS Explore2 NetCDF to read."
+        ),
     )
     crs: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -53,6 +59,11 @@ class EtpSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
             if self.path is None:
                 raise ValueError(
                     "Custom source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
+                )
+        if self.source == "explore2":
+            if self.path is None:
+                raise ValueError(
+                    "Explore2 source requires 'path' (a local DRIAS Explore2 NetCDF file)."
                 )
         return self
 

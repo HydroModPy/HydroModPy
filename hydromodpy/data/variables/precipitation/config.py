@@ -24,9 +24,12 @@ class PrecipitationSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin
     precipitation signal is loaded from the provider.
     """
 
-    source: Annotated[Literal["custom", "sim2"], Profile.USER] = Field(
+    source: Annotated[Literal["custom", "sim2", "explore2"], Profile.USER] = Field(
         ...,
-        description="Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
+        description=(
+            "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, "
+            "'explore2' for a local DRIAS Explore2 NetCDF (no network)."
+        ),
     )
 
     # --- Precipitation-specific ---
@@ -43,7 +46,10 @@ class PrecipitationSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin
         InputFile(role="precipitation", category="data"),
     ] = Field(
         default=None,
-        description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+        description=(
+            "Directory containing location file and chronicle CSVs, or a single .nc/.tif file. "
+            "For source = 'explore2', the local DRIAS Explore2 NetCDF to read."
+        ),
     )
 
     @model_validator(mode="after")
@@ -52,6 +58,11 @@ class PrecipitationSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin
             if self.path is None:
                 raise ValueError(
                     "Custom source requires 'path' (directory with location + chronicles, or a .nc/.tif file)."
+                )
+        if self.source == "explore2":
+            if self.path is None:
+                raise ValueError(
+                    "Explore2 source requires 'path' (a local DRIAS Explore2 NetCDF file)."
                 )
         return self
 

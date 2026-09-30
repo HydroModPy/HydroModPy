@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from hydromodpy.data.variables.radiation.config import RadiationConfig
     from hydromodpy.data.variables.recharge.config import RechargeConfig
     from hydromodpy.data.variables.runoff.config import RunoffConfig
+    from hydromodpy.data.variables.soil_capacity.config import SoilCapacityConfig
     from hydromodpy.data.variables.soil_moisture.config import SoilMoistureConfig
     from hydromodpy.data.variables.substratum.config import SubstratumConfig
     from hydromodpy.data.variables.temperature.config import TemperatureConfig
@@ -74,6 +75,7 @@ SUPPORTED_DATA_MANAGER_TYPES = (
     "radiation",
     "recharge",
     "runoff",
+    "soil_capacity",
     "soil_moisture",
     "substratum",
     "temperature",
@@ -227,6 +229,13 @@ class DataManagersConfig(HydroModelBase):
         default=None,
         description="Substratum configuration (aquifer-bottom raster, elevation or thickness).",
     )
+    soil_capacity: Annotated[SoilCapacityConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Soil capacity configuration (RU raster read by the soil reservoir, "
+            "[flow.sinks_sources.recharge.soil])."
+        ),
+    )
 
     @field_validator("types", mode="before")
     @classmethod
@@ -368,6 +377,7 @@ class DataManagersConfig(HydroModelBase):
         from hydromodpy.data.variables.radiation.config import RadiationConfig
         from hydromodpy.data.variables.recharge.config import RechargeConfig
         from hydromodpy.data.variables.runoff.config import RunoffConfig
+        from hydromodpy.data.variables.soil_capacity.config import SoilCapacityConfig
         from hydromodpy.data.variables.soil_moisture.config import SoilMoistureConfig
         from hydromodpy.data.variables.substratum.config import SubstratumConfig
         from hydromodpy.data.variables.temperature.config import TemperatureConfig
@@ -400,6 +410,7 @@ class DataManagersConfig(HydroModelBase):
             "radiation": RadiationConfig,
             "soil_moisture": SoilMoistureConfig,
             "substratum": SubstratumConfig,
+            "soil_capacity": SoilCapacityConfig,
         }
 
         # Validate/normalize only active families to keep config permissive for
@@ -472,6 +483,7 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.data.variables.radiation.config import RadiationConfig
     from hydromodpy.data.variables.recharge.config import RechargeConfig
     from hydromodpy.data.variables.runoff.config import RunoffConfig
+    from hydromodpy.data.variables.soil_capacity.config import SoilCapacityConfig
     from hydromodpy.data.variables.soil_moisture.config import SoilMoistureConfig
     from hydromodpy.data.variables.substratum.config import SubstratumConfig
     from hydromodpy.data.variables.temperature.config import TemperatureConfig
@@ -502,6 +514,7 @@ def _rebuild_forward_refs() -> None:
             "RadiationConfig": RadiationConfig,
             "SoilMoistureConfig": SoilMoistureConfig,
             "SubstratumConfig": SubstratumConfig,
+            "SoilCapacityConfig": SoilCapacityConfig,
         }
     )
 

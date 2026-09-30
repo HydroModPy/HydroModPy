@@ -61,6 +61,11 @@ form, like any other shared spelling.
 
 _REGISTRY_ID_BY_PATH: dict[str, str] = {
     "domain.depth_model.substratum_elevation": "elevation",
+    "flow.sinks_sources.recharge.soil.ru": "soil_ru",
+    "flow.sinks_sources.recharge.soil.alpha": "soil_alpha",
+    "flow.sinks_sources.recharge.soil.kc": "soil_kc",
+    "flow.sinks_sources.recharge.soil.bypass_fraction": "soil_bypass_fraction",
+    "flow.sinks_sources.recharge.soil.transit_time": "soil_transit_time",
 }
 """Targets whose physical range is read under a key their path does not spell.
 
@@ -185,18 +190,23 @@ def _walk(
     field_info: Any = None,
 ) -> None:
     if isinstance(node, BaseModel):
-        node_units = _declared_units(node) or units
+        own_units = _declared_units(node)
         for field_name, sub_info in type(node).model_fields.items():
             # A field the user profile does not show is a knob of the numerical
             # scheme, not a property of the aquifer. Searching over a substep
             # count would optimise the solver rather than the model.
             if extract_profile(sub_info) is not Profile.USER:
                 continue
+            # A leaf's unit is its own node's, else its own Calibrable's, else
+            # what the walk inherited: 'soil.ru' must read 'mm' from its field,
+            # not 'mm/day' from its FlowRechargeConfig parent.
+            declared = declared_calibrable(sub_info)
+            leaf_units = declared.units if declared is not None else None
             _walk(
                 getattr(node, field_name, None),
                 prefix=f"{prefix}.{field_name}",
                 instances=instances,
-                units=node_units,
+                units=own_units or leaf_units or units,
                 found=found,
                 field_info=sub_info,
             )

@@ -76,6 +76,16 @@ class BaseFieldManager(BaseManagerCommon):
         variables = getattr(fetch, "variables", None)
         if variables is None:
             return fetch(source_cfg, bbox=None, period=self.project_period, context=context)
+        if getattr(source_cfg, "path", None) is not None:
+            # A grid read from a file the user names (explore2) is read again at
+            # each run: the download cache keys on the box and the dates, never
+            # on the file, and would hand back the grid of the previous file.
+            return fetch(
+                source_cfg,
+                bbox=self._resolve_bbox(source_cfg),
+                period=self.project_period,
+                context=context,
+            )
 
         def _download(cfg: Any, *, bbox, project_period) -> list[FieldRecord]:
             return fetch(cfg, bbox=bbox, period=project_period, context=context)

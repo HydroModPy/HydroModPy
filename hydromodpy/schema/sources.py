@@ -163,6 +163,13 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         hosts=("services.data.shom.fr",),
     ),
     _undetermined(
+        "explore2",
+        "Meteo-France, distributed via DRIAS (Explore2-Climat)",
+        "The user supplies a local Explore2 NetCDF; this repository records no "
+        "terms for the DRIAS distribution, and the reader contacts no network "
+        "host to get it.",
+    ),
+    _undetermined(
         "custom",
         None,
         "A file the user supplied. Its licence is the user's to declare, in the "

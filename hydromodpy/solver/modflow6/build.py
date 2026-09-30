@@ -17,9 +17,12 @@ from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.field_property_mapping import require_positive_conductivity
 from hydromodpy.solver.modflow6.builders import (
+    PRIVATE_TRIAL_RECHARGE_KEY,
+    TRIAL_RECHARGE_DIRNAME,
     apply_lake_idomain_mask,
     assemble_constant_head_stress_period_data,
     bind_recharge_from_flow,
+    bind_soil_etp_from_flow,
     build_drain_stress_period_data,
     build_drainage_mover_records,
     build_evt_stress_period_data,
@@ -30,6 +33,7 @@ from hydromodpy.solver.modflow6.builders import (
     build_sfr_mover_records,
     build_sfr_package_args,
     build_side_boundary_chd_spd,
+    build_soil_evta_payload,
     build_start_heads,
     build_stream_boundary_chd_spd,
     build_well_stress_period_data,
@@ -39,12 +43,14 @@ from hydromodpy.solver.modflow6.builders import (
     evt_list_spd_to_array_payload,
     externalize_recharge_spd,
     finalize_pending_recharge_evt,
+    is_bc_active,
     log_xt3d_resolution,
     mask_recharge_on_lake_cells,
     mover_package_count,
     recharge_to_spd,
     remove_drain_cells,
     resolve_deferred_heterogeneous_recharge,
+    resolve_deferred_soil_etp,
     resolve_downstream_spillway_reaches,
     resolve_drainage_conductance_series,
     resolve_flow_barrier_hfb_rows,
@@ -218,19 +224,23 @@ def _write_sfr_obs_meta(model, sfr_obs_meta: Mapping[str, object]) -> None:
 
 
 def _shared_recharge_dir(model) -> str | None:
-    """Return the shared recharge directory for a calibration trial, else None.
+    """Return the recharge directory for a calibration trial, else None.
 
     The calibration ``TrialSandbox`` writes each trial into a
     ``<scratch>/<base>_trialNNNNNN/`` folder shared by all trials. The recharge is
     invariant across trials, so it lives once in a sibling ``_shared_recharge``
-    dir and every trial references it (see ``externalize_recharge_spd``). A
-    non-trial single run returns None and keeps the per-model binary layout.
+    dir and every trial references it (see ``externalize_recharge_spd``) --
+    unless the phase samples a recharge parameter; then each trial writes into
+    its own ``<trial>/_recharge`` folder, removed with the trial
+    (``PRIVATE_TRIAL_RECHARGE_KEY``, set by ``run_trial_light``). A non-trial
+    single run returns None and keeps the per-model binary layout.
 
     The trial marker is the ``_trialNNNNNN`` PATH COMPONENT (the sandbox folder),
     found by walking ``full_path`` up: ``model_name_mf6`` (the ``full_path`` leaf)
     is truncated to 16 chars by ``mf6_safe_name`` and drops the suffix, and the
     trial folder can sit at either the leaf or its parent depending on the
-    workspace layout. The shared dir is a sibling of the trial folder.
+    workspace layout. The shared dir is a sibling of the trial folder; the
+    private one is inside it, so it disappears with the sandbox.
 
     The returned path is OS-native: it is only ever handed to the local filesystem
     and to the ``OPEN/CLOSE`` line of the same run's MF6 input, inside a scratch
@@ -244,6 +254,9 @@ def _shared_recharge_dir(model) -> str | None:
     while path and path not in (os.sep, "."):
         head, tail = os.path.split(path)
         if re.search(r"_trial\d{6}$", tail):
+            overrides = getattr(model, "_flow_runtime_overrides", None) or {}
+            if overrides.get(PRIVATE_TRIAL_RECHARGE_KEY):
+                return os.path.join(path, TRIAL_RECHARGE_DIRNAME)
             return os.path.join(head, "_shared_recharge")
         if head == path:
             break
@@ -651,6 +664,7 @@ def run_pre_processing(  # noqa: PLR0915
     # Reject invalid solver-config combinations before any expensive grid build.
     guard_newton_linear_acceleration(model.modflow_config.runtime)
     bind_recharge_from_flow(model)
+    bind_soil_etp_from_flow(model)
     model._calibration_raw_output_payload_cache = {}
 
     # Settle the output stem before anything names a file after it. On Windows a
@@ -723,6 +737,7 @@ def run_pre_processing(  # noqa: PLR0915
     model.dem_watershed_path = write_solver_grid_template(model)
 
     resolve_deferred_heterogeneous_recharge(model)
+    resolve_deferred_soil_etp(model)
 
     flow_params = resolve_flow_property_arrays(
         flow=model.flow,
@@ -1080,6 +1095,15 @@ def run_pre_processing(  # noqa: PLR0915
         aux=empty_recharge_aux(model),
         pname="RCHA",
     )
+    soil_evta = build_soil_evta_payload(
+        model,
+        solver_mesh,
+        ocean_support_mask=ocean_support_mask,
+        stream_support_mask=stream_support_mask,
+        lake_cell_ids=model._lake_cell_ids,
+        drain_active=is_bc_active(model, "drainage"),
+        shared_dir=_shared_recharge_dir(model),
+    )
     evt_spd = build_evt_stress_period_data(
         model,
         solver_mesh,
@@ -1087,7 +1111,23 @@ def run_pre_processing(  # noqa: PLR0915
         stream_support_mask=stream_support_mask,
         lake_cell_ids=model._lake_cell_ids,
     )
-    if evt_spd is not None:
+    if soil_evta is not None:
+        if evt_spd is not None:
+            raise RuntimeError(
+                "the soil residual ETP and the routed negative recharge both ask for "
+                "the EVT package; soil mode refuses [data.recharge], so this state is "
+                "a bug."
+            )
+        soil_rate, soil_surface, soil_depth = soil_evta
+        model.evt = flopy.mf6.ModflowGwfevta(
+            model.gwf,
+            surface=soil_surface,
+            depth=soil_depth,
+            rate=soil_rate,
+            save_flows=True,
+            pname="EVTA",
+        )
+    elif evt_spd is not None:
         evt_spd = collapse_identical_periods(evt_spd)
         # Prefer the array package (EVTA): a compact READARRAY per changed period is far
         # cheaper to write than O(ncells) list records on chronicles. It is exactly
