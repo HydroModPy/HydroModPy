@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 85 tolerances enforced today. Every tolerance
+The table below records the 86 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -113,6 +113,7 @@ must carry a rationale before it is merged.
 | 83 | Soil spin-up settling | largest change, mm, of the end-of-year soil or transit storage between the last two repetitions | `0.1` | **Hydrological.** 1e-3 of a 100 mm capacity, far under the 7 mm first-year error the method leaves against a reference state (`revues/phase1-hydrologie.md` §3) | Two repetitions on 2015 at the Nancon (spec probe). `tests/unit/physics/test_the_spinup_settles_on_a_year_that_refills_the_soil.py` |
 | 84 | Soil recharge into MF6 RCHA | per period `\|sum q_RCH - sum Pe A\| / sum Pe A` | `1e-9` | **Machine epsilon.** Float64 from the kernel to the binary RCHA input and the double-precision budget file; only the period mean and the mm/day to m/s factor round | `tests/integration/test_the_soil_recharge_reaches_modflow6_cell_by_cell.py` |
 | 85 | Soil unmet ETP into MF6 EVTA | per cell and period `(-q_EVT - ETPres A) / (ETPres A)` | `1e-12` | **Bound.** MF6 `evt_cf` never takes more than `RATE x A` from a cell (`gwf-evt.f90:470-480`) | Same module. Equality where the head stands above the EVT surface is not asserted |
+| 86 | Routed impulse validation case | `t95` against `-k ln 0.05`, days | `1` | **Discretisation.** Daily steps: the cumulative recharge crosses 95 % within the day that follows the continuous crossing | Measured `t95` = 2, 6, 15, 60, 90 d against 1.5, 6.0, 15.0, 59.9, 89.9. `tests/validation/analytical/transient/test_a_routed_impulse_matches_the_exponential_reservoir.py` |
 
 ## Update policy
 

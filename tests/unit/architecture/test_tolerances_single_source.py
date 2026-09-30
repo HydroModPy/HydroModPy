@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 53 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 54 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 53 loadable rows split into three enforcement classes (W5 classification):
+The 54 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -114,6 +114,9 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "soil_recharge_into_mf6_rcha__per_period_sum_q_rch_sum_pe_a_sum_pe_a",
         "soil_unmet_etp_into_mf6_evta__per_cell_and_period_q_evt_etpres_a_etpres_a",
         "global_water_budget_closure__relative_error_in_out_in",
+        # Routed impulse through the full soil orchestrator, asserted in
+        # tests/validation/analytical/transient/test_a_routed_impulse_matches_the_exponential_reservoir.py.
+        "routed_impulse_validation_case__t95_against_k_ln_0_05_days",
     }
 )
 
@@ -212,7 +215,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 53, sorted(loadable)
+    assert len(loadable) == 54, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"

@@ -15,6 +15,9 @@ Current inference scope (V3)
   directly from config, before the data step runs, so it is loaded only when
   listed in ``[data].types``.
 - ``[flow.sinks_sources.recharge.soil]`` -> activate precipitation and etp
+- ``[data.soil_capacity]`` declared -> activate ``soil_capacity`` (the section
+  can be written without listing it in ``data.types``, like the other
+  typed sections)
 """
 
 from __future__ import annotations
@@ -147,6 +150,14 @@ class DataPlanner:
                         soil_forcing,
                         "inferred from [flow.sinks_sources.recharge.soil]",
                     )
+
+        if config.soil_capacity is not None and "soil_capacity" not in explicit_set:
+            self._add_inference(
+                inferred_types,
+                reasons_by_type,
+                "soil_capacity",
+                "inferred from [data.soil_capacity]",
+            )
 
         if config.inference_mode == "strict":
             self._enforce_strict_mode(config, inferred_types)

@@ -1,0 +1,126 @@
+# Step 6: the recharge computed from the rain and the ETP by a soil reservoir.
+# Nancon, daily 2015-2020, MODFLOW 6. The SIM2 drainage that
+# run_calibration_api_daily.toml loads keeps about 0.3 mm/day all summer from
+# 2016 on: a slow groundwater memory the aquifer model then counts twice. Here
+# a daily soil reservoir turns the SIM2 rain and ETP into a recharge that falls
+# to zero in dry summers, and MODFLOW builds the slow response itself. The ETP
+# the soil could not meet is drawn from the water table.
+#
+# Check the soil alone first. It loads the rain and the ETP, prints the soil
+# budget in mm/year and the recharge for five other soil capacities beside the
+# gauged discharge, and writes no run:
+#
+#   hmp run step6_soil_reservoir.toml --until load_data
+#   hmp run step6_soil_reservoir.toml
+#
+# Needs network access at the first run for the SIM2 rain and ETP; the
+# downloads are cached after it. 2192 daily solves.
+
+base_config = "project.toml"
+
+# The exports of project.toml name October 2002, outside this record. They are
+# dropped, and the blocks at the end of this file replace them.
+export__delete = true
+
+[simulation]
+name = "nancon_soil_reservoir_daily"
+description = "Nancon, daily 2015-2020, recharge from a soil reservoir on the SIM2 rain and ETP."
+
+# Every [data.<type>] section reads this window. 2015 settles the soil and the
+# aquifer; the figures score 2016-2020.
+[simulation.time]
+start_datetime = "2015-01-01"
+end_datetime = "2020-12-31"
+step_value = "1 day"
+
+# The rain and the ETP replace the recharge and the runoff of project.toml:
+# the soil reservoir computes the recharge, and the water that seeps out of
+# saturated ground reaches the gauge through the drains. A list replaces the
+# parent's, so the five families are written out; __delete drops the two
+# sections project.toml declares.
+[data]
+types = ["dem", "hydrography", "hydrometry", "precipitation", "etp"]
+recharge__delete = true
+runoff__delete = true
+
+# Meteo-France SIM2 reanalysis, 8 km grid, rain plus snow, over the watershed.
+[[data.precipitation.sources]]
+source = "sim2"
+extent = "watershed"
+
+# SIM2 reference evapotranspiration, on the same grid.
+[[data.etp.sources]]
+source = "sim2"
+extent = "watershed"
+
+[flow]
+# "etp": the ETP the soil left unmet is drawn from the water table, fully at
+# the drain elevation and down to 1 m under it (extinction_depth).
+active_sinks_sources = ["recharge", "etp"]
+# A steady first day would hold the recharge of that day alone, zero after a
+# dry day. Every period is transient instead, and the run starts from the
+# steady state under the mean recharge of 2015-2020.
+first_period_steady = false
+
+[flow.ic]
+type = "steady_state"
+
+# ru is the water the roots can draw, in mm, a property of the site. At 150 mm
+# the recharge of 2015-2020 matches the SIM2 drainage plus runoff; the soil
+# alone prints the recharge for 50 to 250 mm to compare with the gauge. alpha
+# (0.6), kc (1.0), the sealed and bypass fractions (0) and the transit time (0)
+# keep their defaults.
+[flow.sinks_sources.recharge.soil]
+ru = "150 mm"
+
+# A figure that fails is logged and the run goes on.
+[display]
+on_error = "warn"
+# One-instant figures draw September 2019, the end of a dry summer.
+time = "2019-09-15"
+figures = [
+    "watershed_id_card",
+    "flux_timeseries",
+    "hydrograph_log_nse",
+    "hydrograph_sim_obs",
+    "duration_curve",
+    "recession",
+    "watertable_depth_map",
+    "seepage_map",
+    "cross_section",
+    "flow_persistence_map",
+    "flow_intermittence_map",
+]
+
+# The seepage of February 2020, near the largest saturated extent.
+[display.overrides.seepage_map]
+time = "2020-02-15"
+
+# The scored years, 2015 being the spin-up, shaded.
+[display.overrides.hydrograph_log_nse]
+scoring_window = ["2016-01-01", "2020-12-31"]
+
+# One hydrological year inside the run.
+[display.overrides.flow_intermittence_map]
+cycle = "2019"
+
+# What the run writes to share/nancon_soil_reservoir_daily/.
+
+# The catchment and the mapped network: GeoPackage.
+[[export]]
+variables = ["watershed", "hydrographic_network_reference"]
+
+# The water table and the seepage cells at the end of the summer of 2019.
+[[export]]
+variables = ["watertable_depth", "seepage_mask"]
+time = "2019-09-15"
+
+# Simulated and gauged discharge over the scored years: CSV.
+[[export]]
+variables = ["discharge", "discharge_obs"]
+period = ["2016-01-01", "2020-12-31"]
+
+# The daily water budget, the soil recharge and the water table evaporation
+# among its terms: CSV.
+[[export]]
+variables = "budget"

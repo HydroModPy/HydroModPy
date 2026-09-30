@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 import xarray as xr
-from pyproj import CRS
+from pyproj import CRS, Transformer
 
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation, MissingForcingError
 from hydromodpy.data.contracts import FieldRecord, LoadResult
@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 
 RU_LADDER_MM: tuple[float, ...] = (50.0, 100.0, 150.0, 200.0, 250.0)
+RU_CLASSES_PER_CELL: int = 10
 
 
 def soil_parameters(config: SoilReservoirConfig, ru_mm: np.ndarray) -> SoilParameters:
@@ -62,6 +63,7 @@ class SoilColumns:
     ru_shape: np.ndarray  # (N,) class capacity / mean capacity, 1.0 without raster
     cell_fraction: np.ndarray  # (N,) share of its cell the column covers, sums to 1 per cell
     basin_weight: np.ndarray  # (N,) cell_fraction / number of cells, sums to 1
+    raster_mean_mm: float | None = None  # basin mean of [data.soil_capacity], None without raster
 
 
 @dataclass(frozen=True)
@@ -355,6 +357,144 @@ def _grid_field_record(
 
 
 # ---------------------------------------------------------------------------
+# RU raster: capacity classes inside each SAFRAN cell (spec section 1.7)
+# ---------------------------------------------------------------------------
+
+
+def _read_raster_pixels(
+    record: FieldRecord, *, model_crs: str
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Valid pixel centres, reprojected to ``model_crs``, and their values."""
+    import rasterio
+    from rasterio.transform import xy as pixel_xy
+
+    with rasterio.open(str(record.data)) as src:
+        band = src.read(1, masked=True)
+        rows, cols = np.where(~np.ma.getmaskarray(band))
+        values = np.asarray(band)[rows, cols].astype(np.float64)
+        raw_x, raw_y = pixel_xy(src.transform, rows, cols)
+    px = np.asarray(raw_x, dtype=np.float64)
+    py = np.asarray(raw_y, dtype=np.float64)
+    if CRS.from_user_input(record.crs) != CRS.from_user_input(model_crs):
+        transformer = Transformer.from_crs(record.crs, model_crs, always_xy=True)
+        px, py = (np.asarray(v, dtype=np.float64) for v in transformer.transform(px, py))
+    return px, py, values
+
+
+def _grid_steps(
+    x: np.ndarray, y: np.ndarray, bbox: tuple[float, float, float, float]
+) -> tuple[float, float]:
+    """(dx, dy) of the P grid: the other axis' step when one axis has a single cell,
+    or the bbox span on both axes for a 1x1 grid."""
+    dx = float(abs(x[1] - x[0])) if x.size > 1 else None
+    dy = float(abs(y[1] - y[0])) if y.size > 1 else None
+    if dx is None and dy is None:
+        return float(bbox[2] - bbox[0]), float(bbox[3] - bbox[1])
+    if dx is None:
+        return dy, dy
+    if dy is None:
+        return dx, dx
+    return dx, dy
+
+
+def capacity_classes(
+    soil_capacity: LoadResultProto,
+    *,
+    x: np.ndarray,
+    y: np.ndarray,
+    crs: str,
+    bbox: tuple[float, float, float, float],
+    n_classes: int = RU_CLASSES_PER_CELL,
+) -> SoilColumns:
+    """Spread each SAFRAN cell into capacity classes from a soil capacity raster."""
+    record = soil_capacity.fields[0]
+    px, py, values = _read_raster_pixels(record, model_crs=crs)
+
+    ny, nx = y.size, x.size
+    n_cells = ny * nx
+    dx, dy = _grid_steps(x, y, bbox)
+    ix = np.argmin(np.abs(px[:, None] - x[None, :]), axis=1)
+    iy = np.argmin(np.abs(py[:, None] - y[None, :]), axis=1)
+    inside = (np.abs(px - x[ix]) <= dx / 2) & (np.abs(py - y[iy]) <= dy / 2)
+
+    inside_values = values[inside]
+    negative = inside_values < 0
+    if negative.any():
+        raise DataContractViolation(
+            "[data.soil_capacity] holds negative values (down to "
+            f"{float(inside_values[negative].min()):g} mm): a soil water capacity "
+            "is 0 mm or more. Check the raster and its nodata value."
+        )
+
+    cell_of_pixel = np.where(inside, iy * nx + ix, -1)
+    order = np.argsort(cell_of_pixel, kind="stable")
+    sorted_cells = cell_of_pixel[order]
+    sorted_values = values[order]
+    boundaries = np.searchsorted(sorted_cells, np.arange(n_cells + 1))
+
+    cell_index: list[int] = []
+    class_index: list[int] = []
+    col_x: list[float] = []
+    col_y: list[float] = []
+    cell_fraction: list[float] = []
+    class_mean: list[float] = []
+    for c in range(n_cells):
+        pixels = sorted_values[boundaries[c] : boundaries[c + 1]]
+        iy_c, ix_c = divmod(c, nx)
+        if pixels.size == 0:
+            raise DataContractViolation(
+                "[data.soil_capacity] covers no part of the SAFRAN cell centred on "
+                f"x = {x[ix_c]:.0f}, y = {y[iy_c]:.0f}: every cell of the forcing "
+                "grid needs soil capacity values. Extend the raster, or narrow the "
+                "forcing extent."
+            )
+        groups = [group for group in np.array_split(np.sort(pixels), n_classes) if group.size > 0]
+        for j, group in enumerate(groups):
+            cell_index.append(c)
+            class_index.append(j)
+            col_x.append(float(x[ix_c]))
+            col_y.append(float(y[iy_c]))
+            cell_fraction.append(group.size / pixels.size)
+            class_mean.append(float(group.mean()))
+
+    cell_index_arr = np.asarray(cell_index, dtype=np.int64)
+    cell_fraction_arr = np.asarray(cell_fraction, dtype=np.float64)
+    class_mean_arr = np.asarray(class_mean, dtype=np.float64)
+    basin_weight_arr = cell_fraction_arr / n_cells
+    raster_mean = float(np.sum(basin_weight_arr * class_mean_arr))
+    if raster_mean == 0.0:
+        raise DataContractViolation(
+            "[data.soil_capacity] is 0 mm over every SAFRAN cell, so it gives no "
+            "shape to spread ru over: check the raster, or remove [data.soil_capacity] "
+            "to use a uniform ru."
+        )
+
+    return SoilColumns(
+        cell_index=cell_index_arr,
+        class_index=np.asarray(class_index, dtype=np.int64),
+        x=np.asarray(col_x, dtype=np.float64),
+        y=np.asarray(col_y, dtype=np.float64),
+        ru_shape=class_mean_arr / raster_mean,
+        cell_fraction=cell_fraction_arr,
+        basin_weight=basin_weight_arr,
+        raster_mean_mm=raster_mean,
+    )
+
+
+def _aggregate_to_cells(values_tn: np.ndarray, columns: SoilColumns, n_cells: int) -> np.ndarray:
+    """Weighted sum of columns back onto their SAFRAN cells, shape ``(T, n_cells)``.
+
+    One ``FieldRecord`` per quantity (spec section 7): several classes of the
+    same cell are summed here, weighted by ``cell_fraction``, never averaged
+    twice by the discretizer.
+    """
+    weighted = (values_tn * columns.cell_fraction).T
+    out = np.zeros((n_cells, values_tn.shape[0]), dtype=np.float64)
+    np.add.at(out, columns.cell_index, weighted)
+    return out.T
+
+
+# ---------------------------------------------------------------------------
 # Spin-up shared by the run and the RU ladder
 # ---------------------------------------------------------------------------
 
@@ -385,6 +525,7 @@ def compute_soil_forcings(
     config: SoilReservoirConfig,
     window: ResolvedSimulationTimeWindow,
     model_crs: str,
+    soil_capacity: LoadResultProto | None = None,
 ) -> SoilForcings:
     """Run the soil reservoir over ``[simulation.time]`` and grid its outputs back."""
     days = _window_days(window)
@@ -408,19 +549,27 @@ def compute_soil_forcings(
 
     ny, nx = y_p.size, x_p.size
     n_cells = ny * nx
-    columns = SoilColumns(
-        cell_index=np.arange(n_cells),
-        class_index=np.zeros(n_cells, dtype=np.int64),
-        x=np.tile(x_p, ny),
-        y=np.repeat(y_p, nx),
-        ru_shape=np.ones(n_cells),
-        cell_fraction=np.ones(n_cells),
-        basin_weight=np.full(n_cells, 1.0 / n_cells),
-    )
+    if soil_capacity is None:
+        columns = SoilColumns(
+            cell_index=np.arange(n_cells),
+            class_index=np.zeros(n_cells, dtype=np.int64),
+            x=np.tile(x_p, ny),
+            y=np.repeat(y_p, nx),
+            ru_shape=np.ones(n_cells),
+            cell_fraction=np.ones(n_cells),
+            basin_weight=np.full(n_cells, 1.0 / n_cells),
+        )
+    else:
+        columns = capacity_classes(
+            soil_capacity, x=x_p, y=y_p, crs=model_crs, bbox=precip_record.bbox
+        )
 
-    ru_mm = np.full(n_cells, config.ru)
+    precip_columns = precip_grid[:, columns.cell_index]
+    etp_columns = etp_grid[:, columns.cell_index]
+
+    ru_mm = config.ru * columns.ru_shape
     parameters = soil_parameters(config, ru_mm)
-    initial, spinup_result = _spinup_or_full(config, parameters, precip_grid, etp_grid)
+    initial, spinup_result = _spinup_or_full(config, parameters, precip_columns, etp_columns)
     if spinup_result is not None and not spinup_result.settled:
         first_year = (
             f"{pd.Timestamp(days[0]):%Y-%m-%d} to "
@@ -436,16 +585,20 @@ def compute_soil_forcings(
     spinup_cycles = spinup_result.cycles if spinup_result is not None else 0
     never_full_columns = int(np.sum(spinup_result.never_full)) if spinup_result is not None else 0
 
-    fluxes = run_soil_balance(precip_grid, etp_grid, parameters, initial)
+    fluxes = run_soil_balance(precip_columns, etp_columns, parameters, initial)
+
+    recharge_grid = _aggregate_to_cells(fluxes.recharge, columns, n_cells)
+    residual_etp_grid = _aggregate_to_cells(fluxes.residual_etp, columns, n_cells)
+    runoff_grid = _aggregate_to_cells(fluxes.runoff, columns, n_cells)
 
     recharge_field = _grid_field_record(
-        "recharge", fluxes.recharge, x=x_p, y=y_p, days=days, like=precip_record
+        "recharge", recharge_grid, x=x_p, y=y_p, days=days, like=precip_record
     )
     residual_etp_field = _grid_field_record(
-        "etp", fluxes.residual_etp, x=x_p, y=y_p, days=days, like=precip_record
+        "etp", residual_etp_grid, x=x_p, y=y_p, days=days, like=precip_record
     )
     runoff_field = _grid_field_record(
-        "runoff", fluxes.runoff, x=x_p, y=y_p, days=days, like=precip_record
+        "runoff", runoff_grid, x=x_p, y=y_p, days=days, like=precip_record
     )
 
     return SoilForcings(
@@ -453,8 +606,8 @@ def compute_soil_forcings(
         residual_etp=LoadResult(fields=[residual_etp_field]),
         runoff=LoadResult(fields=[runoff_field]),
         days=days,
-        precipitation=precip_grid,
-        etp=etp_grid,
+        precipitation=precip_columns,
+        etp=etp_columns,
         fluxes=fluxes,
         columns=columns,
         config=config,
@@ -520,18 +673,27 @@ def gauged_discharge_line(
 # ---------------------------------------------------------------------------
 
 
-def _header_line(days: np.ndarray, n_cells: int, n_classes: int) -> str:
+def _header_line(days: np.ndarray, n_cells: int, n_classes: int, *, has_raster: bool) -> str:
     start, end = pd.Timestamp(days[0]), pd.Timestamp(days[-1])
-    unit = "class" if n_classes == 1 else "classes"
+    if has_raster:
+        classes_phrase = f"up to {n_classes} capacity classes each"
+    else:
+        unit = "class" if n_classes == 1 else "classes"
+        classes_phrase = f"{n_classes} capacity {unit} each"
     return (
         f"Soil reservoir, {start:%Y-%m-%d} to {end:%Y-%m-%d} ({len(days)} days), "
-        f"{n_cells} SAFRAN cells, {n_classes} capacity {unit} each"
+        f"{n_cells} SAFRAN cells, {classes_phrase}"
     )
 
 
-def _parameters_line(config: SoilReservoirConfig) -> str:
+def _parameters_line(config: SoilReservoirConfig, raster_mean_mm: float | None) -> str:
+    ru_clause = (
+        f"ru {config.ru:g} mm (raster mean {raster_mean_mm:.0f} mm rescaled)"
+        if raster_mean_mm is not None
+        else f"ru {config.ru:g} mm"
+    )
     return (
-        f"ru {config.ru:g} mm, alpha {config.alpha:g}, kc {config.kc:.1f}, "
+        f"{ru_clause}, alpha {config.alpha:g}, kc {config.kc:.1f}, "
         f"impervious {100 * config.impervious_fraction:.0f} %, "
         f"bypass {100 * config.bypass_fraction:.0f} %, "
         f"transit time {config.transit_time:g} days"
@@ -602,7 +764,8 @@ def soil_budget_lines(
     days = forcings.days
     n_days = len(days)
     n_cells = int(np.unique(forcings.columns.cell_index).size)
-    n_classes = int(np.unique(forcings.columns.class_index).size)
+    n_classes = int(forcings.columns.class_index.max()) + 1
+    raster_mean_mm = forcings.columns.raster_mean_mm
 
     annual = annual_budget(
         forcings.years,
@@ -624,8 +787,8 @@ def soil_budget_lines(
     storage_change = annual.soil_storage_change + annual.transit_storage_change
 
     lines = [
-        _header_line(days, n_cells, n_classes),
-        _parameters_line(forcings.config),
+        _header_line(days, n_cells, n_classes, has_raster=raster_mean_mm is not None),
+        _parameters_line(forcings.config, raster_mean_mm),
         _starting_soil_line(forcings),
         _table_header(y_dry, y_wet),
         _data_row("precipitation", annual.precipitation, annual.weights, scale, dry_idx, wet_idx),
@@ -661,9 +824,11 @@ def soil_budget_lines(
 
 
 __all__ = [
+    "RU_CLASSES_PER_CELL",
     "RU_LADDER_MM",
     "SoilColumns",
     "SoilForcings",
+    "capacity_classes",
     "compute_soil_forcings",
     "gauged_discharge_line",
     "ru_ladder",

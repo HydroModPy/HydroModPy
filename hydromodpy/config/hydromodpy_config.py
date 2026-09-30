@@ -570,6 +570,8 @@ class HydroModPyConfig(HydroModelBase):
         * ``domain.depth_model.kind`` is ``raster_substratum`` or
           ``raster_thickness`` ⇒ ``[data.substratum]`` is declared, since that
           is the raster the domain reads.
+        * ``[data.soil_capacity]`` declared ⇒ ``[flow.sinks_sources.recharge.soil]``
+          is declared, since only the soil reservoir reads that raster.
         """
         data_cfg = getattr(self, "data", None)
         if data_cfg is not None and getattr(data_cfg, "inference_mode", None) == "strict":
@@ -795,6 +797,13 @@ class HydroModPyConfig(HydroModelBase):
             steady_start_message = steady_start_refusal(flow_cfg, window)
             if steady_start_message is not None:
                 raise ValueError(steady_start_message)
+
+        if soil is None and getattr(data_cfg, "soil_capacity", None) is not None:
+            raise ValueError(
+                "[data.soil_capacity] is read only by the soil reservoir, and this "
+                "file declares no [flow.sinks_sources.recharge.soil]: declare the "
+                "soil section, or remove [data.soil_capacity]."
+            )
 
         return self
 

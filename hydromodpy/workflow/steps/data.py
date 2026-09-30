@@ -184,6 +184,7 @@ def apply_structural_updates_from_data(
             config=soil_config,
             window=window,
             model_crs=str(setup_state.geographic.crs_proj),
+            soil_capacity=getattr(data_state, "soil_capacity", None),
         )
     setup_state.soil_forcings = soil
 

@@ -4553,6 +4553,48 @@
         "title": "CustomLakeGeometrySource",
         "type": "object"
       },
+      "CustomSoilCapacitySource": {
+        "additionalProperties": false,
+        "description": "User-provided soil water capacity raster (GeoTIFF/ASC), values in mm.",
+        "properties": {
+          "source": {
+            "const": "custom",
+            "default": "custom",
+            "description": "Discriminator tag selecting the 'custom' soil capacity provider.",
+            "examples": [
+              "custom"
+            ],
+            "title": "Source",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "path": {
+            "description": "Path to a raster of soil available water capacity in mm (GeoTIFF, ASC). Read only by [flow.sinks_sources.recharge.soil].",
+            "examples": [
+              "data/input.csv"
+            ],
+            "format": "path",
+            "title": "Path",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "default_crs": {
+            "default": "EPSG:2154",
+            "description": "Fallback CRS used only when the raster carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+            "examples": [
+              "EPSG:2154"
+            ],
+            "title": "Default Crs",
+            "type": "string",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "CustomSoilCapacitySource",
+        "type": "object"
+      },
       "CustomSubstratumSource": {
         "additionalProperties": false,
         "description": "User-provided substratum raster (GeoTIFF/ASC).\n\nThe raster places the bottom of the aquifer. It is read only when\n``[domain.depth_model] kind`` is ``\"raster_substratum\"`` (its values are the\nelevation of the substratum) or ``\"raster_thickness\"`` (its values are the\naquifer thickness below the top). With any other kind it is loaded but unused.",
@@ -4659,7 +4701,7 @@
         "description": "Top-level ``[data]`` configuration for manager families.\n\nThe `types` list declares user-requested data families. The effective\nactive set can also include planner-inferred families deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.",
         "properties": {
           "types": {
-            "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
+            "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
             "items": {
               "type": "string"
             },
@@ -5004,6 +5046,19 @@
             ],
             "default": null,
             "description": "Substratum configuration (aquifer-bottom raster, elevation or thickness).",
+            "x-hmp-profile": "user"
+          },
+          "soil_capacity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SoilCapacityConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Soil capacity configuration (RU raster read by the soil reservoir, [flow.sinks_sources.recharge.soil]).",
             "x-hmp-profile": "user"
           }
         },
@@ -20979,6 +21034,28 @@
           }
         },
         "title": "SnapStreamsConfig",
+        "type": "object"
+      },
+      "SoilCapacityConfig": {
+        "additionalProperties": false,
+        "description": "Soil available water capacity raster, read by the soil reservoir.\n\nExample TOML::\n\n    [[data.soil_capacity.sources]]\n    source = \"custom\"\n    path = \"soil/ru_mm.tif\"",
+        "properties": {
+          "sources": {
+            "description": "Exactly one soil capacity raster. It spreads the ru of [flow.sinks_sources.recharge.soil] over classes inside each SAFRAN cell; ru stays the mean capacity of the cells.",
+            "items": {
+              "$ref": "#/components/schemas/CustomSoilCapacitySource"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "sources"
+        ],
+        "title": "SoilCapacityConfig",
         "type": "object"
       },
       "SoilMoistureConfig": {

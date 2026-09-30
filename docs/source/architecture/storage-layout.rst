@@ -291,9 +291,9 @@ The frozen ``config.toml`` is not a table: it stays in the run directory,
 and ``hmp run --resume <ref>`` replays it straight from there.
 ``hmp catalog rerun`` goes through ``simulations.config_snapshot``, which
 comes back with ``simulation.parquet``. ``timeseries``, ``budgets``,
-``mass_balance`` and ``observation_points`` are not tables either but
-DuckDB views over the Parquet payloads, so they come back with the files
-themselves.
+``mass_balance``, ``observation_points``, ``sfr_reaches`` and
+``soil_budget`` are not tables either but DuckDB views over the Parquet
+payloads, so they come back with the files themselves.
 
 Class 2: losable
 ~~~~~~~~~~~~~~~~
@@ -396,6 +396,8 @@ Tested invariants
   directory, that the project root grows none of the removed entries,
   that no output path carries an opaque identifier, and that no path
   ends in ``.parquet.d`` or ``.zarr.zip``.
+  ``test_the_soil_budget_is_a_plain_parquet_file_of_the_run`` checks the
+  same for ``soil_budget.parquet``.
 - **Naming.** ``tests/unit/results/test_result_storage_layout.py`` pins
   the layer templates, refuses an over-long name instead of truncating
   it, and checks a versioned rerun lands in a sibling directory.
@@ -425,7 +427,7 @@ suffix would break those readers.
    |-- meta/         schema and store-level metadata
    |-- mesh/         topology, cell types, coordinates, thicknesses
    |-- state/        solver state fields
-   |-- forcing/      recharge and other forcings
+   |-- forcing/      recharge and other forcings; forcing/soil/ in soil mode
    |-- particles/    particle trajectories
    |-- derived/      created only when a derived field is opted in
    |-- budget/       created only when budget.spatial_fields is on
@@ -485,6 +487,19 @@ shapes and the meaning of every stored array are unchanged, the float width
 is declared by each array's own Zarr metadata, and both an old store and a
 new one read the same through every reader.
 
+**Soil reservoir.** A run whose recharge comes from
+``[flow.sinks_sources.recharge.soil]`` writes its daily columns under
+``forcing/soil/``: ``etr``, ``residual_etp``, ``recharge`` and ``runoff`` in
+mm/day, ``soil_storage`` and ``transit_storage`` in mm at the end of the day,
+plus the position and capacity of each column (``cell_index``,
+``class_index``, ``x``, ``y``, ``ru_mm``, ``cell_fraction``,
+``basin_weight``). Two axes carry it, ``record`` and the new
+``soil_column``, and every array is float64: these are daily forcing inputs,
+not a solved field, so ``field_precision`` never quantizes them. The recharge
+grid MODFLOW receives is written the same way a SIM2 recharge would be, as
+``forcing/recharge_recharge``: soil mode never opens a ``forcing/recharge/``
+group.
+
 Per-run Parquet directory
 -------------------------
 
@@ -531,6 +546,14 @@ are plain ``.parquet`` files. No suffix marks a container.
        input files are scratch, so this is the only record of which cell
        carries which reach and where its connection threshold ``rtp - rbth``
        sits. Absent when the run built no stream network.
+   * - ``soil_budget.parquet``
+     - ``sim_id``, ``column_id``, ``cell_index``, ``class_index``, ``x``,
+       ``y``, ``ru_mm``, ``basin_weight``, ``year``, ``days``,
+       ``precipitation_mm``, ``etp_mm``, ``etr_mm``, ``residual_etp_mm``,
+       ``recharge_mm``, ``runoff_mm``, ``soil_storage_change_mm``,
+       ``transit_storage_change_mm``, ``balance_residual_mm``: one row per
+       soil column and calendar year, plus a ``_watershed`` row per year.
+       Absent outside soil mode.
    * - ``provenance.parquet``
      - input provenance rows of the run
    * - ``geographic_*.parquet``
@@ -637,9 +660,9 @@ Views. ``v_workflow_heartbeats`` comes from the DDL.
 ``v_best_per_project``, ``v_metrics_wide``, ``v_params_long`` and
 ``v_params_wide`` are created at runtime by
 ``hydromodpy/results/catalog/views.py``. ``timeseries``, ``budgets``,
-``mass_balance``, ``observation_points``, ``metrics_parquet`` and
-``provenance_parquet`` are views over the run's Parquet payloads,
-declared once in ``PARQUET_VIEW_NAMES``
+``mass_balance``, ``observation_points``, ``metrics_parquet``,
+``provenance_parquet``, ``sfr_reaches`` and ``soil_budget`` are views over
+the run's Parquet payloads, declared once in ``PARQUET_VIEW_NAMES``
 (``hydromodpy/results/catalog/constants.py``).
 
 Backend abstraction
