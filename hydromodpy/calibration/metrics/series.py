@@ -199,7 +199,12 @@ def add_runoff_to_discharge(
     stations or its cells, so scaling that rate by the upstream area is the exact
     generalisation of the whole-basin formula and adds no assumption.
     """
-    runoff = getattr(getattr(ctx, "loaded_data", None), "runoff", None)
+    soil = getattr(getattr(ctx, "setup", None), "soil_forcings", None)
+    runoff = (
+        soil.runoff
+        if soil is not None
+        else getattr(getattr(ctx, "loaded_data", None), "runoff", None)
+    )
     points = getattr(runoff, "points", None) if runoff is not None else None
     fields = getattr(runoff, "fields", None) if runoff is not None else None
     if not points and not fields:

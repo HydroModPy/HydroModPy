@@ -43,6 +43,7 @@ AXIS_PARTICLE = "particle"
 AXIS_TRACK_STEP = "track_step"
 AXIS_ENDPOINT = "endpoint"
 AXIS_RECORD = "record"
+AXIS_SOIL_COLUMN = "soil_column"
 AXIS_LAKE = "lake"
 AXIS_STAGE_LEVEL = "stage_level"
 
@@ -584,6 +585,7 @@ __all__ = [
     "AXIS_NODE_COORDINATE",
     "AXIS_PARTICLE",
     "AXIS_RECORD",
+    "AXIS_SOIL_COLUMN",
     "AXIS_STAGE_LEVEL",
     "AXIS_TIME",
     "AXIS_TRACK_STEP",

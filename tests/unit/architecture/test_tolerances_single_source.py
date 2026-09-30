@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 51 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 53 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 51 loadable rows split into three enforcement classes (W5 classification):
+The 53 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -108,6 +108,12 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "soil_transit_store_impulse_volume__sum_t_q_50_over_60_k_days_mm",
         "soil_spin_up_settling__largest_change_mm_of_the_end_of_year_soil_or_transit_storage_"
         "between_the_last_two_repetitions",
+        # Soil recharge and unmet ETP reaching MODFLOW 6, asserted in
+        # tests/integration/test_the_soil_recharge_reaches_modflow6_cell_by_cell.py,
+        # which also gives the global water-budget closure row its first test.
+        "soil_recharge_into_mf6_rcha__per_period_sum_q_rch_sum_pe_a_sum_pe_a",
+        "soil_unmet_etp_into_mf6_evta__per_cell_and_period_q_evt_etpres_a_etpres_a",
+        "global_water_budget_closure__relative_error_in_out_in",
     }
 )
 
@@ -149,8 +155,6 @@ UNUSED_ROWS: frozenset[str] = frozenset(
         # No test asserts max head change per iteration; HCLOSE lives in solver
         # config inputs, not a pass/fail gate.
         "modflow_nwt_mf6_head_convergence__max_head_change_per_iteration",
-        # No test gates the global water-budget closure ratio at 1 %.
-        "global_water_budget_closure__relative_error_in_out_in",
         # No test asserts the absolute NSE drift vs a calibration baseline.
         "calibration_nse_vs_baseline__absolute_nse_drift",
         # No test references the Marcais 2017 recession-slope benchmark.
@@ -208,7 +212,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 51, sorted(loadable)
+    assert len(loadable) == 53, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"

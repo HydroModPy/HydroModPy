@@ -67,6 +67,10 @@ from hydromodpy.core.exceptions import (
     ConfigValidationError,
     IncompatibleCapabilitiesError,
 )
+from hydromodpy.core.time.window import (
+    build_simulation_time_boundaries,
+    resolve_simulation_time_window,
+)
 from hydromodpy.core.toml_io.error_locator import (
     format_validation_error,
     json_pointer,
@@ -79,6 +83,11 @@ from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.physics.hydrology.soil_reservoir.config import (
+    soil_reservoir_of,
+    spinup_refusal,
+    steady_start_refusal,
+)
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.observation_config import ObservationConfig
@@ -180,6 +189,21 @@ RESTART_CAPABILITY = "flow:restart"
 
 CYCLIC_SPINUP_CAPABILITY = "flow:spinup_cyclic"
 """What a backend declares when it can repeat its own period to settle a state."""
+
+
+def _declared_flow_engine(cfg: HydroModPyConfig) -> str | None:
+    """Name of the flow solver this config would build, or None if undeclared.
+
+    Same lookup order as ``project.phases.detect_solver``: a
+    ``[[simulation.process]]`` entry of type 'flow' names its solver before
+    ``solver.backend_name`` falls back to the global default.
+    """
+    for process in getattr(getattr(cfg, "simulation", None), "process", None) or ():
+        if getattr(process, "type", None) == "flow" and getattr(process, "solvers", None):
+            return str(process.solvers[0])
+    solver_cfg = getattr(cfg, "solver", None)
+    engine = getattr(solver_cfg, "backend_name", None) if solver_cfg is not None else None
+    return str(engine) if engine else None
 
 
 def _section_refusal(
@@ -665,6 +689,112 @@ class HydroModPyConfig(HydroModelBase):
                     f"solver.backend={engine_value!r} does not support flow barriers / dam "
                     "cutoff walls (HFB); they require the 'modflow6' backend."
                 )
+
+        soil = soil_reservoir_of(self.flow)
+        if soil is not None:
+            # data.types is read as declared here: recharge and runoff are never
+            # inferred (data/loading/planner.py), so a fully-silent double count
+            # would otherwise pass validation.
+            declared_data_types = set(getattr(data_cfg, "types", []) or [])
+            if "recharge" in declared_data_types:
+                raise ValueError(
+                    "[flow.sinks_sources.recharge.soil] computes the recharge from "
+                    "the precipitation and the ETP, and data.types also loads one "
+                    "from [data.recharge]: the model would receive one and ignore "
+                    'the other. Remove "recharge" from data.types to keep the soil '
+                    "reservoir (and write recharge__delete = true under [data] if a "
+                    "base file declares it), or remove "
+                    "[flow.sinks_sources.recharge.soil] to use the loaded recharge."
+                )
+            if "runoff" in declared_data_types:
+                raise ValueError(
+                    "[data.runoff] loads a surface runoff that already takes its "
+                    "share of the rain the soil reservoir receives (SIM2 RUNC, for "
+                    "instance): the streams, the lakes and the gauged discharge "
+                    'would count that water twice. Remove "runoff" from data.types '
+                    "(and write runoff__delete = true under [data] if a base file "
+                    "declares it); in soil mode the water that seeps out of "
+                    "saturated ground reaches the streams through the drains, and "
+                    "sealed ground through impervious_fraction."
+                )
+            if getattr(data_cfg, "precipitation", None) is None:
+                raise ValueError(
+                    "[flow.sinks_sources.recharge.soil] fills the soil with daily "
+                    "precipitation, and no [data.precipitation] section says where "
+                    "to read it: add a [[data.precipitation.sources]] block, for "
+                    'example source = "sim2" with extent = "watershed".'
+                )
+            if getattr(data_cfg, "etp", None) is None:
+                raise ValueError(
+                    "[flow.sinks_sources.recharge.soil] empties the soil with "
+                    "daily ETP, and no [data.etp] section says where to read it: "
+                    'add a [[data.etp.sources]] block, for example source = "sim2" '
+                    'with extent = "watershed".'
+                )
+
+            engine = _declared_flow_engine(self)
+            if engine is not None and engine != "modflow6":
+                raise IncompatibleCapabilitiesError(
+                    "[flow.sinks_sources.recharge.soil] is wired to MODFLOW 6 "
+                    f"only, and this run's flow solver is {engine!r}: the recharge "
+                    "it computes would never reach that solver. Write "
+                    'solvers = ["modflow6"] in [[simulation.process]], or remove '
+                    "[flow.sinks_sources.recharge.soil] and declare [data.recharge]."
+                )
+
+            active_sinks_sources = {
+                str(name).lower() for name in getattr(flow_cfg, "active_sinks_sources", []) or []
+            }
+            if "recharge" not in active_sinks_sources:
+                raise ValueError(
+                    "[flow.sinks_sources.recharge.soil] computes a recharge that "
+                    "flow.active_sinks_sources does not list, so MODFLOW would "
+                    'receive none: add "recharge" to flow.active_sinks_sources.'
+                )
+
+            soil_active_bc = {
+                str(name).lower() for name in getattr(flow_cfg, "active_bc", []) or []
+            }
+            if soil_active_bc & {"lake", "reservoir"} and "sfr" not in soil_active_bc:
+                lake_token = "lake" if "lake" in soil_active_bc else "reservoir"
+                raise ValueError(
+                    f'flow.active_bc lists "{lake_token}" without "sfr": in soil '
+                    "mode the water that seeps out of the ground reaches a lake "
+                    "only through the stream network, so the lake would receive "
+                    'none of it. Add "sfr" with its [flow.sinks_sources.sfr] '
+                    "network, or remove [flow.sinks_sources.recharge.soil] and "
+                    "load [data.runoff] as before."
+                )
+
+            for precip_source in (
+                getattr(getattr(data_cfg, "precipitation", None), "sources", []) or []
+            ):
+                components = list(getattr(precip_source, "components", []) or [])
+                if components != ["total"]:
+                    raise ValueError(
+                        f"[data.precipitation] loads components = {components!r}, "
+                        "and the soil reservoir takes one precipitation grid: two "
+                        "grids would be averaged, not added. Write "
+                        'components = ["total"], which counts the snow as rain.'
+                    )
+
+            window = resolve_simulation_time_window(self)
+            if window is None:
+                raise ValueError(
+                    "[flow.sinks_sources.recharge.soil] runs day by day over "
+                    "[simulation.time], which this file does not declare: add "
+                    "start_datetime, end_datetime and step_value."
+                )
+
+            boundaries = build_simulation_time_boundaries(window)
+            run_days = (boundaries[-1] - boundaries[0]).days
+            spinup_message = spinup_refusal(soil, run_days)
+            if spinup_message is not None:
+                raise ValueError(spinup_message)
+
+            steady_start_message = steady_start_refusal(flow_cfg, window)
+            if steady_start_message is not None:
+                raise ValueError(steady_start_message)
 
         return self
 

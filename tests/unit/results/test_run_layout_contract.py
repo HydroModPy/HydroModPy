@@ -25,6 +25,7 @@ from hydromodpy.core.state.paths import (
 )
 from hydromodpy.data.provenance.lockfile import LOCKFILE_NAME
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
 from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
 from hydromodpy.results.storage.contract import (
     ALLOWED_RUN_ENTRIES,
@@ -208,3 +209,44 @@ def test_versioned_rerun_is_a_sibling_directory(solved_run):
         RUN_NAME,
         f"{RUN_NAME}.v2",
     ]
+
+
+def test_the_soil_budget_is_a_plain_parquet_file_of_the_run(solved_run):
+    project, sim_id = solved_run
+
+    assert "soil_budget" in PARQUET_VIEW_NAMES
+
+    with Catalog(project) as catalog:
+        catalog.write_view(
+            sim_id,
+            "soil_budget",
+            [
+                {
+                    "column_id": "0.0",
+                    "cell_index": 0,
+                    "class_index": 0,
+                    "x": 0.0,
+                    "y": 0.0,
+                    "ru_mm": 120.0,
+                    "basin_weight": 1.0,
+                    "year": 2020,
+                    "days": 3,
+                    "precipitation_mm": 10.0,
+                    "etp_mm": 6.0,
+                    "etr_mm": 5.0,
+                    "residual_etp_mm": 1.0,
+                    "recharge_mm": 4.0,
+                    "runoff_mm": 0.0,
+                    "soil_storage_change_mm": 1.0,
+                    "transit_storage_change_mm": 0.0,
+                    "balance_residual_mm": 0.0,
+                }
+            ],
+        )
+
+    run_dir = project / RUNS_DIRNAME / RUN_NAME
+    assert (run_dir / TABLES_DIRNAME / f"soil_budget{PARQUET_FILE_SUFFIX}").is_file()
+    entries = {entry.name for entry in run_dir.iterdir()}
+    assert entries <= ALLOWED_RUN_ENTRIES, (
+        f"unexpected run artefacts: {entries - ALLOWED_RUN_ENTRIES}"
+    )

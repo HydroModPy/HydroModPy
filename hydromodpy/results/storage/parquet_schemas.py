@@ -600,6 +600,149 @@ connection threshold ``rtp - rbth`` sits. Every figure that wants to draw the
 streambed reads it here.
 """
 
+SOIL_BUDGET_SCHEMA: Final[pa.Schema] = pa.schema(
+    [
+        pa.field("sim_id", pa.string(), nullable=False),
+        pa.field(
+            "column_id",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(
+                description=(
+                    'Soil column as "<cell_index>.<class_index>", or "_watershed" '
+                    "for the basin mean"
+                )
+            ),
+        ),
+        pa.field(
+            "cell_index",
+            pa.int32(),
+            nullable=True,
+            metadata=_field_meta(
+                description="Flat (y, x) index of the SAFRAN cell; null on the basin row"
+            ),
+        ),
+        pa.field(
+            "class_index",
+            pa.int32(),
+            nullable=True,
+            metadata=_field_meta(
+                description="Soil capacity class inside the cell; null on the basin row"
+            ),
+        ),
+        pa.field(
+            "x",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(
+                description="Cell centre x, CRS of the run; null on the basin row"
+            ),
+        ),
+        pa.field(
+            "y",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(
+                description="Cell centre y, CRS of the run; null on the basin row"
+            ),
+        ),
+        pa.field(
+            "ru_mm",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(
+                description="Soil available water capacity, mm; weighted mean on the basin row"
+            ),
+        ),
+        pa.field(
+            "basin_weight",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(
+                description="Weight of the column in the basin row; 1 on the basin row"
+            ),
+        ),
+        pa.field(
+            "year", pa.int32(), nullable=False, metadata=_field_meta(description="Calendar year")
+        ),
+        pa.field(
+            "days",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(
+                description="Days of that year inside the run; below 365 for a partial year"
+            ),
+        ),
+        pa.field(
+            "precipitation_mm",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Precipitation, mm over the days of the row"),
+        ),
+        pa.field(
+            "etp_mm",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="ETP as loaded, before kc, mm"),
+        ),
+        pa.field(
+            "etr_mm",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Actual evapotranspiration of the soil, mm"),
+        ),
+        pa.field(
+            "residual_etp_mm",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="ETP the soil left unmet, mm"),
+        ),
+        pa.field(
+            "recharge_mm",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Recharge sent to the water table, mm"),
+        ),
+        pa.field(
+            "runoff_mm",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Runoff of the sealed share, mm"),
+        ),
+        pa.field(
+            "soil_storage_change_mm",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Change of the soil storage over the row, mm"),
+        ),
+        pa.field(
+            "transit_storage_change_mm",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(description="Change of the transit store over the row, mm"),
+        ),
+        pa.field(
+            "balance_residual_mm",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(
+                description="P - ETR - recharge - runoff - storage changes, mm; zero to machine precision"
+            ),
+        ),
+    ],
+    metadata=_schema_metadata(
+        "soil_budget",
+        pk=("sim_id", "column_id", "year"),
+    ),
+)
+"""Annual soil-reservoir budget, one row per column and calendar year.
+
+A ``_watershed`` row per year sums the columns weighted by ``basin_weight``,
+the same aggregation the printed water-budget block uses. Absent outside soil
+mode.
+"""
+
+
 # Geographic vector files are NOT declared as a pa.Schema here: they are written
 # by ``geopandas.to_parquet`` (OGC GeoParquet 1.1) and carry every column of the
 # source GeoDataFrame plus the ``geo`` OGC metadata key, so no fixed pyarrow
@@ -617,6 +760,7 @@ VIEW_SCHEMAS: Final[dict[str, pa.Schema]] = {
     "provenance": PROVENANCE_SCHEMA,
     "observation_points": OBSERVATION_POINTS_SCHEMA,
     "sfr_reaches": SFR_REACHES_SCHEMA,
+    "soil_budget": SOIL_BUDGET_SCHEMA,
 }
 """Map of per-simulation view name to declared :class:`pa.Schema`."""
 
@@ -682,6 +826,7 @@ __all__ = [
     "ParquetSchemaVersionError",
     "TIMESERIES_SCHEMA",
     "SFR_REACHES_SCHEMA",
+    "SOIL_BUDGET_SCHEMA",
     "VIEW_SCHEMAS",
     "check_schema_version",
     "primary_key_for",

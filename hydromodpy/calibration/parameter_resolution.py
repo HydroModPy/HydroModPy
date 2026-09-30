@@ -33,6 +33,7 @@ from hydromodpy.calibration.targets import (
     targets_by_path,
 )
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.physics.hydrology.soil_reservoir.config import soil_reservoir_of
 
 __all__ = [
     "UnresolvedParameterName",
@@ -40,6 +41,8 @@ __all__ = [
     "resolve_parameter_targets",
     "unresolved_parameter_names",
 ]
+
+_RECHARGE_VALUES_PATH = "flow.sinks_sources.recharge.values"
 
 
 class UnresolvedParameterName(ConfigError):
@@ -127,6 +130,7 @@ def resolve_parameter_targets(
                 # A path the catalogue does not carry is the documented way out,
                 # and the space and the preflight judge it on their own terms.
                 continue
+        _refuse_a_replaced_recharge_rate(name, target, project_config)
         _fill_what_the_file_left_unsaid(decl, target)
         _refuse_bounds_the_registry_rules_out(name, decl, target)
 
@@ -154,6 +158,26 @@ def _refuse_a_name_that_contradicts_its_path(
         f"path = {path!r}. The search would move the second and the report would "
         f"call it the first. Drop the path to calibrate {name!r}, or rename the "
         "section after what the path points at."
+    )
+
+
+def _refuse_a_replaced_recharge_rate(
+    name: str, target: CalibrationTarget, project_config: Any
+) -> None:
+    """Refuse calibrating the recharge rate a soil reservoir already replaces.
+
+    ``[flow.sinks_sources.recharge.soil]`` computes the recharge itself, and
+    ``FlowRechargeConfig`` forbids writing ``values`` beside it (R11), so a
+    search that still moves ``values`` would change a rate MODFLOW never reads.
+    """
+    if target.path != _RECHARGE_VALUES_PATH:
+        return
+    if soil_reservoir_of(getattr(project_config, "flow", None)) is None:
+        return
+    raise ConfigError(
+        f"[calibration.parameters.{name}] moves flow.sinks_sources.recharge.values, "
+        "which the soil reservoir replaces: the search would change nothing. "
+        "Calibrate ru instead, with [calibration.parameters.ru] and its bounds in mm."
     )
 
 

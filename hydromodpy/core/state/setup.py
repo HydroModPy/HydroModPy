@@ -43,3 +43,6 @@ class SetupContext:
     # Delineated SFR reach traces keyed by network id (spatial.SfrReachTrace).
     # Computed once by the data step and re-bound onto every per-run Flow.
     sfr_reach_traces: dict[str, Any] | None = None
+    # Soil reservoir outputs of this context (simulation.soil_recharge.SoilForcings),
+    # None outside soil mode. Assigned on every binder call, never mutated.
+    soil_forcings: Any = None

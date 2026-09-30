@@ -332,6 +332,18 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         _cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
+    if (from_step is not None or until_step is not None) and workflow == "calibration":
+        print(
+            "--from / --until are only supported for the 'simulation' workflow "
+            "(detected 'calibration'). To run the first steps of this file, for "
+            "example to check the soil reservoir alone, add "
+            "--set workflow.mode=simulation: "
+            f"hmp run {config_path.name} --until load_data --set workflow.mode=simulation",
+            file=sys.stderr,
+        )
+        _cleanup_effective_toml(effective_path, source=config_path)
+        sys.exit(EXIT_CONFIG)
+
     if (from_step is not None or until_step is not None) and workflow != "simulation":
         print(
             f"--from / --until are only supported for the "

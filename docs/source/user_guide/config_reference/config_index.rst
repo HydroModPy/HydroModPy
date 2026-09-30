@@ -25,19 +25,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `workflow <workflow.html#workflow-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L110>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L119>`__
    * - ``workflow.verbosity``
      - ``Literal['quiet', 'normal', 'verbose', 'debug']``
      - user
      - -
      - `workflow <workflow.html#workflow-verbosity>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L142>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L151>`__
    * - ``workflow.profile``
      - ``bool | str``
      - expert
      - -
      - `workflow <workflow.html#workflow-profile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L167>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/config/hydromodpy_config.py#L176>`__
    * - ``workspace.project_root``
      - ``Path | UPath``
      - user

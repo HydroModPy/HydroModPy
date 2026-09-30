@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.time import resolve_simulation_time_window
+from hydromodpy.core.progress import MILESTONE
+from hydromodpy.core.time import (
+    build_simulation_time_boundaries,
+    resolve_simulation_time_window,
+)
 from hydromodpy.physics.flow.structure_binders import (
     apply_cutoff_wall_to_flow,
     apply_etp_load_result_to_flow,
@@ -22,7 +28,18 @@ from hydromodpy.physics.flow.structure_binders import (
     apply_runoff_to_sfr_networks,
     apply_sfr_network_to_flow,
 )
+from hydromodpy.physics.hydrology.soil_reservoir.config import (
+    soil_reservoir_of,
+    spinup_refusal,
+    steady_start_refusal,
+)
 from hydromodpy.simulation import ensure_flow
+from hydromodpy.simulation.soil_recharge import (
+    compute_soil_forcings,
+    gauged_discharge_line,
+    ru_ladder,
+    soil_budget_lines,
+)
 from hydromodpy.spatial.geographic.core.derived_features import (
     attach_reference_hydrographic_network,
 )
@@ -41,6 +58,10 @@ if TYPE_CHECKING:
     from hydromodpy.data import DataLoadPlan
 
 logger = get_logger(__name__)
+
+
+def _log_soil_budget(lines: tuple[str, ...]) -> None:
+    logger.info("\n".join(lines), extra=MILESTONE)
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +130,20 @@ def run_data(
     apply_structural_updates_from_data(run_state)
     run_state.loaded_data.loaded_plan_types = tuple(getattr(data_plan, "types", ()) or ())
 
+    soil = run_state.setup.soil_forcings
+    if soil is not None and not run_state.execution.lightweight:
+        lines = soil_budget_lines(
+            soil,
+            ladder=ru_ladder(soil),
+            gauged_line=gauged_discharge_line(
+                run_state.loaded_data.hydrometry,
+                days=soil.days,
+                catchment_area_km2=getattr(run_state.setup.geographic, "catch_area", None),
+            ),
+            sent_to_evt="etp" in run_state.cfg.flow.active_sinks_sources,
+        )
+        progress.after_phase(partial(_log_soil_budget, lines))
+
 
 # ---------------------------------------------------------------------------
 # Structural updates from loaded data
@@ -131,15 +166,37 @@ def apply_structural_updates_from_data(
         if resolved_grid is not None
         else resolve_simulation_time_window(run_state.cfg)
     )
+
+    soil_config = soil_reservoir_of(getattr(run_state.cfg, "flow", None))
+    soil = None
+    if soil_config is not None:
+        refusal = steady_start_refusal(run_state.cfg.flow, window)
+        if refusal is not None:
+            raise ConfigError(refusal)
+        boundaries = build_simulation_time_boundaries(window)
+        run_days = (boundaries[-1] - boundaries[0]).days
+        spinup_message = spinup_refusal(soil_config, run_days)
+        if spinup_message is not None:
+            raise ConfigError(spinup_message)
+        soil = compute_soil_forcings(
+            precipitation=data_state.precipitation,
+            etp=data_state.etp,
+            config=soil_config,
+            window=window,
+            model_crs=str(setup_state.geographic.crs_proj),
+        )
+    setup_state.soil_forcings = soil
+
     apply_recharge_load_result_to_flow(
         flow=setup_state.flow,
-        recharge_result=data_state.recharge,
+        recharge_result=data_state.recharge if soil is None else soil.recharge,
         simulation_window=window,
     )
     apply_etp_load_result_to_flow(
         flow=setup_state.flow,
-        etp_result=getattr(data_state, "etp", None),
+        etp_result=getattr(data_state, "etp", None) if soil is None else soil.residual_etp,
         simulation_window=window,
+        from_soil_reservoir=soil is not None,
     )
     apply_lake_geometry_to_flow(
         flow=setup_state.flow,
@@ -174,12 +231,13 @@ def apply_structural_updates_from_data(
     )
     _catch_area_km2 = getattr(getattr(setup_state, "geographic", None), "catch_area", None)
     _catch_area_m2 = float(_catch_area_km2) * 1.0e6 if _catch_area_km2 else None
+    _runoff = getattr(data_state, "runoff", None) if soil is None else soil.runoff
     # Routed-first precedence: an active SFR network takes the catchment runoff
     # (the lake meteo binder then skips its direct runoff feed; the water reaches
     # a coupled lake through MVR instead).
     apply_runoff_to_sfr_networks(
         flow=setup_state.flow,
-        runoff=getattr(data_state, "runoff", None),
+        runoff=_runoff,
         simulation_window=window,
         catchment_area_m2=_catch_area_m2,
     )
@@ -187,7 +245,7 @@ def apply_structural_updates_from_data(
         flow=setup_state.flow,
         precipitation=getattr(data_state, "precipitation", None),
         etp=getattr(data_state, "etp", None),
-        runoff=getattr(data_state, "runoff", None),
+        runoff=_runoff,
         simulation_window=window,
         catchment_area_m2=_catch_area_m2,
     )

@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 83 tolerances enforced today. Every tolerance
+The table below records the 85 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -111,6 +111,8 @@ must carry a rationale before it is merged.
 | 81 | Soil transit store impulse | max absolute error against `Q(0) = 50(1 - k a)`, `Q(t>=1) = 50 k a^2 exp(-(t-1)/k)`, mm | `1e-12` | **Machine epsilon.** The exponential scheme is the exact solution of the daily step, so only rounding remains on a 50 mm pulse | Measured 3.6e-15 to 1.6e-14 mm for k = 0.5 to 30 d. `tests/unit/physics/test_an_impulse_through_the_transit_store_follows_the_exponential_reservoir.py` |
 | 82 | Soil transit store impulse volume | `\|sum_t Q - 50\|` over `60 k` days, mm | `1e-12` | **Machine epsilon.** The tail beyond `60 k` days holds `50 exp(-60)`, below 1e-24 mm | Measured 7e-15 mm. Same module |
 | 83 | Soil spin-up settling | largest change, mm, of the end-of-year soil or transit storage between the last two repetitions | `0.1` | **Hydrological.** 1e-3 of a 100 mm capacity, far under the 7 mm first-year error the method leaves against a reference state (`revues/phase1-hydrologie.md` §3) | Two repetitions on 2015 at the Nancon (spec probe). `tests/unit/physics/test_the_spinup_settles_on_a_year_that_refills_the_soil.py` |
+| 84 | Soil recharge into MF6 RCHA | per period `\|sum q_RCH - sum Pe A\| / sum Pe A` | `1e-9` | **Machine epsilon.** Float64 from the kernel to the binary RCHA input and the double-precision budget file; only the period mean and the mm/day to m/s factor round | `tests/integration/test_the_soil_recharge_reaches_modflow6_cell_by_cell.py` |
+| 85 | Soil unmet ETP into MF6 EVTA | per cell and period `(-q_EVT - ETPres A) / (ETPres A)` | `1e-12` | **Bound.** MF6 `evt_cf` never takes more than `RATE x A` from a cell (`gwf-evt.f90:470-480`) | Same module. Equality where the head stands above the EVT surface is not asserted |
 
 ## Update policy
 

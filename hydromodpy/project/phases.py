@@ -43,6 +43,7 @@ def configure(
     )
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.data import DataPlanner
+    from hydromodpy.physics.hydrology.soil_reservoir.config import soil_reservoir_of
     from hydromodpy.spatial.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
     )
@@ -125,6 +126,7 @@ def configure(
         requested_spatial_support_ids=project._requested_support_ids,
         raw_toml=raw_toml,
         flow_active_bc=project._cfg.flow.active_bc,
+        flow_soil_reservoir=soil_reservoir_of(project._cfg.flow) is not None,
     )
     log_data_plan(data_plan)
     project._cfg.data = project._cfg.data.with_resolved_types(data_plan.types)
