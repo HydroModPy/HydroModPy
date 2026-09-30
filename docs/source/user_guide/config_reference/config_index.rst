@@ -5089,43 +5089,43 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-ru>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L31>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L42>`__
    * - ``flow.sinks_sources.recharge.soil.alpha``
      - ``float``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-alpha>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L46>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L57>`__
    * - ``flow.sinks_sources.recharge.soil.kc``
      - ``float``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-kc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L56>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L67>`__
    * - ``flow.sinks_sources.recharge.soil.impervious_fraction``
      - ``float``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-impervious-fraction>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L65>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L76>`__
    * - ``flow.sinks_sources.recharge.soil.bypass_fraction``
      - ``float``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-bypass-fraction>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L85>`__
    * - ``flow.sinks_sources.recharge.soil.transit_time``
      - ``float``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-transit-time>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L85>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L96>`__
    * - ``flow.sinks_sources.recharge.soil.spinup``
      - ``Literal['first_year', 'none']``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-spinup>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L97>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L108>`__
    * - ``flow.sinks_sources.recharge.heterogeneous_source``
      - ``Any``
      - dev

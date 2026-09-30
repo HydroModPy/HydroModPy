@@ -670,7 +670,9 @@ def gauged_discharge_line(
         )
 
     mean_q_m3s = float(windowed.mean())
-    v_mm_per_year = mean_q_m3s * 86400 * 365.25 / (catchment_area_km2 * 1e6) * 1000
+    v_mm_per_year = _no_negative_zero(
+        mean_q_m3s * 86400 * 365.25 / (catchment_area_km2 * 1e6) * 1000, 1
+    )
     return (
         f"gauged discharge {station.station_id}: {v_mm_per_year:.1f} mm/year on "
         f"{windowed.size} of {days.size} days, catchment {catchment_area_km2:.2f} km2"
@@ -680,6 +682,15 @@ def gauged_discharge_line(
 # ---------------------------------------------------------------------------
 # Printed water-budget block (spec section 5.2)
 # ---------------------------------------------------------------------------
+
+
+def _no_negative_zero(value: float, decimals: int) -> float:
+    """Round to ``decimals`` places without ever landing on a printed ``-0.0``.
+
+    A sum that is really zero can carry a tiny negative float error; rounded
+    and printed as is, it would read as a small deficit instead of closing.
+    """
+    return round(value, decimals) + 0.0
 
 
 def _header_line(days: np.ndarray, n_cells: int, n_classes: int, *, has_raster: bool) -> str:
@@ -743,11 +754,12 @@ def _data_row(
     signed: bool = False,
 ) -> str:
     basin = array_yn @ weights
-    mean = basin.sum() / scale
+    mean = _no_negative_zero(basin.sum() / scale, 1)
     mean_str = f"{mean:>+8.1f}" if signed else f"{mean:>8.1f}"
     if dry_idx is None:
         return f"{label:<22}{mean_str}"
-    dry, wet = basin[dry_idx], basin[wet_idx]
+    dry = _no_negative_zero(basin[dry_idx], 1)
+    wet = _no_negative_zero(basin[wet_idx], 1)
     dry_str = f"{dry:>+18.1f}" if signed else f"{dry:>18.1f}"
     wet_str = f"{wet:>+17.1f}" if signed else f"{wet:>17.1f}"
     return f"{label:<22}{mean_str}{dry_str}{wet_str}"
@@ -759,7 +771,8 @@ def _summer_line(forcings: SoilForcings) -> str | None:
     if not summer.any():
         return None
     basin_recharge = forcings.fluxes.recharge @ forcings.columns.basin_weight
-    return f"recharge July-September: {float(np.mean(basin_recharge[summer])):.3f} mm/day"
+    value = _no_negative_zero(float(np.mean(basin_recharge[summer])), 3)
+    return f"recharge July-September: {value:.3f} mm/day"
 
 
 def soil_budget_lines(
@@ -811,20 +824,23 @@ def soil_budget_lines(
         _data_row("closure", annual.residual, annual.weights, scale, dry_idx, wet_idx),
     ]
 
-    unmet = float((annual.residual_etp @ annual.weights).sum() / scale)
+    unmet = _no_negative_zero(float((annual.residual_etp @ annual.weights).sum() / scale), 1)
     if sent_to_evt:
-        lines.append(f"unmet ETP {unmet:.1f} mm/year, drawn from the water table (EVT)")
+        lines.append(
+            f"unmet ETP {unmet:.1f} mm/year, offered to EVT: the water table gives "
+            "it only where it is shallow"
+        )
     else:
         lines.append(
             f'unmet ETP {unmet:.1f} mm/year, not sent to MODFLOW: add "etp" to '
-            "flow.active_sinks_sources to draw it from the water table"
+            "flow.active_sinks_sources to let a shallow water table evaporate it"
         )
 
     summer_line = _summer_line(forcings)
     if summer_line is not None:
         lines.append(summer_line)
 
-    ladder_text = " | ".join(f"{ru:g} mm {v:.1f}" for ru, v in ladder)
+    ladder_text = " | ".join(f"{ru:g} mm {_no_negative_zero(v, 1):.1f}" for ru, v in ladder)
     lines.append(f"recharge for other ru, mm/year: {ladder_text}")
 
     lines.append(gauged_line)

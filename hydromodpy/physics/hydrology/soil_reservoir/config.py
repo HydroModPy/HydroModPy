@@ -20,6 +20,17 @@ from hydromodpy.core.time.window import ResolvedSimulationTimeWindow
 from hydromodpy.core.units.types import DurationDays, LengthMillimeters
 
 
+def _bare_number_string(value: object) -> str | None:
+    """``value`` itself if it is a string that reads as a plain number, else None."""
+    if not isinstance(value, str):
+        return None
+    try:
+        float(value)
+    except ValueError:
+        return None
+    return value
+
+
 class SoilReservoirConfig(HydroModelBase):
     """Daily soil reservoir that turns precipitation and ETP into recharge.
 
@@ -111,6 +122,17 @@ class SoilReservoirConfig(HydroModelBase):
         },
     )
 
+    @field_validator("ru", mode="before")
+    @classmethod
+    def _ru_string_states_its_unit(cls, value: object) -> object:
+        bare = _bare_number_string(value)
+        if bare is None:
+            return value
+        raise ValueError(
+            f'ru = "{bare}" has no unit: write ru = {bare} (a bare number is in mm) '
+            f'or ru = "{bare} mm".'
+        )
+
     @field_validator("ru")
     @classmethod
     def _ru_is_a_plausible_soil_capacity(cls, value: float) -> float:
@@ -163,6 +185,17 @@ class SoilReservoirConfig(HydroModelBase):
                 "10 %, not 10, and 0.0 unless the site shows preferential flow."
             )
         return value
+
+    @field_validator("transit_time", mode="before")
+    @classmethod
+    def _transit_time_string_states_its_unit(cls, value: object) -> object:
+        bare = _bare_number_string(value)
+        if bare is None:
+            return value
+        raise ValueError(
+            f'transit_time = "{bare}" has no unit: write transit_time = {bare} (a bare '
+            f'number is in days) or transit_time = "{bare} days".'
+        )
 
     @field_validator("transit_time")
     @classmethod

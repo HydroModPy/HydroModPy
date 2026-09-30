@@ -109,3 +109,18 @@ def test_an_unknown_spinup_word_gets_its_own_message() -> None:
     )
     with pytest.raises(ValidationError, match=re.escape(text)):
         SoilReservoirConfig(ru=100.0, spinup="permanent")
+
+
+def test_a_ru_string_with_no_unit_names_the_syntax_to_write() -> None:
+    text = 'ru = "150" has no unit: write ru = 150 (a bare number is in mm) or ru = "150 mm".'
+    with pytest.raises(ValidationError, match=re.escape(text)):
+        SoilReservoirConfig(ru="150")
+
+
+def test_a_transit_time_string_with_no_unit_names_the_syntax_to_write() -> None:
+    text = (
+        'transit_time = "5" has no unit: write transit_time = 5 (a bare number is '
+        'in days) or transit_time = "5 days".'
+    )
+    with pytest.raises(ValidationError, match=re.escape(text)):
+        SoilReservoirConfig(ru=100.0, transit_time="5")

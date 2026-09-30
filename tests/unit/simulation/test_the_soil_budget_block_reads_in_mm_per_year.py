@@ -18,7 +18,12 @@ from hydromodpy.physics.hydrology.soil_reservoir.kernel import (
     full_soil,
     run_soil_balance,
 )
-from hydromodpy.simulation.soil_recharge import SoilColumns, SoilForcings, soil_budget_lines
+from hydromodpy.simulation.soil_recharge import (
+    SoilColumns,
+    SoilForcings,
+    _no_negative_zero,
+    soil_budget_lines,
+)
 
 
 def _forcings() -> SoilForcings:
@@ -124,7 +129,9 @@ def test_the_closure_row_stays_at_zero() -> None:
 
 def test_a_fully_satisfied_etp_reports_no_unmet_demand() -> None:
     _forcings_obj, lines = _lines()
-    assert lines[11] == "unmet ETP 0.0 mm/year, drawn from the water table (EVT)"
+    assert lines[11] == (
+        "unmet ETP 0.0 mm/year, offered to EVT: the water table gives it only where it is shallow"
+    )
 
 
 def test_unmet_etp_names_the_missing_activation_when_not_sent() -> None:
@@ -138,7 +145,7 @@ def test_unmet_etp_names_the_missing_activation_when_not_sent() -> None:
     unmet_line = next(line for line in lines if line.startswith("unmet ETP"))
     assert unmet_line == (
         'unmet ETP 0.0 mm/year, not sent to MODFLOW: add "etp" to '
-        "flow.active_sinks_sources to draw it from the water table"
+        "flow.active_sinks_sources to let a shallow water table evaporate it"
     )
 
 
@@ -159,3 +166,9 @@ def test_the_gauged_discharge_line_is_appended_as_given() -> None:
     assert (
         lines[-1] == "gauged discharge TEST: 300.0 mm/year on 365 of 365 days, catchment 10.00 km2"
     )
+
+
+def test_a_value_that_rounds_to_zero_never_prints_a_negative_sign() -> None:
+    assert f"{_no_negative_zero(-1e-16, 1):.1f}" == "0.0"
+    assert f"{_no_negative_zero(-0.04, 1):.1f}" == "0.0"
+    assert f"{_no_negative_zero(-0.05, 1):.1f}" == "-0.1"

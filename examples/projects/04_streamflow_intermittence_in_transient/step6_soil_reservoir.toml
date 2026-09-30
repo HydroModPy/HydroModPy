@@ -4,7 +4,8 @@
 # 2016 on: a slow groundwater memory the aquifer model then counts twice. Here
 # a daily soil reservoir turns the SIM2 rain and ETP into a recharge that falls
 # to zero in dry summers, and MODFLOW builds the slow response itself. The ETP
-# the soil could not meet is drawn from the water table.
+# the soil could not meet is offered to the water table, which evaporates it
+# where it is shallow.
 #
 # Check the soil alone first. It loads the rain and the ETP, prints the soil
 # budget in mm/year and the recharge for five other soil capacities beside the
@@ -54,8 +55,9 @@ source = "sim2"
 extent = "watershed"
 
 [flow]
-# "etp": the ETP the soil left unmet is drawn from the water table, fully at
-# the drain elevation and down to 1 m under it (extinction_depth).
+# "etp": the ETP the soil left unmet is offered to the water table, which
+# evaporates it where it is shallow: the rate is full at the drain elevation
+# and falls to zero 1 m below it (extinction_depth).
 active_sinks_sources = ["recharge", "etp"]
 # A steady first day would hold the recharge of that day alone, zero after a
 # dry day. Every period is transient instead, and the run starts from the

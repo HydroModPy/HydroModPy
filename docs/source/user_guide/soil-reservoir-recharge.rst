@@ -80,6 +80,12 @@ rain. The water of saturated ground reaches the streams through the drains
 (``active_bc = ["drainage"]``), so a lake needs a stream network (``"sfr"``)
 to receive it.
 
+The soil section loads ``[data.precipitation]`` and ``[data.etp]`` even when
+``data.types`` omits them: the planner infers both straight from
+``[flow.sinks_sources.recharge.soil]``. Removing ``"precipitation"`` or
+``"etp"`` from ``data.types`` does not switch them off; remove the
+``[[data.precipitation.sources]]`` or ``[[data.etp.sources]]`` block instead.
+
 Only ``ru`` is required. The other keys (``alpha``, ``kc``,
 ``impervious_fraction``, ``bypass_fraction``, ``transit_time``, ``spinup``),
 their defaults and their ranges are listed with the ``[flow]`` section of the
@@ -129,19 +135,23 @@ input lock. On the Nancon, 2015 to 2020:
    impervious runoff          0.0               0.0              0.0
    storage change            +0.0             -12.6             +1.0
    closure                    0.0               0.0              0.0
-   unmet ETP 150.9 mm/year, drawn from the water table (EVT)
+   unmet ETP 150.8 mm/year, offered to EVT: the water table gives it only where it is shallow
    recharge July-September: 0.004 mm/day
    recharge for other ru, mm/year: 50 mm 442.8 | 100 mm 392.4 | 150 mm 356.4 | 200 mm 324.8 | 250 mm 295.2
-   gauged discharge NANCON: 326.6 mm/year on 2192 of 2192 days, catchment 64.62 km2
+   gauged discharge NANCON: 326.5 mm/year on 2192 of 2192 days, catchment 64.62 km2
 
 Read it in this order. The closure is zero, or the soil is broken. The summer
 recharge is near zero for a capacity above 100 mm. The recharge of the other
 capacities, beside the gauged discharge, brackets ``ru`` for the calibration:
 over several years the recharge plus the sealed runoff should sit slightly
 above the gauged discharge, the difference being what the water table
-evaporates and what leaves the catchment underground. The discharge line
-gives a value when one station is loaded, which it takes for the gauge at the
-outlet; otherwise it says why it shows none.
+evaporates and what leaves the catchment underground. The unmet ETP line is a
+ceiling on that evaporation, not what MODFLOW actually draws: on the full
+Nancon run only 6.4 mm/year of the 150.8 mm/year announced here reached the
+water table as real evapotranspiration, the rest finding no water table
+within ``extinction_depth`` (1 m by default) of the drain elevation. The
+discharge line gives a value when one station is loaded, which it takes for
+the gauge at the outlet; otherwise it says why it shows none.
 
 To try another capacity: ``--set flow.sinks_sources.recharge.soil.ru=100``.
 Each call delineates the catchment again, a few seconds.

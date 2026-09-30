@@ -10271,7 +10271,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-soil-ru",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L31",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L42",
     "description": "Available water capacity of the soil (r\u00e9serve utile), in mm of water: what the roots can draw between field capacity and wilting point. A bare number is in mm; \"120 mm\" and \"12 cm\" also read. Between 0 and 1000 mm. Required, since it belong"
   },
   {
@@ -10283,7 +10283,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-soil-alpha",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L46",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L57",
     "description": "Share of ru above which the soil evaporates at the full rate kc x ETP. Below alpha x ru, ETR falls linearly with the stored water. It is 1 - p of FAO-56 and LP of HBV. Above 0, at most 1. Kept fixed by default: the discharge alone hardly co"
   },
   {
@@ -10295,7 +10295,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-soil-kc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L56",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L67",
     "description": "Crop coefficient applied to the loaded ETP: the soil evaporates at most kc x ETP a day. 1.0 takes the ETP as loaded, a reference grass. Between 0 and 2. Kept fixed by default: kc and ru move the same annual volume."
   },
   {
@@ -10307,7 +10307,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-soil-impervious-fraction",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L65",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L76",
     "description": "Share of the area that is sealed (roofs, roads). The rain that falls on it runs off at once, with no infiltration and no evaporation, and reaches the streams, the lakes and the gauged discharge. The soil reservoir covers the rest of the are"
   },
   {
@@ -10319,7 +10319,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-soil-bypass-fraction",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L85",
     "description": "Share of the rain on the unsealed area that skips the soil through macropores and joins the recharge the same day, even when the soil is dry. From 0 up to, not including, 1. Keep it at 0 while K and Sy are calibrated: a bypass can rebuild t"
   },
   {
@@ -10331,7 +10331,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-soil-transit-time",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L85",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L96",
     "description": "Mean time the water leaving the soil takes to cross the unsaturated zone down to the water table, in days. A linear reservoir with this time constant delays and smooths the recharge; 0 sends it the same day. A bare number is in days; \"5 day"
   },
   {
@@ -10343,7 +10343,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-soil-spinup",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L97",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L108",
     "description": "State of the soil on the first day. \"first_year\" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last one year at least. \"none\" starts from a full soi"
   },
   {

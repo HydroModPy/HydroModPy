@@ -6397,7 +6397,7 @@ Fields
                           <code class="hmp-field-name">ru</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L31>`__
+                     :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L42>`__
 
                         Available water capacity of the soil (réserve utile), in mm of water: what the roots can draw between field capacity and wilting point. A bare number is in mm; "120 mm" and "12 cm" also read. Between 0 and 1000 mm. Required, since it belongs to the site. In doubt, start from 150 mm and compare the recharge the soil alone prints for 50 to 250 mm with the gauged discharge (hmp run <file> --until load_data). With [data.soil_capacity], it is the mean capacity of the SAFRAN cells, and the raster spreads it over classes inside each cell. Calibrate it with [calibration.parameters.ru].
 
@@ -6413,7 +6413,7 @@ Fields
                           <code class="hmp-field-name">alpha</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 0.6` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L46>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.6` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L57>`__
 
                         Share of ru above which the soil evaporates at the full rate kc x ETP. Below alpha x ru, ETR falls linearly with the stored water. It is 1 - p of FAO-56 and LP of HBV. Above 0, at most 1. Kept fixed by default: the discharge alone hardly constrains it.
 
@@ -6429,7 +6429,7 @@ Fields
                           <code class="hmp-field-name">kc</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L56>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L67>`__
 
                         Crop coefficient applied to the loaded ETP: the soil evaporates at most kc x ETP a day. 1.0 takes the ETP as loaded, a reference grass. Between 0 and 2. Kept fixed by default: kc and ru move the same annual volume.
 
@@ -6445,7 +6445,7 @@ Fields
                           <code class="hmp-field-name">impervious_fraction</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L65>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L76>`__
 
                         Share of the area that is sealed (roofs, roads). The rain that falls on it runs off at once, with no infiltration and no evaporation, and reaches the streams, the lakes and the gauged discharge. The soil reservoir covers the rest of the area. From 0 up to, not including, 1.
 
@@ -6461,7 +6461,7 @@ Fields
                           <code class="hmp-field-name">bypass_fraction</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L74>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L85>`__
 
                         Share of the rain on the unsealed area that skips the soil through macropores and joins the recharge the same day, even when the soil is dry. From 0 up to, not including, 1. Keep it at 0 while K and Sy are calibrated: a bypass can rebuild the summer recharge the soil reservoir removes.
 
@@ -6477,7 +6477,7 @@ Fields
                           <code class="hmp-field-name">transit_time</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L85>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L96>`__
 
                         Mean time the water leaving the soil takes to cross the unsaturated zone down to the water table, in days. A linear reservoir with this time constant delays and smooths the recharge; 0 sends it the same day. A bare number is in days; "5 days" also reads. At most 30 days: a longer delay would rebuild the slow groundwater memory MODFLOW computes itself.
 
@@ -6493,7 +6493,7 @@ Fields
                           <code class="hmp-field-name">spinup</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "first_year"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L97>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "first_year"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L108>`__
 
                         State of the soil on the first day. "first_year" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last one year at least. "none" starts from a full soil, the state of a soil in a wet winter.
 
