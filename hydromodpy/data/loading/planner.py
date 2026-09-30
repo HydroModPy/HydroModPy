@@ -156,7 +156,7 @@ class DataPlanner:
                 inferred_types,
                 reasons_by_type,
                 "soil_capacity",
-                "inferred from [data.soil_capacity]",
+                "inferred from [data.soil_capacity] beside [flow.sinks_sources.recharge.soil]",
             )
 
         if config.inference_mode == "strict":

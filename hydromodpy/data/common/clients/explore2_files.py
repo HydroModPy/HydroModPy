@@ -48,7 +48,8 @@ _VARIABLE_NAMES: dict[str, str] = {
 }
 """The variable this reader serves, mapped to its name in a DRIAS file."""
 
-_REFUSED_CALENDARS = ("noleap", "360_day")
+_STANDARD_CALENDARS = ("standard", "gregorian", "proleptic_gregorian")
+"""Calendars pandas decodes without loss; anything else is refused (X5)."""
 
 _X5 = (
     "{section} uses the {calendar!r} calendar, and the soil reservoir needs "
@@ -83,7 +84,7 @@ def read_explore2(
     ds = xr.open_dataset(path, decode_times=False)
 
     calendar = str(ds["time"].attrs.get("calendar", "standard"))
-    if calendar.lower() in _REFUSED_CALENDARS:
+    if calendar.lower() not in _STANDARD_CALENDARS:
         raise DataContractViolation(_X5.format(section=section, calendar=calendar))
     dates = _decode_time(ds["time"], calendar)
 

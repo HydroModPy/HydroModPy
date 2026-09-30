@@ -82,6 +82,16 @@ def test_manager_internal_unit_is_millimetres() -> None:
     assert SoilCapacityManager.INTERNAL_UNIT == "mm"
 
 
+def test_manager_labels_the_record_in_millimetres(tmp_path: Path) -> None:
+    src = _write_geotiff(tmp_path / "ru.tif")
+    config = SoilCapacityConfig(sources=[CustomSoilCapacitySource(path=src)])
+    manager = SoilCapacityManager(config=config, catalog=None, data_dir=tmp_path)
+
+    record = manager.load().fields[0]
+
+    assert record.unit == "mm"
+
+
 def test_the_variable_spec_never_applies_the_simulation_window() -> None:
     assert VARIABLE_SPECS["soil_capacity"].apply_simulation_window is False
 

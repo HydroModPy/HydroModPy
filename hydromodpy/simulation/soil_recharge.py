@@ -621,15 +621,24 @@ def compute_soil_forcings(
 def ru_ladder(
     forcings: SoilForcings, ru_values: tuple[float, ...] = RU_LADDER_MM
 ) -> tuple[tuple[float, float], ...]:
-    """Basin recharge, mm/year, for each ``ru`` in ``ru_values``, other parameters fixed."""
+    """Basin recharge, mm/year, for each ``ru`` in ``ru_values``, other parameters fixed.
+
+    A rung whose spin-up does not settle in 20 cycles reports ``nan`` rather
+    than a number built on a soil state that never repeated: this table is
+    informational, so it stays silent about the run itself (X13 already
+    checked that) but never prints a silently wrong figure for a rung.
+    """
     n_years = len(forcings.days) / 365.25
     rows = []
     for ru in ru_values:
         ru_mm = ru * forcings.columns.ru_shape
         parameters = soil_parameters(forcings.config, ru_mm)
-        initial, _ = _spinup_or_full(
+        initial, spinup_result = _spinup_or_full(
             forcings.config, parameters, forcings.precipitation, forcings.etp
         )
+        if spinup_result is not None and not spinup_result.settled:
+            rows.append((ru, float("nan")))
+            continue
         fluxes = run_soil_balance(forcings.precipitation, forcings.etp, parameters, initial)
         basin_recharge = fluxes.recharge @ forcings.columns.basin_weight
         rows.append((ru, float(basin_recharge.sum() / n_years)))

@@ -129,8 +129,27 @@ def test_a_360_day_calendar_is_refused(tmp_path: Path) -> None:
         explore2.read_explore2(path, variable="precipitation", bbox=bbox, project_period=None)
 
 
+def test_a_365_day_calendar_is_refused_too(tmp_path: Path) -> None:
+    """365_day is the CF synonym of noleap: the allowlist must refuse it too."""
+    path = _write_drias_file(tmp_path, calendar="365_day")
+    bbox = _bbox_around_native_cell(5, 5)
+
+    with pytest.raises(DataContractViolation, match="365_day"):
+        explore2.read_explore2(path, variable="precipitation", bbox=bbox, project_period=None)
+
+
 def test_a_standard_calendar_file_is_read(tmp_path: Path) -> None:
     path = _write_drias_file(tmp_path, calendar="standard")
+    bbox = _bbox_around_native_cell(5, 5)
+
+    records = explore2.read_explore2(path, variable="precipitation", bbox=bbox, project_period=None)
+
+    assert records[0].data["time"].values[0] == np.datetime64("2015-01-01")
+
+
+def test_a_gregorian_calendar_file_is_read(tmp_path: Path) -> None:
+    """gregorian is a CF synonym of standard: the allowlist must accept it."""
+    path = _write_drias_file(tmp_path, calendar="gregorian")
     bbox = _bbox_around_native_cell(5, 5)
 
     records = explore2.read_explore2(path, variable="precipitation", bbox=bbox, project_period=None)
@@ -222,3 +241,34 @@ def test_the_etp_manager_reaches_explore2_through_its_sources_table(tmp_path: Pa
 
     assert len(result.fields) == 1
     assert result.fields[0].variable == "etp"
+
+
+def test_a_second_file_over_the_same_box_is_read_not_taken_from_the_cache(
+    tmp_path: Path,
+) -> None:
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+
+    (tmp_path / "rcp45").mkdir()
+    (tmp_path / "rcp85").mkdir()
+    first = _write_drias_file(tmp_path / "rcp45", value=2.0e-5)
+    second = _write_drias_file(tmp_path / "rcp85", value=8.0e-5)
+    bbox = _bbox_around_native_cell(5, 5)
+    catalog = DataCatalogDuckDB(tmp_path / "cache.duckdb")
+
+    def mean_precipitation(path: Path) -> float:
+        config = PrecipitationConfig(
+            sources=[PrecipitationSourceConfig(source="explore2", path=path, extent="watershed")]
+        )
+        manager = PrecipitationManager(
+            config=config,
+            catalog=catalog,
+            project_extent=bbox,
+            project_period=None,
+            data_dir=tmp_path / "data" / "precipitation",
+        )
+        record = manager.load().fields[0]
+        return float(np.asarray(record.data["precipitation"].values).mean())
+
+    mean_precipitation(first)
+
+    assert mean_precipitation(second) == pytest.approx(8.0e-5 * 86400.0)

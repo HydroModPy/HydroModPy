@@ -7,6 +7,9 @@ more water through it and returns less to the water table.
 
 from __future__ import annotations
 
+import dataclasses
+import math
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -68,3 +71,27 @@ def test_recharge_falls_as_ru_grows() -> None:
     ladder = ru_ladder(forcings)
     recharges = [value for _ru, value in ladder]
     assert all(a > b for a, b in zip(recharges, recharges[1:]))
+
+
+def test_a_rung_whose_spinup_never_settles_reports_nan_not_a_silent_number(
+    monkeypatch,
+) -> None:
+    import hydromodpy.simulation.soil_recharge as mod
+
+    forcings = _forcings()
+    real_spinup_or_full = mod._spinup_or_full
+    unsettled_ru_mm = 200.0 * forcings.columns.ru_shape[0]
+
+    def fake_spinup_or_full(config, parameters, precipitation, etp):
+        state, spinup_result = real_spinup_or_full(config, parameters, precipitation, etp)
+        if parameters.ru_mm[0] == unsettled_ru_mm:
+            spinup_result = dataclasses.replace(spinup_result, settled=False)
+        return state, spinup_result
+
+    monkeypatch.setattr(mod, "_spinup_or_full", fake_spinup_or_full)
+
+    ladder = mod.ru_ladder(forcings)
+    values = dict(ladder)
+
+    assert math.isnan(values[200.0])
+    assert all(not math.isnan(v) for ru, v in ladder if ru != 200.0)
