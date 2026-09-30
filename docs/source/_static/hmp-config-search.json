@@ -4746,7 +4746,7 @@
     "section": "data",
     "anchor": "data-precipitation-date-start",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L59",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L70",
     "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
@@ -4761,7 +4761,7 @@
     "section": "data",
     "anchor": "data-precipitation-date-end",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L59",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L70",
     "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
@@ -4776,7 +4776,7 @@
     "section": "data",
     "anchor": "data-precipitation-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L69",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L80",
     "description": "At least one data source."
   },
   {
@@ -4926,14 +4926,14 @@
   {
     "path": "data.precipitation.sources.source",
     "name": "source",
-    "type": "Literal['custom', 'sim2']",
+    "type": "Literal['custom', 'sim2', 'explore2']",
     "profile": "user",
     "stability": "stable",
     "section": "data",
     "anchor": "data-precipitation-sources-source",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L27",
-    "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API."
+    "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'explore2' for a local DRIAS Explore2 NetCDF (no network)."
   },
   {
     "path": "data.precipitation.sources.components",
@@ -4944,7 +4944,7 @@
     "section": "data",
     "anchor": "data-precipitation-sources-components",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L33",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L36",
     "description": "Precipitation components: 'liquid' (rain), 'solid' (snow), 'total' (sum of both)."
   },
   {
@@ -4956,8 +4956,8 @@
     "section": "data",
     "anchor": "data-precipitation-sources-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L40",
-    "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L43",
+    "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read."
   },
   {
     "path": "data.etp",
@@ -4980,7 +4980,7 @@
     "section": "data",
     "anchor": "data-etp-date-start",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L71",
     "description": "Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than ",
     "examples": [
       "\"2019-01-01\""
@@ -4995,7 +4995,7 @@
     "section": "data",
     "anchor": "data-etp-date-end",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L71",
     "description": "End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the si",
     "examples": [
       "\"2025-12-31\""
@@ -5010,7 +5010,7 @@
     "section": "data",
     "anchor": "data-etp-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L81",
     "description": "At least one data source."
   },
   {
@@ -5160,14 +5160,14 @@
   {
     "path": "data.etp.sources.source",
     "name": "source",
-    "type": "Literal['custom', 'sim2']",
+    "type": "Literal['custom', 'sim2', 'explore2']",
     "profile": "user",
     "stability": "stable",
     "section": "data",
     "anchor": "data-etp-sources-source",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L27",
-    "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API."
+    "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'explore2' for a local DRIAS Explore2 NetCDF (no network)."
   },
   {
     "path": "data.etp.sources.path",
@@ -5178,8 +5178,8 @@
     "section": "data",
     "anchor": "data-etp-sources-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L33",
-    "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L36",
+    "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read."
   },
   {
     "path": "data.etp.sources.crs",
@@ -5190,7 +5190,7 @@
     "section": "data",
     "anchor": "data-etp-sources-crs",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L41",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L47",
     "description": "Optional CRS fallback for custom gridded NetCDF inputs that do not declare CRS metadata."
   },
   {
@@ -5202,7 +5202,7 @@
     "section": "data",
     "anchor": "data-etp-sources-nodata",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L45",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L51",
     "description": "Optional nodata fallback for custom gridded NetCDF inputs that do not declare nodata metadata."
   },
   {

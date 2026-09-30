@@ -4743,7 +4743,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L59>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L70>`__
 
             Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than the simulation, typically a cache shared by several runs. Must be declared together with date_end.
 
@@ -4759,7 +4759,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L59>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L70>`__
 
             End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the simulation, typically a cache shared by several runs. Must be declared together with date_start.
 
@@ -4777,7 +4777,7 @@ Fields
               <code class="hmp-field-toml">[[data.precipitation.sources]]</code>
             </div>
 
-         :bdg-primary:`list[PrecipitationSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L69>`__
+         :bdg-primary:`list[PrecipitationSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L80>`__
 
             At least one data source.
 
@@ -4970,11 +4970,11 @@ Fields
 
                :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L27>`__
 
-                  Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
+                  Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'explore2' for a local DRIAS Explore2 NetCDF (no network).
 
                .. rst-class:: hmp-field-values
 
-               **One of:** ``"custom"`` ``"sim2"``
+               **One of:** ``"custom"`` ``"sim2"`` ``"explore2"``
 
 
             .. index:: ! components
@@ -4988,7 +4988,7 @@ Fields
                     <code class="hmp-field-name">components</code>
                   </div>
 
-               :bdg-primary:`list[str]` :bdg-secondary:`default = ['total']` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L33>`__
+               :bdg-primary:`list[str]` :bdg-secondary:`default = ['total']` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L36>`__
 
                   Precipitation components: 'liquid' (rain), 'solid' (snow), 'total' (sum of both).
 
@@ -5006,9 +5006,9 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L40>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L43>`__
 
-                  Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
+                  Directory containing location file and chronicle CSVs, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read.
 
 
 
@@ -5047,7 +5047,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L71>`__
 
             Start of the data window (ISO date, e.g. '2019-01-01'). Optional: when neither bound is declared, the loader inherits [simulation.time].start_datetime, or [overview].date_start in overview mode. Declare it only to fetch a window WIDER than the simulation, typically a cache shared by several runs. Must be declared together with date_end.
 
@@ -5063,7 +5063,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L71>`__
 
             End of the data window (ISO date, e.g. '2025-12-31'). Optional: when neither bound is declared, the loader inherits [simulation.time].end_datetime, or [overview].date_end in overview mode. Declare it only to fetch a window WIDER than the simulation, typically a cache shared by several runs. Must be declared together with date_start.
 
@@ -5081,7 +5081,7 @@ Fields
               <code class="hmp-field-toml">[[data.etp.sources]]</code>
             </div>
 
-         :bdg-primary:`list[EtpSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L70>`__
+         :bdg-primary:`list[EtpSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L81>`__
 
             At least one data source.
 
@@ -5274,11 +5274,11 @@ Fields
 
                :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L27>`__
 
-                  Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.
+                  Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'explore2' for a local DRIAS Explore2 NetCDF (no network).
 
                .. rst-class:: hmp-field-values
 
-               **One of:** ``"custom"`` ``"sim2"``
+               **One of:** ``"custom"`` ``"sim2"`` ``"explore2"``
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -5290,9 +5290,9 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L33>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L36>`__
 
-                  Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
+                  Directory containing location file and chronicle CSVs, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -5304,7 +5304,7 @@ Fields
                     <code class="hmp-field-name">crs</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L41>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L47>`__
 
                   Optional CRS fallback for custom gridded NetCDF inputs that do not declare CRS metadata.
 
@@ -5320,7 +5320,7 @@ Fields
                     <code class="hmp-field-name">nodata</code>
                   </div>
 
-               :bdg-primary:`float | int | str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L45>`__
+               :bdg-primary:`float | int | str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L51>`__
 
                   Optional nodata fallback for custom gridded NetCDF inputs that do not declare nodata metadata.
 

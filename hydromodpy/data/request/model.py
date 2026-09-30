@@ -212,11 +212,16 @@ class DataRequest(HydroModelBase):
         variable with several must name one.
         """
         from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, get_manager_class
+        from hydromodpy.schema.sources import SOURCES as SOURCE_REGISTRY
 
         if variable not in VARIABLE_SPECS:
             raise ValueError(f"Unknown variable {variable!r}; known: {sorted(VARIABLE_SPECS)}")
         if source is None:
-            served = sorted(get_manager_class(variable).SOURCES)
+            sources = sorted(get_manager_class(variable).SOURCES)
+            # A source read or built locally (explore2, synthetic, constant) needs
+            # more than a variable name, so only the downloading ones are candidates.
+            downloading = [name for name in sources if SOURCE_REGISTRY[name].hosts]
+            served = downloading or sources
             if len(served) != 1:
                 raise ValueError(f"{variable!r} is served by {served}; name one with source")
             source = served[0]

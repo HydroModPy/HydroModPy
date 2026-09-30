@@ -2353,19 +2353,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-precipitation-date-start>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L59>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L70>`__
    * - ``data.precipitation.date_end``
      - ``str | None``
      - user
      - -
      - `data <data.html#data-precipitation-date-end>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L59>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L70>`__
    * - ``data.precipitation.sources``
      - ``list[PrecipitationSourceConfig]``
      - user
      - -
      - `data <data.html#data-precipitation-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L69>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L80>`__
    * - ``data.precipitation.sources.station_ids``
      - ``list[str] | None``
      - user
@@ -2439,7 +2439,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `data <data.html#data-precipitation-sources-default-crs>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L19>`__
    * - ``data.precipitation.sources.source``
-     - ``Literal['custom', 'sim2']``
+     - ``Literal['custom', 'sim2', 'explore2']``
      - user
      - -
      - `data <data.html#data-precipitation-sources-source>`__
@@ -2449,13 +2449,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-precipitation-sources-components>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L33>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L36>`__
    * - ``data.precipitation.sources.path``
      - ``Path | None``
      - user
      - -
      - `data <data.html#data-precipitation-sources-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L40>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/precipitation/config.py#L43>`__
    * - ``data.etp``
      - ``EtpConfig | None``
      - user
@@ -2467,19 +2467,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-etp-date-start>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L71>`__
    * - ``data.etp.date_end``
      - ``str | None``
      - user
      - -
      - `data <data.html#data-etp-date-end>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L71>`__
    * - ``data.etp.sources``
      - ``list[EtpSourceConfig]``
      - user
      - -
      - `data <data.html#data-etp-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L70>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L81>`__
    * - ``data.etp.sources.station_ids``
      - ``list[str] | None``
      - user
@@ -2553,7 +2553,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `data <data.html#data-etp-sources-default-crs>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L19>`__
    * - ``data.etp.sources.source``
-     - ``Literal['custom', 'sim2']``
+     - ``Literal['custom', 'sim2', 'explore2']``
      - user
      - -
      - `data <data.html#data-etp-sources-source>`__
@@ -2563,19 +2563,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-etp-sources-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L33>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L36>`__
    * - ``data.etp.sources.crs``
      - ``str | None``
      - user
      - -
      - `data <data.html#data-etp-sources-crs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L41>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L47>`__
    * - ``data.etp.sources.nodata``
      - ``float | int | str | None``
      - user
      - -
      - `data <data.html#data-etp-sources-nodata>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L45>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L51>`__
    * - ``data.temperature``
      - ``TemperatureConfig | None``
      - user

@@ -70,8 +70,9 @@ def test_there_are_twenty_six_variables() -> None:
     assert len(VARIABLE_SPECS) == 26
 
 
-# Sources computed from the section alone: they contact no host.
-_LOCAL_SOURCES = {"constant", "synthetic"}
+# Sources computed from the section alone or read from a local file: they
+# contact no host.
+_LOCAL_SOURCES = {"constant", "explore2", "synthetic"}
 
 
 def _literal_values(annotation: object) -> set[str]:

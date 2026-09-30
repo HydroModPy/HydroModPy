@@ -5646,10 +5646,11 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
+          "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
           "enum": [
             "custom",
-            "sim2"
+            "sim2",
+            "explore2"
           ],
           "examples": [
             "custom"
@@ -5669,7 +5670,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read.",
           "title": "Path",
           "x-hmp-profile": "user"
         },
@@ -17972,10 +17973,11 @@
           "x-hmp-profile": "dev"
         },
         "source": {
-          "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
+          "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
           "enum": [
             "custom",
-            "sim2"
+            "sim2",
+            "explore2"
           ],
           "examples": [
             "custom"
@@ -18018,7 +18020,7 @@
             }
           ],
           "default": null,
-          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read.",
           "title": "Path",
           "x-hmp-profile": "user"
         }
