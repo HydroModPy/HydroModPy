@@ -33,6 +33,53 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Added
+- The recharge can come from a daily soil reservoir fed by the rain and the ETP instead of a
+  drainage loaded from SIM2: `[flow.sinks_sources.recharge.soil]`, MODFLOW 6 only, with `ru`
+  (the available water capacity in mm, required, calibrated as `soil.ru`), `alpha` (0.6),
+  `kc` (1.0), `impervious_fraction` (0), `bypass_fraction` (0), `transit_time` (0, at most 30
+  days) and `spinup` (`"first_year"` or `"none"`). Each SAFRAN cell is a threshold bucket in
+  float64 (the rain before the ETR, the ETR reduced below `alpha x ru`, the water above `ru` to
+  the water table) whose balance closes to 1e-16 of the rain. Every run and every calibration
+  trial computes it again; the recharge reaches RCHA as one gridded record, and with `"etp"` in
+  `flow.active_sinks_sources` the ETP the soil left unmet is offered to a new EVTA whose surface
+  is the drain elevation. `hmp run <file> --until load_data` checks the soil alone: it prints the
+  budget in mm/year, the recharge for `ru` from 50 to 250 mm and the gauged discharge, and
+  writes no run. A run keeps the daily columns under `fields.zarr/forcing/soil/` and the yearly
+  budget in `tables.parquet/soil_budget.parquet`. The section refuses what would count water
+  twice (`[data.recharge]`, `[data.runoff]`), another solver, a lake without its stream network
+  and a steady first period, each refusal saying what to write instead. On the Nancon, daily
+  2015-2020 with K and Sy unchanged, the KGE of the gauged discharge goes from 0.65 with the
+  SIM2 drainage to 0.79 with the soil (`ru = 150 mm`), and a grid calibration of K and Sy
+  finds K inside its range (3.2e-5 m/s, NSE on log flows 0.84) where the SIM2 drainage keeps it
+  on the 1e-7 m/s bound (0.74). The mean yearly recharge of the soil stays within 3 % of the
+  SIM2 drainage plus runoff over 1985-2015 and 2015-2020, with no summer floor: the SIM2
+  drainage keeps about 0.3 mm/day all summer from 2016 on only.
+- `[data.soil_capacity]`: a raster of soil water capacity in mm spreads `ru` over ten classes
+  inside each SAFRAN cell; the recharge is computed per class and weighted back, never on the
+  mean capacity of the cell.
+- `source = "explore2"` for `[data.precipitation]` and `[data.etp]` reads a local DRIAS
+  Explore2 NetCDF: cut by the run box in its Lambert II extended grid before any value is read,
+  converted from kg m-2 s-1 to mm/day, resampled onto an 8 km grid in EPSG:2154, read again at
+  each run; a calendar other than the standard ones is refused.
+- Example 04 gains `step6_soil_reservoir.toml`, and the user guide gains "Recharge from a soil
+  reservoir".
+
+### Changed
+- A calibration phase that samples a recharge parameter writes the RCHA (and EVTA) of each trial
+  in the trial's own `_recharge/` folder, removed with the trial, instead of adding one stack per
+  trial to the shared `_shared_recharge/` folder. A phase that leaves the recharge alone still
+  shares one stack.
+- `hmp data get <variable>` without `--source` takes the one source that downloads, as its help
+  says: `recharge`, `oceanic`, `precipitation` and `etp` no longer ask for a source because of a
+  local one (`synthetic`, `constant`, `explore2`).
+- A calibration target takes the unit its own `Calibrable` declares before the unit of the node
+  above it; no target of the 320 example files changes unit.
+- `extinction_depth` of `[flow.sinks_sources.etp]` is a user field. Under MODFLOW 6 outside soil
+  mode, an active `"etp"` is still ignored, and the run now says so once.
+- A raster read by a file family is labelled with the unit its manager declares (substratum and
+  lake bathymetry stay in m).
+
 ---
 
 ## [v2.0.0a4] - 2026-09-29
