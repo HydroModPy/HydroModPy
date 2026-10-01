@@ -1837,7 +1837,7 @@
             }
           ],
           "default": null,
-          "description": "Optimization method for this phase only. Unset, it follows from what the phase scores: 'bisection' when the phase moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. hmp calibrate --list-phases prints the method and why. Write it to depart from that choice, and whenever method_options are given. Built-ins: 'grid' (regular sweep, sized by method_options.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.",
+          "description": "Optimization method for this phase only. Unset, it follows from what the phase scores: 'bisection' when the phase moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. hmp calibrate --list-phases prints the method and why. Write it to depart from that choice, and whenever method_options are given. Built-ins: 'grid' (regular sweep, sized by method_options.points_per_dim), 'lhs' (stratified Latin hypercube, sized by method_options.n_samples), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.",
           "title": "Method",
           "x-hmp-profile": "user"
         },
@@ -2355,7 +2355,7 @@
             }
           ],
           "default": null,
-          "description": "Optimization method. Unset, it follows from what the calibration scores: 'bisection' when it moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. Write it to depart from that choice, and whenever method_options are given. A phase of [[calibration.phases]] names its own. Built-ins: 'grid' (regular sweep, sized by method_options.points_per_dim), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.",
+          "description": "Optimization method. Unset, it follows from what the calibration scores: 'bisection' when it moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. Write it to depart from that choice, and whenever method_options are given. A phase of [[calibration.phases]] names its own. Built-ins: 'grid' (regular sweep, sized by method_options.points_per_dim), 'lhs' (stratified Latin hypercube, sized by method_options.n_samples), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.",
           "title": "Method",
           "x-hmp-profile": "user"
         },
@@ -2691,6 +2691,16 @@
           ],
           "title": "Persist Iteration Detail",
           "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "persist_trial_series": {
+          "default": false,
+          "description": "Write the simulated and observed series of every point/series output a completed trial scored (discharge at a gauge, head at a well...), as a small Parquet table per trial under the session folder. Off by default: a 300-400 point search otherwise writes nothing beyond trials.jsonl. Network and spatial outputs carry no series and are never written here.",
+          "examples": [
+            false
+          ],
+          "title": "Persist Trial Series",
+          "type": "boolean",
           "x-hmp-profile": "dev"
         },
         "persist_model_distribution": {
@@ -7126,33 +7136,22 @@
           "x-hmp-profile": "dev"
         },
         "extinction_depth": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "properties": {
-                "magnitude": {
-                  "title": "Magnitude",
-                  "type": "string"
-                },
-                "units": {
-                  "title": "Units",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "magnitude"
-              ],
-              "type": "object"
-            }
-          ],
+          "calibrable": {
+            "bounds": null,
+            "description": "",
+            "is_the_value_of_its_instance": false,
+            "prior": "uniform",
+            "transform": "identity",
+            "units": "m"
+          },
           "default": 1.0,
-          "description": "Depth (m) below the EVT surface where the water table stops evaporating; the rate falls linearly between the surface and this depth. 1 m by default. Read by MODFLOW-NWT, and by MODFLOW 6 in soil mode for the ETP the soil left unmet.",
+          "description": "Depth (m) below the EVT surface where the water table stops evaporating; the rate falls linearly between the surface and this depth. 1 m by default. Read by MODFLOW-NWT, and by MODFLOW 6 in soil mode for the ETP the soil left unmet. Calibrate it with [calibration.parameters.extinction_depth]; the range belongs to the site, so a file has to state it.",
           "examples": [
             1.0
           ],
+          "exclusiveMinimum": 0.0,
           "title": "Extinction Depth",
+          "type": "number",
           "x-hmp-profile": "user"
         },
         "spatial_mode": {
