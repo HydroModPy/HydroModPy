@@ -77,6 +77,9 @@ Each release section includes the following standard categories:
   every point output a completed trial scored, as
   `sessions/<name>/trial_series/trial-NNNNNN.parquet`, without promoting the run;
   `hydromodpy.results.session_journal.read_trial_series` reads them back. Off by default.
+- `[flow.sinks_sources.recharge.soil] impervious_fraction` is calibratable, as
+  `[calibration.parameters.impervious_fraction]` with bounds below 1: each trial recomputes the
+  runoff of the sealed share and adds it once to the discharge it scores.
 
 ### Changed
 - A calibration phase that samples a recharge parameter writes the RCHA (and EVTA) of each trial

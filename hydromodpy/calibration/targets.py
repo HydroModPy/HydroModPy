@@ -66,6 +66,7 @@ _REGISTRY_ID_BY_PATH: dict[str, str] = {
     "flow.sinks_sources.recharge.soil.kc": "soil_kc",
     "flow.sinks_sources.recharge.soil.bypass_fraction": "soil_bypass_fraction",
     "flow.sinks_sources.recharge.soil.transit_time": "soil_transit_time",
+    "flow.sinks_sources.recharge.soil.impervious_fraction": "soil_impervious_fraction",
 }
 """Targets whose physical range is read under a key their path does not spell.
 
