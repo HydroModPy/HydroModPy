@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 54 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 55 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 54 loadable rows split into three enforcement classes (W5 classification):
+The 55 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 54 loadable TOLERANCES.md rows.
+# W5 classification of the 55 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -108,6 +108,8 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "soil_transit_store_impulse_volume__sum_t_q_50_over_60_k_days_mm",
         "soil_spin_up_settling__largest_change_mm_of_the_end_of_year_soil_or_transit_storage_"
         "between_the_last_two_repetitions",
+        "soil_curve_number_runoff_balance_with_routing__per_day_max_residual_max_p_per_column_"
+        "year_max_residual_p",
         # Soil recharge and unmet ETP reaching MODFLOW 6, asserted in
         # tests/integration/test_the_soil_recharge_reaches_modflow6_cell_by_cell.py,
         # which also gives the global water-budget closure row its first test.
@@ -215,7 +217,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 54, sorted(loadable)
+    assert len(loadable) == 55, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"

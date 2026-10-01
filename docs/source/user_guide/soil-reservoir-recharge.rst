@@ -46,6 +46,46 @@ The recharge reaches MODFLOW as a daily grid on the SAFRAN cells, averaged
 over each stress period like any gridded recharge. A daily recharge is zero
 on most summer days: this is the point.
 
+Curve-number runoff on wet soils
+---------------------------------
+
+``curve_number`` adds a second, optional surface runoff to the soil, on top
+of ``impervious_fraction``: a HELP-style SCS curve number (Schroeder et al.
+1994, EPA/600/R-94/168b, eq. 21-24) whose retention depends on how wet the
+soil already is, not only on the rain. Unset (``None``, the default) it costs
+nothing: the kernel is bit for bit the one described above.
+
+Each day, on the unsealed share, with ``w = soil_mm / ru`` (0 to 1, 1 when
+``ru = 0``):
+
+.. code-block:: text
+
+   CN1 = 4.2 CN / (10 - 0.058 CN)          # dry soil, AMC I
+   CN3 = 23 CN / (10 + 0.13 CN)            # wet soil, AMC III
+   S(x) = 25400 / x - 254                  # retention, mm
+   S = S(CN1) + (S(CN3) - S(CN1)) x w      # today's retention
+   Ia = 0.2 S
+   Q_cn = (P - Ia)^2 / (P - Ia + S) if P > Ia, else 0
+
+``CN1`` and ``CN3`` come from the AMC II curve number (Chow, Maidment and
+Mays 1988, eq. 5.5.6-5.5.7); ``Ia = 0.2 S`` is the standard SCS-CN initial
+abstraction. The infiltrating rain ``P - Q_cn`` replaces ``P`` in the bypass
+and soil terms below it, so ``Q_cn`` is taken before the soil sees the rain,
+not after. ``Q_cn`` then crosses its own linear reservoir, exact over one
+day like the transit store, with time constant ``runoff_time`` (days, 0
+sends it the same day); the routed total reaches the gauged discharge the
+same way ``impervious_fraction`` already does, never MODFLOW. The printed
+budget and ``soil_budget.parquet`` carry it as its own row and column
+(``runoff_cn_mm``), apart from the sealed share.
+
+A catchment calibrated on discharge tends to need a curve number above the
+tables (75 to 85 against 55 to 78 for Breton land covers): SAFRAN rain is a
+mean over 8 km cells, which smooths the daily peaks a tabulated curve number
+assumes. Reach for it for a seasonal quick flow that ``impervious_fraction``
+alone cannot place correctly on wet soils; keep ``runoff_time`` at a day or
+more once a run is coupled to MODFLOW, since an unrouted term can exceed the
+gauged discharge of the day it falls on.
+
 Declaring it
 ------------
 
@@ -202,10 +242,12 @@ What a run keeps
        would be.
    * - ``fields.zarr/forcing/soil/``
      - Day by day and per column: ``etr``, ``residual_etp``, ``recharge``,
-       ``runoff`` (mm/day), ``soil_storage``, ``transit_storage`` (mm, end of
+       ``runoff``, ``runoff_cn`` (mm/day, the curve-number share alone),
+       ``soil_storage``, ``transit_storage``, ``cn_storage`` (mm, end of
        day), with the position and capacity of each column.
    * - ``fields.zarr/forcing/runoff/_watershed``
-     - The runoff of the sealed share, basin mean, zero without sealed area.
+     - The runoff of the sealed share plus the routed curve-number share,
+       basin mean; zero only without sealed area and without ``curve_number``.
    * - ``tables.parquet/soil_budget.parquet``
      - One row per column and calendar year, and a ``_watershed`` row: the
        budget in mm, with a ``days`` column for a partial year.
@@ -291,3 +333,8 @@ References
   https://doi.org/10.5194/hess-17-2083-2013
 - Moore, R.J. (2007). The PDM rainfall-runoff model. HESS 11, 483-499.
   https://doi.org/10.5194/hess-11-483-2007
+- Schroeder, P.R. et al. (1994). The Hydrologic Evaluation of Landfill
+  Performance (HELP) Model: Engineering Documentation for Version 3. EPA/600/
+  R-94/168b.
+- Chow, V.T., Maidment, D.R., Mays, L.W. (1988). Applied Hydrology.
+  McGraw-Hill.

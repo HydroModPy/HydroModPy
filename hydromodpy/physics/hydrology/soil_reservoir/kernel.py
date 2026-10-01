@@ -4,7 +4,10 @@ Each day the rain reaches the soil before it evaporates. ETR falls linearly
 below alpha x RU: alpha is 1 - p of FAO-56 (Allen et al. 1998) and LP of HBV
 (Seibert and Vis 2012). The water above RU leaves the soil; a linear reservoir
 of time constant ``transit_time_days``, integrated exactly over the day, can
-delay it. The sealed share of a column runs off; the soil covers the rest.
+delay it. The sealed share of a column runs off, and so does an optional
+SCS-CN share of the unsealed rain (HELP, Schroeder et al. 1994), routed
+through its own linear reservoir of time constant ``runoff_time_days``. The
+soil covers the rest.
 """
 
 from __future__ import annotations
@@ -26,6 +29,8 @@ class SoilParameters:
     impervious_fraction: float  # [0, 1)
     bypass_fraction: float  # [0, 1)
     transit_time_days: float  # [0, 30]
+    curve_number: float | None = None  # AMC II curve number, [30, 98]; None turns the term off
+    runoff_time_days: float = 1.0  # time constant of the curve-number runoff reservoir, [0, 10]
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +39,7 @@ class SoilState:
 
     soil_mm: np.ndarray  # (N,)
     transit_mm: np.ndarray  # (N,)
+    cn_storage_mm: np.ndarray | None = None  # (N,) curve-number routing store; None reads as zero
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,7 +49,8 @@ class SoilDay:
     etr: np.ndarray  # (N,)
     residual_etp: np.ndarray  # (N,)
     recharge: np.ndarray  # (N,) sent to MODFLOW
-    runoff: np.ndarray  # (N,) sealed share
+    runoff: np.ndarray  # (N,) sealed share plus routed curve-number runoff
+    runoff_cn: np.ndarray  # (N,) the curve-number share of runoff alone
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,10 +61,13 @@ class SoilFluxes:
     residual_etp: np.ndarray  # (T, N)
     recharge: np.ndarray  # (T, N)
     runoff: np.ndarray  # (T, N)
+    runoff_cn: np.ndarray  # (T, N) curve-number share of runoff
     soil_storage: np.ndarray  # (T, N) end of day
     transit_storage: np.ndarray  # (T, N) end of day
+    cn_storage: np.ndarray  # (T, N) end of day
     soil_storage_start: np.ndarray  # (N,) before the first day
     transit_storage_start: np.ndarray  # (N,) before the first day
+    cn_storage_start: np.ndarray  # (N,) before the first day
     end: SoilState  # state after the last day, unsealed units
 
 
@@ -84,8 +94,10 @@ class AnnualSoilBudget:
     residual_etp: np.ndarray  # (Y, N)
     recharge: np.ndarray  # (Y, N)
     runoff: np.ndarray  # (Y, N)
+    runoff_cn: np.ndarray  # (Y, N) curve-number share of runoff
     soil_storage_change: np.ndarray  # (Y, N)
     transit_storage_change: np.ndarray  # (Y, N)
+    cn_storage_change: np.ndarray  # (Y, N)
     residual: np.ndarray  # (Y, N)
     weights: np.ndarray  # (N,) weight of each column in the basin value
 
@@ -95,11 +107,33 @@ class AnnualSoilBudget:
 
 
 def full_soil(params: SoilParameters) -> SoilState:
-    """Soil at field capacity, transit store empty: the wet-winter start."""
+    """Soil at field capacity, transit and curve-number stores empty: the wet-winter start."""
     return SoilState(
         soil_mm=params.ru_mm.copy(),
         transit_mm=np.zeros_like(params.ru_mm),
+        cn_storage_mm=np.zeros_like(params.ru_mm),
     )
+
+
+def retention_mm(cn: float, w: np.ndarray) -> np.ndarray:
+    """SCS retention ``S``, mm, at each column's soil wetness ``w`` (0 to 1).
+
+    ``w = 0`` reads the dry-soil retention (AMC I), ``w = 1`` the wet-soil one
+    (AMC III), linear between the two (HELP eq. 26; AMC I/III from AMC II,
+    Chow, Maidment and Mays 1988, eq. 5.5.6-5.5.7).
+    """
+    cn1 = 4.2 * cn / (10.0 - 0.058 * cn)
+    cn3 = 23.0 * cn / (10.0 + 0.13 * cn)
+    s1 = 25400.0 / cn1 - 254.0
+    s3 = 25400.0 / cn3 - 254.0
+    return s1 + (s3 - s1) * w
+
+
+def curve_number_runoff(p: np.ndarray, s: np.ndarray) -> np.ndarray:
+    """SCS-CN runoff, mm/day: ``(P - Ia)^2 / (P - Ia + S)`` above ``Ia = 0.2 S``, else 0."""
+    ia = 0.2 * s
+    excess = p - ia
+    return np.where(excess > 0.0, excess * excess / (excess + s), 0.0)
 
 
 def route_linear_reservoir(
@@ -131,14 +165,22 @@ def soil_step(
     bypass_fraction = params.bypass_fraction
     transit_time_days = params.transit_time_days
     unsealed_fraction = 1.0 - params.impervious_fraction
+    has_capacity = ru_mm > 0
 
-    runoff = params.impervious_fraction * precipitation
-    bypassed = bypass_fraction * precipitation
-    wet_soil = state.soil_mm + (1.0 - bypass_fraction) * precipitation
+    if params.curve_number is None:
+        q_cn = np.zeros_like(precipitation)
+    else:
+        w = np.ones_like(precipitation)
+        w[has_capacity] = np.clip(state.soil_mm[has_capacity] / ru_mm[has_capacity], 0.0, 1.0)
+        q_cn = curve_number_runoff(precipitation, retention_mm(params.curve_number, w))
+    infiltrating_rain = precipitation - q_cn
+
+    runoff_impervious = params.impervious_fraction * precipitation
+    bypassed = bypass_fraction * infiltrating_rain
+    wet_soil = state.soil_mm + (1.0 - bypass_fraction) * infiltrating_rain
     demand = params.kc * etp
 
     ratio = np.ones_like(wet_soil)
-    has_capacity = ru_mm > 0
     ratio[has_capacity] = np.minimum(1.0, wet_soil[has_capacity] / (alpha * ru_mm[has_capacity]))
 
     etr_soil = np.minimum(wet_soil, demand * ratio)
@@ -155,13 +197,27 @@ def soil_step(
             inflow_to_transit, state.transit_mm, transit_time_days
         )
 
+    cn_storage_in = state.cn_storage_mm if state.cn_storage_mm is not None else np.zeros_like(q_cn)
+    if params.runoff_time_days == 0.0:
+        routed_q_cn = q_cn
+        cn_storage_mm = cn_storage_in
+    else:
+        routed_q_cn, cn_storage_mm = route_linear_reservoir(
+            q_cn, cn_storage_in, params.runoff_time_days
+        )
+    runoff_cn = unsealed_fraction * routed_q_cn
+
     day = SoilDay(
         etr=unsealed_fraction * etr_soil,
         residual_etp=unsealed_fraction * (demand - etr_soil),
         recharge=unsealed_fraction * outflow,
-        runoff=runoff,
+        runoff=runoff_impervious + runoff_cn,
+        runoff_cn=runoff_cn,
     )
-    return SoilState(soil_mm=soil_mm, transit_mm=transit_mm), day
+    return (
+        SoilState(soil_mm=soil_mm, transit_mm=transit_mm, cn_storage_mm=cn_storage_mm),
+        day,
+    )
 
 
 def run_soil_balance(
@@ -173,10 +229,17 @@ def run_soil_balance(
     residual_etp = np.empty((n_days, n_columns), dtype=np.float64)
     recharge = np.empty((n_days, n_columns), dtype=np.float64)
     runoff = np.empty((n_days, n_columns), dtype=np.float64)
+    runoff_cn = np.empty((n_days, n_columns), dtype=np.float64)
     soil_storage = np.empty((n_days, n_columns), dtype=np.float64)
     transit_storage = np.empty((n_days, n_columns), dtype=np.float64)
+    cn_storage = np.empty((n_days, n_columns), dtype=np.float64)
 
     unsealed_fraction = 1.0 - params.impervious_fraction
+    initial_cn_mm = (
+        initial.cn_storage_mm
+        if initial.cn_storage_mm is not None
+        else np.zeros_like(initial.soil_mm)
+    )
     state = initial
     for t in range(n_days):
         state, day = soil_step(state, precipitation[t], etp[t], params)
@@ -184,18 +247,23 @@ def run_soil_balance(
         residual_etp[t] = day.residual_etp
         recharge[t] = day.recharge
         runoff[t] = day.runoff
+        runoff_cn[t] = day.runoff_cn
         soil_storage[t] = unsealed_fraction * state.soil_mm
         transit_storage[t] = unsealed_fraction * state.transit_mm
+        cn_storage[t] = unsealed_fraction * state.cn_storage_mm
 
     return SoilFluxes(
         etr=etr,
         residual_etp=residual_etp,
         recharge=recharge,
         runoff=runoff,
+        runoff_cn=runoff_cn,
         soil_storage=soil_storage,
         transit_storage=transit_storage,
+        cn_storage=cn_storage,
         soil_storage_start=unsealed_fraction * initial.soil_mm,
         transit_storage_start=unsealed_fraction * initial.transit_mm,
+        cn_storage_start=unsealed_fraction * initial_cn_mm,
         end=state,
     )
 
@@ -218,6 +286,7 @@ def spinup_state(
     state = full_soil(params)
     previous_soil_end = state.soil_mm
     previous_transit_end = state.transit_mm
+    previous_cn_end = state.cn_storage_mm
     settled = False
     change = float("inf")
     cycles_run = 0
@@ -232,7 +301,10 @@ def spinup_state(
             np.max(
                 np.maximum(
                     np.abs(state.soil_mm - previous_soil_end),
-                    np.abs(state.transit_mm - previous_transit_end),
+                    np.maximum(
+                        np.abs(state.transit_mm - previous_transit_end),
+                        np.abs(state.cn_storage_mm - previous_cn_end),
+                    ),
                 )
             )
         )
@@ -241,6 +313,7 @@ def spinup_state(
             break
         previous_soil_end = state.soil_mm
         previous_transit_end = state.transit_mm
+        previous_cn_end = state.cn_storage_mm
 
     has_capacity = params.ru_mm > 0
     stayed_below_ru = np.all(last_cycle_soil < params.ru_mm - RU_TOLERANCE_MM, axis=0)
@@ -263,10 +336,20 @@ def balance_residual(precipitation: np.ndarray, fluxes: SoilFluxes) -> np.ndarra
     previous_transit = np.concatenate(
         [fluxes.transit_storage_start[np.newaxis, :], fluxes.transit_storage[:-1]], axis=0
     )
+    previous_cn = np.concatenate(
+        [fluxes.cn_storage_start[np.newaxis, :], fluxes.cn_storage[:-1]], axis=0
+    )
     soil_change = fluxes.soil_storage - previous_soil
     transit_change = fluxes.transit_storage - previous_transit
+    cn_change = fluxes.cn_storage - previous_cn
     return (
-        precipitation - fluxes.etr - fluxes.recharge - fluxes.runoff - soil_change - transit_change
+        precipitation
+        - fluxes.etr
+        - fluxes.recharge
+        - fluxes.runoff
+        - soil_change
+        - transit_change
+        - cn_change
     )
 
 
@@ -290,8 +373,10 @@ def annual_budget(
     residual_etp_sum = np.empty((n_years, n_columns), dtype=np.float64)
     recharge_sum = np.empty((n_years, n_columns), dtype=np.float64)
     runoff_sum = np.empty((n_years, n_columns), dtype=np.float64)
+    runoff_cn_sum = np.empty((n_years, n_columns), dtype=np.float64)
     soil_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
     transit_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
+    cn_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
     residual_sum = np.empty((n_years, n_columns), dtype=np.float64)
 
     for i, year in enumerate(unique_years):
@@ -303,6 +388,7 @@ def annual_budget(
         residual_etp_sum[i] = fluxes.residual_etp[day_indices].sum(axis=0)
         recharge_sum[i] = fluxes.recharge[day_indices].sum(axis=0)
         runoff_sum[i] = fluxes.runoff[day_indices].sum(axis=0)
+        runoff_cn_sum[i] = fluxes.runoff_cn[day_indices].sum(axis=0)
         residual_sum[i] = daily_residual[day_indices].sum(axis=0)
 
         first_day, last_day = day_indices[0], day_indices[-1]
@@ -314,8 +400,12 @@ def annual_budget(
             if first_day == 0
             else fluxes.transit_storage[first_day - 1]
         )
+        cn_before_year = (
+            fluxes.cn_storage_start if first_day == 0 else fluxes.cn_storage[first_day - 1]
+        )
         soil_storage_change[i] = fluxes.soil_storage[last_day] - soil_before_year
         transit_storage_change[i] = fluxes.transit_storage[last_day] - transit_before_year
+        cn_storage_change[i] = fluxes.cn_storage[last_day] - cn_before_year
 
     return AnnualSoilBudget(
         years=unique_years,
@@ -326,8 +416,10 @@ def annual_budget(
         residual_etp=residual_etp_sum,
         recharge=recharge_sum,
         runoff=runoff_sum,
+        runoff_cn=runoff_cn_sum,
         soil_storage_change=soil_storage_change,
         transit_storage_change=transit_storage_change,
+        cn_storage_change=cn_storage_change,
         residual=residual_sum,
         weights=weights,
     )

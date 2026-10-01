@@ -80,6 +80,11 @@ Each release section includes the following standard categories:
 - `[flow.sinks_sources.recharge.soil] impervious_fraction` is calibratable, as
   `[calibration.parameters.impervious_fraction]` with bounds below 1: each trial recomputes the
   runoff of the sealed share and adds it once to the discharge it scores.
+- `[flow.sinks_sources.recharge.soil] curve_number` adds a curve-number runoff in the manner
+  of HELP (Schroeder et al. 1994): its retention moves between the dry (CN1) and wet (CN3)
+  values with the soil water, so ordinary rain on a dry summer soil does not run off and rain
+  on a wet winter soil does; `runoff_time` (1 day) routes it through a linear reservoir to the
+  gauged discharge. Both are calibratable; off by default, results unchanged.
 - The exponential vertical profile of a field is calibratable:
   `[calibration.parameters."K.characteristic_depth"]` (and `min_factor`) tune how K or Sy
   decrease with depth, evaluated at the layer centres. A calibration target that is not the

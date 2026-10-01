@@ -707,7 +707,17 @@ SOIL_BUDGET_SCHEMA: Final[pa.Schema] = pa.schema(
             "runoff_mm",
             pa.float64(),
             nullable=False,
-            metadata=_field_meta(description="Runoff of the sealed share, mm"),
+            metadata=_field_meta(
+                description="Runoff of the sealed share plus the routed curve-number share, mm"
+            ),
+        ),
+        pa.field(
+            "runoff_cn_mm",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(
+                description="Curve-number share of runoff alone, mm; 0 when curve_number is off"
+            ),
         ),
         pa.field(
             "soil_storage_change_mm",
@@ -720,6 +730,15 @@ SOIL_BUDGET_SCHEMA: Final[pa.Schema] = pa.schema(
             pa.float64(),
             nullable=False,
             metadata=_field_meta(description="Change of the transit store over the row, mm"),
+        ),
+        pa.field(
+            "cn_storage_change_mm",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(
+                description="Change of the curve-number routing store over the row, mm; "
+                "0 when curve_number is off"
+            ),
         ),
         pa.field(
             "balance_residual_mm",
