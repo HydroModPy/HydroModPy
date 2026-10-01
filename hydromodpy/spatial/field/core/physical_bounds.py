@@ -110,6 +110,16 @@ PHYSICAL_BOUNDS: dict[str, PhysicalBound] = {
     # own `gt=0.0` constraint: a bound touching 0 would load without error but
     # fail as soon as a sampler (grid, LHS) actually draws that edge value.
     "extinction_depth": PhysicalBound("m", 1e-3, 100.0, "EVT extinction depth"),
+    # ---- Vertical profile -----------------------------------------------
+    # The floor keeps the exponential decay length away from zero, where it
+    # would degenerate into a step function and a log-space sampler would
+    # divide by it. The ceiling is past any catchment depth this project models.
+    "characteristic_depth": PhysicalBound(
+        "m", 0.1, 1000.0, "vertical profile characteristic depth"
+    ),
+    # The floor is strictly positive: a sampler drawing exactly 0 would make
+    # the floor indistinguishable from "no floor" (mode='none' already says that).
+    "min_factor": PhysicalBound("-", 1e-6, 1.0, "vertical profile floor factor"),
     # ---- Solver tolerances ---------------------------------------------
     "nwt_headtol": PhysicalBound("m", 1e-8, 1.0, "NWT head tolerance"),
     "nwt_fluxtol": PhysicalBound("-", 1e-4, 1e5, "NWT flux tolerance"),

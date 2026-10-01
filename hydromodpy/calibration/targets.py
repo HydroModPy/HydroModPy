@@ -293,11 +293,13 @@ def _named(found: list[_Found]) -> list[CalibrationTarget]:
                 item.path,
                 item.instances[0] if item.instances else None,
                 item.path.rsplit(".", 1)[-1],
+                leaf_first=not _is_the_value_of_its_instance(item.calibrable),
             ),
             registry_id=_registry_id_for(
                 item.path,
                 item.instances[0] if item.instances else None,
                 item.path.rsplit(".", 1)[-1],
+                leaf_first=not _is_the_value_of_its_instance(item.calibrable),
             ),
         )
         for item, name in zip(found, names, strict=True)
@@ -321,12 +323,28 @@ def _declared_units(node: BaseModel) -> str | None:
     return None
 
 
-def _registry_id_for(path: str, instance: str | None, leaf: str) -> str | None:
-    """Return the registry key this value is known under: its entry, else its leaf."""
+def _is_the_value_of_its_instance(calibrable: Calibrable | None) -> bool:
+    return bool(calibrable is not None and calibrable.is_the_value_of_its_instance)
+
+
+def _registry_id_for(
+    path: str, instance: str | None, leaf: str, *, leaf_first: bool = False
+) -> str | None:
+    """Return the registry key this value is known under: its entry, else its leaf.
+
+    ``instance`` is checked first only when the leaf IS the quantity of its
+    instance (``K.value`` is a conductivity because ``K`` is). A nested
+    property that is not its instance's headline quantity, like
+    ``K.characteristic_depth`` (a depth, not a conductivity), would otherwise
+    borrow ``K``'s own range the moment a param id happens to spell a known
+    key: the same confusion ``soil.transit_time`` avoids from the other side,
+    by never answering to a bare leaf the registry did not mean for it.
+    """
     stated = _REGISTRY_ID_BY_PATH.get(path)
     if stated is not None:
         return stated
-    for candidate in (instance, leaf):
+    order = (leaf, instance) if leaf_first else (instance, leaf)
+    for candidate in order:
         if not candidate:
             continue
         if str(candidate).lower() in PHYSICAL_BOUNDS:
@@ -334,8 +352,10 @@ def _registry_id_for(path: str, instance: str | None, leaf: str) -> str | None:
     return None
 
 
-def _physical_bounds_for(path: str, instance: str | None, leaf: str) -> tuple[float, float] | None:
-    key = _registry_id_for(path, instance, leaf)
+def _physical_bounds_for(
+    path: str, instance: str | None, leaf: str, *, leaf_first: bool = False
+) -> tuple[float, float] | None:
+    key = _registry_id_for(path, instance, leaf, leaf_first=leaf_first)
     if key is None:
         return None
     bound = PHYSICAL_BOUNDS[key]

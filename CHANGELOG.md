@@ -80,6 +80,11 @@ Each release section includes the following standard categories:
 - `[flow.sinks_sources.recharge.soil] impervious_fraction` is calibratable, as
   `[calibration.parameters.impervious_fraction]` with bounds below 1: each trial recomputes the
   runoff of the sealed share and adds it once to the discharge it scores.
+- The exponential vertical profile of a field is calibratable:
+  `[calibration.parameters."K.characteristic_depth"]` (and `min_factor`) tune how K or Sy
+  decrease with depth, evaluated at the layer centres. A calibration target that is not the
+  headline quantity of its instance now takes its physical bounds from its own leaf, so a
+  depth under `K` is no longer checked against the range of a conductivity.
 
 ### Changed
 - A calibration phase that samples a recharge parameter writes the RCHA (and EVTA) of each trial
