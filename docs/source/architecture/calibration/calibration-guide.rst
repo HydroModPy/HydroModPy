@@ -690,6 +690,12 @@ Optimization methods
      - Yes
      - Simple, exhaustive
      - 1-2 params, unlimited budget
+   * - ``lhs``
+     - Stratified Monte Carlo
+     - ``n_samples``
+     - Seed-dependent
+     - Space-filling, one point per stratum
+     - A budgeted space-filling design, more dims than ``grid`` can afford
    * - ``optuna`` (default TPE)
      - Light Bayesian
      - 50-200
@@ -760,6 +766,8 @@ when the two drift apart.
      - ``rel_tol``, ``signed_component``, ``sweep_points``, ``bracket_expand``
    * - ``grid``
      - ``points_per_dim``
+   * - ``lhs``
+     - ``n_samples``, ``optimization``
    * - ``random_search``
      - none
    * - ``scipy_de``
@@ -787,7 +795,20 @@ the coarse log sweep run before the bracketing, which checks the monotonicity
 the root search assumes instead of supposing it; its ``rel_tol`` is written
 from the phase ``tolerance`` and is not repeated here. ``gp_mapping`` maximises
 expected improvement over an RBF Gaussian-process surrogate, and switches to a
-lower confidence bound when ``kappa`` is non-zero.
+lower confidence bound when ``kappa`` is non-zero. ``lhs`` draws its whole
+``n_samples``-point design once, before any evaluation: with the default
+``optimization`` or ``"random-cd"``, every stratum of every dimension is hit
+exactly once in transformed space; ``optimization="lloyd"`` is scipy's
+Lloyd-relaxation post-process and does not guarantee that property, so strata
+can be left unsampled or hit more than once in exchange for better spacing.
+A uniform or log-uniform prior maps onto the design exactly, and a
+``normal`` prior is refused by name because clipping it to bounds would
+break the one-point-per-stratum guarantee that ``optimization=None`` or
+``"random-cd"`` rely on. ``max_iter = "auto"`` resolves to exactly
+``n_samples``, and a written
+``max_iter`` smaller than that is refused at load rather than truncating the
+design silently. The engine's own seed reaches it the same way it reaches
+``grid`` and ``random_search``; a different seed draws a different design.
 
 Reading the results
 -------------------

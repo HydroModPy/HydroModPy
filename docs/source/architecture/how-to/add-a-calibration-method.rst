@@ -6,7 +6,7 @@ proposes a parameter point, the engine evaluates it, the optimizer
 ingests the result. Optimizers are plugged through *adapters* under
 ``hydromodpy/calibration/optim/adapters/``.
 
-Today nine adapters ship: ``Grid``, ``RandomSearch``,
+Today ten adapters ship: ``Grid``, ``Lhs``, ``RandomSearch``,
 ``ScipyNelderMead``, ``ScipyDE``, ``Optuna`` (TPE / CMA-ES samplers),
 ``CmaEs``, ``GpMapping``, ``DaMhGp``, plus the prior-sampling helper.
 

@@ -2,7 +2,9 @@
 
 The adapter works in the transformed parameter space exposed by
 :class:`~hydromodpy.calibration.optim.parameters.ParameterSpace`. An initial
-Latin-hypercube design is sampled and evaluated; subsequent iterations
+design, drawn by independent per-dimension Monte Carlo sampling (not a
+stratified Latin hypercube; see the ``lhs`` adapter for that), is sampled
+and evaluated; subsequent iterations
 fit a :class:`sklearn.gaussian_process.GaussianProcessRegressor`
 surrogate to the accumulated (x, y) pairs and pick the next point by
 maximising Expected Improvement against the best observed value.
@@ -74,8 +76,9 @@ class GPMappingOptimizer:
         Total evaluation budget (initial design included). Defaults to
         ``30``; matches the budget used in the regression test.
     n_init
-        Initial Latin-hypercube sample size. Defaults to ``10``. Clamped
-        to ``max_iter`` to avoid requesting more points than allowed.
+        Initial Monte Carlo sample size (independent per dimension, not a
+        Latin hypercube). Defaults to ``10``. Clamped to ``max_iter`` to
+        avoid requesting more points than allowed.
     seed
         RNG seed for both the initial design and the EI restarts.
     ei_tol
@@ -89,7 +92,7 @@ class GPMappingOptimizer:
     n_restarts
         Number of restarts for the EI maximiser (``scipy.optimize.minimize``).
     n_refine
-        Number of refinement rounds beyond the initial Latin-hypercube
+        Number of refinement rounds beyond the initial Monte Carlo
         design. When provided, the effective budget
         becomes ``max(max_iter, n_init + n_refine * batch_size)`` so callers
         get the requested refinement passes.

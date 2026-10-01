@@ -56,6 +56,24 @@ class RandomSearchMethodConfig(BaseModel):
     method: Literal["random_search"] = "random_search"
 
 
+class LhsMethodConfig(BaseModel):
+    """Configuration for the stratified Latin hypercube sampler."""
+
+    model_config = _MODEL_CONFIG
+
+    method: Literal["lhs"] = "lhs"
+    n_samples: int = Field(gt=0, description="Points drawn in the design. Required.")
+    optimization: Literal["random-cd", "lloyd"] | None = Field(
+        default=None,
+        description="Post-processing passed to scipy.stats.qmc.LatinHypercube: "
+        "None keeps the raw stratified draw and 'random-cd' spread the points "
+        "further apart while still hitting every stratum exactly once; "
+        "'lloyd' can spread points further apart too, but is a best-effort "
+        "relaxation that is not guaranteed to keep the one-point-per-stratum "
+        "property.",
+    )
+
+
 class ScipyDEMethodConfig(BaseModel):
     """Configuration for ``scipy.optimize.differential_evolution``."""
 
@@ -182,6 +200,7 @@ CalibrationMethodConfig = Annotated[
     BisectionMethodConfig
     | GridMethodConfig
     | RandomSearchMethodConfig
+    | LhsMethodConfig
     | ScipyDEMethodConfig
     | ScipyNelderMeadMethodConfig
     | CmaEsMethodConfig
