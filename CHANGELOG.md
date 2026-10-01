@@ -70,21 +70,6 @@ Each release section includes the following standard categories:
   exactly `n_samples`, and a smaller written `max_iter` is refused at load instead of
   cutting the design. The initial sample of `gp_mapping` is now described as what it is,
   an independent draw per parameter, not a Latin hypercube.
-- `method = "lhs"`: a stratified Latin hypercube over the transformed parameter space
-  (`scipy.stats.qmc.LatinHypercube`), sized by `method_options.n_samples`, with
-  `optimization = "random-cd"` to spread the points further. `max_iter = "auto"` budgets
-  exactly `n_samples`, and a smaller written `max_iter` is refused at load instead of
-  cutting the design. The initial sample of `gp_mapping` is now described as what it is,
-  an independent draw per parameter, not a Latin hypercube.
-- `[flow.sinks_sources.etp] extinction_depth` is calibratable, as
-  `[calibration.parameters.extinction_depth]` with its bounds in m: each trial rebuilds the
-  EVT of MODFLOW 6 in soil mode, and of MODFLOW-NWT, with its own depth.
-- `method = "lhs"`: a stratified Latin hypercube over the transformed parameter space
-  (`scipy.stats.qmc.LatinHypercube`), sized by `method_options.n_samples`, with
-  `optimization = "random-cd"` to spread the points further. `max_iter = "auto"` budgets
-  exactly `n_samples`, and a smaller written `max_iter` is refused at load instead of
-  cutting the design. The initial sample of `gp_mapping` is now described as what it is,
-  an independent draw per parameter, not a Latin hypercube.
 - `[flow.sinks_sources.etp] extinction_depth` is calibratable, as
   `[calibration.parameters.extinction_depth]` with its bounds in m: each trial rebuilds the
   EVT of MODFLOW 6 in soil mode, and of MODFLOW-NWT, with its own depth.
@@ -107,18 +92,6 @@ Each release section includes the following standard categories:
   mode, an active `"etp"` is still ignored, and the run now says so once.
 - A raster read by a file family is labelled with the unit its manager declares (substratum and
   lake bathymetry stay in m).
-- Under MODFLOW 6, a recharge chronicle whose negative part goes to EVT builds the EVTA
-  arrays with numpy when every EVT cell sits on layer 0, instead of one Python record per
-  cell and per deficit day first: on 36,465 cells and 2,452 daily periods the build takes
-  0.24 s and 0.6 GB instead of about 50 s and 12 GB, for the same arrays.
-- Under MODFLOW 6, a recharge chronicle whose negative part goes to EVT builds the EVTA
-  arrays with numpy when every EVT cell sits on layer 0, instead of one Python record per
-  cell and per deficit day first: on 36,465 cells and 2,452 daily periods the build takes
-  0.24 s and 0.6 GB instead of about 50 s and 12 GB, for the same arrays.
-- Under MODFLOW 6, a recharge chronicle whose negative part goes to EVT builds the EVTA
-  arrays with numpy when every EVT cell sits on layer 0, instead of one Python record per
-  cell and per deficit day first: on 36,465 cells and 2,452 daily periods the build takes
-  0.24 s and 0.6 GB instead of about 50 s and 12 GB, for the same arrays.
 - Under MODFLOW 6, a recharge chronicle whose negative part goes to EVT builds the EVTA
   arrays with numpy when every EVT cell sits on layer 0, instead of one Python record per
   cell and per deficit day first: on 36,465 cells and 2,452 daily periods the build takes
