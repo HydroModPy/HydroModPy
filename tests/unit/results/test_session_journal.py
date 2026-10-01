@@ -6,6 +6,7 @@ import json
 import uuid
 from datetime import UTC, datetime
 
+import pandas as pd
 import pytest
 
 from hydromodpy.core.state.paths import catalog_path_for
@@ -15,12 +16,15 @@ from hydromodpy.results.session_journal import (
     SessionJournal,
     SessionTrial,
     read_descriptor,
+    read_trial_series,
     read_trials,
     session_dirs_for,
     sessions_dir_for,
+    write_trial_series,
 )
 from hydromodpy.results.storage.contract import (
     SESSION_DESCRIPTOR_FILENAME,
+    SESSION_TRIAL_SERIES_DIRNAME,
     SESSION_TRIALS_FILENAME,
 )
 
@@ -269,3 +273,67 @@ def test_a_malformed_descriptor_is_reported_and_left_out(project):
     assert report.sessions == ()
     assert [item.run for item in report.skipped] == [directory.name]
     assert "session_id" in report.skipped[0].reason
+
+
+# -- the opt-in trial series table -------------------------------------------
+
+
+_ROWS = [
+    {
+        "output": "q",
+        "station": "G1",
+        "time": pd.Timestamp("2001-01-31"),
+        "simulated": 1.1,
+        "observed": 1.0,
+    },
+    {
+        "output": "q",
+        "station": "G1",
+        "time": pd.Timestamp("2001-02-28"),
+        "simulated": 2.2,
+        "observed": 2.0,
+    },
+]
+
+
+def test_the_writer_names_the_file_so_it_sorts_by_trial_number(tmp_path):
+    for trial in (2, 10, 1):
+        write_trial_series(tmp_path, trial, _ROWS)
+
+    names = sorted(p.name for p in (tmp_path / SESSION_TRIAL_SERIES_DIRNAME).iterdir())
+
+    assert names == ["trial-000001.parquet", "trial-000002.parquet", "trial-000010.parquet"]
+
+
+def test_the_writer_produces_the_expected_table(tmp_path):
+    target = write_trial_series(tmp_path, 7, _ROWS)
+
+    table = pd.read_parquet(target)
+    assert list(table.columns) == ["trial", "output", "station", "time", "simulated", "observed"]
+    assert table["trial"].tolist() == [7, 7]
+    assert table["output"].tolist() == ["q", "q"]
+    assert table["station"].tolist() == ["G1", "G1"]
+    assert table["simulated"].tolist() == [1.1, 2.2]
+    assert table["observed"].tolist() == [1.0, 2.0]
+
+
+def test_a_trial_with_no_rows_writes_nothing(tmp_path):
+    assert write_trial_series(tmp_path, 3, []) is None
+    assert not (tmp_path / SESSION_TRIAL_SERIES_DIRNAME).exists()
+
+
+def test_the_reader_concatenates_every_trial(tmp_path):
+    write_trial_series(tmp_path, 1, _ROWS[:1])
+    write_trial_series(tmp_path, 2, _ROWS[1:])
+
+    table = read_trial_series(tmp_path)
+
+    assert sorted(table["trial"].tolist()) == [1, 2]
+    assert sorted(table["simulated"].tolist()) == [1.1, 2.2]
+
+
+def test_the_reader_is_empty_but_typed_when_the_key_was_off(tmp_path):
+    table = read_trial_series(tmp_path)
+
+    assert table.empty
+    assert list(table.columns) == ["trial", "output", "station", "time", "simulated", "observed"]

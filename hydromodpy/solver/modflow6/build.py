@@ -25,6 +25,7 @@ from hydromodpy.solver.modflow6.builders import (
     bind_soil_etp_from_flow,
     build_drain_stress_period_data,
     build_drainage_mover_records,
+    build_evt_array_stress_period_data,
     build_evt_stress_period_data,
     build_exposed_band_runoff_specs,
     build_lak_package_args,
@@ -41,6 +42,7 @@ from hydromodpy.solver.modflow6.builders import (
     collapse_identical_periods,
     empty_recharge_aux,
     evt_list_spd_to_array_payload,
+    evt_routing_is_layer0_only,
     externalize_recharge_spd,
     finalize_pending_recharge_evt,
     is_bc_active,
@@ -1104,13 +1106,40 @@ def run_pre_processing(  # noqa: PLR0915
         drain_active=is_bc_active(model, "drainage"),
         shared_dir=_shared_recharge_dir(model),
     )
-    evt_spd = build_evt_stress_period_data(
+    # Prefer the vectorized EVTA build: it is byte-for-byte equivalent to
+    # build_evt_stress_period_data -> collapse_identical_periods ->
+    # evt_list_spd_to_array_payload whenever every kept EVT cell's first active
+    # layer is 0 (evt_routing_is_layer0_only, cheap and period-invariant), and
+    # it never materializes the list builder's O(ncells x nper) Python records
+    # (63M lists / ~12 GB on a real daily chronicle). Otherwise keep the list
+    # path, which also handles the rare cell whose top layer is inactive.
+    evt_array = None
+    if evt_routing_is_layer0_only(
         model,
         solver_mesh,
         ocean_support_mask=ocean_support_mask,
         stream_support_mask=stream_support_mask,
         lake_cell_ids=model._lake_cell_ids,
-    )
+    ):
+        evt_array = build_evt_array_stress_period_data(
+            model,
+            solver_mesh,
+            ocean_support_mask=ocean_support_mask,
+            stream_support_mask=stream_support_mask,
+            lake_cell_ids=model._lake_cell_ids,
+        )
+        # evt_spd is the single source of truth for the soil/routed-EVT collision
+        # guard below, whichever path ran; the list payload itself is only needed
+        # when the vectorized path did not run.
+        evt_spd = True if evt_array is not None else None
+    else:
+        evt_spd = build_evt_stress_period_data(
+            model,
+            solver_mesh,
+            ocean_support_mask=ocean_support_mask,
+            stream_support_mask=stream_support_mask,
+            lake_cell_ids=model._lake_cell_ids,
+        )
     if soil_evta is not None:
         if evt_spd is not None:
             raise RuntimeError(
@@ -1124,6 +1153,16 @@ def run_pre_processing(  # noqa: PLR0915
             surface=soil_surface,
             depth=soil_depth,
             rate=soil_rate,
+            save_flows=True,
+            pname="EVTA",
+        )
+    elif evt_array is not None:
+        rate_by_period, evt_surface, evt_depth = evt_array
+        model.evt = flopy.mf6.ModflowGwfevta(
+            model.gwf,
+            surface=evt_surface,
+            depth=evt_depth,
+            rate=rate_by_period,
             save_flows=True,
             pname="EVTA",
         )

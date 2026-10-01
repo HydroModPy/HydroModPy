@@ -54,6 +54,7 @@ from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl
+    from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 
 logger = get_logger(__name__)
 
@@ -293,6 +294,7 @@ def build_metric_extractor(
     scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
     observed_station_id: str | None = None,
     min_samples: int = 1,
+    series_sink: TrialSeriesSink | None = None,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Return a metric function closed over the loaded observations.
 
@@ -314,6 +316,10 @@ def build_metric_extractor(
     name a station and picks the years of a two-bound network output; a block
     on any other output carries no time axis to cut on, so the window is
     refused there rather than ignored.
+
+    ``series_sink``, when given, is handed to the scorer that is built, which
+    records every point/series output's scored series into it as a side
+    effect of scoring. Network and spatial outputs are never recorded.
     """
     if outputs and objective_blocks:
         return _build_composite_metric_extractor(
@@ -323,6 +329,7 @@ def build_metric_extractor(
             warmup_periods=warmup_periods,
             scoring_window=scoring_window,
             min_samples=min_samples,
+            series_sink=series_sink,
         )
 
     observed = load_observed(ctx, variable) if variable else []
@@ -339,6 +346,7 @@ def build_metric_extractor(
             observed_station_id=observed_station_id,
             warmup_periods=warmup_periods,
             scoring_window=scoring_window,
+            series_sink=series_sink,
         )
         if observed
         else None
@@ -386,6 +394,7 @@ def _build_composite_metric_extractor(
     warmup_periods: int = 0,
     scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
     min_samples: int = 1,
+    series_sink: TrialSeriesSink | None = None,
 ) -> Callable[..., tuple[float, Mapping[str, float]]]:
     """Build a metric_fn that routes through ``build_objective_from_config``."""
     observing = observing_outputs(outputs)
@@ -398,6 +407,7 @@ def _build_composite_metric_extractor(
         warmup_periods=warmup_periods,
         scoring_window=scoring_window,
         min_samples=min_samples,
+        series_sink=series_sink,
     )
 
     def metric_fn(trial_ctx: Any, *, objective: str | None = None, variable: str | None = None):

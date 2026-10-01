@@ -397,9 +397,7 @@ def build_etp_payload(
     surface_offset_q = getattr(etp_cfg, "surface_offset", None)
     surface_offset = 2.0 if surface_offset_q is None else float(surface_offset_q.to("m").magnitude)
     extinction_depth_q = getattr(etp_cfg, "extinction_depth", None)
-    extinction_depth = (
-        1.0 if extinction_depth_q is None else float(extinction_depth_q.to("m").magnitude)
-    )
+    extinction_depth = 1.0 if extinction_depth_q is None else float(extinction_depth_q)
 
     het_source = getattr(etp_cfg, "heterogeneous_source", None)
     if het_source is not None and (

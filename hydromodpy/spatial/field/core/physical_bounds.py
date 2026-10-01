@@ -101,6 +101,11 @@ PHYSICAL_BOUNDS: dict[str, PhysicalBound] = {
         "-", 0.0, 0.99, "share of the rain that bypasses the soil"
     ),
     "soil_transit_time": PhysicalBound("day", 0.0, 30.0, "transit time below the soil"),
+    # ---- EVT ---
+    # The floor is strictly positive to match FlowEtpConfig.extinction_depth's
+    # own `gt=0.0` constraint: a bound touching 0 would load without error but
+    # fail as soon as a sampler (grid, LHS) actually draws that edge value.
+    "extinction_depth": PhysicalBound("m", 1e-3, 100.0, "EVT extinction depth"),
     # ---- Solver tolerances ---------------------------------------------
     "nwt_headtol": PhysicalBound("m", 1e-8, 1.0, "NWT head tolerance"),
     "nwt_fluxtol": PhysicalBound("-", 1e-4, 1e5, "NWT flux tolerance"),

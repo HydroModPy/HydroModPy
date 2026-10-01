@@ -19,7 +19,7 @@ from hydromodpy.solver.modflow6.builders.recharge import (
 
 
 class _Quantity:
-    """Minimal stand-in for the pint quantity ``surface_offset``/``extinction_depth`` hold."""
+    """Minimal stand-in for the pint quantity ``surface_offset`` holds."""
 
     def __init__(self, magnitude: float) -> None:
         self._magnitude = magnitude
@@ -58,7 +58,7 @@ def test_the_soil_marked_etp_is_bound(caplog: pytest.LogCaptureFixture) -> None:
         heterogeneous_source=source,
         interpolation_method="linear",
         surface_offset=_Quantity(0.3),
-        extinction_depth=_Quantity(1.5),
+        extinction_depth=1.5,
     )
     model = _model(active=["etp"], etp_cfg=etp_cfg)
 

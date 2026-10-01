@@ -51,6 +51,7 @@ from hydromodpy.results.derive.time_alignment import first_period_start, time_me
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl, OutputTime
     from hydromodpy.calibration.metrics.series import ObservedSeries
+    from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
     from hydromodpy.calibration.optim.objective import Objective
 
 logger = get_logger(__name__)
@@ -310,11 +311,18 @@ class ObservableScorer:
         warmup_periods: int = 0,
         scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
         min_samples: int = 1,
+        series_sink: TrialSeriesSink | None = None,
     ) -> None:
         refuse_window_without_dates(
             outputs, objective_blocks, scoring_window, observing_outputs(outputs)
         )
         self._outputs: dict[str, CalibOutputDecl] = dict(outputs)
+        self._series_sink = series_sink
+        self._stations: dict[str, str] = {
+            str(name): str(getattr(decl, "observes", None))
+            for name, decl in outputs.items()
+            if getattr(decl, "observes", None)
+        }
         self._cfg: SimpleNamespace = SimpleNamespace(
             outputs=dict(outputs),
             objective_blocks=list(objective_blocks),
@@ -395,6 +403,8 @@ class ObservableScorer:
             min_samples=self._min_samples,
             time_methods=self._time_methods,
             period_starts=starts,
+            series_sink=self._series_sink,
+            stations=self._stations,
         )
 
     def score(
@@ -584,6 +594,7 @@ class StationScorer:
         observed_station_id: str | None = None,
         warmup_periods: int = 0,
         scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+        series_sink: TrialSeriesSink | None = None,
     ) -> None:
         if str(variable) not in self.SUPPORTED:
             raise NotImplementedError(
@@ -606,6 +617,7 @@ class StationScorer:
             else None
         )
         self._unscored: set[str] = set()
+        self._series_sink = series_sink
 
     @property
     def target_station_id(self) -> str | None:
@@ -650,6 +662,9 @@ class StationScorer:
                 scoring_window=self._scoring_window,
                 time_method=self._time_method,
                 period_start=_first_period_start(series, boundaries),
+                series_sink=self._series_sink,
+                output=self._variable,
+                station=record.station_id,
             )
             components[f"cost:{self._objective}@{record.station_id}"] = cost
             if np.isfinite(cost):

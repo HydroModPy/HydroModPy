@@ -8,6 +8,8 @@ sees a cost.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pandas as pd
 
@@ -20,6 +22,9 @@ from hydromodpy.calibration.criteria.series import (
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.time_method import DEFAULT_TIME_METHOD
 from hydromodpy.results.derive.time_alignment import align_observed_simulated
+
+if TYPE_CHECKING:
+    from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 
 logger = get_logger(__name__)
 
@@ -63,6 +68,9 @@ def score(
     metric_kwargs: dict[str, object] | None = None,
     time_method: str = DEFAULT_TIME_METHOD,
     period_start: pd.Timestamp | None = None,
+    series_sink: TrialSeriesSink | None = None,
+    output: str | None = None,
+    station: str | None = None,
 ) -> float:
     """Align both series at the simulation frequency, compute the scalar metric.
 
@@ -88,6 +96,10 @@ def score(
     :func:`hydromodpy.results.derive.time_alignment.time_method_for`).
     ``period_start`` is the start of the first simulated period, which a
     single steady stamp cannot tell on its own.
+
+    ``series_sink``, when given, records the aligned, windowed series this
+    call is about to score (``output`` and ``station`` name it) before any
+    log-metric clipping, so what is kept is the same pair the cost reduces.
     """
     metric = METRICS.get(objective.lower())
     if metric is None:
@@ -114,6 +126,14 @@ def score(
                 f"({len(paired)} aligned periods available)"
             )
         paired = paired.iloc[skip:]
+    if series_sink is not None:
+        series_sink.record(
+            output=output,
+            station=station,
+            times=paired.index,
+            simulated=paired["sim"].to_numpy(),
+            observed=paired["obs"].to_numpy(),
+        )
     sim_values = paired["sim"].values
     obs_values = paired["obs"].values
     if objective.lower() in LOG_METRICS:

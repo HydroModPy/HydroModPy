@@ -1527,7 +1527,8 @@ class CalibPhaseDecl(HydroModelBase):
             "hmp calibrate --list-phases prints the method and why. Write it to "
             "depart from that choice, and whenever method_options are given. "
             "Built-ins: 'grid' (regular sweep, sized by "
-            "method_options.points_per_dim), 'random_search', 'bisection' (root of "
+            "method_options.points_per_dim), 'lhs' (stratified Latin hypercube, "
+            "sized by method_options.n_samples), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
             "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', "
             "'da_mh_gp'. An unknown name is refused when the optimizer is built, "
@@ -1929,7 +1930,8 @@ class CalibrationConfig(HydroModelBase):
             "that choice, and whenever method_options are given. A phase of "
             "[[calibration.phases]] names its own. "
             "Built-ins: 'grid' (regular sweep, sized by "
-            "method_options.points_per_dim), 'random_search', 'bisection' (root of "
+            "method_options.points_per_dim), 'lhs' (stratified Latin hypercube, "
+            "sized by method_options.n_samples), 'random_search', 'bisection' (root of "
             "a signed criterion on one parameter, the stream-network stage), 'optuna' "
             "(TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', "
             "'da_mh_gp'. An unknown name is refused when the optimizer is built, "
@@ -2146,6 +2148,14 @@ class CalibrationConfig(HydroModelBase):
         default="summary",
         description="'none' skips component metrics; 'summary' keeps block totals; "
         "'full' also stores per-block raw and normalized costs.",
+    )
+    persist_trial_series: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description="Write the simulated and observed series of every point/series "
+        "output a completed trial scored (discharge at a gauge, head at a well...), "
+        "as a small Parquet table per trial under the session folder. Off by default: "
+        "a 300-400 point search otherwise writes nothing beyond trials.jsonl. Network "
+        "and spatial outputs carry no series and are never written here.",
     )
     persist_model_distribution: Annotated[bool, Profile.DEV] = Field(
         default=False,

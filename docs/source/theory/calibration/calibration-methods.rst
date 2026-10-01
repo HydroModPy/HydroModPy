@@ -9,6 +9,7 @@ This page documents the calibration methods exposed through
 ``[calibration] method``:
 
 - ``grid``
+- ``lhs``
 - ``random_search``
 - ``optuna``
 - ``scipy_de``
@@ -43,6 +44,10 @@ Method Selection At A Glance
      - Evaluates every point on a regular parameter grid.
      - One or two parameters, teaching cases, objective-landscape mapping.
      - More than a few parameters or tight evaluation budgets.
+   * - ``lhs``
+     - Draws one stratified Latin hypercube design and evaluates it whole.
+     - A budgeted space-filling scan, more dimensions than ``grid`` can afford.
+     - Adaptive search once a promising region is known, or a ``normal`` prior.
    * - ``random_search``
      - Draws many independent candidates inside bounds and keeps the best one.
      - Wide search boxes, rough first pass, simple global baseline.
@@ -116,6 +121,61 @@ What To Expect
 
 The main limitation is combinatorial growth. A method that is perfectly
 reasonable in 1D or 2D can become unusable as soon as the parameter count grows.
+
+Latin Hypercube Sampling
+-------------------------
+
+What HydroModPy Does
+^^^^^^^^^^^^^^^^^^^^
+
+``lhs`` draws one stratified design of ``n_samples`` points, with
+``scipy.stats.qmc.LatinHypercube``, and evaluates it as a whole: unlike
+``random_search``, with the default ``optimization`` or ``"random-cd"``,
+every stratum of every dimension is hit by exactly one point, so the design
+covers the box evenly even at a budget too small for ``random_search`` to do
+so by luck. ``optimization="lloyd"`` trades that guarantee for better point
+spacing: scipy's Lloyd relaxation does not promise to keep every stratum
+covered, so a design built with it can leave strata unsampled.
+
+In HydroModPy:
+
+- the design is drawn once, in the unit hypercube, then mapped per dimension
+  into that parameter's transformed space (log10 space for ``transform =
+  "log"``);
+- a uniform prior maps onto it by an affine transform; a log-uniform prior
+  maps through ``scipy.stats.loguniform``'s quantile function in physical
+  space before conversion;
+- a ``normal`` prior has no such quantile mapping implemented and is refused
+  at construction, naming the parameter, rather than silently treated as
+  uniform;
+- ``max_iter = "auto"`` resolves to exactly ``n_samples``; a written
+  ``max_iter`` below it is refused when the file loads.
+
+When It Fits
+^^^^^^^^^^^^
+
+Use ``lhs`` when you want an even, budgeted scan of the box rather than
+``grid``'s combinatorial one, as a baseline to compare an adaptive method
+against, or as the initial design of a surrogate you build yourself.
+
+Typical situations:
+
+- more parameters than ``grid`` can afford at a useful resolution;
+- a fixed, modest evaluation budget where even coverage matters more than a
+  stochastic baseline;
+- a reproducible space-filling design to seed another method or a figure.
+
+What To Expect
+^^^^^^^^^^^^^^
+
+``lhs`` is exhausted after its one design: ``ask`` returns the design in
+whatever batches it is asked for, and ``converged`` is true once every point
+has been handed out. Its limits:
+
+- the design does not adapt to what has been learned so far, like
+  ``random_search``;
+- a ``normal`` prior on any calibrated parameter is refused rather than
+  approximated.
 
 Random Search
 -------------
@@ -322,7 +382,8 @@ What HydroModPy Does
 ``gp_mapping`` is HydroModPy's approximate surrogate-based method. In practice,
 it follows this sequence:
 
-1. draw an initial Latin-hypercube design;
+1. draw an initial design by independent per-dimension Monte Carlo sampling
+   (not a stratified Latin hypercube; see ``lhs`` for that);
 2. evaluate the true objective on that design;
 3. fit a surrogate to the negative objective;
 4. score candidate pools with an upper-confidence-bound style criterion;

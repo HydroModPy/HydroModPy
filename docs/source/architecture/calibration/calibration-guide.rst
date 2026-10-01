@@ -303,6 +303,73 @@ Exhaustive option reference:
        ``{sampler = "cmaes"}`` for Optuna). Written with ``method``; a key
        the method does not take is refused when the file loads.
        ``optimizer_kwargs``, its old name, still loads with a warning.
+   * - ``persist_trial_series``
+     - bool
+     - ``false``
+     - Write the simulated and observed series of every point/series
+       output a completed trial scored (discharge at a gauge, head at
+       a well, ...), as a Parquet table under the session folder
+       (see :ref:`calibration-trial-series` below). ``trials.jsonl``
+       already keeps one scalar per trial regardless of this key; this
+       is for reading the full series of every trial afterwards,
+       without promoting runs.
+
+.. _calibration-trial-series:
+
+Opt-in: the series of every trial
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A large search (a few hundred trials, say a Latin hypercube) keeps one
+scalar cost per objective block per trial in ``trials.jsonl``
+(``persist_iteration_detail``, above): enough to pick the best trial, not
+enough to look at the simulated hydrograph of trial 214, or compute a
+metric the search did not score. Promoting every trial to a full run
+(``save_runs = "all"``) answers that, at 0.3 to 2 GB per daily transient
+run; most of the time nothing in a run but the series that was scored is
+wanted.
+
+.. code-block:: toml
+
+   [calibration]
+   persist_trial_series = true
+
+With this on, each completed trial writes one small Parquet file,
+``sessions/<name>/trial_series/trial-NNNNNN.parquet`` (the number is the
+trial, zero-padded so the files sort in order), in long format:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Column
+     - Meaning
+   * - ``trial``
+     - The trial number, matching ``trials.jsonl``.
+   * - ``output``
+     - The output name (the single-metric route uses the variable,
+       e.g. ``"discharge"``).
+   * - ``station``
+     - The station or target id the output observes, or ``null`` when
+       it names none.
+   * - ``time``
+     - The timestamp of this sample, at the output's own aligned
+       stamps (after any warmup and scoring window).
+   * - ``simulated`` / ``observed``
+     - The two values scored at that timestamp.
+
+Only point/series outputs are written: a network output (stream-network
+distance) or a spatial one has no comparable simulated/observed pair at a
+timestamp, and its cost is already in ``trials.jsonl``. A failed trial
+writes nothing. Writes are safe under ``parallel`` trials: each trial
+writes its own file.
+
+:func:`hydromodpy.results.session_journal.read_trial_series` reads every
+trial's table of a session back into one ``pandas.DataFrame``:
+
+.. code-block:: python
+
+   from hydromodpy.results.session_journal import read_trial_series
+
+   series = read_trial_series(session_dir)
 
 Per-parameter declarations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -690,6 +757,12 @@ Optimization methods
      - Yes
      - Simple, exhaustive
      - 1-2 params, unlimited budget
+   * - ``lhs``
+     - Stratified Monte Carlo
+     - ``n_samples``
+     - Seed-dependent
+     - Space-filling, one point per stratum
+     - A budgeted space-filling design, more dims than ``grid`` can afford
    * - ``optuna`` (default TPE)
      - Light Bayesian
      - 50-200
@@ -760,6 +833,8 @@ when the two drift apart.
      - ``rel_tol``, ``signed_component``, ``sweep_points``, ``bracket_expand``
    * - ``grid``
      - ``points_per_dim``
+   * - ``lhs``
+     - ``n_samples``, ``optimization``
    * - ``random_search``
      - none
    * - ``scipy_de``
@@ -787,7 +862,20 @@ the coarse log sweep run before the bracketing, which checks the monotonicity
 the root search assumes instead of supposing it; its ``rel_tol`` is written
 from the phase ``tolerance`` and is not repeated here. ``gp_mapping`` maximises
 expected improvement over an RBF Gaussian-process surrogate, and switches to a
-lower confidence bound when ``kappa`` is non-zero.
+lower confidence bound when ``kappa`` is non-zero. ``lhs`` draws its whole
+``n_samples``-point design once, before any evaluation: with the default
+``optimization`` or ``"random-cd"``, every stratum of every dimension is hit
+exactly once in transformed space; ``optimization="lloyd"`` is scipy's
+Lloyd-relaxation post-process and does not guarantee that property, so strata
+can be left unsampled or hit more than once in exchange for better spacing.
+A uniform or log-uniform prior maps onto the design exactly, and a
+``normal`` prior is refused by name because clipping it to bounds would
+break the one-point-per-stratum guarantee that ``optimization=None`` or
+``"random-cd"`` rely on. ``max_iter = "auto"`` resolves to exactly
+``n_samples``, and a written
+``max_iter`` smaller than that is refused at load rather than truncating the
+design silently. The engine's own seed reaches it the same way it reaches
+``grid`` and ``random_search``; a different seed draws a different design.
 
 Reading the results
 -------------------

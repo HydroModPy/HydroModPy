@@ -197,16 +197,19 @@ def _walk(
             # count would optimise the solver rather than the model.
             if extract_profile(sub_info) is not Profile.USER:
                 continue
-            # A leaf's unit is its own node's, else its own Calibrable's, else
-            # what the walk inherited: 'soil.ru' must read 'mm' from its field,
-            # not 'mm/day' from its FlowRechargeConfig parent.
+            # A leaf's unit is its own Calibrable's, else its node's, else what
+            # the walk inherited: 'soil.ru' must read 'mm' from its field, not
+            # 'mm/day' from its FlowRechargeConfig parent, and
+            # 'etp.extinction_depth' must read 'm' from its own declaration,
+            # not 'mm/day' from the sibling 'units' FlowEtpConfig carries for
+            # its 'values' payload.
             declared = declared_calibrable(sub_info)
             leaf_units = declared.units if declared is not None else None
             _walk(
                 getattr(node, field_name, None),
                 prefix=f"{prefix}.{field_name}",
                 instances=instances,
-                units=own_units or leaf_units or units,
+                units=leaf_units or own_units or units,
                 found=found,
                 field_info=sub_info,
             )
