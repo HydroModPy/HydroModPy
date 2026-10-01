@@ -179,7 +179,7 @@ def apply_etp_load_result_to_flow(
             surface_offset = float(surface_offset_q.to("m").magnitude)
         extinction_depth_q = getattr(etp_cfg, "extinction_depth", None)
         if extinction_depth_q is not None:
-            extinction_depth = float(extinction_depth_q.to("m").magnitude)
+            extinction_depth = float(extinction_depth_q)
 
     unit_conversion_factor = factor_to_m_per_s("mm/day")
 

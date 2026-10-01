@@ -430,7 +430,7 @@ def bind_soil_etp_from_flow(model) -> None:
     model._soil_etp_source = etp_cfg.heterogeneous_source
     model._soil_etp_interpolation_method = etp_cfg.interpolation_method
     model._soil_evt_surface_offset_m = float(etp_cfg.surface_offset.to("m").magnitude)
-    model._soil_evt_extinction_depth_m = float(etp_cfg.extinction_depth.to("m").magnitude)
+    model._soil_evt_extinction_depth_m = float(etp_cfg.extinction_depth)
 
 
 def resolve_deferred_soil_etp(model) -> None:

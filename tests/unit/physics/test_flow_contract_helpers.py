@@ -290,4 +290,4 @@ def test_etp_binder_preserves_surface_depth_policy(monkeypatch: pytest.MonkeyPat
     assert flow.bound_etp.first_clim == "first"
     assert flow.bound_etp.spatial_mode == "homogeneous"
     assert float(flow.bound_etp.surface_offset.to("m").magnitude) == pytest.approx(3.0)
-    assert float(flow.bound_etp.extinction_depth.to("m").magnitude) == pytest.approx(4.0)
+    assert float(flow.bound_etp.extinction_depth) == pytest.approx(4.0)

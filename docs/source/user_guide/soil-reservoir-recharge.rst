@@ -152,6 +152,9 @@ water table as real evapotranspiration, the rest finding no water table
 within ``extinction_depth`` (1 m by default) of the drain elevation. The
 discharge line gives a value when one station is loaded, which it takes for
 the gauge at the outlet; otherwise it says why it shows none.
+``extinction_depth`` is itself calibratable, with
+``[calibration.parameters.extinction_depth]``: a deep value lets MODFLOW 6
+draw on water further from the drain before the soil budget above reflects it.
 
 To try another capacity: ``--set flow.sinks_sources.recharge.soil.ru=100``.
 Each call delineates the catchment again, a few seconds.

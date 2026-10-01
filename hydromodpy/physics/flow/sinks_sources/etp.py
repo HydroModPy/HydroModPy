@@ -7,8 +7,10 @@ from typing import Annotated, Any
 from pydantic import Field, PrivateAttr, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.calibrable import Calibrable
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.units import Length
+from hydromodpy.core.units import Length, LengthMeters
 from hydromodpy.physics.flow.sinks_sources._units import normalize_first_clim
 from hydromodpy.physics.forcing.types import InterpolationMethod, SpatialMode
 from hydromodpy.physics.forcing.validation import ensure_non_negative_numeric_payload
@@ -70,15 +72,18 @@ class FlowEtpConfig(HydroModelBase):
             "reservoir has already taken the ETP it could."
         ),
     )
-    extinction_depth: Annotated[Length, Profile.USER] = Field(
+    extinction_depth: Annotated[LengthMeters, Profile.USER] = Field(
         default=1.0,
         gt=0.0,
         description=(
             "Depth (m) below the EVT surface where the water table stops "
             "evaporating; the rate falls linearly between the surface and this "
             "depth. 1 m by default. Read by MODFLOW-NWT, and by MODFLOW 6 in "
-            "soil mode for the ETP the soil left unmet."
+            "soil mode for the ETP the soil left unmet. Calibrate it with "
+            "[calibration.parameters.extinction_depth]; the range belongs to the "
+            "site, so a file has to state it."
         ),
+        json_schema_extra=field_metadata(calibrable=Calibrable(units="m")),
     )
     spatial_mode: Annotated[SpatialMode, Profile.DEV] = Field(
         default="auto",
