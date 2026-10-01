@@ -569,7 +569,7 @@ Fields
 
             .. index:: ! characteristic_depth
 
-            .. container:: hmp-field hmp-field-level-dev
+            .. container:: hmp-field hmp-field-level-user
                :name: flow-param-id-field-vertical-profile-characteristic-depth
 
                .. raw:: html
@@ -578,14 +578,14 @@ Fields
                     <code class="hmp-field-name">characteristic_depth</code>
                   </div>
 
-               :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L275>`__
+               :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L275>`__
 
-                  Characteristic depth for exponential mode. Vertical factor is exp(-depth/characteristic_depth).
+                  Characteristic depth for exponential mode. Vertical factor is exp(-depth/characteristic_depth). Calibrate it with [calibration.parameters."K.characteristic_depth"] (or the field's own id); the range belongs to the site, so a file has to state it.
 
 
             .. index:: ! min_factor
 
-            .. container:: hmp-field hmp-field-level-dev
+            .. container:: hmp-field hmp-field-level-user
                :name: flow-param-id-field-vertical-profile-min-factor
 
                .. raw:: html
@@ -594,9 +594,9 @@ Fields
                     <code class="hmp-field-name">min_factor</code>
                   </div>
 
-               :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L283>`__
+               :bdg-primary:`Optional[float]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L293>`__
 
-                  Optional floor factor for exponential mode. If provided, factor is max(exp(-depth/characteristic_depth), min_factor).
+                  Optional floor factor for exponential mode. If provided, factor is max(exp(-depth/characteristic_depth), min_factor). Calibrate it with [calibration.parameters."K.min_factor"].
 
 
             .. index:: ! depths
@@ -610,7 +610,7 @@ Fields
                     <code class="hmp-field-name">depths</code>
                   </div>
 
-               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L290>`__
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L307>`__
 
                   Depth nodes for tabulated mode (meters, first value must be 0).
 
@@ -626,7 +626,7 @@ Fields
                     <code class="hmp-field-name">factors</code>
                   </div>
 
-               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L295>`__
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L312>`__
 
                   Multiplicative factors aligned with `depths` for tabulated mode (first value must be 1 at depth 0).
 
@@ -642,7 +642,7 @@ Fields
                     <code class="hmp-field-name">interpolation</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "linear"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L303>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "linear"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L320>`__
 
                   Interpolation strategy for tabulated mode. Allowed values: 'linear' or 'step'.
 
@@ -6482,6 +6482,38 @@ Fields
                         Mean time the water leaving the soil takes to cross the unsaturated zone down to the water table, in days. A linear reservoir with this time constant delays and smooths the recharge; 0 sends it the same day. A bare number is in days; "5 days" also reads. At most 30 days: a longer delay would rebuild the slow groundwater memory MODFLOW computes itself.
 
 
+                  .. index:: ! curve_number
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-recharge-soil-curve-number
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.recharge.soil.curve_number">
+                          <code class="hmp-field-name">curve_number</code>
+                        </div>
+
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L111>`__
+
+                        SCS curve number (AMC II), dimensionless, of a HELP-style surface runoff (Schroeder et al. 1994): the unsealed share of the rain above a daily retention loses some to a fast runoff, more as the soil is wetter. None turns the term off, bit for bit as before. Between 30 and 98; the calibrated value tends to exceed the tabulated one, since SAFRAN rain is smoothed over 8 km cells. Calibrate it with [calibration.parameters.curve_number].
+
+
+                  .. index:: ! runoff_time
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-recharge-soil-runoff-time
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.recharge.soil.runoff_time">
+                          <code class="hmp-field-name">runoff_time</code>
+                        </div>
+
+                     :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L124>`__
+
+                        Time constant of the linear reservoir that routes the curve-number runoff to the outlet, in days. Read only when curve_number is set. 0 sends it the same day; "2 days" also reads. Between 0 and 10 days: a longer delay would smooth away the fast surface peak the term exists for.
+
+
                   .. index:: ! spinup
 
                   .. container:: hmp-field hmp-field-level-user
@@ -6493,7 +6525,7 @@ Fields
                           <code class="hmp-field-name">spinup</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "first_year"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L111>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "first_year"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L135>`__
 
                         State of the soil on the first day. "first_year" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last one year at least. "none" starts from a full soil, the state of a soil in a wet winter.
 

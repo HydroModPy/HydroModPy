@@ -162,6 +162,11 @@ independent 3D geology object to express:
 This is powerful, but it also means that part of the 3D heterogeneity can live
 in the parameter law rather than in explicit internal surfaces.
 
+The exponential profile's ``characteristic_depth`` (and its optional
+``min_factor`` floor) are calibratable, with
+``[calibration.parameters."K.characteristic_depth"]``: a calibration can tune
+how fast a property decays with depth, not only its surface value.
+
 What Should Be Reported
 -----------------------
 

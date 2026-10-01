@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 86 tolerances enforced today. Every tolerance
+The table below records the 87 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -114,6 +114,7 @@ must carry a rationale before it is merged.
 | 84 | Soil recharge into MF6 RCHA | per period `\|sum q_RCH - sum Pe A\| / sum Pe A` | `1e-9` | **Machine epsilon.** Float64 from the kernel to the binary RCHA input and the double-precision budget file; only the period mean and the mm/day to m/s factor round | `tests/integration/test_the_soil_recharge_reaches_modflow6_cell_by_cell.py` |
 | 85 | Soil unmet ETP into MF6 EVTA | per cell and period `(-q_EVT - ETPres A) / (ETPres A)` | `1e-12` | **Bound.** MF6 `evt_cf` never takes more than `RATE x A` from a cell (`gwf-evt.f90:470-480`) | Same module. Equality where the head stands above the EVT surface is not asserted |
 | 86 | Routed impulse validation case | `t95` against `-k ln 0.05`, days | `1` | **Discretisation.** Daily steps: the cumulative recharge crosses 95 % within the day that follows the continuous crossing | Measured `t95` = 2, 6, 15, 60, 90 d against 1.5, 6.0, 15.0, 59.9, 89.9. `tests/validation/analytical/transient/test_a_routed_impulse_matches_the_exponential_reservoir.py` |
+| 87 | Soil curve-number runoff balance, with routing | per day `max \|residual\| / max P`, per column-year `max \|residual\| / P` | `1e-9` | **Machine epsilon.** Same identity as row 80, with the curve-number reservoir's own storage change added; a second exponential reservoir adds a handful of float64 operations, still four orders under the band | Measured 9.8e-16 daily and 5.5e-16 per column-year on 3 x 365 d x 15 columns, three parameter sets crossing CN 70-90 and a runoff time 0-3.5 d. `tests/unit/physics/test_the_curve_number_balance_closes_with_routing.py` |
 
 ## Update policy
 

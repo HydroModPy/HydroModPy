@@ -108,6 +108,30 @@ class SoilReservoirConfig(HydroModelBase):
         ),
         json_schema_extra=field_metadata(calibrable=Calibrable(bounds=(0.0, 30.0), units="day")),
     )
+    curve_number: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "SCS curve number (AMC II), dimensionless, of a HELP-style surface runoff "
+            "(Schroeder et al. 1994): the unsealed share of the rain above a daily "
+            "retention loses some to a fast runoff, more as the soil is wetter. None "
+            "turns the term off, bit for bit as before. Between 30 and 98; the "
+            "calibrated value tends to exceed the tabulated one, since SAFRAN rain is "
+            "smoothed over 8 km cells. Calibrate it with "
+            "[calibration.parameters.curve_number]."
+        ),
+        json_schema_extra=field_metadata(calibrable=Calibrable(units="-")),
+    )
+    runoff_time: Annotated[DurationDays, Profile.USER] = Field(
+        default=1.0,
+        description=(
+            "Time constant of the linear reservoir that routes the curve-number "
+            "runoff to the outlet, in days. Read only when curve_number is set. 0 "
+            'sends it the same day; "2 days" also reads. Between 0 and 10 days: a '
+            "longer delay would smooth away the fast surface peak the term exists "
+            "for."
+        ),
+        json_schema_extra=field_metadata(calibrable=Calibrable(bounds=(0.0, 10.0), units="day")),
+    )
     spinup: Annotated[Literal["first_year", "none"], Profile.USER] = Field(
         default="first_year",
         description=(
@@ -186,6 +210,41 @@ class SoilReservoirConfig(HydroModelBase):
                 f"bypass_fraction = {value:g}: it is the share of the rain that skips "
                 "the soil, a fraction from 0 up to, not including, 1: write 0.1 for "
                 "10 %, not 10, and 0.0 unless the site shows preferential flow."
+            )
+        return value
+
+    @field_validator("curve_number")
+    @classmethod
+    def _curve_number_is_a_plausible_cn(cls, value: float | None) -> float | None:
+        if value is None:
+            return None
+        if not 30 <= value <= 98:
+            raise ValueError(
+                f"curve_number = {value:g}: a SCS curve number (AMC II) is between "
+                "30 and 98 (HELP fig. 8, TR-55 table 2-2). Write a value in that "
+                "range, or remove the field to keep the term off."
+            )
+        return value
+
+    @field_validator("runoff_time", mode="before")
+    @classmethod
+    def _runoff_time_string_states_its_unit(cls, value: object) -> object:
+        bare = _bare_number_string(value)
+        if bare is None:
+            return value
+        raise ValueError(
+            f'runoff_time = "{bare}" has no unit: write runoff_time = {bare} (a bare '
+            f'number is in days) or runoff_time = "{bare} days".'
+        )
+
+    @field_validator("runoff_time")
+    @classmethod
+    def _runoff_time_is_a_short_delay(cls, value: float) -> float:
+        if not 0 <= value <= 10:
+            raise ValueError(
+                f"runoff_time = {value:g} days is outside 0 to 10 days: it routes a "
+                "fast surface runoff, not groundwater. Write 0 to send it the same "
+                "day, or a few days."
             )
         return value
 

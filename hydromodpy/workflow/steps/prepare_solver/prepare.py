@@ -491,8 +491,10 @@ def _soil_budget_rows(soil: object) -> list[dict[str, object]]:
                     "residual_etp_mm": float(budget.residual_etp[i, j]),
                     "recharge_mm": float(budget.recharge[i, j]),
                     "runoff_mm": float(budget.runoff[i, j]),
+                    "runoff_cn_mm": float(budget.runoff_cn[i, j]),
                     "soil_storage_change_mm": float(budget.soil_storage_change[i, j]),
                     "transit_storage_change_mm": float(budget.transit_storage_change[i, j]),
+                    "cn_storage_change_mm": float(budget.cn_storage_change[i, j]),
                     "balance_residual_mm": float(budget.residual[i, j]),
                 }
             )
@@ -516,8 +518,10 @@ def _soil_budget_rows(soil: object) -> list[dict[str, object]]:
                 "residual_etp_mm": float(budget.basin("residual_etp")[i]),
                 "recharge_mm": float(budget.basin("recharge")[i]),
                 "runoff_mm": float(budget.basin("runoff")[i]),
+                "runoff_cn_mm": float(budget.basin("runoff_cn")[i]),
                 "soil_storage_change_mm": float(budget.basin("soil_storage_change")[i]),
                 "transit_storage_change_mm": float(budget.basin("transit_storage_change")[i]),
+                "cn_storage_change_mm": float(budget.basin("cn_storage_change")[i]),
                 "balance_residual_mm": float(budget.basin("residual")[i]),
             }
         )
@@ -543,7 +547,18 @@ def _persist_soil_columns(sz: SimulationZarr, soil: object) -> None:
             "time: mean",
             "Recharge sent to the water table",
         ),
-        "runoff": (fluxes.runoff, "mm/day", "time: mean", "Runoff of the sealed share"),
+        "runoff": (
+            fluxes.runoff,
+            "mm/day",
+            "time: mean",
+            "Runoff of the sealed share plus the routed curve-number share",
+        ),
+        "runoff_cn": (
+            fluxes.runoff_cn,
+            "mm/day",
+            "time: mean",
+            "Curve-number share of runoff alone",
+        ),
         "soil_storage": (
             fluxes.soil_storage,
             "mm",
@@ -555,6 +570,12 @@ def _persist_soil_columns(sz: SimulationZarr, soil: object) -> None:
             "mm",
             "time: point",
             "Transit store at the end of the day",
+        ),
+        "cn_storage": (
+            fluxes.cn_storage,
+            "mm",
+            "time: point",
+            "Curve-number runoff routing store at the end of the day",
         ),
     }
     columns_arrays = {

@@ -3357,35 +3357,35 @@ per-section page (anchor) and to the source declaration on GitHub.
      - `flow <flow.html#flow-param-id-field-vertical-profile-mode>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L268>`__
    * - ``flow.param.<id>.field_vertical_profile.characteristic_depth``
-     - ``Optional[Any]``
-     - dev
+     - ``Optional[float]``
+     - user
      - -
      - `flow <flow.html#flow-param-id-field-vertical-profile-characteristic-depth>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L275>`__
    * - ``flow.param.<id>.field_vertical_profile.min_factor``
      - ``Optional[float]``
-     - dev
+     - user
      - -
      - `flow <flow.html#flow-param-id-field-vertical-profile-min-factor>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L283>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L293>`__
    * - ``flow.param.<id>.field_vertical_profile.depths``
      - ``list[float] | None``
      - dev
      - -
      - `flow <flow.html#flow-param-id-field-vertical-profile-depths>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L290>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L307>`__
    * - ``flow.param.<id>.field_vertical_profile.factors``
      - ``list[float] | None``
      - dev
      - -
      - `flow <flow.html#flow-param-id-field-vertical-profile-factors>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L295>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L312>`__
    * - ``flow.param.<id>.field_vertical_profile.interpolation``
      - ``Literal['linear', 'step']``
      - dev
      - -
      - `flow <flow.html#flow-param-id-field-vertical-profile-interpolation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L303>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/field/core/_field_param_sections.py#L320>`__
    * - ``flow.ic``
      - ``FlowInitialConditions``
      - user
@@ -5120,12 +5120,24 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-transit-time>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L99>`__
+   * - ``flow.sinks_sources.recharge.soil.curve_number``
+     - ``float | None``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-recharge-soil-curve-number>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L111>`__
+   * - ``flow.sinks_sources.recharge.soil.runoff_time``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-recharge-soil-runoff-time>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L124>`__
    * - ``flow.sinks_sources.recharge.soil.spinup``
      - ``Literal['first_year', 'none']``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-spinup>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L111>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L135>`__
    * - ``flow.sinks_sources.recharge.heterogeneous_source``
      - ``Any``
      - dev

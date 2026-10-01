@@ -16,7 +16,7 @@ from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr, Probability
-from hydromodpy.core.units import Length
+from hydromodpy.core.units import LengthMeters
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.spatial.field.core._field_param_units import UnitStr, normalize_unit_token
 
@@ -272,19 +272,36 @@ class FieldVerticalProfileSection(HydroModelBase):
             "Allowed values: 'none', 'exponential', 'tabulated'."
         ),
     )
-    characteristic_depth: Annotated[Length | None, Profile.DEV] = Field(
+    characteristic_depth: Annotated[LengthMeters | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
         description=(
             "Characteristic depth for exponential mode. "
-            "Vertical factor is exp(-depth/characteristic_depth)."
+            "Vertical factor is exp(-depth/characteristic_depth). Calibrate it with "
+            '[calibration.parameters."K.characteristic_depth"] (or the field\'s own id); '
+            "the range belongs to the site, so a file has to state it."
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                transform="log",
+                prior="log_uniform",
+                units="m",
+                description="Decay length of the exponential vertical profile.",
+            )
         ),
     )
-    min_factor: Annotated[Probability | None, Profile.DEV] = Field(
+    min_factor: Annotated[Probability | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional floor factor for exponential mode. "
-            "If provided, factor is max(exp(-depth/characteristic_depth), min_factor)."
+            "If provided, factor is max(exp(-depth/characteristic_depth), min_factor). "
+            'Calibrate it with [calibration.parameters."K.min_factor"].'
+        ),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(
+                units="-",
+                description="Floor factor of the exponential vertical profile.",
+            )
         ),
     )
     depths: Annotated[list[float] | None, Profile.DEV] = Field(

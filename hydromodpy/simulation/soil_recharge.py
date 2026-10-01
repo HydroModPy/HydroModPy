@@ -49,6 +49,8 @@ def soil_parameters(config: SoilReservoirConfig, ru_mm: np.ndarray) -> SoilParam
         impervious_fraction=config.impervious_fraction,
         bypass_fraction=config.bypass_fraction,
         transit_time_days=config.transit_time,
+        curve_number=config.curve_number,
+        runoff_time_days=config.runoff_time,
     )
 
 
@@ -712,11 +714,16 @@ def _parameters_line(config: SoilReservoirConfig, raster_mean_mm: float | None) 
         if raster_mean_mm is not None
         else f"ru {config.ru:g} mm"
     )
+    cn_clause = (
+        f", curve number {config.curve_number:g}, runoff time {config.runoff_time:g} days"
+        if config.curve_number is not None
+        else ""
+    )
     return (
         f"{ru_clause}, alpha {config.alpha:g}, kc {config.kc:.1f}, "
         f"impervious {100 * config.impervious_fraction:.0f} %, "
         f"bypass {100 * config.bypass_fraction:.0f} %, "
-        f"transit time {config.transit_time:g} days"
+        f"transit time {config.transit_time:g} days{cn_clause}"
     )
 
 
@@ -806,7 +813,10 @@ def soil_budget_lines(
         dry_idx = wet_idx = y_dry = y_wet = None
 
     scale = n_days / 365.25
-    storage_change = annual.soil_storage_change + annual.transit_storage_change
+    storage_change = (
+        annual.soil_storage_change + annual.transit_storage_change + annual.cn_storage_change
+    )
+    impervious_only = annual.runoff - annual.runoff_cn
 
     lines = [
         _header_line(days, n_cells, n_classes, has_raster=raster_mean_mm is not None),
@@ -817,12 +827,28 @@ def soil_budget_lines(
         _data_row("ETP", annual.etp, annual.weights, scale, dry_idx, wet_idx),
         _data_row("ETR", annual.etr, annual.weights, scale, dry_idx, wet_idx),
         _data_row("recharge to MODFLOW", annual.recharge, annual.weights, scale, dry_idx, wet_idx),
-        _data_row("impervious runoff", annual.runoff, annual.weights, scale, dry_idx, wet_idx),
-        _data_row(
-            "storage change", storage_change, annual.weights, scale, dry_idx, wet_idx, signed=True
-        ),
-        _data_row("closure", annual.residual, annual.weights, scale, dry_idx, wet_idx),
+        _data_row("impervious runoff", impervious_only, annual.weights, scale, dry_idx, wet_idx),
     ]
+    if forcings.config.curve_number is not None:
+        lines.append(
+            _data_row(
+                "curve-number runoff", annual.runoff_cn, annual.weights, scale, dry_idx, wet_idx
+            )
+        )
+    lines.extend(
+        [
+            _data_row(
+                "storage change",
+                storage_change,
+                annual.weights,
+                scale,
+                dry_idx,
+                wet_idx,
+                signed=True,
+            ),
+            _data_row("closure", annual.residual, annual.weights, scale, dry_idx, wet_idx),
+        ]
+    )
 
     unmet = _no_negative_zero(float((annual.residual_etp @ annual.weights).sum() / scale), 1)
     if sent_to_evt:
