@@ -6447,7 +6447,7 @@ Fields
 
                      :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L76>`__
 
-                        Share of the area that is sealed (roofs, roads). The rain that falls on it runs off at once, with no infiltration and no evaporation, and reaches the streams, the lakes and the gauged discharge. The soil reservoir covers the rest of the area. From 0 up to, not including, 1.
+                        Share of the area that is sealed (roofs, roads). The rain that falls on it runs off at once, with no infiltration and no evaporation, and reaches the streams, the lakes and the gauged discharge. The soil reservoir covers the rest of the area. From 0 up to, not including, 1. Calibrate it with [calibration.parameters.impervious_fraction]; the range belongs to the site, so a file has to state it.
 
 
                   .. index:: ! bypass_fraction
@@ -6461,7 +6461,7 @@ Fields
                           <code class="hmp-field-name">bypass_fraction</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L85>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L88>`__
 
                         Share of the rain on the unsealed area that skips the soil through macropores and joins the recharge the same day, even when the soil is dry. From 0 up to, not including, 1. Keep it at 0 while K and Sy are calibrated: a bypass can rebuild the summer recharge the soil reservoir removes.
 
@@ -6477,7 +6477,7 @@ Fields
                           <code class="hmp-field-name">transit_time</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L96>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L99>`__
 
                         Mean time the water leaving the soil takes to cross the unsaturated zone down to the water table, in days. A linear reservoir with this time constant delays and smooths the recharge; 0 sends it the same day. A bare number is in days; "5 days" also reads. At most 30 days: a longer delay would rebuild the slow groundwater memory MODFLOW computes itself.
 
@@ -6493,7 +6493,7 @@ Fields
                           <code class="hmp-field-name">spinup</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "first_year"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L108>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "first_year"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L111>`__
 
                         State of the soil on the first day. "first_year" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last one year at least. "none" starts from a full soil, the state of a soil in a wet winter.
 

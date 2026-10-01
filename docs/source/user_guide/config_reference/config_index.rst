@@ -5113,19 +5113,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-bypass-fraction>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L85>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L88>`__
    * - ``flow.sinks_sources.recharge.soil.transit_time``
      - ``float``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-transit-time>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L96>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L99>`__
    * - ``flow.sinks_sources.recharge.soil.spinup``
      - ``Literal['first_year', 'none']``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-spinup>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L108>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L111>`__
    * - ``flow.sinks_sources.recharge.heterogeneous_source``
      - ``Any``
      - dev
