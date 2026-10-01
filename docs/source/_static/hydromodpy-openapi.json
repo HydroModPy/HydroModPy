@@ -6414,37 +6414,25 @@
           "characteristic_depth": {
             "anyOf": [
               {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "properties": {
-                      "magnitude": {
-                        "title": "Magnitude",
-                        "type": "string"
-                      },
-                      "units": {
-                        "title": "Units",
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "magnitude"
-                    ],
-                    "type": "object"
-                  }
-                ],
-                "gt": 0.0
+                "gt": 0.0,
+                "type": "number"
               },
               {
                 "type": "null"
               }
             ],
+            "calibrable": {
+              "bounds": null,
+              "description": "Decay length of the exponential vertical profile.",
+              "is_the_value_of_its_instance": false,
+              "prior": "log_uniform",
+              "transform": "log",
+              "units": "m"
+            },
             "default": null,
-            "description": "Characteristic depth for exponential mode. Vertical factor is exp(-depth/characteristic_depth).",
+            "description": "Characteristic depth for exponential mode. Vertical factor is exp(-depth/characteristic_depth). Calibrate it with [calibration.parameters.\"K.characteristic_depth\"] (or the field's own id); the range belongs to the site, so a file has to state it.",
             "title": "Characteristic Depth",
-            "x-hmp-profile": "dev"
+            "x-hmp-profile": "user"
           },
           "min_factor": {
             "anyOf": [
@@ -6458,10 +6446,18 @@
                 "type": "null"
               }
             ],
+            "calibrable": {
+              "bounds": null,
+              "description": "Floor factor of the exponential vertical profile.",
+              "is_the_value_of_its_instance": false,
+              "prior": "uniform",
+              "transform": "identity",
+              "units": "-"
+            },
             "default": null,
-            "description": "Optional floor factor for exponential mode. If provided, factor is max(exp(-depth/characteristic_depth), min_factor).",
+            "description": "Optional floor factor for exponential mode. If provided, factor is max(exp(-depth/characteristic_depth), min_factor). Calibrate it with [calibration.parameters.\"K.min_factor\"].",
             "title": "Min Factor",
-            "x-hmp-profile": "dev"
+            "x-hmp-profile": "user"
           },
           "depths": {
             "anyOf": [
@@ -21417,6 +21413,49 @@
               0.0
             ],
             "title": "Transit Time",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "curve_number": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "calibrable": {
+              "bounds": null,
+              "description": "",
+              "is_the_value_of_its_instance": false,
+              "prior": "uniform",
+              "transform": "identity",
+              "units": "-"
+            },
+            "default": null,
+            "description": "SCS curve number (AMC II), dimensionless, of a HELP-style surface runoff (Schroeder et al. 1994): the unsealed share of the rain above a daily retention loses some to a fast runoff, more as the soil is wetter. None turns the term off, bit for bit as before. Between 30 and 98; the calibrated value tends to exceed the tabulated one, since SAFRAN rain is smoothed over 8 km cells. Calibrate it with [calibration.parameters.curve_number].",
+            "title": "Curve Number",
+            "x-hmp-profile": "user"
+          },
+          "runoff_time": {
+            "calibrable": {
+              "bounds": [
+                0.0,
+                10.0
+              ],
+              "description": "",
+              "is_the_value_of_its_instance": false,
+              "prior": "uniform",
+              "transform": "identity",
+              "units": "day"
+            },
+            "default": 1.0,
+            "description": "Time constant of the linear reservoir that routes the curve-number runoff to the outlet, in days. Read only when curve_number is set. 0 sends it the same day; \"2 days\" also reads. Between 0 and 10 days: a longer delay would smooth away the fast surface peak the term exists for.",
+            "examples": [
+              1.0
+            ],
+            "title": "Runoff Time",
             "type": "number",
             "x-hmp-profile": "user"
           },
