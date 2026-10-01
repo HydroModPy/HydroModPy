@@ -79,8 +79,11 @@ class SoilReservoirConfig(HydroModelBase):
             "Share of the area that is sealed (roofs, roads). The rain that falls on "
             "it runs off at once, with no infiltration and no evaporation, and "
             "reaches the streams, the lakes and the gauged discharge. The soil "
-            "reservoir covers the rest of the area. From 0 up to, not including, 1."
+            "reservoir covers the rest of the area. From 0 up to, not including, 1. "
+            "Calibrate it with [calibration.parameters.impervious_fraction]; the "
+            "range belongs to the site, so a file has to state it."
         ),
+        json_schema_extra=field_metadata(calibrable=Calibrable(units="-")),
     )
     bypass_fraction: Annotated[float, Profile.USER] = Field(
         default=0.0,

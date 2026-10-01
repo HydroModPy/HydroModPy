@@ -21135,8 +21135,16 @@
           "x-hmp-profile": "user"
         },
         "impervious_fraction": {
+          "calibrable": {
+            "bounds": null,
+            "description": "",
+            "is_the_value_of_its_instance": false,
+            "prior": "uniform",
+            "transform": "identity",
+            "units": "-"
+          },
           "default": 0.0,
-          "description": "Share of the area that is sealed (roofs, roads). The rain that falls on it runs off at once, with no infiltration and no evaporation, and reaches the streams, the lakes and the gauged discharge. The soil reservoir covers the rest of the area. From 0 up to, not including, 1.",
+          "description": "Share of the area that is sealed (roofs, roads). The rain that falls on it runs off at once, with no infiltration and no evaporation, and reaches the streams, the lakes and the gauged discharge. The soil reservoir covers the rest of the area. From 0 up to, not including, 1. Calibrate it with [calibration.parameters.impervious_fraction]; the range belongs to the site, so a file has to state it.",
           "examples": [
             0.0
           ],

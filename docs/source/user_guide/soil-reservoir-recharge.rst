@@ -155,6 +155,9 @@ the gauge at the outlet; otherwise it says why it shows none.
 ``extinction_depth`` is itself calibratable, with
 ``[calibration.parameters.extinction_depth]``: a deep value lets MODFLOW 6
 draw on water further from the drain before the soil budget above reflects it.
+``impervious_fraction`` is calibratable too, with
+``[calibration.parameters.impervious_fraction]``: each trial recomputes the
+sealed runoff and adds it to the discharge the trial is scored against.
 
 To try another capacity: ``--set flow.sinks_sources.recharge.soil.ru=100``.
 Each call delineates the catchment again, a few seconds.

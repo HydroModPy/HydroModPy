@@ -1,9 +1,10 @@
-"""The soil reservoir offers five named targets to a calibration.
+"""The soil reservoir offers six named targets to a calibration.
 
 Each carries the unit its own field declares, not the ``mm/day`` its
 ``FlowRechargeConfig`` parent declares for the recharge rate it replaces.
-``impervious_fraction`` is a switch on the geometry, not a value to search
-between two bounds, and declares no ``Calibrable``.
+``impervious_fraction`` is a fraction of the area, not a knob of the numerical
+scheme, and is offered the same way ``bypass_fraction`` is: no default range,
+since it belongs to the site.
 """
 
 from __future__ import annotations
@@ -28,17 +29,22 @@ def _project() -> _Project:
     return _Project(flow)
 
 
-def test_the_soil_reservoir_offers_five_named_targets_with_their_own_units() -> None:
+def test_the_soil_reservoir_offers_six_named_targets_with_their_own_units() -> None:
     by_name = targets_by_name(calibration_targets(_project()))
 
     assert by_name["soil.ru"].units == "mm"
     assert by_name["soil.alpha"].units == "-"
     assert by_name["soil.kc"].units == "-"
+    assert by_name["soil.impervious_fraction"].units == "-"
     assert by_name["soil.bypass_fraction"].units == "-"
     assert by_name["soil.transit_time"].units == "day"
 
 
-def test_impervious_fraction_is_not_offered() -> None:
+def test_impervious_fraction_declares_no_default_range() -> None:
     by_name = targets_by_name(calibration_targets(_project()))
 
-    assert "soil.impervious_fraction" not in by_name
+    target = by_name["soil.impervious_fraction"]
+    assert target.calibrable is not None
+    assert target.calibrable.bounds is None
+    assert target.registry_id == "soil_impervious_fraction"
+    assert target.physical_bounds == (0.0, 0.95)
