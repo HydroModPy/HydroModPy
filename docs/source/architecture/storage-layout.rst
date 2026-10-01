@@ -168,13 +168,18 @@ characters of its identifier:
    sessions/20260726-014233-optuna-3f2a1b7c/
    |-- session.json         identity, project, frozen search space,
    |                        objective, dates, status, best trial
-   `-- trials.jsonl         one JSON object per trial, appended live
+   |-- trials.jsonl         one JSON object per trial, appended live
+   `-- trial_series/        opt-in (persist_trial_series = true):
+       |-- trial-000001.parquet  simulated/observed series the trial
+       |                         scored, long format
+       `-- trial-000002.parquet
 
-Both files are written **while the calibration runs**: the descriptor
-before the first trial, one line per trial as it completes, and the
-descriptor once more at the end with the outcome. An interrupted
-calibration therefore keeps every trial it had time to evaluate, and
-stays in the index as a ``running`` session with the trials it ran.
+Both ``session.json`` and ``trials.jsonl`` are written **while the
+calibration runs**: the descriptor before the first trial, one line per
+trial as it completes, and the descriptor once more at the end with the
+outcome. An interrupted calibration therefore keeps every trial it had
+time to evaluate, and stays in the index as a ``running`` session with
+the trials it ran.
 
 The format is declared by
 ``hydromodpy/results/session_journal.py``. It lives in ``results``, not
@@ -182,6 +187,18 @@ in ``calibration``, because the rebuild reads it and may not import the
 ``calibration`` layer. A trial number written twice is one trial written
 twice: the last line wins, exactly like the upsert the index does on
 ``(session_id, iteration)``, so two rebuilds never duplicate a trial.
+
+``trial_series/`` is opt-in and only ever grown by completed trials, one
+Parquet file per trial, named ``trial-NNNNNN.parquet`` so the directory
+sorts by trial number. It carries the per-trial detail ``trials.jsonl``
+does not: a point/series output's simulated and observed values at its
+own scored timestamps (``trial``, ``output``, ``station``, ``time``,
+``simulated``, ``observed``), tables only, never ``fields.zarr``. It is
+not part of the index; ``hydromodpy.results.session_journal.
+read_trial_series`` reads it straight off disk. Network and spatial
+outputs are never written there, since their cost is already a scalar
+in ``trials.jsonl``. See
+:ref:`calibration-trial-series` in the calibration guide.
 
 Spin-up sessions do not write a descriptor. A directory under
 ``sessions/`` without ``session.json`` is simply not a calibration, and

@@ -245,6 +245,15 @@ class CalibrationPersistence:
             ],
         )
 
+    def session_directory(self) -> Path | None:
+        """Return the live journal directory, or None when nothing is journalled.
+
+        ``None`` whenever ``save_catalog`` is off or no ``project_root`` was
+        given to journal this session. Used by the runner to place per-trial
+        artefacts, such as an opt-in trial series table, beside ``trials.jsonl``.
+        """
+        return None if self._journal is None else self._journal.directory
+
     def load_iterations(self, session_id: str) -> list[dict]:
         sid = _session_key(session_id)
         rows = self._conn.execute(

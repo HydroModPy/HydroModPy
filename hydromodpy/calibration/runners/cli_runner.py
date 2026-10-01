@@ -1621,6 +1621,19 @@ def run_calibration_core(
             logger.warning("Calibration trial %d %s: %s", sugg.trial_id, db_status, result.error)
         if cfg.persist_iteration_detail == "full":
             meta["block_costs"] = dict(result.components)
+        # Drained unconditionally, win or lose: the sink is a thread-local
+        # owned by the shared evaluator, and the worker thread that just ran
+        # this trial will be reused for another one. Only a completed trial's
+        # rows are written; a failed trial's partial rows are dropped here.
+        series_sink = getattr(evaluator, "trial_series_sink", None)
+        if series_sink is not None:
+            rows = series_sink.drain()
+            if rows and result.status == "completed":
+                session_dir = persistence.session_directory()
+                if session_dir is not None:
+                    from hydromodpy.results.session_journal import write_trial_series
+
+                    write_trial_series(session_dir, sugg.trial_id, rows)
         if materialize_root is not None and cfg_path is not None:
             from hydromodpy.calibration.runners.materialize import materialize_candidate
 

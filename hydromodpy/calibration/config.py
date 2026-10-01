@@ -2149,6 +2149,14 @@ class CalibrationConfig(HydroModelBase):
         description="'none' skips component metrics; 'summary' keeps block totals; "
         "'full' also stores per-block raw and normalized costs.",
     )
+    persist_trial_series: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description="Write the simulated and observed series of every point/series "
+        "output a completed trial scored (discharge at a gauge, head at a well...), "
+        "as a small Parquet table per trial under the session folder. Off by default: "
+        "a 300-400 point search otherwise writes nothing beyond trials.jsonl. Network "
+        "and spatial outputs carry no series and are never written here.",
+    )
     persist_model_distribution: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Persist the candidate distribution alongside the session.",

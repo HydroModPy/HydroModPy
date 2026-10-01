@@ -18,6 +18,8 @@ per calibration session::
         session.json                     identity, search space, best trial,
                                          root search outcome
         trials.jsonl                     one line per evaluated trial
+        trial_series/trial-NNNNNN.parquet  opt-in: simulated/observed series
+                                           of one trial's point/series outputs
 
 The run directory name is the human run name (with its ``.vN`` version
 suffix), so the tree is readable without the index. The directory names of
@@ -114,6 +116,18 @@ SESSION_DESCRIPTOR_FILENAME = "session.json"
 SESSION_TRIALS_FILENAME = "trials.jsonl"
 """Trial journal of one session, appended one JSON object per line as it runs."""
 
+SESSION_TRIAL_SERIES_DIRNAME = "trial_series"
+"""Opt-in per-trial simulated/observed series, one Parquet file per trial.
+
+Written only when ``[calibration].persist_trial_series`` is on
+(:mod:`hydromodpy.results.session_journal`). Absent otherwise: a session
+folder with no such directory simply did not opt in."""
+
+
+def session_trial_series_filename(trial: int) -> str:
+    """Return the file name of one trial's series table, sortable by trial number."""
+    return f"trial-{int(trial):06d}.parquet"
+
 
 @dataclass(frozen=True, slots=True)
 class ResultStorageLayer:
@@ -170,6 +184,8 @@ __all__ = [
     "RUN_TRASH_FILENAME",
     "SESSION_DESCRIPTOR_FILENAME",
     "SESSION_TRIALS_FILENAME",
+    "SESSION_TRIAL_SERIES_DIRNAME",
+    "session_trial_series_filename",
     "ResultStorageLayer",
     "StorageScope",
     "TABLES_DIRNAME",

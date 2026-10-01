@@ -96,17 +96,23 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+import pyarrow as pa
+
 from hydromodpy.core.state.paths import SESSIONS_DIRNAME
 from hydromodpy.results.storage.contract import (
     SESSION_DESCRIPTOR_FILENAME,
+    SESSION_TRIAL_SERIES_DIRNAME,
     SESSION_TRIALS_FILENAME,
+    session_trial_series_filename,
 )
+from hydromodpy.results.storage.parquet_io import write_table_atomic
 
 SESSION_JOURNAL_VERSION = 3
 """Schema version of the session journal.
@@ -426,6 +432,58 @@ def read_trials(session_dir: Path | str) -> tuple[SessionTrial, ...]:
     return tuple(latest[key] for key in sorted(latest))
 
 
+def write_trial_series(
+    session_dir: Path | str, trial: int, rows: Sequence[Mapping[str, Any]]
+) -> Path | None:
+    """Write one completed trial's scored series as a small Parquet table.
+
+    Opt-in: called only when ``[calibration].persist_trial_series`` is on.
+    Long format, one row per (output, time): ``trial``, ``output``,
+    ``station`` (None when the output names none), ``time``, ``simulated``,
+    ``observed``. One file per trial under
+    ``sessions/<name>/trial_series/``, named so it sorts by trial number
+    (:func:`~hydromodpy.results.storage.contract.session_trial_series_filename`),
+    so concurrent trials never write the same path. ``None`` rows write
+    nothing and return ``None``: a failed trial carries no series.
+
+    Only point/series outputs reach here (discharge at a gauge, head at a
+    well...); a network or spatial output's cost is already in
+    ``trials.jsonl`` and is never written to this table.
+    """
+    if not rows:
+        return None
+    table = pa.table(
+        {
+            "trial": pa.array([int(trial)] * len(rows), type=pa.int64()),
+            "output": pa.array([row.get("output") for row in rows], type=pa.string()),
+            "station": pa.array([row.get("station") for row in rows], type=pa.string()),
+            "time": pa.array([pd.Timestamp(row["time"]) for row in rows]),
+            "simulated": pa.array([float(row["simulated"]) for row in rows], type=pa.float64()),
+            "observed": pa.array([float(row["observed"]) for row in rows], type=pa.float64()),
+        }
+    )
+    target = Path(session_dir) / SESSION_TRIAL_SERIES_DIRNAME / session_trial_series_filename(trial)
+    return write_table_atomic(table, target)
+
+
+def read_trial_series(session_dir: Path | str) -> pd.DataFrame:
+    """Return every trial's scored series of one session, concatenated.
+
+    Columns: ``trial``, ``output``, ``station``, ``time``, ``simulated``,
+    ``observed``. An empty frame with those columns when the session never
+    wrote ``trial_series/`` (``persist_trial_series`` was off, or no trial
+    completed).
+    """
+    columns = ("trial", "output", "station", "time", "simulated", "observed")
+    directory = Path(session_dir) / SESSION_TRIAL_SERIES_DIRNAME
+    if not directory.is_dir():
+        return pd.DataFrame(columns=columns)
+    frames = [pd.read_parquet(path) for path in sorted(directory.glob("trial-*.parquet"))]
+    if not frames:
+        return pd.DataFrame(columns=columns)
+    return pd.concat(frames, ignore_index=True)
+
+
 def _descriptor_payload(descriptor: SessionDescriptor) -> dict[str, Any]:
     """Return the JSON object of a session descriptor."""
     return {
@@ -499,8 +557,10 @@ __all__ = [
     "find_session_dir",
     "read_descriptor",
     "read_root_search",
+    "read_trial_series",
     "read_trials",
     "session_dir_name",
     "session_dirs_for",
     "sessions_dir_for",
+    "write_trial_series",
 ]

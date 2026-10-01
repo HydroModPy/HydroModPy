@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
@@ -25,6 +25,9 @@ from hydromodpy.calibration.config import CalibOutputDecl
 from hydromodpy.calibration.metrics.series import load_observed
 from hydromodpy.core.time.time_method import DEFAULT_TIME_METHOD
 from hydromodpy.results.derive.time_alignment import align_observed_simulated, time_method_for
+
+if TYPE_CHECKING:
+    from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 
 OBSERVED_FAMILY_BY_VARIABLE: Mapping[str, str] = {
     "discharge": "discharge",
@@ -121,6 +124,8 @@ def pair_outputs_with_observations(
     min_samples: int = 1,
     time_methods: Mapping[str, str] | None = None,
     period_starts: Mapping[str, Any] | None = None,
+    series_sink: TrialSeriesSink | None = None,
+    stations: Mapping[str, str] | None = None,
 ) -> PairedOutputs:
     """Align each observed record on its simulated series and return both.
 
@@ -138,6 +143,10 @@ def pair_outputs_with_observations(
     ``min_samples`` is the fewest pairs a member may be scored on. An overlap
     that collapses to three days still produces a number, and a weight of 65 per
     cent resting on three days is not what the file says it is.
+
+    ``series_sink``, when given, records each output's aligned, windowed pair
+    as it is built, keyed by the output name and, through ``stations``, by the
+    station it observes.
     """
     paired_observed: dict[str, list[float]] = {}
     paired_simulated: dict[str, list[float]] = {}
@@ -185,6 +194,14 @@ def pair_outputs_with_observations(
         paired_simulated[name] = [float(value) for value in frame["sim"]]
         counts[name] = len(frame)
         dates[name] = (frame.index.min(), frame.index.max())
+        if series_sink is not None:
+            series_sink.record(
+                output=name,
+                station=(stations or {}).get(name),
+                times=frame.index,
+                simulated=frame["sim"].to_numpy(),
+                observed=frame["obs"].to_numpy(),
+            )
 
     return PairedOutputs(
         observed=paired_observed,

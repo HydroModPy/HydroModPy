@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from hydromodpy.calibration.config import scoring_window_bounds
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
 from hydromodpy.calibration.metrics.composite import build_metric_extractor
+from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from hydromodpy.calibration.config import CalibrationConfig
@@ -48,7 +49,18 @@ class PipelineTrialEvaluator:
             )
         self._cfg = cfg
         self._trial_ctx = trial_ctx
-        self._metric_fn = metric_fn if metric_fn is not None else _extractor_for(cfg, trial_ctx)
+        # None when persist_trial_series is off. Read with .drain() right after
+        # evaluate() returns, on the same thread that called it, by whoever
+        # persists trials (cli_runner). Stays empty when metric_fn is
+        # overridden: a caller-supplied extractor does not know about it.
+        self.trial_series_sink: TrialSeriesSink | None = (
+            TrialSeriesSink() if cfg.persist_trial_series else None
+        )
+        self._metric_fn = (
+            metric_fn
+            if metric_fn is not None
+            else _extractor_for(cfg, trial_ctx, self.trial_series_sink)
+        )
 
     def evaluate(self, request: TrialRequest) -> TrialOutcome:
         """Run steps ``[earliest..8]`` on a fork of the context and score them."""
@@ -72,12 +84,17 @@ class PipelineTrialEvaluator:
         )
 
 
-def _extractor_for(cfg: CalibrationConfig, trial_ctx: TrialContext) -> Any:
+def _extractor_for(
+    cfg: CalibrationConfig,
+    trial_ctx: TrialContext,
+    series_sink: TrialSeriesSink | None = None,
+) -> Any:
     """Return the RAM metric extractor the configuration describes.
 
     Every argument comes off ``cfg`` except the context, which is where the
-    observations are loaded from. Kept as a function rather than inlined so the
-    long argument list stays out of the constructor and reads as one thing.
+    observations are loaded from, and ``series_sink``. Kept as a function
+    rather than inlined so the long argument list stays out of the
+    constructor and reads as one thing.
     """
     return build_metric_extractor(
         cfg.variable,
@@ -89,6 +106,7 @@ def _extractor_for(cfg: CalibrationConfig, trial_ctx: TrialContext) -> Any:
         scoring_window=scoring_window_bounds(cfg.scoring_window),
         observed_station_id=cfg.observed_station_id,
         min_samples=int(cfg.aggregate.min_samples),
+        series_sink=series_sink,
     )
 
 
