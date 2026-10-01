@@ -802,6 +802,123 @@ def finalize_pending_recharge_evt(model) -> None:
     model._pending_negative_to_evt = False
 
 
+def _evt_keep_mask_and_top_layer(
+    model,
+    solver_mesh,
+    *,
+    ocean_support_mask: np.ndarray,
+    stream_support_mask: np.ndarray,
+    lake_cell_ids: Iterable[int],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return the (``keep``, ``top_layer_by_cell``) pair shared by every EVT builder.
+
+    ``keep`` marks the cells that may carry an aquifer EVT record: not ocean,
+    not stream, not under a lake, and with at least one active layer.
+    ``top_layer_by_cell`` is each cell's first active layer, used to place the
+    EVT sink on the uppermost active layer rather than always layer 0. Both
+    are period-invariant, so every caller computes them once.
+    """
+    ncpl = int(model.ncpl)
+    ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
+    stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
+    active_by_layer = solver_mesh.idomain() == 1
+    has_active = active_by_layer.any(axis=0)
+    top_layer_by_cell = np.argmax(active_by_layer, axis=0)  # first active layer per cell
+    skip = ocean_mask_flat | stream_mask_flat
+    for cid in lake_cell_ids:
+        if 0 <= int(cid) < ncpl:
+            skip[int(cid)] = True
+    keep = ~skip & has_active
+    return keep, top_layer_by_cell
+
+
+def evt_routing_is_layer0_only(
+    model,
+    solver_mesh,
+    *,
+    ocean_support_mask: np.ndarray,
+    stream_support_mask: np.ndarray,
+    lake_cell_ids: Iterable[int] = (),
+) -> bool:
+    """Return True when every kept EVT cell's first active layer is 0.
+
+    Cheap, period-invariant precheck for ``build_evt_array_stress_period_data``:
+    when it holds, the vectorized array build is byte-for-byte equivalent to
+    ``build_evt_stress_period_data`` -> ``collapse_identical_periods`` ->
+    ``evt_list_spd_to_array_payload``, so the caller can skip the O(ncells x
+    nper) list builder entirely. Keeps an empty ``keep`` mask eligible (no EVT
+    record is ever produced either way).
+    """
+    keep, top_layer_by_cell = _evt_keep_mask_and_top_layer(
+        model,
+        solver_mesh,
+        ocean_support_mask=ocean_support_mask,
+        stream_support_mask=stream_support_mask,
+        lake_cell_ids=lake_cell_ids,
+    )
+    return bool(np.all(top_layer_by_cell[keep] == 0))
+
+
+def build_evt_array_stress_period_data(
+    model,
+    solver_mesh,
+    *,
+    ocean_support_mask: np.ndarray,
+    stream_support_mask: np.ndarray,
+    lake_cell_ids: Iterable[int] = (),
+) -> tuple[dict[int, np.ndarray], np.ndarray, float] | None:
+    """Vectorized EVTA payload, built directly instead of through the list path.
+
+    Equivalent, cell for cell and period for period, to ``build_evt_stress_period_data``
+    -> ``collapse_identical_periods`` -> ``evt_list_spd_to_array_payload`` ONLY when
+    ``evt_routing_is_layer0_only`` holds; the caller checks that first and falls back
+    to the list path otherwise. Avoids ever materializing the list builder's
+    ``O(ncells x nper)`` Python records: each period's rate is one numpy array, and
+    only the periods whose array differs from the previous one are kept, matching
+    ``collapse_identical_periods`` (MF6 reuses the previous array on a gap).
+    """
+    evt_payload = getattr(model, "_evt_rate_payload", None)
+    if evt_payload is None:
+        return None
+
+    top_flat = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
+    # evt_extinction_depth in meters; floor only guards a degenerate zero depth.
+    evt_depth = max(float(model.modflow_config.process_specific.evt_extinction_depth), 1e-6)
+    ncpl = int(model.ncpl)
+    keep, _top_layer_by_cell = _evt_keep_mask_and_top_layer(
+        model,
+        solver_mesh,
+        ocean_support_mask=ocean_support_mask,
+        stream_support_mask=stream_support_mask,
+        lake_cell_ids=lake_cell_ids,
+    )
+
+    rate_by_period: dict[int, np.ndarray] = {}
+    previous: np.ndarray | None = None
+    any_positive = False
+    for kper in range(int(model.nper)):
+        raw_value = evt_payload.get(kper, 0.0) if isinstance(evt_payload, Mapping) else evt_payload
+        rate_flat = as_recharge_flat(model, raw_value, kper=kper)
+        period_rate = np.where(keep & (rate_flat > 0.0), rate_flat, 0.0)
+        if previous is None or not np.array_equal(previous, period_rate):
+            rate_by_period[kper] = period_rate
+        if period_rate.any():
+            any_positive = True
+        previous = period_rate
+
+    if not any_positive:
+        return None
+
+    warnings.warn(
+        "Routed climatic deficit uses a fixed EVT extinction depth of "
+        f"{evt_depth} m; a sustained deficit can saturate the water table near "
+        "this depth rather than over the full saturated thickness.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    return rate_by_period, top_flat[:ncpl].copy(), evt_depth
+
+
 def build_evt_stress_period_data(
     model,
     solver_mesh,
@@ -822,21 +939,16 @@ def build_evt_stress_period_data(
         return None
 
     top_flat = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
-    ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
-    stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
     # evt_extinction_depth in meters; floor only guards a degenerate zero depth.
     evt_depth = max(float(model.modflow_config.process_specific.evt_extinction_depth), 1e-6)
-    # Place the EVT sink on the uppermost active layer of each cell, not layer 0.
-    # idomain and the skip mask are loop-invariant, so precompute them once.
     ncpl = int(model.ncpl)
-    active_by_layer = solver_mesh.idomain() == 1
-    has_active = active_by_layer.any(axis=0)
-    top_layer_by_cell = np.argmax(active_by_layer, axis=0)  # first active layer per cell
-    skip = ocean_mask_flat | stream_mask_flat
-    for cid in lake_cell_ids:
-        if 0 <= int(cid) < ncpl:
-            skip[int(cid)] = True
-    keep = ~skip & has_active
+    keep, top_layer_by_cell = _evt_keep_mask_and_top_layer(
+        model,
+        solver_mesh,
+        ocean_support_mask=ocean_support_mask,
+        stream_support_mask=stream_support_mask,
+        lake_cell_ids=lake_cell_ids,
+    )
 
     evt_spd: dict[int, list[list[float]]] = {}
     for kper in range(int(model.nper)):
@@ -914,9 +1026,11 @@ __all__ = [
     "bind_heterogeneous_recharge",
     "bind_recharge_from_flow",
     "bind_soil_etp_from_flow",
+    "build_evt_array_stress_period_data",
     "build_evt_stress_period_data",
     "build_soil_evta_payload",
     "evt_list_spd_to_array_payload",
+    "evt_routing_is_layer0_only",
     "clip_negative_payload",
     "copy_runtime_payload",
     "empty_recharge_aux",
