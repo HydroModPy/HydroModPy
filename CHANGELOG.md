@@ -110,6 +110,13 @@ Each release section includes the following standard categories:
   cell and per deficit day first: on 36,465 cells and 2,452 daily periods the build takes
   0.24 s and 0.6 GB instead of about 50 s and 12 GB, for the same arrays.
 
+### Fixed
+- `flow_persistence_map`, `flow_intermittence_map`, `seepage_network_reference_overlay` and
+  `seepage_network_confusion_map` render again on a run with several layers. The seepage
+  threshold reads the mean recharge from the budget, stored per layer; it now sums the layers
+  onto each cell instead of laying them side by side, which failed with `operands could not be
+  broadcast together`. Calibration scores were not affected.
+
 ---
 
 ## [v2.0.0a4] - 2026-09-29

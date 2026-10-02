@@ -460,6 +460,10 @@ def _budget_mean_recharge_m_s(sim: Run, areas: np.ndarray, *, ratio: float) -> f
     for first in range(0, len(steps), per_pass):
         chunk = steps[first : first + per_pass]
         stack = np.asarray(field_steps(sim, "recharge", chunk), dtype=float)
+        if stack.ndim == 3:
+            # Recharge is stored (time, layer, cell): sum onto the cell index
+            # rather than flattening layers into extra columns.
+            stack = stack.sum(axis=1)
         for recharge_m3_s in stack.reshape(len(chunk), -1):
             usable = np.isfinite(recharge_m3_s) & np.isfinite(areas) & (areas > 0.0)
             rates.append(recharge_m3_s[usable] / areas[usable])
