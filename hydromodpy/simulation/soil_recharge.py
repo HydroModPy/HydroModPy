@@ -720,9 +720,9 @@ def _parameters_line(config: SoilReservoirConfig, raster_mean_mm: float | None) 
         else ""
     )
     return (
-        f"{ru_clause}, alpha {config.alpha:g}, kc {config.kc:.1f}, "
-        f"impervious {100 * config.impervious_fraction:.0f} %, "
-        f"bypass {100 * config.bypass_fraction:.0f} %, "
+        f"{ru_clause}, alpha {config.alpha:g}, kc {config.kc:.4g}, "
+        f"impervious {100 * config.impervious_fraction:.3g} %, "
+        f"bypass {100 * config.bypass_fraction:.3g} %, "
         f"transit time {config.transit_time:g} days{cn_clause}"
     )
 
