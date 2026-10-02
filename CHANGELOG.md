@@ -116,6 +116,9 @@ Each release section includes the following standard categories:
   threshold reads the mean recharge from the budget, stored per layer; it now sums the layers
   onto each cell instead of laying them side by side, which failed with `operands could not be
   broadcast together`. Calibration scores were not affected.
+- The soil budget printed by `hmp run` shows `kc` and the sealed and bypass shares with their real
+  precision: a calibrated `kc = 0.9571` printed `kc 1.0` and `impervious_fraction = 0.00212`
+  printed `impervious 0 %`. The values used by the run were right.
 
 ---
 

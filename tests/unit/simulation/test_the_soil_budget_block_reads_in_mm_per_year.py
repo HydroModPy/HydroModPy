@@ -22,6 +22,7 @@ from hydromodpy.simulation.soil_recharge import (
     SoilColumns,
     SoilForcings,
     _no_negative_zero,
+    _parameters_line,
     soil_budget_lines,
 )
 
@@ -88,7 +89,14 @@ def test_the_first_line_names_the_window_and_the_grid() -> None:
 
 def test_the_second_line_names_the_parameters() -> None:
     _forcings_obj, lines = _lines()
-    assert lines[1] == "ru 50 mm, alpha 1, kc 1.0, impervious 0 %, bypass 0 %, transit time 0 days"
+    assert lines[1] == "ru 50 mm, alpha 1, kc 1, impervious 0 %, bypass 0 %, transit time 0 days"
+
+
+def test_the_second_line_keeps_a_calibrated_kc_and_a_small_sealed_share() -> None:
+    config = SoilReservoirConfig(ru=148.49, alpha=0.6, kc=0.9571, impervious_fraction=0.00212)
+    line = _parameters_line(config, None)
+    assert "kc 0.9571" in line
+    assert "impervious 0.212 %" in line
 
 
 def test_the_third_line_says_the_soil_started_full() -> None:

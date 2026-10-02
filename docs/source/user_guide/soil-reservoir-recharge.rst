@@ -165,7 +165,7 @@ input lock. On the Nancon, 2015 to 2020:
 .. code-block:: text
 
    Soil reservoir, 2015-01-01 to 2020-12-31 (2192 days), 9 SAFRAN cells, 1 capacity class each
-   ru 150 mm, alpha 0.6, kc 1.0, impervious 0 %, bypass 0 %, transit time 0 days
+   ru 150 mm, alpha 0.6, kc 1, impervious 0 %, bypass 0 %, transit time 0 days
    starting soil: 2015 repeated 2 times, settled within 0.1 mm
    mm/year                   mean   2016 least rain   2019 most rain
    precipitation            903.9             790.4           1024.8
