@@ -78,13 +78,27 @@ same way ``impervious_fraction`` already does, never MODFLOW. The printed
 budget and ``soil_budget.parquet`` carry it as its own row and column
 (``runoff_cn_mm``), apart from the sealed share.
 
+``runoff_lag`` (days, 0 by default) then holds the routed total back by a
+fixed travel time before it reaches the discharge: not a reservoir, a pure
+shift, for the time the water still needs to walk the channel network to the
+gauge once ``runoff_time`` has shaped the pulse. A fractional value such as
+``"0.75 days"`` interpolates linearly between the neighbouring whole-day
+shifts. The first days of a run read as zero before day 0, or, with
+``spinup = "first_year"``, the tail of the settled first year, its own best
+guess at the days it repeats. The delay leaves no volume behind: a day's
+``runoff_cn_mm`` still sums to the undelayed total once summed over the run,
+except what a run ending mid-delay pushes past its last day, tracked like
+``runoff_time``'s own store as ``lag_storage_change_mm``.
+
 A catchment calibrated on discharge tends to need a curve number above the
 tables (75 to 85 against 55 to 78 for Breton land covers): SAFRAN rain is a
 mean over 8 km cells, which smooths the daily peaks a tabulated curve number
 assumes. Reach for it for a seasonal quick flow that ``impervious_fraction``
 alone cannot place correctly on wet soils; keep ``runoff_time`` at a day or
 more once a run is coupled to MODFLOW, since an unrouted term can exceed the
-gauged discharge of the day it falls on.
+gauged discharge of the day it falls on. Where the observed discharge peaks a
+day or so after the model, a small ``runoff_lag`` is usually a travel time
+the routing reservoir alone cannot reproduce.
 
 Declaring it
 ------------

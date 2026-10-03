@@ -495,6 +495,7 @@ def _soil_budget_rows(soil: object) -> list[dict[str, object]]:
                     "soil_storage_change_mm": float(budget.soil_storage_change[i, j]),
                     "transit_storage_change_mm": float(budget.transit_storage_change[i, j]),
                     "cn_storage_change_mm": float(budget.cn_storage_change[i, j]),
+                    "lag_storage_change_mm": float(budget.lag_storage_change[i, j]),
                     "balance_residual_mm": float(budget.residual[i, j]),
                 }
             )
@@ -522,6 +523,7 @@ def _soil_budget_rows(soil: object) -> list[dict[str, object]]:
                 "soil_storage_change_mm": float(budget.basin("soil_storage_change")[i]),
                 "transit_storage_change_mm": float(budget.basin("transit_storage_change")[i]),
                 "cn_storage_change_mm": float(budget.basin("cn_storage_change")[i]),
+                "lag_storage_change_mm": float(budget.basin("lag_storage_change")[i]),
                 "balance_residual_mm": float(budget.basin("residual")[i]),
             }
         )
@@ -576,6 +578,13 @@ def _persist_soil_columns(sz: SimulationZarr, soil: object) -> None:
             "mm",
             "time: point",
             "Curve-number runoff routing store at the end of the day",
+        ),
+        "lag_storage": (
+            fluxes.lag_storage,
+            "mm",
+            "time: point",
+            "Routed curve-number runoff delayed by runoff_lag, not yet released, at "
+            "the end of the day",
         ),
     }
     columns_arrays = {

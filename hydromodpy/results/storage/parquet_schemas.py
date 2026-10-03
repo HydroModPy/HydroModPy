@@ -741,6 +741,15 @@ SOIL_BUDGET_SCHEMA: Final[pa.Schema] = pa.schema(
             ),
         ),
         pa.field(
+            "lag_storage_change_mm",
+            pa.float64(),
+            nullable=False,
+            metadata=_field_meta(
+                description="Change of the runoff_lag delay line over the row, mm; "
+                "0 when runoff_lag is 0"
+            ),
+        ),
+        pa.field(
             "balance_residual_mm",
             pa.float64(),
             nullable=False,

@@ -51,6 +51,7 @@ def soil_parameters(config: SoilReservoirConfig, ru_mm: np.ndarray) -> SoilParam
         transit_time_days=config.transit_time,
         curve_number=config.curve_number,
         runoff_time_days=config.runoff_time,
+        runoff_lag_days=config.runoff_lag,
     )
 
 
@@ -515,6 +516,16 @@ def _spinup_or_full(
     return result.state, result
 
 
+def _runoff_cn_history(spinup_result) -> np.ndarray | None:
+    """Days preceding day 0 for ``runoff_lag``: the settled spin-up's last cycle, or None.
+
+    A settled first year repeats forever by construction, so its own days are
+    the best estimate of what came before the run; ``spinup = "none"`` or
+    ``runoff_lag = 0`` (which never reads this) leaves the first days at zero.
+    """
+    return spinup_result.last_cycle_runoff_cn if spinup_result is not None else None
+
+
 # ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
@@ -587,7 +598,13 @@ def compute_soil_forcings(
     spinup_cycles = spinup_result.cycles if spinup_result is not None else 0
     never_full_columns = int(np.sum(spinup_result.never_full)) if spinup_result is not None else 0
 
-    fluxes = run_soil_balance(precip_columns, etp_columns, parameters, initial)
+    fluxes = run_soil_balance(
+        precip_columns,
+        etp_columns,
+        parameters,
+        initial,
+        runoff_cn_history_mm=_runoff_cn_history(spinup_result),
+    )
 
     recharge_grid = _aggregate_to_cells(fluxes.recharge, columns, n_cells)
     residual_etp_grid = _aggregate_to_cells(fluxes.residual_etp, columns, n_cells)
@@ -641,7 +658,13 @@ def ru_ladder(
         if spinup_result is not None and not spinup_result.settled:
             rows.append((ru, float("nan")))
             continue
-        fluxes = run_soil_balance(forcings.precipitation, forcings.etp, parameters, initial)
+        fluxes = run_soil_balance(
+            forcings.precipitation,
+            forcings.etp,
+            parameters,
+            initial,
+            runoff_cn_history_mm=_runoff_cn_history(spinup_result),
+        )
         basin_recharge = fluxes.recharge @ forcings.columns.basin_weight
         rows.append((ru, float(basin_recharge.sum() / n_years)))
     return tuple(rows)
@@ -714,8 +737,10 @@ def _parameters_line(config: SoilReservoirConfig, raster_mean_mm: float | None) 
         if raster_mean_mm is not None
         else f"ru {config.ru:g} mm"
     )
+    lag_clause = f", runoff lag {config.runoff_lag:g} days" if config.runoff_lag != 0.0 else ""
     cn_clause = (
         f", curve number {config.curve_number:g}, runoff time {config.runoff_time:g} days"
+        f"{lag_clause}"
         if config.curve_number is not None
         else ""
     )
@@ -814,7 +839,10 @@ def soil_budget_lines(
 
     scale = n_days / 365.25
     storage_change = (
-        annual.soil_storage_change + annual.transit_storage_change + annual.cn_storage_change
+        annual.soil_storage_change
+        + annual.transit_storage_change
+        + annual.cn_storage_change
+        + annual.lag_storage_change
     )
     impervious_only = annual.runoff - annual.runoff_cn
 

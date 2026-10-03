@@ -6514,6 +6514,22 @@ Fields
                         Time constant of the linear reservoir that routes the curve-number runoff to the outlet, in days. Read only when curve_number is set. 0 sends it the same day; "2 days" also reads. Between 0 and 10 days: a longer delay would smooth away the fast surface peak the term exists for.
 
 
+                  .. index:: ! runoff_lag
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: flow-sinks-sources-recharge-soil-runoff-lag
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="flow.sinks_sources.recharge.soil.runoff_lag">
+                          <code class="hmp-field-name">runoff_lag</code>
+                        </div>
+
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L135>`__
+
+                        Pure delay applied to the routed curve-number runoff, after runoff_time, before it reaches the gauged discharge: the travel time to the outlet plus any lag between the forcing's daily step and the gauge's. Read only when curve_number is set. 0 adds no delay, bit for bit as before; "0.75 days" also reads, interpolated linearly between the neighbouring whole-day shifts. Between 0 and 5 days: a longer shift belongs to runoff_time's reservoir, not to a fixed travel time. Calibrate it with [calibration.parameters.runoff_lag].
+
+
                   .. index:: ! spinup
 
                   .. container:: hmp-field hmp-field-level-user
@@ -6525,7 +6541,7 @@ Fields
                           <code class="hmp-field-name">spinup</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "first_year"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L135>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "first_year"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L149>`__
 
                         State of the soil on the first day. "first_year" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last one year at least. "none" starts from a full soil, the state of a soil in a wet winter.
 

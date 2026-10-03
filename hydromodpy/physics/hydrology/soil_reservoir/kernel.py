@@ -6,7 +6,9 @@ below alpha x RU: alpha is 1 - p of FAO-56 (Allen et al. 1998) and LP of HBV
 of time constant ``transit_time_days``, integrated exactly over the day, can
 delay it. The sealed share of a column runs off, and so does an optional
 SCS-CN share of the unsealed rain (HELP, Schroeder et al. 1994), routed
-through its own linear reservoir of time constant ``runoff_time_days``. The
+through its own linear reservoir of time constant ``runoff_time_days``. A
+pure delay of ``runoff_lag_days``, applied after that reservoir, then holds
+the routed share for a fixed travel time before it joins the discharge. The
 soil covers the rest.
 """
 
@@ -31,6 +33,7 @@ class SoilParameters:
     transit_time_days: float  # [0, 30]
     curve_number: float | None = None  # AMC II curve number, [30, 98]; None turns the term off
     runoff_time_days: float = 1.0  # time constant of the curve-number runoff reservoir, [0, 10]
+    runoff_lag_days: float = 0.0  # pure delay after that reservoir, [0, 5]; 0 costs nothing
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,9 +68,11 @@ class SoilFluxes:
     soil_storage: np.ndarray  # (T, N) end of day
     transit_storage: np.ndarray  # (T, N) end of day
     cn_storage: np.ndarray  # (T, N) end of day
+    lag_storage: np.ndarray  # (T, N) end of day; mass delayed but not yet released
     soil_storage_start: np.ndarray  # (N,) before the first day
     transit_storage_start: np.ndarray  # (N,) before the first day
     cn_storage_start: np.ndarray  # (N,) before the first day
+    lag_storage_start: np.ndarray  # (N,) before the first day, always 0
     end: SoilState  # state after the last day, unsealed units
 
 
@@ -80,6 +85,7 @@ class Spinup:
     settled: bool
     last_change_mm: float  # max over columns of the last change, soil or transit
     never_full: np.ndarray  # (N,) bool, soil below RU on every day of the last cycle
+    last_cycle_runoff_cn: np.ndarray  # (n_days, N) routed, pre-lag CN runoff of the settled cycle
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +104,7 @@ class AnnualSoilBudget:
     soil_storage_change: np.ndarray  # (Y, N)
     transit_storage_change: np.ndarray  # (Y, N)
     cn_storage_change: np.ndarray  # (Y, N)
+    lag_storage_change: np.ndarray  # (Y, N)
     residual: np.ndarray  # (Y, N)
     weights: np.ndarray  # (N,) weight of each column in the basin value
 
@@ -149,6 +156,41 @@ def route_linear_reservoir(
     new_transit_mm = inflow * k + (transit_mm - inflow * k) * decay
     outflow = inflow - (new_transit_mm - transit_mm)
     return outflow, new_transit_mm
+
+
+def apply_runoff_lag(
+    series_mm: np.ndarray, lag_days: float, history_mm: np.ndarray | None = None
+) -> np.ndarray:
+    """Pure delay of ``lag_days`` on a routed runoff series, column by column.
+
+    A fractional lag ``L = n + f`` interpolates between the series shifted by
+    the whole days ``n`` and ``n + 1``: ``(1 - f) * shift(n) + f * shift(n +
+    1)``. A day that would read before day 0 takes ``history_mm`` (its last
+    rows, closest to day 0 last), or zero past what it covers. The output
+    carries the same total as ``series_mm`` except what a positive lag pushes
+    past the last day, which this function does not represent.
+    """
+    if lag_days == 0.0:
+        return series_mm
+    n_days, n_columns = series_mm.shape
+    whole_days = int(np.floor(lag_days))
+    fraction = lag_days - whole_days
+
+    def before_day_zero(k: int) -> np.ndarray:
+        """``k`` days preceding day 0, chronological order: history then zero."""
+        if k == 0:
+            return np.zeros((0, n_columns), dtype=np.float64)
+        available = 0 if history_mm is None else history_mm.shape[0]
+        tail = history_mm[-min(k, available) :] if available > 0 else np.zeros((0, n_columns))
+        pad = np.zeros((k - tail.shape[0], n_columns), dtype=np.float64)
+        return np.concatenate([pad, tail], axis=0)
+
+    def shifted(k: int) -> np.ndarray:
+        return np.concatenate([before_day_zero(k), series_mm], axis=0)[:n_days]
+
+    if fraction == 0.0:
+        return shifted(whole_days)
+    return (1.0 - fraction) * shifted(whole_days) + fraction * shifted(whole_days + 1)
 
 
 def soil_step(
@@ -221,9 +263,21 @@ def soil_step(
 
 
 def run_soil_balance(
-    precipitation: np.ndarray, etp: np.ndarray, params: SoilParameters, initial: SoilState
+    precipitation: np.ndarray,
+    etp: np.ndarray,
+    params: SoilParameters,
+    initial: SoilState,
+    *,
+    runoff_cn_history_mm: np.ndarray | None = None,
 ) -> SoilFluxes:
-    """Run the soil day by day, preallocating every output array."""
+    """Run the soil day by day, preallocating every output array.
+
+    ``runoff_cn_history_mm`` is read only when ``params.runoff_lag_days`` is
+    not zero: days of routed, pre-lag CN runoff preceding day 0, most recent
+    last, used to delay the first days of the run instead of reading them as
+    zero. ``params.runoff_lag_days == 0.0`` costs nothing: every array is
+    exactly what it was before this parameter existed.
+    """
     n_days, n_columns = precipitation.shape
     etr = np.empty((n_days, n_columns), dtype=np.float64)
     residual_etp = np.empty((n_days, n_columns), dtype=np.float64)
@@ -252,6 +306,15 @@ def run_soil_balance(
         transit_storage[t] = unsealed_fraction * state.transit_mm
         cn_storage[t] = unsealed_fraction * state.cn_storage_mm
 
+    lag_storage = np.zeros((n_days, n_columns), dtype=np.float64)
+    if params.runoff_lag_days != 0.0:
+        unlagged_runoff_cn = runoff_cn
+        runoff_cn = apply_runoff_lag(
+            unlagged_runoff_cn, params.runoff_lag_days, history_mm=runoff_cn_history_mm
+        )
+        runoff = runoff - unlagged_runoff_cn + runoff_cn
+        lag_storage = np.cumsum(unlagged_runoff_cn - runoff_cn, axis=0)
+
     return SoilFluxes(
         etr=etr,
         residual_etp=residual_etp,
@@ -261,9 +324,11 @@ def run_soil_balance(
         soil_storage=soil_storage,
         transit_storage=transit_storage,
         cn_storage=cn_storage,
+        lag_storage=lag_storage,
         soil_storage_start=unsealed_fraction * initial.soil_mm,
         transit_storage_start=unsealed_fraction * initial.transit_mm,
         cn_storage_start=unsealed_fraction * initial_cn_mm,
+        lag_storage_start=np.zeros(n_columns, dtype=np.float64),
         end=state,
     )
 
@@ -280,7 +345,10 @@ def spinup_state(
 
     Starts full (`full_soil`), then runs the same days again through
     `soil_step` until the end-of-cycle soil and transit stores move by less
-    than ``tol_mm``, or ``max_cycles`` is reached.
+    than ``tol_mm``, or ``max_cycles`` is reached. Also keeps the settled
+    cycle's day-by-day, pre-lag CN runoff: ``runoff_lag_days`` reads its tail
+    as the days preceding day 0, the periodic continuation a settled spin-up
+    stands for, instead of reading them as zero.
     """
     n_days = precipitation.shape[0]
     state = full_soil(params)
@@ -291,12 +359,14 @@ def spinup_state(
     change = float("inf")
     cycles_run = 0
     last_cycle_soil = np.empty_like(precipitation)
+    last_cycle_runoff_cn = np.empty_like(precipitation)
 
     for cycle in range(1, max_cycles + 1):
         cycles_run = cycle
         for t in range(n_days):
-            state, _ = soil_step(state, precipitation[t], etp[t], params)
+            state, day = soil_step(state, precipitation[t], etp[t], params)
             last_cycle_soil[t] = state.soil_mm
+            last_cycle_runoff_cn[t] = day.runoff_cn
         change = float(
             np.max(
                 np.maximum(
@@ -325,6 +395,7 @@ def spinup_state(
         settled=settled,
         last_change_mm=change,
         never_full=never_full,
+        last_cycle_runoff_cn=last_cycle_runoff_cn,
     )
 
 
@@ -339,9 +410,13 @@ def balance_residual(precipitation: np.ndarray, fluxes: SoilFluxes) -> np.ndarra
     previous_cn = np.concatenate(
         [fluxes.cn_storage_start[np.newaxis, :], fluxes.cn_storage[:-1]], axis=0
     )
+    previous_lag = np.concatenate(
+        [fluxes.lag_storage_start[np.newaxis, :], fluxes.lag_storage[:-1]], axis=0
+    )
     soil_change = fluxes.soil_storage - previous_soil
     transit_change = fluxes.transit_storage - previous_transit
     cn_change = fluxes.cn_storage - previous_cn
+    lag_change = fluxes.lag_storage - previous_lag
     return (
         precipitation
         - fluxes.etr
@@ -350,6 +425,7 @@ def balance_residual(precipitation: np.ndarray, fluxes: SoilFluxes) -> np.ndarra
         - soil_change
         - transit_change
         - cn_change
+        - lag_change
     )
 
 
@@ -377,6 +453,7 @@ def annual_budget(
     soil_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
     transit_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
     cn_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
+    lag_storage_change = np.empty((n_years, n_columns), dtype=np.float64)
     residual_sum = np.empty((n_years, n_columns), dtype=np.float64)
 
     for i, year in enumerate(unique_years):
@@ -403,9 +480,13 @@ def annual_budget(
         cn_before_year = (
             fluxes.cn_storage_start if first_day == 0 else fluxes.cn_storage[first_day - 1]
         )
+        lag_before_year = (
+            fluxes.lag_storage_start if first_day == 0 else fluxes.lag_storage[first_day - 1]
+        )
         soil_storage_change[i] = fluxes.soil_storage[last_day] - soil_before_year
         transit_storage_change[i] = fluxes.transit_storage[last_day] - transit_before_year
         cn_storage_change[i] = fluxes.cn_storage[last_day] - cn_before_year
+        lag_storage_change[i] = fluxes.lag_storage[last_day] - lag_before_year
 
     return AnnualSoilBudget(
         years=unique_years,
@@ -420,6 +501,7 @@ def annual_budget(
         soil_storage_change=soil_storage_change,
         transit_storage_change=transit_storage_change,
         cn_storage_change=cn_storage_change,
+        lag_storage_change=lag_storage_change,
         residual=residual_sum,
         weights=weights,
     )
