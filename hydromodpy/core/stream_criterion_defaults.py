@@ -7,10 +7,11 @@ import ``core``, so this is the only place a default can live without being
 written twice, and a threshold written twice is a map that drifts from its own
 caption.
 
-Three defaults change what is computed: ``tau_specific_ratio`` selects the
-seepage threshold, ``diagonal_neighbors`` the graph the descent walks and
-``observed_rasterization`` the cells the mapped network is drawn on. The other
-three decide only what gets logged.
+Five defaults change what is computed: ``tau_specific_ratio`` selects the
+seepage threshold, ``diagonal_neighbors`` the graph the descent walks,
+``observed_rasterization`` the cells the mapped network is drawn on, and the
+two ``heads_`` values where the heads rule lets a head land. The other three
+decide only what gets logged.
 """
 
 from __future__ import annotations
@@ -22,13 +23,18 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 
-ObservedRasterization = Literal["crossing", "touch"]
+ObservedRasterization = Literal["heads", "crossing", "touch"]
 """How the mapped stream network is drawn on the mesh cells.
 
-``"crossing"`` keeps the cell holding each point where a line crosses the
-segment joining two edge-sharing cell centres: WhiteboxTools
-``VectorLinesToRaster`` on a structured grid. ``"touch"`` keeps every cell the
-line intersects, corners included, the rule of the sessions before 2026-09.
+``"heads"`` keeps only the free ends of the map that drain less than the other
+end of their reach, lands each on a nearby cell draining enough, and follows
+the criterion graph down from there: the map is drawn by the model's own
+descent, connected to the outlet. ``"crossing"`` keeps the cell holding each
+point where a line crosses the segment joining two edge-sharing cell centres:
+WhiteboxTools ``VectorLinesToRaster`` on a structured grid, and the rule for a
+map that is not a tree (canals, braids, polders, karst). ``"touch"`` keeps
+every cell the line intersects, corners included, the rule of the sessions
+before 2026-09.
 """
 
 
@@ -65,7 +71,27 @@ class StreamCriterionDefaults(HydroModelBase):
             "where a line crosses the segment joining two edge-sharing cell centres: "
             "WhiteboxTools VectorLinesToRaster, the tool of the paper, one cell wide "
             "like the simulated network. 'touch' keeps every cell the line touches, "
-            "corners included, and replays a session made before 2026-09."
+            "corners included, and replays a session made before 2026-09. 'heads' "
+            "keeps the free ends of the map and draws the rest down the model's own "
+            "descent, connected to the outlet."
+        ),
+    )
+    heads_snap_radius_m: Annotated[float, Profile.EXPERT] = Field(
+        default=100.0,
+        gt=0.0,
+        description=(
+            "Under the 'heads' rule, the largest distance in metres between a mapped "
+            "stream head and the centre of the cell it lands on. A head with no "
+            "landing cell that close is lost and draws nothing."
+        ),
+    )
+    heads_min_drained_area_km2: Annotated[float, Profile.EXPERT] = Field(
+        default=0.02,
+        ge=0.0,
+        description=(
+            "Under the 'heads' rule, the drained area in km2 a cell needs before a "
+            "head may land on it. It keeps a head off a ridge cell next to its "
+            "valley, whose descent would draw a stream down the hillslope."
         ),
     )
     alpha_warning_threshold: Annotated[float, Profile.EXPERT] = Field(

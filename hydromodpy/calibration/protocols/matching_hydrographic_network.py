@@ -291,7 +291,9 @@ class MatchingHydrographicNetwork:
             "that a reach crossing no such segment keeps the cell holding its "
             "midpoint where WhiteboxTools drops it (counted per trial as "
             "n_observed_features_fallback); 'touch' is offered and departs, keeping "
-            "every cell the line geometry intersects, corners included",
+            "every cell the line geometry intersects, corners included; 'heads' is "
+            "offered and departs, keeping the free ends of the map and tracing the "
+            "model's own descent from each",
             why=(
                 "crossing draws the map one cell wide, like the simulated network, so "
                 "a model that matches the map scores J = 0; touch grows D_os on every "

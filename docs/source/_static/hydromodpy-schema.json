@@ -1297,16 +1297,58 @@
         },
         "observed_rasterization": {
           "default": "crossing",
-          "description": "How the mapped network is drawn on the mesh cells. 'crossing' keeps the cell holding each point where a line crosses the segment joining two edge-sharing cell centres. On a structured grid it reproduces WhiteboxTools VectorLinesToRaster, the paper's tool, and draws the map one cell wide like the simulated network, so a model that matches the map scores J = 0. 'touch' keeps every cell the line touches, corners included, and replays a session made before 2026-09; it thickens every diagonal step of the map and departs from the paper.",
+          "description": "How the mapped network is drawn on the mesh cells. 'crossing' keeps the cell holding each point where a line crosses the segment joining two edge-sharing cell centres. On a structured grid it reproduces WhiteboxTools VectorLinesToRaster, the paper's tool, and draws the map one cell wide like the simulated network, so a model that matches the map scores J = 0. 'touch' keeps every cell the line touches, corners included, and replays a session made before 2026-09; it thickens every diagonal step of the map and departs from the paper. 'heads' keeps only the free ends of the map that drain less than the other end of their reach, lands each on a nearby cell and draws the rest down the criterion's own descent: the field ditches and rectified reaches below a head stop counting as model error, and the drawn map reaches the outlet. Keep 'crossing' for a map that is not a tree: canals, braids, polders, karst.",
           "enum": [
+            "heads",
             "crossing",
             "touch"
           ],
           "examples": [
-            "crossing"
+            "heads"
           ],
           "title": "Observed Rasterization",
           "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "heads_snap_radius": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "properties": {
+                "magnitude": {
+                  "title": "Magnitude",
+                  "type": "string"
+                },
+                "units": {
+                  "title": "Units",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "magnitude"
+              ],
+              "type": "object"
+            }
+          ],
+          "default": 100.0,
+          "description": "Under observed_rasterization = 'heads', the largest distance, a length (a bare number is in metres), between a mapped stream head and the centre of the cell it lands on. A head with no landing cell that close is lost, draws nothing and is counted in n_heads_lost. Read only under 'heads'.",
+          "examples": [
+            100.0
+          ],
+          "title": "Heads Snap Radius",
+          "x-hmp-profile": "user"
+        },
+        "heads_min_drained_area_km2": {
+          "default": 0.02,
+          "description": "Under observed_rasterization = 'heads', the drained area in km2 a cell needs before a head may land on it, so a head next to its valley lands in the valley and not on the ridge cell beside it. Read only under 'heads'.",
+          "examples": [
+            0.02
+          ],
+          "minimum": 0.0,
+          "title": "Heads Min Drained Area Km2",
+          "type": "number",
           "x-hmp-profile": "user"
         },
         "observed_position_accuracy": {

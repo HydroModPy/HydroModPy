@@ -34,6 +34,18 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- `observed_rasterization = "heads"` on a network calibration output draws the mapped network
+  from its heads only. The free ends of the map are found by geometry, whatever the source;
+  an end is a head when the largest drained area within the snap radius does not exceed the
+  same window at the other end of its reach. Each head lands on the nearest cell draining at
+  least `heads_min_drained_area_km2` (0.02) within `heads_snap_radius` (100 m), and the
+  criterion's own descent draws the rest down to the outlet. The map is connected by
+  construction, so the path a field, a ditch or a rectified reach gave the mapped line no
+  longer counts as model error. A minimal map is traced from its own heads, the maximal one
+  from both sets. Each trial publishes `n_heads`, `n_heads_lost`, `head_snap_p90_m` and
+  `heads_trace_near_map_share`. On the Flume Voronoi run: 112 heads, 1 lost, one piece of
+  5078 cells to the outlet, 99.5 % of it within 100 m of BD Topage, where `"crossing"` left
+  1989 pieces.
 - The recharge can come from a daily soil reservoir fed by the rain and the ETP instead of a
   drainage loaded from SIM2: `[flow.sinks_sources.recharge.soil]`, MODFLOW 6 only, with `ru`
   (the available water capacity in mm, required, calibrated as `soil.ru`), `alpha` (0.6),

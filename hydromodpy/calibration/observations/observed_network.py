@@ -22,6 +22,10 @@ a perfect match. It is kept to replay a session recorded before 2026-09.
 
 Neither rule is the centroid rule, which on a Voronoi mesh drops about half the
 cells of a line one cell wide.
+
+The third rule, ``"heads"``, draws no cell from the lines: it keeps their free
+ends (:func:`observed_head_candidates`) and the criterion traces them down its
+own graph (:mod:`hydromodpy.core.stream_heads`).
 """
 
 from __future__ import annotations
@@ -37,6 +41,8 @@ from hydromodpy.core.stream_criterion_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
 )
+from hydromodpy.core.stream_heads import HeadCandidates
+from hydromodpy.spatial.mesh.ops.network_heads import network_head_candidates
 from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
     cell_polygons,
     line_crossing_cell_mask,
@@ -96,24 +102,17 @@ def observed_network_mask(
     when given, else the solver mesh's ``cell_centroids()``, the generator
     seeds on a Voronoi mesh.
     """
+    if rasterization == "heads":
+        raise ValueError(
+            "observed_rasterization 'heads' draws the map on the criterion graph, from "
+            "the free ends of the lines, so it has no cell projection here: build the "
+            "network geometry with the head candidates of observed_head_candidates."
+        )
     if rasterization not in ("crossing", "touch"):
         raise ValueError(
             f"observed_rasterization must be 'crossing' or 'touch', got {rasterization!r}."
         )
-    frame = observed.geometry
-    if frame is None or len(frame) == 0:
-        raise ValueError(f"the {observed.source} network holds no feature.")
-    if observed.crs is None:
-        raise ValueError(
-            f"the {observed.source} network declares no CRS, and the distances it feeds "
-            "are reported in metres."
-        )
-    mesh_crs = _declared_crs(run_ctx)
-    if not mesh_crs:
-        raise ValueError(
-            "the run declares no projected CRS, so the stream geometry cannot be placed "
-            "on the mesh. Set [geographic] crs_project."
-        )
+    frame, mesh_crs = _placeable(run_ctx, observed)
 
     vertices = np.asarray(planar_mesh.vertices, dtype=float)
     polygons = cell_polygons(vertices, face_node_connectivity)
@@ -165,6 +164,46 @@ def observed_network_mask(
         n_fallback_parts=int(n_fallback),
         n_outside_parts=int(n_outside),
     )
+
+
+def observed_head_candidates(run_ctx: RunContext, observed: ObservedNetwork) -> HeadCandidates:
+    """Return the free ends of the resolved stream geometry, in the mesh CRS.
+
+    The same checks as :func:`observed_network_mask`: a map with no feature,
+    no CRS, or a run with no projected CRS is refused by name.
+    """
+    frame, mesh_crs = _placeable(run_ctx, observed)
+    candidates = network_head_candidates(
+        list(frame.geometry), mesh_crs=mesh_crs, geometry_crs=observed.crs
+    )
+    logger.info(
+        "Mapped stream network (%s%s): %d feature(s), %d free end(s) examined as heads%s.",
+        observed.source,
+        ", clipped" if observed.clipped else "",
+        len(frame),
+        candidates.n_candidates,
+        f", from {observed.path}" if observed.path else "",
+    )
+    return candidates
+
+
+def _placeable(run_ctx: RunContext, observed: ObservedNetwork) -> tuple[Any, str]:
+    """Return the features of the map and the mesh CRS, refusing what cannot be placed."""
+    frame = observed.geometry
+    if frame is None or len(frame) == 0:
+        raise ValueError(f"the {observed.source} network holds no feature.")
+    if observed.crs is None:
+        raise ValueError(
+            f"the {observed.source} network declares no CRS, and the distances it feeds "
+            "are reported in metres."
+        )
+    mesh_crs = _declared_crs(run_ctx)
+    if not mesh_crs:
+        raise ValueError(
+            "the run declares no projected CRS, so the stream geometry cannot be placed "
+            "on the mesh. Set [geographic] crs_project."
+        )
+    return frame, mesh_crs
 
 
 _UNPLACED_REPORTS: dict[tuple[Any, ...], tuple[int, int, float]] = {}
@@ -489,6 +528,7 @@ __all__ = (
     "ObservedNetworkMask",
     "delineated_catchment_mask",
     "delineated_outlet_xy",
+    "observed_head_candidates",
     "observed_network_mask",
     "resolve_minimal_network",
     "water_body_mask",

@@ -9,6 +9,7 @@ declared.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -16,6 +17,12 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_geometry import NetworkGeometry, build_network_geometry
+from hydromodpy.core.stream_heads import (
+    HeadCandidates,
+    HeadsSettings,
+    concat_candidates,
+    trace_from_heads,
+)
 from hydromodpy.core.stream_recharge import criterion_mean_recharge
 
 if TYPE_CHECKING:
@@ -181,6 +188,11 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
     ``observed_rasterization`` drew, and how many reaches it kept at their
     midpoint cell.
 
+    Under ``observed_rasterization = "heads"`` no cell is projected: each map
+    gives its free ends, the minimal map is traced from its own heads and the
+    maximal one from the heads of both, so it contains the minimal trace. The
+    projection returned is then the trace itself.
+
     Every attribute read here is named in the error it raises when missing, so
     a backend that does not expose one says which one rather than failing deep
     inside a numpy call.
@@ -227,6 +239,54 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
     # than at a stream. The domain restricts what the SOLVER computes; the
     # supports are restricted by the catchment the graph closes, below.
     inactive = ~np.isfinite(np.asarray(solver_mesh.top, dtype=float).reshape(-1))
+
+    # Read once and shared by both maps: none of it depends on the map.
+    topography = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
+    vertices = np.asarray(planar_mesh.vertices, dtype=float)
+    areas = np.asarray(solver_mesh.cell_areas(), dtype=float).reshape(-1)
+    recharge = mean_recharge_m_s(model)
+    excluded = water_body_mask(model, n_cells=int(solver_mesh.n_cells))
+    polygon = delineated_catchment_mask(run_ctx, planar_mesh, connectivity)
+    outlet_xy = delineated_outlet_xy(run_ctx)
+
+    def on_map(
+        observed: np.ndarray | None = None,
+        heads: tuple[HeadCandidates, HeadsSettings] | None = None,
+    ) -> NetworkGeometry:
+        # The model top, conditioned on the mesh graph by build_network_geometry.
+        # Sampling the raster the geographic step conditioned is NOT equivalent:
+        # that surface is pit-free on its own grid, and reading it at mesh
+        # centroids both grows new pits and drops the cells whose centroid falls
+        # on nodata. Measured on the Nancon, the sampled route left 51.9 per cent
+        # of the simulated support unreachable against 0.0 per cent for the flood
+        # on the mesh graph itself. The raster polygon and the snapped outlet
+        # only place the outlet on that graph; the catchment is read there.
+        return build_network_geometry(
+            topography=topography,
+            face_node_connectivity=connectivity,
+            vertices=vertices,
+            observed=observed,
+            heads=heads,
+            cell_area_m2=areas,
+            cell_centroids=centres,
+            mean_recharge_m_s=recharge,
+            tau_specific_ratio=float(output.tau_specific_ratio),
+            inactive_mask=inactive,
+            excluded=excluded,
+            delineated_catchment=polygon,
+            delineated_outlet_xy=outlet_xy,
+            diagonal_neighbors=bool(output.diagonal_neighbors),
+            observed_position_accuracy_m=_accuracy_in_m(output),
+            alpha_warning_threshold=float(output.alpha_warning_threshold),
+            clipping_warning_share=float(output.clipping_warning_share),
+            clipping_warning_gap=float(output.clipping_warning_gap),
+        )
+
+    if output.observed_rasterization == "heads":
+        return _heads_maps(
+            run_ctx, output, resolved, minimal_source, on_map=on_map, cell_area_m2=areas
+        )
+
     projection = observed_network_mask(
         run_ctx,
         resolved,
@@ -247,44 +307,6 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
             cell_centres=centres,
         )
     )
-
-    # Read once and shared by both maps: none of it depends on the map.
-    topography = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
-    vertices = np.asarray(planar_mesh.vertices, dtype=float)
-    areas = np.asarray(solver_mesh.cell_areas(), dtype=float).reshape(-1)
-    recharge = mean_recharge_m_s(model)
-    excluded = water_body_mask(model, n_cells=int(solver_mesh.n_cells))
-    polygon = delineated_catchment_mask(run_ctx, planar_mesh, connectivity)
-    outlet_xy = delineated_outlet_xy(run_ctx)
-
-    def on_map(observed: np.ndarray) -> NetworkGeometry:
-        # The model top, conditioned on the mesh graph by build_network_geometry.
-        # Sampling the raster the geographic step conditioned is NOT equivalent:
-        # that surface is pit-free on its own grid, and reading it at mesh
-        # centroids both grows new pits and drops the cells whose centroid falls
-        # on nodata. Measured on the Nancon, the sampled route left 51.9 per cent
-        # of the simulated support unreachable against 0.0 per cent for the flood
-        # on the mesh graph itself. The raster polygon and the snapped outlet
-        # only place the outlet on that graph; the catchment is read there.
-        return build_network_geometry(
-            topography=topography,
-            face_node_connectivity=connectivity,
-            vertices=vertices,
-            observed=observed,
-            cell_area_m2=areas,
-            cell_centroids=centres,
-            mean_recharge_m_s=recharge,
-            tau_specific_ratio=float(output.tau_specific_ratio),
-            inactive_mask=inactive,
-            excluded=excluded,
-            delineated_catchment=polygon,
-            delineated_outlet_xy=outlet_xy,
-            diagonal_neighbors=bool(output.diagonal_neighbors),
-            observed_position_accuracy_m=_accuracy_in_m(output),
-            alpha_warning_threshold=float(output.alpha_warning_threshold),
-            clipping_warning_share=float(output.clipping_warning_share),
-            clipping_warning_gap=float(output.clipping_warning_gap),
-        )
 
     if minimal_projection is None:
         return NetworkMaps(
@@ -317,21 +339,85 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
     )
 
 
+def heads_settings(output: CalibOutputNetwork) -> HeadsSettings:
+    """Return where a head of this output may land, in metres and square metres."""
+    return HeadsSettings(
+        snap_radius_m=float(_length_in_m(output.heads_snap_radius)),
+        min_drained_area_m2=float(output.heads_min_drained_area_km2) * 1.0e6,
+    )
+
+
+def _heads_maps(
+    run_ctx: RunContext,
+    output: CalibOutputNetwork,
+    resolved: ObservedNetwork,
+    minimal_source: ObservedNetwork | None,
+    *,
+    on_map: Callable[..., NetworkGeometry],
+    cell_area_m2: np.ndarray,
+) -> NetworkMaps:
+    """Build the maps of a heads output: each traced down the criterion graph.
+
+    The minimal map is traced from its own heads, the maximal one from the
+    heads of both (D8 of the heads spec), so the maximal trace contains the
+    minimal one. ``frac_minimal_outside_maximal`` is read against the trace
+    of the maximal map's own heads, the gap the two files carry.
+    """
+    from hydromodpy.calibration.observations.observed_network import (
+        ObservedNetworkMask,
+        observed_head_candidates,
+    )
+
+    settings = heads_settings(output)
+    candidates = observed_head_candidates(run_ctx, resolved)
+    if minimal_source is None:
+        maximal = on_map(heads=(candidates, settings))
+        return NetworkMaps(
+            maximal=maximal,
+            maximal_source=resolved,
+            maximal_projection=ObservedNetworkMask(mask=maximal.observed, rasterization="heads"),
+        )
+    minimal_candidates = observed_head_candidates(run_ctx, minimal_source)
+    maximal = on_map(heads=(concat_candidates(candidates, minimal_candidates), settings))
+    minimal = on_map(heads=(minimal_candidates, settings))
+    own = trace_from_heads(maximal.metric, candidates, cell_area_m2=cell_area_m2, settings=settings)
+    outside = share_outside(minimal.observed, own.traced, maximal.catchment)
+    if np.isfinite(outside) and outside > 0.0:
+        logger.warning(
+            "The minimal map traces %.1f%% of its catchment cells outside the trace of the "
+            "maximal map's own heads. The maximal map is traced from the heads of both.",
+            100.0 * outside,
+        )
+    return NetworkMaps(
+        maximal=maximal,
+        maximal_source=resolved,
+        maximal_projection=ObservedNetworkMask(mask=maximal.observed, rasterization="heads"),
+        minimal=minimal,
+        minimal_source=minimal_source,
+        minimal_projection=ObservedNetworkMask(mask=minimal.observed, rasterization="heads"),
+        frac_minimal_outside_maximal=outside,
+    )
+
+
+def _length_in_m(value: Any) -> float:
+    """Return a length field in metres, a pint quantity or a bare number."""
+    magnitude = getattr(value, "to", None)
+    if callable(magnitude):
+        return float(value.to("m").magnitude)
+    return float(value)
+
+
 def _accuracy_in_m(output: CalibOutputNetwork) -> float | None:
     """Return the declared positional accuracy in metres, or None."""
     accuracy = getattr(output, "observed_position_accuracy", None)
-    if accuracy is None:
-        return None
-    magnitude = getattr(accuracy, "to", None)
-    if callable(magnitude):
-        return float(accuracy.to("m").magnitude)
-    return float(accuracy)
+    return None if accuracy is None else _length_in_m(accuracy)
 
 
 __all__ = (
     "NetworkMaps",
     "aquifer_extent",
     "dense_face_connectivity",
+    "heads_settings",
     "mean_recharge_m_s",
     "mesh_cell_m",
     "network_maps_from_run",

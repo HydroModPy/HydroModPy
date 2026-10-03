@@ -68,6 +68,7 @@ from hydromodpy.core.config_kit.types import (
     PositiveFloat,
     PositiveInt,
 )
+from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.stream_criterion_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
@@ -958,8 +959,43 @@ class CalibOutputNetwork(HydroModelBase):
         "the simulated network, so a model that matches the map scores J = 0. 'touch' "
         "keeps every cell the line touches, corners included, and replays a session "
         "made before 2026-09; it thickens every diagonal step of the map and departs "
-        "from the paper.",
+        "from the paper. 'heads' keeps only the free ends of the map that drain less "
+        "than the other end of their reach, lands each on a nearby cell and draws the "
+        "rest down the criterion's own descent: the field ditches and rectified reaches "
+        "below a head stop counting as model error, and the drawn map reaches the "
+        "outlet. Keep 'crossing' for a map that is not a tree: canals, braids, polders, "
+        "karst.",
     )
+    heads_snap_radius: Annotated[
+        Length, Profile.USER, VisibleWhen("observed_rasterization", "heads")
+    ] = Field(
+        default=STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
+        description="Under observed_rasterization = 'heads', the largest distance, a "
+        "length (a bare number is in metres), between a mapped stream head and the centre "
+        "of the cell it lands on. A head with no landing cell that close is lost, draws "
+        "nothing and is counted in n_heads_lost. Read only under 'heads'.",
+    )
+    heads_min_drained_area_km2: Annotated[
+        float, Profile.USER, VisibleWhen("observed_rasterization", "heads")
+    ] = Field(
+        default=STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
+        ge=0.0,
+        description="Under observed_rasterization = 'heads', the drained area in km2 a "
+        "cell needs before a head may land on it, so a head next to its valley lands in "
+        "the valley and not on the ridge cell beside it. Read only under 'heads'.",
+    )
+
+    @field_validator("heads_snap_radius")
+    @classmethod
+    def _positive_heads_snap_radius(cls, value: object) -> object:
+        """Refuse a snap radius that is zero or negative."""
+        magnitude = float(value.to("m").magnitude)  # type: ignore[union-attr]
+        if not magnitude > 0.0:
+            raise ValueError(
+                f"heads_snap_radius = {magnitude:g} m: a snap radius is a positive distance."
+            )
+        return value
+
     observed_position_accuracy: Annotated[Length | None, Profile.USER] = Field(
         default=None,
         description="Positional accuracy of the mapped network. It enters the automatic "

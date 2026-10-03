@@ -36,6 +36,12 @@ from hydromodpy.core.field_routing import (
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.core.stream_heads import (
+    HeadCandidates,
+    HeadsSettings,
+    HeadTrace,
+    trace_from_heads,
+)
 from hydromodpy.core.stream_network import (
     SimulatedNetwork,
     downstream_closure,
@@ -130,7 +136,8 @@ class NetworkGeometry:
     divided by the polygon's area; NaN when no polygon was given.
 
     ``observed`` is the map the criterion scores, as drawn on the cells by the
-    output's rasterisation rule. ``h_obs_m`` is the cell size on the mapped
+    output's rasterisation rule. ``heads`` is the trace that drew it under the
+    heads rule, None under the others. ``h_obs_m`` is the cell size on the mapped
     network, the length ``roptim`` is divided by (Eq. 3).
     ``observed_position_accuracy_m`` is the declared accuracy of the map,
     which only the validity length reads (:meth:`validity_length`).
@@ -154,6 +161,7 @@ class NetworkGeometry:
     frac_reachable_obs_raw: float
     h_obs_m: float = float("nan")
     observed_position_accuracy_m: float | None = None
+    heads: HeadTrace | None = None
 
     def validity_length(self, declared_m: float | None = None) -> ValidityLength:
         """Return the Eq. 4 length this map is qualified against.
@@ -184,8 +192,14 @@ class NetworkGeometry:
         ``catchment_mismatch`` says how far the scored catchment, read on the
         criterion graph, sits from the polygon the geographic step delineated
         on its raster.
+
+        Under the heads rule the indices of the heads join them: how many
+        were kept and lost, the 90th percentile of their snap distance, and
+        the share of the trace lying near the map.
         """
+        heads = {} if self.heads is None else self.heads.indices
         return {
+            **heads,
             "alpha_obs_closure": self.alpha_obs_closure,
             "alpha_obs_closure_catchment": self.alpha_obs_closure_catchment,
             "frac_obs_outside_catchment": self.frac_obs_outside_catchment,
@@ -416,7 +430,8 @@ def build_network_geometry(
     topography: np.ndarray,
     face_node_connectivity: np.ndarray,
     vertices: np.ndarray,
-    observed: np.ndarray,
+    observed: np.ndarray | None = None,
+    heads: tuple[HeadCandidates, HeadsSettings] | None = None,
     cell_area_m2: np.ndarray,
     cell_centroids: np.ndarray | None = None,
     mean_recharge_m_s: float,
@@ -469,10 +484,20 @@ def build_network_geometry(
     comes out feeds the depression flood, the receiver graph, the downstream
     closure of both networks and the saturation cap alike.
 
+    The map is given as exactly one of ``observed``, the cells a rasterisation
+    rule drew, and ``heads``, the free ends of the map with where they may
+    land (:mod:`hydromodpy.core.stream_heads`). The heads are traced down the
+    graph built here, once the outlet and the catchment are resolved.
+
     The length scale is ``h_obs`` (:func:`observed_cell_size_m`), read on the
     mapped network. ``observed_position_accuracy_m`` does not change it: it is
     kept for the validity length only (:meth:`NetworkGeometry.validity_length`).
     """
+    if (observed is None) == (heads is None):
+        raise ValueError(
+            "the network geometry takes the mapped network as exactly one of 'observed' "
+            "(cells drawn by a rasterisation rule) and 'heads' (free ends to trace)."
+        )
     surface = np.asarray(topography, dtype=float).reshape(-1)
     diagonal_neighbors = resolve_diagonal_neighbors(
         face_node_connectivity, n_cells=surface.size, requested=bool(diagonal_neighbors)
@@ -526,13 +551,8 @@ def build_network_geometry(
         adjacency=adjacency,
     )
     active = metric.graph.active
-
-    observed_mask = np.asarray(observed, dtype=bool).reshape(-1) & active
-    if not np.any(observed_mask):
-        raise ValueError(
-            "the mapped stream network projects onto no active cell: check its geometry "
-            "and that both its CRS and the mesh CRS are declared."
-        )
+    if observed is not None:
+        _require_mapped_cells(np.asarray(observed, dtype=bool).reshape(-1) & active)
 
     polygon: np.ndarray | None = None
     if delineated_catchment is not None:
@@ -588,6 +608,21 @@ def build_network_geometry(
             outlet,
             100.0 * mismatch if np.isfinite(mismatch) else float("nan"),
         )
+
+    trace: HeadTrace | None = None
+    if heads is not None:
+        candidates, settings = heads
+        trace = trace_from_heads(
+            metric,
+            candidates,
+            cell_area_m2=np.where(np.isfinite(areas), areas, 0.0),
+            settings=settings,
+        )
+        _log_heads(trace)
+        observed_mask = trace.traced & active
+    else:
+        observed_mask = np.asarray(observed, dtype=bool).reshape(-1) & active
+    _require_mapped_cells(observed_mask)
 
     excluded_mask = (
         None if excluded is None else np.asarray(excluded, dtype=bool).reshape(-1) & active
@@ -686,6 +721,33 @@ def build_network_geometry(
         observed_position_accuracy_m=(
             float(observed_position_accuracy_m) if observed_position_accuracy_m else None
         ),
+        heads=trace,
+    )
+
+
+def _require_mapped_cells(mask: np.ndarray) -> None:
+    """Refuse a mapped network drawn on no active cell."""
+    if not np.any(mask):
+        raise ValueError(
+            "the mapped stream network projects onto no active cell: check its geometry "
+            "and that both its CRS and the mesh CRS are declared."
+        )
+
+
+def _log_heads(trace: HeadTrace) -> None:
+    """Say how the heads drew the map, on one line."""
+    indices = trace.indices
+    logger.info(
+        "Network criterion: %d head(s) of %d free end(s) traced, %d lost within %.0f m on "
+        "cells draining at least %.3g km2; p90 snap distance %.1f m, %.1f%% of the trace "
+        "within the radius of the map.",
+        int(indices["n_heads"] - indices["n_heads_lost"]),
+        trace.n_candidates,
+        int(indices["n_heads_lost"]),
+        trace.settings.snap_radius_m,
+        trace.settings.min_drained_area_m2 / 1.0e6,
+        indices["head_snap_p90_m"],
+        100.0 * indices["heads_trace_near_map_share"],
     )
 
 

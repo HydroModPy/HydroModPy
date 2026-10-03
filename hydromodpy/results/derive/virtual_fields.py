@@ -337,6 +337,8 @@ def simulated_active_network_stack(run: Any, timesteps: Sequence[int]) -> np.nda
         observed_rasterization=settings.observed_rasterization,
         weighting=settings.weighting,
         observed_position_accuracy_m=settings.observed_position_accuracy_m,
+        heads_snap_radius_m=settings.heads_snap_radius_m,
+        heads_min_drained_area_km2=settings.heads_min_drained_area_km2,
     )
     visible = parse_visible_flow(settings.extent_rules.visible_flow)
     n_cells = int(geometry.metric.graph.active.size)

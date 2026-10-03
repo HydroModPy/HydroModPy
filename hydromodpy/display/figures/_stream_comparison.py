@@ -168,6 +168,8 @@ def comparison_from_run(
         "observed_rasterization": settings.observed_rasterization,
         "weighting": settings.weighting,
         "observed_position_accuracy_m": settings.observed_position_accuracy_m,
+        "heads_snap_radius_m": settings.heads_snap_radius_m,
+        "heads_min_drained_area_km2": settings.heads_min_drained_area_km2,
     }
     return _COMPARISON_MEMO.get_or_build(
         sim,
