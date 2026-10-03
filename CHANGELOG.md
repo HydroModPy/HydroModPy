@@ -119,6 +119,9 @@ Each release section includes the following standard categories:
 - The soil budget printed by `hmp run` shows `kc` and the sealed and bypass shares with their real
   precision: a calibrated `kc = 0.9571` printed `kc 1.0` and `impervious_fraction = 0.00212`
   printed `impervious 0 %`. The values used by the run were right.
+- A run on an unstructured (gmsh) mesh keeps its K, Sy and Ss fields under `derived/` again.
+  The builder wrote them before the model folder existed and dropped the error silently, so
+  the conductivity and storage a Voronoi run was given could not be read back or drawn.
 
 ---
 
