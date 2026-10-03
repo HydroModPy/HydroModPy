@@ -578,8 +578,11 @@ def _save_flow_property_sidecar(model) -> None:
     writes its own input back out. Without this file a run keeps no trace of
     the conductivity field it was actually given, so nothing can draw it.
     Arrays are (nlay, n_cells) in SI units, the clock MF6 runs on.
+    The model folder may not exist yet (the runtime-mesh path builds the
+    arrays before flopy creates it), so it is created here.
     """
     try:
+        os.makedirs(model.full_path, exist_ok=True)
         np.savez(
             os.path.join(
                 model.full_path,

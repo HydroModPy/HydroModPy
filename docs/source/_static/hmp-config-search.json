@@ -10359,6 +10359,18 @@
     "description": "Time constant of the linear reservoir that routes the curve-number runoff to the outlet, in days. Read only when curve_number is set. 0 sends it the same day; \"2 days\" also reads. Between 0 and 10 days: a longer delay would smooth away the "
   },
   {
+    "path": "flow.sinks_sources.recharge.soil.runoff_lag",
+    "name": "runoff_lag",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-sinks-sources-recharge-soil-runoff-lag",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L135",
+    "description": "Pure delay applied to the routed curve-number runoff, after runoff_time, before it reaches the gauged discharge: the travel time to the outlet plus any lag between the forcing's daily step and the gauge's. Read only when curve_number is set"
+  },
+  {
     "path": "flow.sinks_sources.recharge.soil.spinup",
     "name": "spinup",
     "type": "Literal['first_year', 'none']",
@@ -10367,7 +10379,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-recharge-soil-spinup",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L135",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L149",
     "description": "State of the soil on the first day. \"first_year\" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last one year at least. \"none\" starts from a full soi"
   },
   {

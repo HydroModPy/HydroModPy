@@ -54,6 +54,13 @@ def test_the_builder_leaves_one_file_named_after_the_model(tmp_path: Path) -> No
     assert [path.name for path in sidecars] == [f"{MODEL_NAME}{FLOW_PROPERTY_SIDECAR_SUFFIX}"]
 
 
+def test_the_sidecar_is_written_before_the_model_folder_exists(tmp_path: Path) -> None:
+    model = _model(tmp_path / "not_yet_created")
+    _save_flow_property_sidecar(model)
+    sidecar = Path(model.full_path) / f"{MODEL_NAME}{FLOW_PROPERTY_SIDECAR_SUFFIX}"
+    assert sidecar.is_file()
+
+
 def test_the_extractor_persists_the_three_properties_under_derived(tmp_path: Path) -> None:
     _save_flow_property_sidecar(_model(tmp_path))
     sink = _Sink()

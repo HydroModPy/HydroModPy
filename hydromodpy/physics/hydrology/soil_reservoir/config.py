@@ -132,6 +132,20 @@ class SoilReservoirConfig(HydroModelBase):
         ),
         json_schema_extra=field_metadata(calibrable=Calibrable(bounds=(0.0, 10.0), units="day")),
     )
+    runoff_lag: Annotated[DurationDays, Profile.USER] = Field(
+        default=0.0,
+        description=(
+            "Pure delay applied to the routed curve-number runoff, after runoff_time, "
+            "before it reaches the gauged discharge: the travel time to the outlet plus "
+            "any lag between the forcing's daily step and the gauge's. Read only when "
+            "curve_number is set. 0 adds no delay, "
+            'bit for bit as before; "0.75 days" also reads, interpolated linearly '
+            "between the neighbouring whole-day shifts. Between 0 and 5 days: a longer "
+            "shift belongs to runoff_time's reservoir, not to a fixed travel time. "
+            "Calibrate it with [calibration.parameters.runoff_lag]."
+        ),
+        json_schema_extra=field_metadata(calibrable=Calibrable(bounds=(0.0, 5.0), units="day")),
+    )
     spinup: Annotated[Literal["first_year", "none"], Profile.USER] = Field(
         default="first_year",
         description=(
@@ -245,6 +259,28 @@ class SoilReservoirConfig(HydroModelBase):
                 f"runoff_time = {value:g} days is outside 0 to 10 days: it routes a "
                 "fast surface runoff, not groundwater. Write 0 to send it the same "
                 "day, or a few days."
+            )
+        return value
+
+    @field_validator("runoff_lag", mode="before")
+    @classmethod
+    def _runoff_lag_string_states_its_unit(cls, value: object) -> object:
+        bare = _bare_number_string(value)
+        if bare is None:
+            return value
+        raise ValueError(
+            f'runoff_lag = "{bare}" has no unit: write runoff_lag = {bare} (a bare '
+            f'number is in days) or runoff_lag = "{bare} days".'
+        )
+
+    @field_validator("runoff_lag")
+    @classmethod
+    def _runoff_lag_is_a_short_travel_time(cls, value: float) -> float:
+        if not 0 <= value <= 5:
+            raise ValueError(
+                f"runoff_lag = {value:g} days is outside 0 to 5 days: it is a fixed "
+                "travel time to the outlet, not the runoff_time reservoir. Write 0 to "
+                "add no delay, or a fraction of a day."
             )
         return value
 

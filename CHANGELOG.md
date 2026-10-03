@@ -85,6 +85,13 @@ Each release section includes the following standard categories:
   values with the soil water, so ordinary rain on a dry summer soil does not run off and rain
   on a wet winter soil does; `runoff_time` (1 day) routes it through a linear reservoir to the
   gauged discharge. Both are calibratable; off by default, results unchanged.
+- `runoff_lag` (0 day by default, at most 5) holds the routed curve-number runoff back by a
+  fixed travel time, after `runoff_time` and before it joins the discharge, with fractional
+  days interpolated between whole-day shifts; calibratable as `[calibration.parameters.runoff_lag]`.
+  The first days of a run borrow from the settled spin-up instead of reading as zero when
+  `spinup = "first_year"`. In an offline test on the Flume catchment, delaying the routed runoff
+  by 0.75 day raised the daily NSE from 0.66 to 0.78, with the same optimum on the calibration
+  period and on an independent one.
 - The exponential vertical profile of a field is calibratable:
   `[calibration.parameters."K.characteristic_depth"]` (and `min_factor`) tune how K or Sy
   decrease with depth, evaluated at the layer centres. A calibration target that is not the
@@ -119,6 +126,9 @@ Each release section includes the following standard categories:
 - The soil budget printed by `hmp run` shows `kc` and the sealed and bypass shares with their real
   precision: a calibrated `kc = 0.9571` printed `kc 1.0` and `impervious_fraction = 0.00212`
   printed `impervious 0 %`. The values used by the run were right.
+- A run on an unstructured (gmsh) mesh keeps its K, Sy and Ss fields under `derived/` again.
+  The builder wrote them before the model folder existed and dropped the error silently, so
+  the conductivity and storage a Voronoi run was given could not be read back or drawn.
 
 ---
 

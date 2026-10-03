@@ -5132,12 +5132,18 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-runoff-time>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L124>`__
+   * - ``flow.sinks_sources.recharge.soil.runoff_lag``
+     - ``float``
+     - user
+     - -
+     - `flow <flow.html#flow-sinks-sources-recharge-soil-runoff-lag>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L135>`__
    * - ``flow.sinks_sources.recharge.soil.spinup``
      - ``Literal['first_year', 'none']``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-recharge-soil-spinup>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L135>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/hydrology/soil_reservoir/config.py#L149>`__
    * - ``flow.sinks_sources.recharge.heterogeneous_source``
      - ``Any``
      - dev

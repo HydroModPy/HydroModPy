@@ -21459,6 +21459,27 @@
             "type": "number",
             "x-hmp-profile": "user"
           },
+          "runoff_lag": {
+            "calibrable": {
+              "bounds": [
+                0.0,
+                5.0
+              ],
+              "description": "",
+              "is_the_value_of_its_instance": false,
+              "prior": "uniform",
+              "transform": "identity",
+              "units": "day"
+            },
+            "default": 0.0,
+            "description": "Pure delay applied to the routed curve-number runoff, after runoff_time, before it reaches the gauged discharge: the travel time to the outlet plus any lag between the forcing's daily step and the gauge's. Read only when curve_number is set. 0 adds no delay, bit for bit as before; \"0.75 days\" also reads, interpolated linearly between the neighbouring whole-day shifts. Between 0 and 5 days: a longer shift belongs to runoff_time's reservoir, not to a fixed travel time. Calibrate it with [calibration.parameters.runoff_lag].",
+            "examples": [
+              0.0
+            ],
+            "title": "Runoff Lag",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
           "spinup": {
             "default": "first_year",
             "description": "State of the soil on the first day. \"first_year\" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last one year at least. \"none\" starts from a full soil, the state of a soil in a wet winter.",
