@@ -36,7 +36,6 @@ from hydromodpy.simulation.extraction.derivation.catchment_aggregation import VA
         ("watershed_box_buff", ExportKind.vector),
         ("hydrographic_network_reference", ExportKind.vector),
         ("hydrographic_network_reference_permanent", ExportKind.vector),
-        ("observed_network_snapped", ExportKind.vector),
         ("watershed_dem", ExportKind.raster),
         ("watershed_fill", ExportKind.raster),
         ("budget", ExportKind.table),

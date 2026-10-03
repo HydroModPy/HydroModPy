@@ -385,35 +385,6 @@ def test_a_failed_verdict_an_open_bracket_and_an_unconverged_search_say_so() -> 
     assert "+ 5 extension" in text
 
 
-def test_a_snap_that_moved_the_map_too_far_is_named_as_the_cause() -> None:
-    snap = {
-        "displacement_p90_m": 80.0,
-        "displacement_bound_m": 75.0,
-        "rejected_share": 0.02,
-        "rejected_share_max": 0.1,
-        "floor_m": 30.0,
-        "valid": False,
-    }
-    verdict = {
-        "value": 1.2,
-        "Doptim": 90.0,
-        "h_obs_m": 75.0,
-        "validity_length_m": 150.0,
-        "provenance": "auto",
-        "valid": False,
-        "causes": ["snap"],
-        "snap": snap,
-    }
-    report = _report(best_parameters={"K": 6.4e-5}, extra={"roptim_verdict": {"net": verdict}})
-
-    text = "\n".join(_format_calibration_result(report))
-
-    # Doptim passes: the line says so and names the snap, never "coarse agreement".
-    assert "Doptim = 90 m <= 150 m (auto), Eq. 4 fails: the snap moved the map" in text
-    assert "p90 displacement 80 m against 75 m" in text
-    assert "coarse agreement" not in text
-
-
 def test_a_report_without_these_records_prints_none_of_them() -> None:
     text = "\n".join(_format_calibration_result(_report(best_parameters={"K": 6.4e-5})))
 

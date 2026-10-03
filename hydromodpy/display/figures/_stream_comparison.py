@@ -149,8 +149,7 @@ def comparison_from_run(
     threshold, the neighbour graph, the rasterisation of the map, the
     weighting, the positional accuracy and the state read; a run that sealed
     none takes the criterion's defaults, never a copy of them written here.
-    The snap is the run's ``[geographic.snap_streams]``. A knob a caller names
-    wins over the run's.
+    A knob a caller names wins over the run's.
 
     The result is memoised on the run object and the settings. Four figures of
     one gallery ask for the same comparison, and each rebuild runs a priority

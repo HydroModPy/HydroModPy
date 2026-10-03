@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
@@ -35,12 +35,10 @@ from hydromodpy.core.stream_criterion_defaults import (
     ObservedRasterization,
 )
 from hydromodpy.core.stream_extent import DEFAULT_VISIBLE_FLOW, parse_visible_flow
-from hydromodpy.core.stream_snap import SnapStreamsConfig
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.core.units.length import parse_to_m
 from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
-from hydromodpy.results.derive.snapped_network import snap_settings_of_run
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -121,9 +119,6 @@ class NetworkCriterionSettings:
     scoring_window_phase: str | None = None
     """The phase whose window :attr:`scoring_window` is, None for the calibration's."""
 
-    snap: SnapStreamsConfig | None = field(default=None, compare=False)
-    """The ``[geographic.snap_streams]`` setting the run sealed, None when off."""
-
     @property
     def extent_rules(self) -> NetworkExtentRules:
         """Return the extent rules of the output, or the defaults."""
@@ -140,8 +135,6 @@ class NetworkCriterionSettings:
             )
         else:
             source = f"criterion settings: calibration output {self.output!r}"
-        if self.snap is not None:
-            source += f", snap_streams {self.snap.mode}"
         if self.scoring_window is not None:
             start, end = self.scoring_window
             source += f", scoring_window {_date_or_open(start)} to {_date_or_open(end)}"
@@ -194,7 +187,6 @@ def network_criterion_settings(sim: Run, *, output: str | None = None) -> Networ
     read.
     """
     outputs = network_outputs_of_run(sim)
-    snap = snap_settings_of_run(sim)
     if output is not None and output not in outputs:
         held = ", ".join(repr(name) for name in outputs) or "none"
         raise ValueError(
@@ -202,7 +194,7 @@ def network_criterion_settings(sim: Run, *, output: str | None = None) -> Networ
             f"(network outputs: {held})."
         )
     if not outputs:
-        return NetworkCriterionSettings(output=None, snap=snap)
+        return NetworkCriterionSettings(output=None)
     name = next(iter(outputs)) if output is None else output
     window, phase = _window_of_run(sim)
     return _settings_of_output(
@@ -210,7 +202,6 @@ def network_criterion_settings(sim: Run, *, output: str | None = None) -> Networ
         name,
         outputs[name],
         n_outputs=len(outputs),
-        snap=snap,
         scoring_window=window,
         scoring_window_phase=phase,
     )
@@ -279,7 +270,6 @@ def _settings_of_output(
     payload: Mapping[str, Any],
     *,
     n_outputs: int,
-    snap: SnapStreamsConfig | None,
     scoring_window: ScoringWindow | None,
     scoring_window_phase: str | None,
 ) -> NetworkCriterionSettings:
@@ -308,7 +298,6 @@ def _settings_of_output(
         timestep=timestep,
         extent=_extent_rules(payload.get("extent"), where=where),
         n_network_outputs=n_outputs,
-        snap=snap,
         scoring_window=scoring_window,
         scoring_window_phase=None if scoring_window is None else scoring_window_phase,
     )

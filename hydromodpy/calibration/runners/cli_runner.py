@@ -104,7 +104,6 @@ from hydromodpy.core.exceptions import (
 from hydromodpy.core.interrupts import TerminationRequested, terminate_as_interrupt
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_BY_CODE
-from hydromodpy.core.stream_snap import SNAP_MODE_CODE
 from hydromodpy.core.workspace.path_registry import in_run_scratch, project_root_of_config
 
 if TYPE_CHECKING:
@@ -853,39 +852,6 @@ def _conductivity_unit(trial_ctx: Any, param: CalibParameter) -> str:
     return "m/s"
 
 
-def _snap_verdict(
-    name: str, found: Mapping[str, float], *, suffix: str = ""
-) -> dict[str, Any] | None:
-    """Return the displacement half of Eq. 4 when the output scored a snapped map.
-
-    Only ``[geographic.snap_streams] mode = "apply"`` adds it: roptim is then
-    read on the snapped map, and the map itself must not have moved further
-    than ``max_displacement_p90`` on its 90th percentile, nor lost more than
-    ``max_rejected_share`` of its cells. ``diagnose`` scores the raw map and
-    adds nothing to the verdict. ``suffix`` reads the indices of one map of
-    an output scored on several (``_minimal``, ``_maximal``).
-    """
-    if float(found.get(f"{name}.snap_mode{suffix}", 0.0)) != SNAP_MODE_CODE["apply"]:
-        return None
-    values = {
-        key: float(found.get(f"{name}.snap_{key}{suffix}", float("nan")))
-        for key in (
-            "displacement_p90_m",
-            "displacement_bound_m",
-            "rejected_share",
-            "rejected_share_max",
-            "floor_m",
-        )
-    }
-    valid = (
-        math.isfinite(values["displacement_p90_m"])
-        and values["displacement_p90_m"] <= values["displacement_bound_m"]
-        and math.isfinite(values["rejected_share"])
-        and values["rejected_share"] <= values["rejected_share_max"]
-    )
-    return {**values, "valid": valid}
-
-
 def _roptim_verdict_extra(
     outputs: Mapping[str, Any] | None,
     components: Mapping[str, float] | None,
@@ -902,10 +868,9 @@ def _roptim_verdict_extra(
     Returns ``{"roptim_verdict": {key: {value, Doptim, h_obs_m,
     validity_length_m, provenance, valid, causes}}}``, or nothing when no
     network output published a ``roptim``. ``causes`` lists what failed:
-    ``"doptim"`` (Doptim above the length), ``"snap"`` (the displacement
-    bound of ``[geographic.snap_streams] mode = "apply"``, under ``snap``) and
-    ``"empty"`` (no simulated network at the returned trial, so nothing to
-    qualify). A failure warns once. With ``on_roptim_violation = "error"`` it
+    ``"doptim"`` (Doptim above the length) and ``"empty"`` (no simulated
+    network at the returned trial, so nothing to qualify). A failure warns
+    once. With ``on_roptim_violation = "error"`` it
     raises :class:`CalibrationError`; the caller has already saved the
     session, and a staged calibration stops there, before freezing anything.
 
@@ -952,10 +917,7 @@ def _eq4_verdict(name: str, found: Mapping[str, float], *, suffix: str) -> dict[
         causes.append("empty")
     elif not (math.isfinite(length) and optimal <= length):
         causes.append("doptim")
-    snap = _snap_verdict(name, found, suffix=suffix)
-    if snap is not None and not snap["valid"]:
-        causes.append("snap")
-    verdict: dict[str, Any] = {
+    return {
         "value": _finite_or_none(value),
         "Doptim": _finite_or_none(optimal),
         "h_obs_m": _finite_or_none(h_obs),
@@ -964,9 +926,6 @@ def _eq4_verdict(name: str, found: Mapping[str, float], *, suffix: str) -> dict[
         "valid": not causes,
         "causes": causes,
     }
-    if snap is not None:
-        verdict["snap"] = snap
-    return verdict
 
 
 def _eq4_violation_message(key: str, verdict: Mapping[str, Any]) -> str:
@@ -985,15 +944,6 @@ def _eq4_violation_message(key: str, verdict: Mapping[str, Any]) -> str:
             f"the mean mismatch Doptim = {verdict['Doptim']:.4g} m exceeds the validity "
             f"length {bound} ({verdict['provenance'] or 'provenance unknown'}), roptim = "
             + (f"{ratio:.3g} cells of h_obs" if ratio is not None else "not a number")
-        )
-    snap = verdict.get("snap")
-    if "snap" in verdict["causes"] and snap is not None:
-        parts.append(
-            "the snap moved the map too far to vouch for it: p90 displacement "
-            f"{snap['displacement_p90_m']:.4g} m against {snap['displacement_bound_m']:.4g} m, "
-            f"{snap['rejected_share']:.1%} of the mapped cells rejected against "
-            f"{snap['rejected_share_max']:.0%}; the map sits far from the talwegs of the model "
-            "top, read the floor snap_floor_m and the snap figures"
         )
     return (
         f"Output {key!r}: Eq. 4 fails: "

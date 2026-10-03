@@ -5,13 +5,6 @@ a quantity the method corrects: the paper poses it as "a selected stream
 network independent of the DEM". What gets pre-treated when the two disagree is
 the routing surface, not the data.
 
-The one exception is asked for by name: ``[geographic.snap_streams]`` snaps
-the projection made here onto the talwegs of the criterion graph
-(:mod:`hydromodpy.core.stream_snap`). ``diagnose`` publishes what the snap
-would move and scores this projection; ``apply`` scores the snapped map. Either
-way the projection itself is what this module returns, and the displacement is
-published.
-
 One projection serves both directions of the criterion, and it must draw the
 map as thin as the model draws its own network. The simulated network is a
 chain of the descent graph, one cell wide; the criterion's zero is the equality

@@ -142,15 +142,6 @@ def test_a_sealed_value_no_trial_could_read_is_refused() -> None:
         network_criterion_settings(_run({"streams": _network(extent={"visible_flow": "1"})}))
 
 
-def test_the_snap_the_run_sealed_is_named() -> None:
-    run = _run({"streams": _network()}, geographic={"snap_streams": {"mode": "apply"}})
-
-    settings = network_criterion_settings(run)
-
-    assert settings.snap is not None
-    assert settings.note().endswith("snap_streams apply")
-
-
 def test_the_scoring_window_the_run_sealed_is_read_and_named() -> None:
     run = _run({"streams": _network()})
     run.config_snapshot["calibration"]["scoring_window"] = {

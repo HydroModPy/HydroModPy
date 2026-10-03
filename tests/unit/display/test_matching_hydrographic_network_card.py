@@ -468,52 +468,6 @@ def test_a_widened_validity_length_is_the_bound_not_two_cells(mpl) -> None:
         mpl.close(fig)
 
 
-def test_a_snap_floor_that_sets_the_length_is_named(mpl) -> None:
-    run = _staged_run(
-        diagnostics={**PUBLISHED, "validity_length_m": 610.0, "validity_length_provenance": 1.0}
-    )
-
-    fig = MatchingHydrographicNetworkCard().plot(run)
-
-    try:
-        note = _texts(_panel(fig, "Validity"))
-        assert "217.5 m <= 610 m" in note
-        assert "one cell plus the snap floor F" in note
-    finally:
-        mpl.close(fig)
-
-
-def test_an_applied_snap_that_moved_too_far_is_named_beside_the_bar(mpl) -> None:
-    snap = {
-        "snap_mode": 2.0,
-        "snap_displacement_p90_m": 300.0,
-        "snap_displacement_bound_m": 250.0,
-        "snap_rejected_share": 0.02,
-        "snap_rejected_share_max": 0.1,
-    }
-    run = _staged_run(diagnostics={**PUBLISHED, **snap})
-
-    fig = MatchingHydrographicNetworkCard().plot(run)
-
-    try:
-        note = _texts(_panel(fig, "Validity"))
-        assert "snapped map breaks Eq. 4: its displacement p90 exceeds its bound" in note
-        assert "rejected more cells" not in note
-    finally:
-        mpl.close(fig)
-
-
-def test_a_diagnosed_snap_adds_nothing_to_the_verdict(mpl) -> None:
-    run = _staged_run(diagnostics={**PUBLISHED, "snap_mode": 1.0, "snap_displacement_p90_m": 900.0})
-
-    fig = MatchingHydrographicNetworkCard().plot(run)
-
-    try:
-        assert "snapped map" not in _texts(_panel(fig, "Validity"))
-    finally:
-        mpl.close(fig)
-
-
 def test_an_unpublished_doptim_is_drawn_as_absent_never_as_zero(mpl) -> None:
     run = _staged_run(
         diagnostics={"n_valid": 120.0, "n_excess": 30.0, "n_missing": 18.0},
@@ -984,30 +938,6 @@ def test_a_bound_weighted_zero_is_drawn_outside_the_verdict(mpl) -> None:
         assert "minimal (weight 0, outside the verdict): " in note
         assert "Doptim = 217.5 m <= 500 m, within the bound, no verdict" in note
         assert "maximal (weight 1): Doptim = 820 m > 500 m, Eq. 4 fails" in note
-    finally:
-        mpl.close(fig)
-
-
-def test_an_applied_snap_breaks_the_verdict_of_its_own_bound_only(mpl) -> None:
-    rows = _two_bound_rows()
-    rows[COMBINED_TRIAL]["metrics"].update(
-        {
-            f"{OUTPUT}.snap_mode_minimal": 2.0,
-            f"{OUTPUT}.snap_displacement_p90_m_minimal": 300.0,
-            f"{OUTPUT}.snap_displacement_bound_m_minimal": 250.0,
-            f"{OUTPUT}.snap_rejected_share_minimal": 0.02,
-            f"{OUTPUT}.snap_rejected_share_max_minimal": 0.1,
-        }
-    )
-    sessions = _sessions(staged=False)
-    sessions.loc[0, "best_trial"] = COMBINED_TRIAL
-
-    fig = MatchingHydrographicNetworkCard().plot(_run(rows, sessions))
-
-    try:
-        note = _texts(_panel(fig, "Validity"))
-        assert "Doptim = 217.5 m <= 500 m, Eq. 4 fails" in note
-        assert note.count("snapped map breaks Eq. 4") == 1
     finally:
         mpl.close(fig)
 

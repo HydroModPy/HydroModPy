@@ -56,7 +56,7 @@ from hydromodpy.display.maps.axes import (
 )
 from hydromodpy.display.maps.geo import project_gdf_for_metric_operations
 from hydromodpy.display.maps.mesh_geometry import face_polygons
-from hydromodpy.display.maps.overlays import NetworkMap, network_map_of_role, plot_network_map
+from hydromodpy.display.maps.overlays import network_map_of_role, plot_network_map
 from hydromodpy.display.maps.ugrid import render_face_field
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, PREFERRED_CMAPS, get_cmap
 from hydromodpy.results.derive import views
@@ -435,7 +435,6 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
             alpha=0.98,
             zorder=6,
         )
-        map_note = network.label()
         overlay_watershed_contour(ax, sim, color="#404040", linewidth=0.9, alpha=0.65)
         style_relative_km_axes(ax)
         mode_label = views.cell_field_active_mode_label(
@@ -465,7 +464,6 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
                 "\n".join(
                     [
                         "cell overlap vs reference",
-                        *([] if map_note is None else [map_note]),
                         f"coverage: {float(metrics['network_coverage_ratio']):.3f}",
                         f"precision: {float(metrics['active_precision_ratio']):.3f}",
                         f"F1: {float(metrics['cell_f1_ratio']):.3f}",
@@ -487,7 +485,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
                     alpha=active_alpha,
                     label="simulated active",
                 ),
-                _reference_handle(network, reference_color),
+                _reference_handle(reference_color),
             ],
             loc="lower right",
             fontsize=RELATIVE_MAP_LEGEND_SIZE,
@@ -496,18 +494,8 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         return ax
 
 
-def _reference_handle(network: NetworkMap, color: str):
-    """Return the legend entry of the reference map, naming the snapped map when drawn."""
+def _reference_handle(color: str):
+    """Return the legend entry of the reference map."""
     from matplotlib.lines import Line2D
 
-    if network.snapped:
-        return Line2D(
-            [0],
-            [0],
-            color=color,
-            lw=0.0,
-            marker="s",
-            markersize=4.0,
-            label="Reference network (snapped)",
-        )
     return Line2D([0], [0], color=color, lw=1.5, label="Reference network")

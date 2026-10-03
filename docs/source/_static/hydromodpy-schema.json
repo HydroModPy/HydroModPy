@@ -1366,7 +1366,7 @@
             }
           ],
           "default": "auto",
-          "description": "Validity bound of Eq. 4, a length: the calibration is valid when Doptim <= this. 'auto' is 2 h, the paper's two cells, where h is h_obs, the cell size on the mapped network, raised to 'observed_position_accuracy' when one is declared. With [geographic.snap_streams] in 'diagnose' or 'apply', it is h + max(h, F), F the floor the snap measured: one cell for the hydrogeology, one for the map error, replaced by F when F is larger. A length such as '150 m' is used as it is. The bound qualifies the result and never penalises the cost.",
+          "description": "Validity bound of Eq. 4, a length: the calibration is valid when Doptim <= this. 'auto' is 2 h, the paper's two cells, where h is h_obs, the cell size on the mapped network, raised to 'observed_position_accuracy' when one is declared. A length such as '150 m' is used as it is. The bound qualifies the result and never penalises the cost.",
           "examples": [
             "auto"
           ],
@@ -1375,7 +1375,7 @@
         },
         "on_roptim_violation": {
           "default": "warn",
-          "description": "What a violation of Eq. 4 does: Doptim above 'validity_length', or, with [geographic.snap_streams] mode = 'apply', a snap that moved the map further than its displacement bound. The bound is read once, on the trial the search returns, as the paper reads it at the optimum, and on each bound in the cost of the two-bound mode; every trial still records 'roptim', 'roptim_valid' and 'validity_length_m'. 'warn' logs it and returns the value, because a calibration is asked for a number. 'error' raises after the session is saved, so a staged calibration freezes nothing and runs no phase that depends on this one.",
+          "description": "What a violation of Eq. 4 does: Doptim above 'validity_length'. The bound is read once, on the trial the search returns, as the paper reads it at the optimum, and on each bound in the cost of the two-bound mode; every trial still records 'roptim', 'roptim_valid' and 'validity_length_m'. 'warn' logs it and returns the value, because a calibration is asked for a number. 'error' raises after the session is saved, so a staged calibration freezes nothing and runs no phase that depends on this one.",
           "enum": [
             "warn",
             "error"
@@ -10770,11 +10770,6 @@
         "enforce_streams": {
           "$ref": "#/$defs/StreamEnforcementConfig",
           "description": "Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve.",
-          "x-hmp-profile": "user"
-        },
-        "snap_streams": {
-          "$ref": "#/$defs/SnapStreamsConfig",
-          "description": "Optional snapping of the mapped stream network onto the talwegs of the model top, read on the network criterion graph. Off by default. 'diagnose' publishes the displacement, the rejected cells and the floor F while the raw map is scored; 'apply' scores the snapped map. It sits here, beside enforce_streams, because it is common to every consumer of the mapped network (criterion, figures, burning), not to one calibration output.",
           "x-hmp-profile": "user"
         },
         "enforce_lakes": {
@@ -20750,61 +20745,6 @@
         }
       },
       "title": "SiteSelectionInputConfig",
-      "type": "object"
-    },
-    "SnapStreamsConfig": {
-      "additionalProperties": false,
-      "description": "Snap the mapped stream network onto the talwegs of the criterion graph.\n\nOff by default. ``diagnose`` computes the snapped map, its indices and the\nfloor ``F`` and publishes them, while every consumer still reads the raw\nmap. ``apply`` makes every consumer read the snapped map: the criterion,\nthe figures, the stream burn of the routing DEM, a mesh river constraint\nread from the mapped file, and the network metrics of a run. Eq. 4 then\nalso bounds the displacement and the rejected share.",
-      "properties": {
-        "mode": {
-          "default": "off",
-          "description": "'off' computes nothing. 'diagnose' snaps the mapped network, publishes the displacement, the rejected cells, the length change and the floor F, and every consumer reads the raw map. 'apply' makes every consumer read the snapped map: the criterion, the figures, the stream burn, a mesh river constraint read from the mapped file and the network metrics of a run; Eq. 4 then also asks the p90 displacement and the rejected share to stay within their bounds.",
-          "enum": [
-            "off",
-            "diagnose",
-            "apply"
-          ],
-          "examples": [
-            "off"
-          ],
-          "title": "Mode",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "radius": {
-          "default": "2 cells",
-          "description": "How far a mapped cell may move. A length ('200 m') or a number of cells ('2 cells'), a cell being h_obs, the median distance between neighbouring cell centres over the mapped cells of the catchment. Two cells is the outlet snapping distance of the paper.",
-          "examples": [
-            "2 cells"
-          ],
-          "title": "Radius",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "max_displacement_p90": {
-          "default": "1 cell",
-          "description": "Bound on the 90th percentile of the displacement, read by Eq. 4 in 'apply' mode. A length or a number of cells of h_obs. Keep it under the radius: a bound equal to the radius never fires.",
-          "examples": [
-            "1 cell"
-          ],
-          "title": "Max Displacement P90",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "max_rejected_share": {
-          "default": 0.1,
-          "description": "Bound on the share of mapped cells of the catchment the snap could not place, read by Eq. 4 in 'apply' mode.",
-          "examples": [
-            0.1
-          ],
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Max Rejected Share",
-          "type": "number",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "SnapStreamsConfig",
       "type": "object"
     },
     "SoilCapacityConfig": {

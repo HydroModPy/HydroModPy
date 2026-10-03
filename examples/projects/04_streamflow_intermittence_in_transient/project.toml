@@ -49,16 +49,6 @@ snap_dist = "150 m"
 # "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
 buff_area = "10%"
 
-# No stream burning: the network criterion fills the model top on the mesh and
-# descends that, not a routing DEM. Off by default, the snap below moves the
-# mapped network onto the talwegs of that surface, within two cells. "diagnose"
-# publishes how far the map sits from them and scores the raw map; "apply"
-# scores the snapped map. Either one changes the validity length of Eq. 4, and
-# "apply" the calibrated K, so the maintained results keep it off.
-#
-# [geographic.snap_streams]
-# mode = "diagnose"
-
 [domain.depth_model]
 kind = "constant_thickness"
 thickness = "30.0 m"

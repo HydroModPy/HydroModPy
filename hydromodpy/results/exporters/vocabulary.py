@@ -22,7 +22,6 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.config_kit.export_spec import ExportKind
 from hydromodpy.results import field_registry
-from hydromodpy.results.derive.snapped_network import SNAPPED_NETWORK_FEATURES
 from hydromodpy.results.derive.virtual_fields import SIMULATED_ACTIVE_NETWORK
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
@@ -77,7 +76,7 @@ OBSERVED_SERIES: tuple[str, ...] = tuple(f"{name}_obs" for name in OBSERVED_VARI
 """Observed series, stored beside the simulated ones."""
 
 # spatial/geographic/store_ingestion.py (watershed layers), workflow/steps/
-# prepare_solver/prepare.py (reference networks), results/derive/snapped_network.py.
+# prepare_solver/prepare.py (reference networks).
 VECTOR_LAYERS: tuple[str, ...] = (
     "watershed",
     "watershed_contour",
@@ -85,7 +84,6 @@ VECTOR_LAYERS: tuple[str, ...] = (
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
-    *SNAPPED_NETWORK_FEATURES.values(),
 )
 """Geographic vector layers a run stores."""
 

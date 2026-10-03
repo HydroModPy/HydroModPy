@@ -247,8 +247,8 @@ def flow_geometry_from_run(
     the first of :data:`GRAPH_ROLES` the run carries. The graph, the threshold
     and the outlet are the same whatever the network, so the choice only
     decides which map ``geometry.observed`` holds. ``observed_rasterization``,
-    ``weighting`` and ``observed_position_accuracy_m`` only shape that map and
-    its snap, and take the criterion's defaults.
+    ``weighting`` and ``observed_position_accuracy_m`` only shape that map,
+    and take the criterion's defaults.
     """
     chosen = graph_role(sim) if role is None else role
     if chosen is None:
@@ -374,8 +374,7 @@ class NetworkExtents:
     ``geometry`` is the criterion geometry built on the maximal map.
     ``maximal_observed`` is the union of the maximal and minimal maps, as the
     criterion scores it; ``minimal_observed`` is the minimal map, or None when
-    the run stored none. Both are the maps the criterion scores: snapped when
-    the run's ``[geographic.snap_streams]`` applies the snap.
+    the run stored none.
     ``frac_minimal_outside_maximal`` is the share of the minimal map, on the
     scored cells (:func:`scored_cells`), that the maximal map does not cover.
     """

@@ -79,97 +79,97 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-source-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L560>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L559>`__
    * - ``geographic.catchment``
      - ``Optional[DemCatchDef | TxtCatchDef | OutletCatchDef | PolygonCatchDef]``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L568>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L567>`__
    * - ``geographic.catchment.dem_init_path``
      - ``Path | None``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-dem-init-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L89>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L88>`__
    * - ``geographic.catchment.catch_def``
      - ``Literal['dem']``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L92>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L91>`__
    * - ``geographic.catchment.cell_size``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-cell-size>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L105>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L104>`__
    * - ``geographic.catchment.x_outlet``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-x-outlet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L121>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L120>`__
    * - ``geographic.catchment.y_outlet``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-y-outlet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L124>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L123>`__
    * - ``geographic.catchment.snap_dist``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-snap-dist>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L127>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L126>`__
    * - ``geographic.catchment.buff_area``
      - ``str | float``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-buff-area>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L134>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L133>`__
    * - ``geographic.catchment.polyg_shp_path``
      - ``Path``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment-polyg-shp-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L149>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L148>`__
    * - ``geographic.crs_project``
      - ``str | None``
      - user
      - -
      - `geographic <geographic.html#geographic-crs-project>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L580>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L579>`__
    * - ``geographic.dem_correc_type``
      - ``Literal['breach', 'fill']``
      - user
      - -
      - `geographic <geographic.html#geographic-dem-correc-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L584>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L583>`__
    * - ``geographic.terrain_engine``
      - ``str | None``
      - user
      - -
      - `geographic <geographic.html#geographic-terrain-engine>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L598>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L597>`__
    * - ``geographic.domain_extent``
      - ``Literal['box', 'watershed_buff', 'watershed']``
      - user
      - -
      - `geographic <geographic.html#geographic-domain-extent>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L607>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L606>`__
    * - ``geographic.reg_fold``
      - ``Path | None``
      - dev
      - -
      - `geographic <geographic.html#geographic-reg-fold>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L619>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L618>`__
    * - ``geographic.synthetic``
      - ``SyntheticGeographicConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L623>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L622>`__
    * - ``geographic.synthetic.case_id``
      - ``str``
      - user
@@ -283,247 +283,217 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-river-network>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L630>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L629>`__
    * - ``geographic.river_network.enabled``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L180>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L179>`__
    * - ``geographic.river_network.threshold_mode``
      - ``Literal['area_km2', 'cells']``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-threshold-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L187>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L186>`__
    * - ``geographic.river_network.threshold_area_km2``
      - ``float | None``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-threshold-area-km2>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L195>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L194>`__
    * - ``geographic.river_network.threshold_cells``
      - ``float | None``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-threshold-cells>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L205>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L204>`__
    * - ``geographic.river_network.prune_short_streams``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-prune-short-streams>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L213>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L212>`__
    * - ``geographic.river_network.min_stream_length_m``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-min-stream-length-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L217>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L216>`__
    * - ``geographic.river_network.compute_strahler_order``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-compute-strahler-order>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L225>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L224>`__
    * - ``geographic.river_network.compute_stream_links``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-compute-stream-links>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L229>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L228>`__
    * - ``geographic.river_network.all_vertices``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-river-network-all-vertices>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L233>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L232>`__
    * - ``geographic.enforce_streams``
      - ``StreamEnforcementConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L637>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L636>`__
    * - ``geographic.enforce_streams.enabled``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L372>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L371>`__
    * - ``geographic.enforce_streams.stream_geometry_path``
      - ``Path | None``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams-stream-geometry-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L379>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L378>`__
    * - ``geographic.enforce_streams.mode``
      - ``Literal['constant', 'adaptive']``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L393>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L392>`__
    * - ``geographic.enforce_streams.depth_m``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams-depth-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L402>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L401>`__
    * - ``geographic.enforce_streams.adaptive_percentile``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams-adaptive-percentile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L417>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L416>`__
    * - ``geographic.enforce_streams.relief_report_percentile``
      - ``float``
      - expert
      - -
      - `geographic <geographic.html#geographic-enforce-streams-relief-report-percentile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L430>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L429>`__
    * - ``geographic.enforce_streams.rasterize_all_touched``
      - ``bool``
      - expert
      - -
      - `geographic <geographic.html#geographic-enforce-streams-rasterize-all-touched>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L442>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L441>`__
    * - ``geographic.enforce_streams.dem_nodata_fallback``
      - ``float``
      - expert
      - -
      - `geographic <geographic.html#geographic-enforce-streams-dem-nodata-fallback>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L452>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L451>`__
    * - ``geographic.enforce_streams.alpha_warning_threshold``
      - ``float``
      - expert
      - -
      - `geographic <geographic.html#geographic-enforce-streams-alpha-warning-threshold>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L460>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L459>`__
    * - ``geographic.enforce_streams.max_catchment_area_drift``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-streams-max-catchment-area-drift>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L474>`__
-   * - ``geographic.snap_streams``
-     - ``SnapStreamsConfig``
-     - user
-     - -
-     - `geographic <geographic.html#geographic-snap-streams>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L645>`__
-   * - ``geographic.snap_streams.mode``
-     - ``Literal['off', 'diagnose', 'apply']``
-     - user
-     - -
-     - `geographic <geographic.html#geographic-snap-streams-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/stream_snap.py#L160>`__
-   * - ``geographic.snap_streams.radius``
-     - ``str``
-     - user
-     - -
-     - `geographic <geographic.html#geographic-snap-streams-radius>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/stream_snap.py#L172>`__
-   * - ``geographic.snap_streams.max_displacement_p90``
-     - ``str``
-     - user
-     - -
-     - `geographic <geographic.html#geographic-snap-streams-max-displacement-p90>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/stream_snap.py#L181>`__
-   * - ``geographic.snap_streams.max_rejected_share``
-     - ``float``
-     - user
-     - -
-     - `geographic <geographic.html#geographic-snap-streams-max-rejected-share>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/stream_snap.py#L189>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L473>`__
    * - ``geographic.enforce_lakes``
      - ``LakeEnforcementConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L656>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L644>`__
    * - ``geographic.enforce_lakes.enabled``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L288>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L287>`__
    * - ``geographic.enforce_lakes.lake_geometry_path``
      - ``Path | None``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-lake-geometry-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L295>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L294>`__
    * - ``geographic.enforce_lakes.slope``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-slope>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L306>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L305>`__
    * - ``geographic.enforce_lakes.buffer_m``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-buffer-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L315>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L314>`__
    * - ``geographic.enforce_lakes.capture_radius_m``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-capture-radius-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L323>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L322>`__
    * - ``geographic.enforce_lakes.capture_max_streams``
      - ``int``
      - expert
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-capture-max-streams>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L333>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L332>`__
    * - ``geographic.enforce_lakes.capture_min_acc_fraction``
      - ``float``
      - expert
      - -
      - `geographic <geographic.html#geographic-enforce-lakes-capture-min-acc-fraction>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L341>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L340>`__
    * - ``geographic.dam_carve``
      - ``DamCarveConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L664>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L652>`__
    * - ``geographic.dam_carve.enabled``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L501>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L500>`__
    * - ``geographic.dam_carve.line_path``
      - ``Path | None``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve-line-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L508>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L507>`__
    * - ``geographic.dam_carve.buffer_m``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve-buffer-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L520>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L519>`__
    * - ``geographic.dam_carve.search_radius_m``
      - ``Optional[float]``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve-search-radius-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L529>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L528>`__
    * - ``geographic.reuse_existing_outputs``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-reuse-existing-outputs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L672>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L660>`__
    * - ``geographic.write_intermediates``
      - ``bool``
      - dev
      - -
      - `geographic <geographic.html#geographic-write-intermediates>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L682>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L670>`__
    * - ``domain.zone_ids``
      - ``list[str]``
      - user
@@ -8509,7 +8479,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `calibration <calibration.html#calibration-protocol>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1910>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1907>`__
    * - ``calibration.protocol.name``
      - ``Literal['matching_hydrographic_network']``
      - user
@@ -8629,313 +8599,313 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `calibration <calibration.html#calibration-method>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1923>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1920>`__
    * - ``calibration.evaluator``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-evaluator>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1943>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1940>`__
    * - ``calibration.forward_model``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-forward-model>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1957>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1954>`__
    * - ``calibration.max_iter``
      - ``Union[int, Literal['auto']]``
      - user
      - -
      - `calibration <calibration.html#calibration-max-iter>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1973>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1970>`__
    * - ``calibration.tolerance``
      - ``Optional[float]``
      - user
      - -
      - `calibration <calibration.html#calibration-tolerance>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1992>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1989>`__
    * - ``calibration.batch_size``
      - ``int``
      - user
      - -
      - `calibration <calibration.html#calibration-batch-size>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2008>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2005>`__
    * - ``calibration.parallel``
      - ``int``
      - user
      - -
      - `calibration <calibration.html#calibration-parallel>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2013>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2010>`__
    * - ``calibration.reject_water_budget_above``
      - ``float | None``
      - user
      - -
      - `calibration <calibration.html#calibration-reject-water-budget-above>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2025>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2022>`__
    * - ``calibration.warmup_periods``
      - ``int``
      - expert
      - -
      - `calibration <calibration.html#calibration-warmup-periods>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2038>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2035>`__
    * - ``calibration.scoring_window``
      - ``CalibScoringWindow | None``
      - user
      - -
      - `calibration <calibration.html#calibration-scoring-window>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2049>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2046>`__
    * - ``calibration.scoring_window.start``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-scoring-window-start>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1180>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1177>`__
    * - ``calibration.scoring_window.end``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-scoring-window-end>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1184>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1181>`__
    * - ``calibration.phases``
      - ``list[CalibPhaseDecl] | None``
      - user
      - -
      - `calibration <calibration.html#calibration-phases>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2059>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2056>`__
    * - ``calibration.phases.name``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1512>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1509>`__
    * - ``calibration.phases.description``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-description>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1513>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1510>`__
    * - ``calibration.phases.method``
      - ``Optional[str]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-method>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1520>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1517>`__
    * - ``calibration.phases.max_iter``
      - ``Union[int, Literal['auto']]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-max-iter>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1538>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1535>`__
    * - ``calibration.phases.tolerance``
      - ``Optional[float]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-tolerance>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1546>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1543>`__
    * - ``calibration.phases.batch_size``
      - ``int | None``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-batch-size>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1562>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1559>`__
    * - ``calibration.phases.parallel``
      - ``int | None``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-parallel>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1568>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1565>`__
    * - ``calibration.phases.parameters``
      - ``list[str]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-parameters>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1575>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1572>`__
    * - ``calibration.phases.outputs``
      - ``list[str]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-outputs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1580>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1577>`__
    * - ``calibration.phases.objective_blocks``
      - ``list[str] | dict[str, float]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-objective-blocks>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1585>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1582>`__
    * - ``calibration.phases.variable``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-variable>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1593>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1590>`__
    * - ``calibration.phases.objective``
      - ``Optional[Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean']]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-objective>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1597>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1594>`__
    * - ``calibration.phases.observed_station_id``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-observed-station-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1602>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1599>`__
    * - ``calibration.phases.method_options``
      - ``dict[str, Any]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-method-options>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1606>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1603>`__
    * - ``calibration.phases.regime``
      - ``Optional[Literal['steady', 'transient']]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-regime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1614>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1611>`__
    * - ``calibration.phases.steady_window``
      - ``dict[str, str] | None``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-steady-window>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1628>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1625>`__
    * - ``calibration.phases.overrides``
      - ``dict[str, Any]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-overrides>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1633>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1630>`__
    * - ``calibration.phases.scoring_window``
      - ``CalibScoringWindow | None``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-scoring-window>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1639>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1636>`__
    * - ``calibration.phases.scoring_window.start``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-scoring-window-start>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1180>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1177>`__
    * - ``calibration.phases.scoring_window.end``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-scoring-window-end>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1184>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1181>`__
    * - ``calibration.phases.depends_on``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-depends-on>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1646>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1643>`__
    * - ``calibration.phases.freeze_on_success``
      - ``bool``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-freeze-on-success>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1651>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1648>`__
    * - ``calibration.phases.uncertainty``
      - ``CalibPhaseUncertaintyDecl | None``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-uncertainty>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1659>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1656>`__
    * - ``calibration.phases.uncertainty.method``
      - ``Optional[Literal['cost_profile', 'multistart', 'linearized']]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-uncertainty-method>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1452>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1449>`__
    * - ``calibration.phases.uncertainty.restarts``
      - ``int | None``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-uncertainty-restarts>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1457>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1454>`__
    * - ``calibration.phases.uncertainty.perturbation``
      - ``Optional[float]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-uncertainty-perturbation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1462>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1459>`__
    * - ``calibration.phases.uncertainty.tolerance``
      - ``Optional[float]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-uncertainty-tolerance>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1467>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1464>`__
    * - ``calibration.phases.uncertainty.mode``
      - ``Optional[Literal['relative', 'absolute']]``
      - user
      - -
      - `calibration <calibration.html#calibration-phases-uncertainty-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1475>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1472>`__
    * - ``calibration.reuse_completed_phases``
      - ``bool``
      - user
      - -
      - `calibration <calibration.html#calibration-reuse-completed-phases>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2070>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2067>`__
    * - ``calibration.seed``
      - ``int | None``
      - user
      - -
      - `calibration <calibration.html#calibration-seed>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2084>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2081>`__
    * - ``calibration.save_runs``
      - ``Literal['none', 'best_n', 'all']``
      - user
      - -
      - `calibration <calibration.html#calibration-save-runs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2088>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2085>`__
    * - ``calibration.save_best_n``
      - ``int``
      - user
      - -
      - `calibration <calibration.html#calibration-save-best-n>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2097>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2094>`__
    * - ``calibration.use_cache``
      - ``bool``
      - dev
      - -
      - `calibration <calibration.html#calibration-use-cache>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2102>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2099>`__
    * - ``calibration.lightweight_extraction``
      - ``bool``
      - dev
      - -
      - `calibration <calibration.html#calibration-lightweight-extraction>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2106>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2103>`__
    * - ``calibration.objective``
      - ``Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean']``
      - user
      - -
      - `calibration <calibration.html#calibration-objective>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2112>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2109>`__
    * - ``calibration.variable``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-variable>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2118>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2115>`__
    * - ``calibration.observed_station_id``
      - ``str | None``
      - user
      - -
      - `calibration <calibration.html#calibration-observed-station-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2122>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2119>`__
    * - ``calibration.method_options``
      - ``dict[str, Any]``
      - user
      - -
      - `calibration <calibration.html#calibration-method-options>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2126>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2123>`__
    * - ``calibration.parameters``
      - ``dict[str, CalibParameterDecl]``
      - user
      - -
      - `calibration <calibration.html#calibration-parameters>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2134>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2131>`__
    * - ``calibration.parameters.<id>.bounds``
      - ``list[float] | None``
      - user
@@ -8983,7 +8953,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `calibration <calibration.html#calibration-outputs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2138>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2135>`__
    * - ``calibration.outputs.<id>.observes``
      - ``str | None``
      - user
@@ -9145,37 +9115,37 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `calibration <calibration.html#calibration-outputs-id-on-roptim-violation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L980>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L978>`__
    * - ``calibration.outputs.<id>.max_unreachable_fraction``
      - ``float``
      - user
      - -
      - `calibration <calibration.html#calibration-outputs-id-max-unreachable-fraction>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1006>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1003>`__
    * - ``calibration.outputs.<id>.alpha_warning_threshold``
      - ``float``
      - expert
      - -
      - `calibration <calibration.html#calibration-outputs-id-alpha-warning-threshold>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1017>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1014>`__
    * - ``calibration.outputs.<id>.clipping_warning_share``
      - ``float``
      - expert
      - -
      - `calibration <calibration.html#calibration-outputs-id-clipping-warning-share>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1028>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1025>`__
    * - ``calibration.outputs.<id>.clipping_warning_gap``
      - ``float``
      - expert
      - -
      - `calibration <calibration.html#calibration-outputs-id-clipping-warning-gap>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1038>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1035>`__
    * - ``calibration.outputs.<id>.extent``
      - ``CalibNetworkExtent | None``
      - user
      - -
      - `calibration <calibration.html#calibration-outputs-id-extent>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1092>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1089>`__
    * - ``calibration.outputs.<id>.extent.maximal_flowing_steps``
      - ``int``
      - user
@@ -9223,157 +9193,157 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2142>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2139>`__
    * - ``calibration.objective_blocks.name``
      - ``str``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1229>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1226>`__
    * - ``calibration.objective_blocks.metric``
      - ``Literal['rmse', 'nse', 'kge', 'mae', 'nse_log', 'nse_delta', 'nse_seasonal', 'reservoir', 'distance_gap', 'distance_mean']``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks-metric>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1232>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1229>`__
    * - ``calibration.objective_blocks.weight``
      - ``float``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks-weight>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1262>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1259>`__
    * - ``calibration.objective_blocks.uses_outputs``
      - ``list[str]``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks-uses-outputs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1266>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1263>`__
    * - ``calibration.objective_blocks.normalize_cost``
      - ``bool``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks-normalize-cost>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1270>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1267>`__
    * - ``calibration.objective_blocks.transform``
      - ``Literal['identity', 'log', 'inverse']``
      - user
      - -
      - `calibration <calibration.html#calibration-objective-blocks-transform>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1280>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1277>`__
    * - ``calibration.objective_blocks.warmup``
      - ``Optional[int]``
      - expert
      - -
      - `calibration <calibration.html#calibration-objective-blocks-warmup>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1295>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1292>`__
    * - ``calibration.persist_iteration_detail``
      - ``Literal['none', 'summary', 'full']``
      - dev
      - -
      - `calibration <calibration.html#calibration-persist-iteration-detail>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2147>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2144>`__
    * - ``calibration.persist_trial_series``
      - ``bool``
      - dev
      - -
      - `calibration <calibration.html#calibration-persist-trial-series>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2152>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2149>`__
    * - ``calibration.persist_model_distribution``
      - ``bool``
      - dev
      - -
      - `calibration <calibration.html#calibration-persist-model-distribution>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2160>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2157>`__
    * - ``calibration.rerun_best_with_outputs``
      - ``bool``
      - user
      - -
      - `calibration <calibration.html#calibration-rerun-best-with-outputs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2164>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2161>`__
    * - ``calibration.materialize_candidates``
      - ``bool``
      - dev
      - -
      - `calibration <calibration.html#calibration-materialize-candidates>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2168>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2165>`__
    * - ``calibration.candidates_root``
      - ``PurePosixPath | None``
      - dev
      - -
      - `calibration <calibration.html#calibration-candidates-root>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2173>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2170>`__
    * - ``calibration.aggregate``
      - ``CalibAggregateDecl``
      - user
      - -
      - `calibration <calibration.html#calibration-aggregate>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2178>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2175>`__
    * - ``calibration.aggregate.weighting``
      - ``Literal['manual', 'error']``
      - user
      - -
      - `calibration <calibration.html#calibration-aggregate-weighting>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1736>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1733>`__
    * - ``calibration.aggregate.nested_gauges``
      - ``Literal['total', 'incremental']``
      - user
      - -
      - `calibration <calibration.html#calibration-aggregate-nested-gauges>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1747>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1744>`__
    * - ``calibration.aggregate.min_samples``
      - ``int``
      - user
      - -
      - `calibration <calibration.html#calibration-aggregate-min-samples>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1759>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1756>`__
    * - ``calibration.aggregate.on_member_failure``
      - ``Literal['veto', 'drop']``
      - user
      - -
      - `calibration <calibration.html#calibration-aggregate-on-member-failure>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1768>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1765>`__
    * - ``calibration.uncertainty``
      - ``CalibUncertaintyDecl``
      - user
      - -
      - `calibration <calibration.html#calibration-uncertainty>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2183>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2180>`__
    * - ``calibration.uncertainty.method``
      - ``Literal['cost_profile', 'multistart', 'linearized']``
      - user
      - -
      - `calibration <calibration.html#calibration-uncertainty-method>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1789>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1786>`__
    * - ``calibration.uncertainty.restarts``
      - ``int | None``
      - user
      - -
      - `calibration <calibration.html#calibration-uncertainty-restarts>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1802>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1799>`__
    * - ``calibration.uncertainty.perturbation``
      - ``Optional[float]``
      - user
      - -
      - `calibration <calibration.html#calibration-uncertainty-perturbation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1813>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1810>`__
    * - ``calibration.uncertainty.tolerance``
      - ``Optional[float]``
      - user
      - -
      - `calibration <calibration.html#calibration-uncertainty-tolerance>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1869>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1866>`__
    * - ``calibration.uncertainty.mode``
      - ``Optional[Literal['relative', 'absolute']]``
      - user
      - -
      - `calibration <calibration.html#calibration-uncertainty-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1882>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1879>`__
    * - ``calibration.persistence``
      - ``PersistenceConfig``
      - user
      - -
      - `calibration <calibration.html#calibration-persistence>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2189>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2186>`__
    * - ``calibration.persistence.save_catalog``
      - ``bool``
      - user

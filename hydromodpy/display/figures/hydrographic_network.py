@@ -9,7 +9,7 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_relative_km_axes
 from hydromodpy.display.maps.geo import GeoFigureMixin, project_gdf_for_metric_operations
-from hydromodpy.display.maps.overlays import NetworkMap, network_map_of_role, plot_network_map
+from hydromodpy.display.maps.overlays import network_map_of_role, plot_network_map
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -18,13 +18,7 @@ if TYPE_CHECKING:
 
 
 class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
-    """Render one persisted hydrographic network for a fixed canonical role.
-
-    A mapped role draws the snapped map the run stored under
-    ``[geographic.snap_streams] mode = "apply"``, one square per mapped cell,
-    and the raw network otherwise (:func:`network_map_of_role`). When the
-    snap is on, the note names the map drawn.
-    """
+    """Render one persisted hydrographic network for a fixed canonical role."""
 
     role: str
     color: str
@@ -68,7 +62,7 @@ class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
         ax.text(
             0.02,
             0.98,
-            "\n".join(_note_lines(self.subtitle, network, gdf)),
+            "\n".join(_note_lines(self.subtitle, gdf)),
             transform=ax.transAxes,
             ha="left",
             va="top",
@@ -125,8 +119,7 @@ class HydrographicNetworkPermanenceFigure(GeoFigureMixin, BaseFigure):
     which the loader writes only when its source says which reaches do (BD
     Topage, or a file with a ``permanence`` column). The reaches of the
     maximal map outside the minimal one are the intermittent extension. These
-    are the two maps the two-bound network criterion scores, drawn as the run
-    stored them: snapped under ``[geographic.snap_streams] mode = "apply"``.
+    are the two maps the two-bound network criterion scores.
     """
 
     spec = FigureSpec(
@@ -186,8 +179,8 @@ class HydrographicNetworkPermanenceFigure(GeoFigureMixin, BaseFigure):
         self.add_north_arrow(ax)
         ax.set_title(self.spec.title)
 
-        size_min = _map_size(minimal, min_gdf)
-        size_max = _map_size(maximal, max_gdf)
+        size_min = _map_size(min_gdf)
+        size_max = _map_size(max_gdf)
         handles = [
             Line2D(
                 [],
@@ -208,7 +201,7 @@ class HydrographicNetworkPermanenceFigure(GeoFigureMixin, BaseFigure):
         ax.legend(
             handles=handles,
             loc="upper left",
-            title="\n".join(_permanence_note_lines(maximal, max_gdf, size_max)),
+            title="\n".join(_permanence_note_lines(max_gdf, size_max)),
             title_fontsize=8.2,
             fontsize=8.2,
             alignment="left",
@@ -238,24 +231,15 @@ class _MapSize:
         return f"{_fmt_km(self.length_m)}, {self.count} reaches"
 
 
-def _map_size(network: NetworkMap, gdf) -> _MapSize:
-    """Measure a raw map in km and reaches, a snapped one in cells."""
-    if network.snapped:
-        import numpy as np
-
-        placed = np.where(gdf["snapped_cell"] >= 0, gdf["snapped_cell"], gdf["raw_cell"])
-        return _MapSize(count=int(np.unique(placed).size), length_m=None)
+def _map_size(gdf) -> _MapSize:
+    """Measure a map in km and reaches."""
     return _MapSize(count=int(len(gdf.index)), length_m=_measure_linework_length_m(gdf))
 
 
-def _permanence_note_lines(network: NetworkMap, gdf, size: _MapSize) -> list[str]:
+def _permanence_note_lines(gdf, size: _MapSize) -> list[str]:
     """Return the note: the source, the map drawn, the reaches by permanence class."""
-    lines = ["data.hydrography"]
-    label = network.label()
-    if label is not None:
-        lines.append(label)
-    lines.append(f"maximal map: {size.words()}")
-    if network.snapped or _PERMANENCE_COLUMN not in gdf.columns:
+    lines = ["data.hydrography", f"maximal map: {size.words()}"]
+    if _PERMANENCE_COLUMN not in gdf.columns:
         return lines
     for value, group in gdf.groupby(_PERMANENCE_COLUMN, sort=True):
         length_m = _measure_linework_length_m(group)
@@ -290,21 +274,13 @@ def _frame_on(ax: Axes, gdf) -> None:
     ax.set_ylim(ymin - pad_y, ymax + pad_y)
 
 
-def _note_lines(subtitle: str, network: NetworkMap, gdf) -> list[str]:
-    """Return the note of a network map: its source, the map drawn, its size."""
-    lines = [subtitle]
-    label = network.label()
-    if label is not None:
-        lines.append(label)
-    if network.snapped:
-        import numpy as np
-
-        placed = np.where(gdf["snapped_cell"] >= 0, gdf["snapped_cell"], gdf["raw_cell"])
-        lines.append(f"cells: {int(np.unique(placed).size)} from {int(len(gdf.index))} mapped")
-        return lines
-    lines.append(f"segments: {int(len(gdf.index))}")
-    lines.append(f"length: {_fmt_km(_measure_linework_length_m(gdf))}")
-    return lines
+def _note_lines(subtitle: str, gdf) -> list[str]:
+    """Return the note of a network map: its source, its size."""
+    return [
+        subtitle,
+        f"segments: {int(len(gdf.index))}",
+        f"length: {_fmt_km(_measure_linework_length_m(gdf))}",
+    ]
 
 
 def _total_bounds(gdf) -> tuple[float, float, float, float] | None:

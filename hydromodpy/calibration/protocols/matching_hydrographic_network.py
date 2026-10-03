@@ -154,17 +154,14 @@ class MatchingHydrographicNetwork:
             "them budgeted for the error of the mapped network (HESS p. 3224)",
             here="'auto', a length in metres: 2 h, h being h_obs, the cell size on the "
             "mapped network (the DEM pixel on a regular grid, so the paper's bound "
-            "there), raised to observed_position_accuracy when declared. With "
-            "[geographic.snap_streams] in 'diagnose' or 'apply' it is h + max(h, F), F "
-            "the floor the snap measured. A declared length replaces it. roptim is "
-            "still published as Doptim / h_obs, the paper's Eq. 3",
+            "there), raised to observed_position_accuracy when declared. A declared "
+            "length replaces it. roptim is still published as Doptim / h_obs, the "
+            "paper's Eq. 3",
             why=(
                 "Doptim barely falls as the mesh is refined while two cells do, so a "
                 "bound in cells declares an exact model invalid on a fine mesh for a "
                 "map-to-DEM mismatch the paper itself names as the limit (HESS "
-                "p. 3227). Reading the paper's two pixels as one for the hydrogeology "
-                "and one for the map, and replacing the latter by F when F is larger, "
-                "is an interpretation: the paper never writes 2 = 1 + 1."
+                "p. 3227)."
             ),
             paper_value="auto",
         ),

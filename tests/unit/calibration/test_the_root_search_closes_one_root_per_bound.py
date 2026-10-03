@@ -91,7 +91,7 @@ def _two_bounds(
                 "net.validity_length_m_minimal": 100.0,
                 "net.validity_length_m_maximal": 110.0,
                 "net.validity_length_provenance_minimal": 0.0,
-                "net.validity_length_provenance_maximal": 1.0,
+                "net.validity_length_provenance_maximal": 2.0,
             },
         )
 
@@ -387,7 +387,7 @@ def test_eq4_is_read_on_each_bound_in_the_cost() -> None:
     # Each bound is read against the length its own map resolved.
     assert verdicts["net_minimal"]["validity_length_m"] == 100.0
     assert verdicts["net_maximal"]["validity_length_m"] == 110.0
-    assert verdicts["net_maximal"]["provenance"] == "auto_floor"
+    assert verdicts["net_maximal"]["provenance"] == "declared_accuracy"
 
 
 def test_eq4_skips_a_bound_weighted_zero() -> None:

@@ -41,7 +41,6 @@ from hydromodpy.spatial.geographic.core.pipeline_steps import (
     build_standard_domain_polygons,
     prepare_geographic_run,
 )
-from hydromodpy.spatial.geographic.core.raster_stream_snap import raster_snap_settings
 from hydromodpy.spatial.geographic.core.river_network import (
     RiverNetworkProducts,
     _build_river_mesh_trace_from_network_gdf,
@@ -185,12 +184,6 @@ def _geographic_cache_fingerprint(config: GeographicConfig) -> str:
     # This flag controls cache use; it should not invalidate the underlying
     # generated artifacts when toggled.
     config_payload.pop("reuse_existing_outputs", None)
-    # The snap changes a geographic product only when the raster pass runs:
-    # it then decides the cells the burn lowers and the lines a mesh reads.
-    # Otherwise it acts on the model graph after the run, and toggling it
-    # keeps the cache.
-    if raster_snap_settings(config) is None:
-        config_payload.pop("snap_streams", None)
     payload = {
         "schema": _GEOGRAPHIC_CACHE_SCHEMA_VERSION,
         "config": config_payload,
@@ -564,7 +557,7 @@ def build_geographic_runtime_context(
         # DEM, so neither step touches the aquifer geometry.
         area_before_burn_km2 = catchment_area_without_burn(config=config, setup=setup, backend=tool)
         routing_dem_path = routing_dem_from_config(
-            config, setup, dem_in_path=burned_dem_from_config(config, setup, backend=tool)
+            config, setup, dem_in_path=burned_dem_from_config(config, setup)
         )
         if config.reg_fold is None:
             flow_products = build_regional_flow_products(

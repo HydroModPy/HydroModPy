@@ -130,6 +130,16 @@ Each release section includes the following standard categories:
   The builder wrote them before the model folder existed and dropped the error silently, so
   the conductivity and storage a Voronoi run was given could not be read back or drawn.
 
+### Removed
+- `[geographic.snap_streams]` and everything that existed only for it: the snap of the
+  mapped network onto the talwegs (`core/stream_snap.py`), its raster pass in the
+  geographic step, the snapped map stored with a run, the two snap figures, the Eq. 4
+  bounds on the snap displacement and rejected share, and the snap floor `F` of the
+  validity length (provenance `auto_floor`). In `apply` mode it rejected almost every
+  mapped cell on a 25 m Voronoi mesh, because it placed a cell only when its receiver
+  already reached the outlet. A TOML that still declares the section is refused.
+  `enforce_streams` burns the mapped lines, as before the snap existed.
+
 ---
 
 ## [v2.0.0a4] - 2026-09-29

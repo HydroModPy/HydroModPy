@@ -17,7 +17,6 @@ import numpy as np
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_geometry import NetworkGeometry, build_network_geometry
 from hydromodpy.core.stream_recharge import criterion_mean_recharge
-from hydromodpy.core.stream_snap import SnapStreamsConfig
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibOutputNetwork
@@ -113,19 +112,6 @@ def mesh_cell_m(run_ctx: RunContext, geometry: NetworkGeometry) -> float:
     """
     del run_ctx
     return float(geometry.h_obs_m)
-
-
-def snap_settings(run_ctx: RunContext) -> SnapStreamsConfig | None:
-    """Return the ``[geographic.snap_streams]`` setting of the run, or None when off.
-
-    The snap is common to every consumer of the mapped network, so it is read
-    from the run configuration and not from the calibration output.
-    """
-    cfg = getattr(getattr(run_ctx, "state", None), "cfg", None)
-    setting = getattr(getattr(cfg, "geographic", None), "snap_streams", None)
-    if setting is None or not setting.enabled:
-        return None
-    return setting
 
 
 @dataclass(frozen=True)
@@ -270,8 +256,6 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
     excluded = water_body_mask(model, n_cells=int(solver_mesh.n_cells))
     polygon = delineated_catchment_mask(run_ctx, planar_mesh, connectivity)
     outlet_xy = delineated_outlet_xy(run_ctx)
-    # One snap setting for every map: in 'apply' each map is scored snapped.
-    snap = snap_settings(run_ctx)
 
     def on_map(observed: np.ndarray) -> NetworkGeometry:
         # The model top, conditioned on the mesh graph by build_network_geometry.
@@ -300,8 +284,6 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
             alpha_warning_threshold=float(output.alpha_warning_threshold),
             clipping_warning_share=float(output.clipping_warning_share),
             clipping_warning_gap=float(output.clipping_warning_gap),
-            snap=snap,
-            weighting=output.weighting,
         )
 
     if minimal_projection is None:
@@ -354,5 +336,4 @@ __all__ = (
     "mesh_cell_m",
     "network_maps_from_run",
     "share_outside",
-    "snap_settings",
 )

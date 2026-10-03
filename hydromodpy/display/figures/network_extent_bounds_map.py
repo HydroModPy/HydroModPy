@@ -113,8 +113,8 @@ class NetworkExtentBoundsMap(BaseFigure):
         The criterion's seepage threshold and neighbour graph. Left out, the
         run's sealed network output, or the criterion's defaults. The
         rasterisation of the maps, the weighting and the positional accuracy
-        always come from there, the snap from ``[geographic.snap_streams]``
-        and the years counted from ``[calibration] scoring_window``.
+        always come from there, and the years counted from
+        ``[calibration] scoring_window``.
     ``output``
         The calibration output to read the settings of, when the run sealed
         several network outputs; the first one otherwise.
