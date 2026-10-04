@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.display.figures._flow_persistence import cycle_flow, cycles
+from hydromodpy.display.figures._flow_persistence import cycle_flow, cycles, flow_geometry
 from hydromodpy.display.figures.flow_intermittence_map import FlowIntermittenceMap
 from hydromodpy.display.figures.flow_persistence_map import FlowPersistenceMap
 from tests.unit.results._transient_network_run import (
@@ -73,6 +73,41 @@ def test_each_cycle_counts_the_steps_a_cell_flows() -> None:
     steps, counts = flow.block("2002")
     assert steps.size == 12
     assert counts[[OUTLET, MIDDLE, HEAD, HILLSLOPE]].tolist() == [12, 5, 5, 0]
+
+
+def _sealed_heads_run(**heads):
+    """A transient run scored under the heads rule with the given settings."""
+    run = transient_run()
+    output = {
+        "support": "network",
+        "observed_network": "data.hydrography",
+        "tau_specific_ratio": 0.0,
+        "observed_rasterization": "heads",
+        **heads,
+    }
+    run.config_snapshot = {"calibration": {"outputs": {"streams": output}}}
+    return run
+
+
+def test_flow_geometry_reads_the_sealed_heads_radius_and_area() -> None:
+    """A run scored with heads and a widened radius redraws with that radius.
+
+    Before the fix, ``flow_geometry`` always redrew with the criterion's
+    defaults: a run sealed under 'heads' with a non-default radius would then
+    count flowing cells on a map the trial never scored.
+    """
+    run = _sealed_heads_run(heads_snap_radius=150.0, heads_min_drained_area_km2=0.06)
+
+    geometry = flow_geometry(run)
+
+    assert geometry.heads is not None
+    assert geometry.heads.settings.snap_radius_m == pytest.approx(150.0)
+    assert geometry.heads.settings.min_drained_area_m2 == pytest.approx(6.0e4)
+    assert geometry.heads.head_cell.tolist() == [MIDDLE]
+
+
+def test_flow_geometry_defaults_to_crossing_on_an_unsealed_run() -> None:
+    assert flow_geometry(transient_run()).heads is None
 
 
 def test_the_persistence_share_is_the_fraction_of_steps_flowing(mpl) -> None:

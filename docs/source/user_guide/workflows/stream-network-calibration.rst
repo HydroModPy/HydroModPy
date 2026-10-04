@@ -126,121 +126,86 @@ comfortably inside its own. A simulated network holding its cells by
 construction never retracts, and the criterion then balances against a fixed
 skeleton.
 
-Snapping the mapped network
----------------------------
+Drawing the mapped network
+--------------------------
 
-Burning conditions the *routing surface* so its D8 paths follow the mapped
-network; it never moves the map. ``[geographic.snap_streams]`` does the
-opposite: it moves the map, cell by cell, onto the talwegs the criterion
-graph already carries, and publishes what the move cost. The two repairs
-answer different questions and neither replaces the other: a network burned
-into the routing raster can still sit off the mesh's own talwegs once the
-mesh floods that raster back (see "Before you start" above), and a snapped
-map still measures a genuine hydrogeological disagreement wherever it was
-never off-talweg to begin with.
-
-Off by default, three modes:
+``observed_rasterization`` decides how the vector map becomes cells, which is
+the support the criterion's distances start and finish on:
 
 .. code-block:: toml
 
-   [geographic.snap_streams]
-   mode = "diagnose"
-   radius = "2 cells"
-   max_displacement_p90 = "1 cell"
-   max_rejected_share = 0.10
+   [calibration.outputs.streams]
+   support                    = "network"
+   observed_network           = "data.hydrography"
+   observed_rasterization     = "heads"
+   heads_snap_radius          = "100 m"
+   heads_min_drained_area_km2 = 0.02
 
-``off``
-   Computes nothing. Every trial publishes exactly what it published before
-   the snap existed.
-``diagnose``
-   Computes the snapped map, its displacement, its rejected cells, the length
-   change and the floor ``F`` (below), and publishes them — but still scores
-   the **raw** map, so nothing about the calibrated value changes.
-``apply``
-   Scores the **snapped** map. Equation 4 then also asks the 90th percentile
-   of the displacement and the share of rejected cells to stay within their
-   bounds, on top of ``Doptim <= validity_length``.
+``"heads"``
+   Keeps only where the map says a stream starts, and lets the criterion's
+   own descent draw the rest. A mapped path below a stream head is shaped by
+   fields, ditches and rectified reaches that a drain model on a DEM can
+   never reproduce, and scoring that shape cell by cell is false error, not
+   model error: on the Flume Voronoi mesh ``"crossing"`` breaks the map into
+   1989 pieces, 37 % of its cells draining into a cell the map does not
+   touch. The algorithm, in five steps:
 
-``radius`` and ``max_displacement_p90`` are lengths: a Pint length such as
-``"200 m"``, or a count of cells such as ``"2 cells"`` — one cell being
-``h_obs`` (below), so the same TOML means the same number of mesh cells at
-every resolution. Two cells is the outlet-snapping distance of the paper's
-own ``SnapPourPoints``. It sits under ``[geographic]``, beside
-``enforce_streams``, because it is common to every consumer of the mapped
-network — the criterion, the redrawn figures, and (not wired yet, see
-below) stream burning — not to one calibration output.
+   1. the free ends of the mapped lines are found by geometry alone, whatever
+      the source: the network is noded at every intersection and merged
+      between junctions and free ends, and an endpoint met once is a
+      candidate head (:mod:`hydromodpy.spatial.mesh.ops.network_heads`);
+   2. a candidate is kept as a head when the largest drained area within
+      ``heads_snap_radius`` of it does not exceed the same window at the
+      other end of its reach — never the direction the line happens to be
+      digitised in: on the Flume Voronoi mesh the nearest cell alone kept 74
+      of 118 free ends, the window keeps 112;
+   3. each head lands on the nearest active cell draining at least
+      ``heads_min_drained_area_km2`` within ``heads_snap_radius``, or it is
+      lost;
+   4. the map is drawn by following the criterion graph's receivers from
+      every landing cell down to the outlet or to an already-drawn cell,
+      which is what makes it connected to the outlet by construction and not
+      stopped at it: like ``"crossing"``, it may continue into the buffer;
+   5. the minimal (permanent) map is traced from its own heads only; the
+      maximal map is traced from the union of both head sets, which keeps
+      "the maximal map contains the minimal one" without re-deriving it.
 
-The algorithm
-   Flow-accumulation guided snapping, run on the same graph the criterion
-   descends, in the topological order of the mapped network from downstream
-   to upstream:
+   Each trial publishes ``n_heads``, ``n_heads_lost``, ``head_snap_p90_m``
+   and ``heads_trace_near_map_share`` (the share of the traced cells lying
+   within ``heads_snap_radius`` of a sampled point of the map), per output
+   and per bound when two maps are scored. On the Flume Voronoi run: 112
+   heads kept, 1 lost, traced in one piece of 5078 cells to the outlet, 99.5 %
+   of it within 100 m of BD Topage, where ``"crossing"`` left 1989 pieces.
 
-   1. the mapped cells of the catchment are grouped into connected pieces on
-      the criterion's neighbour graph, each piece rooted at its lowest cell;
-   2. the pieces are walked by a priority flood along the map itself, most
-      accumulated first, so a main stem is processed before the tributaries
-      that join it;
-   3. each mapped cell moves, within the radius, to the free model cell with
-      the highest accumulation whose receiver is already attached — the
-      outlet and the water bodies are attached from the start — which is
-      what keeps every snapped cell continuous to the outlet;
-   4. a cell with no such candidate merges onto the nearest attached cell
-      within the radius instead, counted as merged; with neither, it is
-      rejected and keeps its raw position, so a grossly misplaced reach stays
-      visible to Equation 4 rather than disappearing into a plausible number;
-   5. a talweg cell no mapped cell moved onto is never added: a gap in the
-      map is not bridged, the reach above it attaches one cell lower, and the
-      displacement says so.
+   Do not use it on a map that is not dendritic: a canal or a diversion
+   crossing a drainage divide, a braided reach, a polder, a karst system
+   losing flow underground, and a culverted urban stream all break the
+   assumption that a free end is either a head or the outlet.
+   ``"crossing"`` scores those maps as they are drawn, false error and all,
+   which is the honest answer on ground the heads rule cannot reason about.
 
-   Mapped cells outside the catchment are not scored and are left as they are.
+``"crossing"``
+   The default. Keeps the cell holding each point where a line crosses the
+   segment joining two edge-sharing cell centres: on a structured grid it is
+   WhiteboxTools ``VectorLinesToRaster``, the paper's tool, and it draws the
+   map one cell wide like the simulated network, so a model that reproduces
+   the map scores zero. On the Nancon at 75 m it draws 730 cells against 490
+   for ``"touch"``, and the root moves by about ten per cent. Each trial
+   records ``n_observed_cells`` and ``n_observed_features_fallback``, the
+   reaches that crossed no segment and were kept at their midpoint cell.
 
-Limits, read before trusting an ``apply`` run
-   A gap in the map drags the whole reach above it down by one cell, and the
-   displacement map shows it. A map that never comes within one radius of the
-   outlet, and never joins a piece that is already attached, is rejected
-   whole rather than partly. On tortuous talwegs a few per cent of cells are
-   rejected even on a well-registered map — 5 to 6 % measured on a noisy
-   synthetic network shifted by one column — so a nonzero ``snap_rejected_share``
-   is not by itself evidence of a bad map. A radius of two cells can also
-   reach into a neighbouring, more accumulated talweg and pull the map onto
-   the wrong branch; watch ``snap_accumulation_percentile_p50`` and the map
-   figure below for that.
+``"touch"``
+   Keeps every cell the line touches, corners included. Replays a session
+   made before 2026-09; prefer ``"crossing"`` or ``"heads"`` for a new one.
 
-   **``apply`` changes what is scored, and that is a risk as much as a fix.**
-   ``roptim`` in ``apply`` mode measures the agreement between the model and
-   the *snapped* map, not the surveyed one, so a badly registered map that
-   ``diagnose`` would have flagged with a large ``snap_displacement_p90_m``
-   can come back looking well calibrated once it is moved onto the model's
-   own talwegs. Run ``diagnose`` first, read the displacement histogram and
-   ``snap_floor_m``, and only turn ``apply`` on once the displacement is
-   small relative to the positional accuracy of the source: a large snap is a
-   sign the DEM and the map disagree structurally, which burning or a better
-   DEM should fix, not a distance the snap should absorb silently.
-
-Published indices
-   Every trial with ``mode != "off"`` publishes, per output (and per bound,
-   suffixed, when two maps are scored): ``snap_mode`` (1 for ``diagnose``, 2
-   for ``apply``), ``snap_radius_m``, ``snap_displacement_p50_m``,
-   ``snap_displacement_p90_m``, ``snap_displacement_bound_m``,
-   ``snap_rejected_share``, ``snap_rejected_share_max``, ``snap_moved_share``,
-   ``snap_merged_share``, ``snap_length_ratio``, ``snap_connected_share``,
-   ``snap_accumulation_percentile_p50``, ``snap_n_cells_raw`` and
-   ``snap_floor_m``.
-
-   ``snap_floor_m`` is ``F``, the ``Doptim`` a model that reproduced the
-   snapped talwegs *exactly* would still score against the raw map, computed
-   with the criterion's own metric, sealed outlet and per-cell weighting. It
-   is the representation error the snap itself introduces: no calibrated
-   value can read as more accurate than ``F``, whatever ``roptim`` says.
-
-Equation 4 in ``apply`` mode
-   The verdict now reads three conditions together: ``Doptim <=
-   validity_length`` on the snapped map, the 90th percentile of the
-   displacement at or under ``max_displacement_p90``, and the rejected share
-   at or under ``max_rejected_share``. In ``diagnose`` mode the verdict still
-   reads ``Doptim`` on the raw map, because the raw map is what was scored;
-   the floor ``F`` only widens the validity length (below). The report names
-   the cause of a failure: the mismatch, the snap, or both.
+The figures redrawn from a run read the rule and, under ``"heads"``, the two
+settings it sealed
+(:func:`hydromodpy.results.derive.network_criterion_settings.network_criterion_settings`),
+so a run scored under ``"heads"`` with a widened radius redraws the same map
+it was scored on. ``observed_network_heads_map`` ("The figures" below) always
+redraws under ``"heads"``, with the sealed radius and area when the run used
+that rule and the criterion's defaults otherwise, because it exists to show
+the rule and not whichever one scored the run.
 
 ``h_obs`` replaces the reference length
    ``L_ref``, the length ``roptim`` and the width of a network output's
@@ -251,85 +216,29 @@ Equation 4 in ``apply`` mode
    nothing changes — both read the cell size — but on a mesh refined along
    the streams the old measure could land on the coarse hillslope cells a
    catchment-wide median happens to pick, while ``h_obs`` reads the scale
-   where the mapped network actually sits, the fine cells.
-   ``observed_position_accuracy`` no longer touches it: ``roptim`` is
-   ``Doptim / h_obs``, the paper's Equation 3, whatever the output declares.
-   It is read on the **raw** map, even in ``apply`` mode: the radius the snap
-   searches within is counted in the resolution the map was captured at, not
-   in the resolution it was moved onto. ``<output>.cell_spacing_m`` carries
-   the same value.
+   where the mapped network actually sits, the fine cells. It is read on the
+   map the criterion actually scores: under ``"heads"``, the traced cells,
+   not the free ends alone. ``observed_position_accuracy`` does not change
+   it: ``roptim`` is ``Doptim / h_obs``, the paper's Equation 3, whatever the
+   output declares. ``<output>.cell_spacing_m`` carries the same value.
 
 The validity length
    Equation 4 is a length in metres: the calibration is valid when ``Doptim
    <= validity_length``. ``validity_length = "auto"``, the default, reads a
    cell size ``h``, which is ``h_obs``, raised to
-   ``observed_position_accuracy`` when the output declares one, and then:
-
-   - without the snap, ``2 h``: the paper's two pixels, so ``roptim <= 2``
-     on a regular grid;
-   - with ``[geographic.snap_streams]`` in ``diagnose`` or ``apply``,
-     ``h + max(h, F)``: one cell for the hydrogeology, and one for the map
-     error the paper budgets (HESS p. 3224), replaced by the floor ``F``
-     when ``F`` is larger. At 75 m on the Nançon ``F`` stays under one cell
-     and the bound is the paper's 150 m; at 25 m it is about three cells and
-     the bound widens to about 100 m instead of 50 m.
+   ``observed_position_accuracy`` when the output declares one, and the bound
+   is ``2 h``: the paper's two pixels, so ``roptim <= 2`` on a regular grid.
 
    A length such as ``validity_length = "300 m"`` replaces the computation.
    Each map resolves its own length, so the two bounds of the two-bound mode
    may differ. Every trial publishes ``validity_length_m`` and
-   ``validity_length_provenance``, a code: 0 ``auto`` (two cells), 1
-   ``auto_floor`` (``F`` exceeded ``h``), 2 ``declared_accuracy`` (the
-   declared accuracy exceeded ``h_obs``), 3 ``user`` (a declared length).
-   The former ``roptim_max`` is gone. ``hmp doctor --fix-config`` drops it
-   from a file that sets it to 2, which ``"auto"`` reproduces, and refuses
-   any other value with the length to write instead. ``hmp calibrate`` and
-   ``hmp run`` apply the same migration in memory when they read the file,
-   without rewriting it.
-
-Scope
-   The setting applies to every consumer of the mapped network. ``apply``
-   makes each one read the snapped map, ``diagnose`` leaves each one on the
-   raw map while the snap is computed and published, and ``off`` changes
-   nothing anywhere.
-
-   - The criterion (every network output, one map or two) and its figures
-     snap on the criterion graph of the mesh.
-   - A run stores the snapped map it scored as a geographic feature (one
-     point per mapped cell of the catchment, with its displacement, status
-     and accumulation percentile). The overlap and distance metrics of the
-     ``reference`` and ``reference_permanent`` roles read it in ``apply``,
-     and say which map they read under ``network_map``.
-   - ``[geographic.enforce_streams]`` burns the routing raster before any
-     mesh exists, so its snap runs on the raster grid: the raw DEM is
-     conditioned by ``dem_correc_type``, the rasterised map is snapped on the
-     eight-neighbour graph of that raster by the same algorithm and radius
-     rule, and ``apply`` burns the snapped cells instead of the raw lines.
-     The routing DEM is then conditioned again as usual. This pass runs
-     whenever the snap is on and ``enforce_streams.stream_geometry_path``
-     names a network, burning or not, and costs one extra conditioning pass
-     and a graph over the whole raster.
-   - That raster pass is published in the geographic directory:
-     ``stream_snap_raster.json`` (mode, mapped file, indices),
-     ``stream_snap_raster.tif`` (snapped map, per-cell status) and
-     ``stream_snap_raster_lines.gpkg``. A mesh whose ``rivers.source =
-     "file"`` names the same mapped file reads those lines in ``apply``, and
-     the stream/DEM agreement of the geographic step measures the snapped
-     map the burn followed.
-
-Two figures read the sealed setting of the run they were asked to draw, so an
-``apply`` run's figures show the snapped map it scored, never the raw one:
-
-``observed_network_snap_map``
-   The raw mapped cells outlined, the snapped map filled, and one segment per
-   raw cell joining it to where it moved, coloured by its status
-   (unchanged, moved, merged, rejected).
-``observed_network_snap_histogram``
-   The displacement, stacked by status, with the ``max_displacement_p90``
-   bound and the search radius drawn as lines, and the rejected count in the
-   key rather than left out of the picture.
-
-Both refuse by name, with a sentence instead of a figure, on a run whose
-``[geographic.snap_streams]`` is ``off``.
+   ``validity_length_provenance``, a code: 0 ``auto`` (two cells), 2
+   ``declared_accuracy`` (the declared accuracy exceeded ``h_obs``), 3
+   ``user`` (a declared length). The former ``roptim_max`` is gone. ``hmp
+   doctor --fix-config`` drops it from a file that sets it to 2, which
+   ``"auto"`` reproduces, and refuses any other value with the length to
+   write instead. ``hmp calibrate`` and ``hmp run`` apply the same migration
+   in memory when they read the file, without rewriting it.
 
 Naming the method
 -----------------
@@ -834,8 +743,7 @@ Reading the component keys
    ``roptim_verdict`` follows the same split: a two-bound output publishes
    ``roptim_verdict.<output>_minimal`` and ``roptim_verdict.<output>_maximal``
    instead of one unsuffixed entry, each read at the trial the search
-   returns and each carrying its own ``snap`` verdict when
-   ``[geographic.snap_streams] mode = "apply"``.
+   returns.
 
 Deviations to declare
    A run using the extent table departs from the papers in five ways that
@@ -909,7 +817,7 @@ combined value holds neither bound, and the permanent one fails Eq. 4 at it
 
 The validity indicator clears its bound at the protocol's ``K``. ``roptim`` is
 the agreement between the two networks in cells of ``h_obs``; example 04
-declares neither an accuracy nor a snap, so its validity length is two cells,
+declares neither an accuracy nor a validity length, so its validity length is two cells,
 150 m, and it is valid at 2 and under. It runs from 1.43 to 10.3 over the stage
 one sweep and is 1.51 at the retained ``K`` (``Doptim`` = 113.3 m).
 ``alpha_obs_closure_catchment`` is 0.78 against 0.90: the mapped network agrees
@@ -1105,7 +1013,7 @@ to look at first:
    there. A report entry per network output, ``{value, Doptim, h_obs_m,
    validity_length_m, provenance, valid, causes}``: ``value`` is ``roptim``,
    ``provenance`` the name of what set the length, and ``causes`` lists what
-   failed, ``doptim``, ``snap`` or ``empty``. A ``Doptim`` that is not a
+   failed, ``doptim`` or ``empty``. A ``Doptim`` that is not a
    number, an empty simulated network at the returned trial, counts as a
    violation. With ``on_roptim_violation = "error"`` the raise happens after
    the session is saved, so every trial is still on disk, and a staged
@@ -1115,10 +1023,8 @@ to look at first:
    ``roptim_verdict.<output>_minimal`` and ``roptim_verdict.<output>_maximal``
    instead, each read on the same returned trial against its own length.
    ``h_obs_m`` in every entry is ``h_obs``, not the mesh's median cell size
-   ("Snapping the mapped network" above): the cell size where the mapped
-   network itself lies. With ``[geographic.snap_streams] mode = "apply"``,
-   ``valid`` also requires the displacement and rejected-share bounds, and
-   the entry then carries a ``snap`` sub-record; see the same section.
+   ("Drawing the mapped network" above): the cell size where the mapped
+   network itself lies.
 
 ``R_mean_m_s``
    The denominator of the calibrated ratio. It is what makes the result a
@@ -1248,17 +1154,16 @@ release union of the previous section under load.
 The figures
 -----------
 
-Ten figures are registered for this method: ``downslope_distance_crossing``,
+Nine figures are registered for this method: ``downslope_distance_crossing``,
 ``bisection_bracket_trace``, ``parameter_cost_profile``,
 ``matching_hydrographic_network_card``, ``seepage_network_reference_overlay``,
 ``seepage_network_confusion_map``, ``downslope_distance_map``,
-``hydrograph_log_nse``, ``observed_network_snap_map`` and
-``observed_network_snap_histogram``. ``network_extent_bounds_map``, the two
-simulated extents against the two maps ("Two maps and two bounds" above), is a
-related figure that reads a run directly and needs no calibration session at
-all.
+``hydrograph_log_nse`` and ``observed_network_heads_map``.
+``network_extent_bounds_map``, the two simulated extents against the two maps
+("Two maps and two bounds" above), is a related figure that reads a run
+directly and needs no calibration session at all.
 
-All ten are declared, never scripted. List them in ``[display].figures`` of
+All nine are declared, never scripted. List them in ``[display].figures`` of
 the project or of the calibration TOML and the promoted run renders them like
 any other figure of the gallery:
 
@@ -1274,8 +1179,7 @@ any other figure of the gallery:
        "downslope_distance_map",
        "hydrograph_log_nse",
        "matching_hydrographic_network_card",
-       "observed_network_snap_map",
-       "observed_network_snap_histogram",
+       "observed_network_heads_map",
    ]
 
 The first four read the trials of the session straight off the run. The three
@@ -1313,15 +1217,16 @@ the basin it was scored on asks for the whole domain instead:
    [display.overrides.seepage_network_reference_overlay]
    extent = "mesh"
 
-An eleventh figure, ``roptim_validity_chart``, compares the calibrated
-agreement of SEVERAL catchments, and a run holds one. It refuses a run-driven
-render by name rather than drawing one point, and it is fed per-site records
-directly.
+A tenth figure, ``roptim_validity_chart``, compares the calibrated agreement
+of SEVERAL catchments, and a run holds one. It refuses a run-driven render by
+name rather than drawing one point, and it is fed per-site records directly.
 
-The two snap figures, ``observed_network_snap_map`` and
-``observed_network_snap_histogram``, are described under "Snapping the mapped
-network" above; both refuse by name on a run whose
-``[geographic.snap_streams]`` is ``off``.
+``observed_network_heads_map`` is described under "Drawing the mapped
+network" above: the mapped lines, the heads kept and lost, and the trace they
+draw down the criterion graph. It always redraws under
+``observed_rasterization = "heads"``, whatever rule the run was actually
+scored with, and its title gives the heads traced, the heads lost and the
+share of the trace lying near the map.
 
 ``matching_hydrographic_network_card`` is a grid of panels and draws through ``plot()``,
 not through ``render(sim, ax)``. It reads the keys the trial published, which follow

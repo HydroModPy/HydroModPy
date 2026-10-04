@@ -205,6 +205,11 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "comparison",
         ("release_flux",),
     ),
+    "observed_network_heads_map": (
+        "hydromodpy.display.figures.observed_network_heads_map.ObservedNetworkHeadsMap",
+        "comparison",
+        ("release_flux",),
+    ),
     "parameter_cost_profile": (
         "hydromodpy.display.figures.parameter_cost_profile.ParameterCostProfileFigure",
         "timeseries",

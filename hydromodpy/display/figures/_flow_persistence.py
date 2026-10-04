@@ -24,6 +24,7 @@ from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.stream_extent import DEFAULT_VISIBLE_FLOW, VisibleFlow, parse_visible_flow
 from hydromodpy.display.figures._memo import RunMemo
 from hydromodpy.display.figures._stream_comparison import flowing_words
+from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream_extent import (
     FLOW_FIELD,
     block_flow_counts,
@@ -100,17 +101,34 @@ def flow_geometry(
     tau_specific_ratio: float | None = None,
     diagonal_neighbors: bool | None = None,
 ) -> NetworkGeometry:
-    """Return the criterion geometry of a run, memoised on the run and the knobs."""
-    tau = _tau(tau_specific_ratio)
+    """Return the criterion geometry of a run, memoised on the run and the knobs.
+
+    The rasterisation of the map, the weighting, the positional accuracy and,
+    under the heads rule, its radius and area, are the run's sealed network
+    output (:func:`hydromodpy.results.derive.network_criterion_settings.network_criterion_settings`),
+    or the criterion's defaults when it sealed none: a persistence map redrawn
+    on the defaults instead would count the timesteps a cell flows down a map
+    the trial never scored. ``tau_specific_ratio`` and ``diagonal_neighbors``
+    are the sealed settings too, unless the caller names one.
+    """
+    settings = network_criterion_settings(sim)
+    tau = settings.tau_specific_ratio if tau_specific_ratio is None else float(tau_specific_ratio)
     diagonal = (
-        STREAM_CRITERION_DEFAULTS.diagonal_neighbors
-        if diagonal_neighbors is None
-        else bool(diagonal_neighbors)
+        settings.diagonal_neighbors if diagonal_neighbors is None else bool(diagonal_neighbors)
     )
+    knobs = {
+        "tau_specific_ratio": float(tau),
+        "diagonal_neighbors": bool(diagonal),
+        "observed_rasterization": settings.observed_rasterization,
+        "weighting": settings.weighting,
+        "observed_position_accuracy_m": settings.observed_position_accuracy_m,
+        "heads_snap_radius_m": settings.heads_snap_radius_m,
+        "heads_min_drained_area_km2": settings.heads_min_drained_area_km2,
+    }
     return _GEOMETRY_MEMO.get_or_build(
         sim,
-        (tau, diagonal),
-        lambda: flow_geometry_from_run(sim, tau_specific_ratio=tau, diagonal_neighbors=diagonal),
+        tuple(sorted(knobs.items())),
+        lambda: flow_geometry_from_run(sim, **knobs),
     )
 
 

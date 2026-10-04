@@ -46,6 +46,8 @@ Each release section includes the following standard categories:
   `heads_trace_near_map_share`. On the Flume Voronoi run: 112 heads, 1 lost, one piece of
   5078 cells to the outlet, 99.5 % of it within 100 m of BD Topage, where `"crossing"` left
   1989 pieces.
+- The figure `observed_network_heads_map` draws the mapped lines, the traced cells, each head
+  with the cell it landed on, and the lost heads, with the settings the run was scored with.
 - The recharge can come from a daily soil reservoir fed by the rain and the ETP instead of a
   drainage loaded from SIM2: `[flow.sinks_sources.recharge.soil]`, MODFLOW 6 only, with `ru`
   (the available water capacity in mm, required, calibrated as `soil.ru`), `alpha` (0.6),

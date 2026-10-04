@@ -516,8 +516,9 @@ mapped network actually sits on, and for a size ratio of three the two
 conventions differ enough to move :math:`r_{optim}` across its bound.
 :math:`h_{obs}` is read on the *mapped* cells specifically, so it tracks the
 resolution where :math:`D_{os}` starts, not a catchment average one large
-buffer cell can pull away from it. It is measured once, on the raw map, and
-does not move under a snap of that map onto the model's talwegs (below).
+buffer cell can pull away from it. It is measured on the map the criterion
+actually scores: under the heads rule (``observed_rasterization = "heads"``),
+the cells the heads traced down the graph, not the free ends alone.
 :math:`r_{optim} = D_{optim} / h_{obs}` is Equation 3 as printed, whatever
 the output declares, so it stays comparable with Table 1 of the paper.
 Declaring ``observed_position_accuracy`` no longer raises :math:`L_{ref}`: it
@@ -540,20 +541,12 @@ h_{obs}` when none is declared), then
 
 .. math::
 
-   V = 2 h \quad \text{without the snap}, \qquad
-   V = h + \max(h, F) \quad \text{with the snap floor } F.
+   V = 2 h.
 
-The first is the paper's bound on a regular grid. The second exists only when
-``[geographic.snap_streams]`` runs in ``diagnose`` or ``apply``: one cell for
-the hydrogeology, and the map's cell replaced by :math:`F`, the
-:math:`D_{optim}` a model reproducing the snapped talwegs exactly still scores
-against the raw map, when :math:`F` is larger. That split of the two pixels
-is a reading, which the paper never writes, and the protocol declares it as a
-departure. It gives back the paper at its own resolution while :math:`F`
-stays under one cell (Nançon 75 m, proxies of :math:`F` from 25 to 41 m,
-:math:`V` = 150 m), and keeps one cell of margin above the representation
-error on a fine mesh (Nançon 25 m, a proxy of :math:`F` near 76 m,
-:math:`V` near 101 m instead of 50 m). A declared length replaces all of it. Each trial publishes
+That is the paper's bound on a regular grid, read at the cell size the mapped
+network actually sits on: under the heads rule, :math:`h_{obs}` is the cell
+size of the traced map, not of the free ends alone. A declared length
+replaces the computation. Each trial publishes
 ``validity_length_m`` and ``validity_length_provenance`` beside ``roptim``
 and ``roptim_valid``, and the runner reads the bound once, at the returned
 trial, on each bound of the two-bound mode. It **does not let the bound
@@ -856,9 +849,9 @@ larger cells, :math:`L_{ref}` is the square root of the median cell area, and
 the denominator grew. Same catchment, same mapped network, indicator halved.
 Refining a mesh therefore degrades the indicator at constant agreement, which
 is why the bound is a length: declaring the positional accuracy of the mapped
-network, or letting the snap measure its floor :math:`F`, widens the validity
-length to what the model resolution cannot shrink, while :math:`r_{optim}`
-stays the paper's ratio. Two :math:`r_{optim}` values measured on different
+network widens the validity length to what the model resolution cannot
+shrink, while :math:`r_{optim}` stays the paper's ratio. Two :math:`r_{optim}`
+values measured on different
 meshes are not comparable; two verdicts are, when their validity lengths are.
 
 **Publish** :math:`T/R`, **not** :math:`K`. The conductivity inherits the
@@ -932,22 +925,11 @@ the solver mesh and publishes it per trial as ``alpha_obs_closure``, together
 with ``alpha_obs_closure_catchment``, the same ratio restricted to the
 scored catchment.
 
-With ``[geographic.snap_streams]`` on, the map is first snapped on the talwegs
-of the conditioned raw DEM, on the raster grid, by the same algorithm the
-criterion uses on the mesh. In ``apply`` the trench is cut along the snapped
-cells rather than the raw lines, and :math:`\alpha` is measured against the
-snapped map the burn followed (``"snapped": true`` in the JSON). In
-``diagnose`` the raw lines are burned and measured, and the snap is only
-published, in ``stream_snap_raster.json``.
-
-That raster snap is not the one Eq. 4 scores. The criterion snaps the raw map
-again on the mesh graph, filled from the unburned model top, with a radius
-counted in mesh cells. On a mesh coarser than the DEM the two passes can put
-one reach on different talwegs near a meander or a confluence. In ``apply``
-the burn and the mesh river trace then follow the raster snap while the
-criterion scores its own. No agreement between the two is computed yet:
-compare ``stream_snap_raster.tif`` with the snapped map of the network card
-before trusting ``apply`` on a coarse mesh.
+``enforce_streams`` burns the mapped lines into the raw DEM before it is
+conditioned, on the raster grid of the geographic step. It follows the lines
+the source gives, never a map moved onto either grid's own talwegs: the burn
+and the criterion graph are two independent consumers of the same mapped
+network, each reading it as declared.
 
 The restriction is not cosmetic. Outside the catchment the mesh is a buffer, so
 no cell there is required to descend into the mapped network, and every reach
