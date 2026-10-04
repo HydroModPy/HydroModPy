@@ -100,19 +100,20 @@ def test_the_descent_rule_is_declared_as_an_offered_departure() -> None:
     assert "64.631" in why
 
 
-def test_the_rasterisation_deviation_names_crossing_as_the_paper_match() -> None:
-    """observed_network.py's own default is 'crossing', not 'touch'.
+def test_the_rasterisation_deviation_names_heads_as_the_new_default() -> None:
+    """The criterion's own default is 'heads', not 'crossing'.
 
-    The Deviation entry has to agree with that module, not restate a default it
-    no longer carries: 'crossing' is WhiteboxTools' own rule and reproduces the
-    paper, 'touch' is the departure kept to replay an old session.
+    The Deviation entry has to agree with that default: 'heads' traces the
+    model's own descent from the map's free ends and departs from the paper,
+    'crossing' is WhiteboxTools' own rule and reproduces the paper, 'touch' is
+    kept to replay an old session.
     """
     record = protocol_record(NAME)
     deviations = {item["key"]: item for item in record["deviations"]}
     entry = deviations["observed_rasterization"]
-    assert "'crossing' by default, matching the paper" in entry["here"]
+    assert "'heads' by default and departs from the paper" in entry["here"]
+    assert "'crossing' is offered and matches the paper" in entry["here"]
     assert "'touch'" in entry["here"]
-    assert "departs" in entry["here"]
     assert entry["paper_value"] == "crossing"
 
 

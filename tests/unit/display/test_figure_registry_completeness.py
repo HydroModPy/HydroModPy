@@ -205,13 +205,8 @@ REGISTRY_CONTRACT: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "comparison",
         ("release_flux",),
     ),
-    "observed_network_snap_histogram": (
-        "hydromodpy.display.figures.observed_network_snap_histogram.ObservedNetworkSnapHistogram",
-        "comparison",
-        ("release_flux",),
-    ),
-    "observed_network_snap_map": (
-        "hydromodpy.display.figures.observed_network_snap_map.ObservedNetworkSnapMap",
+    "observed_network_heads_map": (
+        "hydromodpy.display.figures.observed_network_heads_map.ObservedNetworkHeadsMap",
         "comparison",
         ("release_flux",),
     ),

@@ -617,8 +617,7 @@ def _roptim_line(name: str, verdict: Mapping[str, Any]) -> str:
     """Return the Eq. 4 verdict of one network output, read at the returned trial.
 
     Eq. 4 bounds ``Doptim`` by the validity length, in metres; ``roptim`` is
-    printed beside it as the paper's ratio. A failure names its cause: the
-    mismatch itself, or the snap displacement bound of ``mode = "apply"``.
+    printed beside it as the paper's ratio.
     """
     length = verdict.get("validity_length_m")
     provenance = verdict.get("provenance")
@@ -641,15 +640,6 @@ def _roptim_line(name: str, verdict: Mapping[str, Any]) -> str:
     reasons = []
     if "doptim" in causes:
         reasons.append("coarse agreement")
-    snap = verdict.get("snap") or {}
-    if "snap" in causes:
-        reasons.append(
-            "the snap moved the map beyond its bound (p90 displacement "
-            f"{float(snap.get('displacement_p90_m', float('nan'))):.4g} m against "
-            f"{float(snap.get('displacement_bound_m', float('nan'))):.4g} m, "
-            f"{float(snap.get('rejected_share', float('nan'))):.1%} rejected against "
-            f"{float(snap.get('rejected_share_max', float('nan'))):.0%})"
-        )
     return f"{head}, Eq. 4 fails: " + ", and ".join(reasons or ["not qualified"])
 
 

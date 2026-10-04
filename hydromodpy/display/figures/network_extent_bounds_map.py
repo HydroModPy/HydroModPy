@@ -112,9 +112,9 @@ class NetworkExtentBoundsMap(BaseFigure):
     ``tau_specific_ratio``, ``diagonal_neighbors``
         The criterion's seepage threshold and neighbour graph. Left out, the
         run's sealed network output, or the criterion's defaults. The
-        rasterisation of the maps, the weighting and the positional accuracy
-        always come from there, the snap from ``[geographic.snap_streams]``
-        and the years counted from ``[calibration] scoring_window``.
+        rasterisation of the maps and the positional accuracy
+        always come from there, and the years counted from
+        ``[calibration] scoring_window``.
     ``output``
         The calibration output to read the settings of, when the run sealed
         several network outputs; the first one otherwise.
@@ -242,8 +242,9 @@ def extents_from_run(
             settings.diagonal_neighbors if diagonal_neighbors is None else diagonal_neighbors
         ),
         "observed_rasterization": settings.observed_rasterization,
-        "weighting": settings.weighting,
         "observed_position_accuracy_m": settings.observed_position_accuracy_m,
+        "heads_snap_radius_m": settings.heads_snap_radius_m,
+        "heads_min_drained_area_km2": settings.heads_min_drained_area_km2,
         "scoring_window": settings.scoring_window,
     }
     return _EXTENTS_MEMO.get_or_build(

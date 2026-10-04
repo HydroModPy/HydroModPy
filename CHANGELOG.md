@@ -34,6 +34,20 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- `observed_rasterization = "heads"` on a network calibration output draws the mapped network
+  from its heads only. The free ends of the map are found by geometry, whatever the source;
+  an end is a head when the largest drained area within the snap radius does not exceed the
+  same window at the other end of its reach. Each head lands on the nearest cell draining at
+  least `heads_min_drained_area_km2` (0.02) within `heads_snap_radius` (100 m), and the
+  criterion's own descent draws the rest down to the outlet. The map is connected by
+  construction, so the path a field, a ditch or a rectified reach gave the mapped line no
+  longer counts as model error. A minimal map is traced from its own heads, the maximal one
+  from both sets. Each trial publishes `n_heads`, `n_heads_lost`, `head_snap_p90_m` and
+  `heads_trace_near_map_share`. On the Flume Voronoi run: 112 heads, 1 lost, one piece of
+  5078 cells to the outlet, 99.5 % of it within 100 m of BD Topage, where `"crossing"` left
+  1989 pieces.
+- The figure `observed_network_heads_map` draws the mapped lines, the traced cells, each head
+  with the cell it landed on, and the lost heads, with the settings the run was scored with.
 - The recharge can come from a daily soil reservoir fed by the rain and the ETP instead of a
   drainage loaded from SIM2: `[flow.sinks_sources.recharge.soil]`, MODFLOW 6 only, with `ru`
   (the available water capacity in mm, required, calibrated as `soil.ru`), `alpha` (0.6),
@@ -99,6 +113,9 @@ Each release section includes the following standard categories:
   depth under `K` is no longer checked against the range of a conductivity.
 
 ### Changed
+- The default of `observed_rasterization` is now `"heads"`. A network output that does not set
+  it is drawn from its heads. `"crossing"` stays the rule of the paper and must be written
+  explicitly to reproduce it. A sealed run redraws with the rule it sealed.
 - A calibration phase that samples a recharge parameter writes the RCHA (and EVTA) of each trial
   in the trial's own `_recharge/` folder, removed with the trial, instead of adding one stack per
   trial to the shared `_shared_recharge/` folder. A phase that leaves the recharge alone still
@@ -129,6 +146,17 @@ Each release section includes the following standard categories:
 - A run on an unstructured (gmsh) mesh keeps its K, Sy and Ss fields under `derived/` again.
   The builder wrote them before the model folder existed and dropped the error silently, so
   the conductivity and storage a Voronoi run was given could not be read back or drawn.
+
+### Removed
+- `[geographic.snap_streams]` and everything that existed only for it: the snap of the
+  mapped network onto the talwegs (`core/stream_snap.py`), its raster pass in the
+  geographic step, the snapped map stored with a run, the two snap figures, the Eq. 4
+  bounds on the snap displacement and rejected share, and the snap floor `F` of the
+  validity length (provenance `auto_floor`), and the `network_map` column of the network
+  comparison exports, which only told the snapped map from the raw one. In `apply` mode it rejected almost every
+  mapped cell on a 25 m Voronoi mesh, because it placed a cell only when its receiver
+  already reached the outlet. A TOML that still declares the section is refused.
+  `enforce_streams` burns the mapped lines, as before the snap existed.
 
 ---
 

@@ -230,14 +230,16 @@ def test_an_unwritten_dem_conditioning_is_not_claimed_by_the_file(tmp_path, caps
 
 
 def test_only_the_departures_print_at_the_normal_verbosity(tmp_path, capsys) -> None:
-    """The default fill is the paper's, and tau's default is not: one line, not twelve."""
+    """The default fill is the paper's; tau and the heads default are not."""
     _check(_protocol_file(tmp_path, end="2002-12-31"))
 
     printed = capsys.readouterr().err
     departures = [line for line in printed.splitlines() if "differs from the paper" in line]
-    assert len(departures) == 1
-    assert "on tau_specific_ratio" in departures[0]
-    assert "this file sets" not in departures[0]
+    assert len(departures) == 2
+    assert any("on tau_specific_ratio" in line for line in departures)
+    tau_line = next(line for line in departures if "on tau_specific_ratio" in line)
+    assert "this file sets" not in tau_line
+    assert any("on observed_rasterization" in line for line in departures)
     assert "dem_correc_type" not in printed
     assert "d_os_support" not in printed
 
@@ -247,6 +249,7 @@ def test_a_value_written_equal_to_the_paper_is_not_a_departure(tmp_path, capsys)
     text = path.read_text(encoding="utf-8").replace(
         'stream_geometry_path = "streams.gpkg"',
         'stream_geometry_path = "streams.gpkg"\ntau_specific_ratio = 0.0\n'
+        'observed_rasterization = "crossing"\n'
         "diagonal_neighbors = true",
     )
     path.write_text(text, encoding="utf-8")

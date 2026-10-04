@@ -22,7 +22,7 @@ partition is how a figure comes to disagree with the number it illustrates.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
@@ -36,16 +36,16 @@ from hydromodpy.core.field_routing import (
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.core.stream_heads import (
+    HeadCandidates,
+    HeadsSettings,
+    HeadTrace,
+    trace_from_heads,
+)
 from hydromodpy.core.stream_network import (
     SimulatedNetwork,
     downstream_closure,
     specific_seepage_threshold,
-)
-from hydromodpy.core.stream_snap import (
-    SnapStreamsConfig,
-    StreamSnap,
-    representation_floor_m,
-    snap_observed_network,
 )
 from hydromodpy.core.topographic_distance import (
     DownslopeMetric,
@@ -68,11 +68,10 @@ OUTLET_SNAP_RINGS = 2
 #: before the gap is logged as a warning. It decides what is LOGGED only.
 CATCHMENT_MISMATCH_WARNING_SHARE = 0.05
 
-ValidityProvenance = Literal["auto", "auto_floor", "declared_accuracy", "user"]
+ValidityProvenance = Literal["auto", "declared_accuracy", "user"]
 
 VALIDITY_PROVENANCE_CODE: dict[str, float] = {
     "auto": 0.0,
-    "auto_floor": 1.0,
     "declared_accuracy": 2.0,
     "user": 3.0,
 }
@@ -90,9 +89,9 @@ class ValidityLength:
     """The length Eq. 4 bounds ``Doptim`` by, and what set it.
 
     ``provenance`` names the term that decided the length: ``"user"`` for a
-    declared ``validity_length``, ``"auto_floor"`` when the snap floor ``F``
-    exceeded ``h``, ``"declared_accuracy"`` when the declared positional
-    accuracy exceeded ``h_obs``, and ``"auto"`` for two cells, the paper.
+    declared ``validity_length``, ``"declared_accuracy"`` when the declared
+    positional accuracy exceeded ``h_obs``, and ``"auto"`` for two cells, the
+    paper.
     """
 
     length_m: float
@@ -108,18 +107,13 @@ def resolve_validity_length(
     *,
     h_obs_m: float,
     accuracy_m: float | None = None,
-    floor_m: float | None = None,
     declared_m: float | None = None,
 ) -> ValidityLength:
     """Return the validity length of Eq. 4, in metres.
 
     A declared length wins. Otherwise ``h = max(h_obs, accuracy)`` when an
-    accuracy is declared, else ``h_obs``. Without a floor the length is
-    ``2 h``, the two pixels of the paper (HESS 27, p. 3225). With the snap
-    floor ``F``, measured in ``diagnose`` and ``apply``, it is
-    ``h + max(h, F)``: one cell for the hydrogeology, and one for the map
-    error the paper budgets (p. 3224), replaced by ``F`` when ``F`` is larger.
-    A floor that is not a number counts as no floor.
+    accuracy is declared, else ``h_obs``, and the length is ``2 h``, the two
+    pixels of the paper (HESS 27, p. 3225).
     """
     if declared_m is not None:
         return ValidityLength(float(declared_m), "user")
@@ -129,12 +123,7 @@ def resolve_validity_length(
     if accuracy_m is not None and float(accuracy_m) > h_obs:
         scale = float(accuracy_m)
         provenance = "declared_accuracy"
-    if floor_m is None or not np.isfinite(floor_m):
-        return ValidityLength(2.0 * scale, provenance)
-    floor = float(floor_m)
-    if floor > scale:
-        provenance = "auto_floor"
-    return ValidityLength(scale + max(scale, floor), provenance)
+    return ValidityLength(2.0 * scale, provenance)
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,12 +135,12 @@ class NetworkGeometry:
     the symmetric difference between it and the delineated raster polygon,
     divided by the polygon's area; NaN when no polygon was given.
 
-    ``observed`` is the map the criterion scores: the snapped map when the
-    snap is applied, the raw projection otherwise. ``observed_raw`` is always
-    the raw projection. ``h_obs_m`` is the cell size on the mapped network,
-    the length ``roptim`` is divided by (Eq. 3). ``snap`` is None when the
-    snap is off. ``observed_position_accuracy_m`` is the declared accuracy of
-    the map, which only the validity length reads (:meth:`validity_length`).
+    ``observed`` is the map the criterion scores, as drawn on the cells by the
+    output's rasterisation rule. ``heads`` is the trace that drew it under the
+    heads rule, None under the others. ``h_obs_m`` is the cell size on the mapped
+    network, the length ``roptim`` is divided by (Eq. 3).
+    ``observed_position_accuracy_m`` is the declared accuracy of the map,
+    which only the validity length reads (:meth:`validity_length`).
     """
 
     metric: DownslopeMetric
@@ -171,21 +160,18 @@ class NetworkGeometry:
     frac_obs_outside_catchment: float
     frac_reachable_obs_raw: float
     h_obs_m: float = float("nan")
-    observed_raw: np.ndarray | None = None
-    snap: StreamSnap | None = None
     observed_position_accuracy_m: float | None = None
+    heads: HeadTrace | None = None
 
     def validity_length(self, declared_m: float | None = None) -> ValidityLength:
         """Return the Eq. 4 length this map is qualified against.
 
         ``declared_m`` is the output's ``validity_length`` when it is a length,
-        None for ``"auto"``. The floor ``F`` enters only when the snap ran, in
-        ``diagnose`` or ``apply`` (:func:`resolve_validity_length`).
+        None for ``"auto"`` (:func:`resolve_validity_length`).
         """
         return resolve_validity_length(
             h_obs_m=self.h_obs_m,
             accuracy_m=self.observed_position_accuracy_m,
-            floor_m=None if self.snap is None else self.snap.floor_m,
             declared_m=declared_m,
         )
 
@@ -207,10 +193,13 @@ class NetworkGeometry:
         criterion graph, sits from the polygon the geographic step delineated
         on its raster.
 
-        The ``snap_*`` indices travel only when the snap is on: an ``off``
-        trial publishes exactly what it published before the snap existed.
+        Under the heads rule the indices of the heads join them: how many
+        were kept and lost, the 90th percentile of their snap distance, and
+        the share of the trace lying near the map.
         """
-        diagnostics = {
+        heads = {} if self.heads is None else self.heads.indices
+        return {
+            **heads,
             "alpha_obs_closure": self.alpha_obs_closure,
             "alpha_obs_closure_catchment": self.alpha_obs_closure_catchment,
             "frac_obs_outside_catchment": self.frac_obs_outside_catchment,
@@ -219,9 +208,6 @@ class NetworkGeometry:
             "n_outlet_sealed": float(0.0 if self.observed[self.outlet] else 1.0),
             "R_mean_m_s": self.mean_recharge_m_s,
         }
-        if self.snap is not None:
-            diagnostics.update(self.snap.indices)
-        return diagnostics
 
 
 _last_mean_recharge: float | None = None
@@ -444,7 +430,8 @@ def build_network_geometry(
     topography: np.ndarray,
     face_node_connectivity: np.ndarray,
     vertices: np.ndarray,
-    observed: np.ndarray,
+    observed: np.ndarray | None = None,
+    heads: tuple[HeadCandidates, HeadsSettings] | None = None,
     cell_area_m2: np.ndarray,
     cell_centroids: np.ndarray | None = None,
     mean_recharge_m_s: float,
@@ -459,8 +446,6 @@ def build_network_geometry(
     clipping_warning_share: float = STREAM_CRITERION_DEFAULTS.clipping_warning_share,
     clipping_warning_gap: float = STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
     catchment_mismatch_warning_share: float = CATCHMENT_MISMATCH_WARNING_SHARE,
-    snap: SnapStreamsConfig | None = None,
-    weighting: Literal["cell", "area"] = "cell",
 ) -> NetworkGeometry:
     """Assemble the static geometry of the criterion from mesh primitives.
 
@@ -499,16 +484,20 @@ def build_network_geometry(
     comes out feeds the depression flood, the receiver graph, the downstream
     closure of both networks and the saturation cap alike.
 
-    ``snap`` is the ``[geographic.snap_streams]`` setting, None meaning off.
-    In ``diagnose`` the snapped map, its indices and the floor ``F`` are
-    computed and the raw map is scored; in ``apply`` the snapped map is scored.
+    The map is given as exactly one of ``observed``, the cells a rasterisation
+    rule drew, and ``heads``, the free ends of the map with where they may
+    land (:mod:`hydromodpy.core.stream_heads`). The heads are traced down the
+    graph built here, once the outlet and the catchment are resolved.
+
     The length scale is ``h_obs`` (:func:`observed_cell_size_m`), read on the
-    raw map. ``observed_position_accuracy_m`` does not change it: it is kept
-    for the validity length only (:meth:`NetworkGeometry.validity_length`).
-    ``weighting`` is the weighting of the output that scores this geometry;
-    only the floor ``F`` reads it, so ``F`` is averaged like the ``Doptim``
-    it bounds.
+    mapped network. ``observed_position_accuracy_m`` does not change it: it is
+    kept for the validity length only (:meth:`NetworkGeometry.validity_length`).
     """
+    if (observed is None) == (heads is None):
+        raise ValueError(
+            "the network geometry takes the mapped network as exactly one of 'observed' "
+            "(cells drawn by a rasterisation rule) and 'heads' (free ends to trace)."
+        )
     surface = np.asarray(topography, dtype=float).reshape(-1)
     diagonal_neighbors = resolve_diagonal_neighbors(
         face_node_connectivity, n_cells=surface.size, requested=bool(diagonal_neighbors)
@@ -562,13 +551,8 @@ def build_network_geometry(
         adjacency=adjacency,
     )
     active = metric.graph.active
-
-    observed_mask = np.asarray(observed, dtype=bool).reshape(-1) & active
-    if not np.any(observed_mask):
-        raise ValueError(
-            "the mapped stream network projects onto no active cell: check its geometry "
-            "and that both its CRS and the mesh CRS are declared."
-        )
+    if observed is not None:
+        _require_mapped_cells(np.asarray(observed, dtype=bool).reshape(-1) & active)
 
     polygon: np.ndarray | None = None
     if delineated_catchment is not None:
@@ -625,31 +609,28 @@ def build_network_geometry(
             100.0 * mismatch if np.isfinite(mismatch) else float("nan"),
         )
 
+    trace: HeadTrace | None = None
+    if heads is not None:
+        candidates, settings = heads
+        trace = trace_from_heads(
+            metric,
+            candidates,
+            cell_area_m2=np.where(np.isfinite(areas), areas, 0.0),
+            settings=settings,
+        )
+        _log_heads(trace)
+        observed_mask = trace.traced & active
+    else:
+        observed_mask = np.asarray(observed, dtype=bool).reshape(-1) & active
+    _require_mapped_cells(observed_mask)
+
     excluded_mask = (
         None if excluded is None else np.asarray(excluded, dtype=bool).reshape(-1) & active
     )
 
-    # Read on the RAW map: the snap radius is counted in it, and the map an
-    # observation was drawn on does not move with the snap.
     h_obs = observed_cell_size_m(
         metric.centroids, face_node_connectivity, observed=observed_mask, catchment=catchment
     )
-    observed_raw = observed_mask
-    stream_snap: StreamSnap | None = None
-    if snap is not None and snap.enabled:
-        stream_snap = snap_observed_network(
-            metric=metric,
-            observed=observed_raw,
-            outlet=outlet,
-            catchment=catchment,
-            cell_area_m2=areas,
-            adjacency=adjacency,
-            h_obs_m=h_obs,
-            settings=snap,
-            water_bodies=excluded_mask,
-        )
-        if snap.mode == "apply":
-            observed_mask = stream_snap.snapped & active
 
     # Open water is surface water: a seepage cell fifty metres from a bank stops
     # at the reservoir, it does not swim across it and carry on to the next
@@ -718,34 +699,6 @@ def build_network_geometry(
     _warn_if_recharge_moved(recharge)
 
     saturation_cap = longest_descent_length(metric, outlet_mask, within=catchment)
-    if stream_snap is not None:
-        keep = catchment if excluded_mask is None else (catchment & ~excluded_mask)
-        stream_snap = replace(
-            stream_snap,
-            floor_m=representation_floor_m(
-                metric=metric,
-                raw=observed_raw,
-                snapped=stream_snap.snapped & active,
-                outlet=outlet,
-                keep=keep,
-                saturation_cap_m=saturation_cap,
-                water_bodies=excluded_mask,
-                # The same averaging as the scored Doptim, which reads
-                # geometry.cell_area_m2 below under the "area" weighting.
-                weights=areas if weighting == "area" else None,
-            ),
-        )
-        logger.info(
-            "Network criterion: snap %s, radius %.4g m, %d mapped cell(s), p90 displacement "
-            "%.4g m, %.1f%% rejected, length ratio %.3f, floor F = %.4g m.",
-            stream_snap.mode,
-            stream_snap.radius_m,
-            int(stream_snap.raw.sum()),
-            stream_snap.displacement_p90_m,
-            100.0 * stream_snap.rejected_share,
-            stream_snap.length_ratio,
-            stream_snap.floor_m,
-        )
 
     return NetworkGeometry(
         metric=metric,
@@ -765,11 +718,36 @@ def build_network_geometry(
         frac_obs_outside_catchment=outside,
         frac_reachable_obs_raw=reachable,
         h_obs_m=h_obs,
-        observed_raw=observed_raw,
-        snap=stream_snap,
         observed_position_accuracy_m=(
             float(observed_position_accuracy_m) if observed_position_accuracy_m else None
         ),
+        heads=trace,
+    )
+
+
+def _require_mapped_cells(mask: np.ndarray) -> None:
+    """Refuse a mapped network drawn on no active cell."""
+    if not np.any(mask):
+        raise ValueError(
+            "the mapped stream network projects onto no active cell: check its geometry "
+            "and that both its CRS and the mesh CRS are declared."
+        )
+
+
+def _log_heads(trace: HeadTrace) -> None:
+    """Say how the heads drew the map, on one line."""
+    indices = trace.indices
+    logger.info(
+        "Network criterion: %d head(s) of %d free end(s) traced, %d lost within %.0f m on "
+        "cells draining at least %.3g km2; p90 snap distance %.1f m, %.1f%% of the trace "
+        "within the radius of the map.",
+        int(indices["n_heads"] - indices["n_heads_lost"]),
+        trace.n_candidates,
+        int(indices["n_heads_lost"]),
+        trace.settings.snap_radius_m,
+        trace.settings.min_drained_area_m2 / 1.0e6,
+        indices["head_snap_p90_m"],
+        100.0 * indices["heads_trace_near_map_share"],
     )
 
 

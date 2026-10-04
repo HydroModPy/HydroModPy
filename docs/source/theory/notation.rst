@@ -208,12 +208,11 @@ Time and calibration
        otherwise set the scale. A declared ``observed_position_accuracy``
        does not change it; it enters ``validity_length`` only.
    * - ``validity_length``
-     - ``2 h``, or ``h + max(h, F)`` when the snap measured its floor ``F``;
-       ``h = max(h_obs, observed_position_accuracy)``
+     - ``2 h``, ``h = max(h_obs, observed_position_accuracy)``
      - m
      - Equation 4 as a length: valid when ``Doptim <= validity_length``.
-       ``"auto"`` by default, the paper's ``roptim <= 2`` on a regular grid
-       without the snap; a declared length replaces it.
+       ``"auto"`` by default, the paper's ``roptim <= 2`` on a regular
+       grid; a declared length replaces it.
    * - ``L_cap``
      - Longest downslope descent to the outlet inside the catchment
      - m

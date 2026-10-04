@@ -80,7 +80,6 @@ def test_every_setting_the_output_sealed_is_read() -> None:
     assert settings.tau_specific_ratio == 0.0
     assert settings.diagonal_neighbors is False
     assert settings.observed_rasterization == "touch"
-    assert settings.weighting == "area"
     assert settings.observed_position_accuracy_m == 25.0
     assert settings.timestep == 0
     assert settings.extent == NetworkExtentRules(
@@ -94,7 +93,6 @@ def test_a_key_the_output_left_out_takes_the_default() -> None:
 
     assert settings.tau_specific_ratio == STREAM_CRITERION_DEFAULTS.tau_specific_ratio
     assert settings.observed_rasterization == STREAM_CRITERION_DEFAULTS.observed_rasterization
-    assert settings.weighting == "cell"
     assert settings.observed_position_accuracy_m is None
     assert settings.timestep == -1
     assert settings.extent == DEFAULT_EXTENT_RULES
@@ -140,15 +138,6 @@ def test_a_sealed_value_no_trial_could_read_is_refused() -> None:
         network_criterion_settings(_run({"streams": _network(observed_rasterization="all")}))
     with pytest.raises(ValueError, match="carries no unit"):
         network_criterion_settings(_run({"streams": _network(extent={"visible_flow": "1"})}))
-
-
-def test_the_snap_the_run_sealed_is_named() -> None:
-    run = _run({"streams": _network()}, geographic={"snap_streams": {"mode": "apply"}})
-
-    settings = network_criterion_settings(run)
-
-    assert settings.snap is not None
-    assert settings.note().endswith("snap_streams apply")
 
 
 def test_the_scoring_window_the_run_sealed_is_read_and_named() -> None:

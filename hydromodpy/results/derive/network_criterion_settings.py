@@ -2,8 +2,8 @@
 
 A figure of the stream network redraws the partition a trial scored. The trial
 cut it by the settings of its ``[calibration.outputs.<n>]`` network output: the
-seepage threshold, the neighbour graph, the rasterisation of the map, the
-weighting, the state it read and, in the two-bound mode, the extent rules and
+seepage threshold, the neighbour graph, the rasterisation of the map and,
+under the heads rule, where a head may land, the state it read and, in the two-bound mode, the extent rules and
 the years its ``scoring_window`` holds. A figure drawn with the defaults
 instead shows another partition than the one the numbers describe, so this
 module reads those settings from the configuration the run sealed.
@@ -24,8 +24,8 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Mapping
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
@@ -35,12 +35,10 @@ from hydromodpy.core.stream_criterion_defaults import (
     ObservedRasterization,
 )
 from hydromodpy.core.stream_extent import DEFAULT_VISIBLE_FLOW, parse_visible_flow
-from hydromodpy.core.stream_snap import SnapStreamsConfig
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.core.units.length import parse_to_m
 from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
-from hydromodpy.results.derive.snapped_network import snap_settings_of_run
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -58,8 +56,7 @@ __all__ = (
 )
 
 _NETWORK_SUPPORT = "network"
-_RASTERIZATIONS = ("crossing", "touch")
-_WEIGHTINGS = ("cell", "area")
+_RASTERIZATIONS = ("heads", "crossing", "touch")
 _TIMESTEP_OF_TIME = {"last": -1, "first": 0}
 """The state a single-state output reads, as the timestep index a run field takes."""
 
@@ -95,8 +92,13 @@ class NetworkCriterionSettings:
     tau_specific_ratio: float = STREAM_CRITERION_DEFAULTS.tau_specific_ratio
     diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors
     observed_rasterization: ObservedRasterization = STREAM_CRITERION_DEFAULTS.observed_rasterization
-    weighting: Literal["cell", "area"] = "cell"
     observed_position_accuracy_m: float | None = None
+    heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m
+    """Under the heads rule, how far a head may land from its point, in metres."""
+
+    heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2
+    """Under the heads rule, the drained area a landing cell needs, in km2."""
+
     timestep: int = -1
     """The state a single-state output reads: ``-1`` for ``last``, ``0`` for ``first``.
 
@@ -121,9 +123,6 @@ class NetworkCriterionSettings:
     scoring_window_phase: str | None = None
     """The phase whose window :attr:`scoring_window` is, None for the calibration's."""
 
-    snap: SnapStreamsConfig | None = field(default=None, compare=False)
-    """The ``[geographic.snap_streams]`` setting the run sealed, None when off."""
-
     @property
     def extent_rules(self) -> NetworkExtentRules:
         """Return the extent rules of the output, or the defaults."""
@@ -140,8 +139,6 @@ class NetworkCriterionSettings:
             )
         else:
             source = f"criterion settings: calibration output {self.output!r}"
-        if self.snap is not None:
-            source += f", snap_streams {self.snap.mode}"
         if self.scoring_window is not None:
             start, end = self.scoring_window
             source += f", scoring_window {_date_or_open(start)} to {_date_or_open(end)}"
@@ -194,7 +191,6 @@ def network_criterion_settings(sim: Run, *, output: str | None = None) -> Networ
     read.
     """
     outputs = network_outputs_of_run(sim)
-    snap = snap_settings_of_run(sim)
     if output is not None and output not in outputs:
         held = ", ".join(repr(name) for name in outputs) or "none"
         raise ValueError(
@@ -202,7 +198,7 @@ def network_criterion_settings(sim: Run, *, output: str | None = None) -> Networ
             f"(network outputs: {held})."
         )
     if not outputs:
-        return NetworkCriterionSettings(output=None, snap=snap)
+        return NetworkCriterionSettings(output=None)
     name = next(iter(outputs)) if output is None else output
     window, phase = _window_of_run(sim)
     return _settings_of_output(
@@ -210,7 +206,6 @@ def network_criterion_settings(sim: Run, *, output: str | None = None) -> Networ
         name,
         outputs[name],
         n_outputs=len(outputs),
-        snap=snap,
         scoring_window=window,
         scoring_window_phase=phase,
     )
@@ -279,7 +274,6 @@ def _settings_of_output(
     payload: Mapping[str, Any],
     *,
     n_outputs: int,
-    snap: SnapStreamsConfig | None,
     scoring_window: ScoringWindow | None,
     scoring_window_phase: str | None,
 ) -> NetworkCriterionSettings:
@@ -292,23 +286,29 @@ def _settings_of_output(
     rasterization = payload.get("observed_rasterization", defaults.observed_rasterization)
     if rasterization not in _RASTERIZATIONS:
         raise ValueError(f"{where}: unknown observed_rasterization {rasterization!r}.")
-    weighting = payload.get("weighting", defaults.weighting)
-    if weighting not in _WEIGHTINGS:
-        raise ValueError(f"{where}: unknown weighting {weighting!r}.")
     timestep = _timestep_of_time(sim, payload.get("time", "last"), where=where)
+    radius = payload.get("heads_snap_radius", defaults.heads_snap_radius_m)
+    radius_m, _ = parse_to_m(radius, location=f"{where}.heads_snap_radius")
+    if not float(radius_m) > 0.0:
+        raise ValueError(f"{where}: heads_snap_radius must be positive, got {radius!r}.")
+    area_km2 = float(payload.get("heads_min_drained_area_km2", defaults.heads_min_drained_area_km2))
+    if not area_km2 >= 0.0:
+        raise ValueError(
+            f"{where}: heads_min_drained_area_km2 must not be negative, got {area_km2!r}."
+        )
     return NetworkCriterionSettings(
         output=name,
         tau_specific_ratio=tau,
         diagonal_neighbors=bool(payload.get("diagonal_neighbors", defaults.diagonal_neighbors)),
         observed_rasterization=rasterization,
-        weighting=weighting,
         observed_position_accuracy_m=_accuracy_m(
             payload.get("observed_position_accuracy"), where=where
         ),
+        heads_snap_radius_m=float(radius_m),
+        heads_min_drained_area_km2=area_km2,
         timestep=timestep,
         extent=_extent_rules(payload.get("extent"), where=where),
         n_network_outputs=n_outputs,
-        snap=snap,
         scoring_window=scoring_window,
         scoring_window_phase=None if scoring_window is None else scoring_window_phase,
     )

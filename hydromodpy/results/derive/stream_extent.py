@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -238,8 +238,9 @@ def flow_geometry_from_run(
     observed_rasterization: ObservedRasterization = (
         STREAM_CRITERION_DEFAULTS.observed_rasterization
     ),
-    weighting: Literal["cell", "area"] = "cell",
     observed_position_accuracy_m: float | None = None,
+    heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
+    heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
 ) -> NetworkGeometry:
     """Return the criterion geometry of a run: graph, seepage threshold and outlet.
 
@@ -247,8 +248,10 @@ def flow_geometry_from_run(
     the first of :data:`GRAPH_ROLES` the run carries. The graph, the threshold
     and the outlet are the same whatever the network, so the choice only
     decides which map ``geometry.observed`` holds. ``observed_rasterization``,
-    ``weighting`` and ``observed_position_accuracy_m`` only shape that map and
-    its snap, and take the criterion's defaults.
+    the two ``heads_`` settings and
+    ``observed_position_accuracy_m`` only shape that map, and take the
+    criterion's defaults. Under the heads rule each role is traced from its
+    own heads.
     """
     chosen = graph_role(sim) if role is None else role
     if chosen is None:
@@ -262,8 +265,9 @@ def flow_geometry_from_run(
         tau_specific_ratio=float(tau_specific_ratio),
         diagonal_neighbors=bool(diagonal_neighbors),
         observed_rasterization=observed_rasterization,
-        weighting=weighting,
         observed_position_accuracy_m=observed_position_accuracy_m,
+        heads_snap_radius_m=float(heads_snap_radius_m),
+        heads_min_drained_area_km2=float(heads_min_drained_area_km2),
     ).geometry
 
 
@@ -374,8 +378,7 @@ class NetworkExtents:
     ``geometry`` is the criterion geometry built on the maximal map.
     ``maximal_observed`` is the union of the maximal and minimal maps, as the
     criterion scores it; ``minimal_observed`` is the minimal map, or None when
-    the run stored none. Both are the maps the criterion scores: snapped when
-    the run's ``[geographic.snap_streams]`` applies the snap.
+    the run stored none.
     ``frac_minimal_outside_maximal`` is the share of the minimal map, on the
     scored cells (:func:`scored_cells`), that the maximal map does not cover.
     """
@@ -431,8 +434,9 @@ def network_extents_from_run(
     observed_rasterization: ObservedRasterization = (
         STREAM_CRITERION_DEFAULTS.observed_rasterization
     ),
-    weighting: Literal["cell", "area"] = "cell",
     observed_position_accuracy_m: float | None = None,
+    heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
+    heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
     scoring_window: tuple[Any, Any] | None = None,
     chunk_elements: int = CHUNK_ELEMENTS,
 ) -> NetworkExtents:
@@ -445,15 +449,18 @@ def network_extents_from_run(
     ``minimal_dry_steps``, and a cell enters a climatological extent when it
     meets its rule in at least ``year_quorum`` of the years. The criterion
     settings of the output (``tau_specific_ratio``, ``diagonal_neighbors``,
-    ``observed_rasterization``, ``weighting``, ``observed_position_accuracy_m``)
-    build both maps and the graph, with the criterion's defaults.
+    ``observed_rasterization``, the two ``heads_`` settings,
+    ``observed_position_accuracy_m``) build both maps and the graph, with the
+    criterion's defaults.
     ``scoring_window`` is the ``(start, end)`` of the calibration's window,
     naive, either bound None when open: only the complete years it holds are
     counted, as the trial counts them, and a spin-up year outside it is left
     out of the extents and of the quorum.
 
     The minimal map is read when the run stored one; the maximal map is then
-    the union of the two, as the criterion scores it. Refused by name when the
+    the union of the two, as the criterion scores it. Under the heads rule
+    that union is the trace of both head sets, the map a trial scores, since
+    a trace is the union of the descents of its heads. Refused by name when the
     run is steady, lacks a maximal map, covers no complete year, or when the
     step rules cannot be read on its years.
     """
@@ -483,8 +490,9 @@ def network_extents_from_run(
         "tau_specific_ratio": tau_specific_ratio,
         "diagonal_neighbors": diagonal_neighbors,
         "observed_rasterization": observed_rasterization,
-        "weighting": weighting,
         "observed_position_accuracy_m": observed_position_accuracy_m,
+        "heads_snap_radius_m": heads_snap_radius_m,
+        "heads_min_drained_area_km2": heads_min_drained_area_km2,
     }
     geometry = flow_geometry_from_run(sim, role=MAXIMAL_ROLE, **settings)
     maximal = np.asarray(geometry.observed, dtype=bool)

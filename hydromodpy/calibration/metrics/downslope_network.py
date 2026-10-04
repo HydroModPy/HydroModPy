@@ -14,8 +14,8 @@ network averages to ``D_os``. The criterion is
 ``roptim`` is the paper's ratio, published for comparison with its Table 1.
 The bound is a length (:func:`hydromodpy.core.stream_geometry.
 resolve_validity_length`): two cells ``2 h_obs`` by default, the paper's
-``roptim <= 2``, widened by a declared positional accuracy or by the snap
-floor, or set by the output.
+``roptim <= 2``, widened by a declared positional accuracy, or set by the
+output.
 
 ``D_so`` large means a network spilling far outside the mapped one; ``D_os``
 large means one that never grew. Zero is the balance between excess and
@@ -412,7 +412,7 @@ def score_on_geometry(
 
     ``validity_length_m`` is the output's declared ``validity_length`` in
     metres, None for ``"auto"``, which the geometry resolves from its own
-    ``h_obs``, declared accuracy and snap floor
+    ``h_obs`` and declared accuracy
     (:meth:`~hydromodpy.core.stream_geometry.NetworkGeometry.validity_length`).
     Each map resolves its own, so the two bounds of an output may differ.
     """

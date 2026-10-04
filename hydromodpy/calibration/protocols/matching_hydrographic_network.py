@@ -154,17 +154,14 @@ class MatchingHydrographicNetwork:
             "them budgeted for the error of the mapped network (HESS p. 3224)",
             here="'auto', a length in metres: 2 h, h being h_obs, the cell size on the "
             "mapped network (the DEM pixel on a regular grid, so the paper's bound "
-            "there), raised to observed_position_accuracy when declared. With "
-            "[geographic.snap_streams] in 'diagnose' or 'apply' it is h + max(h, F), F "
-            "the floor the snap measured. A declared length replaces it. roptim is "
-            "still published as Doptim / h_obs, the paper's Eq. 3",
+            "there), raised to observed_position_accuracy when declared. A declared "
+            "length replaces it. roptim is still published as Doptim / h_obs, the "
+            "paper's Eq. 3",
             why=(
                 "Doptim barely falls as the mesh is refined while two cells do, so a "
                 "bound in cells declares an exact model invalid on a fine mesh for a "
                 "map-to-DEM mismatch the paper itself names as the limit (HESS "
-                "p. 3227). Reading the paper's two pixels as one for the hydrogeology "
-                "and one for the map, and replacing the latter by F when F is larger, "
-                "is an interpretation: the paper never writes 2 = 1 + 1."
+                "p. 3227)."
             ),
             paper_value="auto",
         ),
@@ -288,20 +285,29 @@ class MatchingHydrographicNetwork:
             paper="the mapped network is rasterised onto the model grid by "
             "WhiteboxTools' VectorLinesToRaster, whose own assignment rule is not "
             "restated in the text",
-            here="'crossing' by default, matching the paper: a cell belongs to the "
-            "network when the line crosses the segment joining two edge-sharing "
-            "cell centres, WhiteboxTools' own rule on a structured grid, except "
-            "that a reach crossing no such segment keeps the cell holding its "
-            "midpoint where WhiteboxTools drops it (counted per trial as "
-            "n_observed_features_fallback); 'touch' is offered and departs, keeping "
-            "every cell the line geometry intersects, corners included",
+            here="'heads' by default and departs from the paper: it keeps the free "
+            "ends of the map and traces the model's own descent from each, so the "
+            "map is connected to the outlet by construction and the path a field "
+            "or a ditch gave the mapped line no longer counts as error; 'crossing' "
+            "is offered and matches the paper, a cell belongs to the network when "
+            "the line crosses the segment joining two edge-sharing cell centres, "
+            "WhiteboxTools' own rule on a structured grid, except that a reach "
+            "crossing no such segment keeps the cell holding its midpoint where "
+            "WhiteboxTools drops it (counted per trial as n_observed_features_"
+            "fallback); 'touch' is offered and departs, keeping every cell the "
+            "line geometry intersects, corners included",
             why=(
-                "crossing draws the map one cell wide, like the simulated network, so "
-                "a model that matches the map scores J = 0; touch grows D_os on every "
-                "diagonal step of the map and pulls the search off that zero even on a "
-                "perfect match. 'touch' is kept to replay a session recorded before "
-                "2026-09. Choosing it leaves the publication. The midpoint fallback "
-                "keeps every mapped reach on the mesh, so none disappears silently."
+                "the mapped path below a stream head is shaped by fields, ditches "
+                "and rectified reaches that a model built on a DEM can never "
+                "reproduce, which crossing and touch both score as error; heads "
+                "lets the model draw that path itself and scores only where the "
+                "network starts and how far it reaches. 'crossing' stays the rule "
+                "of the paper and is kept for maps that are not a tree, canals, "
+                "braids and karst, where a free end is not a meaningful head. "
+                "'touch' is kept to replay a session recorded before 2026-09. "
+                "Choosing either leaves the publication. The midpoint fallback of "
+                "crossing keeps every mapped reach on the mesh, so none disappears "
+                "silently."
             ),
             paper_value="crossing",
         ),

@@ -17,11 +17,6 @@ agrees with that network by construction.
 The depth is not a free knob. It has to exceed the local drop between a stream
 cell and its lowest non-stream neighbour, which the report measures and prints
 whatever mode is used.
-
-With ``[geographic.snap_streams]`` in ``apply``, the trench is cut along the
-snapped map instead of the raw lines: the map is snapped on the talwegs of the
-conditioned raw DEM first (:mod:`~hydromodpy.spatial.geographic.core.raster_stream_snap`).
-In ``diagnose`` the raw lines are burned and the snap is only published.
 """
 
 from __future__ import annotations
@@ -39,10 +34,6 @@ from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchme
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.spatial.geographic.core.lake_enforcement import routing_dem_from_config
 from hydromodpy.spatial.geographic.core.pipeline_steps import build_standard_catchment
-from hydromodpy.spatial.geographic.core.raster_stream_snap import (
-    raster_snap_settings,
-    snap_streams_on_raster,
-)
 
 logger = get_logger(__name__)
 
@@ -160,9 +151,8 @@ def burn_stream_mask_into_routing_dem(
 ) -> StreamEnforcementReport:
     """Write a routing DEM with the cells of ``stream_mask`` cut into it.
 
-    ``stream_mask`` lies on the grid of ``dem_in_path``: the rasterised lines,
-    or the snapped map. The other parameters are those of
-    :func:`burn_streams_into_routing_dem`.
+    ``stream_mask`` lies on the grid of ``dem_in_path``: the rasterised lines.
+    The other parameters are those of :func:`burn_streams_into_routing_dem`.
     """
     dem_in_path = str(dem_in_path)
     dem_out_path = str(dem_out_path)
@@ -283,7 +273,7 @@ def streams_from_config(enforce: object, setup: object) -> list:
     return [g for g in gdf.geometry if g is not None and not g.is_empty]
 
 
-def burned_dem_from_config(config: object, setup: object, *, backend: object | None = None) -> str:
+def burned_dem_from_config(config: object, setup: object) -> str:
     """Return the stream-burned routing DEM, or the raw DEM when burning is off.
 
     Duck-typed on ``config.enforce_streams`` and ``setup`` (``dem_init_path``,
@@ -291,66 +281,20 @@ def burned_dem_from_config(config: object, setup: object, *, backend: object | N
     geographic entry points share it. Runs FIRST in the routing chain: the lake
     carve then overwrites the trench inside a water body, which is right, a lake
     is not a channel.
-
-    With ``[geographic.snap_streams]`` on and a mapped network declared, the
-    map is first snapped on the raster grid of the conditioned raw DEM and the
-    snap is published, burning or not (a mesh river constraint may read it).
-    In ``apply`` the snapped cells are burned instead of the raw lines; in
-    ``diagnose`` the raw lines are. ``backend`` reaches the terrain engine of
-    that conditioning pass.
     """
     enforce = getattr(config, "enforce_streams", None)
-    snap_settings = raster_snap_settings(config)
-    if snap_settings is None:
-        if enforce is None or not getattr(enforce, "enabled", False):
-            return str(setup.dem_init_path)
-        out_path = str(Path(setup.paths.correcflow_path) / "dem_routing_stream_burned.tif")
-        burn_streams_into_routing_dem(
-            dem_in_path=setup.dem_init_path,
-            dem_out_path=out_path,
-            stream_lines=streams_from_config(enforce, setup),
-            mode=str(enforce.mode),
-            depth_m=float(enforce.depth_m),
-            adaptive_percentile=float(enforce.adaptive_percentile),
-            relief_report_percentile=float(enforce.relief_report_percentile),
-            all_touched=bool(enforce.rasterize_all_touched),
-            nodata_fallback=float(enforce.dem_nodata_fallback),
-        )
-        return out_path
-
-    stream_lines = streams_from_config(enforce, setup)
-    with rasterio.open(str(setup.dem_init_path)) as src:
-        shape = (int(src.height), int(src.width))
-        transform = src.transform
-    raw_mask = rasterize_stream_lines(
-        stream_lines,
-        shape=shape,
-        transform=transform,
-        all_touched=bool(enforce.rasterize_all_touched),
-    )
-    raster_snap = snap_streams_on_raster(
-        dem_in_path=setup.dem_init_path,
-        raw_mask=raw_mask,
-        settings=snap_settings,
-        dem_correc_type=str(config.dem_correc_type),
-        work_dir=Path(setup.paths.correcflow_path),
-        geographic_dir=Path(setup.paths.geographic_path),
-        source_path=Path(enforce.stream_geometry_path),
-        crs_project=getattr(setup, "crs_project", None),
-        backend=backend,
-        engine_id=getattr(config, "terrain_engine", None),
-    )
-    if not getattr(enforce, "enabled", False):
+    if enforce is None or not getattr(enforce, "enabled", False):
         return str(setup.dem_init_path)
     out_path = str(Path(setup.paths.correcflow_path) / "dem_routing_stream_burned.tif")
-    burn_stream_mask_into_routing_dem(
+    burn_streams_into_routing_dem(
         dem_in_path=setup.dem_init_path,
         dem_out_path=out_path,
-        stream_mask=raster_snap.burn_mask,
+        stream_lines=streams_from_config(enforce, setup),
         mode=str(enforce.mode),
         depth_m=float(enforce.depth_m),
         adaptive_percentile=float(enforce.adaptive_percentile),
         relief_report_percentile=float(enforce.relief_report_percentile),
+        all_touched=bool(enforce.rasterize_all_touched),
         nodata_fallback=float(enforce.dem_nodata_fallback),
     )
     return out_path

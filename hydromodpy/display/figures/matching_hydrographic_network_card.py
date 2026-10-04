@@ -50,7 +50,6 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_BY_CODE
-from hydromodpy.core.stream_snap import SNAP_MODE_CODE
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
@@ -79,7 +78,6 @@ if TYPE_CHECKING:
 
 VALIDITY_PROVENANCE_LABELS: dict[str, str] = {
     "auto": "two cells, 2 h_obs",
-    "auto_floor": "one cell plus the snap floor F",
     "declared_accuracy": "widened by the declared positional accuracy",
     "user": "the declared validity_length",
 }
@@ -584,10 +582,10 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         """Panel three: ``Doptim`` against the trial's validity length, in metres.
 
         The bound is the ``validity_length_m`` the trial published, never a
-        ratio the card assumes: a declared positional accuracy or a snap floor
-        widens it past ``2 h_obs``, and the verdict the run reports reads it.
-        ``roptim`` is written beside it for the paper's Table 1. An output
-        scored on two maps gets one row per map, each against its own length.
+        ratio the card assumes: a declared positional accuracy widens it past
+        ``2 h_obs``, and the verdict the run reports reads it. ``roptim`` is
+        written beside it for the paper's Table 1. An output scored on two
+        maps gets one row per map, each against its own length.
         """
         title = "Validity of the agreement"
         ax.set_yticks([])
@@ -646,9 +644,6 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         if ratio is not None:
             scale = f", h_obs = {h_obs:.4g} m" if h_obs is not None else ""
             lines.append(f"roptim = Doptim / h_obs = {ratio:.4g}{scale}")
-        snap = _snap_breach(table, row, output=output)
-        if snap is not None:
-            lines.append(snap)
         _say(ax, "\n".join(lines), xy=(0.5, 0.92), va="top")
         ax.set_xlim(0.0, max(value, bound) * 1.3)
         ax.set_ylim(-0.55, 1.25)
@@ -1133,16 +1128,15 @@ def _validity_lines(
 ) -> list[str]:
     """Return the note of one map: its residual, its Eq. 4 verdict, its scale.
 
-    The verdict is the run's: ``Doptim`` within the map's own length, and no
-    snap that moved the map too far. A map outside the verdict gets the same
-    reading under another word, so it is never taken for a verdict.
+    The verdict is the run's: ``Doptim`` within the map's own length. A map
+    outside the verdict gets the same reading under another word, so it is
+    never taken for a verdict.
     """
     suffix = view.suffix
     heading = view.label + (f" ({view.note})" if view.note else "")
     residual = _diagnostic_at(table, row, f"J_signed{suffix}", output=output)
     value = _diagnostic_at(table, row, f"Doptim{suffix}", output=output)
     bound = _diagnostic_at(table, row, f"validity_length_m{suffix}", output=output)
-    snap = _snap_breach(table, row, output=output, suffix=suffix)
     if value is None:
         reading = "Doptim not published, not qualified"
     elif bound is None:
@@ -1150,7 +1144,7 @@ def _validity_lines(
     else:
         within = value <= bound
         if view.in_verdict:
-            verdict = "Eq. 4 holds" if within and snap is None else "Eq. 4 fails"
+            verdict = "Eq. 4 holds" if within else "Eq. 4 fails"
         else:
             verdict = ("within" if within else "beyond") + " the bound, no verdict"
         reading = f"Doptim = {value:.4g} m {'<=' if within else '>'} {bound:.4g} m, {verdict}"
@@ -1167,8 +1161,6 @@ def _validity_lines(
         scale.append(f"length: {provenance}")
     if scale:
         lines.append("    " + ", ".join(scale))
-    if snap is not None:
-        lines.append(f"    {snap}")
     return lines
 
 
@@ -1264,33 +1256,6 @@ def _validity_provenance(
     code = _diagnostic_at(table, row, f"validity_length_provenance{suffix}", output=output)
     name = None if code is None else VALIDITY_PROVENANCE_BY_CODE.get(code)
     return None if name is None else VALIDITY_PROVENANCE_LABELS[name]
-
-
-def _snap_breach(
-    table: TrialTable, row: int, *, output: str | None, suffix: str = ""
-) -> str | None:
-    """Return the line saying the applied snap breaks Eq. 4, or None.
-
-    Only ``[geographic.snap_streams] mode = "apply"`` adds this half of the
-    verdict: the snapped map may not move further than its bound on its 90th
-    percentile, nor lose more than its share of rejected cells. ``suffix``
-    reads the indices of one map of an output scored on several.
-    """
-    mode = _diagnostic_at(table, row, f"snap_mode{suffix}", output=output)
-    if mode != SNAP_MODE_CODE["apply"]:
-        return None
-    p90 = _diagnostic_at(table, row, f"snap_displacement_p90_m{suffix}", output=output)
-    p90_max = _diagnostic_at(table, row, f"snap_displacement_bound_m{suffix}", output=output)
-    rejected = _diagnostic_at(table, row, f"snap_rejected_share{suffix}", output=output)
-    rejected_max = _diagnostic_at(table, row, f"snap_rejected_share_max{suffix}", output=output)
-    causes: list[str] = []
-    if p90 is None or p90_max is None or p90 > p90_max:
-        causes.append("its displacement p90 exceeds its bound")
-    if rejected is None or rejected_max is None or rejected > rejected_max:
-        causes.append("it rejected more cells than allowed")
-    if not causes:
-        return None
-    return "snapped map breaks Eq. 4: " + " and ".join(causes)
 
 
 def _text_or_none(value: Any) -> str | None:

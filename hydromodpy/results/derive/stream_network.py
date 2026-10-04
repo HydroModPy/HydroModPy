@@ -19,7 +19,7 @@ produces those gets the same comparison.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -36,13 +36,12 @@ from hydromodpy.core.stream_geometry import (
     build_network_geometry,
     criterion_supports,
 )
+from hydromodpy.core.stream_heads import HeadCandidates, HeadsSettings
 from hydromodpy.core.stream_network import build_simulated_network
 from hydromodpy.core.stream_recharge import criterion_mean_recharge, forcing_period_rates
-from hydromodpy.core.stream_snap import SnapStreamsConfig
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.topographic_distance import downslope_distance_to_mask
 from hydromodpy.core.units import factor_to_m_per_s
-from hydromodpy.results.derive.snapped_network import snap_settings_of_run
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -157,8 +156,8 @@ def network_comparison_from_run(
     alpha_warning_threshold: float = STREAM_CRITERION_DEFAULTS.alpha_warning_threshold,
     clipping_warning_share: float = STREAM_CRITERION_DEFAULTS.clipping_warning_share,
     clipping_warning_gap: float = STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
-    snap: SnapStreamsConfig | None = None,
-    weighting: Literal["cell", "area"] = "cell",
+    heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
+    heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
 ) -> NetworkComparison:
     """Rebuild the stream comparison of one run.
 
@@ -181,9 +180,11 @@ def network_comparison_from_run(
 
     ``observed_rasterization`` draws the mapped network on the cells by the
     rule the calibration output uses, with the same default: ``"crossing"``,
-    the thin line of WhiteboxTools VectorLinesToRaster, or ``"touch"``. A map
-    drawn by another rule than the trial would show a mapped network the
-    criterion never scored.
+    the thin line of WhiteboxTools VectorLinesToRaster, ``"touch"``, or
+    ``"heads"``, the free ends of the map traced down the criterion graph,
+    each landing within ``heads_snap_radius_m`` on a cell draining at least
+    ``heads_min_drained_area_km2``. A map drawn by another rule than the trial
+    would show a mapped network the criterion never scored.
 
     One number does NOT reproduce the trial: ``alpha_obs_closure``. The
     criterion reads the mapped network from the file the calibration output
@@ -201,17 +202,12 @@ def network_comparison_from_run(
     store can route, and mark the mapped cells, marginally differently from the
     one a trial scored, and its D_so, D_os and J can differ with it. It is exact
     on any mesh whose cells are parallelograms, which every structured grid is.
-
-    ``snap`` is the ``[geographic.snap_streams]`` setting to redraw with. Left
-    None, the setting the run sealed in its configuration is used, so a run
-    that scored a snapped map redraws the snapped map it scored.
-    ``weighting`` averages the snap floor ``F`` the way the calibration
-    output averaged its ``Doptim``, with the same default.
     """
     reason = unavailable_reason_for_comparison(sim, role=role)
     if reason is not None:
         raise ValueError(f"stream comparison unavailable for {sim.sim_id}: {reason}")
 
+    from hydromodpy.spatial.mesh.ops.network_heads import network_head_candidates
     from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
         cell_polygons,
         line_crossing_cell_mask,
@@ -232,7 +228,19 @@ def network_comparison_from_run(
     network = sim.hydrographic_network(role)
     if network is None or network.empty:
         raise ValueError(f"the {role!r} hydrographic network of {sim.sim_id} holds no feature.")
-    if observed_rasterization == "touch":
+    observed: np.ndarray | None = None
+    heads: tuple[HeadCandidates, HeadsSettings] | None = None
+    if observed_rasterization == "heads":
+        heads = (
+            network_head_candidates(
+                list(network.geometry), mesh_crs=mesh.crs, geometry_crs=network.crs
+            ),
+            HeadsSettings(
+                snap_radius_m=float(heads_snap_radius_m),
+                min_drained_area_m2=float(heads_min_drained_area_km2) * 1.0e6,
+            ),
+        )
+    elif observed_rasterization == "touch":
         observed = np.asarray(
             vector_cell_mask(
                 polygons,
@@ -259,7 +267,8 @@ def network_comparison_from_run(
         )
     else:
         raise ValueError(
-            f"observed_rasterization must be 'crossing' or 'touch', got {observed_rasterization!r}."
+            "observed_rasterization must be 'heads', 'crossing' or 'touch', "
+            f"got {observed_rasterization!r}."
         )
 
     geometry = build_network_geometry(
@@ -267,6 +276,7 @@ def network_comparison_from_run(
         face_node_connectivity=connectivity,
         vertices=vertices,
         observed=observed,
+        heads=heads,
         cell_area_m2=areas,
         mean_recharge_m_s=_mean_recharge_m_s(sim, areas, ratio=tau_specific_ratio),
         tau_specific_ratio=float(tau_specific_ratio),
@@ -277,8 +287,6 @@ def network_comparison_from_run(
         alpha_warning_threshold=float(alpha_warning_threshold),
         clipping_warning_share=float(clipping_warning_share),
         clipping_warning_gap=float(clipping_warning_gap),
-        snap=snap_settings_of_run(sim) if snap is None else snap,
-        weighting=weighting,
     )
 
     release = np.asarray(sim.field("release_flux", timestep=timestep), dtype=float).reshape(-1)

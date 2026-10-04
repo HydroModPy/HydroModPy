@@ -103,6 +103,9 @@ Chronicles read from the catalog ``timeseries`` table.
    * - ``calibration_convergence``
      - Calibration convergence
      - tables ``calibration_iterations``
+   * - ``calibration_progress``
+     - How the search converged
+     - tables ``calibration_iterations``
    * - ``calibration_trace``
      - Calibration parameter trace
      - tables ``calibration_iterations``
@@ -250,11 +253,8 @@ Multi-panel views combining one or several runs, observed data, or calibration t
    * - ``network_extent_bounds_map``
      - Network extent bounds
      - fields ``release_flux``
-   * - ``observed_network_snap_histogram``
-     - Displacement of the mapped cells
-     - fields ``release_flux``
-   * - ``observed_network_snap_map``
-     - Mapped network snapped onto the talwegs
+   * - ``observed_network_heads_map``
+     - Observed network drawn from its heads
      - fields ``release_flux``
    * - ``piezo_timeseries_sim_obs``
      - Piezometric head (sim vs obs)

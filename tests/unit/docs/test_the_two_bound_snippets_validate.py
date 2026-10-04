@@ -1,10 +1,9 @@
-"""The two-bound network and snap-streams snippets have to load.
+"""The two-bound network snippets have to load.
 
-Three snippets on the same page: a minimal-map declaration, the extent table
-of the transient two-bound mode, and ``[geographic.snap_streams]``. They are
-extracted here and validated against the real Pydantic models, so a rename in
-``config.py`` or ``stream_snap.py`` breaks this test rather than a reader's
-terminal.
+Two snippets on the same page: a minimal-map declaration and the extent table
+of the transient two-bound mode. They are extracted here and validated
+against the real Pydantic models, so a rename in ``config.py`` breaks this
+test rather than a reader's terminal.
 """
 
 from __future__ import annotations
@@ -60,16 +59,6 @@ def _extent_table() -> dict:
     return tomllib.loads(_dedent(block, 6))
 
 
-def _snap_streams() -> dict:
-    """The ``[geographic.snap_streams]`` snippet."""
-    block = _between(
-        _page(),
-        "Off by default, three modes:\n\n.. code-block:: toml\n\n",
-        "\n\n``off``",
-    )
-    return tomllib.loads(_dedent(block, 3))
-
-
 def test_the_minimal_map_snippet_names_the_two_files() -> None:
     doc = _minimal_map_output()
 
@@ -115,16 +104,3 @@ def test_the_two_snippets_together_validate_as_one_two_bound_output() -> None:
     assert isinstance(output, CalibOutputNetwork)
     assert output.extent is not None
     assert output.time == "last"
-
-
-def test_the_snap_streams_snippet_validates() -> None:
-    from hydromodpy.core.stream_snap import SnapStreamsConfig
-
-    raw = _snap_streams()["geographic"]["snap_streams"]
-    snap = SnapStreamsConfig.model_validate(raw)
-
-    assert snap.mode == "diagnose"
-    assert snap.radius == "2 cells"
-    assert snap.max_displacement_p90 == "1 cell"
-    assert snap.max_rejected_share == pytest.approx(0.10)
-    assert snap.enabled
