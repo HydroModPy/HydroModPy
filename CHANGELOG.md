@@ -113,6 +113,9 @@ Each release section includes the following standard categories:
   depth under `K` is no longer checked against the range of a conductivity.
 
 ### Changed
+- The default of `observed_rasterization` is now `"heads"`. A network output that does not set
+  it is drawn from its heads. `"crossing"` stays the rule of the paper and must be written
+  explicitly to reproduce it. A sealed run redraws with the rule it sealed.
 - A calibration phase that samples a recharge parameter writes the RCHA (and EVTA) of each trial
   in the trial's own `_recharge/` folder, removed with the trial, instead of adding one stack per
   trial to the shared `_shared_recharge/` folder. A phase that leaves the recharge alone still

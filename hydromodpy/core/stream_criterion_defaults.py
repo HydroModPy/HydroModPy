@@ -66,7 +66,7 @@ class StreamCriterionDefaults(HydroModelBase):
         ),
     )
     observed_rasterization: Annotated[ObservedRasterization, Profile.EXPERT] = Field(
-        default="crossing",
+        default="heads",
         description=(
             "How the mapped network is drawn on the mesh. 'crossing' keeps the cells "
             "where a line crosses the segment joining two edge-sharing cell centres: "

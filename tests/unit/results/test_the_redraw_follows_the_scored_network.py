@@ -6,8 +6,8 @@ one a trial actually used, or a map disagrees with the counts it publishes.
 The default stays ``"reference"`` so every existing caller is unaffected.
 
 The redraw also draws the mapped network by the trial's rule, with the same
-default, the crossing one: a map drawn thicker than the trial scored it would
-show cells the criterion never counted.
+default, now the heads one: a map drawn thicker, or by a different rule, than
+the trial scored it would show cells the criterion never counted.
 """
 
 from __future__ import annotations
@@ -56,17 +56,24 @@ def _mapped_cells(comparison) -> list[int]:
 
 
 def test_default_role_is_reference() -> None:
+    # Pinned to crossing: the subject is which stored network the role picks,
+    # not the rasterization rule.
     run = _run_with_role_specific_networks()
 
-    comparison = network_comparison_from_run(run)
+    comparison = network_comparison_from_run(run, observed_rasterization="crossing")
 
     assert _mapped_cells(comparison) == column_cells(AXIS_COLUMN)
 
 
 def test_asking_for_generated_reaches_the_generated_network() -> None:
+    # Pinned to crossing: the subject is which stored network the role picks,
+    # not the rasterization rule, and the generated column here is not a tree
+    # the heads rule could trace without losing its head.
     run = _run_with_role_specific_networks()
 
-    comparison = network_comparison_from_run(run, role="generated")
+    comparison = network_comparison_from_run(
+        run, role="generated", observed_rasterization="crossing"
+    )
 
     assert _mapped_cells(comparison) == column_cells(GENERATED_COLUMN)
 
@@ -91,8 +98,18 @@ def _run_with_a_diagonal_reference():
     return run
 
 
-def test_the_default_rule_draws_the_mapped_network_one_cell_per_step() -> None:
+def test_the_default_rule_is_heads_and_traces_a_connected_map() -> None:
     comparison = network_comparison_from_run(_run_with_a_diagonal_reference())
+
+    mapped = _mapped_cells(comparison)
+    assert mapped == [1, 2]
+    assert cell(AXIS_COLUMN, 0) in mapped
+
+
+def test_the_crossing_rule_draws_the_mapped_network_one_cell_per_step() -> None:
+    comparison = network_comparison_from_run(
+        _run_with_a_diagonal_reference(), observed_rasterization="crossing"
+    )
 
     assert _mapped_cells(comparison) == [cell(k, k) for k in range(NY)]
 

@@ -804,21 +804,25 @@ Depression handling, breach or fill
 The mapped network's rasterisation
    The paper rasterises the mapped network onto the model grid with
    WhiteboxTools' ``VectorLinesToRaster``, whose own assignment rule the text
-   does not restate. The default here, ``observed_rasterization = "crossing"``,
-   is that rule restated on any mesh: a cell belongs to the network when it
-   holds a point where the line crosses the segment joining two edge-sharing
-   cell centres. On a structured grid those segments are the cell medians,
-   which is what ``VectorLinesToRaster`` tests. The map comes out one cell
-   wide, like the simulated network, so a model that reproduces the map
-   scores :math:`J = 0`. One departure from the tool is kept: a reach that
-   crosses no segment marks the cell holding its midpoint instead of being
-   dropped, counted per trial as ``n_observed_features_fallback``. Measured on
-   the Nancon (75 m grid): 490 cells here against 489 for a port of the tool,
-   the gap coming from ties on a cell edge, which mark both cells. The older
-   ``"touch"`` rule, every cell the line intersects, corners included, stays
-   available to replay a session recorded before 2026-09. It thickens every
-   diagonal step (730 cells on the same grid), grows :math:`D_{os}` on a
-   perfect match and departs from the paper.
+   does not restate. The default here is ``observed_rasterization = "heads"``,
+   which departs from the paper: it keeps only the free ends of the mapped
+   lines and traces the model's own descent from each, so the map is
+   connected to the outlet by construction and the path a field or a ditch
+   gave the mapped line no longer counts as error. ``"crossing"`` is offered
+   and restates the paper's rule on any mesh: a cell belongs to the network
+   when it holds a point where the line crosses the segment joining two
+   edge-sharing cell centres. On a structured grid those segments are the
+   cell medians, which is what ``VectorLinesToRaster`` tests. The map comes
+   out one cell wide, like the simulated network, so a model that reproduces
+   the map scores :math:`J = 0`. One departure from the tool is kept: a reach
+   that crosses no segment marks the cell holding its midpoint instead of
+   being dropped, counted per trial as ``n_observed_features_fallback``.
+   Measured on the Nancon (75 m grid): 490 cells here against 489 for a port
+   of the tool, the gap coming from ties on a cell edge, which mark both
+   cells. The older ``"touch"`` rule, every cell the line intersects, corners
+   included, stays available to replay a session recorded before 2026-09. It
+   thickens every diagonal step (730 cells on the same grid), grows
+   :math:`D_{os}` on a perfect match and departs from the paper.
 
 Known biases, and how to read the output
 -----------------------------------------

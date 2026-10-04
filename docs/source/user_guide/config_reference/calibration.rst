@@ -2087,7 +2087,7 @@ Fields
                     <code class="hmp-field-name">observed_rasterization</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "crossing"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L953>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "heads"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L953>`__
 
                   How the mapped network is drawn on the mesh cells. 'crossing' keeps the cell holding each point where a line crosses the segment joining two edge-sharing cell centres. On a structured grid it reproduces WhiteboxTools VectorLinesToRaster, the paper's tool, and draws the map one cell wide like the simulated network, so a model that matches the map scores J = 0. 'touch' keeps every cell the line touches, corners included, and replays a session made before 2026-09; it thickens every diagonal step of the map and departs from the paper. 'heads' keeps only the free ends of the map whose largest drained area within heads_snap_radius does not exceed that of the other end of their reach, lands each on a nearby cell and draws the rest down the criterion's own descent: the field ditches and rectified reaches below a head stop counting as model error, and the drawn map reaches the outlet. Keep 'crossing' for a map that is not a tree: canals, braids, polders, karst.
 

@@ -106,8 +106,18 @@ def test_flow_geometry_reads_the_sealed_heads_radius_and_area() -> None:
     assert geometry.heads.head_cell.tolist() == [MIDDLE]
 
 
-def test_flow_geometry_defaults_to_crossing_on_an_unsealed_run() -> None:
-    assert flow_geometry(transient_run()).heads is None
+def test_flow_geometry_defaults_to_heads_on_an_unsealed_run() -> None:
+    """An unsealed run is now drawn from its heads, not from the crossing rule.
+
+    The traced map is connected and starts at the mapped axis head: one head
+    found, landing on the head cell, and the trace reaches down to the outlet.
+    """
+    geometry = flow_geometry(transient_run())
+
+    assert geometry.heads is not None
+    assert geometry.heads.head_cell.tolist() == [HEAD]
+    assert geometry.heads.traced[[OUTLET, MIDDLE, HEAD]].all()
+    assert not geometry.heads.traced[HILLSLOPE]
 
 
 def test_the_persistence_share_is_the_fraction_of_steps_flowing(mpl) -> None:

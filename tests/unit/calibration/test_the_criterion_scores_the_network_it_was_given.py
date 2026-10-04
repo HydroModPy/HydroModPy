@@ -313,15 +313,15 @@ class TestTheRasterizationReachesTheTrial:
         centres = np.asarray(seen["cell_centres"])
         np.testing.assert_array_equal(centres, run_ctx.model.solver_mesh.cell_centroids())
 
-    def test_the_default_rule_is_crossing(self) -> None:
-        assert _network_output(stream_geometry_path="map.gpkg").observed_rasterization == (
-            "crossing"
-        )
+    def test_the_default_rule_is_heads(self) -> None:
+        assert _network_output(stream_geometry_path="map.gpkg").observed_rasterization == ("heads")
 
     def test_the_trial_publishes_what_the_rule_drew(self, bench, monkeypatch) -> None:
         network = _fake_hydrographic_network(_lines_gdf())
         run_ctx = _fake_run_ctx(bench, reference=network)
-        output = _network_output(observed_network="data.hydrography")
+        output = _network_output(
+            observed_network="data.hydrography", observed_rasterization="crossing"
+        )
 
         diagnostics = _extract_diagnostics(monkeypatch, run_ctx, output)
 

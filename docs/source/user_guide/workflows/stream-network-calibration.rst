@@ -142,7 +142,7 @@ the support the criterion's distances start and finish on:
    heads_min_drained_area_km2 = 0.02
 
 ``"heads"``
-   Keeps only where the map says a stream starts, and lets the criterion's
+   The default. Keeps only where the map says a stream starts, and lets the criterion's
    own descent draw the rest. A mapped path below a stream head is shaped by
    fields, ditches and rectified reaches that a drain model on a DEM can
    never reproduce, and scoring that shape cell by cell is false error, not
@@ -185,7 +185,7 @@ the support the criterion's distances start and finish on:
    which is the honest answer on ground the heads rule cannot reason about.
 
 ``"crossing"``
-   The default. Keeps the cell holding each point where a line crosses the
+   Matches the paper. Keeps the cell holding each point where a line crosses the
    segment joining two edge-sharing cell centres: on a structured grid it is
    WhiteboxTools ``VectorLinesToRaster``, the paper's tool, and it draws the
    map one cell wide like the simulated network, so a model that reproduces
@@ -913,17 +913,22 @@ What each choice buys you
    a fraction of is an open question; neither answer tried so far is right.
 
 ``observed_rasterization``
-   How the mapped network becomes cells. ``"crossing"``, the default, keeps the
-   cell holding each point where a line crosses the segment joining two
-   edge-sharing cell centres: on a structured grid it is WhiteboxTools
-   ``VectorLinesToRaster``, the paper's tool, and it draws the map one cell
-   wide like the simulated network, so a model that reproduces the map scores
-   zero. ``"touch"`` keeps every cell the line touches, corners included, and
-   replays a session made before 2026-09. On the Nancon at 75 m it draws 730
-   cells against 490, and the root moves by about ten per cent. Each trial
-   records ``n_observed_cells`` and ``n_observed_features_fallback``, the
-   reaches that crossed no segment and were kept at their midpoint cell. The
-   figures redrawn from a run use the same rule and default.
+   How the mapped network becomes cells. ``"heads"``, the default, keeps only
+   the free ends of the mapped lines and traces the model's own descent from
+   each, so the map is connected to the outlet by construction and the path a
+   field or a ditch gave the mapped line no longer counts as error.
+   ``"crossing"`` matches the paper: it keeps the cell holding each point
+   where a line crosses the segment joining two edge-sharing cell centres, on
+   a structured grid WhiteboxTools ``VectorLinesToRaster``, and it draws the
+   map one cell wide like the simulated network, so a model that reproduces
+   the map scores zero. ``"touch"`` keeps every cell the line touches,
+   corners included, and replays a session made before 2026-09. On the
+   Nancon at 75 m, ``"crossing"`` draws 730 cells against 490 for
+   ``"touch"``, and the root moves by about ten per cent. Each trial under
+   ``"crossing"`` or ``"touch"`` records ``n_observed_cells`` and
+   ``n_observed_features_fallback``, the reaches that crossed no segment and
+   were kept at their midpoint cell. The figures redrawn from a run use the
+   same rule and default.
 
 ``objective = "nse_log"`` in the second stage
    The Nash-Sutcliffe efficiency on log-transformed series, which weights the

@@ -271,9 +271,15 @@ class TestOneState:
         self, monkeypatch, bench, maps
     ) -> None:
         stack = _stack(bench, [200.0])
-        output = _output(maps, minimal_stream_geometry_path=str(maps.straying))
+        output = _output(
+            maps,
+            minimal_stream_geometry_path=str(maps.straying),
+            observed_rasterization="crossing",
+        )
         _, diagnostics, _ = _extract(monkeypatch, bench, output, stack, None)
-        _, alone, _ = _extract(monkeypatch, bench, _output(maps), stack, None)
+        _, alone, _ = _extract(
+            monkeypatch, bench, _output(maps, observed_rasterization="crossing"), stack, None
+        )
 
         assert diagnostics["net.frac_minimal_outside_maximal"] > 0.0
         assert diagnostics["net.n_network_obs_maximal_validation"] > alone["net.n_network_obs"]

@@ -81,8 +81,23 @@ def _two_branch_run(cell_m: float = CELL_M):
     western one: their water crosses the flank cell by cell and then joins the
     mapped column, so the support of ``D_so`` holds one cell at every whole
     number of cell widths from the map, and the axis column at zero.
+
+    Sealed under ``crossing``: the distance classes are the subject here, not
+    the rasterization rule, and the mapped axis has no free end this mesh's
+    heads rule could trace without being lost.
     """
-    return comparison_run(seepage_cells=[cell(4, 2), cell(0, 1)], cell_m=cell_m)
+    run = comparison_run(seepage_cells=[cell(4, 2), cell(0, 1)], cell_m=cell_m)
+    run.config_snapshot = {
+        "calibration": {
+            "outputs": {
+                "streams": {
+                    "support": "network",
+                    "observed_rasterization": "crossing",
+                }
+            }
+        }
+    }
+    return run
 
 
 # --------------------------------------------------------------------------- #

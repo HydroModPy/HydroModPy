@@ -32,15 +32,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream_criterion_defaults import (
-    STREAM_CRITERION_DEFAULTS,
-    ObservedRasterization,
-)
 from hydromodpy.core.stream_heads import HeadCandidates
 from hydromodpy.spatial.mesh.ops.network_heads import network_head_candidates
 from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
@@ -55,6 +51,8 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+CellProjectionRasterization = Literal["crossing", "touch"]
+
 
 @dataclass(frozen=True)
 class ObservedNetworkMask:
@@ -67,7 +65,7 @@ class ObservedNetworkMask:
     """
 
     mask: np.ndarray
-    rasterization: ObservedRasterization
+    rasterization: CellProjectionRasterization
     n_fallback_parts: int = 0
     n_outside_parts: int = 0
 
@@ -85,7 +83,7 @@ def observed_network_mask(
     planar_mesh: Any,
     face_node_connectivity: np.ndarray,
     *,
-    rasterization: ObservedRasterization = STREAM_CRITERION_DEFAULTS.observed_rasterization,
+    rasterization: CellProjectionRasterization = "crossing",
     cell_centres: np.ndarray | None = None,
 ) -> ObservedNetworkMask:
     """Project the resolved stream geometry onto the mesh cells.
@@ -97,10 +95,12 @@ def observed_network_mask(
     is empty or plausible-but-wrong, and every distance downstream is reported
     in metres.
 
-    ``rasterization`` picks the rule of the module docstring. The crossing
-    rule joins the points the criterion samples the top at: ``cell_centres``
-    when given, else the solver mesh's ``cell_centroids()``, the generator
-    seeds on a Voronoi mesh.
+    ``rasterization`` is the crossing or touch rule of the module docstring;
+    it has no default drawn from the criterion default, since that default
+    can be ``"heads"``, which this function refuses. The crossing rule joins
+    the points the criterion samples the top at: ``cell_centres`` when given,
+    else the solver mesh's ``cell_centroids()``, the generator seeds on a
+    Voronoi mesh.
     """
     if rasterization == "heads":
         raise ValueError(

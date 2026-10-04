@@ -68,7 +68,7 @@ def test_a_run_scored_under_heads_redraws_with_its_sealed_radius(mpl) -> None:
 
 
 def test_a_run_scored_under_crossing_is_redrawn_under_heads_anyway(mpl) -> None:
-    run = comparison_run()
+    run = _sealed_run(observed_rasterization="crossing")
     fig, ax = mpl.subplots()
 
     ObservedNetworkHeadsMap().render(run, ax)

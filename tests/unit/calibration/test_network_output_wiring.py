@@ -318,7 +318,12 @@ class TestEndToEnd:
         self, monkeypatch, bench, stream_file
     ) -> None:
         _, diagnostics = self._extract(
-            monkeypatch, bench, stream_file, 200.0, validity_length="1 mm"
+            monkeypatch,
+            bench,
+            stream_file,
+            200.0,
+            validity_length="1 mm",
+            observed_rasterization="crossing",
         )
         assert diagnostics["net.Doptim"] > 1e-3
         assert diagnostics["net.roptim_valid"] == 0.0
@@ -339,7 +344,9 @@ class TestEndToEnd:
     def test_the_secondary_diagnostics_travel_beside_the_pair(
         self, monkeypatch, bench, stream_file
     ) -> None:
-        _, diagnostics = self._extract(monkeypatch, bench, stream_file, 200.0)
+        _, diagnostics = self._extract(
+            monkeypatch, bench, stream_file, 200.0, observed_rasterization="crossing"
+        )
         for key in (
             "net.D_so_over_D_os",
             "net.n_neither",
