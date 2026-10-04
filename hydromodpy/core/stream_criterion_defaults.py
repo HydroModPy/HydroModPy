@@ -26,8 +26,9 @@ from hydromodpy.core.config_kit.profile import Profile
 ObservedRasterization = Literal["heads", "crossing", "touch"]
 """How the mapped stream network is drawn on the mesh cells.
 
-``"heads"`` keeps only the free ends of the map that drain less than the other
-end of their reach, lands each on a nearby cell draining enough, and follows
+``"heads"`` keeps only the free ends of the map whose largest drained area
+within the snap radius does not exceed that of the other end of their reach,
+lands each on a nearby cell draining enough, and follows
 the criterion graph down from there: the map is drawn by the model's own
 descent, connected to the outlet. ``"crossing"`` keeps the cell holding each
 point where a line crosses the segment joining two edge-sharing cell centres:

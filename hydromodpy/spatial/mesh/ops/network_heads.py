@@ -47,7 +47,8 @@ def network_head_candidates(
     The lines are reprojected to the mesh CRS, noded at every intersection by
     ``shapely.union_all`` (a T junction without a shared vertex included),
     and merged between junctions and free ends by ``shapely.line_merge``. A
-    free end is an endpoint met once. ``map_points_xy`` samples every line
+    free end is an endpoint met once; a closed ring has none, and the point
+    where a reach meets it is a junction. ``map_points_xy`` samples every line
     each ``sample_step_m``, ends included.
     """
     import shapely
@@ -66,13 +67,21 @@ def network_head_candidates(
         if part.geom_type == "LineString" and part.length > 0.0
     ]
 
+    # A closed ring (a pond outline, a self-touching line) has no free end, but
+    # its closing point still counts twice: a reach meeting the ring there
+    # ends at a junction, not at a source.
     ends: list[tuple[np.ndarray, np.ndarray]] = []
+    ring_points: list[np.ndarray] = []
     for line in merged:
         coords = np.asarray(line.coords, dtype=float)[:, :2]
         if line.is_ring:
+            ring_points.extend((coords[0], coords[-1]))
             continue
         ends.append((coords[0], coords[-1]))
-    counts = Counter(tuple(np.round(point, _END_DECIMALS)) for pair in ends for point in pair)
+    counts = Counter(
+        tuple(np.round(point, _END_DECIMALS))
+        for point in [*(point for pair in ends for point in pair), *ring_points]
+    )
     head_xy: list[np.ndarray] = []
     reach_end_xy: list[np.ndarray] = []
     for first, last in ends:

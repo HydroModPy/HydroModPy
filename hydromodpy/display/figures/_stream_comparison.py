@@ -147,7 +147,7 @@ def comparison_from_run(
     The run's sealed network output (:func:`network_criterion_settings`, the
     one named by ``output`` when the run sealed several) gives the seepage
     threshold, the neighbour graph, the rasterisation of the map, the
-    weighting, the positional accuracy and the state read; a run that sealed
+    positional accuracy and the state read; a run that sealed
     none takes the criterion's defaults, never a copy of them written here.
     A knob a caller names wins over the run's.
 
@@ -166,7 +166,6 @@ def comparison_from_run(
         ),
         "timestep": _state_step(settings.timestep, timestep),
         "observed_rasterization": settings.observed_rasterization,
-        "weighting": settings.weighting,
         "observed_position_accuracy_m": settings.observed_position_accuracy_m,
         "heads_snap_radius_m": settings.heads_snap_radius_m,
         "heads_min_drained_area_km2": settings.heads_min_drained_area_km2,

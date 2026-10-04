@@ -90,3 +90,40 @@ def test_a_radius_the_fixture_cannot_reach_refuses_to_render(mpl) -> None:
 
     with pytest.raises(ValueError, match="snap radius 30 m"):
         ObservedNetworkHeadsMap().render(run, ax)
+
+
+def test_a_run_with_permanent_reaches_draws_their_heads_too(mpl) -> None:
+    """The permanent reaches start one row lower: their trace and head join the page.
+
+    A 45 m radius keeps each map to one head on this grid of 100 m cells.
+    """
+    import geopandas as gpd
+    from shapely.geometry import LineString
+
+    from tests.unit.display._network_comparison_run import AXIS_COLUMN, CELL_M, CRS
+
+    run = _sealed_run(heads_snap_radius="45 m", heads_min_drained_area_km2=0.0)
+    axis_x = (AXIS_COLUMN + 0.5) * CELL_M
+    permanent = gpd.GeoDataFrame(
+        geometry=[LineString([(axis_x, 0.1 * CELL_M), (axis_x, 1.5 * CELL_M)])],
+        crs=CRS,
+    )
+    full = run.hydrographic_network("reference")
+    run.has_hydrographic_network = lambda role="generated": (
+        role
+        in (
+            "reference",
+            "reference_permanent",
+        )
+    )
+    run.hydrographic_network = lambda role="generated": (
+        permanent if role == "reference_permanent" else full
+    )
+    fig, ax = mpl.subplots()
+
+    ObservedNetworkHeadsMap().render(run, ax)
+
+    assert "permanent: 1 head(s) traced, 0 lost" in ax.get_title()
+    labels = legend_labels(ax)
+    assert "permanent trace (2 cells)" in labels
+    assert "permanent head kept (1)" in labels

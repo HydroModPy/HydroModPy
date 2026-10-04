@@ -149,7 +149,8 @@ Each release section includes the following standard categories:
   mapped network onto the talwegs (`core/stream_snap.py`), its raster pass in the
   geographic step, the snapped map stored with a run, the two snap figures, the Eq. 4
   bounds on the snap displacement and rejected share, and the snap floor `F` of the
-  validity length (provenance `auto_floor`). In `apply` mode it rejected almost every
+  validity length (provenance `auto_floor`), and the `network_map` column of the network
+  comparison exports, which only told the snapped map from the raw one. In `apply` mode it rejected almost every
   mapped cell on a 25 m Voronoi mesh, because it placed a cell only when its receiver
   already reached the outlet. A TOML that still declares the section is refused.
   `enforce_streams` burns the mapped lines, as before the snap existed.

@@ -9,6 +9,10 @@ otherwise. Everything else it reads from the run's sealed network output
 (:mod:`hydromodpy.results.derive.network_criterion_settings`), through the
 one redraw every other network figure shares
 (:func:`hydromodpy.results.derive.stream_network.network_comparison_from_run`).
+
+A run that carries the permanent reaches of its map is drawn from both sets of
+heads, as a calibration scores its maximal map: the full network's trace, and
+the permanent network's trace on top of it.
 """
 
 from __future__ import annotations
@@ -23,9 +27,29 @@ from hydromodpy.results.derive.network_criterion_settings import network_criteri
 from hydromodpy.results.derive.stream_network import network_comparison_from_run
 
 if TYPE_CHECKING:
+    from hydromodpy.core.stream_geometry import NetworkGeometry
     from hydromodpy.results.run import Run
 
-__all__ = ("NetworkHeadsView", "network_heads_view_from_run")
+__all__ = ("MapHeads", "NetworkHeadsView", "network_heads_view_from_run")
+
+PERMANENT_ROLE = "reference_permanent"
+
+
+@dataclass(frozen=True, slots=True)
+class MapHeads:
+    """The heads trace of one mapped network.
+
+    ``traced`` is a ``(n_cells,)`` bool mask on the criterion graph.
+    ``head_xy`` and ``landing_xy`` pair row for row, kept heads only;
+    ``lost_xy`` are the free ends no landing cell was found for. ``indices``
+    is :attr:`hydromodpy.core.stream_heads.HeadTrace.indices`.
+    """
+
+    traced: np.ndarray
+    head_xy: np.ndarray
+    landing_xy: np.ndarray
+    lost_xy: np.ndarray
+    indices: dict[str, float]
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,19 +57,15 @@ class NetworkHeadsView:
     """The heads trace of a run, and what draws it.
 
     ``mapped_lines_xy`` is one ``(n, 2)`` array per mapped line, reprojected to
-    the mesh CRS. ``traced`` and ``catchment`` are ``(n_cells,)`` bool masks on
-    the criterion graph. ``head_xy`` and ``landing_xy`` pair row for row, kept
-    heads only; ``lost_xy`` are the free ends no landing cell was found for.
-    ``indices`` is :attr:`hydromodpy.core.stream_heads.HeadTrace.indices`.
+    the mesh CRS. ``catchment`` is a ``(n_cells,)`` bool mask on the criterion
+    graph. ``full`` is the trace of the mapped network; ``permanent`` the
+    trace of its permanent reaches, None when the run carries none.
     """
 
     mapped_lines_xy: tuple[np.ndarray, ...]
-    traced: np.ndarray
     catchment: np.ndarray
-    head_xy: np.ndarray
-    landing_xy: np.ndarray
-    lost_xy: np.ndarray
-    indices: dict[str, float]
+    full: MapHeads
+    permanent: MapHeads | None
     settings_note: str
     redrawn_as_heads: bool
     """True when the run was not sealed under the heads rule and this view
@@ -69,39 +89,51 @@ def network_heads_view_from_run(
     """
     settings = network_criterion_settings(sim, output=output)
     under_heads = settings.observed_rasterization == "heads"
-    comparison = network_comparison_from_run(
-        sim,
-        role=role,
-        tau_specific_ratio=settings.tau_specific_ratio,
-        diagonal_neighbors=settings.diagonal_neighbors,
-        observed_rasterization="heads",
-        observed_position_accuracy_m=settings.observed_position_accuracy_m,
-        heads_snap_radius_m=(
+    knobs = {
+        "tau_specific_ratio": settings.tau_specific_ratio,
+        "diagonal_neighbors": settings.diagonal_neighbors,
+        "observed_rasterization": "heads",
+        "observed_position_accuracy_m": settings.observed_position_accuracy_m,
+        "heads_snap_radius_m": (
             settings.heads_snap_radius_m
             if under_heads
             else STREAM_CRITERION_DEFAULTS.heads_snap_radius_m
         ),
-        heads_min_drained_area_km2=(
+        "heads_min_drained_area_km2": (
             settings.heads_min_drained_area_km2
             if under_heads
             else STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2
         ),
+    }
+    comparison = network_comparison_from_run(sim, role=role, **knobs)
+    permanent = None
+    if role != PERMANENT_ROLE and sim.has_hydrographic_network(PERMANENT_ROLE):
+        permanent = _map_heads(
+            sim, network_comparison_from_run(sim, role=PERMANENT_ROLE, **knobs).geometry
+        )
+    return NetworkHeadsView(
+        mapped_lines_xy=_lines_in_mesh_crs(sim.hydrographic_network(role), sim.mesh.crs),
+        catchment=np.asarray(comparison.geometry.catchment, dtype=bool),
+        full=_map_heads(sim, comparison.geometry),
+        permanent=permanent,
+        settings_note=settings.note(),
+        redrawn_as_heads=not under_heads,
     )
-    trace = comparison.geometry.heads
+
+
+def _map_heads(sim: Run, geometry: NetworkGeometry) -> MapHeads:
+    """Return the heads trace a redrawn geometry holds."""
+    trace = geometry.heads
     if trace is None:
         raise ValueError(f"{sim.sim_id}: the heads redraw built no trace.")
     kept = trace.head_cell >= 0
-    centres = np.asarray(comparison.geometry.metric.centroids, dtype=float)[:, :2]
-    return NetworkHeadsView(
-        mapped_lines_xy=_lines_in_mesh_crs(sim.hydrographic_network(role), sim.mesh.crs),
+    centres = np.asarray(geometry.metric.centroids, dtype=float)[:, :2]
+    return MapHeads(
         traced=np.asarray(trace.traced, dtype=bool),
-        catchment=np.asarray(comparison.geometry.catchment, dtype=bool),
         head_xy=trace.head_xy[kept],
         landing_xy=centres[trace.head_cell[kept]],
         lost_xy=trace.head_xy[~kept],
         indices=trace.indices,
-        settings_note=settings.note(),
-        redrawn_as_heads=not under_heads,
     )
 
 

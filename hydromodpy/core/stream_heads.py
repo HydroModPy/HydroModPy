@@ -3,7 +3,7 @@
 A mapped path below a stream head is shaped by fields, ditches and rectified
 reaches that a drain model on a DEM can never reproduce. Drawn cell by cell,
 that shape is false error in the criterion: on the Flume Voronoi mesh the
-crossing rule breaks the map into 1987 pieces, and 37 per cent of the mapped
+crossing rule breaks the map into 1989 pieces, and 37 per cent of the mapped
 cells drain into a cell the map does not touch. This rule keeps only where the
 map says a stream starts, and lets the criterion graph draw the rest. The
 drawn map is connected to the outlet by construction.
@@ -27,6 +27,9 @@ import numpy as np
 
 from hydromodpy.core.field_routing import accumulate_on_downhill_graph
 from hydromodpy.core.topographic_distance import DownslopeMetric
+
+_SAME_POINT_DECIMALS = 2
+"""Two free ends closer than a centimetre are one source."""
 
 __all__ = (
     "HeadCandidates",
@@ -81,11 +84,18 @@ def concat_candidates(a: HeadCandidates, b: HeadCandidates) -> HeadCandidates:
     """Return the candidates of two maps together.
 
     The maximal map is traced from the heads of both maps, so it contains the
-    trace of the minimal one. Each end keeps the reach end of its own map.
+    trace of the minimal one. Each end keeps the reach end of its own map. A
+    source both maps draw is one head, not two: a permanent reach often starts
+    where the full network does, and a duplicate would count twice in the
+    published indices.
     """
+    head_xy = np.concatenate([a.head_xy, b.head_xy])
+    reach_end_xy = np.concatenate([a.reach_end_xy, b.reach_end_xy])
+    _, first = np.unique(np.round(head_xy, _SAME_POINT_DECIMALS), axis=0, return_index=True)
+    keep = np.sort(first)
     return HeadCandidates(
-        head_xy=np.concatenate([a.head_xy, b.head_xy]),
-        reach_end_xy=np.concatenate([a.reach_end_xy, b.reach_end_xy]),
+        head_xy=head_xy[keep],
+        reach_end_xy=reach_end_xy[keep],
         map_points_xy=np.concatenate([a.map_points_xy, b.map_points_xy]),
     )
 
@@ -180,6 +190,9 @@ def trace_from_heads(
     accumulated = accumulate_on_downhill_graph(graph, np.where(np.isfinite(areas), areas, 0.0))
     usable = np.flatnonzero(graph.active & np.isfinite(accumulated))
     radius = float(settings.snap_radius_m)
+    # cKDTree keeps a neighbour strictly closer than its bound, the window
+    # keeps one at the radius itself: the bound is nudged so both include it.
+    bound = float(np.nextafter(radius, np.inf))
     threshold = float(settings.min_drained_area_m2)
     n_candidates = candidates.n_candidates
 
@@ -206,7 +219,7 @@ def trace_from_heads(
     head_cell = np.full(head_xy.shape[0], -1, dtype=np.int64)
     snap_distance = np.full(head_xy.shape[0], np.nan, dtype=float)
     if landing.size:
-        distance, slot = cKDTree(centres[landing]).query(head_xy, distance_upper_bound=radius)
+        distance, slot = cKDTree(centres[landing]).query(head_xy, distance_upper_bound=bound)
         landed = np.isfinite(distance)
         head_cell[landed] = landing[slot[landed]]
         snap_distance[landed] = distance[landed]
@@ -224,7 +237,7 @@ def trace_from_heads(
     near_share = float("nan")
     if candidates.map_points_xy.shape[0]:
         gap, _ = cKDTree(candidates.map_points_xy).query(
-            centres[traced], distance_upper_bound=radius
+            centres[traced], distance_upper_bound=bound
         )
         near_share = float(np.mean(np.isfinite(gap)))
 

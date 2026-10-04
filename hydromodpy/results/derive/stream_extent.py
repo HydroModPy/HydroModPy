@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -238,7 +238,6 @@ def flow_geometry_from_run(
     observed_rasterization: ObservedRasterization = (
         STREAM_CRITERION_DEFAULTS.observed_rasterization
     ),
-    weighting: Literal["cell", "area"] = "cell",
     observed_position_accuracy_m: float | None = None,
     heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
     heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
@@ -249,7 +248,7 @@ def flow_geometry_from_run(
     the first of :data:`GRAPH_ROLES` the run carries. The graph, the threshold
     and the outlet are the same whatever the network, so the choice only
     decides which map ``geometry.observed`` holds. ``observed_rasterization``,
-    the two ``heads_`` settings, ``weighting`` and
+    the two ``heads_`` settings and
     ``observed_position_accuracy_m`` only shape that map, and take the
     criterion's defaults. Under the heads rule each role is traced from its
     own heads.
@@ -266,7 +265,6 @@ def flow_geometry_from_run(
         tau_specific_ratio=float(tau_specific_ratio),
         diagonal_neighbors=bool(diagonal_neighbors),
         observed_rasterization=observed_rasterization,
-        weighting=weighting,
         observed_position_accuracy_m=observed_position_accuracy_m,
         heads_snap_radius_m=float(heads_snap_radius_m),
         heads_min_drained_area_km2=float(heads_min_drained_area_km2),
@@ -436,7 +434,6 @@ def network_extents_from_run(
     observed_rasterization: ObservedRasterization = (
         STREAM_CRITERION_DEFAULTS.observed_rasterization
     ),
-    weighting: Literal["cell", "area"] = "cell",
     observed_position_accuracy_m: float | None = None,
     heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
     heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
@@ -452,7 +449,7 @@ def network_extents_from_run(
     ``minimal_dry_steps``, and a cell enters a climatological extent when it
     meets its rule in at least ``year_quorum`` of the years. The criterion
     settings of the output (``tau_specific_ratio``, ``diagonal_neighbors``,
-    ``observed_rasterization``, the two ``heads_`` settings, ``weighting``,
+    ``observed_rasterization``, the two ``heads_`` settings,
     ``observed_position_accuracy_m``) build both maps and the graph, with the
     criterion's defaults.
     ``scoring_window`` is the ``(start, end)`` of the calibration's window,
@@ -493,7 +490,6 @@ def network_extents_from_run(
         "tau_specific_ratio": tau_specific_ratio,
         "diagonal_neighbors": diagonal_neighbors,
         "observed_rasterization": observed_rasterization,
-        "weighting": weighting,
         "observed_position_accuracy_m": observed_position_accuracy_m,
         "heads_snap_radius_m": heads_snap_radius_m,
         "heads_min_drained_area_km2": heads_min_drained_area_km2,

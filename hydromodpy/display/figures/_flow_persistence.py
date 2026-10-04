@@ -103,7 +103,7 @@ def flow_geometry(
 ) -> NetworkGeometry:
     """Return the criterion geometry of a run, memoised on the run and the knobs.
 
-    The rasterisation of the map, the weighting, the positional accuracy and,
+    The rasterisation of the map, the positional accuracy and,
     under the heads rule, its radius and area, are the run's sealed network
     output (:func:`hydromodpy.results.derive.network_criterion_settings.network_criterion_settings`),
     or the criterion's defaults when it sealed none: a persistence map redrawn
@@ -120,7 +120,6 @@ def flow_geometry(
         "tau_specific_ratio": float(tau),
         "diagonal_neighbors": bool(diagonal),
         "observed_rasterization": settings.observed_rasterization,
-        "weighting": settings.weighting,
         "observed_position_accuracy_m": settings.observed_position_accuracy_m,
         "heads_snap_radius_m": settings.heads_snap_radius_m,
         "heads_min_drained_area_km2": settings.heads_min_drained_area_km2,

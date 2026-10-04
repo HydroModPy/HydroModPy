@@ -335,7 +335,6 @@ def simulated_active_network_stack(run: Any, timesteps: Sequence[int]) -> np.nda
         tau_specific_ratio=settings.tau_specific_ratio,
         diagonal_neighbors=settings.diagonal_neighbors,
         observed_rasterization=settings.observed_rasterization,
-        weighting=settings.weighting,
         observed_position_accuracy_m=settings.observed_position_accuracy_m,
         heads_snap_radius_m=settings.heads_snap_radius_m,
         heads_min_drained_area_km2=settings.heads_min_drained_area_km2,

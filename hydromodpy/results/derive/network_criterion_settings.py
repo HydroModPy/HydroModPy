@@ -3,7 +3,7 @@
 A figure of the stream network redraws the partition a trial scored. The trial
 cut it by the settings of its ``[calibration.outputs.<n>]`` network output: the
 seepage threshold, the neighbour graph, the rasterisation of the map and,
-under the heads rule, where a head may land, the weighting, the state it read and, in the two-bound mode, the extent rules and
+under the heads rule, where a head may land, the state it read and, in the two-bound mode, the extent rules and
 the years its ``scoring_window`` holds. A figure drawn with the defaults
 instead shows another partition than the one the numbers describe, so this
 module reads those settings from the configuration the run sealed.
@@ -25,7 +25,7 @@ from __future__ import annotations
 import datetime
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
@@ -57,7 +57,6 @@ __all__ = (
 
 _NETWORK_SUPPORT = "network"
 _RASTERIZATIONS = ("heads", "crossing", "touch")
-_WEIGHTINGS = ("cell", "area")
 _TIMESTEP_OF_TIME = {"last": -1, "first": 0}
 """The state a single-state output reads, as the timestep index a run field takes."""
 
@@ -93,7 +92,6 @@ class NetworkCriterionSettings:
     tau_specific_ratio: float = STREAM_CRITERION_DEFAULTS.tau_specific_ratio
     diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors
     observed_rasterization: ObservedRasterization = STREAM_CRITERION_DEFAULTS.observed_rasterization
-    weighting: Literal["cell", "area"] = "cell"
     observed_position_accuracy_m: float | None = None
     heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m
     """Under the heads rule, how far a head may land from its point, in metres."""
@@ -288,9 +286,6 @@ def _settings_of_output(
     rasterization = payload.get("observed_rasterization", defaults.observed_rasterization)
     if rasterization not in _RASTERIZATIONS:
         raise ValueError(f"{where}: unknown observed_rasterization {rasterization!r}.")
-    weighting = payload.get("weighting", defaults.weighting)
-    if weighting not in _WEIGHTINGS:
-        raise ValueError(f"{where}: unknown weighting {weighting!r}.")
     timestep = _timestep_of_time(sim, payload.get("time", "last"), where=where)
     radius = payload.get("heads_snap_radius", defaults.heads_snap_radius_m)
     radius_m, _ = parse_to_m(radius, location=f"{where}.heads_snap_radius")
@@ -306,7 +301,6 @@ def _settings_of_output(
         tau_specific_ratio=tau,
         diagonal_neighbors=bool(payload.get("diagonal_neighbors", defaults.diagonal_neighbors)),
         observed_rasterization=rasterization,
-        weighting=weighting,
         observed_position_accuracy_m=_accuracy_m(
             payload.get("observed_position_accuracy"), where=where
         ),

@@ -156,8 +156,8 @@ the support the criterion's distances start and finish on:
       candidate head (:mod:`hydromodpy.spatial.mesh.ops.network_heads`);
    2. a candidate is kept as a head when the largest drained area within
       ``heads_snap_radius`` of it does not exceed the same window at the
-      other end of its reach — never the direction the line happens to be
-      digitised in: on the Flume Voronoi mesh the nearest cell alone kept 74
+      other end of its reach, never by the direction the line happens to be
+      digitised in. On the Flume Voronoi mesh the nearest cell alone kept 74
       of 118 free ends, the window keeps 112;
    3. each head lands on the nearest active cell draining at least
       ``heads_min_drained_area_km2`` within ``heads_snap_radius``, or it is

@@ -19,7 +19,7 @@ produces those gets the same comparison.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -156,7 +156,6 @@ def network_comparison_from_run(
     alpha_warning_threshold: float = STREAM_CRITERION_DEFAULTS.alpha_warning_threshold,
     clipping_warning_share: float = STREAM_CRITERION_DEFAULTS.clipping_warning_share,
     clipping_warning_gap: float = STREAM_CRITERION_DEFAULTS.clipping_warning_gap,
-    weighting: Literal["cell", "area"] = "cell",
     heads_snap_radius_m: float = STREAM_CRITERION_DEFAULTS.heads_snap_radius_m,
     heads_min_drained_area_km2: float = STREAM_CRITERION_DEFAULTS.heads_min_drained_area_km2,
 ) -> NetworkComparison:

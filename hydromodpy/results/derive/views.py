@@ -254,12 +254,6 @@ def _network_geometries(network_gdf, *, buffer_m: float = 0.0) -> list[BaseGeome
     return _flatten_geometries(geometries)
 
 
-def _network_of_role(sim: Run, network_role: str) -> tuple[object, str]:
-    """Return the network a metric reads for one role, and which map it is."""
-    network_gdf = sim.hydrographic_network(network_role)
-    return network_gdf, "raw"
-
-
 def _nearest_distances(
     sources: Iterable[BaseGeometry],
     targets: list[BaseGeometry],
@@ -617,7 +611,7 @@ def cell_field_network_overlap_metrics(
         timestep=timestep,
     )
 
-    network_gdf, network_map = _network_of_role(sim, network_role)
+    network_gdf = sim.hydrographic_network(network_role)
     mesh, polygons = _mesh_cell_polygons(sim)
     network_cells = _network_cells(
         mesh,
@@ -663,7 +657,6 @@ def cell_field_network_overlap_metrics(
         "active_precision_ratio": precision,
         "cell_f1_ratio": float(f1),
         "cell_jaccard_ratio": _safe_ratio(overlap_count, union_count),
-        "network_map": network_map,
     }
 
 
@@ -690,8 +683,7 @@ def cell_field_network_distance_metrics(
       the selected vector network to the union of active cell polygons.
 
     ``network_gdf`` overrides the persisted role with a caller-supplied layer,
-    for a reference network that lives outside the run; ``network_map`` says
-    which map was read.
+    for a reference network that lives outside the run.
 
     This is a lazy result view: it reads persisted fields and vector features
     from ``sim`` and does not mutate the catalog.
@@ -713,9 +705,7 @@ def cell_field_network_distance_metrics(
         )
 
     if network_gdf is None:
-        network_gdf, network_map = _network_of_role(sim, network_role)
-    else:
-        network_map = "supplied"
+        network_gdf = sim.hydrographic_network(network_role)
     network_geometries = _network_geometries(
         network_gdf,
         buffer_m=float(network_buffer_m),
@@ -781,7 +771,6 @@ def cell_field_network_distance_metrics(
         "timestep": int(timestep) if timestep is not None else -1,
         "network_buffer_m": float(network_buffer_m),
         "distance_method": distance_method,
-        "network_map": network_map,
         "catchment_cell_count": int(valid.sum()),
         "active_cell_count": int(active.sum()),
         "network_cell_count": int(network_cells.sum()),
