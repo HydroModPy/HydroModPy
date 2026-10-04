@@ -49,6 +49,30 @@ réponses sont ensuite en cache ; de même pour `run_calibration_bdtopage.toml`,
 `run_calibration_api_daily.toml` et `step6_soil_reservoir.toml` (pluie et ETP SIM2). Le
 calage composite et le calage BD Topage durent chacun environ une heure.
 
+## Depuis Python
+
+Les mêmes fichiers se pilotent depuis un script. Chaque script retrouve le projet à
+partir de son propre emplacement : il se lance depuis n'importe quel dossier, et se
+parcourt cellule par cellule (`# %%`) dans Spyder ou VS Code.
+
+1. `py1_run_and_plot.py` : lance `step4_transient.toml` avec `hmp.run`, puis trace une
+   figure maison, la surface suintante du bassin face au débit.
+2. `py2_edit_parameters.py` : charge `project.toml` en objet Python, change K et Sy,
+   lance la variante et la compare à la référence.
+3. `py3_read_exports.py` : refait une figure à partir des seuls fichiers de `share/`
+   (GeoPackage, GeoTIFF, CSV, NetCDF), sans importer HydroModPy. Il lui faut les exports
+   de `step5_export.toml`.
+4. `py4_sweep_k.py` : cinq valeurs de K sur un même `Project`, qui ne construit le
+   maillage qu'une fois. Le débit ne départage pas les K, la surface suintante si.
+5. `py5_catalog.py` : ouvre le catalogue du projet, compare les scores des runs,
+   redessine une figure du catalogue à d'autres dates et exporte un état que le TOML ne
+   demandait pas.
+6. `py6_monthly_maps.py` : les douze mois de 2002 sur une planche et les 36 mois en GIF,
+   la nappe affleurante dessinée cellule par cellule.
+
+Les scripts 5 et 6 lisent le run de `project.toml` sans le relancer : `hmp run
+project.toml` d'abord, ou `py2_edit_parameters.py`, qui le lance.
+
 ## Où sont les sorties
 
 Chaque fichier dessine ses figures et écrit ses exports. L'étape 1 déclare trois exports,
@@ -58,6 +82,7 @@ d'une liste vide (`export__delete`). Les fichiers de calage écrivent les export
 
 - figures : `runs/<nom>/figures/`
 - exports : `share/<nom>/`
+- figures des scripts qui comparent plusieurs runs : `share/figures/`
 
 `<nom>` est le nom du run : le `[simulation] name` du fichier lancé, par exemple
 `nancon_step5_export`, suivi du nom de la phase pour un calage en plusieurs phases.

@@ -99,9 +99,9 @@ line. If it fails, run ``hmp doctor`` before going further.
 5. Get the Nançon example onto your machine
 ---------------------------------------------
 
-One command fetches the five step configs, the three run variants, the README
-and the seven data files they read, and writes them where this workspace
-expects them:
+One command fetches the six step configs, the reference ``project.toml`` and
+its six variants, six Python scripts, the README and the seven data files they
+read, and writes them where this workspace expects them:
 
 .. code-block:: bash
 
@@ -111,15 +111,15 @@ It prints what it downloaded and where it wrote it:
 
 .. code-block:: text
 
-   [example add] Downloaded 18 file(s), 92.0 MiB, from https://raw.githubusercontent.com/HydroModPy/HydroModPy/v2.0.0a1.
+   [example add] Downloaded 27 file(s), 92.0 MiB, from https://raw.githubusercontent.com/HydroModPy/HydroModPy/v2.0.0a1.
    [example add] Workspace: ~/hydromodpy
    [example add] Project:   ~/hydromodpy/projects/04_streamflow_intermittence_in_transient
-   [example add] 18 file(s) written, 0 already up to date.
+   [example add] 27 file(s) written, 0 already up to date.
 
 Look before you fetch, if you like. ``hmp example list`` reads the catalogue
 that ships inside the wheel, so it answers offline and tells you how much of
 the payload this machine is still missing; ``hmp example show 04`` lists the
-18 files one by one, each marked cached or missing:
+27 files one by one, each marked cached or missing:
 
 .. code-block:: bash
 
@@ -129,7 +129,7 @@ the payload this machine is still missing; ``hmp example show 04`` lists the
 Where the files land
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The eleven authored files go into their own project folder, and the seven
+The twenty authored files go into their own project folder, and the seven
 data files into the shared ``data/<variable>/`` folders of the workspace,
 which is where every project of this workspace reads them from:
 
@@ -146,9 +146,9 @@ which is where every project of this workspace reads them from:
    │   └── runoff/runoff_custom_NANCON_REA_19900101_20201231_D.csv
    └── projects/04_streamflow_intermittence_in_transient/
        ├── README.md
-       ├── project.toml  run_daily.toml  run_calibration.toml
-       ├── run_calibration_by_hand.toml  run_manual.py
-       └── step1_minimal.toml ... step5_export.toml
+       ├── project.toml  run_daily.toml  run_calibration*.toml (5 files)
+       ├── step1_minimal.toml ... step6_soil_reservoir.toml
+       └── py1_run_and_plot.py ... py6_monthly_maps.py
 
 The 90 MiB DEM is the whole cost of this step. It is cached by content under
 ``<cache>/examples/blobs/``, not by example, because many example projects
@@ -320,6 +320,13 @@ with the method written out instead of named. See
 are not good enough, and
 :doc:`../user_guide/workflows/stream-network-calibration` for the two-stage
 method those two files run.
+
+The project also ships six Python scripts, ``py1_run_and_plot.py`` to
+``py6_monthly_maps.py``, for what a TOML does not do on its own: draw a figure
+of your own after a run, edit parameters on the loaded configuration, read the
+exported files without HydroModPy, sweep ``K`` on one ``Project``, browse the
+catalogue, and map the seepage month by month. The project's README lists
+them, and :doc:`../python_api/index` documents the verbs they call.
 
 - :doc:`../user_guide/concepts/workspace-layout` for the resolution rules
   behind ``data/<variable>/`` and ``--workspace``.
