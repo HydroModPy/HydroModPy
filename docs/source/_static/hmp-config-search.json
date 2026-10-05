@@ -129,7 +129,7 @@
     "section": "geographic",
     "anchor": "geographic-source-mode",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L559",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L601",
     "description": "Geographic runtime mode. 'standard' keeps the historical DEM/outlet/polygon workflow. 'synthetic' builds one analytical support from [geographic.synthetic]."
   },
   {
@@ -141,7 +141,7 @@
     "section": "geographic",
     "anchor": "geographic-catchment",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L567",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L609",
     "description": "Catchment definition payload used when source_mode='standard'. Discriminated by 'catch_def' on the nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'."
   },
   {
@@ -249,20 +249,56 @@
     "section": "geographic",
     "anchor": "geographic-crs-project",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L579",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L621",
     "description": "Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM."
   },
   {
     "path": "geographic.dem_correc_type",
     "name": "dem_correc_type",
-    "type": "Literal['breach', 'fill']",
+    "type": "Literal['breach', 'fill', 'capped_breach']",
     "profile": "user",
     "stability": "stable",
     "section": "geographic",
     "anchor": "geographic-dem-correc-type",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L583",
-    "description": "How the DEM is conditioned before the catchment is delineated. 'fill' (default) raises each closed depression to its spill level, then puts a small gradient on the flats so every cell drains. 'breach' carves a path through the barrier that "
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L625",
+    "description": "How the DEM is conditioned before the catchment is delineated. 'fill' (default) only raises cells: each closed depression is raised to its spill level, then a small gradient on the flats lets every cell drain. 'breach' mostly lowers cells: "
+  },
+  {
+    "path": "geographic.capped_breach",
+    "name": "capped_breach",
+    "type": "CappedBreachConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-capped-breach",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L647",
+    "description": "Limits of the 'capped_breach' conditioning: max_depth (default 0.5 m) and max_distance (default 200 m). Omitted, a 'capped_breach' run uses those defaults. Declaring it with any other dem_correc_type is refused: 'fill' and 'breach' have no "
+  },
+  {
+    "path": "geographic.capped_breach.max_depth",
+    "name": "max_depth",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-capped-breach-max-depth",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L550",
+    "description": "Largest cumulative lowering, in metres, of one breach path (the 'max_cost' of Whitebox): the lowering summed over the cells of the path, not the depth of one cell. Measured on the Flume at 25 m with 8-cell paths, the realised maximum loweri"
+  },
+  {
+    "path": "geographic.capped_breach.max_distance",
+    "name": "max_distance",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-capped-breach-max-distance",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L567",
+    "description": "Longest breach path, in metres. Translated to the DEM grid as ceil(max_distance / cell size) cells, at least one, and counted in cells along the path: a diagonal step counts one cell, so a diagonal breach can be up to 1.41 times longer than"
   },
   {
     "path": "geographic.terrain_engine",
@@ -273,7 +309,7 @@
     "section": "geographic",
     "anchor": "geographic-terrain-engine",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L597",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L661",
     "description": "Flow-routing engine that conditions the DEM and delineates the catchment. Unset uses the engine this build defaults to. A string and not an enumeration: the values that resolve depend on what is installed beside HydroModPy, which is how a t"
   },
   {
@@ -285,7 +321,7 @@
     "section": "geographic",
     "anchor": "geographic-domain-extent",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L606",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L670",
     "description": "Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the"
   },
   {
@@ -297,7 +333,7 @@
     "section": "geographic",
     "anchor": "geographic-reg-fold",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L618",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L682",
     "description": "Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed."
   },
   {
@@ -309,7 +345,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L622",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L686",
     "description": "Synthetic geographic support used when source_mode='synthetic'. This analytical mode bypasses watershed delineation from external DEM files."
   },
   {
@@ -537,7 +573,7 @@
     "section": "geographic",
     "anchor": "geographic-river-network",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L629",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L693",
     "description": "Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing."
   },
   {
@@ -657,7 +693,7 @@
     "section": "geographic",
     "anchor": "geographic-enforce-streams",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L636",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L700",
     "description": "Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve."
   },
   {
@@ -789,7 +825,7 @@
     "section": "geographic",
     "anchor": "geographic-enforce-lakes",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L644",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L708",
     "description": "Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top."
   },
   {
@@ -885,7 +921,7 @@
     "section": "geographic",
     "anchor": "geographic-dam-carve",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L652",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L716",
     "description": "Optional dam structure-carve of the model-top DEM: lower the dam footprint to the valley floor so a cutoff wall sits at the dam on a raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM)."
   },
   {
@@ -945,7 +981,7 @@
     "section": "geographic",
     "anchor": "geographic-reuse-existing-outputs",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L660",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L724",
     "description": "If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace."
   },
   {
@@ -957,7 +993,7 @@
     "section": "geographic",
     "anchor": "geographic-write-intermediates",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L670",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L734",
     "description": "Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/<run>/_preprocessing/ is removed after ingestion into the run field store."
   },
   {

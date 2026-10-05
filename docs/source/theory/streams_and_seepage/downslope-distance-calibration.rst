@@ -797,9 +797,15 @@ Depression handling, breach or fill
    catchment there. ``"breach"`` is offered and departs: it carves a channel
    through the barrier at the least elevation change (Lindsay, 2016) and moves
    far fewer cells, which a fine DEM crossed by road embankments can need.
-   A breached raster reaches the criterion only through the domain and the
-   outlet, and ``catchment_mismatch`` measures that gap per trial. The key
-   lives in ``[geographic]``, not in the network output.
+   ``"capped_breach"`` is offered and departs too: it breaches only within a
+   cumulative depth and a length in metres (``[geographic.capped_breach]``),
+   then fills the depressions those limits refused, so a road embankment is
+   opened without a trench through a hill. The depth is the cumulative
+   lowering of one breach path, summed over its cells, so on a finer grid a
+   thick embankment is filled instead of dug. A breached raster reaches the criterion
+   only through the domain and the outlet, and ``catchment_mismatch`` measures
+   that gap per trial. The key lives in ``[geographic]``, not in the network
+   output.
 
 The mapped network's rasterisation
    The paper rasterises the mapped network onto the model grid with

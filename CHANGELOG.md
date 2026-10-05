@@ -111,6 +111,16 @@ Each release section includes the following standard categories:
   decrease with depth, evaluated at the layer centres. A calibration target that is not the
   headline quantity of its instance now takes its physical bounds from its own leaf, so a
   depth under `K` is no longer checked against the range of a conductivity.
+- `[geographic] dem_correc_type = "capped_breach"`, with `[geographic.capped_breach]`
+  `max_depth` (0.5 m) and `max_distance` (200 m), conditions the routing DEM by a least-cost
+  breach bounded in metres, then fills what the breach left (Lindsay 2016). The two bounds
+  become Whitebox's `max_cost`, a cumulative lowering along one breach path, and `max_dist`,
+  counted in cells. The realised lowering is measured, logged and stored with the geographic
+  metadata, with a warning when it exceeds `max_depth`. It is an option and `fill` stays the
+  default: against `fill`, the catchment moved by less than 0.1 % on the Flume (25 m) and on
+  the Nancon, but the agreement with BD Topage moved by 1.74 points on example 04's 75 m DEM
+  and by 1.22 points on the 25 m Nancon DEM, over the one-point gate set for a default change
+  (0.22 point on the Flume).
 
 ### Changed
 - The default of `observed_rasterization` is now `"heads"`. A network output that does not set

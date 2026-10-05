@@ -27,7 +27,10 @@ from hydromodpy.spatial.geographic.core.derived_features import (
 )
 from hydromodpy.spatial.geographic.core.direct_dem_domain import build_direct_dem_domain
 from hydromodpy.spatial.geographic.core.domain_dem import clip_dem_to_box_buffer
-from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
+from hydromodpy.spatial.geographic.core.flow_products import (
+    build_regional_flow_products,
+    capped_breach_of,
+)
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HydrographicNetwork,
     HydrographicNetworks,
@@ -114,17 +117,21 @@ class DomainGeographicContext:
     regional_dem_path: str | None = None
 
 
+_BREACH_METHODS = ("breach", "capped_breach")
+
+
 def _should_retry_with_fill(*, config: GeographicConfig, error: Exception) -> bool:
     """Say whether a breach that delineated nothing deserves a fill retry.
 
-    Decided on the type of the failure and not on the text of its message: a
-    breach can carve an outlet off its own catchment, and a fill usually does
+    Applies to ``breach`` and to ``capped_breach``, the two methods that lower
+    cells. Decided on the type of the failure and not on the text of its message:
+    a breach can carve an outlet off its own catchment, and a fill usually does
     not, but an outlet that snapped nowhere is a configuration error that a
     second conditioning pass would only repeat.
     """
     if str(getattr(config, "catch_def", "")).strip().lower() != "from_outlet_coord":
         return False
-    if str(getattr(config, "dem_correc_type", "")).strip().lower() != "breach":
+    if str(getattr(config, "dem_correc_type", "")).strip().lower() not in _BREACH_METHODS:
         return False
     return isinstance(error, EmptyCatchmentError)
 
@@ -153,6 +160,7 @@ def _delineate(*, config: GeographicConfig, setup, routing_dem_path: str):
             dem_init_path=routing_dem_path,
             dem_out_dir_path=setup.paths.correcflow_path,
             dem_correc_type=effective,
+            capped_breach=capped_breach_of(config),
             crs_project=setup.crs_project,
             engine_id=config.terrain_engine,
         )
@@ -178,8 +186,9 @@ def _delineate(*, config: GeographicConfig, setup, routing_dem_path: str):
         if not _should_retry_with_fill(config=config, error=exc):
             raise
         logger.warning(
-            "Catchment delineation returned an empty polygon with dem_correc_type='breach'; "
-            "retrying geographic preprocessing with dem_correc_type='fill'."
+            "Catchment delineation returned an empty polygon with dem_correc_type=%r; "
+            "retrying geographic preprocessing with dem_correc_type='fill'.",
+            effective,
         )
         effective = "fill"
         flow = build_regional_flow_products(

@@ -11,6 +11,27 @@ Watershed delineation itself, including DEM depression correction
 (``enforce_streams``), is configured in the :doc:`[geographic] section
 </user_guide/config_reference/geographic>`.
 
+``dem_correc_type`` offers three ways to make the routing DEM drain. ``fill``
+(the default) only raises cells: each closed depression is brought to its spill
+level. ``breach`` mostly lowers cells: it carves a path through the barrier that
+closes a depression, after raising single-cell pits to their lowest neighbour,
+with no limit on its length or depth and no fill afterwards. ``capped_breach``
+lowers and raises: it breaches only within a maximum depth and a maximum length,
+both in metres (``[geographic.capped_breach]``, defaults 0.5 m and 200 m), then
+fills the depressions those limits refused.
+
+``max_depth`` bounds the cumulative lowering of one breach path (Whitebox's
+``max_cost``), not the depth of one cell. Measured on the Flume at 25 m with
+8-cell paths, the realised maximum lowering of a cell follows it within 0.01 m.
+On a finer grid a thick embankment spreads the cost over more cells, so it is
+filled instead of dug: the same values do not give the same landscape at every
+resolution. Overlapping paths can also cut a cell deeper than ``max_depth``.
+The engine measures what it dug, logs it, records it with the geographic
+products, and warns when the maximum lowering exceeds ``max_depth``.
+``max_distance`` is counted in cells along the path, a diagonal step counting
+one cell, so a diagonal breach can be up to 1.41 times longer than
+``max_distance``.
+
 Accepted sources
 ----------------
 

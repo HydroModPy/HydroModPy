@@ -42,6 +42,7 @@ from hydromodpy.solver.modflow_grid import (
     resolve_domain_surfaces,
     resolve_first_period_steady,
 )
+from hydromodpy.spatial.geographic.core.flow_products import capped_breach_of
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
 from ._post_processing import run_post_processing
@@ -327,6 +328,7 @@ class ModflowNwt:
             dem_correc_type=str(getattr(self.geographic, "dem_correc_type", default)),
             crs_project=getattr(self.geographic, "crs_proj", None),
             engine_id=getattr(self.geographic, "terrain_engine", None),
+            capped_breach=capped_breach_of(self.geographic),
         )
         return self.routing_ctx
 

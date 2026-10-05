@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.core.exceptions import JobUsageError, TerrainProductError
 from hydromodpy.schema.job.digest import sha256_file
@@ -24,11 +24,21 @@ from hydromodpy.spatial.geographic.core.flow_products import (
     build_regional_flow_products,
     flow_products_from_paths,
 )
+from hydromodpy.spatial.terrain import CappedBreach
 from hydromodpy.spatial.terrain import registry as terrain_registry
 
 PROCESS_ID = "regional-flow-products"
 PROCESS_VERSION = "1.0.0"
 DESCRIPTION_PATH = "outputs/regional_flow.json"
+
+
+class CappedBreachRequest(BaseModel):
+    """Limits of a capped breach, in metres, as a request carries them."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    max_depth_m: float = Field(gt=0.0, description="Largest cumulative lowering of one breach, m.")
+    max_distance_m: float = Field(gt=0.0, description="Longest breach path, m.")
 
 
 class RegionalFlowRequest(BaseModel):
@@ -37,9 +47,69 @@ class RegionalFlowRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     dem_init_path: Path = Field(description="DEM actually used for routing, elevations in m.")
-    dem_correc_type: Literal["fill", "breach"]
+    dem_correc_type: Literal["fill", "breach", "capped_breach"]
+    capped_breach: CappedBreachRequest | None = Field(
+        default=None,
+        description="Limits of 'capped_breach'. Required for it, refused for the others.",
+    )
     crs_project: str | None = None
     engine_id: str = Field(default=terrain_registry.DEFAULT_ENGINE_ID, min_length=1)
+
+    @model_validator(mode="after")
+    def _limits_belong_to_the_capped_breach(self) -> RegionalFlowRequest:
+        if (self.dem_correc_type == "capped_breach") != (self.capped_breach is not None):
+            raise ValueError(
+                "capped_breach limits are required by dem_correc_type='capped_breach' "
+                f"and refused by the others, got dem_correc_type={self.dem_correc_type!r}."
+            )
+        return self
+
+    def breach_limits(self) -> CappedBreach | None:
+        """Return the limits as the terrain port takes them."""
+        if self.capped_breach is None:
+            return None
+        return CappedBreach(
+            max_depth_m=self.capped_breach.max_depth_m,
+            max_distance_m=self.capped_breach.max_distance_m,
+        )
+
+    def document(self) -> dict[str, Any]:
+        """Return the request as JSON, without a limit that does not apply.
+
+        A ``fill`` or ``breach`` request therefore reads as it did before the
+        capped breach existed, which keeps the unfinished jobs it addressed.
+        """
+        document = self.model_dump(mode="json")
+        if self.capped_breach is None:
+            del document["capped_breach"]
+        return document
+
+
+def _request(
+    *,
+    dem_init_path: str | Path,
+    dem_correc_type: str,
+    crs_project: str | None,
+    engine_id: str | None,
+    capped_breach: CappedBreach | None,
+) -> RegionalFlowRequest:
+    """Build the request one set of keyword arguments describes."""
+    return RegionalFlowRequest.model_validate(
+        {
+            "dem_init_path": Path(dem_init_path).expanduser().resolve(),
+            "dem_correc_type": dem_correc_type,
+            "capped_breach": (
+                None
+                if capped_breach is None
+                else {
+                    "max_depth_m": capped_breach.max_depth_m,
+                    "max_distance_m": capped_breach.max_distance_m,
+                }
+            ),
+            "crs_project": crs_project,
+            "engine_id": terrain_registry.DEFAULT_ENGINE_ID if engine_id is None else engine_id,
+        }
+    )
 
 
 @dataclass(frozen=True)
@@ -67,6 +137,9 @@ def _resolved(
             "digest": engine.engine_digest(),
         },
     }
+    if request.capped_breach is not None:
+        # Only for the method that reads them: fill and breach keep their address.
+        inputs["capped_breach"] = request.capped_breach.model_dump(mode="json")
     job_id = content_address(process_id=PROCESS_ID, process_version=PROCESS_VERSION, inputs=inputs)
     return inputs, job_id, size
 
@@ -78,15 +151,18 @@ def regional_flow_identity(
     crs_project: str | None = None,
     engine_id: str | None = None,
     backend: object | None = None,
+    capped_breach: CappedBreach | None = None,
 ) -> str:
-    """Address the DEM bytes, correction, CRS and resolved engine build."""
-    request = RegionalFlowRequest.model_validate(
-        {
-            "dem_init_path": Path(dem_init_path).expanduser().resolve(),
-            "dem_correc_type": dem_correc_type,
-            "crs_project": crs_project,
-            "engine_id": terrain_registry.DEFAULT_ENGINE_ID if engine_id is None else engine_id,
-        }
+    """Address the DEM bytes, correction, CRS and resolved engine build.
+
+    The limits of a capped breach enter the address, and only for that method.
+    """
+    request = _request(
+        dem_init_path=dem_init_path,
+        dem_correc_type=dem_correc_type,
+        crs_project=crs_project,
+        engine_id=engine_id,
+        capped_breach=capped_breach,
     )
     return _resolved(request, backend=backend)[1]
 
@@ -100,6 +176,7 @@ def load_regional_flow_job(
     crs_project: str | None = None,
     engine_id: str | None = None,
     backend: object | None = None,
+    capped_breach: CappedBreach | None = None,
 ) -> RegionalFlowJob:
     """Read a sealed stack after verifying every published artifact."""
     if dem_init_path is not None:
@@ -111,6 +188,7 @@ def load_regional_flow_job(
             crs_project=crs_project,
             engine_id=engine_id,
             backend=backend,
+            capped_breach=capped_breach,
         )
         if expected_job_id is not None and addressed != expected_job_id:
             raise JobUsageError("Regional flow inputs disagree with expected_job_id")
@@ -137,7 +215,9 @@ def load_regional_flow_job(
         raise TerrainProductError(f"Regional flow job {job.root} did not succeed")
     outcome = reuse_sealed_outcome(job, job_id=expected_job_id or stored.job_id)
     products = flow_products_from_paths(
-        dem_out_dir_path=job.outputs_dir, dem_correc_type=request.dem_correc_type
+        dem_out_dir_path=job.outputs_dir,
+        dem_correc_type=request.dem_correc_type,
+        capped_breach=request.breach_limits(),
     )
     return RegionalFlowJob(job.root, outcome.job_id, products, outcome)
 
@@ -150,15 +230,15 @@ def materialize_regional_flow_job(
     crs_project: str | None = None,
     engine_id: str | None = None,
     backend: object | None = None,
+    capped_breach: CappedBreach | None = None,
 ) -> RegionalFlowJob:
     """Build once or read the same sealed job; callers serialize submissions."""
-    request = RegionalFlowRequest.model_validate(
-        {
-            "dem_init_path": Path(dem_init_path).expanduser().resolve(),
-            "dem_correc_type": dem_correc_type,
-            "crs_project": crs_project,
-            "engine_id": terrain_registry.DEFAULT_ENGINE_ID if engine_id is None else engine_id,
-        }
+    request = _request(
+        dem_init_path=dem_init_path,
+        dem_correc_type=dem_correc_type,
+        crs_project=crs_project,
+        engine_id=engine_id,
+        capped_breach=capped_breach,
     )
     inputs, job_id, dem_bytes = _resolved(request, backend=backend)
     job = JobDirectory.create(job_dir)
@@ -166,14 +246,14 @@ def materialize_regional_flow_job(
         return load_regional_flow_job(job_dir=job.root, expected_job_id=job_id)
     if job.request_path.exists():
         previous = read_document(job.request_path)
-        if previous.get("inputs") != request.model_dump(mode="json"):
+        if previous.get("inputs") != request.document():
             raise JobUsageError(f"Unfinished regional flow job {job.root} names other inputs")
     job.ensure_workspace()
     write_document(
         job.request_path,
         {
             "process": {"id": PROCESS_ID, "version": PROCESS_VERSION},
-            "inputs": request.model_dump(mode="json"),
+            "inputs": request.document(),
         },
     )
     started_at = now()
@@ -185,6 +265,7 @@ def materialize_regional_flow_job(
             crs_project=request.crs_project,
             engine_id=request.engine_id,
             backend=backend,
+            capped_breach=request.breach_limits(),
         )
         inputset = build_inputset(
             [
@@ -209,16 +290,18 @@ def materialize_regional_flow_job(
                 backend=inputs["engine"],
             ),
         )
-        write_document(
-            job.resolve_output(DESCRIPTION_PATH),
-            {
-                "process": {"id": PROCESS_ID, "version": PROCESS_VERSION},
-                "inputs": request.model_dump(mode="json"),
-                "resolved_inputs": inputs,
-                "accumulation": {"units": "cells", "transform": "ln"},
-                "pointer_convention": "d8_wbt",
-            },
-        )
+        description: dict[str, Any] = {
+            "process": {"id": PROCESS_ID, "version": PROCESS_VERSION},
+            "inputs": request.document(),
+            "resolved_inputs": inputs,
+            "accumulation": {"units": "cells", "transform": "ln"},
+            "pointer_convention": "d8_wbt",
+        }
+        report = products.accumulation.directions.conditioned_dem.breach_report
+        if report is not None:
+            # Measured, so outside resolved_inputs: it is an output, not an address.
+            description["conditioning_report"] = report.to_document()
+        write_document(job.resolve_output(DESCRIPTION_PATH), description)
         records = []
         for name, path in (
             ("corrected_dem", products.correc),

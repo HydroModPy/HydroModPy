@@ -24,8 +24,31 @@ class WhiteboxFlowBackend(_WhiteboxComponent):
             output_dem,
         )
 
-    def breach_depressions_raster(self, dem):
-        return self._run_single_threaded(self._env.breach_depressions_least_cost, dem)
+    def breach_depressions_raster(
+        self,
+        dem,
+        *,
+        max_dist: int | None = None,
+        max_cost: float | None = None,
+        fill_deps: bool = False,
+    ):
+        """Breach the depressions of a DEM, optionally capped and then filled.
+
+        With no keyword the call is the one this backend always made, so the
+        tool defaults stand. ``max_dist`` is a length in cells and ``max_cost``
+        bounds the cumulative lowering of one breach path, in the DEM's
+        elevation unit. ``fill_deps`` fills the depressions the cap left
+        unbreached. ``flat_increment`` is never passed: the tool derives it, and
+        a forced value degraded the breach.
+        """
+        options: dict[str, object] = {}
+        if max_dist is not None:
+            options["max_dist"] = int(max_dist)
+        if max_cost is not None:
+            options["max_cost"] = float(max_cost)
+        if fill_deps:
+            options["fill_deps"] = True
+        return self._run_single_threaded(self._env.breach_depressions_least_cost, dem, **options)
 
     def breach_depressions(self, input_dem: str, output_dem: str) -> None:
         self._write_raster(

@@ -31,7 +31,10 @@ from rasterio.features import rasterize
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.paths import is_declared_absolute_path
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
-from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
+from hydromodpy.spatial.geographic.core.flow_products import (
+    build_regional_flow_products,
+    capped_breach_of,
+)
 from hydromodpy.spatial.geographic.core.lake_enforcement import routing_dem_from_config
 from hydromodpy.spatial.geographic.core.pipeline_steps import build_standard_catchment
 
@@ -325,6 +328,7 @@ def catchment_area_without_burn(
         dem_init_path=routing_dem_from_config(config, setup, dem_in_path=setup.dem_init_path),
         dem_out_dir_path=setup.paths.correcflow_path,
         dem_correc_type=str(config.dem_correc_type),
+        capped_breach=capped_breach_of(config),
         crs_project=setup.crs_project,
         backend=backend,
         # The reference area has to come from the same engine as the burned one,

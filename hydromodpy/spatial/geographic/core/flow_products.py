@@ -27,11 +27,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 
 from hydromodpy.core import progress
 from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.spatial.terrain import (
+    CappedBreach,
+    CappedBreachReport,
     ConditionedDem,
     ConditioningExtent,
     ConditioningMethod,
@@ -41,7 +42,11 @@ from hydromodpy.spatial.terrain import (
 from hydromodpy.spatial.terrain import registry as terrain_registry
 from hydromodpy.spatial.terrain.artifacts import raster_crs, raster_nodata
 
-CORRECTED_DEM_NAMES: dict[str, str] = {"fill": "dem_fill.tif", "breach": "dem_breach.tif"}
+CORRECTED_DEM_NAMES: dict[str, str] = {
+    "fill": "dem_fill.tif",
+    "breach": "dem_breach.tif",
+    "capped_breach": "dem_capped_breach.tif",
+}
 DIRECTION_NAME = "dem_direc.tif"
 ACCUMULATION_NAME = "dem_acc.tif"
 
@@ -82,26 +87,74 @@ class FlowProducts:
         return str(self.accumulation.path)
 
 
-def conditioning_method(dem_correc_type: str) -> ConditioningMethod:
-    """Return the port's conditioning method one configuration string names."""
+def capped_breach_of(geographic: object) -> CappedBreach | None:
+    """Return the capped-breach limits one geographic object selects, else ``None``.
+
+    Reads ``dem_correc_type`` and ``capped_breach`` off a ``GeographicConfig`` or
+    off the ``CatchmentDelineation`` that carries the same two attributes, so a
+    solver rebuilding its routing rasters conditions the DEM as the delineation
+    did. A ``capped_breach`` run with no section uses the defaults of the
+    section, which is what the configuration documents.
+    """
+    if str(getattr(geographic, "dem_correc_type", "")) != "capped_breach":
+        return None
+    from hydromodpy.spatial.geographic.geographic_config import CappedBreachConfig
+
+    section = getattr(geographic, "capped_breach", None) or CappedBreachConfig()
+    return CappedBreach(
+        max_depth_m=float(section.max_depth), max_distance_m=float(section.max_distance)
+    )
+
+
+def conditioning_method(
+    dem_correc_type: str, capped_breach: CappedBreach | None = None
+) -> ConditioningMethod:
+    """Return the port's conditioning method one configuration string names.
+
+    ``capped_breach`` carries the limits of the ``capped_breach`` method and is
+    refused for the others, so a limit is never passed that nothing applies.
+    """
     if dem_correc_type not in CORRECTED_DEM_NAMES:
         raise ValueError(
-            f"Unknown dem_correc_type={dem_correc_type!r}. Expected 'fill' or 'breach'."
+            f"Unknown dem_correc_type={dem_correc_type!r}. "
+            "Expected 'fill', 'breach' or 'capped_breach'."
         )
-    return cast(ConditioningMethod, dem_correc_type)
+    if dem_correc_type == "capped_breach":
+        if capped_breach is None:
+            raise ValueError(
+                "dem_correc_type='capped_breach' needs its limits (capped_breach=...)."
+            )
+        return capped_breach
+    if capped_breach is not None:
+        raise ValueError(
+            f"Capped-breach limits were given with dem_correc_type={dem_correc_type!r}, "
+            "which has none."
+        )
+    return "fill" if dem_correc_type == "fill" else "breach"
 
 
 def corrected_dem_name(dem_correc_type: str) -> str:
     """Return the file name one conditioning method writes."""
-    return CORRECTED_DEM_NAMES[conditioning_method(dem_correc_type)]
+    if dem_correc_type not in CORRECTED_DEM_NAMES:
+        raise ValueError(
+            f"Unknown dem_correc_type={dem_correc_type!r}. "
+            "Expected 'fill', 'breach' or 'capped_breach'."
+        )
+    return CORRECTED_DEM_NAMES[dem_correc_type]
 
 
 def flow_products_from_paths(
     *,
     dem_out_dir_path: str | Path,
     dem_correc_type: str,
+    capped_breach: CappedBreach | None = None,
+    breach_report: CappedBreachReport | None = None,
 ) -> FlowProducts:
     """Describe a stack that is already on disk, reading its facts from it.
+
+    ``breach_report`` is what the capped breach that wrote the stack measured,
+    read back from the description stored with it: the rasters alone cannot say
+    what was dug without the raw DEM.
 
     The CRS and the nodata come from the rasters themselves rather than from
     whatever the caller believes, which is the only way a reconstruction can
@@ -114,9 +167,10 @@ def flow_products_from_paths(
 
     conditioned = ConditionedDem(
         path=correc,
-        method=conditioning_method(dem_correc_type),
+        method=conditioning_method(dem_correc_type, capped_breach),
         extent=ConditioningExtent.regional(),
         crs=raster_crs(correc),
+        breach_report=breach_report,
     )
     directions = DrainageDirections(
         path=direc,
@@ -142,6 +196,7 @@ def build_regional_flow_products(
     crs_project: str | None = None,
     backend: object | None = None,
     engine_id: str | None = None,
+    capped_breach: CappedBreach | None = None,
 ) -> FlowProducts:
     """Generate corrected DEM, D8 direction and D8 accumulation rasters.
 
@@ -154,7 +209,11 @@ def build_regional_flow_products(
     dem_correc_type:
         Hydrologic correction strategy:
         - ``"fill"``: fills closed depressions so water can exit each cell,
-        - ``"breach"``: carves narrow paths through barriers/depressions.
+        - ``"breach"``: carves narrow paths through barriers/depressions,
+        - ``"capped_breach"``: carves within ``capped_breach`` limits, then fills
+          the depressions the limits refused.
+    capped_breach:
+        Limits of ``"capped_breach"``, required for it and refused otherwise.
     crs_project:
         Optional CRS to enforce on output metadata. The engine already stamps
         the CRS of the source DEM; this one is the project's policy on top, and
@@ -176,7 +235,7 @@ def build_regional_flow_products(
     with progress.status("Correcting DEM"):
         conditioned = engine.condition_dem(
             Path(dem_init_path),
-            method=conditioning_method(dem_correc_type),
+            method=conditioning_method(dem_correc_type, capped_breach),
             extent=ConditioningExtent.regional(),
             out=out_dir / correc_name,
         )

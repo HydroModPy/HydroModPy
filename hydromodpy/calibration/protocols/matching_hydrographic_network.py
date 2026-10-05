@@ -265,18 +265,24 @@ class MatchingHydrographicNetwork:
             "delineation and the distances",
             here="'fill' by default, the paper's tool, for the raster delineation, "
             "which builds the model domain and places the outlet; 'breach' is "
-            "offered and departs. Either way the criterion fills the model top on "
-            "the mesh graph by a priority flood seeded on the domain border, and "
-            "reads its catchment there, upstream of the outlet",
+            "offered and departs, as is 'capped_breach', which breaches only "
+            "within a cumulative depth and a length in metres ([geographic.capped_breach]) "
+            "and fills the depressions those limits refused. Either way the "
+            "criterion fills the model top on the mesh graph by a priority flood "
+            "seeded on the domain border, and reads its catchment there, upstream "
+            "of the outlet",
             why=(
                 "'breach' exists because it moves far fewer cells than filling, which "
-                "a delineation on a fine DEM with road embankments can need. The "
+                "a delineation on a fine DEM with road embankments can need, and "
+                "'capped_breach' because an unbounded breach can dig deep: it bounds "
+                "the cumulative lowering of a breach path and its length, and fills "
+                "the rest. The "
                 "criterion does not descend that raster: sampled on another mesh it "
                 "grows new pits, so the top is filled on the graph the distances use, "
                 "the paper's fill. A breached raster reaches the criterion only "
                 "through the outlet and the domain, and the gap between the raster "
                 "polygon and the scored catchment is published per trial as "
-                "catchment_mismatch. Choosing it leaves the publication."
+                "catchment_mismatch. Choosing either leaves the publication."
             ),
             paper_value="fill",
         ),

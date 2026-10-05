@@ -14,6 +14,7 @@ from typing import Any
 import geopandas as gpd
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.geographic.core.flow_products import capped_breach_of
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
 )
@@ -223,6 +224,24 @@ def _ingest_metadata(geographic: Any, store: Any, sim_id: str) -> None:
         val = getattr(geographic, key, None)
         if val is not None:
             metadata[key] = str(val)
+
+    # The limits exist only for the method that reads them, so a fill or a breach
+    # run records none rather than a default nobody applied.
+    capped = capped_breach_of(geographic)
+    if capped is not None:
+        metadata["capped_breach_max_depth_m"] = str(capped.max_depth_m)
+        metadata["capped_breach_max_distance_m"] = str(capped.max_distance_m)
+        # What the limits produced, read from the flow products the run kept (or
+        # read back from the cache description on a cache hit).
+        flow_products = getattr(geographic, "_flow_products", None)
+        report = (
+            flow_products.accumulation.directions.conditioned_dem.breach_report
+            if flow_products is not None
+            else None
+        )
+        if report is not None:
+            for key, value in report.to_document().items():
+                metadata[f"capped_breach_realised_{key}"] = str(value)
 
     dem_data = getattr(geographic, "dem_box_buff_data", None)
     if dem_data is not None:

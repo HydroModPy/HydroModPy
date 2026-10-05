@@ -7,6 +7,7 @@ from pathlib import Path
 
 from hydromodpy.spatial.geographic.core.flow_products import (
     FlowProducts,
+    capped_breach_of,
     flow_products_from_paths,
 )
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
@@ -35,6 +36,7 @@ def copy_regional_flow_from_job(
         crs_project=crs_project,
         engine_id=config.terrain_engine,
         backend=backend,
+        capped_breach=capped_breach_of(config),
     )
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
@@ -44,4 +46,5 @@ def copy_regional_flow_from_job(
     return flow_products_from_paths(
         dem_out_dir_path=destination,
         dem_correc_type=config.dem_correc_type,
+        capped_breach=capped_breach_of(config),
     )

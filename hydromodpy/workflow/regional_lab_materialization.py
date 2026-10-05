@@ -15,6 +15,7 @@ from hydromodpy.analysis.testbed.regional_lab_types import RegionalLabPlannedCas
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.toml_io.io import dump_toml_with_comments
+from hydromodpy.spatial.geographic.core.flow_products import capped_breach_of
 from hydromodpy.spatial.geographic.regional_flow_job import (
     materialize_regional_flow_job,
     regional_flow_identity,
@@ -47,7 +48,7 @@ def materialize_regional_lab_flow(
     resolved_cases: list[RegionalLabPlannedCase] = []
     job_records: dict[str, dict[str, Any]] = {}
     case_inputs: dict[str, dict[str, str]] = {}
-    identities: dict[tuple[Path, str, str | None, str | None], str] = {}
+    identities: dict[tuple[Path, str, object, str | None, str | None], str] = {}
     for case in cases:
         if case.launcher != "simulation":
             raise ConfigError("Shared regional flow requires simulation recipes")
@@ -68,9 +69,11 @@ def materialize_regional_lab_flow(
             )
         crs_project = _effective_crs(geographic.dem_init_path, geographic.crs_project)
 
+        capped_breach = capped_breach_of(geographic)
         identity_key = (
             geographic.dem_init_path.resolve(),
             geographic.dem_correc_type,
+            capped_breach,
             crs_project,
             geographic.terrain_engine,
         )
@@ -80,6 +83,7 @@ def materialize_regional_lab_flow(
                 dem_correc_type=geographic.dem_correc_type,
                 crs_project=crs_project,
                 engine_id=geographic.terrain_engine,
+                capped_breach=capped_breach,
             )
         job_id = identities[identity_key]
         job_dir = jobs_root / job_id
@@ -90,6 +94,7 @@ def materialize_regional_lab_flow(
                 dem_correc_type=geographic.dem_correc_type,
                 crs_project=crs_project,
                 engine_id=geographic.terrain_engine,
+                capped_breach=capped_breach,
             )
             job_records[job_id] = {
                 "job_id": job_id,

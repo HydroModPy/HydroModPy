@@ -679,6 +679,7 @@ def ensure_solver_routing_context(model) -> SolverRoutingContext:
     if model.grid_ctx is None:
         raise ValueError("grid_ctx must exist before building solver routing products")
 
+    from hydromodpy.spatial.geographic.core.flow_products import capped_breach_of
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     # A geographic object without the key conditions the DEM as the config would.
@@ -689,6 +690,7 @@ def ensure_solver_routing_context(model) -> SolverRoutingContext:
         dem_correc_type=str(getattr(model.geographic, "dem_correc_type", default)),
         crs_project=getattr(model.geographic, "crs_proj", None),
         engine_id=getattr(model.geographic, "terrain_engine", None),
+        capped_breach=capped_breach_of(model.geographic),
     )
     return model.routing_ctx
 

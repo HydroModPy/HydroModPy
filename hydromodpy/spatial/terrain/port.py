@@ -77,7 +77,7 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar, Literal, Protocol, runtime_checkable
@@ -99,8 +99,48 @@ measured on the wrong cells.
 """
 
 
-ConditioningMethod = Literal["fill", "breach"]
-"""``fill`` raises depression cells until each drains; ``breach`` carves out."""
+@dataclass(frozen=True)
+class CappedBreach:
+    """Least-cost breaching bounded in metres, then a fill of what it left.
+
+    The Lindsay (2016) hybrid: a depression is dug only where the breach stays
+    within ``max_distance_m`` of path length and ``max_depth_m`` of cumulative
+    lowering, and every depression the cap refused is filled.
+
+    ``max_depth_m`` is the tool's ``max_cost``: the cumulative lowering of one
+    breach path, summed over its cells, not the depth of a single cell. A barrier
+    of a given thickness spans more cells on a finer grid, so the same value
+    fills on a fine DEM, instead of digging, an embankment it digs on a coarse
+    one: it does not give the same landscape at every resolution. Measured on the Flume at 25 m with
+    8-cell paths, the realised maximum lowering of a cell follows it within
+    0.01 m. ``max_distance_m`` is counted in cells along the path, a diagonal
+    step counting one cell, so a diagonal breach can be 1.41 times longer. The
+    engine measures what it actually dug and says so in
+    :class:`CappedBreachReport`.
+    """
+
+    max_depth_m: float
+    max_distance_m: float
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("max_depth_m", self.max_depth_m),
+            ("max_distance_m", self.max_distance_m),
+        ):
+            if not (math.isfinite(value) and value > 0.0):
+                raise TerrainRequestError(
+                    f"A capped breach needs {name} > 0 and finite, got {value!r}."
+                )
+
+
+ConditioningMethod = Literal["fill", "breach"] | CappedBreach
+"""How a DEM is made to drain.
+
+``fill`` raises depression cells until each drains. ``breach`` carves out with
+no cap and no residual fill. A :class:`CappedBreach` carves within its cap and
+fills the rest. The value carries its own parameters, so ``condition_dem`` keeps
+one signature for all three.
+"""
 
 PointerConvention = Literal["d8_wbt", "d8_esri", "dinf"]
 """The encoding of a pointer raster. ``d8_wbt`` is the one :data:`D8_WBT_OFFSETS` reads."""
@@ -200,6 +240,50 @@ class ConditioningExtent:
 
 
 @dataclass(frozen=True)
+class CappedBreachReport:
+    """What a capped breach actually did, measured on the two rasters.
+
+    A cell counts as lowered or raised when it moved by more than
+    ``move_threshold_m``; the two maxima are exact, so a user sees the deepest cut
+    whatever the threshold. ``max_dist_cells`` and ``max_cost_m`` are the values
+    handed to the engine after translation from metres.
+    """
+
+    cells_lowered: int
+    cells_raised: int
+    max_lowering_m: float
+    max_raise_m: float
+    max_dist_cells: int
+    max_cost_m: float
+    move_threshold_m: float
+
+    @classmethod
+    def from_document(cls, document: Mapping[str, float]) -> CappedBreachReport:
+        """Rebuild a report from what :meth:`to_document` wrote."""
+        return cls(
+            cells_lowered=int(document["cells_lowered"]),
+            cells_raised=int(document["cells_raised"]),
+            max_lowering_m=float(document["max_lowering_m"]),
+            max_raise_m=float(document["max_raise_m"]),
+            max_dist_cells=int(document["max_dist_cells"]),
+            max_cost_m=float(document["max_cost_m"]),
+            move_threshold_m=float(document["move_threshold_m"]),
+        )
+
+    def to_document(self) -> dict[str, float | int]:
+        """Return the report as a JSON-ready mapping."""
+        return {
+            "cells_lowered": self.cells_lowered,
+            "cells_raised": self.cells_raised,
+            "max_lowering_m": self.max_lowering_m,
+            "max_raise_m": self.max_raise_m,
+            "max_dist_cells": self.max_dist_cells,
+            "max_cost_m": self.max_cost_m,
+            "move_threshold_m": self.move_threshold_m,
+        }
+
+
+@dataclass(frozen=True)
 class ConditionedDem:
     """A hydrologically conditioned DEM and the two choices that produced it."""
 
@@ -208,6 +292,8 @@ class ConditionedDem:
     extent: ConditioningExtent
     crs: str
     """CRS every raster derived from this DEM carries, as a user-input string."""
+    breach_report: CappedBreachReport | None = None
+    """Set by a capped breach, ``None`` for every other method."""
 
 
 @dataclass(frozen=True)
@@ -407,6 +493,10 @@ class TerrainEngine(Protocol):
         therefore stays a depression, and the cell keeps no downstream
         neighbour. Measured identical on both engines shipped here, so the port
         states it rather than either one hiding it.
+
+        A :class:`CappedBreach` method is served by an engine that can search a
+        least-cost breach, and is refused by name by one that cannot. The engine
+        that serves it returns what it dug in ``ConditionedDem.breach_report``.
         """
         ...
 
@@ -676,6 +766,8 @@ __all__ = [
     "Catchment",
     "CatchmentLayout",
     "ConditionedDem",
+    "CappedBreach",
+    "CappedBreachReport",
     "ConditioningExtent",
     "ConditioningExtentKind",
     "ConditioningMethod",

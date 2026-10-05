@@ -27,6 +27,7 @@ from hydromodpy.spatial.geographic.core.flow_products import (
     DIRECTION_NAME,
     FlowProducts,
     build_regional_flow_products,
+    capped_breach_of,
     corrected_dem_name,
     flow_products_from_paths,
 )
@@ -66,6 +67,7 @@ from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
 from hydromodpy.spatial.geographic.regional_flow_copy import copy_regional_flow_from_job
+from hydromodpy.spatial.terrain import CappedBreachReport
 
 logger = get_logger(__name__)
 
@@ -184,6 +186,11 @@ def _geographic_cache_fingerprint(config: GeographicConfig) -> str:
     # This flag controls cache use; it should not invalidate the underlying
     # generated artifacts when toggled.
     config_payload.pop("reuse_existing_outputs", None)
+    # The limits exist only for the method that reads them. Left out when unset,
+    # a fill or breach config fingerprints as it did before the capped breach
+    # existed, so the trees already cached stay valid.
+    if config_payload.get("capped_breach") is None:
+        config_payload.pop("capped_breach", None)
     payload = {
         "schema": _GEOGRAPHIC_CACHE_SCHEMA_VERSION,
         "config": config_payload,
@@ -415,10 +422,16 @@ def _load_cached_geographic_products(
     # left by an interrupted run, or written by another tool without a nodata
     # tag, cannot be described. A cache that cannot describe itself is a miss,
     # never a crash: the run rebuilds, which is what it would have done anyway.
+    stored_report = manifest.get("conditioning_report")
+    breach_report = (
+        CappedBreachReport.from_document(stored_report) if stored_report is not None else None
+    )
     try:
         flow_products = flow_products_from_paths(
             dem_out_dir_path=paths.correcflow_path,
             dem_correc_type=str(config.dem_correc_type),
+            capped_breach=capped_breach_of(config),
+            breach_report=breach_report,
         )
     except (TerrainProductError, RasterioIOError) as exc:
         logger.warning(
@@ -443,6 +456,16 @@ def _load_cached_geographic_products(
                 and river_network_products.hydrographic_network_generated_shp is None
             ):
                 return None
+
+    if breach_report is not None:
+        logger.info(
+            "Geographic cache hit, capped breach as built: %d cells lowered, %d cells "
+            "raised; realised max lowering %.3f m for max_cost %.3f m.",
+            breach_report.cells_lowered,
+            breach_report.cells_raised,
+            breach_report.max_lowering_m,
+            breach_report.max_cost_m,
+        )
 
     catchment_area_km2 = float(manifest["catchment_area_km2"])
     domain_products = CatchmentDomainProducts(
@@ -481,6 +504,7 @@ def _write_geographic_cache_manifest(
     domain_products: CatchmentDomainProducts,
     catchment_area_km2: float,
     catchment_products: object | None,
+    flow_products: FlowProducts | None = None,
 ) -> None:
     """Describe the geographic tree just written, next to the tree itself.
 
@@ -502,6 +526,15 @@ def _write_geographic_cache_manifest(
         "y_outlet_snapped": getattr(catchment_products, "y_outlet_snapped", None),
         "outlet_snap_distance_m": getattr(catchment_products, "snap_distance_m", None),
     }
+    # What a capped breach dug, measured on the DEM before and after. Outside the
+    # fingerprint: it is an output, and a cache hit logs it back from here.
+    breach_report = (
+        flow_products.accumulation.directions.conditioned_dem.breach_report
+        if flow_products is not None
+        else None
+    )
+    if breach_report is not None:
+        manifest["conditioning_report"] = breach_report.to_document()
     manifest_path = _geographic_cache_manifest_path(paths)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(
@@ -564,6 +597,7 @@ def build_geographic_runtime_context(
                 dem_init_path=routing_dem_path,
                 dem_out_dir_path=setup.paths.correcflow_path,
                 dem_correc_type=str(config.dem_correc_type),
+                capped_breach=capped_breach_of(config),
                 crs_project=setup.crs_project,
                 backend=tool,
                 engine_id=config.terrain_engine,
@@ -653,6 +687,7 @@ def build_geographic_runtime_context(
                     dem_init_path=captured_dem,
                     dem_out_dir_path=setup.paths.correcflow_path,
                     dem_correc_type=str(config.dem_correc_type),
+                    capped_breach=capped_breach_of(config),
                     crs_project=setup.crs_project,
                     backend=tool,
                     engine_id=config.terrain_engine,
@@ -739,6 +774,7 @@ def build_geographic_runtime_context(
             domain_products=domain_products,
             catchment_area_km2=catchment_area_km2,
             catchment_products=catchment_products,
+            flow_products=flow_products,
         )
 
     dem_metadata = read_dem_metadata(

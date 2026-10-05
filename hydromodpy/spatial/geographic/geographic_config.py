@@ -536,6 +536,48 @@ class DamCarveConfig(HydroModelBase):
     )
 
 
+class CappedBreachConfig(HydroModelBase):
+    """Limits of the ``capped_breach`` DEM conditioning, in metres.
+
+    Read only when ``[geographic] dem_correc_type = "capped_breach"``. Least-cost
+    breaching digs a path through the barrier that closes a depression. These two
+    limits bound that digging, and whatever they refuse is filled instead. Both
+    are given in metres but the tool counts along the cells of a path (a sum of
+    lowerings, a number of cells), so a given value does not mean the same thing
+    at every grid resolution: see each field.
+    """
+
+    max_depth: Annotated[LengthMeters, Profile.USER] = Field(
+        default=0.5,
+        gt=0.0,
+        description=(
+            "Largest cumulative lowering, in metres, of one breach path (the "
+            "'max_cost' of Whitebox): the lowering summed over the cells of the "
+            "path, not the depth of one cell. Measured on the Flume at 25 m with "
+            "8-cell paths, the realised maximum lowering of a cell follows it within "
+            "0.01 m. On a finer grid a thick embankment spreads the cost over more "
+            "cells, so it is filled instead of dug: the same value does not give the "
+            "same landscape at every resolution. A depression whose cheapest breach "
+            "costs more is filled. Paths overlap, so the lowering of a cell can "
+            "exceed it (Nancon 75 m: 0.56 m for 0.5 m). The realised depth is "
+            "measured after the call, logged, and warned about when it exceeds "
+            "this value. Accepts inline units (e.g. 0.5, '0.5 m')."
+        ),
+    )
+    max_distance: Annotated[LengthMeters, Profile.USER] = Field(
+        default=200.0,
+        gt=0.0,
+        description=(
+            "Longest breach path, in metres. Translated to the DEM grid as "
+            "ceil(max_distance / cell size) cells, at least one, and counted in "
+            "cells along the path: a diagonal step counts one cell, so a diagonal "
+            "breach can be up to 1.41 times longer than max_distance. A depression "
+            "with no way out within this length is filled. Accepts inline units "
+            "(e.g. 200, '0.2 km')."
+        ),
+    )
+
+
 class GeographicConfig(HydroModelBase):
     """Geographic configuration for watershed delineation.
 
@@ -580,18 +622,40 @@ class GeographicConfig(HydroModelBase):
         default=None,
         description="Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM.",
     )
-    dem_correc_type: Annotated[Literal["breach", "fill"], Profile.USER] = Field(
+    dem_correc_type: Annotated[Literal["breach", "fill", "capped_breach"], Profile.USER] = Field(
         default="fill",
         description=(
             "How the DEM is conditioned before the catchment is delineated. 'fill' "
-            "(default) raises each closed depression to its spill level, then puts a "
-            "small gradient on the flats so every cell drains. 'breach' carves a "
-            "path through the barrier that closes a depression instead, and changes "
-            "far fewer cells (least-cost breaching, Lindsay 2016). 'fill' is the "
-            "default because it is the tool of the paper behind the network "
+            "(default) only raises cells: each closed depression is raised to its "
+            "spill level, then a small gradient on the flats lets every cell drain. "
+            "'breach' mostly lowers cells: it carves a path through the barrier "
+            "that closes a depression, after raising single-cell pits to their "
+            "lowest neighbour, with no limit on length or depth and no fill "
+            "afterwards (least-cost breaching, Lindsay 2016); it changes far fewer "
+            "cells than 'fill' and can dig deep. 'capped_breach' lowers and raises: "
+            "it breaches only within the limits of [geographic.capped_breach] (a "
+            "maximum cumulative lowering and a maximum length, in metres), then "
+            "fills every depression the limits refused (the hybrid of Lindsay "
+            "2016). The depth limit is a sum over the cells of a path, so it does "
+            "not give the same landscape at every grid resolution. 'fill' is "
+            "the default because it is the tool of the paper behind the network "
             "criterion (FillDepressions, Abherve et al. 2023), and the criterion "
             "itself fills the model top on the mesh by a priority flood: one "
             "conditioning rule from the DEM to the score."
+        ),
+    )
+    capped_breach: Annotated[
+        CappedBreachConfig | None,
+        Profile.USER,
+        VisibleWhen("dem_correc_type", "capped_breach"),
+    ] = Field(
+        default=None,
+        description=(
+            "Limits of the 'capped_breach' conditioning: max_depth (default 0.5 m) "
+            "and max_distance (default 200 m). Omitted, a 'capped_breach' run uses "
+            "those defaults. Declaring it with any other dem_correc_type is refused: "
+            "'fill' and 'breach' have no limit to set, and a section that is silently "
+            "ignored reads as a limit that was applied."
         ),
     )
     terrain_engine: Annotated[str | None, Profile.USER] = Field(
@@ -823,6 +887,17 @@ class GeographicConfig(HydroModelBase):
         )
 
     @model_validator(mode="after")
+    def _check_capped_breach_section(self) -> GeographicConfig:
+        """Refuse limits declared for a method that has none."""
+        if self.capped_breach is not None and self.dem_correc_type != "capped_breach":
+            raise ValueError(
+                "[geographic.capped_breach] sets the limits of dem_correc_type = "
+                f"'capped_breach', and dem_correc_type is {self.dem_correc_type!r}, which "
+                "has none: remove the section or select 'capped_breach'."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _check_source_mode_payload(self, info: ValidationInfo) -> GeographicConfig:
         """Enforce mode-level invariants between source_mode and catchment."""
         if self.uses_synthetic_geographic():
@@ -842,6 +917,7 @@ class GeographicConfig(HydroModelBase):
 
 
 __all__ = [
+    "CappedBreachConfig",
     "CatchDef",
     "DemCatchDef",
     "GeographicConfig",

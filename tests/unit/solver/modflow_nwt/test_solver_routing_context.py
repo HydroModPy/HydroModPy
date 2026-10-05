@@ -26,6 +26,7 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
         crs_project,
         backend,
         engine_id,
+        capped_breach,
     ):
         captured.update(
             {
@@ -35,6 +36,7 @@ def test_build_solver_routing_context_wraps_flow_products(monkeypatch, tmp_path:
                 "crs_project": crs_project,
                 "backend": backend,
                 "engine_id": engine_id,
+                "capped_breach": capped_breach,
             }
         )
         return fake_flow_products(

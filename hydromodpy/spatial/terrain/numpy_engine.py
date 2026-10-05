@@ -161,8 +161,8 @@ class NumpyTerrainEngine:
         if method != "fill":
             raise TerrainCapabilityError(
                 f"{self.engine_id} conditions with 'fill' only; {method!r} is not "
-                "implemented. Least-cost breaching needs a carving search this "
-                "engine does not have."
+                "implemented. 'breach' and the capped breach both need a least-cost "
+                "carving search this engine does not have."
             )
         grid = _Grid(dem)
         filled = _priority_flood_fill(grid)

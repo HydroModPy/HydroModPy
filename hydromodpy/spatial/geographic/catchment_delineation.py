@@ -29,6 +29,7 @@ from hydromodpy.spatial.geographic.dem_metadata import read_dem_metadata
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 from hydromodpy.spatial.geographic.pipeline import build_geographic_runtime_context
+from hydromodpy.spatial.terrain import CappedBreach
 
 
 def _optional_str_path(path: object) -> str | None:
@@ -43,6 +44,7 @@ def DEM_correcflow_analysis(
     dem_correc_type: str,
     backend: object | None = None,
     engine_id: str | None = None,
+    capped_breach: CappedBreach | None = None,
 ) -> dict:
     """
     Build the 3 core regional rasters needed by watershed delineation.
@@ -51,7 +53,8 @@ def DEM_correcflow_analysis(
     -------------------
     1. Hydrologically correct the input DEM:
        - ``fill``   : fill topographic depressions,
-       - ``breach`` : carve channels through depressions.
+       - ``breach`` : carve channels through depressions,
+       - ``capped_breach`` : carve within ``capped_breach`` limits, then fill the rest.
     2. Compute D8 flow-direction on the corrected DEM.
     3. Compute D8 flow-accumulation on the corrected DEM.
 
@@ -65,7 +68,10 @@ def DEM_correcflow_analysis(
         Type of DEM correction to apply:
         - ``"fill"``
         - ``"breach"``
+        - ``"capped_breach"``
         Any other value raises a ``ValueError``.
+    capped_breach : CappedBreach, optional
+        Limits of ``"capped_breach"``, required for it and refused otherwise.
     engine_id : str, optional
         Flow-routing engine to route with. Unset uses the default of this build.
         Carried through because this function is a facade over
@@ -83,6 +89,7 @@ def DEM_correcflow_analysis(
         dem_init_path=dem_init_path,
         dem_out_dir_path=dem_out_dir_path,
         dem_correc_type=dem_correc_type,
+        capped_breach=capped_breach,
         backend=tool,
         engine_id=engine_id,
     )
@@ -158,6 +165,13 @@ class CatchmentDelineation:
             str(config.polyg_shp_path) if config.polyg_shp_path is not None else None
         )
         self.dem_correc_type = config.dem_correc_type
+        self.capped_breach = config.capped_breach
+        """Limits of the ``capped_breach`` conditioning, ``None`` for the other methods.
+
+        Carried with ``dem_correc_type`` for the same reason as the engine below: a
+        solver rebuilds its routing rasters from this object, and a ``capped_breach``
+        without its limits would condition the solver DEM differently.
+        """
         self.terrain_engine = config.terrain_engine
         """Engine the delineation routed with, carried for whoever routes after it.
 

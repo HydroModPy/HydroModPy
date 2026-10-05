@@ -40,7 +40,7 @@ Contracts to keep distinct:
 
 Required inputs:
 
-- DEM (corrected via ``fill`` or ``breach``).
+- DEM (corrected via ``fill``, ``breach`` or ``capped_breach``).
 - Outlet, snapped on accumulation.
 - D8 direction and accumulation rasters.
 
