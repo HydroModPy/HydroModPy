@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 from hydromodpy.data.variables.crossings import records
 from hydromodpy.data.variables.crossings.apis import wfs
+from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import geopandas as gpd
@@ -126,7 +127,7 @@ def layer_pages(
         sort_by="cleabs",
         parse_page=_parse_page,
         identify=lambda feature: feature.get("id"),
-        output_format="application/json",
+        output_format=JSON_MEDIA_TYPE,
         properties=_PROPERTIES[typename],
     )
 
