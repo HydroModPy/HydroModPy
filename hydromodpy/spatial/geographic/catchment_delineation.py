@@ -166,6 +166,12 @@ class CatchmentDelineation:
         line the two sides of one run route with two different engines, and
         nothing downstream can say so.
         """
+        self.stream_burn_enabled = bool(config.enforce_streams.enabled)
+        """Whether the routing DEM carries the burned observed network.
+
+        The generated network is then traced on the map, and an observation never
+        enters the routing: the solver does not pin its descent on that network.
+        """
 
         self.processing()
 

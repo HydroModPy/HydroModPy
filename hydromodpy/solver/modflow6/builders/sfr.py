@@ -67,6 +67,7 @@ from hydromodpy.solver.modflow6.builders.period_forcing import (
 from hydromodpy.solver.modflow6.builders.vertex_grid import build_vertex_grid_for_intersection
 
 if TYPE_CHECKING:
+    from hydromodpy.core.descent import Descent
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 logger = get_logger(__name__)
@@ -149,12 +150,36 @@ def resolve_reach_line_cells(
     return [(cell2d, seg_length, mid) for mid, cell2d, seg_length in segments]
 
 
+def sfr_networks_read_the_descent(model) -> bool:
+    """Return whether an active network walks the descent D.
+
+    ``rectify_on_mesh`` traces the channel on D and ``route_drainage`` routes the
+    hillslope down it; a network with neither never reads D.
+    """
+    return any(
+        bool(definition.get("rectify_on_mesh")) or bool(definition.get("route_drainage"))
+        for definition in _active_sfr_definitions(model).values()
+    )
+
+
+def sfr_networks_lie_on_the_river_network(model) -> bool:
+    """Return whether an active network was delineated from the generated river network.
+
+    Such a network carries a ``reach_trace``; an explicit ``reaches`` table does not.
+    """
+    return any(
+        definition.get("reach_trace") is not None
+        for definition in _active_sfr_definitions(model).values()
+    )
+
+
 def resolve_sfr_networks(
     model,
     *,
     solver_mesh: SolverMesh,
     lake_cells_by_number: Mapping[int, Sequence[int]] | None = None,
     spillway_seeds: set[int] = frozenset(),
+    descent: Descent | None = None,
 ) -> dict[str, ResolvedSfrNetwork]:
     """Resolve every active SFR network to its ordered reach records.
 
@@ -164,6 +189,8 @@ def resolve_sfr_networks(
     ``reach_trace`` intersected with the DISV mesh. ``lake_cells_by_number`` (0-based
     LAK numbers) truncates trace reaches at the lake footprint so none sits on a lake
     cell (needed once the DEM is hydro-conditioned to route streams through a lake).
+    ``descent`` is the descent D, a filled copy of the solver top; a network with
+    ``rectify_on_mesh`` traces its channel on it and raises ``ValueError`` without it.
     """
     definitions = _active_sfr_definitions(model)
     if not definitions:
@@ -179,6 +206,7 @@ def resolve_sfr_networks(
 
     networks: dict[str, ResolvedSfrNetwork] = {}
     vertex_grid = None
+    face_adjacency: list[set[int]] | None = None
     for network_id, definition in definitions.items():
         location = f"flow.sinks_sources.sfr.{network_id}"
         if definition.get("reaches"):
@@ -203,11 +231,26 @@ def resolve_sfr_networks(
                 "pre-processing (geographic.river_network.enabled = true)."
             )
         if definition.get("rectify_on_mesh"):
+            if descent is None:
+                raise ValueError(
+                    f"{location}.rectify_on_mesh traces the channel on the descent of the "
+                    "model top, but no descent was given to resolve_sfr_networks."
+                )
             stub_max = definition.get("rectify_stub_max_upstream")
             min_comp = definition.get("rectify_min_component_cells")
+            if face_adjacency is None:
+                from hydromodpy.spatial.mesh.model.cell_adjacency import (
+                    build_planar_cell_adjacency,
+                )
+
+                face_adjacency = build_planar_cell_adjacency(
+                    solver_mesh.planar_mesh, int(solver_mesh.n_cells)
+                )
             records = _rectify_network_on_mesh(
                 records,
                 solver_mesh=solver_mesh,
+                descent=descent,
+                face_adjacency=face_adjacency,
                 lake_number_of=lake_number_of,
                 min_slope=float(definition.get("min_slope") or 1e-4),
                 max_stub_upstream=int(stub_max) if stub_max is not None else 2,
@@ -220,22 +263,6 @@ def resolve_sfr_networks(
             network_id=network_id, reaches=tuple(records), definition=definition
         )
     return networks
-
-
-def sfr_networks_needing_conditioned_top(model) -> tuple[str, ...]:
-    """Ids of the active SFR networks that REQUIRE a conditioned mesh top.
-
-    Only ``rectify_on_mesh`` requires it: it traces the steepest descent of the
-    mesh top, so an unconditioned top leaves the projection pits and the traced
-    channel leaves the thalweg. ``route_drainage`` merely benefits from it; a
-    cell whose descent dead-ends simply stays a plain DRN, which
-    ``_sfr_drainage`` documents and handles, so it must not gate the build.
-    """
-    return tuple(
-        network_id
-        for network_id, definition in _active_sfr_definitions(model).items()
-        if definition.get("rectify_on_mesh")
-    )
 
 
 # --------------------------------------------------------------------------- #
@@ -667,7 +694,8 @@ __all__ = [
     "resolve_reach_line_cells",
     "resolve_sfr_networks",
     "sfr_drain_cells_to_drop",
-    "sfr_networks_needing_conditioned_top",
+    "sfr_networks_lie_on_the_river_network",
+    "sfr_networks_read_the_descent",
     "sfr_routes_drainage",
     "watershed_drainage_cell_mask",
 ]

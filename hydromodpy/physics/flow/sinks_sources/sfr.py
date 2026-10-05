@@ -275,8 +275,10 @@ class FlowReachNetworkConfig(HydroModelBase):
         default=False,
         description=(
             "Route the hillslope drainage (DRN) discharge into the stream network: "
-            "every remaining DRN cell hands its outflow to the NEAREST reach "
-            "through an MVR record (FACTOR 1.0) instead of leaving the model. "
+            "every remaining DRN cell of the basin hands its outflow, through an MVR "
+            "record (FACTOR 1.0), to the first reach or lake cell met on its descent "
+            "D, a filled copy of the model top (no condition_top required). A cell "
+            "whose descent leaves the model first keeps a plain DRN. "
             "This is the surface re-infiltration / runon convergence of drained "
             "water towards the river; without it only the reach cells' streambed "
             "captures baseflow and the rest of the catchment discharge is lost."
@@ -363,15 +365,15 @@ class FlowReachNetworkConfig(HydroModelBase):
         default=False,
         description=(
             "Re-derive the delineated reach cells as a clean single-flow-direction (SFD) "
-            "channel on the DISV mesh. From every delineated cell the steepest descent of the "
-            "(conditioned) mesh top is traced one face-neighbour at a time until it reaches a "
-            "lake, the domain edge, or an already-traced cell; a residual pit or flat spill is "
-            "crossed by stepping to the lowest unvisited rim. The union of those paths is the "
-            "channel: one cell wide (a single downstream per cell, so no braiding), "
-            "face-continuous (no geometric gap), following the true thalweg (so the surface "
+            "channel on the DISV mesh. From every delineated cell the descent D, a filled "
+            "copy of the model top, is traced one neighbour at a time until it reaches a "
+            "lake, the outlet of D, or an already-traced cell. The union of those paths is "
+            "the channel: one cell wide (a single downstream per cell, so no braiding), "
+            "continuous on the descent graph (shared faces, or shared nodes on a quad mesh), "
+            "following the thalweg of D (so the surface "
             "flow follows the reach), and always reaching a real sink (no inland dead-end that "
-            "leaks its flow out). Requires [modflow6.sgrid] condition_top = true so every cell "
-            "has a descending path."
+            "leaks its flow out). The streambed top is read on the model top, never on D. "
+            "No condition_top is required: D is a copy and never returns to the solver."
         ),
     )
     rectify_stub_max_upstream: Annotated[int, Profile.EXPERT] = Field(

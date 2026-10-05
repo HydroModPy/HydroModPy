@@ -11,7 +11,9 @@ from collections.abc import Mapping
 import flopy
 import numpy as np
 
+from hydromodpy.core.descent import Descent
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.stream_geometry import CATCHMENT_MISMATCH_WARNING_SHARE, resolve_outlet
 from hydromodpy.core.units import to_modflow6_time_units
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
@@ -64,17 +66,23 @@ from hydromodpy.solver.modflow6.builders import (
     resolve_spillway_seed_cells,
     resolve_xt3d_npf_options,
     sfr_drain_cells_to_drop,
-    sfr_networks_needing_conditioned_top,
+    sfr_routes_drainage,
     sto_period_settings,
     watershed_drainage_cell_mask,
     xt3d_activation_mode,
     xt3d_requested_value,
 )
+from hydromodpy.solver.modflow6.builders.sfr import (
+    sfr_networks_lie_on_the_river_network,
+    sfr_networks_read_the_descent,
+)
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.support.flopy_structure_warmup import warm_flopy_structure
-from hydromodpy.solver.modflow6.support.mesh_conditioning import (
-    assert_conditioned_top_drains,
-    condition_solver_mesh_top,
+from hydromodpy.solver.modflow6.support.mesh_conditioning import condition_solver_mesh_top
+from hydromodpy.solver.modflow6.support.mesh_descent import (
+    ChannelTree,
+    build_solver_mesh_descent,
+    read_channel_tree,
 )
 from hydromodpy.solver.modflow6.support.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
@@ -266,38 +274,173 @@ def _shared_recharge_dir(model) -> str | None:
     return None
 
 
-def _watershed_drainage_mask(model, cell_centroids: np.ndarray) -> np.ndarray | None:
-    """Cells inside the topographic watershed, to keep DRN routing off the buffer.
-
-    The active domain is the buffered box, so DRN cells in the buffer model the
-    neighbouring basins. Their hillslope drainage must leave the model (plain
-    DRN), not feed this catchment's streams and lake, so they are excluded from
-    the DRN -> MVR routing. Returns ``None`` when the watershed polygon is
-    unavailable (keeps every remaining DRN cell routed).
-    """
+def _watershed_polygon_mask(model, cell_centroids: np.ndarray) -> np.ndarray | None:
+    """Cells whose centre lies in the delineated watershed polygon, or None without one."""
     geographic = getattr(model, "geographic", None)
     shp = getattr(geographic, "watershed_shp", None)
     if not shp or not os.path.exists(str(shp)):
-        logger.warning(
-            "watershed polygon not found (%s); hillslope DRN routes over the full "
-            "buffered domain, over-feeding this catchment's surface water.",
-            shp,
-        )
         return None
     import geopandas as gpd
 
     gdf = gpd.read_file(str(shp))
     if gdf.empty:
         return None
-    mask = watershed_drainage_cell_mask(gdf.geometry.union_all(), cell_centroids)
-    n_in = int(mask.sum())
-    logger.info(
-        "watershed DRN mask: %d/%d active cells inside the catchment; "
-        "buffer DRN drains out instead of feeding the streams.",
-        n_in,
-        int(mask.size),
+    return watershed_drainage_cell_mask(gdf.geometry.union_all(), cell_centroids)
+
+
+def _sfr_descent(model, solver_mesh, lake_cell_ids_by_lake) -> Descent | None:
+    """The descent D when an SFR network walks it, else None.
+
+    Only ``rectify_on_mesh`` and ``route_drainage`` read D, so a run without
+    either builds none and cannot fail on it. The seeds include the CHD ocean
+    and river cells, where water leaves the model. D follows the generated
+    network A on the cells A crosses, so the hillslope drains into the reaches
+    traced on A instead of running beside them.
+    """
+    if not is_bc_active(model, "sfr") or not sfr_networks_read_the_descent(model):
+        return None
+    return build_solver_mesh_descent(
+        solver_mesh,
+        lake_cells_by_lake=lake_cell_ids_by_lake,
+        base_level_mask=model._ocean_support_mask | model._stream_support_mask,
+        channel_tree=_channel_tree(model, solver_mesh),
     )
-    return mask
+
+
+def _channel_tree(model, solver_mesh) -> ChannelTree | None:
+    """The generated network A around the mesh, or None when no reach lies on it.
+
+    A is the full-extent stream-link raster of the river-network step (the
+    stream raster when links were not computed), with the D8 pointer it was
+    traced on and its accumulation, all in the corrected-flow folder. The
+    clipped rasters are cut to the watershed and miss the buffer. A is read
+    only when a network was delineated from it this run, so a raster left by an
+    earlier run with the river network on is never picked up.
+    """
+    from hydromodpy.spatial.geographic.core.flow_products import DIRECTION_NAME
+
+    geographic = getattr(model, "geographic", None)
+    if getattr(geographic, "stream_burn_enabled", False):
+        # Measured on example 21 (10 m burn): pinned on the burned network, D sent
+        # 2.4 % of the catchment off the outlet and dropped the outlet flow by 2.7 %.
+        logger.info(
+            "The routing DEM carries the burned observed network "
+            "([geographic.enforce_streams]): A is traced on the map and an observation "
+            "never enters the routing, so the descent D is not pinned on A."
+        )
+        return None
+    folder = getattr(geographic, "correcflow_path", None)
+    if folder is None or not sfr_networks_lie_on_the_river_network(model):
+        logger.info(
+            "No SFR network lies on the generated river network A: the descent D has no "
+            "pinned cell and follows the steepest descent everywhere."
+        )
+        return None
+    # File names written by spatial.geographic.core.river_network.
+    link = os.path.join(str(folder), "dem_stream_link_id_full.tif")
+    if not os.path.exists(link):
+        link = os.path.join(str(folder), "dem_streams_full.tif")
+    pointer = os.path.join(str(folder), DIRECTION_NAME)
+    accumulation = os.path.join(str(folder), "dem_acc_cells.tif")
+    missing = [path for path in (link, pointer, accumulation) if not os.path.exists(path)]
+    if missing:
+        raise FileNotFoundError(
+            "The SFR reaches lie on the generated river network A, but its rasters are "
+            f"missing: {', '.join(missing)}. Rerun the geographic preprocessing."
+        )
+    vertices = np.asarray(solver_mesh.planar_mesh.vertices, dtype=float)[:, :2]
+    return read_channel_tree(
+        link_tif=link,
+        pointer_tif=pointer,
+        accumulation_tif=accumulation,
+        bounds=(
+            float(vertices[:, 0].min()),
+            float(vertices[:, 1].min()),
+            float(vertices[:, 0].max()),
+            float(vertices[:, 1].max()),
+        ),
+    )
+
+
+def _drainage_basin(model, descent: Descent, solver_mesh) -> np.ndarray:
+    """Basin of D at the catchment outlet: the DRN cells routed to the streams.
+
+    The outlet follows the rule of the stream criterion: the most drained cell
+    near the outlet the catchment was closed on (the snapped point, else the
+    declared one), else inside the watershed polygon, else the largest basin of
+    the domain. The declared point can sit up to the snap distance away, on
+    another branch. The basin is read on D, so it agrees with the routing by
+    construction. The polygon is only compared with it: a gap above
+    ``CATCHMENT_MISMATCH_WARNING_SHARE`` of its area is a warning, as in the
+    criterion.
+    """
+    centroids = solver_mesh.cell_centroids()
+    areas = np.asarray(solver_mesh.cell_areas(), dtype=float)
+    areas = np.where(np.isfinite(areas), areas, 0.0)
+    polygon = _watershed_polygon_mask(model, centroids)
+    if polygon is not None:
+        polygon = polygon & descent.routable
+        if not np.any(polygon):
+            polygon = None
+    near = _catchment_outlet_xy(getattr(model, "geographic", None))
+    if near is None and polygon is None:
+        logger.warning(
+            "Drainage routing: no outlet and no watershed polygon for this run. The "
+            "hillslope DRN of the largest basin of the descent is routed to the streams."
+        )
+    outlet = resolve_outlet(
+        descent.metric,
+        within=polygon,
+        near=near,
+        adjacency=descent.adjacency,
+        cell_area_m2=areas,
+    )
+    basin = descent.basin(outlet)
+    if polygon is None:
+        logger.info(
+            "Drainage basin of D: %d cells (%.3f km2), no watershed polygon to compare.",
+            int(basin.sum()),
+            float(areas[basin].sum()) / 1.0e6,
+        )
+        return basin
+    polygon_area = float(areas[polygon].sum())
+    outside = basin & ~polygon
+    missing = polygon & ~basin
+    outside_share = float(areas[outside].sum()) / polygon_area if polygon_area else 0.0
+    missing_share = float(areas[missing].sum()) / polygon_area if polygon_area else 0.0
+    mismatch = outside_share + missing_share
+    log = logger.warning if mismatch > CATCHMENT_MISMATCH_WARNING_SHARE else logger.info
+    log(
+        "Drainage basin of D: %d cells against %d in the watershed polygon; %d basin "
+        "cells outside the polygon (%.1f %% of its area), %d polygon cells outside "
+        "the basin (%.1f %%).%s",
+        int(basin.sum()),
+        int(polygon.sum()),
+        int(outside.sum()),
+        100.0 * outside_share,
+        int(missing.sum()),
+        100.0 * missing_share,
+        (
+            " The gap is above the warning share: the outlet may sit on another branch, "
+            "or the mesh is much coarser than the DEM the polygon came from."
+            if mismatch > CATCHMENT_MISMATCH_WARNING_SHARE
+            else ""
+        ),
+    )
+    return basin
+
+
+def _catchment_outlet_xy(geographic: object) -> tuple[float, float] | None:
+    """The point the catchment was closed on: the snapped outlet, else the declared one."""
+    for x_name, y_name in (("x_outlet_snapped", "y_outlet_snapped"), ("x_outlet", "y_outlet")):
+        x = getattr(geographic, x_name, None)
+        y = getattr(geographic, y_name, None)
+        if x is None or y is None:
+            continue
+        point = (float(x), float(y))
+        if np.all(np.isfinite(point)):
+            return point
+    return None
 
 
 def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
@@ -910,21 +1053,12 @@ def run_pre_processing(  # noqa: PLR0915
             )
         except OSError:
             logger.debug("Could not write conditioning reference sidecar", exc_info=True)
-        # A flood that reached nothing is not a warning: the flag then claims a
-        # surface it never produced, and whatever traces the descent afterwards
-        # reads the raw projection pits without knowing.
-        assert_conditioned_top_drains(
-            cond_info,
-            consumers=tuple(
-                f"[flow.sinks_sources.sfr.{network_id}] rectify_on_mesh"
-                for network_id in sfr_networks_needing_conditioned_top(model)
-            ),
-        )
         if cond_info["unreached_active"]:
             logger.warning(
-                "Mesh top conditioning could not drain %d active cells (no mesh face "
-                "graph or isolated basins); their pits remain.",
+                "Mesh top conditioning could not drain %d of %d active cells (no mesh "
+                "face graph or isolated basins); their pits remain.",
                 cond_info["unreached_active"],
+                cond_info["active_cells"],
             )
         logger.info(
             "Mesh top conditioned: %d cells raised (max +%.2f m, mean +%.2f m) to "
@@ -944,6 +1078,20 @@ def run_pre_processing(  # noqa: PLR0915
         sink_fill=bool(model.sink_fill),
         model_name=model.model_name,
     )
+
+    # The CHD supports are built here, before SFR, because the descent D below
+    # seeds on them. They read the DEM, the post-lake-mask activity and the mesh
+    # support, none of which changes further down.
+    ocean_chd_spd, ocean_support_mask = build_ocean_boundary_chd_spd(model)
+    stream_chd_spd, stream_support_mask = build_stream_boundary_chd_spd(model)
+    model._ocean_support_mask = np.asarray(ocean_support_mask, dtype=bool).copy()
+    model._stream_support_mask = np.asarray(stream_support_mask, dtype=bool).copy()
+
+    # The descent D: a copy of the top the solver sees, filled on the graph it
+    # descends, so every cell holds a path to the domain rim or a CHD cell. The
+    # reach rectification and the drainage routing both trace it; the copy never
+    # reaches the solver, which keeps reading this top.
+    descent = _sfr_descent(model, solver_mesh, lake_cell_ids_by_lake)
 
     # SFR reaches resolve on the post-lake-mask mesh so every reach cell is an
     # active aquifer cell. Resolution happens before DRN so the drain rows
@@ -988,6 +1136,7 @@ def run_pre_processing(  # noqa: PLR0915
         solver_mesh=solver_mesh,
         lake_cells_by_number=lake_cells_by_number,
         spillway_seeds=set(spillway_seed_by_lake.values()),
+        descent=descent,
     )
     sfr_mover_records = build_sfr_mover_records(
         sfr_networks,
@@ -1044,10 +1193,6 @@ def run_pre_processing(  # noqa: PLR0915
 
     strt = build_start_heads(model, solver_mesh)
     model.ic = flopy.mf6.ModflowGwfic(model.gwf, strt=strt)
-    ocean_chd_spd, ocean_support_mask = build_ocean_boundary_chd_spd(model)
-    stream_chd_spd, stream_support_mask = build_stream_boundary_chd_spd(model)
-    model._ocean_support_mask = np.asarray(ocean_support_mask, dtype=bool).copy()
-    model._stream_support_mask = np.asarray(stream_support_mask, dtype=bool).copy()
     rewet_record, wetdry = resolve_rewet_npf_options(model, solver_mesh)
     guard_newton_rewet(runtime, rewet_record)
     xt3doptions = resolve_xt3d_options(model, solver_mesh)
@@ -1228,38 +1373,31 @@ def run_pre_processing(  # noqa: PLR0915
                 cells={int(cid) for cells in marnage_cells.values() for cid in cells},
             )
         if sfr_networks:
-            from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
-
             drn_spd = remove_drain_cells(drn_spd, cells=sfr_drain_cells_to_drop(sfr_networks))
-            # route_drainage: every in-watershed DRN cell follows the mesh-top
-            # steepest descent to the FIRST reach or lake it reaches (D8-style on the
-            # face graph), so the hillslope drainage joins the water body it
-            # physically drains to instead of the nearest one and instead of leaving
-            # the model. Buffer cells model neighbouring basins and stay plain DRN
-            # (they must not feed this catchment). The provider ids index the period-0
-            # rows, hence the static-DRN requirement.
-            drn_cell_centroids = solver_mesh.cell_centroids()
-            drainage_movers = build_drainage_mover_records(
-                sfr_networks,
-                drn_spd=drn_spd,
-                cell_centroids=drn_cell_centroids,
-                mesh_top=solver_mesh.top,
-                cell_adjacency=build_planar_cell_adjacency(
-                    solver_mesh.planar_mesh,
-                    int(solver_mesh.n_cells),
-                    getattr(model, "runtime_mesh_support", None),
-                ),
-                lake_cells_by_number={
-                    index: list(cells) for index, cells in enumerate(lake_cell_ids_by_lake.values())
-                },
-                watershed_cell_mask=_watershed_drainage_mask(model, drn_cell_centroids),
-                # The D8 pointer the geographic step computed on the BREACHED
-                # routing DEM. Rebuilding a descent on the raw mesh top instead
-                # strands every cell upstream of a closed depression.
-                d8_pointer_path=getattr(
-                    getattr(model, "geographic", None), "watershed_box_buff_direc", None
-                ),
-            )
+            # route_drainage: every DRN cell of the basin of D follows the receivers
+            # of D to the FIRST reach or lake it reaches, so the hillslope drainage
+            # joins the water body it physically drains to. Cells outside that basin
+            # drain to a neighbouring one and stay plain DRN. The provider ids index
+            # the period-0 rows, hence the static-DRN requirement.
+            drainage_movers = []
+            if sfr_routes_drainage(sfr_networks):
+                if descent is None:
+                    raise RuntimeError("route_drainage needs the descent D, built with SFR.")
+                from hydromodpy.spatial.mesh.model.cell_adjacency import (
+                    build_planar_cell_adjacency,
+                )
+
+                drainage_movers = build_drainage_mover_records(
+                    sfr_networks,
+                    drn_spd=drn_spd,
+                    receiver=descent.receiver,
+                    basin_cell_mask=_drainage_basin(model, descent, solver_mesh),
+                    face_adjacency=build_planar_cell_adjacency(
+                        solver_mesh.planar_mesh, int(solver_mesh.n_cells)
+                    ),
+                    mesh_top=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
+                    lake_cells_by_number=lake_cells_by_number,
+                )
             if drainage_movers:
                 drainage_mover_rows = build_mvr_period_records(drainage_movers)
         model.drn = flopy.mf6.ModflowGwfdrn(

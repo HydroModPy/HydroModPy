@@ -9390,7 +9390,7 @@
           },
           "route_drainage": {
             "default": false,
-            "description": "Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell hands its outflow to the NEAREST reach through an MVR record (FACTOR 1.0) instead of leaving the model. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost.",
+            "description": "Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell of the basin hands its outflow, through an MVR record (FACTOR 1.0), to the first reach or lake cell met on its descent D, a filled copy of the model top (no condition_top required). A cell whose descent leaves the model first keeps a plain DRN. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost.",
             "examples": [
               false
             ],
@@ -9686,7 +9686,7 @@
           },
           "rectify_on_mesh": {
             "default": false,
-            "description": "Re-derive the delineated reach cells as a clean single-flow-direction (SFD) channel on the DISV mesh. From every delineated cell the steepest descent of the (conditioned) mesh top is traced one face-neighbour at a time until it reaches a lake, the domain edge, or an already-traced cell; a residual pit or flat spill is crossed by stepping to the lowest unvisited rim. The union of those paths is the channel: one cell wide (a single downstream per cell, so no braiding), face-continuous (no geometric gap), following the true thalweg (so the surface flow follows the reach), and always reaching a real sink (no inland dead-end that leaks its flow out). Requires [modflow6.sgrid] condition_top = true so every cell has a descending path.",
+            "description": "Re-derive the delineated reach cells as a clean single-flow-direction (SFD) channel on the DISV mesh. From every delineated cell the descent D, a filled copy of the model top, is traced one neighbour at a time until it reaches a lake, the outlet of D, or an already-traced cell. The union of those paths is the channel: one cell wide (a single downstream per cell, so no braiding), continuous on the descent graph (shared faces, or shared nodes on a quad mesh), following the thalweg of D (so the surface flow follows the reach), and always reaching a real sink (no inland dead-end that leaks its flow out). The streambed top is read on the model top, never on D. No condition_top is required: D is a copy and never returns to the solver.",
             "examples": [
               false
             ],
@@ -21599,7 +21599,7 @@
           },
           "condition_top": {
             "default": false,
-            "description": "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsilon fill on the mesh face graph raises only pit cells to their spill level, giving every active non-lake cell a strictly descending path to the domain boundary. Lake and boundary cells are fixed base levels; the aquifer bottom is untouched. Default false keeps the raw projected top.",
+            "description": "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsilon fill on the mesh face graph raises only pit cells to their spill level, giving every active non-lake cell a strictly descending path to the domain boundary. Lake and boundary cells are fixed base levels; the aquifer bottom is untouched. Nothing requires it: the SFR routing (rectify_on_mesh, route_drainage) descends a filled copy of the top. It raises the solver top, which is a change of the model, not of the routing. Default false keeps the raw projected top.",
             "examples": [
               false
             ],

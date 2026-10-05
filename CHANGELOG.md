@@ -133,6 +133,21 @@ Each release section includes the following standard categories:
   arrays with numpy when every EVT cell sits on layer 0, instead of one Python record per
   cell and per deficit day first: on 36,465 cells and 2,452 daily periods the build takes
   0.24 s and 0.6 GB instead of about 50 s and 12 GB, for the same arrays.
+- `rectify_on_mesh` and `route_drainage` of `[flow.sinks_sources.sfr.<id>]` descend D, a copy
+  of the model top filled on the very graph they walk (shared nodes on a quad mesh, shared
+  faces elsewhere), seeded on the domain rim and the constant-head cells, lakes crossed to
+  their spill level. The copy never reaches the solver: `rtp` and the streambed profile keep
+  reading the top. On the cells the generated river network crosses, D follows it (pinned
+  receivers), and a filled flat drains into that channel rather than beside it; no pin is set
+  when the routing DEM carries the burned observed network. `route_drainage` no longer reads
+  the preprocessing D8 pointer nor falls back to a walk on the raw top: it routes the DRN
+  cells of the basin of D, closed on the snapped outlet. Measured on example 21 (aligned 25 m
+  grid, burn off, `fill`): 99.8 % of the catchment DRN cells routed (100 % before), outlet
+  discharge unchanged, 97.9 % of the cells feed the same reach link, 3 of 1455 reaches lose
+  their drainage while 57 reaches receive none against 152. On the Cheze Voronoi mesh the
+  routed share goes from 84 % to 93 %. Stub pruning and the lake-shore test of
+  `rectify_on_mesh` read shared faces, and the streambed profile reports on every call how
+  many reaches it relaxed, one per reach.
 
 ### Fixed
 - `flow_persistence_map`, `flow_intermittence_map`, `seepage_network_reference_overlay` and
@@ -157,6 +172,8 @@ Each release section includes the following standard categories:
   mapped cell on a 25 m Voronoi mesh, because it placed a cell only when its receiver
   already reached the outlet. A TOML that still declares the section is refused.
   `enforce_streams` burns the mapped lines, as before the snap existed.
+- `rectify_on_mesh` no longer requires `[modflow6.sgrid] condition_top = true`: the check that
+  refused it is gone, and nothing else requires a conditioned top.
 
 ---
 

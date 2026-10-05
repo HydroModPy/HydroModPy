@@ -228,9 +228,10 @@ max_bed_sag = "5 m"
 # versant, et il serait jete.
 route_drainage = true
 
-# Laisse a false. `rectify_on_mesh` exigerait `[modflow6.sgrid]
-# condition_top = true`, qui RELEVE le toit du modele. Les activer
-# comparerait deux topographies au lieu de deux conditions limites.
+# Laisse a false. `rectify_on_mesh` retrace le chenal sur la descente D,
+# une copie remplie du toit du modele, et n'exige plus `condition_top`.
+# L'activer change la geometrie du reseau SFR, donc compare deux reseaux
+# au lieu de deux conditions limites.
 rectify_on_mesh = false
 
 [flow.sinks_sources.sfr.nancon.width]

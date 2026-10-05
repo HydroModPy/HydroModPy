@@ -23,6 +23,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.builders.wells import well_cell_to_disv
 
 if TYPE_CHECKING:
+    from hydromodpy.core.descent import Descent
     from hydromodpy.solver.modflow6.builders.sfr import SfrReachRecord
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
@@ -138,6 +139,8 @@ def _rectify_network_on_mesh(
     records: list[SfrReachRecord],
     *,
     solver_mesh: SolverMesh,
+    descent: Descent,
+    face_adjacency: Sequence[set[int]],
     lake_number_of: Mapping[int, int],
     min_slope: float,
     max_stub_upstream: int,
@@ -147,32 +150,21 @@ def _rectify_network_on_mesh(
 ) -> list[SfrReachRecord]:
     """Rectify one network's reach cells on the mesh (SFD channel + stub pruning).
 
-    Builds the mesh face adjacency and the set of boundary cells (a cell touching an
-    inactive neighbour or a mesh edge, where a reach may leave the model), re-derives the
-    single-flow-direction channel, and re-numbers the resulting graph.
+    Re-derives the single-flow-direction channel on the receivers of the descent D,
+    prunes the stubs and tests the lake shores on ``face_adjacency`` (shared faces),
+    reads the streambed top on the solver top, and re-numbers the resulting graph.
     """
     from hydromodpy.solver.modflow6.builders.sfr_rectify import rectify_reach_graph
-    from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
 
     n_cells = int(solver_mesh.n_cells)
-    adjacency = build_planar_cell_adjacency(solver_mesh.planar_mesh, n_cells)
-    idomain = solver_mesh.idomain()
-    nlay = int(solver_mesh.nlay)
-    active0 = idomain[0] > 0
-    boundary_cells = {
-        i
-        for i in range(n_cells)
-        if active0[i] and (len(adjacency[i]) < 3 or any(not active0[j] for j in adjacency[i]))
-    }
     nodes, edges = rectify_reach_graph(
         records,
+        receiver=descent.receiver,
+        face_adjacency=face_adjacency,
         mesh_top=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
-        cell_adjacency=adjacency,
-        cell_centroids=solver_mesh.cell_centroids(),
         lake_cell_to_number=dict(lake_number_of),
-        boundary_cells=boundary_cells,
-        idomain=idomain,
-        nlay=nlay,
+        idomain=solver_mesh.idomain(),
+        nlay=int(solver_mesh.nlay),
         location=location,
         max_stub_upstream=max_stub_upstream,
         min_component_cells=min_component_cells,
