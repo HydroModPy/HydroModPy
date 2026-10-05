@@ -60,7 +60,7 @@ SCAN_ROOTS: tuple[Path, ...] = (HMP_ROOT,)
 # scan that depends on another gate running first is a scan with a hole in it.
 LITERAL_PATTERN = re.compile(r"""(["'])(?:application|image|text|video|audio)/[^"']*\1""")
 
-# The three literals in the package that are not artefact media types, and so
+# The literals in the package that are not artefact media types, and so
 # not the table's business. Each entry is (path suffix, the media type string
 # itself) -- never the surrounding line, so the entry survives a reformat of
 # code this slice does not own. A new literal in the same file still fails.
@@ -74,6 +74,8 @@ ALLOWLIST: tuple[tuple[str, str], ...] = (
     ("cli/commands/dev/manage/server.py", "application/json; charset=utf-8"),
     # The Accept header the GitHub API requires.
     ("physics/hydrology/pyhelp/core/paths.py", "application/vnd.github+json"),
+    # The FORMAT name the Geoplateforme WMS-Raster GetMap request takes.
+    ("data/variables/dem/apis/geoplateforme_wms.py", "image/geotiff"),
 )
 
 # Pinned by hand from hydromodpy/schema/media_types.py (read character by

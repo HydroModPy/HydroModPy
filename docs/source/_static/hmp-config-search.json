@@ -1365,7 +1365,7 @@
     "section": "data",
     "anchor": "data-dem-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L145",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L188",
     "description": "At least one DEM data source."
   },
   {
@@ -1377,7 +1377,7 @@
     "section": "data",
     "anchor": "data-dem-sources-mask-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L35",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L38",
     "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping."
   },
   {
@@ -1389,7 +1389,7 @@
     "section": "data",
     "anchor": "data-dem-sources-extent",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L35",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L38",
     "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
@@ -1401,7 +1401,7 @@
     "section": "data",
     "anchor": "data-dem-sources-force-refresh",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L35",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L38",
     "description": "Ignore cache and re-download from API."
   },
   {
@@ -1413,7 +1413,7 @@
     "section": "data",
     "anchor": "data-dem-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L38",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L41",
     "description": "Discriminator tag selecting the 'custom' DEM provider."
   },
   {
@@ -1425,7 +1425,7 @@
     "section": "data",
     "anchor": "data-dem-sources-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L42",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L45",
     "description": "Path to custom DEM file or directory (TIF, ASC, NC)."
   },
   {
@@ -1437,7 +1437,7 @@
     "section": "data",
     "anchor": "data-dem-sources-departments",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L82",
     "description": "Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox."
   },
   {
@@ -1449,7 +1449,7 @@
     "section": "data",
     "anchor": "data-dem-sources-country",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L82",
     "description": "Country code used for administrative DEM selectors."
   },
   {
@@ -1461,20 +1461,20 @@
     "section": "data",
     "anchor": "data-dem-sources-regions",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L82",
     "description": "Optional French administrative regions used to infer department downloads."
   },
   {
     "path": "data.dem.sources.dataset",
     "name": "dataset",
-    "type": "Literal['bd-alti']",
+    "type": "Literal['bd-alti', 'rge-alti']",
     "profile": "user",
     "stability": "stable",
     "section": "data",
     "anchor": "data-dem-sources-dataset",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L86",
-    "description": "IGN DEM product assembled by the data manager. Only BD ALTI 25 m is currently exposed as an assembled raster source; use the download_dem_fr helper to inspect raw RGE ALTI archives."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L89",
+    "description": "IGN DEM product assembled by the data manager. 'bd-alti' is the 25 m BD ALTI built from the department archives. 'rge-alti' is the RGE ALTI built from Geoplateforme WMS-Raster tiles, 5 m by default, 1 m allowed."
   },
   {
     "path": "data.dem.sources.resolution_m",
@@ -1485,8 +1485,8 @@
     "section": "data",
     "anchor": "data-dem-sources-resolution-m",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L94",
-    "description": "Requested DEM resolution in metres. Defaults are resolved by the manager from the selected dataset."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L97",
+    "description": "DEM pixel size in metres. 'bd-alti' accepts 25 only and defaults to it. 'rge-alti' accepts 1 or 5 and defaults to 5: the 1 m grid is native and, inland, a 5 m request returns its centre pixels unchanged, while the server resamples any other"
   },
   {
     "path": "data.dem.sources.file_format",
@@ -1497,8 +1497,8 @@
     "section": "data",
     "anchor": "data-dem-sources-file-format",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L101",
-    "description": "Requested archive payload format when exposed by Geoplateforme."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L108",
+    "description": "Requested archive payload format when exposed by Geoplateforme. Not used by 'rge-alti', which is a GeoTIFF."
   },
   {
     "path": "data.dem.sources.crs",
@@ -1509,8 +1509,8 @@
     "section": "data",
     "anchor": "data-dem-sources-crs",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L105",
-    "description": "Optional CRS filter forwarded to Geoplateforme discovery."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L115",
+    "description": "Optional CRS filter forwarded to Geoplateforme discovery. Not used by 'rge-alti', which is requested in EPSG:2154."
   },
   {
     "path": "data.geology",

@@ -296,14 +296,25 @@ Operational checks
   departments before download.
 - ``departments`` can be used instead when the required support is known
   explicitly.
-- The assembled product is currently BD ALTI 25 m ASC written as a clipped
-  GeoTIFF in ``data/dem/processed``.
+- ``dataset = "bd-alti"`` assembles the BD ALTI 25 m ASC archives of the
+  departments, written as a clipped GeoTIFF in ``data/dem/processed``.
 - The processed cache is keyed by bbox and departments and accompanied by a
   JSON metadata sidecar. Compatible processed rasters are reused without
   re-downloading raw archives.
-- RGE ALTI discovery/download is available for inspection through the helper,
-  but assembled RGE ALTI rasters are intentionally not enabled yet. Large 1 m
-  or 5 m regional requests need explicit storage and processing guardrails.
+- ``dataset = "rge-alti"`` assembles the RGE ALTI from the Geoplateforme
+  WMS-Raster service, by extent, at 5 m (default) or 1 m (``resolution_m = 1``).
+  No other size is accepted: the server resamples them with an undocumented
+  kernel, whereas inland a 5 m request returns the centre pixels of the native
+  1 m grid unchanged. Water (tidal areas, harbour basins), the cells the product
+  does not cover and the pixels the server blends next to them are nodata; real
+  land below -5 m, such as a quarry floor, is kept. A request above 150 million
+  pixels is refused with its expected size (a 1 m box is limited to about 12 km
+  a side), so 1 m cannot bootstrap a project from its outlet (the box around it
+  is 60 km wide): use 5 m, or give ``[geographic].dem_init_path`` a file. The
+  layer answers outside France with another, coarser source; the JSON sidecar
+  counts the valid pixels outside the department outlines buffered by 1 km and a
+  warning is logged above 1 %. ``departments``, ``regions``, ``file_format`` and
+  ``crs`` do not apply to this dataset.
 
 Cache layout
 """"""""""""
@@ -321,6 +332,8 @@ processed GeoTIFFs:
      processed/
        dem_ign_geoplateforme_bdalti_25m_<hash>.tif
        dem_ign_geoplateforme_bdalti_25m_<hash>.json
+       dem_ign_geoplateforme_rgealti_5m_<hash>.tif
+       dem_ign_geoplateforme_rgealti_5m_<hash>.json
 
 For ``site_selection`` review maps, use BD ALTI 25 m as the default regional
 background. Reference hydrography such as BD Topage may be used to constrain
@@ -395,7 +408,8 @@ The helper stores raw archives by dataset, resolution, and department:
          D029/
            BDALTIV2_...D029....7z
 
-For regional ``site_selection`` review maps, BD ALTI 25 m is the assembled DEM
-source exposed by the data manager. RGE ALTI 5 m or 1 m is available only as
-raw archive inspection/download through the helper until storage and assembly
-guardrails are defined explicitly.
+For regional ``site_selection`` review maps, BD ALTI 25 m is the default
+assembled DEM. RGE ALTI 5 m or 1 m is also assembled by the data manager, from
+WMS-Raster by extent (see the operational checks above); the helper only
+inspects and downloads the raw RGE ALTI department archives, which are not
+needed for that.

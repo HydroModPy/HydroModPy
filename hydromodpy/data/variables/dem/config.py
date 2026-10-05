@@ -12,6 +12,9 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 
+RGE_ALTI_RESOLUTIONS_M = (1.0, 5.0)
+"""Pixel sizes of the RGE ALTI that the WMS-Raster serves as the product itself."""
+
 
 class _DemSourceBase(HydroModelBase):
     """Shared fields for DEM data sources."""
@@ -77,35 +80,70 @@ class _FrenchAdministrativeDemSource(_DemSourceBase):
 
 
 class IgnGeoplateformeDemSource(_FrenchAdministrativeDemSource):
-    """Recommended IGN DEM source assembled from Geoplateforme archives."""
+    """Recommended IGN DEM source: BD ALTI from archives, RGE ALTI from WMS-Raster."""
 
     source: Annotated[Literal["ign_geoplateforme_dem"], Profile.USER] = Field(
         default="ign_geoplateforme_dem",
         description="Discriminator tag selecting the IGN Geoplateforme DEM provider.",
     )
-    dataset: Annotated[Literal["bd-alti"], Profile.USER] = Field(
+    dataset: Annotated[Literal["bd-alti", "rge-alti"], Profile.USER] = Field(
         default="bd-alti",
         description=(
-            "IGN DEM product assembled by the data manager. Only BD ALTI 25 m "
-            "is currently exposed as an assembled raster source; use the "
-            "download_dem_fr helper to inspect raw RGE ALTI archives."
+            "IGN DEM product assembled by the data manager. 'bd-alti' is the 25 m "
+            "BD ALTI built from the department archives. 'rge-alti' is the RGE ALTI "
+            "built from Geoplateforme WMS-Raster tiles, 5 m by default, 1 m allowed."
         ),
     )
     resolution_m: Annotated[float | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Requested DEM resolution in metres. Defaults are resolved by the manager "
-            "from the selected dataset."
+            "DEM pixel size in metres. 'bd-alti' accepts 25 only and defaults to it. "
+            "'rge-alti' accepts 1 or 5 and defaults to 5: the 1 m grid is native and, "
+            "inland, a 5 m request returns its centre pixels unchanged, while the server "
+            "resamples any other size with an undocumented kernel. A request above 150 "
+            "million pixels is refused (a 1 m box is limited to about 12 km a side), so 1 m "
+            "cannot bootstrap a project from its outlet: give dem_init_path a file or use 5 m."
         ),
     )
     file_format: Annotated[str, Profile.USER] = Field(
         default="ASC",
-        description="Requested archive payload format when exposed by Geoplateforme.",
+        description=(
+            "Requested archive payload format when exposed by Geoplateforme. "
+            "Not used by 'rge-alti', which is a GeoTIFF."
+        ),
     )
     crs: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Optional CRS filter forwarded to Geoplateforme discovery.",
+        description=(
+            "Optional CRS filter forwarded to Geoplateforme discovery. "
+            "Not used by 'rge-alti', which is requested in EPSG:2154."
+        ),
     )
+
+    @model_validator(mode="after")
+    def _check_dataset_options(self) -> IgnGeoplateformeDemSource:
+        if self.dataset == "bd-alti":
+            if self.resolution_m not in (None, 25.0):
+                raise ValueError("dataset 'bd-alti' is served at 25 m only.")
+            return self
+        if self.resolution_m not in (None, *RGE_ALTI_RESOLUTIONS_M):
+            raise ValueError("dataset 'rge-alti' is served at 1 m or 5 m only.")
+        unused = [
+            name
+            for name, used in (
+                ("departments", bool(self.departments)),
+                ("regions", bool(self.regions)),
+                ("file_format", self.file_format.upper() != "ASC"),
+                ("crs", self.crs not in (None, "EPSG:2154")),
+            )
+            if used
+        ]
+        if unused:
+            raise ValueError(
+                f"dataset 'rge-alti' is fetched by extent from WMS-Raster; "
+                f"{', '.join(unused)} do not apply to it."
+            )
+        return self
 
 
 DemSourceConfig: TypeAlias = Annotated[
@@ -115,7 +153,7 @@ DemSourceConfig: TypeAlias = Annotated[
         description=(
             "Discriminated union of DEM data sources tagged by the 'source' provider key. "
             "Use 'custom' for a user file (TIF/ASC/NC) and "
-            "'ign_geoplateforme_dem' for assembled BD ALTI DEM retrieval."
+            "'ign_geoplateforme_dem' for assembled BD ALTI or RGE ALTI retrieval."
         ),
     ),
 ]
@@ -136,6 +174,11 @@ class DemConfig(HydroModelBase):
         dataset = "bd-alti"
         resolution_m = 25.0
         regions = ["Bretagne"]
+
+        [[data.dem.sources]]
+        source = "ign_geoplateforme_dem"
+        dataset = "rge-alti"
+        resolution_m = 5.0
 
         [[data.dem.sources]]
         source = "custom"

@@ -55,6 +55,13 @@ class TestDataSourceUnion:
             id="dem_ign_geoplateforme",
         ),
         pytest.param(
+            DemSourceConfig,
+            {"source": "ign_geoplateforme_dem", "dataset": "rge-alti", "resolution_m": 5.0},
+            IgnGeoplateformeDemSource,
+            {"source": "ign_geoplateforme_dem", "dataset": "rge-alti"},
+            id="dem_ign_geoplateforme_rge_alti",
+        ),
+        pytest.param(
             GeologySourceConfig,
             {"source": "brgm_1m"},
             BrgmGeology1mSource,
@@ -89,8 +96,8 @@ class TestDataSourceUnion:
         ),
         pytest.param(
             DemSourceConfig,
-            {"source": "ign_geoplateforme_dem", "dataset": "rge-alti"},
-            id="dem_geoplateforme_rge_alti_dataset_rejected",
+            {"source": "ign_geoplateforme_dem", "dataset": "rge-alti", "resolution_m": 25.0},
+            id="dem_geoplateforme_rge_alti_25m_rejected",
         ),
     ]
 

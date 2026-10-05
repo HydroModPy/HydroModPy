@@ -191,18 +191,6 @@ def test_mask_sea_drops_the_zero_plateau_on_the_edge_and_keeps_an_inland_one():
 
 
 @pytest.mark.fast
-def test_fetch_ign_dem_raster_assembly_rejects_rge_alti_until_supported(tmp_path):
-    with pytest.raises(NotImplementedError, match="RGE ALTI raster assembly"):
-        fetch_ign_dem(
-            output_dir=tmp_path,
-            bbox=(0.0, 0.0, 1.0, 1.0),
-            departments=["29"],
-            dataset="rge-alti",
-            resolution_m=5.0,
-        )
-
-
-@pytest.mark.fast
 def test_fetch_ign_dem_assembles_small_asc_fixture(tmp_path, monkeypatch):
     rasterio = pytest.importorskip("rasterio")
 

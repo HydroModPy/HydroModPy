@@ -91,8 +91,13 @@ class DemManager(SourceTable):
         output_dir = self.data_dir or (_hmp_cache_dir() / "dem")
         dataset = str(getattr(source_cfg, "dataset", "bd-alti") or "bd-alti")
         resolution_m = _resolution_for_ign_geoplateforme(source_cfg)
-        file_format = str(getattr(source_cfg, "file_format", "ASC") or "ASC").upper()
-        department_codes = _department_codes_for_french_dem_source(source_cfg)
+        if dataset == "rge-alti":
+            # Fetched by extent from WMS-Raster: no archive, no department.
+            file_format = "GEOTIFF"
+            department_codes = None
+        else:
+            file_format = str(getattr(source_cfg, "file_format", "ASC") or "ASC").upper()
+            department_codes = _department_codes_for_french_dem_source(source_cfg)
 
         tif_path = fetch_ign_dem(
             output_dir=output_dir,
@@ -192,4 +197,10 @@ def _resolution_for_ign_geoplateforme(source_cfg: Any) -> float:
     dataset = str(getattr(source_cfg, "dataset", "bd-alti") or "bd-alti")
     if dataset == "bd-alti":
         return 25.0
+    if dataset == "rge-alti":
+        from hydromodpy.data.variables.dem.apis.ign_dem_fr import (
+            RGE_ALTI_DEFAULT_RESOLUTION_M,
+        )
+
+        return RGE_ALTI_DEFAULT_RESOLUTION_M
     raise ValueError(f"Unsupported assembled IGN DEM dataset: {dataset!r}")

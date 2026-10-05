@@ -273,7 +273,7 @@ Fields
               <code class="hmp-field-toml">[[data.dem.sources]]</code>
             </div>
 
-         :bdg-primary:`source = "custom" | "ign_geoplateforme_dem"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L145>`__
+         :bdg-primary:`source = "custom" | "ign_geoplateforme_dem"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L188>`__
 
             At least one DEM data source.
 
@@ -296,7 +296,7 @@ Fields
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
-                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L35>`__
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L38>`__
 
                         SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
 
@@ -310,7 +310,7 @@ Fields
                           <code class="hmp-field-name">extent</code>
                         </div>
 
-                     :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L35>`__
+                     :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L38>`__
 
                         Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
 
@@ -328,7 +328,7 @@ Fields
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L35>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L38>`__
 
                         Ignore cache and re-download from API.
 
@@ -342,7 +342,7 @@ Fields
                           <code class="hmp-field-name">path</code>
                         </div>
 
-                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L42>`__
+                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L45>`__
 
                         Path to custom DEM file or directory (TIF, ASC, NC).
 
@@ -362,7 +362,7 @@ Fields
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
-                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L79>`__
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L82>`__
 
                         SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
 
@@ -375,7 +375,7 @@ Fields
                           <code class="hmp-field-name">extent</code>
                         </div>
 
-                     :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L79>`__
+                     :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L82>`__
 
                         Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it.
 
@@ -392,7 +392,7 @@ Fields
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L79>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L82>`__
 
                         Ignore cache and re-download from API.
 
@@ -408,7 +408,7 @@ Fields
                           <code class="hmp-field-name">departments</code>
                         </div>
 
-                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L79>`__
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L82>`__
 
                         Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox.
 
@@ -424,7 +424,7 @@ Fields
                           <code class="hmp-field-name">country</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "FR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L79>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "FR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L82>`__
 
                         Country code used for administrative DEM selectors.
 
@@ -440,7 +440,7 @@ Fields
                           <code class="hmp-field-name">regions</code>
                         </div>
 
-                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L79>`__
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L82>`__
 
                         Optional French administrative regions used to infer department downloads.
 
@@ -456,9 +456,13 @@ Fields
                           <code class="hmp-field-name">dataset</code>
                         </div>
 
-                     :bdg-primary:`Literal['bd-alti']` :bdg-secondary:`default = "bd-alti"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L86>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "bd-alti"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L89>`__
 
-                        IGN DEM product assembled by the data manager. Only BD ALTI 25 m is currently exposed as an assembled raster source; use the download_dem_fr helper to inspect raw RGE ALTI archives.
+                        IGN DEM product assembled by the data manager. 'bd-alti' is the 25 m BD ALTI built from the department archives. 'rge-alti' is the RGE ALTI built from Geoplateforme WMS-Raster tiles, 5 m by default, 1 m allowed.
+
+                     .. rst-class:: hmp-field-values
+
+                     **One of:** ``"bd-alti"`` ``"rge-alti"``
 
 
                   .. index:: ! resolution_m
@@ -472,9 +476,9 @@ Fields
                           <code class="hmp-field-name">resolution_m</code>
                         </div>
 
-                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L94>`__
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L97>`__
 
-                        Requested DEM resolution in metres. Defaults are resolved by the manager from the selected dataset.
+                        DEM pixel size in metres. 'bd-alti' accepts 25 only and defaults to it. 'rge-alti' accepts 1 or 5 and defaults to 5: the 1 m grid is native and, inland, a 5 m request returns its centre pixels unchanged, while the server resamples any other size with an undocumented kernel. A request above 150 million pixels is refused (a 1 m box is limited to about 12 km a side), so 1 m cannot bootstrap a project from its outlet: give dem_init_path a file or use 5 m.
 
 
                   .. index:: ! file_format
@@ -488,9 +492,9 @@ Fields
                           <code class="hmp-field-name">file_format</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "ASC"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L101>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "ASC"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L108>`__
 
-                        Requested archive payload format when exposed by Geoplateforme.
+                        Requested archive payload format when exposed by Geoplateforme. Not used by 'rge-alti', which is a GeoTIFF.
 
 
                   .. index:: ! crs
@@ -504,9 +508,9 @@ Fields
                           <code class="hmp-field-name">crs</code>
                         </div>
 
-                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L105>`__
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L115>`__
 
-                        Optional CRS filter forwarded to Geoplateforme discovery.
+                        Optional CRS filter forwarded to Geoplateforme discovery. Not used by 'rge-alti', which is requested in EPSG:2154.
 
 
 

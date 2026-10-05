@@ -1,7 +1,9 @@
 """French IGN DEM archive discovery through Geoplateforme.
 
-``fetch_ign_dem`` downloads the BD ALTI archives of the departments an extent
-in Lambert-93 touches, extracts them, and merges the tiles into one GeoTIFF.
+``fetch_ign_dem`` builds one GeoTIFF from an extent in Lambert-93. BD ALTI 25 m
+comes from the department archives, which are downloaded, extracted and merged.
+RGE ALTI (1 m or 5 m) comes from the WMS-Raster service, tile by tile, because
+its archives are fragmented and far too large to fetch for a catchment.
 """
 
 from __future__ import annotations
@@ -19,6 +21,8 @@ from filelock import FileLock
 
 from hydromodpy.core import progress
 from hydromodpy.core.io.atomic_replace import staged_path
+from hydromodpy.core.logging import get_logger
+from hydromodpy.data.variables.dem.apis import geoplateforme_wms as wms
 from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
     DiscoveryFilters,
     DownloadFile,
@@ -29,6 +33,9 @@ from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
     list_files,
     list_subresources,
 )
+from hydromodpy.data.variables.dem.config import RGE_ALTI_RESOLUTIONS_M
+
+logger = get_logger(__name__)
 
 IgnDemDataset = Literal["bd-alti", "rge-alti"]
 
@@ -36,6 +43,39 @@ DATASET_RESOURCE_NAMES: dict[str, str] = {
     "bd-alti": "BDALTI",
     "rge-alti": "RGEALTI",
 }
+
+RGE_ALTI_WMS_LAYER = "ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES"
+# Resolutions come from config.RGE_ALTI_RESOLUTIONS_M. The 1 m grid is the native
+# one. Inland, a 5 m request returns, bit for bit, the 1 m value of the pixel that
+# holds the 5 m pixel centre (measured 2026-10-05 on a 200 m window, 40 x 40 pixels,
+# maximum difference 0.0). Next to water and nodata the server blends, so a few
+# pixels differ there (see ``mask_rge_alti``). Any other size is resampled by the
+# server with a kernel that is neither that pick nor the block mean (2 m to 25 m
+# differed from both by 0.3 to 1.6 m over the same window), so it is refused.
+RGE_ALTI_WATER_M = -5.0
+# The product writes tidal water and harbour basins as a flat -5 m, which is not a
+# terrain height. The server also blends its -99999 nodata into the land next to
+# it, giving values far below -5. Real land below -5 m exists (quarries, pits), so
+# the mask follows the water and the nodata, never a global threshold.
+RGE_ALTI_BLEND_REACH_PX = 3
+"""How far from nodata or water the server's blend of nodata reaches, in pixels."""
+RGE_ALTI_PROCESSING_VERSION = "rge_alti_mask_v2"
+"""Part of the cache request: a raster masked by an older rule is not reused."""
+RGE_ALTI_BORDER_BUFFER_M = 1000.0
+"""Department outlines stop short of the shore; this keeps the coast inside them."""
+RGE_ALTI_FOREIGN_WARN_SHARE = 0.01
+_MASK_HALO_PX = RGE_ALTI_BLEND_REACH_PX + 1
+_STRIP_ROWS = 1024
+RGE_ALTI_DEFAULT_RESOLUTION_M = 5.0
+RGE_ALTI_MAX_PIXELS = 150_000_000
+"""Largest raster a request may assemble.
+
+At 4 bytes a pixel this is 600 MB before compression, about 25 tiles of 2500 x 2500
+pixels and a few minutes of download (7 s for 25 million pixels was measured). It
+lets the 60 km bootstrap box of the geographic pipeline through at 5 m (144 million
+pixels) and stops a 1 m request above about 12 km a side (a 30 km box at 1 m is 900
+million pixels, 3.6 GB), which no later step could route or mesh anyway.
+"""
 
 
 def normalize_department_code(value: str) -> str:
@@ -172,34 +212,31 @@ def fetch_ign_dem(
     requests_per_second: float = 8.0,
     session: requests.Session | None = None,
 ) -> Path:
-    """Download, extract, merge, and crop an IGN DEM product.
+    """Build one GeoTIFF of an IGN DEM product over ``bbox`` (EPSG:2154).
 
-    The production assembly path currently supports BD ALTI 25 m ASC. RGE ALTI
-    discovery/download is available through ``download_ign_dem_departments`` but
-    its raster assembly is intentionally left explicit until fragmented archives
-    and large 1 m/5 m requests are handled safely.
+    ``bd-alti`` (25 m, ASC) downloads, extracts and merges the department
+    archives. ``rge-alti`` (1 m or 5 m, 5 m by default; inland, 5 m is the 1 m
+    centre pixel unchanged) is assembled from WMS-Raster tiles, see ``fetch_rge_alti``; ``departments``, ``file_format``
+    and ``crs`` do not apply to it.
     """
 
     normalized_dataset = _normalize_dataset(dataset)
     normalized_format = file_format.upper()
-    resolved_resolution = (
-        25.0 if resolution_m is None and normalized_dataset == "bd-alti" else resolution_m
-    )
     if normalized_dataset == "rge-alti":
-        raise NotImplementedError(
-            "RGE ALTI raster assembly is not implemented in fetch_ign_dem yet. "
-            "Use download_ign_dem_departments(..., dataset='rge-alti', dry_run=True) "
-            "to inspect raw archives, or request BD ALTI 25 m ASC for assembled GeoTIFFs."
+        return fetch_rge_alti(
+            output_dir=output_dir,
+            bbox=bbox,
+            resolution_m=resolution_m,
+            force_refresh=force_refresh,
+            timeout=timeout,
+            requests_per_second=requests_per_second,
+            session=session,
         )
-    if (
-        normalized_dataset != "bd-alti"
-        or float(resolved_resolution or 0.0) != 25.0
-        or normalized_format != "ASC"
-    ):
+    resolved_resolution = 25.0 if resolution_m is None else resolution_m
+    if float(resolved_resolution) != 25.0 or normalized_format != "ASC":
         raise NotImplementedError(
-            "DEM raster assembly through ign_geoplateforme_dem currently supports "
-            "only dataset='bd-alti', resolution_m=25, file_format='ASC'. "
-            "Use the CLI/download helper for raw RGE ALTI archives."
+            "BD ALTI assembly through ign_geoplateforme_dem supports only "
+            "resolution_m=25 and file_format='ASC'."
         )
 
     from hydromodpy.data.variables.dem.apis._bdalti_archive_index import (
@@ -331,6 +368,275 @@ def fetch_ign_dem(
         archive_paths=archive_paths,
     )
     return merged_tif
+
+
+def fetch_rge_alti(
+    *,
+    output_dir: str | Path,
+    bbox: tuple[float, float, float, float],
+    resolution_m: float | None = None,
+    max_pixels: int = RGE_ALTI_MAX_PIXELS,
+    tile_px: int = wms.DEFAULT_TILE_PX,
+    force_refresh: bool = False,
+    timeout: float = 120.0,
+    requests_per_second: float = 8.0,
+    session: requests.Session | None = None,
+) -> Path:
+    """Assemble the RGE ALTI over ``bbox`` from Geoplateforme WMS-Raster tiles.
+
+    The box grows outward to multiples of the resolution so that the pixels sit
+    on the native grid. Water and the cells the product does not cover are nodata
+    (-9999), see ``mask_rge_alti``. Asking the service for a size other than 1 m
+    or 5 m is an error: the server resamples it with an undocumented kernel, see
+    ``RGE_ALTI_RESOLUTIONS_M``.
+
+    The layer answers outside France as well, with another, coarser source and
+    no nodata. A box that touches no department is refused. A box that overlaps a
+    border is built, and the sidecar counts the valid pixels outside the
+    department outlines buffered by 1 km (a warning above 1 %): they are not
+    masked.
+
+    A request above ``max_pixels`` raises ``ValueError`` before any download.
+    The tiles go to a raw raster as they arrive, so memory holds one tile; a
+    second pass masks it by strips of rows, with a halo so that the rule sees
+    across tile edges. The result is cached by box, dataset, resolution and
+    processing version.
+    """
+
+    from hydromodpy.data.variables.dem.apis._bdalti_archive_index import _request_hash_str
+    from hydromodpy.spatial.administrative.france import find_departments_in_bbox
+
+    resolution = RGE_ALTI_DEFAULT_RESOLUTION_M if resolution_m is None else float(resolution_m)
+    if resolution not in RGE_ALTI_RESOLUTIONS_M:
+        allowed = ", ".join(f"{value:g}" for value in RGE_ALTI_RESOLUTIONS_M)
+        raise ValueError(
+            f"RGE ALTI is served at {allowed} m only, got resolution_m={resolution:g}."
+        )
+    snapped = wms.snap_bbox(bbox, resolution)
+    rows, cols = wms.grid_shape(snapped, resolution)
+    if rows <= 0 or cols <= 0:
+        raise ValueError(f"Empty RGE ALTI request: bbox {tuple(bbox)}.")
+    if rows * cols > max_pixels:
+        advice = "Reduce the extent"
+        if resolution == 1.0:
+            advice += " or use resolution_m = 5"
+        raise ValueError(
+            f"RGE ALTI request of {cols} x {rows} pixels ({rows * cols / 1e6:.0f} million, "
+            f"{rows * cols * 4 / 1e9:.1f} GB as float32) at {resolution:g} m over "
+            f"{(snapped[2] - snapped[0]) / 1000:.1f} x {(snapped[3] - snapped[1]) / 1000:.1f} km "
+            f"is above the limit of {max_pixels / 1e6:.0f} million pixels. {advice}."
+        )
+    if not find_departments_in_bbox(bbox):
+        raise ValueError(
+            f"No department found overlapping bbox {tuple(bbox)}. "
+            "Ensure the bbox is in EPSG:2154 (Lambert-93)."
+        )
+
+    processed_dir = Path(output_dir) / "processed"
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    merged_tif = (
+        processed_dir
+        / f"dem_ign_geoplateforme_rgealti_{_resolution_label(resolution)}_{_request_hash_str(bbox)}.tif"
+    )
+    cache_request = _processed_cache_request(
+        bbox=bbox,
+        departments=[],
+        dataset="rge-alti",
+        resolution_m=resolution,
+        file_format="GEOTIFF",
+        crs=None,
+        processing_version=RGE_ALTI_PROCESSING_VERSION,
+    )
+    metadata_path = _processed_metadata_path(merged_tif)
+    if not force_refresh and _processed_cache_is_usable(
+        merged_tif, metadata_path=metadata_path, request=cache_request
+    ):
+        return merged_tif
+
+    import tempfile
+
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+    from rasterio.windows import Window
+
+    tiles = list(wms.plan_tiles(snapped, resolution, tile_px=tile_px))
+    limiter = RateLimiter(requests_per_second=requests_per_second)
+    profile = {
+        "driver": "GTiff",
+        "height": rows,
+        "width": cols,
+        "count": 1,
+        "transform": from_origin(snapped[0], snapped[3], resolution, resolution),
+        "crs": "EPSG:2154",
+        "dtype": "float32",
+        "nodata": -9999,
+        "compress": "deflate",
+        "predictor": 3,
+        "tiled": True,
+        "blockxsize": 256,
+        "blockysize": 256,
+    }
+    with tempfile.TemporaryDirectory(prefix=".rge_raw_", dir=processed_dir) as scratch:
+        raw_path = Path(scratch) / "raw.tif"
+        with rasterio.open(str(raw_path), "w", **profile) as raw:
+            for tile in progress.track(tiles, "Fetching RGE ALTI tiles"):
+                data = wms.fetch_tile(
+                    RGE_ALTI_WMS_LAYER,
+                    tile,
+                    session=session,
+                    timeout=timeout,
+                    rate_limiter=limiter,
+                )
+                raw.write(
+                    np.where(np.isfinite(data), data, -9999.0).astype("float32"),
+                    1,
+                    window=Window(tile.col_off, tile.row_off, tile.width, tile.height),
+                )
+        departments = find_departments_in_bbox(
+            (
+                snapped[0] - RGE_ALTI_BORDER_BUFFER_M,
+                snapped[1] - RGE_ALTI_BORDER_BUFFER_M,
+                snapped[2] + RGE_ALTI_BORDER_BUFFER_M,
+                snapped[3] + RGE_ALTI_BORDER_BUFFER_M,
+            )
+        )
+        with (
+            staged_path(merged_tif) as staged,
+            rasterio.open(str(raw_path)) as raw,
+            rasterio.open(str(staged), "w", **profile) as dst,
+        ):
+            valid_pixels, foreign_pixels = _mask_raster_by_strips(
+                raw, dst, snapped=snapped, resolution=resolution, departments=departments
+            )
+            if valid_pixels == 0:
+                raise ValueError(
+                    f"RGE ALTI holds no elevation over bbox {tuple(bbox)} (sea or no coverage)."
+                )
+    foreign_share = foreign_pixels / valid_pixels
+    if foreign_share > RGE_ALTI_FOREIGN_WARN_SHARE:
+        logger.warning(
+            "RGE ALTI box %s: %.1f %% of the valid pixels lie outside the French department "
+            "outlines (buffered by %.0f m), where the layer serves another source. "
+            "They are kept as the server answered.",
+            tuple(bbox),
+            100.0 * foreign_share,
+            RGE_ALTI_BORDER_BUFFER_M,
+        )
+    _write_processed_cache_metadata(
+        metadata_path,
+        request=cache_request,
+        raster_path=merged_tif,
+        archive_paths=[],
+        wms_source={
+            "layer": RGE_ALTI_WMS_LAYER,
+            "url": wms.WMS_URL,
+            "tiles": len(tiles),
+            "tile_px": tile_px,
+            "snapped_bbox": list(snapped),
+            "valid_pixels": valid_pixels,
+            "outside_france_pixels": foreign_pixels,
+            "outside_france_share": foreign_share,
+            "outside_france_buffer_m": RGE_ALTI_BORDER_BUFFER_M,
+        },
+    )
+    return merged_tif
+
+
+def mask_rge_alti(data):
+    """Return ``data`` with the RGE ALTI water, nodata and blend set to NaN.
+
+    ``data`` holds the server nodata as NaN. Masked are:
+
+    - the nodata itself;
+    - the flat water plateau, ``abs(v + 5) < 0.005``;
+    - the values below -5.01 m within ``RGE_ALTI_BLEND_REACH_PX`` pixels of
+      either: the server blends its -99999 into the neighbouring land there;
+    - the land pixels 8-adjacent to that blend band, whose weight of nodata is
+      too small to push them below -5.01 m but still biases them low.
+
+    Land below -5 m far from water and nodata (a quarry floor) is kept. The rule
+    looks ``RGE_ALTI_BLEND_REACH_PX + 1`` pixels around a pixel; a caller that
+    cuts the raster must keep that halo.
+    """
+
+    import numpy as np
+    from scipy import ndimage
+
+    values = np.asarray(data, dtype="float32")
+    with np.errstate(invalid="ignore"):
+        seed = np.isnan(values) | (np.abs(values - RGE_ALTI_WATER_M) < 0.005)
+        near = ndimage.binary_dilation(
+            seed, structure=np.ones((3, 3), dtype=bool), iterations=RGE_ALTI_BLEND_REACH_PX
+        )
+        blend = near & (values < RGE_ALTI_WATER_M - 0.01)
+    rim = ndimage.binary_dilation(blend, structure=np.ones((3, 3), dtype=bool))
+    masked = values.copy()
+    masked[seed | blend | rim] = np.nan
+    return masked
+
+
+def _mask_raster_by_strips(
+    raw,
+    dst,
+    *,
+    snapped: tuple[float, float, float, float],
+    resolution: float,
+    departments: Sequence[str],
+) -> tuple[int, int]:
+    """Mask ``raw`` into ``dst`` strip by strip; return valid and foreign pixel counts.
+
+    Each strip is read with a halo of ``_MASK_HALO_PX`` rows, so the rule of
+    ``mask_rge_alti`` sees across the strip seams as it does across tile edges.
+    A pixel is foreign when it is valid and outside the department outlines
+    buffered by ``RGE_ALTI_BORDER_BUFFER_M``.
+    """
+
+    import numpy as np
+    from rasterio.features import rasterize
+    from rasterio.transform import from_origin
+    from rasterio.windows import Window
+    from shapely.geometry import box
+
+    from hydromodpy.spatial.administrative.france import geometry_for_departments
+
+    rows, cols = raw.height, raw.width
+    outline = None
+    if departments:
+        outline = geometry_for_departments(departments).buffer(RGE_ALTI_BORDER_BUFFER_M)
+        outline = outline.intersection(box(*snapped))
+        if outline.is_empty:
+            outline = None
+    valid_pixels = 0
+    foreign_pixels = 0
+    for row0 in range(0, rows, _STRIP_ROWS):
+        row1 = min(rows, row0 + _STRIP_ROWS)
+        first = max(0, row0 - _MASK_HALO_PX)
+        last = min(rows, row1 + _MASK_HALO_PX)
+        block = raw.read(1, window=Window(0, first, cols, last - first))
+        block[block <= -9990.0] = np.nan
+        core = mask_rge_alti(block)[row0 - first : row1 - first]
+        valid = np.isfinite(core)
+        dst.write(
+            np.where(valid, core, -9999.0).astype("float32"),
+            1,
+            window=Window(0, row0, cols, row1 - row0),
+        )
+        valid_pixels += int(valid.sum())
+        if outline is None:
+            foreign_pixels += int(valid.sum())
+            continue
+        inside = rasterize(
+            [(outline, 1)],
+            out_shape=core.shape,
+            transform=from_origin(
+                snapped[0], snapped[3] - row0 * resolution, resolution, resolution
+            ),
+            fill=0,
+            dtype="uint8",
+        ).astype(bool)
+        foreign_pixels += int((valid & ~inside).sum())
+    return valid_pixels, foreign_pixels
 
 
 def _discover_department_files(
@@ -565,8 +871,9 @@ def _processed_cache_request(
     resolution_m: float,
     file_format: str,
     crs: str | None,
+    processing_version: str | None = None,
 ) -> dict[str, object]:
-    return {
+    request: dict[str, object] = {
         "schema_version": "ign_geoplateforme_dem_processed_v2",
         "dataset": dataset,
         "resolution_m": float(resolution_m),
@@ -575,6 +882,11 @@ def _processed_cache_request(
         "bbox": [float(value) for value in bbox],
         "departments": list(departments),
     }
+    if processing_version is not None:
+        # Only a product whose masking rule changes carries one: the BD ALTI
+        # requests, and the rasters cached for them, stay as they were.
+        request["processing_version"] = processing_version
+    return request
 
 
 def _processed_cache_is_usable(
@@ -647,6 +959,7 @@ def _write_processed_cache_metadata(
     raster_path: Path,
     archive_paths: Sequence[Path],
     adopted_unversioned_cache: bool = False,
+    wms_source: Mapping[str, object] | None = None,
 ) -> None:
     metadata = {
         "request": request,
@@ -664,6 +977,8 @@ def _write_processed_cache_metadata(
         "adopted_unversioned_cache": adopted_unversioned_cache,
         "created_at_utc": datetime.now(UTC).isoformat(),
     }
+    if wms_source is not None:
+        metadata["wms"] = dict(wms_source)
     with staged_path(metadata_path) as staged:
         staged.write_text(
             json.dumps(metadata, indent=2, ensure_ascii=True, sort_keys=True) + "\n",
@@ -676,5 +991,6 @@ __all__ = [
     "discover_ign_dem_files",
     "download_ign_dem_departments",
     "fetch_ign_dem",
+    "fetch_rge_alti",
     "normalize_department_code",
 ]

@@ -109,7 +109,7 @@ def fetch_atom_entries(
 ) -> list[AtomEntry]:
     """Fetch all Atom entries from a paginated Geoplateforme endpoint."""
 
-    http = session or _default_session()
+    http = session or default_session()
     clean_params = {key: value for key, value in (params or {}).items() if value not in (None, "")}
     page = int(clean_params.pop("page", 1) or 1)
     limit = int(clean_params.get("limit", 50) or 50)
@@ -120,7 +120,7 @@ def fetch_atom_entries(
     total_entries: int | None = None
     while True:
         request_params = {**clean_params, "page": page}
-        response = _request_with_retries(
+        response = request_with_retries(
             http,
             url,
             params=request_params,
@@ -250,8 +250,8 @@ def download_file(
         partial = target.with_name(f"{target.name}.part")
         existing_size = partial.stat().st_size if partial.exists() and not overwrite else 0
         headers = {"Range": f"bytes={existing_size}-"} if existing_size else None
-        http = session or _default_session()
-        response = _request_with_retries(
+        http = session or default_session()
+        response = request_with_retries(
             http,
             file.url,
             timeout=timeout,
@@ -283,13 +283,13 @@ def build_download_url(resource_name: str, subresource_name: str, file_name: str
     )
 
 
-def _default_session() -> requests.Session:
+def default_session() -> requests.Session:
     session = requests.Session()
     session.headers.update({"User-Agent": DEFAULT_USER_AGENT})
     return session
 
 
-def _request_with_retries(
+def request_with_retries(
     session: requests.Session,
     url: str,
     *,
@@ -458,10 +458,12 @@ __all__ = [
     "GeoPlateformeDownloadError",
     "RateLimiter",
     "build_download_url",
+    "default_session",
     "download_file",
     "fetch_atom_entries",
     "find_resources",
     "list_files",
     "list_subresources",
     "parse_atom_entries",
+    "request_with_retries",
 ]

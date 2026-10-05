@@ -11,7 +11,9 @@ Resolution order for a single source:
 
 - ``source = "custom"`` resolves ``path`` against the TOML directory.
 - ``source = "ign_geoplateforme_dem"`` uses the IGN Geoplateforme DEM client
-  with an outlet-buffer bootstrap bbox.
+  with an outlet-buffer bootstrap bbox. The box is 60 km wide, which is 144 million
+  pixels for ``rge-alti`` at 5 m (just under the size guard). ``rge-alti`` at 1 m is
+  refused here, before any request: that box would be billions of pixels.
 
 The first source that yields a usable path wins.
 """
@@ -102,12 +104,23 @@ def _bootstrap_api_source(
 
     from hydromodpy.data.variables.dem.apis.ign_dem_fr import fetch_ign_dem
 
+    dataset = getattr(source_cfg, "dataset", "bd-alti")
+    resolution_m = getattr(source_cfg, "resolution_m", None)
+    if dataset == "rge-alti" and resolution_m is not None and float(resolution_m) == 1.0:
+        raise ValueError(
+            "[data.dem] rge-alti at resolution_m = 1 cannot bootstrap the project: the "
+            f"{2 * _BOOTSTRAP_BUFFER_M / 1000:.0f} km box around the outlet would need "
+            "billions of pixels. The 1 m grid is for an explicit extent (the "
+            "fetch_rge_alti helper or `hmp data get`). Use resolution_m = 5, or give "
+            "[geographic].dem_init_path a file."
+        )
+
     return fetch_ign_dem(
         output_dir=output_dir,
         bbox=bbox,
         departments=getattr(source_cfg, "departments", None) or None,
-        dataset=getattr(source_cfg, "dataset", "bd-alti"),
-        resolution_m=getattr(source_cfg, "resolution_m", None),
+        dataset=dataset,
+        resolution_m=resolution_m,
         file_format=getattr(source_cfg, "file_format", "ASC"),
         crs=getattr(source_cfg, "crs", None),
         force_refresh=bool(getattr(source_cfg, "force_refresh", False)),

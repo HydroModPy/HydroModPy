@@ -156,6 +156,16 @@ Each release section includes the following standard categories:
   `[[data.crossings.sources]]` even with the notch off, so declared weirs and dams cut it. The
   notch writes its own footprint (`dem_ground_notch_footprint.tif`), the gaps of the fit.
   Enabling the fit by default is left open.
+- `[[data.dem.sources]] source = "ign_geoplateforme_dem"` takes `dataset = "rge-alti"`: the RGE
+  ALTI is assembled from the Geoplateforme WMS-Raster service by extent, at 5 m (default) or
+  1 m, in tiles of at most 2,500 pixels (the server stops at 5,010). Inland, at 5 m the server
+  returns the 1 m pixel holding each centre, unchanged; other sizes go through an undocumented
+  kernel and are refused. The server nodata, the flat -5 m water and the blend around them are
+  nodata, while real land below the sea level is kept (the Ferques quarry, -66 m). The share of
+  the box outside France, filled by another source, is written in the sidecar and warned above
+  1 %. A request above 150 million pixels is refused with its size, and 1 m is refused on the
+  project bootstrap box (60 km), before any request. Against the BD ALTI averaged at 25 m: bias
+  -0.03 m, standard deviation 0.41 m. On the Flume box at 5 m: 2,000 x 2,000 pixels in 7 s cold.
 - `[modflow6.sgrid.top_sampling] mode = "zonal"` also samples the top of a structured grid
   coarser than its DEM (`planar.mode = "resample_to_shape"`): a cell holding pixels of the
   generated river network A takes their `channel_stat` (lowest pixel), the other cells their
