@@ -485,23 +485,27 @@ class StreamEnforcementConfig(HydroModelBase):
 
 
 class DamCarveConfig(HydroModelBase):
-    """Optional dam structure-carve of the MODEL-TOP DEM.
+    """Optional dam structure-carve of the ground.
 
     A raw DEM samples the concrete dam crest as terrain, so the aquifer column
     under the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a
     cutoff-wall HFB band lands above the real seepage. This carves ONLY the dam
-    footprint of the model-top DEM down to the surrounding valley floor, so the
+    footprint of the ground down to the surrounding valley floor, so the
     cutoff wall can sit on the surveyed axis at the dam (not shifted downstream,
-    and no need for a stream-burned DEM that would lower every channel). It is
-    the mirror of enforce_lakes: enforce_lakes carves the routing DEM, this
-    carves the top DEM, at the dam only.
+    and no need for a stream-burned DEM that would lower every channel).
+
+    The ground is the DEM plus the corrections declared here and in
+    ``[geographic.crossings]``. Both the routing chain and the model top start
+    from it, so the carved dam is seen by the flow routing and by the aquifer
+    alike.
     """
 
     enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
-            "Carve the dam footprint of the model-top DEM down to the local "
-            "valley floor so the cutoff wall sits at the true dam on a raw DEM."
+            "Carve the dam footprint of the ground down to the local valley "
+            "floor, so the routing chain and the model top both see the dam "
+            "removed and the cutoff wall sits at the true dam on a raw DEM."
         ),
     )
     line_path: Annotated[
@@ -511,7 +515,7 @@ class DamCarveConfig(HydroModelBase):
     ] = Field(
         default=None,
         description=(
-            "Dam trace (gpkg/shp/csv) along which the top is carved. A bare "
+            "Dam trace (gpkg/shp/csv) along which the ground is carved. A bare "
             "filename resolves against <workspace>/data/cutoff_wall/. Usually the "
             "same surveyed voile axis as the cutoff_wall. Required when enabled."
         ),
@@ -532,6 +536,99 @@ class DamCarveConfig(HydroModelBase):
             "Radius (metres) of the neighborhood whose minimum elevation defines "
             "the valley floor the corridor is carved to. When omitted, derives "
             "3 * buffer_m."
+        ),
+    )
+
+
+class CrossingNotchConfig(HydroModelBase):
+    """Cut the embankments of roads, railways and bridges out of the ground.
+
+    A DEM shows the embankment of a road across a valley as a wall: the flow
+    routing then fills behind it or digs through it, and the model top carries
+    the wall into the aquifer. The notch lowers the DEM along the channel at each
+    crossing to the bed level read on both sides of the structure, and nowhere
+    else. It is a correction of the ground: the routing chain and the model top
+    both start from the notched ground.
+
+    The notch follows the channel tree of ``[geographic.river_network]``, which
+    is delineated a first time on the ground, notched, and delineated again.
+    Weirs and dams are not notched: a weir is a drop of the bed, not a wall. A
+    road laid on a dam crest is not notched either: a crossing with a dam or a
+    weir of the file within ``snap_radius``, a ``[geographic.dam_carve]`` line
+    within ``snap_radius``, or a ``[geographic.enforce_lakes]`` polygon on its
+    channel reach is left alone and reported as ``dam_or_weir``.
+    """
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Notch the ground at the crossings of the channel tree with the "
+            "declared structures, then delineate again on the notched ground. "
+            "Needs [geographic.river_network] enabled."
+        ),
+    )
+    path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="crossings_notch", category="geometry"),
+    ] = Field(
+        default=None,
+        description=(
+            "Vector file of the structures, with the columns 'kind', 'source', "
+            "'name' and 'drop_m' of the crossings data variable. When left empty "
+            "and enabled, it is filled from [[data.crossings.sources]], so the "
+            "structures are named once. Required when enabled, from one of the "
+            "two."
+        ),
+    )
+    kinds: Annotated[list[Literal["road", "railway", "bridge"]], Profile.USER] = Field(
+        default_factory=lambda: ["road", "railway", "bridge"],
+        min_length=1,
+        description=("Structure kinds to notch. Weirs and dams are never notched."),
+    )
+    notch_width: Annotated[LengthMeters, Profile.USER] = Field(
+        default=10.0,
+        gt=0.0,
+        description=(
+            "Width of the notch across the embankment, in metres. The channel pixel "
+            "itself is always lowered, so a width below the cell size cuts one "
+            "pixel. The width is applied along the embankment only, the run of "
+            "channel pixels that stand above the bed line, never to the two pixels "
+            "where the bed is read. Accepts inline units (e.g. 10, '10 m')."
+        ),
+    )
+    bed_reach: Annotated[LengthMeters, Profile.USER] = Field(
+        default=50.0,
+        gt=0.0,
+        description=(
+            "Distance along the channel, on each side of the crossing, where the "
+            "bed level is read, in metres. The embankment is assumed narrower "
+            "than twice this. The notch is the straight line between the two bed "
+            "levels. A bed end that falls on the embankment of another crossing is "
+            "read further along the channel, beyond it. Accepts inline units "
+            "(e.g. 50, '50 m')."
+        ),
+    )
+    max_depth: Annotated[LengthMeters, Profile.USER] = Field(
+        default=3.0,
+        gt=0.0,
+        description=(
+            "Largest lowering of any pixel, in metres. A pixel that would be "
+            "lowered more is lowered by this and counted as capped in the "
+            "report: the embankment is then higher than the cap allows for, "
+            "or the crossing sits on a ridge. Accepts inline units (e.g. 3, "
+            "'3 m')."
+        ),
+    )
+    snap_radius: Annotated[LengthMeters, Profile.USER] = Field(
+        default=30.0,
+        gt=0.0,
+        description=(
+            "A point structure (a bridge of the ROE) farther than this from the "
+            "channel tree is ignored, and so is a channel pixel farther than "
+            "this from its crossing, in metres. A dam or a weir of the file, or a "
+            "dam_carve line, within this distance of a crossing stops its notch. "
+            "Accepts inline units (e.g. 30, '30 m')."
         ),
     )
 
@@ -716,9 +813,18 @@ class GeographicConfig(HydroModelBase):
     dam_carve: Annotated[DamCarveConfig, Profile.USER] = Field(
         default_factory=DamCarveConfig,
         description=(
-            "Optional dam structure-carve of the model-top DEM: lower the dam "
-            "footprint to the valley floor so a cutoff wall sits at the dam on a "
-            "raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM)."
+            "Optional dam structure-carve of the ground: lower the dam footprint "
+            "to the valley floor, for the routing chain and the model top alike, "
+            "so a cutoff wall sits at the dam on a raw DEM."
+        ),
+    )
+    crossings: Annotated[CrossingNotchConfig, Profile.USER] = Field(
+        default_factory=CrossingNotchConfig,
+        description=(
+            "Optional notch of the ground at the roads, railways and bridges "
+            "that cross the generated channel tree: the embankment is lowered "
+            "to the bed level read on both sides, and the catchment is "
+            "delineated again on the notched ground."
         ),
     )
     reuse_existing_outputs: Annotated[bool, Profile.USER] = Field(
@@ -898,6 +1004,47 @@ class GeographicConfig(HydroModelBase):
         return self
 
     @model_validator(mode="after")
+    def _check_crossings_section(self) -> GeographicConfig:
+        """Refuse a notch that has no channel tree, no DEM to cut, or a shared flow."""
+        if not self.crossings.enabled:
+            return self
+        if not self.river_network.enabled:
+            raise ValueError(
+                "[geographic.crossings] enabled = true needs [geographic.river_network] "
+                "enabled = true: the notch follows the channel tree the DEM generates, "
+                "so without it there is no channel to cut."
+            )
+        if self.uses_synthetic_geographic() or self.catch_def == "dem":
+            raise ValueError(
+                "[geographic.crossings] cuts a delineated catchment: it needs "
+                "catch_def = 'from_outlet_coord' or 'from_polyg_shp', not "
+                f"{'a synthetic support' if self.uses_synthetic_geographic() else 'catch_def = dem'}."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_ground_with_shared_flow(self) -> GeographicConfig:
+        """Refuse a declared correction of the ground under a shared regional flow job.
+
+        The job was routed on the raw DEM and is checked against the DEM it is
+        handed, so a corrected ground can never match it.
+        """
+        if self.reg_fold is None:
+            return self
+        declared = [
+            name
+            for name, section in (("dam_carve", self.dam_carve), ("crossings", self.crossings))
+            if section.enabled
+        ]
+        if declared:
+            raise ValueError(
+                f"[geographic] reg_fold shares a regional flow routed on the raw DEM, and "
+                f"[geographic.{declared[0]}] corrects the ground the routing starts from: "
+                "remove one of them."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _check_source_mode_payload(self, info: ValidationInfo) -> GeographicConfig:
         """Enforce mode-level invariants between source_mode and catchment."""
         if self.uses_synthetic_geographic():
@@ -919,6 +1066,7 @@ class GeographicConfig(HydroModelBase):
 __all__ = [
     "CappedBreachConfig",
     "CatchDef",
+    "CrossingNotchConfig",
     "DemCatchDef",
     "GeographicConfig",
     "OutletCatchDef",

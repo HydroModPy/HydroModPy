@@ -41,5 +41,6 @@ class LoadedDataContext:
     lake_withdrawal: Any = None
     substratum: Any = None
     soil_capacity: Any = None
+    crossings: Any = None
     # Data-plan types covered by the last completed load; None = never loaded.
     loaded_plan_types: tuple[str, ...] | None = None

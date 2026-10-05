@@ -32,6 +32,64 @@ products, and warns when the maximum lowering exceeds ``max_depth``.
 one cell, so a diagonal breach can be up to 1.41 times longer than
 ``max_distance``.
 
+.. _the-ground:
+
+The ground
+----------
+
+The DEM is not read as it comes once corrections are declared. The **ground** is
+the DEM plus those corrections, each bounded and logged, and every surface reads
+it: the routing chain (stream burn, lake carve, depression correction, D8)
+starts from the ground, and so does the model top. Both geographic entry points
+build it the same way, so the flow routing and the aquifer never disagree about
+a structure. With no correction declared the ground is the DEM file itself: no
+copy is written and nothing changes.
+
+Two corrections exist, applied in this order:
+
+1. ``[geographic.dam_carve]`` lowers the dam footprint to the valley floor, so a
+   cutoff wall sits at the true dam on a raw DEM.
+2. ``[geographic.crossings]`` cuts the embankments of roads, railways and bridges
+   along the generated channel. The channel tree is delineated a first time on
+   the ground with the dam carved, the embankment is lowered where a structure
+   crosses it, and the catchment is delineated again on the notched ground, then
+   the lake capture pass runs if enabled.
+
+The notch reads the bed level on the channel ``bed_reach`` metres upstream and
+downstream of the crossing, and draws the straight line between the two levels.
+Only the embankment span is lowered to that line: the run of channel pixels
+around the crossing that stand above it. ``notch_width`` widens the cut across
+that span, within ``notch_width / 2`` of its pixels, and never along the channel
+past it; the two pixels where the bed is read are never touched. When a bed end
+falls on the embankment of another crossing, it is read further along the
+channel, beyond that embankment, so two structures close to each other do not
+take each other's crest for the bed. A crossing whose ends cannot be found that
+way is skipped and reported (``no_bed_end``).
+
+The ground is never raised, no pixel is lowered by more than ``max_depth``, and
+a point structure farther than ``snap_radius`` from the channel is ignored.
+Weirs and dams are not notched: a weir is a drop of the bed, not a wall. A
+crossing at a declared dam or weir is not notched either, since a road on a dam
+crest is the dam: a ``dam`` or ``weir`` of the file within ``snap_radius`` of the
+crossing, a ``[geographic.dam_carve]`` line within ``snap_radius``, or a
+``[geographic.enforce_lakes]`` polygon touching the channel reach is skipped and
+counted as ``dam_or_weir``. The structures come from the
+:doc:`crossings <crossings>` data variable, which fills
+``[geographic.crossings] path`` when it is left empty, or from a file named
+there; a named file is checked like the variable (a ``kind`` column with one of
+the six values, and a CRS). The notch needs ``[geographic.river_network]``
+enabled, because it follows that tree.
+
+One INFO line and ``dem_ground_crossings.json`` next to the corrected DEM
+(``dem_ground.tif``, in the ``demcorrecflow`` folder of the geographic
+products) record what was found per kind, what was notched, what was skipped
+and why, the pixels lowered with their maximum and median lowering, the pixels
+the cap held back, and the catchment area before and after the second
+delineation. A run with no pixel lowered does not delineate twice.
+
+A shared regional flow job (``reg_fold``) was routed on the raw DEM and cannot be
+combined with either correction.
+
 Accepted sources
 ----------------
 

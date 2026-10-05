@@ -116,6 +116,10 @@ LAZY_IMPORTS: dict[str, str] = {
     "CustomSubstratumSource": "hydromodpy.data.variables.substratum.config",
     "SoilCapacityConfig": "hydromodpy.data.variables.soil_capacity.config",
     "CustomSoilCapacitySource": "hydromodpy.data.variables.soil_capacity.config",
+    "CrossingsConfig": "hydromodpy.data.variables.crossings.config",
+    "CustomCrossingsSource": "hydromodpy.data.variables.crossings.config",
+    "BdtopoCrossingsSource": "hydromodpy.data.variables.crossings.config",
+    "RoeCrossingsSource": "hydromodpy.data.variables.crossings.config",
     # Project / run API (programmatic facade)
     "Project": "hydromodpy.project",
     "SimulationPlan": "hydromodpy.simulation.planning.plan",

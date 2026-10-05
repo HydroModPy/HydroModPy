@@ -69,6 +69,46 @@
         "description": "the [data] sections to fetch, with the models of the TOML",
         "x-hmp-profile": "user",
         "$defs": {
+          "BdtopoCrossingsSource": {
+            "additionalProperties": false,
+            "description": "Roads and railways of the IGN BD TOPO, from the Geoplateforme WFS.\n\nA road segment flagged above the ground is a ``bridge`` and one flagged\nbelow it is ``other`` (a tunnel); ferries and stairs are left out.",
+            "properties": {
+              "page_size": {
+                "default": 1000,
+                "description": "WFS pagination page size, in features.",
+                "examples": [
+                  1000
+                ],
+                "minimum": 1,
+                "title": "Page Size",
+                "type": "integer",
+                "x-hmp-profile": "dev"
+              },
+              "force_refresh": {
+                "default": false,
+                "description": "Bypass the cache and download again.",
+                "examples": [
+                  false
+                ],
+                "title": "Force Refresh",
+                "type": "boolean",
+                "x-hmp-profile": "dev"
+              },
+              "source": {
+                "const": "bdtopo",
+                "default": "bdtopo",
+                "description": "Discriminator tag selecting the BD TOPO roads and railways provider.",
+                "examples": [
+                  "bdtopo"
+                ],
+                "title": "Source",
+                "type": "string",
+                "x-hmp-profile": "user"
+              }
+            },
+            "title": "BdtopoCrossingsSource",
+            "type": "object"
+          },
           "BrgmGeology1mSource": {
             "additionalProperties": false,
             "description": "BRGM 1:1M national geological map (CODE_LEG legend).",
@@ -191,6 +231,103 @@
               }
             },
             "title": "BrgmGeology50kSource",
+            "type": "object"
+          },
+          "CrossingsConfig": {
+            "additionalProperties": false,
+            "description": "Top-level crossings variable configuration.\n\nExample TOML::\n\n    [[data.crossings.sources]]\n    source = \"bdtopo\"\n\n    [[data.crossings.sources]]\n    source = \"roe\"\n\n``mask_path`` sits here and not on a source because every source is asked\nover the same box.",
+            "properties": {
+              "sources": {
+                "description": "At least one crossings data source.",
+                "items": {
+                  "description": "Discriminated union of crossings data sources tagged by the 'source' provider key.",
+                  "discriminator": {
+                    "mapping": {
+                      "bdtopo": "#/$defs/BdtopoCrossingsSource",
+                      "custom": "#/$defs/CustomCrossingsSource",
+                      "roe": "#/$defs/RoeCrossingsSource"
+                    },
+                    "propertyName": "source"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/CustomCrossingsSource"
+                    },
+                    {
+                      "$ref": "#/$defs/BdtopoCrossingsSource"
+                    },
+                    {
+                      "$ref": "#/$defs/RoeCrossingsSource"
+                    }
+                  ]
+                },
+                "minItems": 1,
+                "title": "Sources",
+                "type": "array",
+                "x-hmp-profile": "user"
+              },
+              "mask_path": {
+                "anyOf": [
+                  {
+                    "format": "path",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "SHP/GPKG/GeoJSON/TIF whose bounds are the box the API sources are asked over. A project run has it filled in from the delineated watershed; a standalone call names it.",
+                "title": "Mask Path",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "sources"
+            ],
+            "title": "CrossingsConfig",
+            "type": "object"
+          },
+          "CustomCrossingsSource": {
+            "additionalProperties": false,
+            "description": "User-provided crossings file (SHP/GPKG/GeoJSON).\n\nThe file needs a ``kind`` column holding one of ``road``, ``railway``,\n``bridge``, ``weir``, ``dam`` or ``other``. ``name`` and ``drop_m`` (the\ndrop of a weir or a dam, in metres) are read when present.",
+            "properties": {
+              "source": {
+                "const": "custom",
+                "default": "custom",
+                "description": "Discriminator tag selecting the 'custom' crossings provider.",
+                "examples": [
+                  "custom"
+                ],
+                "title": "Source",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "path": {
+                "description": "Path to a vector file (SHP, GPKG, GeoJSON) or to a folder holding one. It must carry a 'kind' column.",
+                "examples": [
+                  "data/input.csv"
+                ],
+                "format": "path",
+                "title": "Path",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "default_crs": {
+                "default": "EPSG:2154",
+                "description": "Fallback CRS used only when the file carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154).",
+                "examples": [
+                  "EPSG:2154"
+                ],
+                "title": "Default Crs",
+                "type": "string",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "title": "CustomCrossingsSource",
             "type": "object"
           },
           "CustomDemSource": {
@@ -542,6 +679,48 @@
             "title": "CustomLakeGeometrySource",
             "type": "object"
           },
+          "CustomSoilCapacitySource": {
+            "additionalProperties": false,
+            "description": "User-provided soil water capacity raster (GeoTIFF/ASC), values in mm.",
+            "properties": {
+              "source": {
+                "const": "custom",
+                "default": "custom",
+                "description": "Discriminator tag selecting the 'custom' soil capacity provider.",
+                "examples": [
+                  "custom"
+                ],
+                "title": "Source",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "path": {
+                "description": "Path to a raster of soil available water capacity in mm (GeoTIFF, ASC). Read only by [flow.sinks_sources.recharge.soil].",
+                "examples": [
+                  "data/input.csv"
+                ],
+                "format": "path",
+                "title": "Path",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "default_crs": {
+                "default": "EPSG:2154",
+                "description": "Fallback CRS used only when the raster carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+                "examples": [
+                  "EPSG:2154"
+                ],
+                "title": "Default Crs",
+                "type": "string",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "title": "CustomSoilCapacitySource",
+            "type": "object"
+          },
           "CustomSubstratumSource": {
             "additionalProperties": false,
             "description": "User-provided substratum raster (GeoTIFF/ASC).\n\nThe raster places the bottom of the aquifer. It is read only when\n``[domain.depth_model] kind`` is ``\"raster_substratum\"`` (its values are the\nelevation of the substratum) or ``\"raster_thickness\"`` (its values are the\naquifer thickness below the top). With any other kind it is loaded but unused.",
@@ -589,7 +768,7 @@
             "description": "Top-level ``[data]`` configuration for manager families.\n\nThe `types` list declares user-requested data families. The effective\nactive set can also include planner-inferred families deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.",
             "properties": {
               "types": {
-                "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
+                "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
                 "items": {
                   "type": "string"
                 },
@@ -610,6 +789,19 @@
                 "title": "Inference Mode",
                 "type": "string",
                 "x-hmp-profile": "dev"
+              },
+              "crossings": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/CrossingsConfig"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Crossings configuration (roads, railways, bridges, weirs and dams laid across the channels, read by [geographic.crossings]).",
+                "x-hmp-profile": "user"
               },
               "dem": {
                 "anyOf": [
@@ -935,6 +1127,19 @@
                 "default": null,
                 "description": "Substratum configuration (aquifer-bottom raster, elevation or thickness).",
                 "x-hmp-profile": "user"
+              },
+              "soil_capacity": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SoilCapacityConfig"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Soil capacity configuration (RU raster read by the soil reservoir, [flow.sinks_sources.recharge.soil]).",
+                "x-hmp-profile": "user"
               }
             },
             "title": "DataManagersConfig",
@@ -1180,10 +1385,11 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
+                "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
                 "enum": [
                   "custom",
-                  "sim2"
+                  "sim2",
+                  "explore2"
                 ],
                 "examples": [
                   "custom"
@@ -1203,7 +1409,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+                "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read.",
                 "title": "Path",
                 "x-hmp-profile": "user"
               },
@@ -4206,10 +4412,11 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
+                "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'explore2' for a local DRIAS Explore2 NetCDF (no network).",
                 "enum": [
                   "custom",
-                  "sim2"
+                  "sim2",
+                  "explore2"
                 ],
                 "examples": [
                   "custom"
@@ -4252,7 +4459,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+                "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read.",
                 "title": "Path",
                 "x-hmp-profile": "user"
               }
@@ -4879,6 +5086,46 @@
             "title": "RechargeSourceConfig",
             "type": "object"
           },
+          "RoeCrossingsSource": {
+            "additionalProperties": false,
+            "description": "Obstacles to flow of the Sandre ROE (dams, weirs, bridge sills), from the Sandre WFS.\n\nOnly obstacles whose state is 'Existant' are kept.",
+            "properties": {
+              "page_size": {
+                "default": 1000,
+                "description": "WFS pagination page size, in features.",
+                "examples": [
+                  1000
+                ],
+                "minimum": 1,
+                "title": "Page Size",
+                "type": "integer",
+                "x-hmp-profile": "dev"
+              },
+              "force_refresh": {
+                "default": false,
+                "description": "Bypass the cache and download again.",
+                "examples": [
+                  false
+                ],
+                "title": "Force Refresh",
+                "type": "boolean",
+                "x-hmp-profile": "dev"
+              },
+              "source": {
+                "const": "roe",
+                "default": "roe",
+                "description": "Discriminator tag selecting the ROE obstacles provider.",
+                "examples": [
+                  "roe"
+                ],
+                "title": "Source",
+                "type": "string",
+                "x-hmp-profile": "user"
+              }
+            },
+            "title": "RoeCrossingsSource",
+            "type": "object"
+          },
           "RunoffConfig": {
             "additionalProperties": false,
             "description": "Top-level runoff configuration.\n\nThe section groups runoff sources and an optional date window. Loaded data\ncan support hydrological forcing, recharge/runoff partitioning checks, and\ndiagnostic comparisons.",
@@ -5115,6 +5362,28 @@
               "source"
             ],
             "title": "RunoffSourceConfig",
+            "type": "object"
+          },
+          "SoilCapacityConfig": {
+            "additionalProperties": false,
+            "description": "Soil available water capacity raster, read by the soil reservoir.\n\nExample TOML::\n\n    [[data.soil_capacity.sources]]\n    source = \"custom\"\n    path = \"soil/ru_mm.tif\"",
+            "properties": {
+              "sources": {
+                "description": "Exactly one soil capacity raster. It spreads the ru of [flow.sinks_sources.recharge.soil] over classes inside each SAFRAN cell; ru stays the mean capacity of the cells.",
+                "items": {
+                  "$ref": "#/$defs/CustomSoilCapacitySource"
+                },
+                "maxItems": 1,
+                "minItems": 1,
+                "title": "Sources",
+                "type": "array",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "sources"
+            ],
+            "title": "SoilCapacityConfig",
             "type": "object"
           },
           "SoilMoistureConfig": {

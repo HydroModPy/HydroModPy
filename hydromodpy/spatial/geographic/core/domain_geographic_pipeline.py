@@ -31,6 +31,15 @@ from hydromodpy.spatial.geographic.core.flow_products import (
     build_regional_flow_products,
     capped_breach_of,
 )
+from hydromodpy.spatial.geographic.core.ground_corrections import (
+    close_notch_report,
+    first_pass_channel,
+    ground_dem_from_config,
+    ground_dem_path_from_config,
+    notch_enabled,
+    notch_lowered_pixels,
+    on_ground,
+)
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HydrographicNetwork,
     HydrographicNetworks,
@@ -258,7 +267,7 @@ def build_geographic_derived_features(
 
     if config.catch_def == "dem":
         dem_products = build_direct_dem_domain(
-            dem_init_path=setup.dem_init_path,
+            dem_init_path=ground_dem_from_config(config, setup),
             paths=setup.paths,
             crs_project=setup.crs_project,
         )
@@ -283,18 +292,53 @@ def build_geographic_derived_features(
     if config.buff_area is None:
         raise ValueError("geographic.buff_area is required")
 
-    # Routing DEM for delineation, conditioned in order: burn the observed stream
-    # network, then carve the lakes, then (in _delineate) fill or breach and D8. The
-    # model top (clip below) stays on the raw DEM, so neither step touches the
-    # aquifer geometry.
-    reference_area_km2 = catchment_area_without_burn(config=config, setup=setup)
+    # The ground is the DEM plus the declared corrections: the dam carve here, the
+    # crossing notch after the first delineation. The routing chain starts from it
+    # and so does the model top (clipped below). Routing is conditioned in order:
+    # burn the observed stream network, then carve the lakes, then (in _delineate)
+    # fill or breach and D8.
+    ground = ground_dem_from_config(config, setup)
+    ground_setup = on_ground(setup, ground)
+    reference_area_km2 = catchment_area_without_burn(config=config, setup=ground_setup)
     routing_dem_path = routing_dem_from_config(
-        config, setup, dem_in_path=burned_dem_from_config(config, setup)
+        config, setup, dem_in_path=burned_dem_from_config(config, ground_setup)
     )
 
     flow, effective_dem_correc_type, generated_hydrographic_network_products = _delineate(
         config=config, setup=setup, routing_dem_path=routing_dem_path
     )
+    # The burn guard reads the first delineation, before the notch and the capture move
+    # the catchment on purpose.
+    check_catchment_area_drift(
+        config=config,
+        reference_area_km2=reference_area_km2,
+        burned_area_km2=float(compute_catchment_area_km2(setup.paths.watershed_shp)),
+    )
+
+    # Crossing notch: the channel tree of the first delineation says where the
+    # embankments cross it. The ground is notched there and delineated again, before
+    # the lake capture reads its own channel.
+    if notch_enabled(config):
+        channel = first_pass_channel(
+            config,
+            setup,
+            flow=flow,
+            river_products=generated_hydrographic_network_products,
+            catchment_area_km2=compute_catchment_area_km2(setup.paths.watershed_shp),
+        )
+        ground = ground_dem_from_config(config, setup, channel=channel)
+        if notch_lowered_pixels(setup) > 0:
+            ground_setup = on_ground(setup, ground)
+            routing_dem_path = routing_dem_from_config(
+                config, setup, dem_in_path=burned_dem_from_config(config, ground_setup)
+            )
+            flow, effective_dem_correc_type, generated_hydrographic_network_products = _delineate(
+                config=config, setup=setup, routing_dem_path=routing_dem_path
+            )
+        close_notch_report(
+            setup,
+            catchment_area_km2_after=compute_catchment_area_km2(setup.paths.watershed_shp),
+        )
 
     # Second pass: carve near-miss streams (dead-ending over a flat forebay short of a
     # lake) into the routing DEM and re-delineate so their channels reach the shoreline.
@@ -313,11 +357,6 @@ def build_geographic_derived_features(
         )
 
     catchment_area_km2 = compute_catchment_area_km2(setup.paths.watershed_shp)
-    check_catchment_area_drift(
-        config=config,
-        reference_area_km2=reference_area_km2,
-        burned_area_km2=float(catchment_area_km2),
-    )
     report_network_dem_agreement(config, setup, d8_pointer_path=flow.direc)
 
     build_standard_domain_polygons(
@@ -328,7 +367,7 @@ def build_geographic_derived_features(
     )
 
     clip_dem_to_box_buffer(
-        dem_init_path=setup.dem_init_path,
+        dem_init_path=ground_dem_path_from_config(config, setup),
         box_buff_shp=setup.paths.box_buff,
         output_dem_path=setup.paths.watershed_box_buff_dem,
         crs_project=setup.crs_project,

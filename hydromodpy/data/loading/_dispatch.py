@@ -210,6 +210,13 @@ VARIABLE_SPECS: dict[str, VariableSpec] = {
         manager_class="SoilCapacityManager",
         apply_simulation_window=False,
     ),
+    "crossings": VariableSpec(
+        config_module="hydromodpy.data.variables.crossings.config",
+        config_class="CrossingsConfig",
+        manager_module="hydromodpy.data.variables.crossings.manager",
+        manager_class="CrossingsManager",
+        apply_simulation_window=False,
+    ),
 }
 
 

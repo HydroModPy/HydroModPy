@@ -49,5 +49,6 @@ public:
   - hydromodpy.data.variables.*.manager
   - hydromodpy.data.variables.dem.resolver
   - hydromodpy.data.variables.hydrography.resolver
+  - hydromodpy.data.variables.crossings.resolver
   - hydromodpy.data.variables.hydrography.apis.bdtopage
   - hydromodpy.data.variables.geology.io

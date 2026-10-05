@@ -184,6 +184,58 @@ def _cfg_declares_hydrography_source(cfg: object) -> bool:
     return bool(getattr(hydrography_cfg, "sources", None))
 
 
+def resolve_crossings_path(cfg: object, run_state: WorkflowContext) -> None:
+    """Populate the notch structures from ``[[data.crossings.sources]]`` when absent.
+
+    Twin of :func:`resolve_stream_geometry_path`, for the same reason: the notch
+    runs inside the geographic step, before any data manager, so the structures
+    it reads have to be a file on disk. An explicitly declared
+    ``[geographic.crossings] path`` always wins. Enabled with neither a path nor
+    a source is refused here, where both are known.
+    """
+    geographic_cfg = cfg.geographic
+    uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
+    if callable(uses_synthetic) and uses_synthetic():
+        return
+
+    notch_cfg = getattr(geographic_cfg, "crossings", None)
+    if notch_cfg is None or not getattr(notch_cfg, "enabled", False):
+        return
+    if getattr(notch_cfg, "path", None) is not None:
+        return
+    crossings_cfg = getattr(getattr(cfg, "data", None), "crossings", None)
+    if not getattr(crossings_cfg, "sources", None):
+        raise ConfigError(
+            "geographic.crossings is enabled without a path, and [[data.crossings.sources]] "
+            "declares no source to fall back on. Set geographic.crossings.path, or declare "
+            "a crossings source."
+        )
+
+    from hydromodpy.data.variables.crossings.resolver import (
+        resolve_crossings_path_from_data_sources,
+    )
+
+    config_path = run_state.config_path
+    if config_path is None:
+        raise ConfigError(
+            "geographic.crossings.path is missing and no config path is available to "
+            "resolve [[data.crossings.sources]]."
+        )
+
+    cache_dir = None
+    workspace = run_state.setup.workspace
+    paths = getattr(workspace, "paths", None) if workspace is not None else None
+    data_path = getattr(paths, "data_path", None) if paths is not None else None
+    if data_path is not None:
+        cache_dir = Path(data_path) / "crossings"
+
+    notch_cfg.path = resolve_crossings_path_from_data_sources(
+        cfg,
+        config_path=Path(config_path),
+        cache_dir=cache_dir,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Spatial support helpers
 # ---------------------------------------------------------------------------
@@ -416,6 +468,7 @@ def run_setup(
     )
     resolve_dem_init_path(cfg, run_state)
     resolve_stream_geometry_path(cfg, run_state)
+    resolve_crossings_path(cfg, run_state)
     setup_state.geographic = build_geographic_fn(cfg, setup_state.workspace)
     setup_state.geographic_features = coerce_geographic_derived_features(
         geographic=setup_state.geographic,

@@ -31,7 +31,9 @@ class VariableSpec:
 
     name: str
     file_prefix: str  # filename token (e.g. water_quality -> "waterquality")
-    category: str  # "point" | "grid" | "dem" | "raster" | "geology" | "hydrography" | "table"
+    category: (
+        str  # "point", "grid", "dem", "raster", "geology", "hydrography", "table", "crossings"
+    )
     kind: str  # auto_scan scanner: "timeseries" | "raster" | "vector"
     unit: str
     label_fr: str
@@ -182,6 +184,15 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "mm",
         "reserve utile du sol",
         "geotiff_cog",
+    ),
+    VariableSpec(
+        "crossings",
+        "crossings",
+        "crossings",
+        "vector",
+        "-",
+        "ouvrages de franchissement",
+        "geoparquet",
     ),
 )
 
@@ -337,6 +348,27 @@ _README_HYDROGRAPHY_BODY = """\
 - `hydrography_custom_EXAMPLE.tif` - raster mask.
 """
 
+_README_CROSSINGS_BODY = """\
+## Accepted formats
+
+| type   | format             | notes                                                        |
+|--------|--------------------|--------------------------------------------------------------|
+| vector | SHP, GPKG, GeoJSON | lines or points, with a `kind` column                        |
+
+`kind` is one of `road`, `railway`, `bridge`, `weir`, `dam`, `other`. `name` and
+`drop_m` (drop of a weir or a dam, in m) are read when present.
+
+## Wire it in your run TOML
+
+    [[data.crossings.sources]]
+    source = "custom"
+    path = "data/crossings/crossings_custom_my_roads.gpkg"
+
+## Example files in this folder
+
+- `crossings_custom_EXAMPLE.gpkg` - a road and a weir, with their `kind`.
+"""
+
 _README_TABLE_BODY = """\
 ## Accepted formats
 
@@ -376,6 +408,7 @@ _README_BODY = {
     "geology": _README_GEOLOGY_BODY,
     "hydrography": _README_HYDROGRAPHY_BODY,
     "table": _README_TABLE_BODY,
+    "crossings": _README_CROSSINGS_BODY,
 }
 
 

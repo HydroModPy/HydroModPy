@@ -72,7 +72,8 @@ the linework and the cell size changes with it.
 
 **That number is not the one the criterion publishes, and the two cannot
 agree.** The burn is cut into the routing DEM alone; the model top stays on the
-raw DEM, because a top lowered along the mapped network would give a model that
+ground (the DEM and the declared dam and crossing corrections, never the burn),
+because a top lowered along the mapped network would give a model that
 seeps along it by construction. The criterion measures its distances on that
 top, so the ratio it recomputes on the solver mesh and publishes per trial as
 ``alpha_obs_closure`` describes a different surface. On the Nancon the routing

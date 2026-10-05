@@ -71,6 +71,9 @@ class DataOverviewLauncher:
         # Phase 1c: burn network bootstrap (reuse [data.hydrography] if no local path)
         self._bootstrap_stream_geometry(state)
 
+        # Phase 1d: crossings bootstrap (reuse [data.crossings] if no local path)
+        self._bootstrap_crossings(state)
+
         # Phase 2: Geographic (watershed delineation)
         with progress.phase("Delineating the catchment"):
             self._setup_geographic(state)
@@ -197,6 +200,42 @@ class DataOverviewLauncher:
             )
         logger.debug("[overview] Burn network resolved from [data.hydrography]: %s", resolved)
         enforce_cfg.stream_geometry_path = resolved
+
+    # ------------------------------------------------------------------
+    # Phase 1d - Crossings notch bootstrap
+    # ------------------------------------------------------------------
+
+    def _bootstrap_crossings(self, state: DataOverviewState) -> None:
+        """Resolve the notch structures from ``[[data.crossings.sources]]`` if absent.
+
+        Same shared resolver as the standard simulation pipeline. Enabled with
+        neither a path nor a source is refused here, where both are known.
+        """
+        from hydromodpy.data.variables.crossings.resolver import (
+            resolve_crossings_path_from_data_sources,
+        )
+
+        notch_cfg = getattr(state.cfg.geographic, "crossings", None)
+        if notch_cfg is None or not notch_cfg.enabled or notch_cfg.path is not None:
+            return
+        crossings_cfg = getattr(state.cfg.data, "crossings", None)
+        if not getattr(crossings_cfg, "sources", None):
+            raise ConfigMissingError(
+                "geographic.crossings is enabled without a path, and "
+                "[[data.crossings.sources]] declares no source to fall back on. Set "
+                "geographic.crossings.path, or declare a crossings source."
+            )
+
+        cache_dir = None
+        if state.workspace is not None and state.workspace.paths.data_path is not None:
+            cache_dir = state.workspace.paths.data_path / "crossings"
+
+        notch_cfg.path = resolve_crossings_path_from_data_sources(
+            state.cfg,
+            config_path=self.config_path,
+            cache_dir=cache_dir,
+        )
+        logger.debug("[overview] Crossings resolved from [data.crossings]: %s", notch_cfg.path)
 
     # ------------------------------------------------------------------
     # Phase 2 - Geographic

@@ -121,6 +121,18 @@ Each release section includes the following standard categories:
   the Nancon, but the agreement with BD Topage moved by 1.74 points on example 04's 75 m DEM
   and by 1.22 points on the 25 m Nancon DEM, over the one-point gate set for a default change
   (0.22 point on the Flume).
+- `[data.crossings]` gathers where a stream may meet a structure: the roads and railways of the
+  BD TOPO (`source = "bdtopo"`, Geoplateforme WFS; a segment above the ground is a `bridge`),
+  the obstacles of the ROE (`source = "roe"`, Sandre WFS; dams, weirs, and bridge sills kept as
+  weirs) or a vector file with a `kind` column (`custom`). These are structure data, an input
+  of the model, never a calibration target.
+- The ground G: the DEM plus the declared corrections, read by the routing DEM and by the
+  model top in both geographic entry points. `[geographic.crossings]` (off by default) notches
+  each road, railway or bridge crossing of the generated river network: the embankment span on
+  the channel is lowered to the bed interpolated between the ends read `bed_reach` (50 m)
+  upstream and downstream, across `notch_width` (10 m), by at most `max_depth` (3 m), and never
+  where a dam or a weir is declared. On the Flume: 231 crossings found, 127 notched, 330 pixels
+  lowered (median 0.32 m), catchment area and agreement with BD Topage unchanged.
 
 ### Changed
 - The default of `observed_rasterization` is now `"heads"`. A network output that does not set
@@ -158,6 +170,10 @@ Each release section includes the following standard categories:
   routed share goes from 84 % to 93 %. Stub pruning and the lake-shore test of
   `rectify_on_mesh` read shared faces, and the streambed profile reports on every call how
   many reaches it relaxed, one per reach.
+- `[geographic.dam_carve]` corrects the ground G in both geographic entry points: the routing
+  DEM now sees the carved dam as the model top does (one entry point carved the top only, the
+  other ignored the section). `reg_fold` together with `dam_carve` or `[geographic.crossings]`
+  is refused, the shared regional job being conditioned on the raw DEM.
 
 ### Fixed
 - `flow_persistence_map`, `flow_intermittence_map`, `seepage_network_reference_overlay` and

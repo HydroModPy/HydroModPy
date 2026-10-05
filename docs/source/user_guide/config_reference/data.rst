@@ -9,7 +9,7 @@ TOML section: ``[data]``
 
 Pydantic model: ``DataManagersConfig`` defined in ``hydromodpy.data.loading.config_schema``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L90>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L92>`__
 
 Top-level ``[data]`` configuration for manager families.
 
@@ -50,9 +50,9 @@ Fields
         <code class="hmp-field-name">types</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L113>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L115>`__
 
-      Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.
+      Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.
 
 
 .. index:: ! inference_mode
@@ -66,13 +66,177 @@ Fields
         <code class="hmp-field-name">inference_mode</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "warn"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L122>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "warn"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L124>`__
 
       Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geology, which can use its default typed config).
 
    .. rst-class:: hmp-field-values
 
    **One of:** ``"warn"`` ``"strict"``
+
+
+.. index:: ! crossings
+
+.. container:: hmp-field hmp-field-level-user
+   :name: data-crossings
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="data.crossings">
+        <code class="hmp-field-name">crossings</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">[data.crossings]</code>
+      </div>
+
+   :bdg-primary:`CrossingsConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L134>`__
+
+      Crossings configuration (roads, railways, bridges, weirs and dams laid across the channels, read by [geographic.crossings]).
+
+   .. dropdown:: Fields of ``CrossingsConfig``
+      :icon: list-unordered
+      :animate: fade-in-slide-down
+
+      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: data-crossings-sources
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="data.crossings.sources">
+              <code class="hmp-field-name">sources</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">[[data.crossings.sources]]</code>
+            </div>
+
+         :bdg-primary:`source = "custom" | "bdtopo" | "roe"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L121>`__
+
+            At least one crossings data source.
+
+            Pick a tab below: setting ``source`` selects the matching schema.
+
+         .. tab-set::
+
+            .. tab-item:: custom
+
+               TOML: ``[[data.crossings.sources]]`` with ``source = "custom"`` -- model ``CustomCrossingsSource``.
+
+               .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-crossings-sources-path
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.crossings.sources.path">
+                          <code class="hmp-field-name">path</code>
+                        </div>
+
+                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L36>`__
+
+                        Path to a vector file (SHP, GPKG, GeoJSON) or to a folder holding one. It must carry a 'kind' column.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-crossings-sources-default-crs
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.crossings.sources.default_crs">
+                          <code class="hmp-field-name">default_crs</code>
+                        </div>
+
+                     :bdg-primary:`str` :bdg-secondary:`default = "EPSG:2154"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L47>`__
+
+                        Fallback CRS used only when the file carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154).
+
+
+
+            .. tab-item:: bdtopo
+
+               TOML: ``[[data.crossings.sources]]`` with ``source = "bdtopo"`` -- model ``BdtopoCrossingsSource``.
+
+               .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                  .. index:: ! page_size
+
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: data-crossings-sources-page-size
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.crossings.sources.page_size">
+                          <code class="hmp-field-name">page_size</code>
+                        </div>
+
+                     :bdg-primary:`int` :bdg-secondary:`default = 1000` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L70>`__
+
+                        WFS pagination page size, in features.
+
+
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: data-crossings-sources-force-refresh
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.crossings.sources.force_refresh">
+                          <code class="hmp-field-name">force_refresh</code>
+                        </div>
+
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L70>`__
+
+                        Bypass the cache and download again.
+
+
+
+            .. tab-item:: roe
+
+               TOML: ``[[data.crossings.sources]]`` with ``source = "roe"`` -- model ``RoeCrossingsSource``.
+
+               .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                  .. container:: hmp-field hmp-field-level-dev
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.crossings.sources.page_size">
+                          <code class="hmp-field-name">page_size</code>
+                        </div>
+
+                     :bdg-primary:`int` :bdg-secondary:`default = 1000` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L83>`__
+
+                        WFS pagination page size, in features.
+
+
+                  .. container:: hmp-field hmp-field-level-dev
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.crossings.sources.force_refresh">
+                          <code class="hmp-field-name">force_refresh</code>
+                        </div>
+
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L83>`__
+
+                        Bypass the cache and download again.
+
+
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: data-crossings-mask-path
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="data.crossings.mask_path">
+              <code class="hmp-field-name">mask_path</code>
+            </div>
+
+         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L126>`__
+
+            SHP/GPKG/GeoJSON/TIF whose bounds are the box the API sources are asked over. A project run has it filled in from the delineated watershed; a standalone call names it.
+
+
 
 
 .. index:: ! dem
@@ -88,7 +252,7 @@ Fields
         <code class="hmp-field-toml">[data.dem]</code>
       </div>
 
-   :bdg-primary:`DemConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L132>`__
+   :bdg-primary:`DemConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L141>`__
 
       DEM configuration used when 'dem' is listed in data.types.
 
@@ -362,7 +526,7 @@ Fields
         <code class="hmp-field-toml">[data.geology]</code>
       </div>
 
-   :bdg-primary:`GeologyConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L136>`__
+   :bdg-primary:`GeologyConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L145>`__
 
       Geology configuration used when 'geology' is listed in data.types.
 
@@ -694,7 +858,7 @@ Fields
         <code class="hmp-field-toml">[data.hydrography]</code>
       </div>
 
-   :bdg-primary:`HydrographyConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L140>`__
+   :bdg-primary:`HydrographyConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L149>`__
 
       Hydrography configuration (stream network vector data).
 
@@ -786,8 +950,6 @@ Fields
 
                   Attribute field used when rasterising the vector layer.
 
-
-            .. index:: ! page_size
 
             .. container:: hmp-field hmp-field-level-dev
                :name: data-hydrography-sources-page-size
@@ -896,7 +1058,7 @@ Fields
         <code class="hmp-field-toml">[data.hydrometry]</code>
       </div>
 
-   :bdg-primary:`HydrometryConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L144>`__
+   :bdg-primary:`HydrometryConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L153>`__
 
       Hydrometry configuration (discharge time-series).
 
@@ -1244,7 +1406,7 @@ Fields
         <code class="hmp-field-toml">[data.intermittency]</code>
       </div>
 
-   :bdg-primary:`IntermittencyConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L148>`__
+   :bdg-primary:`IntermittencyConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L157>`__
 
       Intermittency configuration (ONDE stream flow-state observations).
 
@@ -1572,7 +1734,7 @@ Fields
         <code class="hmp-field-toml">[data.lake_abacus]</code>
       </div>
 
-   :bdg-primary:`LakeAbacusConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L152>`__
+   :bdg-primary:`LakeAbacusConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L161>`__
 
       Lake abacus configuration (stage-volume-area lookup table).
 
@@ -1678,7 +1840,7 @@ Fields
         <code class="hmp-field-toml">[data.lake_bathymetry]</code>
       </div>
 
-   :bdg-primary:`LakeBathymetryConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L156>`__
+   :bdg-primary:`LakeBathymetryConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L165>`__
 
       Lake bathymetry configuration (lake-bed elevation raster).
 
@@ -1782,7 +1944,7 @@ Fields
         <code class="hmp-field-toml">[data.lake_geometry]</code>
       </div>
 
-   :bdg-primary:`LakeGeometryConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L160>`__
+   :bdg-primary:`LakeGeometryConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L169>`__
 
       Lake geometry configuration (lake/reservoir footprint vector).
 
@@ -1886,7 +2048,7 @@ Fields
         <code class="hmp-field-toml">[data.lake_inflow]</code>
       </div>
 
-   :bdg-primary:`LakeInflowConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L164>`__
+   :bdg-primary:`LakeInflowConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L173>`__
 
       Lake inflow configuration (observed inflow volumetric time series).
 
@@ -2166,7 +2328,7 @@ Fields
         <code class="hmp-field-toml">[data.lake_levels]</code>
       </div>
 
-   :bdg-primary:`LakeLevelsConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L168>`__
+   :bdg-primary:`LakeLevelsConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L177>`__
 
       Lake levels configuration (observed water-level time series).
 
@@ -2446,7 +2608,7 @@ Fields
         <code class="hmp-field-toml">[data.lake_outflow]</code>
       </div>
 
-   :bdg-primary:`LakeOutflowConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L172>`__
+   :bdg-primary:`LakeOutflowConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L181>`__
 
       Lake outflow configuration (observed outflow volumetric time series).
 
@@ -2726,7 +2888,7 @@ Fields
         <code class="hmp-field-toml">[data.lake_withdrawal]</code>
       </div>
 
-   :bdg-primary:`LakeWithdrawalConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L176>`__
+   :bdg-primary:`LakeWithdrawalConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L185>`__
 
       Lake withdrawal configuration (observed withdrawal volumetric time series).
 
@@ -3006,7 +3168,7 @@ Fields
         <code class="hmp-field-toml">[data.oceanic]</code>
       </div>
 
-   :bdg-primary:`OceanicConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L180>`__
+   :bdg-primary:`OceanicConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L189>`__
 
       Oceanic configuration used when 'oceanic' is listed in data.types.
 
@@ -3332,7 +3494,7 @@ Fields
         <code class="hmp-field-toml">[data.piezometry]</code>
       </div>
 
-   :bdg-primary:`PiezometryConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L184>`__
+   :bdg-primary:`PiezometryConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L193>`__
 
       Piezometry configuration (groundwater level time-series).
 
@@ -3682,7 +3844,7 @@ Fields
         <code class="hmp-field-toml">[data.water_quality]</code>
       </div>
 
-   :bdg-primary:`WaterQualityConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L188>`__
+   :bdg-primary:`WaterQualityConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L197>`__
 
       Water quality configuration (physico-chemical parameters).
 
@@ -4028,7 +4190,7 @@ Fields
         <code class="hmp-field-toml">[data.recharge]</code>
       </div>
 
-   :bdg-primary:`RechargeConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L192>`__
+   :bdg-primary:`RechargeConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L201>`__
 
       Recharge configuration (drainage / soil infiltration time series).
 
@@ -4440,7 +4602,7 @@ Fields
         <code class="hmp-field-toml">[data.runoff]</code>
       </div>
 
-   :bdg-primary:`RunoffConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L196>`__
+   :bdg-primary:`RunoffConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L205>`__
 
       Runoff configuration (surface runoff time series).
 
@@ -4724,7 +4886,7 @@ Fields
         <code class="hmp-field-toml">[data.precipitation]</code>
       </div>
 
-   :bdg-primary:`PrecipitationConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L200>`__
+   :bdg-primary:`PrecipitationConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L209>`__
 
       Precipitation configuration (liquid and solid precipitation).
 
@@ -5028,7 +5190,7 @@ Fields
         <code class="hmp-field-toml">[data.etp]</code>
       </div>
 
-   :bdg-primary:`EtpConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L204>`__
+   :bdg-primary:`EtpConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L213>`__
 
       ETP configuration (potential evapotranspiration).
 
@@ -5342,7 +5504,7 @@ Fields
         <code class="hmp-field-toml">[data.temperature]</code>
       </div>
 
-   :bdg-primary:`TemperatureConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L208>`__
+   :bdg-primary:`TemperatureConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L217>`__
 
       Temperature configuration (air temperature time series).
 
@@ -5626,7 +5788,7 @@ Fields
         <code class="hmp-field-toml">[data.wind]</code>
       </div>
 
-   :bdg-primary:`WindConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L212>`__
+   :bdg-primary:`WindConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L221>`__
 
       Wind configuration (wind speed time series).
 
@@ -5910,7 +6072,7 @@ Fields
         <code class="hmp-field-toml">[data.humidity]</code>
       </div>
 
-   :bdg-primary:`HumidityConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L216>`__
+   :bdg-primary:`HumidityConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L225>`__
 
       Humidity configuration (relative humidity time series).
 
@@ -6194,7 +6356,7 @@ Fields
         <code class="hmp-field-toml">[data.radiation]</code>
       </div>
 
-   :bdg-primary:`RadiationConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L220>`__
+   :bdg-primary:`RadiationConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L229>`__
 
       Radiation configuration (atmospheric and visible radiation).
 
@@ -6496,7 +6658,7 @@ Fields
         <code class="hmp-field-toml">[data.soil_moisture]</code>
       </div>
 
-   :bdg-primary:`SoilMoistureConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L224>`__
+   :bdg-primary:`SoilMoistureConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L233>`__
 
       Soil moisture configuration (soil moisture index).
 
@@ -6780,7 +6942,7 @@ Fields
         <code class="hmp-field-toml">[data.substratum]</code>
       </div>
 
-   :bdg-primary:`SubstratumConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L228>`__
+   :bdg-primary:`SubstratumConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L237>`__
 
       Substratum configuration (aquifer-bottom raster, elevation or thickness).
 
@@ -6870,7 +7032,7 @@ Fields
         <code class="hmp-field-toml">[data.soil_capacity]</code>
       </div>
 
-   :bdg-primary:`SoilCapacityConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L232>`__
+   :bdg-primary:`SoilCapacityConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L241>`__
 
       Soil capacity configuration (RU raster read by the soil reservoir, [flow.sinks_sources.recharge.soil]).
 
@@ -6962,6 +7124,10 @@ Starter TOML snippet
 
       [data]
       # types = ...  # uses factory default
+
+      [data.crossings]
+      # sources = []  # REQUIRED
+      # mask_path = ...  # default = None
 
       [data.dem]
       # sources = []  # REQUIRED

@@ -8,13 +8,14 @@ variable, how data flows, and where to add what.
 ## Variables
 
 Each `[data.<name>]` section of a project TOML is one variable. The single
-list of the 26 sections is `VARIABLE_SPECS` in `loading/_dispatch.py`.
+list of the 27 sections is `VARIABLE_SPECS` in `loading/_dispatch.py`.
 
 | family | variables | sources besides `custom` | manager base |
 |---|---|---|---|
 | grids (10) | `precipitation`, `etp`, `temperature`, `wind`, `humidity`, `radiation`, `soil_moisture`, `runoff`, `recharge`, `oceanic` | `sim2` (all but `oceanic`), `explore2` (`precipitation`, `etp`), `synthetic` (`recharge`), `shom` and `constant` (`oceanic`) | `BaseFieldManager` |
 | stations (4) | `hydrometry`, `piezometry`, `water_quality`, `intermittency` | `hubeau` | `BaseVariableManager` |
 | terrain and subsurface (3) | `dem`, `geology`, `hydrography` | `ign_geoplateforme_dem`; `brgm_1m`, `brgm_50k`; `bdtopage`, `euhydro`, `osm` | written by hand |
+| structures (1) | `crossings` | `bdtopo`, `roe` | `SourceTable`, written by hand |
 | lake chronicles (4) | `lake_inflow`, `lake_levels`, `lake_outflow`, `lake_withdrawal` | none | `BaseVariableManager` |
 | user files (5) | `lake_abacus` (table), `lake_bathymetry` (raster), `lake_geometry` (vector), `substratum` (raster), `soil_capacity` (raster) | none | `BaseFileManager` |
 
