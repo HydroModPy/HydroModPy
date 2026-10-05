@@ -522,6 +522,8 @@ class HydroModPyConfig(HydroModelBase):
         * ``domain.depth_model.kind`` is ``raster_substratum`` or
           ``raster_thickness`` ⇒ ``[data.substratum]`` is declared, since that
           is the raster the domain reads.
+        * ``[modflownwt.sgrid.top_sampling]`` zonal ⇒ ``channel_source = "none"``,
+          since MODFLOW-NWT builds no channel mask.
         * ``[data.soil_capacity]`` declared ⇒ ``[flow.sinks_sources.recharge.soil]``
           is declared, since only the soil reservoir reads that raster.
         """
@@ -541,6 +543,22 @@ class HydroModPyConfig(HydroModelBase):
             raise ValueError(
                 f"domain.depth_model kind = {depth_kind!r} reads the raster declared under "
                 "[data.substratum]; declare it with one custom source."
+            )
+
+        nwt_top_sampling = getattr(
+            getattr(getattr(self, "modflownwt", None), "sgrid", None), "top_sampling", None
+        )
+        if (
+            nwt_top_sampling is not None
+            and nwt_top_sampling.mode == "zonal"
+            and nwt_top_sampling.channel_source != "none"
+        ):
+            raise ValueError(
+                "[modflownwt.sgrid.top_sampling] mode = 'zonal' with "
+                f"channel_source = {nwt_top_sampling.channel_source!r}: MODFLOW-NWT does "
+                "not read the channel tree for the zonal top, so the channel cells would "
+                "get the hillslope statistic like the others. Set channel_source = 'none' "
+                "(median only) or run MODFLOW 6."
             )
 
         calibration_cfg = getattr(self, "calibration", None)

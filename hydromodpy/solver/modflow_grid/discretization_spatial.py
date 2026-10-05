@@ -21,7 +21,8 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     VerticalGridConfig,
 )
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
-from hydromodpy.spatial.mesh.ops.zonal_stats import zonal_top
+from hydromodpy.spatial.mesh.ops.zonal_stats import regular_grid_cell_ids, zonal_top
+from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
@@ -181,7 +182,9 @@ def _warn_on_outlier_thickness(*, top: np.ndarray, bot: np.ndarray, valid: np.nd
 
 def _zonal_top_flat(
     *,
-    hydro_mesh: object,
+    hydro_mesh: object | None = None,
+    grid_support: object | None = None,
+    active: np.ndarray | None = None,
     top_surface: Surface,
     centroid_top: np.ndarray,
     bottom_flat: np.ndarray,
@@ -194,7 +197,8 @@ def _zonal_top_flat(
     Reduces every DEM pixel inside each cell (thalweg stat on channel pixels,
     area stat on hillslope pixels) instead of one bilinear sample at the cell
     generator. Requires a fully georeferenced ``top_surface``; without it the
-    centroid projection is returned unchanged.
+    centroid projection is returned unchanged. The cells are the ``hydro_mesh``
+    polygons, or the boxes of the regular grid described by ``grid_support``.
     """
     from rasterio.transform import from_bounds
 
@@ -221,8 +225,23 @@ def _zonal_top_flat(
         int(support.ncols),
         int(support.nrows),
     )
+    labels = None
+    if grid_support is not None:
+        labels = regular_grid_cell_ids(
+            dem_transform=transform,
+            dem_shape=out_shape,
+            grid_bounds=(
+                float(grid_support.xmin),
+                float(grid_support.xmax),
+                float(grid_support.ymin),
+                float(grid_support.ymax),
+            ),
+            grid_shape=(int(grid_support.nrows), int(grid_support.ncols)),
+        )
     result = zonal_top(
         planar_mesh=hydro_mesh,
+        labels=labels,
+        active=active,
         dem=dem,
         transform=transform,
         out_shape=out_shape,
@@ -249,6 +268,70 @@ def _zonal_top_flat(
         int(result.info["n_thickness_clamped"]),
     )
     return result.top
+
+
+def _cell_area(support: RasterSupport) -> float:
+    """Mean cell area of a raster support from its bounds and shape, NaN when unknown."""
+    fields = (support.xmin, support.xmax, support.ymin, support.ymax, support.nrows, support.ncols)
+    if any(value is None for value in fields):
+        return float("nan")
+    width = (float(support.xmax) - float(support.xmin)) / int(support.ncols)
+    height = (float(support.ymax) - float(support.ymin)) / int(support.nrows)
+    return abs(width * height)
+
+
+def _cells_cover_pixels(native_top: Surface, grid_top: Surface, *, min_pixels: float = 2.0) -> bool:
+    """True when a grid cell spans at least ``min_pixels`` DEM pixels, else log why not.
+
+    Below that, a pixel centre falls in one cell out of several and the block
+    statistic is a checkerboard of raw pixels, so the resample stays.
+    """
+    pixel_area = _cell_area(native_top.support)
+    cell_area = _cell_area(grid_top.support)
+    if not (np.isfinite(pixel_area) and np.isfinite(cell_area)):
+        return True  # no georeferencing: the zonal step warns and keeps the resample
+    if pixel_area > 0.0 and cell_area >= min_pixels * pixel_area * (1.0 - 1e-9):
+        return True
+    logger.info(
+        "Zonal top sampling skipped: a grid cell (%.0f m2) covers fewer than %.0f DEM pixels "
+        "(%.0f m2 each), so the resampled top is kept.",
+        cell_area,
+        min_pixels,
+        pixel_area,
+    )
+    return False
+
+
+def _zonal_structured_top(
+    *,
+    native_top: Surface,
+    grid_top: Surface,
+    grid_bottom: Surface,
+    nodata: float,
+    top_sampling: TopSamplingConfig,
+    channel_mask: np.ndarray | None,
+) -> Surface:
+    """Top of a structured grid coarser than its DEM, from the zonal statistics.
+
+    ``native_top`` is the DEM the cells are reduced from, ``grid_top`` its
+    resample to the solver grid (fallback and spike reference). Only the values
+    of active cells change: a cell the resample left without data stays inactive,
+    so the idomain does not move.
+    """
+    centroid = np.asarray(grid_top.as_array(), dtype=float).reshape(-1)
+    dead = ~np.isfinite(centroid) | (centroid <= float(nodata))
+    zonal = _zonal_top_flat(
+        grid_support=grid_top.support,
+        active=~dead,
+        top_surface=native_top,
+        centroid_top=centroid,
+        bottom_flat=np.asarray(grid_bottom.as_array(), dtype=float).reshape(-1),
+        nodata=nodata,
+        top_sampling=top_sampling,
+        channel_mask=channel_mask,
+    )
+    values = np.where(dead, centroid, zonal).reshape(grid_top.as_array().shape)
+    return Surface(name=grid_top.name, values=values, support=grid_top.support)
 
 
 def _build_extruded_solver_mesh_from_runtime_planar(
@@ -346,8 +429,10 @@ def build_spatial_discretization(
     """Build normalized spatial discretization from domain surfaces or runtime mesh.
 
     ``channel_mask`` (aligned to ``domain.surface_topo``) flags DEM channel pixels
-    for zonal top sampling; it is only used on the runtime-mesh path when
-    ``sgrid_config.top_sampling.mode == 'zonal'``.
+    for zonal top sampling when ``sgrid_config.top_sampling.mode == 'zonal'``. It
+    serves the runtime mesh and a structured grid coarser than the DEM
+    (``planar.mode == 'resample_to_shape'``); a grid whose cells are the DEM pixels
+    already holds the pixel values.
     """
     vertical_config: VerticalGridConfig | None = None
     planar_config: PlanarGridConfig | None = None
@@ -364,12 +449,28 @@ def build_spatial_discretization(
     top_surface, bottom_surface = resolve_domain_surfaces(domain=domain)
 
     if runtime_planar_mesh is None:
+        native_top = top_surface
         top_surface, bottom_surface = project_surfaces_to_planar_grid(
             top_surface=top_surface,
             bottom_surface=bottom_surface,
             planar_config=planar_config,
             nodata=nodata,
         )
+        if (
+            top_sampling is not None
+            and top_sampling.mode == "zonal"
+            and top_surface is not native_top
+            and _cells_cover_pixels(native_top, top_surface)
+        ):
+            # Only the top is zonal; the bottom keeps the planar resampling rule.
+            top_surface = _zonal_structured_top(
+                native_top=native_top,
+                grid_top=top_surface,
+                grid_bottom=bottom_surface,
+                nodata=nodata,
+                top_sampling=top_sampling,
+                channel_mask=channel_mask,
+            )
         top = np.asarray(top_surface.as_array(), dtype=float)
         bottom = np.asarray(bottom_surface.as_array(), dtype=float)
         sgrid_spec = StructuredGridBuilder().build_from_surfaces(

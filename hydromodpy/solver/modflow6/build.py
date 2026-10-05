@@ -447,10 +447,13 @@ def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
     """Boolean channel-pixel mask aligned to ``surface_topo`` for zonal top sampling.
 
     Only produced when ``sgrid.top_sampling.mode == 'zonal'`` and its
-    ``channel_source`` requests one. Reads the delineated stream raster and
-    reprojects it (nearest) onto the model-top DEM grid. Returns ``None`` (channel
-    class disabled, every pixel treated as hillslope) when zonal is off, the
-    source is 'none', or no stream raster / georeferenced surface is available.
+    ``channel_source`` requests one. Reads the channel tree A over the whole model
+    domain, the full-extent link raster (else the full stream raster) of
+    ``correcflow_path``, and reprojects it (nearest) onto the model-top DEM grid.
+    The rasters clipped to the watershed miss the buffer the grid keeps active, so
+    they are the fallback only. Returns ``None`` (channel class disabled, every
+    pixel treated as hillslope) when zonal is off, the source is 'none', or no
+    stream raster / georeferenced surface is available.
     """
     sgrid_cfg = getattr(model.modflow_config, "sgrid", None)
     top_sampling = getattr(sgrid_cfg, "top_sampling", None)
@@ -461,11 +464,25 @@ def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
 
     geographic = getattr(model, "geographic", None)
     path = None
-    for name in ("river_stream_link_id_tif", "river_streams_tif"):
-        candidate = getattr(geographic, name, None)
-        if candidate and os.path.exists(str(candidate)):
-            path = str(candidate)
-            break
+    folder = getattr(geographic, "correcflow_path", None)
+    if folder is not None:
+        for name in ("dem_stream_link_id_full.tif", "dem_streams_full.tif"):
+            candidate = os.path.join(str(folder), name)
+            if os.path.exists(candidate):
+                path = candidate
+                logger.info("Zonal channel mask reads the full-extent channel tree: %s.", path)
+                break
+    if path is None:
+        for name in ("river_stream_link_id_tif", "river_streams_tif"):
+            candidate = getattr(geographic, name, None)
+            if candidate and os.path.exists(str(candidate)):
+                path = str(candidate)
+                logger.info(
+                    "Zonal channel mask reads the stream raster clipped to the watershed "
+                    "(no full-extent raster in the corrected-flow folder): %s.",
+                    path,
+                )
+                break
     if path is None:
         logger.warning(
             "Zonal channel_source=%s but no stream raster found; the channel class "
@@ -494,7 +511,11 @@ def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
         int(support.ncols),
         int(support.nrows),
     )
-    dst = np.zeros(out_shape, dtype=np.float64)
+    # The fill value must not be 0: GDAL moves a valid source pixel equal to the
+    # destination nodata to the next float (5e-324), so with 0 every background
+    # pixel of the stream raster turned "positive" and the channel class covered
+    # the whole catchment (measured on the Flume: 146 384 pixels for 4 197).
+    dst = np.full(out_shape, -1.0, dtype=np.float64)
     with rasterio.open(path) as src:
         src_nodata = src.nodata
         src_crs = src.crs
@@ -516,7 +537,7 @@ def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
                 dst_crs=dst_crs,
                 resampling=Resampling.nearest,
                 src_nodata=src_nodata,
-                dst_nodata=0.0,
+                dst_nodata=-1.0,
             )
         except Exception as exc:  # noqa: BLE001 - degrade, never abort the build
             logger.warning(

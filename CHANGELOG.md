@@ -148,8 +148,17 @@ Each release section includes the following standard categories:
   `[[data.crossings.sources]]` even with the notch off, so declared weirs and dams cut it. The
   notch writes its own footprint (`dem_ground_notch_footprint.tif`), the gaps of the fit.
   Enabling the fit by default is left open.
+- `[modflow6.sgrid.top_sampling] mode = "zonal"` also samples the top of a structured grid
+  coarser than its DEM (`planar.mode = "resample_to_shape"`): a cell holding pixels of the
+  generated river network A takes their `channel_stat` (lowest pixel), the other cells their
+  `hillslope_stat` (median), as on a Voronoi mesh; the bottom and the idomain keep their rule,
+  and `keep_native` and `centroid` are unchanged. On the Flume at 75 m the channel cells sit
+  0.90 m lower than the resampled top (median; 2.98 m at the 90th percentile of the absolute
+  gap), the hillslope cells unchanged in median.
 
 ### Changed
+- `[modflownwt.sgrid.top_sampling] mode = "zonal"` needs `channel_source = "none"`: MODFLOW-NWT
+  builds no channel mask, so a channel source is refused at load instead of being ignored.
 - The default of `observed_rasterization` is now `"heads"`. A network output that does not set
   it is drawn from its heads. `"crossing"` stays the rule of the paper and must be written
   explicitly to reproduce it. A sealed run redraws with the rule it sealed.
@@ -191,6 +200,13 @@ Each release section includes the following standard categories:
   is refused, the shared regional job being conditioned on the raw DEM.
 
 ### Fixed
+- The channel mask of the zonal top covered the whole catchment. The stream raster was
+  reprojected with nodata 0, and GDAL moves a valid 0 to the next float, so every background
+  pixel counted as channel: on the Flume Voronoi mesh 146,384 pixels instead of 4,197, and the
+  block minimum on 29,760 of the 32,382 zonal cells instead of the hillslope median. The mask
+  now holds the channel pixels only, read on the full-extent channel tree A, so the channel
+  cells of the buffer around the catchment are found too. A zonal run gets a higher top on its
+  hillslopes; the weekly Flume v2 run no longer converges with its solver settings.
 - `flow_persistence_map`, `flow_intermittence_map`, `seepage_network_reference_overlay` and
   `seepage_network_confusion_map` render again on a run with several layers. The seepage
   threshold reads the mean recharge from the budget, stored per layer; it now sums the layers

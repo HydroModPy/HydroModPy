@@ -12705,7 +12705,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-planar",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L334",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L341",
     "description": "Planar discretization of the solver grid."
   },
   {
@@ -12765,7 +12765,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-vertical",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L338",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L345",
     "description": "Vertical layering of the solver grid."
   },
   {
@@ -12837,7 +12837,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-grid-dual",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L349",
     "description": "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the defaul"
   },
   {
@@ -12849,7 +12849,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-condition-top",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L352",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L359",
     "description": "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsi"
   },
   {
@@ -12861,7 +12861,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-condition-top-epsilon",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L368",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L375",
     "description": "Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true."
   },
   {
@@ -12873,8 +12873,8 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L377",
-    "description": "How the runtime-mesh top is sampled from the DEM before conditioning."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L384",
+    "description": "How the top of the solver grid is sampled from the DEM."
   },
   {
     "path": "modflownwt.sgrid.top_sampling.mode",
@@ -12885,8 +12885,8 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-mode",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L225",
-    "description": "Top-sampling strategy. 'centroid' samples the DEM at each cell generator (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L231",
+    "description": "Top-sampling strategy. 'centroid' samples the DEM at each cell generator, or resamples it to a structured grid (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats."
   },
   {
     "path": "modflownwt.sgrid.top_sampling.hillslope_stat",
@@ -12897,7 +12897,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-hillslope-stat",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L233",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L240",
     "description": "Zonal statistic over non-channel (hillslope) pixels inside a cell."
   },
   {
@@ -12909,7 +12909,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-channel-stat",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L249",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L256",
     "description": "Zonal statistic over channel pixels inside a cell (thalweg-preserving; 'min' keeps the incised low)."
   },
   {
@@ -12921,7 +12921,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-channel-source",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L271",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L278",
     "description": "Where channel pixels come from when mode='zonal'. 'streams_raster' uses the delineated river-network raster reprojected onto the DEM grid; 'none' disables the channel class (every pixel is hillslope)."
   },
   {
@@ -12933,7 +12933,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-channel-buffer-px",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L279",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L286",
     "description": "Dilate the channel pixel mask by this many pixels before reducing, to capture a channel that grazes a cell without a pixel centre on it."
   },
   {
@@ -12945,7 +12945,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-spike-guard-tol-m",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L287",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L294",
     "description": "Revert a hillslope cell's zonal value to the centroid sample when it deviates more than this many metres (guards nodata/edge spikes); channel cells are exempt since they are lowered on purpose. 0 disables the guard."
   },
   {
@@ -12957,7 +12957,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-min-pixels",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L296",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L303",
     "description": "Minimum DEM pixels inside a cell to trust a hillslope zonal statistic; below this the cell falls back to the centroid sample. A channel cell uses its channel stat from a single thalweg pixel."
   },
   {
@@ -12969,7 +12969,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-min-thickness-m",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L304",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L311",
     "description": "Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved channel top never collides with the aquifer bottom."
   },
   {
@@ -12981,7 +12981,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-network-safety-net",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L312",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L319",
     "description": "Before the priority-flood fill, carve the channel cells into a monotone descending thalweg (lower-only) and pin them so the fill never raises them. Fixes the fill re-raising a zonal-lowered channel; needs a channel source (mode='zonal' with"
   },
   {
@@ -12993,7 +12993,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-max-channel-lowering-m",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L321",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328",
     "description": "Cap (m) on how far the network safety net may carve a single channel cell below its sampled top."
   },
   {
@@ -13401,7 +13401,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-planar",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L334",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L341",
     "description": "Planar discretization of the solver grid."
   },
   {
@@ -13461,7 +13461,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-vertical",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L338",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L345",
     "description": "Vertical layering of the solver grid."
   },
   {
@@ -13533,7 +13533,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-grid-dual",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L349",
     "description": "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the defaul"
   },
   {
@@ -13545,7 +13545,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-condition-top",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L352",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L359",
     "description": "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsi"
   },
   {
@@ -13557,7 +13557,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-condition-top-epsilon",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L368",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L375",
     "description": "Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true."
   },
   {
@@ -13569,8 +13569,8 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L377",
-    "description": "How the runtime-mesh top is sampled from the DEM before conditioning."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L384",
+    "description": "How the top of the solver grid is sampled from the DEM."
   },
   {
     "path": "modflow6.sgrid.top_sampling.mode",
@@ -13581,8 +13581,8 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-mode",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L225",
-    "description": "Top-sampling strategy. 'centroid' samples the DEM at each cell generator (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L231",
+    "description": "Top-sampling strategy. 'centroid' samples the DEM at each cell generator, or resamples it to a structured grid (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats."
   },
   {
     "path": "modflow6.sgrid.top_sampling.hillslope_stat",
@@ -13593,7 +13593,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-hillslope-stat",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L233",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L240",
     "description": "Zonal statistic over non-channel (hillslope) pixels inside a cell."
   },
   {
@@ -13605,7 +13605,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-channel-stat",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L249",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L256",
     "description": "Zonal statistic over channel pixels inside a cell (thalweg-preserving; 'min' keeps the incised low)."
   },
   {
@@ -13617,7 +13617,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-channel-source",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L271",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L278",
     "description": "Where channel pixels come from when mode='zonal'. 'streams_raster' uses the delineated river-network raster reprojected onto the DEM grid; 'none' disables the channel class (every pixel is hillslope)."
   },
   {
@@ -13629,7 +13629,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-channel-buffer-px",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L279",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L286",
     "description": "Dilate the channel pixel mask by this many pixels before reducing, to capture a channel that grazes a cell without a pixel centre on it."
   },
   {
@@ -13641,7 +13641,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-spike-guard-tol-m",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L287",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L294",
     "description": "Revert a hillslope cell's zonal value to the centroid sample when it deviates more than this many metres (guards nodata/edge spikes); channel cells are exempt since they are lowered on purpose. 0 disables the guard."
   },
   {
@@ -13653,7 +13653,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-min-pixels",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L296",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L303",
     "description": "Minimum DEM pixels inside a cell to trust a hillslope zonal statistic; below this the cell falls back to the centroid sample. A channel cell uses its channel stat from a single thalweg pixel."
   },
   {
@@ -13665,7 +13665,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-min-thickness-m",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L304",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L311",
     "description": "Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved channel top never collides with the aquifer bottom."
   },
   {
@@ -13677,7 +13677,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-network-safety-net",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L312",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L319",
     "description": "Before the priority-flood fill, carve the channel cells into a monotone descending thalweg (lower-only) and pin them so the fill never raises them. Fixes the fill re-raising a zonal-lowered channel; needs a channel source (mode='zonal' with"
   },
   {
@@ -13689,7 +13689,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-max-channel-lowering-m",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L321",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328",
     "description": "Cap (m) on how far the network safety net may carve a single channel cell below its sampled top."
   },
   {

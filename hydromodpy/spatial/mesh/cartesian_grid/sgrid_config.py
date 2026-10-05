@@ -209,25 +209,32 @@ class PlanarGridConfig(HydroModelBase):
 
 
 class TopSamplingConfig(HydroModelBase):
-    """How the DISV mesh top is sampled from the DEM before conditioning.
+    """How the top of the solver grid is sampled from the DEM.
 
-    MODFLOW 6 runtime-mesh only. The default 'centroid' mode samples the DEM at
-    each Voronoi generator, which under-represents narrow incised channels that
-    fall between generators (the generator lands on a bank, not the thalweg). The
-    'zonal' mode reduces every DEM pixel inside a cell with a per-class statistic
-    (a thalweg-preserving stat on channel pixels, an area stat on hillslope
-    pixels), so channel cells keep their incised low. Ignored for structured
-    grids, MODFLOW-NWT and Boussinesq. Every non-default value changes the
-    calibration params_hash (config-scoped); when the sampling CODE changes, bump
-    the version so the code-blind cache re-solves.
+    Applies to the MODFLOW 6 runtime mesh and to a structured grid coarser than
+    its DEM (``planar.mode = "resample_to_shape"``). The default 'centroid' mode
+    samples the DEM at each Voronoi generator, or resamples it to the grid, which
+    under-represents narrow incised channels (the sample lands on a bank, not the
+    thalweg). The 'zonal' mode reduces every DEM pixel inside a cell with a
+    per-class statistic (a thalweg-preserving stat on channel pixels, an area stat
+    on hillslope pixels), so channel cells keep their incised low. A structured
+    grid whose cells are the DEM pixels (``keep_native``) already holds the pixel
+    values and is unchanged. Only the top is zonal; the bottom keeps its rule. On
+    a structured grid the idomain does not move, and zonal applies only when a cell
+    covers at least two DEM pixels. MODFLOW-NWT builds no channel mask, so a zonal
+    top there needs ``channel_source = "none"`` (median only), and the config load
+    refuses the other value. Boussinesq ignores it. Every
+    non-default value changes the calibration params_hash (config-scoped); when
+    the sampling CODE changes, bump the version so the code-blind cache re-solves.
     """
 
     mode: Annotated[Literal["centroid", "zonal"], Profile.USER] = Field(
         default="centroid",
         description=(
             "Top-sampling strategy. 'centroid' samples the DEM at each cell "
-            "generator (fast, the current behaviour, byte-identical default). "
-            "'zonal' reduces every DEM pixel inside a cell with per-class stats."
+            "generator, or resamples it to a structured grid (fast, the current "
+            "behaviour, byte-identical default). 'zonal' reduces every DEM pixel "
+            "inside a cell with per-class stats."
         ),
     )
     hillslope_stat: Annotated[
@@ -376,7 +383,7 @@ class SolverSGridConfig(HydroModelBase):
     )
     top_sampling: Annotated[TopSamplingConfig, Profile.USER] = Field(
         default_factory=TopSamplingConfig,
-        description="How the runtime-mesh top is sampled from the DEM before conditioning.",
+        description="How the top of the solver grid is sampled from the DEM.",
     )
 
     @classmethod

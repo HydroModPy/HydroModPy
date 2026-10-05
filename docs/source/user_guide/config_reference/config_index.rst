@@ -6283,7 +6283,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-planar>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L334>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L341>`__
    * - ``modflownwt.sgrid.planar.mode``
      - ``Literal['keep_native', 'resample_to_shape']``
      - user
@@ -6313,7 +6313,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-vertical>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L338>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L345>`__
    * - ``modflownwt.sgrid.vertical.genmtd_lay``
      - ``Literal['constant', 'decay', 'list']``
      - user
@@ -6349,85 +6349,85 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-grid-dual>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L349>`__
    * - ``modflownwt.sgrid.condition_top``
      - ``bool``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-condition-top>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L352>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L359>`__
    * - ``modflownwt.sgrid.condition_top_epsilon``
      - ``float``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-condition-top-epsilon>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L368>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L375>`__
    * - ``modflownwt.sgrid.top_sampling``
      - ``TopSamplingConfig``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L377>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L384>`__
    * - ``modflownwt.sgrid.top_sampling.mode``
      - ``Literal['centroid', 'zonal']``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L225>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L231>`__
    * - ``modflownwt.sgrid.top_sampling.hillslope_stat``
      - ``Literal['mean', 'median', 'min', 'max', 'p10', 'p25']``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling-hillslope-stat>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L233>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L240>`__
    * - ``modflownwt.sgrid.top_sampling.channel_stat``
      - ``Literal['min', 'p10', 'p25', 'median', 'mean']``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling-channel-stat>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L249>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L256>`__
    * - ``modflownwt.sgrid.top_sampling.channel_source``
      - ``Literal['none', 'streams_raster']``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling-channel-source>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L271>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L278>`__
    * - ``modflownwt.sgrid.top_sampling.channel_buffer_px``
      - ``int``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling-channel-buffer-px>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L279>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L286>`__
    * - ``modflownwt.sgrid.top_sampling.spike_guard_tol_m``
      - ``float``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling-spike-guard-tol-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L287>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L294>`__
    * - ``modflownwt.sgrid.top_sampling.min_pixels``
      - ``int``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling-min-pixels>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L296>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L303>`__
    * - ``modflownwt.sgrid.top_sampling.min_thickness_m``
      - ``float``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling-min-thickness-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L304>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L311>`__
    * - ``modflownwt.sgrid.top_sampling.network_safety_net``
      - ``bool``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling-network-safety-net>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L312>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L319>`__
    * - ``modflownwt.sgrid.top_sampling.max_channel_lowering_m``
      - ``float``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling-max-channel-lowering-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L321>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328>`__
    * - ``modflow6.runtime``
      - ``Modflow6RuntimeConfig``
      - expert
@@ -6631,7 +6631,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-planar>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L334>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L341>`__
    * - ``modflow6.sgrid.planar.mode``
      - ``Literal['keep_native', 'resample_to_shape']``
      - user
@@ -6661,7 +6661,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-vertical>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L338>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L345>`__
    * - ``modflow6.sgrid.vertical.genmtd_lay``
      - ``Literal['constant', 'decay', 'list']``
      - user
@@ -6697,85 +6697,85 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-grid-dual>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L349>`__
    * - ``modflow6.sgrid.condition_top``
      - ``bool``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-condition-top>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L352>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L359>`__
    * - ``modflow6.sgrid.condition_top_epsilon``
      - ``float``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-condition-top-epsilon>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L368>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L375>`__
    * - ``modflow6.sgrid.top_sampling``
      - ``TopSamplingConfig``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L377>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L384>`__
    * - ``modflow6.sgrid.top_sampling.mode``
      - ``Literal['centroid', 'zonal']``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L225>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L231>`__
    * - ``modflow6.sgrid.top_sampling.hillslope_stat``
      - ``Literal['mean', 'median', 'min', 'max', 'p10', 'p25']``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling-hillslope-stat>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L233>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L240>`__
    * - ``modflow6.sgrid.top_sampling.channel_stat``
      - ``Literal['min', 'p10', 'p25', 'median', 'mean']``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling-channel-stat>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L249>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L256>`__
    * - ``modflow6.sgrid.top_sampling.channel_source``
      - ``Literal['none', 'streams_raster']``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling-channel-source>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L271>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L278>`__
    * - ``modflow6.sgrid.top_sampling.channel_buffer_px``
      - ``int``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling-channel-buffer-px>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L279>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L286>`__
    * - ``modflow6.sgrid.top_sampling.spike_guard_tol_m``
      - ``float``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling-spike-guard-tol-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L287>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L294>`__
    * - ``modflow6.sgrid.top_sampling.min_pixels``
      - ``int``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling-min-pixels>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L296>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L303>`__
    * - ``modflow6.sgrid.top_sampling.min_thickness_m``
      - ``float``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling-min-thickness-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L304>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L311>`__
    * - ``modflow6.sgrid.top_sampling.network_safety_net``
      - ``bool``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling-network-safety-net>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L312>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L319>`__
    * - ``modflow6.sgrid.top_sampling.max_channel_lowering_m``
      - ``float``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling-max-channel-lowering-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L321>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328>`__
    * - ``display.enabled``
      - ``bool``
      - user
