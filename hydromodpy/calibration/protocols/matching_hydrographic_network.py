@@ -32,6 +32,7 @@ from collections.abc import Mapping
 from typing import Any
 
 import pandas as pd
+from pydantic import ValidationError
 
 from hydromodpy.calibration.config import MatchingHydrographicNetworkOptions, outputs_agree
 from hydromodpy.calibration.protocols.base import Deviation, Reference
@@ -520,7 +521,9 @@ def _write_hydrograph_output(
     a parameter is. Compared through the output model
     (:func:`hydromodpy.calibration.config.outputs_agree`), not raw: a sealed
     run's own dump spells out every default this bare declaration leaves out,
-    and reloading it must not read as a collision with itself.
+    and reloading it must not read as a collision with itself. A declaration
+    that does not validate (a sealed run's output still carrying a removed
+    key) raises its own validation error, which names the key.
     """
     written = {
         "variable": opts.discharge_variable,
@@ -528,7 +531,20 @@ def _write_hydrograph_output(
         "observes": station,
     }
     existing = outputs.get(HYDROGRAPH_OUTPUT)
-    if existing is not None and not outputs_agree(existing, written):
+    try:
+        agree = existing is None or outputs_agree(existing, written)
+    except ValidationError as exc:
+        unknown = sorted(
+            {str(error["loc"][-1]) for error in exc.errors() if error["type"] == "extra_forbidden"}
+        )
+        if not unknown:
+            raise
+        raise ValueError(
+            f"[calibration.outputs].{HYDROGRAPH_OUTPUT!r} declares "
+            f"{', '.join(repr(key) for key in unknown)}, which this output does not take: a key "
+            "this version removed, or a misspelling. Delete it."
+        ) from exc
+    if not agree:
         raise ValueError(
             f"[calibration.outputs].{HYDROGRAPH_OUTPUT!r} is reserved for the point "
             "output the transient stage of protocol 'matching_hydrographic_network' "

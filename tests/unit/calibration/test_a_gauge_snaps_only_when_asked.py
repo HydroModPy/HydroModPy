@@ -39,6 +39,7 @@ from hydromodpy.calibration.metrics.solver_extract import (
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.solver.base.cell_lookup import locate_cell_on_solver_mesh
 from hydromodpy.solver.modflow_common import observable_extraction as _extraction
+from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 N = 5
@@ -54,7 +55,8 @@ def _valley_model() -> SimpleNamespace:
     mesh = SolverMesh.from_structured_arrays(
         nrow=N, ncol=N, top=top, botm=np.full((1, N, N), -10.0), dx=100.0, dy=100.0
     )
-    return SimpleNamespace(solver_mesh=mesh)
+    descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
+    return SimpleNamespace(solver_mesh=mesh, descent=descent)
 
 
 class _Adapter:

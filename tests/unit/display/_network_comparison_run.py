@@ -23,6 +23,11 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from hydromodpy.core.descent import build_descent
+from hydromodpy.core.field_routing import active_surface_mask, cell_centroids_from_mesh
+from hydromodpy.results.run.contracts import MeshDescent
+from hydromodpy.results.run.descent import RunDescent
+
 NX = 5
 NY = 3
 AXIS_COLUMN = 2
@@ -74,12 +79,14 @@ def comparison_run(
     with_release: bool = True,
     catchment_columns: Sequence[int] | None = None,
     name: str = "nancon",
+    descent_diagonals: bool = True,
 ) -> SimpleNamespace:
     """Return a run the stream comparison can be rebuilt from.
 
     ``seepage_cells`` are the cells releasing water to the surface; every other
     cell releases nothing, so the simulated network is the downslope closure of
-    exactly those. ``topography`` replaces the routing surface, and ``relief``
+    exactly those. ``descent_diagonals`` is the neighbourhood the stored descent
+    was built on, which the real build fixes by the mesh type. ``topography`` replaces the routing surface, and ``relief``
     the elevation the run persisted as a field: they are the same array unless
     a test drives the hillshade on its own.
     """
@@ -139,9 +146,38 @@ def comparison_run(
         _catalog=SimpleNamespace(read_geographic_metadata=lambda sim_id: dict(snapped)),
         has_field=lambda variable, **_: variable in fields,
         field=lambda variable, **_: fields[variable],
+        descent=RunDescent(lambda: stored_descent(surface, faces, vertices, descent_diagonals)),
         has_hydrographic_network=lambda role="generated": role == "reference",
         hydrographic_network=lambda role="generated": network,
         geographic=lambda feature: watershed,
+    )
+
+
+def stored_descent(
+    surface: np.ndarray, faces: np.ndarray, vertices: np.ndarray, diagonal_neighbors: bool = True
+) -> MeshDescent:
+    """Return the descent a solver build would have stored for this mesh."""
+    descent = build_descent(
+        surface,
+        faces,
+        vertices=vertices,
+        centroids=cell_centroids_from_mesh(vertices, faces),
+        routable=active_surface_mask(surface),
+        diagonal_neighbors=diagonal_neighbors,
+    )
+    return MeshDescent(
+        receiver=descent.receiver,
+        surface=descent.surface,
+        base_level=descent.base_level,
+        constant_head=descent.constant_head,
+        raised=descent.raised,
+        channel=descent.channel,
+        pinned=descent.pinned,
+        graph=descent.metric.graph,
+        adjacency="shared_nodes" if descent.diagonal_neighbors else "shared_faces",
+        epsilon=None,
+        report={},
+        rebuilt=False,
     )
 
 

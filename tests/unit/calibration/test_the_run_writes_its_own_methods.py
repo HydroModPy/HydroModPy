@@ -121,8 +121,8 @@ class TestItReportsTheDepartures:
         assert "departs from the published method" not in crossing
 
     def test_the_run_reads_the_network_output_and_not_a_gauge(self) -> None:
-        # A point output defaults diagonal_neighbors to false, the network one
-        # to true: the paragraph must not read the gauge as the criterion.
+        # Only the network output carries the criterion: the paragraph must
+        # not read the gauge as the criterion.
         from types import SimpleNamespace
 
         from hydromodpy.calibration.config import (

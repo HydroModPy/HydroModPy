@@ -14,6 +14,7 @@ from collections.abc import Callable, Mapping
 
 import numpy as np
 
+from hydromodpy.core.descent import Descent
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext
@@ -77,6 +78,11 @@ class Modflow6:
         self.dem_watershed_path = None
         self.grid_ctx: SolverGridContext | None = None
         self.routing_ctx: SolverRoutingContext | None = None
+        # The descent D of the build, set by build.run_pre_processing.
+        self.descent: Descent | None = None
+        # Set by the steady initialization and the spin-up cycles: a model that
+        # is never extracted builds D only for its SFR walks and stores none.
+        self.auxiliary = False
 
         self.modflow_config = _coerce_modflow6_config(modflow_config)
         runtime = self.modflow_config.runtime

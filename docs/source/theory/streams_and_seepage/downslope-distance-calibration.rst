@@ -132,6 +132,14 @@ unreachable share of the simulated support fell from **13.6 per cent to 0.0**;
 and the outlet moved from an internal depression at 130.3 m to the true low
 point of the catchment at 106.4 m.
 
+**The criterion is a measure on the model top, not a routing.** It keeps
+reading the model top T and fills its own copy on its own graph, D8 on quads as
+in the paper, seeded on the domain border. It does not read the descent D
+that the solver build stores with each run, which follows the channel tree and
+the constant-head cells and serves routing: the discharge and upstream-area
+observables, the accumulation of cell fluxes and the flow direction map. The two
+surfaces answer two questions, so they are not reconciled.
+
 The two mean distances and the criterion
 ----------------------------------------
 

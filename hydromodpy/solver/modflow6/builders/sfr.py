@@ -150,11 +150,11 @@ def resolve_reach_line_cells(
     return [(cell2d, seg_length, mid) for mid, cell2d, seg_length in segments]
 
 
-def sfr_networks_read_the_descent(model) -> bool:
-    """Return whether an active network walks the descent D.
+def sfr_networks_walk_the_descent(model) -> bool:
+    """Return whether an active network walks the descent D during the build.
 
     ``rectify_on_mesh`` traces the channel on D and ``route_drainage`` routes the
-    hillslope down it; a network with neither never reads D.
+    hillslope down it. An auxiliary model builds D only for them.
     """
     return any(
         bool(definition.get("rectify_on_mesh")) or bool(definition.get("route_drainage"))
@@ -695,7 +695,7 @@ __all__ = [
     "resolve_sfr_networks",
     "sfr_drain_cells_to_drop",
     "sfr_networks_lie_on_the_river_network",
-    "sfr_networks_read_the_descent",
+    "sfr_networks_walk_the_descent",
     "sfr_routes_drainage",
     "watershed_drainage_cell_mask",
 ]

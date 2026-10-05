@@ -30,6 +30,7 @@ from hydromodpy.solver.modflow_common.budget_components import (
     canonical_budget_component,
     is_scalar_budget_component,
 )
+from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
 
 logger = get_logger(__name__)
@@ -904,6 +905,9 @@ class Modflow6OutputAdapter:
                     structured_shape=structured_shape,
                 )
                 _write_flow_properties(sz, solver_output_dir, n_cells=n_cells)
+                write_descent_sidecar_to_store(
+                    sz, solver_output_dir, sim_id=sim_id, n_cells=n_cells
+                )
             finally:
                 sz.close()
         except Exception:

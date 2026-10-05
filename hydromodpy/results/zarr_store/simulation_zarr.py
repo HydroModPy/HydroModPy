@@ -17,7 +17,7 @@ Refer to ``reports_db/03_zarr_stores.md`` and
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -200,6 +200,31 @@ class SimulationZarr:
             start_index=start_index,
             grid_type=grid_type,
             structured_shape=structured_shape,
+        )
+
+    def write_descent(
+        self,
+        *,
+        receiver: np.ndarray,
+        surface: np.ndarray,
+        base_level: np.ndarray,
+        constant_head: np.ndarray,
+        raised: np.ndarray,
+        channel: np.ndarray,
+        pinned: np.ndarray,
+        attrs: Mapping[str, object],
+    ) -> None:
+        """Write the descent D under ``mesh/``, additive to the mesh arrays."""
+        zarr_writer.write_descent(
+            self,
+            receiver=receiver,
+            surface=surface,
+            base_level=base_level,
+            constant_head=constant_head,
+            raised=raised,
+            channel=channel,
+            pinned=pinned,
+            attrs=attrs,
         )
 
     def write_topography(

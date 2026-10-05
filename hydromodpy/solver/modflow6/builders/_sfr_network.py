@@ -151,6 +151,7 @@ def _rectify_network_on_mesh(
     """Rectify one network's reach cells on the mesh (SFD channel + stub pruning).
 
     Re-derives the single-flow-direction channel on the receivers of the descent D,
+    stopped on its constant-head cells (a reach reaching one is the outlet reach),
     prunes the stubs and tests the lake shores on ``face_adjacency`` (shared faces),
     reads the streambed top on the solver top, and re-numbers the resulting graph.
     """
@@ -159,7 +160,7 @@ def _rectify_network_on_mesh(
     n_cells = int(solver_mesh.n_cells)
     nodes, edges = rectify_reach_graph(
         records,
-        receiver=descent.receiver,
+        receiver=descent.stopping_receiver,
         face_adjacency=face_adjacency,
         mesh_top=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
         lake_cell_to_number=dict(lake_number_of),

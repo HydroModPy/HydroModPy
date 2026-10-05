@@ -1,10 +1,10 @@
 """A descent over shared edges cannot follow a talweg that runs diagonally.
 
-This pins a measurement, because the consequence is silent and large. Both the
-stream-network criterion and the per-cell discharge ride the same downhill graph,
-and its neighbour rule defaults to shared edges. On a square grid a diagonal
-valley has no axis-aligned downhill step, so the accumulation fragments instead of
-reaching the outlet.
+This pins a measurement, because the consequence is silent and large. The
+per-cell discharge once rode a downhill graph whose neighbour rule defaulted to
+shared edges; it now rides the descent D, D8 on quads. On a square grid a
+diagonal valley has no axis-aligned downhill step, so a shared-edge accumulation
+fragments instead of reaching the outlet.
 
 Measured on a real Nancon run at the basin outlet before this was pinned: the
 cell the gauge falls in drained 0.107 km2 of a 64.631 km2 catchment, two tenths of
@@ -80,9 +80,9 @@ def test_the_run_states_what_its_graph_can_actually_drain(caplog) -> None:
 
     The delineation produces a basin every drop leaves by one cell, so the largest
     accumulation on a graph that drains that basin equals its area. The run says
-    the ratio out loud, which is what turns the D4 default from a silent error into
-    a reported one: no threshold is involved, the two numbers are simply printed
-    next to each other.
+    the ratio out loud, which turns a graph that cannot drain the basin from a
+    silent error into a reported one: no threshold is involved, the two numbers
+    are simply printed next to each other.
     """
     import logging
 
@@ -98,7 +98,6 @@ def test_the_run_states_what_its_graph_can_actually_drain(caplog) -> None:
 
     assert ratio == pytest.approx(0.066, abs=0.005)
     assert "different drainage" in caplog.text
-    assert "diagonal_neighbors" in caplog.text
 
 
 def test_a_graph_that_drains_the_basin_reports_one() -> None:

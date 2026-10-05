@@ -113,12 +113,17 @@ the solver top, filled on the mesh graph that is descended (D8 neighbours on an
 all-quad mesh, shared faces otherwise), where a lake is traversed to its spill
 level and a lake cell is the sink of the walk. D never returns to the solver, so
 neither option requires ``[modflow6.sgrid] condition_top = true``. The
-streambed top of a rectified reach is read on the model top, not on D. D is
-built only when a network sets one of the two options.
+streambed top of a rectified reach is read on the model top, not on D. Every
+MODFLOW 6 and MODFLOW-NWT build makes D, with or without SFR: the per-cell
+discharge, the upstream area, the accumulated fluxes and the flow direction map
+read it too, and the run stores it. The auxiliary steady model of a steady
+initialization builds D only when one of its networks sets one of the two
+options.
 
-D follows the generated river network A on the cells A crosses. A is the
-full-extent stream raster of ``[geographic.river_network]``, traced on the D8
-pointer of the routing DEM; the reaches lie on it. Each mesh cell holding a
+D follows the generated river network A on the cells A crosses, whenever the
+run generates A (``[geographic.river_network] enabled = true``), whether or not
+SFR reaches lie on it. A is the full-extent stream raster of that step, traced
+on the D8 pointer of the routing DEM. Each mesh cell holding a
 pixel of A (a channel cell, never a lake cell) drains to the next channel cell
 along A, its pin, even where the model top climbs along A. Every other cell
 keeps the steepest descent on the filled copy, and a filled flat rises faster
@@ -127,8 +132,11 @@ running beside it. A cell where A leaves through a lake or off the mesh is an
 outlet of A and keeps the steepest descent. A run without the river network
 has no pin, and neither has a run whose routing DEM carries the burned observed
 network (``[geographic.enforce_streams]``): A is then traced on the map, and an
-observation never enters the routing. A constant-head cell (ocean or river CHD)
-is an outlet of D: water reaching it leaves the model there.
+observation never enters the routing. A constant-head cell (ocean, river or
+side CHD) seeds D and keeps its steepest descent, so an accumulation crosses a
+river CHD and the outlet still sums the catchment. Both walks stop there: a
+reach reaching it is the outlet reach, and a drain chain reaching it keeps a
+plain DRN.
 
 The drainage basin closes on the outlet the catchment was delineated from (the
 snapped point, else the declared one), at the most drained cell within two

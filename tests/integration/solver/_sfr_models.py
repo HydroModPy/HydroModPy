@@ -19,8 +19,8 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     build_sfr_package_args,
     resolve_sfr_networks,
 )
-from hydromodpy.solver.modflow6.support.mesh_descent import build_solver_mesh_descent
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
+from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReachTrace
 

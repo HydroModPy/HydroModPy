@@ -18,13 +18,14 @@ from hydromodpy.solver.modflow_common.discharge_routing import (
     routing_graph_for_model,
     upstream_area_m2,
 )
+from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 _NROW, _NCOL = 3, 3
 
 
 def _model(top: np.ndarray) -> SimpleNamespace:
-    """A 3x3 structured model whose top is the routing surface."""
+    """A 3x3 structured model whose top D is built on, as the build does."""
     botm = np.full((_NROW, _NCOL), -10.0, dtype=float)
     mesh = SolverMesh.from_structured_arrays(
         nrow=_NROW,
@@ -32,7 +33,8 @@ def _model(top: np.ndarray) -> SimpleNamespace:
         top=top,
         botm=np.stack([botm]),
     )
-    return SimpleNamespace(solver_mesh=mesh)
+    descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
+    return SimpleNamespace(solver_mesh=mesh, descent=descent)
 
 
 def _south_sloping_top() -> np.ndarray:
@@ -165,7 +167,7 @@ def test_a_cell_outside_the_mesh_is_refused():
         flat_cell_index(model, (0, 9, 9))
 
 
-def test_a_model_without_a_mesh_says_so():
+def test_a_model_without_a_descent_says_so():
     with pytest.raises(ValueError, match="carries none"):
         routing_graph_for_model(SimpleNamespace(solver_mesh=None))
 

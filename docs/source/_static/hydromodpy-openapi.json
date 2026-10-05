@@ -1300,16 +1300,6 @@
             "title": "Observed Values",
             "x-hmp-profile": "user"
           },
-          "diagonal_neighbors": {
-            "default": false,
-            "description": "Route this cell's discharge, and the area it drains, over shared nodes rather than shared edges, which recovers a talweg that runs diagonally across a square grid. Only reaches 'variable' = 'discharge'; a head read at this cell ignores it. The same routing choice as the network output's 'diagonal_neighbors', declared here because a cell output belongs to no network block, with its own default: false (shared edges) here, true (D8) on the network output.",
-            "examples": [
-              false
-            ],
-            "title": "Diagonal Neighbors",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
           "snap_radius": {
             "anyOf": [
               {
@@ -1336,7 +1326,7 @@
               }
             ],
             "default": null,
-            "description": "Opt-in. Move this gauge onto the cell that drains the most within this radius, before it is scored. Accepts a bare number (metres) or a pint string like '150 m'; it is a maximum displacement, measured from the gauge cell centre to the cell centres. The drained area is the one the solver routes on the mesh, with this output's 'diagonal_neighbors'. Only for 'variable' = 'discharge'. Off by default: a gauge otherwise stays in the cell it resolves to, which may drain a small share of the catchment, and the run logs that share.",
+            "description": "Opt-in. Move this gauge onto the cell that drains the most within this radius, before it is scored. Accepts a bare number (metres) or a pint string like '150 m'; it is a maximum displacement, measured from the gauge cell centre to the cell centres. The drained area is the one the solver routes on the mesh, along the descent D of the build. Only for 'variable' = 'discharge'. Off by default: a gauge otherwise stays in the cell it resolves to, which may drain a small share of the catchment, and the run logs that share.",
             "title": "Snap Radius",
             "x-hmp-profile": "user"
           }
@@ -1981,16 +1971,6 @@
             "title": "Observed Values",
             "x-hmp-profile": "user"
           },
-          "diagonal_neighbors": {
-            "default": false,
-            "description": "Route this cell's discharge, and the area it drains, over shared nodes rather than shared edges, which recovers a talweg that runs diagonally across a square grid. Only reaches 'variable' = 'discharge'; a head or a lake state read at this point ignores it. The same routing choice as the network output's 'diagonal_neighbors', declared here because a point output belongs to no network block, with its own default: false (shared edges) here, true (D8) on the network output.",
-            "examples": [
-              false
-            ],
-            "title": "Diagonal Neighbors",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
           "snap_radius": {
             "anyOf": [
               {
@@ -2017,7 +1997,7 @@
               }
             ],
             "default": null,
-            "description": "Opt-in. Move this gauge onto the cell that drains the most within this radius, before it is scored. Accepts a bare number (metres) or a pint string like '150 m'; it is a maximum displacement, measured from the gauge coordinate to the cell centres. The drained area is the one the solver routes on the mesh, with this output's 'diagonal_neighbors'. Only for 'variable' = 'discharge'. With 'observes', a discharge station is then located by the coordinate of its record, which it otherwise is not, and snapped from there. Off by default: a gauge otherwise stays in the cell it resolves to, which may drain a small share of the catchment, and the run logs that share.",
+            "description": "Opt-in. Move this gauge onto the cell that drains the most within this radius, before it is scored. Accepts a bare number (metres) or a pint string like '150 m'; it is a maximum displacement, measured from the gauge coordinate to the cell centres. The drained area is the one the solver routes on the mesh, along the descent D of the build. Only for 'variable' = 'discharge'. With 'observes', a discharge station is then located by the coordinate of its record, which it otherwise is not, and snapped from there. Off by default: a gauge otherwise stays in the cell it resolves to, which may drain a small share of the catchment, and the run logs that share.",
             "title": "Snap Radius",
             "x-hmp-profile": "user"
           }

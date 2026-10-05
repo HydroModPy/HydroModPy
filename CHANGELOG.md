@@ -194,6 +194,18 @@ Each release section includes the following standard categories:
   routed share goes from 84 % to 93 %. Stub pruning and the lake-shore test of
   `rectify_on_mesh` read shared faces, and the streambed profile reports on every call how
   many reaches it relaxed, one per reach.
+- Every MODFLOW 6 and MODFLOW-NWT build makes the descent D, with or without SFR, and every
+  reader of a flow path follows it: the per-cell discharge of a point output, the upstream area
+  and the accumulated fluxes of the derived fields, and the flow direction map. A constant-head
+  cell seeds D and passes the water on, so an accumulation crosses a river CHD and the outlet
+  sums the whole catchment. D is stored with the run in `fields.zarr/mesh/descent_*` (receiver,
+  surface, base level, channel, pinned, constant-head and raised masks) and read back by
+  `Run.descent`; a run stored before rebuilds it from its top, without pins. On example 04 the
+  gauge cell drained 0.17 % of the catchment on the former face graph (664 sinks) and drains
+  99.89 % on D; the tracked files read the whole-catchment series and keep their scores. D
+  takes 5.6 MB at 90,000 cells. The transport routing context, the Boussinesq raster path and
+  the network criterion (the model top with the D8 adjacency of the paper) keep their own
+  graphs.
 - `[geographic.dam_carve]` corrects the ground G in both geographic entry points: the routing
   DEM now sees the carved dam as the model top does (one entry point carved the top only, the
   other ignored the section). `reg_fold` together with `dam_carve` or `[geographic.crossings]`
@@ -220,6 +232,10 @@ Each release section includes the following standard categories:
   the conductivity and storage a Voronoi run was given could not be read back or drawn.
 
 ### Removed
+- `diagonal_neighbors` of the point and cell calibration outputs: their discharge follows D,
+  whose neighbourhood the mesh fixes (shared nodes on an all-quad mesh, shared faces
+  otherwise). A file declaring it there, including the dump of a run sealed before, is
+  refused with the key named. The network outputs keep it for the criterion.
 - `[geographic.snap_streams]` and everything that existed only for it: the snap of the
   mapped network onto the talwegs (`core/stream_snap.py`), its raster pass in the
   geographic step, the snapped map stored with a run, the two snap figures, the Eq. 4

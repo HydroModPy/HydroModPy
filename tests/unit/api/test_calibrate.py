@@ -862,7 +862,6 @@ support = "point"
 observes = "G1"
 time = "all"
 reducer = "none"
-diagonal_neighbors = false
 
 [[data.hydrometry.sources]]
 station_ids = ["G1"]

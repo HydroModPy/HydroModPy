@@ -15,7 +15,9 @@ xarray / UGRID readers (``dataset``, ``to_xarray_batch``) live on the
 ``run.probe``; the stress periods placed on the calendar (``edges``,
 ``step_at``, ``steps_for``) live on
 :class:`hydromodpy.results.run.periods.RunPeriods` exposed as
-``run.periods``. Derived catchment views are module-level functions in
+``run.periods``; the routing descent D (``receiver``, ``surface``, ``graph``
+...) lives on :class:`hydromodpy.results.run.descent.RunDescent` exposed as
+``run.descent``. Derived catchment views are module-level functions in
 :mod:`hydromodpy.results.derive.views` (``saturated_fraction``, ``drainage_density``,
 ``persistence``, ``catchment_mean``, ``recharge_forcing``).
 
@@ -40,13 +42,16 @@ Public API
 ----------
 - ``Run``: instantiated by ``Catalog`` resolution methods. Also
   exposes ``run.array`` for xarray / UGRID readers, ``run.probe`` for
-  point interrogation and ``run.periods`` for date lookups.
+  point interrogation, ``run.periods`` for date lookups and ``run.descent``
+  for the routing descent.
 - :class:`hydromodpy.results.run.array.RunArrayProvider` exposes
   ``dataset`` and ``to_xarray_batch``.
 - :class:`hydromodpy.results.run.point.RunPointProvider` exposes
   ``series`` and ``declared``.
 - :class:`hydromodpy.results.run.periods.RunPeriods` exposes
   ``edges``, ``step_at`` and ``steps_for``.
+- :class:`hydromodpy.results.run.descent.RunDescent` exposes the
+  :class:`~hydromodpy.results.run.contracts.MeshDescent` fields, loaded once.
 
 Cross-refs
 ----------
@@ -67,6 +72,7 @@ from hydromodpy.core.config_kit.root_config_protocol import get_root_config_prov
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.errors import RunNotFoundError
 from hydromodpy.results.run.array import RunArrayProvider
+from hydromodpy.results.run.descent import RunDescent
 from hydromodpy.results.run.geographic import RunGeographicMixin
 from hydromodpy.results.run.hydrographic import RunHydrographicMixin
 from hydromodpy.results.run.periods import RunPeriods
@@ -156,6 +162,7 @@ class Run(
         self.array = RunArrayProvider(self)
         self.probe = RunPointProvider(self)
         self.periods = RunPeriods(self)
+        self.descent = RunDescent.of_run(self)
 
     def _iter_runs(self) -> tuple[Run, ...]:
         """Runs this object stands for, so ``probe`` serves one run and a set alike."""

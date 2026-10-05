@@ -2,11 +2,13 @@ MODFLOW-NWT Contracts
 =====================
 
 This page documents the internal contracts that HydroModPy honors before
-instantiating MODFLOW-NWT packages. Two contracts are covered:
+instantiating MODFLOW-NWT packages. Two contracts are covered, followed by
+the routing descent both MODFLOW backends share:
 
 1. Spatial and temporal discretization (DIS package).
 2. Boundary activation and initialization (BAS package, ``ibound`` and
    ``strt`` arrays).
+3. The routing descent D, and what routes apart from it.
 
 1. Discretization contract
 --------------------------
@@ -223,6 +225,71 @@ The validation enforces sign-based semantics, not just
 3. Plot ``strt`` slices on imposed-head faces and ocean-influenced
    areas.
 4. Any non-finite value in ``ibound`` or ``strt`` is a hard error.
+
+3. Routing descent contract
+---------------------------
+
+Source: ``hydromodpy/core/descent.py`` (the computation) and
+``hydromodpy/solver/modflow_common/mesh_descent.py`` (the adapter both
+backends call; neither backend imports the other).
+
+Every MODFLOW 6 and MODFLOW-NWT run builds one descent D per model build and
+keeps it on the model (``model.descent``), without the neighbour sets the
+flood walked: after the build the consumers read the receivers, the surface,
+the masks and the edge lengths only. An auxiliary model (steady
+initialization, spin-up cycle) is never extracted: MODFLOW 6 builds D for it
+only when an SFR network walks D, MODFLOW-NWT never, and neither leaves a
+sidecar. D is a filled copy of the model top
+on which every routable cell has a receiver, so water has a path to a base
+level. It never returns to the solver: the channel bed, drain elevations and
+reach tops keep reading the model top.
+
+- **Seeds.** The domain rim and the constant-head cells, the same supports on
+  both backends: ocean, side and river CHD, static or transient. On MODFLOW 6
+  these are the ocean and river CHD support masks and the side CHD rows; on
+  MODFLOW-NWT the cells with ``ibound == -1`` (static boundaries) and the CHD
+  package rows (transient ones). MODFLOW-NWT writes no river CHD. Lakes
+  (MODFLOW 6 only) are traversed, never seeds.
+- **Constant heads pass the water on.** A constant-head cell keeps its steepest
+  descent, as a rim cell does, so the per-cell discharge and the accumulated
+  fluxes cross a river CHD and the outlet keeps the domain sum. The walks that
+  follow water out of the model stop there (``Descent.stopping_receiver``): a
+  drain chain reaching a CHD cell keeps a plain DRN, and a reach reaching one
+  is the outlet reach.
+- **Pins.** Where the river network was generated for the run
+  (``geographic.river_network_enabled``; its full-extent rasters are in
+  ``geographic.correcflow_path``) and the routing DEM is not burned, channel
+  cells drain to the next cell of the channel tree. This holds
+  whether or not SFR is active. Without a channel tree D has no pin.
+- **Neighbourhood.** Fixed by the mesh type: D8 (shared nodes) on a quad mesh,
+  shared faces elsewhere. It is not a per-output option.
+- **Stored with the run.** The build leaves ``<model>.descent.npz`` in the
+  solver folder; the extractor writes it under ``fields.zarr/mesh/`` right after
+  the mesh (see :doc:`../storage-layout`) and ``run.descent`` reads it back. A
+  run sealed before D was stored gets one rebuilt from its stored top, with no
+  pin, no constant-head seed and no lake.
+
+Consumers on D: the per-cell discharge and upstream area of the calibration
+observables (``modflow_common/discharge_routing.py``), the accumulation of
+cell fluxes (``accumulation_flux``, ``release_accumulation_flux``), and the
+flow direction map, which also marks the cells D raised on its copy.
+
+Declared apart, each on its own surface:
+
+- ``modflow_common/routing_context.py`` keeps its own raster D8 pointer on the
+  solver-grid DEM, conditioned by ``dem_correc_type``. Mass transfer and MT3DMS
+  accumulation trace point sources down the Whitebox pointer and stay on it
+  until they are migrated.
+- The Boussinesq raster path of ``derived.py`` routes on its own Whitebox D8
+  raster: a Boussinesq store holds a top and no mesh connectivity, so it has no
+  D.
+- ``solver/modflow6/postprocess/_unstructured.py``
+  (``accumulate_unstructured_cell_values``, the legacy GeoTIFF export on an
+  unstructured MODFLOW 6 mesh) accumulates on its own adjacency of the DEM.
+- ``modflow_common/sink_mask.py`` answers a different question, which cells
+  have no outlet in the solver's own four-face connectivity, and stays on it.
+- The network criterion reads the model top T and fills its own copy on its own
+  graph (see :doc:`../../theory/streams_and_seepage/downslope-distance-calibration`).
 
 See also
 --------

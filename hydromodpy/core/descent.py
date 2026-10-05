@@ -24,19 +24,28 @@ outlet and the cells below a dam keep draining downstream. A lake seeded as a
 sink would capture them back over a carved dam. The sink role belongs to the
 consumer that walks D: the drainage mover stops at the first lake cell, and the
 reach rectification stops at a lake shore.
+
+A constant-head cell has the same two roles. It seeds the flood, so the bowl
+around it drains to it as it stands. It keeps its steepest descent as a
+receiver, like a rim seed, so the accumulation crosses a river CHD and the
+outlet still sums the whole domain. The walks that must end where water leaves
+the model (the drainage mover, the reach rectification) read
+:attr:`Descent.stopping_receiver`, which is -1 on ``constant_head``.
 """
 
 from __future__ import annotations
 
 import heapq
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
 from hydromodpy.core.depression_filling import DEFAULT_EPSILON_M
 from hydromodpy.core.field_routing import (
     DownhillGraph,
+    active_surface_mask,
     cell_adjacency_from_face_connectivity,
+    cell_centroids_from_mesh,
     domain_edge_cells,
 )
 from hydromodpy.core.topographic_distance import (
@@ -46,7 +55,7 @@ from hydromodpy.core.topographic_distance import (
     shared_node_adjacency,
 )
 
-__all__ = ("Descent", "build_descent")
+__all__ = ("Descent", "build_descent", "descent_from_stored_mesh", "descent_graph")
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,23 +63,30 @@ class Descent:
     """A filled copy of the model top and the receiver graph it defines.
 
     ``base_level`` holds the flood seeds: the rim of the routable domain and
-    the declared constant-head cells. Every routable cell outside it has a
-    receiver, and the receiver chains never cycle. A constant-head cell has no
-    receiver: water reaching it leaves the model there.
+    the declared constant-head cells, which ``constant_head`` flags apart.
+    Every routable cell outside it has a receiver, and the receiver chains
+    never cycle. A seed keeps its steepest descent, -1 only where no neighbour
+    is lower, so the accumulation passes through a constant-head cell.
 
-    ``channel`` flags the cells of the channel tree A, ``pinned`` the channel
+    ``raised`` flags the cells the flood raised on the copy, lakes and pins
+    included: where the routing departs from T. ``channel`` flags the cells of the channel tree A, ``pinned`` the channel
     cells whose receiver is their pin rather than their steepest descent.
     The report keeps lake flooding apart from pit filling: ``n_raised`` and
     ``max_raise_m`` count the raised cells outside lakes, ``n_lake_flooded``
     and ``max_lake_flood_m`` the lake cells flooded to their spill level, and
     ``n_pinned_raised``, ``max_pinned_raise_m`` the pinned cells raised so A
     can be followed where T climbs along it.
+
+    ``adjacency`` holds the neighbour sets the flood walked. It is the heavy
+    part of D, and :meth:`without_adjacency` drops it once the build is done.
     """
 
     metric: DownslopeMetric
     surface: np.ndarray
-    adjacency: list[set[int]]
+    adjacency: list[set[int]] | None
     base_level: np.ndarray
+    constant_head: np.ndarray
+    raised: np.ndarray
     lake_of: np.ndarray
     channel: np.ndarray
     pinned: np.ndarray
@@ -85,6 +101,25 @@ class Descent:
     def receiver(self) -> np.ndarray:
         """Receiver of each cell, -1 at an outlet or off the graph."""
         return self.metric.graph.downstream
+
+    @property
+    def stopping_receiver(self) -> np.ndarray:
+        """Receiver of a walk that ends where water leaves the model.
+
+        Same as :attr:`receiver`, with -1 on the constant-head cells: a reach
+        reaching one is the outlet reach, a drain chain reaching one keeps a
+        plain drain.
+        """
+        return np.where(self.constant_head, -1, self.receiver)
+
+    def without_adjacency(self) -> Descent:
+        """Return this D without its neighbour sets, for a model to keep.
+
+        The consumers after the build read the receivers, the order, the
+        surface, the masks, the edge lengths and the centroids. The adjacency
+        sets weigh most of D on a large mesh and nothing reads them anymore.
+        """
+        return replace(self, adjacency=None)
 
     @property
     def routable(self) -> np.ndarray:
@@ -153,8 +188,10 @@ def build_descent(
     ``routable`` names the cells of the graph, lake cells included: a lake is
     crossed by the fill, so a fixed-area lake, inactive in the solver, must be
     routable here. ``base_level`` adds seeds to the rim of the routable domain,
-    the constant-head cells where water leaves the model inside it; they get no
-    receiver. The rim keeps its steepest descent. ``diagonal_neighbors`` asks
+    the constant-head cells where water leaves the model inside it. Every seed,
+    rim or constant head, keeps its steepest descent: the accumulation passes
+    through it, and the walks that stop there read
+    :attr:`Descent.stopping_receiver`. ``diagonal_neighbors`` asks
     for the D8 descent; it holds on a quad mesh and falls back to shared faces
     elsewhere.
 
@@ -242,7 +279,7 @@ def build_descent(
         diagonal_neighbors=use_diagonals,
         adjacency=adjacency,
     )
-    metric = _with_pins_and_sinks(metric, pin, constant_head)
+    metric = _with_pins(metric, pin)
     _check_every_cell_drains(metric.graph.downstream, surface, on_graph & ~seeds)
 
     lake = lakes >= 0
@@ -255,6 +292,8 @@ def build_descent(
         surface=surface,
         adjacency=adjacency,
         base_level=seeds,
+        constant_head=constant_head,
+        raised=raised,
         lake_of=lakes,
         channel=channel_mask,
         pinned=pinned,
@@ -264,6 +303,45 @@ def build_descent(
         max_lake_flood_m=max_flood,
         n_pinned_raised=n_pinned_raised,
         max_pinned_raise_m=max_pinned_raise,
+    )
+
+
+def descent_graph(receiver: np.ndarray, surface: np.ndarray) -> DownhillGraph:
+    """Rebuild the receiver graph of a stored descent from its two arrays.
+
+    Every link of D strictly descends on D's surface, so ordering the routable
+    cells by descending surface gives the donors-before-receivers order the
+    accumulation needs. The routable cells are the ones D's surface holds a
+    value on. This is what lets a reader route on D without the mesh geometry.
+    """
+    values = np.asarray(surface, dtype=float).reshape(-1)
+    downstream = np.asarray(receiver, dtype=np.int64).reshape(-1)
+    if downstream.size != values.size:
+        raise ValueError(
+            f"the descent holds {downstream.size} receivers and {values.size} surface values."
+        )
+    active = np.isfinite(values)
+    order_all = np.argsort(np.where(active, values, -np.inf), kind="stable")[::-1]
+    return DownhillGraph(downstream=downstream, order=order_all[active[order_all]], active=active)
+
+
+def descent_from_stored_mesh(
+    top: np.ndarray, face_node_connectivity: np.ndarray, vertices: np.ndarray
+) -> Descent:
+    """Rebuild D from a stored mesh, for a run sealed before D was stored.
+
+    The mesh carries neither the channel tree, nor the constant-head cells, nor
+    the lakes of the build, so this D has no pin, no constant-head seed and no
+    lake: it is the plain flood of the model top, seeded on the domain rim, on
+    the D8 neighbourhood the mesh allows.
+    """
+    surface = np.asarray(top, dtype=float).reshape(-1)
+    return build_descent(
+        surface,
+        face_node_connectivity,
+        vertices=vertices,
+        centroids=cell_centroids_from_mesh(vertices, face_node_connectivity),
+        routable=active_surface_mask(surface),
     )
 
 
@@ -396,16 +474,12 @@ def _refuse_first(failed: np.ndarray, message: str) -> None:
         raise ValueError(message.format(int(np.argmax(failed))))
 
 
-def _with_pins_and_sinks(
-    metric: DownslopeMetric, pin: np.ndarray, constant_head: np.ndarray
-) -> DownslopeMetric:
-    """Return ``metric`` with pinned cells sent to their pin and CHD cells to -1."""
+def _with_pins(metric: DownslopeMetric, pin: np.ndarray) -> DownslopeMetric:
+    """Return ``metric`` with pinned cells sent to their pin."""
     downstream = metric.graph.downstream.copy()
     pinned = pin >= 0
     downstream[pinned] = pin[pinned]
-    downstream[constant_head] = -1
     edge_length = metric.edge_length.copy()
-    edge_length[constant_head] = np.nan
     if np.any(pinned):
         delta = metric.centroids[pinned] - metric.centroids[pin[pinned]]
         edge_length[pinned] = np.hypot(delta[:, 0], delta[:, 1])

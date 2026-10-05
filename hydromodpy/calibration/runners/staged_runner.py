@@ -1587,8 +1587,7 @@ def _methods_paragraph_for(
         return None
     completed = [run.name for run in runs if _converged(run.report)]
     calibrated = {item.name: float(item.value) for item in frozen}
-    # Read on the network outputs only: a gauge declares its own
-    # diagonal_neighbors, false by default, and is not the criterion the
+    # Read on the network outputs only: a gauge is not the criterion the
     # deviations describe.
     chosen: dict[str, object] = {}
     for output in (cfg.outputs or {}).values():

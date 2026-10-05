@@ -442,7 +442,7 @@ suffix would break those readers.
    runs/<name>/fields.zarr/
    |-- zarr.json     root attributes (ACDD) and consolidated metadata
    |-- meta/         schema and store-level metadata
-   |-- mesh/         topology, cell types, coordinates, thicknesses
+   |-- mesh/         topology, cell types, coordinates, thicknesses, routing descent
    |-- state/        solver state fields
    |-- forcing/      recharge and other forcings; forcing/soil/ in soil mode
    |-- particles/    particle trajectories
@@ -503,6 +503,34 @@ Neither change bumps ``zarr_schema_version``: the layout, the names, the
 shapes and the meaning of every stored array are unchanged, the float width
 is declared by each array's own Zarr metadata, and both an old store and a
 new one read the same through every reader.
+
+**Routing descent.** A MODFLOW 6 or MODFLOW-NWT run stores the descent D it
+was built with under ``mesh/``, one value per face, none of them rounded:
+``descent_receiver`` (int64, the receiver cell, -1 at an outlet; a
+constant-head cell keeps its steepest descent),
+``descent_surface`` (float64, the filled copy of the model top, NaN off the
+graph), and the boolean masks ``descent_base_level`` (the seeds: domain rim and
+constant-head cells), ``descent_constant_head`` (the CHD cells, where a walk
+that follows water out of the model stops), ``descent_raised`` (the cells D
+raised on its copy, which the flow direction map draws), ``descent_channel``
+(cells of the channel tree) and ``descent_pinned`` (channel cells that drain to
+their pin). The attributes of
+``descent_receiver`` name the neighbourhood (``adjacency`` is ``shared_nodes``
+for D8 on quads, ``shared_faces`` elsewhere), the flood step ``epsilon`` and the
+build report (``n_raised``, ``max_raise_m``, ``n_lake_flooded``,
+``max_lake_flood_m``, ``n_pinned_raised``, ``max_pinned_raise_m``,
+``n_channel``, ``n_pinned``). The solver build leaves D in the solver folder as
+``<model>.descent.npz`` and the extractor copies it into the store right after
+the mesh. ``run.descent`` reads it back, and the flow direction map and
+``accumulation_flux`` route on it. Boussinesq has no mesh connectivity and
+stores none.
+
+This addition does not bump ``zarr_schema_version``, for the reason of the
+previous paragraph: the arrays are new datasets under ``mesh/``, no existing
+array changes its shape, dtype or meaning, and a store without them stays valid.
+A run sealed before D was stored has no ``descent_*`` array: its readers rebuild
+D from the stored top, with no channel pin, no constant-head seed and no lake,
+and log one INFO line per run saying so.
 
 **Soil reservoir.** A run whose recharge comes from
 ``[flow.sinks_sources.recharge.soil]`` writes its daily columns under

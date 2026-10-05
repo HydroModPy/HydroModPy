@@ -237,7 +237,6 @@ def observable_request_for_output(
                 cell,
                 xy=snap_xy,
                 radius_m=snap_m,
-                diagonal_neighbors=output.diagonal_neighbors,
             )
         # The declared variable is honoured. Coercing it to a head meant a block
         # asking for the discharge at a gauge was silently scored on a head, and a
@@ -249,7 +248,6 @@ def observable_request_for_output(
             support="cell",
             cell=cell,
             times=times,
-            diagonal_neighbors=output.diagonal_neighbors,
         )
     if support == "boundary":
         return ObservableRequest(
@@ -288,7 +286,6 @@ def observable_request_for_output(
                 cell,
                 xy=None,
                 radius_m=snap_m,
-                diagonal_neighbors=output.diagonal_neighbors,
             )
         return ObservableRequest(
             id=name,
@@ -296,7 +293,6 @@ def observable_request_for_output(
             support="cell",
             cell=cell,
             times=times,
-            diagonal_neighbors=output.diagonal_neighbors,
         )
     raise ValueError(f"Unknown calibration output support {support!r} on output {name!r}")
 
@@ -313,7 +309,6 @@ def snap_gauge_cell(
     *,
     xy: tuple[float, float] | None,
     radius_m: float,
-    diagonal_neighbors: bool = False,
 ) -> tuple[int, int, int]:
     """Move a gauge's cell onto the most accumulated cell within ``radius_m``.
 
@@ -337,12 +332,7 @@ def snap_gauge_cell(
             run_ctx,
             None,
             [
-                ObservableRequest(
-                    id=area_id,
-                    name="upstream_area",
-                    support="cells",
-                    diagonal_neighbors=bool(diagonal_neighbors),
-                ),
+                ObservableRequest(id=area_id, name="upstream_area", support="cells"),
                 ObservableRequest(id=xy_id, name="cell_xy", support="cells"),
                 ObservableRequest(id=here_id, name="cell_xy", support="cell", cell=cell),
             ],
@@ -1110,7 +1100,6 @@ def extract_outputs(
                     name="upstream_area",
                     support="cell",
                     cell=request.cell,
-                    diagonal_neighbors=request.diagonal_neighbors,
                 )
             )
 

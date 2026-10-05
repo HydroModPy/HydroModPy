@@ -18,6 +18,7 @@ from collections.abc import Mapping
 import flopy
 import numpy as np
 
+from hydromodpy.core.descent import Descent
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
 from hydromodpy.physics.flow.regime import normalize_flow_regime
@@ -27,6 +28,11 @@ from hydromodpy.solver.modflow_common import (
     build_solver_routing_context,
     ensure_solver_binary,
     write_grid_array_to_raster,
+)
+from hydromodpy.solver.modflow_common.mesh_descent import (
+    build_solver_mesh_descent,
+    channel_tree_for_run,
+    write_descent_sidecar,
 )
 from hydromodpy.solver.modflow_common.options import (
     ModflowPostprocessOptions,
@@ -47,7 +53,7 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfi
 
 from ._post_processing import run_post_processing
 from ._pre_processing import assemble_flopy_packages
-from .flow_to_modflow_adapter import FlowToModflowAdapter
+from .flow_to_modflow_adapter import FlowModflowInputs, FlowToModflowAdapter
 from .nwt_config import (
     ModflowConfig,
     ModflowSpecifParams,
@@ -140,6 +146,9 @@ class ModflowNwt:
         self.sgrid_config: SolverSGridConfig | None = specif_params.sgrid
         self.grid_ctx: SolverGridContext | None = None
         self.routing_ctx: SolverRoutingContext | None = None
+        self.descent: Descent | None = None
+        # Set by the steady initialization: a model never extracted builds no D.
+        self.auxiliary = False
 
         # dis_itmuni is mutable: may be updated in _build_temporal_discretization
         self.dis_itmuni = specif_params.runtime.dis.itmuni
@@ -332,6 +341,42 @@ class ModflowNwt:
         )
         return self.routing_ctx
 
+    def _build_descent(self, solver_mesh, flow_inputs: FlowModflowInputs) -> Descent | None:
+        """Build the descent D of this run and leave it beside the model.
+
+        The seeds are the domain rim and every constant-head cell the adapter
+        writes, the same supports MODFLOW 6 seeds on: ``ibound == -1`` (a
+        static ocean or side boundary) and the CHD package rows (a transient
+        ocean or side boundary, which keep ``ibound`` at 1). NWT writes no
+        stream CHD, so it has none to seed. The routable columns are those
+        ``ibound`` keeps active. NWT builds no lake, so none is traversed. D
+        follows the generated network A whenever the run has A.
+
+        NWT has no SFR walk, so the model keeps D without its adjacency, and an
+        auxiliary model (the steady initialization) builds none.
+        """
+        if self.auxiliary:
+            self.descent = None
+            return None
+        ibound_cells = solver_mesh.flatten_from_grid(np.asarray(flow_inputs.ibound))
+        constant_head = (ibound_cells == -1).any(axis=0)
+        if flow_inputs.chd_spd:
+            chd_grid = np.zeros((int(solver_mesh.nrow), int(solver_mesh.ncol)), dtype=bool)
+            for rows in flow_inputs.chd_spd.values():
+                for row in rows:
+                    chd_grid[int(row[1]), int(row[2])] = True
+            constant_head |= np.asarray(solver_mesh.flatten_from_grid(chd_grid), dtype=bool)
+        descent = build_solver_mesh_descent(
+            solver_mesh,
+            lake_cells_by_lake={},
+            base_level_mask=constant_head,
+            channel_tree=channel_tree_for_run(self.geographic, solver_mesh),
+            active_column=(ibound_cells != 0).any(axis=0),
+        )
+        write_descent_sidecar(descent, self.full_path, self.model_name)
+        self.descent = descent.without_adjacency()
+        return self.descent
+
     def _build_dis_package(self, solver_mesh, temporal_dis: Mapping[str, object]) -> None:
         """Create the FLOPY DIS package from spatial and temporal discretization."""
         dis_kwargs = solver_mesh.to_dis_kwargs()
@@ -408,6 +453,7 @@ class ModflowNwt:
         self._build_dis_package(sgrid, temporal_dis)
 
         flow_inputs = self._build_flow_modflow_inputs(sgrid)
+        self._build_descent(sgrid, flow_inputs)
         assemble_flopy_packages(self, flow_inputs, active_options)
 
     def processing(

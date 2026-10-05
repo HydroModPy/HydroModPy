@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 import flopy
 import numpy as np
@@ -74,16 +74,11 @@ from hydromodpy.solver.modflow6.builders import (
 )
 from hydromodpy.solver.modflow6.builders.sfr import (
     sfr_networks_lie_on_the_river_network,
-    sfr_networks_read_the_descent,
+    sfr_networks_walk_the_descent,
 )
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.support.flopy_structure_warmup import warm_flopy_structure
 from hydromodpy.solver.modflow6.support.mesh_conditioning import condition_solver_mesh_top
-from hydromodpy.solver.modflow6.support.mesh_descent import (
-    ChannelTree,
-    build_solver_mesh_descent,
-    read_channel_tree,
-)
 from hydromodpy.solver.modflow6.support.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
@@ -101,6 +96,11 @@ from hydromodpy.solver.modflow_common import (
     SolverRoutingContext,
     build_solver_routing_context,
     write_grid_array_to_raster,
+)
+from hydromodpy.solver.modflow_common.mesh_descent import (
+    build_solver_mesh_descent,
+    channel_tree_for_run,
+    write_descent_sidecar,
 )
 from hydromodpy.solver.modflow_common.sink_mask import resolve_sink_mask
 from hydromodpy.solver.modflow_grid import (
@@ -288,78 +288,52 @@ def _watershed_polygon_mask(model, cell_centroids: np.ndarray) -> np.ndarray | N
     return watershed_drainage_cell_mask(gdf.geometry.union_all(), cell_centroids)
 
 
-def _sfr_descent(model, solver_mesh, lake_cell_ids_by_lake) -> Descent | None:
-    """The descent D when an SFR network walks it, else None.
+def _run_descent(
+    model, solver_mesh, lake_cell_ids_by_lake, constant_head: np.ndarray
+) -> Descent | None:
+    """The descent D of this build, left beside the model for the extractor.
 
-    Only ``rectify_on_mesh`` and ``route_drainage`` read D, so a run without
-    either builds none and cannot fail on it. The seeds include the CHD ocean
-    and river cells, where water leaves the model. D follows the generated
-    network A on the cells A crosses, so the hillslope drains into the reaches
-    traced on A instead of running beside them.
+    Every run builds it: the SFR rectification and drainage routing walk it,
+    the per-cell discharge accumulates on it, and the run stores it for its
+    figures and accumulated fluxes. ``constant_head`` holds the CHD cells
+    (ocean, river, side), the same supports on both backends: they seed the
+    flood and the walks stop there. D follows the generated network A on the
+    cells A crosses whenever the run has A, with or without SFR. A network
+    delineated from A this run makes its rasters mandatory.
+
+    An auxiliary model (steady initialization, spin-up cycle) is never
+    extracted: it builds D only when one of its SFR networks walks it, and
+    leaves no sidecar.
     """
-    if not is_bc_active(model, "sfr") or not sfr_networks_read_the_descent(model):
+    auxiliary = bool(getattr(model, "auxiliary", False))
+    if auxiliary and not sfr_networks_walk_the_descent(model):
         return None
-    return build_solver_mesh_descent(
+    descent = build_solver_mesh_descent(
         solver_mesh,
         lake_cells_by_lake=lake_cell_ids_by_lake,
-        base_level_mask=model._ocean_support_mask | model._stream_support_mask,
-        channel_tree=_channel_tree(model, solver_mesh),
-    )
-
-
-def _channel_tree(model, solver_mesh) -> ChannelTree | None:
-    """The generated network A around the mesh, or None when no reach lies on it.
-
-    A is the full-extent stream-link raster of the river-network step (the
-    stream raster when links were not computed), with the D8 pointer it was
-    traced on and its accumulation, all in the corrected-flow folder. The
-    clipped rasters are cut to the watershed and miss the buffer. A is read
-    only when a network was delineated from it this run, so a raster left by an
-    earlier run with the river network on is never picked up.
-    """
-    from hydromodpy.spatial.geographic.core.flow_products import DIRECTION_NAME
-
-    geographic = getattr(model, "geographic", None)
-    if getattr(geographic, "stream_burn_enabled", False):
-        # Measured on example 21 (10 m burn): pinned on the burned network, D sent
-        # 2.4 % of the catchment off the outlet and dropped the outlet flow by 2.7 %.
-        logger.info(
-            "The routing DEM carries the burned observed network "
-            "([geographic.enforce_streams]): A is traced on the map and an observation "
-            "never enters the routing, so the descent D is not pinned on A."
-        )
-        return None
-    folder = getattr(geographic, "correcflow_path", None)
-    if folder is None or not sfr_networks_lie_on_the_river_network(model):
-        logger.info(
-            "No SFR network lies on the generated river network A: the descent D has no "
-            "pinned cell and follows the steepest descent everywhere."
-        )
-        return None
-    # File names written by spatial.geographic.core.river_network.
-    link = os.path.join(str(folder), "dem_stream_link_id_full.tif")
-    if not os.path.exists(link):
-        link = os.path.join(str(folder), "dem_streams_full.tif")
-    pointer = os.path.join(str(folder), DIRECTION_NAME)
-    accumulation = os.path.join(str(folder), "dem_acc_cells.tif")
-    missing = [path for path in (link, pointer, accumulation) if not os.path.exists(path)]
-    if missing:
-        raise FileNotFoundError(
-            "The SFR reaches lie on the generated river network A, but its rasters are "
-            f"missing: {', '.join(missing)}. Rerun the geographic preprocessing."
-        )
-    vertices = np.asarray(solver_mesh.planar_mesh.vertices, dtype=float)[:, :2]
-    return read_channel_tree(
-        link_tif=link,
-        pointer_tif=pointer,
-        accumulation_tif=accumulation,
-        bounds=(
-            float(vertices[:, 0].min()),
-            float(vertices[:, 1].min()),
-            float(vertices[:, 0].max()),
-            float(vertices[:, 1].max()),
+        base_level_mask=constant_head,
+        channel_tree=channel_tree_for_run(
+            getattr(model, "geographic", None),
+            solver_mesh,
+            required=is_bc_active(model, "sfr") and sfr_networks_lie_on_the_river_network(model),
         ),
     )
+    if not auxiliary:
+        write_descent_sidecar(descent, model.full_path, model.model_output_name)
+    return descent
+
+
+def _constant_head_cells(
+    n_cells: int, *support_masks: np.ndarray, side_chd_spd: Mapping[int, Sequence[Sequence]]
+) -> np.ndarray:
+    """Planar cells holding a CHD in any period: the support masks and the side rows."""
+    cells = np.zeros(int(n_cells), dtype=bool)
+    for mask in support_masks:
+        cells |= np.asarray(mask, dtype=bool).reshape(-1)
+    for rows in side_chd_spd.values():
+        for row in rows:
+            cells[int(row[1])] = True
+    return cells
 
 
 def _drainage_basin(model, descent: Descent, solver_mesh) -> np.ndarray:
@@ -1107,14 +1081,25 @@ def run_pre_processing(  # noqa: PLR0915
     # support, none of which changes further down.
     ocean_chd_spd, ocean_support_mask = build_ocean_boundary_chd_spd(model)
     stream_chd_spd, stream_support_mask = build_stream_boundary_chd_spd(model)
+    side_chd_spd = build_side_boundary_chd_spd(model)
     model._ocean_support_mask = np.asarray(ocean_support_mask, dtype=bool).copy()
     model._stream_support_mask = np.asarray(stream_support_mask, dtype=bool).copy()
 
     # The descent D: a copy of the top the solver sees, filled on the graph it
     # descends, so every cell holds a path to the domain rim or a CHD cell. The
-    # reach rectification and the drainage routing both trace it; the copy never
-    # reaches the solver, which keeps reading this top.
-    descent = _sfr_descent(model, solver_mesh, lake_cell_ids_by_lake)
+    # reach rectification, the drainage routing and the per-cell discharge all
+    # walk it; the copy never reaches the solver, which keeps reading this top.
+    descent = _run_descent(
+        model,
+        solver_mesh,
+        lake_cell_ids_by_lake,
+        _constant_head_cells(
+            int(solver_mesh.n_cells),
+            model._ocean_support_mask,
+            model._stream_support_mask,
+            side_chd_spd=side_chd_spd,
+        ),
+    )
 
     # SFR reaches resolve on the post-lake-mask mesh so every reach cell is an
     # active aquifer cell. Resolution happens before DRN so the drain rows
@@ -1404,8 +1389,6 @@ def run_pre_processing(  # noqa: PLR0915
             # the period-0 rows, hence the static-DRN requirement.
             drainage_movers = []
             if sfr_routes_drainage(sfr_networks):
-                if descent is None:
-                    raise RuntimeError("route_drainage needs the descent D, built with SFR.")
                 from hydromodpy.spatial.mesh.model.cell_adjacency import (
                     build_planar_cell_adjacency,
                 )
@@ -1413,7 +1396,7 @@ def run_pre_processing(  # noqa: PLR0915
                 drainage_movers = build_drainage_mover_records(
                     sfr_networks,
                     drn_spd=drn_spd,
-                    receiver=descent.receiver,
+                    receiver=descent.stopping_receiver,
                     basin_cell_mask=_drainage_basin(model, descent, solver_mesh),
                     face_adjacency=build_planar_cell_adjacency(
                         solver_mesh.planar_mesh, int(solver_mesh.n_cells)
@@ -1431,11 +1414,19 @@ def run_pre_processing(  # noqa: PLR0915
             mover=bool(drainage_mover_rows),
         )
 
+    # The SFR walks are done: the model keeps D without its adjacency sets, all
+    # the per-cell discharge needs. An auxiliary model keeps none.
+    model.descent = (
+        None
+        if descent is None or getattr(model, "auxiliary", False)
+        else descent.without_adjacency()
+    )
+
     chd_spd = assemble_constant_head_stress_period_data(
         model,
         ocean=(ocean_chd_spd, ocean_support_mask),
         stream=(stream_chd_spd, stream_support_mask),
-        side=build_side_boundary_chd_spd(model),
+        side=side_chd_spd,
     )
     if any(len(v) > 0 for v in chd_spd.values()):
         model.chd = flopy.mf6.ModflowGwfchd(model.gwf, stress_period_data=chd_spd, save_flows=True)

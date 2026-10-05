@@ -459,7 +459,8 @@ Five things in there are not free choices.
       snap_radius = "150 m"
 
    The drained area searched is the one the solver accumulates on the mesh,
-   on the graph the discharge is routed on, ``diagonal_neighbors`` included.
+   on the descent D the discharge is routed on, whose neighbourhood the mesh
+   fixes (D8 on quads, shared faces elsewhere).
    The delineation's own outlet snap works on the DEM raster instead, and its
    snapped outlet resolves to a mesh cell draining 0.022 km2, so that surface
    is not reused. The radius is a maximum displacement from the gauge, not the

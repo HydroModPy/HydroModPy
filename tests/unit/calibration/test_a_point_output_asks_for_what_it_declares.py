@@ -72,36 +72,16 @@ def test_a_point_that_observes_a_station_needs_no_coordinates() -> None:
     assert declaration.y is None
 
 
-def test_a_point_output_s_diagonal_neighbors_reaches_the_request(ctx) -> None:
-    # The D4/D8 knob only helps if it survives the translation to a solver
-    # request; declared and dropped here is indistinguishable from absent.
-    declaration = CalibOutputPoint.model_validate(
-        {
-            "variable": "discharge",
-            "support": "point",
-            "x": 1.0,
-            "y": 2.0,
-            "diagonal_neighbors": True,
-        }
-    )
-    request = observable_request_for_output("gauge", declaration, ctx)
-    assert request.diagonal_neighbors is True
-
-
-def test_a_cell_output_s_diagonal_neighbors_reaches_the_request() -> None:
-    declaration = CalibOutputCell.model_validate(
-        {
-            "variable": "discharge",
-            "support": "cell",
-            "row": 3,
-            "col": 7,
-            "diagonal_neighbors": True,
-        }
-    )
-    request = observable_request_for_output("gauge", declaration, SimpleNamespace())
-    assert request.diagonal_neighbors is True
-
-
-def test_diagonal_neighbors_defaults_to_false(ctx) -> None:
-    request = observable_request_for_output("gauge", _point("discharge"), ctx)
-    assert request.diagonal_neighbors is False
+@pytest.mark.parametrize(
+    ("model", "selector"),
+    [
+        (CalibOutputPoint, {"support": "point", "x": 1.0, "y": 2.0}),
+        (CalibOutputCell, {"support": "cell", "row": 3, "col": 7}),
+    ],
+)
+def test_a_gauge_declares_no_neighbourhood_of_its_own(model, selector) -> None:
+    # The discharge at a gauge is routed on the descent D of the build, whose
+    # neighbourhood the mesh fixes. A per-output knob would route one gauge on
+    # another graph than the area it is snapped by, so the key is refused.
+    with pytest.raises(ValueError, match="diagonal_neighbors"):
+        model.model_validate({"variable": "discharge", "diagonal_neighbors": True, **selector})

@@ -517,6 +517,12 @@ def build_network_geometry(
         if diagonal_neighbors
         else cell_adjacency_from_face_connectivity(face_node_connectivity, n_cells=surface.size)
     )
+    # The network criterion keeps reading the model top T and fills its own copy
+    # on its own graph, D8 on quads as in the paper, seeded on the domain border.
+    # It does not read the descent D, which follows the channel tree A and the
+    # constant-head cells and serves routing; the criterion is a measure on T,
+    # not a routing.
+    #
     # Condition the surface ON THIS GRAPH before measuring lengths along it. A
     # raster conditioned before delineation is pit-free on its own grid only;
     # sampled onto the mesh it grows new pits, and the descent then stops in

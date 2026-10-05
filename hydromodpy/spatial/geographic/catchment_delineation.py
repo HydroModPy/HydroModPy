@@ -186,6 +186,13 @@ class CatchmentDelineation:
         The generated network is then traced on the map, and an observation never
         enters the routing: the solver does not pin its descent on that network.
         """
+        self.river_network_enabled = bool(config.river_network.enabled)
+        """Whether this run generates the river network from the routing DEM.
+
+        The solver pins its descent on that network only then: rasters an
+        earlier configuration left in the corrected-flow folder are not this
+        run's network.
+        """
 
         self.processing()
 

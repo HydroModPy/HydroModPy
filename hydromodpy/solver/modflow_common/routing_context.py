@@ -1,4 +1,10 @@
-"""Solver-aligned hydrologic routing products built from a solver DEM."""
+"""Solver-aligned hydrologic routing products built from a solver DEM.
+
+This module keeps its own raster D8 pointer on the solver-grid DEM, conditioned
+by ``dem_correc_type``. It does not read the descent D
+(:mod:`hydromodpy.core.descent`): mass transfer and MT3DMS accumulation trace
+point sources down the Whitebox pointer, and stay on it until they are migrated.
+"""
 
 from __future__ import annotations
 

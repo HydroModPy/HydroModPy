@@ -17,6 +17,7 @@ from hydromodpy.display.figures.flow_direction_map import (
     INACTIVE_LABEL,
     NO_RECEIVER_LABEL,
     OCTANT_NAMES,
+    RAISED_LABEL,
     FlowDirectionMap,
     octant_colors,
 )
@@ -29,6 +30,7 @@ from ._network_comparison_run import (
     cell,
     comparison_run,
     drawn_cells,
+    stored_descent,
     valley_topography,
 )
 from ._render_helpers import relative_luminance
@@ -191,7 +193,7 @@ def test_no_diagonal_bearing_appears_without_a_diagonal_graph(mpl) -> None:
     fig, ax = mpl.subplots()
 
     FlowDirectionMap().render(
-        comparison_run(topography=tilted_plane()), ax, diagonal_neighbors=False
+        comparison_run(topography=tilted_plane(), descent_diagonals=False), ax
     )
 
     try:
@@ -207,9 +209,7 @@ def test_no_diagonal_bearing_appears_without_a_diagonal_graph(mpl) -> None:
 def test_the_diagonal_descent_is_taken_once_the_graph_carries_it(mpl) -> None:
     fig, ax = mpl.subplots()
 
-    FlowDirectionMap().render(
-        comparison_run(topography=tilted_plane()), ax, diagonal_neighbors=True
-    )
+    FlowDirectionMap().render(comparison_run(topography=tilted_plane()), ax)
 
     try:
         interior = [cell(column, row) for row in (1, 2) for column in range(1, NX)]
@@ -224,9 +224,8 @@ def test_the_diagonal_descent_is_taken_once_the_graph_carries_it(mpl) -> None:
         mpl.close(fig)
 
 
-def test_the_map_draws_the_graph_the_criterion_descends_by_default(mpl) -> None:
-    # The stream criterion descends D8 by default, as the paper does. A map
-    # of the directions drawn on another graph would contradict it.
+def test_the_map_draws_the_neighbourhood_the_descent_was_built_on(mpl) -> None:
+    # D8 on a quad mesh is fixed by the mesh type, not by a knob of the figure.
     fig, ax = mpl.subplots()
 
     FlowDirectionMap().render(comparison_run(topography=tilted_plane()), ax)
@@ -235,6 +234,72 @@ def test_the_map_draws_the_graph_the_criterion_descends_by_default(mpl) -> None:
         interior = [cell(column, row) for row in (1, 2) for column in range(1, NX)]
         assert _octant_cells(ax, "SW") == sorted(interior)
         assert "including the diagonals" in ax.texts[0].get_text()
+    finally:
+        mpl.close(fig)
+
+
+# --------------------------------------------------------------------------- #
+# where the descent departs from the model top
+# --------------------------------------------------------------------------- #
+
+
+def valley_with_a_pit() -> np.ndarray:
+    """Return the valley with the cell west of the axis dug below the axis itself."""
+    top = valley_topography()
+    top[cell(1, 1)] = -50.0
+    return top
+
+
+def test_a_pit_of_the_top_drains_on_the_descent_and_is_marked_as_raised(mpl) -> None:
+    """The steepest descent of the top dies in the pit, D fills it and routes on."""
+    fig, ax = mpl.subplots()
+
+    FlowDirectionMap().render(comparison_run(topography=valley_with_a_pit()), ax)
+
+    try:
+        assert _octant_cells(ax, NO_RECEIVER_LABEL) == [cell(AXIS_COLUMN, 0)], (
+            "on D the only cell without receiver is the outlet of the valley, never a pit"
+        )
+        raised = _labelled(ax, RAISED_LABEL)
+        assert raised is not None
+        assert len(raised.get_offsets()) == 1
+        note = ax.texts[0].get_text()
+        assert "the descent raised 1 cell on its copy" in note
+    finally:
+        mpl.close(fig)
+
+
+def test_a_surface_that_drains_on_its_own_marks_no_raised_cell(mpl) -> None:
+    fig, ax = mpl.subplots()
+
+    FlowDirectionMap().render(comparison_run(), ax)
+
+    try:
+        assert _labelled(ax, RAISED_LABEL) is None
+        assert "raised no cell" in ax.texts[0].get_text()
+    finally:
+        mpl.close(fig)
+
+
+def test_a_top_stored_through_a_seven_digit_file_marks_no_raised_cell(mpl) -> None:
+    """NWT writes its top as E15.6: above 1000 m the stored top is off by more than half a step.
+
+    The map draws the cells D flagged as raised, so that offset marks none.
+    """
+    from hydromodpy.results.run.descent import RunDescent
+
+    run = comparison_run()
+    built_on = run.mesh.topography + 6.0e-4
+    run.descent = RunDescent(
+        lambda: stored_descent(built_on, run.mesh.face_node_connectivity, run.mesh.vertices)
+    )
+    fig, ax = mpl.subplots()
+
+    FlowDirectionMap().render(run, ax)
+
+    try:
+        assert _labelled(ax, RAISED_LABEL) is None
+        assert "raised no cell" in ax.texts[0].get_text()
     finally:
         mpl.close(fig)
 
@@ -249,9 +314,7 @@ def test_the_compass_puts_each_colour_at_the_bearing_it_means(mpl) -> None:
 
     fig, ax = mpl.subplots()
 
-    FlowDirectionMap().render(
-        comparison_run(topography=tilted_plane()), ax, diagonal_neighbors=True
-    )
+    FlowDirectionMap().render(comparison_run(topography=tilted_plane()), ax)
 
     try:
         wedges = [item for item in _compass(ax).patches if isinstance(item, Wedge)]

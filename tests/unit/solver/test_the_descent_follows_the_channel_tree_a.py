@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 from rasterio.transform import from_origin
 
-from hydromodpy.solver.modflow6.support.mesh_descent import (
+from hydromodpy.solver.modflow_common.mesh_descent import (
     ChannelTree,
     build_solver_mesh_descent,
     project_channel_tree,

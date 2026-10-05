@@ -1,4 +1,10 @@
-"""Derived variable computation from stored simulation fields."""
+"""Derived variable computation from stored simulation fields.
+
+Cell fluxes are accumulated downstream on the stored descent D of the mesh
+(``mesh/descent_*``, see :mod:`hydromodpy.core.descent`), for MODFLOW 6 and
+MODFLOW-NWT. The Boussinesq path stays apart on its own Whitebox D8 raster: its
+store holds a top and no mesh connectivity, so it has no D.
+"""
 
 from __future__ import annotations
 
@@ -8,11 +14,11 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core import progress
+from hydromodpy.core.descent import descent_from_stored_mesh, descent_graph
 from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.field_routing import (
+    DownhillGraph,
     accumulate_on_downhill_graph,
-    active_surface_mask,
-    build_downhill_graph,
     drain_band_depth,
     drain_budget_stack_to_positive_outflow,
     drain_stack_with_mover,
@@ -468,7 +474,11 @@ def _accumulate_cell_stack_raster_d8(
     n_timesteps: int,
     n_cells: int,
 ) -> None:
-    """Route a positive cell-flux stack downstream via Whitebox D8 mass flux."""
+    """Route a positive cell-flux stack downstream via Whitebox D8 mass flux.
+
+    Boussinesq only, declared apart from D: a store with a mesh refuses here and
+    routes on D instead.
+    """
     import tempfile
     from pathlib import Path
 
@@ -553,27 +563,8 @@ def _accumulate_cell_stack_mesh_graph(
     n_timesteps: int,
     n_cells: int,
 ) -> None:
-    """Route a positive cell-flux stack on a UGRID mesh graph."""
-    with _zarr_root(store, sim_id) as grp:
-        mesh = grp.get("mesh")
-        if mesh is None or "topography" not in mesh or "face_node_connectivity" not in mesh:
-            raise KeyError("No mesh topology for graph routing")
-        topography = np.asarray(mesh["topography"][:], dtype="float64").reshape(-1)[:n_cells]
-        face_node_connectivity = np.asarray(mesh["face_node_connectivity"][:], dtype="int32")
-        vertices = np.asarray(mesh["vertices"][:], dtype="float64") if "vertices" in mesh else None
-
-    if topography.size != n_cells:
-        raise ValueError(f"topography has {topography.size} cells, expected {n_cells}.")
-    inactive = ~active_surface_mask(topography)
-
-    # The receiver graph only depends on the static topography: build it once
-    # and route every timestep through it in a single vectorized pass.
-    graph = build_downhill_graph(
-        topography,
-        face_node_connectivity,
-        vertices=vertices,
-        inactive_mask=inactive,
-    )
+    """Route a positive cell-flux stack on the stored descent D of the mesh."""
+    graph = _stored_descent_graph(sim_id, store, n_cells)
     local = np.maximum(np.asarray(local_stack, dtype="float64").reshape(int(n_timesteps), -1), 0.0)
     accumulation = accumulate_on_downhill_graph(graph, local)
     store.write_field_stack(
@@ -582,6 +573,44 @@ def _accumulate_cell_stack_mesh_graph(
         accumulation.astype("float64", copy=False),
         subgroup="derived",
     )
+
+
+def _stored_descent_graph(sim_id: str, store: Any, n_cells: int) -> DownhillGraph:
+    """Return the receiver graph of the run's descent D.
+
+    D depends only on the mesh and the channel tree, so the graph is built
+    once and every timestep is routed through it. A run stored before D was
+    (no ``mesh/descent_receiver``) gets one rebuilt from the stored top, with
+    no channel pin, constant-head seed or lake, and the log says so.
+    """
+    with _zarr_root(store, sim_id) as grp:
+        mesh = grp.get("mesh")
+        if mesh is None:
+            raise KeyError("No mesh for graph routing")
+        if "descent_receiver" in mesh and "descent_surface" in mesh:
+            receiver = np.asarray(mesh["descent_receiver"][:], dtype="int64").reshape(-1)
+            surface = np.asarray(mesh["descent_surface"][:], dtype="float64").reshape(-1)
+            if receiver.size != n_cells:
+                raise ValueError(f"the descent has {receiver.size} cells, expected {n_cells}.")
+            return descent_graph(receiver, surface)
+        if (
+            "topography" not in mesh
+            or "face_node_connectivity" not in mesh
+            or "vertices" not in mesh
+        ):
+            raise KeyError("No mesh topology for graph routing")
+        topography = np.asarray(mesh["topography"][:], dtype="float64").reshape(-1)[:n_cells]
+        face_node_connectivity = np.asarray(mesh["face_node_connectivity"][:], dtype="int32")
+        vertices = np.asarray(mesh["vertices"][:], dtype="float64")
+
+    if topography.size != n_cells:
+        raise ValueError(f"topography has {topography.size} cells, expected {n_cells}.")
+    logger.info(
+        "Run %s stores no descent: routing on one rebuilt from the stored top, without "
+        "channel pins, constant-head seeds or lakes.",
+        sim_id,
+    )
+    return descent_from_stored_mesh(topography, face_node_connectivity, vertices).metric.graph
 
 
 def _compute_outflow_drain(
