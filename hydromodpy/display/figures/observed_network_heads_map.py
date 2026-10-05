@@ -7,6 +7,10 @@ a head's descent actually walked. This figure exists to show that trace,
 never the rule the run happened to be scored under, so it always redraws
 under ``"heads"`` (:mod:`hydromodpy.results.derive.network_heads_view`).
 
+The foot of each dam of the run is a forced head: the stream below a dam has
+no free end, so the model gives the cell. It is marked apart (a diamond) from
+the heads the map gives, and the reach it starts is part of the trace.
+
 A run that carries the permanent reaches of its map shows them too: their
 trace on top of the full network's, and their heads as triangles. The union of
 the two traces is the maximal map a calibration with a minimal map scores.
@@ -62,6 +66,9 @@ HEAD_COLOR = "#E66100"
 PERMANENT_HEAD_COLOR = "#0B3C8C"
 """Marker of a permanent free end kept as a head."""
 
+FORCED_HEAD_COLOR = "#7B1FA2"
+"""Marker of a forced head: the cell below a dam, where the stream under it starts."""
+
 LANDING_COLOR = "#000000"
 """Marker of the cell centre a kept head lands on."""
 
@@ -76,6 +83,7 @@ _SEGMENT_WIDTH_PT = 0.8
 _HEAD_SIZE_PT = 24.0
 _LANDING_SIZE_PT = 7.0
 _LOST_SIZE_PT = 42.0
+_FORCED_SIZE_PT = 46.0
 
 
 @register
@@ -179,7 +187,9 @@ def _counts(heads: MapHeads) -> str:
     """Return how many heads of one map were traced and lost."""
     n_lost = int(heads.indices["n_heads_lost"])
     n_kept = int(heads.indices["n_heads"]) - n_lost
-    return f"{n_kept} head(s) traced, {n_lost} lost"
+    text = f"{n_kept} head(s) traced, {n_lost} lost"
+    n_forced = int(heads.indices["n_forced_heads"])
+    return text + (f", {n_forced} dam foot" if n_forced else "")
 
 
 def _draw_heads(ax: Axes, heads: MapHeads, *, marker: str, color: str) -> None:
@@ -208,6 +218,17 @@ def _draw_heads(ax: Axes, heads: MapHeads, *, marker: str, color: str) -> None:
             color=color,
             marker=marker,
             zorder=7,
+        )
+    if heads.forced_xy.shape[0]:
+        ax.scatter(
+            heads.forced_xy[:, 0],
+            heads.forced_xy[:, 1],
+            s=_FORCED_SIZE_PT,
+            color=FORCED_HEAD_COLOR,
+            marker="D",
+            edgecolor="white",
+            linewidth=0.6,
+            zorder=9,
         )
     if heads.lost_xy.shape[0]:
         ax.scatter(
@@ -259,6 +280,9 @@ def _handles(view: NetworkHeadsView, traced: np.ndarray) -> list:
         landed += view.permanent.head_xy.shape[0]
     if landed:
         handles.append(_marker("o", LANDING_COLOR, "landing cell centre", size=4))
+    forced = view.full.forced_xy.shape[0]
+    if forced:
+        handles.append(_marker("D", FORCED_HEAD_COLOR, f"dam foot, forced head ({forced})"))
     lost = view.full.lost_xy.shape[0] + (
         0 if view.permanent is None else view.permanent.lost_xy.shape[0]
     )

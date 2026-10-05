@@ -323,8 +323,7 @@ def _places_the_deviations_are_set(cfg) -> list[Any]:
     """Return where a file sets the keys a protocol departs on.
 
     The network outputs, then ``[geographic]`` for ``dem_correc_type``. A gauge
-    declares its own ``diagonal_neighbors``, false by default, and is not the
-    criterion the deviations describe, so it is not read.
+    is not the criterion the deviations describe, so it is not read.
     """
     calibration = getattr(cfg, "calibration", None)
     outputs = getattr(calibration, "outputs", None) or {}

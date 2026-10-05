@@ -1,7 +1,8 @@
 """The Whitebox Workflows engine, behind the terrain port.
 
-Nothing here computes: every member delegates to the sub-backends HydroModPy
-already ships, which is why this engine moves no number. The import of
+Every member delegates to the sub-backends HydroModPy already ships. The one
+number the engine computes itself is the report of a capped breach, measured
+from the DEM before and after so a user sees what was dug. The import of
 ``whitebox_workflows`` stays where it always was, one file deep in
 ``spatial/delineation/whitebox_workflows_backend/raster.py``.
 """
@@ -9,6 +10,7 @@ already ships, which is why this engine moves no number. The import of
 from __future__ import annotations
 
 import hashlib
+import math
 from collections.abc import Sequence
 from importlib.metadata import version as distribution_version
 from math import hypot
@@ -16,7 +18,9 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
+import rasterio
 
 from hydromodpy.core.exceptions import (
     EmptyCatchmentError,
@@ -25,6 +29,7 @@ from hydromodpy.core.exceptions import (
     TerrainRequestError,
 )
 from hydromodpy.core.io.crs import ensure_crs
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.terrain.artifacts import (
     boundary_area_m2,
     mask_cell_count,
@@ -38,6 +43,8 @@ from hydromodpy.spatial.terrain.port import (
     SNAPPED_OUTLET_LAYER_NAME,
     AccumulationTransform,
     AccumulationUnits,
+    CappedBreach,
+    CappedBreachReport,
     Catchment,
     CatchmentLayout,
     ConditionedDem,
@@ -53,7 +60,16 @@ from hydromodpy.spatial.terrain.port import (
     require_untransformed,
 )
 
+logger = get_logger(__name__)
+
 _OUT_TYPE_BY_UNITS: dict[str, str] = {"cells": "cells", "m2": "catchment area"}
+
+MOVE_THRESHOLD_M = 0.01
+"""A cell moved by less than this does not count as lowered or raised.
+
+The breach tool writes a tiny increment on every cell of a path so that it
+descends, and counting those would make a one-cell cut look like a trench.
+"""
 
 
 class WhiteboxTerrainEngine:
@@ -86,19 +102,56 @@ class WhiteboxTerrainEngine:
                 f"{self.engine_id} conditions the whole DEM; extent "
                 f"{extent.kind!r} is not implemented."
             )
-        if method not in ("fill", "breach"):
+        if not (isinstance(method, CappedBreach) or method in ("fill", "breach")):
             raise TerrainCapabilityError(
-                f"{self.engine_id} conditions with 'fill' or 'breach'; "
+                f"{self.engine_id} conditions with 'fill', 'breach' or a capped breach; "
                 f"{method!r} is not implemented."
             )
         crs = raster_crs(dem)
         source = self._backend.raster.read_raster(str(dem))
-        if method == "fill":
+        report: CappedBreachReport | None = None
+        if isinstance(method, CappedBreach):
+            max_dist = _breach_length_cells(method.max_distance_m, _cell_size_m(dem))
+            conditioned = self._backend.flow.breach_depressions_raster(
+                source,
+                max_dist=max_dist,
+                max_cost=method.max_depth_m,
+                fill_deps=True,
+            )
+        elif method == "fill":
             conditioned = self._backend.flow.fill_depressions_raster(source)
         else:
             conditioned = self._backend.flow.breach_depressions_raster(source)
         self._write_raster(conditioned, out, crs)
-        return ConditionedDem(path=Path(out), method=method, extent=extent, crs=crs)
+        if isinstance(method, CappedBreach):
+            report = _measure_capped_breach(
+                Path(dem), Path(out), max_dist=max_dist, max_cost_m=method.max_depth_m
+            )
+            logger.info(
+                "Capped breach: %d cells lowered, %d cells raised (pit raise before the "
+                "breach and the residual fill); realised max lowering %.3f m, max raise "
+                "%.3f m "
+                "(max_dist=%d cells, max_cost=%.3f m).",
+                report.cells_lowered,
+                report.cells_raised,
+                report.max_lowering_m,
+                report.max_raise_m,
+                report.max_dist_cells,
+                report.max_cost_m,
+            )
+            if report.max_lowering_m > method.max_depth_m + MOVE_THRESHOLD_M:
+                logger.warning(
+                    "Capped breach: the realised maximum lowering %.3f m exceeds "
+                    "max_depth %.3f m. max_depth bounds the cumulative cost of one "
+                    "breach path, not the depth of one cell, and later paths are costed "
+                    "on the DEM earlier ones already lowered, so a cell can be cut "
+                    "deeper than max_depth.",
+                    report.max_lowering_m,
+                    method.max_depth_m,
+                )
+        return ConditionedDem(
+            path=Path(out), method=method, extent=extent, crs=crs, breach_report=report
+        )
 
     def drainage_directions(
         self,
@@ -262,6 +315,43 @@ class WhiteboxTerrainEngine:
         # An empty string is what a DEM with no declared CRS reads back as, and
         # stamping that on an output declares a CRS nobody chose.
         ensure_crs(out, crs or None)
+
+
+def _cell_size_m(dem: Path) -> float:
+    """Return the coarser cell side of a DEM, in the unit of its CRS."""
+    with rasterio.open(str(dem)) as src:
+        return float(max(abs(src.res[0]), abs(src.res[1])))
+
+
+def _breach_length_cells(max_distance_m: float, cell_size_m: float) -> int:
+    """Translate a breach length in metres to the whole cells the tool counts.
+
+    Rounded up, never below one cell. The ratio is rounded first so that 200 m on
+    a 25 m grid is 8 cells and not 9 through a float artefact.
+    """
+    return max(1, math.ceil(round(max_distance_m / cell_size_m, 9)))
+
+
+def _measure_capped_breach(
+    source: Path, conditioned: Path, *, max_dist: int, max_cost_m: float
+) -> CappedBreachReport:
+    """Measure what the capped breach did, from the two files and nothing else."""
+    with rasterio.open(str(source)) as before, rasterio.open(str(conditioned)) as after:
+        a = before.read(1, masked=True).astype("float64")
+        b = after.read(1, masked=True).astype("float64")
+    valid = ~(np.ma.getmaskarray(a) | np.ma.getmaskarray(b))
+    diff = np.where(valid, np.ma.getdata(b) - np.ma.getdata(a), 0.0)
+    lowered = diff < -MOVE_THRESHOLD_M
+    raised = diff > MOVE_THRESHOLD_M
+    return CappedBreachReport(
+        cells_lowered=int(np.count_nonzero(lowered)),
+        cells_raised=int(np.count_nonzero(raised)),
+        max_lowering_m=float(max(0.0, -diff.min())) if diff.size else 0.0,
+        max_raise_m=float(max(0.0, diff.max())) if diff.size else 0.0,
+        max_dist_cells=int(max_dist),
+        max_cost_m=float(max_cost_m),
+        move_threshold_m=MOVE_THRESHOLD_M,
+    )
 
 
 def _write_point(path: Path, x: float, y: float, crs: str) -> None:

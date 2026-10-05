@@ -114,8 +114,8 @@ Downstream uses
 - river constraints for meshes, through the :ref:`rivers field
   <mesh-catchment-rivers>` of the :doc:`[mesh_catchment] launcher
   </user_guide/config_reference/mesh_catchment>`;
-- drainage target interpretation, including stream burning of the routing DEM
-  (:ref:`[geographic.enforce_streams] <geographic-enforce-streams>`);
+- drainage target interpretation, and the alpha diagnostic of the geographic
+  step, which reads a ``custom`` vector source and never downloads one;
 - active-network comparison after simulation.
 
 Hydrography Source: bdtopage
@@ -158,9 +158,6 @@ fetched, ``<variable>_<source>[_<product>]_<box hash>``, as
        in Lambert-93. The catalogue serves it back for any box it contains.
    * - ``hydrography_bdtopage_permanent_<hash>.gpkg``
      - The permanent reaches of the same box.
-   * - ``hydrography_bdtopage_burn_<hash>.gpkg``
-     - The reaches around the outlet that the stream burn downloads before
-       the catchment exists.
 
 A run then clips the network to its catchment. The clipped copies sit in the
 preprocessing scratch of the project, under the names the geographic pipeline

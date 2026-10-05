@@ -97,7 +97,9 @@ def _fake_run_ctx(bench, *, reference=None, generated=None):
         cell_areas=lambda: np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
         cell_centroids=lambda: centroids,
     )
-    model = SimpleNamespace(solver_mesh=solver_mesh, recharge=1.0e-8, lake_cell_ids_by_lake={})
+    model = SimpleNamespace(
+        solver_mesh=solver_mesh, recharge=1.0e-8, lake_cell_ids_by_lake={}, dam_foot_cells={}
+    )
     return SimpleNamespace(
         run=SimpleNamespace(id="r1", solver="modflow6"),
         state=SimpleNamespace(

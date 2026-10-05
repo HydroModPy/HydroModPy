@@ -2,7 +2,7 @@ Add a Data Variable
 ===================
 
 A *data variable* is one ``[data.<name>]`` section of a project TOML, loaded
-by one manager and stored in the input cache. Twenty-five ship under
+by one manager and stored in the input cache. Twenty-seven ship under
 ``hydromodpy/data/variables/``; their single list is ``VARIABLE_SPECS`` in
 ``hydromodpy/data/loading/_dispatch.py``.
 

@@ -1,4 +1,12 @@
-"""Unstructured-mesh adjacency and flux accumulation helpers."""
+"""Unstructured-mesh adjacency and flux accumulation helpers.
+
+The accumulation here serves the legacy tif exports of an unstructured MODFLOW 6
+run (``accumulation_flux``, ``mass_accumulated``). It keeps its own steepest
+descent on the unfilled top over shared faces and does not read the descent D
+(:mod:`hydromodpy.core.descent`), like the raster D8 of
+:mod:`hydromodpy.solver.modflow_common.routing_context`, until it is migrated.
+The accumulated fluxes stored with the run are computed on D instead.
+"""
 
 from __future__ import annotations
 

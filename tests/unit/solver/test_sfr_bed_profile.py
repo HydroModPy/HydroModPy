@@ -175,3 +175,24 @@ def test_the_log_says_where_each_bed_landed_inside_its_cell(caplog) -> None:
     text = " ".join(record.getMessage() for record in caplog.records)
     assert "sit on the ceiling" in text
     assert "on the floor" in text
+
+
+def test_a_clean_profile_still_reports_zero_relaxed_reaches(caplog) -> None:
+    top = [140.0, 139.9, 139.0]
+    botm = [[110.0, 109.9, 109.0]]
+    with caplog.at_level("INFO"):
+        _solve(_chain([139.4, 139.3, 138.4]), top=top, botm=botm, incision=0.5)
+    text = " ".join(record.getMessage() for record in caplog.records)
+    assert "0/3 reach(es) relaxed" in text
+
+
+def test_one_climbing_step_counts_one_relaxed_reach(caplog) -> None:
+    # Both passes meet the same step, once from each side. Only the downstream
+    # reach is left above the downhill order, so the log counts one reach.
+    top = [140.0, 139.0, 175.0]
+    botm = [[110.0, 109.0, 145.0]]
+    with caplog.at_level("WARNING"):
+        _solve(_chain([139.5, 138.5, 174.5]), top=top, botm=botm, incision=0.5)
+    text = " ".join(record.getMessage() for record in caplog.records)
+    assert "1/3 reach(es) could not hold the downhill order" in text
+    assert "at reach 2" in text

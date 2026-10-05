@@ -250,10 +250,8 @@ class DepressionMap(BaseFigure):
     """Cells of the mesh top that cannot get out, and the fill each one needs.
 
     A depression here is a cell no descent leaves the domain from, over the
-    same neighbour graph the stream criterion measures its distances on. Not to
-    be confused with ``conditioning_impact_map``, which shows what the
-    geographic step did to the DEM before the mesh existed: this one is what is
-    LEFT once that DEM has been resampled onto the mesh, because a raster
+    same neighbour graph the stream criterion measures its distances on. It shows
+    what is left once the DEM has been resampled onto the mesh, because a raster
     conditioned on its own grid grows new pits under a different neighbourhood.
 
     ``shows="unreachable"`` swaps the subject for the cells the criterion's own

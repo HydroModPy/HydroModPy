@@ -228,7 +228,6 @@ def write_mesh(
     source_cell_indices: np.ndarray | None = None,
     topography: np.ndarray | None = None,
     *,
-    topography_reference: np.ndarray | None = None,
     layer_thickness: np.ndarray | None = None,
     streambed_top: np.ndarray | None = None,
     streambed_connection: np.ndarray | None = None,
@@ -237,9 +236,6 @@ def write_mesh(
     structured_shape: tuple[int, int] | None = None,
 ) -> None:
     """Write the UGRID-1.0 mesh group, including the optional topography array.
-
-    ``topography_reference`` (the pre-conditioning per-face top) is stored beside
-    ``topography`` so the conditioning-impact map can render their difference.
 
     ``layer_thickness`` is the ``(n_layers, n_faces)`` saturated-thickness
     geometry of the model. ``z_interfaces`` only carries the vertical column of
@@ -307,18 +303,6 @@ def write_mesh(
                 dimension_names=(field_registry.AXIS_FACE,),
             )
             update_attrs(topo_arr, attrs_for_field("topography", topo_arr.dtype))
-        if topography_reference is not None:
-            _write_array(
-                store_obj,
-                mesh,
-                "topography_reference",
-                np.asarray(topography_reference, dtype="float64"),
-                dimension_names=(field_registry.AXIS_FACE,),
-                attrs={
-                    "long_name": "Pre-conditioning model top per face",
-                    "units": "m",
-                },
-            )
         for name, values in (
             ("streambed_top", streambed_top),
             ("streambed_connection", streambed_connection),
@@ -372,6 +356,71 @@ def write_mesh(
                 "node_coordinates": "vertices",
                 "face_node_connectivity": "face_node_connectivity",
             },
+        )
+
+
+def write_descent(
+    store_obj: SimulationZarr,
+    *,
+    receiver: np.ndarray,
+    surface: np.ndarray,
+    base_level: np.ndarray,
+    constant_head: np.ndarray,
+    raised: np.ndarray,
+    channel: np.ndarray,
+    pinned: np.ndarray,
+    attrs: Mapping[str, object],
+    dam_foot: np.ndarray | None = None,
+) -> None:
+    """Write the descent D next to the mesh it routes on, under ``mesh/``.
+
+    Seven static per-face arrays, none rounded: the receiver of each cell (-1
+    at an outlet), D's filled surface, and the base-level, constant-head,
+    raised, channel and pinned masks. ``attrs`` (adjacency kind, epsilon, report
+    counts) is stamped on the receiver array. ``descent_dam_foot`` is an eighth
+    array, int64, the ids of the cells below the dams (empty when the run has no
+    lake); it is a list of cells, not a per-face field. Additive: a store
+    without these arrays is still valid.
+    """
+    arrays = {
+        "descent_receiver": (np.asarray(receiver, dtype="int64"), "Receiver cell of the descent"),
+        "descent_surface": (np.asarray(surface, dtype="float64"), "Filled surface of the descent"),
+        "descent_base_level": (np.asarray(base_level, dtype=bool), "Seeds of the descent"),
+        "descent_constant_head": (
+            np.asarray(constant_head, dtype=bool),
+            "Constant-head cells, where water leaves the model",
+        ),
+        "descent_raised": (np.asarray(raised, dtype=bool), "Cells the descent raised"),
+        "descent_channel": (np.asarray(channel, dtype=bool), "Cells of the channel tree"),
+        "descent_pinned": (np.asarray(pinned, dtype=bool), "Cells draining to their pin"),
+    }
+    sizes = {values.size for values, _ in arrays.values()}
+    if len(sizes) != 1 or any(values.ndim != 1 for values, _ in arrays.values()):
+        raise ValueError(f"the descent arrays must be 1-D and share one size, got {sorted(sizes)}.")
+    with store_obj._guard_write():
+        mesh = store_obj._root.require_group("mesh")
+        for name, (values, long_name) in arrays.items():
+            _write_array(
+                store_obj,
+                mesh,
+                name,
+                values,
+                dimension_names=(field_registry.AXIS_FACE,),
+                attrs={
+                    "long_name": long_name,
+                    **(dict(attrs) if name == "descent_receiver" else {}),
+                },
+            )
+        feet = np.unique(np.asarray([] if dam_foot is None else dam_foot, dtype="int64"))
+        if feet.size and (feet[0] < 0 or feet[-1] >= np.asarray(receiver).size):
+            raise ValueError("a dam foot of the descent is not a cell of the mesh.")
+        _write_array(
+            store_obj,
+            mesh,
+            "descent_dam_foot",
+            feet,
+            dimension_names=(field_registry.AXIS_RECORD,),
+            attrs={"long_name": "Cells below the dams, where the stream under a lake starts"},
         )
 
 
@@ -1159,6 +1208,7 @@ __all__ = [
     "QUANTIZATION_VARIABLE",
     "write_acdd_root_attrs",
     "write_crs",
+    "write_descent",
     "write_field",
     "write_forcing_field",
     "write_forcing_timeseries",

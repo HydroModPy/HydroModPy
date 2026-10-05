@@ -145,6 +145,7 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
             time_grid=single_period_mean_forcing_time_grid(getattr(model, "time_grid", None)),
         ),
     )
+    steady_model.auxiliary = True
     steady_model.pre_processing(
         flow=steady_flow_copy_for_initialization(model.flow),
         domain=model.domain,
@@ -253,6 +254,7 @@ def _run_one_spinup_cycle(
             model, time_grid=getattr(model, "time_grid", None)
         ),
     )
+    cycle_model.auxiliary = True
     cycle_model.pre_processing(
         flow=cyclic_flow_copy_for_initialization(model.flow),
         domain=model.domain,

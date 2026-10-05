@@ -266,9 +266,9 @@ def _report_poor_alpha(alpha_catchment: float, threshold: float) -> None:
     log(
         "The mapped stream network agrees poorly with the model top "
         "(alpha_obs_closure_catchment = %.3f, below %.2f), so the distances carry a "
-        "top-versus-map disagreement on top of the hydrogeology. This does not mean the "
-        "routing DEM was left unburned: the criterion descends the raw top by design, so "
-        "this alpha differs from the one the geographic step reports.",
+        "top-versus-map disagreement on top of the hydrogeology. This alpha differs from "
+        "the one the geographic step reports: that one reads the D8 pointer of the "
+        "routing DEM, this one the descent of the model top.",
         alpha_catchment,
         threshold,
     )
@@ -517,6 +517,12 @@ def build_network_geometry(
         if diagonal_neighbors
         else cell_adjacency_from_face_connectivity(face_node_connectivity, n_cells=surface.size)
     )
+    # The network criterion keeps reading the model top T and fills its own copy
+    # on its own graph, D8 on quads as in the paper, seeded on the domain border.
+    # It does not read the descent D, which follows the channel tree A and the
+    # constant-head cells and serves routing; the criterion is a measure on T,
+    # not a routing.
+    #
     # Condition the surface ON THIS GRAPH before measuring lengths along it. A
     # raster conditioned before delineation is pit-free on its own grid only;
     # sampled onto the mesh it grows new pits, and the descent then stops in
@@ -740,7 +746,7 @@ def _log_heads(trace: HeadTrace) -> None:
     logger.info(
         "Network criterion: %d head(s) of %d free end(s) traced, %d lost within %.0f m on "
         "cells draining at least %.3g km2; p90 snap distance %.1f m, %.1f%% of the trace "
-        "within the radius of the map.",
+        "within the radius of the map; %d forced head(s) added.",
         int(indices["n_heads"] - indices["n_heads_lost"]),
         trace.n_candidates,
         int(indices["n_heads_lost"]),
@@ -748,6 +754,7 @@ def _log_heads(trace: HeadTrace) -> None:
         trace.settings.min_drained_area_m2 / 1.0e6,
         indices["head_snap_p90_m"],
         100.0 * indices["heads_trace_near_map_share"],
+        int(indices["n_forced_heads"]),
     )
 
 

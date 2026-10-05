@@ -482,23 +482,13 @@ class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
         description="Hard-coded observed values, positional and dateless. Name a "
         "station in 'observes' to score a record the project loaded instead.",
     )
-    diagonal_neighbors: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description="Route this cell's discharge, and the area it drains, over shared "
-        "nodes rather than shared edges, which recovers a talweg that runs diagonally "
-        "across a square grid. Only reaches 'variable' = 'discharge'; a head or a lake "
-        "state read at this point ignores it. The same routing choice as the network "
-        "output's 'diagonal_neighbors', declared here because a point output belongs to "
-        "no network block, with its own default: false (shared edges) here, true (D8) "
-        "on the network output.",
-    )
     snap_radius: Annotated[Length | None, Profile.USER] = Field(
         default=None,
         description="Opt-in. Move this gauge onto the cell that drains the most within "
         "this radius, before it is scored. Accepts a bare number (metres) or a pint "
         "string like '150 m'; it is a maximum displacement, measured from the gauge "
         "coordinate to the cell centres. The drained area is the one the solver routes "
-        "on the mesh, with this output's 'diagonal_neighbors'. Only for 'variable' = "
+        "on the mesh, along the descent D of the build. Only for 'variable' = "
         "'discharge'. With 'observes', a discharge station is then located by the "
         "coordinate of its record, which it otherwise is not, and snapped from there. "
         "Off by default: a gauge otherwise stays in the cell it resolves to, which may "
@@ -620,23 +610,13 @@ class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
         description="Hard-coded observed values, positional and dateless. Name a "
         "station in 'observes' to score a record the project loaded instead.",
     )
-    diagonal_neighbors: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description="Route this cell's discharge, and the area it drains, over shared "
-        "nodes rather than shared edges, which recovers a talweg that runs diagonally "
-        "across a square grid. Only reaches 'variable' = 'discharge'; a head read at this "
-        "cell ignores it. The same routing choice as the network output's "
-        "'diagonal_neighbors', declared here because a cell output belongs to no network "
-        "block, with its own default: false (shared edges) here, true (D8) on the "
-        "network output.",
-    )
     snap_radius: Annotated[Length | None, Profile.USER] = Field(
         default=None,
         description="Opt-in. Move this gauge onto the cell that drains the most within "
         "this radius, before it is scored. Accepts a bare number (metres) or a pint "
         "string like '150 m'; it is a maximum displacement, measured from the gauge "
         "cell centre to the cell centres. The drained area is the one the solver routes "
-        "on the mesh, with this output's 'diagonal_neighbors'. Only for 'variable' = "
+        "on the mesh, along the descent D of the build. Only for 'variable' = "
         "'discharge'. Off by default: a gauge otherwise stays in the cell it "
         "resolves to, which may drain a small share of the catchment, and the run logs "
         "that share.",
@@ -1184,20 +1164,22 @@ def outputs_agree(here: Any, there: Any) -> bool:
     """Say whether two output declarations describe the same output.
 
     Compared through the model rather than raw: a persisted document spells
-    out every default (``time``, ``reducer``, ``diagonal_neighbors``, ...)
-    that a freshly written declaration leaves out, and the two describe the
-    same output either way. Returns ``False`` on anything that does not
-    validate as an output, rather than raising.
+    out every default (``time``, ``reducer``, ...) that a freshly written
+    declaration leaves out, and the two describe the same output either way.
+
+    Raises
+    ------
+    pydantic.ValidationError
+        When either declaration does not validate as an output. A persisted
+        output that still carries a removed key is refused for that key, not
+        read as another output under the same name.
     """
-    try:
-        dumped_here = _CALIB_OUTPUT_ADAPTER.dump_python(
-            _CALIB_OUTPUT_ADAPTER.validate_python(here), mode="json"
-        )
-        dumped_there = _CALIB_OUTPUT_ADAPTER.dump_python(
-            _CALIB_OUTPUT_ADAPTER.validate_python(there), mode="json"
-        )
-    except ValidationError:
-        return False
+    dumped_here = _CALIB_OUTPUT_ADAPTER.dump_python(
+        _CALIB_OUTPUT_ADAPTER.validate_python(here), mode="json"
+    )
+    dumped_there = _CALIB_OUTPUT_ADAPTER.dump_python(
+        _CALIB_OUTPUT_ADAPTER.validate_python(there), mode="json"
+    )
     return dumped_here == dumped_there
 
 

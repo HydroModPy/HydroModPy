@@ -11,7 +11,7 @@ question with an ``if/elif`` on a string.
 
 The dispatch it replaces existed in **three independent copies** for
 hydrography alone: the chain of ``if source_cfg.source == ...`` in
-``variables/hydrography/manager.py``, the tuple of names the stream-burn
+``variables/hydrography/manager.py``, the tuple of names the
 resolver matched against, and the ``Literal`` of the config model. Three lists
 of the same four words, and nothing made them agree.
 

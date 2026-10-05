@@ -86,9 +86,7 @@ CASES: tuple[tuple[str, str, BaseModel], ...] = (
     ),
     _case(
         "width",
-        FlowReachNetworkConfig(
-            stream_threshold_km2=0.5, width=FlowReachWidthByOrder(widths={1: 1.5, 3: 4.0})
-        ),
+        FlowReachNetworkConfig(width=FlowReachWidthByOrder(widths={1: 1.5, 3: 4.0})),
     ),
     _case("backend", SolverConfig(backend=ModflowNwtBackend())),
     _case(

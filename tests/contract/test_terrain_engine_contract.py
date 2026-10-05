@@ -54,6 +54,7 @@ from hydromodpy.spatial.terrain import (
     LN_FLOAT32_COLLISION_COUNT,
     OUTLET_LAYER_NAME,
     SNAPPED_OUTLET_LAYER_NAME,
+    CappedBreach,
     CatchmentLayout,
     ConditioningExtent,
     DrainageDirections,
@@ -351,6 +352,17 @@ def test_the_numpy_engine_refuses_breaching_by_name(plane_east, tmp_path) -> Non
         _engine("numpy_d8").condition_dem(
             plane_east,
             method="breach",
+            extent=ConditioningExtent.regional(),
+            out=tmp_path / "out" / "conditioned.tif",
+        )
+
+
+def test_the_numpy_engine_refuses_a_capped_breach_by_name(plane_east, tmp_path) -> None:
+    """The capped breach is least-cost breaching with limits, and is refused likewise."""
+    with pytest.raises(TerrainCapabilityError, match="breach"):
+        _engine("numpy_d8").condition_dem(
+            plane_east,
+            method=CappedBreach(max_depth_m=0.5, max_distance_m=200.0),
             extent=ConditioningExtent.regional(),
             out=tmp_path / "out" / "conditioned.tif",
         )
@@ -1034,6 +1046,79 @@ def test_conditioning_leaves_no_interior_cell_without_a_way_out(engine, tmp_path
     interior = _interior_data_cells(codes)
 
     assert int(np.count_nonzero((codes == 0) & interior)) == 0
+
+
+@pytest.mark.parametrize(
+    "dem_name",
+    ["tests/data/sfr_cheze/dem_valley.tif", "examples/data/dem/DEM_gouville_25m.tif"],
+)
+def test_a_capped_breach_leaves_no_interior_cell_without_a_way_out(tmp_path, dem_name) -> None:
+    """The residual fill is what makes the capped breach a conditioning at all.
+
+    Breaching alone leaves the depressions its limits refused, and a pointer over
+    them has cells that drain nowhere. Zero here says the fill ran after the cap.
+    """
+    engine = _engine("whitebox_workflows")
+    dem = Path(__file__).resolve().parents[2] / dem_name
+    _conditioned, directions, _accumulation = _products(
+        engine,
+        dem,
+        tmp_path / "out",
+        method=CappedBreach(max_depth_m=0.5, max_distance_m=200.0),
+    )
+    codes = _read(directions.path)
+
+    assert int(np.count_nonzero((codes == 0) & _interior_data_cells(codes))) == 0
+
+
+def test_a_capped_breach_reports_what_it_dug_and_nothing_else_does(valley, tmp_path) -> None:
+    engine = _engine("whitebox_workflows")
+    capped = engine.condition_dem(
+        valley,
+        method=CappedBreach(max_depth_m=0.5, max_distance_m=200.0),
+        extent=ConditioningExtent.regional(),
+        out=tmp_path / "capped.tif",
+    )
+    filled = engine.condition_dem(
+        valley,
+        method="fill",
+        extent=ConditioningExtent.regional(),
+        out=tmp_path / "filled.tif",
+    )
+
+    assert capped.breach_report is not None
+    assert capped.breach_report.max_dist_cells == 8
+    assert filled.breach_report is None
+
+
+def test_every_engine_serves_a_capped_breach_with_its_report_or_refuses_it(
+    engine, tmp_path
+) -> None:
+    """An engine that reads a ``CappedBreach`` as a fill passes neither branch.
+
+    The port says an engine either refuses the method by name or returns what it
+    dug in ``breach_report``. The terrain is a valley with a closed pit, so an
+    engine that serves the method must also leave no interior cell without a way
+    out.
+    """
+    surface = _valley(31)
+    surface[20:23, 14:17] -= 3.0
+    dem = _write_dem(tmp_path / "pit.tif", surface)
+
+    try:
+        conditioned = engine.condition_dem(
+            dem,
+            method=CappedBreach(max_depth_m=0.5, max_distance_m=200.0),
+            extent=ConditioningExtent.regional(),
+            out=tmp_path / "out" / "conditioned.tif",
+        )
+    except TerrainCapabilityError:
+        return
+
+    assert conditioned.breach_report is not None
+    directions = engine.drainage_directions(conditioned, out=tmp_path / "out" / "pointer.tif")
+    codes = _read(directions.path)
+    assert int(np.count_nonzero((codes == 0) & _interior_data_cells(codes))) == 0
 
 
 # --------------------------------------------------------------------------- #

@@ -70,7 +70,7 @@ def carve_routing_dem(
     Parameters
     ----------
     dem_in_path:
-        Raw regional DEM (untouched; this is also the model-top source).
+        The ground (untouched; the lake carve is written to its own file).
     dem_out_path:
         Where to write the carved routing DEM (fed only to D8 delineation).
     lake_polygons:
@@ -410,7 +410,12 @@ def capture_stream_gaps(
     return StreamCaptureReport(n_captured, channel_cells, out_path)
 
 
-def _lakes_from_config(enforce: object, setup: object) -> list:
+def _data_dir(setup: object) -> Path:
+    """The data folder around the DEM the project declared (data/dem/x.tif -> data)."""
+    return Path(str(setup.dem_init_path)).resolve().parent.parent
+
+
+def lakes_from_config(enforce: object, setup: object) -> list:
     """Read the enforcement lake polygons, resolving the path against the DEM data dir."""
     import geopandas as gpd
 
@@ -423,8 +428,7 @@ def _lakes_from_config(enforce: object, setup: object) -> list:
     if not path.exists():
         # A bare filename (or a mis-resolved one): look under <data>/lake_geometry/,
         # where <data> is the parent of the DEM's family dir (data/dem/x.tif -> data).
-        data_dir = Path(str(setup.dem_init_path)).resolve().parent.parent
-        candidate = data_dir / "lake_geometry" / path.name
+        candidate = _data_dir(setup) / "lake_geometry" / path.name
         if candidate.exists():
             path = candidate
     if not path.exists():
@@ -451,14 +455,13 @@ def routing_dem_from_config(config: object, setup: object, *, dem_in_path: str |
 
     Duck-typed on ``config`` (``enforce_lakes``, ``x_outlet``/``y_outlet``) and ``setup``
     (``dem_init_path``, ``paths.correcflow_path``, ``crs_project``), so BOTH geographic
-    entry points can share it. ``dem_in_path`` is the surface to carve into: the raw DEM,
-    or the stream-burned routing DEM when ``enforce_streams`` ran first. The raw DEM
-    (model top) is never modified.
+    entry points can share it. ``dem_in_path`` is the surface to carve into: the ground.
+    The ground itself is never modified.
     """
     enforce = getattr(config, "enforce_lakes", None)
     if enforce is None or not getattr(enforce, "enabled", False):
         return str(dem_in_path)
-    lakes = _lakes_from_config(enforce, setup)
+    lakes = lakes_from_config(enforce, setup)
     out_path = str(Path(setup.paths.correcflow_path) / "dem_routing_enforced.tif")
     carve_routing_dem(
         dem_in_path=dem_in_path,
@@ -471,7 +474,7 @@ def routing_dem_from_config(config: object, setup: object, *, dem_in_path: str |
     return out_path
 
 
-def _dam_lines_from_config(dam_carve: object, setup: object) -> list:
+def dam_lines_from_config(dam_carve: object, setup: object) -> list:
     """Read the dam-carve trace, resolving a bare filename against <data>/cutoff_wall/."""
     import geopandas as gpd
 
@@ -480,7 +483,7 @@ def _dam_lines_from_config(dam_carve: object, setup: object) -> list:
         raise ValueError("geographic.dam_carve.enabled is true but line_path is unset.")
     path = Path(lp)
     if not path.exists():
-        data_dir = Path(str(setup.dem_init_path)).resolve().parent.parent
+        data_dir = _data_dir(setup)
         for cand in (data_dir / "cutoff_wall" / path.name, data_dir / path.name):
             if cand.exists():
                 path = cand
@@ -511,7 +514,7 @@ def carve_dam_into_top_dem(
     buffer_m: float,
     search_radius_m: float | None = None,
 ) -> tuple[int, float]:
-    """Lower the model-top DEM along a dam trace to the local valley floor.
+    """Lower the DEM along a dam trace to the local valley floor.
 
     A raw DEM samples the concrete dam crest as terrain, lifting the aquifer
     column under the dam. This sets every DEM cell within ``buffer_m`` of the dam
@@ -571,43 +574,6 @@ def carve_dam_into_top_dem(
     return n_carved, floor
 
 
-TOP_DEM_DAM_CARVED_FILENAME = "dem_top_dam_carved.tif"
-"""Name of the model-top DEM written when ``dam_carve`` is enabled."""
-
-
-def top_dem_path_from_config(config: object, setup: object) -> str:
-    """Return the model-top DEM path without carving anything.
-
-    The geographic cache branch needs the path but must not redo the carve.
-    """
-    dc = getattr(config, "dam_carve", None)
-    if dc is None or not getattr(dc, "enabled", False):
-        return str(setup.dem_init_path)
-    return str(Path(setup.paths.correcflow_path) / TOP_DEM_DAM_CARVED_FILENAME)
-
-
-def top_dem_from_config(config: object, setup: object) -> str:
-    """Return the model-top DEM: the dam carved to the valley floor if configured, else raw.
-
-    Mirror of :func:`routing_dem_from_config` on the model TOP. Duck-typed on
-    ``config.dam_carve`` and ``setup`` (``dem_init_path``, ``paths.correcflow_path``,
-    ``crs_project``). The routing DEM (delineation) is never modified here.
-    """
-    dc = getattr(config, "dam_carve", None)
-    if dc is None or not getattr(dc, "enabled", False):
-        return str(setup.dem_init_path)
-    lines = _dam_lines_from_config(dc, setup)
-    out_path = top_dem_path_from_config(config, setup)
-    carve_dam_into_top_dem(
-        dem_in_path=str(setup.dem_init_path),
-        dem_out_path=out_path,
-        dam_lines=lines,
-        buffer_m=float(dc.buffer_m),
-        search_radius_m=None if dc.search_radius_m is None else float(dc.search_radius_m),
-    )
-    return out_path
-
-
 def capture_from_config(
     config: object,
     setup: object,
@@ -619,7 +585,7 @@ def capture_from_config(
     """Carve near-miss streams to the lakes; return the captured routing DEM or None.
 
     ``dem_in_path`` is the routing DEM the delineation just ran on, so the capture
-    keeps whatever conditioning (stream burn, lake carve) produced it. The caller
+    keeps whatever conditioning (lake carve) produced it. The caller
     re-delineates on the returned DEM. Returns None when capture is off or no
     near-miss was found.
     """
@@ -645,7 +611,7 @@ def capture_from_config(
         out_path=out_path,
         link_id_tif=link_tif,
         d8_tif=flow_direc,
-        lake_polygons=_lakes_from_config(enforce, setup),
+        lake_polygons=lakes_from_config(enforce, setup),
         capture_radius_m=radius,
         acc_tif=acc_tif if Path(acc_tif).exists() else None,
         min_acc_fraction=float(enforce.capture_min_acc_fraction),

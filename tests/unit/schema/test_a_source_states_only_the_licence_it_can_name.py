@@ -42,6 +42,7 @@ def test_the_claims_are_the_reviewed_ones() -> None:
     assert claims == {
         "brgm_1m": "etalab-2.0",
         "brgm_50k": "etalab-2.0",
+        "bdtopo": "etalab-2.0",
         "ign_geoplateforme_dem": "etalab-2.0",
         "osm": "ODbL-1.0",
     }
@@ -61,6 +62,7 @@ def test_every_entry_says_why(slug: str) -> None:
 def test_the_code_slugs_are_all_known() -> None:
     written_by_the_code = {
         "bdtopage",
+        "bdtopo",
         "brgm_1m",
         "brgm_50k",
         "constant",
@@ -69,6 +71,7 @@ def test_the_code_slugs_are_all_known() -> None:
         "hubeau",
         "ign_geoplateforme_dem",
         "osm",
+        "roe",
         "shom",
         "sim2",
         "synthetic",

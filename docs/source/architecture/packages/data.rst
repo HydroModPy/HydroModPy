@@ -3,7 +3,7 @@ data
 
 ``hydromodpy.data`` is everything a run reads from outside: provider APIs,
 user files, their cache and the typed records handed to the layers above.
-Twenty-five variables, one per ``[data.<name>]`` section of a project TOML,
+Twenty-seven variables, one per ``[data.<name>]`` section of a project TOML,
 share one template: a configuration model, a manager whose ``SOURCES`` table
 maps each source name to the function that fetches it, and a DuckDB index of
 the cache. The map of the package, with its import rules, is
@@ -84,7 +84,7 @@ Variable inventory
        (``osm``), and any installed plugin that serves a network
      - written by hand
 
-The single list of the twenty-five sections is ``VARIABLE_SPECS`` in
+The single list of the twenty-seven sections is ``VARIABLE_SPECS`` in
 ``data/loading/_dispatch.py``.
 
 The manager template

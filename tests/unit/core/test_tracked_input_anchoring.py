@@ -24,7 +24,7 @@ class _Config(BaseModel):
 
     geometry: Annotated[
         Path | None,
-        InputFile(role="stream_enforcement_geometry", category="geometry"),
+        InputFile(role="network_map", category="geometry"),
     ] = None
 
 

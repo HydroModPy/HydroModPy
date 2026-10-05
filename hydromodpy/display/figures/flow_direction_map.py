@@ -10,17 +10,23 @@ a greyscale print, where a cyclic colour cannot: any lightness ramp assigns the
 same grey to two of the eight bearings.
 
 The octant is derived from geometry, not from a pointer table. This figure
-reads the steepest-descent receiver graph of
-:mod:`hydromodpy.core.field_routing` and takes the vector from a cell centre to
-its receiver's centre, so it says the same thing on a Voronoi dual as on a
-structured grid. In particular it is NOT a whitebox D8 pointer: this repository
-uses whitebox's convention rather than ESRI's
-(``D8_WBT_OFFSETS`` in ``hydromodpy/spatial/terrain/port.py``), and a reader who assumes a
-pointer code is being decoded here would look for the wrong bug.
+reads the receivers of the descent D of the run (``run.descent``, see
+:mod:`hydromodpy.core.descent`) and takes the vector from a cell centre to its
+receiver's centre, so it says the same thing on a Voronoi dual as on a
+structured grid. D follows the channel tree where the run has one, so a
+receiver is not always a neighbour. In particular it is NOT a whitebox D8
+pointer: this repository uses whitebox's convention rather than ESRI's
+(``D8_WBT_OFFSETS`` in ``hydromodpy/spatial/terrain/port.py``), and a reader who
+assumes a pointer code is being decoded here would look for the wrong bug.
 
 A cell with no receiver is drawn as such rather than as an arrow of zero
-length: it is a pit the descent dies in, or the outlet the catchment closes on,
-and the two are told apart on the page.
+length: on D that is a seed with no lower neighbour, the lowest rim cell or a
+constant-head cell in a hollow, never a pit, because D is filled so every
+other cell drains. A constant-head cell elsewhere keeps its steepest descent
+and is drawn with its bearing. The cells D raised on its copy of the model top
+are marked, from the mask D stored: that is where the routing departs from the
+top. The pits of the top itself are on the depression
+map.
 """
 
 from __future__ import annotations
@@ -29,7 +35,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._routing_surface import (
@@ -45,6 +50,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from hydromodpy.results.run import Run
+    from hydromodpy.results.run.descent import RunDescent
 
 OCTANT_NAMES: tuple[str, ...] = ("E", "NE", "N", "NW", "W", "SW", "S", "SE")
 """The eight bearings, counter-clockwise from east, as octant ``k`` at ``45k``."""
@@ -85,8 +91,13 @@ the dark line carries it over the light ones, so one of the two always reads.
 """
 
 NO_RECEIVER_LABEL = "no receiver"
+RAISED_LABEL = "raised by the descent"
 INACTIVE_LABEL = "no elevation"
 OUTLET_LABEL = "outlet the catchment closes on"
+
+_RAISED_COLOR = "#101010"
+_RAISED_SIZE = 3.0
+"""A dot per raised cell: the fill can raise tens of thousands, a hatch would hide the bearing."""
 
 _ARROW_COLOR = "#101010"
 _ARROW_EDGE = "#FFFFFF"
@@ -104,12 +115,12 @@ DEFAULT_ARROW_BINS = 24
 
 @register
 class FlowDirectionMap(BaseFigure):
-    """Steepest-descent receiver direction of every cell of the mesh.
+    """Direction of the receiver of every cell of the mesh, on the descent D.
 
-    Built from the run alone: the persisted model top, the neighbour graph over
-    the mesh faces, and the centre-to-centre vector to each cell's receiver.
-    Any backend that persists a mesh top draws the same map, and no calibrated
-    parameter enters it.
+    Built from the run alone: the persisted descent (rebuilt from the stored
+    top for a run that predates it) and the centre-to-centre vector to each
+    cell's receiver. The neighbourhood is fixed by the mesh type: D8 on a quad
+    mesh, shared faces elsewhere.
     """
 
     spec = FigureSpec(
@@ -128,7 +139,6 @@ class FlowDirectionMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
         arrow_bins: int = DEFAULT_ARROW_BINS,
         **_,
     ) -> Axes:
@@ -136,7 +146,8 @@ class FlowDirectionMap(BaseFigure):
         from matplotlib.patches import Patch
 
         bins = _checked_bins(arrow_bins)
-        surface = routing_surface_from_run(sim, diagonal_neighbors=diagonal_neighbors)
+        surface = routing_surface_from_run(sim)
+        descent = sim.descent
         polygons = face_polygons(sim)
         if len(polygons) != surface.n_cells:
             raise ValueError(
@@ -144,8 +155,15 @@ class FlowDirectionMap(BaseFigure):
                 f"{surface.n_cells} cells."
             )
 
-        graph = surface.downhill_graph()
-        receiver = np.asarray(graph.downstream, dtype=int)
+        receiver = np.asarray(descent.receiver, dtype=int)
+        if receiver.size != surface.n_cells:
+            raise ValueError(
+                f"the descent holds {receiver.size} cells and the mesh {surface.n_cells}."
+            )
+        # D stores the cells it raised. The stored top went through the solver
+        # input files (NWT writes it with seven significant digits), so comparing
+        # it with D's surface would mark cells D never touched.
+        raised = np.asarray(descent.raised, dtype=bool)
         routed = receiver >= 0
         delta = _receiver_vectors(surface.centroids, receiver, routed)
         octant = _octant_of(delta, routed)
@@ -169,6 +187,17 @@ class FlowDirectionMap(BaseFigure):
         _add_layer(ax, polygons, ~surface.active, color=_INACTIVE_FACE, label=INACTIVE_LABEL)
 
         drawn_arrows = _draw_arrows(ax, surface.centroids, delta, routed, bins)
+        if raised.any():
+            ax.scatter(
+                surface.centroids[raised, 0],
+                surface.centroids[raised, 1],
+                s=_RAISED_SIZE,
+                c=_RAISED_COLOR,
+                edgecolors=_ARROW_EDGE,
+                linewidths=0.3,
+                label=RAISED_LABEL,
+                zorder=6,
+            )
         _draw_compass(ax, colors, counts)
         outlet_x, outlet_y = surface.centroids[surface.outlet]
         outlet_marker = {
@@ -187,10 +216,23 @@ class FlowDirectionMap(BaseFigure):
                 facecolor=_PIT_FACE,
                 edgecolor=_PIT_EDGE,
                 hatch=_PIT_HATCH,
-                label=f"{NO_RECEIVER_LABEL}: pit or outlet ({cell_count(dead_end)})",
+                label=f"{NO_RECEIVER_LABEL}: outlet of the descent ({cell_count(dead_end)})",
             ),
             Line2D([0], [0], markersize=11, label=OUTLET_LABEL, **outlet_marker),
         ]
+        if raised.any():
+            handles.append(
+                Line2D(
+                    [0],
+                    [0],
+                    marker="o",
+                    markersize=4,
+                    markerfacecolor=_RAISED_COLOR,
+                    markeredgecolor=_ARROW_EDGE,
+                    linestyle="none",
+                    label=f"{RAISED_LABEL} ({cell_count(raised)})",
+                )
+            )
         if not surface.active.all():
             handles.append(
                 Patch(
@@ -200,7 +242,9 @@ class FlowDirectionMap(BaseFigure):
                 )
             )
         ax.legend(handles=handles, loc="upper left", fontsize=8.5, framealpha=0.9)
-        annotate_note(ax, "\n".join(_notes(surface, dead_end, counts, drawn_arrows, bins)))
+        annotate_note(
+            ax, "\n".join(_notes(surface, descent, raised, dead_end, counts, drawn_arrows, bins))
+        )
         return ax
 
 
@@ -347,6 +391,8 @@ def _draw_compass(ax: Axes, colors: tuple[str, ...], counts: tuple[int, ...]) ->
 
 def _notes(
     surface: RoutingSurface,
+    descent: RunDescent,
+    raised: np.ndarray,
     dead_end: np.ndarray,
     counts: tuple[int, ...],
     arrows: int,
@@ -355,16 +401,42 @@ def _notes(
     """Return the lines a reader needs to know which map is on the page."""
     inside = int(surface.within_catchment(dead_end).sum())
     lines = [
-        surface.neighbourhood_note,
+        _neighbourhood_note(descent.diagonal_neighbors),
         _bearing_note(counts),
         f"no receiver: {cell_count(dead_end)}, {inside} of them in {surface.support_name}",
         surface.outlet_note,
+        _raised_note(surface.topography, descent.surface, raised),
     ]
+    if descent.channel.any():
+        lines.append(
+            f"channel tree: {cell_count(descent.channel)}, "
+            f"{cell_count(descent.pinned)} drain to the next cell of the tree"
+        )
+    if descent.rebuilt:
+        lines.append("descent rebuilt from the stored top: no channel pin, no constant-head seed")
     if arrows:
         lines.append(
             f"{arrows} arrows on a {bins} x {bins} subsample, shorter where the bin disagrees"
         )
     return lines
+
+
+def _neighbourhood_note(diagonal_neighbors: bool) -> str:
+    """Return the line naming the graph D descends, fixed by the mesh type."""
+    if diagonal_neighbors:
+        return "neighbourhood: shared nodes, the eight D8 links including the diagonals"
+    return "neighbourhood: shared edges, the four cardinal links and no diagonal"
+
+
+def _raised_note(top: np.ndarray, filled: np.ndarray, raised: np.ndarray) -> str:
+    """Return the line saying how far D departs from the model top."""
+    if not raised.any():
+        return "the descent raised no cell: every cell drains on the model top"
+    rise = float(np.max(filled[raised] - top[raised]))
+    return (
+        f"the descent raised {cell_count(raised)} on its copy of the top, by up to "
+        f"{rise:.2f} m; the pits of the top are on the depression map"
+    )
 
 
 def _bearing_note(counts: tuple[int, ...]) -> str:
@@ -432,6 +504,7 @@ __all__ = [
     "NO_RECEIVER_LABEL",
     "OCTANT_NAMES",
     "OUTLET_LABEL",
+    "RAISED_LABEL",
     "FlowDirectionMap",
     "octant_colors",
 ]

@@ -97,7 +97,7 @@ def _fake_ctx(bench, bounds):
         run=SimpleNamespace(id="r1", solver="modflow6"),
         state=SimpleNamespace(setup=SimpleNamespace(geographic=SimpleNamespace(crs_project=CRS))),
         setup=SimpleNamespace(time_grid=SimpleNamespace(boundaries=bounds)),
-        model=SimpleNamespace(solver_mesh=solver_mesh, recharge=1.0e-8),
+        model=SimpleNamespace(solver_mesh=solver_mesh, recharge=1.0e-8, dam_foot_cells={}),
     )
 
 

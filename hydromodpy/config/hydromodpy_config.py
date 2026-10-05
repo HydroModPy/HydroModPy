@@ -272,54 +272,6 @@ def _derive_name_from_filename(toml_path: Path) -> str:
     return re.sub(r"^run_", "", stem)
 
 
-def _is_frozen_run_config(toml_path: Path) -> bool:
-    """Tell whether a TOML sits inside a run directory ``<project>/runs/<name>/``.
-
-    Covers the frozen ``config.toml`` a sealed run keeps and the temporary
-    ``.<stem>.effective.*.toml`` ``hmp run`` writes beside it when ``--set``,
-    ``--overlay`` or ``HMP_SET_*`` apply, so the discriminant is the directory
-    and never the filename. A replay must load what actually ran, faults
-    included: refusing there would strand a run nobody can resume, and
-    ``hmp run --resume`` reads that file through ``from_toml`` like any other.
-    """
-    from hydromodpy.core.state.paths import RUNS_DIRNAME
-
-    return toml_path.parent.parent.name == RUNS_DIRNAME
-
-
-def _refuse_rectify_without_a_conditioned_top(cfg: HydroModPyConfig, toml_path: Path) -> None:
-    """Refuse ``rectify_on_mesh`` on a mesh top nothing conditions.
-
-    ``rectify_on_mesh`` traces the steepest descent of the mesh top, so on an
-    unconditioned top it walks the pits the DEM-to-Voronoi projection puts back
-    and the traced channel leaves the thalweg without a word. ``route_drainage``
-    is deliberately NOT covered: a cell whose descent dead-ends there simply
-    stays a plain DRN, which the drainage builder documents and handles.
-    """
-    sgrid = getattr(getattr(cfg, "modflow6", None), "sgrid", None)
-    if sgrid is None or getattr(sgrid, "condition_top", False):
-        return
-    if "sfr" not in {str(name).lower() for name in (cfg.flow.active_bc or [])}:
-        return
-    networks = getattr(getattr(cfg.flow, "sinks_sources", None), "sfr", None) or {}
-    offenders = sorted(
-        str(network_id)
-        for network_id, network in networks.items()
-        if getattr(network, "rectify_on_mesh", False)
-    )
-    if not offenders:
-        return
-    keys = ", ".join(f"flow.sinks_sources.sfr.{nid}.rectify_on_mesh" for nid in offenders)
-    raise ConfigValidationError(
-        f"{toml_path}: {keys} = true, but [modflow6.sgrid] condition_top = false. "
-        f"The rectified channel is traced by steepest descent on the mesh top, so "
-        f"an unconditioned top keeps the projection pits and the channel silently "
-        f"leaves the thalweg. Set [modflow6.sgrid] condition_top = true, which "
-        f"RAISES the top where it fills a pit and makes the run no longer "
-        f"comparable to one on the raw top, or set rectify_on_mesh = false."
-    )
-
-
 def _resolve_calibration_parameter_names(cfg: Any) -> None:
     """Give every calibration parameter the path its name points at.
 
@@ -570,6 +522,8 @@ class HydroModPyConfig(HydroModelBase):
         * ``domain.depth_model.kind`` is ``raster_substratum`` or
           ``raster_thickness`` ⇒ ``[data.substratum]`` is declared, since that
           is the raster the domain reads.
+        * ``[modflownwt.sgrid.top_sampling]`` zonal ⇒ ``channel_source = "none"``,
+          since MODFLOW-NWT builds no channel mask.
         * ``[data.soil_capacity]`` declared ⇒ ``[flow.sinks_sources.recharge.soil]``
           is declared, since only the soil reservoir reads that raster.
         """
@@ -589,6 +543,22 @@ class HydroModPyConfig(HydroModelBase):
             raise ValueError(
                 f"domain.depth_model kind = {depth_kind!r} reads the raster declared under "
                 "[data.substratum]; declare it with one custom source."
+            )
+
+        nwt_top_sampling = getattr(
+            getattr(getattr(self, "modflownwt", None), "sgrid", None), "top_sampling", None
+        )
+        if (
+            nwt_top_sampling is not None
+            and nwt_top_sampling.mode == "zonal"
+            and nwt_top_sampling.channel_source != "none"
+        ):
+            raise ValueError(
+                "[modflownwt.sgrid.top_sampling] mode = 'zonal' with "
+                f"channel_source = {nwt_top_sampling.channel_source!r}: MODFLOW-NWT does "
+                "not read the channel tree for the zonal top, so the channel cells would "
+                "get the hillslope statistic like the others. Set channel_source = 'none' "
+                "(median only) or run MODFLOW 6."
             )
 
         calibration_cfg = getattr(self, "calibration", None)
@@ -866,9 +836,6 @@ class HydroModPyConfig(HydroModelBase):
             # A typed capability error from the after-validator does not carry the
             # TOML location; prepend it while keeping the type and error code.
             raise type(exc)(f"{toml_path}: {exc.message or exc}") from exc
-
-        if not _is_frozen_run_config(toml_path):
-            _refuse_rectify_without_a_conditioned_top(cfg, toml_path)
 
         # Derive the simulation name from the TOML filename if not set explicitly.
         if not cfg.simulation.name:

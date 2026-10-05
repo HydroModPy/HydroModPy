@@ -112,6 +112,22 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         hosts=("data.geopf.fr",),
     ),
     SourceEntry(
+        slug="bdtopo",
+        publisher="IGN",
+        licence=Licence(
+            spdx="etalab-2.0",
+            url=_ETALAB_URL,
+            attribution="Source: IGN, BD TOPO roads and railways",
+            confidence="assumed",
+        ),
+        basis=(
+            "IGN publishes its data under Licence Ouverte Etalab 2.0 since 1 January "
+            "2021, and the WFS is IGN's own (data.geopf.fr). The same publisher and "
+            "licence are recorded for the elevation data above."
+        ),
+        hosts=("data.geopf.fr",),
+    ),
+    SourceEntry(
         slug="osm",
         publisher="OpenStreetMap contributors",
         licence=Licence(
@@ -132,6 +148,13 @@ _ENTRIES: tuple[SourceEntry, ...] = (
         "Sandre / OFB",
         "Sandre states its terms on its own site; this repository does not record "
         "them for BD TOPAGE, so no licence is claimed.",
+        hosts=("services.sandre.eaufrance.fr",),
+    ),
+    _undetermined(
+        "roe",
+        "Sandre / OFB",
+        "Sandre states its terms on its own site; this repository does not record "
+        "them for the ROE obstacles, so no licence is claimed.",
         hosts=("services.sandre.eaufrance.fr",),
     ),
     _undetermined(

@@ -262,13 +262,11 @@ class RunGeographicMixin:
         try:
             mesh_grp = sz.root["mesh"]
             topo = mesh_grp.get("topography")
-            topo_ref = mesh_grp.get("topography_reference")
             return Mesh(
                 vertices=mesh_grp["vertices"][:],
                 face_node_connectivity=mesh_grp["face_node_connectivity"][:],
                 z_interfaces=mesh_grp["z_interfaces"][:],
                 topography=None if topo is None else topo[:],
-                topography_reference=None if topo_ref is None else topo_ref[:],
                 crs=crs,
             )
         finally:

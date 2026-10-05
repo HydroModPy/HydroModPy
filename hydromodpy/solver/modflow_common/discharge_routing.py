@@ -32,59 +32,32 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.field_routing import (
-    accumulate_on_downhill_graph,
-    build_downhill_graph,
-)
+from hydromodpy.core.field_routing import DownhillGraph, accumulate_on_downhill_graph
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.topographic_distance import shared_node_adjacency
 
 logger = get_logger(__name__)
 
 
-def _dense_connectivity(planar_mesh: Any) -> np.ndarray:
-    """Return the face-node connectivity as a dense integer array."""
-    connectivity = planar_mesh.flat_connectivity
-    if isinstance(connectivity, np.ndarray) and connectivity.ndim == 2:
-        return connectivity.astype(int, copy=False)
-    rows = [np.asarray(row, dtype=int).reshape(-1) for row in connectivity]
-    width = max(row.size for row in rows)
-    dense = np.full((len(rows), width), -1, dtype=int)
-    for index, row in enumerate(rows):
-        dense[index, : row.size] = row
-    return dense
+def routing_graph_for_model(model: Any) -> DownhillGraph:
+    """Return the graph the release is routed on: the receivers of the descent D.
 
-
-def routing_graph_for_model(model: Any, *, diagonal_neighbors: bool = False):
-    """Build the downhill graph the release is routed on, from the mesh top.
-
-    The surface is the model top the solver itself meshed, never the raster the
-    geographic step conditioned: sampling that raster at cell centres grows new
-    pits and drops the cells whose centre falls on nodata, which the network
-    criterion measured as leaving half its support unreachable.
+    D is the routing copy of the top the solver itself meshed, built once by
+    the backend's build: filled so every cell drains, seeded on the rim and the
+    constant-head cells, pinned along the generated network A. A river CHD
+    keeps its steepest descent, so the release passes through it and the
+    outlet keeps the domain sum. Its neighbourhood
+    is fixed by the mesh, shared nodes (D8) on quads and shared faces elsewhere.
+    The raster the geographic step conditioned is never read: sampling it at
+    cell centres grows new pits and drops the cells whose centre falls on
+    nodata.
     """
-    solver_mesh = getattr(model, "solver_mesh", None)
-    if solver_mesh is None:
+    descent = getattr(model, "descent", None)
+    if descent is None:
         raise ValueError(
-            "a per-cell discharge needs the solver mesh to route on, and this model carries none."
+            "a per-cell discharge is routed on the descent D of the build, and this model "
+            "carries none: run its pre-processing first."
         )
-    planar_mesh = solver_mesh.planar_mesh
-    connectivity = _dense_connectivity(planar_mesh)
-    top = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
-    vertices = np.asarray(planar_mesh.vertices, dtype=float)
-    centroids = np.asarray(solver_mesh.cell_centroids(), dtype=float)
-
-    adjacency = None
-    if diagonal_neighbors:
-        adjacency = shared_node_adjacency(connectivity, n_cells=top.size)
-    return build_downhill_graph(
-        top,
-        connectivity,
-        vertices=vertices,
-        centroids=centroids,
-        inactive_mask=~np.isfinite(top),
-        adjacency=adjacency,
-    )
+    return descent.metric.graph
 
 
 def route_release_to_discharge(
@@ -155,9 +128,9 @@ def upstream_area_m2(model: Any, graph: Any, *, catchment_mask: np.ndarray) -> n
     a graph that drains the basin; far below one, the graph the model routes on
     and the catchment the delineation produced describe different drainage, and
     every routed quantity read from it is a fraction of what it claims. That is
-    the D4 symptom: a descent over shared edges cannot follow a talweg running
-    diagonally across a square grid, and ``diagonal_neighbors`` is the knob. The
-    ratio itself is kept, not just logged: see ``last_largest_drainable_share``.
+    the symptom of a delineation and a mesh that disagree, for instance a
+    catchment polygon cut across the talweg the mesh top carries. The ratio
+    itself is kept, not just logged: see ``last_largest_drainable_share``.
     """
     areas = np.asarray(model.solver_mesh.cell_areas(), dtype=float).reshape(-1)
     accumulated = route_release_to_discharge(areas, graph, catchment_mask=catchment_mask)
@@ -199,9 +172,7 @@ def largest_drainable_share(
             "catchment (%.1f%%). One means the graph drains the basin; far below it, this "
             "graph and the delineation describe different drainage, so an accumulated "
             "discharge read at any of its cells is meaningless, which is why a gauge "
-            "located by coordinate is refused rather than scored. "
-            "[calibration.outputs.<name>] diagonal_neighbors = true is what recovers a "
-            "diagonal talweg on a square grid.",
+            "located by coordinate is refused rather than scored.",
             largest_m2 / 1e6,
             catchment_m2 / 1e6,
             100.0 * ratio,

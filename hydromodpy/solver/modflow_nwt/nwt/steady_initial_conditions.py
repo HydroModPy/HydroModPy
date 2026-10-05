@@ -62,6 +62,7 @@ def run_nwt_steady_state_initialization(model: object) -> np.ndarray:
             time_grid=single_period_mean_forcing_time_grid(getattr(model, "time_grid", None)),
         ),
     )
+    steady_model.auxiliary = True
     steady_model.pre_processing(
         flow=steady_flow_copy_for_initialization(model.flow),
         domain=model.domain,

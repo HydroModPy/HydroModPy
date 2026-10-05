@@ -36,7 +36,9 @@ A config-declared network reaches SFR through the production pipeline:
 4. the solver builder intersects each polyline with the DISV mesh
    (order-preserving), splits it into per-cell sub-reaches, re-numbers the
    post-split network downstream-increasing, and writes PACKAGEDATA, the signed
-   CONNECTIONDATA and the PERIOD forcings;
+   CONNECTIONDATA and the PERIOD forcings. With ``rectify_on_mesh = true`` the
+   channel is instead re-traced on the descent D, a filled copy of the model
+   top (see below), from every delineated cell;
 5. the DRN entries coincident with reach cells are removed, so catchment
    baseflow discharges into the stream instead of leaving the model;
 6. MODFLOW 6 routes the streamflow; per-reach series land in the results store
@@ -65,7 +67,6 @@ reach.
    active_bc = ["sfr", "drainage"]
 
    [flow.sinks_sources.sfr.net0]
-   stream_threshold_km2 = 0.1
    streambed_k = 1e-5
    streambed_k_unit = "m/s"
    streambed_thickness = "1 m"
@@ -75,9 +76,8 @@ reach.
    kind = "constant"
    value = "2 m"
 
-The network stream threshold must resolve to the same cell count as the
-``geographic.river_network`` threshold: the v1 delineation reuses that link
-raster as the single stream-geometry source and raises on a mismatch.
+SFR traces its reaches on A, whose threshold is
+``[geographic.river_network]``. The SFR block carries no threshold of its own.
 
 The reach width law is a discriminated union: ``constant`` (uniform width),
 ``by_order`` (one width per Strahler order) or ``power_law``
@@ -89,9 +89,11 @@ Catchment streamflow generation
 Two mechanisms feed the network beyond its own streambed exchange:
 
 * ``route_drainage = true`` converges the hillslope drainage into the network:
-  every remaining DRN cell (the seepage outlets away from the stream) hands its
-  discharge to the NEAREST reach through an MVR record, so the drained water
-  travels down the river instead of leaving the model. Without it only the
+  every remaining DRN cell of the basin (the seepage outlets away from the
+  stream) hands its discharge, through an MVR record, to the first reach or lake
+  cell met on its descent D, so the drained water travels down the river instead
+  of leaving the model. A cell whose descent leaves the model first keeps a plain
+  DRN. Without it only the
   reach cells' streambed captures baseflow and most of the catchment discharge
   is lost; with it the reach ``downstream_flow`` is the actual catchment
   streamflow. It requires a static (single-period) drain, because the MVR
@@ -100,6 +102,50 @@ Two mechanisms feed the network beyond its own streambed exchange:
 
 For realistic discharge chronicles, and hence for intermittency mapping,
 enable both.
+
+The descent D
+~~~~~~~~~~~~~
+
+``rectify_on_mesh`` and ``route_drainage`` follow the same descent D: a COPY of
+the solver top, filled on the mesh graph that is descended (D8 neighbours on an
+all-quad mesh, shared faces otherwise), where a lake is traversed to its spill
+level and a lake cell is the sink of the walk. D never changes the model top. The
+streambed top of a rectified reach is read on the model top, not on D. Every
+MODFLOW 6 and MODFLOW-NWT build makes D, with or without SFR: the per-cell
+discharge, the upstream area, the accumulated fluxes and the flow direction map
+read it too, and the run stores it. The auxiliary steady model of a steady
+initialization builds D only when one of its networks sets one of the two
+options.
+
+D follows the generated river network A on the cells A crosses, whenever the
+run generates A (``[geographic.river_network] enabled = true``), whether or not
+SFR reaches lie on it. A is the full-extent stream raster of that step, traced
+on the D8 pointer of the routing DEM. Each mesh cell holding a
+pixel of A (a channel cell, never a lake cell) drains to the next channel cell
+along A, its pin, even where the model top climbs along A. Every other cell
+keeps the steepest descent on the filled copy, and a filled flat rises faster
+away from the channel than along it, so it drains into the channel instead of
+running beside it. A cell where A leaves through a lake or off the mesh is an
+outlet of A and keeps the steepest descent. A run without the river network
+has no pin: an observed network never enters the routing. A constant-head cell (ocean, river or
+side CHD) seeds D and keeps its steepest descent, so an accumulation crosses a
+river CHD and the outlet still sums the catchment. Both walks stop there: a
+reach reaching it is the outlet reach, and a drain chain reaching it keeps a
+plain DRN.
+
+The drainage basin closes on the outlet the catchment was delineated from (the
+snapped point, else the declared one), at the most drained cell within two
+rings. Its gap to the watershed polygon is logged, as a warning above 5 % of
+the polygon area. On a quad mesh a hillslope chain stepping diagonally between
+two reach cells that touch at a corner ends on the lower of the two (on the
+model top). The coverage line of the build log also counts the reaches of the
+routed networks that receive no drainage.
+
+The stub pruning and the lake-shore test of ``rectify_on_mesh`` read the cells
+sharing a face, not the diagonals of D: a channel turning a corner is not its
+own parallel stub, and a reach touching a lake at a corner only is not a lake
+terminal. Consecutive rectified reaches are continuous on the descent graph
+(shared faces, or shared nodes on a quad mesh).
 
 Feeding a Lake (SFR -> LAK through MVR)
 ---------------------------------------
@@ -117,7 +163,6 @@ stage-volume-area abacus and its spillway outlets.
    active_bc = ["lake", "sfr", "drainage"]
 
    [flow.sinks_sources.sfr.net0]
-   stream_threshold_km2 = 0.1
    outflow_to_lake = 1
 
    [flow.sinks_sources.sfr.net0.runoff]

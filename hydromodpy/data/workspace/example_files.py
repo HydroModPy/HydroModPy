@@ -36,7 +36,7 @@ def write_variable_examples(
     """Write one example file per accepted input format for a variable.
 
     ``category`` is one of ``point``, ``grid``, ``dem``, ``raster``, ``geology``,
-    ``hydrography``, ``table``. Returns the list of written (or already present) paths.
+    ``hydrography``, ``table``, ``crossings``. Returns the list of written (or already present) paths.
     """
     var_dir.mkdir(parents=True, exist_ok=True)
     if category == "point":
@@ -53,6 +53,8 @@ def write_variable_examples(
         return _hydrography_examples(var_dir, file_prefix)
     if category == "table":
         return _table_examples(var_dir, file_prefix)
+    if category == "crossings":
+        return _crossings_examples(var_dir, file_prefix)
     return []
 
 
@@ -121,6 +123,22 @@ def _geology_examples(var_dir: Path, prefix: str) -> list[Path]:
         ),
         _write_geology_csv(var_dir / f"{prefix}_custom_EXAMPLE.csv"),
     ]
+
+
+def _crossings_examples(var_dir: Path, prefix: str) -> list[Path]:
+    import geopandas as gpd
+    from shapely.geometry import LineString, Point
+
+    middle = (_LEFT + _RIGHT) / 2
+    gdf = gpd.GeoDataFrame(
+        {"kind": ["road", "weir"], "name": ["road_a", "weir_b"], "drop_m": [None, 0.8]},
+        geometry=[
+            LineString([(middle, _BOTTOM + 50), (middle, _TOP - 50)]),
+            Point(_LEFT + 100, _BOTTOM + 250),
+        ],
+        crs=_CRS,
+    )
+    return [_write_vector(var_dir / f"{prefix}_custom_EXAMPLE.gpkg", gdf, driver="GPKG")]
 
 
 def _hydrography_examples(var_dir: Path, prefix: str) -> list[Path]:

@@ -1,10 +1,9 @@
-"""The surface the two routing diagnostics read, built once from a run's mesh.
+"""The model top the routing diagnostics explain, built once from a run's mesh.
 
-Where the water goes, and where it stops going, are two readings of one object:
-the persisted model top, a neighbour graph over the mesh faces, and the cell
-every path is meant to end in. Building that object twice is how a map of the
-flow directions comes to contradict the map of the depressions printed beside
-it, so both figures build it here.
+The depression map and the flow direction map both need the persisted model
+top, a neighbour graph over the mesh faces, and the cell the stream criterion
+seals. Building that object twice is how two maps printed side by side come to
+contradict each other, so both figures build it here.
 
 The neighbour graph is the same one
 :func:`hydromodpy.core.stream_geometry.build_network_geometry` walks, and the
@@ -22,6 +21,11 @@ depressions and nothing else, the outlet included when the outlet sits in one;
 a flood seeded on the outlet alone must also raise every neighbouring basin,
 which drains perfectly well and simply not here.
 
+This object is the model top T and what the criterion and the depression map
+explain about it: its pits, its fill, its outlet. It carries no receiver graph.
+Where the water actually goes is the descent D of the run, which follows the
+channel tree and the constant-head cells and is read from ``run.descent``.
+
 Nothing here decides anything a solver decided: the elevations come from the
 run, and the outlet is the low point of the delineated catchment, or of the
 active mesh when the run carries no catchment.
@@ -35,9 +39,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.field_routing import (
-    DownhillGraph,
     active_surface_mask,
-    build_downhill_graph,
     cell_adjacency_from_face_connectivity,
     cell_centroids_from_mesh,
     domain_edge_cells,
@@ -157,20 +159,6 @@ class RoutingSurface:
         fill before it spills to the edge of the domain.
         """
         return self.domain_edge.copy()
-
-    def downhill_graph(self) -> DownhillGraph:
-        """Return the steepest-descent receiver graph over this surface.
-
-        The drop is normalised by the centre-to-centre distance, so a diagonal
-        link does not win on a longer segment alone.
-        """
-        return build_downhill_graph(
-            self.topography,
-            self.face_node_connectivity,
-            centroids=self.centroids,
-            inactive_mask=~self.active,
-            adjacency=self.adjacency,
-        )
 
     def within_catchment(self, mask: np.ndarray) -> np.ndarray:
         """Restrict ``mask`` to the catchment, or leave it alone without one."""

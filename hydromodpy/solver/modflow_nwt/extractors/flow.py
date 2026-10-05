@@ -19,6 +19,7 @@ from hydromodpy.solver.modflow_common.budget_components import (
     is_scalar_budget_component,
 )
 from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
+from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
 from hydromodpy.solver.modflow_common.time_units import (
     read_itmuni_from_dis,
@@ -406,6 +407,9 @@ class ModflowNwtOutputAdapter:
                     layer_thickness=layer_thickness,
                     grid_type="dis",
                     structured_shape=(int(nrow), int(ncol)),
+                )
+                write_descent_sidecar_to_store(
+                    sz, solver_output_dir, sim_id=sim_id, n_cells=n_cells
                 )
             finally:
                 sz.close()

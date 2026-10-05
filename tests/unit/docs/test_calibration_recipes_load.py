@@ -93,7 +93,7 @@ def test_no_recipe_redeclares_the_catchment() -> None:
     for name in _NAMES:
         raw = tomllib.loads((RECIPES / f"{name}.toml").read_text(encoding="utf-8"))
         assert "workspace" not in raw, name
-        assert set(raw.get("geographic", {})) <= {"enforce_streams"}, name
+        assert "geographic" not in raw, name
 
 
 def test_the_four_recipes_are_shipped() -> None:

@@ -30,6 +30,7 @@ from hydromodpy.data.variables.geology.config import GeologyConfig
 # This TYPE_CHECKING block makes those names visible to static analysis without
 # importing anything at runtime.
 if TYPE_CHECKING:
+    from hydromodpy.data.variables.crossings.config import CrossingsConfig
     from hydromodpy.data.variables.etp.config import EtpConfig
     from hydromodpy.data.variables.humidity.config import HumidityConfig
     from hydromodpy.data.variables.hydrography.config import HydrographyConfig
@@ -55,6 +56,7 @@ if TYPE_CHECKING:
     from hydromodpy.data.variables.wind.config import WindConfig
 
 SUPPORTED_DATA_MANAGER_TYPES = (
+    "crossings",
     "dem",
     "etp",
     "geology",
@@ -127,6 +129,13 @@ class DataManagersConfig(HydroModelBase):
             "'warn': keep inferred types and continue even if data.<type> is missing. "
             "'strict': raise when an inferred type has no explicit data.<type> section "
             "(except geology, which can use its default typed config)."
+        ),
+    )
+    crossings: Annotated[CrossingsConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Crossings configuration (roads, railways, bridges, weirs and dams laid across "
+            "the channels, read by [geographic.crossings])."
         ),
     )
     dem: Annotated[DemConfig | None, Profile.USER] = Field(
@@ -360,6 +369,7 @@ class DataManagersConfig(HydroModelBase):
         payload["types"] = normalized_types
 
         # Typed config models for data families that have dedicated schemas.
+        from hydromodpy.data.variables.crossings.config import CrossingsConfig
         from hydromodpy.data.variables.etp.config import EtpConfig
         from hydromodpy.data.variables.humidity.config import HumidityConfig
         from hydromodpy.data.variables.hydrography.config import HydrographyConfig
@@ -385,6 +395,7 @@ class DataManagersConfig(HydroModelBase):
         from hydromodpy.data.variables.wind.config import WindConfig
 
         _TYPED_SECTIONS: dict[str, type[BaseModel]] = {
+            "crossings": CrossingsConfig,
             "dem": DemConfig,
             "geology": GeologyConfig,
             "hydrography": HydrographyConfig,
@@ -466,6 +477,7 @@ class DataManagersConfig(HydroModelBase):
 
 def _rebuild_forward_refs() -> None:
     """Resolve forward references for typed data-manager config fields."""
+    from hydromodpy.data.variables.crossings.config import CrossingsConfig
     from hydromodpy.data.variables.etp.config import EtpConfig
     from hydromodpy.data.variables.humidity.config import HumidityConfig
     from hydromodpy.data.variables.hydrography.config import HydrographyConfig
@@ -492,6 +504,7 @@ def _rebuild_forward_refs() -> None:
 
     DataManagersConfig.model_rebuild(
         _types_namespace={
+            "CrossingsConfig": CrossingsConfig,
             "HydrographyConfig": HydrographyConfig,
             "HydrometryConfig": HydrometryConfig,
             "IntermittencyConfig": IntermittencyConfig,

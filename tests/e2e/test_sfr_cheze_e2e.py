@@ -74,7 +74,6 @@ def _config_body(*, with_sfr: bool) -> str:
     active_bc = '"lake", "sfr", "drainage"' if with_sfr else '"lake", "drainage"'
     sfr_toml = """
 [flow.sinks_sources.sfr.net0]
-stream_threshold_km2 = 0.1
 streambed_k = 1e-5
 streambed_k_unit = "m/s"
 streambed_thickness = "1 m"

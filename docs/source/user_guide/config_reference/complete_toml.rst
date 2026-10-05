@@ -69,8 +69,10 @@ Sub-models are linked back to their per-section page.
       # catchment = ...  # default = None
       # Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM.
       # crs_project = ...  # default = None
-      # How the DEM is conditioned before the catchment is delineated. 'fill' (default) raises each closed depression to its spill level, then puts a small gradient on the flats so every cell drains. 'breach' carves a path through the barrier that closes a depression instead, and changes far fewer cells (least-cost breaching, Lindsay 2016). 'fill' is the default because it is the tool of the paper behind the network criterion (FillDepressions, Abherve et al. 2023), and the criterion itself fills the model top on the mesh by a priority flood: one conditioning rule from the DEM to the score.
+      # How the DEM is conditioned before the catchment is delineated. 'fill' (default) only raises cells: each closed depression is raised to its spill level, then a small gradient on the flats lets every cell drain. 'breach' mostly lowers cells: it carves a path through the barrier that closes a depression, after raising single-cell pits to their lowest neighbour, with no limit on length or depth and no fill afterwards (least-cost breaching, Lindsay 2016); it changes far fewer cells than 'fill' and can dig deep. 'capped_breach' lowers and raises: it breaches only within the limits of [geographic.capped_breach] (a maximum cumulative lowering and a maximum length, in metres), then fills every depression the limits refused (the hybrid of Lindsay 2016). The depth limit is a sum over the cells of a path, so it does not give the same landscape at every grid resolution. 'fill' is the default because it is the tool of the paper behind the network criterion (FillDepressions, Abherve et al. 2023), and the criterion itself fills the model top on the mesh by a priority flood: one conditioning rule from the DEM to the score.
       dem_correc_type = "fill"
+      # Limits of the 'capped_breach' conditioning: max_depth (default 0.5 m) and max_distance (default 200 m). Omitted, a 'capped_breach' run uses those defaults. Declaring it with any other dem_correc_type is refused: 'fill' and 'breach' have no limit to set, and a section that is silently ignored reads as a limit that was applied.
+      # capped_breach = ...  # default = None
       # Flow-routing engine that conditions the DEM and delineates the catchment. Unset uses the engine this build defaults to. A string and not an enumeration: the values that resolve depend on what is installed beside HydroModPy, which is how a third-party engine is named without a patch.
       # terrain_engine = ...  # default = None
       # Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the buffered box (the buffer stays active for inter-basin exchange); out-of-watershed drainage is kept out of the catchment discharge by the DRN watershed-routing, not by an idomain mask. Experimental.
@@ -81,12 +83,14 @@ Sub-models are linked back to their per-section page.
       # synthetic = ...  # uses factory default
       # Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing.
       # river_network = ...  # uses factory default
-      # Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve.
-      # enforce_streams = ...  # uses factory default
       # Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top.
       # enforce_lakes = ...  # uses factory default
-      # Optional dam structure-carve of the model-top DEM: lower the dam footprint to the valley floor so a cutoff wall sits at the dam on a raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM).
+      # Optional dam structure-carve of the ground: lower the dam footprint to the valley floor, for the routing chain and the model top alike, so a cutoff wall sits at the dam on a raw DEM.
       # dam_carve = ...  # uses factory default
+      # Optional notch of the ground at the roads, railways and bridges that cross the generated channel tree: the embankment is lowered to the bed level read on both sides, and the catchment is delineated again on the notched ground.
+      # crossings = ...  # uses factory default
+      # Optional least-change regularisation of the channel bed in the model top, on the pixels of the generated channel tree: the bed never rises downstream, crossing notches are gaps and declared weirs are drops.
+      # bed_regularization = ...  # uses factory default
       # If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace.
       reuse_existing_outputs = false
       # Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/<run>/_preprocessing/ is removed after ingestion into the run field store.
@@ -115,10 +119,12 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [data]
-      # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.
+      # Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.
       # types = ...  # uses factory default
       # Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geology, which can use its default typed config).
       inference_mode = "warn"
+      # Crossings configuration (roads, railways, bridges, weirs and dams laid across the channels, read by [geographic.crossings]).
+      # crossings = ...  # default = None
       # DEM configuration used when 'dem' is listed in data.types.
       # dem = ...  # default = None
       # Geology configuration used when 'geology' is listed in data.types.

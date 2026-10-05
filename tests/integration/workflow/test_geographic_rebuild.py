@@ -199,31 +199,31 @@ def test_a_missing_tree_falls_back_to_a_full_build(
 
 
 def test_the_fingerprint_sees_a_conditioning_vector_edited_in_place(tmp_path: Path) -> None:
-    """A stream-enforcement vector rewritten in place invalidates the tree.
+    """A lake vector rewritten in place invalidates the tree.
 
     The routing DEM is carved with these vectors, so every product below them
     changes when one does, without a single config value changing. A resume now
     forces the reuse, which is what makes the blind spot reachable.
     """
     import geopandas as gpd
-    from shapely.geometry import LineString
+    from shapely.geometry import box
 
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
     from hydromodpy.spatial.geographic.pipeline import _geographic_cache_fingerprint
 
-    network = tmp_path / "streams.gpkg"
+    lakes = tmp_path / "lakes.gpkg"
 
     def _write(offset: float) -> None:
         gpd.GeoDataFrame(
             {"id": [1]},
-            geometry=[LineString([(0.0, offset), (100.0, offset + 100.0)])],
+            geometry=[box(0.0, offset, 100.0, offset + 100.0)],
             crs="EPSG:2154",
-        ).to_file(network, driver="GPKG")
+        ).to_file(lakes, driver="GPKG")
 
     payload = {
         "source_mode": "standard",
         "catchment": {"catch_def": "dem", "dem_init_path": str(DEM)},
-        "enforce_streams": {"enabled": True, "stream_geometry_path": str(network)},
+        "enforce_lakes": {"enabled": True, "lake_geometry_path": str(lakes)},
     }
 
     _write(0.0)

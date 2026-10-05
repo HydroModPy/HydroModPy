@@ -129,7 +129,7 @@
     "section": "geographic",
     "anchor": "geographic-source-mode",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L559",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L599",
     "description": "Geographic runtime mode. 'standard' keeps the historical DEM/outlet/polygon workflow. 'synthetic' builds one analytical support from [geographic.synthetic]."
   },
   {
@@ -141,7 +141,7 @@
     "section": "geographic",
     "anchor": "geographic-catchment",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L567",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L607",
     "description": "Catchment definition payload used when source_mode='standard'. Discriminated by 'catch_def' on the nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'."
   },
   {
@@ -249,20 +249,56 @@
     "section": "geographic",
     "anchor": "geographic-crs-project",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L579",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L619",
     "description": "Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM."
   },
   {
     "path": "geographic.dem_correc_type",
     "name": "dem_correc_type",
-    "type": "Literal['breach', 'fill']",
+    "type": "Literal['breach', 'fill', 'capped_breach']",
     "profile": "user",
     "stability": "stable",
     "section": "geographic",
     "anchor": "geographic-dem-correc-type",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L583",
-    "description": "How the DEM is conditioned before the catchment is delineated. 'fill' (default) raises each closed depression to its spill level, then puts a small gradient on the flats so every cell drains. 'breach' carves a path through the barrier that "
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L623",
+    "description": "How the DEM is conditioned before the catchment is delineated. 'fill' (default) only raises cells: each closed depression is raised to its spill level, then a small gradient on the flats lets every cell drain. 'breach' mostly lowers cells: "
+  },
+  {
+    "path": "geographic.capped_breach",
+    "name": "capped_breach",
+    "type": "CappedBreachConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-capped-breach",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L645",
+    "description": "Limits of the 'capped_breach' conditioning: max_depth (default 0.5 m) and max_distance (default 200 m). Omitted, a 'capped_breach' run uses those defaults. Declaring it with any other dem_correc_type is refused: 'fill' and 'breach' have no "
+  },
+  {
+    "path": "geographic.capped_breach.max_depth",
+    "name": "max_depth",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-capped-breach-max-depth",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L510",
+    "description": "Largest cumulative lowering, in metres, of one breach path (the 'max_cost' of Whitebox): the lowering summed over the cells of the path, not the depth of one cell. Measured on the Flume at 25 m with 8-cell paths, the realised maximum loweri"
+  },
+  {
+    "path": "geographic.capped_breach.max_distance",
+    "name": "max_distance",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-capped-breach-max-distance",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L527",
+    "description": "Longest breach path, in metres. Translated to the DEM grid as ceil(max_distance / cell size) cells, at least one, and counted in cells along the path: a diagonal step counts one cell, so a diagonal breach can be up to 1.41 times longer than"
   },
   {
     "path": "geographic.terrain_engine",
@@ -273,7 +309,7 @@
     "section": "geographic",
     "anchor": "geographic-terrain-engine",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L597",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L659",
     "description": "Flow-routing engine that conditions the DEM and delineates the catchment. Unset uses the engine this build defaults to. A string and not an enumeration: the values that resolve depend on what is installed beside HydroModPy, which is how a t"
   },
   {
@@ -285,7 +321,7 @@
     "section": "geographic",
     "anchor": "geographic-domain-extent",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L606",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L668",
     "description": "Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the"
   },
   {
@@ -297,7 +333,7 @@
     "section": "geographic",
     "anchor": "geographic-reg-fold",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L618",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L680",
     "description": "Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed."
   },
   {
@@ -309,7 +345,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L622",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L684",
     "description": "Synthetic geographic support used when source_mode='synthetic'. This analytical mode bypasses watershed delineation from external DEM files."
   },
   {
@@ -537,7 +573,7 @@
     "section": "geographic",
     "anchor": "geographic-river-network",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L629",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L691",
     "description": "Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing."
   },
   {
@@ -649,138 +685,6 @@
     "description": "Forwarded to Whitebox raster_streams_to_vector. False keeps a lighter vector geometry."
   },
   {
-    "path": "geographic.enforce_streams",
-    "name": "enforce_streams",
-    "type": "StreamEnforcementConfig",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L636",
-    "description": "Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve."
-  },
-  {
-    "path": "geographic.enforce_streams.enabled",
-    "name": "enabled",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-enabled",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L371",
-    "description": "Lower the mapped stream cells in the routing DEM before D8 so the computed flow paths follow the observed network."
-  },
-  {
-    "path": "geographic.enforce_streams.stream_geometry_path",
-    "name": "stream_geometry_path",
-    "type": "Path | None",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-stream-geometry-path",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L378",
-    "description": "Observed stream network (gpkg/shp) to burn. A bare filename resolves against <workspace>/data/hydrography/. When left empty and enabled, it falls back to the network [[data.hydrography.sources]] declares, so the same file is named once; dec"
-  },
-  {
-    "path": "geographic.enforce_streams.mode",
-    "name": "mode",
-    "type": "Literal['constant', 'adaptive']",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-mode",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L392",
-    "description": "Trench depth rule. 'constant' lowers every stream cell by depth_m. 'adaptive' derives one depth from the measured local relief along the network. Either way a single depth is used, so the along-channel gradient the trench exists to preserve"
-  },
-  {
-    "path": "geographic.enforce_streams.depth_m",
-    "name": "depth_m",
-    "type": "float",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-depth-m",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L401",
-    "description": "Trench depth (metres) for mode='constant'. It must exceed the local drop between a stream cell and its lowest non-stream neighbour; 5 m clears 0.90 agreement on every measured catchment, 10 to 20 m are needed for 0.95 to 0.99 on the difficu"
-  },
-  {
-    "path": "geographic.enforce_streams.adaptive_percentile",
-    "name": "adaptive_percentile",
-    "type": "float",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-adaptive-percentile",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L416",
-    "description": "Percentile of the local relief along the network used as the trench depth when mode='adaptive'."
-  },
-  {
-    "path": "geographic.enforce_streams.relief_report_percentile",
-    "name": "relief_report_percentile",
-    "type": "float",
-    "profile": "expert",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-relief-report-percentile",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L429",
-    "description": "Percentile of the local relief along the network reported in the burn report and compared to the depth actually used, whatever the mode. It is the drop a constant trench must clear to keep the flow on the mapped network, so a depth below it"
-  },
-  {
-    "path": "geographic.enforce_streams.rasterize_all_touched",
-    "name": "rasterize_all_touched",
-    "type": "bool",
-    "profile": "expert",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-rasterize-all-touched",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L441",
-    "description": "Rasterize the network with the all-touched rule, so every cell a reach crosses is burned and not only those whose centre falls under the line. A one-cell-wide trace that skips a cell leaves a step the flow escapes through, which is what the"
-  },
-  {
-    "path": "geographic.enforce_streams.dem_nodata_fallback",
-    "name": "dem_nodata_fallback",
-    "type": "float",
-    "profile": "expert",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-dem-nodata-fallback",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L451",
-    "description": "Nodata value assumed when the DEM to burn declares none in its header. It decides which cells are excluded from the burn and from the relief measurement, so a raster using another sentinel must say so here."
-  },
-  {
-    "path": "geographic.enforce_streams.alpha_warning_threshold",
-    "name": "alpha_warning_threshold",
-    "type": "float",
-    "profile": "expert",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-alpha-warning-threshold",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L459",
-    "description": "Below this agreement between the mapped network and the D8 paths of the routing DEM, a warning fires. alpha is the share of the downstream closure of the network that the network itself covers: 1.00 means the computed paths never leave the "
-  },
-  {
-    "path": "geographic.enforce_streams.max_catchment_area_drift",
-    "name": "max_catchment_area_drift",
-    "type": "float",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-max-catchment-area-drift",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L473",
-    "description": "Relative change of the delineated catchment area the burn may cause. A trench that crosses a divide (mis-georeferenced trace, canal, flat area) reconnects two catchments and the delineation changes without any other sign, so the catchment i"
-  },
-  {
     "path": "geographic.enforce_lakes",
     "name": "enforce_lakes",
     "type": "LakeEnforcementConfig",
@@ -789,7 +693,7 @@
     "section": "geographic",
     "anchor": "geographic-enforce-lakes",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L644",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L698",
     "description": "Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top."
   },
   {
@@ -885,8 +789,8 @@
     "section": "geographic",
     "anchor": "geographic-dam-carve",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L652",
-    "description": "Optional dam structure-carve of the model-top DEM: lower the dam footprint to the valley floor so a cutoff wall sits at the dam on a raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM)."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L706",
+    "description": "Optional dam structure-carve of the ground: lower the dam footprint to the valley floor, for the routing chain and the model top alike, so a cutoff wall sits at the dam on a raw DEM."
   },
   {
     "path": "geographic.dam_carve.enabled",
@@ -897,8 +801,8 @@
     "section": "geographic",
     "anchor": "geographic-dam-carve-enabled",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L500",
-    "description": "Carve the dam footprint of the model-top DEM down to the local valley floor so the cutoff wall sits at the true dam on a raw DEM."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L366",
+    "description": "Carve the dam footprint of the ground down to the local valley floor, so the routing chain and the model top both see the dam removed and the cutoff wall sits at the true dam on a raw DEM."
   },
   {
     "path": "geographic.dam_carve.line_path",
@@ -909,8 +813,8 @@
     "section": "geographic",
     "anchor": "geographic-dam-carve-line-path",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L507",
-    "description": "Dam trace (gpkg/shp/csv) along which the top is carved. A bare filename resolves against <workspace>/data/cutoff_wall/. Usually the same surveyed voile axis as the cutoff_wall. Required when enabled."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L374",
+    "description": "Dam trace (gpkg/shp/csv) along which the ground is carved. A bare filename resolves against <workspace>/data/cutoff_wall/. Usually the same surveyed voile axis as the cutoff_wall. Required when enabled."
   },
   {
     "path": "geographic.dam_carve.buffer_m",
@@ -921,7 +825,7 @@
     "section": "geographic",
     "anchor": "geographic-dam-carve-buffer-m",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L519",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L386",
     "description": "Half-width (metres) of the carved corridor around the dam trace. Make it a bit wider than one DEM/cell size so the whole dam body is brought to the valley floor."
   },
   {
@@ -933,8 +837,140 @@
     "section": "geographic",
     "anchor": "geographic-dam-carve-search-radius-m",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L528",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L395",
     "description": "Radius (metres) of the neighborhood whose minimum elevation defines the valley floor the corridor is carved to. When omitted, derives 3 * buffer_m."
+  },
+  {
+    "path": "geographic.crossings",
+    "name": "crossings",
+    "type": "CrossingNotchConfig",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-crossings",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L714",
+    "description": "Optional notch of the ground at the roads, railways and bridges that cross the generated channel tree: the embankment is lowered to the bed level read on both sides, and the catchment is delineated again on the notched ground."
+  },
+  {
+    "path": "geographic.crossings.enabled",
+    "name": "enabled",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-crossings-enabled",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L425",
+    "description": "Notch the ground at the crossings of the channel tree with the declared structures, then delineate again on the notched ground. Needs [geographic.river_network] enabled."
+  },
+  {
+    "path": "geographic.crossings.path",
+    "name": "path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-crossings-path",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L433",
+    "description": "Vector file of the structures, with the columns 'kind', 'source', 'name' and 'drop_m' of the crossings data variable. When left empty and enabled, it is filled from [[data.crossings.sources]], so the structures are named once. Required when"
+  },
+  {
+    "path": "geographic.crossings.kinds",
+    "name": "kinds",
+    "type": "list[Literal['road', 'railway', 'bridge']]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-crossings-kinds",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L447",
+    "description": "Structure kinds to notch. Weirs and dams are never notched."
+  },
+  {
+    "path": "geographic.crossings.notch_width",
+    "name": "notch_width",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-crossings-notch-width",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L452",
+    "description": "Width of the notch across the embankment, in metres. The channel pixel itself is always lowered, so a width below the cell size cuts one pixel. The width is applied along the embankment only, the run of channel pixels that stand above the b"
+  },
+  {
+    "path": "geographic.crossings.bed_reach",
+    "name": "bed_reach",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-crossings-bed-reach",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L463",
+    "description": "Distance along the channel, on each side of the crossing, where the bed level is read, in metres. The embankment is assumed narrower than twice this. The notch is the straight line between the two bed levels. A bed end that falls on the emb"
+  },
+  {
+    "path": "geographic.crossings.max_depth",
+    "name": "max_depth",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-crossings-max-depth",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L475",
+    "description": "Largest lowering of any pixel, in metres. A pixel that would be lowered more is lowered by this and counted as capped in the report: the embankment is then higher than the cap allows for, or the crossing sits on a ridge. Accepts inline unit"
+  },
+  {
+    "path": "geographic.crossings.snap_radius",
+    "name": "snap_radius",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-crossings-snap-radius",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L486",
+    "description": "A point structure (a bridge of the ROE) farther than this from the channel tree is ignored, and so is a channel pixel farther than this from its crossing, in metres. A dam or a weir of the file, or a dam_carve line, within this distance of "
+  },
+  {
+    "path": "geographic.bed_regularization",
+    "name": "bed_regularization",
+    "type": "BedRegularizationConfig",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-bed-regularization",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L723",
+    "description": "Optional least-change regularisation of the channel bed in the model top, on the pixels of the generated channel tree: the bed never rises downstream, crossing notches are gaps and declared weirs are drops."
+  },
+  {
+    "path": "geographic.bed_regularization.enabled",
+    "name": "enabled",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-bed-regularization-enabled",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L560",
+    "description": "Regularise the channel bed of the model top: the least-change fit of the ground that never rises downstream along the channel tree, with the crossing notches as gaps and the declared weirs and dams as drops. Needs [geographic.river_network]"
+  },
+  {
+    "path": "geographic.bed_regularization.min_slope",
+    "name": "min_slope",
+    "type": "float",
+    "profile": "user",
+    "stability": "stable",
+    "section": "geographic",
+    "anchor": "geographic-bed-regularization-min-slope",
+    "page": "geographic.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L569",
+    "description": "Minimum drop of the fitted bed per metre along the channel (m/m), given to the flats the fit pools. The SFR default slope."
   },
   {
     "path": "geographic.reuse_existing_outputs",
@@ -945,7 +981,7 @@
     "section": "geographic",
     "anchor": "geographic-reuse-existing-outputs",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L660",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L731",
     "description": "If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace."
   },
   {
@@ -957,7 +993,7 @@
     "section": "geographic",
     "anchor": "geographic-write-intermediates",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L670",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L741",
     "description": "Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/<run>/_preprocessing/ is removed after ingestion into the run field store."
   },
   {
@@ -1197,8 +1233,8 @@
     "section": "data",
     "anchor": "data-types",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L113",
-    "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydro"
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L115",
+    "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humi"
   },
   {
     "path": "data.inference_mode",
@@ -1209,8 +1245,104 @@
     "section": "data",
     "anchor": "data-inference-mode",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L122",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L124",
     "description": "Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geo"
+  },
+  {
+    "path": "data.crossings",
+    "name": "crossings",
+    "type": "CrossingsConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-crossings",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L134",
+    "description": "Crossings configuration (roads, railways, bridges, weirs and dams laid across the channels, read by [geographic.crossings])."
+  },
+  {
+    "path": "data.crossings.sources",
+    "name": "sources",
+    "type": "list[CustomCrossingsSource | BdtopoCrossingsSource | RoeCrossingsSource]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-crossings-sources",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L121",
+    "description": "At least one crossings data source."
+  },
+  {
+    "path": "data.crossings.sources.source",
+    "name": "source",
+    "type": "Literal['custom']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-crossings-sources",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L32",
+    "description": "Discriminator tag selecting the 'custom' crossings provider."
+  },
+  {
+    "path": "data.crossings.sources.path",
+    "name": "path",
+    "type": "Path",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-crossings-sources-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L36",
+    "description": "Path to a vector file (SHP, GPKG, GeoJSON) or to a folder holding one. It must carry a 'kind' column."
+  },
+  {
+    "path": "data.crossings.sources.default_crs",
+    "name": "default_crs",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-crossings-sources-default-crs",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L47",
+    "description": "Fallback CRS used only when the file carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154)."
+  },
+  {
+    "path": "data.crossings.sources.page_size",
+    "name": "page_size",
+    "type": "int",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-crossings-sources-page-size",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L70",
+    "description": "WFS pagination page size, in features."
+  },
+  {
+    "path": "data.crossings.sources.force_refresh",
+    "name": "force_refresh",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-crossings-sources-force-refresh",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L70",
+    "description": "Bypass the cache and download again."
+  },
+  {
+    "path": "data.crossings.mask_path",
+    "name": "mask_path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-crossings-mask-path",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/crossings/config.py#L126",
+    "description": "SHP/GPKG/GeoJSON/TIF whose bounds are the box the API sources are asked over. A project run has it filled in from the delineated watershed; a standalone call names it."
   },
   {
     "path": "data.dem",
@@ -1221,7 +1353,7 @@
     "section": "data",
     "anchor": "data-dem",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L132",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L141",
     "description": "DEM configuration used when 'dem' is listed in data.types."
   },
   {
@@ -1233,7 +1365,7 @@
     "section": "data",
     "anchor": "data-dem-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L145",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L188",
     "description": "At least one DEM data source."
   },
   {
@@ -1245,7 +1377,7 @@
     "section": "data",
     "anchor": "data-dem-sources-mask-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L35",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L38",
     "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping."
   },
   {
@@ -1257,7 +1389,7 @@
     "section": "data",
     "anchor": "data-dem-sources-extent",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L35",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L38",
     "description": "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated"
   },
   {
@@ -1269,7 +1401,7 @@
     "section": "data",
     "anchor": "data-dem-sources-force-refresh",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L35",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L38",
     "description": "Ignore cache and re-download from API."
   },
   {
@@ -1281,7 +1413,7 @@
     "section": "data",
     "anchor": "data-dem-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L38",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L41",
     "description": "Discriminator tag selecting the 'custom' DEM provider."
   },
   {
@@ -1293,7 +1425,7 @@
     "section": "data",
     "anchor": "data-dem-sources-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L42",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L45",
     "description": "Path to custom DEM file or directory (TIF, ASC, NC)."
   },
   {
@@ -1305,7 +1437,7 @@
     "section": "data",
     "anchor": "data-dem-sources-departments",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L82",
     "description": "Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox."
   },
   {
@@ -1317,7 +1449,7 @@
     "section": "data",
     "anchor": "data-dem-sources-country",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L82",
     "description": "Country code used for administrative DEM selectors."
   },
   {
@@ -1329,20 +1461,20 @@
     "section": "data",
     "anchor": "data-dem-sources-regions",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L82",
     "description": "Optional French administrative regions used to infer department downloads."
   },
   {
     "path": "data.dem.sources.dataset",
     "name": "dataset",
-    "type": "Literal['bd-alti']",
+    "type": "Literal['bd-alti', 'rge-alti']",
     "profile": "user",
     "stability": "stable",
     "section": "data",
     "anchor": "data-dem-sources-dataset",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L86",
-    "description": "IGN DEM product assembled by the data manager. Only BD ALTI 25 m is currently exposed as an assembled raster source; use the download_dem_fr helper to inspect raw RGE ALTI archives."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L89",
+    "description": "IGN DEM product assembled by the data manager. 'bd-alti' is the 25 m BD ALTI built from the department archives. 'rge-alti' is the RGE ALTI built from Geoplateforme WMS-Raster tiles, 5 m by default, 1 m allowed."
   },
   {
     "path": "data.dem.sources.resolution_m",
@@ -1353,8 +1485,8 @@
     "section": "data",
     "anchor": "data-dem-sources-resolution-m",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L94",
-    "description": "Requested DEM resolution in metres. Defaults are resolved by the manager from the selected dataset."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L97",
+    "description": "DEM pixel size in metres. 'bd-alti' accepts 25 only and defaults to it. 'rge-alti' accepts 1 or 5 and defaults to 5: the 1 m grid is native and, inland, a 5 m request returns its centre pixels unchanged, while the server resamples any other"
   },
   {
     "path": "data.dem.sources.file_format",
@@ -1365,8 +1497,8 @@
     "section": "data",
     "anchor": "data-dem-sources-file-format",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L101",
-    "description": "Requested archive payload format when exposed by Geoplateforme."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L108",
+    "description": "Requested archive payload format when exposed by Geoplateforme. Not used by 'rge-alti', which is a GeoTIFF."
   },
   {
     "path": "data.dem.sources.crs",
@@ -1377,8 +1509,8 @@
     "section": "data",
     "anchor": "data-dem-sources-crs",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L105",
-    "description": "Optional CRS filter forwarded to Geoplateforme discovery."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L115",
+    "description": "Optional CRS filter forwarded to Geoplateforme discovery. Not used by 'rge-alti', which is requested in EPSG:2154."
   },
   {
     "path": "data.geology",
@@ -1389,7 +1521,7 @@
     "section": "data",
     "anchor": "data-geology",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L136",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L145",
     "description": "Geology configuration used when 'geology' is listed in data.types."
   },
   {
@@ -1569,7 +1701,7 @@
     "section": "data",
     "anchor": "data-hydrography",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L140",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L149",
     "description": "Hydrography configuration (stream network vector data)."
   },
   {
@@ -1704,7 +1836,7 @@
     "section": "data",
     "anchor": "data-hydrometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L144",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L153",
     "description": "Hydrometry configuration (discharge time-series)."
   },
   {
@@ -1974,7 +2106,7 @@
     "section": "data",
     "anchor": "data-intermittency",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L148",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L157",
     "description": "Intermittency configuration (ONDE stream flow-state observations)."
   },
   {
@@ -2232,7 +2364,7 @@
     "section": "data",
     "anchor": "data-lake-abacus",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L152",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L161",
     "description": "Lake abacus configuration (stage-volume-area lookup table)."
   },
   {
@@ -2304,7 +2436,7 @@
     "section": "data",
     "anchor": "data-lake-bathymetry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L156",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L165",
     "description": "Lake bathymetry configuration (lake-bed elevation raster)."
   },
   {
@@ -2376,7 +2508,7 @@
     "section": "data",
     "anchor": "data-lake-geometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L160",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L169",
     "description": "Lake geometry configuration (lake/reservoir footprint vector)."
   },
   {
@@ -2448,7 +2580,7 @@
     "section": "data",
     "anchor": "data-lake-inflow",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L164",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L173",
     "description": "Lake inflow configuration (observed inflow volumetric time series)."
   },
   {
@@ -2670,7 +2802,7 @@
     "section": "data",
     "anchor": "data-lake-levels",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L168",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L177",
     "description": "Lake levels configuration (observed water-level time series)."
   },
   {
@@ -2892,7 +3024,7 @@
     "section": "data",
     "anchor": "data-lake-outflow",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L172",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L181",
     "description": "Lake outflow configuration (observed outflow volumetric time series)."
   },
   {
@@ -3114,7 +3246,7 @@
     "section": "data",
     "anchor": "data-lake-withdrawal",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L176",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L185",
     "description": "Lake withdrawal configuration (observed withdrawal volumetric time series)."
   },
   {
@@ -3336,7 +3468,7 @@
     "section": "data",
     "anchor": "data-oceanic",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L180",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L189",
     "description": "Oceanic configuration used when 'oceanic' is listed in data.types."
   },
   {
@@ -3594,7 +3726,7 @@
     "section": "data",
     "anchor": "data-piezometry",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L184",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L193",
     "description": "Piezometry configuration (groundwater level time-series)."
   },
   {
@@ -3864,7 +3996,7 @@
     "section": "data",
     "anchor": "data-water-quality",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L188",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L197",
     "description": "Water quality configuration (physico-chemical parameters)."
   },
   {
@@ -4134,7 +4266,7 @@
     "section": "data",
     "anchor": "data-recharge",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L192",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L201",
     "description": "Recharge configuration (drainage / soil infiltration time series)."
   },
   {
@@ -4452,7 +4584,7 @@
     "section": "data",
     "anchor": "data-runoff",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L196",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L205",
     "description": "Runoff configuration (surface runoff time series)."
   },
   {
@@ -4674,7 +4806,7 @@
     "section": "data",
     "anchor": "data-precipitation",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L200",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L209",
     "description": "Precipitation configuration (liquid and solid precipitation)."
   },
   {
@@ -4908,7 +5040,7 @@
     "section": "data",
     "anchor": "data-etp",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L204",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L213",
     "description": "ETP configuration (potential evapotranspiration)."
   },
   {
@@ -5154,7 +5286,7 @@
     "section": "data",
     "anchor": "data-temperature",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L208",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L217",
     "description": "Temperature configuration (air temperature time series)."
   },
   {
@@ -5376,7 +5508,7 @@
     "section": "data",
     "anchor": "data-wind",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L212",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L221",
     "description": "Wind configuration (wind speed time series)."
   },
   {
@@ -5598,7 +5730,7 @@
     "section": "data",
     "anchor": "data-humidity",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L216",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L225",
     "description": "Humidity configuration (relative humidity time series)."
   },
   {
@@ -5820,7 +5952,7 @@
     "section": "data",
     "anchor": "data-radiation",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L220",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L229",
     "description": "Radiation configuration (atmospheric and visible radiation)."
   },
   {
@@ -6054,7 +6186,7 @@
     "section": "data",
     "anchor": "data-soil-moisture",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L224",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L233",
     "description": "Soil moisture configuration (soil moisture index)."
   },
   {
@@ -6276,7 +6408,7 @@
     "section": "data",
     "anchor": "data-substratum",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L228",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L237",
     "description": "Substratum configuration (aquifer-bottom raster, elevation or thickness)."
   },
   {
@@ -6336,7 +6468,7 @@
     "section": "data",
     "anchor": "data-soil-capacity",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L232",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/loading/config_schema.py#L241",
     "description": "Soil capacity configuration (RU raster read by the soil reservoir, [flow.sinks_sources.recharge.soil])."
   },
   {
@@ -8847,30 +8979,6 @@
     "description": "Mapping of stream-network ids to typed SFR payloads."
   },
   {
-    "path": "flow.sinks_sources.sfr.<id>.stream_threshold_km2",
-    "name": "stream_threshold_km2",
-    "type": "float | None",
-    "profile": "user",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-sinks-sources-sfr-id-stream-threshold-km2",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L183",
-    "description": ""
-  },
-  {
-    "path": "flow.sinks_sources.sfr.<id>.stream_threshold_cells",
-    "name": "stream_threshold_cells",
-    "type": "int | None",
-    "profile": "user",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-sinks-sources-sfr-id-stream-threshold-cells",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L192",
-    "description": ""
-  },
-  {
     "path": "flow.sinks_sources.sfr.<id>.min_reach_length",
     "name": "min_reach_length",
     "type": "Any",
@@ -8879,7 +8987,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-min-reach-length",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L197",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L184",
     "description": ""
   },
   {
@@ -8891,7 +8999,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-manning",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L203",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L190",
     "description": ""
   },
   {
@@ -8903,7 +9011,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-streambed-k",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L210",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L197",
     "description": ""
   },
   {
@@ -8915,7 +9023,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-streambed-k-unit",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L221",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L208",
     "description": ""
   },
   {
@@ -8927,7 +9035,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-streambed-thickness",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L228",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L215",
     "description": ""
   },
   {
@@ -8939,7 +9047,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-min-slope",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L232",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L219",
     "description": ""
   },
   {
@@ -8951,7 +9059,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-bed-incision",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L237",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L227",
     "description": ""
   },
   {
@@ -8963,7 +9071,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-max-bed-sag",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L254",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L244",
     "description": ""
   },
   {
@@ -8975,7 +9083,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-width",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L265",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L255",
     "description": ""
   },
   {
@@ -9047,7 +9155,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-connected-to-aquifer",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L270",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L260",
     "description": ""
   },
   {
@@ -9059,7 +9167,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-route-drainage",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L274",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L264",
     "description": ""
   },
   {
@@ -9071,7 +9179,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-storage",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L285",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L277",
     "description": ""
   },
   {
@@ -9083,7 +9191,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-headwater-inflow",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L291",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L283",
     "description": ""
   },
   {
@@ -9251,7 +9359,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-runoff",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L295",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L287",
     "description": ""
   },
   {
@@ -9419,7 +9527,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-rainfall",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L299",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L291",
     "description": ""
   },
   {
@@ -9587,7 +9695,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-evaporation",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L303",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L295",
     "description": ""
   },
   {
@@ -9755,7 +9863,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-reaches",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L309",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L301",
     "description": ""
   },
   {
@@ -9863,7 +9971,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-diversions",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L313",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L305",
     "description": ""
   },
   {
@@ -9923,7 +10031,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-outflow-to-lake",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L319",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L311",
     "description": ""
   },
   {
@@ -9935,7 +10043,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-outflow-mvrtype",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L327",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L319",
     "description": ""
   },
   {
@@ -9947,7 +10055,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-outflow-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L333",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L325",
     "description": ""
   },
   {
@@ -9959,7 +10067,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-lake-feeder-snap",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L346",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L338",
     "description": ""
   },
   {
@@ -9971,7 +10079,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-outlet-keepout",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L354",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L346",
     "description": ""
   },
   {
@@ -9983,7 +10091,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-rectify-on-mesh",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L362",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L354",
     "description": ""
   },
   {
@@ -9995,7 +10103,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-rectify-stub-max-upstream",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L377",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L369",
     "description": ""
   },
   {
@@ -10007,7 +10115,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-rectify-min-component-cells",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L388",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L380",
     "description": ""
   },
   {
@@ -12441,7 +12549,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-planar",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L334",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L324",
     "description": "Planar discretization of the solver grid."
   },
   {
@@ -12501,7 +12609,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-vertical",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L338",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328",
     "description": "Vertical layering of the solver grid."
   },
   {
@@ -12573,32 +12681,8 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-grid-dual",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L332",
     "description": "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the defaul"
-  },
-  {
-    "path": "modflownwt.sgrid.condition_top",
-    "name": "condition_top",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "modflownwt",
-    "anchor": "modflownwt-sgrid-condition-top",
-    "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L352",
-    "description": "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsi"
-  },
-  {
-    "path": "modflownwt.sgrid.condition_top_epsilon",
-    "name": "condition_top_epsilon",
-    "type": "float",
-    "profile": "user",
-    "stability": "stable",
-    "section": "modflownwt",
-    "anchor": "modflownwt-sgrid-condition-top-epsilon",
-    "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L365",
-    "description": "Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true."
   },
   {
     "path": "modflownwt.sgrid.top_sampling",
@@ -12609,8 +12693,8 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L374",
-    "description": "How the runtime-mesh top is sampled from the DEM before conditioning."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342",
+    "description": "How the top of the solver grid is sampled from the DEM."
   },
   {
     "path": "modflownwt.sgrid.top_sampling.mode",
@@ -12621,8 +12705,8 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-mode",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L225",
-    "description": "Top-sampling strategy. 'centroid' samples the DEM at each cell generator (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L231",
+    "description": "Top-sampling strategy. 'centroid' samples the DEM at each cell generator, or resamples it to a structured grid (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats."
   },
   {
     "path": "modflownwt.sgrid.top_sampling.hillslope_stat",
@@ -12633,7 +12717,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-hillslope-stat",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L233",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L240",
     "description": "Zonal statistic over non-channel (hillslope) pixels inside a cell."
   },
   {
@@ -12645,7 +12729,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-channel-stat",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L249",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L256",
     "description": "Zonal statistic over channel pixels inside a cell (thalweg-preserving; 'min' keeps the incised low)."
   },
   {
@@ -12657,7 +12741,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-channel-source",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L271",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L278",
     "description": "Where channel pixels come from when mode='zonal'. 'streams_raster' uses the delineated river-network raster reprojected onto the DEM grid; 'none' disables the channel class (every pixel is hillslope)."
   },
   {
@@ -12669,7 +12753,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-channel-buffer-px",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L279",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L286",
     "description": "Dilate the channel pixel mask by this many pixels before reducing, to capture a channel that grazes a cell without a pixel centre on it."
   },
   {
@@ -12681,7 +12765,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-spike-guard-tol-m",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L287",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L294",
     "description": "Revert a hillslope cell's zonal value to the centroid sample when it deviates more than this many metres (guards nodata/edge spikes); channel cells are exempt since they are lowered on purpose. 0 disables the guard."
   },
   {
@@ -12693,7 +12777,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-min-pixels",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L296",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L303",
     "description": "Minimum DEM pixels inside a cell to trust a hillslope zonal statistic; below this the cell falls back to the centroid sample. A channel cell uses its channel stat from a single thalweg pixel."
   },
   {
@@ -12705,32 +12789,8 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling-min-thickness-m",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L304",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L311",
     "description": "Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved channel top never collides with the aquifer bottom."
-  },
-  {
-    "path": "modflownwt.sgrid.top_sampling.network_safety_net",
-    "name": "network_safety_net",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "modflownwt",
-    "anchor": "modflownwt-sgrid-top-sampling-network-safety-net",
-    "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L312",
-    "description": "Before the priority-flood fill, carve the channel cells into a monotone descending thalweg (lower-only) and pin them so the fill never raises them. Fixes the fill re-raising a zonal-lowered channel; needs a channel source (mode='zonal' with"
-  },
-  {
-    "path": "modflownwt.sgrid.top_sampling.max_channel_lowering_m",
-    "name": "max_channel_lowering_m",
-    "type": "float",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "modflownwt",
-    "anchor": "modflownwt-sgrid-top-sampling-max-channel-lowering-m",
-    "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L321",
-    "description": "Cap (m) on how far the network safety net may carve a single channel cell below its sampled top."
   },
   {
     "path": "modflow6.runtime",
@@ -13137,7 +13197,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-planar",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L334",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L324",
     "description": "Planar discretization of the solver grid."
   },
   {
@@ -13197,7 +13257,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-vertical",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L338",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328",
     "description": "Vertical layering of the solver grid."
   },
   {
@@ -13269,32 +13329,8 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-grid-dual",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L332",
     "description": "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the defaul"
-  },
-  {
-    "path": "modflow6.sgrid.condition_top",
-    "name": "condition_top",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "modflow6",
-    "anchor": "modflow6-sgrid-condition-top",
-    "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L352",
-    "description": "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsi"
-  },
-  {
-    "path": "modflow6.sgrid.condition_top_epsilon",
-    "name": "condition_top_epsilon",
-    "type": "float",
-    "profile": "user",
-    "stability": "stable",
-    "section": "modflow6",
-    "anchor": "modflow6-sgrid-condition-top-epsilon",
-    "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L365",
-    "description": "Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true."
   },
   {
     "path": "modflow6.sgrid.top_sampling",
@@ -13305,8 +13341,8 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L374",
-    "description": "How the runtime-mesh top is sampled from the DEM before conditioning."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342",
+    "description": "How the top of the solver grid is sampled from the DEM."
   },
   {
     "path": "modflow6.sgrid.top_sampling.mode",
@@ -13317,8 +13353,8 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-mode",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L225",
-    "description": "Top-sampling strategy. 'centroid' samples the DEM at each cell generator (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L231",
+    "description": "Top-sampling strategy. 'centroid' samples the DEM at each cell generator, or resamples it to a structured grid (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats."
   },
   {
     "path": "modflow6.sgrid.top_sampling.hillslope_stat",
@@ -13329,7 +13365,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-hillslope-stat",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L233",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L240",
     "description": "Zonal statistic over non-channel (hillslope) pixels inside a cell."
   },
   {
@@ -13341,7 +13377,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-channel-stat",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L249",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L256",
     "description": "Zonal statistic over channel pixels inside a cell (thalweg-preserving; 'min' keeps the incised low)."
   },
   {
@@ -13353,7 +13389,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-channel-source",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L271",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L278",
     "description": "Where channel pixels come from when mode='zonal'. 'streams_raster' uses the delineated river-network raster reprojected onto the DEM grid; 'none' disables the channel class (every pixel is hillslope)."
   },
   {
@@ -13365,7 +13401,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-channel-buffer-px",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L279",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L286",
     "description": "Dilate the channel pixel mask by this many pixels before reducing, to capture a channel that grazes a cell without a pixel centre on it."
   },
   {
@@ -13377,7 +13413,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-spike-guard-tol-m",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L287",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L294",
     "description": "Revert a hillslope cell's zonal value to the centroid sample when it deviates more than this many metres (guards nodata/edge spikes); channel cells are exempt since they are lowered on purpose. 0 disables the guard."
   },
   {
@@ -13389,7 +13425,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-min-pixels",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L296",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L303",
     "description": "Minimum DEM pixels inside a cell to trust a hillslope zonal statistic; below this the cell falls back to the centroid sample. A channel cell uses its channel stat from a single thalweg pixel."
   },
   {
@@ -13401,32 +13437,8 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling-min-thickness-m",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L304",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L311",
     "description": "Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved channel top never collides with the aquifer bottom."
-  },
-  {
-    "path": "modflow6.sgrid.top_sampling.network_safety_net",
-    "name": "network_safety_net",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "modflow6",
-    "anchor": "modflow6-sgrid-top-sampling-network-safety-net",
-    "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L312",
-    "description": "Before the priority-flood fill, carve the channel cells into a monotone descending thalweg (lower-only) and pin them so the fill never raises them. Fixes the fill re-raising a zonal-lowered channel; needs a channel source (mode='zonal' with"
-  },
-  {
-    "path": "modflow6.sgrid.top_sampling.max_channel_lowering_m",
-    "name": "max_channel_lowering_m",
-    "type": "float",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "modflow6",
-    "anchor": "modflow6-sgrid-top-sampling-max-channel-lowering-m",
-    "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L321",
-    "description": "Cap (m) on how far the network safety net may carve a single channel cell below its sampled top."
   },
   {
     "path": "display.enabled",
@@ -17103,7 +17115,7 @@
     "section": "calibration",
     "anchor": "calibration-protocol",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1944",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1926",
     "description": "Published calibration method this file runs, named instead of retyped. A protocol writes the stages, their criteria and the model regimes they need, so the file states only what belongs to the site. Write the name alone, or a table carrying"
   },
   {
@@ -17343,7 +17355,7 @@
     "section": "calibration",
     "anchor": "calibration-method",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1957",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1939",
     "description": "Optimization method. Unset, it follows from what the calibration scores: 'bisection' when it moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find; 'scipy_nelder_mead'"
   },
   {
@@ -17355,7 +17367,7 @@
     "section": "calibration",
     "anchor": "calibration-evaluator",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1977",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1959",
     "description": "What turns one parameter sample into a cost. Unset runs the HydroModPy pipeline, which is what every calibrated number in this repository was produced with. A string and not an enumeration: the values that resolve depend on what is installe"
   },
   {
@@ -17367,7 +17379,7 @@
     "section": "calibration",
     "anchor": "calibration-forward-model",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1991",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1973",
     "description": "What produces the simulated observables when the evaluator is the one that scores a model with the criteria of this file ('scored_forward_model'). The model answers the outputs declared under [calibration.outputs] and the objective blocks w"
   },
   {
@@ -17379,7 +17391,7 @@
     "section": "calibration",
     "anchor": "calibration-max-iter",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2007",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1989",
     "description": "Maximum number of evaluations of the search. 'auto' lets an engine that counts its evaluations before the first solve size its own budget. Only the bisection does: with d the declared interval in decades, t = log10(1 + rel_tol), S the sweep"
   },
   {
@@ -17391,7 +17403,7 @@
     "section": "calibration",
     "anchor": "calibration-tolerance",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2026",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2008",
     "description": "How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known "
   },
   {
@@ -17403,7 +17415,7 @@
     "section": "calibration",
     "anchor": "calibration-batch-size",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2042",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2024",
     "description": "Number of suggestions drawn per ask, at least ``parallel``."
   },
   {
@@ -17415,7 +17427,7 @@
     "section": "calibration",
     "anchor": "calibration-parallel",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2047",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2029",
     "description": "Trials solved side by side, each in its own folder, for every phase that sets none of its own. A grid or a random search evaluates its points together; a root search cuts its bracket into parallel + 1 parts; a simplex evaluates the candidat"
   },
   {
@@ -17427,7 +17439,7 @@
     "section": "calibration",
     "anchor": "calibration-reject-water-budget-above",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2059",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2041",
     "description": "Percent water-balance discrepancy past which a trial is rejected instead of scored. The solver reports the figure on every run; unset, it is recorded and nothing acts on it, so a run at twelve per cent is ranked beside one that closed even "
   },
   {
@@ -17439,7 +17451,7 @@
     "section": "calibration",
     "anchor": "calibration-warmup-periods",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2072",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2054",
     "description": "Spin-up samples dropped from the start of every series before its metric. A count of samples, so its span follows the time step. Write scoring_window.start instead, a date that means the same span at any step and bounds a network state too."
   },
   {
@@ -17451,7 +17463,7 @@
     "section": "calibration",
     "anchor": "calibration-scoring-window",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2083",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2065",
     "description": "Dates bounding the samples every metric is computed on: the way to leave a spin-up out, with start = the first date scored. A series keeps its stamps inside the window; a network output read in one state is dated at the stamp of that state,"
   },
   {
@@ -17463,7 +17475,7 @@
     "section": "calibration",
     "anchor": "calibration-scoring-window-start",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1214",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1196",
     "description": "First date scored, ISO 8601. Unset means from the first sample."
   },
   {
@@ -17475,7 +17487,7 @@
     "section": "calibration",
     "anchor": "calibration-scoring-window-end",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1218",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1200",
     "description": "Last date scored, ISO 8601. Unset means up to the last sample."
   },
   {
@@ -17487,7 +17499,7 @@
     "section": "calibration",
     "anchor": "calibration-phases",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2093",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2075",
     "description": "Stages run one after the other, each calibrating its own parameters and freezing them for the next. Declaring this table is what switches the runner to staged mode; without it nothing changes for an existing configuration. The default is No"
   },
   {
@@ -17499,7 +17511,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-name",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1546",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1528",
     "description": "Phase identifier, unique in the calibration and used in the session directory and in the report."
   },
   {
@@ -17511,7 +17523,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-description",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1547",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1529",
     "description": "What this phase calibrates and against what, in one sentence."
   },
   {
@@ -17523,7 +17535,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-method",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1554",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1536",
     "description": "Optimization method for this phase only. Unset, it follows from what the phase scores: 'bisection' when the phase moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find"
   },
   {
@@ -17535,7 +17547,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-max-iter",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1572",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1554",
     "description": "Maximum number of evaluations for this phase. 'auto' lets an engine that counts its evaluations size it: the bisection budgets its worst case, and refuses before the first solve a number below its nominal count (see [calibration].max_iter)."
   },
   {
@@ -17547,7 +17559,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-tolerance",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1580",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1562",
     "description": "How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known "
   },
   {
@@ -17559,7 +17571,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-batch-size",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1596",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1578",
     "description": "Suggestions drawn per ask, at least ``parallel``. Unset, the phase takes the ``batch_size`` of ``[calibration]``."
   },
   {
@@ -17571,7 +17583,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-parallel",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1602",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1584",
     "description": "Trials of this phase solved side by side, each in its own folder. Unset, the phase takes the ``parallel`` of ``[calibration]``, which also reaches the phases a protocol writes."
   },
   {
@@ -17583,7 +17595,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-parameters",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1609",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1591",
     "description": "Names of the calibration parameters this phase may move. Every other parameter keeps the value it entered the phase with."
   },
   {
@@ -17595,7 +17607,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-outputs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1614",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1596",
     "description": "Names of the calibration outputs this phase scores on. Empty means every declared output."
   },
   {
@@ -17607,7 +17619,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-objective-blocks",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1619",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1601",
     "description": "Objective blocks this phase evaluates. Empty means every declared block. A list names them and keeps their declared weight. A table gives each named block the phase's own share instead, {block = share}, normalised to sum to one like a block"
   },
   {
@@ -17619,7 +17631,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-variable",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1627",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1609",
     "description": "Single-metric variable, when this phase does not use blocks."
   },
   {
@@ -17631,7 +17643,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-objective",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1631",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1613",
     "description": "Metric scoring this phase's single simulated series, when the phase does not use objective blocks. Same vocabulary as a block's 'metric'."
   },
   {
@@ -17643,7 +17655,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-observed-station-id",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1636",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1618",
     "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when"
   },
   {
@@ -17655,7 +17667,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-method-options",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1640",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1622",
     "description": "Options of this phase's method, named as that method names them: sweep_points for 'bisection', points_per_dim for 'grid', sampler for 'optuna'. They belong to one method, so a phase that gives them writes method beside them. A key the metho"
   },
   {
@@ -17667,7 +17679,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-regime",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1648",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1630",
     "description": "Flow regime this phase runs, a property of the model and not of the search. 'steady' is one period over steady_window, by default the extent of [simulation.time]. 'transient' is the project's own time grid. Unset, the phase runs the model a"
   },
   {
@@ -17679,7 +17691,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-steady-window",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1662",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1644",
     "description": "Dates the steady period spans, as {start, end}, when regime = 'steady'. Unset takes the whole [simulation.time] window."
   },
   {
@@ -17691,7 +17703,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-overrides",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1667",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1649",
     "description": "Configuration values this phase runs with, as dotted paths into the project configuration. A phase that gives regime may not write here a path regime writes: that would say the same thing twice."
   },
   {
@@ -17703,7 +17715,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-scoring-window",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1673",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1655",
     "description": "Dates bounding the samples this phase scores on, replacing [calibration].scoring_window. start = the first date scored leaves a spin-up out of every block alike. A network output read in one state is dated at the stamp of that state, which "
   },
   {
@@ -17715,7 +17727,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-scoring-window-start",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1214",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1196",
     "description": "First date scored, ISO 8601. Unset means from the first sample."
   },
   {
@@ -17727,7 +17739,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-scoring-window-end",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1218",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1200",
     "description": "Last date scored, ISO 8601. Unset means up to the last sample."
   },
   {
@@ -17739,7 +17751,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-depends-on",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1680",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1662",
     "description": "Name of the phase that must run first. The values it passes on enter this one fixed, except those this phase lists and moves again."
   },
   {
@@ -17751,7 +17763,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-freeze-on-success",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1685",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1667",
     "description": "Pass the values this phase found to the phases after it. A later phase holds them fixed, unless it lists the parameter: it then moves it again, starting from the passed value when its method accepts a start point. When two phases pass on th"
   },
   {
@@ -17763,7 +17775,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-uncertainty",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1693",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1675",
     "description": "How wide this phase says its answer is, with the keys of [calibration.uncertainty]. A key written here wins for this phase; a key left out takes the section's value, then the default that follows what the phase scores: one mesh cell for a p"
   },
   {
@@ -17775,7 +17787,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-uncertainty-method",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1486",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1468",
     "description": "How this phase's interval is obtained: 'cost_profile', 'multistart' or 'linearized', read as in [calibration.uncertainty] method."
   },
   {
@@ -17787,7 +17799,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-uncertainty-restarts",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1491",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1473",
     "description": "How many times method='multistart' repeats this phase's search."
   },
   {
@@ -17799,7 +17811,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-uncertainty-perturbation",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1496",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1478",
     "description": "Relative step of method='linearized' for this phase, as a fraction of each calibrated value."
   },
   {
@@ -17811,7 +17823,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-uncertainty-tolerance",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1501",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1483",
     "description": "Width of this phase's interval: a fraction of the best cost when mode='relative', a number in the unit of the cost (metres for a network distance) when mode='absolute'. Unset here and in [calibration.uncertainty], one mesh cell for a phase "
   },
   {
@@ -17823,7 +17835,7 @@
     "section": "calibration",
     "anchor": "calibration-phases-uncertainty-mode",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1509",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1491",
     "description": "How this phase's tolerance is read. Unset here and in [calibration.uncertainty], 'absolute' for a phase scored only by network distances, 'relative' otherwise."
   },
   {
@@ -17835,7 +17847,7 @@
     "section": "calibration",
     "anchor": "calibration-reuse-completed-phases",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2104",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2086",
     "description": "Read a phase's frozen values back from a session that already completed it in the resumed chain, instead of solving the phase again. What it reuses: the physical values of the best trial that session's own record shows for that phase's para"
   },
   {
@@ -17847,7 +17859,7 @@
     "section": "calibration",
     "anchor": "calibration-seed",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2118",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2100",
     "description": "Random seed for reproducibility."
   },
   {
@@ -17859,7 +17871,7 @@
     "section": "calibration",
     "anchor": "calibration-save-runs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2122",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2104",
     "description": "How much to persist per iteration: - 'none': 1 DuckDB row per iteration, no Zarr. - 'best_n': same + promote top N to full simulations after the loop. - 'all': every iteration becomes a full simulation (Zarr included)."
   },
   {
@@ -17871,7 +17883,7 @@
     "section": "calibration",
     "anchor": "calibration-save-best-n",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2131",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2113",
     "description": "Number of top iterations to promote when save_runs='best_n'."
   },
   {
@@ -17883,7 +17895,7 @@
     "section": "calibration",
     "anchor": "calibration-use-cache",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2136",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2118",
     "description": "Enable params_hash content-addressable cache."
   },
   {
@@ -17895,7 +17907,7 @@
     "section": "calibration",
     "anchor": "calibration-lightweight-extraction",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2140",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2122",
     "description": "Skip Parquet/Zarr writes for lumped models (GR4J, ...) and read simulated series from the per-trial RAM cache instead. Only the promoted runs go through the catalog write path."
   },
   {
@@ -17907,7 +17919,7 @@
     "section": "calibration",
     "anchor": "calibration-objective",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2146",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2128",
     "description": "Metric scoring the single simulated series, when no objective block is declared. Same vocabulary as a block's 'metric'; typed here so a bad value is reported against the key that was written."
   },
   {
@@ -17919,7 +17931,7 @@
     "section": "calibration",
     "anchor": "calibration-variable",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2152",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2134",
     "description": "Observed variable (for ObservationSet)."
   },
   {
@@ -17931,7 +17943,7 @@
     "section": "calibration",
     "anchor": "calibration-observed-station-id",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2156",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2138",
     "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when"
   },
   {
@@ -17943,7 +17955,7 @@
     "section": "calibration",
     "anchor": "calibration-method-options",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2160",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2142",
     "description": "Options of the method, named as that method names them: points_per_dim for 'grid', sampler for 'optuna', sweep_points for 'bisection'. They belong to one method, so a calibration that gives them writes method beside them. A key the method d"
   },
   {
@@ -17955,7 +17967,7 @@
     "section": "calibration",
     "anchor": "calibration-parameters",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2168",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2150",
     "description": "Per-parameter declarations (bounds, transform, prior, path)."
   },
   {
@@ -18051,7 +18063,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2172",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2154",
     "description": "Named observables extracted from each candidate run."
   },
   {
@@ -18163,18 +18175,6 @@
     "description": ""
   },
   {
-    "path": "calibration.outputs.<id>.diagonal_neighbors",
-    "name": "diagonal_neighbors",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "calibration",
-    "anchor": "calibration-outputs-id-diagonal-neighbors",
-    "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L485",
-    "description": ""
-  },
-  {
     "path": "calibration.outputs.<id>.snap_radius",
     "name": "snap_radius",
     "type": "Optional[Any]",
@@ -18183,7 +18183,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-snap-radius",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L495",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L485",
     "description": ""
   },
   {
@@ -18195,7 +18195,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-boundary-id",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L559",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L549",
     "description": ""
   },
   {
@@ -18207,7 +18207,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-cell-id",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L593",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L583",
     "description": ""
   },
   {
@@ -18219,7 +18219,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-row",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L597",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L587",
     "description": ""
   },
   {
@@ -18231,7 +18231,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-col",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L601",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L591",
     "description": ""
   },
   {
@@ -18243,7 +18243,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-layer",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L605",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L595",
     "description": ""
   },
   {
@@ -18255,7 +18255,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-lake-id",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L679",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L659",
     "description": ""
   },
   {
@@ -18267,7 +18267,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-observed-network",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L829",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L809",
     "description": ""
   },
   {
@@ -18279,7 +18279,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-stream-geometry-path",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L850",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L830",
     "description": ""
   },
   {
@@ -18291,7 +18291,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-minimal-stream-geometry-path",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L857",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L837",
     "description": ""
   },
   {
@@ -18303,7 +18303,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-minimal-observed-network",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L868",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L848",
     "description": ""
   },
   {
@@ -18315,7 +18315,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-tau-specific-ratio",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L927",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L907",
     "description": ""
   },
   {
@@ -18327,7 +18327,19 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-weighting",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L935",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L915",
+    "description": ""
+  },
+  {
+    "path": "calibration.outputs.<id>.diagonal_neighbors",
+    "name": "diagonal_neighbors",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "calibration",
+    "anchor": "calibration-outputs-id-diagonal-neighbors",
+    "page": "calibration.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L921",
     "description": ""
   },
   {
@@ -18339,7 +18351,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-observed-rasterization",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L953",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L933",
     "description": ""
   },
   {
@@ -18351,7 +18363,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-heads-snap-radius",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L970",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L950",
     "description": ""
   },
   {
@@ -18363,7 +18375,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-heads-min-drained-area-km2",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L979",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L959",
     "description": ""
   },
   {
@@ -18375,7 +18387,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-observed-position-accuracy",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1000",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L980",
     "description": ""
   },
   {
@@ -18387,7 +18399,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-validity-length",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1007",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L987",
     "description": ""
   },
   {
@@ -18399,7 +18411,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-on-roptim-violation",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1015",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L995",
     "description": ""
   },
   {
@@ -18411,7 +18423,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-max-unreachable-fraction",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1040",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1020",
     "description": ""
   },
   {
@@ -18423,7 +18435,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-alpha-warning-threshold",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1051",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1031",
     "description": ""
   },
   {
@@ -18435,7 +18447,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-clipping-warning-share",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1062",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1042",
     "description": ""
   },
   {
@@ -18447,7 +18459,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-clipping-warning-gap",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1072",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1052",
     "description": ""
   },
   {
@@ -18459,7 +18471,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-extent",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1126",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1106",
     "description": ""
   },
   {
@@ -18471,7 +18483,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-extent-maximal-flowing-steps",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L748",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L728",
     "description": ""
   },
   {
@@ -18483,7 +18495,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-extent-minimal-dry-steps",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L754",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L734",
     "description": ""
   },
   {
@@ -18495,7 +18507,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-extent-year-quorum",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L762",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L742",
     "description": ""
   },
   {
@@ -18507,7 +18519,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-extent-visible-flow",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L770",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L750",
     "description": ""
   },
   {
@@ -18519,7 +18531,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-extent-weights",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L778",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L758",
     "description": ""
   },
   {
@@ -18531,7 +18543,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-extent-weights-minimal",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L708",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L688",
     "description": ""
   },
   {
@@ -18543,7 +18555,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs-id-extent-weights-maximal",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L715",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L695",
     "description": ""
   },
   {
@@ -18555,7 +18567,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2176",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2158",
     "description": "Weighted blocks making up a composite objective. When empty, a single implicit block is built from 'objective' and 'variable'."
   },
   {
@@ -18567,7 +18579,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks-name",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1263",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1245",
     "description": "Unique block identifier used in logs and persistence."
   },
   {
@@ -18579,7 +18591,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks-metric",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1266",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1248",
     "description": "Metric key. One of rmse, nse, kge, mae, nse_log."
   },
   {
@@ -18591,7 +18603,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks-weight",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1296",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1278",
     "description": "Relative weight of this block in the composite sum."
   },
   {
@@ -18603,7 +18615,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks-uses-outputs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1300",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1282",
     "description": "Outputs (by name) consumed by this block."
   },
   {
@@ -18615,7 +18627,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks-normalize-cost",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1304",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1286",
     "description": "When True, divide the block cost by a reference scale, so it adds to other blocks as a pure number and a share means a share. On a residual metric (rmse, mae) the scale is the standard deviation of the observations, their mean absolute valu"
   },
   {
@@ -18627,7 +18639,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks-transform",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1314",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1296",
     "description": "Per-block cost transform applied before weighting. Note that transform='log' takes the logarithm of the cost, which is not the same thing as metric='nse_log', an NSE computed on log-transformed series."
   },
   {
@@ -18639,7 +18651,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks-warmup",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1329",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1311",
     "description": "Burn-in samples dropped from this block only, overriding [calibration].warmup_periods. A count of samples, so twelve means a year at a monthly step and twelve days at a daily one. Write scoring_window.start instead, a date that means the sa"
   },
   {
@@ -18651,7 +18663,7 @@
     "section": "calibration",
     "anchor": "calibration-persist-iteration-detail",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2181",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2163",
     "description": "'none' skips component metrics; 'summary' keeps block totals; 'full' also stores per-block raw and normalized costs."
   },
   {
@@ -18663,7 +18675,7 @@
     "section": "calibration",
     "anchor": "calibration-persist-trial-series",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2186",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2168",
     "description": "Write the simulated and observed series of every point/series output a completed trial scored (discharge at a gauge, head at a well...), as a small Parquet table per trial under the session folder. Off by default: a 300-400 point search oth"
   },
   {
@@ -18675,7 +18687,7 @@
     "section": "calibration",
     "anchor": "calibration-persist-model-distribution",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2194",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2176",
     "description": "Persist the candidate distribution alongside the session."
   },
   {
@@ -18687,7 +18699,7 @@
     "section": "calibration",
     "anchor": "calibration-rerun-best-with-outputs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2198",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2180",
     "description": "Replay the best candidate with full outputs after the loop."
   },
   {
@@ -18699,7 +18711,7 @@
     "section": "calibration",
     "anchor": "calibration-materialize-candidates",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2202",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2184",
     "description": "Write a standalone override TOML for each candidate under 'candidates_root' so runs can be replayed later."
   },
   {
@@ -18711,7 +18723,7 @@
     "section": "calibration",
     "anchor": "calibration-candidates-root",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2207",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2189",
     "description": "Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True."
   },
   {
@@ -18723,7 +18735,7 @@
     "section": "calibration",
     "anchor": "calibration-aggregate",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2212",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2194",
     "description": "How several scored targets become one cost: what made them comparable, how nested gauges are read, and what one unscorable member does."
   },
   {
@@ -18735,7 +18747,7 @@
     "section": "calibration",
     "anchor": "calibration-aggregate-weighting",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1770",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1752",
     "description": "How the members are made comparable before the weights apply. 'manual' takes the declared 'weight' of each block as the whole story, which is honest as long as the costs are already commensurable. 'error' divides each residual by what its i"
   },
   {
@@ -18747,7 +18759,7 @@
     "section": "calibration",
     "anchor": "calibration-aggregate-nested-gauges",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1781",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1763",
     "description": "How two gauges on imbricated catchments are read. 'total' scores each against its own full drained area, which is what a gauge measures; the residuals are then statistically dependent, and no standard correction exists for that. 'incrementa"
   },
   {
@@ -18759,7 +18771,7 @@
     "section": "calibration",
     "anchor": "calibration-aggregate-min-samples",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1793",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1775",
     "description": "Fewest paired samples a member may be scored on. An alignment that collapses to three days still returns a number, and a weight of 65 per cent resting on three days is not what the file says it is."
   },
   {
@@ -18771,7 +18783,7 @@
     "section": "calibration",
     "anchor": "calibration-aggregate-on-member-failure",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1802",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1784",
     "description": "What one unscorable member does to the total. 'veto' makes the whole trial fail, which is the default because a partial cost is not comparable to a full one. 'drop' scores the survivors and records which member was left out, which has to be"
   },
   {
@@ -18783,7 +18795,7 @@
     "section": "calibration",
     "anchor": "calibration-uncertainty",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2217",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2199",
     "description": "How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it. It is the default of every phase, and a phase may write its own keys."
   },
   {
@@ -18795,7 +18807,7 @@
     "section": "calibration",
     "anchor": "calibration-uncertainty-method",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1823",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1805",
     "description": "How the interval around each calibrated value is obtained. 'cost_profile' reads the range of sampled values whose cost stayed within 'tolerance' of the best, off the trace the search already produced, and costs no extra model run. 'multista"
   },
   {
@@ -18807,7 +18819,7 @@
     "section": "calibration",
     "anchor": "calibration-uncertainty-restarts",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1836",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1818",
     "description": "How many times the search is repeated by method='multistart'. Required by it and refused by any other method, because a number of restarts that nothing restarts is a statement about a run that did not happen. Each one is a full search: eigh"
   },
   {
@@ -18819,7 +18831,7 @@
     "section": "calibration",
     "anchor": "calibration-uncertainty-perturbation",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1847",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1829",
     "description": "Relative step the derivatives of method='linearized' are taken with, as a fraction of each calibrated value: 0.01 moves it by one per cent. Required by it and refused by any other method. Too small and the difference is solver noise; too la"
   },
   {
@@ -18831,7 +18843,7 @@
     "section": "calibration",
     "anchor": "calibration-uncertainty-tolerance",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1903",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1885",
     "description": "Width of the interval. A fraction of the best cost when mode='relative' (0.05 = five per cent), and a number in the unit of the cost when mode='absolute'. Unset, it follows what the search scores: one mesh cell, in metres, for a search scor"
   },
   {
@@ -18843,7 +18855,7 @@
     "section": "calibration",
     "anchor": "calibration-uncertainty-mode",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1916",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L1898",
     "description": "How 'tolerance' is read. 'relative' is a fraction of the best cost and is the usual choice for an efficiency score. A criterion solved at zero, such as the stream-network gap, has no fraction of itself to take: state the width in the unit o"
   },
   {
@@ -18855,7 +18867,7 @@
     "section": "calibration",
     "anchor": "calibration-persistence",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2223",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/calibration/config.py#L2205",
     "description": "Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs."
   },
   {

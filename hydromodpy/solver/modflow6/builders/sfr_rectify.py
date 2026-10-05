@@ -5,17 +5,25 @@ BRAIDED (clumps of adjacent cells) and GAPPED (the reach connectivity links cell
 that do not share a face) and can dead-end mid-catchment (its flow then leaves the
 model). Post-hoc adding/removing cells cannot cleanly fix that. Instead the channel is
 RE-DERIVED as a single-flow-direction (SFD) path network on the mesh, seeded by the
-delineated stream cells: from every seed cell the SFD (steepest descent on the
-CONDITIONED mesh top) is traced one face-neighbour at a time until it reaches a lake,
-the domain edge, or an already-traced channel cell.
+delineated stream cells: from every seed cell the SFD is traced one neighbour at a
+time until it reaches a lake, the outlet of the descent, or an already-traced channel
+cell.
+
+The SFD is read from the descent D (``hydromodpy.core.descent``): a filled COPY of the
+solver top, so every cell but the seeds of the fill has a receiver and the model top is
+left as it is. This module only takes D's receivers as an array, so it needs no
+conditioned top. The stub pruning and the lake-shore test read the shared-face
+adjacency instead of D's: on a quad mesh D links the diagonals too, and a channel
+turning a corner would then read as its own parallel stub. The streambed top (``rtp``)
+is read from the solver top T, never from D; ``_number_and_freeze`` then clamps it to be
+monotone.
 
 The union of those paths is the channel. By construction it is one cell wide (each
-cell has a single downstream), face-continuous (every step crosses a shared face, so
-no geometric gap), follows the true thalweg (so the surface flow follows the reach, not
-a side spill), and connects to a real sink (no inland dead-end). Each cell keeps the
+cell has a single downstream), continuous on the descent graph (shared faces, or shared
+nodes on a quad mesh), follows the thalweg of D (so the surface flow follows the reach,
+not a side spill), and connects to a real sink (no inland dead-end). Each cell keeps the
 stream attributes (width, Strahler, streambed properties) of the seed whose trace
-reached it; the streambed top is the mesh top, monotone-clamped by ``_number_and_freeze``.
-Requires ``[modflow6.sgrid] condition_top = true`` so every cell has a descending path.
+reached it.
 
 ``rectify_reach_graph`` returns a ``(nodes, edges)`` graph for ``_number_and_freeze`` to
 re-number, so this module never re-implements the Kahn sort / rtp clamp.
@@ -30,10 +38,6 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.mesh.ops.mesh_flow import (
-    lowest_unvisited_neighbour,
-    steepest_descent_receiver,
-)
 
 logger = get_logger(__name__)
 
@@ -64,7 +68,7 @@ def _upstream_counts(downstream_of: Mapping[int, int | None]) -> dict[int, int]:
 
 def _prune_parallel_stub_cells(
     downstream_of: Mapping[int, int | None],
-    cell_adjacency: Sequence[set[int]],
+    face_adjacency: Sequence[set[int]],
     *,
     max_stub_upstream: int,
 ) -> set[int]:
@@ -96,7 +100,7 @@ def _prune_parallel_stub_cells(
             down = downstream_of.get(c)
             if any(
                 nb != down and nb in kept and nb in reach_cells and up_count[nb] > up_count[c]
-                for nb in cell_adjacency[c]
+                for nb in face_adjacency[c]
             ):
                 kept.discard(c)
                 changed = True
@@ -130,7 +134,7 @@ def _reach_components(downstream_of: Mapping[int, int | None]) -> list[list[int]
 
 def _adjacent_lake(
     cell: int,
-    cell_adjacency: Sequence[set[int]],
+    face_adjacency: Sequence[set[int]],
     lake_cell_to_number: Mapping[int, int],
     top: np.ndarray,
 ) -> int | None:
@@ -141,7 +145,7 @@ def _adjacent_lake(
     cell abuts two lakes (the sill between the reservoir and the forebay).
     """
     best, best_top = None, None
-    for nb in cell_adjacency[cell]:
+    for nb in face_adjacency[cell]:
         if nb not in lake_cell_to_number:
             continue
         tnb = float(top[nb])
@@ -160,11 +164,10 @@ def _first_active_layer(idomain: np.ndarray, cell2d: int, nlay: int) -> int | No
 def rectify_reach_graph(
     records: Sequence[Any],
     *,
+    receiver: np.ndarray,
+    face_adjacency: Sequence[set[int]],
     mesh_top: np.ndarray,
-    cell_adjacency: Sequence[set[int]],
-    cell_centroids: np.ndarray,
     lake_cell_to_number: Mapping[int, int],
-    boundary_cells: set[int],
     idomain: np.ndarray,
     nlay: int,
     location: str,
@@ -174,17 +177,25 @@ def rectify_reach_graph(
 ) -> tuple[list[dict[str, Any]], list[tuple[int, int]]]:
     """Re-derive one reach network as an SFD channel; return ``(nodes, edges)``.
 
-    ``lake_cell_to_number`` maps a lake cell2d to its 1-based ``terminal_lake`` label.
-    ``boundary_cells`` are cells where a reach may leave the model. ``max_stub_upstream``
-    demotes low-order parallel stubs to DRN (see ``_prune_parallel_stub_cells``); a
-    negative value keeps every traced cell. ``min_component_cells`` drops whole reach
-    components smaller than it (a lone one-cell "stream" is hillslope drainage, not a
-    channel); a value of 1 keeps every component. ``spillway_seeds`` are extra channel
-    heads (a dam toe below a lake outlet) traced down - ignoring lake adjacency, since the
-    dam is a wall - until they merge into the channel, so an SFR reach reaches the dam foot.
+    ``receiver`` is that of the descent D. ``face_adjacency`` pairs the cells sharing a
+    face; the stub pruning and the lake-shore test read it, so a corner never makes a
+    channel cell a stub or a shore. ``mesh_top`` is the solver top T, where the
+    streambed top of every channel cell is read. A receiver of
+    ``-1`` makes the cell the outlet reach. ``lake_cell_to_number`` maps a lake cell2d
+    to its 1-based ``terminal_lake`` label. ``max_stub_upstream`` demotes low-order
+    parallel stubs to DRN (see ``_prune_parallel_stub_cells``); a negative value keeps
+    every traced cell. ``min_component_cells`` drops whole reach components smaller than
+    it (a lone one-cell "stream" is hillslope drainage, not a channel); a value of 1
+    keeps every component. ``spillway_seeds`` are extra channel heads (a dam toe below a
+    lake outlet) traced down - ignoring lake adjacency, since the dam is a wall - until
+    they merge into the channel, so an SFR reach reaches the dam foot.
+
+    A cell met twice on one walk means D has a cycle, which breaks its invariant: it
+    raises ``ValueError`` naming the cell.
     """
     top = np.asarray(mesh_top, dtype=float).reshape(-1)
-    active = np.asarray(idomain[0] > 0)
+    receiver = np.asarray(receiver).reshape(-1)
+    active = np.asarray(idomain > 0).any(axis=0)
 
     # Seed cells = the delineated stream cells, keyed by cell2d with their attributes.
     seeds: dict[int, Any] = {}
@@ -194,52 +205,35 @@ def rectify_reach_graph(
     if not seeds:
         return [_node_from_record(r) for r in records], []
 
-    # Trace on the CONDITIONED mesh top so every seed has a strictly descending path to
-    # a sink (condition_top removes the projection pits). The channel is then the natural
-    # single-flow-direction thalweg through the delineated seeds - which is exactly where
-    # the surface water goes, so the flow follows the reach by construction.
-    receiver = steepest_descent_receiver(top, cell_adjacency, cell_centroids, active=active)
-
-    # Trace the SFD from every seed to a sink; the union is a clean one-cell channel.
+    # Trace the SFD of D from every seed to a sink; the union is a clean one-cell channel.
     downstream_of: dict[int, int | None] = {}
     terminal_lake: dict[int, int] = {}
     attr_of: dict[int, Any] = {}
     for seed in seeds:
         cur = seed
         walk_seen: set[int] = set()
-        guard = 0
-        while cur not in downstream_of and guard <= len(active):
-            guard += 1
+        while cur not in downstream_of:
             walk_seen.add(cur)
             attr_of.setdefault(cur, seeds.get(cur))
-            # A cell sharing a face with a lake discharges into it. Lake cells are
-            # inactive in the aquifer, so the steepest-descent receiver never steps into
-            # them; this recovers the lake terminal by adjacency instead.
-            lake_nb = _adjacent_lake(cur, cell_adjacency, lake_cell_to_number, top)
+            # A cell sharing a face with a lake discharges into it: the lake is the sink
+            # of the walk, whatever D does below the shore.
+            lake_nb = _adjacent_lake(cur, face_adjacency, lake_cell_to_number, top)
             if lake_nb is not None:
                 downstream_of[cur] = None
                 terminal_lake[cur] = int(lake_cell_to_number[lake_nb])
                 break
             nxt = int(receiver[cur])
-            if nxt < 0 or not active[nxt] or nxt in walk_seen:
-                # No strict-downhill step (a residual pit, a flat spill created by the
-                # priority-flood conditioning, or a loop). A boundary cell leaves the
-                # model here; otherwise spill over the lowest unvisited rim and keep
-                # descending so the reach still reaches a sink (Rule 1: no inland
-                # dead-end whose water leaves the model mid-catchment).
-                if cur in boundary_cells:
-                    downstream_of[cur] = None
-                    break
-                spill = lowest_unvisited_neighbour(cur, cell_adjacency, top, active, walk_seen)
-                if spill is None:
-                    downstream_of[cur] = None  # fully enclosed by visited/inactive cells
-                    break
-                nxt = spill
+            if nxt < 0:
+                downstream_of[cur] = None  # the outlet reach: leaves the model
+                break
+            if nxt in walk_seen:
+                raise ValueError(
+                    f"{location} reach rectification: cell {nxt} is met twice on the "
+                    f"descent walk from seed cell {seed}; the receivers of the descent "
+                    "form a cycle."
+                )
             downstream_of[cur] = nxt
             attr_of.setdefault(nxt, attr_of.get(cur))
-            if nxt in boundary_cells:
-                downstream_of[nxt] = None  # the outlet reach: leaves the model (EXT-OUTFLOW)
-                break
             cur = nxt
 
     # Thin braided bands: demote low-order threads that run beside the true channel to
@@ -248,7 +242,7 @@ def rectify_reach_graph(
     n_traced = len(downstream_of)
     if max_stub_upstream >= 0:
         kept = _prune_parallel_stub_cells(
-            downstream_of, cell_adjacency, max_stub_upstream=max_stub_upstream
+            downstream_of, face_adjacency, max_stub_upstream=max_stub_upstream
         )
         if len(kept) < len(downstream_of):
             downstream_of = {c: d for c, d in downstream_of.items() if c in kept}
@@ -269,37 +263,47 @@ def rectify_reach_graph(
             downstream_of = {c: d for c, d in downstream_of.items() if c not in drop}
             terminal_lake = {c: v for c, v in terminal_lake.items() if c not in drop}
 
-    # Extend the channel up to each spillway discharge cell (the dam toe): trace the SFD
-    # DOWN from the seed - ignoring lake adjacency, since the dam is a wall and the toe
-    # drains AWAY from the reservoir - until it merges into the (pruned) channel or leaves
-    # at the boundary. This puts an SFR reach at the foot of the dam so the overflow feeds
-    # the river directly instead of a gap of hillslope DRN cells. Runs after pruning, so
-    # these cells are never demoted.
+    # Extend the channel up to each spillway discharge cell (the dam toe): follow D DOWN
+    # from the seed - ignoring lake adjacency, since the dam is a wall and the toe drains
+    # AWAY from the reservoir - until it merges into the (pruned) channel or leaves at the
+    # outlet. This puts an SFR reach at the foot of the dam so the overflow feeds the river
+    # directly instead of a gap of hillslope DRN cells. Runs after pruning, so these cells
+    # are never demoted. A walk that steps onto a lake cell adds nothing: the toe would
+    # feed the reservoir it is meant to leave.
     for seed in spillway_seeds:
         cur = int(seed)
-        walk_seen: set[int] = set()
-        guard = 0
-        while cur not in downstream_of and active[cur] and guard <= len(active):
-            guard += 1
-            walk_seen.add(cur)
+        walk: dict[int, int | None] = {}
+        onto_lake = False
+        off_grid = False
+        while cur not in downstream_of:
+            if cur in lake_cell_to_number:  # a fixed-area lake cell is inactive: test it first
+                onto_lake = True
+                break
+            if not (0 <= cur < len(receiver) and active[cur]):
+                off_grid = True
+                break
+            if cur in walk:
+                raise ValueError(
+                    f"{location} reach rectification: cell {cur} is met twice on the "
+                    f"descent walk from spillway seed cell {int(seed)}; the receivers of "
+                    "the descent form a cycle."
+                )
             nxt = int(receiver[cur])
-            if nxt < 0 or not active[nxt] or nxt in walk_seen:
-                if cur in boundary_cells:
-                    downstream_of[cur] = None
-                    break
-                spill = lowest_unvisited_neighbour(cur, cell_adjacency, top, active, walk_seen)
-                if spill is None:
-                    downstream_of[cur] = None
-                    break
-                nxt = spill
-            merged = nxt in downstream_of
-            downstream_of[cur] = nxt
-            if merged:
-                break  # cur now flows into the existing channel
-            if nxt in boundary_cells:
-                downstream_of[nxt] = None
+            walk[cur] = nxt if nxt >= 0 else None
+            if nxt < 0:
                 break
             cur = nxt
+        if onto_lake:
+            logger.warning(
+                "%s reach rectification: the descent from spillway seed cell %d steps onto "
+                "lake cell %d; no reach added for this dam toe.",
+                location,
+                int(seed),
+                cur,
+            )
+            continue
+        if not off_grid:
+            downstream_of.update(walk)
 
     # An intermediate cell with no attributes yet inherits the nearest seed's channel
     # properties (walk down to the first cell that has them).
@@ -336,7 +340,8 @@ def rectify_reach_graph(
 
     logger.info(
         "%s reach rectification: %d delineated cells -> %d SFD channel cells "
-        "(1-cell-wide, face-continuous; %d stub / tiny-component cell(s) demoted to DRN), "
+        "(1-cell-wide, continuous on the descent graph; %d stub / tiny-component cell(s) "
+        "demoted to DRN), "
         "%d lake terminal(s).",
         location,
         len(seeds),

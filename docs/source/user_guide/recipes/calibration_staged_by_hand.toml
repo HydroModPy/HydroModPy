@@ -27,15 +27,6 @@ end_datetime = "2005-12-31"
 step_value = 1
 step_unit = "month"
 
-# The stream-network criterion measures lengths along the flow paths of the
-# DEM, so the mapped network has to sit in the talwegs of the routing surface.
-# Burn it first.
-[geographic.enforce_streams]
-enabled = true
-stream_geometry_path = "streams.gpkg"
-mode = "constant"
-depth_m = 30
-
 [calibration]
 seed = 42
 save_runs = "best_n"

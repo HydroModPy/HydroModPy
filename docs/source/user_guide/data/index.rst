@@ -143,6 +143,10 @@ Family inventory
      - ``custom``, ``osm``, ``bdtopage``, ``euhydro``
      - River-network geometries
      - ``path``, provider paging fields, ``waterway_types``
+   * - ``crossings``
+     - ``custom``, ``bdtopo``, ``roe``
+     - Roads, railways, bridges, weirs and dams laid across the channels
+     - ``path``, ``mask_path``, ``kind`` column of custom files
    * - ``hydrometry``
      - ``custom``, ``hubeau``
      - Discharge stations and chronicles
@@ -266,8 +270,9 @@ Provider families
      - Typical role
    * - Public geographic layers
      - ``ign_geoplateforme_dem``, ``brgm_1m``, ``brgm_50k``,
-       ``bdtopage``, ``euhydro``, ``osm``
-     - Build watershed context: DEM, geology, and stream-network support.
+       ``bdtopage``, ``euhydro``, ``osm``, ``bdtopo``, ``roe``
+     - Build watershed context: DEM, geology, stream-network support, and the
+       structures that cross the channels.
    * - Hub'Eau observations
      - ``hubeau``
      - Discover and download streamflow, piezometry, ONDE intermittency, and
@@ -361,8 +366,9 @@ used to live in dedicated leaf pages.
      - Families
      - Main role
    * - Spatial support
-     - :doc:`dem`, :doc:`geology`, :doc:`hydrography`
-     - Build watershed support, zones, river networks, and mesh constraints.
+     - :doc:`dem`, :doc:`geology`, :doc:`hydrography`, :doc:`crossings`
+     - Build watershed support, zones, river networks, mesh constraints, and
+       the structures that cut the channels.
    * - Observations
      - :doc:`hydrometry`, :doc:`piezometry`, :doc:`intermittency`,
        :doc:`water-quality`
@@ -388,6 +394,7 @@ used to live in dedicated leaf pages.
    dem
    geology
    hydrography
+   crossings
    hydrometry
    piezometry
    intermittency

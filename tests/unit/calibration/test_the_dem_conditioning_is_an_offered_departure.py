@@ -33,6 +33,16 @@ def test_breach_is_named_in_the_methods_paragraph() -> None:
     assert "dem_correc_type was set to 'breach'" in prose
 
 
+def test_the_capped_breach_is_an_offered_departure_that_names_its_limits() -> None:
+    entry = _entry()
+    assert "'capped_breach'" in entry["here"]
+    assert "[geographic.capped_breach]" in entry["here"]
+    prose = methods_paragraph(
+        NAME, stages_that_ran=STAGES, chosen={"dem_correc_type": "capped_breach"}
+    )
+    assert "dem_correc_type was set to 'capped_breach'" in prose
+
+
 def test_fill_is_not_read_as_a_departure() -> None:
     prose = methods_paragraph(NAME, stages_that_ran=STAGES, chosen={"dem_correc_type": "fill"})
     assert "departs from the published method" not in prose
@@ -71,6 +81,21 @@ class TestTheRunReadsTheGeographicSection:
 
         assert "dem_correc_type was set to 'breach'" in text
         assert "FillDepressions" in text
+
+    def test_a_capped_breach_names_its_limits_so_the_run_can_be_reproduced(self) -> None:
+        declared = _paragraph(
+            {
+                "geographic": {
+                    "dem_correc_type": "capped_breach",
+                    "capped_breach": {"max_depth": 0.8, "max_distance": "0.1 km"},
+                }
+            }
+        )
+        defaulted = _paragraph({"geographic": {"dem_correc_type": "capped_breach"}})
+
+        assert "max_depth = 0.8 m" in declared
+        assert "max_distance = 100 m" in declared
+        assert "max_depth = 0.5 m, max_distance = 200 m" in defaulted
 
     def test_a_file_that_writes_fill_does_not_depart(self) -> None:
         text = _paragraph({"geographic": {"dem_correc_type": "fill"}})

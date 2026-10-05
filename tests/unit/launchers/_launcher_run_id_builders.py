@@ -27,7 +27,9 @@ class _DummyWorkspace:
 
 
 class _DummyGeographic:
-    def __init__(self, config, workspace, *, reuse_existing_outputs=None) -> None:
+    def __init__(
+        self, config, workspace, *, reuse_existing_outputs=None, network_map_path=None
+    ) -> None:
         self.config = config
         self.workspace = workspace
         self.reuse_existing_outputs = reuse_existing_outputs

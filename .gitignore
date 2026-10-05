@@ -181,6 +181,9 @@ examples/data/runoff/runoff_sim2_*.nc
 # its prefix here.
 examples/data/geology/geology_brgm_*.gpkg
 examples/data/hydrography/*bdtopage_*.gpkg
+examples/data/crossings/*bdtopo_*.gpkg
+examples/data/crossings/*roe_*.gpkg
+examples/data/crossings/crossings_ground_*.gpkg
 examples/data/**/*_hubeau_*.csv
 examples/data/**/*_sim2_*.nc
 examples/data/**/*.aux.xml

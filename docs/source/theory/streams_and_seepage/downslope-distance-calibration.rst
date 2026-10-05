@@ -132,6 +132,14 @@ unreachable share of the simulated support fell from **13.6 per cent to 0.0**;
 and the outlet moved from an internal depression at 130.3 m to the true low
 point of the catchment at 106.4 m.
 
+**The criterion is a measure on the model top, not a routing.** It keeps
+reading the model top T and fills its own copy on its own graph, D8 on quads as
+in the paper, seeded on the domain border. It does not read the descent D
+that the solver build stores with each run, which follows the channel tree and
+the constant-head cells and serves routing: the discharge and upstream-area
+observables, the accumulation of cell fluxes and the flow direction map. The two
+surfaces answer two questions, so they are not reconciled.
+
 The two mean distances and the criterion
 ----------------------------------------
 
@@ -797,9 +805,15 @@ Depression handling, breach or fill
    catchment there. ``"breach"`` is offered and departs: it carves a channel
    through the barrier at the least elevation change (Lindsay, 2016) and moves
    far fewer cells, which a fine DEM crossed by road embankments can need.
-   A breached raster reaches the criterion only through the domain and the
-   outlet, and ``catchment_mismatch`` measures that gap per trial. The key
-   lives in ``[geographic]``, not in the network output.
+   ``"capped_breach"`` is offered and departs too: it breaches only within a
+   cumulative depth and a length in metres (``[geographic.capped_breach]``),
+   then fills the depressions those limits refused, so a road embankment is
+   opened without a trench through a hill. The depth is the cumulative
+   lowering of one breach path, summed over its cells, so on a finer grid a
+   thick embankment is filled instead of dug. A breached raster reaches the criterion
+   only through the domain and the outlet, and ``catchment_mismatch`` measures
+   that gap per trial. The key lives in ``[geographic]``, not in the network
+   output.
 
 The mapped network's rasterisation
    The paper rasterises the mapped network onto the model grid with
@@ -808,7 +822,16 @@ The mapped network's rasterisation
    which departs from the paper: it keeps only the free ends of the mapped
    lines and traces the model's own descent from each, so the map is
    connected to the outlet by construction and the path a field or a ditch
-   gave the mapped line no longer counts as error. ``"crossing"`` is offered
+   gave the mapped line no longer counts as error. The foot of a dam is a head
+   as well, forced from the model, for a lake whose spillway is declared: the
+   stream under a reservoir has no free end, and the criterion fill spills the
+   lake through its lowest rim cell, which a dam wall or a lower saddle can
+   make a cell other than the dam. Without that head the reach below the dam
+   is drawn only when the spill happens to leave through the dam. A lake
+   without a declared spillway has no foot, which would only sit on the exit
+   the descent already takes. A forced head joins a map that already draws and
+   never makes one draw: the refusals of the rule are decided on the free ends
+   of the map alone. ``"crossing"`` is offered
    and restates the paper's rule on any mesh: a cell belongs to the network
    when it holds a point where the line crosses the segment joining two
    edge-sharing cell centres. On a structured grid those segments are the
@@ -904,36 +927,35 @@ strong groundwater-stream connection, and a DEM whose resolution is compatible
 with the positional accuracy of the mapped network. Outside that envelope the
 criterion still computes, and it still means less.
 
-The pre-treatment the method requires
--------------------------------------
+The map and the DEM
+-------------------
 
 The distances are measured along the flow paths of the DEM. If the mapped
 linework does not sit in the talwegs of that DEM, they measure a disagreement
-between two datasets rather than hydrogeology. The repair is on the DEM side,
-by burning the network into the routing surface before conditioning, and it has
-to be redone at every change of resolution.
+between two datasets rather than hydrogeology. The published method repairs it
+on the DEM side, by burning the network into the routing surface before
+conditioning, and redoes the burn at every change of resolution. HydroModPy does
+not burn: an observation never enters the routing surface or the model top. The
+criterion takes the map by its heads and the disagreement is read on
+:math:`\alpha`, a diagnostic of the geographic step.
 
 The indicator is :math:`\alpha`, the ratio between the mapped network and its
-own downslope closure. Measured with no pre-treatment on five catchments at
+own downslope closure. Measured on the unmodified DEM on five catchments at
 75 m: 0.68 to 0.95, so on four of five, a quarter to a third of the D8 trace
 leaving the mapped cells exits the network at the first step. At 25 m it falls
 to 0.49 to 0.64. The disagreement is the rule, not the exception.
 
-HydroModPy measures :math:`\alpha` on every run declaring
-``geographic.enforce_streams.stream_geometry_path``, whether or not ``enabled``
-is set, which is what makes it usable to decide that the burning is needed. It
-is written to ``stream_dem_agreement.json`` in the geographic directory and
-logged with a warning below 0.90. A run declaring no network there measures
-nothing. A calibration declaring a network output recomputes the same ratio on
-the solver mesh and publishes it per trial as ``alpha_obs_closure``, together
-with ``alpha_obs_closure_catchment``, the same ratio restricted to the
-scored catchment.
-
-``enforce_streams`` burns the mapped lines into the raw DEM before it is
-conditioned, on the raster grid of the geographic step. It follows the lines
-the source gives, never a map moved onto either grid's own talwegs: the burn
-and the criterion graph are two independent consumers of the same mapped
-network, each reading it as declared.
+HydroModPy measures :math:`\alpha` on every run whose project names a local
+vector network under ``[[data.hydrography.sources]]`` (``source = "custom"``).
+An API source is never downloaded for it. It is written to
+``stream_dem_agreement.json`` in the geographic directory and logged with a
+warning below 0.90. A run naming no such network measures nothing. A
+calibration declaring a network output recomputes the same ratio on the solver
+mesh and publishes it per trial as ``alpha_obs_closure``, together with
+``alpha_obs_closure_catchment``, the same ratio restricted to the scored
+catchment. The geographic :math:`\alpha` reads the D8 pointer of the routing DEM
+and the published one reads the descent of the model top, so they are two
+measurements of two surfaces.
 
 The restriction is not cosmetic. Outside the catchment the mesh is a buffer, so
 no cell there is required to descend into the mapped network, and every reach
@@ -947,13 +969,9 @@ the domain border, buffer reaches leave through the border and the two ratios
 come close (0.81 and 0.77 on the 75 m proxy). **The agreement is judged on the
 catchment one**, which is the support the supports of the criterion live on.
 
-Burning and flooding are two different repairs, and neither replaces the other.
-Burning fixes the registration between two datasets, once, on the routing
-raster; the flood described above fixes the surface itself, on the mesh graph,
-at every trial. A network burned into a routing raster still descends into the
-pits the mesh grows when it reads that raster back, and a flooded mesh still
-measures a dataset disagreement if the linework was never in the talwegs to
-begin with.
+The flood rewrites the surface itself, on the mesh graph, at every trial. A
+flooded mesh still measures a dataset disagreement if the linework was never in
+the talwegs to begin with, which is what :math:`\alpha` reports.
 
 References
 ----------

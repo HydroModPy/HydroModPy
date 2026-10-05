@@ -59,24 +59,11 @@ snap_dist = "150 m"
 # "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
 buff_area = "10%"
 
-# CONDITION DE VALIDITE DU CRITERE, pas une option de confort. Le critere
-# mesure des distances le long des chemins de descente du MNT ; si le
-# lineaire cartographie ne suit pas ces chemins, le nombre produit mesure
-# un desaccord entre deux jeux de donnees et non de l'hydrogeologie.
-[geographic.enforce_streams]
-enabled = true
-stream_geometry_path = "nancon_stream_network.gpkg"
-mode = "constant"
-# 10 m et non 30. Le trace derive est strictement identique des 10 m (1535
-# mailles, Jaccard 1,000, et a 5 m 81 mailles du bassin changent encore de
-# direction D8). Sur un montage sans biefs le burn ne sert qu'a orienter la
-# descente, donc les 20 m de rab ne gagnaient rien.
-#
-# Ce reglage abaisse le MNT DE ROUTAGE, pas l'aquifere : le toit du modele
-# reste le MNT brut, verifie au bit pres. Il ne creuse rien pour raccorder les
-# biefs vers l'aval, c'est `min_slope` et le conditionnement monotone qui s'en
-# chargent, et `bed_incision` qui ancre le lit sous le toit de sa maille.
-depth_m = 10.0
+# Aucun burn : le lineaire observe n'entre pas dans la surface de routage. Le
+# critere le prend par ses tetes et le desaccord entre le MNT et la carte se
+# lit sur alpha, diagnostic de l'etape geographique (source `custom` de
+# `[[data.hydrography.sources]]`). Le toit du modele reste le MNT brut, et
+# `bed_incision` ancre le lit sous le toit de sa maille.
 
 # Reseau derive du MNT. Il ne change pas le modele : il donne aux figures
 # le trace "genere" a comparer au lineaire cartographie.
@@ -395,8 +382,8 @@ on_error = "warn"
 #   calibration_landscape,         demandent deux parametres dans UNE session ;
 #   calibration_objective_surface, chaque etage n'en echantillonne qu'un, c'est
 #   calibration_pairplot           le principe meme de l'etagement.
-#   conditioning_impact_map        exige [modflow6.sgrid] condition_top = true,
-#                                  qui RELEVE le toit et changerait le modele.
+#   conditioning_impact_map        compare deux runs sur le meme maillage
+#                                  (`reference=<run>`) ; un seul run ici.
 
 figures = [
     # -- Identite du bassin et maillage --

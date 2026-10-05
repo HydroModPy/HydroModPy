@@ -304,6 +304,75 @@
       "title": "BathymetryReconstructionConfig",
       "type": "object"
     },
+    "BdtopoCrossingsSource": {
+      "additionalProperties": false,
+      "description": "Roads and railways of the IGN BD TOPO, from the Geoplateforme WFS.\n\nA road segment flagged above the ground is a ``bridge`` and one flagged\nbelow it is ``other`` (a tunnel); ferries and stairs are left out.",
+      "properties": {
+        "page_size": {
+          "default": 1000,
+          "description": "WFS pagination page size, in features.",
+          "examples": [
+            1000
+          ],
+          "minimum": 1,
+          "title": "Page Size",
+          "type": "integer",
+          "x-hmp-profile": "dev"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Bypass the cache and download again.",
+          "examples": [
+            false
+          ],
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "source": {
+          "const": "bdtopo",
+          "default": "bdtopo",
+          "description": "Discriminator tag selecting the BD TOPO roads and railways provider.",
+          "examples": [
+            "bdtopo"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "BdtopoCrossingsSource",
+      "type": "object"
+    },
+    "BedRegularizationConfig": {
+      "additionalProperties": false,
+      "description": "Least-change regularisation of the channel bed in the model top.\n\nA DEM read along its own channel rises downstream at many pixels: a deck, a\nhedge, a resampling artefact. A drain or a stream cell on such a rise cannot\ndrain into the next one. On the pixels of the generated channel tree only,\nthe regularisation fits the bed closest to the ground in least squares that\nnever rises downstream (the isotonic regression on a tree of Pardalos and\nXue, 1999), raising and lowering alike, then gives every pooled flat a\nminimum drop centred on its level. The pixels a crossing notch lowered are\ngaps: interpolated along the channel, never pulling the fit. A declared\nweir or dam cuts the tree, so its drop is kept, and a declared lake is left\nout with its surface.\n\nIt writes a regularised copy of the ground, and the model top and the SFR\nbed read it, so drains and stream reaches see one bed. The routing DEM, the\nchannel tree, the catchment and the mesh never read that copy.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Regularise the channel bed of the model top: the least-change fit of the ground that never rises downstream along the channel tree, with the crossing notches as gaps and the declared weirs and dams as drops. Needs [geographic.river_network] enabled.",
+          "examples": [
+            false
+          ],
+          "title": "Enabled",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "min_slope": {
+          "default": 0.0001,
+          "description": "Minimum drop of the fitted bed per metre along the channel (m/m), given to the flats the fit pools. The SFR default slope.",
+          "examples": [
+            0.0001
+          ],
+          "minimum": 0.0,
+          "title": "Min Slope",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "BedRegularizationConfig",
+      "type": "object"
+    },
     "BoussinesqBackend": {
       "additionalProperties": false,
       "description": "Select the Boussinesq flow backend.",
@@ -1005,16 +1074,6 @@
           "title": "Observed Values",
           "x-hmp-profile": "user"
         },
-        "diagonal_neighbors": {
-          "default": false,
-          "description": "Route this cell's discharge, and the area it drains, over shared nodes rather than shared edges, which recovers a talweg that runs diagonally across a square grid. Only reaches 'variable' = 'discharge'; a head read at this cell ignores it. The same routing choice as the network output's 'diagonal_neighbors', declared here because a cell output belongs to no network block, with its own default: false (shared edges) here, true (D8) on the network output.",
-          "examples": [
-            false
-          ],
-          "title": "Diagonal Neighbors",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
         "snap_radius": {
           "anyOf": [
             {
@@ -1041,7 +1100,7 @@
             }
           ],
           "default": null,
-          "description": "Opt-in. Move this gauge onto the cell that drains the most within this radius, before it is scored. Accepts a bare number (metres) or a pint string like '150 m'; it is a maximum displacement, measured from the gauge cell centre to the cell centres. The drained area is the one the solver routes on the mesh, with this output's 'diagonal_neighbors'. Only for 'variable' = 'discharge'. Off by default: a gauge otherwise stays in the cell it resolves to, which may drain a small share of the catchment, and the run logs that share.",
+          "description": "Opt-in. Move this gauge onto the cell that drains the most within this radius, before it is scored. Accepts a bare number (metres) or a pint string like '150 m'; it is a maximum displacement, measured from the gauge cell centre to the cell centres. The drained area is the one the solver routes on the mesh, along the descent D of the build. Only for 'variable' = 'discharge'. Off by default: a gauge otherwise stays in the cell it resolves to, which may drain a small share of the catchment, and the run logs that share.",
           "title": "Snap Radius",
           "x-hmp-profile": "user"
         }
@@ -1686,16 +1745,6 @@
           "title": "Observed Values",
           "x-hmp-profile": "user"
         },
-        "diagonal_neighbors": {
-          "default": false,
-          "description": "Route this cell's discharge, and the area it drains, over shared nodes rather than shared edges, which recovers a talweg that runs diagonally across a square grid. Only reaches 'variable' = 'discharge'; a head or a lake state read at this point ignores it. The same routing choice as the network output's 'diagonal_neighbors', declared here because a point output belongs to no network block, with its own default: false (shared edges) here, true (D8) on the network output.",
-          "examples": [
-            false
-          ],
-          "title": "Diagonal Neighbors",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
         "snap_radius": {
           "anyOf": [
             {
@@ -1722,7 +1771,7 @@
             }
           ],
           "default": null,
-          "description": "Opt-in. Move this gauge onto the cell that drains the most within this radius, before it is scored. Accepts a bare number (metres) or a pint string like '150 m'; it is a maximum displacement, measured from the gauge coordinate to the cell centres. The drained area is the one the solver routes on the mesh, with this output's 'diagonal_neighbors'. Only for 'variable' = 'discharge'. With 'observes', a discharge station is then located by the coordinate of its record, which it otherwise is not, and snapped from there. Off by default: a gauge otherwise stays in the cell it resolves to, which may drain a small share of the catchment, and the run logs that share.",
+          "description": "Opt-in. Move this gauge onto the cell that drains the most within this radius, before it is scored. Accepts a bare number (metres) or a pint string like '150 m'; it is a maximum displacement, measured from the gauge coordinate to the cell centres. The drained area is the one the solver routes on the mesh, along the descent D of the build. Only for 'variable' = 'discharge'. With 'observes', a discharge station is then located by the coordinate of its record, which it otherwise is not, and snapped from there. Off by default: a gauge otherwise stays in the cell it resolves to, which may drain a small share of the catchment, and the run logs that share.",
           "title": "Snap Radius",
           "x-hmp-profile": "user"
         }
@@ -2868,6 +2917,36 @@
       "title": "CapabilityGalleryConfig",
       "type": "object"
     },
+    "CappedBreachConfig": {
+      "additionalProperties": false,
+      "description": "Limits of the ``capped_breach`` DEM conditioning, in metres.\n\nRead only when ``[geographic] dem_correc_type = \"capped_breach\"``. Least-cost\nbreaching digs a path through the barrier that closes a depression. These two\nlimits bound that digging, and whatever they refuse is filled instead. Both\nare given in metres but the tool counts along the cells of a path (a sum of\nlowerings, a number of cells), so a given value does not mean the same thing\nat every grid resolution: see each field.",
+      "properties": {
+        "max_depth": {
+          "default": 0.5,
+          "description": "Largest cumulative lowering, in metres, of one breach path (the 'max_cost' of Whitebox): the lowering summed over the cells of the path, not the depth of one cell. Measured on the Flume at 25 m with 8-cell paths, the realised maximum lowering of a cell follows it within 0.01 m. On a finer grid a thick embankment spreads the cost over more cells, so it is filled instead of dug: the same value does not give the same landscape at every resolution. A depression whose cheapest breach costs more is filled. Paths overlap, so the lowering of a cell can exceed it (Nancon 75 m: 0.56 m for 0.5 m). The realised depth is measured after the call, logged, and warned about when it exceeds this value. Accepts inline units (e.g. 0.5, '0.5 m').",
+          "examples": [
+            0.5
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Max Depth",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "max_distance": {
+          "default": 200.0,
+          "description": "Longest breach path, in metres. Translated to the DEM grid as ceil(max_distance / cell size) cells, at least one, and counted in cells along the path: a diagonal step counts one cell, so a diagonal breach can be up to 1.41 times longer than max_distance. A depression with no way out within this length is filled. Accepts inline units (e.g. 200, '0.2 km').",
+          "examples": [
+            200.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Max Distance",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CappedBreachConfig",
+      "type": "object"
+    },
     "CatchmentZonesSupportConfig": {
       "additionalProperties": false,
       "description": "Support built from catchment/domain zonation already prepared in setup.",
@@ -3999,6 +4078,153 @@
       "title": "CriteriaConfig",
       "type": "object"
     },
+    "CrossingNotchConfig": {
+      "additionalProperties": false,
+      "description": "Cut the embankments of roads, railways and bridges out of the ground.\n\nA DEM shows the embankment of a road across a valley as a wall: the flow\nrouting then fills behind it or digs through it, and the model top carries\nthe wall into the aquifer. The notch lowers the DEM along the channel at each\ncrossing to the bed level read on both sides of the structure, and nowhere\nelse. It is a correction of the ground: the routing chain and the model top\nboth start from the notched ground.\n\nThe notch follows the channel tree of ``[geographic.river_network]``, which\nis delineated a first time on the ground, notched, and delineated again.\nWeirs and dams are not notched: a weir is a drop of the bed, not a wall. A\nroad laid on a dam crest is not notched either: a crossing with a dam or a\nweir of the file within ``snap_radius``, a ``[geographic.dam_carve]`` line\nwithin ``snap_radius``, or a ``[geographic.enforce_lakes]`` polygon on its\nchannel reach is left alone and reported as ``dam_or_weir``.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Notch the ground at the crossings of the channel tree with the declared structures, then delineate again on the notched ground. Needs [geographic.river_network] enabled.",
+          "examples": [
+            false
+          ],
+          "title": "Enabled",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vector file of the structures, with the columns 'kind', 'source', 'name' and 'drop_m' of the crossings data variable. When left empty and enabled, it is filled from [[data.crossings.sources]], so the structures are named once. Required when enabled, from one of the two.",
+          "title": "Path",
+          "x-hmp-profile": "user"
+        },
+        "kinds": {
+          "description": "Structure kinds to notch. Weirs and dams are never notched.",
+          "items": {
+            "enum": [
+              "road",
+              "railway",
+              "bridge"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Kinds",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "notch_width": {
+          "default": 10.0,
+          "description": "Width of the notch across the embankment, in metres. The channel pixel itself is always lowered, so a width below the cell size cuts one pixel. The width is applied along the embankment only, the run of channel pixels that stand above the bed line, never to the two pixels where the bed is read. Accepts inline units (e.g. 10, '10 m').",
+          "examples": [
+            10.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Notch Width",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "bed_reach": {
+          "default": 50.0,
+          "description": "Distance along the channel, on each side of the crossing, where the bed level is read, in metres. The embankment is assumed narrower than twice this. The notch is the straight line between the two bed levels. A bed end that falls on the embankment of another crossing is read further along the channel, beyond it. Accepts inline units (e.g. 50, '50 m').",
+          "examples": [
+            50.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Bed Reach",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "max_depth": {
+          "default": 3.0,
+          "description": "Largest lowering of any pixel, in metres. A pixel that would be lowered more is lowered by this and counted as capped in the report: the embankment is then higher than the cap allows for, or the crossing sits on a ridge. Accepts inline units (e.g. 3, '3 m').",
+          "examples": [
+            3.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Max Depth",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "snap_radius": {
+          "default": 30.0,
+          "description": "A point structure (a bridge of the ROE) farther than this from the channel tree is ignored, and so is a channel pixel farther than this from its crossing, in metres. A dam or a weir of the file, or a dam_carve line, within this distance of a crossing stops its notch. Accepts inline units (e.g. 30, '30 m').",
+          "examples": [
+            30.0
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Snap Radius",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CrossingNotchConfig",
+      "type": "object"
+    },
+    "CrossingsConfig": {
+      "additionalProperties": false,
+      "description": "Top-level crossings variable configuration.\n\nExample TOML::\n\n    [[data.crossings.sources]]\n    source = \"bdtopo\"\n\n    [[data.crossings.sources]]\n    source = \"roe\"\n\n``mask_path`` sits here and not on a source because every source is asked\nover the same box.",
+      "properties": {
+        "sources": {
+          "description": "At least one crossings data source.",
+          "items": {
+            "description": "Discriminated union of crossings data sources tagged by the 'source' provider key.",
+            "discriminator": {
+              "mapping": {
+                "bdtopo": "#/$defs/BdtopoCrossingsSource",
+                "custom": "#/$defs/CustomCrossingsSource",
+                "roe": "#/$defs/RoeCrossingsSource"
+              },
+              "propertyName": "source"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/CustomCrossingsSource"
+              },
+              {
+                "$ref": "#/$defs/BdtopoCrossingsSource"
+              },
+              {
+                "$ref": "#/$defs/RoeCrossingsSource"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHP/GPKG/GeoJSON/TIF whose bounds are the box the API sources are asked over. A project run has it filled in from the delineated watershed; a standalone call names it.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "sources"
+      ],
+      "title": "CrossingsConfig",
+      "type": "object"
+    },
     "CustomBackend": {
       "additionalProperties": false,
       "description": "Plugin-registered flow backend identified by a free-form name.\n\nThe discriminator value is the literal string ``\"custom\"``; the actual\nbackend name lives in ``name``. ``SolverConfig.validate_registry()``\nenforces that the name resolves to a registered flow adapter at\nlauncher time.",
@@ -4028,6 +4254,48 @@
         "name"
       ],
       "title": "CustomBackend",
+      "type": "object"
+    },
+    "CustomCrossingsSource": {
+      "additionalProperties": false,
+      "description": "User-provided crossings file (SHP/GPKG/GeoJSON).\n\nThe file needs a ``kind`` column holding one of ``road``, ``railway``,\n``bridge``, ``weir``, ``dam`` or ``other``. ``name`` and ``drop_m`` (the\ndrop of a weir or a dam, in metres) are read when present.",
+      "properties": {
+        "source": {
+          "const": "custom",
+          "default": "custom",
+          "description": "Discriminator tag selecting the 'custom' crossings provider.",
+          "examples": [
+            "custom"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a vector file (SHP, GPKG, GeoJSON) or to a folder holding one. It must carry a 'kind' column.",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "Fallback CRS used only when the file carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154).",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "CustomCrossingsSource",
       "type": "object"
     },
     "CustomDemSource": {
@@ -4465,11 +4733,11 @@
     },
     "DamCarveConfig": {
       "additionalProperties": false,
-      "description": "Optional dam structure-carve of the MODEL-TOP DEM.\n\nA raw DEM samples the concrete dam crest as terrain, so the aquifer column\nunder the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a\ncutoff-wall HFB band lands above the real seepage. This carves ONLY the dam\nfootprint of the model-top DEM down to the surrounding valley floor, so the\ncutoff wall can sit on the surveyed axis at the dam (not shifted downstream,\nand no need for a stream-burned DEM that would lower every channel). It is\nthe mirror of enforce_lakes: enforce_lakes carves the routing DEM, this\ncarves the top DEM, at the dam only.",
+      "description": "Optional dam structure-carve of the ground.\n\nA raw DEM samples the concrete dam crest as terrain, so the aquifer column\nunder the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a\ncutoff-wall HFB band lands above the real seepage. This carves ONLY the dam\nfootprint of the ground down to the surrounding valley floor, so the\ncutoff wall can sit on the surveyed axis at the dam (not shifted downstream).\n\nThe ground is the DEM plus the corrections declared here and in\n``[geographic.crossings]``. Both the routing chain and the model top start\nfrom it, so the carved dam is seen by the flow routing and by the aquifer\nalike.",
       "properties": {
         "enabled": {
           "default": false,
-          "description": "Carve the dam footprint of the model-top DEM down to the local valley floor so the cutoff wall sits at the true dam on a raw DEM.",
+          "description": "Carve the dam footprint of the ground down to the local valley floor, so the routing chain and the model top both see the dam removed and the cutoff wall sits at the true dam on a raw DEM.",
           "examples": [
             false
           ],
@@ -4488,7 +4756,7 @@
             }
           ],
           "default": null,
-          "description": "Dam trace (gpkg/shp/csv) along which the top is carved. A bare filename resolves against <workspace>/data/cutoff_wall/. Usually the same surveyed voile axis as the cutoff_wall. Required when enabled.",
+          "description": "Dam trace (gpkg/shp/csv) along which the ground is carved. A bare filename resolves against <workspace>/data/cutoff_wall/. Usually the same surveyed voile axis as the cutoff_wall. Required when enabled.",
           "title": "Line Path",
           "x-hmp-profile": "user"
         },
@@ -4527,7 +4795,7 @@
       "description": "Top-level ``[data]`` configuration for manager families.\n\nThe `types` list declares user-requested data families. The effective\nactive set can also include planner-inferred families deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.",
       "properties": {
         "types": {
-          "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
+          "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
           "items": {
             "type": "string"
           },
@@ -4548,6 +4816,19 @@
           "title": "Inference Mode",
           "type": "string",
           "x-hmp-profile": "dev"
+        },
+        "crossings": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CrossingsConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Crossings configuration (roads, railways, bridges, weirs and dams laid across the channels, read by [geographic.crossings]).",
+          "x-hmp-profile": "user"
         },
         "dem": {
           "anyOf": [
@@ -8917,38 +9198,8 @@
     },
     "FlowReachNetworkConfig": {
       "additionalProperties": false,
-      "description": "Typed boundary-condition payload for one MODFLOW 6 SFR stream network.\n\nThe network is either delineated automatically from the DEM / D8 flow\nproducts (set a stream threshold) or supplied explicitly through ``reaches``.\nReaches exchange with the aquifer through their streambed conductance\n(``streambed_k`` / ``streambed_thickness``) unless ``connected_to_aquifer`` is\nFalse. The transient forcings (``headwater_inflow``, ``runoff`` as volumetric\nL^3/T; ``rainfall``, ``evaporation`` as rates L/T) are optional runtime\ndeclarations resolved against ``[simulation.time]``.\n\n``outflow_to_lake`` is the only lake-aware field: when set, the terminal reach\nfeeds that lake (1-based) through an MVR record (SFR -> LAK). When None, the\nnetwork outflow leaves the model and SFR runs with no lake at all.",
+      "description": "Typed boundary-condition payload for one MODFLOW 6 SFR stream network.\n\nThe network is either traced automatically on A, the river network of\n``[geographic.river_network]`` (whose threshold is the only one), or supplied\nexplicitly through ``reaches``.\nReaches exchange with the aquifer through their streambed conductance\n(``streambed_k`` / ``streambed_thickness``) unless ``connected_to_aquifer`` is\nFalse. The transient forcings (``headwater_inflow``, ``runoff`` as volumetric\nL^3/T; ``rainfall``, ``evaporation`` as rates L/T) are optional runtime\ndeclarations resolved against ``[simulation.time]``.\n\n``outflow_to_lake`` is the only lake-aware field: when set, the terminal reach\nfeeds that lake (1-based) through an MVR record (SFR -> LAK). When None, the\nnetwork outflow leaves the model and SFR runs with no lake at all.",
       "properties": {
-        "stream_threshold_km2": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Drainage-area threshold [km^2] for stream initiation. Exactly one of stream_threshold_km2 / stream_threshold_cells must be set when reaches are delineated automatically.",
-          "title": "Stream Threshold Km2",
-          "x-hmp-profile": "user"
-        },
-        "stream_threshold_cells": {
-          "anyOf": [
-            {
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Alternative stream-initiation threshold as a flow-accumulation cell count.",
-          "title": "Stream Threshold Cells",
-          "x-hmp-profile": "user"
-        },
         "min_reach_length": {
           "anyOf": [
             {
@@ -9059,7 +9310,7 @@
         },
         "min_slope": {
           "default": 0.0001,
-          "description": "Floor for the reach gradient rgrd [-] after monotone-downhill conditioning.",
+          "description": "Floor for the reach gradient rgrd [-]. It also sets the drop the bed profile solve keeps between neighbouring reaches.",
           "examples": [
             0.0001
           ],
@@ -9094,7 +9345,7 @@
             }
           ],
           "default": null,
-          "description": "Depth [L] of the streambed top rtp below the top of the reach's OWN aquifer cell. A bed never sits above the ground of its own cell, whether this is set or not. None (default) only lifts the lower bound: the bed may then sink to the cell bottom instead of stopping at max_bed_sag. When set, each reach is solved inside [cell_top - bed_incision - max_bed_sag, cell_top - bed_incision], monotone downstream, and the build refuses when that band is empty. rtp is delineated on the model top, so this anchors a bed that a coarse DEM cannot resolve; it is not a correction for the stream burn, which never reaches the bed. Pick it against the water table, not against the channel: MODFLOW 6 switches a reach between connected and disconnected at rtp minus streambed_thickness (gwf-sfr.f90:3973-3985), so a bed sitting near the seasonal water-table depth toggles at every outer iteration.",
+          "description": "Depth [L] of the streambed top rtp below the top of the reach's OWN aquifer cell. A bed never sits above the ground of its own cell, whether this is set or not. None (default) only lifts the lower bound: the bed may then sink to the cell bottom instead of stopping at max_bed_sag. When set, each reach is solved inside [cell_top - bed_incision - max_bed_sag, cell_top - bed_incision], monotone downstream, and the build refuses when that band is empty. rtp is delineated on the model top, so this anchors a bed that a coarse DEM cannot resolve; it is not a correction for the descent D, which never reaches the bed. Pick it against the water table, not against the channel: MODFLOW 6 switches a reach between connected and disconnected at rtp minus streambed_thickness (gwf-sfr.f90:3973-3985), so a bed sitting near the seasonal water-table depth toggles at every outer iteration.",
           "title": "Bed Incision",
           "x-hmp-profile": "user"
         },
@@ -9164,7 +9415,7 @@
         },
         "route_drainage": {
           "default": false,
-          "description": "Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell hands its outflow to the NEAREST reach through an MVR record (FACTOR 1.0) instead of leaving the model. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost.",
+          "description": "Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell of the basin hands its outflow, through an MVR record (FACTOR 1.0), to the first reach or lake cell met on its descent D, a filled copy of the model top. A cell whose descent leaves the model first keeps a plain DRN. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost.",
           "examples": [
             false
           ],
@@ -9343,7 +9594,7 @@
             }
           ],
           "default": null,
-          "description": "Explicit reach table; bypasses delineation. None = delineate from the DEM.",
+          "description": "Explicit reach table; bypasses delineation. None = trace the reaches on A, the river network.",
           "title": "Reaches",
           "x-hmp-profile": "dev"
         },
@@ -9460,7 +9711,7 @@
         },
         "rectify_on_mesh": {
           "default": false,
-          "description": "Re-derive the delineated reach cells as a clean single-flow-direction (SFD) channel on the DISV mesh. From every delineated cell the steepest descent of the (conditioned) mesh top is traced one face-neighbour at a time until it reaches a lake, the domain edge, or an already-traced cell; a residual pit or flat spill is crossed by stepping to the lowest unvisited rim. The union of those paths is the channel: one cell wide (a single downstream per cell, so no braiding), face-continuous (no geometric gap), following the true thalweg (so the surface flow follows the reach), and always reaching a real sink (no inland dead-end that leaks its flow out). Requires [modflow6.sgrid] condition_top = true so every cell has a descending path.",
+          "description": "Re-derive the delineated reach cells as a clean single-flow-direction (SFD) channel on the DISV mesh. From every delineated cell the descent D, a filled copy of the model top, is traced one neighbour at a time until it reaches a lake, the outlet of D, or an already-traced cell. The union of those paths is the channel: one cell wide (a single downstream per cell, so no braiding), continuous on the descent graph (shared faces, or shared nodes on a quad mesh), following the thalweg of D (so the surface flow follows the reach), and always reaching a real sink (no inland dead-end that leaks its flow out). The streambed top is read on the model top, never on D. D is a copy and never returns to the solver.",
           "examples": [
             false
           ],
@@ -10743,16 +10994,30 @@
         },
         "dem_correc_type": {
           "default": "fill",
-          "description": "How the DEM is conditioned before the catchment is delineated. 'fill' (default) raises each closed depression to its spill level, then puts a small gradient on the flats so every cell drains. 'breach' carves a path through the barrier that closes a depression instead, and changes far fewer cells (least-cost breaching, Lindsay 2016). 'fill' is the default because it is the tool of the paper behind the network criterion (FillDepressions, Abherve et al. 2023), and the criterion itself fills the model top on the mesh by a priority flood: one conditioning rule from the DEM to the score.",
+          "description": "How the DEM is conditioned before the catchment is delineated. 'fill' (default) only raises cells: each closed depression is raised to its spill level, then a small gradient on the flats lets every cell drain. 'breach' mostly lowers cells: it carves a path through the barrier that closes a depression, after raising single-cell pits to their lowest neighbour, with no limit on length or depth and no fill afterwards (least-cost breaching, Lindsay 2016); it changes far fewer cells than 'fill' and can dig deep. 'capped_breach' lowers and raises: it breaches only within the limits of [geographic.capped_breach] (a maximum cumulative lowering and a maximum length, in metres), then fills every depression the limits refused (the hybrid of Lindsay 2016). The depth limit is a sum over the cells of a path, so it does not give the same landscape at every grid resolution. 'fill' is the default because it is the tool of the paper behind the network criterion (FillDepressions, Abherve et al. 2023), and the criterion itself fills the model top on the mesh by a priority flood: one conditioning rule from the DEM to the score.",
           "enum": [
             "breach",
-            "fill"
+            "fill",
+            "capped_breach"
           ],
           "examples": [
             "breach"
           ],
           "title": "Dem Correc Type",
           "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "capped_breach": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CappedBreachConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Limits of the 'capped_breach' conditioning: max_depth (default 0.5 m) and max_distance (default 200 m). Omitted, a 'capped_breach' run uses those defaults. Declaring it with any other dem_correc_type is refused: 'fill' and 'breach' have no limit to set, and a section that is silently ignored reads as a limit that was applied.",
           "x-hmp-profile": "user"
         },
         "terrain_engine": {
@@ -10809,11 +11074,6 @@
           "description": "Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing.",
           "x-hmp-profile": "user"
         },
-        "enforce_streams": {
-          "$ref": "#/$defs/StreamEnforcementConfig",
-          "description": "Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve.",
-          "x-hmp-profile": "user"
-        },
         "enforce_lakes": {
           "$ref": "#/$defs/LakeEnforcementConfig",
           "description": "Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top.",
@@ -10821,7 +11081,17 @@
         },
         "dam_carve": {
           "$ref": "#/$defs/DamCarveConfig",
-          "description": "Optional dam structure-carve of the model-top DEM: lower the dam footprint to the valley floor so a cutoff wall sits at the dam on a raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM).",
+          "description": "Optional dam structure-carve of the ground: lower the dam footprint to the valley floor, for the routing chain and the model top alike, so a cutoff wall sits at the dam on a raw DEM.",
+          "x-hmp-profile": "user"
+        },
+        "crossings": {
+          "$ref": "#/$defs/CrossingNotchConfig",
+          "description": "Optional notch of the ground at the roads, railways and bridges that cross the generated channel tree: the embankment is lowered to the bed level read on both sides, and the catchment is delineated again on the notched ground.",
+          "x-hmp-profile": "user"
+        },
+        "bed_regularization": {
+          "$ref": "#/$defs/BedRegularizationConfig",
+          "description": "Optional least-change regularisation of the channel bed in the model top, on the pixels of the generated channel tree: the bed never rises downstream, crossing notches are gaps and declared weirs are drops.",
           "x-hmp-profile": "user"
         },
         "reuse_existing_outputs": {
@@ -11787,7 +12057,7 @@
     },
     "IgnGeoplateformeDemSource": {
       "additionalProperties": false,
-      "description": "Recommended IGN DEM source assembled from Geoplateforme archives.",
+      "description": "Recommended IGN DEM source: BD ALTI from archives, RGE ALTI from WMS-Raster.",
       "properties": {
         "mask_path": {
           "anyOf": [
@@ -11872,9 +12142,12 @@
           "x-hmp-profile": "user"
         },
         "dataset": {
-          "const": "bd-alti",
           "default": "bd-alti",
-          "description": "IGN DEM product assembled by the data manager. Only BD ALTI 25 m is currently exposed as an assembled raster source; use the download_dem_fr helper to inspect raw RGE ALTI archives.",
+          "description": "IGN DEM product assembled by the data manager. 'bd-alti' is the 25 m BD ALTI built from the department archives. 'rge-alti' is the RGE ALTI built from Geoplateforme WMS-Raster tiles, 5 m by default, 1 m allowed.",
+          "enum": [
+            "bd-alti",
+            "rge-alti"
+          ],
           "examples": [
             "bd-alti"
           ],
@@ -11892,13 +12165,13 @@
             }
           ],
           "default": null,
-          "description": "Requested DEM resolution in metres. Defaults are resolved by the manager from the selected dataset.",
+          "description": "DEM pixel size in metres. 'bd-alti' accepts 25 only and defaults to it. 'rge-alti' accepts 1 or 5 and defaults to 5: the 1 m grid is native and, inland, a 5 m request returns its centre pixels unchanged, while the server resamples any other size with an undocumented kernel. A request above 150 million pixels is refused (a 1 m box is limited to about 12 km a side), so 1 m cannot bootstrap a project from its outlet: give dem_init_path a file or use 5 m.",
           "title": "Resolution M",
           "x-hmp-profile": "user"
         },
         "file_format": {
           "default": "ASC",
-          "description": "Requested archive payload format when exposed by Geoplateforme.",
+          "description": "Requested archive payload format when exposed by Geoplateforme. Not used by 'rge-alti', which is a GeoTIFF.",
           "examples": [
             "ASC"
           ],
@@ -11916,7 +12189,7 @@
             }
           ],
           "default": null,
-          "description": "Optional CRS filter forwarded to Geoplateforme discovery.",
+          "description": "Optional CRS filter forwarded to Geoplateforme discovery. Not used by 'rge-alti', which is requested in EPSG:2154.",
           "title": "Crs",
           "x-hmp-profile": "user"
         }
@@ -20015,6 +20288,46 @@
       "title": "RobinBC",
       "type": "object"
     },
+    "RoeCrossingsSource": {
+      "additionalProperties": false,
+      "description": "Obstacles to flow of the Sandre ROE (dams, weirs, bridge sills), from the Sandre WFS.\n\nOnly obstacles whose state is 'Existant' are kept.",
+      "properties": {
+        "page_size": {
+          "default": 1000,
+          "description": "WFS pagination page size, in features.",
+          "examples": [
+            1000
+          ],
+          "minimum": 1,
+          "title": "Page Size",
+          "type": "integer",
+          "x-hmp-profile": "dev"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Bypass the cache and download again.",
+          "examples": [
+            false
+          ],
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "source": {
+          "const": "roe",
+          "default": "roe",
+          "description": "Discriminator tag selecting the ROE obstacles provider.",
+          "examples": [
+            "roe"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "RoeCrossingsSource",
+      "type": "object"
+    },
     "RunoffConfig": {
       "additionalProperties": false,
       "description": "Top-level runoff configuration.\n\nThe section groups runoff sources and an optional date window. Loaded data\ncan support hydrological forcing, recharge/runoff partitioning checks, and\ndiagnostic comparisons.",
@@ -21371,30 +21684,9 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "condition_top": {
-          "default": false,
-          "description": "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsilon fill on the mesh face graph raises only pit cells to their spill level, giving every active non-lake cell a strictly descending path to the domain boundary. Lake and boundary cells are fixed base levels; the aquifer bottom is untouched. Default false keeps the raw projected top.",
-          "examples": [
-            false
-          ],
-          "title": "Condition Top",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "condition_top_epsilon": {
-          "default": 0.001,
-          "description": "Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true.",
-          "examples": [
-            0.001
-          ],
-          "minimum": 0.0,
-          "title": "Condition Top Epsilon",
-          "type": "number",
-          "x-hmp-profile": "user"
-        },
         "top_sampling": {
           "$ref": "#/$defs/TopSamplingConfig",
-          "description": "How the runtime-mesh top is sampled from the DEM before conditioning.",
+          "description": "How the top of the solver grid is sampled from the DEM.",
           "x-hmp-profile": "user"
         }
       },
@@ -21867,131 +22159,6 @@
         }
       },
       "title": "StrategyConfig",
-      "type": "object"
-    },
-    "StreamEnforcementConfig": {
-      "additionalProperties": false,
-      "description": "Burn the observed stream network into the ROUTING DEM before D8 routing.\n\nA mapped stream network is surveyed independently of the DEM, so its trace\nrarely follows the thalwegs the DEM computes: on five Armorican catchments at\n75 m, a quarter to a third of the D8 trace seeded on the mapped cells leaves\nthat network at the first step. Any length measured along those paths then\nreports a DEM-versus-map disagreement instead of hydrogeology. When enabled,\nthe mapped cells are lowered in a SEPARATE routing DEM used only for\ndelineation, before the lake carve and the fill/breach pass. The model grid\ntop stays on the raw DEM, which matters more here than for lakes: a top\nlowered along the observed network would agree with that network by\nconstruction.\n\nThe whole supplied linework is burned, fictitious arcs included: filtering\nthem out cuts the trench at every water body and caps the agreement below\n0.97 whatever the depth. Selecting reaches by nature belongs to the metric,\nnot to the preprocessing.",
-      "properties": {
-        "enabled": {
-          "default": false,
-          "description": "Lower the mapped stream cells in the routing DEM before D8 so the computed flow paths follow the observed network.",
-          "examples": [
-            false
-          ],
-          "title": "Enabled",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "stream_geometry_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Observed stream network (gpkg/shp) to burn. A bare filename resolves against <workspace>/data/hydrography/. When left empty and enabled, it falls back to the network [[data.hydrography.sources]] declares, so the same file is named once; declare it here only to burn a network that differs from the one the data family loads.",
-          "title": "Stream Geometry Path",
-          "x-hmp-profile": "user"
-        },
-        "mode": {
-          "default": "constant",
-          "description": "Trench depth rule. 'constant' lowers every stream cell by depth_m. 'adaptive' derives one depth from the measured local relief along the network. Either way a single depth is used, so the along-channel gradient the trench exists to preserve is not rewritten.",
-          "enum": [
-            "constant",
-            "adaptive"
-          ],
-          "examples": [
-            "constant"
-          ],
-          "title": "Mode",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "depth_m": {
-          "default": 30.0,
-          "description": "Trench depth (metres) for mode='constant'. It must exceed the local drop between a stream cell and its lowest non-stream neighbour; 5 m clears 0.90 agreement on every measured catchment, 10 to 20 m are needed for 0.95 to 0.99 on the difficult ones, and 1 m buys almost nothing. Accepts inline units (e.g. 30, '30 m').",
-          "examples": [
-            30.0
-          ],
-          "exclusiveMinimum": 0.0,
-          "title": "Depth M",
-          "type": "number",
-          "x-hmp-profile": "user"
-        },
-        "adaptive_percentile": {
-          "default": 95.0,
-          "description": "Percentile of the local relief along the network used as the trench depth when mode='adaptive'.",
-          "examples": [
-            95.0
-          ],
-          "maximum": 100.0,
-          "minimum": 50.0,
-          "title": "Adaptive Percentile",
-          "type": "number",
-          "x-hmp-profile": "user"
-        },
-        "relief_report_percentile": {
-          "default": 95.0,
-          "description": "Percentile of the local relief along the network reported in the burn report and compared to the depth actually used, whatever the mode. It is the drop a constant trench must clear to keep the flow on the mapped network, so a depth below it warns. Independent of adaptive_percentile, which SETS the depth; this one only JUDGES it.",
-          "examples": [
-            95.0
-          ],
-          "maximum": 100.0,
-          "minimum": 50.0,
-          "title": "Relief Report Percentile",
-          "type": "number",
-          "x-hmp-profile": "expert"
-        },
-        "rasterize_all_touched": {
-          "default": true,
-          "description": "Rasterize the network with the all-touched rule, so every cell a reach crosses is burned and not only those whose centre falls under the line. A one-cell-wide trace that skips a cell leaves a step the flow escapes through, which is what the trench exists to prevent. False uses the centre rule and is only there to reproduce a raster written that way.",
-          "examples": [
-            true
-          ],
-          "title": "Rasterize All Touched",
-          "type": "boolean",
-          "x-hmp-profile": "expert"
-        },
-        "dem_nodata_fallback": {
-          "default": -9999.0,
-          "description": "Nodata value assumed when the DEM to burn declares none in its header. It decides which cells are excluded from the burn and from the relief measurement, so a raster using another sentinel must say so here.",
-          "examples": [
-            -9999.0
-          ],
-          "title": "Dem Nodata Fallback",
-          "type": "number",
-          "x-hmp-profile": "expert"
-        },
-        "alpha_warning_threshold": {
-          "default": 0.9,
-          "description": "Below this agreement between the mapped network and the D8 paths of the routing DEM, a warning fires. alpha is the share of the downstream closure of the network that the network itself covers: 1.00 means the computed paths never leave the map, 0.50 is the signature of a systematic one-pixel shift. Below the threshold, any length measured along those paths reports a DEM-versus-map disagreement rather than hydrogeology.",
-          "examples": [
-            0.9
-          ],
-          "exclusiveMinimum": 0.0,
-          "maximum": 1.0,
-          "title": "Alpha Warning Threshold",
-          "type": "number",
-          "x-hmp-profile": "expert"
-        },
-        "max_catchment_area_drift": {
-          "default": 0.05,
-          "description": "Relative change of the delineated catchment area the burn may cause. A trench that crosses a divide (mis-georeferenced trace, canal, flat area) reconnects two catchments and the delineation changes without any other sign, so the catchment is delineated before and after the burn and a larger drift raises. This costs one extra delineation pass whenever the burn is on.",
-          "examples": [
-            0.05
-          ],
-          "minimum": 0.0,
-          "title": "Max Catchment Area Drift",
-          "type": "number",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "StreamEnforcementConfig",
       "type": "object"
     },
     "SubstratumConfig": {
@@ -23173,11 +23340,11 @@
     },
     "TopSamplingConfig": {
       "additionalProperties": false,
-      "description": "How the DISV mesh top is sampled from the DEM before conditioning.\n\nMODFLOW 6 runtime-mesh only. The default 'centroid' mode samples the DEM at\neach Voronoi generator, which under-represents narrow incised channels that\nfall between generators (the generator lands on a bank, not the thalweg). The\n'zonal' mode reduces every DEM pixel inside a cell with a per-class statistic\n(a thalweg-preserving stat on channel pixels, an area stat on hillslope\npixels), so channel cells keep their incised low. Ignored for structured\ngrids, MODFLOW-NWT and Boussinesq. Every non-default value changes the\ncalibration params_hash (config-scoped); when the sampling CODE changes, bump\nthe version so the code-blind cache re-solves.",
+      "description": "How the top of the solver grid is sampled from the DEM.\n\nApplies to the MODFLOW 6 runtime mesh and to a structured grid coarser than\nits DEM (``planar.mode = \"resample_to_shape\"``). The default 'centroid' mode\nsamples the DEM at each Voronoi generator, or resamples it to the grid, which\nunder-represents narrow incised channels (the sample lands on a bank, not the\nthalweg). The 'zonal' mode reduces every DEM pixel inside a cell with a\nper-class statistic (a thalweg-preserving stat on channel pixels, an area stat\non hillslope pixels), so channel cells keep their incised low. A structured\ngrid whose cells are the DEM pixels (``keep_native``) already holds the pixel\nvalues and is unchanged. Only the top is zonal; the bottom keeps its rule. On\na structured grid the idomain does not move, and zonal applies only when a cell\ncovers at least two DEM pixels. MODFLOW-NWT builds no channel mask, so a zonal\ntop there needs ``channel_source = \"none\"`` (median only), and the config load\nrefuses the other value. Boussinesq ignores it. Every\nnon-default value changes the calibration params_hash (config-scoped); when\nthe sampling CODE changes, bump the version so the code-blind cache re-solves.",
       "properties": {
         "mode": {
           "default": "centroid",
-          "description": "Top-sampling strategy. 'centroid' samples the DEM at each cell generator (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats.",
+          "description": "Top-sampling strategy. 'centroid' samples the DEM at each cell generator, or resamples it to a structured grid (fast, the current behaviour, byte-identical default). 'zonal' reduces every DEM pixel inside a cell with per-class stats.",
           "enum": [
             "centroid",
             "zonal"
@@ -23294,27 +23461,6 @@
           ],
           "minimum": 0.0,
           "title": "Min Thickness M",
-          "type": "number",
-          "x-hmp-profile": "dev"
-        },
-        "network_safety_net": {
-          "default": false,
-          "description": "Before the priority-flood fill, carve the channel cells into a monotone descending thalweg (lower-only) and pin them so the fill never raises them. Fixes the fill re-raising a zonal-lowered channel; needs a channel source (mode='zonal' with channel_source!='none'). Off by default.",
-          "examples": [
-            false
-          ],
-          "title": "Network Safety Net",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "max_channel_lowering_m": {
-          "default": 5.0,
-          "description": "Cap (m) on how far the network safety net may carve a single channel cell below its sampled top.",
-          "examples": [
-            5.0
-          ],
-          "minimum": 0.0,
-          "title": "Max Channel Lowering M",
           "type": "number",
           "x-hmp-profile": "dev"
         }
@@ -25091,12 +25237,12 @@
     },
     "hydromodpy__data__variables__dem__config__DemConfig": {
       "additionalProperties": false,
-      "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"bd-alti\"\n    resolution_m = 25.0\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"custom\"\n    path = \"data/my_dem.tif\"",
+      "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"bd-alti\"\n    resolution_m = 25.0\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"rge-alti\"\n    resolution_m = 5.0\n\n    [[data.dem.sources]]\n    source = \"custom\"\n    path = \"data/my_dem.tif\"",
       "properties": {
         "sources": {
           "description": "At least one DEM data source.",
           "items": {
-            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC) and 'ign_geoplateforme_dem' for assembled BD ALTI DEM retrieval.",
+            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC) and 'ign_geoplateforme_dem' for assembled BD ALTI or RGE ALTI retrieval.",
             "discriminator": {
               "mapping": {
                 "custom": "#/$defs/CustomDemSource",

@@ -76,7 +76,9 @@ def _run_ctx(bench):
                 geographic_features=SimpleNamespace(hydrographic_networks=networks),
             ),
         ),
-        model=SimpleNamespace(solver_mesh=solver_mesh, recharge=1.0e-8, lake_cell_ids_by_lake={}),
+        model=SimpleNamespace(
+            solver_mesh=solver_mesh, recharge=1.0e-8, lake_cell_ids_by_lake={}, dam_foot_cells={}
+        ),
     )
 
 

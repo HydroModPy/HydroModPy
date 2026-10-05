@@ -17,7 +17,7 @@ Refer to ``reports_db/03_zarr_stores.md`` and
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -176,7 +176,6 @@ class SimulationZarr:
         source_cell_indices: np.ndarray | None = None,
         topography: np.ndarray | None = None,
         *,
-        topography_reference: np.ndarray | None = None,
         layer_thickness: np.ndarray | None = None,
         streambed_top: np.ndarray | None = None,
         streambed_connection: np.ndarray | None = None,
@@ -193,13 +192,39 @@ class SimulationZarr:
             layer_indices,
             source_cell_indices,
             topography,
-            topography_reference=topography_reference,
             layer_thickness=layer_thickness,
             streambed_top=streambed_top,
             streambed_connection=streambed_connection,
             start_index=start_index,
             grid_type=grid_type,
             structured_shape=structured_shape,
+        )
+
+    def write_descent(
+        self,
+        *,
+        receiver: np.ndarray,
+        surface: np.ndarray,
+        base_level: np.ndarray,
+        constant_head: np.ndarray,
+        raised: np.ndarray,
+        channel: np.ndarray,
+        pinned: np.ndarray,
+        attrs: Mapping[str, object],
+        dam_foot: np.ndarray | None = None,
+    ) -> None:
+        """Write the descent D under ``mesh/``, additive to the mesh arrays."""
+        zarr_writer.write_descent(
+            self,
+            receiver=receiver,
+            surface=surface,
+            base_level=base_level,
+            constant_head=constant_head,
+            raised=raised,
+            channel=channel,
+            pinned=pinned,
+            attrs=attrs,
+            dam_foot=dam_foot,
         )
 
     def write_topography(

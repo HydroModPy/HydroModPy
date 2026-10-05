@@ -20,6 +20,11 @@ from typing import TYPE_CHECKING
 from hydromodpy.core.exceptions import EmptyCatchmentError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import preprocessing_dir
+from hydromodpy.spatial.geographic.core.bed_regularization_raster import (
+    bed_dem_path,
+    bed_regularization_enabled,
+    regularized_ground_from_config,
+)
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
@@ -27,7 +32,18 @@ from hydromodpy.spatial.geographic.core.derived_features import (
 )
 from hydromodpy.spatial.geographic.core.direct_dem_domain import build_direct_dem_domain
 from hydromodpy.spatial.geographic.core.domain_dem import clip_dem_to_box_buffer
-from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
+from hydromodpy.spatial.geographic.core.flow_products import (
+    build_regional_flow_products,
+    capped_breach_of,
+)
+from hydromodpy.spatial.geographic.core.ground_corrections import (
+    close_notch_report,
+    first_pass_channel,
+    ground_dem_from_config,
+    ground_dem_path_from_config,
+    notch_enabled,
+    notch_lowered_pixels,
+)
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HydrographicNetwork,
     HydrographicNetworks,
@@ -44,14 +60,6 @@ from hydromodpy.spatial.geographic.core.pipeline_steps import (
 from hydromodpy.spatial.geographic.core.river_network import (
     RiverNetworkProducts,
     build_river_network_products,
-)
-from hydromodpy.spatial.geographic.core.stream_dem_agreement import (
-    report_network_dem_agreement,
-)
-from hydromodpy.spatial.geographic.core.stream_enforcement import (
-    burned_dem_from_config,
-    catchment_area_without_burn,
-    check_catchment_area_drift,
 )
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
 from hydromodpy.spatial.geographic.regional_flow_copy import copy_regional_flow_from_job
@@ -88,7 +96,9 @@ class DomainGeographicContext:
     x_outlet, y_outlet
         Outlet coordinates when catchment is outlet-derived, else ``None``.
     watershed_box_buff_dem
-        DEM clipped to buffered rectangular support.
+        DEM clipped to buffered rectangular support, the one ``surface_topo``
+        reads: the clip of the ground with its channel bed regularised when
+        ``[geographic.bed_regularization]`` is on.
     watershed_box_shp
         Bounding-box support polygon before external buffer.
     box_buff_shp
@@ -114,17 +124,21 @@ class DomainGeographicContext:
     regional_dem_path: str | None = None
 
 
+_BREACH_METHODS = ("breach", "capped_breach")
+
+
 def _should_retry_with_fill(*, config: GeographicConfig, error: Exception) -> bool:
     """Say whether a breach that delineated nothing deserves a fill retry.
 
-    Decided on the type of the failure and not on the text of its message: a
-    breach can carve an outlet off its own catchment, and a fill usually does
+    Applies to ``breach`` and to ``capped_breach``, the two methods that lower
+    cells. Decided on the type of the failure and not on the text of its message:
+    a breach can carve an outlet off its own catchment, and a fill usually does
     not, but an outlet that snapped nowhere is a configuration error that a
     second conditioning pass would only repeat.
     """
     if str(getattr(config, "catch_def", "")).strip().lower() != "from_outlet_coord":
         return False
-    if str(getattr(config, "dem_correc_type", "")).strip().lower() != "breach":
+    if str(getattr(config, "dem_correc_type", "")).strip().lower() not in _BREACH_METHODS:
         return False
     return isinstance(error, EmptyCatchmentError)
 
@@ -153,6 +167,7 @@ def _delineate(*, config: GeographicConfig, setup, routing_dem_path: str):
             dem_init_path=routing_dem_path,
             dem_out_dir_path=setup.paths.correcflow_path,
             dem_correc_type=effective,
+            capped_breach=capped_breach_of(config),
             crs_project=setup.crs_project,
             engine_id=config.terrain_engine,
         )
@@ -178,8 +193,9 @@ def _delineate(*, config: GeographicConfig, setup, routing_dem_path: str):
         if not _should_retry_with_fill(config=config, error=exc):
             raise
         logger.warning(
-            "Catchment delineation returned an empty polygon with dem_correc_type='breach'; "
-            "retrying geographic preprocessing with dem_correc_type='fill'."
+            "Catchment delineation returned an empty polygon with dem_correc_type=%r; "
+            "retrying geographic preprocessing with dem_correc_type='fill'.",
+            effective,
         )
         effective = "fill"
         flow = build_regional_flow_products(
@@ -249,7 +265,7 @@ def build_geographic_derived_features(
 
     if config.catch_def == "dem":
         dem_products = build_direct_dem_domain(
-            dem_init_path=setup.dem_init_path,
+            dem_init_path=ground_dem_from_config(config, setup),
             paths=setup.paths,
             crs_project=setup.crs_project,
         )
@@ -274,18 +290,38 @@ def build_geographic_derived_features(
     if config.buff_area is None:
         raise ValueError("geographic.buff_area is required")
 
-    # Routing DEM for delineation, conditioned in order: burn the observed stream
-    # network, then carve the lakes, then (in _delineate) fill or breach and D8. The
-    # model top (clip below) stays on the raw DEM, so neither step touches the
-    # aquifer geometry.
-    reference_area_km2 = catchment_area_without_burn(config=config, setup=setup)
-    routing_dem_path = routing_dem_from_config(
-        config, setup, dem_in_path=burned_dem_from_config(config, setup)
-    )
+    # The ground is the DEM plus the declared corrections: the dam carve here, the
+    # crossing notch after the first delineation. The routing chain starts from it
+    # and so does the model top (clipped below). Routing is conditioned in order:
+    # carve the lakes, then (in _delineate) fill or breach and D8.
+    ground = ground_dem_from_config(config, setup)
+    routing_dem_path = routing_dem_from_config(config, setup, dem_in_path=ground)
 
     flow, effective_dem_correc_type, generated_hydrographic_network_products = _delineate(
         config=config, setup=setup, routing_dem_path=routing_dem_path
     )
+
+    # Crossing notch: the channel tree of the first delineation says where the
+    # embankments cross it. The ground is notched there and delineated again, before
+    # the lake capture reads its own channel.
+    if notch_enabled(config):
+        channel = first_pass_channel(
+            config,
+            setup,
+            flow=flow,
+            river_products=generated_hydrographic_network_products,
+            catchment_area_km2=compute_catchment_area_km2(setup.paths.watershed_shp),
+        )
+        ground = ground_dem_from_config(config, setup, channel=channel)
+        if notch_lowered_pixels(setup) > 0:
+            routing_dem_path = routing_dem_from_config(config, setup, dem_in_path=ground)
+            flow, effective_dem_correc_type, generated_hydrographic_network_products = _delineate(
+                config=config, setup=setup, routing_dem_path=routing_dem_path
+            )
+        close_notch_report(
+            setup,
+            catchment_area_km2_after=compute_catchment_area_km2(setup.paths.watershed_shp),
+        )
 
     # Second pass: carve near-miss streams (dead-ending over a flat forebay short of a
     # lake) into the routing DEM and re-delineate so their channels reach the shoreline.
@@ -304,12 +340,6 @@ def build_geographic_derived_features(
         )
 
     catchment_area_km2 = compute_catchment_area_km2(setup.paths.watershed_shp)
-    check_catchment_area_drift(
-        config=config,
-        reference_area_km2=reference_area_km2,
-        burned_area_km2=float(catchment_area_km2),
-    )
-    report_network_dem_agreement(config, setup, d8_pointer_path=flow.direc)
 
     build_standard_domain_polygons(
         config=config,
@@ -319,14 +349,33 @@ def build_geographic_derived_features(
     )
 
     clip_dem_to_box_buffer(
-        dem_init_path=setup.dem_init_path,
+        dem_init_path=ground_dem_path_from_config(config, setup),
         box_buff_shp=setup.paths.box_buff,
         output_dem_path=setup.paths.watershed_box_buff_dem,
         crs_project=setup.crs_project,
         nodata=-9999.0,
     )
 
-    surface_topo = build_surface_topo_from_dem(setup.paths.watershed_box_buff_dem)
+    # The channel bed of the ground, regularised on the channel tree A once A and
+    # the catchment are final, then clipped as the ground was. Nothing above reads it.
+    top_dem_path = str(setup.paths.watershed_box_buff_dem)
+    if bed_regularization_enabled(config):
+        bed = regularized_ground_from_config(
+            config,
+            setup,
+            d8_tif=flow.direc,
+            river_products=generated_hydrographic_network_products,
+        )
+        top_dem_path = str(
+            clip_dem_to_box_buffer(
+                dem_init_path=bed,
+                box_buff_shp=setup.paths.box_buff,
+                output_dem_path=bed_dem_path(setup.paths.watershed_box_buff_dem),
+                crs_project=setup.crs_project,
+                nodata=-9999.0,
+            )
+        )
+    surface_topo = build_surface_topo_from_dem(top_dem_path)
     generated_network = HydrographicNetwork.from_river_network_products(
         generated_hydrographic_network_products,
         watershed_shp=setup.paths.watershed_shp,
@@ -361,7 +410,7 @@ def build_geographic_derived_features(
         catch_def=str(config.catch_def),
         x_outlet=float(config.x_outlet) if config.x_outlet is not None else None,
         y_outlet=float(config.y_outlet) if config.y_outlet is not None else None,
-        watershed_box_buff_dem=setup.paths.watershed_box_buff_dem,
+        watershed_box_buff_dem=top_dem_path,
         zone_kind="catchment",
         regional_dem_path=setup.dem_init_path,
         hydrographic_networks=HydrographicNetworks(generated=generated_network),

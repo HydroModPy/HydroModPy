@@ -21,7 +21,6 @@ from hydromodpy.core.stream_network import build_simulated_network
 from hydromodpy.core.topographic_distance import build_downslope_metric
 from hydromodpy.display.figures._routing_surface import routing_surface_from_run
 from hydromodpy.display.figures.depression_map import DepressionMap
-from hydromodpy.display.figures.flow_direction_map import FlowDirectionMap
 from hydromodpy.results.derive.stream_network import network_comparison_from_run
 from tests._helpers.ugrid_meshes import quad_mesh
 
@@ -45,7 +44,6 @@ def test_the_shared_default_is_the_paper_s_d8() -> None:
         build_downslope_metric,
         network_comparison_from_run,
         routing_surface_from_run,
-        FlowDirectionMap.render,
         DepressionMap.render,
     ],
     ids=lambda function: function.__qualname__,

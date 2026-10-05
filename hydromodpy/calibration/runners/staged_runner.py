@@ -1494,11 +1494,24 @@ def _geographic_choices(document: Mapping[str, Any]) -> dict[str, object]:
     the file set, after ``base_config`` and the legacy migrations. A key left
     unset takes the model's default, which the deviation table already
     describes, so it stays out of the Methods paragraph.
+
+    A ``capped_breach`` is not reproducible without its limits, so the value
+    names them, defaults included.
     """
     geographic = document.get("geographic")
     if not isinstance(geographic, Mapping):
         return {}
-    return {key: geographic[key] for key in _GEOGRAPHIC_DEVIATIONS if key in geographic}
+    chosen = {key: geographic[key] for key in _GEOGRAPHIC_DEVIATIONS if key in geographic}
+    if chosen.get("dem_correc_type") == "capped_breach":
+        from hydromodpy.spatial.geographic.geographic_config import CappedBreachConfig
+
+        section = geographic.get("capped_breach")
+        limits = CappedBreachConfig.model_validate(dict(section) if section else {})
+        chosen["dem_correc_type"] = (
+            f"capped_breach (max_depth = {float(limits.max_depth):g} m, "
+            f"max_distance = {float(limits.max_distance):g} m)"
+        )
+    return chosen
 
 
 def _steady_window_summary(
@@ -1574,8 +1587,7 @@ def _methods_paragraph_for(
         return None
     completed = [run.name for run in runs if _converged(run.report)]
     calibrated = {item.name: float(item.value) for item in frozen}
-    # Read on the network outputs only: a gauge declares its own
-    # diagonal_neighbors, false by default, and is not the criterion the
+    # Read on the network outputs only: a gauge is not the criterion the
     # deviations describe.
     chosen: dict[str, object] = {}
     for output in (cfg.outputs or {}).values():

@@ -10,7 +10,8 @@ drains into a lake) and check:
 * the signed connectivity is reciprocal (every downstream link lists its parent
   upstream);
 * drainage area accumulates to the outlet;
-* reach tops descend monotonically downstream after conditioning;
+* a reach top is the model top at the reach outlet cell, read as is: the trace
+  lowers nothing (the bed profile is fitted later, on the solver side);
 * the reach entering the lake is flagged terminal-to-lake;
 * with no lake mask the same network simply leaves the model (no terminal flag).
 """
@@ -202,13 +203,35 @@ def test_drainage_area_accumulates_to_outlet() -> None:
     assert main.strahler == 2
 
 
-def test_reach_tops_descend_monotonically() -> None:
+def test_reach_tops_are_the_model_top_at_the_reach_outlet() -> None:
     trace = _delineate(lake=True)
     by_ifno = {r.ifno: r for r in trace.reaches}
-    for reach in trace.reaches:
-        for down in reach.downstream:
-            assert by_ifno[down].rtp < reach.rtp
+    main = by_ifno[max(by_ifno)]
+    assert main.rtp == pytest.approx(6.0)
+    for ifno, reach in by_ifno.items():
+        if ifno != main.ifno:
+            assert reach.rtp == pytest.approx(9.0)
         assert reach.rgrd >= 1e-4
+
+
+def test_the_trace_never_lowers_a_reach_below_its_upstream() -> None:
+    # The main channel outlet sits above both tributary outlets on this top. The
+    # trace keeps what the top says; a one-way pass would have cut it to 9 m.
+    g = _synthetic_network()
+    g["dem"][4, 1] = 12.0
+    trace = delineate_sfr_reaches(
+        link_id=g["link"],
+        d8=g["d8"],
+        acc=g["acc"],
+        top_dem=g["dem"],
+        transform=_TRANSFORM,
+        crs_wkt="EPSG:2154",
+        dem_res_m=_RES,
+        strahler=g["strahler"],
+        min_slope=1e-4,
+    )
+    main = max(trace.reaches, key=lambda r: r.ifno)
+    assert main.rtp == pytest.approx(12.0)
 
 
 def test_terminal_reach_into_lake_is_flagged() -> None:
@@ -337,46 +360,35 @@ def test_truncation_tags_the_lake_label() -> None:
     assert terminal[0].terminal_lake == 2
 
 
-def test_the_stream_burn_never_reaches_the_streambed() -> None:
-    # The routing DEM is trenched along the mapped network so the D8 paths follow
-    # the map. That trench must stay in the flow paths: a bed read on it would sit
-    # one trench depth below its own cell top for a reason that is preprocessing,
-    # not hydrogeology. link_id and d8 already carry the burn, so delineating on
-    # the raw top and on the burned surface must give the same reaches with
-    # different elevations, and the same elevations as the raw top alone.
+def test_the_bed_elevation_is_read_on_the_top_dem_alone() -> None:
+    # link_id and d8 give the connectivity, the DEM given as the top gives every
+    # elevation: lowering that DEM under the network by 10 m moves each reach top
+    # by exactly 10 m and nothing else in the geometry.
     g = _synthetic_network()
-    burned = g["dem"].copy()
-    burned[g["link"] > 0] -= 10.0
+    lowered = g["dem"].copy()
+    lowered[g["link"] > 0] -= 10.0
 
-    on_top = delineate_sfr_reaches(
-        link_id=g["link"],
-        d8=g["d8"],
-        acc=g["acc"],
-        top_dem=g["dem"],
-        transform=_TRANSFORM,
-        crs_wkt="EPSG:2154",
-        dem_res_m=_RES,
-        strahler=g["strahler"],
-        min_slope=1e-4,
-    )
-    on_burn = delineate_sfr_reaches(
-        link_id=g["link"],
-        d8=g["d8"],
-        acc=g["acc"],
-        top_dem=burned,
-        transform=_TRANSFORM,
-        crs_wkt="EPSG:2154",
-        dem_res_m=_RES,
-        strahler=g["strahler"],
-        min_slope=1e-4,
-    )
+    def trace_on(top_dem: np.ndarray) -> SfrReachTrace:
+        return delineate_sfr_reaches(
+            link_id=g["link"],
+            d8=g["d8"],
+            acc=g["acc"],
+            top_dem=top_dem,
+            transform=_TRANSFORM,
+            crs_wkt="EPSG:2154",
+            dem_res_m=_RES,
+            strahler=g["strahler"],
+            min_slope=1e-4,
+        )
 
-    assert [r.ifno for r in on_top.reaches] == [r.ifno for r in on_burn.reaches]
-    assert [r.downstream for r in on_top.reaches] == [r.downstream for r in on_burn.reaches]
-    # One trench depth, exactly: nothing else in the geometry moved.
-    for raw, dug in zip(on_top.reaches, on_burn.reaches, strict=True):
-        assert dug.rtp == pytest.approx(raw.rtp - 10.0)
-        assert dug.rgrd == pytest.approx(raw.rgrd)
+    on_top = trace_on(g["dem"])
+    on_lowered = trace_on(lowered)
+
+    assert [r.ifno for r in on_top.reaches] == [r.ifno for r in on_lowered.reaches]
+    assert [r.downstream for r in on_top.reaches] == [r.downstream for r in on_lowered.reaches]
+    for raw, low in zip(on_top.reaches, on_lowered.reaches, strict=True):
+        assert low.rtp == pytest.approx(raw.rtp - 10.0)
+        assert low.rgrd == pytest.approx(raw.rgrd)
 
 
 def test_a_nodata_model_top_under_a_reach_is_named_not_silently_used() -> None:

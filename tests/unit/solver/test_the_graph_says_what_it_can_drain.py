@@ -7,10 +7,10 @@ upstream_area_m2 must not compute it and drop it on the floor: this pins that
 the value survives the call, that a fragmented graph warns instead of
 raising, and that a graph which drains its basin stays silent.
 
-Reuses the diagonal-valley construction of
-test_the_discharge_graph_can_go_diagonal: shared edges cannot follow a
-talweg running along the grid diagonal, and shared nodes can, so the same
-mesh gives one graph that drains its basin and one that does not.
+The valley's talweg runs along the grid diagonal. The descent D of the model,
+D8 on quads, drains it whole. A steepest descent over shared edges on the
+unfilled top cannot follow it: that graph, built here by hand, is the
+fragmented one.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.core.field_routing import build_downhill_graph
 from hydromodpy.solver.modflow_common.discharge_routing import (
     largest_drainable_share,
     last_largest_drainable_share,
@@ -28,6 +29,7 @@ from hydromodpy.solver.modflow_common.discharge_routing import (
     routing_graph_for_model,
     upstream_area_m2,
 )
+from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 N = 30
@@ -44,7 +46,21 @@ def _diagonal_valley_model() -> SimpleNamespace:
         top=top,
         botm=np.stack([botm]),
     )
-    return SimpleNamespace(solver_mesh=mesh)
+    descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
+    return SimpleNamespace(solver_mesh=mesh, descent=descent)
+
+
+def _shared_edge_graph(model: SimpleNamespace):
+    """Steepest descent of the unfilled top over shared edges: it cannot go diagonal."""
+    mesh = model.solver_mesh
+    top = np.asarray(mesh.top, dtype=float).reshape(-1)
+    return build_downhill_graph(
+        top,
+        np.asarray(mesh.planar_mesh.flat_connectivity, dtype=int),
+        vertices=np.asarray(mesh.planar_mesh.vertices, dtype=float),
+        centroids=np.asarray(mesh.cell_centroids(), dtype=float),
+        inactive_mask=~np.isfinite(top),
+    )
 
 
 def _mask() -> np.ndarray:
@@ -53,7 +69,7 @@ def _mask() -> np.ndarray:
 
 def test_a_graph_that_drains_its_basin_keeps_a_ratio_near_one():
     model = _diagonal_valley_model()
-    graph = routing_graph_for_model(model, diagonal_neighbors=True)
+    graph = routing_graph_for_model(model)
 
     upstream_area_m2(model, graph, catchment_mask=_mask())
 
@@ -62,7 +78,7 @@ def test_a_graph_that_drains_its_basin_keeps_a_ratio_near_one():
 
 def test_a_fragmented_graph_keeps_a_ratio_far_from_one():
     model = _diagonal_valley_model()
-    graph = routing_graph_for_model(model, diagonal_neighbors=False)
+    graph = _shared_edge_graph(model)
 
     upstream_area_m2(model, graph, catchment_mask=_mask())
 
@@ -74,7 +90,7 @@ def test_a_fragmented_graph_keeps_a_ratio_far_from_one():
 def test_the_kept_ratio_matches_what_the_geometry_actually_computed():
     """upstream_area_m2 must keep the real ratio, not a stand-in value."""
     model = _diagonal_valley_model()
-    graph = routing_graph_for_model(model, diagonal_neighbors=False)
+    graph = _shared_edge_graph(model)
     mask = _mask()
     areas = np.asarray(model.solver_mesh.cell_areas(), dtype=float).reshape(-1)
     accumulated = route_release_to_discharge(areas, graph, catchment_mask=mask)
@@ -87,7 +103,7 @@ def test_the_kept_ratio_matches_what_the_geometry_actually_computed():
 
 def test_a_fragmented_graph_warns_without_refusing(caplog):
     model = _diagonal_valley_model()
-    graph = routing_graph_for_model(model, diagonal_neighbors=False)
+    graph = _shared_edge_graph(model)
 
     with caplog.at_level(logging.WARNING):
         accumulated = upstream_area_m2(model, graph, catchment_mask=_mask())
@@ -96,12 +112,12 @@ def test_a_fragmented_graph_warns_without_refusing(caplog):
     assert accumulated.shape == (N * N,)
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
     assert warnings
-    assert "diagonal_neighbors" in caplog.text
+    assert "different drainage" in caplog.text
 
 
 def test_a_graph_that_drains_its_basin_does_not_warn(caplog):
     model = _diagonal_valley_model()
-    graph = routing_graph_for_model(model, diagonal_neighbors=True)
+    graph = routing_graph_for_model(model)
 
     with caplog.at_level(logging.WARNING):
         upstream_area_m2(model, graph, catchment_mask=_mask())

@@ -26,9 +26,9 @@
 #     n'a pas de `roptim` et code en dur `GRID_RES = 75` sans jamais
 #     l'utiliser pour plancher quoi que ce soit.
 #
-# Cinq ecarts au script sur le reste du montage. Les quatre premiers sont
-# mesures, le cinquieme est lu dans le script et son ampleur ici n'est PAS
-# mesuree :
+# Cinq points sur le reste du montage. Les quatre premiers sont mesures (le
+# quatrieme n'est plus un ecart), le cinquieme est lu dans le script et son
+# ampleur ici n'est PAS mesuree :
 #
 #   1. 1995-2020 et non 1995-2024 : la recharge et le ruissellement REA du
 #      Nancon s'arretent au 31/12/2020. 9497 jours. Le debit observe couvre
@@ -45,14 +45,14 @@
 #      specifique a 0,5, et il a raison. L'optimum des autres calages du
 #      dossier vaut 0,02 a 0,06, deux ordres sous la coupure.
 #
-#   4. `enforce_streams` reste actif a 10 m la ou la reference ne burne pas
-#      le reseau. Sans effet mesurable : l'etage 1 rejoue burn coupe rend
-#      les neuf memes essais au bit pres, meme `best_objective`
-#      185.7234104098768. Le critere descend le toit BRUT et le conditionne
-#      sur le graphe du maillage, il ne lit jamais la surface burnee ; le
-#      burn n'entre que par le masque du bassin, 64,603 km2 sans contre
-#      64,614 avec. Il est garde pour que la delimitation coincide avec les
-#      autres fichiers du dossier.
+#   4. Aucun burn du reseau, comme la reference. Ce fichier en gardait un a
+#      10 m, retire avec l'option. Il n'avait pas d'effet mesurable sur
+#      l'etage 1 : le rejouer coupe rendait les neuf memes essais au bit
+#      pres, meme `best_objective` 185.7234104098768, car le critere descend
+#      le toit BRUT et le conditionne sur le graphe du maillage. Il ne
+#      changeait que le masque du bassin, 64,603 km2 sans contre 64,614 avec.
+#      Le `best_objective` ci-dessus a ete mesure avec ce burn : sur le
+#      masque sans burn, il est a remesurer, pas a supposer.
 #
 #   5. DESCENTE D4 CONTRE D8. La reference calcule ses distances avec
 #      `wbt.downslope_distance_to_stream` sur le MNT rempli (lignes 928, 932,
@@ -112,11 +112,6 @@ y_outlet = 6816630.0
 snap_dist = "150 m"
 # "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
 buff_area = "10%"
-
-[geographic.enforce_streams]
-enabled = true
-mode = "constant"
-depth_m = 10.0
 
 
 # ---------------------------------------------------------------------- domain

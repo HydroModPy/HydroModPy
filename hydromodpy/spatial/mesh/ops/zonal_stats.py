@@ -80,6 +80,37 @@ def rasterize_cell_ids(
     )
 
 
+def regular_grid_cell_ids(
+    *,
+    dem_transform,
+    dem_shape: tuple[int, int],
+    grid_bounds: tuple[float, float, float, float],
+    grid_shape: tuple[int, int],
+) -> np.ndarray:
+    """Cell id of every DEM pixel on a regular grid (``-1`` outside it).
+
+    The structured twin of :func:`rasterize_cell_ids`: a pixel belongs to the
+    cell whose box contains its centre, and the cell id is ``row * ncols + col``
+    (row 0 north), the flat order of the structured grid. Computed by arithmetic,
+    so it stays cheap and exact on any grid, an integer multiple of the pixel
+    size or not.
+
+    ``grid_bounds`` is ``(xmin, xmax, ymin, ymax)`` and ``grid_shape`` is
+    ``(nrows, ncols)``.
+    """
+    xmin, xmax, ymin, ymax = (float(v) for v in grid_bounds)
+    nrows, ncols = (int(v) for v in grid_shape)
+    dem_rows, dem_cols = (int(v) for v in dem_shape)
+    xs = float(dem_transform.c) + (np.arange(dem_cols) + 0.5) * float(dem_transform.a)
+    ys = float(dem_transform.f) + (np.arange(dem_rows) + 0.5) * float(dem_transform.e)
+    col = np.floor((xs - xmin) / ((xmax - xmin) / ncols)).astype(np.int64)
+    row = np.floor((ymax - ys) / ((ymax - ymin) / nrows)).astype(np.int64)
+    col_ok = (col >= 0) & (col < ncols)
+    row_ok = (row >= 0) & (row < nrows)
+    labels = row[:, None] * ncols + col[None, :]
+    return np.where(row_ok[:, None] & col_ok[None, :], labels, -1).astype(np.int32)
+
+
 def grouped_reduce(
     labels: np.ndarray,
     values: np.ndarray,
@@ -126,7 +157,9 @@ def _pixel_counts(labels: np.ndarray, n_cells: int) -> np.ndarray:
 
 def zonal_top(
     *,
-    planar_mesh: object,
+    planar_mesh: object | None = None,
+    labels: np.ndarray | None = None,
+    active: np.ndarray | None = None,
     dem: np.ndarray,
     transform,
     out_shape: tuple[int, int],
@@ -148,13 +181,26 @@ def zonal_top(
     ``channel_mask`` (same grid as ``dem``) flags channel pixels; a cell holding
     one is reduced with ``channel_stat`` (the incised low), the rest with
     ``hillslope_stat``. ``min_thickness_m`` keeps a lowered top above ``bottom``.
+    ``active`` (one flag per cell) leaves the other cells on ``centroid_top`` and
+    out of every count.
     """
     dem = np.asarray(dem, dtype=float)
     centroid_top = np.asarray(centroid_top, dtype=float).reshape(-1)
     n_cells = int(centroid_top.shape[0])
+    live = (
+        np.ones(n_cells, dtype=bool)
+        if active is None
+        else np.asarray(active, dtype=bool).reshape(-1)
+    )
 
-    labels = rasterize_cell_ids(planar_mesh, transform=transform, out_shape=out_shape)
+    if labels is None:
+        if planar_mesh is None:
+            raise ValueError("zonal_top needs a planar_mesh or the pixel labels.")
+        labels = rasterize_cell_ids(planar_mesh, transform=transform, out_shape=out_shape)
     finite = np.isfinite(dem) & (dem != float(nodata))
+    labels = np.asarray(labels)
+    in_live = (labels >= 0) & (labels < n_cells)
+    labels = np.where(in_live & live[np.clip(labels, 0, n_cells - 1)], labels, -1)
     lab_all = np.where(finite, labels, -1)
     counts = _pixel_counts(lab_all, n_cells)
 
@@ -165,7 +211,7 @@ def zonal_top(
         lab_chan = np.where(finite & chan, labels, -1)
         ch_counts = _pixel_counts(lab_chan, n_cells)
         ch_val = grouped_reduce(lab_chan, dem, n_cells=n_cells, stat=channel_stat)
-        is_channel = ch_counts >= 1
+        is_channel = (ch_counts >= 1) & live
     else:
         ch_counts = np.zeros(n_cells, dtype=int)
         ch_val = np.full(n_cells, np.nan)
@@ -194,17 +240,17 @@ def zonal_top(
     n_thickness_clamped = 0
     if bottom is not None and min_thickness_m > 0:
         floor = np.asarray(bottom, dtype=float).reshape(-1) + float(min_thickness_m)
-        clamp = np.isfinite(floor) & np.isfinite(top) & (top < floor)
+        clamp = live & np.isfinite(floor) & np.isfinite(top) & (top < floor)
         n_thickness_clamped = int(np.count_nonzero(clamp))
         top = np.where(clamp, floor, top)
 
     delta = top - centroid_top
     lowered = used_zonal & (delta < -1e-6)
     info = {
-        "n_cells": float(n_cells),
+        "n_cells": float(int(live.sum())),
         "n_zonal": float(int(used_zonal.sum())),
         "n_channel_cells": float(int(is_channel.sum())),
-        "n_centroid_fallback": float(int((~used_zonal).sum())),
+        "n_centroid_fallback": float(int((live & ~used_zonal).sum())),
         "n_spike_reverted": float(n_spike),
         "n_thickness_clamped": float(n_thickness_clamped),
         "n_lowered": float(int(lowered.sum())),

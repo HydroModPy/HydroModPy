@@ -48,24 +48,14 @@ buff_area = "10%"
 
 
 # ----------------------------------------------------------------------
-# Enforcement du reseau observe dans la surface de routage
+# Le reseau observe et la surface de routage
 # ----------------------------------------------------------------------
-# CONDITION DE VALIDITE DU CRITERE, pas une option de confort. Le critere
-# mesure des distances le long des chemins de descente du MNT ; si le
-# lineaire cartographie ne suit pas ces chemins, le nombre produit mesure
-# un desaccord entre deux jeux de donnees et non de l'hydrogeologie.
-#
-# Chaque run publie `alpha_obs_closure`, le rapport entre le lineaire
-# observe et sa propre fermeture aval. 1 signifie que le trace suit les
-# talwegs. Sous 0,90 le run avertit.
-
-[geographic.enforce_streams]
-enabled = true
-stream_geometry_path = "nancon_stream_network.gpkg"
-mode = "constant"
-# 10 m comme les trois autres configs. Le trace derive est identique des 10 m
-# (Jaccard 1,000 contre 30 m), donc la profondeur supplementaire ne gagne rien.
-depth_m = 10.0
+# Le reseau observe n'entre jamais dans la surface de routage : le critere
+# le prend par ses tetes (`observed_rasterization = "heads"`, le defaut) et
+# le desaccord entre le MNT et la carte se lit sur alpha. L'etape
+# geographique le mesure sur la source `custom` de `[[data.hydrography.sources]]`
+# ci-dessous (`stream_dem_agreement.json`) ; chaque run publie aussi
+# `alpha_obs_closure`, calcule sur le toit du modele. Sous 0,90 le run avertit.
 
 
 # ----------------------------------------------------------------------
@@ -92,8 +82,8 @@ path = "DEM_nancon_25m.tif"
 [[data.geology.sources]]
 source = "brgm_1m"
 
-# Le meme lineaire que celui burne dans la surface de routage, charge ici
-# pour les figures et le catalog.
+# Le lineaire observe, charge pour les figures, le catalog et le diagnostic
+# alpha de l'etape geographique.
 [[data.hydrography.sources]]
 source = "custom"
 path = "nancon_stream_network.gpkg"
@@ -202,9 +192,8 @@ coverage_policy = "warn"
 # avertit. Ce qui reste vrai est le cout : la grille couvre la boite,
 # 566 x 610 mailles a 25 m contre les 26 907 du bassin.
 #
-# Ce que MF6 ouvre et que NWT n'a pas : `[modflow6.sgrid] condition_top`,
-# la bande de decharge native DDRN, et la rectification SFR sur le
-# maillage.
+# Ce que MF6 ouvre et que NWT n'a pas : la bande de decharge native DDRN,
+# et la rectification SFR sur le maillage.
 [[simulation.process]]
 id = "flow_main"
 type = "flow"

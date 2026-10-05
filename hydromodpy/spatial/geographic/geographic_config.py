@@ -348,160 +348,27 @@ class LakeEnforcementConfig(HydroModelBase):
     )
 
 
-class StreamEnforcementConfig(HydroModelBase):
-    """Burn the observed stream network into the ROUTING DEM before D8 routing.
-
-    A mapped stream network is surveyed independently of the DEM, so its trace
-    rarely follows the thalwegs the DEM computes: on five Armorican catchments at
-    75 m, a quarter to a third of the D8 trace seeded on the mapped cells leaves
-    that network at the first step. Any length measured along those paths then
-    reports a DEM-versus-map disagreement instead of hydrogeology. When enabled,
-    the mapped cells are lowered in a SEPARATE routing DEM used only for
-    delineation, before the lake carve and the fill/breach pass. The model grid
-    top stays on the raw DEM, which matters more here than for lakes: a top
-    lowered along the observed network would agree with that network by
-    construction.
-
-    The whole supplied linework is burned, fictitious arcs included: filtering
-    them out cuts the trench at every water body and caps the agreement below
-    0.97 whatever the depth. Selecting reaches by nature belongs to the metric,
-    not to the preprocessing.
-    """
-
-    enabled: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description=(
-            "Lower the mapped stream cells in the routing DEM before D8 so the "
-            "computed flow paths follow the observed network."
-        ),
-    )
-    stream_geometry_path: Annotated[
-        Path | None,
-        Profile.USER,
-        InputFile(role="stream_enforcement_geometry", category="geometry"),
-    ] = Field(
-        default=None,
-        description=(
-            "Observed stream network (gpkg/shp) to burn. A bare filename resolves "
-            "against <workspace>/data/hydrography/. When left empty and enabled, it "
-            "falls back to the network [[data.hydrography.sources]] declares, so the "
-            "same file is named once; declare it here only to burn a network that "
-            "differs from the one the data family loads."
-        ),
-    )
-    mode: Annotated[Literal["constant", "adaptive"], Profile.USER] = Field(
-        default="constant",
-        description=(
-            "Trench depth rule. 'constant' lowers every stream cell by depth_m. "
-            "'adaptive' derives one depth from the measured local relief along the "
-            "network. Either way a single depth is used, so the along-channel "
-            "gradient the trench exists to preserve is not rewritten."
-        ),
-    )
-    depth_m: Annotated[
-        LengthMeters,
-        Profile.USER,
-        VisibleWhen("mode", "constant"),
-    ] = Field(
-        default=30.0,
-        gt=0.0,
-        description=(
-            "Trench depth (metres) for mode='constant'. It must exceed the local "
-            "drop between a stream cell and its lowest non-stream neighbour; 5 m "
-            "clears 0.90 agreement on every measured catchment, 10 to 20 m are "
-            "needed for 0.95 to 0.99 on the difficult ones, and 1 m buys almost "
-            "nothing. Accepts inline units (e.g. 30, '30 m')."
-        ),
-    )
-    adaptive_percentile: Annotated[
-        float,
-        Profile.USER,
-        VisibleWhen("mode", "adaptive"),
-    ] = Field(
-        default=95.0,
-        ge=50.0,
-        le=100.0,
-        description=(
-            "Percentile of the local relief along the network used as the trench "
-            "depth when mode='adaptive'."
-        ),
-    )
-    relief_report_percentile: Annotated[float, Profile.EXPERT] = Field(
-        default=95.0,
-        ge=50.0,
-        le=100.0,
-        description=(
-            "Percentile of the local relief along the network reported in the burn "
-            "report and compared to the depth actually used, whatever the mode. It "
-            "is the drop a constant trench must clear to keep the flow on the mapped "
-            "network, so a depth below it warns. Independent of "
-            "adaptive_percentile, which SETS the depth; this one only JUDGES it."
-        ),
-    )
-    rasterize_all_touched: Annotated[bool, Profile.EXPERT] = Field(
-        default=True,
-        description=(
-            "Rasterize the network with the all-touched rule, so every cell a reach "
-            "crosses is burned and not only those whose centre falls under the line. "
-            "A one-cell-wide trace that skips a cell leaves a step the flow escapes "
-            "through, which is what the trench exists to prevent. False uses the "
-            "centre rule and is only there to reproduce a raster written that way."
-        ),
-    )
-    dem_nodata_fallback: Annotated[float, Profile.EXPERT] = Field(
-        default=-9999.0,
-        description=(
-            "Nodata value assumed when the DEM to burn declares none in its header. "
-            "It decides which cells are excluded from the burn and from the relief "
-            "measurement, so a raster using another sentinel must say so here."
-        ),
-    )
-    alpha_warning_threshold: Annotated[float, Profile.EXPERT] = Field(
-        default=0.90,
-        gt=0.0,
-        le=1.0,
-        description=(
-            "Below this agreement between the mapped network and the D8 paths of the "
-            "routing DEM, a warning fires. alpha is the share of the downstream "
-            "closure of the network that the network itself covers: 1.00 means the "
-            "computed paths never leave the map, 0.50 is the signature of a "
-            "systematic one-pixel shift. Below the threshold, any length measured "
-            "along those paths reports a DEM-versus-map disagreement rather than "
-            "hydrogeology."
-        ),
-    )
-    max_catchment_area_drift: Annotated[float, Profile.USER] = Field(
-        default=0.05,
-        ge=0.0,
-        description=(
-            "Relative change of the delineated catchment area the burn may cause. "
-            "A trench that crosses a divide (mis-georeferenced trace, canal, flat "
-            "area) reconnects two catchments and the delineation changes without "
-            "any other sign, so the catchment is delineated before and after the "
-            "burn and a larger drift raises. This costs one extra delineation pass "
-            "whenever the burn is on."
-        ),
-    )
-
-
 class DamCarveConfig(HydroModelBase):
-    """Optional dam structure-carve of the MODEL-TOP DEM.
+    """Optional dam structure-carve of the ground.
 
     A raw DEM samples the concrete dam crest as terrain, so the aquifer column
     under the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a
     cutoff-wall HFB band lands above the real seepage. This carves ONLY the dam
-    footprint of the model-top DEM down to the surrounding valley floor, so the
-    cutoff wall can sit on the surveyed axis at the dam (not shifted downstream,
-    and no need for a stream-burned DEM that would lower every channel). It is
-    the mirror of enforce_lakes: enforce_lakes carves the routing DEM, this
-    carves the top DEM, at the dam only.
+    footprint of the ground down to the surrounding valley floor, so the
+    cutoff wall can sit on the surveyed axis at the dam (not shifted downstream).
+
+    The ground is the DEM plus the corrections declared here and in
+    ``[geographic.crossings]``. Both the routing chain and the model top start
+    from it, so the carved dam is seen by the flow routing and by the aquifer
+    alike.
     """
 
     enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
-            "Carve the dam footprint of the model-top DEM down to the local "
-            "valley floor so the cutoff wall sits at the true dam on a raw DEM."
+            "Carve the dam footprint of the ground down to the local valley "
+            "floor, so the routing chain and the model top both see the dam "
+            "removed and the cutoff wall sits at the true dam on a raw DEM."
         ),
     )
     line_path: Annotated[
@@ -511,7 +378,7 @@ class DamCarveConfig(HydroModelBase):
     ] = Field(
         default=None,
         description=(
-            "Dam trace (gpkg/shp/csv) along which the top is carved. A bare "
+            "Dam trace (gpkg/shp/csv) along which the ground is carved. A bare "
             "filename resolves against <workspace>/data/cutoff_wall/. Usually the "
             "same surveyed voile axis as the cutoff_wall. Required when enabled."
         ),
@@ -532,6 +399,179 @@ class DamCarveConfig(HydroModelBase):
             "Radius (metres) of the neighborhood whose minimum elevation defines "
             "the valley floor the corridor is carved to. When omitted, derives "
             "3 * buffer_m."
+        ),
+    )
+
+
+class CrossingNotchConfig(HydroModelBase):
+    """Cut the embankments of roads, railways and bridges out of the ground.
+
+    A DEM shows the embankment of a road across a valley as a wall: the flow
+    routing then fills behind it or digs through it, and the model top carries
+    the wall into the aquifer. The notch lowers the DEM along the channel at each
+    crossing to the bed level read on both sides of the structure, and nowhere
+    else. It is a correction of the ground: the routing chain and the model top
+    both start from the notched ground.
+
+    The notch follows the channel tree of ``[geographic.river_network]``, which
+    is delineated a first time on the ground, notched, and delineated again.
+    Weirs and dams are not notched: a weir is a drop of the bed, not a wall. A
+    road laid on a dam crest is not notched either: a crossing with a dam or a
+    weir of the file within ``snap_radius``, a ``[geographic.dam_carve]`` line
+    within ``snap_radius``, or a ``[geographic.enforce_lakes]`` polygon on its
+    channel reach is left alone and reported as ``dam_or_weir``.
+    """
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Notch the ground at the crossings of the channel tree with the "
+            "declared structures, then delineate again on the notched ground. "
+            "Needs [geographic.river_network] enabled."
+        ),
+    )
+    path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="crossings_notch", category="geometry"),
+    ] = Field(
+        default=None,
+        description=(
+            "Vector file of the structures, with the columns 'kind', 'source', "
+            "'name' and 'drop_m' of the crossings data variable. When left empty "
+            "and enabled, it is filled from [[data.crossings.sources]], so the "
+            "structures are named once. Required when enabled, from one of the "
+            "two."
+        ),
+    )
+    kinds: Annotated[list[Literal["road", "railway", "bridge"]], Profile.USER] = Field(
+        default_factory=lambda: ["road", "railway", "bridge"],
+        min_length=1,
+        description=("Structure kinds to notch. Weirs and dams are never notched."),
+    )
+    notch_width: Annotated[LengthMeters, Profile.USER] = Field(
+        default=10.0,
+        gt=0.0,
+        description=(
+            "Width of the notch across the embankment, in metres. The channel pixel "
+            "itself is always lowered, so a width below the cell size cuts one "
+            "pixel. The width is applied along the embankment only, the run of "
+            "channel pixels that stand above the bed line, never to the two pixels "
+            "where the bed is read. Accepts inline units (e.g. 10, '10 m')."
+        ),
+    )
+    bed_reach: Annotated[LengthMeters, Profile.USER] = Field(
+        default=50.0,
+        gt=0.0,
+        description=(
+            "Distance along the channel, on each side of the crossing, where the "
+            "bed level is read, in metres. The embankment is assumed narrower "
+            "than twice this. The notch is the straight line between the two bed "
+            "levels. A bed end that falls on the embankment of another crossing is "
+            "read further along the channel, beyond it. Accepts inline units "
+            "(e.g. 50, '50 m')."
+        ),
+    )
+    max_depth: Annotated[LengthMeters, Profile.USER] = Field(
+        default=3.0,
+        gt=0.0,
+        description=(
+            "Largest lowering of any pixel, in metres. A pixel that would be "
+            "lowered more is lowered by this and counted as capped in the "
+            "report: the embankment is then higher than the cap allows for, "
+            "or the crossing sits on a ridge. Accepts inline units (e.g. 3, "
+            "'3 m')."
+        ),
+    )
+    snap_radius: Annotated[LengthMeters, Profile.USER] = Field(
+        default=30.0,
+        gt=0.0,
+        description=(
+            "A point structure (a bridge of the ROE) farther than this from the "
+            "channel tree is ignored, and so is a channel pixel farther than "
+            "this from its crossing, in metres. A dam or a weir of the file, or a "
+            "dam_carve line, within this distance of a crossing stops its notch. "
+            "Accepts inline units (e.g. 30, '30 m')."
+        ),
+    )
+
+
+class CappedBreachConfig(HydroModelBase):
+    """Limits of the ``capped_breach`` DEM conditioning, in metres.
+
+    Read only when ``[geographic] dem_correc_type = "capped_breach"``. Least-cost
+    breaching digs a path through the barrier that closes a depression. These two
+    limits bound that digging, and whatever they refuse is filled instead. Both
+    are given in metres but the tool counts along the cells of a path (a sum of
+    lowerings, a number of cells), so a given value does not mean the same thing
+    at every grid resolution: see each field.
+    """
+
+    max_depth: Annotated[LengthMeters, Profile.USER] = Field(
+        default=0.5,
+        gt=0.0,
+        description=(
+            "Largest cumulative lowering, in metres, of one breach path (the "
+            "'max_cost' of Whitebox): the lowering summed over the cells of the "
+            "path, not the depth of one cell. Measured on the Flume at 25 m with "
+            "8-cell paths, the realised maximum lowering of a cell follows it within "
+            "0.01 m. On a finer grid a thick embankment spreads the cost over more "
+            "cells, so it is filled instead of dug: the same value does not give the "
+            "same landscape at every resolution. A depression whose cheapest breach "
+            "costs more is filled. Paths overlap, so the lowering of a cell can "
+            "exceed it (Nancon 75 m: 0.56 m for 0.5 m). The realised depth is "
+            "measured after the call, logged, and warned about when it exceeds "
+            "this value. Accepts inline units (e.g. 0.5, '0.5 m')."
+        ),
+    )
+    max_distance: Annotated[LengthMeters, Profile.USER] = Field(
+        default=200.0,
+        gt=0.0,
+        description=(
+            "Longest breach path, in metres. Translated to the DEM grid as "
+            "ceil(max_distance / cell size) cells, at least one, and counted in "
+            "cells along the path: a diagonal step counts one cell, so a diagonal "
+            "breach can be up to 1.41 times longer than max_distance. A depression "
+            "with no way out within this length is filled. Accepts inline units "
+            "(e.g. 200, '0.2 km')."
+        ),
+    )
+
+
+class BedRegularizationConfig(HydroModelBase):
+    """Least-change regularisation of the channel bed in the model top.
+
+    A DEM read along its own channel rises downstream at many pixels: a deck, a
+    hedge, a resampling artefact. A drain or a stream cell on such a rise cannot
+    drain into the next one. On the pixels of the generated channel tree only,
+    the regularisation fits the bed closest to the ground in least squares that
+    never rises downstream (the isotonic regression on a tree of Pardalos and
+    Xue, 1999), raising and lowering alike, then gives every pooled flat a
+    minimum drop centred on its level. The pixels a crossing notch lowered are
+    gaps: interpolated along the channel, never pulling the fit. A declared
+    weir or dam cuts the tree, so its drop is kept, and a declared lake is left
+    out with its surface.
+
+    It writes a regularised copy of the ground, and the model top and the SFR
+    bed read it, so drains and stream reaches see one bed. The routing DEM, the
+    channel tree, the catchment and the mesh never read that copy.
+    """
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Regularise the channel bed of the model top: the least-change fit of "
+            "the ground that never rises downstream along the channel tree, with "
+            "the crossing notches as gaps and the declared weirs and dams as "
+            "drops. Needs [geographic.river_network] enabled."
+        ),
+    )
+    min_slope: Annotated[float, Profile.USER] = Field(
+        default=1.0e-4,
+        ge=0.0,
+        description=(
+            "Minimum drop of the fitted bed per metre along the channel (m/m), "
+            "given to the flats the fit pools. The SFR default slope."
         ),
     )
 
@@ -580,18 +620,40 @@ class GeographicConfig(HydroModelBase):
         default=None,
         description="Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM.",
     )
-    dem_correc_type: Annotated[Literal["breach", "fill"], Profile.USER] = Field(
+    dem_correc_type: Annotated[Literal["breach", "fill", "capped_breach"], Profile.USER] = Field(
         default="fill",
         description=(
             "How the DEM is conditioned before the catchment is delineated. 'fill' "
-            "(default) raises each closed depression to its spill level, then puts a "
-            "small gradient on the flats so every cell drains. 'breach' carves a "
-            "path through the barrier that closes a depression instead, and changes "
-            "far fewer cells (least-cost breaching, Lindsay 2016). 'fill' is the "
-            "default because it is the tool of the paper behind the network "
+            "(default) only raises cells: each closed depression is raised to its "
+            "spill level, then a small gradient on the flats lets every cell drain. "
+            "'breach' mostly lowers cells: it carves a path through the barrier "
+            "that closes a depression, after raising single-cell pits to their "
+            "lowest neighbour, with no limit on length or depth and no fill "
+            "afterwards (least-cost breaching, Lindsay 2016); it changes far fewer "
+            "cells than 'fill' and can dig deep. 'capped_breach' lowers and raises: "
+            "it breaches only within the limits of [geographic.capped_breach] (a "
+            "maximum cumulative lowering and a maximum length, in metres), then "
+            "fills every depression the limits refused (the hybrid of Lindsay "
+            "2016). The depth limit is a sum over the cells of a path, so it does "
+            "not give the same landscape at every grid resolution. 'fill' is "
+            "the default because it is the tool of the paper behind the network "
             "criterion (FillDepressions, Abherve et al. 2023), and the criterion "
             "itself fills the model top on the mesh by a priority flood: one "
             "conditioning rule from the DEM to the score."
+        ),
+    )
+    capped_breach: Annotated[
+        CappedBreachConfig | None,
+        Profile.USER,
+        VisibleWhen("dem_correc_type", "capped_breach"),
+    ] = Field(
+        default=None,
+        description=(
+            "Limits of the 'capped_breach' conditioning: max_depth (default 0.5 m) "
+            "and max_distance (default 200 m). Omitted, a 'capped_breach' run uses "
+            "those defaults. Declaring it with any other dem_correc_type is refused: "
+            "'fill' and 'breach' have no limit to set, and a section that is silently "
+            "ignored reads as a limit that was applied."
         ),
     )
     terrain_engine: Annotated[str | None, Profile.USER] = Field(
@@ -633,14 +695,6 @@ class GeographicConfig(HydroModelBase):
             "When disabled, no stream network is generated in geographic preprocessing."
         ),
     )
-    enforce_streams: Annotated[StreamEnforcementConfig, Profile.USER] = Field(
-        default_factory=StreamEnforcementConfig,
-        description=(
-            "Optional stream burning of the routing DEM: lower the mapped network "
-            "cells so the computed D8 paths follow the observed network, without "
-            "touching the model grid top. Applied before the lake carve."
-        ),
-    )
     enforce_lakes: Annotated[LakeEnforcementConfig, Profile.USER] = Field(
         default_factory=LakeEnforcementConfig,
         description=(
@@ -652,9 +706,26 @@ class GeographicConfig(HydroModelBase):
     dam_carve: Annotated[DamCarveConfig, Profile.USER] = Field(
         default_factory=DamCarveConfig,
         description=(
-            "Optional dam structure-carve of the model-top DEM: lower the dam "
-            "footprint to the valley floor so a cutoff wall sits at the dam on a "
-            "raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM)."
+            "Optional dam structure-carve of the ground: lower the dam footprint "
+            "to the valley floor, for the routing chain and the model top alike, "
+            "so a cutoff wall sits at the dam on a raw DEM."
+        ),
+    )
+    crossings: Annotated[CrossingNotchConfig, Profile.USER] = Field(
+        default_factory=CrossingNotchConfig,
+        description=(
+            "Optional notch of the ground at the roads, railways and bridges "
+            "that cross the generated channel tree: the embankment is lowered "
+            "to the bed level read on both sides, and the catchment is "
+            "delineated again on the notched ground."
+        ),
+    )
+    bed_regularization: Annotated[BedRegularizationConfig, Profile.USER] = Field(
+        default_factory=BedRegularizationConfig,
+        description=(
+            "Optional least-change regularisation of the channel bed in the model "
+            "top, on the pixels of the generated channel tree: the bed never rises "
+            "downstream, crossing notches are gaps and declared weirs are drops."
         ),
     )
     reuse_existing_outputs: Annotated[bool, Profile.USER] = Field(
@@ -823,6 +894,77 @@ class GeographicConfig(HydroModelBase):
         )
 
     @model_validator(mode="after")
+    def _check_capped_breach_section(self) -> GeographicConfig:
+        """Refuse limits declared for a method that has none."""
+        if self.capped_breach is not None and self.dem_correc_type != "capped_breach":
+            raise ValueError(
+                "[geographic.capped_breach] sets the limits of dem_correc_type = "
+                f"'capped_breach', and dem_correc_type is {self.dem_correc_type!r}, which "
+                "has none: remove the section or select 'capped_breach'."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_crossings_section(self) -> GeographicConfig:
+        """Refuse a notch that has no channel tree, no DEM to cut, or a shared flow."""
+        if not self.crossings.enabled:
+            return self
+        if not self.river_network.enabled:
+            raise ValueError(
+                "[geographic.crossings] enabled = true needs [geographic.river_network] "
+                "enabled = true: the notch follows the channel tree the DEM generates, "
+                "so without it there is no channel to cut."
+            )
+        if self.uses_synthetic_geographic() or self.catch_def == "dem":
+            raise ValueError(
+                "[geographic.crossings] cuts a delineated catchment: it needs "
+                "catch_def = 'from_outlet_coord' or 'from_polyg_shp', not "
+                f"{'a synthetic support' if self.uses_synthetic_geographic() else 'catch_def = dem'}."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_bed_regularization_section(self) -> GeographicConfig:
+        """Refuse a bed regularisation that has no channel tree to follow."""
+        if not self.bed_regularization.enabled:
+            return self
+        if not self.river_network.enabled:
+            raise ValueError(
+                "[geographic.bed_regularization] enabled = true needs "
+                "[geographic.river_network] enabled = true: the bed is fitted along "
+                "the channel tree the DEM generates, so without it there is no bed."
+            )
+        if self.uses_synthetic_geographic() or self.catch_def == "dem":
+            raise ValueError(
+                "[geographic.bed_regularization] fits the bed of a delineated catchment: "
+                "it needs catch_def = 'from_outlet_coord' or 'from_polyg_shp', not "
+                f"{'a synthetic support' if self.uses_synthetic_geographic() else 'catch_def = dem'}."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_ground_with_shared_flow(self) -> GeographicConfig:
+        """Refuse a declared correction of the ground under a shared regional flow job.
+
+        The job was routed on the raw DEM and is checked against the DEM it is
+        handed, so a corrected ground can never match it.
+        """
+        if self.reg_fold is None:
+            return self
+        declared = [
+            name
+            for name, section in (("dam_carve", self.dam_carve), ("crossings", self.crossings))
+            if section.enabled
+        ]
+        if declared:
+            raise ValueError(
+                f"[geographic] reg_fold shares a regional flow routed on the raw DEM, and "
+                f"[geographic.{declared[0]}] corrects the ground the routing starts from: "
+                "remove one of them."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _check_source_mode_payload(self, info: ValidationInfo) -> GeographicConfig:
         """Enforce mode-level invariants between source_mode and catchment."""
         if self.uses_synthetic_geographic():
@@ -842,7 +984,10 @@ class GeographicConfig(HydroModelBase):
 
 
 __all__ = [
+    "BedRegularizationConfig",
+    "CappedBreachConfig",
     "CatchDef",
+    "CrossingNotchConfig",
     "DemCatchDef",
     "GeographicConfig",
     "OutletCatchDef",

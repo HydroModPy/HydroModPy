@@ -48,6 +48,14 @@ Each release section includes the following standard categories:
   1989 pieces.
 - The figure `observed_network_heads_map` draws the mapped lines, the traced cells, each head
   with the cell it landed on, and the lost heads, with the settings the run was scored with.
+- The dam foot of a lake whose spillway is declared (an outlet of the lake package releasing
+  downstream) is a forced head of the heads rule: the criterion draws the reach below the dam
+  from it even where the descent of the heads above leaves the reservoir through a lower
+  saddle. It comes from the model, never from the observed map, is counted apart
+  (`n_forced_heads`), never makes a map draw that the rule refuses, and a lake without a
+  declared spillway has none. It is stored with D as `mesh/descent_dam_foot`, read alone by the
+  redraw of a stored run, and marked on `observed_network_heads_map`. On the Cheze the descent
+  already leaves the reservoir by its dam, and nothing changes.
 - The recharge can come from a daily soil reservoir fed by the rain and the ETP instead of a
   drainage loaded from SIM2: `[flow.sinks_sources.recharge.soil]`, MODFLOW 6 only, with `ru`
   (the available water capacity in mm, required, calibrated as `soil.ru`), `alpha` (0.6),
@@ -111,8 +119,64 @@ Each release section includes the following standard categories:
   decrease with depth, evaluated at the layer centres. A calibration target that is not the
   headline quantity of its instance now takes its physical bounds from its own leaf, so a
   depth under `K` is no longer checked against the range of a conductivity.
+- `[geographic] dem_correc_type = "capped_breach"`, with `[geographic.capped_breach]`
+  `max_depth` (0.5 m) and `max_distance` (200 m), conditions the routing DEM by a least-cost
+  breach bounded in metres, then fills what the breach left (Lindsay 2016). The two bounds
+  become Whitebox's `max_cost`, a cumulative lowering along one breach path, and `max_dist`,
+  counted in cells. The realised lowering is measured, logged and stored with the geographic
+  metadata, with a warning when it exceeds `max_depth`. It is an option and `fill` stays the
+  default: against `fill`, the catchment moved by less than 0.1 % on the Flume (25 m) and on
+  the Nancon, but the agreement with BD Topage moved by 1.74 points on example 04's 75 m DEM
+  and by 1.22 points on the 25 m Nancon DEM, over the one-point gate set for a default change
+  (0.22 point on the Flume).
+- `[data.crossings]` gathers where a stream may meet a structure: the roads and railways of the
+  BD TOPO (`source = "bdtopo"`, Geoplateforme WFS; a segment above the ground is a `bridge`),
+  the obstacles of the ROE (`source = "roe"`, Sandre WFS; dams, weirs, and bridge sills kept as
+  weirs) or a vector file with a `kind` column (`custom`). These are structure data, an input
+  of the model, never a calibration target.
+- The ground G: the DEM plus the declared corrections, read by the routing DEM and by the
+  model top in both geographic entry points. `[geographic.crossings]` (off by default) notches
+  each road, railway or bridge crossing of the generated river network: the embankment span on
+  the channel is lowered to the bed interpolated between the ends read `bed_reach` (50 m)
+  upstream and downstream, across `notch_width` (10 m), by at most `max_depth` (3 m), and never
+  where a dam or a weir is declared. On the Flume: 231 crossings found, 127 notched, 330 pixels
+  lowered (median 0.32 m), catchment area and agreement with BD Topage unchanged.
+- `[geographic.bed_regularization]` (off by default) regularises the channel bed in the model
+  top. On the pixels of the generated river network A, the ground G is replaced by its
+  least-squares isotonic fit along the channel tree (Pardalos and Xue 1999): the bed never rises
+  downstream and keeps its mean. A crossing notched by `[geographic.crossings]` is a gap the fit
+  interpolates across, a weir or a dam of `[data.crossings]` within the crossings `snap_radius`
+  cuts the tree, and a declared lake is left out with its surface. `min_slope` (1e-4) sets the
+  least drop, centred on each flat. The fit runs on the full-extent G, written as
+  `dem_ground_bed.tif`, and serves both the model top and the SFR streambed, so DRN and SFR read
+  one bed; the routing DEM, A, the catchment and the mesh never read it, and the mesh cache key
+  ignores the section. `dem_ground_bed.json` reports the rises before the fit, the pixels raised
+  and lowered, the blocks pooled at confluences with their amplitudes and what the closing pass
+  raised. With the fit on, `[geographic.crossings] path` is resolved from
+  `[[data.crossings.sources]]` even with the notch off, so declared weirs and dams cut it. The
+  notch writes its own footprint (`dem_ground_notch_footprint.tif`), the gaps of the fit.
+  Enabling the fit by default is left open.
+- `[[data.dem.sources]] source = "ign_geoplateforme_dem"` takes `dataset = "rge-alti"`: the RGE
+  ALTI is assembled from the Geoplateforme WMS-Raster service by extent, at 5 m (default) or
+  1 m, in tiles of at most 2,500 pixels (the server stops at 5,010). Inland, at 5 m the server
+  returns the 1 m pixel holding each centre, unchanged; other sizes go through an undocumented
+  kernel and are refused. The server nodata, the flat -5 m water and the blend around them are
+  nodata, while real land below the sea level is kept (the Ferques quarry, -66 m). The share of
+  the box outside France, filled by another source, is written in the sidecar and warned above
+  1 %. A request above 150 million pixels is refused with its size, and 1 m is refused on the
+  project bootstrap box (60 km), before any request. Against the BD ALTI averaged at 25 m: bias
+  -0.03 m, standard deviation 0.41 m. On the Flume box at 5 m: 2,000 x 2,000 pixels in 7 s cold.
+- `[modflow6.sgrid.top_sampling] mode = "zonal"` also samples the top of a structured grid
+  coarser than its DEM (`planar.mode = "resample_to_shape"`): a cell holding pixels of the
+  generated river network A takes their `channel_stat` (lowest pixel), the other cells their
+  `hillslope_stat` (median), as on a Voronoi mesh; the bottom and the idomain keep their rule,
+  and `keep_native` and `centroid` are unchanged. On the Flume at 75 m the channel cells sit
+  0.90 m lower than the resampled top (median; 2.98 m at the 90th percentile of the absolute
+  gap), the hillslope cells unchanged in median.
 
 ### Changed
+- `[modflownwt.sgrid.top_sampling] mode = "zonal"` needs `channel_source = "none"`: MODFLOW-NWT
+  builds no channel mask, so a channel source is refused at load instead of being ignored.
 - The default of `observed_rasterization` is now `"heads"`. A network output that does not set
   it is drawn from its heads. `"crossing"` stays the rule of the paper and must be written
   explicitly to reproduce it. A sealed run redraws with the rule it sealed.
@@ -133,8 +197,62 @@ Each release section includes the following standard categories:
   arrays with numpy when every EVT cell sits on layer 0, instead of one Python record per
   cell and per deficit day first: on 36,465 cells and 2,452 daily periods the build takes
   0.24 s and 0.6 GB instead of about 50 s and 12 GB, for the same arrays.
+- `rectify_on_mesh` and `route_drainage` of `[flow.sinks_sources.sfr.<id>]` descend D, a copy
+  of the model top filled on the very graph they walk (shared nodes on a quad mesh, shared
+  faces elsewhere), seeded on the domain rim and the constant-head cells, lakes crossed to
+  their spill level. The copy never reaches the solver: `rtp` and the streambed profile keep
+  reading the top. On the cells the generated river network crosses, D follows it (pinned
+  receivers), and a filled flat drains into that channel rather than beside it.
+  `route_drainage` no longer reads the preprocessing D8 pointer nor falls back to a walk on
+  the raw top: it routes the DRN cells of the basin of D, closed on the snapped outlet.
+  Measured on example 21 (aligned 25 m grid, burn off, `fill`): 99.8 % of the catchment DRN
+  cells routed (100 % before), outlet discharge unchanged, 97.9 % of the cells feed the same
+  reach link, 3 of 1455 reaches lose their drainage while 57 reaches receive none against 152.
+  On the Cheze Voronoi mesh the routed share goes from 84 % to 93 %. Stub pruning and the
+  lake-shore test of `rectify_on_mesh` read shared faces, and the streambed profile reports on
+  every call how many reaches it relaxed, one per reach.
+- Every MODFLOW 6 and MODFLOW-NWT build makes the descent D, with or without SFR, and every
+  reader of a flow path follows it: the per-cell discharge of a point output, the upstream area
+  and the accumulated fluxes of the derived fields, and the flow direction map. A constant-head
+  cell seeds D and passes the water on, so an accumulation crosses a river CHD and the outlet
+  sums the whole catchment. D is stored with the run in `fields.zarr/mesh/descent_*` (receiver,
+  surface, base level, channel, pinned, constant-head and raised masks) and read back by
+  `Run.descent`; a run stored before rebuilds it from its top, without pins. On example 04 the
+  gauge cell drained 0.17 % of the catchment on the former face graph (664 sinks) and drains
+  99.89 % on D; the tracked files read the whole-catchment series and keep their scores. D
+  takes 5.6 MB at 90,000 cells. The transport routing context, the Boussinesq raster path and
+  the network criterion (the model top with the D8 adjacency of the paper) keep their own
+  graphs.
+- The stream/DEM agreement alpha of the geographic step reads the map of a
+  `[[data.hydrography.sources]]` entry with `source = "custom"` (a vector file), on every run
+  and on a cached geographic tree too; an API source is not downloaded for it and the run says
+  so. Alpha is a diagnostic: a map it cannot read or that misses the catchment gives a warning,
+  never an error. `stream_dem_agreement.json` loses its `burned` key.
+- `conditioning_impact_map` maps the top difference of two runs on one mesh (fill against
+  capped breach, bed regularisation off against on): `reference=<run>` is required, and a run
+  alone is skipped with a sentence.
+- The zonal channel mask and the projection of A read the same raster of A: the link raster,
+  else the pruned stream raster when `prune_short_streams = true`, else the stream raster, each
+  only when it is not older than the one it replaces.
+- Example 21 loses the burn, the top conditioning keys and its SFR threshold, and
+  `calibrated_best.toml` says it no longer replays the calibration made on the burned DEM. With
+  its `breach` routing DEM, D now pinned on A: 97.92 % of the catchment drain cells routed to the
+  river (99.62 % with the burn), outlet discharge 1.127 m3/s (1.147). A traced on the breached
+  routing DEM crosses ridges the model top keeps, and 2.0 % of the catchment leaves D's basin;
+  with `fill`, 0.2 %. Every calibration of example 21 is to be redone.
+- `[geographic.dam_carve]` corrects the ground G in both geographic entry points: the routing
+  DEM now sees the carved dam as the model top does (one entry point carved the top only, the
+  other ignored the section). `reg_fold` together with `dam_carve` or `[geographic.crossings]`
+  is refused, the shared regional job being conditioned on the raw DEM.
 
 ### Fixed
+- The channel mask of the zonal top covered the whole catchment. The stream raster was
+  reprojected with nodata 0, and GDAL moves a valid 0 to the next float, so every background
+  pixel counted as channel: on the Flume Voronoi mesh 146,384 pixels instead of 4,197, and the
+  block minimum on 29,760 of the 32,382 zonal cells instead of the hillslope median. The mask
+  now holds the channel pixels only, read on the full-extent channel tree A, so the channel
+  cells of the buffer around the catchment are found too. A zonal run gets a higher top on its
+  hillslopes; the weekly Flume v2 run no longer converges with its solver settings.
 - `flow_persistence_map`, `flow_intermittence_map`, `seepage_network_reference_overlay` and
   `seepage_network_confusion_map` render again on a run with several layers. The seepage
   threshold reads the mean recharge from the budget, stored per layer; it now sums the layers
@@ -148,6 +266,29 @@ Each release section includes the following standard categories:
   the conductivity and storage a Voronoi run was given could not be read back or drawn.
 
 ### Removed
+- `[geographic.enforce_streams]`, the burn of the mapped network into the routing DEM, and what
+  existed for it: the burned DEM, the catchment delineated again without the burn and its drift
+  check (`max_catchment_area_drift`), the resolution of its `stream_geometry_path` from the
+  hydrography sources and the download of an API network for it. An observed network never
+  enters the model construction: the criterion takes the map by its heads, and the descent D is
+  pinned on the generated network A whenever the run generates it. A file declaring the section
+  is refused. The geographic cache fingerprint changes for every project, so each rebuilds its
+  geographic tree once, and a run snapshot written before declares the section and no longer
+  loads (`hmp catalog rerun`, `Project.derive`).
+- `[modflow6.sgrid] condition_top` and `condition_top_epsilon`, `[modflow6.sgrid.top_sampling]
+  network_safety_net` and `max_channel_lowering_m` (and their `[modflownwt.sgrid]` copies), with
+  the surface conditioning they drove (`spatial/mesh/surface_conditioning/`, the
+  `.conditioning_ref.npy` sidecar, `mesh/topography_reference`): the solver top is never
+  conditioned, D carries every flow path. Refused when declared.
+- `stream_threshold_km2` and `stream_threshold_cells` of `[flow.sinks_sources.sfr.<id>]`: SFR
+  traces its reaches on A, whose threshold is `[geographic.river_network]`. Refused when declared.
+- The one-way pass that lowered the downstream reach top of each SFR link below its upstream one
+  (by up to 29.8 m): the streambed profile comes from the bed profile solve alone, the bed
+  regularisation being the option that smooths it.
+- `diagonal_neighbors` of the point and cell calibration outputs: their discharge follows D,
+  whose neighbourhood the mesh fixes (shared nodes on an all-quad mesh, shared faces
+  otherwise). A file declaring it there, including the dump of a run sealed before, is
+  refused with the key named. The network outputs keep it for the criterion.
 - `[geographic.snap_streams]` and everything that existed only for it: the snap of the
   mapped network onto the talwegs (`core/stream_snap.py`), its raster pass in the
   geographic step, the snapped map stored with a run, the two snap figures, the Eq. 4
@@ -156,7 +297,8 @@ Each release section includes the following standard categories:
   comparison exports, which only told the snapped map from the raw one. In `apply` mode it rejected almost every
   mapped cell on a 25 m Voronoi mesh, because it placed a cell only when its receiver
   already reached the outlet. A TOML that still declares the section is refused.
-  `enforce_streams` burns the mapped lines, as before the snap existed.
+- `rectify_on_mesh` no longer requires `[modflow6.sgrid] condition_top = true`: the check that
+  refused it is gone, and nothing else requires a conditioned top.
 
 ---
 

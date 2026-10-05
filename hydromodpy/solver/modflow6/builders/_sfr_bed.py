@@ -108,15 +108,12 @@ def solve_reach_bed_profile(
     # Pass 1, upstream. A floored downstream reach raises the floor of everything
     # above it, and only a pass in this direction can see that: a downstream pass
     # has already fixed the upstream value by the time the floor fires. Capped by
-    # the cell ceiling, because the cell is the hard constraint.
-    relaxed: list[tuple[int, float]] = []
+    # the cell ceiling, because the cell is the hard constraint. A capped step
+    # is not counted here: pass 2 meets it again at the downstream reach, which
+    # is the one left above the order.
     for ifno in reversed(order):
         for down in by_ifno[ifno].downstream:
-            required = lo[down] + drop(ifno, down)
-            if required > hi[ifno]:
-                relaxed.append((ifno, required - hi[ifno]))
-                required = hi[ifno]
-            lo[ifno] = max(lo[ifno], required)
+            lo[ifno] = max(lo[ifno], min(lo[down] + drop(ifno, down), hi[ifno]))
 
     # Pass 2, downstream. The numbering is topological (asserted upstream of
     # here), so every upstream neighbour is already final and the monotone
@@ -129,6 +126,8 @@ def solve_reach_bed_profile(
     # the surface, and forcing it the other way perched 2355 of 3041 reaches.
     # A traced channel that climbs is a defect of the trace, and it is reported
     # as such rather than absorbed into a wrong geometry.
+    # Each reach is visited once, so ``relaxed`` counts reaches, not events.
+    relaxed: list[tuple[int, float]] = []
     solved: dict[int, float] = {}
     for ifno in order:
         upper = hi[ifno]
@@ -151,6 +150,13 @@ def solve_reach_bed_profile(
             len(order),
             worst_step,
             worst_ifno,
+        )
+    else:
+        logger.info(
+            "%s streambed profile: 0/%d reach(es) relaxed, the downhill order holds "
+            "inside every cell.",
+            location,
+            len(order),
         )
 
     if top is not None and botm is not None:
