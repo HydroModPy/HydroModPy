@@ -61,7 +61,7 @@ def materialize_regional_lab_flow(
             raise ConfigError(f"{case.case_id}: shared flow requires an outlet catchment")
         if geographic.dem_init_path is None:
             raise ConfigError(f"{case.case_id}: shared flow requires a DEM path")
-        if geographic.enforce_lakes.enabled or geographic.enforce_streams.enabled:
+        if geographic.enforce_lakes.enabled:
             raise ConfigError(f"{case.case_id}: outlet-dependent routing cannot share flow")
         if geographic.river_network.enabled:
             raise ConfigError(

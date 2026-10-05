@@ -75,7 +75,7 @@ AGREEMENT_LABELS: dict[int, str] = {
 
 _REFERENCE_ROLE = "reference"
 """The default role: what the project declares under ``[data.hydrography]``
-and burns into the routing DEM, never a model output. A caller that scores a
+never a model output. A caller that scores a
 DEM-derived observation instead passes ``role="generated"``."""
 
 

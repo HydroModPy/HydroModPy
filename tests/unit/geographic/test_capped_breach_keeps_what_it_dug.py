@@ -24,8 +24,17 @@ from hydromodpy.spatial.terrain import CappedBreach, CappedBreachReport
 from tests._helpers.terrain_doubles import fake_flow_products
 from tests.unit.geographic.test_geographic_cache import _touch_artifact
 
-FILL_FINGERPRINT_AT_9D86115A7 = "652599218fe011c6d8574eecbc89b1fffdf4d89c41ecea127247351125440959"
-"""Recomputed from a clean export of 9d86115a7, before the capped breach existed."""
+FILL_FINGERPRINT_WITHOUT_THE_BURN = (
+    "8377a0546cb6dfa19f3d8918bbb427b1626c93bdb23ad57eef1e1cae3bdb16e0"
+)
+"""The fingerprint of 9d86115a7, before the capped breach existed, minus the burn.
+
+Removing ``[geographic.enforce_streams]`` took its section and its path signature out of
+the payload, so every cached tree is rebuilt once. Putting both back (defaults, no path)
+gives back ``652599218fe011c6d8574eecbc89b1fffdf4d89c41ecea127247351125440959``, the value
+a clean export of 9d86115a7 computes: the capped breach key is the only other thing the
+payload could have gained, and it is absent.
+"""
 
 REPORT = CappedBreachReport(
     cells_lowered=4,
@@ -45,7 +54,7 @@ def _config(method: str, **overrides) -> GeographicConfig:
 
 
 def test_a_fill_config_fingerprints_as_before_the_capped_breach_existed() -> None:
-    assert _geographic_cache_fingerprint(_config("fill")) == FILL_FINGERPRINT_AT_9D86115A7
+    assert _geographic_cache_fingerprint(_config("fill")) == FILL_FINGERPRINT_WITHOUT_THE_BURN
 
 
 def test_the_breach_key_is_absent_from_the_payload_unless_it_is_set() -> None:

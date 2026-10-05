@@ -5,7 +5,7 @@
 # JUMEAU GELE de runs/grid_iter_0001.v4. Memes forcages, meme maillage,
 # memes K, Sy et Ss. La SEULE difference est le code : la cote de lit
 # `rtp` et la pente `rgrd` sont desormais lues sur le MNT DU TOIT et
-# non plus sur le MNT de routage burne.
+# non plus sur le MNT de routage de l'epoque.
 #
 # Ce qui change, mesure hors solveur avant de lancer :
 #   lit delinee   mediane 9,96 m sous le toit  ->  0,63 m
@@ -46,27 +46,12 @@ snap_dist = "150 m"
 # "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
 buff_area = "10%"
 
-# Le burn est celui de la reference DRN, donc la delineation est la meme
-# et les trois montages restent comparables.
-[geographic.enforce_streams]
-enabled = true
-stream_geometry_path = "nancon_stream_network.gpkg"
-mode = "constant"
-# 10 m et non 30. Le TRACE derive est strictement identique des 10 m (1535
-# mailles, Jaccard 1,000, et a 5 m 81 mailles du bassin changent encore de
-# direction D8). 30 m ne fait donc rien gagner sur le routage.
-#
-# CE QUE LE BURN NE TRAVERSE PLUS. La cote de lit `rtp` ET la pente `rgrd` sont
-# desormais lues sur le MNT DU TOIT, plus sur ce MNT burne. La profondeur de la
-# tranchee ne peut donc plus devenir l'incision du lit ni gonfler la pente : sur
-# le Nancon, 84,7 % des 9,96 m medians de profondeur de lit venaient de la, et
-# le lit remonte de 3,755 m en mediane apres correction.
-#
-# Ce reglage abaisse le MNT DE ROUTAGE, pas l'aquifere, et il ne sert plus qu'a
-# ce pour quoi il existe : tenir les chemins D8 sur le lineaire cartographie.
-# Le raccordement des biefs vers l'aval revient a `min_slope`, au conditionnement
-# monotone, et a `bed_incision` qui ancre le lit sous le toit de sa maille.
-depth_m = 10.0
+# Aucun burn : le lineaire observe n'entre pas dans la surface de routage, il
+# ne sert qu'au diagnostic alpha de l'etape geographique (source `custom` de
+# `[[data.hydrography.sources]]`). La cote de lit `rtp` ET la pente `rgrd` sont
+# lues sur le MNT DU TOIT. Le raccordement des biefs vers l'aval revient a
+# `min_slope`, au profil de lit et a `bed_incision` qui ancre le lit sous le
+# toit de sa maille.
 
 # Reseau derive du MNT, qui porte la topologie des biefs.
 [geographic.river_network]
@@ -178,9 +163,9 @@ value = 0.0
 values = 0.0
 
 [flow.sinks_sources.sfr.nancon]
-# 1 km2 draine sur 64,6 km2 : le reseau principal en SFR, les tetes de
+# Le reseau SFR est trace sur A, dont le seuil (1 km2 draine sur 64,6 km2)
+# est `[geographic.river_network]` : le reseau principal en SFR, les tetes de
 # bassin restent au drain de Cauchy.
-stream_threshold_km2 = 1.0
 
 # Conductance de lit posee pour EGALER celle que la maille avait en
 # drain, seule facon de comparer les deux montages a resistance egale :
@@ -210,9 +195,8 @@ max_bed_sag = "5 m"
 # versant, et il serait jete.
 route_drainage = true
 
-# Laisse a false. `rectify_on_mesh` exigerait `[modflow6.sgrid]
-# condition_top = true`, qui RELEVE le toit du modele. Les activer
-# comparerait deux topographies au lieu de deux conditions limites.
+# Laisse a false : activer la rectification changerait le montage compare,
+# au lieu de ne changer que le code du lit.
 rectify_on_mesh = false
 
 [flow.sinks_sources.sfr.nancon.width]
@@ -301,8 +285,8 @@ on_error = "warn"
 #   calibration_landscape,         demandent deux parametres dans UNE session ;
 #   calibration_objective_surface, chaque etage n'en echantillonne qu'un, c'est
 #   calibration_pairplot           le principe meme de l'etagement.
-#   conditioning_impact_map        exige [modflow6.sgrid] condition_top = true,
-#                                  qui RELEVE le toit et changerait le modele.
+#   conditioning_impact_map        compare deux runs sur le meme maillage
+#                                  (`reference=<run>`) ; un seul run ici.
 
 figures = [
     # -- Identite du bassin et maillage --

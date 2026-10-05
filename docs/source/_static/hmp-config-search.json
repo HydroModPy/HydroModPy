@@ -129,7 +129,7 @@
     "section": "geographic",
     "anchor": "geographic-source-mode",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L736",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L599",
     "description": "Geographic runtime mode. 'standard' keeps the historical DEM/outlet/polygon workflow. 'synthetic' builds one analytical support from [geographic.synthetic]."
   },
   {
@@ -141,7 +141,7 @@
     "section": "geographic",
     "anchor": "geographic-catchment",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L744",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L607",
     "description": "Catchment definition payload used when source_mode='standard'. Discriminated by 'catch_def' on the nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'."
   },
   {
@@ -249,7 +249,7 @@
     "section": "geographic",
     "anchor": "geographic-crs-project",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L756",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L619",
     "description": "Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM."
   },
   {
@@ -261,7 +261,7 @@
     "section": "geographic",
     "anchor": "geographic-dem-correc-type",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L760",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L623",
     "description": "How the DEM is conditioned before the catchment is delineated. 'fill' (default) only raises cells: each closed depression is raised to its spill level, then a small gradient on the flats lets every cell drain. 'breach' mostly lowers cells: "
   },
   {
@@ -273,7 +273,7 @@
     "section": "geographic",
     "anchor": "geographic-capped-breach",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L782",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L645",
     "description": "Limits of the 'capped_breach' conditioning: max_depth (default 0.5 m) and max_distance (default 200 m). Omitted, a 'capped_breach' run uses those defaults. Declaring it with any other dem_correc_type is refused: 'fill' and 'breach' have no "
   },
   {
@@ -285,7 +285,7 @@
     "section": "geographic",
     "anchor": "geographic-capped-breach-max-depth",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L647",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L510",
     "description": "Largest cumulative lowering, in metres, of one breach path (the 'max_cost' of Whitebox): the lowering summed over the cells of the path, not the depth of one cell. Measured on the Flume at 25 m with 8-cell paths, the realised maximum loweri"
   },
   {
@@ -297,7 +297,7 @@
     "section": "geographic",
     "anchor": "geographic-capped-breach-max-distance",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L664",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L527",
     "description": "Longest breach path, in metres. Translated to the DEM grid as ceil(max_distance / cell size) cells, at least one, and counted in cells along the path: a diagonal step counts one cell, so a diagonal breach can be up to 1.41 times longer than"
   },
   {
@@ -309,7 +309,7 @@
     "section": "geographic",
     "anchor": "geographic-terrain-engine",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L796",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L659",
     "description": "Flow-routing engine that conditions the DEM and delineates the catchment. Unset uses the engine this build defaults to. A string and not an enumeration: the values that resolve depend on what is installed beside HydroModPy, which is how a t"
   },
   {
@@ -321,7 +321,7 @@
     "section": "geographic",
     "anchor": "geographic-domain-extent",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L805",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L668",
     "description": "Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the"
   },
   {
@@ -333,7 +333,7 @@
     "section": "geographic",
     "anchor": "geographic-reg-fold",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L817",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L680",
     "description": "Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed."
   },
   {
@@ -345,7 +345,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L821",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L684",
     "description": "Synthetic geographic support used when source_mode='synthetic'. This analytical mode bypasses watershed delineation from external DEM files."
   },
   {
@@ -573,7 +573,7 @@
     "section": "geographic",
     "anchor": "geographic-river-network",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L828",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L691",
     "description": "Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing."
   },
   {
@@ -685,138 +685,6 @@
     "description": "Forwarded to Whitebox raster_streams_to_vector. False keeps a lighter vector geometry."
   },
   {
-    "path": "geographic.enforce_streams",
-    "name": "enforce_streams",
-    "type": "StreamEnforcementConfig",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L835",
-    "description": "Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve."
-  },
-  {
-    "path": "geographic.enforce_streams.enabled",
-    "name": "enabled",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-enabled",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L371",
-    "description": "Lower the mapped stream cells in the routing DEM before D8 so the computed flow paths follow the observed network."
-  },
-  {
-    "path": "geographic.enforce_streams.stream_geometry_path",
-    "name": "stream_geometry_path",
-    "type": "Path | None",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-stream-geometry-path",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L378",
-    "description": "Observed stream network (gpkg/shp) to burn. A bare filename resolves against <workspace>/data/hydrography/. When left empty and enabled, it falls back to the network [[data.hydrography.sources]] declares, so the same file is named once; dec"
-  },
-  {
-    "path": "geographic.enforce_streams.mode",
-    "name": "mode",
-    "type": "Literal['constant', 'adaptive']",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-mode",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L392",
-    "description": "Trench depth rule. 'constant' lowers every stream cell by depth_m. 'adaptive' derives one depth from the measured local relief along the network. Either way a single depth is used, so the along-channel gradient the trench exists to preserve"
-  },
-  {
-    "path": "geographic.enforce_streams.depth_m",
-    "name": "depth_m",
-    "type": "float",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-depth-m",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L401",
-    "description": "Trench depth (metres) for mode='constant'. It must exceed the local drop between a stream cell and its lowest non-stream neighbour; 5 m clears 0.90 agreement on every measured catchment, 10 to 20 m are needed for 0.95 to 0.99 on the difficu"
-  },
-  {
-    "path": "geographic.enforce_streams.adaptive_percentile",
-    "name": "adaptive_percentile",
-    "type": "float",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-adaptive-percentile",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L416",
-    "description": "Percentile of the local relief along the network used as the trench depth when mode='adaptive'."
-  },
-  {
-    "path": "geographic.enforce_streams.relief_report_percentile",
-    "name": "relief_report_percentile",
-    "type": "float",
-    "profile": "expert",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-relief-report-percentile",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L429",
-    "description": "Percentile of the local relief along the network reported in the burn report and compared to the depth actually used, whatever the mode. It is the drop a constant trench must clear to keep the flow on the mapped network, so a depth below it"
-  },
-  {
-    "path": "geographic.enforce_streams.rasterize_all_touched",
-    "name": "rasterize_all_touched",
-    "type": "bool",
-    "profile": "expert",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-rasterize-all-touched",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L441",
-    "description": "Rasterize the network with the all-touched rule, so every cell a reach crosses is burned and not only those whose centre falls under the line. A one-cell-wide trace that skips a cell leaves a step the flow escapes through, which is what the"
-  },
-  {
-    "path": "geographic.enforce_streams.dem_nodata_fallback",
-    "name": "dem_nodata_fallback",
-    "type": "float",
-    "profile": "expert",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-dem-nodata-fallback",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L451",
-    "description": "Nodata value assumed when the DEM to burn declares none in its header. It decides which cells are excluded from the burn and from the relief measurement, so a raster using another sentinel must say so here."
-  },
-  {
-    "path": "geographic.enforce_streams.alpha_warning_threshold",
-    "name": "alpha_warning_threshold",
-    "type": "float",
-    "profile": "expert",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-alpha-warning-threshold",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L459",
-    "description": "Below this agreement between the mapped network and the D8 paths of the routing DEM, a warning fires. alpha is the share of the downstream closure of the network that the network itself covers: 1.00 means the computed paths never leave the "
-  },
-  {
-    "path": "geographic.enforce_streams.max_catchment_area_drift",
-    "name": "max_catchment_area_drift",
-    "type": "float",
-    "profile": "user",
-    "stability": "stable",
-    "section": "geographic",
-    "anchor": "geographic-enforce-streams-max-catchment-area-drift",
-    "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L473",
-    "description": "Relative change of the delineated catchment area the burn may cause. A trench that crosses a divide (mis-georeferenced trace, canal, flat area) reconnects two catchments and the delineation changes without any other sign, so the catchment i"
-  },
-  {
     "path": "geographic.enforce_lakes",
     "name": "enforce_lakes",
     "type": "LakeEnforcementConfig",
@@ -825,7 +693,7 @@
     "section": "geographic",
     "anchor": "geographic-enforce-lakes",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L843",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L698",
     "description": "Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top."
   },
   {
@@ -921,7 +789,7 @@
     "section": "geographic",
     "anchor": "geographic-dam-carve",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L851",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L706",
     "description": "Optional dam structure-carve of the ground: lower the dam footprint to the valley floor, for the routing chain and the model top alike, so a cutoff wall sits at the dam on a raw DEM."
   },
   {
@@ -933,7 +801,7 @@
     "section": "geographic",
     "anchor": "geographic-dam-carve-enabled",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L503",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L366",
     "description": "Carve the dam footprint of the ground down to the local valley floor, so the routing chain and the model top both see the dam removed and the cutoff wall sits at the true dam on a raw DEM."
   },
   {
@@ -945,7 +813,7 @@
     "section": "geographic",
     "anchor": "geographic-dam-carve-line-path",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L511",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L374",
     "description": "Dam trace (gpkg/shp/csv) along which the ground is carved. A bare filename resolves against <workspace>/data/cutoff_wall/. Usually the same surveyed voile axis as the cutoff_wall. Required when enabled."
   },
   {
@@ -957,7 +825,7 @@
     "section": "geographic",
     "anchor": "geographic-dam-carve-buffer-m",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L523",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L386",
     "description": "Half-width (metres) of the carved corridor around the dam trace. Make it a bit wider than one DEM/cell size so the whole dam body is brought to the valley floor."
   },
   {
@@ -969,7 +837,7 @@
     "section": "geographic",
     "anchor": "geographic-dam-carve-search-radius-m",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L532",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L395",
     "description": "Radius (metres) of the neighborhood whose minimum elevation defines the valley floor the corridor is carved to. When omitted, derives 3 * buffer_m."
   },
   {
@@ -981,7 +849,7 @@
     "section": "geographic",
     "anchor": "geographic-crossings",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L859",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L714",
     "description": "Optional notch of the ground at the roads, railways and bridges that cross the generated channel tree: the embankment is lowered to the bed level read on both sides, and the catchment is delineated again on the notched ground."
   },
   {
@@ -993,7 +861,7 @@
     "section": "geographic",
     "anchor": "geographic-crossings-enabled",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L562",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L425",
     "description": "Notch the ground at the crossings of the channel tree with the declared structures, then delineate again on the notched ground. Needs [geographic.river_network] enabled."
   },
   {
@@ -1005,7 +873,7 @@
     "section": "geographic",
     "anchor": "geographic-crossings-path",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L570",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L433",
     "description": "Vector file of the structures, with the columns 'kind', 'source', 'name' and 'drop_m' of the crossings data variable. When left empty and enabled, it is filled from [[data.crossings.sources]], so the structures are named once. Required when"
   },
   {
@@ -1017,7 +885,7 @@
     "section": "geographic",
     "anchor": "geographic-crossings-kinds",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L584",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L447",
     "description": "Structure kinds to notch. Weirs and dams are never notched."
   },
   {
@@ -1029,7 +897,7 @@
     "section": "geographic",
     "anchor": "geographic-crossings-notch-width",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L589",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L452",
     "description": "Width of the notch across the embankment, in metres. The channel pixel itself is always lowered, so a width below the cell size cuts one pixel. The width is applied along the embankment only, the run of channel pixels that stand above the b"
   },
   {
@@ -1041,7 +909,7 @@
     "section": "geographic",
     "anchor": "geographic-crossings-bed-reach",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L600",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L463",
     "description": "Distance along the channel, on each side of the crossing, where the bed level is read, in metres. The embankment is assumed narrower than twice this. The notch is the straight line between the two bed levels. A bed end that falls on the emb"
   },
   {
@@ -1053,7 +921,7 @@
     "section": "geographic",
     "anchor": "geographic-crossings-max-depth",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L612",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L475",
     "description": "Largest lowering of any pixel, in metres. A pixel that would be lowered more is lowered by this and counted as capped in the report: the embankment is then higher than the cap allows for, or the crossing sits on a ridge. Accepts inline unit"
   },
   {
@@ -1065,7 +933,7 @@
     "section": "geographic",
     "anchor": "geographic-crossings-snap-radius",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L623",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L486",
     "description": "A point structure (a bridge of the ROE) farther than this from the channel tree is ignored, and so is a channel pixel farther than this from its crossing, in metres. A dam or a weir of the file, or a dam_carve line, within this distance of "
   },
   {
@@ -1077,7 +945,7 @@
     "section": "geographic",
     "anchor": "geographic-bed-regularization",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L868",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L723",
     "description": "Optional least-change regularisation of the channel bed in the model top, on the pixels of the generated channel tree: the bed never rises downstream, crossing notches are gaps and declared weirs are drops."
   },
   {
@@ -1089,7 +957,7 @@
     "section": "geographic",
     "anchor": "geographic-bed-regularization-enabled",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L697",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L560",
     "description": "Regularise the channel bed of the model top: the least-change fit of the ground that never rises downstream along the channel tree, with the crossing notches as gaps and the declared weirs and dams as drops. Needs [geographic.river_network]"
   },
   {
@@ -1101,7 +969,7 @@
     "section": "geographic",
     "anchor": "geographic-bed-regularization-min-slope",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L706",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L569",
     "description": "Minimum drop of the fitted bed per metre along the channel (m/m), given to the flats the fit pools. The SFR default slope."
   },
   {
@@ -1113,7 +981,7 @@
     "section": "geographic",
     "anchor": "geographic-reuse-existing-outputs",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L876",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L731",
     "description": "If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace."
   },
   {
@@ -1125,7 +993,7 @@
     "section": "geographic",
     "anchor": "geographic-write-intermediates",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L886",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L741",
     "description": "Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/<run>/_preprocessing/ is removed after ingestion into the run field store."
   },
   {
@@ -9111,30 +8979,6 @@
     "description": "Mapping of stream-network ids to typed SFR payloads."
   },
   {
-    "path": "flow.sinks_sources.sfr.<id>.stream_threshold_km2",
-    "name": "stream_threshold_km2",
-    "type": "float | None",
-    "profile": "user",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-sinks-sources-sfr-id-stream-threshold-km2",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L183",
-    "description": ""
-  },
-  {
-    "path": "flow.sinks_sources.sfr.<id>.stream_threshold_cells",
-    "name": "stream_threshold_cells",
-    "type": "int | None",
-    "profile": "user",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-sinks-sources-sfr-id-stream-threshold-cells",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L192",
-    "description": ""
-  },
-  {
     "path": "flow.sinks_sources.sfr.<id>.min_reach_length",
     "name": "min_reach_length",
     "type": "Any",
@@ -9143,7 +8987,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-min-reach-length",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L197",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L184",
     "description": ""
   },
   {
@@ -9155,7 +8999,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-manning",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L203",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L190",
     "description": ""
   },
   {
@@ -9167,7 +9011,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-streambed-k",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L210",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L197",
     "description": ""
   },
   {
@@ -9179,7 +9023,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-streambed-k-unit",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L221",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L208",
     "description": ""
   },
   {
@@ -9191,7 +9035,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-streambed-thickness",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L228",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L215",
     "description": ""
   },
   {
@@ -9203,7 +9047,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-min-slope",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L232",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L219",
     "description": ""
   },
   {
@@ -9215,7 +9059,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-bed-incision",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L237",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L227",
     "description": ""
   },
   {
@@ -9227,7 +9071,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-max-bed-sag",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L254",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L244",
     "description": ""
   },
   {
@@ -9239,7 +9083,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-width",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L265",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L255",
     "description": ""
   },
   {
@@ -9311,7 +9155,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-connected-to-aquifer",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L270",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L260",
     "description": ""
   },
   {
@@ -9323,7 +9167,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-route-drainage",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L274",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L264",
     "description": ""
   },
   {
@@ -9335,7 +9179,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-storage",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L287",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L277",
     "description": ""
   },
   {
@@ -9347,7 +9191,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-headwater-inflow",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L293",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L283",
     "description": ""
   },
   {
@@ -9515,7 +9359,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-runoff",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L297",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L287",
     "description": ""
   },
   {
@@ -9683,7 +9527,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-rainfall",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L301",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L291",
     "description": ""
   },
   {
@@ -9851,7 +9695,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-evaporation",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L305",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L295",
     "description": ""
   },
   {
@@ -10019,7 +9863,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-reaches",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L311",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L301",
     "description": ""
   },
   {
@@ -10127,7 +9971,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-diversions",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L315",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L305",
     "description": ""
   },
   {
@@ -10187,7 +10031,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-outflow-to-lake",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L321",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L311",
     "description": ""
   },
   {
@@ -10199,7 +10043,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-outflow-mvrtype",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L329",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L319",
     "description": ""
   },
   {
@@ -10211,7 +10055,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-outflow-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L335",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L325",
     "description": ""
   },
   {
@@ -10223,7 +10067,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-lake-feeder-snap",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L348",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L338",
     "description": ""
   },
   {
@@ -10235,7 +10079,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-outlet-keepout",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L356",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L346",
     "description": ""
   },
   {
@@ -10247,7 +10091,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-rectify-on-mesh",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L364",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L354",
     "description": ""
   },
   {
@@ -10259,7 +10103,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-rectify-stub-max-upstream",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L379",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L369",
     "description": ""
   },
   {
@@ -10271,7 +10115,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-sfr-id-rectify-min-component-cells",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L390",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L380",
     "description": ""
   },
   {
@@ -12705,7 +12549,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-planar",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L341",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L324",
     "description": "Planar discretization of the solver grid."
   },
   {
@@ -12765,7 +12609,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-vertical",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L345",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328",
     "description": "Vertical layering of the solver grid."
   },
   {
@@ -12837,32 +12681,8 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-grid-dual",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L349",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L332",
     "description": "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the defaul"
-  },
-  {
-    "path": "modflownwt.sgrid.condition_top",
-    "name": "condition_top",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "modflownwt",
-    "anchor": "modflownwt-sgrid-condition-top",
-    "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L359",
-    "description": "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsi"
-  },
-  {
-    "path": "modflownwt.sgrid.condition_top_epsilon",
-    "name": "condition_top_epsilon",
-    "type": "float",
-    "profile": "user",
-    "stability": "stable",
-    "section": "modflownwt",
-    "anchor": "modflownwt-sgrid-condition-top-epsilon",
-    "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L375",
-    "description": "Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true."
   },
   {
     "path": "modflownwt.sgrid.top_sampling",
@@ -12873,7 +12693,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-top-sampling",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L384",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342",
     "description": "How the top of the solver grid is sampled from the DEM."
   },
   {
@@ -12971,30 +12791,6 @@
     "page": "modflownwt.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L311",
     "description": "Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved channel top never collides with the aquifer bottom."
-  },
-  {
-    "path": "modflownwt.sgrid.top_sampling.network_safety_net",
-    "name": "network_safety_net",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "modflownwt",
-    "anchor": "modflownwt-sgrid-top-sampling-network-safety-net",
-    "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L319",
-    "description": "Before the priority-flood fill, carve the channel cells into a monotone descending thalweg (lower-only) and pin them so the fill never raises them. Fixes the fill re-raising a zonal-lowered channel; needs a channel source (mode='zonal' with"
-  },
-  {
-    "path": "modflownwt.sgrid.top_sampling.max_channel_lowering_m",
-    "name": "max_channel_lowering_m",
-    "type": "float",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "modflownwt",
-    "anchor": "modflownwt-sgrid-top-sampling-max-channel-lowering-m",
-    "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328",
-    "description": "Cap (m) on how far the network safety net may carve a single channel cell below its sampled top."
   },
   {
     "path": "modflow6.runtime",
@@ -13401,7 +13197,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-planar",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L341",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L324",
     "description": "Planar discretization of the solver grid."
   },
   {
@@ -13461,7 +13257,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-vertical",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L345",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328",
     "description": "Vertical layering of the solver grid."
   },
   {
@@ -13533,32 +13329,8 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-grid-dual",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L349",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L332",
     "description": "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the defaul"
-  },
-  {
-    "path": "modflow6.sgrid.condition_top",
-    "name": "condition_top",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "modflow6",
-    "anchor": "modflow6-sgrid-condition-top",
-    "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L359",
-    "description": "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsi"
-  },
-  {
-    "path": "modflow6.sgrid.condition_top_epsilon",
-    "name": "condition_top_epsilon",
-    "type": "float",
-    "profile": "user",
-    "stability": "stable",
-    "section": "modflow6",
-    "anchor": "modflow6-sgrid-condition-top-epsilon",
-    "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L375",
-    "description": "Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true."
   },
   {
     "path": "modflow6.sgrid.top_sampling",
@@ -13569,7 +13341,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-top-sampling",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L384",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342",
     "description": "How the top of the solver grid is sampled from the DEM."
   },
   {
@@ -13667,30 +13439,6 @@
     "page": "modflow6.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L311",
     "description": "Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved channel top never collides with the aquifer bottom."
-  },
-  {
-    "path": "modflow6.sgrid.top_sampling.network_safety_net",
-    "name": "network_safety_net",
-    "type": "bool",
-    "profile": "user",
-    "stability": "stable",
-    "section": "modflow6",
-    "anchor": "modflow6-sgrid-top-sampling-network-safety-net",
-    "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L319",
-    "description": "Before the priority-flood fill, carve the channel cells into a monotone descending thalweg (lower-only) and pin them so the fill never raises them. Fixes the fill re-raising a zonal-lowered channel; needs a channel source (mode='zonal' with"
-  },
-  {
-    "path": "modflow6.sgrid.top_sampling.max_channel_lowering_m",
-    "name": "max_channel_lowering_m",
-    "type": "float",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "modflow6",
-    "anchor": "modflow6-sgrid-top-sampling-max-channel-lowering-m",
-    "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328",
-    "description": "Cap (m) on how far the network safety net may carve a single channel cell below its sampled top."
   },
   {
     "path": "display.enabled",

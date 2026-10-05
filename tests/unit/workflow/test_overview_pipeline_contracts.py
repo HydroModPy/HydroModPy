@@ -8,7 +8,7 @@ from pydantic import ValidationError
 import hydromodpy.data.variables.dem.resolver as dem_resolver
 import hydromodpy.data.variables.hydrography.resolver as hydrography_resolver
 import hydromodpy.workflow.pipelines.overview as overview_module
-from hydromodpy.core.exceptions import ConfigMissingError
+from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.data.loading.config_schema import DataManagersConfig
 from hydromodpy.data.variables.recharge.config import RechargeConfig, RechargeSourceConfig
 from hydromodpy.data.variables.runoff.config import RunoffConfig, RunoffSourceConfig
@@ -156,15 +156,10 @@ def test_bootstrap_dem_raises_when_no_path_or_data_source_can_resolve(
         launcher._bootstrap_dem(state)
 
 
-def _burn_state(tmp_path, *, enabled=True, declared=None, sources=()):
+def _map_state(tmp_path, *, sources=()):
     return SimpleNamespace(
         cfg=SimpleNamespace(
-            geographic=SimpleNamespace(
-                enforce_streams=SimpleNamespace(
-                    enabled=enabled,
-                    stream_geometry_path=declared,
-                )
-            ),
+            geographic=SimpleNamespace(),
             data=SimpleNamespace(hydrography=SimpleNamespace(sources=list(sources))),
         ),
         workspace=SimpleNamespace(paths=SimpleNamespace(data_path=tmp_path / "data")),
@@ -177,53 +172,61 @@ def _launcher(tmp_path):
     return launcher
 
 
-def test_bootstrap_stream_geometry_fills_the_burn_from_the_data_family(
-    monkeypatch, tmp_path
-) -> None:
+def test_resolve_network_map_returns_the_path_of_the_data_family(monkeypatch, tmp_path) -> None:
     network = tmp_path / "network.gpkg"
     monkeypatch.setattr(
         hydrography_resolver,
-        "resolve_stream_geometry_path_from_data_sources",
+        "resolve_network_map_path",
         lambda *args, **kwargs: network,
     )
-    state = _burn_state(tmp_path, sources=[SimpleNamespace(source="custom")])
+    state = _map_state(tmp_path, sources=[SimpleNamespace(source="custom")])
 
-    _launcher(tmp_path)._bootstrap_stream_geometry(state)
-
-    assert state.cfg.geographic.enforce_streams.stream_geometry_path == network
-
-
-def test_bootstrap_stream_geometry_leaves_a_disabled_burn_alone(tmp_path) -> None:
-    state = _burn_state(tmp_path, enabled=False, sources=[SimpleNamespace(source="custom")])
-
-    _launcher(tmp_path)._bootstrap_stream_geometry(state)
-
-    assert state.cfg.geographic.enforce_streams.stream_geometry_path is None
+    assert _launcher(tmp_path)._resolve_network_map(state) == network
+    assert vars(state.cfg.geographic) == {}
 
 
-def test_bootstrap_stream_geometry_defers_when_no_hydrography_source_is_declared(
-    tmp_path,
-) -> None:
-    """Same deferral as the run pipeline: the burn names the file it cannot read."""
-    state = _burn_state(tmp_path, sources=[])
+def test_resolve_network_map_defers_when_no_hydrography_source_is_declared(tmp_path) -> None:
+    """Same rule as the run pipeline: no source, alpha does not run."""
+    state = _map_state(tmp_path, sources=[])
 
-    _launcher(tmp_path)._bootstrap_stream_geometry(state)
-
-    assert state.cfg.geographic.enforce_streams.stream_geometry_path is None
+    assert _launcher(tmp_path)._resolve_network_map(state) is None
 
 
-def test_bootstrap_stream_geometry_raises_when_the_data_family_holds_no_vector(
+def test_resolve_network_map_does_not_raise_when_the_data_family_holds_no_vector(
     monkeypatch, tmp_path
 ) -> None:
     monkeypatch.setattr(
         hydrography_resolver,
-        "resolve_stream_geometry_path_from_data_sources",
+        "resolve_network_map_path",
         lambda *args, **kwargs: None,
     )
-    state = _burn_state(tmp_path, sources=[SimpleNamespace(source="custom")])
+    state = _map_state(tmp_path, sources=[SimpleNamespace(source="custom")])
 
-    with pytest.raises(ConfigMissingError, match="a raster one cannot be burned"):
-        _launcher(tmp_path)._bootstrap_stream_geometry(state)
+    assert _launcher(tmp_path)._resolve_network_map(state) is None
+
+
+def test_the_geographic_step_receives_the_map_path(monkeypatch, tmp_path) -> None:
+    seen: dict[str, object] = {}
+
+    class _Delineation:
+        def __init__(self, config, workspace, *, network_map_path=None):
+            seen["network_map_path"] = network_map_path
+
+    monkeypatch.setattr(
+        "hydromodpy.spatial.geographic.catchment_delineation.CatchmentDelineation",
+        _Delineation,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.spatial.geographic.core.derived_features.coerce_geographic_derived_features",
+        lambda geographic: None,
+    )
+    state = SimpleNamespace(cfg=SimpleNamespace(geographic=SimpleNamespace()), workspace=None)
+    network = tmp_path / "network.gpkg"
+
+    with pytest.raises(ConfigError):
+        overview_module.DataOverviewLauncher._setup_geographic(state, network)
+
+    assert seen["network_map_path"] == network
 
 
 def test_bootstrap_dem_assigns_on_the_catchment_variant(monkeypatch, tmp_path) -> None:

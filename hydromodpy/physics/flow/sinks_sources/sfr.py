@@ -1,7 +1,7 @@
 """Streamflow-routing (SFR) boundary-condition payload for the flow process.
 
 Defines :class:`FlowReachNetworkConfig`, the physics-layer parameters for one
-MODFLOW 6 SFR stream network: the delineation thresholds, the streambed
+MODFLOW 6 SFR stream network: the reach filters, the streambed
 hydraulics (Manning roughness, conductivity, thickness), the reach width law, the
 transient forcings (headwater inflow, runoff, rainfall, evaporation) and the
 optional MVR coupling to a downstream lake.
@@ -166,8 +166,9 @@ class FlowReachDiversionConfig(HydroModelBase):
 class FlowReachNetworkConfig(HydroModelBase):
     """Typed boundary-condition payload for one MODFLOW 6 SFR stream network.
 
-    The network is either delineated automatically from the DEM / D8 flow
-    products (set a stream threshold) or supplied explicitly through ``reaches``.
+    The network is either traced automatically on A, the river network of
+    ``[geographic.river_network]`` (whose threshold is the only one), or supplied
+    explicitly through ``reaches``.
     Reaches exchange with the aquifer through their streambed conductance
     (``streambed_k`` / ``streambed_thickness``) unless ``connected_to_aquifer`` is
     False. The transient forcings (``headwater_inflow``, ``runoff`` as volumetric
@@ -180,20 +181,6 @@ class FlowReachNetworkConfig(HydroModelBase):
     """
 
     # --- Delineation knobs -------------------------------------------------- #
-    stream_threshold_km2: Annotated[float | None, Profile.USER] = Field(
-        default=None,
-        gt=0.0,
-        description=(
-            "Drainage-area threshold [km^2] for stream initiation. Exactly one of "
-            "stream_threshold_km2 / stream_threshold_cells must be set when reaches "
-            "are delineated automatically."
-        ),
-    )
-    stream_threshold_cells: Annotated[int | None, Profile.USER] = Field(
-        default=None,
-        ge=1,
-        description="Alternative stream-initiation threshold as a flow-accumulation cell count.",
-    )
     min_reach_length: Annotated[Length, Profile.USER] = Field(
         default="0 m",
         description="Prune reaches shorter than this [L] (0 keeps all reaches).",
@@ -232,7 +219,10 @@ class FlowReachNetworkConfig(HydroModelBase):
     min_slope: Annotated[float, Profile.USER] = Field(
         default=1e-4,
         gt=0.0,
-        description="Floor for the reach gradient rgrd [-] after monotone-downhill conditioning.",
+        description=(
+            "Floor for the reach gradient rgrd [-]. It also sets the drop the bed profile "
+            "solve keeps between neighbouring reaches."
+        ),
     )
     bed_incision: Annotated[Length | None, Profile.USER] = Field(
         default=None,
@@ -243,8 +233,8 @@ class FlowReachNetworkConfig(HydroModelBase):
             "the cell bottom instead of stopping at max_bed_sag. When set, each reach is "
             "solved inside [cell_top - bed_incision - max_bed_sag, cell_top - bed_incision], "
             "monotone downstream, and the build refuses when that band is empty. rtp is delineated on the model top, so this anchors a "
-            "bed that a coarse DEM cannot resolve; it is not a correction for the stream "
-            "burn, which never reaches the bed. Pick it against the water table, not "
+            "bed that a coarse DEM cannot resolve; it is not a correction for the descent "
+            "D, which never reaches the bed. Pick it against the water table, not "
             "against the channel: "
             "MODFLOW 6 switches a reach between connected and disconnected at rtp minus "
             "streambed_thickness (gwf-sfr.f90:3973-3985), so a bed sitting near the "
@@ -277,7 +267,7 @@ class FlowReachNetworkConfig(HydroModelBase):
             "Route the hillslope drainage (DRN) discharge into the stream network: "
             "every remaining DRN cell of the basin hands its outflow, through an MVR "
             "record (FACTOR 1.0), to the first reach or lake cell met on its descent "
-            "D, a filled copy of the model top (no condition_top required). A cell "
+            "D, a filled copy of the model top. A cell "
             "whose descent leaves the model first keeps a plain DRN. "
             "This is the surface re-infiltration / runon convergence of drained "
             "water towards the river; without it only the reach cells' streambed "
@@ -310,7 +300,7 @@ class FlowReachNetworkConfig(HydroModelBase):
     # --- Explicit network override ----------------------------------------- #
     reaches: Annotated[list[FlowReachConfig] | None, Profile.DEV] = Field(
         default=None,
-        description="Explicit reach table; bypasses delineation. None = delineate from the DEM.",
+        description="Explicit reach table; bypasses delineation. None = trace the reaches on A, the river network.",
     )
     diversions: Annotated[list[FlowReachDiversionConfig], Profile.USER] = Field(
         default_factory=list,
@@ -373,7 +363,7 @@ class FlowReachNetworkConfig(HydroModelBase):
             "following the thalweg of D (so the surface "
             "flow follows the reach), and always reaching a real sink (no inland dead-end that "
             "leaks its flow out). The streambed top is read on the model top, never on D. "
-            "No condition_top is required: D is a copy and never returns to the solver."
+            "D is a copy and never returns to the solver."
         ),
     )
     rectify_stub_max_upstream: Annotated[int, Profile.EXPERT] = Field(
@@ -404,20 +394,6 @@ class FlowReachNetworkConfig(HydroModelBase):
         """Reject a streambed_k unit that is not a velocity (L/T) at config time."""
         normalize_m_per_s_unit(value)
         return value
-
-    @model_validator(mode="after")
-    def _validate_threshold(self) -> FlowReachNetworkConfig:
-        """Delineation needs exactly one threshold; an explicit network needs none."""
-        if self.reaches is not None:
-            return self
-        has_km2 = self.stream_threshold_km2 is not None
-        has_cells = self.stream_threshold_cells is not None
-        if has_km2 == has_cells:
-            raise ValueError(
-                "flow.sinks_sources.sfr needs exactly one of stream_threshold_km2 / "
-                "stream_threshold_cells when reaches are delineated automatically"
-            )
-        return self
 
     @model_validator(mode="after")
     def _validate_outflow(self) -> FlowReachNetworkConfig:

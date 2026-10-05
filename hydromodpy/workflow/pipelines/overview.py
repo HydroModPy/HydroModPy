@@ -68,15 +68,15 @@ class DataOverviewLauncher:
         # Phase 1b: DEM bootstrap (download via API if no local path)
         self._bootstrap_dem(state)
 
-        # Phase 1c: burn network bootstrap (reuse [data.hydrography] if no local path)
-        self._bootstrap_stream_geometry(state)
+        # Phase 1c: the local network map of [data.hydrography], read by alpha only
+        network_map_path = self._resolve_network_map(state)
 
         # Phase 1d: crossings bootstrap (reuse [data.crossings] if no local path)
         self._bootstrap_crossings(state)
 
         # Phase 2: Geographic (watershed delineation)
         with progress.phase("Delineating the catchment"):
-            self._setup_geographic(state)
+            self._setup_geographic(state, network_map_path)
 
         # Phase 3: Data loading
         with progress.phase("Loading data"):
@@ -157,49 +157,26 @@ class DataOverviewLauncher:
         geo_cfg.catchment.dem_init_path = resolved
 
     # ------------------------------------------------------------------
-    # Phase 1c - Stream burn network bootstrap
+    # Phase 1c - Network map for the alpha diagnostic
     # ------------------------------------------------------------------
 
-    def _bootstrap_stream_geometry(self, state: DataOverviewState) -> None:
-        """Resolve the burn network from ``[[data.hydrography.sources]]`` if absent.
+    def _resolve_network_map(self, state: DataOverviewState) -> Path | None:
+        """Return the local vector map of ``[[data.hydrography.sources]]``, or None.
 
         Delegates to the shared resolver so the standard simulation pipeline and
         the overview pipeline behave identically, exactly as ``_bootstrap_dem``
-        does for the DEM. With no hydrography source declared at all, nothing is
-        raised here: the burn names the file it could not read when it reads it.
+        does for the DEM. The map never enters the configuration: it reaches the
+        geographic step as a path and feeds the alpha diagnostic only. ``None``
+        means alpha does not run.
         """
-        from hydromodpy.data.variables.hydrography.resolver import (
-            resolve_stream_geometry_path_from_data_sources,
-        )
+        from hydromodpy.data.variables.hydrography.resolver import resolve_network_map_path
 
-        geo_cfg = state.cfg.geographic
-        enforce_cfg = getattr(geo_cfg, "enforce_streams", None)
-        if enforce_cfg is None or not enforce_cfg.enabled:
-            return
-        if enforce_cfg.stream_geometry_path is not None:
-            return
         hydrography_cfg = getattr(state.cfg.data, "hydrography", None)
         if not getattr(hydrography_cfg, "sources", None):
-            return
-
-        cache_dir = None
-        if state.workspace is not None and state.workspace.paths.data_path is not None:
-            cache_dir = state.workspace.paths.data_path / "hydrography"
-
-        resolved = resolve_stream_geometry_path_from_data_sources(
-            state.cfg,
-            config_path=self.config_path,
-            cache_dir=cache_dir,
-        )
-        if resolved is None:
-            raise ConfigMissingError(
-                "geographic.enforce_streams is enabled without a stream_geometry_path, "
-                "and [[data.hydrography.sources]] holds no vector network to fall back "
-                "on. Either set geographic.enforce_streams.stream_geometry_path, or "
-                "declare a vector hydrography source (a raster one cannot be burned)."
-            )
-        logger.debug("[overview] Burn network resolved from [data.hydrography]: %s", resolved)
-        enforce_cfg.stream_geometry_path = resolved
+            return None
+        resolved = resolve_network_map_path(state.cfg, config_path=self.config_path)
+        logger.debug("[overview] Network map resolved from [data.hydrography]: %s", resolved)
+        return resolved
 
     # ------------------------------------------------------------------
     # Phase 1d - Crossings notch bootstrap
@@ -251,13 +228,15 @@ class DataOverviewLauncher:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _setup_geographic(state: DataOverviewState) -> None:
+    def _setup_geographic(state: DataOverviewState, network_map_path: Path | None) -> None:
         from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
         from hydromodpy.spatial.geographic.core.derived_features import (
             coerce_geographic_derived_features,
         )
 
-        geographic = CatchmentDelineation(state.cfg.geographic, state.workspace)
+        geographic = CatchmentDelineation(
+            state.cfg.geographic, state.workspace, network_map_path=network_map_path
+        )
         state.geographic = geographic
 
         geographic_features = coerce_geographic_derived_features(

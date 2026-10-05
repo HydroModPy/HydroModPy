@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from geopy.geocoders import Nominatim
 
 from hydromodpy.spatial.geographic.core.derived_features import (
@@ -135,6 +137,7 @@ class CatchmentDelineation:
         initializing: object,
         *,
         reuse_existing_outputs: bool | None = None,
+        network_map_path: str | Path | None = None,
     ):
         """Initialize and run geographic preprocessing.
 
@@ -151,9 +154,13 @@ class CatchmentDelineation:
             Overrides ``config.reuse_existing_outputs`` when not None. A
             pipeline rebuilding a step it already completed passes True so the
             products on disk are read instead of delineated again.
+        network_map_path
+            Local vector file of the mapped network, read by the alpha
+            diagnostic only. ``None`` skips the diagnostic.
         """
         self._config = config
         self._reuse_existing_outputs = reuse_existing_outputs
+        self._network_map_path = network_map_path
         self.out_dir_path = initializing.project_root
         self.catch_def = config.catch_def
         self.dem_init_path = str(config.dem_init_path)
@@ -179,12 +186,6 @@ class CatchmentDelineation:
         them off this object rather than off the configuration. Without this
         line the two sides of one run route with two different engines, and
         nothing downstream can say so.
-        """
-        self.stream_burn_enabled = bool(config.enforce_streams.enabled)
-        """Whether the routing DEM carries the burned observed network.
-
-        The generated network is then traced on the map, and an observation never
-        enters the routing: the solver does not pin its descent on that network.
         """
         self.river_network_enabled = bool(config.river_network.enabled)
         """Whether this run generates the river network from the routing DEM.
@@ -319,6 +320,7 @@ class CatchmentDelineation:
             backend=tool,
             locator_factory=Nominatim,
             reuse_existing_outputs=self._reuse_existing_outputs,
+            network_map_path=self._network_map_path,
         )
         for attr_name, value in context.runtime_attributes().items():
             setattr(self, attr_name, value)

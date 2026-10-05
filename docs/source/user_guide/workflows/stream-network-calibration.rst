@@ -15,30 +15,21 @@ Before you start
 
 Four things have to be true, and the first is the one people skip.
 
-**The mapped network must sit in the talwegs of the routing surface.** The
-criterion measures lengths along the flow paths of the DEM, so if the linework
-does not follow them, it measures a disagreement between two datasets. Burn the
-network into the routing surface first:
+**The map enters the criterion by its heads.** The criterion measures lengths
+along the flow paths of the model top, so a mapped network that does not follow
+those paths would make it measure a disagreement between two datasets. HydroModPy
+does not edit the routing surface to hide that disagreement: nothing is burned,
+and the model top stays on the ground (the DEM and the declared dam and crossing
+corrections), because a top lowered along the mapped network would give a model
+that seeps along it by construction. The criterion takes the map by its heads
+instead (``observed_rasterization = "heads"``, the default, described under the
+criterion settings below): the free ends of the map land on the mesh and the rest
+of the network is drawn down the criterion's own descent, so the field ditches
+below a head stop counting as model error.
 
-.. code-block:: toml
-
-   [geographic.enforce_streams]
-   enabled = true
-   stream_geometry_path = "data/hydrography/streams.gpkg"
-   mode = "constant"
-   depth_m = 30
-
-The burn needs a network, and it needs it as a file: it runs inside the
-geographic step, before any data manager, so it cannot read what the data
-loading step later produces. ``stream_geometry_path`` says which file, and it is
-anchored once, when the configuration is loaded: a relative value against the
-directory of the TOML that declares it, a bare filename under
-``<workspace>/data/hydrography/`` then ``<workspace>/data/``. Nothing is probed
-when the file is read, so the run takes the same network whatever directory it
-was launched from.
-
-Leave it out and the burn falls back to what ``[[data.hydrography.sources]]``
-declares, so the same file is named once:
+The disagreement between the DEM and the map is read on ``alpha``, a diagnostic
+of the geographic step. It needs the map as a local vector file, named once under
+``[[data.hydrography.sources]]``:
 
 .. code-block:: toml
 
@@ -46,48 +37,38 @@ declares, so the same file is named once:
    source = "custom"
    path = "streams.gpkg"
 
-   [geographic.enforce_streams]
-   enabled = true
-   mode = "constant"
-   depth_m = 30
+The file is read by the geographic step, before any data manager, so it cannot
+use what the data loading step later produces. The path is anchored once, when
+the configuration is loaded: a relative value against the directory of the TOML
+that declares it, a bare filename under ``<workspace>/data/hydrography/`` then
+``<workspace>/data/``. Nothing is probed when the file is read, so the run takes
+the same network whatever directory it was launched from. A ``custom`` source
+hands its own file straight over, a directory yields its first vector layer, and
+a raster one yields nothing, since alpha rasterizes geometries onto the DEM grid
+itself. An API source (``osm``, ``bdtopage``, ``euhydro``) is never downloaded for
+alpha: the step logs that alpha needs a custom vector source and moves on. With
+no usable source, alpha does not run and nothing else changes.
 
-A ``custom`` source hands its own file straight over, a directory yields its
-first vector layer, and a raster one yields nothing: the burn rasterizes
-geometries onto the DEM grid itself. An API source (``osm``, ``bdtopage``,
-``euhydro``) is downloaded on a box around ``x_outlet`` / ``y_outlet``, clipped
-to the DEM footprint, and cached under ``<workspace>/data/hydrography/``; the
-watershed a data manager would clip against is not delineated yet at that point,
-and the regional extent is what the burn wants anyway. Declaring
-``stream_geometry_path`` explicitly always wins, which is how you burn a network
-that differs from the one the data family loads. Declaring neither stops the
-geographic pipeline at the first step, before anything is calibrated.
-
-A project declaring that path gets the agreement measured whether or not
-``enabled`` is set, which is how you find out that the burning is needed. It
-goes to ``stream_dem_agreement.json`` in the geographic directory, as
-``alpha``: the ratio between the mapped network and its own downslope closure,
-where one means the linework follows the talwegs and below 0.90 the run warns.
-Redo the burning at every change of resolution: the ratio between the width of
-the linework and the cell size changes with it.
+With a map, the step writes ``stream_dem_agreement.json`` in the geographic
+directory, as ``alpha``: the ratio between the mapped network and its own
+downslope closure on the D8 pointer of the routing DEM, where one means the
+linework follows the talwegs and below 0.90 the run warns. It is a diagnostic and
+decides no treatment. The ratio between the width of the linework and the cell
+size changes with the resolution, so read it again at every change of it.
 
 **That number is not the one the criterion publishes, and the two cannot
-agree.** The burn is cut into the routing DEM alone; the model top stays on the
-ground (the DEM and the declared dam and crossing corrections, never the burn),
-because a top lowered along the mapped network would give a model that
-seeps along it by construction. The criterion measures its distances on that
-top, so the ratio it recomputes on the solver mesh and publishes per trial as
-``alpha_obs_closure`` describes a different surface. On the Nancon the routing
-DEM reaches ``alpha = 0.994`` after a 30 m burn while ``alpha_obs_closure``
-sat at 0.306, and ``alpha_obs_closure_catchment`` at 0.693, when one outlet
-sealed the whole mesh. With the flood seeded on the domain border the buffer
-reaches leave through the border, and the first two come close (0.81 and 0.77
-on a 75 m proxy of the same basin). Read the three:
-the first says the delineation and the flow paths follow the map, the third
-says how much of the criterion's own measurement is a top-versus-map
-disagreement, and the gap between the second and the third is the mapped
-linework the criterion carries outside the basin. **A trial is judged on the
-third.** The criterion never descends the burned surface, so a low value there
-is never a reason to burn deeper.
+agree.** Alpha reads the D8 pointer of the routing DEM, the criterion measures
+its distances on the model top, and the ratio it recomputes on the solver mesh
+and publishes per trial as ``alpha_obs_closure`` describes that other surface.
+The two alphas are two measurements, one per surface. Read the three published
+values: ``alpha`` of the geographic step says whether the delineation and the
+flow paths follow the map, ``alpha_obs_closure_catchment`` says how much of the
+criterion's own measurement is a top-versus-map disagreement, and the gap between
+``alpha_obs_closure`` and ``alpha_obs_closure_catchment`` is the mapped linework
+the criterion carries outside the basin. **A trial is judged on
+``alpha_obs_closure_catchment``.** The criterion descends the model top, so a low
+value there is a fact about the top and the map, never an instruction to edit
+the routing surface.
 
 **The drain conductance must stay proportional to the conductivity.** Leave
 ``[flow.bc.cauchy.drainage] value`` at zero, or at anything not strictly
@@ -1080,10 +1061,9 @@ to look at first:
    How much of the criterion's own measurement is a top-versus-map
    disagreement, and how much of the scored catchment has a descent that
    reaches the mapped network without the sealed outlet. ``alpha_obs_closure``
-   is measured on the model top and
-   not on the burned routing DEM, so a low value is not evidence the burning
-   was skipped: read it beside the ``alpha`` of the geographic step, as the
-   second item of "Before you start" says. They describe the geometry, not the
+   is measured on the model top and not on the routing DEM, so it differs from
+   the ``alpha`` of the geographic step: read it beside that one, as the first
+   item of "Before you start" says. They describe the geometry, not the
    trial, so they are identical across a session: the static geometry is
    rebuilt at every trial from the same topography and comes out the same.
 
@@ -1157,13 +1137,16 @@ What it looks like on a real catchment
 --------------------------------------
 
 ``examples/projects/21_nancon_network_calibration`` runs the configuration
-above on the Nancon at Fougeres, 64.64 km2 in Brittany, in two variants: a
+above on the Nancon at Fougeres, about 64.6 km2 in Brittany, in two variants: a
 Cauchy drain over the whole surface (``auto_drn_full.toml``) and the main
 reaches routed in SFR (``auto_sfr_drn.toml``). Its ``README.md`` carries the
 measured numbers and their date, and is the one to read for the current
 figure: the SFR bed elevation was corrected on 2026-09-06, every session
 committed before that date calibrated the wrong geometry, and the README
-says so rather than letting a stale number stand unlabelled. At last
+says so rather than letting a stale number stand unlabelled. The stream
+burn of the routing DEM was removed on 2026-10-05, which moves the delineated
+basin and the SFR reaches slightly, so the README also says a new calibration
+is due. At last
 measurement ``roptim`` ran from 3.93 to 12.01 over the sweep, above its bound
 of two, so every trial is returned qualified rather than withheld; the two
 known departures the README also carries are a one-layer model against the

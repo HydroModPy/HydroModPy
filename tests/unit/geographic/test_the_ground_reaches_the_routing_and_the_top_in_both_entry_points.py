@@ -265,25 +265,3 @@ def test_a_notch_that_lowers_nothing_logs_its_line_once(run, tmp_path, monkeypat
 
     lines = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Crossing notch")]
     assert len(lines) == 1
-
-
-@pytest.mark.parametrize(
-    ("run", "module"),
-    [(_domain, domain_pipeline), (_runtime, runtime_pipeline)],
-    ids=["domain", "runtime"],
-)
-def test_the_burn_guard_reads_the_first_delineation_before_the_notch(
-    run, module, tmp_path, monkeypatch
-) -> None:
-    seen: list[float] = []
-    monkeypatch.setattr(
-        module,
-        "check_catchment_area_drift",
-        lambda **kwargs: seen.append(kwargs["burned_area_km2"]),
-    )
-    raw = bench.build(embankment_rows=(ROAD_ROW,), height=HEIGHT).dem
-    config = _config(tmp_path, raw=raw, **_crossing_sections(tmp_path))
-
-    run(tmp_path, monkeypatch, config)
-
-    assert seen == [pytest.approx(_FIRST_AREA_KM2)]

@@ -5,7 +5,7 @@ imports the other. The adapter reads the planar mesh and the activity of the
 solver mesh, takes the lake footprints and the constant-head cells as explicit
 masks, and hands them to :func:`hydromodpy.core.descent.build_descent`. D never
 goes back to the solver; the top it is built from is the one the solver sees,
-after the lake carve and the optional top conditioning.
+after the lake carve.
 
 It also projects the generated river network A onto the mesh. A was traced on
 the D8 pointer of the routing DEM. Without that projection, D descends its own
@@ -13,10 +13,9 @@ flats by flood order and runs beside A, so the hillslope joins it lower down.
 With it, D follows A on the cells A crosses (pinned receivers) and the steepest
 descent elsewhere.
 
-The build leaves D beside the model as ``<model>.descent.npz``, the way it
-leaves ``.conditioning_ref.npy``: the extractors never see the model, so they
-read this sidecar back with :func:`read_descent_sidecar` and store D with the
-run.
+The build leaves D beside the model as ``<model>.descent.npz``: the extractors
+never see the model, so they read this sidecar back with
+:func:`read_descent_sidecar` and store D with the run.
 """
 
 from __future__ import annotations
@@ -61,6 +60,7 @@ _REPORT_MAXIMA_M = ("max_raise_m", "max_lake_flood_m", "max_pinned_raise_m")
 # File names written by spatial.geographic.core.river_network.
 _LINK_NAME = "dem_stream_link_id_full.tif"
 _STREAMS_NAME = "dem_streams_full.tif"
+_STREAMS_PRUNED_NAME = "dem_streams_pruned_full.tif"
 _ACCUMULATION_NAME = "dem_acc_cells.tif"
 
 
@@ -93,23 +93,12 @@ def channel_tree_for_run(
     step ran for it; rasters an earlier configuration left in the folder are
     never read. The step writes the link raster from its stream raster, so a
     link raster older than the stream raster beside it was left by an earlier
-    configuration with links on, and the stream raster is read instead.
-
-    A burned routing DEM pins nothing: A then follows the observed map, and an
-    observation never enters the routing. ``required`` is set when a network of
-    the run was delineated from A, so missing rasters are an error.
+    configuration with links on, and the stream raster is read instead (see
+    :func:`active_channel_raster`). ``required`` is set when a network of the run
+    was delineated from A, so missing rasters are an error.
     """
     from hydromodpy.spatial.geographic.core.flow_products import DIRECTION_NAME
 
-    if getattr(geographic, "stream_burn_enabled", False):
-        # Measured on example 21 (10 m burn): pinned on the burned network, D sent
-        # 2.4 % of the catchment off the outlet and dropped the outlet flow by 2.7 %.
-        logger.info(
-            "The routing DEM carries the burned observed network "
-            "([geographic.enforce_streams]): A is traced on the map and an observation "
-            "never enters the routing, so the descent D is not pinned on A."
-        )
-        return None
     if not required and not getattr(geographic, "river_network_enabled", False):
         logger.info(
             "The river network is off for this run: the descent D has no pinned cell and "
@@ -123,12 +112,7 @@ def channel_tree_for_run(
             "follows the steepest descent everywhere."
         )
         return None
-    streams = os.path.join(str(folder), _STREAMS_NAME)
-    link = os.path.join(str(folder), _LINK_NAME)
-    if not os.path.exists(link) or (
-        os.path.exists(streams) and os.path.getmtime(link) < os.path.getmtime(streams)
-    ):
-        link = streams
+    link = active_channel_raster(folder)
     pointer = os.path.join(str(folder), DIRECTION_NAME)
     accumulation = os.path.join(str(folder), _ACCUMULATION_NAME)
     missing = [path for path in (link, pointer, accumulation) if not os.path.exists(path)]
@@ -156,6 +140,30 @@ def channel_tree_for_run(
             float(vertices[:, 1].max()),
         ),
     )
+
+
+def active_channel_raster(folder: str | os.PathLike[str]) -> str:
+    """The full-extent raster that holds A in ``folder``, the one rule of every reader.
+
+    The link raster when it is not older than ``dem_streams_full.tif`` (the step
+    writes it from the active streams, so an older one was left by an earlier
+    configuration). Else the pruned stream raster when it exists and is not older
+    than ``dem_streams_full.tif``: with ``prune_short_streams`` A is the pruned
+    network, never the raw one. Else ``dem_streams_full.tif``. The returned path
+    may not exist; the caller checks.
+    """
+    streams = os.path.join(str(folder), _STREAMS_NAME)
+    streams_time = os.path.getmtime(streams) if os.path.exists(streams) else None
+    candidates = (
+        os.path.join(str(folder), _LINK_NAME),
+        os.path.join(str(folder), _STREAMS_PRUNED_NAME),
+    )
+    for candidate in candidates:
+        if not os.path.exists(candidate):
+            continue
+        if streams_time is None or os.path.getmtime(candidate) >= streams_time:
+            return candidate
+    return streams
 
 
 def read_channel_tree(

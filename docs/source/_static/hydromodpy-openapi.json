@@ -4959,7 +4959,7 @@
       },
       "DamCarveConfig": {
         "additionalProperties": false,
-        "description": "Optional dam structure-carve of the ground.\n\nA raw DEM samples the concrete dam crest as terrain, so the aquifer column\nunder the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a\ncutoff-wall HFB band lands above the real seepage. This carves ONLY the dam\nfootprint of the ground down to the surrounding valley floor, so the\ncutoff wall can sit on the surveyed axis at the dam (not shifted downstream,\nand no need for a stream-burned DEM that would lower every channel).\n\nThe ground is the DEM plus the corrections declared here and in\n``[geographic.crossings]``. Both the routing chain and the model top start\nfrom it, so the carved dam is seen by the flow routing and by the aquifer\nalike.",
+        "description": "Optional dam structure-carve of the ground.\n\nA raw DEM samples the concrete dam crest as terrain, so the aquifer column\nunder the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a\ncutoff-wall HFB band lands above the real seepage. This carves ONLY the dam\nfootprint of the ground down to the surrounding valley floor, so the\ncutoff wall can sit on the surveyed axis at the dam (not shifted downstream).\n\nThe ground is the DEM plus the corrections declared here and in\n``[geographic.crossings]``. Both the routing chain and the model top start\nfrom it, so the carved dam is seen by the flow routing and by the aquifer\nalike.",
         "properties": {
           "enabled": {
             "default": false,
@@ -9424,38 +9424,8 @@
       },
       "FlowReachNetworkConfig": {
         "additionalProperties": false,
-        "description": "Typed boundary-condition payload for one MODFLOW 6 SFR stream network.\n\nThe network is either delineated automatically from the DEM / D8 flow\nproducts (set a stream threshold) or supplied explicitly through ``reaches``.\nReaches exchange with the aquifer through their streambed conductance\n(``streambed_k`` / ``streambed_thickness``) unless ``connected_to_aquifer`` is\nFalse. The transient forcings (``headwater_inflow``, ``runoff`` as volumetric\nL^3/T; ``rainfall``, ``evaporation`` as rates L/T) are optional runtime\ndeclarations resolved against ``[simulation.time]``.\n\n``outflow_to_lake`` is the only lake-aware field: when set, the terminal reach\nfeeds that lake (1-based) through an MVR record (SFR -> LAK). When None, the\nnetwork outflow leaves the model and SFR runs with no lake at all.",
+        "description": "Typed boundary-condition payload for one MODFLOW 6 SFR stream network.\n\nThe network is either traced automatically on A, the river network of\n``[geographic.river_network]`` (whose threshold is the only one), or supplied\nexplicitly through ``reaches``.\nReaches exchange with the aquifer through their streambed conductance\n(``streambed_k`` / ``streambed_thickness``) unless ``connected_to_aquifer`` is\nFalse. The transient forcings (``headwater_inflow``, ``runoff`` as volumetric\nL^3/T; ``rainfall``, ``evaporation`` as rates L/T) are optional runtime\ndeclarations resolved against ``[simulation.time]``.\n\n``outflow_to_lake`` is the only lake-aware field: when set, the terminal reach\nfeeds that lake (1-based) through an MVR record (SFR -> LAK). When None, the\nnetwork outflow leaves the model and SFR runs with no lake at all.",
         "properties": {
-          "stream_threshold_km2": {
-            "anyOf": [
-              {
-                "exclusiveMinimum": 0.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Drainage-area threshold [km^2] for stream initiation. Exactly one of stream_threshold_km2 / stream_threshold_cells must be set when reaches are delineated automatically.",
-            "title": "Stream Threshold Km2",
-            "x-hmp-profile": "user"
-          },
-          "stream_threshold_cells": {
-            "anyOf": [
-              {
-                "minimum": 1,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Alternative stream-initiation threshold as a flow-accumulation cell count.",
-            "title": "Stream Threshold Cells",
-            "x-hmp-profile": "user"
-          },
           "min_reach_length": {
             "anyOf": [
               {
@@ -9566,7 +9536,7 @@
           },
           "min_slope": {
             "default": 0.0001,
-            "description": "Floor for the reach gradient rgrd [-] after monotone-downhill conditioning.",
+            "description": "Floor for the reach gradient rgrd [-]. It also sets the drop the bed profile solve keeps between neighbouring reaches.",
             "examples": [
               0.0001
             ],
@@ -9601,7 +9571,7 @@
               }
             ],
             "default": null,
-            "description": "Depth [L] of the streambed top rtp below the top of the reach's OWN aquifer cell. A bed never sits above the ground of its own cell, whether this is set or not. None (default) only lifts the lower bound: the bed may then sink to the cell bottom instead of stopping at max_bed_sag. When set, each reach is solved inside [cell_top - bed_incision - max_bed_sag, cell_top - bed_incision], monotone downstream, and the build refuses when that band is empty. rtp is delineated on the model top, so this anchors a bed that a coarse DEM cannot resolve; it is not a correction for the stream burn, which never reaches the bed. Pick it against the water table, not against the channel: MODFLOW 6 switches a reach between connected and disconnected at rtp minus streambed_thickness (gwf-sfr.f90:3973-3985), so a bed sitting near the seasonal water-table depth toggles at every outer iteration.",
+            "description": "Depth [L] of the streambed top rtp below the top of the reach's OWN aquifer cell. A bed never sits above the ground of its own cell, whether this is set or not. None (default) only lifts the lower bound: the bed may then sink to the cell bottom instead of stopping at max_bed_sag. When set, each reach is solved inside [cell_top - bed_incision - max_bed_sag, cell_top - bed_incision], monotone downstream, and the build refuses when that band is empty. rtp is delineated on the model top, so this anchors a bed that a coarse DEM cannot resolve; it is not a correction for the descent D, which never reaches the bed. Pick it against the water table, not against the channel: MODFLOW 6 switches a reach between connected and disconnected at rtp minus streambed_thickness (gwf-sfr.f90:3973-3985), so a bed sitting near the seasonal water-table depth toggles at every outer iteration.",
             "title": "Bed Incision",
             "x-hmp-profile": "user"
           },
@@ -9671,7 +9641,7 @@
           },
           "route_drainage": {
             "default": false,
-            "description": "Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell of the basin hands its outflow, through an MVR record (FACTOR 1.0), to the first reach or lake cell met on its descent D, a filled copy of the model top (no condition_top required). A cell whose descent leaves the model first keeps a plain DRN. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost.",
+            "description": "Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell of the basin hands its outflow, through an MVR record (FACTOR 1.0), to the first reach or lake cell met on its descent D, a filled copy of the model top. A cell whose descent leaves the model first keeps a plain DRN. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost.",
             "examples": [
               false
             ],
@@ -9850,7 +9820,7 @@
               }
             ],
             "default": null,
-            "description": "Explicit reach table; bypasses delineation. None = delineate from the DEM.",
+            "description": "Explicit reach table; bypasses delineation. None = trace the reaches on A, the river network.",
             "title": "Reaches",
             "x-hmp-profile": "dev"
           },
@@ -9967,7 +9937,7 @@
           },
           "rectify_on_mesh": {
             "default": false,
-            "description": "Re-derive the delineated reach cells as a clean single-flow-direction (SFD) channel on the DISV mesh. From every delineated cell the descent D, a filled copy of the model top, is traced one neighbour at a time until it reaches a lake, the outlet of D, or an already-traced cell. The union of those paths is the channel: one cell wide (a single downstream per cell, so no braiding), continuous on the descent graph (shared faces, or shared nodes on a quad mesh), following the thalweg of D (so the surface flow follows the reach), and always reaching a real sink (no inland dead-end that leaks its flow out). The streambed top is read on the model top, never on D. No condition_top is required: D is a copy and never returns to the solver.",
+            "description": "Re-derive the delineated reach cells as a clean single-flow-direction (SFD) channel on the DISV mesh. From every delineated cell the descent D, a filled copy of the model top, is traced one neighbour at a time until it reaches a lake, the outlet of D, or an already-traced cell. The union of those paths is the channel: one cell wide (a single downstream per cell, so no braiding), continuous on the descent graph (shared faces, or shared nodes on a quad mesh), following the thalweg of D (so the surface flow follows the reach), and always reaching a real sink (no inland dead-end that leaks its flow out). The streambed top is read on the model top, never on D. D is a copy and never returns to the solver.",
             "examples": [
               false
             ],
@@ -11328,11 +11298,6 @@
           "river_network": {
             "$ref": "#/components/schemas/RiverNetworkConfig",
             "description": "Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing.",
-            "x-hmp-profile": "user"
-          },
-          "enforce_streams": {
-            "$ref": "#/components/schemas/StreamEnforcementConfig",
-            "description": "Optional stream burning of the routing DEM: lower the mapped network cells so the computed D8 paths follow the observed network, without touching the model grid top. Applied before the lake carve.",
             "x-hmp-profile": "user"
           },
           "enforce_lakes": {
@@ -21942,27 +21907,6 @@
             "type": "string",
             "x-hmp-profile": "user"
           },
-          "condition_top": {
-            "default": false,
-            "description": "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsilon fill on the mesh face graph raises only pit cells to their spill level, giving every active non-lake cell a strictly descending path to the domain boundary. Lake and boundary cells are fixed base levels; the aquifer bottom is untouched. Nothing requires it: the SFR routing (rectify_on_mesh, route_drainage) descends a filled copy of the top. It raises the solver top, which is a change of the model, not of the routing. Default false keeps the raw projected top.",
-            "examples": [
-              false
-            ],
-            "title": "Condition Top",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "condition_top_epsilon": {
-            "default": 0.001,
-            "description": "Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true.",
-            "examples": [
-              0.001
-            ],
-            "minimum": 0.0,
-            "title": "Condition Top Epsilon",
-            "type": "number",
-            "x-hmp-profile": "user"
-          },
           "top_sampling": {
             "$ref": "#/components/schemas/TopSamplingConfig",
             "description": "How the top of the solver grid is sampled from the DEM.",
@@ -22438,131 +22382,6 @@
           }
         },
         "title": "StrategyConfig",
-        "type": "object"
-      },
-      "StreamEnforcementConfig": {
-        "additionalProperties": false,
-        "description": "Burn the observed stream network into the ROUTING DEM before D8 routing.\n\nA mapped stream network is surveyed independently of the DEM, so its trace\nrarely follows the thalwegs the DEM computes: on five Armorican catchments at\n75 m, a quarter to a third of the D8 trace seeded on the mapped cells leaves\nthat network at the first step. Any length measured along those paths then\nreports a DEM-versus-map disagreement instead of hydrogeology. When enabled,\nthe mapped cells are lowered in a SEPARATE routing DEM used only for\ndelineation, before the lake carve and the fill/breach pass. The model grid\ntop stays on the raw DEM, which matters more here than for lakes: a top\nlowered along the observed network would agree with that network by\nconstruction.\n\nThe whole supplied linework is burned, fictitious arcs included: filtering\nthem out cuts the trench at every water body and caps the agreement below\n0.97 whatever the depth. Selecting reaches by nature belongs to the metric,\nnot to the preprocessing.",
-        "properties": {
-          "enabled": {
-            "default": false,
-            "description": "Lower the mapped stream cells in the routing DEM before D8 so the computed flow paths follow the observed network.",
-            "examples": [
-              false
-            ],
-            "title": "Enabled",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "stream_geometry_path": {
-            "anyOf": [
-              {
-                "format": "path",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Observed stream network (gpkg/shp) to burn. A bare filename resolves against <workspace>/data/hydrography/. When left empty and enabled, it falls back to the network [[data.hydrography.sources]] declares, so the same file is named once; declare it here only to burn a network that differs from the one the data family loads.",
-            "title": "Stream Geometry Path",
-            "x-hmp-profile": "user"
-          },
-          "mode": {
-            "default": "constant",
-            "description": "Trench depth rule. 'constant' lowers every stream cell by depth_m. 'adaptive' derives one depth from the measured local relief along the network. Either way a single depth is used, so the along-channel gradient the trench exists to preserve is not rewritten.",
-            "enum": [
-              "constant",
-              "adaptive"
-            ],
-            "examples": [
-              "constant"
-            ],
-            "title": "Mode",
-            "type": "string",
-            "x-hmp-profile": "user"
-          },
-          "depth_m": {
-            "default": 30.0,
-            "description": "Trench depth (metres) for mode='constant'. It must exceed the local drop between a stream cell and its lowest non-stream neighbour; 5 m clears 0.90 agreement on every measured catchment, 10 to 20 m are needed for 0.95 to 0.99 on the difficult ones, and 1 m buys almost nothing. Accepts inline units (e.g. 30, '30 m').",
-            "examples": [
-              30.0
-            ],
-            "exclusiveMinimum": 0.0,
-            "title": "Depth M",
-            "type": "number",
-            "x-hmp-profile": "user"
-          },
-          "adaptive_percentile": {
-            "default": 95.0,
-            "description": "Percentile of the local relief along the network used as the trench depth when mode='adaptive'.",
-            "examples": [
-              95.0
-            ],
-            "maximum": 100.0,
-            "minimum": 50.0,
-            "title": "Adaptive Percentile",
-            "type": "number",
-            "x-hmp-profile": "user"
-          },
-          "relief_report_percentile": {
-            "default": 95.0,
-            "description": "Percentile of the local relief along the network reported in the burn report and compared to the depth actually used, whatever the mode. It is the drop a constant trench must clear to keep the flow on the mapped network, so a depth below it warns. Independent of adaptive_percentile, which SETS the depth; this one only JUDGES it.",
-            "examples": [
-              95.0
-            ],
-            "maximum": 100.0,
-            "minimum": 50.0,
-            "title": "Relief Report Percentile",
-            "type": "number",
-            "x-hmp-profile": "expert"
-          },
-          "rasterize_all_touched": {
-            "default": true,
-            "description": "Rasterize the network with the all-touched rule, so every cell a reach crosses is burned and not only those whose centre falls under the line. A one-cell-wide trace that skips a cell leaves a step the flow escapes through, which is what the trench exists to prevent. False uses the centre rule and is only there to reproduce a raster written that way.",
-            "examples": [
-              true
-            ],
-            "title": "Rasterize All Touched",
-            "type": "boolean",
-            "x-hmp-profile": "expert"
-          },
-          "dem_nodata_fallback": {
-            "default": -9999.0,
-            "description": "Nodata value assumed when the DEM to burn declares none in its header. It decides which cells are excluded from the burn and from the relief measurement, so a raster using another sentinel must say so here.",
-            "examples": [
-              -9999.0
-            ],
-            "title": "Dem Nodata Fallback",
-            "type": "number",
-            "x-hmp-profile": "expert"
-          },
-          "alpha_warning_threshold": {
-            "default": 0.9,
-            "description": "Below this agreement between the mapped network and the D8 paths of the routing DEM, a warning fires. alpha is the share of the downstream closure of the network that the network itself covers: 1.00 means the computed paths never leave the map, 0.50 is the signature of a systematic one-pixel shift. Below the threshold, any length measured along those paths reports a DEM-versus-map disagreement rather than hydrogeology.",
-            "examples": [
-              0.9
-            ],
-            "exclusiveMinimum": 0.0,
-            "maximum": 1.0,
-            "title": "Alpha Warning Threshold",
-            "type": "number",
-            "x-hmp-profile": "expert"
-          },
-          "max_catchment_area_drift": {
-            "default": 0.05,
-            "description": "Relative change of the delineated catchment area the burn may cause. A trench that crosses a divide (mis-georeferenced trace, canal, flat area) reconnects two catchments and the delineation changes without any other sign, so the catchment is delineated before and after the burn and a larger drift raises. This costs one extra delineation pass whenever the burn is on.",
-            "examples": [
-              0.05
-            ],
-            "minimum": 0.0,
-            "title": "Max Catchment Area Drift",
-            "type": "number",
-            "x-hmp-profile": "user"
-          }
-        },
-        "title": "StreamEnforcementConfig",
         "type": "object"
       },
       "SubstratumConfig": {
@@ -23865,27 +23684,6 @@
             ],
             "minimum": 0.0,
             "title": "Min Thickness M",
-            "type": "number",
-            "x-hmp-profile": "dev"
-          },
-          "network_safety_net": {
-            "default": false,
-            "description": "Before the priority-flood fill, carve the channel cells into a monotone descending thalweg (lower-only) and pin them so the fill never raises them. Fixes the fill re-raising a zonal-lowered channel; needs a channel source (mode='zonal' with channel_source!='none'). Off by default.",
-            "examples": [
-              false
-            ],
-            "title": "Network Safety Net",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "max_channel_lowering_m": {
-            "default": 5.0,
-            "description": "Cap (m) on how far the network safety net may carve a single channel cell below its sampled top.",
-            "examples": [
-              5.0
-            ],
-            "minimum": 0.0,
-            "title": "Max Channel Lowering M",
             "type": "number",
             "x-hmp-profile": "dev"
           }

@@ -188,7 +188,12 @@ class BaseFigure(ABC):
             dpi=dpi,
             constrained_layout=True,
         )
-        self.render(sim, ax, **opts)
+        try:
+            self.render(sim, ax, **opts)
+        except FigureNotApplicable:
+            # A skipped figure must not stay open: a batch skips one per run.
+            plt.close(fig)
+            raise
         if save_path is not None:
             self._save(
                 fig,

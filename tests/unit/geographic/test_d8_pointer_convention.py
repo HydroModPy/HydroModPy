@@ -4,7 +4,7 @@
 which is the same eight octants rotated by one. Nothing failed: every descent
 walked beside the talweg instead of down it, and the flow paths stayed
 plausible. The agreement ratio of the stream-network criterion sat near 0.45
-whatever the burning depth, including on the network the DEM derives from its
+whatever the DEM treatment, including on the network the DEM derives from its
 own pointer, where it is 1.0 by construction.
 
 Two tests, because either alone can be satisfied by a wrong table: one reads

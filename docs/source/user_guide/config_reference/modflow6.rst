@@ -617,7 +617,7 @@ Fields
               <code class="hmp-field-toml">[modflow6.sgrid.planar]</code>
             </div>
 
-         :bdg-primary:`PlanarGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L341>`__
+         :bdg-primary:`PlanarGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L324>`__
 
             Planar discretization of the solver grid.
 
@@ -716,7 +716,7 @@ Fields
               <code class="hmp-field-toml">[modflow6.sgrid.vertical]</code>
             </div>
 
-         :bdg-primary:`VerticalGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L345>`__
+         :bdg-primary:`VerticalGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328>`__
 
             Vertical layering of the solver grid.
 
@@ -830,45 +830,13 @@ Fields
               <code class="hmp-field-name">grid_dual</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "voronoi"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L349>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "voronoi"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L332>`__
 
             Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the default; 'triangle' keeps the triangulation cells as the DISV grid for simplex comparison runs.
 
          .. rst-class:: hmp-field-values
 
          **One of:** ``"voronoi"`` ``"triangle"``
-
-
-      .. index:: ! condition_top
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: modflow6-sgrid-condition-top
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflow6.sgrid.condition_top">
-              <code class="hmp-field-name">condition_top</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L359>`__
-
-            MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it holds no closed depression. Sampling the DEM at irregular Voronoi cell centroids reintroduces local minima (pits) the raster fill removed. When true, a priority-flood epsilon fill on the mesh face graph raises only pit cells to their spill level, giving every active non-lake cell a strictly descending path to the domain boundary. Lake and boundary cells are fixed base levels; the aquifer bottom is untouched. Nothing requires it: the SFR routing (rectify_on_mesh, route_drainage) descends a filled copy of the top. It raises the solver top, which is a change of the model, not of the routing. Default false keeps the raw projected top.
-
-
-      .. index:: ! condition_top_epsilon
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: modflow6-sgrid-condition-top-epsilon
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="modflow6.sgrid.condition_top_epsilon">
-              <code class="hmp-field-name">condition_top_epsilon</code>
-            </div>
-
-         :bdg-primary:`float` :bdg-secondary:`default = 0.001` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L375>`__
-
-            Minimal downhill increment (m) added along each filled path so conditioned cells strictly descend instead of forming flats. Only used when condition_top is true.
 
 
       .. index:: ! top_sampling
@@ -884,7 +852,7 @@ Fields
               <code class="hmp-field-toml">[modflow6.sgrid.top_sampling]</code>
             </div>
 
-         :bdg-primary:`TopSamplingConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L384>`__
+         :bdg-primary:`TopSamplingConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342>`__
 
             How the top of the solver grid is sampled from the DEM.
 
@@ -1065,38 +1033,6 @@ Fields
                   Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved channel top never collides with the aquifer bottom.
 
 
-            .. index:: ! network_safety_net
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: modflow6-sgrid-top-sampling-network-safety-net
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="modflow6.sgrid.top_sampling.network_safety_net">
-                    <code class="hmp-field-name">network_safety_net</code>
-                  </div>
-
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L319>`__
-
-                  Before the priority-flood fill, carve the channel cells into a monotone descending thalweg (lower-only) and pin them so the fill never raises them. Fixes the fill re-raising a zonal-lowered channel; needs a channel source (mode='zonal' with channel_source!='none'). Off by default.
-
-
-            .. index:: ! max_channel_lowering_m
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: modflow6-sgrid-top-sampling-max-channel-lowering-m
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="modflow6.sgrid.top_sampling.max_channel_lowering_m">
-                    <code class="hmp-field-name">max_channel_lowering_m</code>
-                  </div>
-
-               :bdg-primary:`float` :bdg-secondary:`default = 5.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328>`__
-
-                  Cap (m) on how far the network safety net may carve a single channel cell below its sampled top.
-
-
 
 
 
@@ -1120,8 +1056,6 @@ Starter TOML snippet
       # planar = ...  # factory default
       # vertical = ...  # factory default
       # grid_dual = "voronoi"
-      # condition_top = false
-      # condition_top_epsilon = 0.001
       # top_sampling = ...  # factory default
 
 Cases using this section

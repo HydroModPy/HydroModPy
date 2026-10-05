@@ -7,8 +7,7 @@ first data family to check because CRS, extent, outlet position, and mask
 alignment problems often become visible on the DEM panel.
 
 Watershed delineation itself, including DEM depression correction
-(``dem_correc_type``) and optional stream burning of the routing DEM
-(``enforce_streams``), is configured in the :doc:`[geographic] section
+(``dem_correc_type``), is configured in the :doc:`[geographic] section
 </user_guide/config_reference/geographic>`.
 
 ``dem_correc_type`` offers three ways to make the routing DEM drain. ``fill``
@@ -39,7 +38,7 @@ The ground
 
 The DEM is not read as it comes once corrections are declared. The **ground** is
 the DEM plus those corrections, each bounded and logged, and every surface reads
-it: the routing chain (stream burn, lake carve, depression correction, D8)
+it: the routing chain (lake carve, depression correction, D8)
 starts from the ground, and so does the model top. Both geographic entry points
 build it the same way, so the flow routing and the aquifer never disagree about
 a structure. With no correction declared the ground is the DEM file itself: no

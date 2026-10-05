@@ -48,7 +48,6 @@ from hydromodpy.spatial.geographic.core.ground_corrections import (
     ground_dem_path_from_config,
     notch_enabled,
     notch_lowered_pixels,
-    on_ground,
 )
 from hydromodpy.spatial.geographic.core.lake_enforcement import (
     capture_from_config,
@@ -66,11 +65,6 @@ from hydromodpy.spatial.geographic.core.river_network import (
 )
 from hydromodpy.spatial.geographic.core.stream_dem_agreement import (
     report_network_dem_agreement,
-)
-from hydromodpy.spatial.geographic.core.stream_enforcement import (
-    burned_dem_from_config,
-    catchment_area_without_burn,
-    check_catchment_area_drift,
 )
 from hydromodpy.spatial.geographic.dem_metadata import (
     DemMetadata,
@@ -256,7 +250,6 @@ def _geographic_cache_fingerprint(config: GeographicConfig) -> str:
             # changing a single config value, so the config payload alone
             # cannot see it.
             "lake_geometry_path": _path_signature(config.enforce_lakes.lake_geometry_path),
-            "stream_geometry_path": _path_signature(config.enforce_streams.stream_geometry_path),
             "dam_carve_line_path": _path_signature(config.dam_carve.line_path),
         },
     }
@@ -726,6 +719,7 @@ def build_geographic_runtime_context(
     backend: object | None = None,
     locator_factory: object = Nominatim,
     reuse_existing_outputs: bool | None = None,
+    network_map_path: str | Path | None = None,
 ) -> GeographicRuntimeContext:
     """Build the full geographic runtime context from config and workspace.
 
@@ -736,6 +730,9 @@ def build_geographic_runtime_context(
     polygons, clipped domain rasters, DEM metadata, and optional river-network
     products. When cache reuse is enabled, it validates the cache fingerprint
     and reconstructs the same context from existing artifacts.
+
+    ``network_map_path`` is the local vector file of the mapped network, when
+    one is declared. It feeds the alpha diagnostic only and never the model.
     """
     setup = prepare_geographic_run(
         config=config,
@@ -764,16 +761,10 @@ def build_geographic_runtime_context(
         # crossing notch after the first delineation). The routing chain starts from it,
         # and so does the model top (clipped below), so neither surface sees a
         # structure the other does not.
-        # Routing conditioning, in order: burn the observed stream network, then carve
-        # the lakes so streams route INTO them and drain to the outlet.
+        # Routing conditioning: carve the lakes so streams route INTO them and drain
+        # to the outlet.
         ground = ground_dem_from_config(config, setup)
-        ground_setup = on_ground(setup, ground)
-        area_before_burn_km2 = catchment_area_without_burn(
-            config=config, setup=ground_setup, backend=tool
-        )
-        routing_dem_path = routing_dem_from_config(
-            config, setup, dem_in_path=burned_dem_from_config(config, ground_setup)
-        )
+        routing_dem_path = routing_dem_from_config(config, setup, dem_in_path=ground)
         if config.reg_fold is None:
             flow_products = build_regional_flow_products(
                 dem_init_path=routing_dem_path,
@@ -817,11 +808,6 @@ def build_geographic_runtime_context(
                 unsupported_mode="ignore",
             )
             catchment_area_km2 = float(compute_catchment_area_km2(setup.paths.watershed_shp))
-            check_catchment_area_drift(
-                config=config,
-                reference_area_km2=area_before_burn_km2,
-                burned_area_km2=catchment_area_km2,
-            )
             domain_products = build_standard_domain_polygons(
                 config=config,
                 paths=setup.paths,
@@ -866,10 +852,7 @@ def build_geographic_runtime_context(
             )
             ground = ground_dem_from_config(config, setup, channel=channel)
             if notch_lowered_pixels(setup) > 0:
-                ground_setup = on_ground(setup, ground)
-                routing_dem_path = routing_dem_from_config(
-                    config, setup, dem_in_path=burned_dem_from_config(config, ground_setup)
-                )
+                routing_dem_path = routing_dem_from_config(config, setup, dem_in_path=ground)
                 with progress.status("Re-delineating on the notched ground"):
                     (
                         flow_products,
@@ -931,9 +914,6 @@ def build_geographic_runtime_context(
                             100.0 * (catchment_area_km2 / area_before_capture - 1.0),
                         )
 
-        if config.catch_def != "dem":
-            report_network_dem_agreement(config, setup, d8_pointer_path=flow_products.direc)
-
         with progress.status("Clipping domain rasters"):
             # The model TOP is clipped from the ground: the DEM with the dam carved and
             # the crossings notched, as the routing above saw it.
@@ -966,6 +946,15 @@ def build_geographic_runtime_context(
             catchment_area_km2=catchment_area_km2,
             catchment_products=catchment_products,
             flow_products=flow_products,
+        )
+
+    # Alpha describes the current map, so it is measured on a cache hit too. The map
+    # is not a model input and stays out of the cache fingerprint.
+    if config.catch_def != "dem":
+        report_network_dem_agreement(
+            setup,
+            network_map_path=network_map_path,
+            d8_pointer_path=flow_products.direc,
         )
 
     dem_metadata = read_dem_metadata(

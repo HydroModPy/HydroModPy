@@ -4,10 +4,9 @@ Turns the raster products built by :mod:`river_network` (the stream-link-id
 raster, the D8 pointer, the flow accumulation) and the model-top DEM into an
 ordered, explicitly-connected reach table -- the :class:`SfrReachTrace`.
 
-The trace follows the routing surface, which carries the stream burn, but the
-streambed elevation is read on the model top. Reading it on the burned surface
-would hand the trench depth to the solver as a bed incision: the reach would sit
-metres below its own cell top for a reason that is a routing artefact.
+The trace follows the routing surface, but the streambed elevation is read on
+the model top, the surface the solver sees. The bed profile is then the one
+``solve_reach_bed_profile`` fits; no pass here lowers a reach below its upstream.
 
 The output is grid-independent geometry: each reach is a LineString (in the
 projected model CRS) plus its hydraulic attributes (length, streambed top,
@@ -24,9 +23,8 @@ Algorithm (no recursion, no segment renumbering -- a clean reach-only DAG):
    the model outlet).
 3. A Kahn topological sort numbers the reaches downstream-increasing (``ifno``),
    so a reach always has a smaller ``ifno`` than the reach it feeds.
-4. Per-reach geometry is sampled along the link's flow path; reach tops are
-   conditioned to descend monotonically downstream so the solver never stalls on
-   a flat or a reversed bed.
+4. Per-reach geometry is sampled along the link's flow path, the reach tops read
+   on the model top.
 
 The network is lake-independent: pass ``lake_mask=None`` and every terminal reach
 simply leaves the model.
@@ -189,9 +187,8 @@ def delineate_sfr_reaches(
     All arrays share one (rows, cols) grid and the ``transform`` affine. ``link_id``
     marks stream cells with a positive link id (0 / negative = non-stream).
     ``acc`` is the D8 flow accumulation in cell counts. ``top_dem`` is the MODEL
-    TOP, never the burned routing surface: it is the only array read for an
-    elevation, and the connectivity comes from ``link_id`` and ``d8``, which
-    already carry the burn. ``lake_mask`` (optional)
+    TOP: it is the only array read for an elevation, and the connectivity comes
+    from ``link_id`` and ``d8``. ``lake_mask`` (optional)
     labels lake cells with the 1-based lake number (0 elsewhere); a plain boolean
     mask also works (every lake then reads as lake 1). The reach flowing into a
     lake is flagged terminal-to-lake and tagged with that lake number.
@@ -321,14 +318,6 @@ def delineate_sfr_reaches(
 
     ifno_of = {link: ifno for ifno, link in enumerate(order)}
 
-    # 4. Monotone-downhill conditioning of reach tops along the order.
-    rtp = {link: info[link]["rtp"] for link in order}
-    drop = float(dem_res_m) * float(min_slope)
-    for link in order:
-        down = downstream_link.get(link)
-        if down is not None and down in rtp and rtp[down] >= rtp[link]:
-            rtp[down] = rtp[link] - drop
-
     reaches: list[SfrReachRow] = []
     for link in order:
         data = info[link]
@@ -342,7 +331,7 @@ def delineate_sfr_reaches(
                 ifno=ifno_of[link],
                 line=data["line"],
                 rlen=data["rlen"],
-                rtp=rtp[link],
+                rtp=data["rtp"],
                 rgrd=data["rgrd"],
                 strahler=data["strahler"],
                 area_km2=data["area_km2"],
@@ -428,8 +417,8 @@ def build_sfr_reach_trace_from_products(
 ) -> SfrReachTrace:
     """Read the FULL DEM-grid flow rasters and delineate the SFR reach trace.
 
-    ``top_dem_tif`` is the MODEL TOP at full DEM extent, never the burned routing
-    surface and never a clipped per-watershed raster: it is where the streambed
+    ``top_dem_tif`` is the MODEL TOP at full DEM extent, never a clipped
+    per-watershed raster: it is where the streambed
     elevation and the reach gradient are read. All four rasters must share one
     affine and shape (the clipped rasters have a different extent and are
     rejected). ``lake_polygons`` (model

@@ -316,23 +316,6 @@ class TopSamplingConfig(HydroModelBase):
             "channel top never collides with the aquifer bottom."
         ),
     )
-    network_safety_net: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description=(
-            "Before the priority-flood fill, carve the channel cells into a monotone "
-            "descending thalweg (lower-only) and pin them so the fill never raises "
-            "them. Fixes the fill re-raising a zonal-lowered channel; needs a channel "
-            "source (mode='zonal' with channel_source!='none'). Off by default."
-        ),
-    )
-    max_channel_lowering_m: Annotated[float, Profile.DEV] = Field(
-        default=5.0,
-        ge=0.0,
-        description=(
-            "Cap (m) on how far the network safety net may carve a single channel "
-            "cell below its sampled top."
-        ),
-    )
 
 
 class SolverSGridConfig(HydroModelBase):
@@ -354,31 +337,6 @@ class SolverSGridConfig(HydroModelBase):
             "triangulation). 'voronoi' uses the PEBI dual (exact CVFD "
             "orthogonality, ~half the cells) and is the default; 'triangle' keeps "
             "the triangulation cells as the DISV grid for simplex comparison runs."
-        ),
-    )
-    condition_top: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description=(
-            "MODFLOW 6 runtime-mesh only. Hydro-condition the DISV mesh top so it "
-            "holds no closed depression. Sampling the DEM at irregular Voronoi cell "
-            "centroids reintroduces local minima (pits) the raster fill removed. "
-            "When true, a priority-flood epsilon fill on the mesh face graph raises "
-            "only pit cells to their spill level, giving every active non-lake cell "
-            "a strictly descending path to the domain boundary. Lake and boundary "
-            "cells are fixed base levels; the aquifer bottom is untouched. Nothing "
-            "requires it: the SFR routing (rectify_on_mesh, route_drainage) descends "
-            "a filled copy of the top. It raises the solver top, which is a change "
-            "of the model, not of the routing. Default false keeps the raw "
-            "projected top."
-        ),
-    )
-    condition_top_epsilon: Annotated[float, Profile.USER] = Field(
-        default=1e-3,
-        ge=0.0,
-        description=(
-            "Minimal downhill increment (m) added along each filled path so "
-            "conditioned cells strictly descend instead of forming flats. Only "
-            "used when condition_top is true."
         ),
     )
     top_sampling: Annotated[TopSamplingConfig, Profile.USER] = Field(

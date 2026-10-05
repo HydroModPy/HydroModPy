@@ -67,7 +67,6 @@ reach.
    active_bc = ["sfr", "drainage"]
 
    [flow.sinks_sources.sfr.net0]
-   stream_threshold_km2 = 0.1
    streambed_k = 1e-5
    streambed_k_unit = "m/s"
    streambed_thickness = "1 m"
@@ -77,9 +76,8 @@ reach.
    kind = "constant"
    value = "2 m"
 
-The network stream threshold must resolve to the same cell count as the
-``geographic.river_network`` threshold: the v1 delineation reuses that link
-raster as the single stream-geometry source and raises on a mismatch.
+SFR traces its reaches on A, whose threshold is
+``[geographic.river_network]``. The SFR block carries no threshold of its own.
 
 The reach width law is a discriminated union: ``constant`` (uniform width),
 ``by_order`` (one width per Strahler order) or ``power_law``
@@ -111,8 +109,7 @@ The descent D
 ``rectify_on_mesh`` and ``route_drainage`` follow the same descent D: a COPY of
 the solver top, filled on the mesh graph that is descended (D8 neighbours on an
 all-quad mesh, shared faces otherwise), where a lake is traversed to its spill
-level and a lake cell is the sink of the walk. D never returns to the solver, so
-neither option requires ``[modflow6.sgrid] condition_top = true``. The
+level and a lake cell is the sink of the walk. D never changes the model top. The
 streambed top of a rectified reach is read on the model top, not on D. Every
 MODFLOW 6 and MODFLOW-NWT build makes D, with or without SFR: the per-cell
 discharge, the upstream area, the accumulated fluxes and the flow direction map
@@ -130,9 +127,7 @@ keeps the steepest descent on the filled copy, and a filled flat rises faster
 away from the channel than along it, so it drains into the channel instead of
 running beside it. A cell where A leaves through a lake or off the mesh is an
 outlet of A and keeps the steepest descent. A run without the river network
-has no pin, and neither has a run whose routing DEM carries the burned observed
-network (``[geographic.enforce_streams]``): A is then traced on the map, and an
-observation never enters the routing. A constant-head cell (ocean, river or
+has no pin: an observed network never enters the routing. A constant-head cell (ocean, river or
 side CHD) seeds D and keeps its steepest descent, so an accumulation crosses a
 river CHD and the outlet still sums the catchment. Both walks stop there: a
 reach reaching it is the outlet reach, and a drain chain reaching it keeps a
@@ -168,7 +163,6 @@ stage-volume-area abacus and its spillway outlets.
    active_bc = ["lake", "sfr", "drainage"]
 
    [flow.sinks_sources.sfr.net0]
-   stream_threshold_km2 = 0.1
    outflow_to_lake = 1
 
    [flow.sinks_sources.sfr.net0.runoff]

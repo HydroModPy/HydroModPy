@@ -258,7 +258,7 @@ reach tops keep reading the model top.
   is the outlet reach.
 - **Pins.** Where the river network was generated for the run
   (``geographic.river_network_enabled``; its full-extent rasters are in
-  ``geographic.correcflow_path``) and the routing DEM is not burned, channel
+  ``geographic.correcflow_path``), channel
   cells drain to the next cell of the channel tree. This holds
   whether or not SFR is active. Without a channel tree D has no pin.
 - **Neighbourhood.** Fixed by the mesh type: D8 (shared nodes) on a quad mesh,

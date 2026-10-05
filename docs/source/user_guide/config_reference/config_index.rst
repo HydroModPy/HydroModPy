@@ -79,13 +79,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-source-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L736>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L599>`__
    * - ``geographic.catchment``
      - ``Optional[DemCatchDef | TxtCatchDef | OutletCatchDef | PolygonCatchDef]``
      - user
      - -
      - `geographic <geographic.html#geographic-catchment>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L744>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L607>`__
    * - ``geographic.catchment.dem_init_path``
      - ``Path | None``
      - user
@@ -139,55 +139,55 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-crs-project>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L756>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L619>`__
    * - ``geographic.dem_correc_type``
      - ``Literal['breach', 'fill', 'capped_breach']``
      - user
      - -
      - `geographic <geographic.html#geographic-dem-correc-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L760>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L623>`__
    * - ``geographic.capped_breach``
      - ``CappedBreachConfig | None``
      - user
      - -
      - `geographic <geographic.html#geographic-capped-breach>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L782>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L645>`__
    * - ``geographic.capped_breach.max_depth``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-capped-breach-max-depth>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L647>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L510>`__
    * - ``geographic.capped_breach.max_distance``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-capped-breach-max-distance>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L664>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L527>`__
    * - ``geographic.terrain_engine``
      - ``str | None``
      - user
      - -
      - `geographic <geographic.html#geographic-terrain-engine>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L796>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L659>`__
    * - ``geographic.domain_extent``
      - ``Literal['box', 'watershed_buff', 'watershed']``
      - user
      - -
      - `geographic <geographic.html#geographic-domain-extent>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L805>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L668>`__
    * - ``geographic.reg_fold``
      - ``Path | None``
      - dev
      - -
      - `geographic <geographic.html#geographic-reg-fold>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L817>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L680>`__
    * - ``geographic.synthetic``
      - ``SyntheticGeographicConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L821>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L684>`__
    * - ``geographic.synthetic.case_id``
      - ``str``
      - user
@@ -301,7 +301,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-river-network>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L828>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L691>`__
    * - ``geographic.river_network.enabled``
      - ``bool``
      - user
@@ -356,78 +356,12 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `geographic <geographic.html#geographic-river-network-all-vertices>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L232>`__
-   * - ``geographic.enforce_streams``
-     - ``StreamEnforcementConfig``
-     - user
-     - -
-     - `geographic <geographic.html#geographic-enforce-streams>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L835>`__
-   * - ``geographic.enforce_streams.enabled``
-     - ``bool``
-     - user
-     - -
-     - `geographic <geographic.html#geographic-enforce-streams-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L371>`__
-   * - ``geographic.enforce_streams.stream_geometry_path``
-     - ``Path | None``
-     - user
-     - -
-     - `geographic <geographic.html#geographic-enforce-streams-stream-geometry-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L378>`__
-   * - ``geographic.enforce_streams.mode``
-     - ``Literal['constant', 'adaptive']``
-     - user
-     - -
-     - `geographic <geographic.html#geographic-enforce-streams-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L392>`__
-   * - ``geographic.enforce_streams.depth_m``
-     - ``float``
-     - user
-     - -
-     - `geographic <geographic.html#geographic-enforce-streams-depth-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L401>`__
-   * - ``geographic.enforce_streams.adaptive_percentile``
-     - ``float``
-     - user
-     - -
-     - `geographic <geographic.html#geographic-enforce-streams-adaptive-percentile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L416>`__
-   * - ``geographic.enforce_streams.relief_report_percentile``
-     - ``float``
-     - expert
-     - -
-     - `geographic <geographic.html#geographic-enforce-streams-relief-report-percentile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L429>`__
-   * - ``geographic.enforce_streams.rasterize_all_touched``
-     - ``bool``
-     - expert
-     - -
-     - `geographic <geographic.html#geographic-enforce-streams-rasterize-all-touched>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L441>`__
-   * - ``geographic.enforce_streams.dem_nodata_fallback``
-     - ``float``
-     - expert
-     - -
-     - `geographic <geographic.html#geographic-enforce-streams-dem-nodata-fallback>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L451>`__
-   * - ``geographic.enforce_streams.alpha_warning_threshold``
-     - ``float``
-     - expert
-     - -
-     - `geographic <geographic.html#geographic-enforce-streams-alpha-warning-threshold>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L459>`__
-   * - ``geographic.enforce_streams.max_catchment_area_drift``
-     - ``float``
-     - user
-     - -
-     - `geographic <geographic.html#geographic-enforce-streams-max-catchment-area-drift>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L473>`__
    * - ``geographic.enforce_lakes``
      - ``LakeEnforcementConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-enforce-lakes>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L843>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L698>`__
    * - ``geographic.enforce_lakes.enabled``
      - ``bool``
      - user
@@ -475,109 +409,109 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L851>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L706>`__
    * - ``geographic.dam_carve.enabled``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L503>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L366>`__
    * - ``geographic.dam_carve.line_path``
      - ``Path | None``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve-line-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L511>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L374>`__
    * - ``geographic.dam_carve.buffer_m``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve-buffer-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L523>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L386>`__
    * - ``geographic.dam_carve.search_radius_m``
      - ``Optional[float]``
      - user
      - -
      - `geographic <geographic.html#geographic-dam-carve-search-radius-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L532>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L395>`__
    * - ``geographic.crossings``
      - ``CrossingNotchConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-crossings>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L859>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L714>`__
    * - ``geographic.crossings.enabled``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-crossings-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L562>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L425>`__
    * - ``geographic.crossings.path``
      - ``Path | None``
      - user
      - -
      - `geographic <geographic.html#geographic-crossings-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L570>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L433>`__
    * - ``geographic.crossings.kinds``
      - ``list[Literal['road', 'railway', 'bridge']]``
      - user
      - -
      - `geographic <geographic.html#geographic-crossings-kinds>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L584>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L447>`__
    * - ``geographic.crossings.notch_width``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-crossings-notch-width>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L589>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L452>`__
    * - ``geographic.crossings.bed_reach``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-crossings-bed-reach>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L600>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L463>`__
    * - ``geographic.crossings.max_depth``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-crossings-max-depth>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L612>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L475>`__
    * - ``geographic.crossings.snap_radius``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-crossings-snap-radius>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L623>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L486>`__
    * - ``geographic.bed_regularization``
      - ``BedRegularizationConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-bed-regularization>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L868>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L723>`__
    * - ``geographic.bed_regularization.enabled``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-bed-regularization-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L697>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L560>`__
    * - ``geographic.bed_regularization.min_slope``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-bed-regularization-min-slope>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L706>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L569>`__
    * - ``geographic.reuse_existing_outputs``
      - ``bool``
      - user
      - -
      - `geographic <geographic.html#geographic-reuse-existing-outputs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L876>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L731>`__
    * - ``geographic.write_intermediates``
      - ``bool``
      - dev
      - -
      - `geographic <geographic.html#geographic-write-intermediates>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L886>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/geographic/geographic_config.py#L741>`__
    * - ``domain.zone_ids``
      - ``list[str]``
      - user
@@ -4508,72 +4442,60 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `flow <flow.html#flow-sinks-sources-sfr>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/container.py#L34>`__
-   * - ``flow.sinks_sources.sfr.<id>.stream_threshold_km2``
-     - ``float | None``
-     - user
-     - -
-     - `flow <flow.html#flow-sinks-sources-sfr-id-stream-threshold-km2>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L183>`__
-   * - ``flow.sinks_sources.sfr.<id>.stream_threshold_cells``
-     - ``int | None``
-     - user
-     - -
-     - `flow <flow.html#flow-sinks-sources-sfr-id-stream-threshold-cells>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L192>`__
    * - ``flow.sinks_sources.sfr.<id>.min_reach_length``
      - ``Any``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-min-reach-length>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L197>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L184>`__
    * - ``flow.sinks_sources.sfr.<id>.manning``
      - ``float``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-manning>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L203>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L190>`__
    * - ``flow.sinks_sources.sfr.<id>.streambed_k``
      - ``float``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-streambed-k>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L210>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L197>`__
    * - ``flow.sinks_sources.sfr.<id>.streambed_k_unit``
      - ``str``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-streambed-k-unit>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L221>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L208>`__
    * - ``flow.sinks_sources.sfr.<id>.streambed_thickness``
      - ``Any``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-streambed-thickness>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L228>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L215>`__
    * - ``flow.sinks_sources.sfr.<id>.min_slope``
      - ``float``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-min-slope>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L232>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L219>`__
    * - ``flow.sinks_sources.sfr.<id>.bed_incision``
      - ``Optional[Any]``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-bed-incision>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L237>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L227>`__
    * - ``flow.sinks_sources.sfr.<id>.max_bed_sag``
      - ``Any``
      - expert
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-max-bed-sag>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L254>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L244>`__
    * - ``flow.sinks_sources.sfr.<id>.width``
      - ``FlowReachWidthConstant | FlowReachWidthByOrder | FlowReachWidthPowerLaw``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-width>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L265>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L255>`__
    * - ``flow.sinks_sources.sfr.<id>.width.kind``
      - ``Literal['constant']``
      - user
@@ -4609,25 +4531,25 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-connected-to-aquifer>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L270>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L260>`__
    * - ``flow.sinks_sources.sfr.<id>.route_drainage``
      - ``bool``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-route-drainage>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L274>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L264>`__
    * - ``flow.sinks_sources.sfr.<id>.storage``
      - ``bool``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-storage>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L287>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L277>`__
    * - ``flow.sinks_sources.sfr.<id>.headwater_inflow``
      - ``Optional[FlowWellForcingConstantConfig | FlowWellForcingCsvConfig | FlowWellForcingPiecewiseConfig | FlowWellForcingSeasonalConfig]``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-headwater-inflow>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L293>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L283>`__
    * - ``flow.sinks_sources.sfr.<id>.headwater_inflow.kind``
      - ``Literal['constant']``
      - user
@@ -4711,7 +4633,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-runoff>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L297>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L287>`__
    * - ``flow.sinks_sources.sfr.<id>.runoff.kind``
      - ``Literal['constant']``
      - user
@@ -4795,7 +4717,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-rainfall>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L301>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L291>`__
    * - ``flow.sinks_sources.sfr.<id>.rainfall.kind``
      - ``Literal['constant']``
      - user
@@ -4879,7 +4801,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-evaporation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L305>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L295>`__
    * - ``flow.sinks_sources.sfr.<id>.evaporation.kind``
      - ``Literal['constant']``
      - user
@@ -4963,7 +4885,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-reaches>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L311>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L301>`__
    * - ``flow.sinks_sources.sfr.<id>.reaches.cell``
      - ``Optional[FlowWellLocationCell | FlowWellLocationAbsoluteXY | FlowWellLocationRelativeXY]``
      - user
@@ -5017,7 +4939,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-diversions>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L315>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L305>`__
    * - ``flow.sinks_sources.sfr.<id>.diversions.reach``
      - ``int``
      - user
@@ -5047,49 +4969,49 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-outflow-to-lake>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L321>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L311>`__
    * - ``flow.sinks_sources.sfr.<id>.outflow_mvrtype``
      - ``Literal['FACTOR', 'UPTO', 'EXCESS', 'THRESHOLD']``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-outflow-mvrtype>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L329>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L319>`__
    * - ``flow.sinks_sources.sfr.<id>.outflow_value``
      - ``float``
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-outflow-value>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L335>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L325>`__
    * - ``flow.sinks_sources.sfr.<id>.lake_feeder_snap``
      - ``Any``
      - expert
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-lake-feeder-snap>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L348>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L338>`__
    * - ``flow.sinks_sources.sfr.<id>.outlet_keepout``
      - ``Any``
      - expert
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-outlet-keepout>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L356>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L346>`__
    * - ``flow.sinks_sources.sfr.<id>.rectify_on_mesh``
      - ``bool``
      - expert
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-rectify-on-mesh>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L364>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L354>`__
    * - ``flow.sinks_sources.sfr.<id>.rectify_stub_max_upstream``
      - ``int``
      - expert
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-rectify-stub-max-upstream>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L379>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L369>`__
    * - ``flow.sinks_sources.sfr.<id>.rectify_min_component_cells``
      - ``int``
      - expert
      - -
      - `flow <flow.html#flow-sinks-sources-sfr-id-rectify-min-component-cells>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L390>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L380>`__
    * - ``flow.sinks_sources.flow_barriers``
      - ``dict[str, FlowBarrierConfig]``
      - user
@@ -6283,7 +6205,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-planar>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L341>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L324>`__
    * - ``modflownwt.sgrid.planar.mode``
      - ``Literal['keep_native', 'resample_to_shape']``
      - user
@@ -6313,7 +6235,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-vertical>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L345>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328>`__
    * - ``modflownwt.sgrid.vertical.genmtd_lay``
      - ``Literal['constant', 'decay', 'list']``
      - user
@@ -6349,25 +6271,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-grid-dual>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L349>`__
-   * - ``modflownwt.sgrid.condition_top``
-     - ``bool``
-     - user
-     - -
-     - `modflownwt <modflownwt.html#modflownwt-sgrid-condition-top>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L359>`__
-   * - ``modflownwt.sgrid.condition_top_epsilon``
-     - ``float``
-     - user
-     - -
-     - `modflownwt <modflownwt.html#modflownwt-sgrid-condition-top-epsilon>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L375>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L332>`__
    * - ``modflownwt.sgrid.top_sampling``
      - ``TopSamplingConfig``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L384>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342>`__
    * - ``modflownwt.sgrid.top_sampling.mode``
      - ``Literal['centroid', 'zonal']``
      - user
@@ -6416,18 +6326,6 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling-min-thickness-m>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L311>`__
-   * - ``modflownwt.sgrid.top_sampling.network_safety_net``
-     - ``bool``
-     - user
-     - -
-     - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling-network-safety-net>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L319>`__
-   * - ``modflownwt.sgrid.top_sampling.max_channel_lowering_m``
-     - ``float``
-     - dev
-     - -
-     - `modflownwt <modflownwt.html#modflownwt-sgrid-top-sampling-max-channel-lowering-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328>`__
    * - ``modflow6.runtime``
      - ``Modflow6RuntimeConfig``
      - expert
@@ -6631,7 +6529,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-planar>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L341>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L324>`__
    * - ``modflow6.sgrid.planar.mode``
      - ``Literal['keep_native', 'resample_to_shape']``
      - user
@@ -6661,7 +6559,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-vertical>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L345>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328>`__
    * - ``modflow6.sgrid.vertical.genmtd_lay``
      - ``Literal['constant', 'decay', 'list']``
      - user
@@ -6697,25 +6595,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-grid-dual>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L349>`__
-   * - ``modflow6.sgrid.condition_top``
-     - ``bool``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-sgrid-condition-top>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L359>`__
-   * - ``modflow6.sgrid.condition_top_epsilon``
-     - ``float``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-sgrid-condition-top-epsilon>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L375>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L332>`__
    * - ``modflow6.sgrid.top_sampling``
      - ``TopSamplingConfig``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L384>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L342>`__
    * - ``modflow6.sgrid.top_sampling.mode``
      - ``Literal['centroid', 'zonal']``
      - user
@@ -6764,18 +6650,6 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling-min-thickness-m>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L311>`__
-   * - ``modflow6.sgrid.top_sampling.network_safety_net``
-     - ``bool``
-     - user
-     - -
-     - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling-network-safety-net>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L319>`__
-   * - ``modflow6.sgrid.top_sampling.max_channel_lowering_m``
-     - ``float``
-     - dev
-     - -
-     - `modflow6 <modflow6.html#modflow6-sgrid-top-sampling-max-channel-lowering-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L328>`__
    * - ``display.enabled``
      - ``bool``
      - user

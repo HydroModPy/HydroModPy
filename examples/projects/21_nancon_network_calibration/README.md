@@ -16,7 +16,7 @@ MODFLOW 6, maillage DISV 25 m, 243 552 mailles, aquifère d'une couche de 30 m.
 
 | fichier | mode | ce qu'il fait |
 |---|---|---|
-| `project.toml` | simulation | La base : MNT 25 m, délimitation par exutoire, burn du linéaire, drain de Cauchy proportionnel à `K`, permanent d'un an. C'est aussi le **marqueur de racine** du projet, il ne se supprime pas. |
+| `project.toml` | simulation | La base : MNT 25 m, délimitation par exutoire, linéaire observé sans burn (diagnostic alpha seulement), drain de Cauchy proportionnel à `K`, permanent d'un an. C'est aussi le **marqueur de racine** du projet, il ne se supprime pas. |
 | `smoke.toml` | simulation | Contrôle permanent de deux minutes, SFR + DRN. La porte de sortie avant tout run long : `mesh_hash`, profil de lit, convergence. |
 | `auto_drn_full.toml` | calibration | Les deux étages en drain pur, autonome, avec la galerie de figures. |
 | `auto_sfr_drn.toml` | calibration | Les deux étages en SFR + DRN. L'étage 1 éteint les biefs par construction, l'étage 2 les rallume. |
@@ -62,6 +62,14 @@ et le lit remonte de 3,755 m en médiane. Toutes les sessions précédentes
 datent d'avant. Le premier travail à refaire est donc le calage lui-même.
 Le détail du correctif et de ses mesures est dans `CORRECTION_LIT_SFR.md`, à
 la racine du dépôt.
+
+**Le burn du linéaire a été retiré le 5 octobre 2026.** Le linéaire n'entre plus
+dans la surface de routage : le critère le prend par ses têtes
+(`observed_rasterization = "heads"`, le défaut) et le désaccord entre le MNT et
+la carte se lit sur alpha, un diagnostic de l'étape géographique. Le bassin et
+le réseau SFR changent donc légèrement, et il faut recaler aussi après cette
+suppression. `calibrated_best.toml` a été fait sur le MNT burné : il ne rejoue
+plus ce calage.
 
 Trois écarts connus avec la méthode publiée, à traiter ensuite :
 

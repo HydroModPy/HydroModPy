@@ -348,142 +348,6 @@ class LakeEnforcementConfig(HydroModelBase):
     )
 
 
-class StreamEnforcementConfig(HydroModelBase):
-    """Burn the observed stream network into the ROUTING DEM before D8 routing.
-
-    A mapped stream network is surveyed independently of the DEM, so its trace
-    rarely follows the thalwegs the DEM computes: on five Armorican catchments at
-    75 m, a quarter to a third of the D8 trace seeded on the mapped cells leaves
-    that network at the first step. Any length measured along those paths then
-    reports a DEM-versus-map disagreement instead of hydrogeology. When enabled,
-    the mapped cells are lowered in a SEPARATE routing DEM used only for
-    delineation, before the lake carve and the fill/breach pass. The model grid
-    top stays on the raw DEM, which matters more here than for lakes: a top
-    lowered along the observed network would agree with that network by
-    construction.
-
-    The whole supplied linework is burned, fictitious arcs included: filtering
-    them out cuts the trench at every water body and caps the agreement below
-    0.97 whatever the depth. Selecting reaches by nature belongs to the metric,
-    not to the preprocessing.
-    """
-
-    enabled: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description=(
-            "Lower the mapped stream cells in the routing DEM before D8 so the "
-            "computed flow paths follow the observed network."
-        ),
-    )
-    stream_geometry_path: Annotated[
-        Path | None,
-        Profile.USER,
-        InputFile(role="stream_enforcement_geometry", category="geometry"),
-    ] = Field(
-        default=None,
-        description=(
-            "Observed stream network (gpkg/shp) to burn. A bare filename resolves "
-            "against <workspace>/data/hydrography/. When left empty and enabled, it "
-            "falls back to the network [[data.hydrography.sources]] declares, so the "
-            "same file is named once; declare it here only to burn a network that "
-            "differs from the one the data family loads."
-        ),
-    )
-    mode: Annotated[Literal["constant", "adaptive"], Profile.USER] = Field(
-        default="constant",
-        description=(
-            "Trench depth rule. 'constant' lowers every stream cell by depth_m. "
-            "'adaptive' derives one depth from the measured local relief along the "
-            "network. Either way a single depth is used, so the along-channel "
-            "gradient the trench exists to preserve is not rewritten."
-        ),
-    )
-    depth_m: Annotated[
-        LengthMeters,
-        Profile.USER,
-        VisibleWhen("mode", "constant"),
-    ] = Field(
-        default=30.0,
-        gt=0.0,
-        description=(
-            "Trench depth (metres) for mode='constant'. It must exceed the local "
-            "drop between a stream cell and its lowest non-stream neighbour; 5 m "
-            "clears 0.90 agreement on every measured catchment, 10 to 20 m are "
-            "needed for 0.95 to 0.99 on the difficult ones, and 1 m buys almost "
-            "nothing. Accepts inline units (e.g. 30, '30 m')."
-        ),
-    )
-    adaptive_percentile: Annotated[
-        float,
-        Profile.USER,
-        VisibleWhen("mode", "adaptive"),
-    ] = Field(
-        default=95.0,
-        ge=50.0,
-        le=100.0,
-        description=(
-            "Percentile of the local relief along the network used as the trench "
-            "depth when mode='adaptive'."
-        ),
-    )
-    relief_report_percentile: Annotated[float, Profile.EXPERT] = Field(
-        default=95.0,
-        ge=50.0,
-        le=100.0,
-        description=(
-            "Percentile of the local relief along the network reported in the burn "
-            "report and compared to the depth actually used, whatever the mode. It "
-            "is the drop a constant trench must clear to keep the flow on the mapped "
-            "network, so a depth below it warns. Independent of "
-            "adaptive_percentile, which SETS the depth; this one only JUDGES it."
-        ),
-    )
-    rasterize_all_touched: Annotated[bool, Profile.EXPERT] = Field(
-        default=True,
-        description=(
-            "Rasterize the network with the all-touched rule, so every cell a reach "
-            "crosses is burned and not only those whose centre falls under the line. "
-            "A one-cell-wide trace that skips a cell leaves a step the flow escapes "
-            "through, which is what the trench exists to prevent. False uses the "
-            "centre rule and is only there to reproduce a raster written that way."
-        ),
-    )
-    dem_nodata_fallback: Annotated[float, Profile.EXPERT] = Field(
-        default=-9999.0,
-        description=(
-            "Nodata value assumed when the DEM to burn declares none in its header. "
-            "It decides which cells are excluded from the burn and from the relief "
-            "measurement, so a raster using another sentinel must say so here."
-        ),
-    )
-    alpha_warning_threshold: Annotated[float, Profile.EXPERT] = Field(
-        default=0.90,
-        gt=0.0,
-        le=1.0,
-        description=(
-            "Below this agreement between the mapped network and the D8 paths of the "
-            "routing DEM, a warning fires. alpha is the share of the downstream "
-            "closure of the network that the network itself covers: 1.00 means the "
-            "computed paths never leave the map, 0.50 is the signature of a "
-            "systematic one-pixel shift. Below the threshold, any length measured "
-            "along those paths reports a DEM-versus-map disagreement rather than "
-            "hydrogeology."
-        ),
-    )
-    max_catchment_area_drift: Annotated[float, Profile.USER] = Field(
-        default=0.05,
-        ge=0.0,
-        description=(
-            "Relative change of the delineated catchment area the burn may cause. "
-            "A trench that crosses a divide (mis-georeferenced trace, canal, flat "
-            "area) reconnects two catchments and the delineation changes without "
-            "any other sign, so the catchment is delineated before and after the "
-            "burn and a larger drift raises. This costs one extra delineation pass "
-            "whenever the burn is on."
-        ),
-    )
-
-
 class DamCarveConfig(HydroModelBase):
     """Optional dam structure-carve of the ground.
 
@@ -491,8 +355,7 @@ class DamCarveConfig(HydroModelBase):
     under the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a
     cutoff-wall HFB band lands above the real seepage. This carves ONLY the dam
     footprint of the ground down to the surrounding valley floor, so the
-    cutoff wall can sit on the surveyed axis at the dam (not shifted downstream,
-    and no need for a stream-burned DEM that would lower every channel).
+    cutoff wall can sit on the surveyed axis at the dam (not shifted downstream).
 
     The ground is the DEM plus the corrections declared here and in
     ``[geographic.crossings]``. Both the routing chain and the model top start
@@ -830,14 +693,6 @@ class GeographicConfig(HydroModelBase):
         description=(
             "Optional DEM-derived river-network extraction settings. "
             "When disabled, no stream network is generated in geographic preprocessing."
-        ),
-    )
-    enforce_streams: Annotated[StreamEnforcementConfig, Profile.USER] = Field(
-        default_factory=StreamEnforcementConfig,
-        description=(
-            "Optional stream burning of the routing DEM: lower the mapped network "
-            "cells so the computed D8 paths follow the observed network, without "
-            "touching the model grid top. Applied before the lake carve."
         ),
     )
     enforce_lakes: Annotated[LakeEnforcementConfig, Profile.USER] = Field(

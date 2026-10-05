@@ -228,7 +228,6 @@ def write_mesh(
     source_cell_indices: np.ndarray | None = None,
     topography: np.ndarray | None = None,
     *,
-    topography_reference: np.ndarray | None = None,
     layer_thickness: np.ndarray | None = None,
     streambed_top: np.ndarray | None = None,
     streambed_connection: np.ndarray | None = None,
@@ -237,9 +236,6 @@ def write_mesh(
     structured_shape: tuple[int, int] | None = None,
 ) -> None:
     """Write the UGRID-1.0 mesh group, including the optional topography array.
-
-    ``topography_reference`` (the pre-conditioning per-face top) is stored beside
-    ``topography`` so the conditioning-impact map can render their difference.
 
     ``layer_thickness`` is the ``(n_layers, n_faces)`` saturated-thickness
     geometry of the model. ``z_interfaces`` only carries the vertical column of
@@ -307,18 +303,6 @@ def write_mesh(
                 dimension_names=(field_registry.AXIS_FACE,),
             )
             update_attrs(topo_arr, attrs_for_field("topography", topo_arr.dtype))
-        if topography_reference is not None:
-            _write_array(
-                store_obj,
-                mesh,
-                "topography_reference",
-                np.asarray(topography_reference, dtype="float64"),
-                dimension_names=(field_registry.AXIS_FACE,),
-                attrs={
-                    "long_name": "Pre-conditioning model top per face",
-                    "units": "m",
-                },
-            )
         for name, values in (
             ("streambed_top", streambed_top),
             ("streambed_connection", streambed_connection),

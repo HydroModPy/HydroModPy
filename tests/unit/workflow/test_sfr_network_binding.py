@@ -70,7 +70,7 @@ def _geographic_double(tmp_path: Path, *, threshold_cells: float = 50.0) -> Simp
 
 
 def _network_config(**overrides) -> FlowReachNetworkConfig:
-    payload = {"stream_threshold_cells": 50, "outflow_to_lake": 1}
+    payload = {"outflow_to_lake": 1}
     payload.update(overrides)
     return FlowReachNetworkConfig(**payload)
 
@@ -115,12 +115,6 @@ def test_bind_sfr_network_traces_is_a_noop_when_sfr_inactive(tmp_path: Path) -> 
     run_state.setup.flow.active_bc = ["lake"]
     bind_sfr_network_traces(run_state)
     assert run_state.setup.sfr_reach_traces is None
-
-
-def test_bind_sfr_network_traces_rejects_threshold_mismatch(tmp_path: Path) -> None:
-    run_state = _run_state(tmp_path, _network_config(stream_threshold_cells=80))
-    with pytest.raises(ConfigError, match="threshold"):
-        bind_sfr_network_traces(run_state)
 
 
 def test_bind_sfr_network_traces_requires_link_raster(tmp_path: Path) -> None:

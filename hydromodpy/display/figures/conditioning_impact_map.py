@@ -1,4 +1,4 @@
-"""Map of how much surface conditioning modified the mesh top (the DEM)."""
+"""Map of the top difference between two runs on one mesh."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.ugrid import render_face_field
 
@@ -29,44 +29,30 @@ def _top_surface(run: Run) -> np.ndarray:
 
 @register
 class ConditioningImpactMap(BaseFigure):
-    """Per-cell change of the mesh top from surface conditioning (the fill + breach).
+    """Per-cell top difference between two runs on one mesh (``sim`` minus ``reference``).
 
-    Delta = the conditioned top minus the pre-conditioning top on the run's own
-    mesh (blue = lowered, red = raised). By default the reference is the
-    pre-conditioning top persisted beside the topography, so a single conditioned
-    run renders its own impact. Passing another run as ``reference`` overrides it
-    with a two-run difference (both must share the mesh). Lake cells cancel out
-    (their bed is carved identically), so the map shows the aquifer modification.
+    It maps what one configuration did to the model top against another: fill
+    against capped breach, bed regularisation off against on (blue = lowered,
+    red = raised). ``reference=<run>`` is required and both runs must share the
+    mesh. Lake cells cancel out when their bed is carved identically, so the map
+    shows the aquifer modification.
     """
 
     spec = FigureSpec(
         name="conditioning_impact_map",
-        title="Conditioning impact on the DEM",
+        title="Top difference between two runs",
         kind="comparison",
         default_figsize=(7.5, 6.0),
     )
 
     def unavailable_reason(self, sim: Run) -> str | None:
-        """Skip, with a sentence, a run that kept no surface to compare against.
-
-        The pre-conditioning top is persisted only by the MODFLOW 6 runtime mesh
-        under ``condition_top``. Every other run legitimately has nothing to
-        compare, and a gallery has to skip it rather than lose its whole pass to
-        a figure that was never applicable.
-        """
+        """Skip, with a sentence, a run that kept no mesh top to compare."""
         try:
             mesh = sim.mesh
         except (RuntimeError, KeyError, FileNotFoundError) as exc:
             return f"run carries no mesh to compare ({type(exc).__name__})"
         if mesh is None or mesh.topography is None:
             return "run persisted no mesh topography"
-        if mesh.topography_reference is None:
-            return (
-                "run kept no pre-conditioning top to compare against: it is written by the "
-                "MODFLOW 6 runtime mesh under [mesh_input] condition_top = true, and a run "
-                "on another mesh has nothing to difference. Pass reference=<run> to compare "
-                "two runs sharing a mesh instead."
-            )
         return super().unavailable_reason(sim)
 
     def render(
@@ -79,18 +65,12 @@ class ConditioningImpactMap(BaseFigure):
         clip_percentile: float = 99.0,
         **_,
     ) -> Axes:
+        if reference is None:
+            raise FigureNotApplicable(
+                "this figure differences the tops of two runs on one mesh: pass reference=<run>."
+            )
         top = _top_surface(sim)
-        if reference is not None:
-            ref = _top_surface(reference)
-        else:
-            ref = sim.mesh.topography_reference
-            if ref is None:
-                raise ValueError(
-                    "conditioning_impact_map: this run has no persisted "
-                    "pre-conditioning top; run with condition_top on, or pass a "
-                    "'reference' run sharing the mesh"
-                )
-            ref = np.asarray(ref, dtype=float).ravel()
+        ref = _top_surface(reference)
         if top.shape != ref.shape:
             raise ValueError(
                 f"conditioning_impact_map: meshes differ (sim {top.size} cells, "
@@ -108,10 +88,10 @@ class ConditioningImpactMap(BaseFigure):
             cmap=cmap,
             vmin=-vmax,
             vmax=vmax,
-            cbar_label="conditioned top - reference (m)  |  red raised, blue lowered",
+            cbar_label="top - reference top (m)  |  red raised, blue lowered",
         )
         ax.set_title(
-            f"DEM modified by conditioning: {frac * 100:.0f}% of cells "
+            f"Top differs from {reference.sim_id}: {frac * 100:.0f}% of cells "
             f"(scale +/-{vmax:.1f} m) - {sim.sim_id}"
         )
         ax.set_xlabel("x (m)")

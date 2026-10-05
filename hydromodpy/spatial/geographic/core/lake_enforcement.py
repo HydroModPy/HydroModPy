@@ -411,13 +411,8 @@ def capture_stream_gaps(
 
 
 def _data_dir(setup: object) -> Path:
-    """The data folder around the DEM the project declared (data/dem/x.tif -> data).
-
-    A setup reading a corrected ground says where the declared DEM is in
-    ``source_dem_path``: the folder around the copy is not the data folder.
-    """
-    declared = getattr(setup, "source_dem_path", setup.dem_init_path)
-    return Path(str(declared)).resolve().parent.parent
+    """The data folder around the DEM the project declared (data/dem/x.tif -> data)."""
+    return Path(str(setup.dem_init_path)).resolve().parent.parent
 
 
 def lakes_from_config(enforce: object, setup: object) -> list:
@@ -460,9 +455,8 @@ def routing_dem_from_config(config: object, setup: object, *, dem_in_path: str |
 
     Duck-typed on ``config`` (``enforce_lakes``, ``x_outlet``/``y_outlet``) and ``setup``
     (``dem_init_path``, ``paths.correcflow_path``, ``crs_project``), so BOTH geographic
-    entry points can share it. ``dem_in_path`` is the surface to carve into: the ground,
-    or the stream-burned routing DEM when ``enforce_streams`` ran first. The ground
-    itself is never modified.
+    entry points can share it. ``dem_in_path`` is the surface to carve into: the ground.
+    The ground itself is never modified.
     """
     enforce = getattr(config, "enforce_lakes", None)
     if enforce is None or not getattr(enforce, "enabled", False):
@@ -591,7 +585,7 @@ def capture_from_config(
     """Carve near-miss streams to the lakes; return the captured routing DEM or None.
 
     ``dem_in_path`` is the routing DEM the delineation just ran on, so the capture
-    keeps whatever conditioning (stream burn, lake carve) produced it. The caller
+    keeps whatever conditioning (lake carve) produced it. The caller
     re-delineates on the returned DEM. Returns None when capture is off or no
     near-miss was found.
     """

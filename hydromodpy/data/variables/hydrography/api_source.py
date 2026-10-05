@@ -5,7 +5,7 @@ What this replaces
 Three independent copies of the same four words. ``manager.py`` dispatched
 with an ``if``/``elif`` chain on the three names, each branch importing a
 provider function by hand; ``resolver.py`` carried a
-tuple of the three names so the stream burn could tell an API source from a
+tuple of the three names so it could tell an API source from a
 local file, and imported the manager's chain to run one; and the config model
 carried a ``Literal`` of the same list. Nothing made the three agree, and the
 solver registry had already shown what happens when a name exists in two places.
@@ -13,7 +13,7 @@ solver registry had already shown what happens when a name exists in two places.
 Now the name is resolved by :mod:`hydromodpy.data.source.registry` and the
 source is asked through the port, so this module holds no source name at all.
 The two callers that used to share the dispatch share this instead, and the
-stream-burn resolver no longer imports the manager to reach a download.
+resolver no longer imports the manager to reach a download.
 
 Why the manager still owns the cache
 ------------------------------------
@@ -55,9 +55,9 @@ def source_from_section(source_cfg: object) -> DataSource:
 
     **A source serving another payload kind is refused on its declaration,
     before it is built**, which is :func:`~hydromodpy.data.source.registry.get_serving`.
-    The adversarial gate of this phase is why: the stream-burn resolver used to
-    carry an allowlist of three names and now branches on "not custom", so
-    every id the registry resolves reaches this function -- and reading the kind
+    The adversarial gate of this phase is why: the resolver used to
+    carry an allowlist of three names and branched on "not custom", so
+    every id the registry resolved reached this function -- and reading the kind
     off the *answer* meant a DEM source named in a hydrography section started
     downloading France-wide archives before anything noticed.
 

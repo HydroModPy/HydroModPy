@@ -1,9 +1,8 @@
 """Hand the descent D the build saved to the run store, for both backends.
 
 The build writes ``<model>.descent.npz`` in the solver folder. The extractors
-do not see the model, so they find it there, as they find
-``<model>.conditioning_ref.npy``, and write it under ``fields.zarr/mesh/``
-right after the mesh. Figures and the accumulation of cell fluxes read it from
+do not see the model, so they find it there and write it under
+``fields.zarr/mesh/`` right after the mesh. Figures and the accumulation of cell fluxes read it from
 there. A run without the sidecar gets no D in its store: its readers rebuild
 one from the stored top and say so.
 """

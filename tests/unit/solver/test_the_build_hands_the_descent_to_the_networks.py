@@ -362,13 +362,88 @@ def test_a_link_raster_older_than_the_stream_raster_is_never_read(tmp_path) -> N
         assert np.argwhere(tree.link).tolist() == [[3, 1], [3, 2], [3, 3]]
 
 
-def test_a_network_traced_on_a_burned_dem_pins_nothing(tmp_path, caplog) -> None:
+def _write_streams(path, shape: tuple[int, int], row: int, *, age_s: float = 0.0) -> None:
+    """A stream raster with one reach along ``row``, dated ``age_s`` seconds ago."""
+    import rasterio
+
+    data = np.zeros(shape, dtype=np.int32)
+    data[row, 1:4] = 1
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=shape[0],
+        width=shape[1],
+        count=1,
+        dtype=data.dtype,
+        crs="EPSG:2154",
+        transform=from_origin(0.0, 10.0 * shape[0], 10.0, 10.0),
+    ) as dst:
+        dst.write(data, 1)
+    if age_s:
+        moment = os.path.getmtime(path) - age_s
+        os.utime(path, (moment, moment))
+
+
+def test_the_active_raster_of_a_is_one_rule_for_every_reader(tmp_path) -> None:
+    from hydromodpy.solver.modflow_common.mesh_descent import active_channel_raster
+
+    streams = tmp_path / "dem_streams_full.tif"
+    pruned = tmp_path / "dem_streams_pruned_full.tif"
+    link = tmp_path / "dem_stream_link_id_full.tif"
+    shape = (5, 5)
+    _write_streams(streams, shape, 1, age_s=120.0)
+    assert active_channel_raster(tmp_path) == str(streams)
+
+    _write_streams(pruned, shape, 2)
+    assert active_channel_raster(tmp_path) == str(pruned)
+
+    _write_streams(link, shape, 3)
+    assert active_channel_raster(tmp_path) == str(link)
+
+    # A pruned raster older than the unpruned streams is a leftover of an earlier run.
+    os.utime(link, (0.0, 0.0))
+    os.utime(pruned, (0.0, 0.0))
+    assert active_channel_raster(tmp_path) == str(streams)
+
+
+def test_a_with_pruning_and_no_link_raster_is_the_pruned_network(tmp_path) -> None:
+    for name, row, age in (
+        ("dem_streams_full.tif", 1, 120.0),
+        ("dem_streams_pruned_full.tif", 3, 0.0),
+    ):
+        _write_streams(tmp_path / name, (5, 5), row, age_s=age)
     _write_network_rasters(tmp_path, (5, 5))
+    (tmp_path / "dem_stream_link_id_full.tif").unlink()
     mesh = _mesh(5, 5, np.full(25, 10.0))
-    burned = SimpleNamespace(correcflow_path=str(tmp_path), stream_burn_enabled=True)
+    geographic = SimpleNamespace(correcflow_path=str(tmp_path), river_network_enabled=True)
 
-    with caplog.at_level("INFO"):
-        tree = channel_tree_for_run(burned, mesh, required=True)
+    tree = channel_tree_for_run(geographic, mesh)
 
-    assert tree is None
-    assert "burned observed network" in caplog.text
+    assert tree is not None
+    assert np.argwhere(tree.link).tolist() == [[3, 1], [3, 2], [3, 3]]  # the pruned row
+
+
+def test_the_zonal_channel_mask_reads_the_same_raster_as_the_projection(tmp_path) -> None:
+    for name, row, age in (
+        ("dem_streams_full.tif", 1, 120.0),
+        ("dem_streams_pruned_full.tif", 3, 0.0),
+    ):
+        _write_streams(tmp_path / name, (5, 5), row, age_s=age)
+    support = SimpleNamespace(xmin=0.0, xmax=50.0, ymin=0.0, ymax=50.0, nrows=5, ncols=5, crs=None)
+    model = SimpleNamespace(
+        modflow_config=SimpleNamespace(
+            sgrid=SimpleNamespace(
+                top_sampling=SimpleNamespace(
+                    mode="zonal", channel_source="streams_raster", channel_buffer_px=0
+                )
+            )
+        ),
+        geographic=SimpleNamespace(correcflow_path=str(tmp_path)),
+        domain=SimpleNamespace(surface_topo=SimpleNamespace(support=support)),
+    )
+
+    mask = build._resolve_channel_mask_for_zonal(model)
+
+    assert mask is not None
+    assert np.argwhere(mask).tolist() == [[3, 1], [3, 2], [3, 3]]

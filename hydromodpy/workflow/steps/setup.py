@@ -42,6 +42,7 @@ def build_geographic_runtime(
     workspace: object,
     *,
     reuse_existing_outputs: bool | None = None,
+    network_map_path: Path | None = None,
 ) -> object:
     """Build the geographic runtime selected by the validated TOML config."""
     geographic_cfg = cfg.geographic
@@ -56,6 +57,7 @@ def build_geographic_runtime(
         geographic_cfg,
         workspace,
         reuse_existing_outputs=reuse_existing_outputs,
+        network_map_path=network_map_path,
     )
 
 
@@ -122,60 +124,34 @@ def _cfg_declares_dem_source(cfg: object) -> bool:
     return bool(getattr(dem_cfg, "sources", None))
 
 
-def resolve_stream_geometry_path(cfg: object, run_state: WorkflowContext) -> None:
-    """Populate the burn network from ``[[data.hydrography.sources]]`` when absent.
+def resolve_network_map_path(cfg: object, run_state: WorkflowContext) -> Path | None:
+    """Return the local vector file of ``[[data.hydrography.sources]]``, or None.
 
-    Twin of :func:`resolve_dem_init_path`, and for the same reason: the stream
-    burn runs inside the geographic step, before any data manager, so the network
-    it reads has to be a file on disk. Declaring it under ``[data.hydrography]``
-    alone used to leave the burn with nothing and force the same file to be named
-    twice. An explicitly declared ``stream_geometry_path`` always wins, so burning
-    a network that differs from the one the data family loads stays possible.
+    Twin of :func:`resolve_dem_init_path`, and for the same reason: the alpha
+    diagnostic runs inside the geographic step, before any data manager, so the
+    map it reads has to be a file on disk. The map reaches the step as a path and
+    never enters the configuration: an observation is not a model input. ``None``
+    means alpha does not run: no hydrography source, a synthetic geographic, a
+    raster source, or an API source (alpha does not download one).
     """
     geographic_cfg = cfg.geographic
     uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
     if callable(uses_synthetic) and uses_synthetic():
-        return
-
-    enforce_cfg = getattr(geographic_cfg, "enforce_streams", None)
-    if enforce_cfg is None or not getattr(enforce_cfg, "enabled", False):
-        return
-    if getattr(enforce_cfg, "stream_geometry_path", None) is not None:
-        return
+        return None
     if not _cfg_declares_hydrography_source(cfg):
-        return
-
-    from hydromodpy.data.variables.hydrography.resolver import (
-        resolve_stream_geometry_path_from_data_sources,
-    )
+        return None
 
     config_path = run_state.config_path
     if config_path is None:
-        raise ConfigError(
-            "geographic.enforce_streams.stream_geometry_path is missing and no config path "
-            "is available to resolve [[data.hydrography.sources]]."
+        logger.info(
+            "No config path is available to resolve [[data.hydrography.sources]]: the "
+            "alpha diagnostic does not run."
         )
+        return None
 
-    cache_dir = None
-    workspace = run_state.setup.workspace
-    paths = getattr(workspace, "paths", None) if workspace is not None else None
-    data_path = getattr(paths, "data_path", None) if paths is not None else None
-    if data_path is not None:
-        cache_dir = Path(data_path) / "hydrography"
+    from hydromodpy.data.variables.hydrography.resolver import resolve_network_map_path as resolve
 
-    resolved = resolve_stream_geometry_path_from_data_sources(
-        cfg,
-        config_path=Path(config_path),
-        cache_dir=cache_dir,
-    )
-    if resolved is None:
-        raise ConfigError(
-            "geographic.enforce_streams is enabled without a stream_geometry_path, and "
-            "[[data.hydrography.sources]] holds no vector network to fall back on. Either "
-            "set geographic.enforce_streams.stream_geometry_path, or declare a vector "
-            "hydrography source (a raster one cannot be burned)."
-        )
-    enforce_cfg.stream_geometry_path = resolved
+    return resolve(cfg, config_path=Path(config_path))
 
 
 def _cfg_declares_hydrography_source(cfg: object) -> bool:
@@ -187,7 +163,7 @@ def _cfg_declares_hydrography_source(cfg: object) -> bool:
 def resolve_crossings_path(cfg: object, run_state: WorkflowContext) -> None:
     """Populate ``[geographic.crossings] path`` from ``[[data.crossings.sources]]`` when absent.
 
-    Twin of :func:`resolve_stream_geometry_path`, for the same reason: the notch
+    Twin of :func:`resolve_network_map_path`, for the same reason: the notch
     and the bed regularisation run inside the geographic step, before any data
     manager, so the structures they read have to be a file on disk. The notch
     reads the embankments; the bed regularisation reads the declared weirs and
@@ -480,9 +456,12 @@ def run_setup(
         label=getattr(setup_state.workspace, "catch_name", None),
     )
     resolve_dem_init_path(cfg, run_state)
-    resolve_stream_geometry_path(cfg, run_state)
     resolve_crossings_path(cfg, run_state)
-    setup_state.geographic = build_geographic_fn(cfg, setup_state.workspace)
+    setup_state.geographic = build_geographic_fn(
+        cfg,
+        setup_state.workspace,
+        network_map_path=resolve_network_map_path(cfg, run_state),
+    )
     setup_state.geographic_features = coerce_geographic_derived_features(
         geographic=setup_state.geographic,
     )

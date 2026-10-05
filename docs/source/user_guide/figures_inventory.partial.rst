@@ -206,7 +206,7 @@ Multi-panel views combining one or several runs, observed data, or calibration t
      - Calibration parameter posteriors
      - tables ``calibration_iterations``
    * - ``conditioning_impact_map``
-     - Conditioning impact on the DEM
+     - Top difference between two runs
      - (no fixed input)
    * - ``difference_map``
      - Difference map

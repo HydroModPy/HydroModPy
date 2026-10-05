@@ -4348,38 +4348,6 @@ Fields
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-            .. index:: ! stream_threshold_km2
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: flow-sinks-sources-sfr-id-stream-threshold-km2
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.stream_threshold_km2">
-                    <code class="hmp-field-name">stream_threshold_km2</code>
-                  </div>
-
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L183>`__
-
-                  Drainage-area threshold [km^2] for stream initiation. Exactly one of stream_threshold_km2 / stream_threshold_cells must be set when reaches are delineated automatically.
-
-
-            .. index:: ! stream_threshold_cells
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: flow-sinks-sources-sfr-id-stream-threshold-cells
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="flow.sinks_sources.sfr.&lt;id&gt;.stream_threshold_cells">
-                    <code class="hmp-field-name">stream_threshold_cells</code>
-                  </div>
-
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L192>`__
-
-                  Alternative stream-initiation threshold as a flow-accumulation cell count.
-
-
             .. index:: ! min_reach_length
 
             .. container:: hmp-field hmp-field-level-user
@@ -4391,7 +4359,7 @@ Fields
                     <code class="hmp-field-name">min_reach_length</code>
                   </div>
 
-               :bdg-primary:`Any` :bdg-secondary:`default = "0 m"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L197>`__
+               :bdg-primary:`Any` :bdg-secondary:`default = "0 m"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L184>`__
 
                   Prune reaches shorter than this [L] (0 keeps all reaches).
 
@@ -4407,7 +4375,7 @@ Fields
                     <code class="hmp-field-name">manning</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.035` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L203>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.035` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L190>`__
 
                   Manning roughness coefficient n [T/L^(1/3)] (> 0). Default 0.035.
 
@@ -4423,7 +4391,7 @@ Fields
                     <code class="hmp-field-name">streambed_k</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 1e-06` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L210>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 1e-06` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L197>`__
 
                   Streambed hydraulic conductivity rhk [L/T]. 0 = no reach-aquifer leakage (pure routing).
 
@@ -4439,7 +4407,7 @@ Fields
                     <code class="hmp-field-name">streambed_k_unit</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "m/s"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L221>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "m/s"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L208>`__
 
                   Unit of streambed_k (velocity, L/T): m/s, m/day, m/h... HydroModPy converts it to m/s for MF6, so a m/day value is not taken as m/s.
 
@@ -4455,7 +4423,7 @@ Fields
                     <code class="hmp-field-name">streambed_thickness</code>
                   </div>
 
-               :bdg-primary:`Any` :bdg-secondary:`default = "1 m"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L228>`__
+               :bdg-primary:`Any` :bdg-secondary:`default = "1 m"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L215>`__
 
                   Streambed thickness rbth [L] (> 0).
 
@@ -4471,9 +4439,9 @@ Fields
                     <code class="hmp-field-name">min_slope</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0001` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L232>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0001` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L219>`__
 
-                  Floor for the reach gradient rgrd [-] after monotone-downhill conditioning.
+                  Floor for the reach gradient rgrd [-]. It also sets the drop the bed profile solve keeps between neighbouring reaches.
 
 
             .. index:: ! bed_incision
@@ -4487,9 +4455,9 @@ Fields
                     <code class="hmp-field-name">bed_incision</code>
                   </div>
 
-               :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L237>`__
+               :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L227>`__
 
-                  Depth [L] of the streambed top rtp below the top of the reach's OWN aquifer cell. A bed never sits above the ground of its own cell, whether this is set or not. None (default) only lifts the lower bound: the bed may then sink to the cell bottom instead of stopping at max_bed_sag. When set, each reach is solved inside [cell_top - bed_incision - max_bed_sag, cell_top - bed_incision], monotone downstream, and the build refuses when that band is empty. rtp is delineated on the model top, so this anchors a bed that a coarse DEM cannot resolve; it is not a correction for the stream burn, which never reaches the bed. Pick it against the water table, not against the channel: MODFLOW 6 switches a reach between connected and disconnected at rtp minus streambed_thickness (gwf-sfr.f90:3973-3985), so a bed sitting near the seasonal water-table depth toggles at every outer iteration.
+                  Depth [L] of the streambed top rtp below the top of the reach's OWN aquifer cell. A bed never sits above the ground of its own cell, whether this is set or not. None (default) only lifts the lower bound: the bed may then sink to the cell bottom instead of stopping at max_bed_sag. When set, each reach is solved inside [cell_top - bed_incision - max_bed_sag, cell_top - bed_incision], monotone downstream, and the build refuses when that band is empty. rtp is delineated on the model top, so this anchors a bed that a coarse DEM cannot resolve; it is not a correction for the descent D, which never reaches the bed. Pick it against the water table, not against the channel: MODFLOW 6 switches a reach between connected and disconnected at rtp minus streambed_thickness (gwf-sfr.f90:3973-3985), so a bed sitting near the seasonal water-table depth toggles at every outer iteration.
 
 
             .. index:: ! max_bed_sag
@@ -4503,7 +4471,7 @@ Fields
                     <code class="hmp-field-name">max_bed_sag</code>
                   </div>
 
-               :bdg-primary:`Any` :bdg-secondary:`default = "5 m"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L254>`__
+               :bdg-primary:`Any` :bdg-secondary:`default = "5 m"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L244>`__
 
                   Only read when bed_incision is set. How far [L] below cell_top - bed_incision the monotone-downstream solve may sink a reach. It bounds the cumulative descent that a traced channel climbing over a rise forces on everything downstream of it. Widening it never refuses the build on its own: a reach that cannot hold the descent is warned about and pinned to the floor.
 
@@ -4519,7 +4487,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.width]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "by_order" | "power_law"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L265>`__
+               :bdg-primary:`kind = "constant" | "by_order" | "power_law"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L255>`__
 
                   How the reach width rwid [L] is set (constant / by_order / power_law).
 
@@ -4624,7 +4592,7 @@ Fields
                     <code class="hmp-field-name">connected_to_aquifer</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L270>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L260>`__
 
                   If False every reach uses cellid 'none' (routing only, no streambed leakage).
 
@@ -4640,9 +4608,9 @@ Fields
                     <code class="hmp-field-name">route_drainage</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L274>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L264>`__
 
-                  Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell of the basin hands its outflow, through an MVR record (FACTOR 1.0), to the first reach or lake cell met on its descent D, a filled copy of the model top (no condition_top required). A cell whose descent leaves the model first keeps a plain DRN. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost.
+                  Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell of the basin hands its outflow, through an MVR record (FACTOR 1.0), to the first reach or lake cell met on its descent D, a filled copy of the model top. A cell whose descent leaves the model first keeps a plain DRN. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost.
 
 
             .. index:: ! storage
@@ -4656,7 +4624,7 @@ Fields
                     <code class="hmp-field-name">storage</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L287>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L277>`__
 
                   Enable the channel-storage term (transient first period / SIMPLE only).
 
@@ -4674,7 +4642,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.headwater_inflow]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L293>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L283>`__
 
                   External inflow [L^3/T] injected at the headwater reach(es).
 
@@ -4945,7 +4913,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.runoff]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L297>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L287>`__
 
                   Diffuse overland inflow [L^3/T], distributed per reach by length.
 
@@ -5216,7 +5184,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.rainfall]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L301>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L291>`__
 
                   Rainfall rate [L/T] on the reach surface.
 
@@ -5487,7 +5455,7 @@ Fields
                     <code class="hmp-field-toml">[flow.sinks_sources.sfr.&lt;id&gt;.evaporation]</code>
                   </div>
 
-               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L305>`__
+               :bdg-primary:`kind = "constant" | "csv" | "piecewise" | "seasonal"` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L295>`__
 
                   Open-channel evaporation rate [L/T] (positive, subtracted).
 
@@ -5760,9 +5728,9 @@ Fields
                     <code class="hmp-field-toml">[[flow.sinks_sources.sfr.&lt;id&gt;.reaches]]</code>
                   </div>
 
-               :bdg-primary:`list[FlowReachConfig] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L311>`__
+               :bdg-primary:`list[FlowReachConfig] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L301>`__
 
-                  Explicit reach table; bypasses delineation. None = delineate from the DEM.
+                  Explicit reach table; bypasses delineation. None = trace the reaches on A, the river network.
 
                .. dropdown:: Fields of ``FlowReachConfig``
                   :icon: list-unordered
@@ -5913,7 +5881,7 @@ Fields
                     <code class="hmp-field-toml">[[flow.sinks_sources.sfr.&lt;id&gt;.diversions]]</code>
                   </div>
 
-               :bdg-primary:`list[FlowReachDiversionConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L315>`__
+               :bdg-primary:`list[FlowReachDiversionConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L305>`__
 
                   SFR-to-SFR diversions (controlled splits). Empty = none.
 
@@ -6010,7 +5978,7 @@ Fields
                     <code class="hmp-field-name">outflow_to_lake</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L321>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L311>`__
 
                   1-based lake number the terminal reach feeds via MVR (SFR -> LAK). None = the network outflow leaves the model (EXT-OUTFLOW).
 
@@ -6026,7 +5994,7 @@ Fields
                     <code class="hmp-field-name">outflow_mvrtype</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "FACTOR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L329>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "FACTOR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L319>`__
 
                   MVR transfer rule for the SFR -> LAK coupling.
 
@@ -6046,7 +6014,7 @@ Fields
                     <code class="hmp-field-name">outflow_value</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L335>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L325>`__
 
                   MVR value: the fraction for FACTOR, or the flow rate [L^3/T] for UPTO / EXCESS / THRESHOLD. Not calibratable: it is a coupling rule, not a hydraulic property of the reach or the lake, so letting a search move it would buy fit by reshaping how water is split between them rather than resolve streambed_k or the lake bathymetry, the actual unknowns. path = in [calibration.parameters] still reaches it for whoever wants to override this deliberately.
 
@@ -6062,7 +6030,7 @@ Fields
                     <code class="hmp-field-name">lake_feeder_snap</code>
                   </div>
 
-               :bdg-primary:`Any` :bdg-secondary:`default = "300 m"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L348>`__
+               :bdg-primary:`Any` :bdg-secondary:`default = "300 m"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L338>`__
 
                   Max distance from a lake shoreline within which a dead-end reach is snapped to that lake via MVR (a real feeder the DEM fell short of). Scale it to the catchment: too large teleports an unrelated reach into the lake.
 
@@ -6078,7 +6046,7 @@ Fields
                     <code class="hmp-field-name">outlet_keepout</code>
                   </div>
 
-               :bdg-primary:`Any` :bdg-secondary:`default = "1000 m"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L356>`__
+               :bdg-primary:`Any` :bdg-secondary:`default = "1000 m"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L346>`__
 
                   Min distance from the model outlet a terminal reach must keep to count as a lake feeder. A terminal closer than this is the below-dam discharge reach (the lake feeds it and it leaves the model), so it is not routed into the lake.
 
@@ -6094,9 +6062,9 @@ Fields
                     <code class="hmp-field-name">rectify_on_mesh</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L364>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L354>`__
 
-                  Re-derive the delineated reach cells as a clean single-flow-direction (SFD) channel on the DISV mesh. From every delineated cell the descent D, a filled copy of the model top, is traced one neighbour at a time until it reaches a lake, the outlet of D, or an already-traced cell. The union of those paths is the channel: one cell wide (a single downstream per cell, so no braiding), continuous on the descent graph (shared faces, or shared nodes on a quad mesh), following the thalweg of D (so the surface flow follows the reach), and always reaching a real sink (no inland dead-end that leaks its flow out). The streambed top is read on the model top, never on D. No condition_top is required: D is a copy and never returns to the solver.
+                  Re-derive the delineated reach cells as a clean single-flow-direction (SFD) channel on the DISV mesh. From every delineated cell the descent D, a filled copy of the model top, is traced one neighbour at a time until it reaches a lake, the outlet of D, or an already-traced cell. The union of those paths is the channel: one cell wide (a single downstream per cell, so no braiding), continuous on the descent graph (shared faces, or shared nodes on a quad mesh), following the thalweg of D (so the surface flow follows the reach), and always reaching a real sink (no inland dead-end that leaks its flow out). The streambed top is read on the model top, never on D. D is a copy and never returns to the solver.
 
 
             .. index:: ! rectify_stub_max_upstream
@@ -6110,7 +6078,7 @@ Fields
                     <code class="hmp-field-name">rectify_stub_max_upstream</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 2` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L379>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 2` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L369>`__
 
                   When rectify_on_mesh is set, demote a low-order parallel stub to hillslope drainage (DRN -> SFR) to thin braided bands: a reach cell with at most this many reach cells upstream of it that runs beside a reach carrying strictly more (the true channel) is dropped from SFR, keeping a one-thread channel; its water still reaches the network as routed drainage. 0 demotes only headwater leaves, a negative value keeps every traced cell. Default 2 removes stubs up to ~3 cells.
 
@@ -6126,7 +6094,7 @@ Fields
                     <code class="hmp-field-name">rectify_min_component_cells</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 2` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L390>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 2` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/flow/sinks_sources/sfr.py#L380>`__
 
                   When rectify_on_mesh is set, drop a whole reach component smaller than this many cells (a lone one-cell stream that just touches a lake or the outlet is hillslope drainage, not a channel, and reads as a spurious SFR -> lake entry). Its water still reaches the network as routed DRN. Default 2 drops single-cell components; 1 keeps every component.
 

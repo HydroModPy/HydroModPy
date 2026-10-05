@@ -220,10 +220,9 @@ step2_local_data.toml — run ``nancon_step2_local``, ``base_config = "step1_min
    Declares the local data sources the later steps read: the mapped stream
    network and the gauge. Still steady, and the head it solves is step 1's to
    the bit, which is the point worth noticing. A simulation driven by the
-   drainage boundary reads ``mesh/topography``; burning the mapped network into
-   the DEM reshapes the routing surface instead, which only the calibration
-   criterion looks at. So this step buys you data on disk, not a different
-   result.
+   drainage boundary reads ``mesh/topography``; the mapped network never enters
+   the routing surface, and only the calibration criterion looks at it. So this
+   step buys you data on disk, not a different result.
 
 step3_api_data.toml — run ``nancon_step3_api``, ``base_config = "step2_local_data.toml"``
    The same model as step 2, but the hydrography comes from the BD TOPAGE

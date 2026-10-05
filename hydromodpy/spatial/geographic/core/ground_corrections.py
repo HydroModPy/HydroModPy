@@ -1,6 +1,6 @@
 """The ground: the DEM plus the corrections the project declares, each bounded and logged.
 
-The routing chain (burn, lake carve, conditioning, D8) and the model top both
+The routing chain (lake carve, conditioning, D8) and the model top both
 start from the ground, in both geographic entry points. Without a declared
 correction the ground is the raw DEM path itself: no copy, no new file.
 
@@ -177,30 +177,6 @@ class NotchReport:
 
 def _counts(counts: dict[str, int]) -> str:
     return "(" + ", ".join(f"{key} {value}" for key, value in sorted(counts.items())) + ")"
-
-
-class _GroundSetup:
-    """A setup whose DEM is the ground, for the helpers that read ``dem_init_path``.
-
-    ``source_dem_path`` keeps the DEM the project declared: the data folder a
-    bare filename is looked up in is the one around it, not the one around the
-    corrected copy.
-    """
-
-    def __init__(self, setup: Any, ground: str) -> None:
-        self._setup = setup
-        self.dem_init_path = ground
-        self.source_dem_path = str(setup.dem_init_path)
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._setup, name)
-
-
-def on_ground(setup: Any, ground: str | Path) -> Any:
-    """The setup reading *ground* as its DEM, or the setup itself when it already does."""
-    if str(ground) == str(setup.dem_init_path):
-        return setup
-    return _GroundSetup(setup, str(ground))
 
 
 def notch_enabled(config: object) -> bool:

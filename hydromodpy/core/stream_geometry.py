@@ -266,9 +266,9 @@ def _report_poor_alpha(alpha_catchment: float, threshold: float) -> None:
     log(
         "The mapped stream network agrees poorly with the model top "
         "(alpha_obs_closure_catchment = %.3f, below %.2f), so the distances carry a "
-        "top-versus-map disagreement on top of the hydrogeology. This does not mean the "
-        "routing DEM was left unburned: the criterion descends the raw top by design, so "
-        "this alpha differs from the one the geographic step reports.",
+        "top-versus-map disagreement on top of the hydrogeology. This alpha differs from "
+        "the one the geographic step reports: that one reads the D8 pointer of the "
+        "routing DEM, this one the descent of the model top.",
         alpha_catchment,
         threshold,
     )

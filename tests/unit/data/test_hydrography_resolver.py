@@ -1,7 +1,8 @@
-"""Fill the stream burn network from ``[[data.hydrography.sources]]``."""
+"""Read the network map of the alpha diagnostic from ``[[data.hydrography.sources]]``."""
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,7 +14,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import LineString
 
 from hydromodpy.data.variables.hydrography.resolver import (
-    resolve_stream_geometry_path_from_data_sources,
+    resolve_network_map_path,
 )
 
 _NETWORK = LineString([(350000.0, 6800000.0), (350000.0, 6805000.0)])
@@ -67,7 +68,7 @@ def test_a_relative_custom_path_anchors_on_the_toml_directory(tmp_path):
     project.mkdir()
     _write_network(project / "network.gpkg")
 
-    resolved = resolve_stream_geometry_path_from_data_sources(
+    resolved = resolve_network_map_path(
         _cfg([_custom("network.gpkg")]),
         config_path=project / "project.toml",
     )
@@ -78,7 +79,7 @@ def test_a_relative_custom_path_anchors_on_the_toml_directory(tmp_path):
 def test_an_absolute_custom_path_is_kept(tmp_path):
     network = _write_network(tmp_path / "network.gpkg")
 
-    resolved = resolve_stream_geometry_path_from_data_sources(
+    resolved = resolve_network_map_path(
         _cfg([_custom(str(network))]),
         config_path=tmp_path / "project.toml",
     )
@@ -87,13 +88,13 @@ def test_an_absolute_custom_path_is_kept(tmp_path):
 
 
 def test_a_directory_yields_its_vector_and_not_its_raster(tmp_path):
-    """The data manager prefers a raster here; the burn needs the linework."""
+    """The data manager prefers a raster here; alpha needs the linework."""
     folder = tmp_path / "hydrography"
     folder.mkdir()
     _write_raster(folder / "network.tif")
     _write_network(folder / "network.gpkg")
 
-    resolved = resolve_stream_geometry_path_from_data_sources(
+    resolved = resolve_network_map_path(
         _cfg([_custom(str(folder))]),
         config_path=tmp_path / "project.toml",
     )
@@ -104,7 +105,7 @@ def test_a_directory_yields_its_vector_and_not_its_raster(tmp_path):
 def test_a_raster_only_source_resolves_to_nothing(tmp_path):
     raster = _write_raster(tmp_path / "network.tif")
 
-    resolved = resolve_stream_geometry_path_from_data_sources(
+    resolved = resolve_network_map_path(
         _cfg([_custom(str(raster))]),
         config_path=tmp_path / "project.toml",
     )
@@ -116,7 +117,7 @@ def test_the_first_source_holding_a_vector_wins(tmp_path):
     raster = _write_raster(tmp_path / "network.tif")
     network = _write_network(tmp_path / "network.gpkg")
 
-    resolved = resolve_stream_geometry_path_from_data_sources(
+    resolved = resolve_network_map_path(
         _cfg([_custom(str(raster)), _custom(str(network))]),
         config_path=tmp_path / "project.toml",
     )
@@ -129,7 +130,7 @@ def test_a_scaffold_template_is_not_picked_up(tmp_path):
     folder.mkdir()
     _write_network(folder / "hydrography_custom_EXAMPLE.gpkg")
 
-    resolved = resolve_stream_geometry_path_from_data_sources(
+    resolved = resolve_network_map_path(
         _cfg([_custom(str(folder))]),
         config_path=tmp_path / "project.toml",
     )
@@ -137,91 +138,93 @@ def test_a_scaffold_template_is_not_picked_up(tmp_path):
     assert resolved is None
 
 
-def test_a_custom_path_pointing_at_nothing_raises(tmp_path):
-    with pytest.raises(FileNotFoundError, match="custom source path not found"):
-        resolve_stream_geometry_path_from_data_sources(
+def test_a_custom_path_pointing_at_nothing_is_a_warning(tmp_path, caplog):
+    with caplog.at_level("WARNING"):
+        resolved = resolve_network_map_path(
             _cfg([_custom("absent.gpkg")]),
             config_path=tmp_path / "project.toml",
         )
+
+    assert resolved is None
+    assert "custom source path not found" in caplog.text
 
 
 def test_no_hydrography_section_resolves_to_nothing(tmp_path):
     cfg = SimpleNamespace(data=SimpleNamespace(hydrography=None), geographic=SimpleNamespace())
 
-    assert (
-        resolve_stream_geometry_path_from_data_sources(cfg, config_path=tmp_path / "project.toml")
-        is None
-    )
+    assert resolve_network_map_path(cfg, config_path=tmp_path / "project.toml") is None
 
 
-def test_an_api_source_without_an_outlet_says_so(tmp_path):
-    cfg = _cfg(
-        [SimpleNamespace(source="osm", path=None, force_refresh=False)],
-        x_outlet=None,
-        y_outlet=None,
-    )
-
-    with pytest.raises(ValueError, match="x_outlet"):
-        resolve_stream_geometry_path_from_data_sources(
-            cfg,
-            config_path=tmp_path / "project.toml",
-        )
-
-
-def test_an_api_source_downloads_on_the_outlet_box_clipped_to_the_dem(tmp_path, monkeypatch):
-    dem = _write_raster(tmp_path / "dem.tif")
-    cfg = _cfg(
-        [SimpleNamespace(source="osm", path=None, force_refresh=False)],
-        dem_init_path=dem,
-    )
-    seen: dict[str, tuple[float, float, float, float]] = {}
-
-    def _fake_fetch(source, extent):
-        assert source.source_id == "osm"
-        seen["bbox"] = extent.bbox
-        return gpd.GeoDataFrame({"id": [1]}, geometry=[_NETWORK], crs="EPSG:2154")
+def test_an_api_source_is_never_downloaded_and_says_so(tmp_path, monkeypatch, caplog):
+    def _no_fetch(*_args, **_kwargs):
+        raise AssertionError("alpha must not download a network")
 
     monkeypatch.setattr(
         "hydromodpy.data.variables.hydrography.api_source.fetch_network",
-        _fake_fetch,
+        _no_fetch,
     )
-
-    resolved = resolve_stream_geometry_path_from_data_sources(
-        cfg,
-        config_path=tmp_path / "project.toml",
-        cache_dir=tmp_path / "cache",
-    )
-
-    assert resolved is not None
-    assert resolved.exists()
-    assert resolved.parent == tmp_path / "cache"
-    # The 30 km outlet box is far wider than the 4 km DEM, so the DEM footprint
-    # is what the fetch box ends up being.
-    lon_min, lat_min, lon_max, lat_max = seen["bbox"]
-    assert lon_max - lon_min < 0.2
-    assert lat_max - lat_min < 0.2
-    assert str(gpd.read_file(resolved).crs) == "EPSG:4326"
-
-
-def test_a_downloaded_box_is_not_fetched_twice(tmp_path, monkeypatch):
     cfg = _cfg([SimpleNamespace(source="osm", path=None, force_refresh=False)])
-    calls = {"n": 0}
 
-    def _fake_fetch(_source, _extent):
-        calls["n"] += 1
-        return gpd.GeoDataFrame({"id": [1]}, geometry=[_NETWORK], crs="EPSG:2154")
+    with caplog.at_level(logging.INFO):
+        resolved = resolve_network_map_path(cfg, config_path=tmp_path / "project.toml")
 
-    monkeypatch.setattr(
-        "hydromodpy.data.variables.hydrography.api_source.fetch_network",
-        _fake_fetch,
+    assert resolved is None
+    assert "needs a custom vector source" in caplog.text
+
+
+def test_a_custom_source_after_an_api_source_still_wins(tmp_path):
+    network = _write_network(tmp_path / "network.gpkg")
+
+    resolved = resolve_network_map_path(
+        _cfg(
+            [SimpleNamespace(source="osm", path=None, force_refresh=False), _custom(str(network))]
+        ),
+        config_path=tmp_path / "project.toml",
     )
 
-    first = resolve_stream_geometry_path_from_data_sources(
-        cfg, config_path=tmp_path / "project.toml", cache_dir=tmp_path / "cache"
-    )
-    second = resolve_stream_geometry_path_from_data_sources(
-        cfg, config_path=tmp_path / "project.toml", cache_dir=tmp_path / "cache"
+    assert resolved == network
+
+
+_PROJECT_TOML = """\
+[workflow]
+mode = "simulation"
+
+[workspace]
+root = "{project}"
+project_root = "{project}"
+
+[geographic.catchment]
+catch_def = "dem"
+dem_init_path = "dem.tif"
+
+[[data.hydrography.sources]]
+source = "custom"
+path = "{declared}"
+"""
+
+
+@pytest.mark.parametrize("declared", ["streams.gpkg", "data/hydrography/streams.gpkg"])
+def test_the_map_is_the_same_file_from_any_working_directory(tmp_path, monkeypatch, declared):
+    """The path is anchored once at load, so the cwd never picks another file."""
+    from hydromodpy.config import HydroModPyConfig
+
+    project = tmp_path / "project"
+    (project / "data" / "hydrography").mkdir(parents=True)
+    (project / "dem.tif").touch()
+    _write_network(project / "data" / "hydrography" / "streams.gpkg")
+    decoy = tmp_path / "elsewhere"
+    decoy.mkdir()
+    _write_network(decoy / "streams.gpkg")
+    cfg_path = project / "project.toml"
+    cfg_path.write_text(
+        _PROJECT_TOML.format(project=project.as_posix(), declared=declared), encoding="utf-8"
     )
 
-    assert first == second
-    assert calls["n"] == 1
+    resolved = []
+    for cwd in (decoy, project):
+        monkeypatch.chdir(cwd)
+        cfg = HydroModPyConfig.from_toml(cfg_path)
+        resolved.append(resolve_network_map_path(cfg, config_path=cfg_path))
+
+    assert resolved[0] == resolved[1]
+    assert resolved[0].parent != decoy

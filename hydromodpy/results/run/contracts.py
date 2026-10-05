@@ -28,9 +28,7 @@ class Mesh:
     face_node_connectivity: np.ndarray
     z_interfaces: np.ndarray
     topography: np.ndarray | None = None
-    """Per-face model top (conditioned), when persisted in the mesh group."""
-    topography_reference: np.ndarray | None = None
-    """Per-face model top BEFORE conditioning, when persisted (for the impact map)."""
+    """Per-face model top, when persisted in the mesh group."""
     crs: str | None = None
     """Projected CRS the vertices are expressed in (``crs_proj``), ``None`` when
     the run pre-dates geographic ingestion. Overlaying a vector layer on this mesh

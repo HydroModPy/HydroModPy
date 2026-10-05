@@ -7,11 +7,10 @@ paths never leave the map, and ``0.5`` means each mapped cell generates one cell
 of spurious trace, the signature of a systematic one-pixel shift.
 
 This is not a quality mark on the network, which is an input taken as given. It
-measures the disagreement between the DEM and that network, so it says whether
-the DEM needs the stream burn of
-:mod:`~hydromodpy.spatial.geographic.core.stream_enforcement`, and whether the
-depth used was enough. It runs on any project that declares a network, with or
-without burning, and needs no calibration.
+measures the disagreement between the DEM and that network. It is a diagnostic of
+the geographic step: it decides no treatment and never stops a run. It reads a local vector file only (a
+``[[data.hydrography.sources]]`` entry with ``source = "custom"``) and needs no
+calibration.
 """
 
 from __future__ import annotations
@@ -25,7 +24,8 @@ import rasterio
 from rasterio.features import rasterize
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.geographic.core.stream_enforcement import streams_from_config
+from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
+from hydromodpy.core.toml_io.paths import is_declared_absolute_path
 from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 
 logger = get_logger(__name__)
@@ -38,7 +38,6 @@ class NetworkDemAgreement:
     n_network_cells: int
     n_closure_cells: int
     alpha: float
-    burned: bool
 
 
 def measure_network_dem_agreement(
@@ -46,7 +45,6 @@ def measure_network_dem_agreement(
     d8_pointer_path: str | Path,
     watershed_shp: str | Path,
     stream_lines: list,
-    burned: bool = False,
 ) -> NetworkDemAgreement:
     """Measure the agreement between one D8 pointer raster and a mapped network."""
     import geopandas as gpd
@@ -91,56 +89,85 @@ def measure_network_dem_agreement(
         n_network_cells=int(seeds.size),
         n_closure_cells=n_closure,
         alpha=float(seeds.size) / float(n_closure) if n_closure else float("nan"),
-        burned=bool(burned),
     )
+
+
+def read_network_map(path: str | Path, crs: object | None) -> list:
+    """Read the mapped network geometries from a local vector file.
+
+    The path is anchored once, when the configuration is loaded: relative to the
+    TOML that declares it, and a bare filename under ``<workspace>/data/``.
+    Nothing is probed here, so the run reads the same file whatever directory it
+    was launched from. A value that arrives relative was never anchored (a
+    configuration built without the loader): it is still read, from the working
+    directory, but it says so.
+    """
+    import geopandas as gpd
+
+    path = Path(path)
+    if not is_declared_absolute_path(path):
+        logger.warning(
+            "The network map path is relative (%s), so it is read from the working "
+            "directory. Loading the configuration through HydroModPyConfig anchors it "
+            "on the TOML that declares it instead.",
+            path,
+        )
+    if not path.exists():
+        raise FileNotFoundError(f"The network map points to nothing: {path}.")
+    gdf = gpd.read_file(path)
+    if crs is not None:
+        gdf = gdf.to_crs(crs)
+    return [g for g in gdf.geometry if g is not None and not g.is_empty]
 
 
 def report_network_dem_agreement(
-    config: object,
     setup: object,
     *,
+    network_map_path: str | Path | None,
     d8_pointer_path: str | Path,
 ) -> NetworkDemAgreement | None:
-    """Measure, log and journal the DEM/network agreement when a network is declared.
+    """Measure, log and journal the DEM/network agreement when a map is given.
 
-    Runs whether or not burning is enabled: on a project that declares a network
-    without burning it, this is the number that says whether burning is needed.
-    Returns ``None`` when no network is declared.
+    Alpha is a diagnostic and never stops a run. Returns ``None`` when no local
+    map was resolved or when the map cannot be read or measured (one warning
+    names the map and the reason). In both cases the journal of an earlier map
+    is removed, so the JSON always describes the current map.
     """
-    enforce = getattr(config, "enforce_streams", None)
-    if enforce is None or getattr(enforce, "stream_geometry_path", None) is None:
+    summary_path = Path(setup.paths.geographic_path) / "stream_dem_agreement.json"
+    if network_map_path is None:
+        summary_path.unlink(missing_ok=True)
         return None
 
-    burned = bool(getattr(enforce, "enabled", False))
-    agreement = measure_network_dem_agreement(
-        d8_pointer_path=d8_pointer_path,
-        watershed_shp=setup.paths.watershed_shp,
-        stream_lines=streams_from_config(enforce, setup),
-        burned=burned,
-    )
-    summary_path = Path(setup.paths.geographic_path) / "stream_dem_agreement.json"
+    try:
+        agreement = measure_network_dem_agreement(
+            d8_pointer_path=d8_pointer_path,
+            watershed_shp=setup.paths.watershed_shp,
+            stream_lines=read_network_map(network_map_path, getattr(setup, "crs_project", None)),
+        )
+    except (ValueError, OSError) as exc:
+        summary_path.unlink(missing_ok=True)
+        logger.warning(
+            "The stream/DEM agreement (alpha) was skipped: the network map %s could not be measured (%s).",
+            network_map_path,
+            exc,
+        )
+        return None
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.write_text(json.dumps(asdict(agreement), indent=1), encoding="utf-8")
 
     logger.info(
-        "Stream/DEM agreement: %d mapped cells generate a downstream closure of %d "
-        "(alpha %.3f, burning %s).",
+        "Stream/DEM agreement: %d mapped cells generate a downstream closure of %d (alpha %.3f).",
         agreement.n_network_cells,
         agreement.n_closure_cells,
         agreement.alpha,
-        "on" if burned else "off",
     )
-    if agreement.alpha < float(enforce.alpha_warning_threshold):
+    if agreement.alpha < STREAM_CRITERION_DEFAULTS.alpha_warning_threshold:
         logger.warning(
             "Stream/DEM agreement is low (alpha %.3f): following D8 from the mapped "
             "network leaves it almost at once, so any length measured along those "
-            "paths reports a DEM-versus-map disagreement rather than hydrogeology. %s",
+            "paths reports a DEM-versus-map disagreement rather than hydrogeology. "
+            "The criterion measures on the model top, not on this pointer.",
             agreement.alpha,
-            (
-                "Increase geographic.enforce_streams.depth_m."
-                if burned
-                else "Enable geographic.enforce_streams."
-            ),
         )
     return agreement
 

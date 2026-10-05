@@ -78,7 +78,6 @@ from hydromodpy.solver.modflow6.builders.sfr import (
 )
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.support.flopy_structure_warmup import warm_flopy_structure
-from hydromodpy.solver.modflow6.support.mesh_conditioning import condition_solver_mesh_top
 from hydromodpy.solver.modflow6.support.property_mapping import (
     fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
@@ -98,6 +97,7 @@ from hydromodpy.solver.modflow_common import (
     write_grid_array_to_raster,
 )
 from hydromodpy.solver.modflow_common.mesh_descent import (
+    active_channel_raster,
     build_solver_mesh_descent,
     channel_tree_for_run,
     resolve_dam_foot_cells,
@@ -480,7 +480,7 @@ def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
 
     Only produced when ``sgrid.top_sampling.mode == 'zonal'`` and its
     ``channel_source`` requests one. Reads the channel tree A over the whole model
-    domain, the full-extent link raster (else the full stream raster) of
+    domain, the full-extent raster that :func:`active_channel_raster` picks in
     ``correcflow_path``, and reprojects it (nearest) onto the model-top DEM grid.
     The rasters clipped to the watershed miss the buffer the grid keeps active, so
     they are the fallback only. Returns ``None`` (channel class disabled, every
@@ -498,12 +498,10 @@ def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
     path = None
     folder = getattr(geographic, "correcflow_path", None)
     if folder is not None:
-        for name in ("dem_stream_link_id_full.tif", "dem_streams_full.tif"):
-            candidate = os.path.join(str(folder), name)
-            if os.path.exists(candidate):
-                path = candidate
-                logger.info("Zonal channel mask reads the full-extent channel tree: %s.", path)
-                break
+        candidate = active_channel_raster(folder)
+        if os.path.exists(candidate):
+            path = candidate
+            logger.info("Zonal channel mask reads the full-extent channel tree: %s.", path)
     if path is None:
         for name in ("river_stream_link_id_tif", "river_streams_tif"):
             candidate = getattr(geographic, name, None)
@@ -591,49 +589,6 @@ def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
         "Zonal channel mask: %d/%d channel pixels from %s.", int(mask.sum()), mask.size, path
     )
     return mask
-
-
-def _resolve_channel_cells_for_breach(model, solver_mesh) -> set[int] | None:
-    """Channel cell ids for the network-safety-net breach, else None.
-
-    Enabled only when ``sgrid.top_sampling.network_safety_net`` is set. Reuses the
-    zonal channel pixel mask (aligned to the model-top DEM) and maps it to the
-    runtime mesh cells that hold at least one channel pixel.
-    """
-    sgrid_cfg = getattr(model.modflow_config, "sgrid", None)
-    top_sampling = getattr(sgrid_cfg, "top_sampling", None)
-    if top_sampling is None or not getattr(top_sampling, "network_safety_net", False):
-        return None
-    mask = _resolve_channel_mask_for_zonal(model)
-    if mask is None:
-        return None
-    support = getattr(getattr(model.domain, "surface_topo", None), "support", None)
-    if support is None:
-        return None
-
-    from rasterio.transform import from_bounds
-
-    from hydromodpy.spatial.mesh.ops.zonal_stats import rasterize_cell_ids
-
-    transform = from_bounds(
-        float(support.xmin),
-        float(support.ymin),
-        float(support.xmax),
-        float(support.ymax),
-        int(support.ncols),
-        int(support.nrows),
-    )
-    labels = rasterize_cell_ids(
-        solver_mesh.planar_mesh,
-        transform=transform,
-        out_shape=(int(support.nrows), int(support.ncols)),
-    )
-    channel_labels = labels[np.asarray(mask, dtype=bool)]
-    cells = {int(c) for c in np.unique(channel_labels) if c >= 0}
-    logger.info(
-        "Network safety net: %d channel cells to breach into a monotone thalweg.", len(cells)
-    )
-    return cells
 
 
 def xt3d_requested(model) -> bool | None:
@@ -1077,57 +1032,10 @@ def run_pre_processing(  # noqa: PLR0915
         model.inactive_mask = solver_mesh.inactive_mask[0]
         model.dem_mask = model.inactive_mask
 
-    # Projecting the DEM onto irregular Voronoi cells reintroduces closed
-    # depressions the raster fill removed. Condition the mesh top so every active
-    # non-lake cell drains to the boundary. Lakes (marnage cells kept low) and the
-    # idomain edge are base levels; only the top is raised, never the bottom.
-    sgrid_cfg = getattr(model.modflow_config, "sgrid", None)
-    if sgrid_cfg is not None and getattr(sgrid_cfg, "condition_top", False):
-        # Every lake cell is a fixed base level: a reservoir bed is a legitimate
-        # low, so the fill must drain INTO it, never raise it. Fixed-area lakes are
-        # already inactive (skipped); the ones that matter here are the active
-        # marnage cells whose carved bed would otherwise flood to its spill level.
-        lake_cells = {cid for cells in lake_cell_ids_by_lake.values() for cid in cells}
-        top_sampling = getattr(sgrid_cfg, "top_sampling", None)
-        top_pre_conditioning = np.asarray(solver_mesh.top, dtype=float).reshape(-1).copy()
-        solver_mesh, cond_info = condition_solver_mesh_top(
-            solver_mesh,
-            getattr(model, "runtime_mesh_support", None),
-            protected_cells=lake_cells,
-            channel_cells=_resolve_channel_cells_for_breach(model, solver_mesh),
-            max_channel_lowering_m=float(getattr(top_sampling, "max_channel_lowering_m", 5.0)),
-            epsilon=float(getattr(sgrid_cfg, "condition_top_epsilon", 1e-3)),
-        )
-        model.solver_mesh = solver_mesh
-        # Sidecar the pre-conditioning top so the flow extractor persists it beside
-        # the conditioned topography for the conditioning-impact map.
-        try:
-            np.save(
-                os.path.join(model.full_path, f"{model.model_output_name}.conditioning_ref.npy"),
-                top_pre_conditioning,
-            )
-        except OSError:
-            logger.debug("Could not write conditioning reference sidecar", exc_info=True)
-        if cond_info["unreached_active"]:
-            logger.warning(
-                "Mesh top conditioning could not drain %d of %d active cells (no mesh "
-                "face graph or isolated basins); their pits remain.",
-                cond_info["unreached_active"],
-                cond_info["active_cells"],
-            )
-        logger.info(
-            "Mesh top conditioned: %d cells raised (max +%.2f m, mean +%.2f m) to "
-            "remove closed depressions.",
-            cond_info["cells_raised"],
-            cond_info["max_raise_m"],
-            cond_info["mean_raise_m"],
-        )
-
     idomain = solver_mesh.idomain()
 
-    # Measured here and not on the raw grid: the lake mask and the optional top
-    # conditioning both move the surface the drains sit on, and a depression the
-    # conditioning already raised is no longer one.
+    # Measured here and not on the raw grid: the lake mask moves the surface the
+    # drains sit on.
     model.sink = resolve_sink_mask(
         solver_mesh,
         sink_fill=bool(model.sink_fill),

@@ -307,36 +307,6 @@ def _sfr_networks_needing_trace(flow: object) -> dict[str, object]:
     }
 
 
-def _check_sfr_threshold_consistency(
-    *,
-    network_id: str,
-    payload: object,
-    products_threshold_cells: float | None,
-    dem_res_m: float,
-) -> None:
-    """The SFR network is derived from the geographic.river_network link raster,
-    so the SFR stream threshold must resolve to the same cell count."""
-    if products_threshold_cells is None:
-        return
-    cells = _payload_attr(payload, "stream_threshold_cells")
-    km2 = _payload_attr(payload, "stream_threshold_km2")
-    if cells is not None:
-        requested = float(cells)
-    elif km2 is not None:
-        requested = float(km2) * 1.0e6 / (float(dem_res_m) ** 2)
-    else:
-        return
-    reference = float(products_threshold_cells)
-    if abs(requested - reference) > max(1.0, 1e-6 * reference):
-        raise ConfigError(
-            f"flow.sinks_sources.sfr.{network_id} stream threshold resolves to "
-            f"{requested:.0f} cells but geographic.river_network produced the link "
-            f"raster at {reference:.0f} cells. The v1 SFR network reuses that raster: "
-            "align the two thresholds (or drop the SFR one in favour of "
-            "stream_threshold_cells = the geographic value)."
-        )
-
-
 def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
     """Delineate (once) and bind the SFR reach traces onto the runtime flow.
 
@@ -379,7 +349,7 @@ def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
                 "DEM + D8 pointer); run the geographic preprocessing first."
             )
         # The streambed elevation is read on the model top, never on the routing
-        # surface: the stream burn belongs to the flow paths, not to the bed.
+        # surface: the routing surface belongs to the flow paths, not to the bed.
         top_dem_tif = getattr(geographic, "_top_dem_path", None)
         if top_dem_tif is None:
             raise ConfigError(
@@ -400,12 +370,6 @@ def bind_sfr_network_traces(run_state: WorkflowContext) -> None:
 
         traces: dict[str, object] = {}
         for network_id, payload in networks.items():
-            _check_sfr_threshold_consistency(
-                network_id=network_id,
-                payload=payload,
-                products_threshold_cells=getattr(products, "threshold_cells", None),
-                dem_res_m=dem_res_m,
-            )
             min_slope = _payload_attr(payload, "min_slope")
             min_reach_length = _payload_attr(payload, "min_reach_length")
             traces[network_id] = build_sfr_reach_trace_from_products(
