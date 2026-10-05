@@ -18,7 +18,7 @@ produces those gets the same comparison.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -231,9 +231,13 @@ def network_comparison_from_run(
     observed: np.ndarray | None = None
     heads: tuple[HeadCandidates, HeadsSettings] | None = None
     if observed_rasterization == "heads":
+        # The foot of each dam of the run is a head of its own (the stored D keeps it).
         heads = (
-            network_head_candidates(
-                list(network.geometry), mesh_crs=mesh.crs, geometry_crs=network.crs
+            replace(
+                network_head_candidates(
+                    list(network.geometry), mesh_crs=mesh.crs, geometry_crs=network.crs
+                ),
+                forced_cells=np.asarray(sim.descent.dam_foot, dtype=np.int64),
             ),
             HeadsSettings(
                 snap_radius_m=float(heads_snap_radius_m),

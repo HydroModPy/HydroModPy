@@ -147,6 +147,8 @@ class ModflowNwt:
         self.grid_ctx: SolverGridContext | None = None
         self.routing_ctx: SolverRoutingContext | None = None
         self.descent: Descent | None = None
+        # No lake package: the dam foot of the criterion stays empty.
+        self.dam_foot_cells: dict[str, int] = {}
         # Set by the steady initialization: a model never extracted builds no D.
         self.auxiliary = False
 

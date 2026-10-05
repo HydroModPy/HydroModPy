@@ -57,7 +57,7 @@ def _run_ctx(**geographic):
         state=SimpleNamespace(
             setup=SimpleNamespace(geographic=SimpleNamespace(crs_project=CRS, **geographic))
         ),
-        model=SimpleNamespace(solver_mesh=solver_mesh, recharge=1.0e-8),
+        model=SimpleNamespace(solver_mesh=solver_mesh, recharge=1.0e-8, dam_foot_cells={}),
     )
 
 

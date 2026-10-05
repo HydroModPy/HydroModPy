@@ -822,7 +822,16 @@ The mapped network's rasterisation
    which departs from the paper: it keeps only the free ends of the mapped
    lines and traces the model's own descent from each, so the map is
    connected to the outlet by construction and the path a field or a ditch
-   gave the mapped line no longer counts as error. ``"crossing"`` is offered
+   gave the mapped line no longer counts as error. The foot of a dam is a head
+   as well, forced from the model, for a lake whose spillway is declared: the
+   stream under a reservoir has no free end, and the criterion fill spills the
+   lake through its lowest rim cell, which a dam wall or a lower saddle can
+   make a cell other than the dam. Without that head the reach below the dam
+   is drawn only when the spill happens to leave through the dam. A lake
+   without a declared spillway has no foot, which would only sit on the exit
+   the descent already takes. A forced head joins a map that already draws and
+   never makes one draw: the refusals of the rule are decided on the free ends
+   of the map alone. ``"crossing"`` is offered
    and restates the paper's rule on any mesh: a cell belongs to the network
    when it holds a point where the line crosses the segment joining two
    edge-sharing cell centres. On a structured grid those segments are the

@@ -156,18 +156,6 @@ class Descent:
                 inside[cell] = True
         return inside
 
-    def lake_spill_cell(self, lake: int) -> int:
-        """First cell outside ``lake`` on its descent, -1 if it drains off the domain.
-
-        The fill leaves the lowest lake cell next to the spill point, so its
-        receiver is the cell the lake overflows into.
-        """
-        cells = np.flatnonzero(self.lake_of == int(lake))
-        if cells.size == 0:
-            raise ValueError(f"lake {int(lake)} holds no cell of the descent.")
-        lowest = int(cells[np.argmin(self.surface[cells])])
-        return int(self.receiver[lowest])
-
 
 def build_descent(
     top: np.ndarray,

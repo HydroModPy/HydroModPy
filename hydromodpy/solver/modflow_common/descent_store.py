@@ -62,6 +62,7 @@ def write_descent_sidecar_to_store(
             raised=record.raised,
             channel=record.channel,
             pinned=record.pinned,
+            dam_foot=record.dam_foot,
             attrs={
                 "adjacency": str(record.adjacency),
                 "epsilon": float(record.epsilon),

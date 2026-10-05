@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +44,7 @@ __all__ = (
     "project_channel_tree",
     "read_channel_tree",
     "read_descent_sidecar",
+    "resolve_dam_foot_cells",
     "write_descent_sidecar",
 )
 
@@ -390,6 +391,24 @@ def build_solver_mesh_descent(
     return descent
 
 
+def resolve_dam_foot_cells(
+    descent: Descent, spillway_seed_by_lake: Mapping[str, int]
+) -> dict[str, int]:
+    """Return ``{lake_id: cell}``, the cell below the dam of each declared spillway.
+
+    Only a lake whose spillway is declared has a dam foot: the toe cell the
+    production path already resolves for it (``spillway_seed_by_lake``, the cell
+    the SFR channel is extended to). A lake without one would put the foot on
+    the cell D already leaves through, so it has none. A foot that is a cell of
+    a lake is dropped: the downstream lake has its own foot.
+    """
+    return {
+        lake_id: int(cell)
+        for lake_id, cell in spillway_seed_by_lake.items()
+        if 0 <= int(cell) < descent.lake_of.size and descent.lake_of[int(cell)] < 0
+    }
+
+
 def _padded_connectivity(flat_connectivity: Any, n_cells: int) -> np.ndarray:
     """Return the per-cell node lists as one array padded with -1."""
     if isinstance(flat_connectivity, np.ndarray):
@@ -409,7 +428,8 @@ class DescentRecord:
     ``receiver`` is -1 at an outlet (off the graph, or a seed with no lower
     neighbour); ``surface`` is the filled copy, NaN off the graph.
     ``constant_head`` flags the declared CHD seeds, ``raised`` the cells the
-    flood raised. ``adjacency`` is ``"shared_nodes"`` or ``"shared_faces"``;
+    flood raised. ``dam_foot`` holds the cell ids below the dams, possibly
+    none. ``adjacency`` is ``"shared_nodes"`` or ``"shared_faces"``;
     ``epsilon`` is the flood step in metres.
     """
 
@@ -430,6 +450,7 @@ class DescentRecord:
     max_pinned_raise_m: float
     n_channel: int
     n_pinned: int
+    dam_foot: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
 
     def report(self) -> dict[str, int | float]:
         """The build report as plain scalars, counts then maxima in metres."""
@@ -438,8 +459,17 @@ class DescentRecord:
         return counts
 
 
-def write_descent_sidecar(descent: Descent, folder: str | Path, stem: str) -> Path | None:
+def write_descent_sidecar(
+    descent: Descent,
+    folder: str | Path,
+    stem: str,
+    *,
+    dam_foot_cells: Mapping[str, int] | None = None,
+) -> Path | None:
     """Leave D beside the model as ``<stem>.descent.npz``; return its path.
+
+    ``dam_foot_cells`` are the cells below the dams, one per lake
+    (:func:`resolve_dam_foot_cells`); none when the run has no lake.
 
     A file that cannot be written is a warning, not a failure: the run solves
     without it, and its readers rebuild an unpinned D from the stored top.
@@ -455,6 +485,7 @@ def write_descent_sidecar(descent: Descent, folder: str | Path, stem: str) -> Pa
         "pinned": np.asarray(descent.pinned, dtype=bool),
         "adjacency": np.asarray(_ADJACENCY_KINDS[0 if descent.diagonal_neighbors else 1]),
         "epsilon": np.asarray(DESCENT_EPSILON_M, dtype=np.float64),
+        "dam_foot": np.asarray(sorted(set((dam_foot_cells or {}).values())), dtype=np.int64),
     }
     for name in _REPORT_COUNTS:
         payload[name] = np.asarray(int(getattr(descent, name)), dtype=np.int64)
@@ -481,7 +512,8 @@ def read_descent_sidecar(path: str | Path) -> DescentRecord | None:
     ------
     ValueError
         When the file lacks an array, its arrays disagree on the cell count,
-        or its adjacency is not one this module writes.
+        its adjacency is not one this module writes, or a dam foot is not a
+        cell of the mesh.
     """
     path = Path(path)
     if not path.is_file():
@@ -514,6 +546,12 @@ def read_descent_sidecar(path: str | Path) -> DescentRecord | None:
             "pinned": np.asarray(payload["pinned"], dtype=bool).reshape(-1),
         }
         adjacency = str(payload["adjacency"])
+        # Absent from a sidecar written before the dam foot was kept: no foot.
+        dam_foot = (
+            np.asarray(payload["dam_foot"], dtype=np.int64).reshape(-1)
+            if "dam_foot" in names
+            else np.empty(0, dtype=np.int64)
+        )
         scalars: dict[str, Any] = {"epsilon": float(payload["epsilon"])}
         scalars.update({name: int(payload[name]) for name in _REPORT_COUNTS})
         scalars.update({name: float(payload[name]) for name in _REPORT_MAXIMA_M})
@@ -525,4 +563,6 @@ def read_descent_sidecar(path: str | Path) -> DescentRecord | None:
             f"the descent sidecar {path.name} names adjacency {adjacency!r}, "
             f"not one of {_ADJACENCY_KINDS}."
         )
-    return DescentRecord(**arrays, adjacency=adjacency, **scalars)
+    if dam_foot.size and (dam_foot.min() < 0 or dam_foot.max() >= next(iter(sizes.values()))):
+        raise ValueError(f"the descent sidecar {path.name} holds a dam foot outside the mesh.")
+    return DescentRecord(**arrays, dam_foot=dam_foot, adjacency=adjacency, **scalars)

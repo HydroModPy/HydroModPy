@@ -746,7 +746,7 @@ def _log_heads(trace: HeadTrace) -> None:
     logger.info(
         "Network criterion: %d head(s) of %d free end(s) traced, %d lost within %.0f m on "
         "cells draining at least %.3g km2; p90 snap distance %.1f m, %.1f%% of the trace "
-        "within the radius of the map.",
+        "within the radius of the map; %d forced head(s) added.",
         int(indices["n_heads"] - indices["n_heads_lost"]),
         trace.n_candidates,
         int(indices["n_heads_lost"]),
@@ -754,6 +754,7 @@ def _log_heads(trace: HeadTrace) -> None:
         trace.settings.min_drained_area_m2 / 1.0e6,
         indices["head_snap_p90_m"],
         100.0 * indices["heads_trace_near_map_share"],
+        int(indices["n_forced_heads"]),
     )
 
 

@@ -80,6 +80,8 @@ class Modflow6:
         self.routing_ctx: SolverRoutingContext | None = None
         # The descent D of the build, set by build.run_pre_processing.
         self.descent: Descent | None = None
+        # The cell below each lake dam ({lake id: cell}), set with D by the build.
+        self.dam_foot_cells: dict[str, int] = {}
         # Set by the steady initialization and the spin-up cycles: a model that
         # is never extracted builds D only for its SFR walks and stores none.
         self.auxiliary = False

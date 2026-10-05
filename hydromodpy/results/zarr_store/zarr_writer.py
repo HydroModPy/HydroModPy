@@ -386,13 +386,17 @@ def write_descent(
     channel: np.ndarray,
     pinned: np.ndarray,
     attrs: Mapping[str, object],
+    dam_foot: np.ndarray | None = None,
 ) -> None:
     """Write the descent D next to the mesh it routes on, under ``mesh/``.
 
     Seven static per-face arrays, none rounded: the receiver of each cell (-1
     at an outlet), D's filled surface, and the base-level, constant-head,
-    raised, channel and pinned masks. ``attrs`` (adjacency kind, epsilon, report counts) is stamped on the
-    receiver array. Additive: a store without these arrays is still valid.
+    raised, channel and pinned masks. ``attrs`` (adjacency kind, epsilon, report
+    counts) is stamped on the receiver array. ``descent_dam_foot`` is an eighth
+    array, int64, the ids of the cells below the dams (empty when the run has no
+    lake); it is a list of cells, not a per-face field. Additive: a store
+    without these arrays is still valid.
     """
     arrays = {
         "descent_receiver": (np.asarray(receiver, dtype="int64"), "Receiver cell of the descent"),
@@ -423,6 +427,17 @@ def write_descent(
                     **(dict(attrs) if name == "descent_receiver" else {}),
                 },
             )
+        feet = np.unique(np.asarray([] if dam_foot is None else dam_foot, dtype="int64"))
+        if feet.size and (feet[0] < 0 or feet[-1] >= np.asarray(receiver).size):
+            raise ValueError("a dam foot of the descent is not a cell of the mesh.")
+        _write_array(
+            store_obj,
+            mesh,
+            "descent_dam_foot",
+            feet,
+            dimension_names=(field_registry.AXIS_RECORD,),
+            attrs={"long_name": "Cells below the dams, where the stream under a lake starts"},
+        )
 
 
 def write_topography(

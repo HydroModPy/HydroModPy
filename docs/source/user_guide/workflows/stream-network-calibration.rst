@@ -149,7 +149,7 @@ the support the criterion's distances start and finish on:
    never reproduce, and scoring that shape cell by cell is false error, not
    model error: on the Flume Voronoi mesh ``"crossing"`` breaks the map into
    1989 pieces, 37 % of its cells draining into a cell the map does not
-   touch. The algorithm, in five steps:
+   touch. The algorithm, in six steps:
 
    1. the free ends of the mapped lines are found by geometry alone, whatever
       the source: the network is noded at every intersection and merged
@@ -169,9 +169,29 @@ the support the criterion's distances start and finish on:
       stopped at it: like ``"crossing"``, it may continue into the buffer;
    5. the minimal (permanent) map is traced from its own heads only; the
       maximal map is traced from the union of both head sets, which keeps
-      "the maximal map contains the minimal one" without re-deriving it.
+      "the maximal map contains the minimal one" without re-deriving it;
+   6. the foot of each dam is a head too, in both maps, when the lake declares
+      its spillway. A mapped stream below a dam has no free end there: it
+      starts at the dam. The criterion descent leaves a reservoir through its
+      lowest rim cell, which a dam wall in the model top or a lower saddle
+      elsewhere on the rim can make a cell other than the dam, and the reach
+      below the dam would then be drawn by no head. The build therefore
+      records the dam foot of every lake whose outlet mover releases
+      downstream (``to_downstream_reach``, with or without ``discharge_xy``):
+      the toe cell it already resolves for the SFR channel
+      (``model.dam_foot_cells``). A lake without a declared spillway has no
+      dam foot, and a foot that falls in another lake is dropped (that lake has
+      its own). Each foot is traced as a *forced head*: it is already a cell,
+      so the landing rule does not apply and it cannot be lost. A forced head
+      is added to a map that already draws, it never makes one draw: a map
+      whose own heads are all refused, lost or absent is refused as without
+      it, and a forced cell off the active graph is dropped and logged at
+      INFO. A run stores these cells with D (``mesh/descent_dam_foot``), so
+      the redraw traces the same heads; a run sealed before them draws as it
+      did.
 
-   Each trial publishes ``n_heads``, ``n_heads_lost``, ``head_snap_p90_m``
+   Each trial publishes ``n_heads``, ``n_heads_lost``, ``n_forced_heads`` (the
+   dam feet, counted apart from ``n_heads``), ``head_snap_p90_m``
    and ``heads_trace_near_map_share`` (the share of the traced cells lying
    within ``heads_snap_radius`` of a sampled point of the map), per output
    and per bound when two maps are scored. On the Flume Voronoi run: 112
@@ -1232,8 +1252,9 @@ name rather than drawing one point, and it is fed per-site records directly.
 network" above: the mapped lines, the heads kept and lost, and the trace they
 draw down the criterion graph. It always redraws under
 ``observed_rasterization = "heads"``, whatever rule the run was actually
-scored with, and its title gives the heads traced, the heads lost and the
-share of the trace lying near the map.
+scored with, and its title gives the heads traced, the heads lost, the dam
+feet and the share of the trace lying near the map. A dam foot is a violet
+diamond of its own, apart from the heads the map gives.
 
 ``matching_hydrographic_network_card`` is a grid of panels and draws through ``plot()``,
 not through ``render(sim, ax)``. It reads the keys the trial published, which follow

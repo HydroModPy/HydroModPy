@@ -41,14 +41,17 @@ class MapHeads:
 
     ``traced`` is a ``(n_cells,)`` bool mask on the criterion graph.
     ``head_xy`` and ``landing_xy`` pair row for row, kept heads only;
-    ``lost_xy`` are the free ends no landing cell was found for. ``indices``
-    is :attr:`hydromodpy.core.stream_heads.HeadTrace.indices`.
+    ``lost_xy`` are the free ends no landing cell was found for. ``forced_xy``
+    are the centres of the forced heads, the foot of each dam of the run: they
+    are not free ends of the map and have no landing. ``indices`` is
+    :attr:`hydromodpy.core.stream_heads.HeadTrace.indices`.
     """
 
     traced: np.ndarray
     head_xy: np.ndarray
     landing_xy: np.ndarray
     lost_xy: np.ndarray
+    forced_xy: np.ndarray
     indices: dict[str, float]
 
 
@@ -133,6 +136,7 @@ def _map_heads(sim: Run, geometry: NetworkGeometry) -> MapHeads:
         head_xy=trace.head_xy[kept],
         landing_xy=centres[trace.head_cell[kept]],
         lost_xy=trace.head_xy[~kept],
+        forced_xy=centres[trace.forced_cell],
         indices=trace.indices,
     )
 

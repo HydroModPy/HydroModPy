@@ -100,6 +100,7 @@ from hydromodpy.solver.modflow_common import (
 from hydromodpy.solver.modflow_common.mesh_descent import (
     build_solver_mesh_descent,
     channel_tree_for_run,
+    resolve_dam_foot_cells,
     write_descent_sidecar,
 )
 from hydromodpy.solver.modflow_common.sink_mask import resolve_sink_mask
@@ -291,7 +292,10 @@ def _watershed_polygon_mask(model, cell_centroids: np.ndarray) -> np.ndarray | N
 def _run_descent(
     model, solver_mesh, lake_cell_ids_by_lake, constant_head: np.ndarray
 ) -> Descent | None:
-    """The descent D of this build, left beside the model for the extractor.
+    """The descent D of this build.
+
+    :func:`_build_descent_and_dam_feet` leaves it beside the model for the
+    extractor, once the dam foot of each lake is known.
 
     Every run builds it: the SFR rectification and drainage routing walk it,
     the per-cell discharge accumulates on it, and the run stores it for its
@@ -305,10 +309,9 @@ def _run_descent(
     extracted: it builds D only when one of its SFR networks walks it, and
     leaves no sidecar.
     """
-    auxiliary = bool(getattr(model, "auxiliary", False))
-    if auxiliary and not sfr_networks_walk_the_descent(model):
+    if getattr(model, "auxiliary", False) and not sfr_networks_walk_the_descent(model):
         return None
-    descent = build_solver_mesh_descent(
+    return build_solver_mesh_descent(
         solver_mesh,
         lake_cells_by_lake=lake_cell_ids_by_lake,
         base_level_mask=constant_head,
@@ -318,9 +321,64 @@ def _run_descent(
             required=is_bc_active(model, "sfr") and sfr_networks_lie_on_the_river_network(model),
         ),
     )
-    if not auxiliary:
-        write_descent_sidecar(descent, model.full_path, model.model_output_name)
-    return descent
+
+
+def _keep_dam_feet_and_leave_descent(
+    model,
+    descent: Descent | None,
+    spillway_seed_by_lake: Mapping[str, int],
+) -> None:
+    """Keep the dam foot of each lake on the model and leave D beside it.
+
+    The stream below a dam starts at the dam, so the heads rule of the network
+    criterion takes the foot as a head of its own: a calibration reads
+    ``model.dam_foot_cells`` (``{lake id: cell}``), and the run stores the same
+    cells with D through the sidecar for the redraw. An auxiliary model is never
+    extracted: it keeps no foot and leaves no sidecar.
+    """
+    model.dam_foot_cells = {}
+    if descent is None or getattr(model, "auxiliary", False):
+        return
+    model.dam_foot_cells = resolve_dam_foot_cells(descent, spillway_seed_by_lake)
+    write_descent_sidecar(
+        descent, model.full_path, model.model_output_name, dam_foot_cells=model.dam_foot_cells
+    )
+
+
+def _build_descent_and_dam_feet(
+    model,
+    solver_mesh,
+    lake_cell_ids_by_lake: Mapping[str, Sequence[int]],
+    constant_head: np.ndarray,
+    outlet_xy: tuple[float, float] | None,
+) -> tuple[Descent | None, dict[str, int]]:
+    """Build D, resolve the spillway seeds, keep the dam feet and leave D beside the model.
+
+    The spillway seeds are the dam-toe cells of the lakes whose spillway routes
+    to the downstream reach, so the SFR channel reaches the foot of the dam
+    (mover.to_downstream_reach). They are resolved on the mesh, not a fixed
+    cell number, so they survive remeshing. They are also the dam feet: the
+    stream below a dam starts there, so the heads rule of the network criterion
+    takes each as a head of its own. Returns ``(D, {lake id: seed cell})``.
+    """
+    descent = _run_descent(model, solver_mesh, lake_cell_ids_by_lake, constant_head)
+    spillway_seed_by_lake: dict[str, int] = {}
+    if lake_cell_ids_by_lake:
+        from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
+
+        spillway_seed_by_lake = resolve_spillway_seed_cells(
+            model,
+            lake_cells_by_id=lake_cell_ids_by_lake,
+            cell_adjacency=build_planar_cell_adjacency(
+                solver_mesh.planar_mesh, int(solver_mesh.n_cells)
+            ),
+            cell_centroids=solver_mesh.cell_centroids(),
+            idomain=solver_mesh.idomain(),
+            mesh_top=solver_mesh.top,
+            outlet_xy=outlet_xy,
+        )
+    _keep_dam_feet_and_leave_descent(model, descent, spillway_seed_by_lake)
+    return descent, spillway_seed_by_lake
 
 
 def _constant_head_cells(
@@ -1085,29 +1143,6 @@ def run_pre_processing(  # noqa: PLR0915
     model._ocean_support_mask = np.asarray(ocean_support_mask, dtype=bool).copy()
     model._stream_support_mask = np.asarray(stream_support_mask, dtype=bool).copy()
 
-    # The descent D: a copy of the top the solver sees, filled on the graph it
-    # descends, so every cell holds a path to the domain rim or a CHD cell. The
-    # reach rectification, the drainage routing and the per-cell discharge all
-    # walk it; the copy never reaches the solver, which keeps reading this top.
-    descent = _run_descent(
-        model,
-        solver_mesh,
-        lake_cell_ids_by_lake,
-        _constant_head_cells(
-            int(solver_mesh.n_cells),
-            model._ocean_support_mask,
-            model._stream_support_mask,
-            side_chd_spd=side_chd_spd,
-        ),
-    )
-
-    # SFR reaches resolve on the post-lake-mask mesh so every reach cell is an
-    # active aquifer cell. Resolution happens before DRN so the drain rows
-    # coincident with a reach can be dropped (baseflow discharges to the stream,
-    # not out of the model); the package itself is built after LAK.
-    lake_cells_by_number = {
-        index: list(cells) for index, cells in enumerate(lake_cell_ids_by_lake.values())
-    }
     # SFR resolves against the lake cells so trace reaches are truncated at the
     # shoreline (never left sitting on a LAK cell once the DEM routes a stream
     # through the lake), then the mover builder hands their flow to that lake.
@@ -1118,26 +1153,34 @@ def run_pre_processing(  # noqa: PLR0915
         (float(_x_out), float(_y_out)) if _x_out is not None and _y_out is not None else None
     )
 
-    # Dam-toe seeds so the SFR channel reaches the foot of any lake spillway routed to the
-    # downstream reach (mover.to_downstream_reach). Fed to the rectification below, they
-    # extend the channel up to the dam so the overflow enters an SFR reach at the dam foot
-    # instead of a gap of hillslope DRN cells. Resolved on the mesh (not a fixed number),
-    # so it survives remeshing.
-    spillway_seed_by_lake: dict[str, int] = {}
-    if lake_cell_ids_by_lake:
-        from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
+    # The descent D: a copy of the top the solver sees, filled on the graph it
+    # descends, so every cell holds a path to the domain rim or a CHD cell. The
+    # reach rectification, the drainage routing and the per-cell discharge all
+    # walk it; the copy never reaches the solver, which keeps reading this top.
+    # The dam-toe seeds of the lake spillways extend the SFR channel to the foot
+    # of the dam, fed to the rectification below, so the overflow enters an SFR
+    # reach at the dam foot instead of a gap of hillslope DRN cells. The same
+    # cells are kept on the model and stored with D as the dam feet.
+    descent, spillway_seed_by_lake = _build_descent_and_dam_feet(
+        model,
+        solver_mesh,
+        lake_cell_ids_by_lake,
+        _constant_head_cells(
+            int(solver_mesh.n_cells),
+            model._ocean_support_mask,
+            model._stream_support_mask,
+            side_chd_spd=side_chd_spd,
+        ),
+        sfr_outlet_xy,
+    )
 
-        spillway_seed_by_lake = resolve_spillway_seed_cells(
-            model,
-            lake_cells_by_id=lake_cell_ids_by_lake,
-            cell_adjacency=build_planar_cell_adjacency(
-                solver_mesh.planar_mesh, int(solver_mesh.n_cells)
-            ),
-            cell_centroids=solver_mesh.cell_centroids(),
-            idomain=solver_mesh.idomain(),
-            mesh_top=solver_mesh.top,
-            outlet_xy=sfr_outlet_xy,
-        )
+    # SFR reaches resolve on the post-lake-mask mesh so every reach cell is an
+    # active aquifer cell. Resolution happens before DRN so the drain rows
+    # coincident with a reach can be dropped (baseflow discharges to the stream,
+    # not out of the model); the package itself is built after LAK.
+    lake_cells_by_number = {
+        index: list(cells) for index, cells in enumerate(lake_cell_ids_by_lake.values())
+    }
 
     sfr_networks = resolve_sfr_networks(
         model,

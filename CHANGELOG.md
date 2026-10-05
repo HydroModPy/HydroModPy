@@ -48,6 +48,14 @@ Each release section includes the following standard categories:
   1989 pieces.
 - The figure `observed_network_heads_map` draws the mapped lines, the traced cells, each head
   with the cell it landed on, and the lost heads, with the settings the run was scored with.
+- The dam foot of a lake whose spillway is declared (an outlet of the lake package releasing
+  downstream) is a forced head of the heads rule: the criterion draws the reach below the dam
+  from it even where the descent of the heads above leaves the reservoir through a lower
+  saddle. It comes from the model, never from the observed map, is counted apart
+  (`n_forced_heads`), never makes a map draw that the rule refuses, and a lake without a
+  declared spillway has none. It is stored with D as `mesh/descent_dam_foot`, read alone by the
+  redraw of a stored run, and marked on `observed_network_heads_map`. On the Cheze the descent
+  already leaves the reservoir by its dam, and nothing changes.
 - The recharge can come from a daily soil reservoir fed by the rain and the ETP instead of a
   drainage loaded from SIM2: `[flow.sinks_sources.recharge.soil]`, MODFLOW 6 only, with `ru`
   (the available water capacity in mm, required, calibrated as `soil.ru`), `alpha` (0.6),

@@ -44,14 +44,35 @@ class RunDescent:
     figures pays one read, and one INFO line for an old run, per run.
     """
 
-    def __init__(self, load: Callable[[], MeshDescent]) -> None:
+    def __init__(
+        self,
+        load: Callable[[], MeshDescent],
+        load_dam_foot: Callable[[], np.ndarray] | None = None,
+    ) -> None:
         self._load = load
+        self._load_dam_foot = load_dam_foot
         self._view: MeshDescent | None = None
+        self._dam_foot: np.ndarray | None = None
 
     @classmethod
     def of_run(cls, run: Run) -> RunDescent:
         """The holder for ``run``: its stored D, else one rebuilt from its top."""
-        return cls(lambda: load_descent(run))
+        return cls(lambda: load_descent(run), lambda: read_dam_foot(run))
+
+    @property
+    def dam_foot(self) -> np.ndarray:
+        """The cell ids below the dams, read alone: D is neither loaded nor rebuilt.
+
+        Empty for a run that stored none, so a figure that only needs the feet
+        never pays for D nor logs the rebuild of an old run.
+        """
+        if self._view is not None:
+            return self._view.dam_foot
+        if self._load_dam_foot is None:
+            return self.view().dam_foot
+        if self._dam_foot is None:
+            self._dam_foot = self._load_dam_foot()
+        return self._dam_foot
 
     def view(self) -> MeshDescent:
         """Return the loaded descent."""
@@ -73,6 +94,18 @@ def load_descent(run: Run) -> MeshDescent:
     return _rebuild(run)
 
 
+def read_dam_foot(run: Run) -> np.ndarray:
+    """Read ``mesh/descent_dam_foot`` alone, empty when the run holds none."""
+    sz = run._catalog.open_zarr(run._sim_id)
+    try:
+        mesh = sz.root.get("mesh")
+        if mesh is None or "descent_dam_foot" not in mesh:
+            return _read_only([], "int64")
+        return _read_only(mesh["descent_dam_foot"][:], "int64")
+    finally:
+        sz.close()
+
+
 def _read_only(values: np.ndarray, dtype: str | type) -> np.ndarray:
     out = np.array(values, dtype=dtype)
     out.flags.writeable = False
@@ -88,6 +121,11 @@ def _read_stored(run: Run) -> MeshDescent | None:
         receiver = _read_only(mesh["descent_receiver"][:], "int64")
         surface = _read_only(mesh["descent_surface"][:], "float64")
         attrs = dict(mesh["descent_receiver"].attrs)
+        dam_foot = (
+            _read_only(mesh["descent_dam_foot"][:], "int64")
+            if "descent_dam_foot" in mesh
+            else _read_only([], "int64")
+        )
         masks = {
             name: _read_only(mesh[f"descent_{name}"][:], bool)
             for name in ("base_level", "constant_head", "raised", "channel", "pinned")
@@ -103,6 +141,7 @@ def _read_stored(run: Run) -> MeshDescent | None:
         epsilon=None if epsilon is None else float(epsilon),
         report={key: float(attrs[key]) for key in _REPORT_KEYS if key in attrs},
         rebuilt=False,
+        dam_foot=dam_foot,
         **masks,
     )
 
@@ -149,4 +188,4 @@ def rebuilt_view(
     )
 
 
-__all__ = ("RunDescent", "load_descent", "rebuilt_view")
+__all__ = ("RunDescent", "load_descent", "read_dam_foot", "rebuilt_view")

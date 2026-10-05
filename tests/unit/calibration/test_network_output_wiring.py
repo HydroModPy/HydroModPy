@@ -97,6 +97,7 @@ def _fake_run_ctx(bench, *, lake_cells=()):
         solver_mesh=solver_mesh,
         recharge=1.0e-8,
         lake_cell_ids_by_lake={"lac": list(lake_cells)} if lake_cells else {},
+        dam_foot_cells={},
     )
     return SimpleNamespace(
         run=SimpleNamespace(id="r1", solver="modflow6"),

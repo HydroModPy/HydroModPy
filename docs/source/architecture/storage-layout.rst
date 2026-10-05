@@ -514,7 +514,10 @@ constant-head cells), ``descent_constant_head`` (the CHD cells, where a walk
 that follows water out of the model stops), ``descent_raised`` (the cells D
 raised on its copy, which the flow direction map draws), ``descent_channel``
 (cells of the channel tree) and ``descent_pinned`` (channel cells that drain to
-their pin). The attributes of
+their pin), plus ``descent_dam_foot``, a list rather than a per-face array
+(int64 cell ids, possibly empty): the cell below the dam of each lake with a
+declared spillway, where the stream under a lake starts, which the heads rule of the network criterion traces as a
+forced head. The attributes of
 ``descent_receiver`` name the neighbourhood (``adjacency`` is ``shared_nodes``
 for D8 on quads, ``shared_faces`` elsewhere), the flood step ``epsilon`` and the
 build report (``n_raised``, ``max_raise_m``, ``n_lake_flooded``,
@@ -530,7 +533,8 @@ previous paragraph: the arrays are new datasets under ``mesh/``, no existing
 array changes its shape, dtype or meaning, and a store without them stays valid.
 A run sealed before D was stored has no ``descent_*`` array: its readers rebuild
 D from the stored top, with no channel pin, no constant-head seed and no lake,
-and log one INFO line per run saying so.
+and log one INFO line per run saying so. A run whose D has no
+``descent_dam_foot`` reads as having no dam foot, and its D is not rebuilt.
 
 **Soil reservoir.** A run whose recharge comes from
 ``[flow.sinks_sources.recharge.soil]`` writes its daily columns under

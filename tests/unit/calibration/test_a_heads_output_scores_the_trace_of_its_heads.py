@@ -72,7 +72,9 @@ def _run_ctx(bench):
                 ),
             ),
         ),
-        model=SimpleNamespace(solver_mesh=solver_mesh, recharge=1.0e-8, lake_cell_ids_by_lake={}),
+        model=SimpleNamespace(
+            solver_mesh=solver_mesh, recharge=1.0e-8, lake_cell_ids_by_lake={}, dam_foot_cells={}
+        ),
     )
 
 

@@ -10,7 +10,7 @@ declared.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -362,6 +362,10 @@ def _heads_maps(
     heads of both (D8 of the heads spec), so the maximal trace contains the
     minimal one. ``frac_minimal_outside_maximal`` is read against the trace
     of the maximal map's own heads, the gap the two files carry.
+
+    The foot of each dam of the model is a head of both maps: the stream below
+    a dam has no free end, so without it the reach under a reservoir is drawn
+    only when the descent happens to leave the lake through the dam.
     """
     from hydromodpy.calibration.observations.observed_network import (
         ObservedNetworkMask,
@@ -369,7 +373,8 @@ def _heads_maps(
     )
 
     settings = heads_settings(output)
-    candidates = observed_head_candidates(run_ctx, resolved)
+    dam_foot = dam_foot_cells_of_model(run_ctx.model)
+    candidates = replace(observed_head_candidates(run_ctx, resolved), forced_cells=dam_foot)
     if minimal_source is None:
         maximal = on_map(heads=(candidates, settings))
         return NetworkMaps(
@@ -377,7 +382,9 @@ def _heads_maps(
             maximal_source=resolved,
             maximal_projection=ObservedNetworkMask(mask=maximal.observed, rasterization="heads"),
         )
-    minimal_candidates = observed_head_candidates(run_ctx, minimal_source)
+    minimal_candidates = replace(
+        observed_head_candidates(run_ctx, minimal_source), forced_cells=dam_foot
+    )
     maximal = on_map(heads=(concat_candidates(candidates, minimal_candidates), settings))
     minimal = on_map(heads=(minimal_candidates, settings))
     own = trace_from_heads(maximal.metric, candidates, cell_area_m2=cell_area_m2, settings=settings)
@@ -399,6 +406,15 @@ def _heads_maps(
     )
 
 
+def dam_foot_cells_of_model(model: Any) -> np.ndarray:
+    """Return the cell below each dam of the built model, sorted, possibly none.
+
+    Both MODFLOW models declare ``dam_foot_cells`` (``{lake id: cell}``); the
+    MODFLOW 6 build fills it, the NWT model leaves it empty.
+    """
+    return np.unique(np.asarray(list(model.dam_foot_cells.values()), dtype=np.int64))
+
+
 def _length_in_m(value: Any) -> float:
     """Return a length field in metres, a pint quantity or a bare number."""
     magnitude = getattr(value, "to", None)
@@ -416,6 +432,7 @@ def _accuracy_in_m(output: CalibOutputNetwork) -> float | None:
 __all__ = (
     "NetworkMaps",
     "aquifer_extent",
+    "dam_foot_cells_of_model",
     "dense_face_connectivity",
     "heads_settings",
     "mean_recharge_m_s",

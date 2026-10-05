@@ -7,7 +7,7 @@ to allocate, immutable for callers, attribute access only.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -66,6 +66,9 @@ class MeshDescent:
     report: dict[str, float]
     """Raise counts and maxima D logged at build time."""
     rebuilt: bool
+    dam_foot: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    """Cell ids below the dams, where the stream under a lake starts. Empty for a
+    run with no lake, a run sealed before they were stored, or a rebuilt D."""
 
     @property
     def diagonal_neighbors(self) -> bool:

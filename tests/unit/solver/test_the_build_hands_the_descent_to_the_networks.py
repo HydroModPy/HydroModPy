@@ -72,8 +72,10 @@ def test_a_run_without_sfr_builds_d_and_leaves_it_beside_the_model(tmp_path) -> 
     )
 
     descent = build._run_descent(model, mesh, {}, np.zeros(n * n, dtype=bool))
+    build._keep_dam_feet_and_leave_descent(model, descent, {})
 
     assert descent is not None
+    assert model.dam_foot_cells == {}
     record = read_descent_sidecar(tmp_path / "model.descent.npz")
     assert record is not None
     np.testing.assert_array_equal(record.receiver, descent.receiver)
@@ -134,7 +136,11 @@ def test_an_auxiliary_model_builds_no_d_unless_an_sfr_network_walks_it(tmp_path)
     )
 
     assert build._run_descent(quiet, mesh, {}, none) is None
-    assert build._run_descent(walking, mesh, {}, none) is not None
+    walked = build._run_descent(walking, mesh, {}, none)
+    assert walked is not None
+    build._keep_dam_feet_and_leave_descent(quiet, None, {})
+    build._keep_dam_feet_and_leave_descent(walking, walked, {"lake": 3})
+    assert quiet.dam_foot_cells == walking.dam_foot_cells == {}
     assert not list(tmp_path.rglob("*.descent.npz"))
 
 

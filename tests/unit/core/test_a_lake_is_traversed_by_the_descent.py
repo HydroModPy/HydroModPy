@@ -68,8 +68,9 @@ def test_the_lake_spills_through_the_corridor() -> None:
 
     descent = grid_descent(top, lake_of=lake_of)
 
-    assert descent.lake_spill_cell(0) == CORRIDOR
     lake_cells = np.flatnonzero(lake_of == 0)
+    lowest = int(lake_cells[np.argmin(descent.surface[lake_cells])])
+    assert int(descent.receiver[lowest]) == CORRIDOR
     assert not np.any(descent.base_level[lake_cells])
     assert np.all(descent.surface[lake_cells] >= top.reshape(-1)[lake_cells])
 

@@ -15,18 +15,28 @@ nearest cell: the line runs beside the model talweg, and the cell nearest to a
 confluence is often a hillside cell. On the Flume Voronoi mesh the nearest
 cell kept 74 of 118 free ends, the window 112.
 
+A free end is not the only place a mapped stream starts. Below a dam the
+stream has no free end: it starts at the dam foot, and the criterion descent
+may leave the reservoir through a saddle instead of the dam, so the reach below
+the dam would be drawn by no head at all. The foot of each dam is therefore a
+forced head: a cell given by the model, traced as it is, without the landing
+rule, and counted apart from the heads the map gives.
+
 The candidates are found by the spatial layer (it owns shapely and the CRS);
 they are defined here so core can consume them and spatial can return them.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
 from hydromodpy.core.field_routing import accumulate_on_downhill_graph
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.topographic_distance import DownslopeMetric
+
+logger = get_logger(__name__)
 
 _SAME_POINT_DECIMALS = 2
 """Two free ends closer than a centimetre are one source."""
@@ -57,11 +67,15 @@ class HeadCandidates:
     ``head_xy`` holds each free end, ``reach_end_xy`` the other end of the
     merged reach it closes, row for row. ``map_points_xy`` samples the lines
     at a fixed step, for the agreement between the trace and the map.
+    ``forced_cells`` are mesh cells that are heads whatever the map says, the
+    foot of each dam: they come from the model, not from the lines, and carry
+    no snap.
     """
 
     head_xy: np.ndarray
     reach_end_xy: np.ndarray
     map_points_xy: np.ndarray
+    forced_cells: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
 
     def __post_init__(self) -> None:
         heads = _points(self.head_xy, "head_xy")
@@ -73,6 +87,10 @@ class HeadCandidates:
         object.__setattr__(self, "head_xy", heads)
         object.__setattr__(self, "reach_end_xy", ends)
         object.__setattr__(self, "map_points_xy", _points(self.map_points_xy, "map_points_xy"))
+        forced = np.asarray(self.forced_cells, dtype=np.int64)
+        if forced.ndim != 1:
+            raise ValueError(f"forced_cells must be 1-D, got shape {forced.shape}.")
+        object.__setattr__(self, "forced_cells", np.unique(forced))
 
     @property
     def n_candidates(self) -> int:
@@ -87,7 +105,7 @@ def concat_candidates(a: HeadCandidates, b: HeadCandidates) -> HeadCandidates:
     trace of the minimal one. Each end keeps the reach end of its own map. A
     source both maps draw is one head, not two: a permanent reach often starts
     where the full network does, and a duplicate would count twice in the
-    published indices.
+    published indices. The forced cells of both maps are kept, once each.
     """
     head_xy = np.concatenate([a.head_xy, b.head_xy])
     reach_end_xy = np.concatenate([a.reach_end_xy, b.reach_end_xy])
@@ -97,6 +115,7 @@ def concat_candidates(a: HeadCandidates, b: HeadCandidates) -> HeadCandidates:
         head_xy=head_xy[keep],
         reach_end_xy=reach_end_xy[keep],
         map_points_xy=np.concatenate([a.map_points_xy, b.map_points_xy]),
+        forced_cells=np.concatenate([a.forced_cells, b.forced_cells]),
     )
 
 
@@ -124,6 +143,9 @@ class HeadTrace:
     snap_distance_m: np.ndarray
     """(k,) float: head to landing cell centre, NaN when lost."""
 
+    forced_cell: np.ndarray
+    """(f,) int: the forced cells traced as heads, active ones only, sorted."""
+
     n_candidates: int
     """Free ends examined."""
 
@@ -144,6 +166,7 @@ class HeadTrace:
         return {
             "n_heads": float(self.head_cell.size),
             "n_heads_lost": float(self.n_lost),
+            "n_forced_heads": float(self.forced_cell.size),
             "head_snap_p90_m": float(np.percentile(landed, 90.0)) if landed.size else float("nan"),
             "heads_trace_near_map_share": float(self.near_map_share),
         }
@@ -182,6 +205,14 @@ def trace_from_heads(
     descent ends or meets a traced cell. It does not stop at the outlet: like
     the crossing rule, the map may continue into the buffer, and the supports
     are cut to the catchment downstream.
+
+    ``candidates.forced_cells`` are traced as heads as they are: they are
+    already cells, so no window, no landing rule and no loss apply, and they
+    are reported apart (``forced_cell``, ``n_forced_heads``). They are added to a
+    map that already draws and never make one draw: the three refusals are
+    decided on the map's own heads. A forced cell off the active graph is
+    dropped and logged. They do not count among ``n_heads``, which stays the
+    free ends the map gave.
     """
     from scipy.spatial import cKDTree
 
@@ -226,9 +257,21 @@ def trace_from_heads(
     if not np.any(head_cell >= 0):
         raise refuse(f"every one of the {head_xy.shape[0]} head(s) is lost")
 
+    # The forced cells join a map that already draws; they never make one draw.
+    asked = candidates.forced_cells
+    on_mesh = (asked >= 0) & (asked < graph.active.size)
+    forced = asked[on_mesh]
+    forced = forced[graph.active[forced]]
+    if forced.size < asked.size:
+        logger.info(
+            "Network criterion: %d of %d forced head(s) dropped, off the active graph.",
+            asked.size - forced.size,
+            asked.size,
+        )
+
     traced = np.zeros(graph.active.size, dtype=bool)
     downstream = graph.downstream
-    for start in head_cell[head_cell >= 0].tolist():
+    for start in [*head_cell[head_cell >= 0].tolist(), *forced.tolist()]:
         cell = int(start)
         while cell >= 0 and not traced[cell]:
             traced[cell] = True
@@ -246,6 +289,7 @@ def trace_from_heads(
         head_xy=head_xy,
         head_cell=head_cell,
         snap_distance_m=snap_distance,
+        forced_cell=forced,
         n_candidates=n_candidates,
         near_map_share=near_share,
         settings=settings,
