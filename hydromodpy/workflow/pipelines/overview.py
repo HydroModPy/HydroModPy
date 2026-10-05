@@ -206,20 +206,29 @@ class DataOverviewLauncher:
     # ------------------------------------------------------------------
 
     def _bootstrap_crossings(self, state: DataOverviewState) -> None:
-        """Resolve the notch structures from ``[[data.crossings.sources]]`` if absent.
+        """Resolve ``[geographic.crossings] path`` from ``[[data.crossings.sources]]`` if absent.
 
-        Same shared resolver as the standard simulation pipeline. Enabled with
-        neither a path nor a source is refused here, where both are known.
+        Same shared resolver and same rule as the standard simulation pipeline:
+        read when the notch or the bed regularisation is on. The notch enabled
+        with neither a path nor a source is refused here, where both are known;
+        the bed regularisation alone then fits without cuts.
         """
         from hydromodpy.data.variables.crossings.resolver import (
             resolve_crossings_path_from_data_sources,
         )
+        from hydromodpy.workflow.steps.setup import crossings_are_read
 
         notch_cfg = getattr(state.cfg.geographic, "crossings", None)
-        if notch_cfg is None or not notch_cfg.enabled or notch_cfg.path is not None:
+        if (
+            notch_cfg is None
+            or not crossings_are_read(state.cfg.geographic)
+            or notch_cfg.path is not None
+        ):
             return
         crossings_cfg = getattr(state.cfg.data, "crossings", None)
         if not getattr(crossings_cfg, "sources", None):
+            if not notch_cfg.enabled:
+                return
             raise ConfigMissingError(
                 "geographic.crossings is enabled without a path, and "
                 "[[data.crossings.sources]] declares no source to fall back on. Set "

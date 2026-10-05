@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+import tempfile
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -20,6 +21,14 @@ from hydromodpy.core import progress
 from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.geographic.artifacts import DESCRIPTION_FILENAME
+from hydromodpy.spatial.geographic.core.bed_regularization_raster import (
+    bed_dem_path,
+    bed_regularization_enabled,
+    ground_bed_path,
+    ground_bed_report_path,
+    regularized_ground_from_config,
+    top_dem_path_from_config,
+)
 from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.direct_dem_domain import build_direct_dem_domain
@@ -88,6 +97,22 @@ _GEOGRAPHIC_CACHE_SCHEMA_VERSION = "hydromodpy_geographic_cache_v2"
 # reported as a moved divide rather than a connected channel.
 _CAPTURE_AREA_DRIFT_TOL = 0.05
 
+# The clips of the ground the model top is sampled from, one per domain_extent.
+_TOP_CLIP_ATTRIBUTES = ("watershed_box_buff_dem", "watershed_buff_dem", "watershed_dem")
+
+# The other rasters build_domain_rasters writes. Clipping the regularised ground
+# writes them to a scratch folder: they are the clips of the flow products,
+# already written next to the clips of G.
+_FLOW_CLIP_ATTRIBUTES = (
+    "watershed_box_buff_fill",
+    "watershed_box_buff_direc",
+    "watershed_buff_fill",
+    "watershed_buff_direc",
+    "watershed_fill",
+    "watershed_direc",
+    "watershed_contour_tif",
+)
+
 
 @dataclass(frozen=True)
 class _CachedGeographicProducts:
@@ -136,9 +161,21 @@ class GeographicRuntimeContext:
     buffer_area_increase: float | None = None
     """Relative area the margin added to the catchment; None when not recorded."""
 
+    top_surface_paths: dict[str, str] = field(default_factory=dict)
+    """Clips the model top is sampled from, by attribute, where they are not the clips of G.
+
+    Filled by ``[geographic.bed_regularization]`` with the clips of the
+    regularised ground, cut by the routine and the polygons that cut the clips
+    of G. They replace the clips of G under the same attribute names, and
+    ``top_dem_path`` is the regularised ground itself, so the model top and
+    the SFR bed read one bed. The routing DEM, the channel tree, the catchment
+    and the mesh are built before and do not read them.
+    """
+
     def runtime_attributes(self) -> dict[str, object]:
         """Return the public attribute payload expected from ``CatchmentDelineation``."""
         attrs = dict(vars(self.paths))
+        attrs.update(self.top_surface_paths)
         attrs.update(
             {
                 "hydrographic_network_generated_shp": self.paths.hydrographic_network_generated_shp,
@@ -201,8 +238,13 @@ def _geographic_cache_fingerprint(config: GeographicConfig) -> str:
         config_payload.pop("capped_breach", None)
     # Same rule for the notch: off, it changes nothing, so it leaves a cached
     # tree valid. Its vector is signed below when it is on.
-    if not config.crossings.enabled:
+    # The bed regularisation reads the weirs and dams of the crossings file, so
+    # the section stays signed while either reads it.
+    if not config.crossings.enabled and not config.bed_regularization.enabled:
         config_payload.pop("crossings", None)
+    # Same rule for the bed regularisation: off, it changes nothing.
+    if not config.bed_regularization.enabled:
+        config_payload.pop("bed_regularization", None)
     payload = {
         "schema": _GEOGRAPHIC_CACHE_SCHEMA_VERSION,
         "config": config_payload,
@@ -218,7 +260,7 @@ def _geographic_cache_fingerprint(config: GeographicConfig) -> str:
             "dam_carve_line_path": _path_signature(config.dam_carve.line_path),
         },
     }
-    if config.crossings.enabled:
+    if config.crossings.enabled or config.bed_regularization.enabled:
         payload["inputs"]["crossings_path"] = _path_signature(config.crossings.path)
     encoded = json.dumps(payload, ensure_ascii=True, sort_keys=True).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
@@ -386,7 +428,60 @@ def _required_geographic_cache_artifacts(
             required.append(paths.river_stream_order_strahler_tif)
         if bool(config.river_network.compute_stream_links):
             required.append(paths.river_stream_link_id_tif)
+    required.extend(_top_surface_paths(config, paths).values())
+    if bed_regularization_enabled(config):
+        setup = SimpleNamespace(paths=paths)
+        required.extend([ground_bed_path(setup), ground_bed_report_path(setup)])
     return required
+
+
+def _top_surface_paths(config: GeographicConfig, paths: GeographicPaths) -> dict[str, str]:
+    """The regularised copies of the model-top clips, empty when the bed is not regularised."""
+    if not bed_regularization_enabled(config):
+        return {}
+    return {name: str(bed_dem_path(getattr(paths, name))) for name in _TOP_CLIP_ATTRIBUTES}
+
+
+def _clip_regularised_ground(
+    *,
+    config: GeographicConfig,
+    setup: Any,
+    flow_products: FlowProducts,
+    river_network_products: RiverNetworkProducts,
+    domain_products: CatchmentDomainProducts,
+    tool: object,
+) -> None:
+    """Fit the bed on the ground and clip the result as the ground was clipped.
+
+    The same routine and the same polygons as the clips of G, so both carry
+    the same georeference; only the output names differ (``_bed``).
+    """
+    bed = regularized_ground_from_config(
+        config,
+        setup,
+        d8_tif=flow_products.direc,
+        river_products=river_network_products,
+    )
+    paths = setup.paths
+    with tempfile.TemporaryDirectory(dir=paths.correcflow_path) as scratch:
+        bed_paths = replace(
+            paths,
+            **_top_surface_paths(config, paths),
+            **{
+                name: str(Path(scratch) / Path(getattr(paths, name)).name)
+                for name in _FLOW_CLIP_ATTRIBUTES
+            },
+        )
+        build_domain_rasters(
+            dem_init_path=bed,
+            correc_path=flow_products.correc,
+            direc_path=flow_products.direc,
+            watershed_shp=paths.watershed_shp,
+            watershed_buff_shp=domain_products.watershed_buff_shp,
+            paths=bed_paths,
+            crs_project=setup.crs_project,
+            backend=tool,
+        )
 
 
 def _load_cached_geographic_products(
@@ -852,6 +947,18 @@ def build_geographic_runtime_context(
                 crs_project=setup.crs_project,
                 backend=tool,
             )
+        # The channel bed of the ground, regularised on the channel tree A once A
+        # and the catchment are final. Nothing above reads it.
+        if bed_regularization_enabled(config):
+            with progress.status("Regularising the channel bed of the ground"):
+                _clip_regularised_ground(
+                    config=config,
+                    setup=setup,
+                    flow_products=flow_products,
+                    river_network_products=river_network_products,
+                    domain_products=domain_products,
+                    tool=tool,
+                )
         _write_geographic_cache_manifest(
             config=config,
             paths=setup.paths,
@@ -876,7 +983,7 @@ def build_geographic_runtime_context(
         dem_metadata=dem_metadata,
         river_network_products=river_network_products,
         catchment_area_km2=catchment_area_km2,
-        top_dem_path=ground_dem_path_from_config(config, setup),
+        top_dem_path=top_dem_path_from_config(config, setup),
         crs_project=setup.crs_project,
         epsg=setup.epsg,
         dem_res=setup.dem_res,
@@ -899,4 +1006,5 @@ def build_geographic_runtime_context(
         ),
         buffer_distance_m=float(domain_products.buffer_distance_m),
         buffer_area_increase=domain_products.buffer_area_increase,
+        top_surface_paths=_top_surface_paths(config, setup.paths),
     )

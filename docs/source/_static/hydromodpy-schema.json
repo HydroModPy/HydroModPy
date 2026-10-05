@@ -344,6 +344,35 @@
       "title": "BdtopoCrossingsSource",
       "type": "object"
     },
+    "BedRegularizationConfig": {
+      "additionalProperties": false,
+      "description": "Least-change regularisation of the channel bed in the model top.\n\nA DEM read along its own channel rises downstream at many pixels: a deck, a\nhedge, a resampling artefact. A drain or a stream cell on such a rise cannot\ndrain into the next one. On the pixels of the generated channel tree only,\nthe regularisation fits the bed closest to the ground in least squares that\nnever rises downstream (the isotonic regression on a tree of Pardalos and\nXue, 1999), raising and lowering alike, then gives every pooled flat a\nminimum drop centred on its level. The pixels a crossing notch lowered are\ngaps: interpolated along the channel, never pulling the fit. A declared\nweir or dam cuts the tree, so its drop is kept, and a declared lake is left\nout with its surface.\n\nIt writes a regularised copy of the ground, and the model top and the SFR\nbed read it, so drains and stream reaches see one bed. The routing DEM, the\nchannel tree, the catchment and the mesh never read that copy.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Regularise the channel bed of the model top: the least-change fit of the ground that never rises downstream along the channel tree, with the crossing notches as gaps and the declared weirs and dams as drops. Needs [geographic.river_network] enabled.",
+          "examples": [
+            false
+          ],
+          "title": "Enabled",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "min_slope": {
+          "default": 0.0001,
+          "description": "Minimum drop of the fitted bed per metre along the channel (m/m), given to the flats the fit pools. The SFR default slope.",
+          "examples": [
+            0.0001
+          ],
+          "minimum": 0.0,
+          "title": "Min Slope",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "BedRegularizationConfig",
+      "type": "object"
+    },
     "BoussinesqBackend": {
       "additionalProperties": false,
       "description": "Select the Boussinesq flow backend.",
@@ -11113,6 +11142,11 @@
         "crossings": {
           "$ref": "#/$defs/CrossingNotchConfig",
           "description": "Optional notch of the ground at the roads, railways and bridges that cross the generated channel tree: the embankment is lowered to the bed level read on both sides, and the catchment is delineated again on the notched ground.",
+          "x-hmp-profile": "user"
+        },
+        "bed_regularization": {
+          "$ref": "#/$defs/BedRegularizationConfig",
+          "description": "Optional least-change regularisation of the channel bed in the model top, on the pixels of the generated channel tree: the bed never rises downstream, crossing notches are gaps and declared weirs are drops.",
           "x-hmp-profile": "user"
         },
         "reuse_existing_outputs": {

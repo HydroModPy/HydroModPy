@@ -91,6 +91,8 @@ Sub-models are linked back to their per-section page.
       # dam_carve = ...  # uses factory default
       # Optional notch of the ground at the roads, railways and bridges that cross the generated channel tree: the embankment is lowered to the bed level read on both sides, and the catchment is delineated again on the notched ground.
       # crossings = ...  # uses factory default
+      # Optional least-change regularisation of the channel bed in the model top, on the pixels of the generated channel tree: the bed never rises downstream, crossing notches are gaps and declared weirs are drops.
+      # bed_regularization = ...  # uses factory default
       # If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace.
       reuse_existing_outputs = false
       # Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), .hmp/scratch/<run>/_preprocessing/ is removed after ingestion into the run field store.

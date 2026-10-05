@@ -54,6 +54,9 @@ GROUND_FILENAME = "dem_ground.tif"
 CROSSINGS_REPORT_FILENAME = "dem_ground_crossings.json"
 """What the notch did, next to the corrected DEM."""
 
+NOTCH_FOOTPRINT_FILENAME = "dem_ground_notch_footprint.tif"
+"""The pixels the notch lowered (1) on the grid of the ground, next to it."""
+
 # The channel raster of the first delineation, on the full DEM grid. Named in
 # ``river_network.build_river_network_products``, which writes them; the
 # products object only carries the clipped copies.
@@ -286,6 +289,11 @@ def notch_report_path(setup: object) -> Path:
     return Path(setup.paths.correcflow_path) / CROSSINGS_REPORT_FILENAME
 
 
+def notch_footprint_path(setup: object) -> Path:
+    """Where the mask of the pixels the notch lowered is written."""
+    return Path(setup.paths.correcflow_path) / NOTCH_FOOTPRINT_FILENAME
+
+
 def notch_lowered_pixels(setup: object) -> int:
     """How many pixels the last notch lowered, 0 when it did not run."""
     path = notch_report_path(setup)
@@ -367,7 +375,7 @@ def _notched(
         },
         catchment_area_km2_before=channel.catchment_area_km2,
     )
-    notched_dem = notch_dem(
+    notched_dem, footprint = notch_dem(
         dem,
         nodata=nodata,
         transform=transform,
@@ -393,6 +401,9 @@ def _notched(
     profile.update(dtype="float32", compress="lzw", tiled=False)
     with rasterio.open(out_path, "w", **profile) as dst:
         dst.write(notched_dem.astype("float32"), 1)
+    profile.update(dtype="uint8", nodata=None)
+    with rasterio.open(notch_footprint_path(setup), "w", **profile) as dst:
+        dst.write(footprint.astype("uint8"), 1)
     notch_report_path(setup).write_text(
         json.dumps(report.to_document(), indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
     )
@@ -422,8 +433,12 @@ def notch_dem(
     report: NotchReport,
     dam_lines: Sequence[BaseGeometry] = (),
     lakes: Sequence[BaseGeometry] = (),
-) -> np.ndarray:
-    """Return *dem* lowered along the channel at each crossing, and fill *report*.
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return *dem* lowered along the channel at each crossing and its footprint.
+
+    The footprint is the mask of the pixels the notch lowered, as the report
+    counts them: what a later step reads instead of differencing two rasters.
+    *report* is filled.
 
     The raster half of the notch, free of any file: *streams* is the channel
     mask of the first delineation, *d8* its pointer (WhiteboxTools codes) and
@@ -502,7 +517,7 @@ def notch_dem(
         report.max_lowering_m = float(lowering[moved].max())
         report.median_lowering_m = float(np.median(lowering[moved]))
     report.capped_pixels = len(capped)
-    return out
+    return out, moved
 
 
 @dataclass(frozen=True)

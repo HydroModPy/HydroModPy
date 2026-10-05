@@ -90,6 +90,69 @@ delineation. A run with no pixel lowered does not delineate twice.
 A shared regional flow job (``reg_fold``) was routed on the raw DEM and cannot be
 combined with either correction.
 
+.. _the-channel-bed:
+
+The channel bed of the model top
+--------------------------------
+
+Read along its own channel network, a DEM rises downstream at many pixels: a
+deck, a hedge, a resampling artefact. A drain or a stream cell on such a rise
+cannot drain into the next one. ``[geographic.bed_regularization]`` (off by
+default) fits, on the pixels of the generated channel tree only, the bed closest
+to the ground in least squares that never rises downstream: the isotonic
+regression on a tree (Pardalos and Xue, 1999). It raises and lowers alike, so the
+mean of the bed is kept. Every flat run of the fit then gets a minimum drop of
+``min_slope`` per metre (``1e-4`` by default, the SFR default slope), centred on
+the run's mean: a long flat is tilted about its level, not lifted by its length.
+A closing pass raises the few nodes this leaves short of the minimum drop.
+
+The tree is the channel network of ``[geographic.river_network]``, as pixels of
+the whole DEM grid: its link raster (``dem_stream_link_id_full.tif``), else its
+stream raster (pruned when ``prune_short_streams`` is on), each pixel draining to
+the next one along the D8 pointer of the routing DEM. Every outlet is a root, so
+each tree of the forest is fitted. Three things change the fit:
+
+- the pixels inside a ``[geographic.enforce_lakes]`` polygon are **left out**:
+  the lake keeps its surface, the reach entering it ends there, and the reach
+  below its outlet is a tree of its own;
+- the pixels a crossing notch lowered (the footprint the notch writes,
+  ``dem_ground_notch_footprint.tif``) are **gaps**: their value is the line
+  between the nearest measured bed upstream (on the larger branch) and
+  downstream, and they carry a negligible weight in the fit;
+- a ``weir`` or a ``dam`` of the crossings file **cuts** the tree at the channel
+  pixel nearest to it within ``snap_radius``, unless it lies inside a lake
+  polygon: both edges of that pixel are left free, so its drop is never smoothed
+  away. The crossings file is ``[geographic.crossings] path``, else the file
+  ``[[data.crossings.sources]]`` resolves, read whenever the regularisation is
+  on, even with the notch off. With neither, the fit has no cut and says so in
+  one INFO line. The notch itself stays governed by ``[geographic.crossings]
+  enabled``.
+
+The fit runs on the whole ground and writes its regularised copy,
+``dem_ground_bed.tif``, next to it in the ``demcorrecflow`` folder. The three
+clips the model top reads (``watershed_box_buff_dem_bed.tif`` and the same for
+the ``watershed_buff`` and ``watershed`` clips) are cut from that copy by the
+routine and the polygons that cut the clips of the ground, and the model top of
+every grid is sampled from them: centroid, zonal (the channel minimum then falls
+on the regularised bed) and structured alike. The stream reaches read their bed
+on the same copy, so drains and stream reaches see one bed. The routing DEM, the
+channel tree and the catchment are built before it and the mesh never reads it:
+the mesh cache ignores the option, so a run that toggles it reuses the cached
+mesh, and MODFLOW samples its top again on it, as on a ``[mesh_input]`` mesh.
+The Boussinesq solver reads the top stored in the mesh bundle instead, so it
+keeps the top the mesh was built with.
+
+One INFO line and ``dem_ground_bed.json`` next to the copy record the channel
+pixels, the lake pixels left out, the gaps and the cuts (with the climb left at
+each cut), the pixels raised and lowered, the median and maximum change, the
+mean bias, the rising edges before and after the fit (none after, off the cuts),
+the largest lift of the minimum drop, the edges it leaves short and what the
+closing pass raised, and every pooled block at a confluence (a junction pooled
+with one of its upstream pixels) with its size, largest raise, largest lowering
+and position, largest first. A real pool or a real step that no structure
+declares is smoothed like noise. The option needs ``[geographic.river_network]``
+enabled and a delineated catchment.
+
 Accepted sources
 ----------------
 

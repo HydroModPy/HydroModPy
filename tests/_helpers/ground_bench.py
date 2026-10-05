@@ -117,7 +117,7 @@ def notch(
 ) -> tuple[np.ndarray, NotchReport]:
     """Run the raster notch on the bench and return the ground and the report."""
     report = NotchReport(parameters={})
-    out = notch_dem(
+    out, _ = notch_dem(
         bench.dem,
         nodata=-9999.0,
         transform=TRANSFORM,

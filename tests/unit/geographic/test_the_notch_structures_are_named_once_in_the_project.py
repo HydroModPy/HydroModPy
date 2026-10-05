@@ -106,3 +106,43 @@ def test_the_overview_refuses_a_notch_with_no_structures(tmp_path) -> None:
 
     with pytest.raises(ConfigMissingError, match=r"crossings"):
         pipeline._bootstrap_crossings(state)
+
+
+# --- the bed regularisation reads the declared weirs and dams -----------------
+
+
+def _bed_only() -> GeographicConfig:
+    return GeographicConfig.from_outlet(
+        x=1.0,
+        y=2.0,
+        dem="dem.tif",
+        river_network=_RIVER,
+        bed_regularization={"enabled": True},
+    )
+
+
+def test_the_bed_regularisation_fills_the_path_with_the_notch_off(monkeypatch, tmp_path) -> None:
+    merged = tmp_path / "crossings_ground_roe_12345678.gpkg"
+    monkeypatch.setattr(_RESOLVER, lambda cfg, *, config_path, cache_dir=None: merged)
+    run_cfg = _cfg(_bed_only(), sources=[SimpleNamespace(source="roe")])
+    overview_cfg = _cfg(_bed_only(), sources=[SimpleNamespace(source="roe")])
+    pipeline, state = _overview(tmp_path, overview_cfg)
+
+    resolve_crossings_path(run_cfg, _run_state(tmp_path))
+    pipeline._bootstrap_crossings(state)
+
+    for cfg in (run_cfg, overview_cfg):
+        assert cfg.geographic.crossings.path == merged
+        assert not cfg.geographic.crossings.enabled
+
+
+def test_the_bed_regularisation_without_a_source_resolves_nothing(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(_RESOLVER, lambda *a, **k: pytest.fail("resolved without a source"))
+    for sources in (None, []):
+        cfg = _cfg(_bed_only(), sources=sources)
+        pipeline, state = _overview(tmp_path, cfg)
+
+        resolve_crossings_path(cfg, _run_state(tmp_path))
+        pipeline._bootstrap_crossings(state)
+
+        assert cfg.geographic.crossings.path is None

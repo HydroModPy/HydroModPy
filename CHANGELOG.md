@@ -133,6 +133,21 @@ Each release section includes the following standard categories:
   upstream and downstream, across `notch_width` (10 m), by at most `max_depth` (3 m), and never
   where a dam or a weir is declared. On the Flume: 231 crossings found, 127 notched, 330 pixels
   lowered (median 0.32 m), catchment area and agreement with BD Topage unchanged.
+- `[geographic.bed_regularization]` (off by default) regularises the channel bed in the model
+  top. On the pixels of the generated river network A, the ground G is replaced by its
+  least-squares isotonic fit along the channel tree (Pardalos and Xue 1999): the bed never rises
+  downstream and keeps its mean. A crossing notched by `[geographic.crossings]` is a gap the fit
+  interpolates across, a weir or a dam of `[data.crossings]` within the crossings `snap_radius`
+  cuts the tree, and a declared lake is left out with its surface. `min_slope` (1e-4) sets the
+  least drop, centred on each flat. The fit runs on the full-extent G, written as
+  `dem_ground_bed.tif`, and serves both the model top and the SFR streambed, so DRN and SFR read
+  one bed; the routing DEM, A, the catchment and the mesh never read it, and the mesh cache key
+  ignores the section. `dem_ground_bed.json` reports the rises before the fit, the pixels raised
+  and lowered, the blocks pooled at confluences with their amplitudes and what the closing pass
+  raised. With the fit on, `[geographic.crossings] path` is resolved from
+  `[[data.crossings.sources]]` even with the notch off, so declared weirs and dams cut it. The
+  notch writes its own footprint (`dem_ground_notch_footprint.tif`), the gaps of the fit.
+  Enabling the fit by default is left open.
 
 ### Changed
 - The default of `observed_rasterization` is now `"heads"`. A network output that does not set

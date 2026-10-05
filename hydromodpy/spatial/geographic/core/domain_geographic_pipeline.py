@@ -20,6 +20,11 @@ from typing import TYPE_CHECKING
 from hydromodpy.core.exceptions import EmptyCatchmentError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import preprocessing_dir
+from hydromodpy.spatial.geographic.core.bed_regularization_raster import (
+    bed_dem_path,
+    bed_regularization_enabled,
+    regularized_ground_from_config,
+)
 from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicBoundaryFeatures,
@@ -100,7 +105,9 @@ class DomainGeographicContext:
     x_outlet, y_outlet
         Outlet coordinates when catchment is outlet-derived, else ``None``.
     watershed_box_buff_dem
-        DEM clipped to buffered rectangular support.
+        DEM clipped to buffered rectangular support, the one ``surface_topo``
+        reads: the clip of the ground with its channel bed regularised when
+        ``[geographic.bed_regularization]`` is on.
     watershed_box_shp
         Bounding-box support polygon before external buffer.
     box_buff_shp
@@ -374,7 +381,26 @@ def build_geographic_derived_features(
         nodata=-9999.0,
     )
 
-    surface_topo = build_surface_topo_from_dem(setup.paths.watershed_box_buff_dem)
+    # The channel bed of the ground, regularised on the channel tree A once A and
+    # the catchment are final, then clipped as the ground was. Nothing above reads it.
+    top_dem_path = str(setup.paths.watershed_box_buff_dem)
+    if bed_regularization_enabled(config):
+        bed = regularized_ground_from_config(
+            config,
+            setup,
+            d8_tif=flow.direc,
+            river_products=generated_hydrographic_network_products,
+        )
+        top_dem_path = str(
+            clip_dem_to_box_buffer(
+                dem_init_path=bed,
+                box_buff_shp=setup.paths.box_buff,
+                output_dem_path=bed_dem_path(setup.paths.watershed_box_buff_dem),
+                crs_project=setup.crs_project,
+                nodata=-9999.0,
+            )
+        )
+    surface_topo = build_surface_topo_from_dem(top_dem_path)
     generated_network = HydrographicNetwork.from_river_network_products(
         generated_hydrographic_network_products,
         watershed_shp=setup.paths.watershed_shp,
@@ -409,7 +435,7 @@ def build_geographic_derived_features(
         catch_def=str(config.catch_def),
         x_outlet=float(config.x_outlet) if config.x_outlet is not None else None,
         y_outlet=float(config.y_outlet) if config.y_outlet is not None else None,
-        watershed_box_buff_dem=setup.paths.watershed_box_buff_dem,
+        watershed_box_buff_dem=top_dem_path,
         zone_kind="catchment",
         regional_dem_path=setup.dem_init_path,
         hydrographic_networks=HydrographicNetworks(generated=generated_network),

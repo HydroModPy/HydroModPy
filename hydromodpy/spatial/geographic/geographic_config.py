@@ -675,6 +675,44 @@ class CappedBreachConfig(HydroModelBase):
     )
 
 
+class BedRegularizationConfig(HydroModelBase):
+    """Least-change regularisation of the channel bed in the model top.
+
+    A DEM read along its own channel rises downstream at many pixels: a deck, a
+    hedge, a resampling artefact. A drain or a stream cell on such a rise cannot
+    drain into the next one. On the pixels of the generated channel tree only,
+    the regularisation fits the bed closest to the ground in least squares that
+    never rises downstream (the isotonic regression on a tree of Pardalos and
+    Xue, 1999), raising and lowering alike, then gives every pooled flat a
+    minimum drop centred on its level. The pixels a crossing notch lowered are
+    gaps: interpolated along the channel, never pulling the fit. A declared
+    weir or dam cuts the tree, so its drop is kept, and a declared lake is left
+    out with its surface.
+
+    It writes a regularised copy of the ground, and the model top and the SFR
+    bed read it, so drains and stream reaches see one bed. The routing DEM, the
+    channel tree, the catchment and the mesh never read that copy.
+    """
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Regularise the channel bed of the model top: the least-change fit of "
+            "the ground that never rises downstream along the channel tree, with "
+            "the crossing notches as gaps and the declared weirs and dams as "
+            "drops. Needs [geographic.river_network] enabled."
+        ),
+    )
+    min_slope: Annotated[float, Profile.USER] = Field(
+        default=1.0e-4,
+        ge=0.0,
+        description=(
+            "Minimum drop of the fitted bed per metre along the channel (m/m), "
+            "given to the flats the fit pools. The SFR default slope."
+        ),
+    )
+
+
 class GeographicConfig(HydroModelBase):
     """Geographic configuration for watershed delineation.
 
@@ -825,6 +863,14 @@ class GeographicConfig(HydroModelBase):
             "that cross the generated channel tree: the embankment is lowered "
             "to the bed level read on both sides, and the catchment is "
             "delineated again on the notched ground."
+        ),
+    )
+    bed_regularization: Annotated[BedRegularizationConfig, Profile.USER] = Field(
+        default_factory=BedRegularizationConfig,
+        description=(
+            "Optional least-change regularisation of the channel bed in the model "
+            "top, on the pixels of the generated channel tree: the bed never rises "
+            "downstream, crossing notches are gaps and declared weirs are drops."
         ),
     )
     reuse_existing_outputs: Annotated[bool, Profile.USER] = Field(
@@ -1023,6 +1069,25 @@ class GeographicConfig(HydroModelBase):
         return self
 
     @model_validator(mode="after")
+    def _check_bed_regularization_section(self) -> GeographicConfig:
+        """Refuse a bed regularisation that has no channel tree to follow."""
+        if not self.bed_regularization.enabled:
+            return self
+        if not self.river_network.enabled:
+            raise ValueError(
+                "[geographic.bed_regularization] enabled = true needs "
+                "[geographic.river_network] enabled = true: the bed is fitted along "
+                "the channel tree the DEM generates, so without it there is no bed."
+            )
+        if self.uses_synthetic_geographic() or self.catch_def == "dem":
+            raise ValueError(
+                "[geographic.bed_regularization] fits the bed of a delineated catchment: "
+                "it needs catch_def = 'from_outlet_coord' or 'from_polyg_shp', not "
+                f"{'a synthetic support' if self.uses_synthetic_geographic() else 'catch_def = dem'}."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _check_ground_with_shared_flow(self) -> GeographicConfig:
         """Refuse a declared correction of the ground under a shared regional flow job.
 
@@ -1064,6 +1129,7 @@ class GeographicConfig(HydroModelBase):
 
 
 __all__ = [
+    "BedRegularizationConfig",
     "CappedBreachConfig",
     "CatchDef",
     "CrossingNotchConfig",

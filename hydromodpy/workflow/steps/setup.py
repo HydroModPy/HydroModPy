@@ -185,13 +185,16 @@ def _cfg_declares_hydrography_source(cfg: object) -> bool:
 
 
 def resolve_crossings_path(cfg: object, run_state: WorkflowContext) -> None:
-    """Populate the notch structures from ``[[data.crossings.sources]]`` when absent.
+    """Populate ``[geographic.crossings] path`` from ``[[data.crossings.sources]]`` when absent.
 
     Twin of :func:`resolve_stream_geometry_path`, for the same reason: the notch
-    runs inside the geographic step, before any data manager, so the structures
-    it reads have to be a file on disk. An explicitly declared
-    ``[geographic.crossings] path`` always wins. Enabled with neither a path nor
-    a source is refused here, where both are known.
+    and the bed regularisation run inside the geographic step, before any data
+    manager, so the structures they read have to be a file on disk. The notch
+    reads the embankments; the bed regularisation reads the declared weirs and
+    dams, which cut its fit even with the notch off. An explicitly declared
+    ``[geographic.crossings] path`` always wins. The notch enabled with neither
+    a path nor a source is refused here, where both are known; the bed
+    regularisation alone then fits without cuts.
     """
     geographic_cfg = cfg.geographic
     uses_synthetic = getattr(geographic_cfg, "uses_synthetic_geographic", None)
@@ -199,12 +202,14 @@ def resolve_crossings_path(cfg: object, run_state: WorkflowContext) -> None:
         return
 
     notch_cfg = getattr(geographic_cfg, "crossings", None)
-    if notch_cfg is None or not getattr(notch_cfg, "enabled", False):
+    if notch_cfg is None or not crossings_are_read(geographic_cfg):
         return
     if getattr(notch_cfg, "path", None) is not None:
         return
     crossings_cfg = getattr(getattr(cfg, "data", None), "crossings", None)
     if not getattr(crossings_cfg, "sources", None):
+        if not getattr(notch_cfg, "enabled", False):
+            return
         raise ConfigError(
             "geographic.crossings is enabled without a path, and [[data.crossings.sources]] "
             "declares no source to fall back on. Set geographic.crossings.path, or declare "
@@ -234,6 +239,14 @@ def resolve_crossings_path(cfg: object, run_state: WorkflowContext) -> None:
         config_path=Path(config_path),
         cache_dir=cache_dir,
     )
+
+
+def crossings_are_read(geographic_cfg: object) -> bool:
+    """Whether the geographic step reads the crossings file: the notch or the bed fit is on."""
+    for section in ("crossings", "bed_regularization"):
+        if bool(getattr(getattr(geographic_cfg, section, None), "enabled", False)):
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------

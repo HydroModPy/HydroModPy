@@ -38,7 +38,7 @@ def _incised_valley_with_a_wide_embankment():
 def _notch(width: float):
     dem, transform, streams, d8, acc, network, road = _incised_valley_with_a_wide_embankment()
     report = NotchReport(parameters={})
-    out = notch_dem(
+    out, _ = notch_dem(
         dem,
         nodata=-9999.0,
         transform=transform,

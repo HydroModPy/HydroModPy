@@ -83,6 +83,21 @@ def _config_payload(config: object) -> object:
     return repr(config)
 
 
+# Geographic sections that never reach the mesh. The bed regularisation writes
+# the surface the model top is sampled from, after the mesh inputs are built: a
+# run that toggles it keeps the mesh, and the top is sampled again on it.
+_GEOGRAPHIC_KEYS_OFF_THE_MESH = ("bed_regularization",)
+
+
+def _geographic_payload(config: object) -> object:
+    """The geographic configuration as it determines the mesh."""
+    payload = _config_payload(config)
+    if isinstance(payload, dict):
+        for key in _GEOGRAPHIC_KEYS_OFF_THE_MESH:
+            payload.pop(key, None)
+    return payload
+
+
 def compute_mesh_cache_key(
     *,
     section_data: object,
@@ -108,10 +123,14 @@ def compute_mesh_cache_key(
     its grid: the bundle carries the substratum, and a raster edited under an
     unchanged configuration would otherwise hit a stale bundle. The part is
     absent for any other depth model, so their keys do not move.
+
+    The geographic sections that only shape the model top after the mesh is
+    built (``bed_regularization``) are left out, so toggling them reuses the
+    mesh.
     """
     parts = {
         "mesh_config": _config_payload(section_data),
-        "geographic_config": _config_payload(geographic_cfg),
+        "geographic_config": _geographic_payload(geographic_cfg),
         "domain_config": _config_payload(domain_cfg),
         "constraints_mode": str(constraints_mode),
         "extra_size_fields": repr(extra_size_fields),
