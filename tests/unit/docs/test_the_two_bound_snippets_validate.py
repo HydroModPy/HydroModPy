@@ -18,44 +18,31 @@ PAGE = (
     / "docs"
     / "source"
     / "guides"
-    / "stream-network-calibration.rst"
+    / "calibrate-on-the-stream-network.md"
 )
-
-
-def _dedent(block: str, indent: int) -> str:
-    """Strip a fixed rst indent from every non-blank line of a code block."""
-    prefix = " " * indent
-    return "\n".join(
-        line[indent:] if line.startswith(prefix) else line for line in block.splitlines()
-    )
-
-
-def _between(text: str, start: str, end: str) -> str:
-    return text.split(start, 1)[1].split(end, 1)[0]
 
 
 def _page() -> str:
     return PAGE.read_text(encoding="utf-8")
 
 
+def _first_toml_block_after(heading: str) -> dict:
+    """The first fenced TOML block of the section that starts at ``heading``."""
+    text = _page()
+    assert heading in text, f"{PAGE.name} no longer has the heading {heading!r}"
+    section = text.split(heading, 1)[1]
+    block = section.split("```toml\n", 1)[1].split("```", 1)[0]
+    return tomllib.loads(block)
+
+
 def _minimal_map_output() -> dict:
     """The ``[calibration.outputs.seepage_network]`` snippet with a minimal map."""
-    block = _between(
-        _page(),
-        "reaches, may be declared beside it:\n\n.. code-block:: toml\n\n",
-        "\n\n``minimal_observed_network",
-    )
-    return tomllib.loads(_dedent(block, 3))
+    return _first_toml_block_after("### Declare the two maps")
 
 
 def _extent_table() -> dict:
     """The ``[calibration.outputs.seepage_network.extent]`` snippet."""
-    block = _between(
-        _page(),
-        "complete calendar year of a transient run:\n\n   .. code-block:: toml\n\n",
-        "\n\n   For every complete calendar year",
-    )
-    return tomllib.loads(_dedent(block, 6))
+    return _first_toml_block_after("### Declare the extent table")
 
 
 def test_the_minimal_map_snippet_names_the_two_files() -> None:
