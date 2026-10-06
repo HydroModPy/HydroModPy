@@ -190,5 +190,4 @@ def render_text(
                                 + (f":{line}" if line else "")
                             )
                     break
-    lines.append(f"  doc        https://docs.hydromodpy.fr/2.0.0a4/r/{target}")
     return "\n".join(lines)
