@@ -361,3 +361,11 @@ table.hmp-val-matrix th, table.hmp-val-matrix td { text-align: left; vertical-al
 /* A key followed through the base_config chain of an example file */
 .hmp-resolved { margin: .6rem 0 1rem; }
 .hmp-resolved-h { font-size: .85em; color: var(--pst-color-text-muted); margin-bottom: .2rem; }
+
+/* Catalogs of the reference: solvers, figures, data sources */
+table.hmp-cat { width: 100%; font-size: .92em; }
+table.hmp-cat td { vertical-align: top; padding: .3rem .5rem; }
+table.hmp-cat ul { margin: 0; padding-left: 1.1rem; }
+.hmp-cat-sum { font-size: .88em; margin-top: .15rem; }
+.hmp-cat-count { font-size: 1.02em; }
+table.hmp-cat td:first-child { white-space: nowrap; }

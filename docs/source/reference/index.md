@@ -31,6 +31,27 @@ The functions of `import hydromodpy as hmp`, the objects they return, and their 
 Every `hmp` command and subcommand, with its arguments, read from the parser.
 :::
 
+:::{grid-item-card} Data sources
+:link: data-sources
+:link-type: doc
+
+Every data section and the sources it accepts, with publisher and licence.
+:::
+
+:::{grid-item-card} Figures
+:link: figures
+:link-type: doc
+
+Every figure a run can draw, what it reads and the options it takes.
+:::
+
+:::{grid-item-card} Solvers
+:link: solvers
+:link-type: doc
+
+Every process and solver pair, what it computes and what it needs before it.
+:::
+
 ::::
 
 ```{toctree}
@@ -39,5 +60,8 @@ Every `hmp` command and subcommand, with its arguments, read from the parser.
 parameters/index
 python/index
 cli/index
+data-sources
+figures
+solvers
 changes
 ```

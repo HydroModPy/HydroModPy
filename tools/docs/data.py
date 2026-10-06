@@ -14,7 +14,7 @@ from pathlib import Path
 
 from packaging.version import Version
 
-from tools.docs import api_registry, field_registry, tests_index, toml_changelog
+from tools.docs import api_registry, catalogs, field_registry, tests_index, toml_changelog
 
 ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOTS = Path(__file__).with_name("snapshots")
@@ -29,7 +29,7 @@ def latest_snapshot() -> Path | None:
 
 
 def write_all(out_dir: Path, label: str = "") -> dict[str, Path]:
-    """Build the registry, the API index, the test index and the TOML changelog."""
+    """Build the registry, the API index, the test index, the catalogs and the TOML changelog."""
     out_dir.mkdir(parents=True, exist_ok=True)
     registry, gates = field_registry.build_payload(label)
     payloads = {
@@ -37,6 +37,7 @@ def write_all(out_dir: Path, label: str = "") -> dict[str, Path]:
         "gates": gates,
         "api": api_registry.build(registry["nodes"]),
         "tests": tests_index.build(ROOT),
+        "catalogs": catalogs.build(registry["nodes"]),
     }
     snap = latest_snapshot()
     if snap is not None:

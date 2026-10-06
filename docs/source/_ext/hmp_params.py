@@ -1031,12 +1031,14 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_directive("hmp-changelog", ChangelogDirective)
     app.add_directive("hmp-resolved", ResolvedDirective)
     import hmp_api
+    import hmp_catalogs
     import hmp_tview
     import hmp_validation
 
     hmp_tview.setup_tview(app)
     hmp_api.setup_api(app)
     hmp_validation.setup_validation(app)
+    hmp_catalogs.setup_catalogs(app)
     app.add_css_file("hmp.css")
     app.add_js_file("hmp.js")
     return {"version": "0.1", "parallel_read_safe": True, "parallel_write_safe": True}
