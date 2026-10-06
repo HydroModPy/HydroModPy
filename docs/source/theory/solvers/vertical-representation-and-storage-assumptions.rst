@@ -211,7 +211,7 @@ assumptions are kept explicit.
 Related Pages
 -------------
 
-- :doc:`mesh-and-discretization-strategies`
-- :doc:`modflow-package-semantics-and-boundary-conditions`
-- :doc:`../foundations/groundwater-flow-problem-definition`
+- :doc:`/theory/mesh`
+- :doc:`/theory/exits`
+- :doc:`/theory/groundwater-flow`
 - :doc:`../boussinesq`

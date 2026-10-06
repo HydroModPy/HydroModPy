@@ -11,20 +11,18 @@ Its role is narrower than a full MODFLOW manual and more explicit than a simple
 backend overview:
 
 - state the governing groundwater-flow problem that HydroModPy expects
-  ``modflownwt`` and ``modflow6`` to solve,
+  ``modflow_nwt`` and ``modflow6`` to solve,
 - explain the control-volume finite-difference perspective used by the
   MODFLOW family,
 - identify which parts of the formulation belong to official MODFLOW
   documentation and which parts belong to HydroModPy's own scientific
   contract and method choices,
-- provide the chapter map for the deeper MODFLOW scientific notes that should
-  grow around this page.
+- point to the deeper MODFLOW scientific notes.
 
 Primary Official Anchors
 ------------------------
 
-The scientific material on this page should stay aligned with the following
-primary sources:
+The material on this page follows these primary sources:
 
 - USGS TM 6-A55, :cite:`langevin2017`,
   `Documentation for the MODFLOW 6 Groundwater Flow Model <https://pubs.usgs.gov/publication/tm6A55>`_:
@@ -42,8 +40,7 @@ primary sources:
   MODFLOW-NWT branch, on top of the original MODFLOW-2005 ground-water flow
   process :cite:`harbaugh2005`.
 
-HydroModPy documentation should build from these sources rather than replacing
-them.
+This page builds on these sources and does not replace them.
 
 Scope In HydroModPy
 -------------------
@@ -53,8 +50,8 @@ This page is about the HydroModPy use of the MODFLOW groundwater-flow family:
 - ``modflow_nwt`` as the legacy structured-grid flow backend,
 - ``modflow6`` as the modern backend for both structured and runtime
   unstructured mesh paths,
-- the common solver-agnostic ``[flow]`` scientific payload that HydroModPy
-  maps to those two backends.
+- the common solver-agnostic ``[flow]`` payload that HydroModPy maps to those
+  two backends.
 
 This page is not the place for:
 
@@ -63,8 +60,7 @@ This page is not the place for:
 - transport details beyond their coupling boundary to flow,
 - software class layout.
 
-Those topics belong in the existing architecture notes or in dedicated package
-pages.
+Those topics belong in the architecture notes or in dedicated package pages.
 
 HydroModPy-Level Governing Problem
 ----------------------------------
@@ -104,19 +100,19 @@ Relation To The MODFLOW Family
 The MODFLOW family solves groundwater flow through a control-volume
 finite-difference perspective.
 
-The key scientific ideas that HydroModPy should explain here are:
+The key ideas are:
 
 - one hydraulic-head unknown per cell,
 - one water-balance equation per cell,
 - intercell exchange written through conductance-like connections,
 - storage and stress terms added to that cell balance,
-- geometry carried by one discretization package such as ``DIS`` or ``DISV``.
+- geometry carried by one discretization package (``DISV`` in ``modflow6``, ``DIS`` in ``modflow_nwt``).
 
 .. figure:: /_static/theory/modflow/modflow_cell_balance.svg
    :alt: MODFLOW control-volume cell balance with internal flow and stress terms
    :width: 100%
 
-   This is the minimal mental model used by the HydroModPy documentation: one
+   This is the minimal model used in this documentation: one
    head unknown per cell, intercell exchanges through conductance-like terms,
    and package stresses added to the same cell balance.
 
@@ -136,123 +132,59 @@ where:
 - :math:`Q_i` collects stress-package contributions for that cell,
 - :math:`S_i` represents the storage side of the transient balance.
 
-This is not meant to replace the official derivations in TM 6-A55. It is the
-minimum common mathematical picture HydroModPy needs in public documentation.
+This does not replace the official derivations in TM 6-A55. It is the minimum
+common picture.
 
-From Equation To Published Results
-----------------------------------
+What HydroModPy Chooses
+-----------------------
 
-The equation and the cell balance above should always be connected back to
-actual model outputs. Two useful result anchors are:
+The USGS manuals describe the MODFLOW family. They do not say which parts
+HydroModPy uses. This section lists the choices the code makes. The linked pages
+give the detail.
 
-.. gallery-figure:: /_static/capability_gallery/validation/dupuit_fixed_head_1d__modflow6.png
-   :alt: MODFLOW 6 Dupuit fixed-head validation result
-   :width: 100%
+Discretization package
+   ``modflow6`` always builds a ``DISV`` grid, for structured and unstructured
+   meshes alike, so that one code path serves both. ``modflow_nwt`` builds a
+   ``DIS`` grid and refuses a mesh that is not structured. The mesh is therefore
+   already a method choice. See :doc:`../mesh`.
 
-   A small validation result is the cleanest way to read the cell balance. The
-   geometry, boundary heads, recharge, and analytical profile are controlled,
-   so discrepancies are easier to interpret than on a real basin.
+Internal flow law
+   Every layer is convertible (``icelltype`` is 1 in ``NPF``, ``iconvert`` is 1
+   in ``STO``, ``laytyp`` is 1 in ``UPW``). XT3D is a ``modflow6`` option. When
+   you do not set it, HydroModPy turns it off on a structured grid, and turns it
+   on when horizontal anisotropy is present or when the mesh is strongly
+   non-orthogonal. See :doc:`xt3d-on-irregular-disv-meshes`.
 
-.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
-   :alt: Piezometric map from the Nancon transient MODFLOW-NWT run
-   :width: 100%
+Storage
+   ``Sy`` and ``Ss`` feed ``STO`` in ``modflow6`` and ``UPW`` in ``modflow_nwt``.
+   Steady and transient stress periods are declared per period. See
+   :doc:`vertical-representation-and-storage-assumptions`.
 
-   A real-basin result shows the other end of the same chain: after package
-   assembly and execution, the primary state is still a hydraulic-head field
-   that must be read together with the support, forcing, and boundary choices.
+Boundaries and forcing
+   Imposed-head boundaries become ``CHD``, drainage becomes ``DRN``, wells become
+   ``WEL`` and recharge becomes ``RCHA`` in ``modflow6`` and ``RCH`` in
+   ``modflow_nwt``. Evapotranspiration uses ``EVTA`` or ``EVT`` in ``modflow6``
+   and ``EVT`` in ``modflow_nwt``. ``modflow6`` also builds ``SFR`` and ``LAK``
+   packages. See :doc:`../exits`.
 
-Scientific Questions HydroModPy Must Answer Explicitly
-------------------------------------------------------
+Nonlinearity
+   ``modflow6`` uses the Newton formulation with under-relaxation by default, and
+   an ``IMS`` solver. ``modflow_nwt`` uses the ``NWT`` solver. See
+   :doc:`../mf6-vs-nwt`.
 
-Using MODFLOW inside HydroModPy raises questions that the official USGS manuals
-do not answer for the project automatically.
+Particle tracking and transport
+   The ``modflow_nwt`` branch carries ``MODPATH`` and ``MT3DMS``. The ``modflow6``
+   branch has its own particle tracking (``PRT``) and transport code.
 
-The documentation here should therefore make the following choices explicit:
+Where To Read Next
+------------------
 
-1. How the solver-agnostic ``[flow]`` payload becomes MODFLOW-family cell
-   terms.
-2. Which public package subset HydroModPy actually uses today.
-3. When ``DIS`` versus ``DISV`` is part of the scientific method choice.
-4. How ``Sy`` and ``Ss`` are interpreted in the current vertical contract.
-5. When HydroModPy treats a boundary as imposed head versus head-dependent
-   exchange.
-6. Why ``modflow6`` is preferred for irregular runtime meshes.
-7. Why ``modflow_nwt`` is still kept for legacy structured comparisons and the
-   ``MT3DMS`` / ``MODPATH`` ecosystem.
-8. Why XT3D is treated as a first-class numerical-method choice rather than an
-   invisible implementation detail.
-
-Recommended Chapter Structure
------------------------------
-
-The MODFLOW scientific block should grow around the following structure.
-
-1. Common governing equation and normalized HydroModPy scientific contract.
-   This page should explain the unknown, the sign conventions, and the
-   PDE-to-cell-balance reading.
-2. Geometry and discretization path.
-   Explain ``DIS`` versus ``DISV``, control-volume interpretation, and why mesh
-   choice is already a scientific decision.
-3. Internal flow law.
-   Explain what ``NPF`` means scientifically, including conductivity,
-   anisotropy, convertible cells, and the role of XT3D.
-4. Storage and transient terms.
-   Explain ``STO``, ``Sy``, ``Ss``, steady/transient flags, and the current
-   vertical representation assumptions.
-5. Boundary and forcing package semantics.
-   Explain ``CHD``, ``DRN``, ``WEL``, ``RCHA``, ``EVT``, and the current
-   project-level simplifications.
-6. Nonlinearity and solver policy.
-   Explain Newton behaviour, wetting/drying, IMS choices, and what stays
-   specific to the legacy NWT branch.
-7. Backend-selection rationale.
-   Explain when ``modflow6`` is scientifically preferred and when
-   ``modflow_nwt`` is still the right comparison or compatibility choice.
-8. Evidence and comparison reporting.
-   Explain what should be reported in validation and comparison pages so that
-   solver choice, mesh choice, and XT3D choice are not silently mixed.
-
-Immediate Writing Backlog
--------------------------
-
-The next concrete additions should now be:
-
-1. expand the internal-flow-law section with a careful TM 6-A55 reading of the
-   ``NPF`` role;
-2. add one explicit ``DIS`` versus ``DISV`` subsection with HydroModPy runtime
-   examples;
-3. add one short subsection on Newton behaviour and why the legacy NWT path
-   still matters for some unconfined structured cases;
-4. connect this page to one public scientific ``modflow6`` versus
-   ``modflow_nwt`` comparison note;
-5. connect comparison workflow pages back to the exact method choices they are
-   exercising.
-
-How This Page Relates To Existing Notes
----------------------------------------
-
-This page should stay near the top of the MODFLOW scientific reading order.
-
-Then readers should continue with:
-
-- :doc:`modflow6-vs-modflownwt-scientific-comparison`
-- :doc:`flow/modflow-family`
-- :doc:`modflow-package-semantics-and-boundary-conditions`
+- :doc:`../groundwater-flow`
+- :doc:`../solvers`
+- :doc:`../mf6-vs-nwt`
+- :doc:`../exits`
+- :doc:`../mesh`
 - :doc:`vertical-representation-and-storage-assumptions`
 - :doc:`xt3d-on-irregular-disv-meshes`
 - :doc:`/contribute/architecture/solver/modflow6-architecture-notes`
 - :doc:`/contribute/architecture/solver/modflownwt-architecture-notes`
-
-Current Limitation
-------------------
-
-HydroModPy already documents many MODFLOW choices in fragments, but still lacks
-one public note that fully walks from:
-
-- the governing equation,
-- to the MODFLOW control-volume formulation,
-- to the package subset actually used by the project,
-- to the scientific reason a user would choose one backend or mesh path over
-  another.
-
-This page is intended to become that anchor.

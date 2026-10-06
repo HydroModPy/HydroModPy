@@ -32,66 +32,54 @@ Take the soil reservoir. Each door says something different about it.
 ### 1. Rain and evaporation reach the ground
 
 What arrives at the surface each day, how daily data become the forcing of a
-stress period, and how outputs align on the periods. One page, from three of today:
+stress period, and how outputs align on the periods.
 
-- {doc}`Hydrological forcing chain <hydrology/hydrological-forcing-chain>`
-- {doc}`Forcing time aggregation and First_Clim <hydrology/forcing-time-aggregation-and-first-clim>`
-- {doc}`Recharge and surface-exchange semantics <hydrology/recharge-and-surface-exchange-semantics>`
+- {doc}`forcing`
 
 (step-soil)=
 ### 2. The soil decides what reaches the water table
 
-The share of the rain that recharges the aquifer, the share that runs off,
-the share that evaporates.
+The share of the rain that recharges the aquifer, the share that runs off, the
+share that evaporates.
 
-- {doc}`The daily soil reservoir <soil-reservoir>`
+- {doc}`soil-reservoir`
 
 (step-aquifer)=
 ### 3. The aquifer moves the water
 
-The groundwater flow equation, its discrete form, and the solvers that integrate it.
+The groundwater flow equation, its discrete form on the grid, and the solvers
+that integrate it.
 
-- {doc}`Groundwater flow problem definition <foundations/groundwater-flow-problem-definition>`, to rewrite with the equations of `[flow]`
-- {doc}`MODFLOW governing equation and CVFD formulation <solvers/modflow-governing-equation-and-cvfd-formulation>`
-- {doc}`Vertical representation and storage assumptions <solvers/vertical-representation-and-storage-assumptions>`
-- {doc}`Field-to-cell parameter transfer <solvers/field-to-cell-parameter-transfer>`
-- {doc}`Boussinesq theory <boussinesq>`, its core of about 1 200 lines
-- One page for the solvers, from today's navigation pages:
-  {doc}`MODFLOW 6 flow <solvers/flow/modflow/modflow6>`,
-  {doc}`MODFLOW-NWT flow <solvers/flow/modflow/modflownwt>`,
-  {doc}`MODFLOW flow family <solvers/flow/modflow-family>`,
-  {doc}`comparison and method choice <solvers/flow/modflow/comparison-and-method-choice>`,
-  {doc}`transport coupling <solvers/flow/modflow/transport-coupling>`
-- {doc}`MODFLOW 6 versus MODFLOW-NWT <solvers/modflow6-vs-modflownwt-scientific-comparison>`, short, linked to the {doc}`validation` matrix
+- {doc}`groundwater-flow`
+- {doc}`solvers/modflow-governing-equation-and-cvfd-formulation`
+- {doc}`solvers/vertical-representation-and-storage-assumptions`
+- {doc}`solvers/field-to-cell-parameter-transfer`
+- {doc}`solvers`
+- {doc}`boussinesq`
+- {doc}`mf6-vs-nwt`
 
 (step-exits)=
 ### 4. The water leaves the aquifer
 
-Drains at the ground surface, streams, lakes, the sea, and the descent of the water toward the outlet.
+Drains at the ground surface, streams, lakes, the sea, and the network of cells
+where the water table reaches the surface.
 
-- {doc}`MODFLOW package semantics <solvers/modflow-package-semantics-and-boundary-conditions>`, to rewrite for the soil recharge, DRN, SFR, LAK, MVR and the descent D
-- The equations of {doc}`stream, ocean and drainage semantics <hydrology/stream-ocean-and-drainage-semantics>`
-  and {doc}`simulated active network <hydrology/simulated-active-network>`; their prose goes to Understand
+- {doc}`exits`
 
 (step-observations)=
 ### 5. The model meets the observations
 
 How a run is scored against measured flow or a mapped network.
 
-- {doc}`Calibration inverse problem formulation <calibration/inverse-problem-formulation>`
-- {doc}`Downslope-distance calibration of the stream network <streams_and_seepage/downslope-distance-calibration>`, equations 1 to 4 only
+- {doc}`calibration/inverse-problem-formulation`
+- {doc}`downslope-distance`
 
-### Across all steps: the grid, the notation
+### Across all steps: the grid and the notation
 
-- One mesh page from four of today, with meshes drawn at build:
-  {doc}`mesh and spatial support <mesh/index>`,
-  {doc}`regular and irregular cell budgets <mesh/regular-vs-irregular-meshes>`,
-  {doc}`discretization strategies <solvers/mesh-and-discretization-strategies>`,
-  {doc}`acceptance criteria <solvers/mesh-quality-and-acceptance-criteria>`
-- {doc}`XT3D on irregular DISV meshes <solvers/xt3d-on-irregular-disv-meshes>`
-- {doc}`System scope and assumptions <foundations/system-scope-and-assumptions>`
-- {doc}`Unified notation <notation>`, to rewrite
-- {doc}`Bibliography <bibliography>`, cited entries only
+- {doc}`mesh`
+- {doc}`solvers/xt3d-on-irregular-disv-meshes`
+- {doc}`notation`
+- {doc}`bibliography`
 
 ## How we know the code solves them
 
@@ -108,15 +96,21 @@ How a theory page is written, and what its build checks, is in
 :maxdepth: 1
 :hidden:
 
+forcing
 soil-reservoir
-validation
-Foundations <foundations/index>
-Hydrology <hydrology/index>
-Mesh <mesh/index>
-Solvers <solvers/index>
-Boussinesq <boussinesq>
-Streams and seepage <streams_and_seepage/index>
-Calibration <calibration/index>
+groundwater-flow
+solvers/modflow-governing-equation-and-cvfd-formulation
+solvers/vertical-representation-and-storage-assumptions
+solvers/field-to-cell-parameter-transfer
+solvers
+boussinesq
+mf6-vs-nwt
+exits
+calibration/inverse-problem-formulation
+downslope-distance
+mesh
+solvers/xt3d-on-irregular-disv-meshes
 notation
 bibliography
+validation
 ```

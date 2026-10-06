@@ -1,1032 +1,778 @@
-Boussinesq Theory
+Boussinesq theory
 =================
 
-This page consolidates the scientific notes for the in-house ``flow/boussinesq``
-solver family. It covers the equation, the finite-volume method, surface
-interaction and lower-obstacle drying, the runtime engines, formulation
-comparison, and a possibility map.
+This page gives the equations of the in-house Boussinesq solver, in the order the
+code applies them, with what they assume and where they stop being true. It does not
+say how to set up a run: for that, see :doc:`../guides/choose-a-solver`.
 
-The Boussinesq route is not a MODFLOW wrapper. It is a HydroModPy-native
-finite-volume shallow-groundwater formulation on triangular runtime meshes.
+The solver is not a MODFLOW wrapper. It writes one mass balance per triangular cell
+of a 2D mesh, with the hydraulic head as the unknown. The shallow-groundwater
+equation it solves descends from :cite:`boussinesq1877` and :cite:`boussinesq1904`,
+which build on the Dupuit assumptions :cite:`dupuit1863`. A textbook treatment is
+:cite:`brutsaert2005`. The full list of references is on :doc:`bibliography`.
 
-The shallow-groundwater equation solved here descends from the seminal works
-of :cite:`boussinesq1877` and :cite:`boussinesq1904`, which build on the
-Dupuit assumptions :cite:`dupuit1863`. A modern textbook treatment can be
-found in :cite:`brutsaert2005`. See :doc:`bibliography` for the full list of
-cited references.
+.. note::
 
-Current Scope
--------------
+   **Scope.** The solver is chosen with
+   :toml:`solvers|simulation.process.solvers` in a flow process. It runs one layer
+   on a triangular mesh. It reads the conductivity and the specific yield, and
+   nothing else about the ground. It builds recharge, wells, imposed heads on the
+   sides, on the streams and on the ocean, and a top drain. A file that asks for
+   another term is refused (see `Limits`_). Set :toml:`solver.backend` to
+   ``boussinesq`` as well as the process: only then is the file checked against this
+   solver when it is read.
+
+The page follows the code. The notation comes first. Then the residual of one cell
+is built term by term, then the three ways the solver treats water that reaches the
+land surface or the bottom of the aquifer, then the engines that solve the
+resulting nonlinear system. The assumptions, the limits and the map from each
+equation to its function close the page.
+
+Notation
+--------
+
+Every quantity is per cell :math:`i`, or per edge :math:`e` between two cells, unless
+the table says otherwise. Lengths are in metres, times in seconds, rates in m/s.
+The symbols follow :doc:`notation`.
 
 .. list-table::
    :header-rows: 1
-   :widths: 28 72
+   :widths: 16 44 12 28
 
-   * - Topic
-     - Current interpretation
-   * - Process pair
-     - ``flow/boussinesq``.
-   * - Mesh support
-     - Triangular runtime meshes.
-   * - Regimes
-     - Steady and transient paths exist.
-   * - Main outputs
-     - Hydraulic head and groundwater/surface-interaction terms.
-   * - Maturity
-     - Active validation path; use comparison and validation pages before
-       making production claims.
+   * - Symbol
+     - Meaning
+     - Unit
+     - Read from
+   * - :math:`h_i`
+     - hydraulic head of the cell, the unknown
+     - m
+     - state, not a field
+   * - :math:`a_i`
+     - area of the triangle
+     - m\ :sup:`2`
+     - the mesh, not a field
+   * - :math:`z^{\mathrm{top}}_i`, :math:`z^{\mathrm{bot}}_i`
+     - land surface and bottom of the aquifer, sampled at the centroid of the cell
+     - m
+     - :toml:`data.dem` and :toml:`domain.depth_model`
+   * - :math:`H_i`
+     - thickness of the cell, :math:`z^{\mathrm{top}}_i - z^{\mathrm{bot}}_i`
+     - m
+     - derived
+   * - :math:`K_i`
+     - hydraulic conductivity
+     - m/s
+     - :toml:`K|flow.param.K.field.value`
+   * - :math:`S_{y,i}`
+     - specific yield, the storage coefficient of the solver
+     - \-
+     - :toml:`Sy|flow.param.Sy.field.value`
+   * - :math:`B_i`
+     - saturated thickness, clipped to the cell
+     - m
+     - derived
+   * - :math:`T_i`
+     - transmissivity, :math:`K_i B_i`
+     - m\ :sup:`2`/s
+     - derived
+   * - :math:`L_e`, :math:`d_e`
+     - length of the edge, distance between the two centroids
+     - m
+     - the mesh, not a field
+   * - :math:`\tau_e`
+     - transmissive factor of the edge
+     - m\ :sup:`2`/s
+     - derived
+   * - :math:`q_e`
+     - flux through an internal edge, positive from cell :math:`a` to cell :math:`b`
+     - m\ :sup:`3`/s
+     - derived
+   * - :math:`H^D_j`
+     - imposed head of a constrained cell :math:`j`
+     - m
+     - :toml:`flow.bc.stream.value`, and the side and ocean boundaries
+   * - :math:`\Phi^D_j`
+     - flux the constraint supplies to cell :math:`j`, positive into the cell
+     - m\ :sup:`3`/s
+     - derived
+   * - :math:`N_i`
+     - recharge rate, positive into the aquifer
+     - m/s
+     - :toml:`flow.sinks_sources.recharge.values`
+   * - :math:`\Phi^{\mathrm{well}}_i`
+     - well rate, positive for injection
+     - m\ :sup:`3`/s
+     - :toml:`flux|flow.sinks_sources.wells.<name>.flux`
+   * - :math:`C_i`
+     - conductance of the top drain
+     - m\ :sup:`2`/s
+     - :toml:`flow.bc.drainage.value`
+   * - :math:`q^{\mathrm{drain}}_i`
+     - flow leaving through the top drain
+     - m\ :sup:`3`/s
+     - derived
+   * - :math:`\Delta t`
+     - length of a stress period, one time step of the solver
+     - s
+     - :toml:`simulation.time.step_value`
+   * - :math:`M_i`
+     - drainable volume held by the cell
+     - m\ :sup:`3`
+     - derived
+   * - :math:`R_i`
+     - residual of the balance, positive when the cell loses water
+     - m\ :sup:`3`/s
+     - derived
+   * - :math:`s_i`
+     - release of water at the surface, regularized closure
+     - m/s
+     - derived
+   * - :math:`\sigma_i`
+     - saturation ratio, :math:`B_i / H_i`
+     - \-
+     - derived
+   * - :math:`\varepsilon`
+     - radius of the regularization
+     - \-
+     - constant of the code, not a field (see `The regularized partition`_)
+   * - :math:`q^{\mathrm{ex}}_i`
+     - saturation excess released at the surface, an unknown of the mixed closure
+     - m/s
+     - state, not a field
+   * - :math:`q^{\mathrm{dry}}_i`
+     - unmet demand at the bottom of the aquifer, an unknown of the mixed closure
+     - m/s
+     - state, not a field
 
-Result Anchors For The Equations
---------------------------------
+The residual of a cell is in m\ :sup:`3`/s. The recharge and the two surface rates
+are in m/s, so they enter the balance multiplied by the area :math:`a_i`.
 
-Before reading the residual terms, it helps to keep two committed validation
-figures in mind. They are not decorative examples; they show what the
-mathematical terms below are meant to explain.
+From the continuous equation to one residual per cell
+-----------------------------------------------------
 
-.. gallery-figure:: /_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png
-   :alt: Boussinesq hillslope recharge-step interception validation result
-   :width: 100%
-
-   This validation result connects recharge, internal flow, interception, and
-   surface-interaction terms on a controlled hillslope problem.
-
-.. figure:: /_static/theory/solvers/boussinesq/lower_obstacle_drying_rewetting.png
-   :alt: Boussinesq lower-obstacle drying and rewetting diagnostic
-   :width: 100%
-
-   The lower-obstacle diagnostic is a visual companion for the bounded
-   saturated-thickness interpretation and the drying/rewetting behaviour
-   discussed later in this page.
-
-Equation And Unknowns
----------------------
-
-Primary Unknown
-~~~~~~~~~~~~~~~
-
-The primary solved variable is the cell-centered hydraulic head:
+The continuous problem is the Boussinesq equation for the water table of an
+unconfined aquifer under the Dupuit assumptions. The flow is horizontal, the head
+is the same over the whole saturated thickness, and the gradient that drives the
+flow is the slope of the water table:
 
 .. math::
 
-   h_i
+   S_y\,\frac{\partial h}{\partial t}
+   = \nabla\cdot\bigl(K\,B(h)\,\nabla h\bigr) + N + \ldots
 
-for each triangular aquifer cell :math:`i`.
+where :math:`B(h)` is the saturated thickness and the dots stand for the wells, the
+drain and the release at the surface, which the next sections add. The solver does
+not discretize this form. It integrates the balance over each triangle and writes
+the flux through each edge with a two-point formula between the centroids: a
+cell-centered finite-volume scheme with one head per cell. The space scheme is the
+descriptor ``FV_TRI_CELL_CENTERED`` in ``discretization/space.py``.
 
-From :math:`h_i`, the backend reconstructs the saturated thickness:
+The sign convention is the one of the code. A residual term that is positive removes
+water from the cell. Recharge and injection therefore enter with a minus sign. A
+converged solution satisfies :math:`R_i \approx 0` in every cell that is not
+constrained.
 
-.. math::
+1. Saturated thickness and transmissivity
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-   b_i(h) =
-   \min\left(
-      \max\left(h_i - z_i^{bot}, 0\right),
-      z_i^{top} - z_i^{bot}
-   \right)
-
-and the transmissivity:
-
-.. math::
-
-   T_i(h) = K_i b_i(h)
-
-The clipping is important. The nonlinear solver may test intermediate head
-states, but the physical residual always interprets them through an admissible
-saturated thickness.
-
-Cell Balance
-~~~~~~~~~~~~
-
-The Boussinesq backend solves a cellwise mass balance. In words, each residual
-balances:
-
-- lateral exchange between neighboring triangular cells;
-- imposed-head exchanges on side, stream, or ocean supports;
-- recharge;
-- wells;
-- top drainage or surface-excess terms;
-- storage in transient mode.
-
-With HydroModPy's residual sign convention, positive residual contributions
-tend to remove water from the cell. Recharge and injection therefore enter
-with a negative sign.
-
-Steady Equation
-~~~~~~~~~~~~~~~
-
-The steady problem searches for:
+The nonlinear solver may try a head below the bottom of the aquifer or above the
+land surface. The physical operators read it through a thickness that is always
+admissible (``saturated_thickness_from_head`` and ``transmissivity_from_head`` in
+``assembly/fluxes.py``):
 
 .. math::
 
-   R_i^{steady}(h) = 0
+   B_i(h) = \min\bigl(\max(h_i - z^{\mathrm{bot}}_i,\ 0),\ H_i\bigr),
+   \qquad
+   T_i(h) = K_i\,B_i(h)
 
-for every active cell :math:`i`.
+The thickness is zero for a head at or below the bottom, and :math:`H_i` for a head
+at or above the land surface. A head above the land surface does not add
+transmissivity. The mesh builder refuses a cell whose top is below its bottom: the
+message says ``z_top_centroid must be >= z_bottom_centroid.``
 
-The head-only regularized formulation uses the residual shape:
+2. Flow between two cells
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Take an internal edge :math:`e` shared by cells :math:`a` and :math:`b`.
+``internal_edge_flux_from_head`` defines one oriented flux, positive when water
+leaves :math:`a` and enters :math:`b`:
 
 .. math::
 
-   R_i^{steady}(h)
-   =
-   R_i^{int}(h)
-   +
-   R_i^{D}(h)
-   +
-   q_i^{drain}(h)
-   +
-   A_i s_i(h)
-   -
-   A_i r_i
-   -
-   Q_i^{well}
+   q_e = -\tau_e\,(h_b - h_a),
+   \qquad
+   \tau_e = K^{H}_e\,\bar{B}_e\,\frac{L_e}{d_e}
 
-where :math:`s_i(h)` is the selected surface-interaction contribution.
+where :math:`K^{H}_e = 2 / (1/K_a + 1/K_b)` is the harmonic mean of the two
+conductivities, and zero if either is not positive. :math:`\bar{B}_e =
+(B_a + B_b)/2` is the mean of the two saturated thicknesses. The distance
+:math:`d_e` is floored at a tiny positive value so that a degenerate edge does not
+divide by zero.
 
-Transient Equation
+The flux enters the two cells with opposite signs, so water is conserved across
+every edge (``accumulate_internal_flux_residual``):
+
+.. math::
+
+   R^{\mathrm{int}}_a \mathrel{+}= q_e,
+   \qquad
+   R^{\mathrm{int}}_b \mathrel{-}= q_e
+
+The thickness of the edge is the arithmetic mean, not the thickness of the donor
+cell. The flux therefore does not fall to zero when the cell that gives water is
+dry. On a sloping substratum a dry cell can sit higher than its wet neighbour and
+be asked to give water it does not hold. That is the case the lower obstacle
+handles (see `The lower obstacle`_).
+
+3. Cells with an imposed head
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The solver imposes a head on cells, not on edges. Three kinds of boundary resolve
+to a set of constrained cells :math:`j`, each with a head :math:`H^D_j` per stress
+period (``forcing/dirichlet_support_resolution.py``):
+
+- a side of the mesh (north, south, east, west): the owner cells of the boundary
+  edges on that side;
+- the streams: the owner cells of the edges the mesh tags as river;
+- the ocean: the owner cells of boundary edges that are not river edges and whose
+  land surface is at or below the ocean stage of the period.
+
+A boundary can also name a support of the mesh with
+:toml:`flow.bc.<name>.support_label`. The cells of that support are constrained
+instead of the default ones.
+
+Two boundaries that give different heads to the same cell are refused (the message
+says ``overlaps another prescribed-head BC on cell``). An outer edge that carries
+no boundary is a no-flow edge: no term couples it to anything.
+
+On a constrained cell the head is overwritten by :math:`H^D_j` before any flux is
+computed, and the row of the nonlinear system is replaced by the constraint itself
+(``resolve_boundary_head_inputs`` and ``finalize_boundary_constrained_residual`` in
+``assembly/inputs.py``):
+
+.. math::
+
+   h_j = H^D_j,
+   \qquad
+   \text{solver row of } j:\ h_j - H^D_j = 0,
+   \qquad
+   \Phi^D_j = -R_j
+
+:math:`R_j` is the balance the cell would have had if it were free. The constraint
+supplies :math:`\Phi^D_j = -R_j`, which is positive when water enters the model
+through that cell. A constrained cell keeps its own storage, drain, recharge and
+wells in :math:`R_j`, so these terms end up in the flux it exchanges with the
+boundary.
+
+Because the head is pinned at the centroid of the cell and not on the edge, the
+solution at the boundary cell differs from the value on the edge by about the
+gradient times half a cell. The note at the top of ``runtime_contract.py`` records
+this choice and its size on the Dupuit test case.
+
+The edge form of the same exchange exists in the code, for diagnostics only.
+``boundary_head_edge_flux_from_head`` writes the flux between an edge at stage
+:math:`H_e` and its owner cell :math:`a`:
+
+.. math::
+
+   q^{D}_{a,e} = -\tau_{a,e}\,(H_e - h_a),
+   \qquad
+   \tau_{a,e} = K_a\,B_a\,\frac{L_e}{d_{a,e}}
+
+with :math:`d_{a,e}` the distance from the centroid to the middle of the edge. The
+solve never uses it: the two ways of imposing a head are mutually exclusive in
+``assembly/inputs.py``, and the facades in ``assembly/residual_facade.py`` pass
+none. The driver rebuilds this flux afterwards to export the exchange by edge
+(``assembly/boundary_flux_reconstruction.py``).
+
+4. Recharge and wells
+~~~~~~~~~~~~~~~~~~~~~
+
+The recharge :math:`N_i` is a rate per unit of area. It is constant over a stress
+period. It is either one number per period, the same on every cell, or one value
+per cell when the file loads a recharge field. The volume rate that enters the cell
+is :math:`a_i N_i`. A negative recharge is refused: the message says
+``must be non-negative.`` When the series has one value per period, the first stress period does not take its
+own value. It takes the policy of :toml:`flow.sinks_sources.recharge.first_clim`,
+whatever that policy is.
+
+A well is a volume rate :math:`\Phi^{\mathrm{well}}_i`, positive for injection and
+negative for pumping. It is placed on the triangle that contains its x and y
+coordinates, in the one layer of the model. A well outside the mesh is refused. A
+well in a layer other than the first, or addressed by a grid cell, is refused too.
+Wells that fall in the same triangle add up.
+
+5. The top drain
+~~~~~~~~~~~~~~~~
+
+The drain removes water only where the head is above the land surface
+(``drainage_outflow_from_head``):
+
+.. math::
+
+   q^{\mathrm{drain}}_i = C_i\,\max\bigl(h_i - z^{\mathrm{top}}_i,\ 0\bigr)
+
+It is an outflow, and enters the residual with a plus sign. The conductance
+:math:`C_i` is the value of :toml:`flow.bc.drainage.value`, the same for every cell
+in a given period. When that value is not positive, the code uses
+:math:`C_i = K_i\,a_i` instead, which is the derivation :math:`K\,a/b` with a drain
+bed of :math:`b = 1` m. The solver does not read
+:toml:`solver.drain_bed_thickness_m`.
+
+Two consequences follow from the code.
+
+- The drain is never off. A run with no drainage boundary passes a conductance of
+  zero, which selects the derivation. A cell whose head rises above the land
+  surface always loses water through :math:`K_i a_i`.
+- On a cell supported by the ocean, the driver sets the conductance to zero to
+  silence the drain (``apply_ocean_drainage_mask`` in ``drivers/forcing.py``).
+  Zero selects the derivation, so these cells drain with :math:`K_i a_i` instead of
+  with the configured value.
+
+The discharge that a calibration reads from this solver is the sum over the cells
+of this drain flow (``extract_discharge_history`` in ``calibration_extractors.py``).
+It does not include the release at the surface of the next section.
+
+6. Storage and the time step
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A transient run adds a storage term, with a backward Euler time scheme. The volume
+held by a cell is lower-bounded and not capped (``_stored_saturated_volume_m3`` in
+``assembly/residuals.py``):
+
+.. math::
+
+   M_i(h) = a_i\,S_{y,i}\,\max\bigl(h_i - z^{\mathrm{bot}}_i,\ 0\bigr)
+
+and the term that enters the residual is
+
+.. math::
+
+   \frac{M_i(h^{n+1}) - M_i(h^{n})}{\Delta t}
+
+Transmissivity uses the capped thickness :math:`B_i`; storage does not. Two reasons
+explain the difference. A head below the bottom must not give a negative volume.
+A head above the land surface, which the head-only closures allow, must keep the
+memory of the previous step: with a capped volume, the change of storage over the
+step would be lost.
+
+Each stress period is one backward Euler step of length :math:`\Delta t`. The
+forcing is constant over the period and is evaluated at the end of the step. The
+solver does not read :toml:`simulation.time.substeps_per_period`. To integrate a
+period in several steps, shorten the period, or use the substeps of the experimental
+obstacle runtimes (see `The experimental obstacle closures`_).
+
+7. The residual of the steady and of the transient problem
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The steady problem has no storage term
+(``_steady_raw_residual_from_spatial_terms``). For every free cell:
+
+.. math::
+
+   R_i^{\mathrm{steady}}(h)
+   = R^{\mathrm{int}}_i(h)
+   + q^{\mathrm{drain}}_i(h)
+   + a_i\,s_i(h)
+   - a_i\,N_i
+   - \Phi^{\mathrm{well}}_i
+   = 0
+
+The transient problem adds the storage term at the new time level
+(``_transient_raw_residual_from_spatial_terms``):
+
+.. math::
+
+   R_i^{\mathrm{transient}}(h^{n+1})
+   = \frac{M_i(h^{n+1}) - M_i(h^{n})}{\Delta t}
+   + R^{\mathrm{int}}_i(h^{n+1})
+   + q^{\mathrm{drain}}_i(h^{n+1})
+   + a_i\,s_i(h^{n+1})
+   - a_i\,N_i^{\,n+1}
+   - \Phi^{\mathrm{well},\,n+1}_i
+   = 0
+
+:math:`s_i` is the release of water at the surface, which the next part defines.
+The functions ``assemble_steady_residual`` and ``assemble_transient_residual`` in
+``assembly/residual_facade.py`` build these two residuals. The variants with
+``_with_saturation_excess`` take :math:`s_i` as an input instead of computing it,
+which the mixed closure needs.
+
+When the head stays above the bottom, the storage term is
+:math:`a_i S_{y,i} (h_i^{n+1} - h_i^{n}) / \Delta t`. The two forms differ only when
+a head crosses the bottom, which is where the lower bound matters.
+
+8. The balance closes
+~~~~~~~~~~~~~~~~~~~~~
+
+The internal fluxes cancel in pairs. Summed over all cells, with
+:math:`\Phi^D_j = -R_j` on the constrained cells and zero elsewhere, the solution
+satisfies
+
+.. math::
+
+   \sum_i \Bigl[
+   \frac{M_i(h^{n+1}) - M_i(h^{n})}{\Delta t}
+   + q^{\mathrm{drain}}_i
+   + a_i\,s_i
+   - a_i\,N_i
+   - \Phi^{\mathrm{well}}_i
+   + \Phi^{D}_i
+   \Bigr] = 0
+
+The water that enters through recharge, wells and the constraints equals what
+leaves through the drain and the surface release, plus the change of storage. In
+the mixed closure the term :math:`-a_i q^{\mathrm{dry}}_i` joins the bracket (see
+`The lower obstacle`_), and the comparison budget reads it as water that is
+available (``_closure_residual`` in ``analysis/comparison/numerical_closure.py``).
+
+What happens at the surface and at the bottom
+---------------------------------------------
+
+A cell can be full to the land surface, or empty down to the bottom. The head-only
+residual above needs a rule for the water that cannot be stored. The solver offers
+three families of rules. With the value ``auto``, every runtime except PETSc uses
+the first.
+
+The regularized partition
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``regularized_partition`` closure keeps the head as the only unknown. It
+releases water at the surface by a smooth function of the saturation, so that there
+is no sharp on and off at the moment the cell is full
+(``regularized_partition_surface_rate_from_balance`` in ``assembly/surface.py``).
+The saturation ratio is
+
+.. math::
+
+   \sigma_i(h) = \frac{B_i(h)}{H_i},
+
+and zero for a cell of zero thickness. The sum of the fluxes through the edges of the
+cell is :math:`R^{\mathrm{int}}_i` (step 2). The water that arrives at the cell, per
+unit of area, is the lateral inflow plus the recharge when this is positive:
+
+.. math::
+
+   \beta_i = \max\!\left(-\frac{R^{\mathrm{int}}_i}{a_i} + \max(N_i, 0),\ 0\right)
+
+and the release is
+
+.. math::
+
+   s_i(h) = \exp\!\left(-\frac{1 - \sigma_i(h)}{\varepsilon}\right)\beta_i
+
+The radius :math:`\varepsilon` is a constant of the code, 0.05, set in
+``boussinesq.py``. No key changes it. The code and the card of
+:toml:`flow.surface_interaction_model` call this law a Marcais-style regularized
+partition. The wells and the storage are not in :math:`\beta_i`. The factor
+in front of :math:`\beta_i` takes these values:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 30
+
+   * - Saturation :math:`\sigma_i`
+     - Factor :math:`\exp(-(1-\sigma_i)/\varepsilon)`
+   * - 1.0
+     - 1
+   * - 0.95
+     - 0.37
+   * - 0.9
+     - 0.14
+   * - 0.8
+     - 0.018
+   * - 0.5
+     - 4.5e-5
+
+A full cell releases the whole of what arrives. A cell that is nine tenths full
+releases about one seventh of it. The factor is never exactly zero, so a cell that
+is half full still releases a tiny share. This is a pragmatic law and not a model of
+overland flow. It can keep a low-amplitude release active where a threshold law
+would turn it off. The four runtimes of this method use the same law.
+
+The complementarity closure
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``complementarity`` closure turns the surface into an exact threshold. It adds
+one unknown per cell, the saturation excess :math:`q^{\mathrm{ex}}_i`, and replaces
+:math:`s_i` by it. The head cannot rise above the land surface, and water is
+released only when the head is at the surface:
+
+.. math::
+
+   0 \leq q^{\mathrm{ex}}_i \;\perp\; z^{\mathrm{top}}_i - h_i \geq 0
+
+that is, :math:`q^{\mathrm{ex}}_i \geq 0`, :math:`z^{\mathrm{top}}_i - h_i \geq 0`, and
+their product is zero. If the head is below the surface, nothing is released. If
+something is released, the head is at the surface. The release is solved together
+with the heads, so the balance and the threshold hold at the same time.
+
+The code does not solve the inequalities. It turns each pair into one equation with
+the Fischer-Burmeister function. For two scaled variables :math:`u` and :math:`v`,
+
+.. math::
+
+   \phi(u, v) = \sqrt{u^2 + v^2} - u - v
+
+which is zero exactly when :math:`u \geq 0`, :math:`v \geq 0` and :math:`u v = 0`. The
+rate is scaled by a rate :math:`q_s` and the gap by a length :math:`h_s`, so that
+both arguments are of order one (``_complementarity_scales`` and
+``_fischer_burmeister_residual_and_derivatives`` in
+``runtimes/petsc_mixed_common.py``):
+
+.. math::
+
+   \phi\!\left(\frac{q^{\mathrm{ex}}_i}{q_s},\ \frac{z^{\mathrm{top}}_i - h_i}{h_s}\right) = 0
+
+The length :math:`h_s` is the thickest cell of the mesh, and at least 1 m. The rate
+:math:`q_s` is the largest of the recharge, the well rate per unit of area, the
+conductivity, and in a transient run :math:`S_y h_s / \Delta t`, with a floor of
+:math:`10^{-12}` m/s. These scales are numerical. They change the conditioning of
+the system and not its solution.
+
+A constrained cell does not release: its unknown :math:`q^{\mathrm{ex}}` is held at
+zero.
+
+The lower obstacle
 ~~~~~~~~~~~~~~~~~~
 
-Transient runs add a backward-Euler storage term based on a lower-bounded
-saturated thickness:
+The head must also stay at or above the bottom of the aquifer:
 
 .. math::
 
-   M_i(h) = A_i S_i \max(h_i - z_i^{bot}, 0)
+   z^{\mathrm{bot}}_i \leq h_i \leq z^{\mathrm{top}}_i
 
-The transient storage contribution is therefore:
-
-.. math::
-
-   \frac{M_i(h^{n+1}) - M_i(h^n)}{\Delta t}
-
-so the transient residual is:
+The mixed closure enforces the lower bound with a second unknown per cell,
+:math:`q^{\mathrm{dry}}_i`, and a second complementarity:
 
 .. math::
 
-   R_i^{transient}(h^{n+1}) = 0
+   0 \leq q^{\mathrm{dry}}_i \;\perp\; h_i - z^{\mathrm{bot}}_i \geq 0
 
-with the same exchange, forcing, and surface terms evaluated at the new time
-level.
+with the same Fischer-Burmeister form in the scaled variables. The three unknowns
+per cell are :math:`(h_i, q^{\mathrm{ex}}_i, q^{\mathrm{dry}}_i)`: the system has
+three times as many unknowns as there are cells.
 
-This matters during drying. A head update below the substratum must not create
-a negative saturated thickness or a negative storage volume. The head remains
-the primary unknown. Transmissivity uses the capped admissible thickness, while
-storage is only lower-bounded so head-only transient formulations do not lose
-their time-step memory when they temporarily carry heads above the top surface.
+:math:`q^{\mathrm{dry}}_i` is not a leak through the substratum. It is a numerical
+unmet demand. When a cell is empty, its balance may ask to remove more water than
+the aquifer holds. :math:`q^{\mathrm{dry}}_i` cancels that excess so that the
+storage cannot go below zero. It enters the balance of the cell with the sign
+opposite to a removal (``_assembly_with_dry_deficit`` in
+``runtimes/petsc_mixed.py``):
 
-What This Equation Does Not Claim
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. math::
 
-The Boussinesq backend is not a full 3D groundwater model and not a full
-overland-flow model. It is a shallow-groundwater reduction where the water
-table, transmissivity, and surface-interaction behavior are represented inside
-one cell-centered finite-volume balance.
+   R_i \leftarrow R_i - a_i\,q^{\mathrm{dry}}_i
 
-Geometric Setting And Cell Quantities
--------------------------------------
+If a cell sits at :math:`h_i = z^{\mathrm{bot}}_i`, the term offsets the remaining
+demand and does not add water through a physical boundary. It is not a flux of the
+water budget of the catchment. The comparison budget counts it as available water
+only to close the balance of the cells.
 
-The solver works on a 2D triangular mesh of aquifer cells. Each cell
-:math:`i` has:
+The head-only closures have no explicit lower constraint. Their transmissivity
+uses the capped thickness, their storage is lower-bounded, and the run reports
+whether the accepted heads went below the bottom (see `What the run reports`_).
 
-- area :math:`A_i`,
-- top elevation :math:`z^{\text{top}}_i`,
-- bottom elevation :math:`z^{\text{bot}}_i`,
-- hydraulic conductivity :math:`K_i`,
-- storage coefficient :math:`S_i`.
+One cell, by hand
+~~~~~~~~~~~~~~~~~
 
-Cell Balance And Sign Convention
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The test ``test_single_cell_pumping_activates_lower_obstacle`` in
+``tests/validation/numerical/transient/test_boussinesq_drying_petsc.py`` runs one
+isolated cell. Its area is 1 m\ :sup:`2`, the bottom is at 0 m, the top at 2 m,
+:math:`S_y = 0.2`. It starts at :math:`h = 0.1` m, with no recharge, and a well
+pumps :math:`0.01` m\ :sup:`3`/s for one step of :math:`\Delta t = 10` s.
 
-The solver is built around a residual balance written per cell. The convention
-used by the code is:
+For a head above the bottom, the residual is
 
-- positive residual contributions tend to remove water from the cell,
-- recharge and positive well injection add water and therefore appear with a
-  minus sign in the residual,
-- a converged solution satisfies :math:`R_i \approx 0` for every cell
-  :math:`i`.
+.. math::
 
-This convention is the one implemented in ``assemble_steady_residual()`` and
-``assemble_transient_residual()``.
+   R(h) = \frac{0.2\,h - 0.2 \times 0.1}{10} + 0.01 = 0.02\,h + 0.008
 
-Internal Edge Fluxes
+It reaches zero at :math:`h = -0.4` m, which is below the bottom: no admissible head
+balances the cell. At the bottom the storage term is :math:`-0.002` m\ :sup:`3`/s and
+the residual is :math:`R = 0.008` m\ :sup:`3`/s. The second complementarity gives
+:math:`h = 0` and :math:`a\,q^{\mathrm{dry}} = 0.008`, so
+
+.. math::
+
+   q^{\mathrm{dry}} = 0.008\ \text{m/s}
+
+which is the value the test asserts. The well asked for 0.01 m\ :sup:`3`/s, the
+aquifer could give 0.002 m\ :sup:`3`/s from storage, and the other 0.008 is the
+unmet demand.
+
+The experimental obstacle closures
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Two more closures exist and are marked experimental on their cards. Both run on
+PETSc only, and both keep the head as the only unknown.
+
+- ``vi_obstacle`` solves the balance with the head bounded between the bottom and
+  the land surface, as a variational inequality (PETSc SNESVI). The release is not
+  in the system: :math:`s_i = 0` while the solver iterates. After convergence, the
+  balance left on a cell at its upper bound is read as the saturation excess, and
+  on a cell at its lower bound as the unmet demand (``reconstruct_obstacle_reactions``
+  in ``runtimes/petsc_vi/obstacle.py``):
+
+  .. math::
+
+     q^{\mathrm{ex}}_i = \frac{\max(-R_i,\ 0)}{a_i},
+     \qquad
+     q^{\mathrm{dry}}_i = \frac{\max(R_i,\ 0)}{a_i}
+
+  The first expression is used on a cell at its upper bound and the second on a cell
+  at its lower bound. The upper bound is relaxed when a positive drain conductance
+  is declared, so that the drain carries the exchange at the surface
+  (``runtimes/vi_bounds.py``). The stress period can be cut into substeps, with
+  :toml:`flow.vi_substeps_per_period`, and a failed period can be retried with more
+  substeps.
+- ``ts_vi_obstacle`` hands the time stepping to PETSc TS with a backward Euler
+  scheme, inside each stress period, and keeps the same bounds. The storage term is
+  :math:`a_i S_{y,i}\,\dot h_i`, because the head is bounded. The number of steps and
+  the adaptivity are set by the ``ts_vi_*`` keys listed at the end of the page.
+
+A steady solve for the initial state of a ``ts_vi_obstacle`` run uses the regularized
+partition (``steady_state_initialization_surface_interaction_model`` in
+``solver/steady_initial_conditions.py``).
+
+What the run reports
 ~~~~~~~~~~~~~~~~~~~~
 
-Consider an internal edge :math:`e` shared by cells :math:`a` and :math:`b`.
-The code defines one oriented flux :math:`q^{\text{int}}_e` that is positive
-when water leaves cell :math:`a` and enters cell :math:`b`:
-
-.. math::
-
-   q^{\text{int}}_e = -\tau_e(h_b - h_a)
-
-The edge transmissive factor is
-
-.. math::
-
-   \tau_e
-   =
-   K^{H}_e\,\bar{b}_e\,\frac{L_e}{d_e}
-
-where:
-
-- :math:`K^{H}_e` is the harmonic mean of :math:`K_a` and :math:`K_b`,
-- :math:`\bar{b}_e = \frac{1}{2}(b_a + b_b)` is the averaged saturated
-  thickness,
-- :math:`L_e` is the edge length,
-- :math:`d_e` is the centroid-to-centroid distance between the two cells.
-
-The residual contribution of internal fluxes is conservative:
-
-.. math::
-
-   R^{\text{int}}_a \mathrel{+}= q^{\text{int}}_e,
-   \qquad
-   R^{\text{int}}_b \mathrel{-}= q^{\text{int}}_e
-
-This part is implemented by:
-
-- ``internal_edge_flux_from_head()``,
-- ``accumulate_internal_flux_residual()``.
-
-Imposed-Head Exchanges
-~~~~~~~~~~~~~~~~~~~~~~
-
-Some edges carry an imposed stage :math:`H_e`, for example:
-
-- side Dirichlet conditions,
-- stream supports,
-- ocean supports.
-
-For such edges, the code builds cell-to-edge transmissive coefficients
-
-.. math::
-
-   \tau_{a,e} = K_a\,b_a\,\frac{L_e}{d_{a,e}}
-
-and similarly for :math:`\tau_{b,e}` when a second owner cell exists.
-
-The corresponding exchange fluxes are
-
-.. math::
-
-   q^{D}_{a,e} = -\tau_{a,e}(H_e - h_a),
-   \qquad
-   q^{D}_{b,e} = -\tau_{b,e}(H_e - h_b)
-
-Those fluxes are accumulated directly into the owner-cell residuals. In the
-current mesh usage, imposed-head support is mainly used on boundary edges, but
-the implementation is slightly more general and can also account for an edge
-with two owner cells.
-
-Recharge, Wells, Drainage And Surface Interaction
--------------------------------------------------
-
-Recharge
-~~~~~~~~
-
-Recharge is represented as a surface rate :math:`r_i` in ``m/s``. In the
-current first slice of the backend, recharge is homogeneous in space for a
-given stress period. Its volumetric contribution in cell :math:`i` is
-
-.. math::
-
-   A_i r_i
-
-Wells
-~~~~~
-
-Wells are converted to cell-based volumetric rates
-:math:`Q^{\text{well}}_i` in ``m^3/s``. The sign convention is:
-
-- positive value: injection into the aquifer,
-- negative value: pumping from the aquifer.
-
-Since injection adds water, the residual contains :math:`-Q^{\text{well}}_i`.
-
-Drainage
-~~~~~~~~
-
-Drainage is a simple top leakage law that activates only when the head exceeds
-the cell top elevation:
-
-.. math::
-
-   q^{\text{drain}}_i = C_i^{\text{drain}}
-   \max(h_i - z^{\text{top}}_i, 0)
-
-This term is always treated as an outflow from the aquifer and therefore
-enters the residual with a positive sign.
-
-Regularized Saturation Excess Closure
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The current backend includes a regularized saturation-excess source term. Its
-goal is pragmatic: avoid a sharp on/off overflow law exactly at full saturation
-while still allowing near-surface water release when the cell is almost full.
-
-Define the saturation ratio
-
-.. math::
-
-   \sigma_i(h) =
-   \frac{b_i(h)}{z^{\text{top}}_i - z^{\text{bot}}_i}
-
-Let :math:`R^{\text{lat}}_i` be the lateral balance rate converted back to a
-surface flux by division through :math:`A_i`. The code forms
-
-.. math::
-
-   \beta_i
-   =
-   \max\!\left(
-       -\frac{R^{\text{lat}}_i}{A_i} + \max(r_i, 0),
-       0
-   \right)
-
-and then applies the regularization
-
-.. math::
-
-   s_i(h)
-   =
-   \exp\!\left(
-       -\frac{1 - \sigma_i(h)}{\varepsilon}
-   \right)
-   \beta_i
-
-where :math:`\varepsilon > 0` is the regularization radius.
-
-This term is not meant to be a final physically complete overland-flow model.
-It is a smooth release mechanism used by the head-only formulation close to
-full saturation.
-
-Mixed Complementarity Surface Closure
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The PETSc mixed formulation uses a different surface interaction model. It
-introduces one explicit cellwise surface-excess unknown
-:math:`q_i^{\text{ex}} \ge 0` and replaces the regularized law by the
-complementarity condition
-
-.. math::
-
-   0 \le q_i^{\text{ex}} \perp z_i^{\text{top}} - h_i \ge 0
-
-which reads:
-
-- if :math:`h_i < z_i^{\text{top}}`, then :math:`q_i^{\text{ex}} = 0`,
-- if :math:`q_i^{\text{ex}} > 0`, then :math:`h_i = z_i^{\text{top}}`.
-
-The implementation enforces this relation with a Fischer-Burmeister residual
-on scaled variables in ``runtimes/petsc_mixed.py``. In that formulation the surface
-flux is not prescribed by a local partition law; it is solved together with
-the head field so that the finite-volume balance and the unilateral surface
-constraint are satisfied simultaneously.
-
-Surface Interaction And Interception
-------------------------------------
-
-This section separates the groundwater/surface-interaction choices from the
-rest of the Boussinesq equation.
-
-The important modelling point is that Boussinesq does not simply compute head.
-It also needs a rule for what happens when the groundwater state approaches or
-intercepts the topographic surface.
-
-Surface Terms
-~~~~~~~~~~~~~
-
-The current documentation distinguishes three related mechanisms:
+The run writes ``_boussinesq_state_history.npz`` and ``_boussinesq_summary.json`` in
+the solver folder. The summary carries diagnostics of the surface and of the bottom,
+computed on the accepted snapshots (``runtime_summary.py``):
 
 .. list-table::
    :header-rows: 1
-   :widths: 26 34 40
-
-   * - Mechanism
-     - Role
-     - Current status
-   * - Recharge
-     - Adds water as a surface rate projected to cells.
-     - Supported as homogeneous or resolved cellwise forcing depending on the
-       workflow input.
-   * - Drainage
-     - Removes water when head exceeds the cell top elevation.
-     - Simple top leakage law.
-   * - Saturation excess
-     - Represents near-surface release when the aquifer reaches the surface
-       constraint.
-     - Implemented through two alternative closures.
-
-Regularized Partition Closure
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The ``regularized_partition`` closure keeps hydraulic head as the only
-unknown. The surface-excess term is reconstructed by a smooth law that becomes
-active near full saturation.
-
-This route is useful because it is:
-
-- available with ``local``, ``scipy``, ``scipy_sparse``, and ``petsc``;
-- smooth enough for dense and sparse Newton-style solves;
-- the main cross-platform comparison baseline.
-
-Its limit is scientific rather than technical: it is a pragmatic release law,
-not a full coupled surface-flow model. It can keep a low-amplitude seepage set
-active where a stricter threshold model would turn surface excess off.
-
-Mixed Complementarity Closure
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The ``complementarity`` closure introduces explicit saturation excess:
-
-.. math::
-
-   q_i^{ex} \ge 0
-
-and enforces:
-
-.. math::
-
-   0 \le q_i^{ex} \perp z_i^{top} - h_i \ge 0
-
-This reads:
-
-- if the head is below the topographic surface, surface excess is zero;
-- if surface excess is positive, the head is on the surface threshold.
-
-The implementation uses a Fischer-Burmeister residual in the PETSc mixed
-runtime. This route is the most explicit way to represent surface interception
-as an on/off threshold constraint.
-
-Lower Drying Obstacle (Surface View)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The same PETSc mixed route also enforces the lower head obstacle:
-
-.. math::
-
-   h_i - z_i^{bot} \ge 0
-
-through a dry-deficit unknown :math:`q_i^{dry}`. This quantity is not a
-physical leakage through the substratum. It is a numerical unmet-demand term:
-when the cell is already dry, it prevents the balance from removing more water
-than the saturated storage can provide.
-
-The head-only ``regularized_partition`` route does not solve this explicit
-lower complementarity constraint. It still uses bounded saturated thickness in
-transmissivity, lower-bounded saturated thickness in transient storage, and it
-reports diagnostics if the head itself drops below the lower obstacle.
-
-Selection Rule
-~~~~~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-   :widths: 36 32 32
-
-   * - Question
-     - Prefer ``regularized_partition``
-     - Prefer ``complementarity``
-   * - Need cross-platform execution?
-     - Yes.
-     - No, PETSc/Linux route.
-   * - Need a smooth head-only residual?
-     - Yes.
-     - No.
-   * - Need explicit on/off surface-threshold behavior?
-     - Not primarily.
-     - Yes.
-   * - Comparing against existing head-only validation cases?
-     - Usually yes.
-     - Only if the comparison is about the closure itself.
-
-Lower Obstacle Drying
----------------------
-
-This section documents how the Boussinesq backend treats the physically required
-lower bound on hydraulic head:
-
-.. math::
-
-   z_i^{bot} \le h_i \le z_i^{top}
-
-The implementation still solves for hydraulic head. It does not switch the
-primary unknown to water volume or saturated stock. The lower obstacle is
-handled by using non-negative saturated thickness in the physical operators,
-and by adding an explicit complementarity term in the PETSc mixed runtime.
-
-Bounded Saturated Thickness
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For every cell :math:`i`, the raw saturated thickness would be:
-
-.. math::
-
-   h_i - z_i^{bot}
-
-The solver does not use this raw value directly in transmissivity. It
-reconstructs the transmissive saturated thickness:
-
-.. math::
-
-   H_i^T(h) =
-   \min\left(
-      \max\left(h_i - z_i^{bot}, 0\right),
-      z_i^{top} - z_i^{bot}
-   \right)
-
-The transmissivity is:
-
-.. math::
-
-   T_i(h) = K_i H_i^T(h)
-
-The transient storage uses a lower-bounded drainable volume:
-
-.. math::
-
-   H_i^M(h) = \max\left(h_i - z_i^{bot}, 0\right)
-
-.. math::
-
-   M_i(h) = A_i S_i H_i^M(h)
-
-The backward-Euler storage contribution is:
-
-.. math::
-
-   \frac{M_i(h^{n+1}) - M_i(h^n)}{\Delta t}
-
-This avoids negative transmissivity and negative storage even if a nonlinear
-iteration temporarily evaluates a head below the substratum. The upper surface
-is deliberately not used to cap transient storage in the head-only routes: if
-those routes allow a pressure-like head above :math:`z^{top}`, the time-step
-history must still contain enough storage memory to avoid artificially frozen
-transients.
-
-Regularized Partition Route
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The ``regularized_partition`` route is head-only. It uses the capped thickness
-above in transmissivity and lower-bounded storage in the transient term, but it
-does not solve an explicit lower complementarity constraint.
-
-In practice:
-
-- transmissivity remains non-negative;
-- storage remains non-negative and keeps transient memory above the top
-  surface when this head-only route permits such heads;
-- diagnostics report whether the accepted head field went below
-  :math:`z^{bot}`;
-- no algebraic ``dry deficit`` unknown is solved in this route.
-
-Use this route when the goal is a smooth head-only baseline or cross-platform
-execution. Use the PETSc complementarity route when the lower obstacle itself
-must be enforced by the nonlinear solve.
-
-PETSc Double Obstacle Route
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-With ``runtime_backend = "petsc"`` and
-``surface_interaction_model = "complementarity"``, the mixed unknown layout is:
-
-.. math::
-
-   (h_i,\ q_i^{ex},\ q_i^{dry})
-
-The upper surface complementarity is:
-
-.. math::
-
-   q_i^{ex} \ge 0,\quad z_i^{top} - h_i \ge 0,\quad
-   q_i^{ex}(z_i^{top} - h_i) = 0
-
-The lower drying complementarity is:
-
-.. math::
-
-   q_i^{dry} \ge 0,\quad h_i - z_i^{bot} \ge 0,\quad
-   q_i^{dry}(h_i - z_i^{bot}) = 0
-
-The two algebraic rates have different interpretations:
-
-- :math:`q_i^{ex}` is a saturation-excess release term at the upper surface;
-- :math:`q_i^{dry}` is not a substratum leakage term. It is an unmet-demand
-  correction that prevents the residual from removing more water than the
-  available saturated storage.
-
-With the HydroModPy residual sign convention, positive residual terms remove
-water. The dry-deficit contribution therefore enters the balance with the
-opposite sign:
-
-.. math::
-
-   R_i \leftarrow R_i - A_i q_i^{dry}
-
-This sign is essential. If a cell is already at :math:`h_i=z_i^{bot}`, the
-dry-deficit term offsets any remaining removal demand instead of adding water
-through a physical boundary.
-
-Diagnostics And Exports
-~~~~~~~~~~~~~~~~~~~~~~~
-
-Boussinesq runtime summaries now include lower-obstacle diagnostics:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 42 58
+   :widths: 40 60
 
    * - Key family
      - Meaning
+   * - ``surface_threshold_*``
+     - Cells where the surface release is active, the number of windows in which it
+       turns on and off, the peak rate and the peak head above the surface.
    * - ``bottom_threshold_*``
-     - Reports accepted-head violations below :math:`z^{bot}` and the
-       associated potential negative storage volume.
+     - Accepted heads below the bottom of the aquifer, and the negative storage
+       volume they would imply.
    * - ``bottom_constraint_*``
-     - Reports active dry-deficit cells, peak rates and integrated dry-deficit
+     - Cells where the dry deficit is active, its peak rate and its integrated
        volume.
    * - ``dry_deficit_history_m_s``
-     - Exported state-history array for the cellwise :math:`q^{dry}` rate.
-   * - ``dry_deficit_total_m3_s``
-     - Comparison-budget component reconstructed from
-       ``dry_deficit_history_m_s`` and cell areas.
-   * - ``boussinesq_obstacle_diagnostics.csv``
-     - Comparison export containing per-snapshot ``min(h-z_bot)``,
-       potential negative storage volume, active dry-deficit cells, and
-       surface-excess cells when Boussinesq state histories and mesh vertical
-       bounds are available.
+     - The state history of :math:`q^{\mathrm{dry}}`, in the npz file.
 
-These diagnostics should be read separately from physical discharge terms.
-They tell where the lower obstacle is active and how much extraction or
-drainage demand could not be satisfied by saturated storage.
+Read the dry deficit apart from the discharge terms. It says where the bottom
+constraint was active and how much demand the storage could not meet.
 
-In budget closure diagnostics, ``dry_deficit_total_m3_s`` is treated with the
-same sign as available water because it offsets an otherwise unsatisfied
-removal demand. It is still not a physical recharge boundary.
+From closure to solver: methods and engines
+-------------------------------------------
 
-Validation Case: Steep Hillslope Drying And Rewetting
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Two choices are independent. The method is the physics: the unknowns, the closure,
+the space scheme and the time scheme. The engine is the numerics: the nonlinear
+solver, the matrix layout, the Jacobian and the linear solver. Two runs can share a
+method and differ by the engine. The keys are
+:toml:`flow.surface_interaction_model` for the closure and
+:toml:`flow.runtime_backend` for the engine.
 
-The committed PETSc validation test is:
+The method
+~~~~~~~~~~
 
-.. code-block:: text
-
-   tests/validation/numerical/transient/test_boussinesq_drying_petsc.py
-
-It contains two checks:
-
-- a single-cell pumping case that forces immediate lower-obstacle activation;
-- a steep sloping hillslope that dries by natural lateral drainage under zero
-  recharge, then rewets when recharge resumes.
-
-The hillslope case uses:
+The closure and the runtime backend resolve to one method
+(``resolve_method_spec`` in ``methods/catalog.py``):
 
 .. list-table::
    :header-rows: 1
-   :widths: 34 66
+   :widths: 28 18 18 18 18
 
-   * - Item
-     - Value
-   * - Cells
-     - 8 cell-centered finite-volume cells.
-   * - Substratum
-     - Linear drop from 20 m upstream to 0 m downstream.
-   * - Saturable thickness
-     - 1.5 m.
-   * - Hydraulic conductivity
-     - 1e-3 m/s.
-   * - Storage coefficient
-     - 0.2.
-   * - Downstream boundary
-     - Prescribed head equal to downstream substratum elevation.
-   * - Drying phase
-     - Two 30-day periods with zero recharge.
-   * - Rewetting phase
-     - One 10-day period with recharge 2e-6 m/s.
-
-Expected behavior:
-
-- during zero recharge, lateral drainage lowers the water table naturally;
-- several cells reach :math:`h=z^{bot}` and activate :math:`q^{dry}`;
-- the accepted head field remains above the lower obstacle within tolerance;
-- after recharge resumes, head rises and :math:`q^{dry}` deactivates.
-
-.. figure:: /_static/theory/solvers/boussinesq/lower_obstacle_drying_rewetting.png
-   :alt: Boussinesq lower-obstacle drying and rewetting diagnostic
-   :width: 100%
-
-   The diagnostic figure shows the same validation setup as a visual sequence:
-   the initial water table drains toward the sloping substratum, the lower
-   complementarity constraint activates during the dry phase, and recharge
-   reactivates storage without leaving a persistent dry-deficit term.
-
-Run the validation from Windows through the WSL development environment:
-
-.. code-block:: powershell
-
-   wsl.exe bash -lc "bash install/enter_wsl_dev.sh --headless -- python -m pytest tests/validation/numerical/transient/test_boussinesq_drying_petsc.py -q"
-
-Regenerate the documentation asset from the same WSL environment:
-
-.. code-block:: powershell
-
-   wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- python -m tools.doc_gallery.generate_boussinesq_drying_assets"
-
-Or from an already activated Linux shell:
-
-.. code-block:: bash
-
-   python -m pytest tests/validation/numerical/transient/test_boussinesq_drying_petsc.py -q
-   python -m tools.doc_gallery.generate_boussinesq_drying_assets
-
-Design Interpretation
-~~~~~~~~~~~~~~~~~~~~~
-
-This is a pragmatic intermediate formulation:
-
-- the solved differential unknown remains hydraulic head;
-- transmissive operators use capped saturated thickness;
-- transient storage uses lower-bounded saturated thickness;
-- the PETSc mixed runtime adds a lower algebraic obstacle only where needed;
-- dry deficit is exposed as a diagnostic, not as a physical flux.
-
-A future stock-based formulation could make stored water the primary unknown.
-That would be a larger modelling change. The current design keeps the existing
-head-based method while removing negative saturated thickness, negative
-storage, and unconstrained dry heads in the PETSc complementarity route.
-
-Boussinesq Method
------------------
-
-This section describes the method layer between the equation and the nonlinear
-solver engine.
-
-In the code, this layer is explicit: ``formulations/`` defines algebraic
-unknowns and surface closures, ``discretization/`` defines space/time schemes,
-and ``methods/`` combines them into named method families.
-
-Spatial Method
-~~~~~~~~~~~~~~
-
-The current space scheme is:
-
-.. code-block:: text
-
-   finite-volume triangular cell-centered method
-
-The solver works on a compact triangular mesh view. Internal edge fluxes use:
-
-- owner cell pairs;
-- edge length;
-- centroid-to-centroid distance;
-- harmonic conductivity;
-- averaged saturated thickness.
-
-The method is conservative on internal edges: the flux leaving one cell enters
-the neighboring cell with the opposite sign.
-
-Time Methods
-~~~~~~~~~~~~
-
-Two regimes are documented and implemented:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 32 42
-
-   * - Regime
-     - Scheme
-     - Interpretation
-   * - Steady
-     - ``steady_balance``
-     - Solve one nonlinear balance with no storage term.
-   * - Transient
-     - ``backward_euler``
-     - Fully implicit time stepping with storage evaluated between accepted
-       snapshots.
-
-Current Method Families
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-   :widths: 32 28 40
-
-   * - Method id
-     - Unknown layout
-     - Surface closure
+   * - Method
+     - Unknowns
+     - Closure
+     - Time scheme
+     - Runtime backends
    * - ``head_only_regularized_partition``
-     - ``head_only``
+     - :math:`h`
      - ``regularized_partition``
+     - steady, backward Euler
+     - ``local``, ``scipy``, ``scipy_sparse``, ``petsc``
    * - ``mixed_complementarity``
-     - ``head_plus_qex_qdry``
+     - :math:`h, q^{\mathrm{ex}}, q^{\mathrm{dry}}`
      - ``complementarity``
+     - steady, backward Euler
+     - ``petsc``
+   * - ``head_only_vi_obstacle``
+     - :math:`h`
+     - ``vi_obstacle``
+     - steady, backward Euler
+     - ``petsc``
+   * - ``head_only_ts_vi_obstacle``
+     - :math:`h`
+     - ``ts_vi_obstacle``
+     - backward Euler
+     - ``petsc``
 
-The method id is the physically meaningful combination. A runtime backend such
-as ``scipy_sparse`` or ``petsc`` only says how that method is solved.
-
-Head-Only Regularized Partition
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This is the historical comparison baseline. The unknown vector only contains
-hydraulic head. Surface excess is reconstructed from the head and the lateral
-balance through a smooth regularized partition law.
-
-Use it when:
-
-- the run must stay cross-platform;
-- the goal is comparison with existing validation cases;
-- the mesh is small enough for dense engines or large enough for
-  ``scipy_sparse``;
-- a smooth head-only residual is preferred over an explicit complementarity
-  constraint.
-
-Mixed Complementarity
-~~~~~~~~~~~~~~~~~~~~~
-
-This method adds two cellwise algebraic unknowns:
-
-.. math::
-
-   q_i^{ex}
-
-for saturation excess at the surface, and:
-
-.. math::
-
-   q_i^{dry}
-
-for the lower drying obstacle. The PETSc runtime solves head, surface excess
-and dry deficit together as a double-obstacle complementarity problem.
-
-Use it when:
-
-- PETSc is available;
-- the question is specifically about on/off surface-threshold behavior;
-- dry-down and repeated activation/deactivation of the surface threshold are
-  important diagnostics.
-- lower-obstacle drying must be enforced explicitly.
-
-Head-Only Steady Residual
--------------------------
-
-The steady residual assembled by the code is
-
-.. math::
-
-   R_i^{\text{steady}}(h)
-   =
-   R_i^{\text{int}}(h)
-   +
-   R_i^{D}(h)
-   +
-   q_i^{\text{drain}}(h)
-   +
-   A_i s_i(h)
-   -
-   A_i r_i
-   -
-   Q_i^{\text{well}}
-
-The steady solve therefore searches for
-
-.. math::
-
-   R_i^{\text{steady}}(h) = 0
-   \qquad \text{for all cells } i
-
-Head-Only Transient Residual
-----------------------------
-
-For one fully implicit backward-Euler time step from :math:`t^n` to
-:math:`t^{n+1}`, the additional storage term is
-
-.. math::
-
-   R_i^{\text{storage}}
-   =
-   A_i S_i \frac{h_i^{n+1} - h_i^n}{\Delta t}
-
-The transient residual is then
-
-.. math::
-
-   R_i^{\text{transient}}(h^{n+1})
-   =
-   A_i S_i \frac{h_i^{n+1} - h_i^n}{\Delta t}
-   +
-   R_i^{\text{int}}(h^{n+1})
-   +
-   R_i^{D}(h^{n+1})
-   +
-   q_i^{\text{drain}}(h^{n+1})
-   +
-   A_i s_i(h^{n+1})
-   -
-   A_i r_i^{n+1}
-   -
-   Q_{i}^{\text{well},\,n+1}
-
-The backend solves
-
-.. math::
-
-   R_i^{\text{transient}}(h^{n+1}) = 0
-   \qquad \text{for all cells } i
-
-This is the transient residual solved by the ``local``, ``scipy``,
-``scipy_sparse`` and PETSc regularized-partition runtimes.
-
-Solver Engines
---------------
-
-This section distinguishes the physical method from the execution engine.
-
-The user-facing runtime backend names are:
-
-.. code-block:: text
-
-   local
-   scipy
-   scipy_sparse
-   petsc
-
-They are not separate hydrological models. They are numerical engines used to
-solve one resolved Boussinesq method.
-
-Engine Matrix
-~~~~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-   :widths: 18 26 26 30
-
-   * - Runtime backend
-     - Linear layout
-     - Supported method
-     - Best use
-   * - ``local``
-     - Dense
-     - ``head_only_regularized_partition``
-     - Small validation meshes and transparent debugging.
-   * - ``scipy``
-     - Dense
-     - ``head_only_regularized_partition``
-     - Dense SciPy reference route around the same residual.
-   * - ``scipy_sparse``
-     - Sparse
-     - ``head_only_regularized_partition``
-     - Cross-platform reference for larger triangular meshes.
-   * - ``petsc``
-     - Sparse
-     - ``head_only_regularized_partition`` or ``mixed_complementarity``
-     - Linux/PETSc route for sparse SNES solves, surface complementarity and
-       lower-obstacle drying tests.
-
-Surface Model Resolution
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-The process-to-runtime selection resolves two axes:
-
-.. code-block:: text
-
-   runtime_backend + surface_interaction_model -> method + engine
-
-The surface-interaction token can be:
-
-.. code-block:: text
-
-   auto
-   regularized_partition
-   complementarity
-
-With ``auto``:
-
-- ``petsc`` resolves to ``complementarity``;
-- non-PETSc backends resolve to ``regularized_partition``.
-
-If ``complementarity`` is requested with a non-PETSc runtime, the code rejects
-the combination because that method is currently implemented only for
-``runtime_backend = "petsc"``.
-
-Minimal Configuration Shape
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The exact surrounding TOML depends on the workflow, but the relevant flow
-choice is conceptually:
+With ``auto``, the closure is ``complementarity`` on PETSc and
+``regularized_partition`` on every other backend. A closure that the backend does
+not implement is refused when the solve starts: the message says
+``The requested Boussinesq surface-interaction model is not implemented``. The
+space scheme is the same for all four methods.
 
 .. code-block:: toml
+   :caption: The two keys that choose the method and the engine
+
+   base_config = "step4_transient.toml"
+
+   [solver]
+   backend = { backend = "boussinesq" }
 
    [[simulation.process]]
    id = "flow_main"
    type = "flow"
    solvers = ["boussinesq"]
 
+   [mesh_catchment]
+   constraints_mode = "rivers_only"
+   cache = true
+
    [flow]
-   flow_regime = "transient"
    runtime_backend = "scipy_sparse"
    surface_interaction_model = "regularized_partition"
 
-For a PETSc complementarity experiment:
+The block selects the solver and the closure. The mesh section is the one the
+solver needs: it reads a triangular mesh, from :toml:`mesh_catchment` or from
+:toml:`mesh_input`. Example 04 as shipped runs on MODFLOW 6.
+
+The same file with the mixed closure:
 
 .. code-block:: toml
+
+   base_config = "step4_transient.toml"
+
+   [solver]
+   backend = { backend = "boussinesq" }
+
+   [[simulation.process]]
+   id = "flow_main"
+   type = "flow"
+   solvers = ["boussinesq"]
+
+   [mesh_catchment]
+   constraints_mode = "rivers_only"
+   cache = true
+
+   [flow]
+   runtime_backend = "petsc"
+   surface_interaction_model = "complementarity"
+
+The pair below loads, and the run then refuses it, because the complementarity
+closure is implemented only on PETSc:
+
+.. code-block:: toml
+
+   # not checked: shows a pair that loads and that the run refuses
+   base_config = "step4_transient.toml"
+
+   [solver]
+   backend = { backend = "boussinesq" }
 
    [[simulation.process]]
    id = "flow_main"
@@ -1034,695 +780,408 @@ For a PETSc complementarity experiment:
    solvers = ["boussinesq"]
 
    [flow]
-   flow_regime = "transient"
-   runtime_backend = "petsc"
+   runtime_backend = "scipy_sparse"
    surface_interaction_model = "complementarity"
 
-Interpretation Rule
-~~~~~~~~~~~~~~~~~~~
+The engine
+~~~~~~~~~~
 
-When comparing outputs, record both axes:
-
-- the method: formulation, surface closure, space scheme, and time scheme;
-- the engine: nonlinear solver, matrix layout, Jacobian strategy, and linear
-  solver.
-
-Two runs can share the same method but differ by engine. Two PETSc runs can
-share the same engine name but differ by method if their surface closure is
-different.
-
-Nonlinear Solution Strategy
----------------------------
-
-Local Runtime
-~~~~~~~~~~~~~
-
-The local runtime uses a dense damped Newton loop:
-
-#. start from an initial head guess,
-#. assemble the residual,
-#. build a dense Jacobian by forward finite differences,
-#. solve the linearized Newton system,
-#. backtrack the Newton update until the residual decreases,
-#. stop when the infinity norm of the residual is below tolerance.
-
-This strategy is transparent and easy to debug, which is why it is useful in
-small validation slices, but it is not the preferred path for larger meshes.
-
-SciPy Runtime
-~~~~~~~~~~~~~
-
-The SciPy runtime keeps the same residual and the same finite-difference
-Jacobian, but delegates the nonlinear solve to ``scipy.optimize.root``. The
-important point is that the physics does not change; only the nonlinear driver
-changes.
-
-SciPy Sparse Runtime
-~~~~~~~~~~~~~~~~~~~~
-
-The SciPy sparse runtime still solves the head-only regularized-partition
-residual, but it changes the linear algebra and Jacobian assembly strategy:
-
-#. smooth residual terms are differentiated analytically,
-#. the remaining nonlinear saturation terms are completed by sparse
-   finite-difference corrections,
-#. the Newton step is solved with SciPy sparse matrices and ``spsolve``.
-
-This is the current non-PETSc reference path for larger Boussinesq meshes on
-all platforms.
-
-PETSc Regularized-Partition Runtime
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The Linux-only PETSc regularized-partition backend keeps the same head-only
-residual as above,
-
-.. math::
-
-   R_i^{\text{steady}}(h) = 0
-   \qquad \text{or} \qquad
-   R_i^{\text{transient}}(h^{n+1}) = 0,
-
-but solves it with PETSc SNES on a sparse Jacobian assembled from the same
-semi-analytic ingredients as the SciPy sparse runtime. This path is the PETSc
-counterpart of the historical head-only overflow regularization.
-
-PETSc Mixed Complementarity Runtime
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The Linux-only PETSc backend introduces one algebraic saturation-excess
-unknown :math:`q^{\text{ex}}_i` per cell and solves a mixed semi-explicit DAE
-at each backward-Euler step:
-
-.. math::
-
-   R_i^{\text{flow}}(h, q^{\text{ex}}) = 0
-
-with the same finite-volume flow balance as above, except that the
-regularized overflow term is replaced by the explicit unknown
-:math:`q^{\text{ex}}_i`, and one nonlinear complementarity relation:
-
-.. math::
-
-   0 \le q^{\text{ex}}_i \perp z_i^{\text{top}} - h_i \ge 0
-
-The implementation encodes this complementarity through a
-Fischer-Burmeister residual on scaled variables and lets PETSc SNES solve the
-full mixed nonlinear system.
-
-In transient mode the current implementation uses a hybrid warm start for
-:math:`q^{\text{ex}}`:
-
-- under explicit positive loading (for example recharge or injection), the
-  initial guess is taken from the historical regularized-partition predictor,
-- during dry-down periods without positive loading, the initial guess is the
-  dry state :math:`q^{\text{ex}} = 0`.
-
-That choice is numerical rather than physical. It improves robustness when
-overflow turns off after a wet period without changing the converged zero set
-of the mixed complementarity system.
-
-On the committed ``headwater_100km2_outlet_2`` real-basin cycling case, this
-mixed closure also captures repeated activation/deactivation windows of the
-surface threshold, whereas the regularized-partition closures keep one
-low-amplitude seepage set active through the whole sequence under the same
-forcing. That difference is one practical reason to keep both surface
-interaction models explicit in the documentation. Complementarity diagnostics
-in the runtime summary are evaluated on accepted solver snapshots, excluding
-the raw transient initial condition.
-
-The same pattern remains visible on the stronger heterogeneous cycling variant
-where :math:`K` and :math:`S_y` are mapped from generated concentric
-hydrofacies over the committed basin mesh. In that case the regularized
-partition path still keeps one persistent seepage window active, while the
-mixed complementarity path converges with repeated on/off threshold windows and
-returns to a dry terminal state.
-
-Possibility Map
----------------
-
-This section makes the current possibilities explicit.
-
-It is intentionally a map, not a promise that every combination is equally
-mature. Use the capability gallery and validation pages before treating a
-combination as production-ready.
-
-Main Possibilities
-~~~~~~~~~~~~~~~~~~
+The runtime backends are numerical engines for one method. They are not separate
+hydrological models. The rows are the pairs of the engine catalog
+(``engines/catalog.py``):
 
 .. list-table::
    :header-rows: 1
-   :widths: 26 30 22 22
+   :widths: 14 22 22 22 20
 
-   * - Goal
-     - Recommended combination
-     - Surface closure
-     - Runtime
-   * - Small analytical validation
-     - Head-only finite-volume Boussinesq.
-     - ``regularized_partition``
-     - ``local`` or ``scipy``
-   * - Larger cross-platform triangular mesh
-     - Head-only sparse Boussinesq.
-     - ``regularized_partition``
-     - ``scipy_sparse``
-   * - PETSc sparse baseline
-     - Head-only PETSc partition route.
-     - ``regularized_partition``
-     - ``petsc``
-   * - Surface-threshold activation study
-     - Mixed head-plus-saturation-excess-plus-dry-deficit route.
-     - ``complementarity``
-     - ``petsc``
-   * - Drying and rewetting study
-     - PETSc mixed double-obstacle route.
-     - ``complementarity``
-     - ``petsc``
-   * - MODFLOW/Boussinesq simulation comparison
-     - Start from shared geometry and forcing, then document closure and mesh
-       differences explicitly.
-     - Depends on comparison question.
-     - Usually ``scipy_sparse`` or ``petsc``.
+   * - Backend
+     - Method
+     - Nonlinear solver
+     - Jacobian
+     - Linear solver
+   * - ``local``
+     - head-only partition
+     - damped Newton, dense
+     - forward finite differences
+     - NumPy dense solve
+   * - ``scipy``
+     - head-only partition
+     - SciPy ``root``, method ``hybr``
+     - semi-analytic, dense
+     - MINPACK ``hybr``
+   * - ``scipy_sparse``
+     - head-only partition
+     - damped Newton, sparse
+     - semi-analytic, plus colored finite differences for the release
+     - SciPy ``spsolve``
+   * - ``petsc``
+     - head-only partition
+     - PETSc SNES ``newtonls``
+     - semi-analytic, sparse
+     - direct LU
+   * - ``petsc``
+     - mixed complementarity
+     - PETSc SNES ``newtonls`` on the three unknowns
+     - semi-analytic, sparse blocks
+     - direct LU
+   * - ``petsc``
+     - ``vi_obstacle``
+     - PETSc SNESVI ``vinewtonrsls``
+     - semi-analytic, sparse
+     - direct LU
+   * - ``petsc``
+     - ``ts_vi_obstacle``
+     - PETSc TS backward Euler with SNESVI
+     - semi-analytic, sparse
+     - direct LU, with a shift
 
-Possibility Axes
+The PETSc engines run only on Linux and need ``petsc4py``: on another system the run
+stops with a message that starts ``Boussinesq runtime_backend='petsc' is only
+supported on Linux.`` They run in serial, on ``PETSc.COMM_SELF``.
+
+The nonlinear solve
+-------------------
+
+Every engine looks for a head :math:`h` such that the residual vector is zero. The
+vector it tests is the solver residual: the balance in m\ :sup:`3`/s on a free cell,
+and :math:`h_j - H^D_j` in metres on a constrained cell. The tolerance
+:toml:`flow.runtime_tol_residual_inf` applies to the largest absolute entry. The
+iteration budget is :toml:`flow.runtime_max_iterations`; when the key is not set,
+the runtime has its own budget, larger on ``scipy_sparse`` than on the others
+(``build_runtime_options`` in ``solver_contract.py``). A step that does not converge
+ends the run.
+
+The local engine
 ~~~~~~~~~~~~~~~~
 
-The Boussinesq route should be described along these axes:
+The ``local`` engine is a damped Newton loop (``_newton_loop_template`` in
+``runtimes/newton_common.py``), written to be read:
 
-.. list-table::
-   :header-rows: 1
-   :widths: 24 36 40
+#. start from the initial guess and assemble the residual;
+#. build a dense Jacobian by forward finite differences, with a step of
+   :math:`10^{-7}\max(1, \lvert h \rvert)` on each head in turn
+   (``build_dense_fd_jacobian``);
+#. solve :math:`J\,\delta = -R` with a dense solve;
+#. halve the step, from 1 down to a minimum factor, until the largest residual entry
+   falls; if it never does, the solve stops and is not converged;
+#. stop when the largest residual entry is below the tolerance.
 
-   * - Axis
-     - Values
-     - Why it matters
-   * - Flow regime
-     - ``steady`` or ``transient``.
-     - Adds or removes storage and time-step history.
-   * - Mesh
-     - Triangular runtime mesh.
-     - Controls internal-edge fluxes and cellwise top/bottom support.
-   * - Hydraulic properties
-     - Scalar or mapped ``K`` and storage values.
-     - Changes transmissivity and transient response.
-   * - Surface closure
-     - ``regularized_partition`` or ``complementarity``.
-     - Changes how surface interception, saturation excess and lower-obstacle
-       drying are represented.
-   * - Runtime engine
-     - ``local``, ``scipy``, ``scipy_sparse``, ``petsc``.
-     - Changes nonlinear solve strategy and scalability.
+The method is transparent and fit for small validation meshes. A dense engine assembles
+a dense Jacobian, so it refuses a mesh of more than 400 cells
+(``_assert_runtime_mesh_size_supported`` in ``boussinesq.py``).
 
-What To Report In A Comparison
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The SciPy engine
+~~~~~~~~~~~~~~~~
 
-Always report:
+The ``scipy`` engine keeps the same residual. It gives SciPy a semi-analytic dense
+Jacobian and lets ``scipy.optimize.root`` with the ``hybr`` method drive the solve
+(``runtimes/scipy_dense.py``). SciPy stops on its own criterion on the step, set
+from :toml:`flow.runtime_tol_state_update_inf`, and the run then checks the residual
+against the tolerance: a solve that SciPy calls successful but whose residual is
+above the tolerance is reported as not converged. It has the same limit of 400
+cells.
 
-- mesh source and resolution;
-- top and bottom surfaces;
-- hydraulic conductivity and storage mapping;
-- recharge and well forcing;
-- boundary supports;
-- flow regime and time stepping;
-- surface-interaction closure;
-- runtime backend.
+The SciPy sparse engine
+~~~~~~~~~~~~~~~~~~~~~~~
 
-Without these fields, it is too easy to attribute differences to
-``boussinesq`` as a solver name when the actual difference comes from the
-surface closure, mesh, property transfer, or runtime-specific convergence
-path.
+The ``scipy_sparse`` engine runs the same Newton loop as ``local`` with a sparse
+Jacobian (``runtimes/scipy_sparse.py``):
 
-Formulation Comparison
-----------------------
+#. the smooth terms, which are the internal fluxes, the storage, the drain and the
+   constraints, are differentiated analytically;
+#. the release :math:`s_i` is completed by finite differences, with columns of the
+   matrix that do not share a row perturbed together (graph coloring);
+#. the Newton step is solved with ``spsolve``.
 
-This section is the Boussinesq-local entry point for comparing alternative
-``flow/boussinesq`` formulations.
+If the matrix is singular, the step is solved again with a diagonal shift that grows
+by a factor of ten at each of up to six tries. For a steady solve the initial guess
+is moved to the middle of the cell wherever the head sits exactly on the top or the
+bottom, because the partition Jacobian can be singular there
+(``interiorize_regularized_partition_initial_guess``). This is the reference engine
+for larger meshes on every system.
 
-The comparison outputs should still be produced by the standard comparison
-workflow. What changes here is the reading location: Boussinesq formulation
-comparisons belong close to the Boussinesq equations, methods, and surface
-closures, not only in the transversal capability gallery.
+The PETSc engines
+~~~~~~~~~~~~~~~~~
 
-What Is Being Compared
-~~~~~~~~~~~~~~~~~~~~~~
+The PETSc partition engine solves the same head-only residual with PETSc SNES, a
+Newton method with a backtracking line search, on a sparse semi-analytic Jacobian
+(``runtimes/petsc_partition.py``). The linear systems are solved by a direct LU
+factorization with a small shift of the diagonal against zero pivots
+(``_configure_default_snes`` in ``runtimes/petsc_common.py``). The absolute
+tolerance of SNES is the residual tolerance, and its relative and step tolerances
+are off. The Jacobian also receives a diagonal shift that decays with the residual,
+a light pseudo-transient regularization for large meshes:
 
-The current in-house Boussinesq backend has two distinct modelling axes:
+.. math::
 
-.. list-table::
-   :header-rows: 1
-   :widths: 24 32 44
+   \mathrm{shift} = \max\Bigl(10^{-8},\ 0.2\;\mathrm{median}_{J_{ii} \neq 0}\,
+   \lvert J_{ii}\rvert\ \min\bigl(1,\ \lVert R\rVert_\infty / \lVert R_0\rVert_\infty\bigr)\Bigr)
 
-   * - Axis
-     - Choices
-     - Interpretation
-   * - Surface closure
-     - ``regularized_partition`` or ``complementarity``
-     - Changes how near-surface release and saturation excess are represented.
-   * - Unknown layout
-     - ``head_only`` or ``head_plus_qex_qdry``
-     - Changes whether saturation excess is reconstructed from head or solved
-       together with the lower drying obstacle as explicit cellwise unknowns.
-   * - Runtime backend
-     - ``local``, ``scipy``, ``scipy_sparse``, ``petsc``
-     - Changes nonlinear and linear algebra execution. This is not by itself a
-       different hydrological formulation.
-   * - Flow regime
-     - ``steady`` or ``transient``
-     - Adds or removes storage and time-step history.
-   * - Support
-     - Shared triangular mesh, different mesh, or structured MODFLOW support
-     - Controls whether differences can be interpreted as formulation effects
-       or as mixed formulation/support effects.
+where :math:`R_0` is the residual of the first iterate. The shift vanishes as the
+solve converges. The residual does not contain it, so the solution is the one of the
+unshifted system (``regularized_partition_jacobian_shift`` in
+``runtimes/partition_utils.py``).
 
-The cleanest formulation comparison keeps the runtime backend and support
-fixed as much as possible. For example, comparing:
+The mixed engine solves the system of :math:`3n` unknowns of
+`The lower obstacle`_, with the rates scaled by :math:`q_s`
+(``_solve_mixed_problem`` in ``runtimes/petsc_mixed.py``). The residual has three
+blocks: the balance with :math:`-a_i q^{\mathrm{dry}}_i`, the Fischer-Burmeister
+equation of the surface, and the Fischer-Burmeister equation of the bottom. The run
+converges when SNES reports a convergence and the largest entry of the full residual
+is below the tolerance.
 
-- ``petsc`` + ``regularized_partition``;
-- ``petsc`` + ``complementarity``;
+The starting point of the mixed solve is a numerical choice, not a physical one. The
+head is clipped between the bottom and the top. A free cell whose balance at the
+bottom still asks to lose water starts at the bottom. In a transient run, the first
+guess of :math:`q^{\mathrm{ex}}` is the release the regularized partition would
+give when the recharge is positive or a well flux is negative, and zero otherwise
+(``_initial_transient_q_ex_guess``). The choice changes the path to the solution,
+not the equations.
 
-is a cleaner surface-closure comparison than comparing
-``scipy_sparse`` + ``regularized_partition`` against
-``petsc`` + ``complementarity``, because the latter changes the runtime engine
-and the surface closure at the same time.
+The VI engines solve the bounded system of `The experimental obstacle closures`_.
 
-Recommended Comparison Questions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The starting state and the time loop
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. list-table::
-   :header-rows: 1
-   :widths: 28 32 40
+The transient driver loops over the stress periods (``run_transient_runtime`` in
+``drivers/transient.py``). At each period it takes the forcing of the period, the
+heads of the previous period as the previous state and as the initial guess, and
+solves one step. The first period is a transient step like the others: the solver
+does not read :toml:`flow.first_period_steady`.
 
-   * - Question
-     - Recommended variants
-     - How to read the result
-   * - Does the surface closure matter?
-     - Same mesh, same forcing, ``petsc`` partition versus ``petsc``
-       complementarity.
-     - Read head maps together with saturation-excess and budget diagnostics.
-   * - Does the sparse backend change the head-only result?
-     - ``scipy_sparse`` versus ``petsc`` with
-       ``regularized_partition``.
-     - Runtime sensitivity, not a hydrological formulation comparison.
-   * - How far is Boussinesq from a MODFLOW representation?
-     - MODFLOW 6 versus Boussinesq on a shared support when possible.
-     - Solver-family comparison; document vertical representation, boundary
-       semantics, property transfer, and surface closure explicitly.
-   * - Does a validation case still match its analytical reference?
-     - One solver variant against the committed validation reference.
-     - Validation evidence, not solver-to-solver comparison.
+The initial heads come from :toml:`flow.ic.h.type`. With ``steady_state``, the
+solver first runs one steady solve with the same method, under the time-mean
+recharge or under the rate of :toml:`flow.ic.h.rate`, with the boundary heads of the
+first period. It starts the transient from the result. Cyclic spin-up and
+:toml:`flow.restart_from` are not implemented for this solver and the file is
+refused when it asks for them. How to choose the starting state is in
+:doc:`../guides/time-and-initial-state`.
 
-Implementation Pattern
-~~~~~~~~~~~~~~~~~~~~~~
+Assumptions
+-----------
 
-Use the external comparison workflow as the producer:
+- **Dupuit.** The flow is horizontal. The head is uniform over the saturated
+  thickness and the gradient is that of the water table. There is no vertical
+  resistance.
+- **One layer.** The aquifer is one cell thick. Its top and bottom are the values
+  sampled at the centroid of the triangle and are flat inside the cell.
+- **One conductivity and one specific yield per cell**, isotropic in the plane. The
+  solver reads no specific storage, no anisotropy and no porosity.
+- **Two-point flux.** The flux through an edge depends on the two heads next to it.
+  The formula is consistent where the line between the two centroids is
+  perpendicular to the edge, and loses accuracy where it is not. The solver has no
+  correction for skewed cells.
+- **Arithmetic mean of the thickness** on an edge, harmonic mean of the
+  conductivity.
+- **Forcing constant over a stress period**, evaluated at the end of the step.
+- **Backward Euler**, one step per stress period, with no substeps in the head-only
+  methods.
+- **A closure for the surface that is a model choice.** The regularized partition is
+  a smooth release law. The complementarity closure is an exact threshold. Neither
+  routes the water over the land.
+- **Constant radius of the regularization**, 0.05.
+- **Imposed heads on cell centres.**
+
+Limits
+------
+
+- **Triangles only.** A mesh with another cell shape is refused: the message says
+  ``Boussinesq V1 currently supports only triangular cells``.
+- **Supported terms.** Recharge, wells, side, stream and ocean imposed heads, and
+  the top drain. A file that activates anything else in
+  :toml:`flow.active_sinks_sources` or :toml:`flow.active_bc` is refused: ETP, lakes
+  and reservoirs, stream routing, flow barriers. The soil reservoir is wired to
+  MODFLOW 6 only. A file with a ``[transport]`` section and this solver is refused
+  when it is read.
+- **Wells by coordinates.** A well addressed by a cell of a structured grid, or in a
+  layer other than the first, is refused.
+- **Recharge is non-negative.** A series with a negative value is refused.
+- **Boundary bias.** A constrained cell is pinned at its centroid. Near a boundary
+  with a strong gradient, the head differs from the edge value by the gradient times
+  half a cell. Refine the mesh near the boundary to reduce it.
+- **The drain cannot be switched off**, and the ocean mask on the drain does not
+  silence it (see `5. The top drain`_). A calibration of the discharge reads the
+  drain and not the release at the surface.
+- **Dense engines are limited to 400 cells**, ``local`` and ``scipy``.
+- **PETSc is Linux only, serial**, and needs ``petsc4py``.
+- **One step per period.** A stress period that does not converge ends the run. The
+  solver reads no substeps per period. The experimental obstacle runtimes can
+  substep.
+- **No restart, no cyclic spin-up.** The starting state is the top, an offset below
+  it, the bottom, a custom level, or a steady solve of the same solver.
+- **What can be read back.** The solver serves the head at a cell, the discharge
+  over the domain, and the release per cell. It has no lake stage and no routed
+  discharge, because it has no lake package and no stream reaches.
+- **Experimental.** The cards of :toml:`flow.runtime_backend` and
+  :toml:`flow.surface_interaction_model` are marked experimental, and the
+  description of the obstacle closures says so too.
+- **Not a model of overland flow.** The water released at the surface leaves the
+  model. It is not routed downhill.
+
+The status of the solver against the analytic cases is on :doc:`validation`. How it
+compares with MODFLOW 6 and MODFLOW-NWT is on :doc:`solvers`.
+
+Parameters of this page
+-----------------------
+
+The keys below set the terms of the equations and the choice of the method and of
+the engine. Open a row for its card.
+
+.. hmp-params::
+
+   simulation.process.solvers
+   flow.flow_regime
+   flow.runtime_backend
+   flow.surface_interaction_model
+   flow.runtime_max_iterations
+   flow.runtime_tol_residual_inf
+   flow.runtime_tol_state_update_inf
+   flow.param.K.field.value
+   flow.param.Sy.field.value
+   flow.sinks_sources.recharge.values
+   flow.sinks_sources.recharge.first_clim
+   flow.sinks_sources.wells.<name>.flux
+   flow.bc.drainage.value
+   flow.bc.stream.value
+   flow.ic.h.type
+   flow.ic.h.source
+   flow.ic.h.rate
+   flow.bc.<name>.support_label
+   flow.sinks_sources.recharge.heterogeneous_source
+
+The keys of the experimental obstacle runtimes:
+
+.. hmp-params::
+
+   flow.vi_substeps_per_period
+   flow.vi_substep_on_failure
+   flow.vi_max_adaptive_substeps
+   flow.ts_vi_steps_per_period
+   flow.ts_vi_adapt
+   flow.ts_vi_dt_min_fraction
+   flow.ts_vi_dt_max_fraction
+   flow.ts_vi_type
+   flow.ts_vi_snes_type
+
+A file that chooses the experimental closure and cuts each period into substeps:
 
 .. code-block:: toml
 
-   [workflow]
-   mode = "comparison"
+   base_config = "step4_transient.toml"
 
-   [comparison]
-   comparison_id = "boussinesq_surface_closure_comparison"
-   base_simulation_config = "base_boussinesq_shared_case.toml"
-   output_root = "outputs/boussinesq_surface_closure_comparison"
-   reference_simulation = "partition"
+   [solver]
+   backend = { backend = "boussinesq" }
 
-   [comparison.execution]
-   backend = "subprocess_hmp_run"
-   run_simulations = true
-   keep_generated_configs = true
+   [[simulation.process]]
+   id = "flow_main"
+   type = "flow"
+   solvers = ["boussinesq"]
 
-   [comparison.audit]
-   mode = "strict_same_case"
-   on_mismatch = "warn"
+   [mesh_catchment]
+   constraints_mode = "rivers_only"
+   cache = true
 
-   [[comparison.simulation]]
-   id = "partition"
-   label = "Head-only regularized partition"
-   solver = "boussinesq"
-   mesh_mode = "mesh_input"
-
-   [comparison.simulation.overlay.flow]
+   [flow]
    runtime_backend = "petsc"
-   surface_interaction_model = "regularized_partition"
+   surface_interaction_model = "vi_obstacle"
+   vi_substeps_per_period = 4
+   vi_substep_on_failure = true
 
-   [[comparison.simulation]]
-   id = "complementarity"
-   label = "Mixed complementarity"
-   solver = "boussinesq"
-   mesh_mode = "mesh_input"
+A drain with a stated conductance, and a starting state that is a steady solve of the
+same solver:
 
-   [comparison.simulation.overlay.flow]
-   runtime_backend = "petsc"
-   surface_interaction_model = "complementarity"
+.. code-block:: toml
 
-   [[comparison.observable]]
-   name = "head_map_last"
-   variable = "watertable_elevation"
-   support = "map"
-   time = "last"
-   unit = "m"
+   base_config = "step4_transient.toml"
 
-   [[comparison.observable]]
-   name = "surface_excess_last"
-   variable = "surface_excess_rate"
-   support = "map"
-   time = "last"
-   unit = "m/s"
+   [solver]
+   backend = { backend = "boussinesq" }
 
-This keeps the implementation centralized:
+   [[simulation.process]]
+   id = "flow_main"
+   type = "flow"
+   solvers = ["boussinesq"]
 
-- child simulations are normal ``hmp run`` simulations;
-- generated child TOMLs are kept for auditability;
-- observables, metrics, reports, budgets, and figures are produced by one
-  workflow instead of custom plotting scripts;
-- the Boussinesq documentation only reads committed outputs and explains how
-  to interpret them.
+   [mesh_catchment]
+   constraints_mode = "rivers_only"
+   cache = true
 
-Where To Store The Evidence
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   [flow]
+   active_bc = ["drainage"]
 
-For a committed Boussinesq-local comparison page, use this layout:
+   [flow.bc.drainage]
+   value = 1e-3
 
-.. code-block:: text
+   [flow.ic.h]
+   type = "steady_state"
 
-   examples/projects/09_comparison_workflow/
-     compare_boussinesq_surface_closures.toml
-     base_boussinesq_surface_closure_case.toml
+Checked by
+----------
 
-   docs/source/_static/solvers/boussinesq/formulation_comparison/
-     case_configuration.png
-     head_triptych.png
-     surface_excess_triptych.png
-     comparison_metrics.json
-     comparison_manifest.json
+The tests that import the code of this page. The box is generated: a new test
+appears here on the next build.
 
-   docs/source/theory/
-     boussinesq.rst
+.. hmp-tested-by::
 
-The important rule is that the page should not contain one-off code. If a
-figure or metric is needed repeatedly, it belongs in the comparison workflow or
-in a small gallery adapter, not in a bespoke documentation script.
+   hydromodpy.solver.boussinesq.assembly
+   hydromodpy.solver.boussinesq.methods
+   hydromodpy.solver.boussinesq.engines
+   hydromodpy.solver.boussinesq.runtimes
+   hydromodpy.solver.boussinesq.forcing
+   hydromodpy.solver.boussinesq.drivers
+   hydromodpy.solver.boussinesq.boussinesq
 
-Existing Transient Evidence
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The closest committed example is the recharge-ramp surface-interaction
-comparison. It is not a pure Boussinesq formulation comparison: it mixes
-MODFLOW-family solvers and Boussinesq variants. It is still the best current
-visual reference for the transient case where the surface closure controls
-storage release, overflow, and total outflow.
-
-.. gallery-figure:: /_static/capability_gallery/code_comparison/ramp_reference_k.png
-   :alt: Recharge-ramp transient comparison across MODFLOW and Boussinesq variants
-   :width: 100%
-
-   Reference-conductivity transient ramp benchmark. The committed gallery
-   version compares MODFLOW-NWT, MODFLOW 6, MODFLOW 6 on irregular triangles,
-   the local Boussinesq partition route, PETSc partition, and PETSc
-   complementarity.
-
-Read this figure as mixed evidence:
-
-- differences between the three Boussinesq curves can inform formulation and
-  runtime sensitivity;
-- differences between MODFLOW and Boussinesq curves also include vertical
-  representation, support, boundary semantics, and budget-reconstruction
-  effects;
-- the page belongs in the cross-code gallery, but this Boussinesq-local
-  section should point to it because it is where the scientific formulation
-  question arises.
-
-Reference Configuration
-^^^^^^^^^^^^^^^^^^^^^^^
+In the code
+-----------
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 70
+   :widths: 38 62
 
-   * - Item
-     - Value
-   * - Geometry
-     - 400 m by 30 m synthetic strip aquifer.
-   * - Topography
-     - Linear 5 m rise from the east outlet to the west divide.
-   * - Boundary conditions
-     - West no-flow divide, east fixed head, top drainage / surface
-       interaction.
-   * - East fixed head
-     - 5.0625 m.
-   * - Transient forcing
-     - Progressive recharge ramp, followed by dry recovery.
-   * - Time step
-     - 15 days.
-   * - Storage
-     - Specific yield 0.10.
-   * - Conductivity scale
-     - 0.2 times the baseline strip conductivity for the reference-K figure;
-       1.6 times for the high-K companion gallery tab.
-   * - Drainage conductance
-     - 1e-4 m2/s.
-   * - Reference-K methods
-     - MODFLOW-NWT, MODFLOW 6, MODFLOW 6 on irregular triangles, Boussinesq
-       local partition, Boussinesq PETSc partition, and Boussinesq PETSc
-       complementarity.
+   * - What
+     - Where
+   * - Thickness, transmissivity, internal fluxes, drain
+     - ``hydromodpy/solver/boussinesq/assembly/fluxes.py`` (``saturated_thickness_from_head``, ``transmissivity_from_head``, ``harmonic_conductivity``, ``internal_edge_flux_from_head``, ``accumulate_internal_flux_residual``, ``drainage_outflow_from_head``)
+   * - Constrained cells and the solver row
+     - ``hydromodpy/solver/boussinesq/assembly/inputs.py`` (``resolve_boundary_head_inputs``, ``finalize_boundary_constrained_residual``)
+   * - Edge exchange, for diagnostics
+     - ``hydromodpy/solver/boussinesq/assembly/fluxes.py`` (``edge_to_stage_tau_from_head``, ``boundary_head_edge_flux_from_head``), ``assembly/boundary_flux_reconstruction.py``
+   * - Steady and transient residual
+     - ``hydromodpy/solver/boussinesq/assembly/residuals.py`` (``assemble_spatial_terms``, ``_stored_saturated_volume_m3``), facades in ``assembly/residual_facade.py``
+   * - Regularized partition
+     - ``hydromodpy/solver/boussinesq/assembly/surface.py`` (``regularized_partition_surface_rate_from_balance``, ``resolve_saturation_excess_rate``)
+   * - Fischer-Burmeister function and scales
+     - ``hydromodpy/solver/boussinesq/runtimes/petsc_mixed_common.py`` (``_fischer_burmeister_residual_and_derivatives``, ``_complementarity_scales``)
+   * - Mixed system, dry deficit
+     - ``hydromodpy/solver/boussinesq/runtimes/petsc_mixed.py`` (``_solve_mixed_problem``, ``_assembly_with_dry_deficit``)
+   * - Experimental obstacle closures
+     - ``hydromodpy/solver/boussinesq/runtimes/petsc_vi_obstacle.py``, ``runtimes/petsc_ts_vi_obstacle.py``, ``runtimes/petsc_vi/obstacle.py``, ``runtimes/vi_bounds.py``
+   * - Method and engine choice
+     - ``hydromodpy/solver/boussinesq/methods/catalog.py`` (``resolve_method_spec``), ``engines/catalog.py`` (``resolve_engine_spec``), ``runtime_selection.py``
+   * - Newton loop and the engines
+     - ``hydromodpy/solver/boussinesq/runtimes/newton_common.py``, ``local.py``, ``scipy_dense.py``, ``scipy_sparse.py``, ``petsc_partition.py``, ``petsc_common.py``
+   * - Time loop
+     - ``hydromodpy/solver/boussinesq/drivers/transient.py`` (``run_transient_runtime``), ``drivers/steady.py`` (``run_steady_runtime``)
+   * - Forcing, wells, imposed heads, drain
+     - ``hydromodpy/solver/boussinesq/forcing/`` (``recharge_resolution.py``, ``well_resolution.py``, ``dirichlet_support_resolution.py``, ``drainage_resolution.py``), ``drivers/forcing.py``
+   * - Mesh and properties
+     - ``hydromodpy/solver/boussinesq/mesh.py``, ``_mesh_builders.py``, ``property_mapping.py``
+   * - Supported subset, options
+     - ``hydromodpy/solver/boussinesq/solver_contract.py`` (``assert_supported_runtime_subset``, ``build_runtime_options``)
+   * - Diagnostics, export, calibration reader
+     - ``hydromodpy/solver/boussinesq/runtime_summary.py``, ``export_payload.py``, ``calibration_extractors.py``
+   * - Notes in LaTeX
+     - ``hydromodpy/solver/boussinesq/boussinesq_math_notes.tex``
 
-Execution Times
-^^^^^^^^^^^^^^^
+See also
+--------
 
-The transient investigation tools write calculation times into
-``execution_times.csv`` and into the richer ``summary_metrics.csv`` table. The
-compact gallery JSON is now set up to preserve ``wall_time_seconds`` whenever
-``execution_times.csv`` exists next to the source ``timeseries.csv``.
-
-Use the timing values as run metadata, not as hydrological evidence. They
-depend on the machine, Linux/WSL setup, PETSc build, executable availability,
-and whether previous workspaces are still warm in the filesystem cache.
-
-The richer diagnostic run that isolates the remembered MODFLOW-NWT and
-Boussinesq PETSc variants is still an investigation script:
-
-.. code-block:: bash
-
-   python -m tools.investigate_linux_nwt_boussinesq_transient \
-     --output-root out/linux_nwt_bouss_4m4m6m_local
-
-It compares:
-
-- ``modflownwt``: MODFLOW-NWT through the launcher path;
-- ``petsc_partition``: Boussinesq PETSc with regularized partition;
-- ``petsc``: Boussinesq PETSc with complementarity.
-
-The run writes ``timeseries.csv``, ``summary_metrics.csv``,
-``execution_times.csv``, ``head_point_timeseries.csv``, ``summary.md``, and a
-``figures`` directory with head snapshots, head-point series, flux time
-series, total-outflow overlay, complete flux budget, and execution-time
-diagnostics. This is the right source to promote when the documentation needs
-the full transient MODFLOW-NWT versus Boussinesq story.
-
-Documentation Refresh Contract
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The figures embedded by this page are not regenerated by Sphinx alone. The
-update chain is:
-
-.. code-block:: bash
-
-   python -m tools.investigate_surface_interaction_hillslope_transient \
-     --output-root out/sih_tx_6cmp_linux_ramp_dirichlet_cell_20260416
-
-   python tools/doc_gallery/generate_code_comparison_assets.py
-   python -m tools.doc_gallery
-   python -m sphinx -b html -j auto docs/source docs/build/html
-
-The first command refreshes the source run under ``out``. The generator then
-rebuilds the committed gallery PNG/JSON files under
-``examples/projects/09_capability_gallery/code_comparison``. The doc-gallery
-step mirrors those committed assets into
-``docs/source/_static/capability_gallery/code_comparison`` and
-refreshes the generated gallery pages. The final Sphinx build only renders the
-documentation from those already-updated source files.
-
-Promotion Rule
-~~~~~~~~~~~~~~
-
-When this transient benchmark is promoted from investigation to documentation,
-keep the same separation of concerns:
-
-1. use the investigation script, or a small wrapper around it, as the producer
-   of numerical outputs;
-2. republish only stable summary assets under
-   ``examples/projects/09_capability_gallery/code_comparison`` or under
-   ``docs/source/_static/solvers/boussinesq``;
-3. have the Boussinesq page read committed PNG/JSON artifacts only;
-4. keep any pure ``[workflow].mode = "comparison"`` example separate from the
-   MODFLOW-NWT bridge, because MODFLOW-NWT is a cross-code comparison rather
-   than a Boussinesq-only formulation test.
-
-Pure Boussinesq Starting Point
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For a Boussinesq-only transient comparison, the current validation case is:
-
-.. code-block:: bash
-
-   python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_multi_solver_case \
-     --solvers boussinesq petsc_partition petsc \
-     --context-preset windows_surface_transient \
-     --output-root out/boussinesq_hillslope_overflow_multi_local
-
-This route compares the local head-only partition path, PETSc partition, and
-PETSc complementarity without adding MODFLOW-family effects. It is therefore
-better for a strict Boussinesq formulation page, while the MODFLOW-NWT bridge
-is better for explaining how far the Boussinesq closures sit from a mature
-external code. The same command writes an ``execution_times.csv`` file and an
-``execution_times.png`` figure under its ``figures`` directory, so formulation
-and runtime questions can be read from one run directory without adding a
-separate timing script.
-
-Current Comparison-Workflow Template
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The shipped comparison workflow also demonstrates the clean producer side with
-a MODFLOW 6 versus Boussinesq case:
-
-.. figure:: /_static/workflows/comparison/dupuit_head_triptych.png
-   :alt: Dupuit MODFLOW 6 versus Boussinesq head-map triptych
-   :width: 100%
-
-   This is a solver-family comparison, not a Boussinesq formulation
-   comparison. It is still useful as the reference pattern for producing
-   stable comparison artifacts through ``[workflow].mode = "comparison"``.
-
-Use it as a template for the mechanics, then narrow the variants to
-Boussinesq-only surface closures when the goal is formulation choice. Use the
-transient MODFLOW-NWT bridge when the goal is cross-code interpretation.
-
-Reading Rules
-~~~~~~~~~~~~~
-
-Before interpreting differences as formulation effects, check:
-
-- same mesh source and resolution;
-- same top and bottom surfaces;
-- same hydraulic conductivity and storage mapping;
-- same recharge, wells, and imposed-head supports;
-- same flow regime and time stepping;
-- same runtime backend, unless the question is explicitly runtime sensitivity;
-- explicit surface-interaction model for every child run.
-
-If any of these differ, report the comparison as mixed. That does not make it
-invalid, but it changes the scientific claim.
-
-Mapping Between Equations And Code
-----------------------------------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 35 65
-
-   * - Mathematical object
-     - Main implementation point
-   * - :math:`b_i(h)`
-     - ``saturated_thickness_from_head()``
-   * - :math:`T_i(h)`
-     - ``transmissivity_from_head()``
-   * - :math:`q^{\text{int}}_e`
-     - ``internal_edge_flux_from_head()``
-   * - :math:`q^{D}_e`
-     - ``boundary_head_edge_flux_from_head()``
-   * - :math:`q_i^{\text{drain}}`
-     - ``drainage_outflow_from_head()``
-   * - :math:`s_i(h)`
-     - ``saturation_excess_rate_from_balance()``
-   * - :math:`R_i^{\text{steady}}`
-     - ``assemble_steady_residual()``
-   * - :math:`R_i^{\text{transient}}`
-     - ``assemble_transient_residual()``
-   * - :math:`R_i^{\text{flow}}(h, q^{\text{ex}})`
-     - ``assemble_steady_residual_with_saturation_excess()`` /
-       ``assemble_transient_residual_with_saturation_excess()``
-   * - Fischer-Burmeister complementarity residual
-     - ``_fischer_burmeister_residual_and_derivatives()`` in ``runtimes/petsc_mixed.py``
-   * - runtime solve
-     - ``runtimes/local.py`` / ``runtimes/scipy_dense.py`` /
-       ``runtimes/scipy_sparse.py`` / ``runtimes/petsc_partition.py`` /
-       ``runtimes/petsc_mixed.py``
-   * - problem orchestration
-     - ``boussinesq.py``
-
-Interpretation And Current Limits
----------------------------------
-
-The current backend is still best viewed as a finite-volume Boussinesq solver
-under active validation rather than as a finished production groundwater
-platform. The important point, however, is that the implementation is no
-longer limited to one dense prototype path.
-
-Today:
-
-- dense prototype runtimes still exist (``local`` and ``scipy``),
-- a cross-platform sparse Newton path exists in ``scipy_sparse``,
-- two Linux/PETSc sparse paths exist:
-
-  - head-only regularized partition,
-  - mixed complementarity with explicit :math:`q^{\text{ex}}`,
-
-- committed real unstructured meshes are now exercised in addition to the
-  small analytical and numerical validation strips.
-- committed mesh bundles can receive explicit project-side overrides of
-  :math:`K` and :math:`S_y`, including heterogeneous mappings through domain
-  supports, without requiring a separate remeshing workflow.
-
-The main current limits are elsewhere:
-
-- the regularized-partition closure is still a pragmatic groundwater/surface
-  release law, not a full coupled overland-flow model,
-- the PETSc runtimes currently run on ``PETSc.COMM_SELF`` rather than a
-  distributed MPI decomposition,
-- the mixed complementarity path is validated on targeted overflow and real
-  cases, but its benchmark envelope is still smaller than that of the
-  head-only regularized-partition path.
-
-Original LaTeX Source
----------------------
-
-If a LaTeX distribution is installed, the original note in
-``hydromodpy/solver/boussinesq/boussinesq_math_notes.tex`` can still be
-compiled from the package directory with either:
-
-.. code-block:: bash
-
-   pdflatex -interaction=nonstopmode boussinesq_math_notes.tex
-
-or:
-
-.. code-block:: bash
-
-   latexmk -pdf boussinesq_math_notes.tex
-
-Validation case at a glance
----------------------------
-
-.. validation-case-summary:: boussinesq_fixed_head_piecewise_k_1d
-
-Solver comparison snapshot
---------------------------
-
-.. solver-comparison::
-   :cases: boussinesq_fixed_head_piecewise_k_1d, boussinesq_hillslope_recharge_step_interception_1d
-
-Related Pages
--------------
-
-- :doc:`solvers/index`
-- :doc:`solvers/flow/index`
-- :doc:`solvers/mesh-and-discretization-strategies`
-- :doc:`solvers/solver-capability-matrix`
-- :doc:`/contribute/architecture/solver/index`
-- :doc:`/contribute/architecture/solver/boussinesq-uml-diagrams`
-- Solvers
-- Surface-Interaction Ramp Code Comparison
-- No-Seepage Surface-Interaction Comparison
-- Simulation Comparison Workflow
-- Simulation Comparison
+- :doc:`../guides/choose-a-solver`: how to choose a solver and set its runtime keys.
+- :doc:`groundwater-flow`: the discrete problem of the three solvers side by side.
+- :doc:`solvers`: what each solver does with the same file.
+- :doc:`mf6-vs-nwt`: the two MODFLOW solvers against each other.
+- :doc:`validation`: the checks against closed-form solutions.
+- :doc:`notation`: the symbols used on every theory page.
+- :doc:`/contribute/architecture/solver/boussinesq-uml-diagrams`: the module
+  diagrams of the solver.
+- :doc:`bibliography`: the references.

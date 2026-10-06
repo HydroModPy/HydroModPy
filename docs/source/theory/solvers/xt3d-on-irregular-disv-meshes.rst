@@ -181,7 +181,7 @@ anchors into one explicit method note.
 Related Pages
 -------------
 
-- :doc:`mesh-and-discretization-strategies`
-- :doc:`modflow-package-semantics-and-boundary-conditions`
-- :doc:`flow/modflow-family`
+- :doc:`/theory/mesh`
+- :doc:`/theory/exits`
+- :doc:`/theory/solvers`
 - Simulation Comparison Workflow

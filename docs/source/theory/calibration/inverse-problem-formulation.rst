@@ -229,7 +229,7 @@ Interpretation Checklist
 Further Reading
 ---------------
 
-- :doc:`calibration-methods` for the per-method scientific and algorithmic
+- :doc:`/guides/calibrate` for the per-method scientific and algorithmic
   references.
 - :cite:`abherve2023` for a HydroModPy-related calibration of catchment
   hydraulic properties against the spatial distribution of stream networks.

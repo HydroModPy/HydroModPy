@@ -196,9 +196,9 @@ continue with:
 Related Scientific Pages
 ------------------------
 
-- :doc:`mesh-and-discretization-strategies`
+- :doc:`/theory/mesh`
 - :doc:`vertical-representation-and-storage-assumptions`
-- :doc:`mesh-quality-and-acceptance-criteria`
+- :doc:`/theory/mesh`
 - :doc:`modflow-governing-equation-and-cvfd-formulation`
 
 Current Limitation
