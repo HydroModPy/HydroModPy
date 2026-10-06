@@ -157,7 +157,13 @@ is read rather than inside the adapter.
    evaluator (`evaluation.registry`) and the `CalibrationEngine`.
 4. **Prepare once.** `runners/trial.py` prepares the model once: geography,
    mesh and data are built a single time, through the provider registered in
-   `runners/contracts.py` by the workflow layer.
+   `runners/contracts.py` by the workflow layer. The provider finds the first
+   pipeline step that reads one of the calibrated config paths
+   (`earliest_affected_step` of `hydromodpy/workflow/internals/dependencies.py`).
+   The steps before it run once and are shared by every trial; the steps from it
+   up to the solve and the extraction run again for each trial
+   (`run_trial_light`); the persistent steps downstream run only for a promoted
+   trial (`promote_prepared_trial`).
 5. **Trial.** The engine asks the optimizer for a point, skips it if its params
    hash is cached (`optim/cache.py`), and hands it to the evaluator. The default
    one, `runners/pipeline_evaluator.py`, sets the values, runs the solver
@@ -180,6 +186,26 @@ is read rather than inside the adapter.
    (units, cost metric, session folder) and writes `methods.md`.
 9. **Report.** `report.py` reads the session back;
    `hydromodpy/reporting/calibration_report.py` (another layer) renders it.
+
+## Storage rule
+
+What a trial writes depends on `save_runs` (`CalibrationConfig`, `none` by
+default, `best_n` or `all`).
+
+- Inside the loop a trial lives in RAM: the aligned simulated series and the
+  scalar metrics. `run_trial_light` never writes to the store of runs.
+- Every trial leaves one row in `calibration_iterations` of the DuckDB index, and
+  one line in the session journal under `sessions/<name>/`, which is written
+  first and is the truth the index is rebuilt from. The row carries a `sim_id`
+  only for a trial that became a simulation.
+- Zarr and Parquet exist only for promoted trials (`save_runs = "best_n"`, the
+  best `save_best_n`, or `"all"`), each linked to its row by `sim_id`.
+
+The params hash (`optim/cache.py`: SHA-256 of the canonical JSON of the rounded
+parameter values and of a context that fingerprints the inputs) keys the cache.
+With `use_cache = true` (the default) a run preloads the hashes already stored in
+`calibration_iterations` (`runners/state.py:preload_hash_cache`), so a point
+evaluated in an earlier session of the same project is not solved again.
 
 ## Protocols and phases
 
@@ -270,6 +296,7 @@ network, then Sy alone in transient against the gauge and the network, 2000
 left out as spin-up.
 
 ```toml
+# not checked: fragment, continues the declarations of the first block
 [[calibration.phases]]
 name = "k_steady"
 parameters = ["K"]
@@ -293,6 +320,7 @@ a cost to minimise, so Nelder-Mead; write `method = "cma_es"` for a global
 search.
 
 ```toml
+# not checked: fragment, continues the declarations of the first block
 [[calibration.phases]]
 name = "k_sy_transient"
 parameters = ["K", "Sy"]
@@ -305,6 +333,7 @@ max_iter = 120
 moves K and Sy again, starting from what they found.
 
 ```toml
+# not checked: fragment, continues the declarations of the first block
 [[calibration.phases]]
 name = "k_sy_refine"
 parameters = ["K", "Sy"]       # starts at k_steady's K and sy_transient's Sy
@@ -317,6 +346,7 @@ max_iter = 60
 paper leaves open and its citation recorded in the session.
 
 ```toml
+# not checked: fragment, continues the declarations of the first block
 [calibration.protocol]
 name = "matching_hydrographic_network"
 steady_max_iter = 18
@@ -417,9 +447,41 @@ declared share when the blocks have different units.
    setting, in `runners/phase_regime.py`. A protocol that needs it writes it
    into the phases it expands; it never reaches around the phase.
 7. **A `[calibration]` field.** The field on its model in `config.py`, with a
-   profile and a description. Then run `python -m tools.doc_config` and commit
-   the regenerated reference with the change:
-   `tests/unit/docs/test_docs_config_consistency.py` compares them.
+   profile and a description. The parameter reference is computed from the
+   model at the next documentation build (`tools/docs/field_registry.py`).
+   The committed JSON Schema, `docs/source/_static/hydromodpy-schema.json`, is
+   compared with the model by `tests/unit/docs/test_docs_config_consistency.py`.
+
+## Key public symbols
+
+- `hydromodpy.calibration.runners.cli_runner.run_calibration_cli`,
+  `runners.programmatic_runner.run_calibration_programmatic` and
+  `runners.staged_runner`: the three entry points.
+- `hydromodpy.calibration.optim.engine.CalibrationEngine`: the ask and tell loop.
+- `optim.optimizer.{available_optimizers, build_optimizer, register_optimizer}`:
+  the registry of search methods.
+- `optim.objective.{Objective, build_objective_from_config}`: the cost.
+- `optim.diagnostics.{convergence_rate, parameter_correlation}`: what the report
+  reads about a finished search.
+- `metrics.composite.build_metric_extractor`: how the outputs of a trial are
+  extracted.
+
+## Layer neighbours
+
+`calibration` imports `core`, `schema`, `physics`, `data`, `spatial`, `solver`,
+`simulation` and `results` (`tests/unit/architecture/layer_matrix.yaml`), and
+`display.report_blocks` through a documented tolerance. The root facade, `config`,
+`workflow`, `project` and `cli` import it. `workflow` is reached only through the
+provider of `runners/contracts.py`, which the bootstrap fills.
+
+## Reading path
+
+1. This file.
+2. `__init__.py` for the public surface.
+3. `runners/cli_runner.py`, then `optim/engine.py`.
+4. `runners/trial.py` for the prepare-once and evaluate-many primitive.
+5. One adapter: `optim/adapters/optuna_adapter.py` is the most generic.
+6. One case: `cases/recession_brutsaert.py`.
 
 ## What other layers import
 

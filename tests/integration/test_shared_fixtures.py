@@ -1,6 +1,6 @@
 """The two shared fixtures documented for the integration tier still work.
 
-``tests/README.md`` and ``docs/source/architecture/how-to/add-a-test.rst``
+``tests/README.md`` and ``docs/source/contribute/architecture/how-to/add-a-test.rst``
 point new integration tests at ``tmp_workspace`` and ``minimal_config``. Both
 promise a specific downstream capability, so this file asserts the promise
 rather than the fixture body: a workspace that ``hmp.open`` accepts, and a

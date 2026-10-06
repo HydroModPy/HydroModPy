@@ -308,7 +308,7 @@ See also
 --------
 
 - :doc:`changelog` for shipped releases.
-- :doc:`../contribute` for contributor setup and pull request workflow.
+- :doc:`../contribute/handbook` for contributor setup and pull request workflow.
 - ``CONTRIBUTING.md`` at the repository root for the contributor quick start;
   this page is the single source of truth for versions, tags, and branches.
 - ``SECURITY.md`` at the repository root for supported security versions.

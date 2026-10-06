@@ -187,18 +187,18 @@ Where To Go Deeper
 This page stays at scientific level. For implementation details and diagrams,
 continue with:
 
-- :doc:`../../architecture/field/index`
-- :doc:`../../architecture/mesh/structured-grid-architecture`
-- :doc:`../../architecture/spatial_support/spatial-support-uml-diagrams`
+- :doc:`/contribute/architecture/field/index`
+- :doc:`/contribute/architecture/mesh/structured-grid-architecture`
+- :doc:`/contribute/architecture/spatial_support/spatial-support-uml-diagrams`
 - ``hydromodpy/spatial/field/README.md``
 - ``hydromodpy/spatial/mesh/cartesian_grid/README.md``
 
 Related Scientific Pages
 ------------------------
 
-- :doc:`mesh-and-discretization-strategies`
+- :doc:`/theory/mesh`
 - :doc:`vertical-representation-and-storage-assumptions`
-- :doc:`mesh-quality-and-acceptance-criteria`
+- :doc:`/theory/mesh`
 - :doc:`modflow-governing-equation-and-cvfd-formulation`
 
 Current Limitation

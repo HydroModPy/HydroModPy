@@ -4,7 +4,7 @@ Thanks for considering a contribution. This file is the short version: how
 to report an issue, set up a dev environment, run tests, and open a pull
 request. The deep documentation (CLI, TOML, Pydantic config, data managers,
 architecture) lives in the
-[contributor guide](https://docs.hydromodpy.fr/main/contribute.html)
+[contributor guide](https://docs.hydromodpy.fr/main/contribute/handbook.html)
 and on the [documentation site](https://docs.hydromodpy.fr/main/).
 Release naming, maintenance branches, tags, and GitHub Releases are covered
 in [`docs/source/about/release_policy.rst`](docs/source/about/release_policy.rst).
@@ -41,7 +41,7 @@ import. The `pre-commit install` step registers the Git hook that runs
 `ruff` before each commit.
 
 For conda env files, Windows + WSL setup, and the PETSc Boussinesq backend,
-see the [installation guide](https://docs.hydromodpy.fr/main/install.html).
+see the [installation guide](https://docs.hydromodpy.fr/main/get-started/install.html).
 
 ## Lint and format
 
@@ -73,9 +73,9 @@ Do not hard-code tolerances elsewhere. New solver behavior needs at least a
 unit test, plus a validation case if the math is non-trivial.
 
 For the full ladder (when each family runs, what each protects against),
-see the [test families guide](https://docs.hydromodpy.fr/main/architecture/overview/test-families-and-quality-roles.html).
+see the [test families guide](https://docs.hydromodpy.fr/main/contribute/architecture/overview/test-families-and-quality-roles.html).
 For GitHub check names and CI triage, see the
-[GitHub Actions workflow guide](https://docs.hydromodpy.fr/main/architecture/ci-workflows.html).
+[GitHub Actions workflow guide](https://docs.hydromodpy.fr/main/contribute/architecture/ci-workflows.html).
 
 ## Code style
 
@@ -121,14 +121,14 @@ Releases are identified by tags such as `v1.1.0`, `v2.0.0a1`,
 
 ## Where to look next
 
-- [Configuration reference](https://docs.hydromodpy.fr/main/user_guide/config_reference/index.html):
-  every TOML section, fields, defaults, validators.
-- [Architecture](https://docs.hydromodpy.fr/main/architecture/index.html):
+- [TOML parameters](https://docs.hydromodpy.fr/main/reference/parameters/index.html):
+  every section and key, generated from the Pydantic models.
+- [Architecture](https://docs.hydromodpy.fr/main/contribute/architecture/index.html):
   layer matrix, package maps, runtime handoff.
-- [User guide](https://docs.hydromodpy.fr/main/user_guide/index.html):
-  workflows, cookbook, theory, supported data variables.
-- [API reference](https://docs.hydromodpy.fr/main/api/index.html):
-  auto-generated, complete.
+- [Guides](https://docs.hydromodpy.fr/main/guides/index.html):
+  one task per page.
+- [Python API](https://docs.hydromodpy.fr/main/reference/python/index.html):
+  the verbs of `import hydromodpy as hmp` and the objects they return.
 
 ## License
 

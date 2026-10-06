@@ -25,8 +25,12 @@ on:
     paths:
       - ".github/workflows/docs-deploy-pages.yml"
       - "tools/docs_pages_postbuild.py"
+      - "tools/docs/**"
       - "docs/**"
       - "hydromodpy/**"
+      - "tests/**"
+      - "validation_cases/**"
+      - "examples/projects/04_streamflow_intermittence_in_transient/**"
       - "pyproject.toml"
   workflow_dispatch:
 

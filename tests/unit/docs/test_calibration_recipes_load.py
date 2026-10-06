@@ -18,7 +18,7 @@ from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.calibration.runners.phase_regime import phase_overrides
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
-RECIPES = Path(__file__).resolve().parents[3] / "docs" / "source" / "user_guide" / "recipes"
+RECIPES = Path(__file__).resolve().parents[3] / "docs" / "source" / "guides" / "recipes"
 
 _NAMES = (
     "calibration_single_gauge",

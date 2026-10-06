@@ -20,7 +20,7 @@ Current HydroModPy Policy
 
 The current MODFLOW 6 runtime configuration accepts
 ``modflow6.runtime.mf6_enable_xt3d``, documented in
-:doc:`/user_guide/config_reference/modflow6`.
+[modflow6] Modflow6Config.
 
 Its behaviour is:
 
@@ -181,7 +181,7 @@ anchors into one explicit method note.
 Related Pages
 -------------
 
-- :doc:`mesh-and-discretization-strategies`
-- :doc:`modflow-package-semantics-and-boundary-conditions`
-- :doc:`flow/modflow-family`
-- :doc:`../../user_guide/concepts/comparison-workflow`
+- :doc:`/theory/mesh`
+- :doc:`/theory/exits`
+- :doc:`/theory/solvers`
+- Simulation Comparison Workflow

@@ -286,6 +286,55 @@ Another package of `hydromodpy/` imports only these modules (the `public` list o
 `calibration` reaches `display` only through the tolerance of `layer_matrix.yaml`,
 and only `hydromodpy.display.report_blocks`. Tests and examples are not checked.
 
+## HTML block reports
+
+`report_blocks/` is the common renderer of static reports built from reusable
+blocks. The workflow code builds `ReportBlock` objects (with `ReportMetric`,
+`ReportFigure`, `ReportTable` and `ReportLink` inside them), and the renderer
+writes the page. A domain report keeps its scientific logic in its own
+`blocks.py` and calls one of:
+
+- `write_report_page(...)` for one static page;
+- `write_report_page_with_block_variants(...)` for a page where each block
+  switches between the detail levels `compact`, `standard` and `audit`.
+
+`render_report_page` and `render_report_page_with_block_variants` return the HTML
+instead of writing it. The renderer is used by the overview (`overview/web.py`),
+the catchment report, the site-selection reports of `hydromodpy/reporting`, and
+the network and transient calibration page of `hydromodpy/calibration/reporting`.
+
+## Figure contract
+
+```python
+@dataclass(frozen=True, slots=True)
+class FigureSpec:
+    name: str
+    title: str
+    former_names: tuple[str, ...] = ()
+    kind: FigureKind = "spatial"   # spatial, section, timeseries, balance,
+                                   # particles, table, comparison, animation
+    required_fields: tuple[str, ...] = ()
+    optional_fields: tuple[str, ...] = ()
+    required_tables: tuple[str, ...] = ()
+    required_solvers: tuple[str, ...] = ()
+    default_figsize: tuple[float, float] = (7.0, 5.0)
+
+
+class BaseFigure(ABC):
+    spec: FigureSpec
+
+    @abstractmethod
+    def render(self, sim: Run, ax: Axes, **opts) -> Axes: ...
+
+    def unavailable_reason(self, sim: Run) -> str | None: ...
+```
+
+`optional_fields` lists fields the figure reads when they are there. `@register`
+places the class in the registry under `spec.name`. The list of figures is
+generated from the registry into the figures page of the documentation, and
+`hmp viz list` prints the live list. A run reaches data only through `Run`
+(`run.field`, `run.timeseries`, `run.budget`) or a module function of `results`.
+
 ## Vocabulary
 
 | word | meaning here |
@@ -299,3 +348,33 @@ and only `hydromodpy.display.report_blocks`. Tests and examples are not checked.
 | block | one section of a `report_blocks` HTML page: text, figures, tables |
 | detail level | `compact`, `standard` or `audit`: what a block shows depending on the reader |
 | face | one cell of the 2D mesh; `ugrid` draws one value per face |
+
+## Key public symbols
+
+- `hydromodpy.display.{get, list_figures, names, register, BaseFigure, FigureSpec}`
+- `hydromodpy.display.figure_registry.{register, get, resolve, names,
+  figure_option_names}`
+- `hydromodpy.display.runs.{render_figures_for_run, render_figure,
+  figure_availability}`
+- `hydromodpy.display.config.DisplayConfig`
+- `hydromodpy.display.report_blocks.{ReportBlock, ReportMetric, ReportFigure,
+  ReportTable, ReportLink, write_report_page,
+  write_report_page_with_block_variants}`
+
+## Layer neighbours
+
+`display` imports `core`, `schema` and `results`
+(`tests/unit/architecture/layer_matrix.yaml`), never `data`, `simulation`,
+`solver` or `calibration`. The root facade, `config`, `analysis`, `reporting`,
+`workflow`, `project` and `cli` import it, each through the modules of the
+`public` list of `display_layout.yaml`, and `calibration` through its tolerance
+for `report_blocks`.
+
+## Reading path
+
+1. `figure.py` for the contract, then `figure_registry.py`.
+2. `figures/__init__.py` for the discovery.
+3. One simple figure, `figures/hydrograph.py`, and one map,
+   `figures/piezometric_map.py`.
+4. `report_blocks/model.py` and `report_blocks/html.py` for the HTML contract.
+5. `catchment_report/builder.py` for a complete block-based report producer.

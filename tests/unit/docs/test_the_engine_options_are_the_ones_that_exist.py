@@ -21,6 +21,7 @@ PAGE = (
     Path(__file__).resolve().parents[3]
     / "docs"
     / "source"
+    / "contribute"
     / "architecture"
     / "calibration"
     / "calibration-guide.rst"

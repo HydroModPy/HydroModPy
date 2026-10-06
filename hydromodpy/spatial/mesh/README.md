@@ -4,8 +4,8 @@ Ce dossier porte le **pivot de maillage unifie** d'HydroModPy.
 
 La documentation technique publique et les UML publies sur Read the Docs
 vivent sous l'onglet `Architecture`, en particulier dans
-`docs/source/architecture/index.rst` et
-`docs/source/architecture/mesh/index.rst`.
+`docs/source/contribute/architecture/index.rst` et
+`docs/source/contribute/architecture/mesh/index.rst`.
 
 L'idee est simple :
 
