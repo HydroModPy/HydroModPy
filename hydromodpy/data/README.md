@@ -104,6 +104,36 @@ class HydrometryManager(BaseVariableManager):
   `source` values of each variable (but `custom`) are the keys of `SOURCES`, and
   each has an entry (licence, network hosts) in `hydromodpy/schema/sources.py`.
 
+## The DataSource port
+
+`source/port.py` holds the `DataSource` Protocol and its value types. A source
+answers one question about one provider, conforms structurally (no base class)
+and declares eight things about itself: `source_id`, `variables`, `payload_kind`
+(`points`, `fields`, `features` or `files`), `extent_crs`, `selectors`
+(`extent`, `station_ids`), `period_need` (`required` or `refused`), `hosts` (every
+host it contacts) and `writes_out_dir`. `variables` belongs to the instance, the
+other seven to the class.
+
+An `Extent` is a bounding box **and** its CRS. `extent_for()` converts it into
+the CRS the source declares, densifying the edges rather than transforming four
+corners, because a projected box is not the image of its own corners. A box that
+crosses the antimeridian is refused.
+
+Three sources ship, the river networks that `[data.hydrography]` resolves through
+the registry: `BdTopageSource`, `EuHydroSource` and `OsmSource`, on the shared
+`FeatureSource` base (`variables/hydrography/apis/features.py`). A third-party
+package adds a source by declaring a `DataSource` class on the
+`hydromodpy.data.source` entry-point group. It is then nameable in a hydrography
+section, and for any payload kind under the `installed` member of a data request.
+`tests/contract/test_data_source_contract.py` compares each declaration with a
+real fetch.
+
+`source/registry.py` maps `source_id` to class. The in-tree sources are declared
+once, as dotted paths in `_BUILTIN_PATHS`, and imported on first lookup.
+`builtin_source_ids()` answers what this build ships, `list_source_ids()` what
+this installation resolves. `source/permanence.py` names the one canonical
+`permanence` column a source writes when it knows whether water flows all year.
+
 ## How data flows
 
 During a run:
@@ -139,6 +169,97 @@ store = DataStore()  # no folder: in-memory index, nothing written
 store = DataStore(data_root="cache/")  # a cache folder of your choice
 result = store.load_variable("hydrometry", cfg)
 ```
+
+## What `request/` holds
+
+| module | answers |
+|---|---|
+| `model.py` | what is a request? `DataRequest`: the `[data]` sections with the models of the TOML, an extent that is exactly one of a box with its CRS, a vector mask (a file link, pinnable by `sha256`) or station codes, an optional period, and plugin sources under `installed`, whose options are bound against their constructor before anything runs |
+| `engine.py` | `run_request` loads each section through its manager, over the extent written as a polygon mask in its own CRS. `hydrography` and the installed sources go through the source registry, never through the Whitebox manager. A source that fails loses its files and is listed with its error; the others keep theirs. An empty answer (a box at sea) is a success marked `"empty": true` |
+| `artefacts.py` | each answer cut to the extent and period, whatever the cache held: chronicles in one Parquet table, grids in one NetCDF, rasters in GeoTIFF, vectors in one GeoPackage layer, tables in Parquet |
+| `job.py` | the `data-request` declaration and its body: resolution and refusal before anything is written, a cache under `$TMPDIR` indexed in memory, the seal, the reuse short-circuit. A `custom` source is refused, and a failed variable fails the job |
+
+`request.json` beside the files lists each one with its sha256, size, CRS, box,
+period and unit, and the variables that failed.
+
+## Where a manager's extent comes from
+
+A manager resolves the box it asks a provider over from the source config alone
+(`resolve_source_extent` in `common/source_extent.py`): `mask_path` first, then
+`extent` together with `project_extent`. No manager takes a project-scoped
+object. During a run, `DataManagersRuntimeLoader` writes the delineated watershed
+into `mask_path` before it hands the config to the store.
+
+`common/source_extent.py` reads every mask:
+
+- `mask_geometry(path)` returns the polygon and the CRS the file declares, and
+  refuses a mask with no CRS. A raster mask goes through the hull of its valid
+  cells, not its footprint: a catchment mask is `1` on the catchment and nodata
+  elsewhere in a rectangle.
+- `mask_extent(path)` gives its box, and `mask_extent_in(path, crs)` the box of
+  the reprojected shape, which is tighter than a reprojected box and keeps a
+  cached download a superset of the request.
+- `mask_geometry_wgs84(path)` is the polygon the station managers filter with: a
+  mask with no CRS is read as WGS84.
+
+`project_extent` is a bare tuple with no CRS of its own. The raster managers read
+it in `PROJECT_EXTENT_CRS` (`EPSG:2154`), the station managers in
+`STATION_EXTENT_CRS` (`EPSG:4326`).
+
+## The records handed upward
+
+Every manager returns a `LoadResult`:
+
+```python
+@dataclass
+class LoadResult:
+    points: list[PointRecord]
+    fields: list[FieldRecord]
+    tables: list[TableRecord]
+    warnings: list[str]
+```
+
+- `PointRecord`: `station_id`, `variable`, `source`, `unit`, `frequency`, `data`
+  (a table), `date_start`, `date_end`, `location` (`StationLocation`),
+  `is_constant`, `file_path`, `source_unit`, `quality`.
+- `FieldRecord`: `variable`, `source`, `unit`, `data` (an xarray dataset or a
+  path), `bbox`, `crs`, `date_start`, `date_end`, `frequency`, `source_unit`,
+  `metadata`.
+- `TableRecord`: `variable`, `source`, `table_id` (a lake abacus), `data` (a table
+  or a path to Parquet), `unit`, `crs`, `source_unit`, `metadata`.
+
+## Key public symbols
+
+- `hydromodpy.data.{DataManagersConfig, DataPlanner, DataLoadPlan,
+  DataManagersRuntimeLoader, DataStore, DataRequest, run_request}`, resolved
+  lazily.
+- `hydromodpy.data.registry.catalog_duckdb.DataCatalogDuckDB`: the cache index.
+- `hydromodpy.data.contracts.load_result.LoadResult` and the three records.
+- `hydromodpy.data.source.{DataSource, Extent, Period, FetchRequest, FetchResult,
+  BdTopageSource, EuHydroSource, OsmSource}` and
+  `hydromodpy.data.source.registry.{get, get_serving, register, list_source_ids,
+  builtin_source_ids}`.
+- `hydromodpy.data.request.job.{DATA_REQUEST, run}`.
+
+## Layer neighbours
+
+`data` imports `core`, `schema` and `spatial`
+(`tests/unit/architecture/layer_matrix.yaml`). `config`, `simulation`,
+`calibration`, `analysis`, `workflow`, `catalog`, `project`, `cli` and the root
+facade import it, plus the documented `spatial` to `data` tolerance for the
+optional hydrography fetch of site selection. `data` never imports `catalog`.
+
+## Reading path
+
+1. This file.
+2. `variables/hydrometry/` for a station variable, and
+   `managers/base_manager_variable.py` for its cache.
+3. `variables/wind/` for a grid variable, and `common/clients/sim2_products.py`
+   for SIM2.
+4. `loading/loader.py` for what a run loads, and `loading/planner.py` for the
+   inference rules.
+5. `request/engine.py` for a request from outside.
+6. `registry/catalog_duckdb.py` for the cache index.
 
 ## Where to add what
 
