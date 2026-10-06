@@ -82,7 +82,7 @@ run becomes an interpretable active-network diagnostic:
    head -> outflow_drain -> accumulation_flux -> simulated_active_network
 
 For the complete list of examples, commands, and files to open, see
-:doc:`../streams_and_seepage/worked-examples`. For the current distinction
+Worked Examples. For the current distinction
 between supported fields, demonstrated examples, and non-contracts, see
 :doc:`../streams_and_seepage/status-and-limitations`.
 
@@ -293,5 +293,5 @@ Related Reading
 - :doc:`stream-ocean-and-drainage-semantics`
 - :doc:`../solvers/flow/modflow-family`
 - :doc:`../solvers/modflow-package-semantics-and-boundary-conditions`
-- :doc:`../../architecture/spatial_support/hydrographic-network-simulated-active-inventory`
-- :doc:`../../user_guide/concepts/comparison-workflow`
+- :doc:`/contribute/architecture/spatial_support/hydrographic-network-simulated-active-inventory`
+- Simulation Comparison Workflow

@@ -13,7 +13,7 @@ Mesh choice is not only a preprocessing detail. It controls:
   support effects.
 
 Use this section for the concepts. Use the
-:doc:`capability-gallery mesh pages </capability_gallery/mesh>` for concrete,
+capability-gallery mesh pages for concrete,
 versioned examples and figures.
 
 Scientific Role
@@ -43,7 +43,7 @@ Representative gallery evidence
 --------------------------------
 
 Mesh concepts are easier to read with concrete artifacts next to the text. The
-full case pages remain in :doc:`/capability_gallery/mesh`; the figures below
+full case pages remain in Mesh Gallery; the figures below
 are the minimum evidence to keep in mind while reading this section.
 
 .. gallery-figure:: /_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2.png
@@ -73,19 +73,19 @@ Main Questions
      - Gallery evidence
    * - Which mesh families exist and why do they matter?
      - :doc:`../solvers/mesh-and-discretization-strategies`
-     - :doc:`/capability_gallery/mesh`
+     - Mesh Gallery
    * - How do regular and irregular meshes compare for the same cell budget?
      - :doc:`regular-vs-irregular-meshes`
-     - :doc:`/capability_gallery/cases/mesh_resolution_sensitivity_scale_ladder`
+     - Resolution Sensitivity Across Scales
    * - How are geology, hydraulic properties, or forcing mapped to cells?
      - :doc:`../solvers/field-to-cell-parameter-transfer`
-     - :doc:`/capability_gallery/hydraulic_properties`
+     - Hydraulic Properties
    * - Which mesh quality checks should be read before trusting a solve?
      - :doc:`../solvers/mesh-quality-and-acceptance-criteria`
-     - :doc:`/capability_gallery/cases/mesh_quality_diagnostics_naizin_10km2`
+     - Mesh Quality Diagnostics (10 km2)
    * - Why does MODFLOW 6 use XT3D on irregular meshes?
      - :doc:`../solvers/xt3d-on-irregular-disv-meshes`
-     - :doc:`/capability_gallery/cases/modflow6_irregular_tri_xt3d_method_choice`
+     - :doc:`/theory/index`
    * - How does vertical representation affect storage and thickness?
      - :doc:`../solvers/vertical-representation-and-storage-assumptions`
      - Validation and comparison cases that reuse the same support.
@@ -113,9 +113,9 @@ For a new mesh-related question, read in this order:
 2. :doc:`regular-vs-irregular-meshes`
 3. :doc:`../solvers/field-to-cell-parameter-transfer`
 4. :doc:`../solvers/mesh-quality-and-acceptance-criteria`
-5. :doc:`/capability_gallery/mesh`
+5. Mesh Gallery
 6. One concrete case page, such as
-   :doc:`/capability_gallery/cases/mesh_quality_diagnostics_naizin_10km2`
+   Mesh Quality Diagnostics (10 km2)
 
 .. toctree::
    :maxdepth: 2
@@ -130,11 +130,11 @@ For a new mesh-related question, read in this order:
 Related Gallery Pages
 ---------------------
 
-- :doc:`/capability_gallery/mesh`
-- :doc:`/capability_gallery/cases/mesh_sample_bundle`
-- :doc:`/capability_gallery/cases/mesh_quality_diagnostics_naizin_10km2`
-- :doc:`/capability_gallery/cases/mesh_constraint_balance_scale_ladder`
-- :doc:`/capability_gallery/cases/mesh_resolution_sensitivity_scale_ladder`
+- Mesh Gallery
+- Mesh Sample Bundle
+- Mesh Quality Diagnostics (10 km2)
+- Constraint Balance Across Scales
+- Resolution Sensitivity Across Scales
 
 Future Evolution
 ----------------

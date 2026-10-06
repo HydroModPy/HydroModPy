@@ -1719,10 +1719,10 @@ Related Pages
 - :doc:`solvers/flow/index`
 - :doc:`solvers/mesh-and-discretization-strategies`
 - :doc:`solvers/solver-capability-matrix`
-- :doc:`../architecture/solver/index`
-- :doc:`../architecture/solver/boussinesq-uml-diagrams`
-- :doc:`../user_guide/solvers`
-- :doc:`../capability_gallery/cases/surface_interaction_ramp_code_comparison`
-- :doc:`../capability_gallery/cases/surface_interaction_no_seepage_code_comparison`
-- :doc:`../user_guide/concepts/comparison-workflow`
-- :doc:`../capability_gallery/simulation_comparison`
+- :doc:`/contribute/architecture/solver/index`
+- :doc:`/contribute/architecture/solver/boussinesq-uml-diagrams`
+- Solvers
+- Surface-Interaction Ramp Code Comparison
+- No-Seepage Surface-Interaction Comparison
+- Simulation Comparison Workflow
+- Simulation Comparison

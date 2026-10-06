@@ -36,7 +36,7 @@ _OPTIONAL_DEPS = ("gmsh", "whitebox_workflows", "geopandas", "pyvista")
 _SOLVER_BINARIES = ("mfnwt", "mf6", "mp6", "mp7", "mt3dusgs")
 
 # The PRT model shipped with MODFLOW 6.5.0. Older executables resolve and run,
-# but reject a PRT name file. See docs/source/user_guide/modflow6-prt.rst.
+# but reject a PRT name file.
 _PRT_MIN_MF6_VERSION = (6, 5, 0)
 
 

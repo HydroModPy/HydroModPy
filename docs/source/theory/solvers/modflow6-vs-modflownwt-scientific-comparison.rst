@@ -272,7 +272,7 @@ MODFLOW-family routes.
          storage, and solver settings.
 
 The detailed metrics live in the committed gallery case:
-:doc:`../../capability_gallery/cases/linearized_unconfined_hillslope_drainage_1d`.
+:doc:`/theory/validation`.
 
 What Must Be Reported In Comparisons
 ------------------------------------
@@ -302,7 +302,7 @@ This page is best read together with:
 - :doc:`vertical-representation-and-storage-assumptions`
 - :doc:`modflow-package-semantics-and-boundary-conditions`
 - :doc:`xt3d-on-irregular-disv-meshes`
-- :doc:`../../user_guide/concepts/comparison-workflow`
+- Simulation Comparison Workflow
 
 Current Limitation
 ------------------

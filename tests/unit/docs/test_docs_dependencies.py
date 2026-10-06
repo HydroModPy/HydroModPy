@@ -16,7 +16,7 @@ CONF_PATH = ROOT / "docs" / "source" / "conf.py"
 LOCAL_EXTENSION_DIR = ROOT / "docs" / "source" / "_ext"
 # Namespace packages whose distribution name cannot be derived from the module
 # path by replacing separators with dashes.
-MODULE_TO_DISTRIBUTION = {"sphinxcontrib.autodoc_pydantic": "autodoc-pydantic"}
+MODULE_TO_DISTRIBUTION: dict[str, str] = {}
 
 
 def _normalize_requirement(requirement: str) -> str:
@@ -41,7 +41,6 @@ def test_docs_extra_covers_local_sphinx_notebook_and_uml_build_deps() -> None:
         "sphinx-design",
         "sphinx-polyversion",
         "sphinxcontrib-plantuml",
-        "autodoc-pydantic",
     }
     docs_requirements = {
         _normalize_requirement(line)

@@ -485,13 +485,13 @@ Validation And Comparison Anchors
 Useful pages already exist to anchor the main meanings described here.
 
 - Steady uniform recharge:
-  :doc:`Dupuit Uniform Recharge 1D <../../capability_gallery/cases/dupuit_uniform_recharge_1d>`
+  :doc:`Dupuit Uniform Recharge 1D </theory/validation>`
 - Transient recharge step:
-  :doc:`Linearized Unconfined 1D Recharge Step <../../capability_gallery/cases/linearized_unconfined_recharge_step_1d>`
+  :doc:`Linearized Unconfined 1D Recharge Step </theory/validation>`
 - Periodic recharge forcing:
-  :doc:`Linearized Unconfined 1D Periodic Recharge <../../capability_gallery/cases/linearized_unconfined_recharge_periodic_1d>`
+  :doc:`Linearized Unconfined 1D Periodic Recharge </theory/validation>`
 - Recharge plus emergent drainage across code families:
-  :doc:`Surface-Interaction Ramp Code Comparison <../../capability_gallery/cases/surface_interaction_ramp_code_comparison>`
+  Surface-Interaction Ramp Code Comparison
 - Stream, ocean, and drainage semantics in more detail:
   :doc:`stream-ocean-and-drainage-semantics`
 

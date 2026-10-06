@@ -240,8 +240,8 @@ Then readers should continue with:
 - :doc:`modflow-package-semantics-and-boundary-conditions`
 - :doc:`vertical-representation-and-storage-assumptions`
 - :doc:`xt3d-on-irregular-disv-meshes`
-- :doc:`../../architecture/solver/modflow6-architecture-notes`
-- :doc:`../../architecture/solver/modflownwt-architecture-notes`
+- :doc:`/contribute/architecture/solver/modflow6-architecture-notes`
+- :doc:`/contribute/architecture/solver/modflownwt-architecture-notes`
 
 Current Limitation
 ------------------

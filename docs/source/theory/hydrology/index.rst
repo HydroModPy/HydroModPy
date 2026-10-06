@@ -71,7 +71,7 @@ See also
 
 - :doc:`/theory/foundations/groundwater-flow-problem-definition` for the
   governing equation that consumes the forcings described here.
-- :doc:`/user_guide/data/index` for the operational data managers that
+- Data Loading And Retrieval for the operational data managers that
   retrieve and cache these forcings.
 
 .. toctree::

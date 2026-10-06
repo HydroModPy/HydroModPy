@@ -78,7 +78,6 @@ Internal pages
    modflow/modflow6
    modflow/modflownwt
    modflow/comparison-and-method-choice
-   modflow/worked-cases
    modflow/transport-coupling
 
 Quick reading order
@@ -92,7 +91,7 @@ If you do not know where to start:
    :doc:`modflow_nwt <modflow/modflownwt>` if you use the legacy MODFLOW-NWT path.
 3. :doc:`modflow/comparison-and-method-choice` and
    :doc:`modflow/transport-coupling` once the chosen backend is clear.
-4. :doc:`modflow/worked-cases` to anchor everything in a concrete run.
+4. :doc:`/theory/validation` to anchor everything in a concrete run.
 
 Surface Exchange And Active-Network Reading
 -------------------------------------------
@@ -104,7 +103,7 @@ details:
 - :doc:`../../streams_and_seepage/conceptual-model` explains the modelling
   decisions: stream boundary, seepage/drainage operator, and post-solve active
   network.
-- :doc:`../../streams_and_seepage/worked-examples` lists the examples that
+- Worked Examples lists the examples that
   connect those decisions to commands, files, and figures.
 - :doc:`../../streams_and_seepage/status-and-limitations` states what is
   implemented, what is demonstrated, and what is still a non-contract.
@@ -164,6 +163,6 @@ Selection Notes
 Related Architecture
 --------------------
 
-- :doc:`../../../architecture/solver/index`
-- :doc:`../../../architecture/solver/modflow6-architecture-notes`
-- :doc:`../../../architecture/solver/modflownwt-architecture-notes`
+- :doc:`/contribute/architecture/solver/index`
+- :doc:`/contribute/architecture/solver/modflow6-architecture-notes`
+- :doc:`/contribute/architecture/solver/modflownwt-architecture-notes`

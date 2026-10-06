@@ -9,7 +9,7 @@ publications that rely on HydroModPy.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: ../how_to_cite
+      :link: how_to_cite
       :link-type: doc
 
       **How to cite**
@@ -19,7 +19,7 @@ publications that rely on HydroModPy.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: ../usage_bibliography
+      :link: usage_bibliography
       :link-type: doc
 
       **Papers using HydroModPy**
@@ -28,7 +28,7 @@ publications that rely on HydroModPy.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: ../applications
+      :link: applications
       :link-type: doc
 
       **Applications**
@@ -46,7 +46,7 @@ publications that rely on HydroModPy.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: roadmap
+      :link: ../contribute/roadmap
       :link-type: doc
 
       **Roadmap**
@@ -76,9 +76,8 @@ publications that rely on HydroModPy.
    :hidden:
    :maxdepth: 1
 
-   How to cite <../how_to_cite>
-   Papers using HydroModPy <../usage_bibliography>
-   Applications <../applications>
+   How to cite <how_to_cite>
+   Papers using HydroModPy <usage_bibliography>
+   Applications <applications>
    changelog
-   roadmap
    Release and versioning policy <release_policy>

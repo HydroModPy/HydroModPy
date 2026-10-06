@@ -1,70 +1,38 @@
-"""The soil reservoir page's TOML has to be what a project actually loads.
+"""The soil reservoir section the theory page prints has to load.
 
-The page tells a hydrogeologist to copy its ``[flow.sinks_sources.recharge.soil]``
-block into a project file. A snippet that has drifted from ``SoilReservoirConfig``
-would send them straight into a refusal the page does not mention.
+The page lists every key of ``[flow.sinks_sources.recharge.soil]`` in one
+block. A block that drifted from ``SoilReservoirConfig`` would show a reader
+a section the code refuses.
 """
 
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
 
 import pytest
 
-PAGE = (
-    Path(__file__).resolve().parents[3]
-    / "docs"
-    / "source"
-    / "user_guide"
-    / "soil-reservoir-recharge.rst"
-)
+PAGE = Path(__file__).resolve().parents[3] / "docs" / "source" / "theory" / "soil-reservoir.md"
+_BLOCK = re.compile(r"```\{hmp-toml\}\n(\[flow\.sinks_sources\.recharge\.soil\]\n.*?)```", re.S)
 
 
-def _between(text: str, start: str, end: str) -> str:
-    return text.split(start, 1)[1].split(end, 1)[0]
-
-
-def _dedent(block: str, indent: int) -> str:
-    """Strip a fixed rst indent from every non-blank line of a code block."""
-    prefix = " " * indent
-    return "\n".join(
-        line[indent:] if line.startswith(prefix) else line for line in block.splitlines()
-    )
-
-
-def _page() -> str:
-    return PAGE.read_text(encoding="utf-8")
-
-
-def _declaring_it_block() -> str:
-    """The full ``Declaring it`` project block, dedented TOML text."""
-    block = _between(
-        _page(),
-        "Declaring it\n------------\n\n.. code-block:: toml\n\n",
-        "\n\nThe dates of the rain and of the ETP are those of",
-    )
-    return _dedent(block, 3)
-
-
-def _declaring_it_snippet() -> dict:
-    return tomllib.loads(_declaring_it_block())
-
-
-def test_the_page_still_ships_the_declaring_it_snippet() -> None:
-    assert "[flow.sinks_sources.recharge.soil]" in _page()
+def _block() -> str:
+    match = _BLOCK.search(PAGE.read_text(encoding="utf-8"))
+    assert match, "theory/soil-reservoir.md no longer prints its soil section"
+    return match.group(1)
 
 
 def test_the_soil_section_of_the_page_reads_as_a_request() -> None:
     from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
 
-    raw = _declaring_it_snippet()["flow"]["sinks_sources"]["recharge"]["soil"]
+    raw = tomllib.loads(_block())["flow"]["sinks_sources"]["recharge"]["soil"]
     config = SoilReservoirConfig(**raw)
 
     assert config.ru == pytest.approx(150.0)
 
 
-def test_the_declaring_it_block_loads_as_a_project_file(tmp_path: Path) -> None:
+def test_the_soil_section_loads_as_a_project_file(tmp_path: Path) -> None:
     from hydromodpy.config import HydroModPyConfig
 
     boilerplate = f"""
@@ -90,9 +58,31 @@ step_value = "1 day"
 id = "flow_main"
 type = "flow"
 solvers = ["modflow6"]
+
+# What a project needs around the soil section: daily rain and ETP to read,
+# the recharge and the residual ETP sent to MODFLOW, a first period that is
+# not a one-day steady state.
+[data]
+types = ["dem", "hydrography", "hydrometry", "precipitation", "etp"]
+
+[[data.precipitation.sources]]
+source = "sim2"
+extent = "watershed"
+
+[[data.etp.sources]]
+source = "sim2"
+extent = "watershed"
+
+[flow]
+active_sinks_sources = ["recharge", "etp"]
+active_bc = ["drainage"]
+first_period_steady = false
+
+[flow.ic]
+type = "steady_state"
 """
     config_path = tmp_path / "project.toml"
-    config_path.write_text(boilerplate + "\n" + _declaring_it_block(), encoding="utf-8")
+    config_path.write_text(boilerplate + "\n" + _block(), encoding="utf-8")
 
     cfg = HydroModPyConfig.from_toml(config_path)
 

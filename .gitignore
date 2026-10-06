@@ -111,6 +111,12 @@ docs/**/_autosummary/
 docs/**/.doctrees/
 .jupyter_cache/
 docs/source/api/generated/
+# Written by the documentation build from the code (tools/docs, docs/source/_ext).
+docs/source/_data/
+docs/source/reference/parameters/*
+!docs/source/reference/parameters/grammar.md
+docs/source/reference/python/
+docs/source/reference/cli/
 docs/source/_generated/
 !docs/source/_generated/CHANGELOG.md
 
@@ -313,12 +319,12 @@ old/*
 # WIP / alternate-version architecture diagrams
 # Canonical (tracked) diagrams do not carry these suffixes.
 # ──────────────────────────────────────────────
-docs/source/architecture/**/diagrams/*_v2.wsd
-docs/source/architecture/**/diagrams/*_as_built*.wsd
-docs/source/architecture/overview/diagrams/global_architecture_*.wsd
-docs/source/architecture/overview/diagrams/diagram_composant_fin*.wsd
-docs/source/architecture/overview/global-architecture-component-diagram.rst
-docs/source/architecture/overview/global-architecture-component-traceability-v2.rst
+docs/source/contribute/architecture/**/diagrams/*_v2.wsd
+docs/source/contribute/architecture/**/diagrams/*_as_built*.wsd
+docs/source/contribute/architecture/overview/diagrams/global_architecture_*.wsd
+docs/source/contribute/architecture/overview/diagrams/diagram_composant_fin*.wsd
+docs/source/contribute/architecture/overview/global-architecture-component-diagram.rst
+docs/source/contribute/architecture/overview/global-architecture-component-traceability-v2.rst
 
 # Local-only test-suite overhaul working notes (plan/report/continuation).
 docs/_dev_notes/test_suite_overhaul_*.md

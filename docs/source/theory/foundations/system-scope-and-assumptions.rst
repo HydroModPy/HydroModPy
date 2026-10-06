@@ -86,7 +86,7 @@ Current Source Anchors
 
 Useful code and documentation anchors for the future expansion are:
 
-- :doc:`../../architecture/overview/mental-model-and-design-choices`
+- :doc:`/contribute/architecture/overview/mental-model-and-design-choices`
 - :doc:`groundwater-flow-problem-definition`
 - :doc:`../hydrology/hydrological-forcing-chain`
 - :doc:`../solvers/index`

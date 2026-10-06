@@ -307,14 +307,14 @@ Existing Gallery Pages To Reuse
 The page above is a short guided view. Use the gallery pages for the complete
 case records:
 
-- :doc:`/capability_gallery/mesh`
-- :doc:`/capability_gallery/cases/mesh_resolution_sensitivity_scale_ladder`
-- :doc:`/capability_gallery/cases/mesh_constraint_balance_scale_ladder`
-- :doc:`/capability_gallery/cases/mesh_quality_diagnostics_naizin_10km2`
-- :doc:`/capability_gallery/cases/mesh_s3_10km2_outlet_1_rivers_only_buffer30`
-- :doc:`/capability_gallery/cases/mesh_100km2_outlet_27_rivers_only_buffer30`
-- :doc:`/capability_gallery/cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200`
-- :doc:`/capability_gallery/cases/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200`
+- Mesh Gallery
+- Resolution Sensitivity Across Scales
+- Constraint Balance Across Scales
+- Mesh Quality Diagnostics (10 km2)
+- 10 km2, Strahler 3 Mesh, Outlet 1, Rivers only, 30% buffer
+- 100 km2, headwater Mesh, Outlet 27, Rivers only, 30% buffer
+- 100 km2, headwater Mesh, Outlet 27, floor 200 m, river target 200 m
+- 100 km2, headwater Mesh, Outlet 27, floor 340 m, river target 200 m
 
 What Is Still Missing For The Ideal Comparison
 ----------------------------------------------

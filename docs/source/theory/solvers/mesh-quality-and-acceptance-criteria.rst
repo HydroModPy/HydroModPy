@@ -108,7 +108,7 @@ Evidence Already Available In The Repository
 
 One useful public anchor is the capability-gallery case:
 
-- :doc:`../../capability_gallery/cases/mesh_quality_diagnostics_naizin_10km2`
+- Mesh Quality Diagnostics (10 km2)
 
 That page is valuable because it shows how HydroModPy can expose:
 
@@ -134,7 +134,7 @@ Related Pages
 - :doc:`mesh-and-discretization-strategies`
 - :doc:`field-to-cell-parameter-transfer`
 - :doc:`xt3d-on-irregular-disv-meshes`
-- :doc:`../../user_guide/concepts/comparison-workflow`
+- Simulation Comparison Workflow
 
 Current Limitation
 ------------------

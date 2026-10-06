@@ -32,5 +32,5 @@ emit a reproducibility warning when cache metadata is missing.
 See also
 --------
 
-- :doc:`../how_to_cite` for citation entries.
-- :doc:`roadmap` for the planned development phases.
+- :doc:`how_to_cite` for citation entries.
+- :doc:`../contribute/roadmap` for the planned development phases.

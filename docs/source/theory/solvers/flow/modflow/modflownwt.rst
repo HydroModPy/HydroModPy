@@ -54,7 +54,6 @@ Focused Reading
    :maxdepth: 1
 
    ../../modflow6-vs-modflownwt-scientific-comparison
-   ../../worked-modflow-case-nancon-transient-nwt-etp-evt
 
 Typical Use Cases
 -----------------
@@ -80,7 +79,7 @@ Surface-Seepage Baseline Example
 For this work, the most useful MODFLOW-NWT example is the committed Nancon
 transient basin page:
 
-- :doc:`/capability_gallery/cases/nancon_transient_nwt`
+- Nancon Transient NWT Basin Diagnostics
 
 Use it as a legacy baseline because it already places the important evidence in
 one reading sequence:
@@ -118,7 +117,7 @@ structured-grid and legacy-package oriented, while MODFLOW 6 must also document
 mesh topology, package extraction, and active-network result fields.
 
 For the cross-backend examples and commands, see
-:doc:`../../../streams_and_seepage/worked-examples`. For current contracts and
+Worked Examples. For current contracts and
 non-contracts around simulated active networks, see
 :doc:`../../../streams_and_seepage/status-and-limitations`.
 
@@ -173,4 +172,4 @@ The short TOML shape above means:
 Related Architecture
 --------------------
 
-- :doc:`../../../../architecture/solver/modflownwt-architecture-notes`
+- :doc:`/contribute/architecture/solver/modflownwt-architecture-notes`

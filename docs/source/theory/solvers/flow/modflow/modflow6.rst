@@ -59,7 +59,6 @@ Focused Reading
    ../../xt3d-on-irregular-disv-meshes
    ../../modflow6-vs-modflownwt-scientific-comparison
    ../../../hydrology/simulated-active-network
-   MF6 transient reference case </capability_gallery/cases/headwater_100km2_outlet_2_mf6_transient_reference>
 
 Typical Use Cases
 -----------------
@@ -98,7 +97,7 @@ network diagnostics, read the evidence in this order:
 3. :doc:`../../../streams_and_seepage/nancon-k-sweep-results` for a real-basin
    MODFLOW 6 example where active-network overlap is compared against the
    observed ``reference`` hydrographic network.
-4. :doc:`../../../streams_and_seepage/worked-examples` for the exact commands
+4. Worked Examples for the exact commands
    and files to open.
 5. :doc:`../../../streams_and_seepage/status-and-limitations` for the current
    distinction between implemented result fields, demonstrated examples, and
@@ -164,5 +163,5 @@ The short TOML shape above means:
 Related Architecture
 --------------------
 
-- :doc:`../../../../architecture/solver/modflow6-architecture-notes`
-- :doc:`../../../../architecture/spatial_support/hydrographic-network-simulated-active-inventory`
+- :doc:`/contribute/architecture/solver/modflow6-architecture-notes`
+- :doc:`/contribute/architecture/spatial_support/hydrographic-network-simulated-active-inventory`

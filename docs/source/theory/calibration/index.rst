@@ -40,11 +40,11 @@ Topic pages
 See also
 --------
 
-- :doc:`/user_guide/workflows/calibration` for the operational
+- Calibration Workflow for the operational
   walkthrough and the "Pick a method" decision table.
-- :doc:`/architecture/calibration/index` for the package layout and
+- :doc:`/contribute/architecture/calibration/index` for the package layout and
   runtime classes behind the engine.
-- :doc:`/capability_gallery/calibration` for stable benchmark pages
+- :doc:`/theory/validation` for stable benchmark pages
   with posteriors and objective landscapes.
 
 .. toctree::

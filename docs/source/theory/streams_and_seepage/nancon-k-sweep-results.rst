@@ -16,7 +16,7 @@ This is the MODFLOW 6 real-basin example for the conceptual sequence:
    solved head -> local drain/seepage outflow -> accumulation_flux
    -> persistent simulated-active mask -> overlap against reference
 
-Use it after :doc:`conceptual-model` and :doc:`worked-examples`, not before.
+Use it after :doc:`conceptual-model` and Worked Examples, not before.
 The conceptual pages explain why the active network is a diagnostic derived
 from seepage or drainage outflow, while this page shows how that diagnostic
 behaves in one concrete parameter sweep.
@@ -356,7 +356,7 @@ Related Reading
 - :doc:`index`
 - :doc:`conceptual-model`
 - :doc:`../hydrology/simulated-active-network`
-- :doc:`../../user_guide/concepts/comparison-workflow`
+- Simulation Comparison Workflow
 - :cite:`abherve2023` for the bidirectional downslope-distance metric
   between simulated seepage and observed stream networks; see also
   :doc:`../bibliography`.

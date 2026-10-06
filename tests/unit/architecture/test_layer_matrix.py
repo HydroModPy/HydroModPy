@@ -18,7 +18,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 PKG_ROOT = REPO_ROOT / "hydromodpy"
 MATRIX_FILE = pathlib.Path(__file__).with_name("layer_matrix.yaml")
 ARCHITECTURE_PACKAGES_INDEX = (
-    REPO_ROOT / "docs" / "source" / "architecture" / "packages" / "index.rst"
+    REPO_ROOT / "docs" / "source" / "contribute" / "architecture" / "packages" / "index.rst"
 )
 
 _BUILD_GRAPH_PATH = REPO_ROOT / "tools" / "audit" / "build_graph.py"

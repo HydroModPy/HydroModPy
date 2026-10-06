@@ -17,8 +17,7 @@ PAGE = (
     Path(__file__).resolve().parents[3]
     / "docs"
     / "source"
-    / "user_guide"
-    / "workflows"
+    / "guides"
     / "stream-network-calibration.rst"
 )
 

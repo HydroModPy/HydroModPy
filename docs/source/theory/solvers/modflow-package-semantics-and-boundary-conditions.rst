@@ -172,7 +172,7 @@ IMS
 
 HydroModPy exposes the following main IMS knobs in
 ``modflow6.runtime``, documented in
-:doc:`/user_guide/config_reference/modflow6`:
+[modflow6] Modflow6Config:
 
 - ``mf6_ims_complexity``
 - ``mf6_outer_dvclose``
@@ -380,7 +380,7 @@ NWT solver package
 
 HydroModPy exposes the main Newton-solver fields under
 ``modflownwt.runtime.nwt``, documented in
-:doc:`/user_guide/config_reference/modflownwt`:
+[modflownwt] ModflowConfig:
 
 - ``headtol``
 - ``fluxtol``

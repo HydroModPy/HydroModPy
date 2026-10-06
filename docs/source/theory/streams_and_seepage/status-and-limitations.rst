@@ -42,16 +42,16 @@ Current Supported Contract
      - Runs with ``accumulation_flux`` and plottable topology can expose
        ``simulated_active_network`` and
        ``simulated_active_network_reference_overlay`` figures.
-     - :doc:`worked-examples`
+     - Worked Examples
    * - Comparison exports
      - Comparison workflows can export active-network occupancy metrics and
        overlap metrics against the observed ``reference`` network when the
        required fields and vector role are present.
-     - :doc:`../../user_guide/concepts/comparison-output-reading-order`
+     - Comparison Output Reading Order
    * - MODFLOW-NWT baseline
      - A stable Nancon MODFLOW-NWT basin page exists and is the best legacy
        baseline for reading order and figure interpretation.
-     - :doc:`/capability_gallery/cases/nancon_transient_nwt`
+     - Nancon Transient NWT Basin Diagnostics
    * - Calibration-grade stream-network metric
      - The full bidirectional downslope-distance criterion of
        :cite:`abherve2023` (:math:`D_{so}`, :math:`D_{os}`, :math:`J`,
@@ -61,7 +61,7 @@ Current Supported Contract
        those diagnostics remain useful for a different question, described in
        :doc:`network-metrics-and-extreme-k-sweep`.
      - :doc:`downslope-distance-calibration`,
-       :doc:`../../user_guide/workflows/stream-network-calibration`
+       Calibrating on the stream network
 
 What Is Demonstrated By The Examples
 ------------------------------------
@@ -131,7 +131,7 @@ Related Reading
 ---------------
 
 - :doc:`conceptual-model`
-- :doc:`worked-examples`
+- Worked Examples
 - :doc:`nancon-k-sweep-results`
 - :doc:`../hydrology/simulated-active-network`
-- :doc:`../../architecture/spatial_support/hydrographic-network-simulated-active-inventory`
+- :doc:`/contribute/architecture/spatial_support/hydrographic-network-simulated-active-inventory`

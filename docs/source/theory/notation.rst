@@ -37,7 +37,7 @@ Hydraulic state and forcing
    * - ``q_x``, ``q_y``, ``q_z``
      - Specific discharge along axis
      - m s\ :sup:`-1`
-     - Darcy flux per unit area; see :doc:`/architecture/solver/index`.
+     - Darcy flux per unit area; see :doc:`/contribute/architecture/solver/index`.
    * - ``Q``
      - Volumetric discharge
      - m\ :sup:`3` s\ :sup:`-1`

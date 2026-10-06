@@ -235,10 +235,10 @@ Use examples that preserve the same separation:
 - if the question is sensitivity on a real basin, read
   :doc:`nancon-k-sweep-results`;
 - if the question is a legacy MODFLOW-NWT baseline, read the Nancon capability
-  gallery case linked from :doc:`worked-examples`;
+  gallery case linked from Worked Examples;
 - if the question is what to open after a comparison run, use
-  :doc:`worked-examples` and
-  :doc:`../../user_guide/concepts/comparison-output-reading-order`.
+  Worked Examples and
+  Comparison Output Reading Order.
 
 The rule is the same in every example: the files are useful only when the
 method role, support role, computed field, and validation target are explicit.
@@ -290,7 +290,7 @@ Related Reading
 
 - :doc:`../hydrology/stream-ocean-and-drainage-semantics`
 - :doc:`../hydrology/simulated-active-network`
-- :doc:`worked-examples`
+- Worked Examples
 - :doc:`status-and-limitations`
 - :doc:`nancon-k-sweep-results`
-- :doc:`../../architecture/spatial_support/hydrographic-network-simulated-active-inventory`
+- :doc:`/contribute/architecture/spatial_support/hydrographic-network-simulated-active-inventory`

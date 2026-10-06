@@ -32,8 +32,7 @@ aquifer can transmit and what it receives.
 This page derives and qualifies the criterion itself, ``(D_so, D_os)`` and
 everything computed from the pair; it is a metric like any other, so what it
 identifies depends on what parameter drives it, not on the criterion. Two
-extensions built on top of it, in :doc:`the calibration workflow
-</user_guide/workflows/stream-network-calibration>` rather than here: a
+extensions built on top of it, in the calibration workflow rather than here: a
 **minimal (permanent) map** scored beside the maximal one, and a **transient
 two-bound mode** that compares a run's simulated flow duration, over whole
 calendar years, to both maps at once, instead of the one steady state this
@@ -407,8 +406,7 @@ dribble needs this answered before its network means anything.
 :math:`\tau` decides who *seeps*; it does not decide who is *visible*
 downstream of a seep. The transient two-bound mode adds a second, independent
 threshold, ``visible_flow``, on the routed discharge a cell of the downstream
-closure carries: see :doc:`the calibration workflow
-</user_guide/workflows/stream-network-calibration>` ("Two maps and two
+closure carries: see the calibration workflow ("Two maps and two
 bounds"). The steady, one-state criterion this page derives never reads it:
 it stays purely geometric, the closure of the seeping cells and nothing more.
 
@@ -511,7 +509,7 @@ river corridor. HydroModPy reports both weightings at every trial, as
 ``D_so_cell`` and ``D_so_area`` beside ``D_os_cell`` and ``D_os_area``, and
 their gap measures the effect of the refinement directly. Which pair enters the
 criterion is what ``weighting`` selects; see
-:doc:`/user_guide/config_reference/calibration` for its default.
+[calibration] CalibrationConfig for its default.
 
 :math:`L_{ref}` is :math:`h_{obs}`: the median distance between the centres of
 neighbouring cells that share an edge, taken over the mapped cells of the

@@ -189,7 +189,7 @@ Related Pages
 - :doc:`recharge-and-surface-exchange-semantics`
 - :doc:`stream-ocean-and-drainage-semantics`
 - :doc:`../solvers/modflow-package-semantics-and-boundary-conditions`
-- :doc:`../../user_guide/concepts/comparison-workflow`
+- Simulation Comparison Workflow
 
 Current Limitation
 ------------------

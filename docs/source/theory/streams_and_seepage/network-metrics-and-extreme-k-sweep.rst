@@ -84,7 +84,7 @@ every trial of a calibration:
 
 Read :doc:`downslope-distance-calibration` for what each of those means and
 which of its known biases apply, and
-:doc:`../../user_guide/workflows/stream-network-calibration` for how to run
+Calibrating on the stream network for how to run
 it.
 
 Current Extreme Sweep

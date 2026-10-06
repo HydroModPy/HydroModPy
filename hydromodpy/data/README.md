@@ -145,7 +145,7 @@ result = store.load_variable("hydrometry", cfg)
 | to add | where |
 |---|---|
 | a provider for an existing variable | a function in `variables/<v>/apis/<provider>.py` (or `common/clients/` when several variables share it), a key in the manager's `SOURCES`, a value in the `source` `Literal`, an entry in `schema/sources.py` |
-| a plugin source, out of tree | a `DataSource` class declared on the `hydromodpy.data.source` entry-point group; see `docs/source/architecture/how-to/add-a-data-source.rst` |
-| a variable | a package on the template above, a field of `DataManagersConfig`, a row of `VARIABLE_SPECS`; see `docs/source/architecture/how-to/add-a-data-variable.rst` |
+| a plugin source, out of tree | a `DataSource` class declared on the `hydromodpy.data.source` entry-point group; see `docs/source/contribute/architecture/how-to/add-a-data-source.rst` |
+| a variable | a package on the template above, a field of `DataManagersConfig`, a row of `VARIABLE_SPECS`; see `docs/source/contribute/architecture/how-to/add-a-data-variable.rst` |
 | a user-file format | `ingest/` |
 | an import rule | `tests/unit/architecture/data_layout.yaml` |

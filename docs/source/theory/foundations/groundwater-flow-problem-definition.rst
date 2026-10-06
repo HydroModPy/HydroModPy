@@ -422,17 +422,17 @@ The generic contract described on this page is not only conceptual. Several
 gallery pages already exercise its main families of forcing and exchange.
 
 - Side imposed heads plus steady recharge:
-  :doc:`Dupuit Uniform Recharge 1D <../../capability_gallery/cases/dupuit_uniform_recharge_1d>`
+  :doc:`Dupuit Uniform Recharge 1D </theory/validation>`
 - Divide plus downstream river-stage interpretation:
-  :doc:`Dupuit Divide-River 1D <../../capability_gallery/cases/dupuit_divide_river_1d>`
+  :doc:`Dupuit Divide-River 1D </theory/validation>`
 - Transient recharge propagation:
-  :doc:`Linearized Unconfined 1D Recharge Step <../../capability_gallery/cases/linearized_unconfined_recharge_step_1d>`
+  :doc:`Linearized Unconfined 1D Recharge Step </theory/validation>`
 - Drainage as head-dependent release:
-  :doc:`Linearized Unconfined Drainage 1D <../../capability_gallery/cases/linearized_unconfined_drainage_1d>`
+  :doc:`Linearized Unconfined Drainage 1D </theory/validation>`
 - Ocean boundary in 2D:
-  :doc:`Dupuit Circular-Island Ocean 2D <../../capability_gallery/cases/dupuit_circular_island_ocean_2d>`
+  :doc:`Dupuit Circular-Island Ocean 2D </theory/validation>`
 - Thickness-dependent Boussinesq and ocean support behaviour:
-  :doc:`Boussinesq Circular-Island Piecewise-K 2D <../../capability_gallery/cases/boussinesq_circular_island_piecewise_k_2d>`
+  :doc:`Boussinesq Circular-Island Piecewise-K 2D </theory/validation>`
 
 Why This Page Matters
 ---------------------
@@ -459,7 +459,7 @@ The most relevant anchors for the current version are:
 - ``hydromodpy.physics.flow.boundary_condition_registry``
 - ``hydromodpy.physics.flow.sinks_sources``
 - ``hydromodpy.physics.flow.initial_conditions``
-- :doc:`../../architecture/process/flow-boundary-conditions`
+- :doc:`/contribute/architecture/process/flow-boundary-conditions`
 - :doc:`../hydrology/hydrological-forcing-chain`
 - :doc:`../hydrology/recharge-and-surface-exchange-semantics`
 - :doc:`../hydrology/stream-ocean-and-drainage-semantics`

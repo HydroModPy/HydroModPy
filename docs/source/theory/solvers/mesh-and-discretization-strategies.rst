@@ -339,4 +339,4 @@ Related Pages
 - :doc:`vertical-representation-and-storage-assumptions`
 - :doc:`mesh-quality-and-acceptance-criteria`
 - :doc:`xt3d-on-irregular-disv-meshes`
-- :doc:`../../architecture/mesh/index`
+- :doc:`/contribute/architecture/mesh/index`

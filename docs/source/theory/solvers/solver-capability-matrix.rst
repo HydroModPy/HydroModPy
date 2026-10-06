@@ -132,7 +132,7 @@ Process-Level Matrix
      - Legacy MODFLOW-family flow path, still important for comparison,
        MODPATH, and MT3DMS workflows
      - ``validation_cases/README.md`` plus
-       :doc:`../../architecture/solver/modflownwt-architecture-notes`
+       :doc:`/contribute/architecture/solver/modflownwt-architecture-notes`
      - No runtime Gmsh mesh path, scientific method note still missing, sunset
        strategy not yet fully reflected in user-facing docs
    * - ``modflow6``
@@ -141,7 +141,7 @@ Process-Level Matrix
      - Modern MODFLOW-family backend for flow, with irregular-mesh support and
        growing method-choice documentation
      - XT3D method-choice assets plus
-       :doc:`../../architecture/solver/modflow6-architecture-notes`
+       :doc:`/contribute/architecture/solver/modflow6-architecture-notes`
      - Scientific note still incomplete on package choices, vertical
        assumptions, and when to prefer it over NWT
    * - ``boussinesq``

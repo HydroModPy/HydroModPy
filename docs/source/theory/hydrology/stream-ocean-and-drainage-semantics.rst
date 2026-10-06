@@ -228,17 +228,17 @@ Validation And Comparison Anchors
 Useful pages already exist to validate or inspect these semantics in context.
 
 - Stream-style imposed downstream stage:
-  :doc:`Dupuit Divide-River 1D <../../capability_gallery/cases/dupuit_divide_river_1d>`
+  :doc:`Dupuit Divide-River 1D </theory/validation>`
 - Ocean boundary on a radial island benchmark:
-  :doc:`Dupuit Circular-Island Ocean 2D <../../capability_gallery/cases/dupuit_circular_island_ocean_2d>`
+  :doc:`Dupuit Circular-Island Ocean 2D </theory/validation>`
 - Ocean boundary with heterogeneous conductivity and Boussinesq comparison:
-  :doc:`Boussinesq Circular-Island Piecewise-K 2D <../../capability_gallery/cases/boussinesq_circular_island_piecewise_k_2d>`
+  :doc:`Boussinesq Circular-Island Piecewise-K 2D </theory/validation>`
 - Drainage boundary in a closed-form linearized setting:
-  :doc:`Linearized Unconfined Drainage 1D <../../capability_gallery/cases/linearized_unconfined_drainage_1d>`
+  :doc:`Linearized Unconfined Drainage 1D </theory/validation>`
 - Drainage boundary on sloping topography:
-  :doc:`Linearized Unconfined Hillslope Drainage 1D <../../capability_gallery/cases/linearized_unconfined_hillslope_drainage_1d>`
+  :doc:`Linearized Unconfined Hillslope Drainage 1D </theory/validation>`
 - Cross-code behaviour with recharge and emergent drainage:
-  :doc:`Surface-Interaction Ramp Code Comparison <../../capability_gallery/cases/surface_interaction_ramp_code_comparison>`
+  Surface-Interaction Ramp Code Comparison
 
 Current Source Anchors
 ----------------------

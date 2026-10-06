@@ -23,5 +23,5 @@ The detailed scientific comparison is documented in:
 For benchmark-style comparisons across solvers, also read the comparison
 workflow output conventions:
 
-- :doc:`../../../../user_guide/concepts/comparison-output-reading-order`
-- :doc:`../../../../user_guide/results-and-exports`
+- Comparison Output Reading Order
+- Results and exports

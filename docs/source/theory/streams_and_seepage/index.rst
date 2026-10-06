@@ -21,7 +21,7 @@ Recommended Reading Path
    It introduces the physical scene first, then brings in the equations and
    sketches progressively: stream boundary, seepage/drainage, simulated-active
    network.
-2. Use :doc:`worked-examples` when you want examples that connect the concepts
+2. Use Worked Examples when you want examples that connect the concepts
    to commands, files, and figures that can actually be opened.
 3. Use :doc:`status-and-limitations` to check what is currently supported,
    what is demonstrated by examples, and what is not yet a stable contract.
@@ -94,7 +94,7 @@ Examples That Carry The Explanation
 
 The section has one dedicated example page:
 
-- :doc:`worked-examples`
+- Worked Examples
 - :doc:`status-and-limitations`
 
 Use these as the bridge between the concepts and the actual artifacts. They
@@ -128,7 +128,6 @@ The important separation is:
    :hidden:
 
    conceptual-model
-   Worked examples <worked-examples>
    Status and limitations <status-and-limitations>
    Nancon K-sweep results <nancon-k-sweep-results>
    Network metrics and extreme K-sweep <network-metrics-and-extreme-k-sweep>

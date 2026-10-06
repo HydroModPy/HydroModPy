@@ -13,8 +13,8 @@ Solvers
    :class: tip
 
    For backend selection and TOML snippets, see
-   :doc:`/user_guide/solvers`. For the package layout and runtime
-   handoff, see :doc:`/architecture/solver/index`. The in-house
+   Solvers. For the package layout and runtime
+   handoff, see :doc:`/contribute/architecture/solver/index`. The in-house
    Boussinesq theory is in :doc:`/theory/boussinesq`.
 
 MODFLOW family
@@ -133,44 +133,12 @@ Mesh and discretization
       Quality diagnostics that decide whether a discretization is
       acceptable before solver results are trusted.
 
-Worked cases and reference matrix
----------------------------------
+Reference matrix
+----------------
 
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
 
-   .. grid-item-card:: Worked MODFLOW cases
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: flow/modflow/worked-cases
-      :link-type: doc
-
-      Executable MODFLOW-family examples that link assumptions to
-      TOML inputs, package assembly, and inspected outputs.
-
-   .. grid-item-card:: Dupuit fixed-head 1D
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: worked-modflow-case-dupuit-fixed-head-1d
-      :link-type: doc
-
-      The simplest analytical-style benchmark: Dupuit unconfined
-      flow against fixed-head boundaries in a 1D strip.
-
-   .. grid-item-card:: Linearized unconfined periodic 1D
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: worked-modflow-case-linearized-unconfined-recharge-periodic-1d
-      :link-type: doc
-
-      Linearized unconfined response to a periodic recharge signal,
-      with explicit comparison against the analytical solution.
-
-   .. grid-item-card:: Nancon transient NWT
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: worked-modflow-case-nancon-transient-nwt-etp-evt
-      :link-type: doc
-
-      The Nancon basin transient MODFLOW-NWT case with ETP routed
-      through the EVT package, the canonical real-basin teaching
-      reference.
 
    .. grid-item-card:: Transport coupling
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -201,8 +169,4 @@ Worked cases and reference matrix
    modflow6-vs-modflownwt-scientific-comparison
    modflow-package-semantics-and-boundary-conditions
    xt3d-on-irregular-disv-meshes
-   worked-modflow-case-dupuit-fixed-head-1d
-   worked-modflow-case-linearized-unconfined-recharge-periodic-1d
-   worked-modflow-case-nancon-transient-nwt-etp-evt
    solver-capability-matrix
-   boussinesq-petsc-validation-results

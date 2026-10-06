@@ -14,21 +14,14 @@ from pathlib import Path
 import pytest
 
 PAGE = (
-    Path(__file__).resolve().parents[3]
-    / "docs"
-    / "source"
-    / "user_guide"
-    / "workflows"
-    / "calibration-recipes.rst"
+    Path(__file__).resolve().parents[3] / "docs" / "source" / "guides" / "calibration-recipes.rst"
 )
 
 
 def _snippet() -> dict:
     text = PAGE.read_text(encoding="utf-8")
     block = text.split("# mesh_sweep.toml")[1].split(".. code-block:: bash")[0]
-    body = "\n".join(
-        line[3:] if line.startswith("   ") else line for line in block.splitlines()
-    )
+    body = "\n".join(line[3:] if line.startswith("   ") else line for line in block.splitlines())
     return tomllib.loads(body)
 
 
@@ -41,7 +34,7 @@ def test_it_is_a_comparison_the_schema_accepts(tmp_path) -> None:
 
     doc = _snippet()
     base = tmp_path / "project.toml"
-    base.write_text("[workflow]\nmode = \"simulation\"\n", encoding="utf-8")
+    base.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
     doc["comparison"]["base_simulation_config"] = base.name
 
     cfg = SimulationComparisonConfig.from_toml(doc, config_path=tmp_path / "sweep.toml")
