@@ -78,7 +78,7 @@ def leaf_count(path: str) -> int:
 
 
 def split_plan() -> dict[str, str]:
-    """Page root path -> docname for variant A. A table above the threshold gets
+    """Page root path -> docname. A table above the threshold gets
     one page per child table, down to two levels below the root."""
     pages: dict[str, str] = {}
 
@@ -303,7 +303,7 @@ def inline_md(text: str, builder, fromdoc: str) -> str:
         target = html.unescape(m.group(1))
         canon = resolve(target)
         if canon is None:
-            logger.warning(f"[hmp] unknown TOML path in overlay text: {target}")
+            logger.warning(f"[hmp] unknown TOML path: {target}")
             return f'<code class="hmp-broken">{esc(target)}</code>'
         return f'<a class="hmp-toml-ref" href="{esc(uri(builder, fromdoc, canon))}"><code>{esc(target)}</code></a>'
 
@@ -596,7 +596,7 @@ class IntroDirective(SphinxDirective):
         ]
         if gaps:
             facts.append(
-                f"<li class='hmp-gaps'><b>Gaps in the models</b> {esc(', '.join(gaps))} <span class='hmp-muted'>(user keys; fixed in the Pydantic fields, counted by the ratchet)</span></li>"
+                f"<li class='hmp-gaps'><b>Gaps in the models</b> {esc(', '.join(gaps))} <span class='hmp-muted'>(user keys; fixed in the Pydantic fields)</span></li>"
             )
         parts.append(f'<ul class="hmp-facts">{"".join(facts)}</ul></div>')
         return [raw("".join(parts))]
@@ -612,10 +612,7 @@ class KnownKeysDirective(SphinxDirective):
         path = self.arguments[0]
         n = node(path)
         known = n.get("known_keys", {})
-        ko = {}
-        if self.options.get("variant", "B").upper() != "A":
-            for ov in S["overlays"].values():
-                ko.update(ov.get("known_keys", {}))
+        ko: dict = {}
         rows = []
         for key, info in known.items():
             o = ko.get(key, {})

@@ -201,52 +201,7 @@
     apply();
   }
 
-  function setupPageMap() {
-    var root = document.querySelector(".hmp-pm");
-    if (!root) return;
-    var q = document.getElementById("pm-q");
-    var sec = document.getElementById("pm-sec");
-    var door = document.getElementById("pm-door");
-    var act = document.getElementById("pm-act");
-    var count = document.getElementById("pm-count");
-    var rows = Array.prototype.slice.call(root.querySelectorAll(".pm-table tbody tr"));
-    var groups = Array.prototype.slice.call(root.querySelectorAll(".pm-group"));
-    function apply() {
-      var nq = norm(q.value.trim());
-      var n = 0, lines = 0;
-      rows.forEach(function (tr) {
-        var ok = (!nq || norm(tr.dataset.text).indexOf(nq) >= 0)
-          && (!sec.value || tr.dataset.sec === sec.value)
-          && (!door.value || tr.dataset.door === door.value)
-          && (!act.value || tr.dataset.action === act.value);
-        tr.style.display = ok ? "" : "none";
-        if (ok) { n++; lines += parseInt(tr.dataset.lines || "0", 10); }
-      });
-      groups.forEach(function (g) {
-        var shown = g.querySelectorAll("tbody tr:not([style*='none'])").length;
-        var total = g.querySelectorAll("tbody tr").length;
-        g.style.display = shown ? "" : "none";
-        g.querySelector(".pm-gcount").textContent = (shown === total ? total : shown + " of " + total) + " pages";
-      });
-      count.textContent = n + " pages, " + lines.toLocaleString("en").replace(/,/g, "\u202f") + " lines";
-    }
-    [q, sec, door, act].forEach(function (el) { el.addEventListener("input", apply); el.addEventListener("change", apply); });
-    root.querySelectorAll("button[data-door]").forEach(function (b) {
-      b.addEventListener("click", function () { door.value = b.dataset.door; act.value = ""; apply(); door.scrollIntoView({block: "center"}); });
-    });
-    root.querySelectorAll("button[data-action]").forEach(function (b) {
-      b.addEventListener("click", function () { act.value = b.dataset.action; door.value = ""; apply(); act.scrollIntoView({block: "center"}); });
-    });
-    document.getElementById("pm-reset").addEventListener("click", function () { q.value = ""; sec.value = ""; door.value = ""; act.value = ""; apply(); });
-    var params = new URLSearchParams(location.search);
-    if (params.get("door")) door.value = params.get("door");
-    if (params.get("action")) act.value = params.get("action");
-    if (params.get("q")) q.value = params.get("q");
-    apply();
-  }
-
   document.addEventListener("DOMContentLoaded", function () {
-    setupPageMap();
     setupBlocks();
     setupExplorer();
     setupOrigin();

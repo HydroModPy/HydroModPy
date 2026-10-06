@@ -358,39 +358,6 @@ table.hmp-val-matrix th, table.hmp-val-matrix td { text-align: left; vertical-al
 
 .hmp-reach-sanity { border-color: #b26a00; color: #b26a00; }
 
-/* Page map: today's pages to the new plan */
-.pm-summary { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-start; margin: .5rem 0 1rem; }
-table.pm-doors td, table.pm-doors th { padding: .15rem .6rem; }
-.pm-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pm-acts { max-width: 22rem; }
-.pm-h { font-weight: 600; margin-bottom: .3rem; }
-.pm-act { margin: 0 .3rem .3rem 0; padding: .1rem .5rem; border: 1px solid var(--pst-color-border); border-radius: .3rem; background: var(--pst-color-background); color: var(--pst-color-text-base); cursor: pointer; font-size: .9em; }
-.pm-bar { position: sticky; top: 4rem; z-index: 2; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .4rem 0; background: var(--pst-color-background); }
-.pm-bar input[type=search] { flex: 1 1 16rem; padding: .3rem .6rem; border: 1px solid var(--pst-color-border); border-radius: .3rem; background: var(--pst-color-background); color: var(--pst-color-text-base); }
-.pm-bar select, .pm-bar button { padding: .25rem .4rem; border: 1px solid var(--pst-color-border); border-radius: .3rem; background: var(--pst-color-background); color: var(--pst-color-text-base); font-size: .9em; }
-.pm-gh { margin-top: 1.4rem; font-family: var(--pst-font-family-monospace); font-size: 1.1em; }
-table.pm-table { width: 100%; font-size: .92em; }
-table.pm-table td { vertical-align: top; padding: .3rem .5rem; }
-table.pm-table th:nth-child(1) { width: 34%; }
-table.pm-table th:nth-child(2) { width: 4rem; }
-table.pm-table th:nth-child(3) { width: 8.5rem; }
-.pm-path { font-family: var(--pst-font-family-monospace); font-size: .78em; color: var(--pst-color-text-muted); word-break: break-all; }
-.pm-why { font-size: .88em; color: var(--pst-color-text-muted); margin-top: .1rem; }
-.pm-action { font-size: .85em; color: var(--pst-color-text-muted); margin-top: .15rem; }
-.pm-door { display: inline-block; padding: .05rem .45rem; border-radius: .3rem; font-size: .85em; font-weight: 600; border: 1px solid transparent; cursor: default; white-space: nowrap; }
-button.pm-door { cursor: pointer; }
-.pm-d-home, .pm-d-get-started { background: #e3f2fd; color: #0d47a1; }
-.pm-d-understand { background: #f3e5f5; color: #6a1b9a; }
-.pm-d-guides { background: #e8f5e9; color: #1b5e20; }
-.pm-d-reference { background: #e0f7fa; color: #006064; }
-.pm-d-theory { background: #fff8e1; color: #7a5200; }
-.pm-d-validation { background: #f1f8e9; color: #33691e; }
-.pm-d-about { background: #eceff1; color: #37474f; }
-.pm-d-contribute { background: #ede7f6; color: #4527a0; }
-.pm-d-studies { background: #fff3e0; color: #a64600; }
-.pm-d-out-of-site, .pm-d-removed { background: #fbe9e7; color: #b71c1c; }
-.pm-d-none, .pm-d-\? { background: #b71c1c; color: #fff; }
-
 /* A key followed through the base_config chain of an example file */
 .hmp-resolved { margin: .6rem 0 1rem; }
 .hmp-resolved-h { font-size: .85em; color: var(--pst-color-text-muted); margin-bottom: .2rem; }
