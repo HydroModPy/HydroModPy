@@ -77,6 +77,11 @@ jobs:
       - name: Build Sphinx html-strict
         run: make -C docs html-strict
 
+      # The build wrote the field registry; every written page is checked
+      # against it: TOML keys, links, TOML blocks loaded by the real loader.
+      - name: Check the written pages
+        run: python -m tools.docs.check_page $(git ls-files 'docs/source/*.md')
+
       # conf.py regenerates config_reference/ on builder-inited, so the build
       # above has already written the truth. 130 committed files under
       # docs/source carry an auto-generated header and until now exactly one
