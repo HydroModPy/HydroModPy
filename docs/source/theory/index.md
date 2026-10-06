@@ -44,7 +44,7 @@ stress period, and how outputs align on the periods. One page, from three of tod
 The share of the rain that recharges the aquifer, the share that runs off,
 the share that evaporates.
 
-- {doc}`The daily soil reservoir <soil-reservoir>` (written in the mock-up)
+- {doc}`The daily soil reservoir <soil-reservoir>`
 
 (step-aquifer)=
 ### 3. The aquifer moves the water
