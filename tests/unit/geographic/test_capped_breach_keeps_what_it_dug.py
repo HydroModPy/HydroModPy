@@ -27,12 +27,12 @@ from tests.unit.geographic.test_geographic_cache import _touch_artifact
 FILL_FINGERPRINT_WITHOUT_THE_BURN = (
     "8377a0546cb6dfa19f3d8918bbb427b1626c93bdb23ad57eef1e1cae3bdb16e0"
 )
-"""The fingerprint of 9d86115a7, before the capped breach existed, minus the burn.
+"""The fingerprint of 79fe734ea, before the capped breach existed, minus the burn.
 
 Removing ``[geographic.enforce_streams]`` took its section and its path signature out of
 the payload, so every cached tree is rebuilt once. Putting both back (defaults, no path)
 gives back ``652599218fe011c6d8574eecbc89b1fffdf4d89c41ecea127247351125440959``, the value
-a clean export of 9d86115a7 computes: the capped breach key is the only other thing the
+a clean export of 79fe734ea computes: the capped breach key is the only other thing the
 payload could have gained, and it is absent.
 """
 
