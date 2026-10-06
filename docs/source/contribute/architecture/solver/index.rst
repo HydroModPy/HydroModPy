@@ -12,7 +12,7 @@ Use it when you want:
 - the current mesh contract supported by each flow backend.
 
 Scientific derivations and mathematical solver notes live under
-:doc:`/theory/solvers/index`.
+:doc:`/theory/solvers`.
 
 .. tab-set::
 

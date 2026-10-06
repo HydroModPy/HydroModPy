@@ -119,7 +119,7 @@ The lists a variable joins
 ``VARIABLE_SPECS`` and names the one you missed. Two pins move with a new
 variable, and moving them is the point: the variable count in the same test,
 and ``DATA_SCHEMA_SHA256`` in ``tests/unit/data/test_the_data_surfaces_hold_still.py``.
-Regenerate the configuration reference with ``python -m tools.doc_config``.
+The reference pages of the new section are written at the next documentation build.
 
 Check it
 --------

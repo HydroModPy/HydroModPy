@@ -289,7 +289,7 @@ Declared apart, each on its own surface:
 - ``modflow_common/sink_mask.py`` answers a different question, which cells
   have no outlet in the solver's own four-face connectivity, and stays on it.
 - The network criterion reads the model top T and fills its own copy on its own
-  graph (see :doc:`/theory/streams_and_seepage/downslope-distance-calibration`).
+  graph (see :doc:`/theory/downslope-distance`).
 
 See also
 --------

@@ -118,7 +118,7 @@ See also
 
 - :doc:`calibration-guide` for the full operational reference.
 - Calibration Workflow for the user-facing hub.
-- :doc:`/theory/calibration/index` for inverse-problem
+- :doc:`/theory/index` for inverse-problem
   formulation and methods.
 - :doc:`/theory/validation` for stable benchmark
   pages.

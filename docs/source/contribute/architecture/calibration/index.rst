@@ -12,7 +12,7 @@ Calibration Architecture
 
 For the user-facing hub, see Calibration Workflow.
 For the scientific side (inverse problem, methods), see
-:doc:`/theory/calibration/index`.
+:doc:`/theory/index`.
 
 Pages
 -----

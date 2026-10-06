@@ -13,7 +13,7 @@ Mesh Architecture
 For higher-level runtime handoffs from process objects to solver
 adapters, see :doc:`../process/process-architecture` and
 :doc:`../simulation/simulation-orchestration-class-diagram`. For the
-scientific side of mesh choice, see :doc:`/theory/mesh/index`.
+scientific side of mesh choice, see :doc:`/theory/mesh`.
 
 Pages
 -----

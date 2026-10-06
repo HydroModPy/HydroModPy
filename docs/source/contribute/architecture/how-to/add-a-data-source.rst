@@ -86,8 +86,8 @@ handle retry, backoff and timeout.
 ``source`` values of each variable (``custom`` aside) are exactly the keys of
 its ``SOURCES``, and that each has an entry in ``schema/sources.py``; a
 missing edit fails there with the file to complete. ``value_docs`` renders
-the per-value table of the configuration reference, which
-``python -m tools.doc_config`` regenerates.
+the explanation of each value on the card of the key, at the next
+documentation build.
 
 The source section is **one flat model**: every source's fields sit side by
 side and ``source`` selects which are read. ``extra="forbid"`` refuses an

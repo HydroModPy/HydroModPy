@@ -39,7 +39,7 @@ Catchment registry
      - Brittany
      - France
      - MODFLOW-NWT, MODFLOW 6, Boussinesq
-     - :doc:`../theory/streams_and_seepage/nancon-k-sweep-results`
+     - :doc:`/understand/network-metrics`
    * - Vire-Sélune
      - Normandy
      - France

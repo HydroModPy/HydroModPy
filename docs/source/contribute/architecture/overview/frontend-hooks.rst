@@ -58,8 +58,10 @@ Python models and the UI.
 Doc-side schema artifacts
 -------------------------
 
-The Sphinx build emits two additional schema artifacts under
-``docs/source/_static/`` via ``tools/doc_config/generate.py``:
+Two schema files are committed under ``docs/source/_static/`` and
+published with the site. ``tools/doc_config/generate.py`` exports them, and
+``tests/unit/docs/test_docs_config_consistency.py`` keeps the JSON Schema
+equal to what the code exports:
 
 .. list-table::
    :header-rows: 1
@@ -76,8 +78,6 @@ The Sphinx build emits two additional schema artifacts under
        the same module. The Pydantic ``$defs`` are promoted to
        ``components.schemas`` and every internal ``$ref`` is
        rewritten from ``#/$defs/...`` to ``#/components/schemas/...``.
-       Consumed by the Stoplight Elements viewer on
-       Schema Explorer.
 
 The OpenAPI wrapper exists because Stoplight Elements rejects a raw
 JSON Schema with "failed to parse openapi file". The wrapper keeps the

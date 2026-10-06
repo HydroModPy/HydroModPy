@@ -400,7 +400,7 @@ Until those questions are fixed, the safest position is:
 Related reading
 ---------------
 
-- :doc:`/theory/hydrology/simulated-active-network`
+- :doc:`/theory/exits`
 - :doc:`../overview/mental-model-and-design-choices`
 - :doc:`hydrographic-network-uml-diagrams`
 - Simulation Comparison Workflow

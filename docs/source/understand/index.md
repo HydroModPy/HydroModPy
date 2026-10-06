@@ -34,6 +34,22 @@ The terms used on this site, a short definition, and the setting in the
 configuration file when there is one.
 :::
 
+:::{grid-item-card} How the model makes streams
+:link: stream-network
+:link-type: doc
+
+Where the water table reaches the ground, how seepage draws a stream network,
+and why it grows in winter and shrinks in summer.
+:::
+
+:::{grid-item-card} Scoring a simulated stream network
+:link: network-metrics
+:link-type: doc
+
+How a simulated network is compared with a mapped one, and the difference
+between a diagnostic and a criterion.
+:::
+
 ::::
 
 ## One catchment as a common thread
@@ -61,5 +77,7 @@ a study of the catchment.
 
 what-it-computes
 reading-results
+stream-network
+network-metrics
 glossary
 ```

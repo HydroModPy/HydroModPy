@@ -25,14 +25,19 @@ whole mental model; the rest of the documentation assumes it.
 
 **Workspace.** A folder made by `hmp workspace init`, `~/hydromodpy` by default. It holds
 the input data in `data/`, one flat folder per variable, and your projects in `projects/`.
-Several projects share the same `data/`.
+Several projects share the same `data/`. A workspace is optional: a project folder with a
+`project.toml` also works alone. The input data then sit in a `data/` folder next to
+`project.toml`. HydroModPy looks for the data folder in this order and takes the first match:
+{toml}`workspace.root` or {toml}`workspace.data_dir`, the `HMP_WORKSPACE` environment
+variable, the workspace that holds the project under `projects/`, and last the project itself.
 
-**Project.** A subfolder of `projects/` that has a `project.toml`: that file marks the root.
+**Project.** A folder that has a `project.toml`: that file marks the root. In a workspace it is a subfolder of `projects/`.
 The project holds the TOML files you run and everything those runs write. Create one with
 `hmp project new <name>`; list them with `hmp project list`.
 
 **Run.** One execution of one TOML file. It writes a folder `runs/<name>/`, where `<name>`
-is the `[simulation] name` of the file. The folder holds the frozen resolved config
+is the {toml}`simulation.name` of the file; without a name, runs are numbered `run_0001`,
+`run_0002` and so on. The folder holds the frozen resolved config
 (`config.toml`), the fields (`fields.zarr`), the tables (`tables.parquet`), the figures
 and, written last, `manifest.json`. Everything is in open formats: `xarray`, `zarr` and
 `pandas` read a run without HydroModPy.
@@ -41,8 +46,32 @@ and, written last, `manifest.json`. Everything is in open formats: `xarray`, `za
 `hmp catalog ls` lists the runs and `hmp catalog show <name> --detail` describes one. The
 disk is the truth and the catalog is derived from it: delete the file and
 `hmp catalog reindex` rebuilds it from `runs/` and `sessions/`. What no run folder carries
-is lost in that rebuild: the audit log, the deletion records, the export log and the
-workflow journal (an interrupted run can no longer be resumed).
+is lost in that rebuild: the audit log, the deletion records, the export log, the
+workflow journal (an interrupted run can no longer be resumed), and the observation series
+with their stations (the next run reads them again from the data files).
+
+## The workflow mode picks the operation
+
+Every file starts with a `[workflow]` table whose key {toml}`workflow.mode` is required.
+`hmp run <file>.toml` reads it and starts the matching operation. Without it, `hmp run`
+stops with a configuration error.
+
+```{hmp-params}
+workflow.mode
+```
+
+| Mode | What it does | Where to read more |
+|---|---|---|
+| `simulation` | One forward run. It writes one run folder. | {doc}`staircase/index` |
+| `calibration` | Proposes parameters, runs candidate simulations and records the history. | {doc}`../guides/calibrate` |
+| `overview` | Loads the geographic and data context and draws review maps. No solver runs. | {doc}`../guides/describe-a-catchment` |
+| `comparison` | Runs several child simulations from one shared base and compares their observables. | {doc}`../guides/compare-runs` |
+| `testbed` | Expands a case matrix, hands each case to a runner and collects evidence. | {doc}`../guides/test-a-method` |
+| `site_selection` | Keeps or rejects candidate catchments and writes an HTML review report. | {doc}`../guides/select-catchments` |
+
+`hmp run <file>.toml --dry-run` prints the mode it read and the sections of the file without
+executing anything. Options such as `--resume` and `--force` apply to the `simulation` mode
+only.
 
 ## A section is a request
 
@@ -62,7 +91,7 @@ The catchment, cut out of a DEM upslope of an outlet point.
 :::
 
 :::{tab-item} When
-The simulated window. The step is one month unless you say otherwise.
+The simulated window, cut into stress periods of {toml}`simulation.time.step_value`.
 
 ```{hmp-toml}
 :file: step4_transient.toml
@@ -133,5 +162,5 @@ Every field has a profile that says who needs it.
 
 The profiles are cumulative: `dev` shows the `user` fields and its own. A terminal command
 takes the level, for example `hmp config template --profile user`, and the reference marks
-the `dev` and `expert` fields with a badge. The `profile` key of the `[workflow]` table is
-a different thing: it profiles the speed of a run.
+the `dev` and `expert` fields with a badge. The {toml}`workflow.profile` key is a different
+thing: it profiles the speed of a run.

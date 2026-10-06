@@ -302,9 +302,8 @@ ships every required extension, plus PlantUML for UML diagrams.
    python tools/setup_plantuml.py
    make -C docs html
 
-``make -C docs html`` honours the ``-j auto`` default in the Makefile,
-so the recursive autosummary on ``hydromodpy`` (~900 pages) writes in
-parallel rather than the 5-minute single-thread default.
+``make -C docs html`` honours the ``-j auto`` default in the Makefile.
+``make -C docs html-strict`` is the build the CI runs: warnings are errors.
 
 On the reference Windows setup, the same build can be run from the
 repository root with the documentation environment:
@@ -343,38 +342,26 @@ Or, when ``make`` is available:
 
    make -C docs livehtml
 
-If the change touches the capability gallery, refresh the generated
-artifacts before committing:
+Generated pages
+~~~~~~~~~~~~~~~
 
-.. code-block:: bash
+The reference is written at every build, at ``builder-inited``:
 
-   python -m tools.doc_gallery
-   python -m tools.doc_gallery --check
+- ``tools/docs`` reads the code and the tests and writes the data under
+  ``docs/source/_data/``: the field registry, the Python API and the
+  command line, the index of the tests, the catalogs (solvers, figures,
+  data sources) and the TOML changes since the last release;
+- the extensions under ``docs/source/_ext/`` turn that data into the pages
+  of ``reference/parameters/``, ``reference/python/`` and
+  ``reference/cli/``;
+- ``tools.doc_contracts`` writes the layer matrix included by the
+  architecture pages.
 
-Auto-regenerated artifacts
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Two ``builder-inited`` hooks run at every Sphinx build:
-
-- ``tools.doc_config`` regenerates ``docs/source/user_guide/config_reference/``
-  (one page per top-level TOML section plus the JSON Schema and
-  OpenAPI exports under ``_static/``).
-- ``tools.doc_figures`` regenerates
-  ``docs/source/user_guide/figures_inventory.partial.rst`` from the
-  registered figure catalog in ``hydromodpy.display``.
-
-Both regenerators use ``_write_if_changed`` (idempotent), so the
-output mtime stays stable when the content has not changed and
-``sphinx-autobuild`` does not loop on the regenerated files.
-
-For tight iteration loops on RST that is not config-related, skip the
-heavy regeneration with:
-
-.. code-block:: bash
-
-   HMP_SKIP_CONFIG_REFERENCE_GEN=1 make -C docs html
-
-``tools.doc_figures`` remains active in that mode (its run is cheap).
+Git ignores the data and the generated pages. ``HMP_SKIP_DOC_DATA=1`` reuses
+the data of the previous build when you only edit written pages. Check a
+written page without building the site with
+``python -m tools.docs.check_page docs/source/<page>.md``; the CI runs it on
+every written page after the build.
 
 Submit a pull request
 ---------------------
