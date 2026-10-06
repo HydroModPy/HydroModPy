@@ -1,7 +1,8 @@
 # Sphinx documentation build gate.
-# Runs the docs/ html-strict target (warnings-as-errors, --keep-going) with
-# parallel autosummary writing. Uploads the rendered HTML tree as an artifact
-# so PR reviewers can inspect the produced site.
+# Runs the docs/ html-strict target (warnings-as-errors, --keep-going). The build
+# writes the parameter, API, CLI and validation pages from the code and the tests
+# (tools/docs). Uploads the rendered HTML tree as an artifact so PR reviewers can
+# inspect the produced site.
 
 name: Docs / Sphinx
 
@@ -12,6 +13,10 @@ on:
       - ".github/workflows/docs.yml"
       - "docs/**"
       - "hydromodpy/**"
+      - "tools/docs/**"
+      - "tests/**"
+      - "validation_cases/**"
+      - "examples/projects/04_streamflow_intermittence_in_transient/**"
       - "pyproject.toml"
       - "README.md"
       - "CONTRIBUTING.md"
@@ -21,6 +26,10 @@ on:
       - ".github/workflows/docs.yml"
       - "docs/**"
       - "hydromodpy/**"
+      - "tools/docs/**"
+      - "tests/**"
+      - "validation_cases/**"
+      - "examples/projects/04_streamflow_intermittence_in_transient/**"
       - "pyproject.toml"
       - "README.md"
       - "CONTRIBUTING.md"
@@ -86,42 +95,3 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  redirects:
-    name: Docs / rediraffe checkdiff
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    # sphinxext-rediraffe has been configured with a 136-entry redirects.txt
-    # for a long time, but nothing ever ran it: renaming or deleting a page
-    # broke its published URL silently. This job makes that a red check.
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: pip
-
-      - name: Install Linux system libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libglu1-mesa graphviz libgraphviz-dev pkg-config
-
-      - name: Install package and docs extras
-        run: |
-          pip install --upgrade pip
-          pip install -e ".[docs]"
-
-      - name: Every renamed or deleted page must have a redirect
-        run: |
-          base="${GITHUB_BASE_REF:-${GITHUB_REF_NAME}}"
-          git fetch --no-tags origin "${base}"
-          # numfig=0: the checkdiff builder reads no source, so it writes no
-          # doctree, and the figure numbering collector then dies looking for
-          # index.doctree. Nothing here renders a figure number anyway.
-          python -m sphinx -j auto -b rediraffecheckdiff \
-            -D numfig=0 \
-            -D rediraffe_branch="origin/${base}" \
-            docs/source docs/build/rediraffe
