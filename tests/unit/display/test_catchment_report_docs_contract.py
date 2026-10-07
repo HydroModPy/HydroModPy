@@ -6,7 +6,7 @@ from hydromodpy.display.catchment_report import CatchmentReportConfig, Catchment
 from hydromodpy.display.catchment_report.presets import GENERIC_REPORT_PRESET
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DOC_PATH = REPO_ROOT / "docs" / "source" / "user_guide" / "catchment-report.rst"
+DOC_PATH = REPO_ROOT / "docs" / "source" / "guides" / "report-on-a-catchment.md"
 NANCON_CONFIG = (
     REPO_ROOT / "examples" / "projects" / "16_nancon_natural_calibration" / "catchment_report.toml"
 )
