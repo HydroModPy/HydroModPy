@@ -14,18 +14,17 @@ Where to Document It
 
 There are three useful places for report documentation. Keep them separate:
 
-- **User guide or workflow page**: describe when the report is produced, the
-  stable output paths, and how users should read it. Example:
-  ``user_guide/workflows/site_selection.rst``.
+- **Guide**: describe when the report is produced, the stable output paths,
+  and how users should read it. Example: :doc:`/guides/select-catchments`.
 - **Developer recipe**: describe how to add or migrate a report producer. This
   page is the canonical contributor recipe.
 - **Package reference**: summarize ownership and reading paths in
-  ``architecture/packages/display.rst`` and, when the report belongs to the
-  higher-level reporting layer, ``architecture/packages/reporting.rst``.
+  :doc:`/contribute/architecture/packages/display` and, when the report
+  belongs to the higher-level reporting layer,
+  :doc:`/contribute/architecture/packages/reporting`.
 
-``docs/_dev_notes`` is for audits, migration logs, and temporary working
-notes. It is not the source of truth for RTD-facing user or developer
-documentation.
+Audits, migration logs and working notes stay out of the repository. The
+pages above are the source of truth.
 
 Contract
 --------
@@ -176,20 +175,18 @@ or contract change can be refreshed by one command and checked in CI.
 
 Use this decision rule:
 
-- **Static workflow examples**: prefer ``tools/doc_gallery``. Add a small
-  gallery case whose source files are committed, then regenerate with
-  ``python -m tools.doc_gallery --only <slug>`` and verify with
-  ``python -m tools.doc_gallery --check --only <slug>``. This is the right
-  home for screenshots or exported PNGs shown in user pages.
+- **Static workflow examples**: produce the image with the example or the
+  fixture the page describes, commit the reviewed PNG next to the page, and
+  name in the page source the run that produced it.
 - **Lightweight inventories or diagrams derived from Python constants**:
-  prefer a generator under ``tools/doc_figures`` or a similar small tool wired
-  into the Sphinx ``builder-inited`` hook. This is appropriate for RST
-  fragments, tables, or diagrams that can be rebuilt without solvers or
-  network access.
+  generate them at build time from the code, like the reference pages
+  (``tools/docs``, wired through ``docs/source/_ext``). They rebuild without
+  solvers or network access.
 - **Heavy solver or provider examples**: generate artifacts explicitly before
   the docs build, commit the reviewed outputs, and keep Sphinx as a reader
-  only. Do not make RTD execute hydrological providers, MODFLOW binaries, PETSc
-  jobs, or long site-selection campaigns just to draw one illustration.
+  only. Do not make the docs build execute hydrological providers, MODFLOW
+  binaries, PETSc jobs, or long site-selection campaigns just to draw one
+  illustration.
 
 For ``site_selection``, the minimum updateable illustration should come from a
 short fixture or example that writes ``review/site_selection_map.png`` and the
@@ -204,7 +201,7 @@ a tiny report fixture or one short basin example that writes
 ``docs/source/_static/`` only if it can be regenerated from the fixture.
 
 Avoid images whose only source is a local browser screenshot. If a screenshot
-is needed, keep a script or gallery case that rebuilds the report, opens the
+is needed, keep a script that rebuilds the report, opens the
 stable HTML entry point, captures the viewport, and writes the committed image.
 The committed image is then a build artifact, not a hand-maintained source.
 

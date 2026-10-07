@@ -7,10 +7,6 @@ collapsing everything into one execution object.
 Use it when the question is not only "what is this object?" but also
 "why does this boundary exist?".
 
-The repository also contains a developer glossary under
-``docs/_internal/notes/dev/glossary.rst`` for shorter term-by-term
-definitions.
-
 For package-by-package reading guidance, use :doc:`code-reading-guide`.
 
 At a glance
