@@ -1,10 +1,12 @@
-"""Diagnostics helpers for XT3D on irregular MODFLOW 6 validation cases."""
+"""MODFLOW 6 on irregular triangles, with and without XT3D, on the analytical cases.
+
+The fast regression ``test_xt3d_irregular_tri_fast_regression`` runs the steady
+analytical cases that declare a ``modflow6_irregular_tri`` variant twice, XT3D
+forced off then left to its automatic choice, and compares compact signatures.
+"""
 
 from __future__ import annotations
 
-import argparse
-import importlib
-import json
 import os
 import time
 from collections.abc import Iterable, Iterator
@@ -12,45 +14,23 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
-
-from .validation_case_registry import ValidationCaseRecord, build_validation_case_records
+from validation_cases.shared.case_records import CaseRecord, discover_case_records
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_REPORT_PATH = (
-    REPO_ROOT
-    / "tools"
-    / "doc_gallery"
-    / "manifests"
-    / "xt3d_irregular_tri_method_choice_report.json"
-)
-DISABLE_XT3D_SITECUSTOMIZE_DIR = REPO_ROOT / "tools" / "doc_gallery" / "disable_xt3d_sitecustomize"
+DISABLE_XT3D_SITECUSTOMIZE_DIR = Path(__file__).resolve().parent / "xt3d_disable_sitecustomize"
 
 
 def _selected_records(
     selected_case_slugs: Iterable[str] | None = None,
-) -> tuple[ValidationCaseRecord, ...]:
-    selected_slug_set = None
-    if selected_case_slugs is not None:
-        selected_slug_set = {str(slug) for slug in selected_case_slugs}
-    records = build_validation_case_records(repo_root=REPO_ROOT)
-    selected = [
+) -> tuple[CaseRecord, ...]:
+    wanted = None if selected_case_slugs is None else {str(slug) for slug in selected_case_slugs}
+    return tuple(
         record
-        for record in records
+        for record in discover_case_records(REPO_ROOT)
         if record.regime == "steady"
-        and "modflow6_irregular_tri" in tuple(record.metadata.get("solver_variants", ()))
-        and (selected_slug_set is None or record.slug in selected_slug_set)
-    ]
-    return tuple(sorted(selected, key=lambda item: item.slug))
-
-
-def _comparison_runner(record: ValidationCaseRecord):
-    module = importlib.import_module(str(record.metadata["run_case_module"]))
-    return getattr(module, str(record.metadata["comparison_function_name"]))
+        and "modflow6_irregular_tri" in record.solver_variants
+        and (wanted is None or record.slug in wanted)
+    )
 
 
 @contextmanager
@@ -148,7 +128,7 @@ def collect_irregular_tri_metrics(
         _patched_modflow6_xt3d_disabled(force_xt3d_disabled),
     ):
         for record in _selected_records(selected_case_slugs):
-            runner = _comparison_runner(record)
+            runner = record.comparison_runner()
             started = time.perf_counter()
             comparison = runner(
                 caller_file=__file__,
@@ -312,91 +292,3 @@ def rounded_xt3d_method_choice_payload(payload: dict[str, Any]) -> dict[str, Any
         "total_time_with_xt3d_s": _round_float(payload["total_time_with_xt3d_s"], 2),
         "total_time_ratio": _round_float(payload["total_time_ratio"], 4),
     }
-
-
-def write_xt3d_method_choice_report(output_path: Path | None = None) -> Path:
-    resolved_path = DEFAULT_REPORT_PATH if output_path is None else Path(output_path).resolve()
-    payload = rounded_xt3d_method_choice_payload(build_xt3d_method_choice_payload())
-    resolved_path.parent.mkdir(parents=True, exist_ok=True)
-    resolved_path.write_text(
-        json.dumps(payload, indent=2) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
-    return resolved_path
-
-
-def load_xt3d_method_choice_report(report_path: Path | None = None) -> dict[str, Any]:
-    resolved_path = DEFAULT_REPORT_PATH if report_path is None else Path(report_path).resolve()
-    return json.loads(resolved_path.read_text(encoding="utf-8"))
-
-
-def render_xt3d_tradeoff_figure(payload: dict[str, Any], output_path: Path) -> None:
-    rows = list(payload["rows"])
-    labels = [str(row["title"]) for row in rows]
-    rmse_without = np.asarray([float(row["rmse_without_xt3d"]) for row in rows], dtype=float)
-    rmse_with = np.asarray([float(row["rmse_with_xt3d"]) for row in rows], dtype=float)
-    time_without = np.asarray([float(row["time_without_xt3d_s"]) for row in rows], dtype=float)
-    time_with = np.asarray([float(row["time_with_xt3d_s"]) for row in rows], dtype=float)
-    y = np.arange(len(rows))
-
-    fig, axes = plt.subplots(1, 2, figsize=(15.5, max(7.5, 0.48 * len(rows) + 1.5)))
-    ax_rmse, ax_time = axes
-
-    ax_rmse.barh(y + 0.18, rmse_without, height=0.34, label="Without XT3D", color="#d95f02")
-    ax_rmse.barh(y - 0.18, rmse_with, height=0.34, label="XT3D auto default", color="#1b9e77")
-    ax_rmse.set_xlabel("Head-profile RMSE [m]")
-    ax_rmse.set_yticks(y)
-    ax_rmse.set_yticklabels(labels, fontsize=8)
-    ax_rmse.invert_yaxis()
-    ax_rmse.grid(axis="x", linestyle=":", alpha=0.35)
-    ax_rmse.legend(loc="lower right", fontsize=8)
-    ax_rmse.set_title("Accuracy on the 11 affected steady validation cases")
-
-    ax_time.barh(y + 0.18, time_without, height=0.34, label="Without XT3D", color="#d95f02")
-    ax_time.barh(y - 0.18, time_with, height=0.34, label="XT3D auto default", color="#1b9e77")
-    ax_time.set_xlabel("Wall-clock time [s]")
-    ax_time.set_yticks(y)
-    ax_time.set_yticklabels([])
-    ax_time.grid(axis="x", linestyle=":", alpha=0.35)
-    ax_time.set_title("Observed local runtime cost in hydromodpy-kpg")
-
-    fig.suptitle(
-        "MODFLOW 6 irregular triangles: XT3D sharply reduces RMSE on recharge-driven cases\n"
-        "while changing local runtime in mixed ways on the validation environment",
-        fontsize=12,
-    )
-    fig.tight_layout()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, dpi=180, bbox_inches="tight")
-    plt.close(fig)
-
-
-__all__ = [
-    "build_xt3d_method_choice_payload",
-    "collect_irregular_tri_metrics",
-    "load_xt3d_method_choice_report",
-    "render_xt3d_tradeoff_figure",
-    "rounded_xt3d_method_choice_payload",
-    "write_xt3d_method_choice_report",
-]
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Refresh the committed XT3D irregular-triangle diagnostics report."
-    )
-    parser.add_argument(
-        "--output",
-        help="Optional output JSON path. Defaults to the committed report source used by doc_gallery.",
-    )
-    args = parser.parse_args(argv)
-    output = write_xt3d_method_choice_report(
-        None if not args.output else Path(args.output).resolve()
-    )
-    print(output)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

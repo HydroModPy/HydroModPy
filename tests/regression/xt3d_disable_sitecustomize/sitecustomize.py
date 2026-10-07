@@ -1,4 +1,4 @@
-"""Diagnostics hook used by doc-gallery benchmarks to force XT3D off."""
+"""Loaded through PYTHONPATH by the XT3D regression to force XT3D off in its subprocesses."""
 
 from hydromodpy.solver.modflow6 import modflow6 as modflow6_module
 from hydromodpy.solver.modflow6.builders import solver_options
