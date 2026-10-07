@@ -44,3 +44,15 @@ python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_unifo
 python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_uniform_recharge_1d.run_case --solver modflow6 --show
 python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_uniform_recharge_1d.run_case --solver modflow6_irregular_tri --show
 ```
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+\frac{\mathrm{d}q}{\mathrm{d}x}=R,\qquad q(x)=q_w+R\left(x-x_{\min}\right)
+$$
+
+$$
+\frac{\mathrm{d}b}{\mathrm{d}x}=S_0-\frac{q(x)}{K\,b(x)},\qquad S_0=-\frac{\mathrm{d}z_b}{\mathrm{d}x},\qquad H(x)=z_b(x)+b(x)
+$$

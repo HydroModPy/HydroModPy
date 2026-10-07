@@ -40,3 +40,15 @@ python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_const
 python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_constant_thickness_1d.run_case --solver modflow6 --show
 python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_constant_thickness_1d.run_case --solver modflow6_irregular_tri --show
 ```
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+H(x)=z_b(x)+b^\ast,\qquad z_b(x)=z_{b,0}+\Delta z_b\left(1-\frac{x-x_{\min}}{L}\right)
+$$
+
+$$
+q=-K\,b^\ast\,\frac{\mathrm{d}H}{\mathrm{d}x}=K\,b^\ast\,S_0,\qquad S_0=\frac{z_b(x_{\min})-z_b(x_{\max})}{L}
+$$

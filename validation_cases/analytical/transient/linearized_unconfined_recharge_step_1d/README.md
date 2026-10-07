@@ -23,3 +23,15 @@ Run manually:
 python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_1d.run_case
 python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_1d.run_case --solver boussinesq --show
 ```
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+S_y\frac{\partial \eta}{\partial t}=T_0\frac{\partial^2 \eta}{\partial x^2}+R_0\,H(t),\qquad h=h_0+\eta
+$$
+
+$$
+\eta(x,t)=\frac{R_0}{2T_0}x(L-x)-\frac{4R_0L^2}{T_0\pi^3}\sum_{n=0}^{\infty}\frac{\sin\left((2n+1)\pi x/L\right)}{(2n+1)^3}\exp\left(-D\left((2n+1)\pi/L\right)^2 t\right)
+$$

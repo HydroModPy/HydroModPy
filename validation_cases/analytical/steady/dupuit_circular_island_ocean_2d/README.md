@@ -32,3 +32,19 @@ The runner saves a PNG figure with:
 - the final land water-table map,
 - the numerical annular profile against the analytical reference,
 - the residual curve and summary metrics.
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+\frac{1}{r}\frac{\mathrm{d}}{\mathrm{d}r}\left(r\,K\,H\,\frac{\mathrm{d}H}{\mathrm{d}r}\right)+R=0
+$$
+
+$$
+H(r)^2=H(a)^2+\frac{R}{2K}\left(a^2-r^2\right)
+$$
+
+$$
+h(r)=z_b+\sqrt{\left(h_{\mathrm{sea}}-z_b\right)^2+\frac{R}{2K}\left(a^2-r^2\right)}
+$$

@@ -38,3 +38,15 @@ The runner saves a PNG figure with:
 - numerical mean profile as blue points,
 - analytical profile as an orange line,
 - a residual panel and a metrics summary box.
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+T_0\,\frac{\mathrm{d}^2u}{\mathrm{d}x^2}-\lambda_d\,u=0,\qquad u=h-z_d,\qquad \lambda_d=\frac{C_d}{A}
+$$
+
+$$
+u(x)=u_w\frac{\sinh\left(\beta(L-x)\right)}{\sinh\left(\beta L\right)}+u_e\frac{\sinh\left(\beta x\right)}{\sinh\left(\beta L\right)},\qquad \beta=\sqrt{\frac{\lambda_d}{T_0}}
+$$

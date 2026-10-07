@@ -42,3 +42,15 @@ python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed
 python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.run_case --solver modflow6 --show
 python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.run_case --solver modflow6_irregular_tri --show
 ```
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+q=K\,b\left(S_0-\frac{\mathrm{d}b}{\mathrm{d}x}\right),\qquad S_0=-\frac{\mathrm{d}z_b}{\mathrm{d}x}
+$$
+
+$$
+x-x_{\min}=\int_{b_w}^{b(x)} \frac{K\,\beta\,\eta-q}{K\,\beta^2}\,\mathrm{d}\eta,\qquad \beta=S_0,\qquad H(x)=z_b(x)+b(x)
+$$

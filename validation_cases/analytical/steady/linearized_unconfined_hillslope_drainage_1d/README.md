@@ -46,3 +46,15 @@ python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_dra
 python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case --solver modflow6 --show
 python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case --solver modflow6_irregular_tri --show
 ```
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+T_0\,\frac{\mathrm{d}^2u}{\mathrm{d}x^2}-\lambda_d\,u=0,\qquad u=h-z_{\mathrm{top}}(x)
+$$
+
+$$
+z_{\mathrm{top}}(x)=z_0+A\left(1-\frac{x-x_{\min}}{L}\right),\qquad u(x)=u_w\frac{\sinh\left(\beta(L-x)\right)}{\sinh\left(\beta L\right)}+u_e\frac{\sinh\left(\beta x\right)}{\sinh\left(\beta L\right)}
+$$

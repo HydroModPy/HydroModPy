@@ -39,3 +39,15 @@ Solver variants:
 - `modflownwt` and `modflow6` use the historical launcher-backed structured-grid setup,
 - `boussinesq` uses a small triangular-strip bundle projected back to a regular
   `3 x 40` profile grid for plotting and metric comparison.
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+U=h^2,\qquad \frac{\mathrm{d}}{\mathrm{d}x}\left(K(x)\,\frac{\mathrm{d}U}{\mathrm{d}x}\right)+2R=0
+$$
+
+$$
+\frac{\mathrm{d}U}{\mathrm{d}x}(0)=0,\qquad U(L)=h_e^2,\qquad U(x)=h_e^2+2R\int_x^L \frac{s\,\mathrm{d}s}{K(s)}
+$$

@@ -36,3 +36,15 @@ The runner saves a PNG figure with:
 - the final land water-table map,
 - the numerical annular profile against the analytical reference,
 - the residual curve and summary metrics.
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+\frac{1}{r}\frac{\mathrm{d}}{\mathrm{d}r}\left(r\,K(r)\,H\,\frac{\mathrm{d}H}{\mathrm{d}r}\right)+R=0
+$$
+
+$$
+U=H^2,\qquad U(r)=U(a)+R\int_r^a \frac{s}{K(s)}\,\mathrm{d}s
+$$

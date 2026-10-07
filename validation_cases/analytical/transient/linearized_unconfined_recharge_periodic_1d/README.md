@@ -17,3 +17,15 @@ Run manually:
 ```powershell
 python -m validation_cases.analytical.transient.linearized_unconfined_recharge_periodic_1d.run_case
 ```
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+S_y\frac{\partial \eta}{\partial t}=T_0\frac{\partial^2 \eta}{\partial x^2}+R(t),\qquad h=h_0+\eta
+$$
+
+$$
+R(t)=\overline{R}+A\sin\left(2\pi t/P+\phi\right)
+$$

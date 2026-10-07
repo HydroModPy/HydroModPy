@@ -23,3 +23,15 @@ Run manually:
 python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_deep_1d.run_case
 python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_deep_1d.run_case --solver boussinesq --show
 ```
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+S_y\frac{\partial \eta}{\partial t}=T_0\frac{\partial^2 \eta}{\partial x^2}+R_0\,H(t),\qquad h=h_0+\eta
+$$
+
+$$
+T_0=K\,h_{\mathrm{ref}},\qquad D=\frac{T_0}{S_y}
+$$

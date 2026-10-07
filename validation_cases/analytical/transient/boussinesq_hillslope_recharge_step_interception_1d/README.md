@@ -44,3 +44,15 @@ Direct execution:
 python -m validation_cases.analytical.transient.boussinesq_hillslope_recharge_step_interception_1d.run_case --solver boussinesq
 python -m validation_cases.analytical.transient.boussinesq_hillslope_recharge_step_interception_1d.run_case --solver boussinesq --show
 ```
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+S_y\frac{\partial \eta}{\partial t}=T_0\frac{\partial^2 \eta}{\partial x^2}+R_0\,H(t),\qquad \eta_{\mathrm{steady}}(x)=\frac{R_0}{2T_0}\left(L^2-x^2\right)
+$$
+
+$$
+z_{\mathrm{top}}(x)=z_{\mathrm{toe}}+S\left(L-x\right),\qquad h(x,t)=z_{\mathrm{top}}(x)\ \text{defines the interception front}
+$$

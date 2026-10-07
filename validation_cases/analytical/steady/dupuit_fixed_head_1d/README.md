@@ -45,3 +45,15 @@ The runner saves a PNG figure with:
 - numerical mean profile as blue points,
 - analytical Dupuit profile as an orange line,
 - a residual panel and a metrics summary box.
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+\frac{\mathrm{d}}{\mathrm{d}x}\left(K\,h\,\frac{\mathrm{d}h}{\mathrm{d}x}\right)=0
+$$
+
+$$
+h(x)=\sqrt{h_w^2+\left(h_e^2-h_w^2\right)\frac{x-x_{\min}}{x_{\max}-x_{\min}}}
+$$

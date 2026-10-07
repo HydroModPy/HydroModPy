@@ -50,3 +50,15 @@ Direct execution:
 python -m validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.run_case --solver boussinesq
 python -m validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.run_case --solver boussinesq --show
 ```
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+h(x)^2=h_e^2+\frac{R}{K}\left(L^2-x^2\right)
+$$
+
+$$
+z_{\mathrm{top}}(x)=z_{\mathrm{toe}}+S\left(L-x\right),\qquad h(x_{\mathrm{int}})=z_{\mathrm{top}}(x_{\mathrm{int}})
+$$
