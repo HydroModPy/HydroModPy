@@ -386,6 +386,9 @@ language = "en"
 # as a theory page cites them.
 exclude_patterns = [
     "_data",
+    # api/generated/ is left by builds of the old documentation and ignored by
+    # git; this site has no api/ folder.
+    "api",
     "capability_gallery",
     "contribute/architecture/layer-matrix.partial.rst",
 ]
