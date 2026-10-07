@@ -369,3 +369,7 @@ table.hmp-cat ul { margin: 0; padding-left: 1.1rem; }
 .hmp-cat-sum { font-size: .88em; margin-top: .15rem; }
 .hmp-cat-count { font-size: 1.02em; }
 table.hmp-cat td:first-child { white-space: nowrap; }
+
+/* Home page badges, on one line that wraps */
+.hmp-badges p { display: flex; flex-wrap: wrap; gap: .35rem; margin: .4rem 0 1rem; }
+.hmp-badges img { height: 20px; }

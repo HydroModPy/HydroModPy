@@ -14,6 +14,7 @@
 import os
 import shutil
 import sys
+import tomllib
 import types
 import warnings
 from importlib.util import find_spec
@@ -273,17 +274,16 @@ project = "HydroModPy"
 copyright = "2021"
 author = "A. Gauvain, R. Abhervé"
 
-# Single source of truth: pyproject.toml (read via importlib.metadata).
-try:
-    from importlib.metadata import PackageNotFoundError
+# Single source of truth: pyproject.toml, read from the tree being built. The
+# installed metadata comes second: an editable install keeps the version it was
+# installed with, so a local build would name an older release.
+_pyproject = package_path / "pyproject.toml"
+if _pyproject.exists():
+    release = tomllib.loads(_pyproject.read_text(encoding="utf-8"))["project"]["version"]
+else:
     from importlib.metadata import version as _pkg_version
 
-    try:
-        release = _pkg_version("hydromodpy")
-    except PackageNotFoundError:
-        from hydromodpy.core.version import __version__ as release
-except ImportError:
-    from hydromodpy.core.version import __version__ as release
+    release = _pkg_version("hydromodpy")
 
 version = ".".join(release.split(".")[:2])
 
@@ -344,6 +344,14 @@ myst_enable_extensions = [
     "html_image",
 ]
 myst_heading_anchors = 3
+# {{ release }} in a page is the version of the package the site is built from.
+myst_substitutions = {
+    "release": release,
+    "version_badge": (
+        f"[![version](https://img.shields.io/badge/version-{release}-f59e0b?style=flat-square)]"
+        f"(https://pypi.org/project/hydromodpy/{release}/)"
+    ),
+}
 
 # The tutorial and the guides read the files of example 04.
 hmp_example_dir = str(
