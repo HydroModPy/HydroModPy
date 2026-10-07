@@ -52,5 +52,5 @@ q=K\,b\left(S_0-\frac{\mathrm{d}b}{\mathrm{d}x}\right),\qquad S_0=-\frac{\mathrm
 $$
 
 $$
-x-x_{\min}=\int_{b_w}^{b(x)} \frac{K\,\beta\,\eta-q}{K\,\beta^2}\,\mathrm{d}\eta,\qquad \beta=S_0,\qquad H(x)=z_b(x)+b(x)
+x-x_{\min}=\int_{b_w}^{b(x)} \frac{K\,\eta}{K\,\beta\,\eta-q}\,\mathrm{d}\eta,\qquad \beta=S_0,\qquad H(x)=z_b(x)+b(x)
 $$
