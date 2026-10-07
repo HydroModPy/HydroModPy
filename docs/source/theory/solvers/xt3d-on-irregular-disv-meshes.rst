@@ -155,6 +155,10 @@ This slider walks the same Boussinesq circular-island validation case from a
 structured ``DIS`` MODFLOW 6 mesh (left) to its DISV irregular triangulation
 (right). Drag the handle to compare both supports.
 
+.. Both images come from the validation case boussinesq_circular_island_piecewise_k_2d:
+   python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case
+   --no-show --solver modflow6 (structured), or --solver modflow6_irregular_tri (irregular).
+
 .. image-comparison::
    :before: /_static/theory/solvers/xt3d/circular_island_structured_dis.png
    :after: /_static/theory/solvers/xt3d/circular_island_irregular_disv.png

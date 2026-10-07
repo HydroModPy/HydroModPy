@@ -15,8 +15,8 @@ Good candidates:
   scenarios.
 - MF6 vs NWT on a shared structured benchmark where both backends are meant to
   represent the same physics.
-- The full XT3D irregular-triangle method-choice matrix used by the capability
-  gallery.
+- The full XT3D irregular-triangle method-choice matrix over every steady
+  analytical case with a `modflow6_irregular_tri` variant.
 
 Currently committed:
 

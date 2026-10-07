@@ -98,10 +98,6 @@ coverage.
 Sunday. It checks the supported Python versions across Linux, macOS, and
 Windows, then runs Linux end-to-end and full regression jobs.
 
-``Docs / Nightly Refresh`` refreshes generated documentation artifacts on
-``main`` and ``dev`` and pushes only those generated outputs when they
-change.
-
 ``Solver / PETSc Smoke`` also has a Monday scheduled run because PETSc and
 ``petsc4py`` come from a separate conda-forge environment.
 

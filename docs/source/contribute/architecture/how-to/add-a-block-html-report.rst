@@ -171,13 +171,14 @@ Updateable Documentation Illustrations
 
 Documentation illustrations for block reports should be generated from a
 small, versioned source rather than edited by hand. The goal is that a layout
-or contract change can be refreshed by one command and checked in CI.
+or contract change can be refreshed by one command.
 
 Use this decision rule:
 
 - **Static workflow examples**: produce the image with the example or the
-  fixture the page describes, commit the reviewed PNG next to the page, and
-  name in the page source the run that produced it.
+  fixture the page describes, commit the reviewed PNG under
+  ``docs/source/_static/``, and name in the page source the command that
+  produced it.
 - **Lightweight inventories or diagrams derived from Python constants**:
   generate them at build time from the code, like the reference pages
   (``tools/docs``, wired through ``docs/source/_ext``). They rebuild without

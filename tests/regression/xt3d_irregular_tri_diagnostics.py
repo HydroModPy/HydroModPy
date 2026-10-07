@@ -1,8 +1,9 @@
 """MODFLOW 6 on irregular triangles, with and without XT3D, on the analytical cases.
 
-The fast regression ``test_xt3d_irregular_tri_fast_regression`` runs the steady
-analytical cases that declare a ``modflow6_irregular_tri`` variant twice, XT3D
-forced off then left to its automatic choice, and compares compact signatures.
+The helpers run a steady analytical case that declares a ``modflow6_irregular_tri``
+variant twice, XT3D forced off then left to its automatic choice, and compare
+compact signatures. The fast regression ``test_xt3d_irregular_tri_fast_regression``
+runs them on ``dupuit_uniform_recharge_1d``.
 """
 
 from __future__ import annotations
