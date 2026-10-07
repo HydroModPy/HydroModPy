@@ -936,10 +936,6 @@ session (``hmp catalog ls --tag calibration:<session_id>`` lists them):
 Without ``--output`` the PNG lands in ``runs/<run>/figures/``.
 ``hmp report render`` renders the whole set in one go.
 
-Pre-rendered examples for a Dupuit / MODFLOW 6 twin benchmark live
-under ``docs/source/_static/capability_gallery/calibration/``: reuse
-them as visual references.
-
 The loop can also render figures automatically at the end of the
 session by listing them under ``[display] figures = [...]`` in the
 TOML.

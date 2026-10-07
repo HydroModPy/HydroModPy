@@ -156,8 +156,8 @@ structured ``DIS`` MODFLOW 6 mesh (left) to its DISV irregular triangulation
 (right). Drag the handle to compare both supports.
 
 .. image-comparison::
-   :before: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6.png
-   :after: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6_irregular_tri.png
+   :before: /_static/theory/solvers/xt3d/circular_island_structured_dis.png
+   :after: /_static/theory/solvers/xt3d/circular_island_irregular_disv.png
    :before-label: Structured DIS
    :after-label: Irregular DISV (XT3D)
    :before-alt: Structured DIS rendering of the circular-island case
@@ -172,8 +172,10 @@ The repository already contains several useful anchors for this topic:
 - the XT3D auto-resolution logic in ``hydromodpy/solver/modflow6/modflow6.py``,
 - the runtime configuration flag in
   ``hydromodpy/solver/modflow6/modflow6_config.py``,
-- diagnostic assets under
-  ``docs/source/_static/capability_gallery/validation/``.
+- the regression test
+  ``tests/regression/fast/intercomparison/test_xt3d_irregular_tri_fast_regression.py``,
+  which runs a validation case on an irregular triangulation with XT3D on and off,
+- the validation cases and their thresholds in :doc:`/theory/validation`.
 
 The public scientific role of this page is to consolidate those scattered
 anchors into one explicit method note.
@@ -184,4 +186,4 @@ Related Pages
 - :doc:`/theory/mesh`
 - :doc:`/theory/exits`
 - :doc:`/theory/solvers`
-- Simulation Comparison Workflow
+- :doc:`/guides/compare-runs`

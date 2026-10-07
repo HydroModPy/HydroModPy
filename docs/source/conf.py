@@ -390,14 +390,11 @@ source_suffix = [".rst", ".md"]
 master_doc = "index"
 language = "en"
 
-# capability_gallery/ is no longer built. Its images stay under _static/ as long
-# as a theory page cites them.
 exclude_patterns = [
     "_data",
     # api/generated/ is left by builds of the old documentation and ignored by
     # git; this site has no api/ folder.
     "api",
-    "capability_gallery",
     "contribute/architecture/layer-matrix.partial.rst",
 ]
 
@@ -409,12 +406,12 @@ smart_quotes = False
 
 html_theme = "pydata_sphinx_theme"
 html_title = f"HydroModPy {release}"
-html_favicon = "images/logoHydroModPy.png"
-html_logo = "images/logoHydroModPy_long.png"
+html_favicon = "_static/logoHydroModPy.png"
+html_logo = "_static/logoHydroModPy_long.png"
 html_theme_options = {
     "logo": {
-        "image_light": "images/logoHydroModPy_long.png",
-        "image_dark": "images/logoHydroModPy_long.png",
+        "image_light": "_static/logoHydroModPy_long.png",
+        "image_dark": "_static/logoHydroModPy_long.png",
     },
     "navbar_start": ["navbar-logo"],
     "navbar_center": ["navbar-nav"],
@@ -455,13 +452,10 @@ html_static_path = ["_static"]
 html_css_files = [
     "uml-diagrams.css",
     "css/hmp-image-compare.css",
-    "css/hmp-page-badges.css",
-    "css/hmp-zoom-image.css",
 ]
 html_js_files = [
     "uml-diagrams.js",
     "js/hmp-image-compare.js",
-    "js/hmp-zoom-image.js",
 ]
 copybutton_prompt_text = r">>> |\$ |In \[\d+\]: | {2,5}\.\.\.:"
 copybutton_prompt_is_regexp = True
