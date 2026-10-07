@@ -11,7 +11,7 @@ def _xt3d_disabled(self, solver_mesh=None) -> bool:
 
 
 def _xt3d_disabled_mode(self, solver_mesh=None) -> str:
-    return "forced_disabled_for_doc_gallery"
+    return "forced_disabled"
 
 
 def _xt3d_disabled_options(self, solver_mesh=None) -> None:

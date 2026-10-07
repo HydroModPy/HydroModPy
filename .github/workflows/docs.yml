@@ -82,10 +82,9 @@ jobs:
       - name: Check the written pages
         run: python -m tools.docs.check_page $(git ls-files 'docs/source/*.md')
 
-      # conf.py regenerates config_reference/ on builder-inited, so the build
-      # above has already written the truth. 130 committed files under
-      # docs/source carry an auto-generated header and until now exactly one
-      # artifact had a freshness test: CI never looked at the rest.
+      # The build regenerates the tables a declared contract owns
+      # (tools/doc_contracts.py). A tracked file under docs/source that the
+      # build rewrites was stale.
       - name: Generated documentation must match its source
         run: |
           git diff --exit-code -- docs/source \

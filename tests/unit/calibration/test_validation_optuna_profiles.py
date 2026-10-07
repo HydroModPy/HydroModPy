@@ -2,21 +2,37 @@
 
 from __future__ import annotations
 
-from tools.doc_gallery.calibration_case_registry import build_calibration_case_records
+import pytest
+
 from validation_cases.calibration.shared.definitions import build_payload
 from validation_cases.calibration.shared.runtime import _apply_evaluation_budget
+from validation_cases.calibration.twin.steady.boussinesq_fixed_head_piecewise_k_1d.experiment import (
+    PIECEWISE_K_TWIN_CASE,
+)
 from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment import (
+    STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
     STEADY_DUPUIT_TWIN_CASE,
+)
+from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_step_1d.experiment import (
+    TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE,
+    TRANSIENT_RECHARGE_STEP_TWIN_CASE,
 )
 
 
-def test_curated_calibration_gallery_cases_include_optuna() -> None:
-    """The generated calibration HTML pages should expose Optuna as a benchmark method."""
-    records = build_calibration_case_records()
-
-    assert records
-    for record in records:
-        assert "optuna" in record.metadata["method_names"]
+@pytest.mark.parametrize(
+    "case",
+    [
+        STEADY_DUPUIT_TWIN_CASE,
+        STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
+        TRANSIENT_RECHARGE_STEP_TWIN_CASE,
+        TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE,
+        PIECEWISE_K_TWIN_CASE,
+    ],
+    ids=["dupuit", "dupuit_posterior", "recharge_step", "recharge_step_noisy", "piecewise_k"],
+)
+def test_every_calibration_twin_case_benchmarks_optuna(case) -> None:
+    """Each calibration twin case runs Optuna among its methods."""
+    assert "optuna" in {profile.name for profile in case.method_profiles}
 
 
 def test_optuna_validation_profile_uses_top_level_iteration_budget() -> None:

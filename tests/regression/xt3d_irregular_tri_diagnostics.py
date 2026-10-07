@@ -77,7 +77,7 @@ def _patched_modflow6_xt3d_disabled(enabled: bool) -> Iterator[None]:
         return False
 
     def _xt3d_disabled_mode(self, solver_mesh=None) -> str:
-        return "forced_disabled_for_doc_gallery"
+        return "forced_disabled"
 
     def _xt3d_disabled_options(self, solver_mesh=None) -> None:
         return None

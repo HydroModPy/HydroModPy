@@ -175,5 +175,5 @@ See also
 - :doc:`../packages/schema` for the schema package map.
 - :doc:`add-a-config-field` for the annotations the frontend
   consumes.
-- Schema Explorer for the
-  user-facing schema viewer.
+- :doc:`/reference/parameters/explorer` for the user-facing browser of
+  every TOML key.
