@@ -172,9 +172,9 @@ The repository already contains several useful anchors for this topic:
 - the XT3D auto-resolution logic in ``hydromodpy/solver/modflow6/modflow6.py``,
 - the runtime configuration flag in
   ``hydromodpy/solver/modflow6/modflow6_config.py``,
-- the regression test
-  ``tests/regression/fast/intercomparison/test_xt3d_irregular_tri_fast_regression.py``,
-  which runs a validation case on an irregular triangulation with XT3D on and off,
+- the fast regression test ``test_xt3d_irregular_tri_fast_regression.py``
+  (in ``tests/regression/fast/intercomparison/``), which runs a validation case
+  on an irregular triangulation with XT3D on and off,
 - the validation cases and their thresholds in :doc:`/theory/validation`.
 
 The public scientific role of this page is to consolidate those scattered
