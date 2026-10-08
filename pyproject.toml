@@ -110,7 +110,6 @@ docs = [
     "sphinx>=7.0,<8",
     "myst-parser",
     "sphinx-autobuild",
-    "readthedocs-sphinx-ext",
     "pydata-sphinx-theme==0.17.1",
     "sphinx-design",
     "sphinx-copybutton",

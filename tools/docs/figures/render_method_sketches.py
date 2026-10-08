@@ -7,7 +7,7 @@ from pathlib import Path
 from textwrap import dedent
 
 ROOT = Path(__file__).resolve().parents[3]
-OUT = ROOT / "_static" / "concepts" / "streams_and_seepage"
+OUT = ROOT / "docs" / "source" / "_static" / "concepts" / "streams_and_seepage"
 
 W = 1280
 H = 740
