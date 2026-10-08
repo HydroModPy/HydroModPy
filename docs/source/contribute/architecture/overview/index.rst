@@ -1,14 +1,12 @@
 Architecture Overview
 =====================
 
-.. raw:: html
+.. rst-class:: lead
 
-   <p class="lead">
-   Cross-cutting architecture notes that complement the per-package
-   pages and the contributor recipes. Open these pages when the
-   question is "where does this responsibility live" or "which layer
-   should I change", rather than "how does one package work".
-   </p>
+Cross-cutting architecture notes that complement the per-package
+pages and the contributor recipes. Open these pages when the
+question is "where does this responsibility live" or "which layer
+should I change", rather than "how does one package work".
 
 For the entry point of the developer section, see
 :doc:`/contribute/architecture/index`. For one focused page per subpackage, see

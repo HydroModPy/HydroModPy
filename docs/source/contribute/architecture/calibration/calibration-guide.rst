@@ -96,11 +96,11 @@ Node by node:
   ``[workflow].mode = "calibration"`` marker. The rest of the file
   (``[simulation]``, ``[flow]``, ``[data]``, ``[solver]``) is exactly
   what you would write for a single run.
-- **``hmp run``**: the unified CLI entry point. It reads
+- ``hmp run``: the unified CLI entry point. It reads
   ``[workflow].mode = "calibration"`` and dispatches to
   ``hydromodpy.calibration.runners.cli_runner.run_calibration_cli``. Calibration
   has no separate top-level subcommand.
-- **``prepare_trials``**: runs pipeline steps ``[0..earliest)`` exactly
+- ``prepare_trials``: runs pipeline steps ``[0..earliest)`` exactly
   once. ``earliest`` is computed from the dotted paths declared by
   ``[calibration.parameters.*]`` (see §4). The prepared
   ``WorkflowContext`` (geographic, mesh, loaded forcings) is held in
@@ -120,7 +120,7 @@ Node by node:
   of ``calibration_sessions`` finalized at the end. Both tables are an
   index over the session journal: ``hmp catalog reindex`` rebuilds them
   from it.
-- **``promote_trial`` (top-N)**: if ``save_runs != "none"``, the
+- ``promote_trial`` (top-N): if ``save_runs != "none"``, the
   chosen trials are replayed through the *full* pipeline (steps
   ``00..11``) by ``hydromodpy.Project(cfg_path).simulate(**values)``. Each
   promotion creates a Zarr store, a Parquet directory, and a
@@ -140,7 +140,7 @@ Node by node:
   cost and its metric), then the ``runs/<name>/figures`` folders, the
   session folders and ``methods.md``, the methods paragraph written into
   the root session folder. ``--verbose`` prints the full summary dict.
-- **``hmp report render <session_ref>``**: post-processing CLI that
+- ``hmp report render <session_ref>``: post-processing CLI that
   reads the session descriptor and its trial log, renders the six
   calibration figures, and emits a standalone HTML report at
   ``<project>/share/reports/<session_name>/report.html``. The reference
@@ -196,8 +196,8 @@ Standard simulation block
 
 The ``[simulation]`` tree is exactly what you write for a single
 ``hmp run``: a name, a time window, and one or more processes.
-**Changing the solver does not change anything in the
-``[calibration]`` section**: the calibration code is solver-agnostic
+**Changing the solver does not change anything** in the
+``[calibration]`` section: the calibration code is solver-agnostic
 (no ``modflow``, ``modflow6``, ``boussinesq``, or ``solver.backend``
 string appears anywhere in ``hydromodpy/calibration/``). Swap
 ``"modflow_nwt"`` for ``"modflow6"`` and the same TOML calibrates the
@@ -981,21 +981,21 @@ Disable the cache (``use_cache = false``) when:
 Common pitfalls and how to avoid them
 -------------------------------------
 
-- **``path`` points to a missing field.** The engine raises a
+- ``path`` points to a missing field. The engine raises a
   ``CalibrationSetupError`` with the list of valid paths.
   Double-check with ``hmp doctor --toml run_calibration_k.toml``.
 - **Bounds too tight.** The optimizer converges on a plateau and
   reports a false "best". Widen ``bounds`` and re-run.
-- **``transform = "identity"`` for K from 1e-6 to 1e-3.** Uniform
+- ``transform = "identity"`` for K from 1e-6 to 1e-3. Uniform
   sampling in the physical space burns 99% of the budget on the top
   decade. Always use ``transform = "log"`` for multi-order quantities
   (K, conductances, storage coefficients).
-- **``save_runs = "all"`` on 100 trials.** You end up with ~50 GB of
+- ``save_runs = "all"`` on 100 trials. You end up with ~50 GB of
   Zarr. Use ``best_n`` unless you really want every trial on disk.
-- **``max_iter`` too low for a Bayesian method.** Optuna TPE needs
+- ``max_iter`` too low for a Bayesian method. Optuna TPE needs
   at least ~50 trials before exploiting; ``da_mh_gp`` needs a few
   hundred before the posterior stabilizes.
-- **Variable ``"discharge"`` but no hydrometry in ``[data]``.** The
+- Variable ``"discharge"`` but no hydrometry in ``[data]``. The
   metric extractor returns ``NaN`` on every trial; the session
   completes in seconds with no usable output. Check that
   ``[data.hydrometry]`` (or ``[data.piezometry]`` for head) is
@@ -1007,7 +1007,7 @@ Common pitfalls and how to avoid them
   sub-network upstream of the cell. A station the mesh cannot place
   falls back to the whole-catchment series, which is right for the
   outlet gauge only, so check the warning it logs.
-- **Forgetting ``[workflow].mode = "calibration"``.** ``hmp run``
+- Forgetting ``[workflow].mode = "calibration"``. ``hmp run``
   then treats the TOML as a simulation and runs ``K`` exactly once
   with its default value. The ``[calibration]`` section is silently
   ignored.

@@ -3,14 +3,12 @@
 Contribute
 ==========
 
-.. raw:: html
+.. rst-class:: lead
 
-   <p class="lead">
-   HydroModPy welcomes bug reports, new features, documentation work,
-   and example notebooks. This page covers the contributor install,
-   the coding style, the test ladder, the docs build, and the pull
-   request flow.
-   </p>
+HydroModPy welcomes bug reports, new features, documentation work,
+and example notebooks. This page covers the contributor install,
+the coding style, the test ladder, the docs build, and the pull
+request flow.
 
 .. admonition:: User install
    :class: tip

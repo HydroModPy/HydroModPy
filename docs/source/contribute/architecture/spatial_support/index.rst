@@ -1,14 +1,12 @@
 Spatial Support and Hydrography
 ===============================
 
-.. raw:: html
+.. rst-class:: lead
 
-   <p class="lead">
-   How HydroModPy defines spatial zones and supports, how they are
-   consumed by ``Field`` and ``FieldParam`` during heterogeneous
-   parameter mapping, and how hydrography drives stream supports and
-   simulated active-network diagnostics.
-   </p>
+How HydroModPy defines spatial zones and supports, how they are
+consumed by ``Field`` and ``FieldParam`` during heterogeneous
+parameter mapping, and how hydrography drives stream supports and
+simulated active-network diagnostics.
 
 Use it when you want the support-definition contract owned by
 ``hydromodpy.spatial.domain``, the runtime path from support config
