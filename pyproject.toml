@@ -107,23 +107,23 @@ test = ["pytest", "pytest-xdist", "pytest-timeout", "pytest-cov", "coverage[toml
 performance = ["pytest-benchmark>=5.0,<6", "uuid-utils>=0.10,<1", "polars>=1.0,<2"]
 profiling = ["pyinstrument>=5.0,<6"]
 docs = [
-    "sphinx>=7.0,<8",
-    "myst-parser",
+    "sphinx>=9.0,<9.1",
+    "myst-parser>=5.1,<6",
     "sphinx-autobuild",
-    "pydata-sphinx-theme==0.17.1",
-    "sphinx-design",
+    "pydata-sphinx-theme==0.23.0",
+    "sphinx-design>=0.7",
     "sphinx-copybutton",
     "sphinx-polyversion>=1.0",
     "sphinxcontrib-plantuml",
     "sphinxcontrib-bibtex",
-    "sphinx-favicon<1.1",
+    "sphinx-favicon>=1.1",
     "sphinx-sitemap",
     "sphinx-last-updated-by-git",
     "sphinxext-opengraph",
+    "sphinxext-rediraffe",
     "sphinx-lint",
     "doc8",
 ]
-docs-uml = ["erdantic"]
 ide = [
     "ipykernel",
     "ipython",

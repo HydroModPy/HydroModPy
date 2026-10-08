@@ -95,7 +95,7 @@ def users_html(verb: str, b, doc: str) -> str:
 
 class VerbsDirective(SphinxDirective):
     def run(self):
-        b, doc = self.env.app.builder, self.env.docname
+        b, doc = H.current_builder(), self.env.docname
         rows = "".join(
             f'<tr><td><a href="{esc(H.doc_uri(b, doc, verb_doc(v["name"])))}"><code>hmp.{esc(v["name"])}()</code></a></td>'
             f"<td>{H.inline_md(v['summary'], b, doc)}</td><td>{returns_html(v, b, doc)}</td><td>{users_html(v['name'], b, doc)}</td></tr>"
@@ -113,7 +113,7 @@ class ObjectsDirective(SphinxDirective):
     option_spec = {"kind": directives.unchanged}
 
     def run(self):
-        b, doc = self.env.app.builder, self.env.docname
+        b, doc = H.current_builder(), self.env.docname
         kind = self.options.get("kind", "result")
         cards = "".join(
             H.card(
@@ -129,7 +129,7 @@ class ObjectsDirective(SphinxDirective):
 
 class ConfigsDirective(SphinxDirective):
     def run(self):
-        b, doc = self.env.app.builder, self.env.docname
+        b, doc = H.current_builder(), self.env.docname
         kinds = A.get("toml_kinds", {})
         rows = []
         for c in sorted(classes("config"), key=lambda c: (c.get("toml") or ["~"])[0]):
@@ -162,7 +162,7 @@ class ConfigsDirective(SphinxDirective):
 
 class ModulesDirective(SphinxDirective):
     def run(self):
-        b, doc = self.env.app.builder, self.env.docname
+        b, doc = H.current_builder(), self.env.docname
         rows = "".join(
             f"<tr><td><code>hmp.{esc(m['name'])}</code></td><td>{H.inline_md(m['summary'] or '', b, doc) or '<span class=hmp-gap>no docstring</span>'}</td></tr>"
             for m in A.get("modules", [])
@@ -220,7 +220,7 @@ class TwinDirective(SphinxDirective):
     required_arguments = 1
 
     def run(self):
-        b, doc = self.env.app.builder, self.env.docname
+        b, doc = H.current_builder(), self.env.docname
         v = next((x for x in A.get("verbs", []) if x["name"] == self.arguments[0]), None)
         if v is None:
             return []
@@ -278,7 +278,7 @@ class MembersDirective(SphinxDirective):
         c = next((x for x in A.get("classes", []) if x["name"] == self.arguments[0]), None)
         if c is None or not c.get("members"):
             return []
-        b, doc = self.env.app.builder, self.env.docname
+        b, doc = H.current_builder(), self.env.docname
         rows = []
         for kind in ("property", "method", "attribute"):
             for m in (m for m in c["members"] if m["kind"] == kind):
@@ -349,7 +349,7 @@ class CommandDirective(SphinxDirective):
         if c["description"]:
             parts.append(f"<p>{esc(c['description'])}</p>")
         if c["subcommands"]:
-            b, doc = self.env.app.builder, self.env.docname
+            b, doc = H.current_builder(), self.env.docname
 
             def target(name: str) -> str:
                 # A top-level command has a page; a deeper one is a section of it,

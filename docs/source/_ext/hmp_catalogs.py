@@ -56,7 +56,7 @@ class SolversDirective(SphinxDirective):
             )
             body.append(
                 f"<tr><td><code>{esc(r['process'])}</code></td><td><code>{esc(r['solver'])}</code>"
-                f'<div class="hmp-muted hmp-cat-sum">{H.inline_md(r["summary"], self.env.app.builder, self.env.docname)}</div></td>'
+                f'<div class="hmp-muted hmp-cat-sum">{H.inline_md(r["summary"], H.current_builder(), self.env.docname)}</div></td>'
                 f"<td>{caps}</td><td>{req}</td><td>{'yes' if r['extractor'] else 'no'}</td></tr>"
             )
         return [
@@ -75,7 +75,7 @@ class FiguresDirective(SphinxDirective):
         rows = DATA.get("figures")
         if not rows:
             return missing("figures")
-        builder, doc = self.env.app.builder, self.env.docname
+        builder, doc = H.current_builder(), self.env.docname
         by_kind: dict[str, list[dict]] = defaultdict(list)
         for r in rows:
             by_kind[r["kind"]].append(r)
@@ -124,7 +124,7 @@ class DataSourcesDirective(SphinxDirective):
         rows = DATA.get("data_sources")
         if not rows:
             return missing("data sources")
-        builder, doc = self.env.app.builder, self.env.docname
+        builder, doc = H.current_builder(), self.env.docname
         body = []
         for r in rows:
             section = f'<a class="hmp-toml-ref" href="{esc(H.uri(builder, doc, r["section"]))}"><code>[{esc(r["section"])}]</code></a>'

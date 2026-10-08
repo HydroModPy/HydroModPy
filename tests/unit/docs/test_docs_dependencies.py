@@ -76,44 +76,6 @@ def test_editable_conda_environments_install_docs_extra() -> None:
     )
 
 
-def test_editable_conda_environments_preinstall_graphviz_stack() -> None:
-    missing_packages: dict[str, list[str]] = {}
-    required_packages = {"graphviz", "pygraphviz"}
-
-    for environment_path in EDITABLE_ENVIRONMENT_PATHS:
-        text = environment_path.read_text(encoding="utf-8")
-        environment_packages = {
-            line.strip().removeprefix("-").strip().split("=", 1)[0].lower()
-            for line in text.splitlines()
-            if line.strip().startswith("- ")
-        }
-        missing = sorted(required_packages - environment_packages)
-        if missing:
-            missing_packages[environment_path.name] = missing
-
-    assert not missing_packages, (
-        "Editable conda environments install the docs-uml extra, which pulls erdantic. "
-        "erdantic's pygraphviz dependency must come from conda-forge "
-        f"instead of a pip source build. Missing: {missing_packages}"
-    )
-
-
-def test_docs_extra_excludes_erdantic_to_avoid_pygraphviz_source_build() -> None:
-    pyproject = tomllib.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
-    extras = pyproject["project"]["optional-dependencies"]
-    docs_extra = {_normalize_requirement(requirement) for requirement in extras["docs"]}
-    docs_uml_extra = {_normalize_requirement(requirement) for requirement in extras["docs-uml"]}
-
-    assert "erdantic" not in docs_extra, (
-        "erdantic must stay out of the docs extra. It pulls pygraphviz, a C "
-        "extension with no Linux wheels, so a bare 'pip install -e .[docs]' "
-        "fails to compile it against the system Graphviz headers (issue #43)."
-    )
-    assert "erdantic" in docs_uml_extra, (
-        "The docs-uml extra regenerates the config ER diagrams and must provide erdantic."
-    )
-
-
 def _string_list_assignment(tree: ast.Module, name: str) -> list[str]:
     for node in ast.walk(tree):
         targets: list[ast.expr] = []

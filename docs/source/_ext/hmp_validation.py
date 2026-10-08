@@ -286,7 +286,7 @@ class ValidationDirective(SphinxDirective):
     """The whole validation page body."""
 
     def run(self):
-        builder = self.env.app.builder
+        builder = H.current_builder()
         doc = self.env.docname
         entries = DATA.get("validation", [])
         if not entries:
@@ -353,7 +353,7 @@ class TestedByDirective(SphinxDirective):
         }
         if not hits:
             return [H.raw('<p class="hmp-gap">No test imports these modules.</p>')]
-        builder = self.env.app.builder
+        builder = H.current_builder()
         val_doc = builder.get_relative_uri(self.env.docname, "theory/validation")
         by_tier: dict[str, list[str]] = {}
         for f in sorted(hits):

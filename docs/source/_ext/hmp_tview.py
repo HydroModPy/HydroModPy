@@ -259,7 +259,7 @@ class TBlockDirective(SphinxDirective):
             return []
         variant = self.options.get("variant")
         html_text = tblock(
-            self.env.app.builder, self.env.docname, path, variant=variant, ids=page_ids(self.env)
+            H.current_builder(), self.env.docname, path, variant=variant, ids=page_ids(self.env)
         )
         leaves = [c for c in H.kids(path) if H.node(c).get("kind") == "leaf"]
         if variant:
@@ -299,7 +299,7 @@ class ParamsDirective(SphinxDirective):
                 groups.setdefault(canon.rsplit(".", 1)[0], []).append(canon)
             else:
                 groups.setdefault(canon, [])
-        builder = self.env.app.builder
+        builder = H.current_builder()
         parts = []
         for table, leaves in groups.items():
             if not leaves and not any(H.node(c).get("kind") == "leaf" for c in H.kids(table)):
@@ -396,7 +396,7 @@ class LinksDirective(SphinxDirective):
 
     def run(self):
         path = self.arguments[0]
-        builder = self.env.app.builder
+        builder = H.current_builder()
         doc = self.env.docname
 
         def ref(p: str, text: str | None = None) -> str:
@@ -443,7 +443,7 @@ class LinksDirective(SphinxDirective):
 
 class ExplorerDirective(SphinxDirective):
     def run(self):
-        builder = self.env.app.builder
+        builder = H.current_builder()
         doc = self.env.docname
 
         def leaf_li(p: str) -> str:
@@ -525,7 +525,7 @@ QUANTITIES = [
 
 class QuantitiesDirective(SphinxDirective):
     def run(self):
-        builder = self.env.app.builder
+        builder = H.current_builder()
         doc = self.env.docname
         leaves = [
             (p, n)
@@ -561,7 +561,7 @@ class SectionsDirective(SphinxDirective):
     """Cards of the root sections, ordered by what a run needs."""
 
     def run(self):
-        builder = self.env.app.builder
+        builder = H.current_builder()
         doc = self.env.docname
         roots = H.S["meta"]["roots"]
         order = sorted(roots, key=lambda r: (0 if H.node(r).get("required") else 1, roots.index(r)))
@@ -776,7 +776,7 @@ class SectionsOfDirective(SphinxDirective):
     required_arguments = 1
 
     def run(self):
-        builder = self.env.app.builder
+        builder = H.current_builder()
         doc = self.env.docname
         root = self.arguments[0]
         pages = H.S["split"]
@@ -827,7 +827,7 @@ class LegendDirective(SphinxDirective):
         return H.S["meta"]["roots"][0]
 
     def run(self):
-        builder = self.env.app.builder
+        builder = H.current_builder()
         sample = self.pick()
         block = tblock(builder, self.env.docname, sample, ids=None, link_header=True)
         legend = (

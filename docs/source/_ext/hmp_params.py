@@ -23,6 +23,16 @@ from sphinx.util.docutils import SphinxDirective
 
 logger = logging.getLogger(__name__)
 
+# BuildEnvironment.app is deprecated since Sphinx 9 (removed in 11): the
+# application is kept here by setup() and every directive asks for the builder.
+_APP: Sphinx | None = None
+
+
+def current_builder():
+    """The builder of the running Sphinx application."""
+    return _APP.builder
+
+
 S: dict[str, Any] = {}
 
 SPLIT_THRESHOLD = 120
@@ -599,7 +609,7 @@ class IntroDirective(SphinxDirective):
             k: sum(1 for p in sub if node(p).get("profile") == k) for k in ("user", "dev", "expert")
         }
         text = n.get("doc") or n.get("description") or ""
-        intro = block_md(text, self.env.app.builder, self.env.docname)
+        intro = block_md(text, current_builder(), self.env.docname)
         parts = [
             f'<div class="hmp-intro" data-origin="auto">{intro or "<p><span class=hmp-gap>no docstring</span></p>"}'
         ]
@@ -673,7 +683,7 @@ class KnownKeysDirective(SphinxDirective):
                     else ""
                 )
                 + f"</td><td data-origin='auto'>{esc(info.get('unit'))}</td><td data-origin='auto'>{phys_txt}</td>"
-                f"<td>{origin(inline_md(note, self.env.app.builder, self.env.docname), True) if note else ''}</td></tr>"
+                f"<td>{origin(inline_md(note, current_builder(), self.env.docname), True) if note else ''}</td></tr>"
             )
         table = (
             '<table class="hmp-known"><thead><tr><th>Name</th><th>Quantity</th><th>Unit</th>'
@@ -848,7 +858,7 @@ class TomlDirective(SphinxDirective):
     }
 
     def run(self):
-        builder = self.env.app.builder
+        builder = current_builder()
         caption = self.options.get("caption", "")
         if "file" in self.options:
             path = S["example_dir"] / self.options["file"]
@@ -896,7 +906,7 @@ class StepDirective(SphinxDirective):
     required_arguments = 1
 
     def run(self):
-        builder = self.env.app.builder
+        builder = current_builder()
         path = S["example_dir"] / self.arguments[0]
         text = path.read_text()
         raw_data = tomllib.loads(text)
@@ -925,7 +935,7 @@ class StepDirective(SphinxDirective):
 
 class ChangelogDirective(SphinxDirective):
     def run(self):
-        builder = self.env.app.builder
+        builder = current_builder()
         c = S["changelog"]
         if not c:
             return [raw("<p>No changelog data.</p>")]
@@ -1026,7 +1036,7 @@ def title_of(path: str) -> str:
 
 def toml_role(name, rawtext, text, lineno, inliner, options=None, content=None):
     env = inliner.document.settings.env
-    builder = env.app.builder
+    builder = current_builder()
     title, target = text.split("|", 1) if "|" in text else (text, text)
     title, target = title.strip(), target.strip()
     canon = resolve(target)
@@ -1066,6 +1076,8 @@ def on_builder_inited(app: Sphinx) -> None:
 
 
 def setup(app: Sphinx) -> dict[str, Any]:
+    global _APP
+    _APP = app
     app.add_config_value("hmp_example_dir", "", "env")
     app.connect("builder-inited", on_builder_inited)
     app.add_role("toml", toml_role)
