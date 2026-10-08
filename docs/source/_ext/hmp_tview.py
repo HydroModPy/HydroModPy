@@ -545,7 +545,7 @@ class QuantitiesDirective(SphinxDirective):
             rows = "".join(
                 f'<tr><td><a href="{esc(H.uri(builder, doc, p))}"><code>{esc(p).replace(".", ".<wbr>")}</code></a></td>'
                 f"<td>{esc(unit_of(n) or '')}</td><td>{'required' if n.get('required') else esc(n.get('default') or '')}</td>"
-                f"<td>{esc(n.get('summary', ''))}</td></tr>"
+                f"<td>{H.inline_md(n.get('summary', ''), builder, doc)}</td></tr>"
                 for p, n in sorted(hits)
             )
             parts.append(
@@ -577,9 +577,12 @@ class SectionsDirective(SphinxDirective):
                 badges.append(f'<span class="tc tc-prof">{esc(n.get("profile"))}</span>')
             target = H.doc_uri(builder, doc, H.a_doc(r))
             cards.append(
-                f'<a class="sec-card" href="{esc(target)}"><code>{esc(header_of(r))}</code>'
-                f'<span class="sec-sum">{H.inline_md(n.get("summary") or n.get("doc") or "", builder, doc)}</span>'
-                f'<span class="sec-meta">{user} user · {len(leaves) - user} dev/expert {" ".join(badges)}</span></a>'
+                H.card(
+                    target,
+                    header_of(r),
+                    H.inline_md(n.get("summary") or n.get("doc") or "", builder, doc),
+                    f"{user} user · {len(leaves) - user} dev/expert {' '.join(badges)}",
+                )
             )
         return [H.raw(f'<div class="sec-grid">{"".join(cards)}</div>')]
 
@@ -795,9 +798,12 @@ class SectionsOfDirective(SphinxDirective):
                 else ""
             )
             cards.append(
-                f'<a class="sec-card" href="{esc(H.doc_uri(builder, doc, pages[c]))}"><code>{esc(header_of(c))}</code>'
-                f'<span class="sec-sum">{esc(n.get("summary") or n.get("doc") or "")}</span>'
-                f'<span class="sec-meta">{user} user · {len(leaves) - user} dev/expert {prof}</span></a>'
+                H.card(
+                    H.doc_uri(builder, doc, pages[c]),
+                    header_of(c),
+                    H.inline_md(n.get("summary") or n.get("doc") or "", builder, doc),
+                    f"{user} user · {len(leaves) - user} dev/expert {prof}",
+                )
             )
         return [H.raw(f'<div class="sec-grid">{"".join(cards)}</div>')]
 

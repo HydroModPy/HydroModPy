@@ -9,7 +9,6 @@ folders and tests/TOLERANCES.md.
 from __future__ import annotations
 
 import json
-import re
 from collections import Counter
 from pathlib import Path
 
@@ -47,8 +46,7 @@ def esc(text) -> str:
 
 def md(text: str, builder, docname: str) -> str:
     """Inline Markdown of a docstring or a table cell: code, TOML links, bold."""
-    out = H.inline_md(text.replace("\\|", "|"), builder, docname)
-    return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", out)
+    return H.inline_md(text.replace("\\|", "|"), builder, docname)
 
 
 def anchor_of(file: str) -> str:
@@ -269,7 +267,7 @@ def entry_html(entry: dict, builder, docname: str) -> str:
         )
         body.append(head + summ + ref + criteria_html(entry, case) + run + "</div>")
     body.append(tol_rows_html(entry, builder, docname))
-    tests = "".join(f"<li>{esc(sentence(t))}</li>" for t in entry["tests"])
+    tests = "".join(f"<li>{md(sentence(t), builder, docname)}</li>" for t in entry["tests"])
     body.append(
         f'<div class="hmp-val-h">Test functions</div><ul class="hmp-val-tests">{tests}</ul>'
     )
@@ -278,7 +276,7 @@ def entry_html(entry: dict, builder, docname: str) -> str:
     )
     return (
         f'<details class="hmp-val" id="{anchor_of(entry["file"])}"><summary>'
-        f'<span class="hmp-val-title">{esc(title_of(entry))}</span> {scope_chips(entry)}{chips(solvers)}'
+        f'<span class="hmp-val-title">{md(title_of(entry), builder, docname)}</span> {scope_chips(entry)}{chips(solvers)}'
         f"{f'<span class=tc>{speed}</span>' if speed else ''}</summary>"
         f'<div class="hmp-val-body">{"".join(body)}</div></details>'
     )

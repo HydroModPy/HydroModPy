@@ -62,6 +62,7 @@ body.hmp-show-origin [data-origin="written"] { outline: 1.5px dashed var(--hmp-w
 
 .hmp-intro { background: var(--pst-color-surface); border-radius: .4rem; padding: .6rem .9rem; margin-bottom: .8rem; }
 .hmp-intro p { margin-bottom: .3rem; }
+.hmp-intro ul { margin: .1rem 0 .4rem 0; padding-left: 1.2rem; }
 .hmp-facts { margin: 0; padding-left: 1.1rem; font-size: .9em; }
 
 /* Rows */
@@ -120,6 +121,8 @@ body.hmp-show-origin [data-origin="written"] { outline: 1.5px dashed var(--hmp-w
 .hmp-card dt { color: var(--pst-color-text-muted); font-weight: 600; }
 .hmp-card dd { margin: 0; }
 .hmp-card ul { margin: 0; padding-left: 1rem; }
+.hmp-card dd p { margin: 0 0 .3rem 0; }
+.hmp-card dd p:last-child { margin-bottom: 0; }
 .hmp-ref { color: var(--pst-color-text-muted); font-size: .9em; }
 .hmp-copy {
   font-size: .75em; padding: 0 .4rem; border-radius: .3rem; border: 1px solid var(--pst-color-border);
@@ -260,9 +263,13 @@ a.tb-h { font-family: var(--pst-font-family-monospace); font-weight: 700; color:
 
 /* Section cards */
 .sec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: .7rem; margin: .6rem 0 1.5rem 0; }
-a.sec-card { display: flex; flex-direction: column; gap: .3rem; padding: .7rem .8rem; border: 1px solid var(--pst-color-border); border-radius: .45rem; text-decoration: none; color: var(--pst-color-text-base); background: var(--pst-color-background); }
-a.sec-card:hover { border-color: var(--pst-color-primary); box-shadow: 0 2px 10px rgba(0,0,0,.06); }
-a.sec-card code { font-weight: 700; color: var(--pst-color-primary); background: none; border: none; padding: 0; }
+/* The title link covers the card; links in the summary sit above it. */
+.sec-card { position: relative; display: flex; flex-direction: column; gap: .3rem; padding: .7rem .8rem; border: 1px solid var(--pst-color-border); border-radius: .45rem; color: var(--pst-color-text-base); background: var(--pst-color-background); }
+.sec-card:hover { border-color: var(--pst-color-primary); box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+.sec-card a.sec-title { text-decoration: none; }
+.sec-card a.sec-title::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.sec-card a.sec-title code { font-weight: 700; color: var(--pst-color-primary); background: none; border: none; padding: 0; }
+.sec-sum a { position: relative; z-index: 1; }
 .sec-sum { font-size: .85em; color: var(--pst-color-text-muted); }
 .sec-meta { font-size: .78em; color: var(--pst-color-text-muted); margin-top: auto; }
 
@@ -373,3 +380,8 @@ table.hmp-cat td:first-child { white-space: nowrap; }
 /* Home page badges, on one line that wraps */
 .hmp-badges p { display: flex; flex-wrap: wrap; gap: .35rem; margin: .4rem 0 1rem; }
 .hmp-badges img { height: 20px; }
+
+/* Long code entries of the page contents wrap instead of being cut. */
+.bd-sidebar-secondary .toc-entry code,
+.bd-sidebar-secondary .toc-entry span.pre { white-space: normal; overflow-wrap: anywhere; }
+.bd-sidebar-secondary .toc-entry code { font-size: .85em; }

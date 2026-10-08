@@ -61,6 +61,12 @@ def command(path: list[str]) -> dict:
 
 
 def returns_html(v: dict, b, doc: str) -> str:
+    if not v["returns"]:
+        # No documented class or alias: the annotation as written, when it says something.
+        ann = v.get("annotation", "")
+        if ann in ("", "Any"):
+            return '<span class="hmp-gap">no return type</span>'
+        return f"<code>{esc(ann)}</code>"
     parts = []
     for r in v["returns"]:
         if "qualname" in r:
@@ -110,9 +116,12 @@ class ObjectsDirective(SphinxDirective):
         b, doc = self.env.app.builder, self.env.docname
         kind = self.options.get("kind", "result")
         cards = "".join(
-            f'<a class="sec-card" href="{esc(H.doc_uri(b, doc, class_doc(c["name"])))}"><code>{esc(c["name"])}</code>'
-            f'<span class="sec-sum">{H.inline_md(c["summary"], b, doc) or "<span class=hmp-gap>no docstring</span>"}</span>'
-            f'<span class="sec-meta">{len(c.get("members", []))} public members</span></a>'
+            H.card(
+                H.doc_uri(b, doc, class_doc(c["name"])),
+                c["name"],
+                H.inline_md(c["summary"], b, doc) or '<span class="hmp-gap">no docstring</span>',
+                f"{len(c.get('members', []))} public members",
+            )
             for c in classes(kind)
         )
         return [H.raw(f'<div class="sec-grid">{cards}</div>')]
@@ -269,18 +278,19 @@ class MembersDirective(SphinxDirective):
         c = next((x for x in A.get("classes", []) if x["name"] == self.arguments[0]), None)
         if c is None or not c.get("members"):
             return []
+        b, doc = self.env.app.builder, self.env.docname
         rows = []
         for kind in ("property", "method", "attribute"):
             for m in (m for m in c["members"] if m["kind"] == kind):
-                anchor = f"{c['qualname']}.{m['name']}"
-                summary = (
-                    esc(m["summary"])
-                    if m["summary"]
-                    else '<span class="hmp-gap">no docstring</span>'
-                )
-                rows.append(
-                    f'<tr><td><a href="#{esc(anchor)}"><code>{esc(m["name"])}</code></a></td><td>{esc(kind)}</td><td>{summary}</td></tr>'
-                )
+                name = f"<code>{esc(m['name'])}</code>"
+                if m["summary"]:
+                    # autodoc renders only the members with a docstring, so only
+                    # those have an anchor to link to.
+                    name = f'<a href="#{esc(c["qualname"])}.{esc(m["name"])}">{name}</a>'
+                    summary = H.inline_md(m["summary"], b, doc)
+                else:
+                    summary = '<span class="hmp-gap">no docstring</span>'
+                rows.append(f"<tr><td>{name}</td><td>{esc(kind)}</td><td>{summary}</td></tr>")
         return [
             H.raw(
                 '<div class="hmp-matrix-wrap"><table class="api-t"><thead><tr><th>Member</th><th>Kind</th><th>What it is</th></tr></thead>'
@@ -339,8 +349,18 @@ class CommandDirective(SphinxDirective):
         if c["description"]:
             parts.append(f"<p>{esc(c['description'])}</p>")
         if c["subcommands"]:
+            b, doc = self.env.app.builder, self.env.docname
+
+            def target(name: str) -> str:
+                # A top-level command has a page; a deeper one is a section of it,
+                # whose id is its words joined by dashes.
+                if len(path) == 1:
+                    return H.doc_uri(b, doc, command_doc(name))
+                return H.doc_uri(b, doc, command_doc(path[1])) + "#" + "-".join(path + [name])
+
             rows = "".join(
-                f"<tr><td><code>{esc(' '.join(path + [s['name']]))}</code></td><td>{esc(s.get('help') or '')}</td></tr>"
+                f'<tr><td><a href="{esc(target(s["name"]))}"><code>{esc(" ".join(path + [s["name"]]))}</code></a></td>'
+                f"<td>{esc(s.get('help') or '')}</td></tr>"
                 for s in c["subcommands"]
             )
             parts.append(
