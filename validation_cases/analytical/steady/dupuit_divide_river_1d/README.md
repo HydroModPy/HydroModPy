@@ -29,3 +29,15 @@ The runner saves a PNG figure with:
 - numerical mean profile as blue points,
 - analytical Dupuit profile as an orange line,
 - a residual panel and a metrics summary box.
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+\frac{\mathrm{d}}{\mathrm{d}x}\left(K\,h\,\frac{\mathrm{d}h}{\mathrm{d}x}\right)+R=0,\qquad \frac{\mathrm{d}h}{\mathrm{d}x}(0)=0,\qquad h(L)=h_r
+$$
+
+$$
+h(x)^2=h_r^2+\frac{R}{K}\left(L^2-x^2\right)
+$$

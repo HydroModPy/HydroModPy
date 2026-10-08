@@ -309,7 +309,33 @@ def inline_md(text: str, builder, fromdoc: str) -> str:
 
     out = re.sub(r"\{toml\}`([^`]+)`", toml_link, out)
     out = re.sub(r"`([^`]+)`", r"<code>\1</code>", out)
-    return autolink_paths(out, builder, fromdoc)
+    return autolink_paths(_bold(out), builder, fromdoc)
+
+
+def _bold(html_text: str) -> str:
+    """Render **x** as bold, outside code spans."""
+    parts = re.split(r"(<code\b.*?</code>)", html_text, flags=re.S)
+    return "".join(
+        part
+        if part.startswith("<code")
+        else re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", part)
+        for part in parts
+    )
+
+
+def block_md(text: str, builder, fromdoc: str) -> str:
+    """Paragraphs and "- " lists of a description, each line rendered by inline_md."""
+    out = []
+    for block in re.split(r"\n[ \t]*\n", (text or "").strip()):
+        lines = [line.strip() for line in block.splitlines() if line.strip()]
+        if not lines:
+            continue
+        if all(line.startswith("- ") for line in lines):
+            items = "".join(f"<li>{inline_md(line[2:], builder, fromdoc)}</li>" for line in lines)
+            out.append(f"<ul>{items}</ul>")
+        else:
+            out.append(f"<p>{inline_md(' '.join(lines), builder, fromdoc)}</p>")
+    return "".join(out)
 
 
 _AUTO = re.compile(r"(?<![\w./#-])(\[{0,2})([a-z][a-z0-9_]*(?:\.[A-Za-z0-9_<>&;]+)+)(\]{0,2})")
@@ -361,7 +387,7 @@ def render_card(builder, fromdoc: str, path: str, n: dict, fo: dict) -> str:
     desc = n.get("description") or n.get("doc") or ""
     if desc:
         label = "Docstring" if fo.get("summary") or fo.get("detail") else "Description"
-        add(label, origin(inline_md(desc, builder, fromdoc), False))
+        add(label, f'<div data-origin="auto">{block_md(desc, builder, fromdoc)}</div>')
     lits = n.get("literal", [])
     vdocs = dict(n.get("value_docs", {}))
     vdocs.update(fo.get("value_docs", {}))
@@ -510,6 +536,18 @@ def raw(text: str) -> nodes.raw:
     return nodes.raw("", text, format="html")
 
 
+def card(href: str, title: str, summary_html: str, meta_html: str) -> str:
+    """One card of a grid. The title link covers the card through CSS.
+
+    The card is not itself a link: a summary may hold links, and a link
+    inside a link is invalid HTML that the browser splits apart.
+    """
+    return (
+        f'<div class="sec-card"><a class="sec-title" href="{esc(href)}"><code>{esc(title)}</code></a>'
+        f'<span class="sec-sum">{summary_html}</span><span class="sec-meta">{meta_html}</span></div>'
+    )
+
+
 # ---------------------------------------------------------------- directives
 
 
@@ -536,7 +574,6 @@ class IndexDirective(SphinxDirective):
         from sphinx import addnodes
 
         targetid = f"index-{self.env.new_serialno('index')}"
-        target = nodes.target("", "", ids=[targetid])
         index = addnodes.index(entries=[])
         for line in self.content:
             line = line.strip()
@@ -544,8 +581,9 @@ class IndexDirective(SphinxDirective):
                 continue
             value = line[len("single:") :].strip() if line.startswith("single:") else line
             index["entries"].append(("single", value, targetid, "", None))
-        self.state.document.note_explicit_target(target)
-        return [index, target]
+        # A target node would hand its id to the raw HTML block that follows,
+        # where the id is dropped; a raw anchor keeps it for the index and search.
+        return [index, raw(f'<span id="{targetid}"></span>')]
 
 
 class IntroDirective(SphinxDirective):
@@ -561,8 +599,9 @@ class IntroDirective(SphinxDirective):
             k: sum(1 for p in sub if node(p).get("profile") == k) for k in ("user", "dev", "expert")
         }
         text = n.get("doc") or n.get("description") or ""
+        intro = block_md(text, self.env.app.builder, self.env.docname)
         parts = [
-            f'<div class="hmp-intro" data-origin="auto"><p>{inline_md(text, self.env.app.builder, self.env.docname) or "<span class=hmp-gap>no docstring</span>"}</p>'
+            f'<div class="hmp-intro" data-origin="auto">{intro or "<p><span class=hmp-gap>no docstring</span></p>"}'
         ]
         facts = [
             f"<li><b>Path</b> <code>{esc(path)}</code> <span class='hmp-muted'>({esc(table_form(n))})</span></li>",
@@ -585,12 +624,12 @@ class IntroDirective(SphinxDirective):
         )
         no_vals = sum(1 for x in user if len(x.get("literal", [])) >= 2 and not x.get("value_docs"))
         gaps = [
-            f"{n_} {label}"
-            for n_, label in (
-                (empty, "keys without description"),
-                (short, "descriptions under six words"),
-                (no_unit, "numbers without a declared unit"),
-                (no_vals, "choices without explained values"),
+            f"{n_} {one if n_ == 1 else many}"
+            for n_, one, many in (
+                (empty, "key without description", "keys without description"),
+                (short, "description under six words", "descriptions under six words"),
+                (no_unit, "number without a declared unit", "numbers without a declared unit"),
+                (no_vals, "choice without explained values", "choices without explained values"),
             )
             if n_
         ]
@@ -891,11 +930,18 @@ class ChangelogDirective(SphinxDirective):
         if not c:
             return [raw("<p>No changelog data.</p>")]
         parts = [f'<p class="hmp-muted">{esc(c.get("from"))} → {esc(c.get("to"))}</p>']
+
+        def shown(path: str, value: Any) -> str:
+            if value not in (None, ""):
+                return str(value)
+            return "required" if S["nodes"].get(path, {}).get("required") else "not set"
+
         moved = [it for it in c.get("changed", []) if "default" in it["changes"]]
         if moved:
             items = "".join(
                 f'<li><a class="hmp-toml-ref" href="{esc(uri(builder, self.env.docname, it["path"]))}"><code>{esc(it["path"])}</code></a> '
-                f"<code>{esc(it['changes']['default'][0])}</code> → <code>{esc(it['changes']['default'][1])}</code></li>"
+                f"<code>{esc(shown(it['path'], it['changes']['default'][0]))}</code> → "
+                f"<code>{esc(shown(it['path'], it['changes']['default'][1]))}</code></li>"
                 for it in moved
             )
             parts.append(
@@ -919,7 +965,8 @@ class ChangelogDirective(SphinxDirective):
             for it in items[:400]:
                 if isinstance(it, dict):
                     detail = "; ".join(
-                        f"{esc(k)}: <code>{esc(v[0])}</code> → <code>{esc(v[1])}</code>"
+                        f"{esc(k)}: <code>{esc(shown(it['path'], v[0]) if k == 'default' else v[0])}</code>"
+                        f" → <code>{esc(shown(it['path'], v[1]) if k == 'default' else v[1])}</code>"
                         for k, v in it["changes"].items()
                     )
                     parts.append(f"<li>{link(it['path'])} {detail}</li>")

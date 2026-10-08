@@ -151,12 +151,17 @@ class DataSourcesDirective(SphinxDirective):
                     bits.append("licence " + lic)
                 else:
                     bits.append("licence not determined")
-                doc_txt = f" {H.inline_md(s['doc'], builder, doc)}" if s["doc"] else ""
+                doc_txt = (
+                    f'<div class="hmp-muted">{H.inline_md(s["doc"], builder, doc)}</div>'
+                    if s["doc"]
+                    else ""
+                )
                 items.append(
                     f"<li><code>{esc(s['value'])}</code>: {' · '.join(bits)}{doc_txt}</li>"
                 )
             note = (
-                f'<div class="hmp-muted hmp-cat-sum">{H.inline_md(r["description"], builder, doc)}</div>'
+                '<div class="hmp-muted hmp-cat-sum">The key takes the name of any source '
+                "registered with the data-source port; the list shows the registered ones.</div>"
                 if r["free_text"]
                 else ""
             )

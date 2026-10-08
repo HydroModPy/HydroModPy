@@ -3,13 +3,11 @@
 Architecture and Developer Guide
 ================================
 
-.. raw:: html
+.. rst-class:: lead
 
-   <p class="lead">
-   The developer-facing reference for HydroModPy. Documents the package
-   architecture, design patterns, storage layout, test layers, and the
-   contributor recipes for extending the toolbox.
-   </p>
+The developer-facing reference for HydroModPy. Documents the package
+architecture, design patterns, storage layout, test layers, and the
+contributor recipes for extending the toolbox.
 
 For user-facing documentation, see :doc:`/guides/index`. For
 scientific notes and equations, see :doc:`/theory/index`.

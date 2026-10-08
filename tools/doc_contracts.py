@@ -1,7 +1,7 @@
 """Generate the documentation tables that a declared contract already owns.
 
-Companion to ``tools/doc_config``, which does the same job for the Pydantic
-configuration tree. Everything here follows the same three rules:
+The parameter reference does the same job for the Pydantic configuration tree
+(``tools/docs/field_registry.py``). Everything here follows three rules:
 
 1. read a contract that already exists and is already enforced by a test;
 2. assert the contract before rendering it, because a generator republishes

@@ -31,3 +31,15 @@ Run manually:
 ```powershell
 python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case
 ```
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+s(r,t)=\frac{Q}{4\pi T}E_1(u)
+$$
+
+$$
+u=\frac{r^2S}{4Tt},\qquad T=K\,h_{\mathrm{ref}},\qquad S=S_y
+$$

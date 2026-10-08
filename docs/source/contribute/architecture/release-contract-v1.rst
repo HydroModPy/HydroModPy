@@ -121,6 +121,7 @@ Environment variables
        ``HMP_MESH_TRACE_FILE``
      - diagnostics
      - Spatial and mesh debugging controls.
-   * - ``HMP_DOC*``, ``HMP_SKIP_CONFIG_REFERENCE_GEN``
+   * - ``HMP_DOC*``, ``HMP_SKIP_DOC_DATA``,
+       ``HMP_SKIP_CONTRACT_TABLES_GEN``
      - docs
-     - Sphinx build and documentation-gallery controls.
+     - Sphinx build controls.

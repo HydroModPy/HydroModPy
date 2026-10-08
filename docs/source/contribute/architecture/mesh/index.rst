@@ -1,14 +1,12 @@
 Mesh Architecture
 =================
 
-.. raw:: html
+.. rst-class:: lead
 
-   <p class="lead">
-   How HydroModPy turns a watershed support into a solver-ready mesh:
-   the catchment-conformal Gmsh pipeline, the structured-grid path
-   used by MODFLOW-family solvers, and the cross-mesh pivot format
-   consumed by plotting and I/O.
-   </p>
+How HydroModPy turns a watershed support into a solver-ready mesh:
+the catchment-conformal Gmsh pipeline, the structured-grid path
+used by MODFLOW-family solvers, and the cross-mesh pivot format
+consumed by plotting and I/O.
 
 For higher-level runtime handoffs from process objects to solver
 adapters, see :doc:`../process/process-architecture` and

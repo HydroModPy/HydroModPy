@@ -51,6 +51,17 @@ def signature_of(obj: Any) -> str:
         return ""
 
 
+def return_annotation(fn: Any) -> str:
+    """The return annotation as written, or an empty string when there is none."""
+    try:
+        ann = inspect.signature(fn).return_annotation
+    except (TypeError, ValueError):
+        return ""
+    if ann is inspect.Signature.empty:
+        return ""
+    return ann if isinstance(ann, str) else inspect.formatannotation(ann)
+
+
 def return_names(fn: Any) -> list[str]:
     try:
         ann = inspect.signature(fn).return_annotation
@@ -387,6 +398,7 @@ def build(nodes: dict[str, dict[str, Any]]) -> dict[str, Any]:
                 "sections": sections(doc),
                 "source": source_of(obj),
                 "returns": [],
+                "annotation": return_annotation(obj),
             }
             _, aliases = type_checking_names(sys.modules[obj.__module__])
             for rname in return_names(obj):

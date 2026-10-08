@@ -1,14 +1,12 @@
 Calibration Architecture
 ========================
 
-.. raw:: html
+.. rst-class:: lead
 
-   <p class="lead">
-   Software architecture of the calibration stack in
-   ``hydromodpy.calibration``: the code-oriented architecture map plus
-   the full operational guide for adding methods, observables, and
-   objectives.
-   </p>
+Software architecture of the calibration stack in
+``hydromodpy.calibration``: the code-oriented architecture map plus
+the full operational guide for adding methods, observables, and
+objectives.
 
 For the user-facing hub, see Calibration Workflow.
 For the scientific side (inverse problem, methods), see

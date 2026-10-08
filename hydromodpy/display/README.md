@@ -262,8 +262,8 @@ context figure that cannot be drawn is logged with its reason.
    (`tests/unit/results/test_run_surface.py`).
 9. **An import rule.** A line in `tests/unit/architecture/display_layout.yaml`.
 
-After a figure is added, the docs inventory regenerates with
-`python -m tools.doc_figures` (the Sphinx build runs it too).
+A new figure appears in the figure catalog of the documentation at the next
+build: `tools/docs/catalogs.py` reads `list_figures()`.
 
 ## What other layers import
 

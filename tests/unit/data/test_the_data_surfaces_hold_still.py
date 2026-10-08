@@ -37,7 +37,7 @@ def test_the_data_config_schema_keeps_its_fingerprint() -> None:
 
     assert digest == DATA_SCHEMA_SHA256, (
         "The JSON schema of [data] changed. If the change is intended, run "
-        "`python -m tools.doc_config`, then record the new digest here: "
+        "`python -m tools.docs.schema_export`, then record the new digest here: "
         f"{digest}"
     )
 

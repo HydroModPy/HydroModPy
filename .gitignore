@@ -200,7 +200,6 @@ examples/data/dem/processed/dem_ign_geoplateforme_*
 *.duckdb.lock
 /memory.duckdb*
 /.benchmarks/
-/.tmp-doc-gallery/
 examples/projects/**/data/cache.duckdb*
 tests/regression/fixtures/**/cache.duckdb*
 

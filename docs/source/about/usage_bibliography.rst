@@ -48,7 +48,7 @@ Related curated outputs
 -----------------------
 
 - :doc:`applications` lists the catchments where HydroModPy has been
-  deployed and links each one to its gallery case.
+  deployed.
 - :doc:`how_to_cite` keeps the BibTeX, RIS and plain text citation
   entries in sync with ``CITATION.cff``.
 - :doc:`../theory/bibliography` lists every reference cited inside the

@@ -66,10 +66,6 @@ These workflows run only when their inputs change, or when started manually.
      - Documentation, package source, project metadata, README, or
        contributor docs change.
      - Build ``make -C docs html-strict`` and upload rendered HTML.
-   * - ``Docs / Gallery Sync``
-     - Gallery tools, validation reports, gallery examples, or committed
-       gallery artifacts change.
-     - Verify committed gallery artifacts match ``tools.doc_gallery``.
    * - ``Performance / Benchmarks``
      - Performance tests, benchmark comparator, project metadata, or package
        source change.
@@ -101,10 +97,6 @@ coverage.
 ``Weekly / Cross Platform`` runs on the repository default branch every
 Sunday. It checks the supported Python versions across Linux, macOS, and
 Windows, then runs Linux end-to-end and full regression jobs.
-
-``Docs / Nightly Refresh`` refreshes generated documentation artifacts on
-``main`` and ``dev`` and pushes only those generated outputs when they
-change.
 
 ``Solver / PETSc Smoke`` also has a Monday scheduled run because PETSc and
 ``petsc4py`` come from a separate conda-forge environment.

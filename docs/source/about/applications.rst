@@ -3,8 +3,7 @@ Geographic application map
 
 Where HydroModPy has been deployed. The map below catalogues the
 catchments covered by published or in-preparation studies built on
-HydroModPy. Each entry links to the corresponding gallery case when
-available.
+HydroModPy.
 
 The interactive Leaflet variant of this map is on the Phase 3 roadmap.
 For now the page provides a structured table and a static schematic

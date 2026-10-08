@@ -161,7 +161,7 @@ Repository folders outside the package
    |-- install/               Conda environment files and WSL helpers.
    |-- tests/                 Five-tier test tree (unit, integration,
    |                          e2e, regression, validation).
-   |-- tools/                 Doc-gallery, PlantUML setup, CI helpers.
+   |-- tools/                 Doc generators, PlantUML setup, CI helpers.
    |-- validation_cases/      Reusable scientific benchmark inventory.
    `-- validity_frame/        Standalone observability sub-project with its
                               own pyproject.toml (runtime capture and

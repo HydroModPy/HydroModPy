@@ -335,8 +335,13 @@ _ABBREV = {
 
 
 def _first_sentence(text: str) -> str:
-    """First sentence, not fooled by e.g., decimals, file names or parentheses."""
-    text = " ".join((text or "").split())
+    """First sentence, not fooled by e.g., decimals, file names or parentheses.
+
+    The sentence never runs past the first paragraph: a heading or a list that
+    follows it is not part of it.
+    """
+    paragraph = re.split(r"\n[ \t]*\n", (text or "").strip(), maxsplit=1)[0]
+    text = " ".join(paragraph.split())
     depth = 0
     for i, ch in enumerate(text):
         if ch in "([{":
@@ -473,7 +478,6 @@ def _leaf_info(name: str, field: FieldInfo, path: str) -> dict[str, Any]:
         "optional": optional,
         "default": default_text,
         "form": _scalar_form(base, unit, quantity),
-        "python_type": re.sub(r"\b[\w.]+\.(\w+)", r"\1", str(ann).replace("typing.", ""))[:160],
         "unit": unit,
         "unit_source": unit_source,
         "quantity": quantity,

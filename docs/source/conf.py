@@ -14,6 +14,7 @@
 import os
 import shutil
 import sys
+import tomllib
 import types
 import warnings
 from importlib.util import find_spec
@@ -273,17 +274,16 @@ project = "HydroModPy"
 copyright = "2021"
 author = "A. Gauvain, R. Abhervé"
 
-# Single source of truth: pyproject.toml (read via importlib.metadata).
-try:
-    from importlib.metadata import PackageNotFoundError
+# Single source of truth: pyproject.toml, read from the tree being built. The
+# installed metadata comes second: an editable install keeps the version it was
+# installed with, so a local build would name an older release.
+_pyproject = package_path / "pyproject.toml"
+if _pyproject.exists():
+    release = tomllib.loads(_pyproject.read_text(encoding="utf-8"))["project"]["version"]
+else:
     from importlib.metadata import version as _pkg_version
 
-    try:
-        release = _pkg_version("hydromodpy")
-    except PackageNotFoundError:
-        from hydromodpy.core.version import __version__ as release
-except ImportError:
-    from hydromodpy.core.version import __version__ as release
+    release = _pkg_version("hydromodpy")
 
 version = ".".join(release.split(".")[:2])
 
@@ -344,6 +344,14 @@ myst_enable_extensions = [
     "html_image",
 ]
 myst_heading_anchors = 3
+# {{ release }} in a page is the version of the package the site is built from.
+myst_substitutions = {
+    "release": release,
+    "version_badge": (
+        f"[![version](https://img.shields.io/badge/version-{release}-f59e0b?style=flat-square)]"
+        f"(https://pypi.org/project/hydromodpy/{release}/)"
+    ),
+}
 
 # The tutorial and the guides read the files of example 04.
 hmp_example_dir = str(
@@ -382,14 +390,11 @@ source_suffix = [".rst", ".md"]
 master_doc = "index"
 language = "en"
 
-# capability_gallery/ is no longer built. Its images stay under _static/ as long
-# as a theory page cites them.
 exclude_patterns = [
     "_data",
     # api/generated/ is left by builds of the old documentation and ignored by
     # git; this site has no api/ folder.
     "api",
-    "capability_gallery",
     "contribute/architecture/layer-matrix.partial.rst",
 ]
 
@@ -401,12 +406,12 @@ smart_quotes = False
 
 html_theme = "pydata_sphinx_theme"
 html_title = f"HydroModPy {release}"
-html_favicon = "images/logoHydroModPy.png"
-html_logo = "images/logoHydroModPy_long.png"
+html_favicon = "_static/logoHydroModPy.png"
+html_logo = "_static/logoHydroModPy_long.png"
 html_theme_options = {
     "logo": {
-        "image_light": "images/logoHydroModPy_long.png",
-        "image_dark": "images/logoHydroModPy_long.png",
+        "image_light": "_static/logoHydroModPy_long.png",
+        "image_dark": "_static/logoHydroModPy_long.png",
     },
     "navbar_start": ["navbar-logo"],
     "navbar_center": ["navbar-nav"],
@@ -447,13 +452,10 @@ html_static_path = ["_static"]
 html_css_files = [
     "uml-diagrams.css",
     "css/hmp-image-compare.css",
-    "css/hmp-page-badges.css",
-    "css/hmp-zoom-image.css",
 ]
 html_js_files = [
     "uml-diagrams.js",
     "js/hmp-image-compare.js",
-    "js/hmp-zoom-image.js",
 ]
 copybutton_prompt_text = r">>> |\$ |In \[\d+\]: | {2,5}\.\.\.:"
 copybutton_prompt_is_regexp = True

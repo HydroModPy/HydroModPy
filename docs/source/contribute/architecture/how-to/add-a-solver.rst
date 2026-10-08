@@ -122,7 +122,7 @@ HydroModPy repository or as an external plugin.
 
 **In-tree backend.** Register through the two built-in path tables in
 ``hydromodpy/solver/base/registry.py``. Both tables are keyed on the
-**same ``(process_type, solver_name)`` tuple** — the extractor table is
+**same** ``(process_type, solver_name)`` tuple — the extractor table is
 not keyed on the solver name alone, because one backend can carry a
 different extractor per process (flow vs transport for MODFLOW 6):
 

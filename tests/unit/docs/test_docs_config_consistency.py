@@ -13,7 +13,7 @@ from pathlib import Path
 
 from jsonschema.validators import Draft202012Validator
 
-from tools.doc_config.generate import export_schema
+from tools.docs.schema_export import export_schema
 
 ROOT = Path(__file__).resolve().parents[3]
 SCHEMA_PATH = ROOT / "docs" / "source" / "_static" / "hydromodpy-schema.json"
@@ -32,5 +32,5 @@ def test_committed_schema_matches_generated(tmp_path: Path) -> None:
     committed = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     assert committed == expected, (
         "docs/source/_static/hydromodpy-schema.json is stale. "
-        "Run `python -m tools.doc_config` to refresh."
+        "Run `python -m tools.docs.schema_export` to refresh."
     )

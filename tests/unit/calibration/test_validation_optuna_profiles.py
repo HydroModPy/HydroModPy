@@ -2,21 +2,48 @@
 
 from __future__ import annotations
 
-from tools.doc_gallery.calibration_case_registry import build_calibration_case_records
-from validation_cases.calibration.shared.definitions import build_payload
+import importlib
+from pathlib import Path
+
+import pytest
+
+from validation_cases.calibration.shared.definitions import (
+    TwinCalibrationCaseDefinition,
+    build_payload,
+)
 from validation_cases.calibration.shared.runtime import _apply_evaluation_budget
 from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment import (
     STEADY_DUPUIT_TWIN_CASE,
 )
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+TWIN_ROOT = REPO_ROOT / "validation_cases" / "calibration" / "twin"
 
-def test_curated_calibration_gallery_cases_include_optuna() -> None:
-    """The generated calibration HTML pages should expose Optuna as a benchmark method."""
-    records = build_calibration_case_records()
 
-    assert records
-    for record in records:
-        assert "optuna" in record.metadata["method_names"]
+def _twin_cases() -> list[TwinCalibrationCaseDefinition]:
+    """Every twin case defined in an ``experiment.py`` under the twin folder."""
+    cases: dict[str, TwinCalibrationCaseDefinition] = {}
+    for path in sorted(TWIN_ROOT.rglob("experiment.py")):
+        module = importlib.import_module(
+            ".".join(path.relative_to(REPO_ROOT).with_suffix("").parts)
+        )
+        for value in vars(module).values():
+            if isinstance(value, TwinCalibrationCaseDefinition):
+                cases[value.case_id] = value
+    return list(cases.values())
+
+
+TWIN_CASES = _twin_cases()
+
+
+def test_the_twin_case_discovery_finds_the_cases() -> None:
+    assert len(TWIN_CASES) >= 8
+
+
+@pytest.mark.parametrize("case", TWIN_CASES, ids=[case.case_id for case in TWIN_CASES])
+def test_every_calibration_twin_case_benchmarks_optuna(case) -> None:
+    """Each calibration twin case runs Optuna among its methods."""
+    assert "optuna" in {profile.name for profile in case.method_profiles}
 
 
 def test_optuna_validation_profile_uses_top_level_iteration_budget() -> None:

@@ -25,3 +25,15 @@ python -m validation_cases.analytical.transient.linearized_unconfined_boundary_s
 python -m validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.run_case --solver boussinesq --show
 python -m validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.run_comparison
 ```
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+S_y\frac{\partial \eta}{\partial t}=T_0\frac{\partial^2 \eta}{\partial x^2},\qquad \eta(0,t)=\Delta h\,H(t),\qquad \eta(L,t)=0
+$$
+
+$$
+\eta(x,t)=\Delta h\left[1-\frac{x}{L}-\frac{2}{\pi}\sum_{n=1}^{\infty}\frac{\sin\left(n\pi x/L\right)}{n}\exp\left(-D\left(n\pi/L\right)^2 t\right)\right]
+$$

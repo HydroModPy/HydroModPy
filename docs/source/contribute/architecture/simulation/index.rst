@@ -1,14 +1,12 @@
 Simulation Architecture
 =======================
 
-.. raw:: html
+.. rst-class:: lead
 
-   <p class="lead">
-   Software architecture of the simulation orchestration layer in
-   ``hydromodpy.simulation``. The public entry point is the
-   ``Project`` facade in ``hydromodpy/project/facade.py``, instantiated by
-   ``hmp run`` or by user Python code.
-   </p>
+Software architecture of the simulation orchestration layer in
+``hydromodpy.simulation``. The public entry point is the
+``Project`` facade in ``hydromodpy/project/facade.py``, instantiated by
+``hmp run`` or by user Python code.
 
 Use this section when you want the static orchestration model, the
 execution-time cycle inside the simulation layer, or a code-oriented

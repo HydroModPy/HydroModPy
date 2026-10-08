@@ -55,13 +55,13 @@ annotations carried by the Pydantic models: ``widget_type``, ``unit``,
 ``display_max``. These annotations form the contract between the
 Python models and the UI.
 
-Doc-side schema artifacts
--------------------------
+Doc-side schema artifact
+------------------------
 
-Two schema files are committed under ``docs/source/_static/`` and
-published with the site. ``tools/doc_config/generate.py`` exports them, and
-``tests/unit/docs/test_docs_config_consistency.py`` keeps the JSON Schema
-equal to what the code exports:
+One schema file is committed under ``docs/source/_static/`` and published
+with the site. ``python -m tools.docs.schema_export`` writes it, and
+``tests/unit/docs/test_docs_config_consistency.py`` keeps it equal to what
+the code exports:
 
 .. list-table::
    :header-rows: 1
@@ -73,20 +73,8 @@ equal to what the code exports:
      - Raw JSON Schema 2020-12 export of ``HydroModPyConfig``. Use
        this file for Ajv / ajv-cli, IDE schema stores, and any
        external validator that consumes JSON Schema directly.
-   * - ``hydromodpy-openapi.json``
-     - OpenAPI 3.1 wrapper produced by ``export_openapi_wrapper`` in
-       the same module. The Pydantic ``$defs`` are promoted to
-       ``components.schemas`` and every internal ``$ref`` is
-       rewritten from ``#/$defs/...`` to ``#/components/schemas/...``.
 
-The OpenAPI wrapper exists because Stoplight Elements rejects a raw
-JSON Schema with "failed to parse openapi file". The wrapper keeps the
-``hmp dev schema export`` route untouched (it remains the canonical export
-for frontends) and only adds a second artifact for the doc viewer.
-
-.. seealso::
-   Schema Explorer for the
-   user-facing schema browser that consumes the OpenAPI wrapper.
+``hmp dev schema export`` remains the canonical export for frontends.
 
 Angular (external repository)
 -----------------------------
@@ -185,5 +173,5 @@ See also
 
 - :doc:`design-patterns` (item 10) for the pattern behind the
   frontend hook contract.
-- Schema Explorer for the
-  interactive viewer of the same schema.
+- :doc:`/reference/parameters/explorer` for the interactive browser of
+  the same models.

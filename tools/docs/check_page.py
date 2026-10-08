@@ -32,7 +32,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "docs" / "source"
 EX04 = ROOT / "examples" / "projects" / "04_streamflow_intermittence_in_transient"
-SKIP_DIRS = ("_data", "_static", "_templates", "_ext", "capability_gallery")
+SKIP_DIRS = ("_data", "_static", "_templates", "_ext")
 
 TOML_ROLE = re.compile(r"(?:\{toml\}|:toml:)`([^`]+)`")
 DOC_ROLE = re.compile(r"(?:\{doc\}|:doc:)`([^`]+)`")

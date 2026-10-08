@@ -31,3 +31,15 @@ The runner saves a PNG figure with:
 - selected analytical and numerical profiles through time,
 - monitor-point time series,
 - a residual heatmap and summary metrics.
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+S_y\frac{\partial \eta}{\partial t}=T_0\frac{\partial^2 \eta}{\partial x^2},\qquad \eta(L,t)=0
+$$
+
+$$
+\eta(x,t)=\sum_k \Delta h_k\,\eta_{\mathrm{step}}(x,t-t_k)\,H(t-t_k)
+$$

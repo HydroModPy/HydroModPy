@@ -3,14 +3,12 @@
 Contribute
 ==========
 
-.. raw:: html
+.. rst-class:: lead
 
-   <p class="lead">
-   HydroModPy welcomes bug reports, new features, documentation work,
-   and example notebooks. This page covers the contributor install,
-   the coding style, the test ladder, the docs build, and the pull
-   request flow.
-   </p>
+HydroModPy welcomes bug reports, new features, documentation work,
+and example notebooks. This page covers the contributor install,
+the coding style, the test ladder, the docs build, and the pull
+request flow.
 
 .. admonition:: User install
    :class: tip
@@ -270,7 +268,7 @@ workflow-facing changes, also run ``hmp test regression --fast``.
 On GitHub, the main CI gate runs quality checks, architecture
 contracts, fast tests on Python 3.11 to 3.13, unit tests, integration
 tests, fast regression tests, a wheel smoke test, and an advisory mypy
-baseline. Specialized workflows cover docs, gallery artifacts, Docker,
+baseline. Specialized workflows cover docs, Docker,
 PETSc, performance, workflow linting, and dependency audit only when
 their inputs change.
 

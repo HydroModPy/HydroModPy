@@ -81,5 +81,4 @@ Maintenance Rule
 
 When adding a public object, update one manifest page and write the docstring.
 Do not create a separate handwritten object page unless the object needs a
-long tutorial. Tutorials belong in the user guide, scientific notes, or
-capability gallery.
+long tutorial. Tutorials belong in the guides or the theory pages.

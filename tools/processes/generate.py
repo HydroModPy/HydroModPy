@@ -12,11 +12,10 @@ Three sources, and no JSON is written by hand:
 
 Lives in ``tools/`` and not in the package: it imports ``config`` and the
 capability registry, which is a pairing no layer of ``hydromodpy`` is allowed
-to make. ``tools/doc_config/generate.py`` already has this shape.
+to make. ``tools/docs/schema_export.py`` has the same shape.
 
 Refresh with ``python -m tools.processes``. A committed file the generator no
-longer reproduces is a gate failure, not a warning: the OpenAPI wrapper next
-door is generated without a gate and has drifted.
+longer reproduces is a gate failure, not a warning.
 
 Two deliberate departures from the specification this was written against:
 
