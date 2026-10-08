@@ -1,0 +1,43 @@
+{%- extends "page.html" %}
+{#- Pagefind replaces the Sphinx search: its index is built after Sphinx by
+    `python -m pagefind --site <html dir>` (make html, docs.yml, the deploy) and
+    loads in small chunks when a query is typed. The theme's search button
+    submits to this page with ?q=, read below. Extending page.html rather than
+    the theme's search.html keeps the 1 MB Sphinx index off this page too. #}
+{%- block htmltitle -%}
+  <title>{{ _("Search") }} - {{ docstitle }}</title>
+{%- endblock htmltitle -%}
+{% block docs_body %}
+  <div class="bd-search-container">
+    <h1>{{ _("Search") }}</h1>
+    <noscript>
+      <div class="admonition error">
+        <p class="admonition-title">Error</p>
+        <p>The search needs JavaScript.</p>
+      </div>
+    </noscript>
+    <div id="hmp-search"></div>
+  </div>
+  <link rel="stylesheet" href="{{ pathto('pagefind/pagefind-ui.css', 1) }}">
+  <script src="{{ pathto('pagefind/pagefind-ui.js', 1) }}"></script>
+  <script>
+    window.addEventListener("DOMContentLoaded", function () {
+      if (typeof PagefindUI === "undefined") {
+        document.getElementById("hmp-search").textContent =
+          "The search index is missing: build it with python -m pagefind --site <html dir>.";
+        return;
+      }
+      var ui = new PagefindUI({
+        element: "#hmp-search",
+        showSubResults: true,
+        showImages: false,
+        autofocus: true,
+        translations: { placeholder: "Search the documentation" },
+      });
+      var query = new URLSearchParams(window.location.search).get("q");
+      if (query) {
+        ui.triggerSearch(query);
+      }
+    });
+  </script>
+{% endblock docs_body %}

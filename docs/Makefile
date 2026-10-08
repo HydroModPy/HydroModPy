@@ -11,6 +11,8 @@ SHELL := /usr/bin/env bash
 # writing takes several minutes. Override with `make html SPHINXOPTS=` to disable.
 SPHINXOPTS    ?= -j auto
 SPHINXBUILD   ?= python -m sphinx
+# The search index of the built site (search.html loads it).
+PAGEFIND      = python -m pagefind --site $(BUILDDIR)/html --exclude-selectors ".headerlink" --quiet
 SPHINXPROJ    = HydroModPy
 SOURCEDIR     = source
 BUILDDIR      = build
@@ -71,6 +73,7 @@ clean:
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
+	$(PAGEFIND)
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
@@ -81,6 +84,7 @@ html:
 # own.
 html-strict:
 	$(SPHINXBUILD) -b html -W --keep-going $(ALLSPHINXOPTS) $(BUILDDIR)/html 2>&1 | { grep -v $(NOISY_PATTERNS) || true; }; exit $${PIPESTATUS[0]}
+	$(PAGEFIND)
 	@echo
 	@echo "Strict build finished (warnings treated as errors)."
 

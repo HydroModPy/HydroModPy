@@ -512,6 +512,9 @@ html_theme_options = {
 html_sidebars = {"index": [], "**": ["sidebar-nav-bs"]}
 # Page-scoped stylesheets and scripts are added by _ext/hmp_site.py.
 html_static_path = ["_static"]
+# Pagefind searches the built pages: the reST sources are not shipped.
+html_copy_source = False
+html_show_sourcelink = False
 copybutton_prompt_text = r">>> |\$ |In \[\d+\]: | {2,5}\.\.\.:"
 copybutton_prompt_is_regexp = True
 copybutton_only_copy_prompt_lines = False

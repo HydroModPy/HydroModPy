@@ -121,6 +121,7 @@ docs = [
     "sphinx-last-updated-by-git",
     "sphinxext-opengraph",
     "sphinxext-rediraffe",
+    "pagefind[bin]>=1.5",
     "sphinx-lint",
     "doc8",
 ]

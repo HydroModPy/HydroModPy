@@ -101,6 +101,8 @@ jobs:
           # -W --keep-going: the build that ships is the build that is checked.
           # The PR gate already runs the same policy via `make -C docs html-strict`.
           HMP_DOC_VERSION="${version}" python -m sphinx -j auto -W --keep-going -b html docs/source "site/${version}"
+          # The search index of this version (search.html loads it).
+          python -m pagefind --site "site/${version}" --exclude-selectors ".headerlink" --quiet
 
       - name: Prepare the root files and the versions to remove
         if: steps.build.outputs.skip != '1'

@@ -4,16 +4,40 @@
   on the pages that use them, not on all 300 pages.
 - Previous and next links stay inside a door: the link from the last guide to
   the first reference page means nothing to a reader.
+- Pagefind indexes the article of each page only, with its door as a filter;
+  the parameter explorer and the general index stay out of the search.
+- A UML diagram is described by its title, not by its whole PlantUML source,
+  which sphinxcontrib-plantuml puts in the alt text (read aloud by screen
+  readers and indexed by the search).
 """
 
 from __future__ import annotations
 
+import html
+import re
 from typing import Any
 
 from docutils import nodes
 from sphinx.application import Sphinx
 
 _RELATIONS: dict[str, list[str | None]] = {}
+_DOORS = {
+    "index": "Home",
+    "understand": "Understand",
+    "get-started": "Get started",
+    "guides": "Guides",
+    "reference": "Reference",
+    "theory": "Theory",
+    "contribute": "Contribute",
+    "about": "About",
+}
+_NOT_SEARCHED = {"genindex", "search", "reference/parameters/explorer"}
+_UML_ALT = re.compile(r'alt="(?:&#64;|@)startuml(.*?)"', re.S)
+
+
+def _uml_alt(match: re.Match[str]) -> str:
+    title = re.search(r"^\s*title\s+(.+)$", html.unescape(match.group(1)), re.M)
+    return f'alt="{html.escape(title.group(1).strip()) if title else "UML diagram"}"'
 
 
 def _door(docname: str | None) -> str | None:
@@ -45,6 +69,20 @@ def on_page_context(
         if doctree.next_node(nodes.figure) is not None:
             app.add_css_file("css/hmp-zoom-image.css")
             app.add_js_file("js/hmp-zoom-image.js")
+    if "body" in context:
+        context["body"] = _UML_ALT.sub(_uml_alt, context["body"])
+    door_title = _DOORS.get(_door(pagename) or "")
+    if "body" in context and door_title and pagename not in _NOT_SEARCHED:
+        # Contributor pages weigh less in the ranking: a user query should land on
+        # a guide or a reference page before an architecture note. Pagefind reads
+        # the weight on an element inside the indexed body, not on the body itself.
+        body = context["body"]
+        if door_title == "Contribute":
+            body = f'<div data-pagefind-weight="0.3">{body}</div>'
+        context["body"] = (
+            f'<div data-pagefind-body><span data-pagefind-filter="door:{door_title}" hidden></span>'
+            f"{body}</div>"
+        )
     if not _RELATIONS:
         _RELATIONS.update(app.env.collect_relations())
     _parent, prev_doc, next_doc = (_RELATIONS.get(pagename) or [None, None, None])[:3]
