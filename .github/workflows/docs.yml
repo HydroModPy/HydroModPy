@@ -82,6 +82,11 @@ jobs:
       - name: Check the written pages
         run: python -m tools.docs.check_page $(git ls-files 'docs/source/*.md')
 
+      # Pages written by the extensions are raw HTML that Sphinx does not
+      # check: links inside links, dead links and anchors, markup shown as text.
+      - name: Check the built site
+        run: python -m tools.docs.check_site docs/build/html
+
       # The build regenerates the tables a declared contract owns
       # (tools/doc_contracts.py). A tracked file under docs/source that the
       # build rewrites was stale.
