@@ -11,6 +11,7 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import datetime
 import os
 import shutil
 import sys
@@ -150,6 +151,10 @@ if os.environ.get("POLYVERSION_DATA"):
     if getattr(_polyversion_current, "name", None):
         _current_version = _polyversion_current.name
 
+# The theme reads its default colour mode here; an empty value logs an error
+# in the console of every page.
+html_context = {**globals().get("html_context", {}), "default_mode": "auto"}
+
 _DOC_OPTIONAL_IMPORTS = [
     "pint",
     "pydantic_pint",
@@ -271,7 +276,7 @@ except Exception:
 # -- Project information -----------------------------------------------------
 
 project = "HydroModPy"
-copyright = "2021"
+copyright = f"2021-{datetime.date.today().year}, HydroModPy contributors"
 author = "A. Gauvain, R. Abhervé"
 
 # Single source of truth: pyproject.toml, read from the tree being built. The
@@ -311,6 +316,7 @@ extensions = [
     "sphinx_last_updated_by_git",
     # Local extensions under _ext/. hmp_params registers the others.
     "hmp_directives",
+    "hmp_site",
     "hmp_params",
 ]
 
@@ -365,8 +371,14 @@ bibtex_reference_style = "author_year"
 suppress_warnings = ["myst.header"]
 
 favicons = [
-    {"rel": "icon", "href": "logoHydroModPy.png", "type": "image/png"},
-    {"rel": "shortcut icon", "href": "logoHydroModPy.ico", "type": "image/x-icon"},
+    {"rel": "icon", "href": "logoHydroModPy.png", "type": "image/png", "sizes": "64x64"},
+    {
+        "rel": "icon",
+        "href": "logoHydroModPy.ico",
+        "type": "image/x-icon",
+        "sizes": "16x16 32x32 48x48",
+    },
+    {"rel": "apple-touch-icon", "href": "apple-touch-icon.png", "sizes": "180x180"},
 ]
 
 # The site is served at https://docs.hydromodpy.fr/ with one folder per version.
@@ -374,10 +386,15 @@ html_baseurl = f"https://docs.hydromodpy.fr/{_current_version}/"
 sitemap_url_scheme = "{link}"
 ogp_site_url = html_baseurl
 ogp_site_name = "HydroModPy"
-ogp_image = html_baseurl + "_static/logoHydroModPy_long.png"
+ogp_image = html_baseurl + "_static/social-card.png"
+ogp_image_alt = "HydroModPy"
 ogp_use_first_image = True
 
 git_last_updated_timezone = "Europe/Paris"
+html_last_updated_fmt = "%Y-%m-%d"
+
+# Pinned: Sphinx points at mathjax@4, which follows every 4.x release.
+mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.js"
 
 _PLANTUML_COMMAND = _resolve_plantuml_command()
 if _PLANTUML_COMMAND is not None:
@@ -395,11 +412,18 @@ exclude_patterns = [
     "contribute/architecture/layer-matrix.partial.rst",
 ]
 
-pygments_style = "sphinx"
 numfig = True
 smart_quotes = False
 
 # -- Options for HTML output -------------------------------------------------
+
+# A pre-release says so on every page.
+_ANNOUNCEMENT = (
+    f"Pre-release {release}: install it with <code>pip install --pre hydromodpy</code>. "
+    "Projects written for version 1 stay on v1.0.0."
+    if any(tag in release for tag in ("a", "b", "rc"))
+    else ""
+)
 
 html_theme = "pydata_sphinx_theme"
 html_title = f"HydroModPy {release}"
@@ -408,11 +432,12 @@ html_logo = "_static/logoHydroModPy_long.png"
 html_theme_options = {
     "logo": {
         "image_light": "_static/logoHydroModPy_long.png",
-        "image_dark": "_static/logoHydroModPy_long.png",
+        "image_dark": "_static/logoHydroModPy_long_dark.png",
+        "alt_text": "HydroModPy - Home",
     },
     "navbar_start": ["navbar-logo"],
     "navbar_center": ["navbar-nav"],
-    "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
+    "navbar_end": ["theme-switcher", "version-switcher", "navbar-icon-links"],
     "navbar_align": "left",
     "header_links_before_dropdown": 7,
     "switcher": {
@@ -420,13 +445,38 @@ html_theme_options = {
         "version_match": _current_version,
     },
     "check_switcher": False,
+    "show_version_warning_banner": True,
+    "announcement": _ANNOUNCEMENT,
     "show_nav_level": 1,
     "navigation_depth": 3,
     "show_toc_level": 2,
-    "navigation_with_keys": True,
-    "secondary_sidebar_items": ["page-toc"],
+    # Arrow keys on a slider or a scrolling code block would change page.
+    "navigation_with_keys": False,
+    # A page that matches no pattern has no right sidebar: the generated TOML
+    # and Python reference pages need the width more than a short contents list.
+    "secondary_sidebar_items": {
+        pattern: ["page-toc"]
+        for pattern in (
+            "index",
+            "understand/**",
+            "get-started/**",
+            "guides/**",
+            "theory/**",
+            "contribute/**",
+            "about/**",
+            "reference/index",
+            "reference/changes",
+            "reference/data-sources",
+            "reference/figures",
+            "reference/solvers",
+            "reference/cli/**",
+        )
+    },
+    "pygments_light_style": "a11y-high-contrast-light",
+    "pygments_dark_style": "a11y-high-contrast-dark",
     "footer_start": ["copyright"],
-    "footer_end": ["sphinx-version"],
+    "footer_center": ["last-updated"],
+    "footer_end": [],
     "use_edit_page_button": False,
     "icon_links_label": "HydroModPy Resources",
     "icon_links": [
@@ -439,21 +489,14 @@ html_theme_options = {
         {
             "name": "Issues",
             "url": "https://github.com/HydroModPy/HydroModPy/issues",
-            "icon": "fa-solid fa-circle-info",
+            "icon": "fa-solid fa-bug",
             "type": "fontawesome",
         },
     ],
 }
 html_sidebars = {"index": [], "**": ["sidebar-nav-bs"]}
+# Page-scoped stylesheets and scripts are added by _ext/hmp_site.py.
 html_static_path = ["_static"]
-html_css_files = [
-    "uml-diagrams.css",
-    "css/hmp-image-compare.css",
-]
-html_js_files = [
-    "uml-diagrams.js",
-    "js/hmp-image-compare.js",
-]
 copybutton_prompt_text = r">>> |\$ |In \[\d+\]: | {2,5}\.\.\.:"
 copybutton_prompt_is_regexp = True
 copybutton_only_copy_prompt_lines = False

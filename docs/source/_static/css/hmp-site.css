@@ -1,0 +1,76 @@
+/* Site chrome on top of pydata-sphinx-theme 0.23 (loaded by _ext/hmp_site.py). */
+
+/* Header: one row at 1280 px, and anchors land below it. */
+.bd-header .navbar-nav .nav-link { white-space: nowrap; }
+html { scroll-padding-top: calc(var(--pst-header-height) + 1rem); }
+
+/* The logo box is sized before the image loads: no layout shift. */
+.navbar-brand img.logo__image { height: 2.25rem; width: auto; aspect-ratio: 629 / 96; }
+@media (max-width: 960px) {
+  .navbar-brand img.logo__image { height: 1.6rem; }
+}
+
+/* Headings sized for a 650 px column. */
+html {
+  --pst-font-size-h1: 2.25rem;
+  --pst-font-size-h2: 1.75rem;
+  --pst-font-size-h3: 1.4rem;
+  --pst-font-size-h4: 1.15rem;
+}
+
+/* Prose lines stay readable on pages without a right sidebar. */
+.bd-article p, .bd-article li { max-width: 72ch; }
+
+/* Long inline literals wrap instead of widening the page. */
+.bd-article :is(p, li, dd) code,
+.bd-article :is(p, li, dd) code .pre { white-space: normal; overflow-wrap: anywhere; }
+
+/* Code pills in table cells wrap instead of cutting the column. */
+.bd-article table:not(.api-t) td :is(code, .pre) { white-space: normal; overflow-wrap: anywhere; }
+
+/* Tables written by the extensions scroll inside the article on a phone. */
+@media (max-width: 760px) {
+  .bd-article table.hmp-cat,
+  .bd-article table.api-t,
+  .bd-article table.hmp-val-matrix,
+  .bd-article table.hmp-qt,
+  .bd-article table.indextable { display: block; overflow-x: auto; max-width: 100%; }
+}
+
+/* Admonitions do not lose a seventh of a phone screen to their indent. */
+@media (max-width: 600px) {
+  .bd-article .admonition { padding-left: .5rem; padding-right: .5rem; }
+  .bd-article .admonition > :not(.admonition-title) { margin-left: .2rem; margin-right: .2rem; }
+}
+
+/* Small labels never fall under 0.8 rem. */
+.tc, .hmp-b { font-size: max(.72em, .8rem); }
+
+/* Names in the sidebars: lighter than bold monospace. */
+.bd-sidebar-primary code, .bd-sidebar-secondary code { font-weight: 500; font-size: .88em; }
+
+/* Long dotted names of the page contents break after a dot (hmp-site.js). */
+.bd-sidebar-secondary .toc-entry :is(code, .pre) { white-space: normal; overflow-wrap: break-word; }
+
+/* One card look across the site, aligned with the text column. */
+.bd-article .sd-container-fluid { padding-left: 0; padding-right: 0; }
+.bd-article .sd-row { margin-left: 0; margin-right: 0; }
+.bd-article .sd-card { border: 1px solid var(--pst-color-border); border-radius: .45rem; box-shadow: none; }
+.bd-article .sd-card:hover { border-color: var(--pst-color-primary); }
+.bd-article .sd-card ul { list-style: none; padding-left: 0; }
+
+/* Figures are white PNGs: dim them in dark mode. */
+html[data-theme="dark"] .bd-article figure img { filter: brightness(.88); }
+
+/* Zoomable figures say so. */
+.bd-article figure img.hmp-zoomable { cursor: zoom-in; }
+
+/* Without the theme's fontawesome.js the icons stay <i> elements drawn by the
+   web font; three theme rules select them as <svg>. */
+@media (max-width: 959.98px) {
+  .search-button-field > i { display: inline-block; }
+}
+ul.navbar-icon-links i.fa-brands,
+ul.navbar-icon-links i.fa-solid { font-size: var(--pst-font-size-icon); vertical-align: middle; }
+#pst-search-dialog[open] form.bd-search i { font-size: var(--pst-font-size-icon); }
+form.bd-search i.fa-solid.fa-magnifying-glass { position: static; }

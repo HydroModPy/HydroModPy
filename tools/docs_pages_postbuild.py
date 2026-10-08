@@ -1,6 +1,8 @@
 """Post-process the multi-version HTML tree before the GitHub Pages deploy.
 
-Writes a pydata-theme ``switcher.json`` listing the deployed versions.
+Writes a pydata-theme ``switcher.json`` listing the deployed versions, and
+drops the source maps the theme ships (about 3 MB per version, read only by
+browser developer tools).
 
 Usage::
 
@@ -54,6 +56,14 @@ def write_switcher(html_root: Path, base_url: str, versions: list[str]) -> None:
     print(f"switcher.json -> {[str(entry['version']) for entry in entries]}")
 
 
+def drop_source_maps(html_root: Path) -> None:
+    """Remove the ``.map`` files of the built versions."""
+    maps = list(html_root.rglob("*.map"))
+    for path in maps:
+        path.unlink()
+    print(f"removed {len(maps)} source maps")
+
+
 def _order(versions: list[str]) -> list[str]:
     return sorted(versions, key=lambda name: (_VERSION_ORDER.get(name, 2), name))
 
@@ -85,6 +95,7 @@ def main() -> int:
         versions = discover_versions(html_root)
 
     write_switcher(html_root, base_url, versions)
+    drop_source_maps(html_root)
     return 0
 
 

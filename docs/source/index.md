@@ -260,7 +260,6 @@ For questions or collaboration requests:
 ```{toctree}
 :hidden:
 
-Home <self>
 Understand <understand/index>
 Get started <get-started/index>
 Guides <guides/index>

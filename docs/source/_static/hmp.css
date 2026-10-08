@@ -361,9 +361,9 @@ table.hmp-val-matrix td.hmp-val-n { text-align: center; }
 table.hmp-val-matrix th, table.hmp-val-matrix td { text-align: left; vertical-align: top; }
 .hmp-val-solv { display: inline-block; margin: 0 .6rem .15rem 0; white-space: nowrap; font-size: .92em; }
 .hmp-reach { margin-right: .3rem; }
-.hmp-reach-launcher { border-color: #2e7d32; color: #2e7d32; }
+.hmp-reach-launcher { border-color: var(--hmp-add); color: var(--hmp-add); }
 
-.hmp-reach-sanity { border-color: #b26a00; color: #b26a00; }
+.hmp-reach-sanity { border-color: var(--hmp-when); color: var(--hmp-when); }
 
 /* A key followed through the base_config chain of an example file */
 .hmp-resolved { margin: .6rem 0 1rem; }
@@ -380,8 +380,3 @@ table.hmp-cat td:first-child { white-space: nowrap; }
 /* Home page badges, on one line that wraps */
 .hmp-badges p { display: flex; flex-wrap: wrap; gap: .35rem; margin: .4rem 0 1rem; }
 .hmp-badges img { height: 20px; }
-
-/* Long code entries of the page contents wrap instead of being cut. */
-.bd-sidebar-secondary .toc-entry code,
-.bd-sidebar-secondary .toc-entry span.pre { white-space: normal; overflow-wrap: anywhere; }
-.bd-sidebar-secondary .toc-entry code { font-size: .85em; }

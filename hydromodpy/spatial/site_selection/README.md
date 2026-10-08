@@ -372,10 +372,6 @@ Station-led hydrometry TOML files must declare
 hydrometry configurations without a profile alive. DEM-light runs must likewise
 declare `profile = "area_only"` explicitly.
 
-The bounded short-term contract is documented in
-`docs/_dev_notes/site_selection_short_term_contract.md`.
-The matching business doctrine is documented in
-`docs/_dev_notes/site_selection_final_business_doctrine.md`.
 
 ## Closure Validation Examples
 

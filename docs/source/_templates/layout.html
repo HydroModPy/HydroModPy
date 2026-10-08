@@ -1,0 +1,12 @@
+{%- extends "!layout.html" %}
+{#- The theme loads the 1 MB search index on every page for an inline search
+    this site does not use: the search button submits to search.html, which
+    loads the index itself. The rest of the block is the theme's own. #}
+{%- block extrahead %}
+  <meta name="color-scheme" content="light dark"/>
+  <meta name="docsearch:language" content="{{ language }}"/>
+  <meta name="docsearch:version" content="{{ version }}" />
+  {%- if last_updated %}
+    <meta name="docbuild:last-update" content="{{ last_updated | e }}"/>
+  {%- endif %}
+{%- endblock extrahead %}

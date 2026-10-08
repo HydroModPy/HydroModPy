@@ -18,9 +18,7 @@ the cache so a rebind can never serve a stale key. Calls passing
 ``data_path`` keep the original recursion-guard behaviour, and non-integer
 keys are never cached.
 
-Full analysis, benchmark, and upstream-PR notes:
-``docs/_dev_notes/flopy_mf6_block_header_cache.md``. Remove this module once
-the fix lands in a flopy release.
+Remove this module once the fix lands in a flopy release.
 """
 
 from __future__ import annotations
