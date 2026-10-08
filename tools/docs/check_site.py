@@ -4,7 +4,8 @@ Pages written by the extensions are raw HTML, which Sphinx does not check:
 
 - a link inside a link, which the browser splits apart;
 - an internal link to a missing page or a missing anchor;
-- markup shown as text: ``code``, **bold**, :role:`x`, {role}`x`.
+- markup shown as text: ``code``, **bold**, :role:`x`, {role}`x`;
+- a UML diagram that was not rendered (PlantUML missing or failing).
 
 Usage::
 
@@ -64,6 +65,8 @@ def check(root: Path) -> list[str]:
         if match is None:
             continue
         body = match.group(1)
+        if n := body.count("uml-diagram-unavailable"):
+            problems.append(f"{rel}: {n} UML diagram(s) not rendered")
         if n := nested_links(body):
             problems.append(f"{rel}: {n} link(s) inside a link")
         visible = html.unescape(re.sub(r"<[^>]+>", " ", VERBATIM.sub(" ", HIDDEN.sub(" ", body))))

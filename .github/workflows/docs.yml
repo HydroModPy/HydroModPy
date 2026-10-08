@@ -67,7 +67,7 @@ jobs:
       - name: Install Linux system libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y libglu1-mesa graphviz libgraphviz-dev pkg-config
+          sudo apt-get install -y libglu1-mesa graphviz libgraphviz-dev pkg-config plantuml
 
       - name: Install package and docs extras
         run: |

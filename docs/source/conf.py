@@ -87,10 +87,21 @@ def _ensure_required_doc_extensions() -> None:
     )
 
 
-def _resolve_vendor_graphviz_dot() -> Path | None:
-    relative = ("tools", "vendor", "graphviz", "bin", "dot.exe" if os.name == "nt" else "dot")
-    dot_path = package_path.joinpath(*relative)
-    return dot_path if dot_path.exists() else None
+def _resolve_graphviz_dot() -> Path | None:
+    """The vendored dot, else the one of the Python environment, else the PATH one.
+
+    A conda environment called by the absolute path of its Python does not put
+    its bin folder on PATH, so its dot is looked for next to the interpreter.
+    """
+    name = "dot.exe" if os.name == "nt" else "dot"
+    for candidate in (
+        package_path / "tools" / "vendor" / "graphviz" / "bin" / name,
+        Path(sys.executable).parent / name,
+    ):
+        if candidate.exists():
+            return candidate
+    found = shutil.which("dot")
+    return Path(found) if found else None
 
 
 def _resolve_plantuml_command() -> str | None:
@@ -124,10 +135,11 @@ class _MissingPlantUMLDirective(SphinxDirective):
         return [container]
 
 
-_vendor_graphviz_dot = _resolve_vendor_graphviz_dot()
-if _vendor_graphviz_dot is not None:
-    os.environ.setdefault("GRAPHVIZ_DOT", str(_vendor_graphviz_dot))
-    os.environ["PATH"] = str(_vendor_graphviz_dot.parent) + os.pathsep + os.environ.get("PATH", "")
+_graphviz_dot = _resolve_graphviz_dot()
+if _graphviz_dot is not None:
+    os.environ.setdefault("GRAPHVIZ_DOT", str(_graphviz_dot))
+    os.environ["PATH"] = str(_graphviz_dot.parent) + os.pathsep + os.environ.get("PATH", "")
+    graphviz_dot = str(_graphviz_dot)
 
 # Make the editable install (or cloned repo) importable without relying on src/
 sys.path.insert(0, str(package_path))
@@ -382,7 +394,10 @@ favicons = [
 ]
 
 # The site is served at https://docs.hydromodpy.fr/ with one folder per version.
-html_baseurl = f"https://docs.hydromodpy.fr/{_current_version}/"
+# Every version names the page of main as its canonical copy, and every
+# version but main asks search engines not to index it: one copy is indexed.
+html_baseurl = "https://docs.hydromodpy.fr/main/"
+html_context["hmp_noindex"] = _current_version != "main"
 sitemap_url_scheme = "{link}"
 ogp_site_url = html_baseurl
 ogp_site_name = "HydroModPy"

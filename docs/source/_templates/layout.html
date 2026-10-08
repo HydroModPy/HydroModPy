@@ -3,6 +3,9 @@
     this site does not use: the search button submits to search.html, which
     loads the index itself. The rest of the block is the theme's own. #}
 {%- block extrahead %}
+  {%- if hmp_noindex %}
+    <meta name="robots" content="noindex"/>
+  {%- endif %}
   <meta name="color-scheme" content="light dark"/>
   <meta name="docsearch:language" content="{{ language }}"/>
   <meta name="docsearch:version" content="{{ version }}" />

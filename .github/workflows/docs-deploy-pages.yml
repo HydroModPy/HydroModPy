@@ -1,9 +1,13 @@
 # Build ONLY the pushed version of the docs and publish it into its own
 # subfolder on HydroModPy/hydromodpy.github.io, served at the canonical URL
-# https://docs.hydromodpy.fr/ (custom domain of that Pages site). The other
-# versions already on gh-pages are kept (keep_files: true), so a push rebuilds
-# one version (~8 min) instead of every version, and the wall time stays flat
-# as versions grow.
+# https://docs.hydromodpy.fr/ (custom domain of that Pages site). A push rebuilds
+# one version (~8 min) instead of every version.
+#
+# The site keeps main, dev and the stable release tags (v1.0 today); it does
+# not publish pre-releases. Each deploy replaces the folder of its version
+# entirely (no stale page survives a restructuring), rewrites the root files
+# (switcher.json, index.html, 404.html, robots.txt), and removes the version
+# folders the site no longer keeps.
 #
 # The full multi-version build via poly.py (sphinx-polyversion) stays available
 # for local use; it is not used here.
@@ -12,16 +16,20 @@
 #   - ACTIONS_DEPLOY_KEY secret (this repo) = private deploy key,
 #   - matching public deploy key with write access on hydromodpy.github.io,
 #   - hydromodpy.github.io Pages source = gh-pages branch,
-#   - Pages custom domain = docs.hydromodpy.fr. The publish step also passes
-#     `cname`, so the CNAME file is rewritten on every deploy and survives a
-#     branch recreation.
+#   - Pages custom domain = docs.hydromodpy.fr. The root publish step also
+#     passes `cname`, so the CNAME file is rewritten on every deploy and
+#     survives a branch recreation.
 
 name: Docs / Deploy Pages (multi-version)
 
 on:
   push:
     branches: [main, dev]
-    tags: ["v*"]
+    tags:
+      - "v*"
+      - "!v*a*"
+      - "!v*b*"
+      - "!v*rc*"
     paths:
       - ".github/workflows/docs-deploy-pages.yml"
       - "tools/docs_pages_postbuild.py"
@@ -79,6 +87,11 @@ jobs:
         id: build
         run: |
           version="${GITHUB_REF_NAME}"
+          if [[ "${version}" =~ ^v[0-9]+(\.[0-9]+)+(a|b|rc)[0-9]*$ ]]; then
+            echo "pre-release ${version}: not published"
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ ! -f docs/source/conf.py ]; then
             echo "no docs/source/conf.py at ${version}, nothing to publish"
             echo "skip=1" >> "$GITHUB_OUTPUT"
@@ -89,30 +102,35 @@ jobs:
           # The PR gate already runs the same policy via `make -C docs html-strict`.
           HMP_DOC_VERSION="${version}" python -m sphinx -j auto -W --keep-going -b html docs/source "site/${version}"
 
-      - name: Build switcher.json (all versions)
+      - name: Prepare the root files and the versions to remove
         if: steps.build.outputs.skip != '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${{ steps.build.outputs.version }}"
           existing=$(gh api "repos/HydroModPy/hydromodpy.github.io/contents?ref=gh-pages" \
-            --jq '.[] | select(.type=="dir") | .name' 2>/dev/null || true)
-          versions=$(printf '%s\n%s\n' "${existing}" "${version}" | grep -v '^$' | sort -u | paste -sd, -)
-          echo "versions on site: ${versions}"
-          python tools/docs_pages_postbuild.py site https://docs.hydromodpy.fr --versions "${versions}"
+            --jq '.[] | select(.type=="dir") | .name' 2>/dev/null | paste -sd, - || true)
+          echo "folders on site: ${existing}"
+          python tools/docs_pages_postbuild.py --version-dir "site/${version}" \
+            --root-dir site-root --existing "${existing}" --remove-list remove.txt
 
-      - name: Add a root redirect to the default version
+      # destination_dir with keep_files false: the folder of this version is
+      # replaced, never merged, so a page removed from the docs disappears.
+      - name: Publish this version
         if: steps.build.outputs.skip != '1'
-        run: >
-          printf '%s'
-          '<!doctype html><meta charset="utf-8">'
-          '<meta http-equiv="refresh" content="0; url=./main/">'
-          '<link rel="canonical" href="https://docs.hydromodpy.fr/main/">'
-          '<title>HydroModPy documentation</title>'
-          '<a href="./main/">HydroModPy documentation</a>'
-          > site/index.html
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+          external_repository: HydroModPy/hydromodpy.github.io
+          publish_branch: gh-pages
+          publish_dir: ./site/${{ steps.build.outputs.version }}
+          destination_dir: ${{ steps.build.outputs.version }}
+          keep_files: false
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          commit_message: "docs: deploy ${{ steps.build.outputs.version }}"
 
-      - name: Publish to hydromodpy.github.io
+      - name: Publish the root files
         if: steps.build.outputs.skip != '1'
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -120,8 +138,35 @@ jobs:
           external_repository: HydroModPy/hydromodpy.github.io
           publish_branch: gh-pages
           cname: docs.hydromodpy.fr
-          publish_dir: ./site
+          publish_dir: ./site-root
           keep_files: true
           user_name: github-actions[bot]
           user_email: 41898282+github-actions[bot]@users.noreply.github.com
-          commit_message: "docs: deploy ${{ steps.build.outputs.version }}"
+          commit_message: "docs: root files for ${{ steps.build.outputs.version }}"
+
+      - name: Remove the versions the site no longer keeps
+        if: steps.build.outputs.skip != '1'
+        env:
+          DEPLOY_KEY: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+        run: |
+          if [ ! -s remove.txt ]; then
+            echo "nothing to remove"
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "${DEPLOY_KEY}" > ~/.ssh/pages_key
+          chmod 600 ~/.ssh/pages_key
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/pages_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          git clone --depth 1 --branch gh-pages git@github.com:HydroModPy/hydromodpy.github.io.git pages
+          cd pages
+          while read -r folder; do
+            git rm -r -q --ignore-unmatch "${folder}"
+          done < ../remove.txt
+          if git diff --cached --quiet; then
+            echo "nothing to remove"
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "docs: remove the versions the site no longer keeps"
+          git push origin gh-pages
