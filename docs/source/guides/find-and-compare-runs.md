@@ -45,7 +45,8 @@ simulation.if_exists
 
 What happens when you run a file again depends on whether the run is the same.
 
-- **Nothing changed.** `hmp run` finds a completed run with the same identity and does not
+- **Nothing changed.** Neither the file, the data files it names, the run name nor the
+  HydroModPy version. `hmp run` finds a completed run with the same identity and does not
   compute again. It prints two lines on the error stream and exits with code 0:
 
   ```text

@@ -96,3 +96,19 @@ def test_the_index_groups_by_door_and_the_full_text_skips_contribute(tmp_path: P
     text = full.read_text()
     assert "# A guide" in text
     assert "Internals" not in text
+
+
+def test_a_version_links_its_own_folder(tmp_path: Path) -> None:
+    """dev names main's page as canonical; its llms.txt still links dev's pages."""
+    (tmp_path / "index.html").write_text(
+        '<html><head><link rel="canonical" href="https://example.org/main/index.html">'
+        "<script>DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'dev';</script></head>"
+        '<body><article class="bd-article"><h1>Home</h1><p>The home page.</p></article>'
+        "</body></html>"
+    )
+    _page(tmp_path, "guides/new.html", "<h1>New</h1><p>A guide that only dev has today.</p>")
+    index, full = write(tmp_path)
+    text = index.read_text()
+    assert "(https://example.org/dev/guides/new.html)" in text
+    assert "example.org/main/" not in text
+    assert "<!-- https://example.org/dev/guides/new.html -->" in full.read_text()

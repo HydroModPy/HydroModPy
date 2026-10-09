@@ -38,6 +38,11 @@ from hydromodpy.analysis.testbed.config import TestbedConfig
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.config.config_migration import migrate_config_doc_on_load
+from hydromodpy.config.stored_config_migration import (
+    is_sealed_run_config,
+    migrate_stored_config,
+    raw_flow_process_solver,
+)
 from hydromodpy.config.toml_section_loader import (
     _deep_merge,
     _load_data_section,
@@ -95,7 +100,7 @@ from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.solver.base.solver_config import (
     CustomBackend,
     SolverConfig,
-    backend_for_solver,
+    backend_following_the_process,
     solver_name_of_backend,
 )
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
@@ -216,31 +221,6 @@ _ROOT_PERSISTENCE_REFUSAL = (
     "[simulation.results.persistence], which a run reads, or under "
     "[calibration.persistence] for the outputs of a calibration."
 )
-
-
-def _raw_flow_process_solver(simulation: Any) -> tuple[str, str] | None:
-    """Return the id and first solver of the first flow process, before validation."""
-    if isinstance(simulation, Mapping):
-        processes = simulation.get("process")
-    else:
-        processes = getattr(simulation, "process", None)
-    if not isinstance(processes, list | tuple):
-        return None
-    for process in processes:
-        if isinstance(process, Mapping):
-            kind = str(process.get("type", "")).strip().lower()
-            solvers = process.get("solvers")
-            process_id = process.get("id")
-        else:
-            kind = str(getattr(process, "type", "")).strip().lower()
-            solvers = getattr(process, "solvers", None)
-            process_id = getattr(process, "id", None)
-        if kind != "flow" or not isinstance(solvers, list | tuple):
-            continue
-        names = [str(name).strip() for name in solvers if name and str(name).strip()]
-        if names:
-            return str(process_id or "flow"), names[0]
-    return None
 
 
 def _refuse_unknown_transport_solvers(names: list[str]) -> None:
@@ -590,7 +570,7 @@ class HydroModPyConfig(HydroModelBase):
         """
         if not isinstance(data, Mapping):
             return data
-        flow = _raw_flow_process_solver(data.get("simulation"))
+        flow = raw_flow_process_solver(data.get("simulation"))
         if flow is None:
             return data
         process_id, process_solver = flow
@@ -617,12 +597,16 @@ class HydroModPyConfig(HydroModelBase):
                     "flow process."
                 )
             return data
+        # The derived backend is marked, so it stays out of the fields set and a
+        # later assignment of another flow solver moves it again.
         payload = dict(data)
-        selector = backend_for_solver(process_solver)
+        selector = backend_following_the_process(process_solver)
         if isinstance(solver, SolverConfig):
-            payload["solver"] = solver.model_copy(update={"backend": selector})
+            derived = solver.model_copy(update={"backend": selector})
+            derived.__pydantic_fields_set__.discard("backend")
+            payload["solver"] = derived
         else:
-            payload["solver"] = {**(solver or {}), "backend": selector.model_dump()}
+            payload["solver"] = {**(solver or {}), "backend": selector}
         return payload
 
     def _check_river_network_threshold_for_the_mesh(self) -> None:
@@ -1003,6 +987,10 @@ class HydroModPyConfig(HydroModelBase):
         # runs on the parsed payload, in memory. Reading never rewrites the file;
         # only `hmp doctor` does, and the log line says so.
         migrate_config_doc_on_load(raw, source=toml_path)
+        if is_sealed_run_config(toml_path):
+            # A run froze this file in its run directory: drop the keys removed
+            # since, so the run can still be resumed. A user file is not migrated.
+            raw = migrate_stored_config(raw, source=toml_path)
 
         if validate_profile is not None:
             threshold = resolve_profile(validate_profile)
@@ -1367,6 +1355,9 @@ class HydroModPyConfig(HydroModelBase):
     ) -> HydroModPyConfig:
         """Reconstruct a config from a stored JSON snapshot.
 
+        The snapshot is migrated first: a key removed from the schema since the
+        run was stored is dropped or moved, and one log line names it.
+
         Parameters
         ----------
         snapshot : dict
@@ -1379,7 +1370,8 @@ class HydroModPyConfig(HydroModelBase):
         -------
         HydroModPyConfig
         """
-        merged = _deep_merge(snapshot, overrides) if overrides else dict(snapshot)
+        stored = migrate_stored_config(snapshot, source="config snapshot")
+        merged = _deep_merge(stored, overrides) if overrides else stored
         return cls.model_validate(merged)
 
 

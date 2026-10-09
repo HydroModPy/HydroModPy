@@ -8204,20 +8204,6 @@
           "type": "string",
           "x-hmp-profile": "dev"
         },
-        "fill_method": {
-          "default": "ffill",
-          "description": "Gap-filling policy used when a stress period has no direct sample.",
-          "enum": [
-            "ffill",
-            "bfill"
-          ],
-          "examples": [
-            "ffill"
-          ],
-          "title": "Fill Method",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
         "aggregate": {
           "default": "mean",
           "description": "Stress-period aggregation method.",
@@ -10665,20 +10651,6 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "fill_method": {
-          "default": "ffill",
-          "description": "Gap-filling policy used when a stress period has no direct sample.",
-          "enum": [
-            "ffill",
-            "bfill"
-          ],
-          "examples": [
-            "ffill"
-          ],
-          "title": "Fill Method",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
         "aggregate": {
           "default": "mean",
           "description": "Stress-period aggregation method.",
@@ -12687,20 +12659,6 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "fill_method": {
-          "default": "ffill",
-          "description": "Gap-filling policy used when a stress period has no direct sample.",
-          "enum": [
-            "ffill",
-            "bfill"
-          ],
-          "examples": [
-            "ffill"
-          ],
-          "title": "Fill Method",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
         "aggregate": {
           "default": "mean",
           "description": "Stress-period aggregation method.",
@@ -13718,6 +13676,67 @@
         }
       }
     },
+    "GeologyConfigBlock": {
+      "additionalProperties": false,
+      "description": "Geology the mesh follows: its source, an optional clip and a coastal override.",
+      "properties": {
+        "id": {
+          "default": "field_geology",
+          "description": "Logical identifier of the geology field once loaded into HydroModPy. This id is reused by support discretization and by parameter mappings that target geology-based zonation.",
+          "examples": [
+            "field_geology"
+          ],
+          "title": "Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "$ref": "#/$defs/GeologySource",
+          "description": "Raw geology source definition. This section explains where the geology polygons or raster come from and how they should be interpreted.",
+          "x-hmp-profile": "user"
+        },
+        "clip_polygon_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional polygon mask applied before meshing or field projection. Use it to crop a very large national dataset to one smaller study area before further processing.",
+          "title": "Clip Polygon Path",
+          "x-hmp-profile": "user"
+        },
+        "landsea": {
+          "$ref": "#/$defs/GeologyLandSea",
+          "description": "Optional coastal override applied after loading the base geology source.",
+          "x-hmp-profile": "user"
+        },
+        "cell_samples_per_axis": {
+          "default": 8,
+          "description": "Number of sample points along each axis of a mesh cell when the geology fractions are projected onto the mesh. More points give better fractions in narrow or irregular polygons and take longer.",
+          "examples": [
+            8
+          ],
+          "minimum": 2,
+          "title": "Cell Samples Per Axis",
+          "type": "integer",
+          "unit": "-",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "GeologyConfigBlock",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
     "GeologyCriteriaConfig": {
       "additionalProperties": false,
       "description": "Geology criterion configuration.",
@@ -13774,6 +13793,66 @@
           "items": {
             "$ref": "#/$defs/GeologyLayerConfig"
           }
+        }
+      }
+    },
+    "GeologyLandSea": {
+      "additionalProperties": false,
+      "description": "Optional sea-mask override for coastal workflows.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Enable the coastal override that replaces geology values over sea areas.",
+          "examples": [
+            false
+          ],
+          "title": "Enabled",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mask raster or vector path used when landsea.enabled=true. The mask is interpreted so that sea pixels/features overwrite the base geology code.",
+          "title": "Path",
+          "x-hmp-profile": "user"
+        },
+        "sea_value": {
+          "default": 0.0,
+          "description": "Value of the land/sea mask that marks the sea. Cells of the mask that hold it take the geology code override_code.",
+          "examples": [
+            0.0
+          ],
+          "title": "Sea Value",
+          "type": "number",
+          "unit": "-",
+          "x-hmp-profile": "user"
+        },
+        "override_code": {
+          "default": "1",
+          "description": "Geology code written into sea areas after applying the land/sea mask. Choose a stable code that is meaningful in downstream parameter tables.",
+          "examples": [
+            "1"
+          ],
+          "title": "Override Code",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "GeologyLandSea",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
         }
       }
     },
@@ -13841,6 +13920,84 @@
         }
       },
       "title": "GeologyLayerConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "GeologySource": {
+      "additionalProperties": false,
+      "description": "The geology dataset the mesh follows, and how its polygons or cells are read.",
+      "properties": {
+        "path": {
+          "description": "Path to the raw geology dataset used by the meshing workflow. It can point to a raster or polygon vector file depending on kind.",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "kind": {
+          "default": "auto",
+          "description": "How to interpret the geology source. Use 'vector' for polygon geology, 'raster' for an already rasterized grid, or 'auto' to infer the type from the file.",
+          "enum": [
+            "auto",
+            "raster",
+            "vector"
+          ],
+          "examples": [
+            "auto"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "code_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Attribute column carrying the geology code for each polygon when kind='vector'.",
+          "title": "Code Field",
+          "x-hmp-profile": "user"
+        },
+        "reference_raster_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference raster used when vector geology must be rasterized. Its extent and resolution define the target encoding grid.",
+          "title": "Reference Raster Path",
+          "x-hmp-profile": "user"
+        },
+        "all_touched": {
+          "default": false,
+          "description": "Rasterization rule for vector geology. When true, any pixel touched by a polygon is filled; when false, only pixels whose center falls inside are filled.",
+          "examples": [
+            false
+          ],
+          "title": "All Touched",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "GeologySource",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -15474,17 +15631,6 @@
           "title": "Sources",
           "type": "array",
           "x-hmp-profile": "user"
-        },
-        "id": {
-          "default": "lake_bathymetry",
-          "description": "Identifier of the lake-bathymetry spatial field.",
-          "examples": [
-            "lake_bathymetry"
-          ],
-          "pattern": "^[a-z][a-z0-9_]*$",
-          "title": "Id",
-          "type": "string",
-          "x-hmp-profile": "user"
         }
       },
       "title": "LakeBathymetryConfig",
@@ -15634,17 +15780,6 @@
           "minItems": 1,
           "title": "Sources",
           "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "id": {
-          "default": "lake_geometry",
-          "description": "Identifier of the lake-geometry spatial field.",
-          "examples": [
-            "lake_geometry"
-          ],
-          "pattern": "^[a-z][a-z0-9_]*$",
-          "title": "Id",
-          "type": "string",
           "x-hmp-profile": "user"
         }
       },
@@ -17536,8 +17671,7 @@
         "geology": {
           "anyOf": [
             {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/GeologyConfigBlock"
             },
             {
               "type": "null"
@@ -17545,7 +17679,6 @@
           ],
           "default": null,
           "description": "Geology polygons the mesh follows. This section says which polygon source holds the lithological zones and how its polygons are read before meshing. It is checked against the geology data sources when the file loads.",
-          "title": "Geology",
           "x-hmp-profile": "user"
         },
         "watershed_boundary": {

@@ -183,3 +183,23 @@ def test_a_path_takes_a_name_and_refuses_an_override(monkeypatch, tmp_path: Path
 
     with pytest.raises(TypeError, match="takes no parameter override"):
         hmp.run(config, K=1e-5)
+
+
+@pytest.mark.parametrize("window", [{"until_step": 0}, {"from_step": 0}, {"resume": ""}])
+def test_a_step_zero_window_is_never_skipped(monkeypatch, tmp_path: Path, window) -> None:
+    """Index 0 is a valid step: the window runs even when a full run matches."""
+    captured: dict = {}
+    monkeypatch.setattr(
+        "hydromodpy.project.Project",
+        make_capturing_project(
+            captured, result=SimpleNamespace(name="x", sim_id="new"), verb="simulate"
+        ),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.project.dispatch.workflow.completed_identical_run",
+        lambda config, *, name: ("x", "old-sim"),
+    )
+    monkeypatch.setattr("hydromodpy._api._open_run", lambda root, sid: sid)
+
+    assert hmp.run(_fake_cfg(tmp_path, name="x"), no_lock=True, **window) == "new"
+    assert captured["verb_kwargs"] == window

@@ -495,6 +495,11 @@ def _restore_catalog_snapshot(
     finally:
         snap.close()
 
+    # An archive exported before a metric rename carries the old name; the
+    # target catalog already ran the migration that renames it, so do it here.
+    from hydromodpy.results.catalog.reindex import rename_retired_metrics
+
+    rename_retired_metrics(conn, sid)
     return sid
 
 

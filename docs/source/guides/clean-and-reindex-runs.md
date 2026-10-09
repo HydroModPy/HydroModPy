@@ -46,8 +46,9 @@ hmp catalog restore 9c41aa02
 hmp catalog trash --empty
 ```
 
-- `trash` lists the runs by name and `<id8>`. Name a trashed run by its `<id8>`: a bare name
-  is looked up among the live runs first ({doc}`find-and-compare-runs`).
+- `trash` lists the runs by name and `<id8>`. `restore <name>` looks the name up in the
+  trash. Other commands look a bare name up among the live runs first
+  ({doc}`find-and-compare-runs`), so name a trashed run by its `<id8>` there.
 - `restore` prints `restored as <name>  [<id8>]`. The run comes back under its old name when
   that name is free, a `.v2` run as `.v2`. When another run took the name meanwhile, it comes
   back under the next free version, so read the name the message gives.
@@ -55,7 +56,8 @@ hmp catalog trash --empty
   prints `purged <n> run(s) from trash.`
 - `hmp catalog delete --now` skips the trash and removes the folder `runs/<name>/` at once.
   It does not look at the `pinned` tag, so read the reference before you purge. It does not
-  touch `share/`, where exports go.
+  touch `share/`, where exports go. A name that a live run and a trashed run both carry is
+  refused with both `<id8>`: purge by id.
 
 To remove a run and prove that nothing is left, see {doc}`audit-and-purge`.
 
@@ -148,7 +150,8 @@ says how to start a long run and come back to it.
 |---|---|
 | `Refusing to trash without -y in non-interactive mode.` | A script has no terminal to answer the question. Add `-y`. |
 | `Run <id8> is pinned; pass force=True (CLI --force) to act on it.` | The run carries the `pinned` tag. Remove the tag, or add `--force`. |
-| `hmp catalog restore <name>` finds nothing | The run is in the trash and a trashed run is reached by its `<id8>`. Take it from `hmp catalog trash`. |
+| `No trashed simulation named '<name>'.` from `restore` | No run in the trash carries that name. Take the name or the `<id8>` from `hmp catalog trash`. |
+| `Reference '<name>' is ambiguous; matches <n> simulations:` (exit 20) when you purge by name | A live run and a trashed run both carry the name. Purge by the `<id8>` the message lists. |
 | `restore` brings the run back under another name | The old name was taken, or a versioned name moved up one version. The message `restored as <name>` gives the new one. |
 | The disk does not shrink after `delete` | The run is in the trash, with its folder. `hmp catalog trash --empty` frees it. |
 | The trash does not empty | A pinned run stays. Add `--force`, or remove the tag. |

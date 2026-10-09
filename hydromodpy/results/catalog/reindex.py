@@ -340,7 +340,7 @@ def _index_run(catalog: Catalog, run_dir: Path) -> dict[str, int]:
         tables_dir / f"metrics{PARQUET_FILE_SUFFIX}",
         sources=_METRICS_COLUMN_SOURCES,
     )
-    _rename_retired_metrics(catalog.backend, sim_id)
+    rename_retired_metrics(catalog.backend, sim_id)
     counts["provenance"] = _copy_payload(
         catalog.backend,
         "provenance",
@@ -430,11 +430,14 @@ def _trashed_overrides(marker: TrashMarker) -> dict[str, str]:
     }
 
 
-def _rename_retired_metrics(backend: CatalogBackend, sim_id: str) -> None:
+def rename_retired_metrics(backend: Any, sim_id: str) -> None:
     """Store the metrics of a run written under a retired name under the current one.
 
-    A run sealed before the rename carries the old name in its Parquet payload.
-    The migration renamed the index rows; this does the same for a rebuilt index.
+    A run sealed before the rename carries the old name in its Parquet payload,
+    and an archive exported before it carries the old name in its snapshot.
+    The migration renamed the index rows; this does the same for a rebuilt
+    index and for an imported archive. ``backend`` is anything with an
+    ``execute(sql, params)``: a catalog backend or a DuckDB connection.
     """
     for old, new in RETIRED_METRIC_NAMES.items():
         backend.execute(

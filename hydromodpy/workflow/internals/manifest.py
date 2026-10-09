@@ -140,15 +140,36 @@ class ResolvedRunManifest:
         config_payload = _state_config_payload(state)
         if config_payload and self.config_sha256 is not None:
             current_hash = _sha256_payload(config_payload)
-            if current_hash != self.config_sha256:
-                moved = config_sections_that_moved(
-                    read_resolved_config(workspace, self.run_id) if workspace else None,
-                    config_payload,
-                )
+            stored = read_resolved_config(workspace, self.run_id) if workspace else None
+            if current_hash != self.config_sha256 and not self._signs_the_same_config(
+                stored, config_payload
+            ):
+                moved = config_sections_that_moved(stored, config_payload)
                 detail = f" ({', '.join(moved)})" if moved else ""
                 raise ResumeError(
                     f"Resolved configuration changed since the checkpoint was written{detail}"
                 )
+
+    def _signs_the_same_config(self, stored: Any, current: Any) -> bool:
+        """Return whether a checkpoint of an earlier version signs *current*.
+
+        The digest covers the dump of the model of the version that wrote the
+        checkpoint. A key removed from the schema since, or a field added with
+        its default, changes the digest of the same configuration. The stored
+        payload is checked against the digest first, then both payloads are
+        migrated and dumped by this version's model and compared.
+        """
+        if stored is None or _sha256_payload(stored) != self.config_sha256:
+            return False
+        before, after = _current_dump(stored), _current_dump(current)
+        if before is None or after is None or _sha256_payload(before) != _sha256_payload(after):
+            return False
+        logger.info(
+            "resume.checkpoint_config_migrated run=%s: the checkpoint was written by an "
+            "earlier schema and signs the same configuration",
+            self.run_id,
+        )
+        return True
 
     def with_state(
         self,
@@ -294,6 +315,24 @@ def _state_config_payload(state: PipelineState) -> Any:
     if raw_toml:
         return _strip_observability_keys(raw_toml)
     return None
+
+
+def _current_dump(payload: Any) -> Any | None:
+    """Return *payload* as this version's model dumps it, or None when it does not load."""
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.stored_config_migration import migrate_stored_config
+
+    if not isinstance(payload, Mapping):
+        return None
+    try:
+        cfg = HydroModPyConfig.model_validate(
+            migrate_stored_config(payload, source="checkpoint resolved config")
+        )
+    except ValueError:
+        # A payload this version refuses signs nothing it can compare: the
+        # caller keeps the refusal, which names the sections that moved.
+        return None
+    return _strip_observability_keys(cfg.model_dump(mode="json", exclude_none=True))
 
 
 def _json_ready(value: Any) -> Any:

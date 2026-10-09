@@ -225,3 +225,26 @@ def test_fetch_fails_when_no_artifact_is_found(
     )
     with pytest.raises(SystemExit, match="no validation result artifact"):
         V.main(["fetch", "--snapshot", str(tmp_path / "s.json")])
+
+
+def _fake_git(head: str, branch: str):
+    answers = {("rev-parse", "HEAD"): head, ("rev-parse", "--abbrev-ref", "HEAD"): branch}
+    return lambda *args: answers.get(args, "")
+
+
+def test_a_nightly_leg_of_dev_is_stamped_with_dev() -> None:
+    """A schedule fires from main; the leg that checks out dev measured dev."""
+    from tests.validation.conftest import checkout_identity
+
+    env = {"GITHUB_SHA": "main-sha", "GITHUB_REF_NAME": "main"}
+    assert checkout_identity(_fake_git("dev-sha", "dev"), env) == ("dev-sha", "dev")
+
+
+def test_a_detached_checkout_takes_the_event_branch_only_for_its_commit() -> None:
+    from tests.validation.conftest import checkout_identity
+
+    env = {"GITHUB_SHA": "abc", "GITHUB_REF_NAME": "main"}
+    assert checkout_identity(_fake_git("abc", "HEAD"), env) == ("abc", "main")
+    assert checkout_identity(_fake_git("other", "HEAD"), env) == ("other", "")
+    # Without git, the event is all there is.
+    assert checkout_identity(_fake_git("", ""), env) == ("abc", "main")

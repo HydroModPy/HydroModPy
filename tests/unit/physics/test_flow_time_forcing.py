@@ -146,6 +146,74 @@ def test_piecewise_forcing_rejects_uncovered_period() -> None:
         )
 
 
+def _strict_monthly_window() -> ResolvedSimulationTimeWindow:
+    # Four monthly stress periods under the default coverage_policy "error".
+    return ResolvedSimulationTimeWindow(
+        start=pd.Timestamp("2000-01-01"),
+        end=pd.Timestamp("2000-04-30"),
+        step_value=1,
+        step_unit="month",
+        coverage_policy="error",
+    )
+
+
+def _csv_segment(path, start: str, end: str | None, aggregate: str = "mean") -> dict:
+    segment = {
+        "start": start,
+        "forcing": {"kind": "csv", "path_file": str(path), "aggregate": aggregate},
+    }
+    if end is not None:
+        segment["end"] = end
+    return segment
+
+
+@pytest.mark.parametrize("aggregate", ["mean", "last"])
+def test_piecewise_csv_segment_is_checked_only_on_its_own_periods(tmp_path, aggregate) -> None:
+    # The first CSV ends with its segment (Feb); the second starts with its own
+    # (Mar). Neither covers the whole window, and neither has to.
+    early = tmp_path / "early.csv"
+    early.write_text("date,value\n2000-01-01,10.0\n2000-02-01,20.0\n", encoding="utf-8")
+    late = tmp_path / "late.csv"
+    late.write_text("date,value\n2000-03-01,30.0\n2000-04-01,40.0\n", encoding="utf-8")
+    forcing = FlowWellForcingPiecewiseConfig(
+        segments=[
+            _csv_segment(early, "2000-01-01", "2000-03-01", aggregate),
+            _csv_segment(late, "2000-03-01", None, aggregate),
+        ],
+    )
+
+    values = resolve_period_values_from_forcing(
+        forcing=forcing,
+        simulation_window=_strict_monthly_window(),
+        nper=4,
+        label="flow.sinks_sources.wells.w0.rate",
+    )
+
+    assert values == [10.0, 20.0, 30.0, 40.0]
+
+
+def test_piecewise_csv_segment_still_refuses_a_gap_inside_its_own_periods(tmp_path) -> None:
+    # The segment keeps Jan to Mar, but its record ends after one month in Feb.
+    short = tmp_path / "short.csv"
+    short.write_text(
+        "date,value\n2000-01-01,10.0\n2000-01-02,10.0\n2000-01-03,10.0\n", encoding="utf-8"
+    )
+    forcing = FlowWellForcingPiecewiseConfig(
+        segments=[
+            _csv_segment(short, "2000-01-01", "2000-04-01"),
+            {"start": "2000-04-01", "forcing": {"kind": "constant", "value": 1.0}},
+        ],
+    )
+
+    with pytest.raises(ValueError, match=r"stress period\(s\) 1 \[2000-02-01"):
+        resolve_period_values_from_forcing(
+            forcing=forcing,
+            simulation_window=_strict_monthly_window(),
+            nper=4,
+            label="flow.sinks_sources.wells.w0.rate",
+        )
+
+
 def test_seasonal_forcing_by_month_maps_winter_and_summer() -> None:
     forcing = FlowWellForcingSeasonalConfig(
         by_month={

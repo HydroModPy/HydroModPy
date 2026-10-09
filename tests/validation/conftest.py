@@ -110,6 +110,23 @@ def _git(*args: str) -> str:
     return out.stdout.strip()
 
 
+def checkout_identity(git: Any = _git, env: Any = os.environ) -> tuple[str, str]:
+    """Return ``(commit, branch)`` of the code the tests import.
+
+    The checkout is the truth. A scheduled job fires from the default branch,
+    so ``GITHUB_SHA`` and ``GITHUB_REF_NAME`` name ``main`` even in the leg
+    that checks out ``dev``. They only fill in what git cannot say: the
+    commit when git is missing, and the branch of a detached checkout of
+    that very commit.
+    """
+    event_sha = env.get("GITHUB_SHA") or ""
+    commit = git("rev-parse", "HEAD") or event_sha
+    branch = git("rev-parse", "--abbrev-ref", "HEAD")
+    if branch in ("", "HEAD"):
+        branch = env.get("GITHUB_REF_NAME", "") if commit and commit == event_sha else ""
+    return commit, branch
+
+
 def run_facts(config: pytest.Config) -> dict[str, Any]:
     """The facts of this run that every record of it shares."""
     from hydromodpy.core.version import __version__
@@ -117,8 +134,7 @@ def run_facts(config: pytest.Config) -> dict[str, Any]:
     server, repo, run_id = (
         os.environ.get(k) for k in ("GITHUB_SERVER_URL", "GITHUB_REPOSITORY", "GITHUB_RUN_ID")
     )
-    commit = os.environ.get("GITHUB_SHA") or _git("rev-parse", "HEAD")
-    branch = os.environ.get("GITHUB_REF_NAME") or _git("rev-parse", "--abbrev-ref", "HEAD")
+    commit, branch = checkout_identity()
     dirty = bool(_git("status", "--porcelain", "--untracked-files=no"))
     return {
         "date": datetime.now(UTC).replace(microsecond=0).isoformat(),

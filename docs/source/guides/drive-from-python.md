@@ -83,7 +83,8 @@ in the project.
 A run identical to a completed one is not computed again. `hmp.run` returns the existing
 `Run` and logs a warning that names it: `Config identical to completed run '<name>' [<id8>];
 nothing to do. Pass force=True to run it again.` Identical means the same resolved
-configuration, the same name and no parameter override. `force=True` computes anyway.
+configuration, the same content in the data files it names, the same name, the same
+HydroModPy version and no parameter override. `force=True` computes anyway.
 {doc}`find-and-compare-runs` gives the rule and its limits.
 
 To name a run from a script without `name=`, write the name in a file that inherits the first

@@ -10,6 +10,7 @@ from hydromodpy.analysis.comparison.runtime.config import (
     write_toml_payload,
 )
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 _BASE = """
 [workflow]
@@ -40,7 +41,9 @@ def test_child_keeps_every_process_and_follows_the_new_solver(tmp_path: Path) ->
     base = tmp_path / "base.toml"
     base.write_text(_BASE, encoding="utf-8")
 
-    processes = _build_solver_process_overlay(base_config_path=base, solver="modflow_nwt")
+    processes = _build_solver_process_overlay(
+        base_payload=load_toml_with_base_config(base), solver="modflow_nwt"
+    )
     overlay = {"simulation": {"process": processes}}
     _let_solver_backend_follow_the_process(overlay)
     child = tmp_path / "child.toml"

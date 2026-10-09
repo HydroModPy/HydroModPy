@@ -52,7 +52,7 @@ def record_step(stamps: pd.DatetimeIndex) -> pd.Timedelta | None:
     """
     if len(stamps) < 2:
         return None
-    spacing = np.diff(stamps.asi8)
+    spacing = np.diff(pd.DatetimeIndex(stamps).as_unit("ns").asi8)
     return pd.Timedelta(int(np.median(spacing)), unit="ns")
 
 
@@ -64,12 +64,14 @@ def samples_by_period(
 
     ``stamps`` must be sorted. ``boundaries`` holds the ``N + 1`` period edges.
     """
-    index = pd.DatetimeIndex(stamps)
+    # One unit for stamps and edges: a parquet or DuckDB index often comes in
+    # microseconds, and its integers would not compare with nanosecond edges.
+    index = pd.DatetimeIndex(stamps).as_unit("ns")
     if len(index) == 0:
         raise ValueError("a forcing record needs at least one sample.")
     if not index.is_monotonic_increasing:
         raise ValueError("the stamps of a forcing record must be sorted.")
-    edges = pd.DatetimeIndex(boundaries)
+    edges = pd.DatetimeIndex(boundaries).as_unit("ns")
     step = record_step(index)
     record_end = None if step is None else index[-1] + step
 
@@ -77,9 +79,10 @@ def samples_by_period(
     fill = np.full(max(len(edges) - 1, 0), -1, dtype=int)
     uncovered: list[int] = []
     values = index.asi8
-    for i, (left, right) in enumerate(zip(edges[:-1], edges[1:], strict=False)):
-        first = int(np.searchsorted(values, left.value, side="left"))
-        stop = int(np.searchsorted(values, right.value, side="left"))
+    edge_values = edges.asi8
+    for i, (left, right) in enumerate(zip(edge_values[:-1], edge_values[1:], strict=False)):
+        first = int(np.searchsorted(values, left, side="left"))
+        stop = int(np.searchsorted(values, right, side="left"))
         inside.append(np.arange(first, stop, dtype=int))
         if stop > first:
             continue
@@ -89,7 +92,7 @@ def samples_by_period(
             uncovered.append(i)
             continue
         fill[i] = first - 1
-        if record_end is not None and first == len(index) and record_end <= left:
+        if record_end is not None and first == len(index) and record_end <= edges[i]:
             uncovered.append(i)
     return PeriodSamples(inside=tuple(inside), fill=fill, uncovered=tuple(uncovered))
 

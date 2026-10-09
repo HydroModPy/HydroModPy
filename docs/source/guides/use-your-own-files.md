@@ -456,7 +456,7 @@ path is written `<folder>`.
 | `Unknown unit: '<unit>'` | The unit string is not one HydroModPy converts. | Use a common spelling such as `m3/s`, `L/s` or `mm/day`. |
 | `Chronicle CSV <file> missing datetime column. Expected 'datetime'. Columns: [...]` | The chronicle has other column names. The same message exists for `value`. | Set {toml}`col_datetime\|data.hydrometry.sources.col_datetime`, or rename the column. |
 | `<section>: N station(s) of source '<source>' outside the mask <file> dropped: [...]` (warning) | A station lies outside the catchment and is dropped. | Check the coordinates and the CRS of the station. For discharge or piezometry, name the station in `station_ids` to keep it. |
-| `<section>: every station of source '<source>' lies outside the mask <file>: [...]. No station is left to load.` (exit 16) | Every station of the source is outside the catchment. | Same, or the outlet is not where you think. |
+| `<section>: every station of source '<source>' lies outside the mask <file>: [...]. No station is left to load.` (exit 16) | Every station of your file, or of `station_ids`, is outside the catchment. | Same, or the outlet is not where you think. |
 | `Station <id> has no unit in its LOC file; its values are taken as <unit> and not converted.` (warning) | A climate station has no unit. | Add the `unit` column. |
 | `No chronicle for station <id>` (warning) | The location file lists a station and no chronicle file matches. | Name the file `<section>_custom_<id>_<start>_<end>_<freq>.csv`. |
 | `Unsupported custom format: <ext>. Use a directory (CSV), .nc, or .tif.` | A grid file has another extension, or its extension is in capitals. | Rename or convert it. |

@@ -16,7 +16,12 @@ import numpy as np
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time import validate_recharge_coverage
 from hydromodpy.core.units import convert_payload_to_m_per_s
-from hydromodpy.physics.forcing.steady_periods import apply_first_clim, first_clim_on_part
+from hydromodpy.physics.forcing.steady_periods import (
+    apply_first_clim,
+    first_clim_on_part,
+    first_clim_sets_a_deficit,
+    one_period_rate,
+)
 from hydromodpy.physics.forcing.validation import (
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
@@ -128,7 +133,7 @@ def extract_evt_payload_2d(
         return normalized_rch, None
 
     has_negative = any(np.any(arr < 0.0) for arr in normalized_rch.values())
-    if not has_negative:
+    if not has_negative and not first_clim_sets_a_deficit(first_clim, steady):
         return normalized_rch, None
 
     _, deficit = route_negative_recharge_to_evt(
@@ -184,10 +189,14 @@ def extract_evt_payload(
     keeps every period's clipped rate, the deficit of a steady period follows
     ``first_clim``.
     """
-    if not negative_to_evt or not payload_has_negative_values(payload):
+    first_clim = model.first_clim if model.first_clim is not None else "mean"
+    if not negative_to_evt:
+        return payload, None
+    if not payload_has_negative_values(payload) and not first_clim_sets_a_deficit(
+        first_clim, getattr(model, "steady", None)
+    ):
         return payload, None
 
-    first_clim = model.first_clim if model.first_clim is not None else "mean"
     if isinstance(payload, Mapping):
         return extract_evt_payload_2d(payload, True, steady=model.steady, first_clim=first_clim)
 
@@ -261,6 +270,12 @@ def bind_recharge_from_flow(model) -> None:
         label="flow.sinks_sources.recharge.values",
         allow_negative=negative_to_evt,
     )
+    # The EVT routing reads first_clim: set it before routing.
+    model.first_clim = getattr(
+        recharge_cfg,
+        "first_clim",
+        model.first_clim if model.first_clim is not None else "mean",
+    )
     if hasattr(model, "nper"):
         payload, evt_payload = extract_evt_payload(model, payload, negative_to_evt)
         model._evt_rate_payload = evt_payload
@@ -268,11 +283,6 @@ def bind_recharge_from_flow(model) -> None:
         model._pending_negative_to_evt = negative_to_evt
 
     model.recharge = payload
-    model.first_clim = getattr(
-        recharge_cfg,
-        "first_clim",
-        model.first_clim if model.first_clim is not None else "mean",
-    )
 
 
 def bind_heterogeneous_recharge(model, recharge_cfg: object) -> None:
@@ -558,7 +568,9 @@ def _period_rows(model, payload: object) -> dict[int, np.ndarray]:
     """Return the own rate of every period, before any ``first_clim`` rule.
 
     Each entry is a scalar (0-d array) or one value per cell. A record longer
-    than a one-period run gives that period its time mean.
+    than a one-period run gives that period its time mean, or its first value
+    when the period is steady and ``first_clim`` is ``"first"``
+    (:func:`~hydromodpy.physics.forcing.steady_periods.one_period_rate`).
     """
     nper = int(model.nper)
     if isinstance(payload, Real) and not isinstance(payload, bool):
@@ -575,7 +587,11 @@ def _period_rows(model, payload: object) -> dict[int, np.ndarray]:
         if arr.size == nper:
             return {kper: np.asarray(float(arr[kper])) for kper in range(nper)}
         if nper == 1:
-            return {0: np.asarray(float(np.mean(arr)))}
+            flags = getattr(model, "steady", None)
+            steady = flags is not None and bool(np.asarray(flags, dtype=bool).reshape(-1)[0])
+            first_clim = model.first_clim if model.first_clim is not None else "mean"
+            rate = one_period_rate(arr, steady=steady, first_clim=first_clim)
+            return {0: np.asarray(rate)}
         raise ValueError(
             "model.recharge sequence length must be 1, nper "
             f"({nper}), or ncpl ({int(model.ncpl)}); got {int(arr.size)}."

@@ -242,6 +242,17 @@ _RUN_CONTROL_KEYS = frozenset({"name", "no_display", "parallel", "frozen"})
 _PARTIAL_RUN_KEYS = frozenset({"resume", "from_step", "until_step", "dry_run"})
 
 
+def _asks_a_partial_run(kwargs: dict[str, Any]) -> bool:
+    """Say whether ``kwargs`` ask for a resume, a step window or a dry run.
+
+    A step index of 0 and an empty resume token are requests too, so the step
+    keys count when they are set at all, like ``run_simulation`` reads them.
+    """
+    if kwargs.get("dry_run"):
+        return True
+    return any(kwargs.get(key) is not None for key in _PARTIAL_RUN_KEYS - {"dry_run"})
+
+
 def _refuse_overrides_on_a_path(config_path: Path, kwargs: dict[str, Any]) -> None:
     """Refuse a parameter override on a TOML path, saying where it belongs."""
     accepted = _RUN_CONTROL_KEYS | _PARTIAL_RUN_KEYS | {"force"}
@@ -412,7 +423,7 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
         plain = (
             not force
             and bool(name)
-            and not any(kwargs.get(key) for key in _PARTIAL_RUN_KEYS)
+            and not _asks_a_partial_run(kwargs)
             and set(kwargs) <= _RUN_CONTROL_KEYS | _PARTIAL_RUN_KEYS
         )
         with Project(config, headless=headless) as project:

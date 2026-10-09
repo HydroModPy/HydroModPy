@@ -23,8 +23,9 @@ from hydromodpy.physics.forcing.steady_periods import (
 )
 from hydromodpy.solver.boussinesq.forcing.common import ForcingCommonMixin
 from hydromodpy.solver.modflow6.builders.recharge import (
-    extract_evt_payload,
+    bind_recharge_from_flow,
     extract_evt_payload_2d,
+    finalize_pending_recharge_evt,
     recharge_to_spd,
 )
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
@@ -94,11 +95,33 @@ def test_modflow6_gives_a_grid_per_period_the_first_clim_rate_on_its_steady_peri
     np.testing.assert_allclose(spd[1], [3.0, 5.0])
 
 
+def _bind_mf6_series(values, *, first_clim, steady, deferred: bool):
+    """Bind a recharge series the way the build does, first_clim left unset."""
+    model = _mf6_model(nper=len(steady), steady=steady, first_clim=None)
+    cfg = FlowRechargeConfig(
+        values=list(values), first_clim=first_clim, units="m/s", negative_to_evt=True
+    )
+    model.flow = types.SimpleNamespace(
+        active_sinks_sources=["recharge"], sinks_sources={"recharge": cfg}
+    )
+    if deferred:
+        del model.nper
+        bind_recharge_from_flow(model)
+        model.nper = len(steady)
+        finalize_pending_recharge_evt(model)
+    else:
+        bind_recharge_from_flow(model)
+    return recharge_to_spd(model), model._evt_rate_payload
+
+
+def _evt_rate(evt: dict | None, kper: int) -> float:
+    return 0.0 if evt is None else float(np.asarray(evt[kper]).ravel()[0])
+
+
+@pytest.mark.parametrize("deferred", [False, True])
 @pytest.mark.parametrize("first_clim", ["mean", "first", -1.5, 4.0])
-def test_modflow6_series_and_grids_route_the_same_steady_deficit(first_clim):
-    series_model = _mf6_model(nper=4, steady=STEADY_FIRST, first_clim=first_clim)
-    series_model.recharge, evt = extract_evt_payload(series_model, np.asarray(NET), True)
-    rch = recharge_to_spd(series_model)
+def test_modflow6_series_and_grids_route_the_same_steady_deficit(first_clim, deferred):
+    rch, evt = _bind_mf6_series(NET, first_clim=first_clim, steady=STEADY_FIRST, deferred=deferred)
 
     grid_model = _mf6_model(nper=4, steady=STEADY_FIRST, first_clim=first_clim)
     grids = {k: np.full(2, value) for k, value in enumerate(NET)}
@@ -108,11 +131,56 @@ def test_modflow6_series_and_grids_route_the_same_steady_deficit(first_clim):
     grid_rch = recharge_to_spd(grid_model)
 
     expected = {"mean": np.mean(NET), "first": NET[0]}.get(first_clim, first_clim)
-    assert float(rch[0][0]) - float(evt[0]) == pytest.approx(expected)
+    assert float(rch[0][0]) - _evt_rate(evt, 0) == pytest.approx(expected)
     assert float(grid_rch[0][0]) - float(grid_evt[0][0]) == pytest.approx(expected)
     for kper in (1, 2, 3):
-        assert float(rch[kper][0]) - float(evt[kper]) == pytest.approx(NET[kper])
+        assert float(rch[kper][0]) - _evt_rate(evt, kper) == pytest.approx(NET[kper])
         assert float(grid_rch[kper][0]) - float(grid_evt[kper][0]) == pytest.approx(NET[kper])
+
+
+POSITIVE = [2.0, 4.0, 9.0, 1.0]
+
+
+@pytest.mark.parametrize("deferred", [False, True])
+def test_modflow6_routes_a_negative_first_clim_without_a_negative_record(deferred):
+    rch, evt = _bind_mf6_series(POSITIVE, first_clim=-3.0, steady=STEADY_FIRST, deferred=deferred)
+
+    assert float(rch[0][0]) - _evt_rate(evt, 0) == pytest.approx(-3.0)
+    for kper in (1, 2, 3):
+        assert float(rch[kper][0]) - _evt_rate(evt, kper) == pytest.approx(POSITIVE[kper])
+
+
+def test_modflow6_grids_route_a_negative_first_clim_without_a_negative_record():
+    grids = {k: np.full(2, value) for k, value in enumerate(POSITIVE)}
+    model = _mf6_model(nper=4, steady=STEADY_FIRST, first_clim=-3.0)
+    model.recharge, evt = extract_evt_payload_2d(grids, True, steady=model.steady, first_clim=-3.0)
+    rch = recharge_to_spd(model)
+
+    assert evt is not None
+    np.testing.assert_allclose(rch[0] - evt[0], -3.0)
+    for kper in (1, 2, 3):
+        np.testing.assert_allclose(rch[kper] - evt[kper], POSITIVE[kper])
+
+
+def test_modflow6_without_a_steady_period_routes_no_deficit_for_a_positive_record():
+    _, evt = _bind_mf6_series(POSITIVE, first_clim=-3.0, steady=[False] * 4, deferred=True)
+
+    assert evt is None
+
+
+@pytest.mark.parametrize(
+    ("first_clim", "expected"), [("mean", np.mean(NET)), ("first", NET[0]), (7.0, 7.0)]
+)
+def test_modflow6_one_steady_period_reads_first_clim_on_the_whole_record(first_clim, expected):
+    model = _mf6_model(nper=1, steady=[True], first_clim=first_clim)
+    model.recharge = np.asarray(POSITIVE)
+    spd = recharge_to_spd(model)
+    assert float(spd[0][0]) == pytest.approx(
+        {"mean": np.mean(POSITIVE), "first": POSITIVE[0]}.get(first_clim, first_clim)
+    )
+
+    rch, evt = _bind_mf6_series(NET, first_clim=first_clim, steady=[True], deferred=True)
+    assert float(rch[0][0]) - _evt_rate(evt, 0) == pytest.approx(expected)
 
 
 def _nwt_adapter(cfg, *, flow_regime: str, first_period_steady: bool, nper: int):
@@ -175,3 +243,21 @@ def test_a_negative_steady_rate_needs_the_evt_routing():
     with pytest.raises(ValueError, match="negative_to_evt is false"):
         FlowRechargeConfig(values=[1.0, 2.0], first_clim=-1.0, negative_to_evt=False)
     FlowRechargeConfig(values=[1.0, 2.0], first_clim=-1.0, negative_to_evt=True)
+
+
+@pytest.mark.parametrize(("first_clim", "expected"), [("mean", 4.0), ("first", 2.0), (7.0, 7.0)])
+def test_boussinesq_one_steady_period_reads_first_clim_on_the_whole_record(first_clim, expected):
+    # A steady run resolves its forcing with nper = 1: "first" is still R_0.
+    series = _BoussinesqForcing("steady").recharge_period_series(
+        payload=[2.0, 4.0, 9.0, 1.0], nper=1, first_clim=first_clim, label="recharge"
+    )
+
+    np.testing.assert_allclose(series, [expected])
+
+
+def test_boussinesq_one_transient_period_takes_the_mean_of_the_record():
+    series = _BoussinesqForcing("transient").recharge_period_series(
+        payload=[2.0, 4.0, 9.0, 1.0], nper=1, first_clim="first", label="recharge"
+    )
+
+    np.testing.assert_allclose(series, [4.0])

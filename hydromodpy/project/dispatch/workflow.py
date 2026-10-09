@@ -114,30 +114,40 @@ def completed_identical_run(config: Any, *, name: str) -> tuple[str | None, str]
 
     Identical means the same run identity hash
     (:func:`~hydromodpy.results.catalog.registration.run_identity_hash`): the
-    resolved configuration, without the per-run scratch folder, under the run
-    name ``name``. It is the ``config_hash`` the catalog records when a run
-    registers, so two runs of an unchanged file match. A trashed run never
-    matches. Read-only and fail-open: an error returns None and the run
-    proceeds.
+    resolved configuration, without the per-run scratch folder, the contents
+    of the input files it names and the HydroModPy version. It is the
+    ``config_hash`` the catalog records when a run registers, so two runs of
+    an unchanged file on unchanged data match. The run must also carry the
+    name ``name``, or be a version of it (``name.v2``): a run renamed away no
+    longer answers to it. A trashed run never matches. Read-only and
+    fail-open: an error returns None and the run proceeds.
     """
     from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.catalog.registration import run_identity_hash
+    from hydromodpy.results.catalog.registration import (
+        input_file_digests,
+        run_identity_hash,
+    )
 
     try:
-        config_hash = run_identity_hash(config.model_dump(mode="json"), name=name)
         root = Path(config.workspace.project_root)
-        if config_hash is None or not catalog_path_for(root).exists():
+        if not catalog_path_for(root).exists():
+            return None
+        config_hash = run_identity_hash(
+            config.model_dump(mode="json"), inputs=input_file_digests(config)
+        )
+        if config_hash is None:
             return None
         with Catalog(root, read_only=True) as catalog:
             row = catalog.backend.fetch_one(
                 "SELECT s.name, CAST(s.sim_id AS VARCHAR) FROM simulations s "
                 "JOIN statuses st ON s.status_id = st.id "
                 "WHERE s.config_hash = ? AND st.code = 'completed' "
+                "AND (s.name = ? OR s.name_stem = ?) "
                 "ORDER BY s.created_at DESC LIMIT 1",
-                [config_hash],
+                [config_hash, name, name],
             )
-    except Exception:
+    except Exception:  # fail-open: a skip check never blocks a run
         return None
     if row is None:
         return None

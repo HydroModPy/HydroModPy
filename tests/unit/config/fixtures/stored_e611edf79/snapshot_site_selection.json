@@ -1,0 +1,636 @@
+{
+ "analysis": null,
+ "calibration": null,
+ "data": {
+  "crossings": null,
+  "dem": null,
+  "etp": null,
+  "geology": null,
+  "humidity": null,
+  "hydrography": null,
+  "hydrometry": null,
+  "inference_mode": "warn",
+  "intermittency": null,
+  "lake_abacus": null,
+  "lake_bathymetry": null,
+  "lake_geometry": null,
+  "lake_inflow": null,
+  "lake_levels": null,
+  "lake_outflow": null,
+  "lake_withdrawal": null,
+  "oceanic": null,
+  "piezometry": null,
+  "precipitation": null,
+  "radiation": null,
+  "recharge": null,
+  "runoff": null,
+  "soil_capacity": null,
+  "soil_moisture": null,
+  "substratum": null,
+  "temperature": null,
+  "types": [],
+  "water_quality": null,
+  "wind": null
+ },
+ "display": {
+  "backend": "auto",
+  "cmap": "viridis",
+  "dpi": 150,
+  "enabled": true,
+  "figures": [],
+  "on_error": "warn",
+  "output_dir": "figures",
+  "overrides": {},
+  "preset": "default",
+  "save": true,
+  "show": false,
+  "time": null
+ },
+ "domain": {
+  "depth_model": {
+   "kind": "constant_thickness",
+   "thickness": 50.0
+  },
+  "supports": {},
+  "zone_ids": []
+ },
+ "export": [],
+ "flow": {
+  "active_bc": [],
+  "active_sinks_sources": [],
+  "bc": {},
+  "first_period_steady": true,
+  "flow_regime": "transient",
+  "ic": {
+   "h": {
+    "description": "Initial condition 'h'",
+    "id": "h",
+    "type": "top",
+    "units": "m",
+    "value": null
+   }
+  },
+  "param": {},
+  "param_list": [],
+  "restart_from": null,
+  "runtime_backend": "local",
+  "runtime_max_iterations": null,
+  "runtime_tol_residual_inf": null,
+  "runtime_tol_state_update_inf": null,
+  "sinks_sources": {
+   "etp": null,
+   "flow_barriers": {},
+   "lakes": {},
+   "recharge": null,
+   "sfr": {},
+   "wells": {}
+  },
+  "surface_interaction_model": "auto",
+  "ts_vi_adapt": false,
+  "ts_vi_dt_max_fraction": 0.25,
+  "ts_vi_dt_min_fraction": 0.015625,
+  "ts_vi_snes_type": "vinewtonrsls",
+  "ts_vi_steps_per_period": 4,
+  "ts_vi_type": "beuler",
+  "vi_max_adaptive_substeps": null,
+  "vi_substep_on_failure": false,
+  "vi_substeps_per_period": 1
+ },
+ "geographic": {
+  "bed_regularization": {
+   "enabled": false,
+   "min_slope": 0.0001
+  },
+  "capped_breach": null,
+  "catchment": {
+   "catch_def": "dem",
+   "dem_init_path": "/home/proj/dem.tif"
+  },
+  "crossings": {
+   "bed_reach": 50.0,
+   "enabled": false,
+   "kinds": [
+    "road",
+    "railway",
+    "bridge"
+   ],
+   "max_depth": 3.0,
+   "notch_width": 10.0,
+   "path": null,
+   "snap_radius": 30.0
+  },
+  "crs_project": null,
+  "dam_carve": {
+   "buffer_m": 40.0,
+   "enabled": false,
+   "line_path": null,
+   "search_radius_m": null
+  },
+  "dem_correc_type": "fill",
+  "domain_extent": "box",
+  "enforce_lakes": {
+   "buffer_m": 15.0,
+   "capture_max_streams": 8,
+   "capture_min_acc_fraction": 0.3,
+   "capture_radius_m": 0.0,
+   "enabled": false,
+   "lake_geometry_path": null,
+   "slope": 0.003
+  },
+  "reg_fold": null,
+  "reuse_existing_outputs": false,
+  "river_network": {
+   "all_vertices": false,
+   "compute_strahler_order": true,
+   "compute_stream_links": true,
+   "enabled": false,
+   "min_stream_length_m": 0.0,
+   "prune_short_streams": false,
+   "threshold_area_km2": null,
+   "threshold_cells": null,
+   "threshold_mode": "area_km2"
+  },
+  "source_mode": "standard",
+  "synthetic": {
+   "case_id": "flat20",
+   "grid": {
+    "crs": "EPSG:2154",
+    "dx": 1.0,
+    "dy": 1.0,
+    "length_x": 100.0,
+    "length_y": 1.0,
+    "ncol": 100,
+    "nodata": -9999.0,
+    "nrow": 1,
+    "nx": 100,
+    "ny": 1,
+    "xmax": 100.0,
+    "xmin": 0.0,
+    "ymax": 1.0,
+    "ymin": 0.0
+   },
+   "topography": {
+    "base_elevation": 20.0,
+    "kind": "flat"
+   }
+  },
+  "terrain_engine": null,
+  "write_intermediates": false
+ },
+ "hydrometry": null,
+ "mesh_catchment": null,
+ "mesh_input": null,
+ "modflow6": {
+  "process_specific": {
+   "evt_extinction_depth": 1.0,
+   "lak_forcing_mode": "auto",
+   "ts6_min_periods": 120,
+   "vka": 1.0
+  },
+  "runtime": {
+   "ims_print_option": "NONE",
+   "mf6_api_timeout_s": null,
+   "mf6_ats": false,
+   "mf6_ats_dtmin_s": 60.0,
+   "mf6_enable_rewet": null,
+   "mf6_enable_xt3d": null,
+   "mf6_executable_name": "mf6",
+   "mf6_ims_complexity": "COMPLEX",
+   "mf6_inner_dvclose": 0.0001,
+   "mf6_inner_maximum": 500,
+   "mf6_inner_rclose": null,
+   "mf6_linear_acceleration": null,
+   "mf6_newton": true,
+   "mf6_newton_under_relaxation": true,
+   "mf6_outer_dvclose": 0.0001,
+   "mf6_outer_maximum": 500,
+   "mf6_rewet_ihdwet": 0,
+   "mf6_rewet_iwetit": 1,
+   "mf6_rewet_wetdry": 0.1,
+   "mf6_rewet_wetfct": 0.1,
+   "mf6_runner": "subprocess",
+   "mf6_under_relaxation": null,
+   "mf_verbose": false,
+   "print_head": false,
+   "save_saturation": true,
+   "save_specific_discharge": true
+  },
+  "sgrid": {
+   "grid_dual": "voronoi",
+   "planar": {
+    "mode": "keep_native",
+    "nx": null,
+    "ny": null,
+    "resampling": "bilinear"
+   },
+   "top_sampling": {
+    "channel_buffer_px": 0,
+    "channel_source": "streams_raster",
+    "channel_stat": "min",
+    "hillslope_stat": "median",
+    "min_pixels": 3,
+    "min_thickness_m": 0.1,
+    "mode": "centroid",
+    "spike_guard_tol_m": 2.0
+   },
+   "vertical": {
+    "genmtd_lay": "constant",
+    "lay_decay": null,
+    "lay_proportions": null,
+    "nlay": 1,
+    "nodata": -9999.0
+   }
+  }
+ },
+ "modflownwt": {
+  "process_specific": {
+   "exdp": 1.0,
+   "vka": 1.0
+  },
+  "runtime": {
+   "bas": {
+    "hnoflo": -9999.0
+   },
+   "dis": {
+    "itmuni": 0
+   },
+   "evt": {
+    "ievt": 1,
+    "ipakcb": 1,
+    "nevtop": 3
+   },
+   "lmt": {
+    "extension": "lmt8",
+    "output_file_name": "mt3d_link.ftl",
+    "output_format": "unformatted"
+   },
+   "nwt": {
+    "backflag": 0,
+    "continue_run": false,
+    "fluxtol": 500.0,
+    "headtol": 0.0001,
+    "ibotav": 1,
+    "iprnwt": 1,
+    "linmeth": 1,
+    "listunit": 2,
+    "maxiterout": 5000,
+    "options": "COMPLEX",
+    "stoptol": 1e-10,
+    "thickfact": 1e-05,
+    "verbose": false,
+    "version": "mfnwt"
+   },
+   "oc": {
+    "compact": true
+   },
+   "upw": {
+    "hdry": -100.0,
+    "iphdry": 1,
+    "layvka": 1
+   },
+   "wel": {
+    "ipakcb": 1
+   }
+  },
+  "sgrid": {
+   "grid_dual": "voronoi",
+   "planar": {
+    "mode": "keep_native",
+    "nx": null,
+    "ny": null,
+    "resampling": "bilinear"
+   },
+   "top_sampling": {
+    "channel_buffer_px": 0,
+    "channel_source": "streams_raster",
+    "channel_stat": "min",
+    "hillslope_stat": "median",
+    "min_pixels": 3,
+    "min_thickness_m": 0.1,
+    "mode": "centroid",
+    "spike_guard_tol_m": 2.0
+   },
+   "vertical": {
+    "genmtd_lay": "constant",
+    "lay_decay": null,
+    "lay_proportions": null,
+    "nlay": 1,
+    "nodata": -9999.0
+   }
+  }
+ },
+ "observation": {
+  "points": [],
+  "variables": [
+   "head"
+  ]
+ },
+ "overview": null,
+ "persistence": {
+  "compression": "zstd",
+  "compression_level": 5,
+  "field_precision": "compact",
+  "save_catalog": true,
+  "save_parquet": true,
+  "save_zarr": true
+ },
+ "simulation": {
+  "contact_email": null,
+  "description": "",
+  "doi": null,
+  "if_exists": "version",
+  "name": "",
+  "outlet_x": null,
+  "outlet_y": null,
+  "process": [],
+  "results": {
+   "budget": {
+    "spatial_fields": false
+   },
+   "derived": {
+    "accumulation_flux": false,
+    "concentration_seepage": false,
+    "mass_accumulated": false,
+    "mass_seepage": false,
+    "outflow_drain": false,
+    "release_accumulation_flux": false,
+    "release_flux": false,
+    "seepage_areas": false,
+    "watertable_depth": false,
+    "watertable_elevation": false
+   },
+   "keep_solver_files": false,
+   "persistence": {
+    "compression": "zstd",
+    "compression_level": 5,
+    "field_precision": "compact",
+    "save_catalog": true,
+    "save_parquet": true,
+    "save_zarr": true
+   }
+  },
+  "rng_seed": null,
+  "scientific_objective": null,
+  "study_area_name": null,
+  "tags": [],
+  "time": null
+ },
+ "site_selection": {
+  "criteria": {
+   "area": {
+    "hard_max_area_km2": 125.0,
+    "hard_min_area_km2": 75.0,
+    "mode": "hard_reject",
+    "preferred_area_km2": null,
+    "ranges": [],
+    "score_half_width_fraction": null,
+    "target_area_km2": 100.0
+   },
+   "geology": {
+    "layers": [],
+    "mode": "report_only",
+    "prefer_diversity": false
+   },
+   "hard_reject": [],
+   "influence": {
+    "influence_search_radius_km": null,
+    "layers": [],
+    "mode": "report_only",
+    "reject_major_dam_upstream": false,
+    "reject_major_regulated_reach": false,
+    "reject_major_withdrawal_upstream": false
+   },
+   "observations": {
+    "flow_station": {
+     "max_station_to_outlet_distance_km": null,
+     "min_record_years": null,
+     "mode": "report_only",
+     "require_station_inside_or_at_outlet": false
+    },
+    "flow_station_max_distance_km": 3.0,
+    "flow_station_mode": "report_only",
+    "piezometer_layers": [],
+    "piezometer_max_distance_km": null,
+    "piezometer_mode": "report_only",
+    "station_influence": {
+     "comment_keywords": [
+      "barrage",
+      "retenue",
+      "derivation",
+      "canal",
+      "ecluse",
+      "ouvrage",
+      "regulation",
+      "turbinage",
+      "hydroelectrique",
+      "usine"
+     ],
+     "mode": "report_only",
+     "source": "hubeau_station_metadata",
+     "unknown_policy": "neutral",
+     "warn_if_comment_keyword": true,
+     "warn_if_general_influence": true,
+     "warn_if_local_influence": true
+    }
+   },
+   "report_only": [],
+   "ruleset": "site_selection_v1",
+   "soft_score": [],
+   "warning": []
+  },
+  "dem": {
+   "cache_policy": "use_cache_else_download",
+   "force_refresh": false,
+   "map_background_extent": "delineation",
+   "margin_km": 0.0,
+   "path": null,
+   "request_extent": "territory",
+   "resolution_m": null,
+   "source": "custom"
+  },
+  "dem_area_light": null,
+  "hydrology": {
+   "compute_strahler": true,
+   "flow_algorithm": "d8",
+   "hydrologic_conditioning": "existing_default",
+   "method": "dem_only",
+   "network_threshold_area_km2": 1.0
+  },
+  "input": {
+   "catchments_csv": null,
+   "data_root": null,
+   "delineate_from_outlets": false,
+   "mode": "plan_only",
+   "region_id": "",
+   "workspace_root": null,
+   "write_plan_manifest": true
+  },
+  "map_context": {
+   "layers": []
+  },
+  "outlets": {
+   "allow_nested_basins": false,
+   "candidate_mode": "network_sampling",
+   "max_generated_candidates": 200,
+   "max_generated_network_cells": 50000,
+   "max_rejected_candidate_audit_records": 5000,
+   "min_distance_between_outlets_km": null,
+   "reference_network_fetch_margin_m": 500.0,
+   "reference_network_force_refresh": false,
+   "reference_network_max_distance_m": 100.0,
+   "reference_network_page_size": 2000,
+   "reference_network_path": null,
+   "reference_network_source": "bdtopage",
+   "snap_dist_m": 150,
+   "snap_strategy": "dem_accumulation",
+   "snap_to_generated_stream": true
+  },
+  "output": {
+   "keep_intermediate_rasters": false,
+   "write_csv": true,
+   "write_geojson": true,
+   "write_geopackage": false,
+   "write_geoparquet": false,
+   "write_regional_lab_csv": true,
+   "write_rejected": true,
+   "write_report_html": false,
+   "write_selected": true
+  },
+  "output_root": "/home/proj/out",
+  "random_seed": 7,
+  "selection_id": "area_only_demo",
+  "spatial_selection": {
+   "allow_nested_basins": false,
+   "max_pairwise_basin_overlap_fraction": null,
+   "max_selected_sites": null,
+   "min_outlet_distance_km": null,
+   "overlap_mode": "hard_reject",
+   "overlap_reference": "smaller_basin",
+   "spatial_quota_cell_size_km": null,
+   "spatial_quota_max_sites_per_cell": 1,
+   "spatial_quota_mode": "none"
+  },
+  "strategy": {
+   "candidate_mode": null,
+   "geology_role": "report_only",
+   "observation_role": "report_only",
+   "observation_source": null,
+   "primary_axes": [
+    "area"
+   ],
+   "primary_observation_type": null,
+   "principle": "criteria_crossing",
+   "profile": "area_only"
+  },
+  "terrain_engine": null,
+  "territory": {
+   "bbox": null,
+   "clip_to_territory": true,
+   "country": "FR",
+   "departments": [],
+   "mode": "admin_regions",
+   "polygon_file": null,
+   "regions": [
+    "Auvergne-Rhone-Alpes"
+   ]
+  }
+ },
+ "solver": {
+  "backend": {
+   "backend": "modflow6"
+  },
+  "drain_band_depth_m": 0.0,
+  "drain_bed_thickness_m": 1.0,
+  "drain_conductance_floor_m2_s": 1e-12,
+  "sink_fill": false
+ },
+ "spinup": null,
+ "testbed": null,
+ "transport": {
+  "active_bc": [],
+  "active_sinks_sources": [],
+  "modflow6gwt": {
+   "parameters": {
+    "diffu_coeff": 0.0,
+    "disp_long": 0.0,
+    "disp_transh": 0.0,
+    "disp_transv": 0.0,
+    "plot_conc": true,
+    "porosity": null,
+    "rate_decay": 0.0,
+    "react_order": null,
+    "scheme": "upstream",
+    "sconc_init": 0.0,
+    "sconc_input": 0.0,
+    "spc_name": "NO3"
+   }
+  },
+  "modflow6prt": {
+   "parameters": {
+    "dry_tracking_method": "drop",
+    "exit_solve_tolerance": 1e-05,
+    "extend_tracking": true,
+    "local_z": 0.5,
+    "max_particles": null,
+    "outlet_bottom_quantile": 0.1,
+    "particle_cell_ids": null,
+    "porosity": null,
+    "release_times_days": null,
+    "release_zone": "domain",
+    "sel_slice": null,
+    "stop_time_days": null,
+    "stop_travel_time_days": null,
+    "track_dir": "forward",
+    "track_time_step_days": null,
+    "track_times_days": null,
+    "upstream_top_quantile": 0.9,
+    "write_track_binary": true,
+    "write_track_csv": true
+   }
+  },
+  "modpath": {
+   "parameters": {
+    "bore_depth": null,
+    "cell_div": 1,
+    "sel_random": null,
+    "sel_slice": null,
+    "track_dir": "forward",
+    "zloc_div": false,
+    "zone_partic": "domain"
+   }
+  },
+  "mt3dms": {
+   "parameters": {
+    "diffu_coeff": 0.0,
+    "disp_long": 0.0,
+    "disp_transh": 0.0,
+    "disp_transv": 0.0,
+    "plot_conc": true,
+    "porosity": null,
+    "rate_decay": 0.0,
+    "react_order": null,
+    "scheme": "upstream",
+    "sconc_init": 0.0,
+    "sconc_input": 0.0,
+    "spc_name": "NO3"
+   }
+  }
+ },
+ "workflow": {
+  "mode": "site_selection",
+  "profile": false,
+  "verbosity": "normal"
+ },
+ "workspace": {
+  "catalog_path": "/home/proj/.hmp/index.duckdb",
+  "catch_name": "proj",
+  "data_dir": "/home/proj/data",
+  "data_path": "/home/proj/data",
+  "output_root": null,
+  "project_root": "/home/proj",
+  "root": "/home/proj",
+  "runs_dir": "/home/proj/runs",
+  "share_folder": "/home/proj/share",
+  "solver_scratch_folder": "/home/proj/.hmp/scratch"
+ }
+}

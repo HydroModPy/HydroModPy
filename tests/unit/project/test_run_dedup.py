@@ -11,9 +11,13 @@ import copy
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Annotated
 
+from pydantic import BaseModel
+
+from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.project.dispatch.workflow import completed_identical_run
-from hydromodpy.results.catalog.registration import run_identity_hash
+from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -85,16 +89,105 @@ def test_missing_catalog_is_fail_open(tmp_path: Path) -> None:
     assert completed_identical_run(config, name="demo") is None
 
 
-def test_identity_hash_reads_name_and_overrides() -> None:
+def test_identity_hash_reads_overrides_not_name() -> None:
     config = _config()
-    base = run_identity_hash(config, name="demo")
-    assert base == run_identity_hash(copy.deepcopy(config), name="demo")
-    assert base != run_identity_hash(config, name="demo_k")
-    assert base != run_identity_hash(config, name="demo", overrides={"K": 1e-5})
+    base = run_identity_hash(config)
+    assert base == run_identity_hash(copy.deepcopy(config))
+    # The name lives in its own column, so a rename does not leave it stale.
+    renamed = copy.deepcopy(config)
+    renamed["simulation"]["name"] = "demo_k"
+    assert base == run_identity_hash(renamed)
+    assert base != run_identity_hash(config, overrides={"K": 1e-5})
     # The caller's dict is not touched.
     assert config["workspace"]["solver_scratch_folder"].endswith("demo.p111")
+    assert config["simulation"]["name"] == "demo"
     # An override that does not serialise never matches anything.
     odd = {"properties": object()}
-    assert run_identity_hash(config, name="demo", overrides=odd) != run_identity_hash(
-        config, name="demo", overrides=odd
+    assert run_identity_hash(config, overrides=odd) != run_identity_hash(config, overrides=odd)
+
+
+def test_another_release_is_another_run(monkeypatch) -> None:
+    config = _config()
+    base = run_identity_hash(config)
+    monkeypatch.setattr("hydromodpy.core.version.__version__", "0.0.0+other")
+    assert run_identity_hash(config) != base
+
+
+class _Workspace(BaseModel):
+    project_root: str
+
+
+class _ForcedConfig(BaseModel):
+    """The smallest configuration that names a forcing file."""
+
+    workspace: _Workspace
+    simulation: dict
+    recharge: Annotated[Path | None, InputFile(role="recharge", category="data")] = None
+
+
+def _forced_project(tmp_path: Path) -> _ForcedConfig:
+    root = tmp_path / "ws"
+    forcing = root / "data" / "recharge.csv"
+    forcing.parent.mkdir(parents=True)
+    forcing.write_text("date,value\n2020-01-01,1.0\n")
+    return _ForcedConfig(
+        workspace=_Workspace(project_root=str(root)),
+        simulation={"name": "demo"},
+        recharge=Path("data/recharge.csv"),
     )
+
+
+def _register_as_a_run(config: _ForcedConfig, *, name: str = "demo") -> str:
+    """Register ``config`` with the hash the pipeline records."""
+    sid = str(uuid.uuid4())
+    dump = config.model_dump(mode="json")
+    config_hash = run_identity_hash(dump, inputs=input_file_digests(config))
+    with simulation_catalog(Path(config.workspace.project_root)) as cat:
+        cat.register_simulation(
+            sid, project="p", solver="modflow6", name=name, config=dump, config_hash=config_hash
+        )
+        cat._backend.execute(
+            "UPDATE simulations SET status_id = "
+            "(SELECT id FROM statuses WHERE code = 'completed') WHERE sim_id = ?",
+            [sid],
+        )
+    return sid
+
+
+def test_an_edited_forcing_file_is_another_run(tmp_path: Path) -> None:
+    config = _forced_project(tmp_path)
+    sid = _register_as_a_run(config)
+    assert completed_identical_run(config, name="demo") == ("demo", sid)
+
+    forcing = Path(config.workspace.project_root) / "data" / "recharge.csv"
+    forcing.write_text("date,value\n2020-01-01,2.0\n")
+    assert completed_identical_run(config, name="demo") is None
+
+
+def test_a_renamed_run_no_longer_answers_to_its_old_name(tmp_path: Path) -> None:
+    config = _forced_project(tmp_path)
+    sid = _register_as_a_run(config, name="baseline")
+    assert completed_identical_run(config, name="baseline") == ("baseline", sid)
+
+    with simulation_catalog(Path(config.workspace.project_root)) as cat:
+        cat.rename_simulation(sid, "baseline_ref")
+    assert completed_identical_run(config, name="baseline") is None
+    assert completed_identical_run(config, name="baseline_ref") == ("baseline_ref", sid)
+
+
+def test_a_version_of_the_name_still_matches(tmp_path: Path) -> None:
+    """``if_exists = "replace"`` leaves the live run under ``name.v2``."""
+    config = _forced_project(tmp_path)
+    sid = _register_as_a_run(config, name="demo.v2")
+    assert completed_identical_run(config, name="demo") == ("demo.v2", sid)
+
+
+def test_inputs_that_cannot_be_walked_never_match(monkeypatch, tmp_path: Path) -> None:
+    """The run goes on, and errs on the side of computing."""
+
+    def broken(*_args, **_kwargs):
+        raise RuntimeError("walker failed")
+
+    monkeypatch.setattr("hydromodpy.core.tracking.collect_input_files", broken)
+    config = _forced_project(tmp_path)
+    assert input_file_digests(config) != input_file_digests(config)

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.analysis.comparison.child_materialization import (
+    build_child_payload,
     materialize_child_configs,
 )
 from hydromodpy.analysis.comparison.experiment_config import SimulationComparisonConfig
@@ -369,3 +370,112 @@ def test_a_comparison_child_rewrites_only_the_paths_its_schema_declares(tmp_path
     assert raw["display"]["output_dir"] == "figs"
     csv = raw["flow"]["param"]["K"]["field"]["values_csv_file"]
     assert csv == (tmp_path / "tables" / "k.csv").as_posix()
+
+
+def test_a_comparison_child_makes_the_mesh_geology_paths_absolute(tmp_path: Path) -> None:
+    """The base sits in another folder than the comparison, as in the testbed examples."""
+    base_dir = tmp_path / "bases"
+    base_dir.mkdir()
+    _write_base_simulation_config(base_dir / "base.toml")
+    with (base_dir / "base.toml").open("a", encoding="utf-8") as handle:
+        handle.write(
+            "\n".join(
+                [
+                    "",
+                    "[mesh_catchment]",
+                    'constraints_mode = "geology_only"',
+                    "",
+                    "[mesh_catchment.geology.source]",
+                    'path = "../data/geology/GEO1M.shp"',
+                    'kind = "vector"',
+                    'code_field = "CODE"',
+                    'reference_raster_path = "../data/dem/dem.tif"',
+                ]
+            )
+            + "\n"
+        )
+    config_path = tmp_path / "site" / "compare.toml"
+    config_path.parent.mkdir()
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "comparison"',
+                "",
+                "[comparison]",
+                'comparison_id = "demo_geology"',
+                'base_simulation_config = "../bases/base.toml"',
+                "",
+                "[[comparison.simulation]]",
+                'id = "mf6_ref"',
+                'solver = "modflow6"',
+                "",
+                "[[comparison.observable]]",
+                'name = "head_mid"',
+                'variable = "watertable_elevation"',
+                'support = "point"',
+                "cell_index = 0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    cfg = _load_comparison_cfg(config_path)
+    (child,) = materialize_child_configs(cfg)
+    source = load_toml_with_base_config(child.config_path)["mesh_catchment"]["geology"]["source"]
+
+    assert source["path"] == (tmp_path / "data/geology/GEO1M.shp").as_posix()
+    assert source["reference_raster_path"] == (tmp_path / "data/dem/dem.tif").as_posix()
+
+
+def test_a_child_that_changes_the_flow_solver_keeps_the_common_process_overlay(
+    tmp_path: Path,
+) -> None:
+    _write_base_simulation_config(tmp_path / "base.toml")
+    with (tmp_path / "base.toml").open("a", encoding="utf-8") as handle:
+        handle.write(
+            '\n[[simulation.process]]\nid = "tr"\ntype = "transport"\nsolvers = ["modpath"]\n'
+        )
+    config_path = tmp_path / "compare.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "comparison"',
+                "",
+                "[comparison]",
+                'comparison_id = "demo_overlay"',
+                'base_simulation_config = "base.toml"',
+                'reference_simulation = "mf6_ref"',
+                "",
+                "[comparison.base_simulation_overlay.simulation]",
+                'process__merge = [{}, { solvers = ["modflow6_prt"] }]',
+                "",
+                "[[comparison.simulation]]",
+                'id = "mf6_ref"',
+                'solver = "modflow6"',
+                "",
+                "[[comparison.simulation]]",
+                'id = "nwt"',
+                'solver = "modflow_nwt"',
+                "",
+                "[[comparison.observable]]",
+                'name = "head_mid"',
+                'variable = "watertable_elevation"',
+                'support = "point"',
+                "cell_index = 0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    cfg = _load_comparison_cfg(config_path)
+    processes = {
+        simulation.id: build_child_payload(cfg=cfg, simulation=simulation)[0]["simulation"][
+            "process"
+        ]
+        for simulation in cfg.comparison.simulation
+    }
+
+    assert [p["solvers"] for p in processes["mf6_ref"]] == [["modflow6"], ["modflow6_prt"]]
+    assert [p["solvers"] for p in processes["nwt"]] == [["modflow_nwt"], ["modflow6_prt"]]

@@ -2637,17 +2637,6 @@
                 "title": "Sources",
                 "type": "array",
                 "x-hmp-profile": "user"
-              },
-              "id": {
-                "default": "lake_bathymetry",
-                "description": "Identifier of the lake-bathymetry spatial field.",
-                "examples": [
-                  "lake_bathymetry"
-                ],
-                "pattern": "^[a-z][a-z0-9_]*$",
-                "title": "Id",
-                "type": "string",
-                "x-hmp-profile": "user"
               }
             },
             "required": [
@@ -2668,17 +2657,6 @@
                 "minItems": 1,
                 "title": "Sources",
                 "type": "array",
-                "x-hmp-profile": "user"
-              },
-              "id": {
-                "default": "lake_geometry",
-                "description": "Identifier of the lake-geometry spatial field.",
-                "examples": [
-                  "lake_geometry"
-                ],
-                "pattern": "^[a-z][a-z0-9_]*$",
-                "title": "Id",
-                "type": "string",
                 "x-hmp-profile": "user"
               }
             },

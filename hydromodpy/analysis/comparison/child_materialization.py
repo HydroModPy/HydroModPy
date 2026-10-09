@@ -249,23 +249,6 @@ def build_child_payload(
     simulation_overlay.setdefault("name", run_name)
     simulation_overlay.setdefault("if_exists", "replace")
 
-    if not _overlay_defines_process(overlay):
-        if cfg.base_simulation_config_path is None:
-            raise ValueError("comparison.base_simulation_config is required")
-        if simulation.solver is None:
-            raise ValueError("comparison.simulation.solver is required")
-        process_overlay = _build_solver_process_overlay(
-            base_config_path=cfg.base_simulation_config_path,
-            solver=simulation.solver,
-        )
-        if process_overlay is None:
-            raise ValueError(
-                "Cannot generate child process overlay: base_simulation_config "
-                "must declare exactly one flow process."
-            )
-        simulation_overlay["process"] = process_overlay
-        _let_solver_backend_follow_the_process(overlay)
-
     if cfg.base_simulation_config_path is None:
         raise ValueError("comparison.base_simulation_config is required")
     base_payload = _load_self_contained_base_payload(cfg.base_simulation_config_path)
@@ -278,6 +261,24 @@ def build_child_payload(
         raise ValueError("comparison.base_simulation_overlay must be a mapping")
     base_payload = merge_toml_payloads(base_payload, common_overlay)
     base_payload["workflow"] = {"mode": "simulation"}
+
+    if not _overlay_defines_process(overlay):
+        if simulation.solver is None:
+            raise ValueError("comparison.simulation.solver is required")
+        # Built on the base with the common overlay applied: the child list
+        # replaces the inherited one, so it has to carry what that overlay set.
+        process_overlay = _build_solver_process_overlay(
+            base_payload=base_payload,
+            solver=simulation.solver,
+        )
+        if process_overlay is None:
+            raise ValueError(
+                "Cannot generate child process overlay: base_simulation_config "
+                "must declare exactly one flow process."
+            )
+        simulation_overlay["process"] = process_overlay
+        _let_solver_backend_follow_the_process(overlay)
+
     payload = merge_toml_payloads(base_payload, overlay)
     return payload, run_name
 

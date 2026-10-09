@@ -26,6 +26,8 @@ from pathlib import Path
 
 ARTICLE = re.compile(r'<article class="bd-article"[^>]*>(.*?)</article>', re.S)
 CANONICAL = re.compile(r'<link rel="canonical" href="([^"]+)"')
+# The version a build is for, as the version switcher of the theme reads it.
+VERSION_MATCH = re.compile(r"theme_switcher_version_match = '([^']+)'")
 # Where a door starts, in the order of the site header.
 DOORS = (
     ("understand", "Understand"),
@@ -275,12 +277,25 @@ def first_title(text: str, rel: str) -> str:
 
 
 def base_url(root: Path) -> str:
+    """Return the URL of the version folder the pages of ``root`` are served from.
+
+    Every version names the page of main as its canonical copy, so the
+    canonical link gives the site and the folder of main. The folder of this
+    build is the version the theme's switcher matches: the llms.txt of dev
+    links to dev, where its pages are.
+    """
     index = root / "index.html"
-    if index.exists():
-        match = CANONICAL.search(index.read_text(encoding="utf-8", errors="ignore"))
-        if match:
-            return match.group(1).rsplit("/", 1)[0] + "/"
-    return ""
+    if not index.exists():
+        return ""
+    text = index.read_text(encoding="utf-8", errors="ignore")
+    match = CANONICAL.search(text)
+    if not match:
+        return ""
+    base = match.group(1).rsplit("/", 1)[0] + "/"
+    version = VERSION_MATCH.search(text)
+    if version:
+        base = base.rstrip("/").rsplit("/", 1)[0] + f"/{version.group(1)}/"
+    return base
 
 
 def pages(root: Path) -> list[tuple[str, str, str, str, str]]:

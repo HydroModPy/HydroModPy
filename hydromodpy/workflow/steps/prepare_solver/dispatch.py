@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.catalog.registration import run_identity_hash
+from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
 from hydromodpy.workflow.steps.prepare_solver.validate import _primary_solver_for_simulation
 
 if TYPE_CHECKING:
@@ -272,8 +272,8 @@ def step_register_run(
     reg_kwargs = ps_module.collect_registration_kwargs(ctx)
     reg_kwargs["config_hash"] = run_identity_hash(
         reg_kwargs.get("config"),
-        name=ctx.setup.run_id,
         overrides=run_overrides,
+        inputs=input_file_digests(ctx.cfg),
     )
     if ctx.parent_sim_id is not None:
         reg_kwargs["parent_sim_id"] = ctx.parent_sim_id

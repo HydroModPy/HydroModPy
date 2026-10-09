@@ -385,8 +385,12 @@ class Run(
                 f"Simulation '{self._sim_id}' has no config snapshot; "
                 "cannot rebuild HydroModPyConfig."
             )
+        provider = get_root_config_provider()
         try:
-            return get_root_config_provider().from_dict(snapshot)
+            stored = provider.migrate_stored(
+                snapshot, source=f"config snapshot of run {self._sim_id[:8]}"
+            )
+            return provider.from_dict(stored)
         except Exception as exc:
             raise ValueError(
                 f"The configuration of run '{self._sim_id[:8]}' no longer validates "

@@ -13,7 +13,11 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     is_boundary_condition_active,
 )
 from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.physics.forcing.steady_periods import apply_first_clim, steady_flags
+from hydromodpy.physics.forcing.steady_periods import (
+    apply_first_clim,
+    one_period_rate,
+    steady_flags,
+)
 from hydromodpy.physics.forcing.validation import (
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
@@ -194,8 +198,12 @@ class ForcingCommonMixin:
         elif sequence.size == int(nper):
             own = sequence.astype(float, copy=True)
         elif int(nper) == 1:
-            # A record longer than a one-period run gives that period its mean.
-            own = np.asarray([float(np.mean(sequence))], dtype=float)
+            # A record longer than a one-period run gives that period its mean,
+            # or its first value when the period is steady under "first".
+            steady = bool(self.boussinesq_steady_flags(1)[0])
+            own = np.asarray(
+                [one_period_rate(sequence, steady=steady, first_clim=first_clim)], dtype=float
+            )
         else:
             raise ValueError(
                 f"{label} length ({int(sequence.size)}) must be 1 or match nper ({int(nper)})."

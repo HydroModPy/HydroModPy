@@ -6,7 +6,7 @@ import math
 from collections.abc import Mapping
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, PrivateAttr, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -16,6 +16,8 @@ BUILTIN_BACKENDS: tuple[str, ...] = ("modflow6", "modflow_nwt", "boussinesq")
 
 class _SolverBackendBase(HydroModelBase):
     """Shared base for discriminated solver backend selectors."""
+
+    _follows_the_flow_process: bool = PrivateAttr(default=False)
 
 
 class Modflow6Backend(_SolverBackendBase):
@@ -99,6 +101,17 @@ def backend_for_solver(name: str) -> _SolverBackendBase:
     if model is not None:
         return model()
     return CustomBackend(name=cleaned)
+
+
+def backend_following_the_process(name: str) -> _SolverBackendBase:
+    """Return the selector of flow solver *name*, derived from the flow process.
+
+    The mark keeps ``backend`` out of the fields a user set, so a later change
+    of the flow process moves the backend with it instead of being refused.
+    """
+    selector = backend_for_solver(name)
+    selector._follows_the_flow_process = True
+    return selector
 
 
 def solver_name_of_backend(backend: object) -> str | None:
@@ -266,6 +279,17 @@ class SolverConfig(HydroModelBase):
                 "removes the discharge of a depressed cell, drain_band_depth_m gives "
                 "every cell a discharge band. Keep one."
             )
+        return self
+
+    @model_validator(mode="after")
+    def _leave_a_derived_backend_unset(self) -> SolverConfig:
+        """Keep a backend derived from the flow process out of the fields set.
+
+        The root model reads ``backend`` in the fields set as written by the
+        user, and refuses a flow process that names another solver.
+        """
+        if self.backend._follows_the_flow_process:
+            self.__pydantic_fields_set__.discard("backend")
         return self
 
     @property

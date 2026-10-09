@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+import numpy as np
 import pandas as pd
 
 from hydromodpy.core.exceptions import ConfigError
@@ -76,6 +77,7 @@ def aggregate_forcing_series(
     simulation_window: ResolvedSimulationTimeWindow,
     label: str,
     aggregate: str,
+    checked_periods: Sequence[bool] | None = None,
 ) -> list[float]:
     """Aggregate one forcing chronicle to simulation stress periods.
 
@@ -83,12 +85,17 @@ def aggregate_forcing_series(
     under ``coverage_policy``). ``"last"`` reads it as a state that holds until
     the next sample: period ``i`` takes the latest sample at or before its start,
     and no coverage check applies.
+
+    ``checked_periods`` flags the periods the caller keeps, as a piecewise
+    segment does. A period it does not keep is never refused: under ``"last"``
+    it takes NaN when no sample precedes it. None keeps every period.
     """
     if aggregate == "mean":
         aligned = align_forcing_series_to_simulation_window(
             series,
             simulation_window=simulation_window,
             label=label,
+            checked_periods=checked_periods,
         )
         return [float(value) for value in aligned.to_list()]
     if aggregate == "last":
@@ -98,9 +105,12 @@ def aggregate_forcing_series(
             data.index = pd.to_datetime(data.index)
         data = data.sort_index()
         values: list[float] = []
-        for left in boundaries:
+        for kper, left in enumerate(boundaries):
             history = data.loc[data.index <= left]
             if history.empty:
+                if checked_periods is not None and not bool(checked_periods[kper]):
+                    values.append(float("nan"))
+                    continue
                 raise ValueError(
                     f"{label}: no value available at simulation period starting {left}."
                 )
@@ -122,8 +132,13 @@ def resolve_period_values_from_forcing(
     simulation_window: ResolvedSimulationTimeWindow | None,
     nper: int,
     label: str,
+    checked_periods: Sequence[bool] | None = None,
 ) -> list[float]:
-    """Resolve one forcing declaration to one value per solver period."""
+    """Resolve one forcing declaration to one value per solver period.
+
+    ``checked_periods`` flags the periods the caller keeps. A dated record is
+    checked for coverage on those periods only; None keeps every period.
+    """
     if nper <= 0:
         return []
 
@@ -164,6 +179,7 @@ def resolve_period_values_from_forcing(
             simulation_window=simulation_window,
             label=label,
             aggregate=forcing.aggregate,
+            checked_periods=checked_periods,
         )
         expected_nper = len(build_simulation_time_boundaries(simulation_window)) - 1
         if len(values) != expected_nper:
@@ -183,6 +199,7 @@ def resolve_period_values_from_forcing(
             simulation_window=simulation_window,
             nper=nper,
             label=label,
+            checked_periods=checked_periods,
         )
 
     if kind == "seasonal":
@@ -201,17 +218,27 @@ def _resolve_piecewise(
     simulation_window: ResolvedSimulationTimeWindow,
     nper: int,
     label: str,
+    checked_periods: Sequence[bool] | None = None,
 ) -> list[float]:
-    """Resolve a piecewise forcing by selecting one dated segment per period."""
+    """Resolve a piecewise forcing by selecting one dated segment per period.
+
+    A segment's record is checked for coverage only on the periods the segment
+    keeps: a CSV segment needs no sample outside its own dates.
+    """
     boundaries = build_simulation_time_boundaries(simulation_window)
     period_starts = pd.DatetimeIndex(boundaries[:-1])
     window_end = boundaries[-1]
+    wanted = (
+        np.ones(len(period_starts), dtype=bool)
+        if checked_periods is None
+        else np.asarray(checked_periods, dtype=bool)
+    )
     values: list[float] = [float("nan")] * len(period_starts)
     covered = [False] * len(period_starts)
     for segment in forcing.segments:
         seg_start = pd.Timestamp(segment.start)
         seg_end = pd.Timestamp(segment.end) if segment.end is not None else window_end
-        mask = (period_starts >= seg_start) & (period_starts < seg_end)
+        mask = np.asarray((period_starts >= seg_start) & (period_starts < seg_end)) & wanted
         if not bool(mask.any()):
             continue
         sub = resolve_period_values_from_forcing(
@@ -219,12 +246,13 @@ def _resolve_piecewise(
             simulation_window=simulation_window,
             nper=nper,
             label=f"{label}.segments[{seg_start.date()}]",
+            checked_periods=mask,
         )
         for index in range(len(values)):
             if bool(mask[index]):
                 values[index] = sub[index]
                 covered[index] = True
-    if not all(covered):
+    if not all(c or not w for c, w in zip(covered, wanted, strict=True)):
         raise ConfigError(f"{label}: piecewise segments do not cover every stress period.")
     return values
 

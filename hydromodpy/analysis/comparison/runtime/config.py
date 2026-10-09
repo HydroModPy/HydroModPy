@@ -155,15 +155,17 @@ def _overlay_defines_process(overlay: Mapping[str, Any]) -> bool:
 
 def _build_solver_process_overlay(
     *,
-    base_config_path: Path,
+    base_payload: Mapping[str, Any],
     solver: str,
 ) -> list[dict[str, Any]] | None:
     """Build the process list of the base with its unique flow solver changed.
 
-    The list is returned whole. A list in an overlay replaces the inherited
-    list, so a partial list would drop the other processes.
+    *base_payload* is the config the child overlay is merged onto: the base
+    file with the overlay common to every child already applied, so what that
+    overlay set in a process is kept. The list is returned whole. A list in an
+    overlay replaces the inherited list, so a partial list would drop the other
+    processes.
     """
-    base_payload = load_toml_with_base_config(base_config_path)
     simulation = base_payload.get("simulation")
     if not isinstance(simulation, Mapping):
         return None
@@ -215,7 +217,7 @@ def materialize_simulation_config(
         simulation_overlay.setdefault("name", simulation.id)
         if simulation.solver is not None and not _overlay_defines_process(overlay):
             process_overlay = _build_solver_process_overlay(
-                base_config_path=base_config_path,
+                base_payload=load_toml_with_base_config(base_config_path),
                 solver=simulation.solver,
             )
             if process_overlay is not None:

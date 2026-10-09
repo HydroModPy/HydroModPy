@@ -194,3 +194,28 @@ def test_a_state_record_read_with_last_is_not_a_coverage_question():
         )
 
     assert values == [4.0] * 6
+
+
+@pytest.mark.parametrize("unit", ["s", "ms", "us"])
+def test_a_record_in_another_time_unit_takes_the_same_samples(unit):
+    # A parquet or DuckDB read gives datetime64[us]; the stamps must still sort
+    # against the period edges, not all before them.
+    window = _make_simulation_window("2020-01-01", "2020-03-31", coverage_policy="error")
+    index = pd.date_range("2020-01-01", "2020-03-31", freq="D").as_unit(unit)
+    series = pd.Series(np.arange(len(index), dtype=float), index=index)
+
+    aligned = align_forcing_series_to_simulation_window(
+        series, simulation_window=window, label="recharge"
+    )
+
+    np.testing.assert_allclose(aligned.to_numpy(), [15.0, 45.0, 75.0])
+    periods = samples_by_period(index, build_simulation_time_boundaries(window))
+    assert [p.size for p in periods.inside] == [31, 29, 31]
+
+
+def test_a_record_in_seconds_that_ends_early_is_still_refused():
+    index = pd.date_range("2020-01-01", periods=DAYS, freq="D").as_unit("s")
+    with pytest.raises(ValueError, match="does not cover stress period"):
+        align_forcing_series_to_simulation_window(
+            pd.Series(2.0, index=index), simulation_window=_six_months("error"), label="recharge"
+        )

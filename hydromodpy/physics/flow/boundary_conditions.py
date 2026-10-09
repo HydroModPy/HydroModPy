@@ -27,7 +27,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from numbers import Real
 from pathlib import Path
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, ClassVar, Literal, TypeAlias
 
 from pydantic import Field, field_validator, model_validator
 
@@ -42,7 +42,7 @@ from hydromodpy.core.units import (
     check_unit_compatible,
     parse_to_canonical_magnitude,
 )
-from hydromodpy.physics.base.forcing import FlowTimeAggregate, FlowTimeFillMethod
+from hydromodpy.physics.base.forcing import FlowTimeAggregate
 
 ALLOWED_BC_APPLICATION_DOMAINS = {
     "top",
@@ -210,6 +210,14 @@ class FlowBoundaryForcingConstantConfig(HydroModelBase):
 class FlowBoundaryForcingCsvConfig(HydroModelBase):
     """CSV-backed boundary forcing resolved at runtime against simulation.time."""
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "fill_method": (
+            "no step reads it. A stress period with no sample takes the sample in force, "
+            "and simulation.time.coverage_policy decides what happens before or after the "
+            "record."
+        ),
+    }
+
     mode: Annotated[Literal["csv"], Profile.USER] = Field(
         default="csv",
         description="Discriminator tag for the CSV-backed boundary-forcing variant.",
@@ -237,10 +245,6 @@ class FlowBoundaryForcingCsvConfig(HydroModelBase):
     value_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="value",
         description="CSV column containing boundary head values.",
-    )
-    fill_method: Annotated[FlowTimeFillMethod, Profile.DEV] = Field(
-        default="ffill",
-        description="Gap-filling policy used when a stress period has no direct sample.",
     )
     aggregate: Annotated[FlowTimeAggregate, Profile.DEV] = Field(
         default="mean",

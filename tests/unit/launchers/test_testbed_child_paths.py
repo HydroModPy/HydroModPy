@@ -167,3 +167,29 @@ def test_a_comparison_overlay_is_read_as_a_simulation_fragment(tmp_path: Path) -
     dem = overlay["geographic"]["catchment"]["dem_init_path"]
     assert dem == (tmp_path.parent / "dem.tif").as_posix()
     assert overlay["workflow"]["profile"] == "fast"
+
+
+@pytest.mark.fast
+def test_the_mesh_geology_paths_become_absolute(tmp_path: Path) -> None:
+    payload = {
+        "mesh_catchment": {
+            "geology": {
+                "source": {
+                    "path": "geo/geology.gpkg",
+                    "kind": "vector",
+                    "code_field": "CODE",
+                    "reference_raster_path": "dem/dem.tif",
+                },
+                "clip_polygon_path": "clip.shp",
+                "landsea": {"enabled": True, "path": "mask.tif"},
+            }
+        }
+    }
+
+    geology = _walk(payload, tmp_path)["mesh_catchment"]["geology"]
+
+    assert geology["source"]["path"] == (tmp_path / "geo/geology.gpkg").as_posix()
+    assert geology["source"]["reference_raster_path"] == (tmp_path / "dem/dem.tif").as_posix()
+    assert geology["source"]["code_field"] == "CODE"
+    assert geology["clip_polygon_path"] == (tmp_path / "clip.shp").as_posix()
+    assert geology["landsea"]["path"] == (tmp_path / "mask.tif").as_posix()

@@ -134,9 +134,12 @@ class BaseManagerCommon(SourceTable, ABC):
         """Filter records by spatial mask (WGS84).
 
         Dropping a station outside the mask is the intended behaviour, never a
-        silent one: the warning names each station dropped. A source whose
-        every station lies outside is a variable that cannot be obtained, and
-        is refused.
+        silent one: the warning names each station dropped. When every station
+        lies outside and the user listed them (in ``station_ids``, or in the
+        files of a ``custom`` source), the variable the user asked for cannot be
+        obtained, and is refused. Stations found by a search over the extent of
+        the mask are only candidates: when none of them lies inside, the warning
+        says so and the variable is empty, as when the search finds no station.
         """
         if not source_cfg.mask_path:
             return records
@@ -160,7 +163,8 @@ class BaseManagerCommon(SourceTable, ABC):
         named = set(getattr(source_cfg, "station_ids", None) or ())
         named_dropped = [sid for sid in dropped if sid in named]
         mask = Path(str(source_cfg.mask_path)).name
-        if not kept:
+        listed = bool(named) or str(getattr(source_cfg, "source", "")) == "custom"
+        if not kept and listed:
             raise DataSourceError(
                 f"{self.VARIABLE_NAME}: every station of source "
                 f"'{source_cfg.source}' lies outside the mask {mask}: {dropped}. "
@@ -170,6 +174,8 @@ class BaseManagerCommon(SourceTable, ABC):
             f"{self.VARIABLE_NAME}: {len(dropped)} station(s) of source "
             f"'{source_cfg.source}' outside the mask {mask} dropped: {dropped}."
         )
+        if not kept:
+            message += " No station of the search lies inside: the variable is empty."
         if named_dropped:
             message += f" Named in station_ids and dropped all the same: {named_dropped}."
         logger.warning("%s", message)

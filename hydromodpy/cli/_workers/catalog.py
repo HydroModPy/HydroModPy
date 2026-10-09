@@ -464,7 +464,9 @@ def delete_simulation(
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
     with Catalog(workspace_root) as catalog:
-        sid = catalog.resolve(sim_ref)
+        # A purge cannot be undone: a name a live and a trashed run both hold
+        # is refused with both ids rather than resolved to the live one.
+        sid = catalog.resolve(sim_ref, unambiguous=True)
         return delete_simulation_artifacts(catalog, sid, remove_storage=not keep_storage)
 
 
@@ -559,7 +561,7 @@ def trash_simulation(sim_ref: str, *, workspace: Any, force: bool = False) -> di
 def restore_simulation(sim_ref: str, *, workspace: Any) -> dict:
     """Restore a trashed run, returning its (possibly versioned) name."""
     with _open_project_catalog(workspace) as catalog:
-        sid = catalog.resolve(sim_ref)
+        sid = catalog.resolve(sim_ref, in_trash=True)
         name = catalog.restore(sid)
         return {"sim_id": sid, "name": name}
 

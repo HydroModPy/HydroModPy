@@ -60,36 +60,45 @@ logger = get_logger(__name__)
 IfExistsMode = Literal["replace", "fail", "version"]
 
 _RUN_OVERRIDES_KEY = "__run_overrides__"
+_RUN_INPUTS_KEY = "__run_inputs__"
+_RUN_VERSION_KEY = "__hydromodpy_version__"
 
 
 def run_identity_hash(
     config: dict | None,
     *,
-    name: str | None = None,
     overrides: dict | None = None,
+    inputs: dict[str, str] | None = None,
 ) -> str | None:
     """Return the hash that says two runs compute the same thing.
 
     It is the ``config_hash`` the catalog records, and what ``hmp run`` and
     ``hmp.run`` compare to skip an identical completed run. It covers the
     resolved configuration, minus the members that vary between two runs of
-    one file (``PER_RUN_CONFIG_KEYS`` of ``hydromodpy.core.state.paths``), with the run name the caller
-    asked for in place of ``simulation.name``, plus the parameter overrides a
-    ``Project.simulate`` call applied on top of the configuration. Overrides
-    that do not serialise to JSON get a random salt: such a run never matches
-    another one, which errs on the side of computing.
+    one file (``PER_RUN_CONFIG_KEYS`` of ``hydromodpy.core.state.paths``) and
+    minus ``simulation.name``, plus the parameter overrides a
+    ``Project.simulate`` call applied on top of the configuration, the
+    digests of the input files the configuration names (``inputs``, from
+    :func:`input_file_digests`) and the HydroModPy version. A changed data
+    file or another release of the code is another computation.
+
+    The run name is not part of the hash: it lives in its own column, which a
+    rename and an index rebuild keep up to date. Overrides that do not
+    serialise to JSON get a random salt: such a run never matches another
+    one, which errs on the side of computing.
     """
     if not config:
         return None
+    from hydromodpy.core.version import __version__
+
     payload = json.loads(json.dumps(config, default=str))
     for section, key in PER_RUN_CONFIG_KEYS:
         block = payload.get(section)
         if isinstance(block, dict):
             block.pop(key, None)
-    if name:
-        simulation = payload.get("simulation")
-        if isinstance(simulation, dict):
-            simulation["name"] = name
+    simulation = payload.get("simulation")
+    if isinstance(simulation, dict):
+        simulation.pop("name", None)
     if overrides:
         try:
             payload[_RUN_OVERRIDES_KEY] = json.loads(json.dumps(overrides, sort_keys=True))
@@ -97,7 +106,51 @@ def run_identity_hash(
             import uuid
 
             payload[_RUN_OVERRIDES_KEY] = uuid.uuid4().hex
+    payload[_RUN_INPUTS_KEY] = dict(sorted((inputs or {}).items()))
+    payload[_RUN_VERSION_KEY] = __version__
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
+def input_file_digests(config: Any) -> dict[str, str]:
+    """Return ``{"<role>:<path as written>": sha256}`` for the inputs ``config`` names.
+
+    The files are the ``InputFile`` fields of the configuration
+    (:func:`hydromodpy.core.tracking.collect_input_files`), anchored on the
+    project root, and hashed the way ``tracked_files`` hashes them. A path
+    that does not exist hashes to ``"missing"``. A file that cannot be read,
+    or a configuration that cannot be walked, gets a random salt: the run
+    then matches no other run, which errs on the side of computing, and the
+    error never stops it.
+    """
+    import uuid
+
+    from hydromodpy.core.tracking import collect_input_files
+    from hydromodpy.results.catalog.writes_helpers import (
+        _sha256_directory,
+        _sha256_streaming,
+    )
+
+    root = getattr(getattr(config, "workspace", None), "project_root", None)
+    try:
+        entries = collect_input_files(config, base=root)
+    except Exception as exc:  # noqa: BLE001 - identity must never stop a run
+        logger.warning("Input files not hashed into the run identity: %s", exc)
+        return {"__unwalked__": uuid.uuid4().hex}
+    digests: dict[str, str] = {}
+    for entry in entries:
+        path = Path(entry.canonical_path)
+        try:
+            if path.is_file():
+                digest = _sha256_streaming(path)
+            elif path.is_dir():
+                digest = _sha256_directory(path)
+            else:
+                digest = "missing"
+        except OSError as exc:
+            logger.warning("Input file %s not hashed into the run identity: %s", path, exc)
+            digest = f"unreadable:{uuid.uuid4().hex}"
+        digests[f"{entry.role}:{entry.original_path}"] = digest
+    return digests
 
 
 _VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
@@ -431,8 +484,8 @@ class RegistrationMixin:
             The resolved configuration, stored with the run and hashed into
             ``config_hash`` when no hash is given.
         config_hash
-            Identity hash of the run. Two runs with the same hash computed the
-            same thing.
+            Identity hash of the run (:func:`run_identity_hash`). Two runs with
+            the same hash computed the same thing; the name is not in it.
         n_cells, n_layers
             Grid size. Given together, they create the field store now.
 
@@ -505,7 +558,7 @@ class RegistrationMixin:
                 snapshot_source = config_snapshot if config_snapshot is not None else config
                 snapshot_json = json.dumps(snapshot_source) if snapshot_source is not None else None
                 if config_hash is None:
-                    config_hash = run_identity_hash(config, name=requested_name)
+                    config_hash = run_identity_hash(config)
 
                 bbox_xmin = bbox_ymin = bbox_xmax = bbox_ymax = None
                 if bbox is not None and len(bbox) == 4:

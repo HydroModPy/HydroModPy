@@ -19,7 +19,12 @@ recharge part ``max(R, 0)`` and a deficit part ``max(-R, 0)``. On a steady
 period, ``first_clim`` acts on each part with the same rule. A number ``F``
 gives the parts ``max(F, 0)`` and ``max(-F, 0)``. So the net rate of a steady
 period, recharge minus deficit, is always the one ``first_clim`` states: the
-mean of the net rates, the net rate of period 0, or ``F``.
+mean of the net rates, the net rate of period 0, or ``F``. A negative ``F``
+gives a steady deficit even when no period of the record is negative.
+
+A run of one period may read a record longer than itself. That period's own
+rate is the mean of the record, and when it is steady ``first_clim`` reads the
+record itself: ``"first"`` is the first value of the record.
 """
 
 from __future__ import annotations
@@ -111,6 +116,36 @@ def first_clim_on_part(
     return out
 
 
+def first_clim_sets_a_deficit(
+    first_clim: object, steady: Sequence[bool] | np.ndarray | None
+) -> bool:
+    """Return True when a negative ``first_clim`` sets the rate of a steady period.
+
+    That steady period needs a deficit part even if the record has no negative
+    value.
+    """
+    if not _is_number(first_clim) or float(first_clim) >= 0.0 or steady is None:
+        return False
+    return bool(np.any(np.asarray(steady, dtype=bool)))
+
+
+def one_period_rate(
+    record: Sequence[float] | np.ndarray, *, steady: bool, first_clim: object
+) -> float:
+    """Return the own rate of the only period of a run, from a longer record.
+
+    The mean of the record; the first value when the period is steady and
+    ``first_clim`` is ``"first"``. :func:`apply_first_clim` then gives the
+    same rate, so ``"first"`` stays the first value of the record.
+    """
+    values = np.asarray(record, dtype=float).reshape(-1)
+    if values.size == 0:
+        raise ValueError("one_period_rate needs at least one value.")
+    if steady and first_clim == "first":
+        return float(values[0])
+    return float(np.mean(values))
+
+
 def split_net_recharge(
     rates_by_period: Mapping[int, object],
     *,
@@ -152,6 +187,8 @@ __all__ = [
     "FIRST_CLIM_KEYWORDS",
     "apply_first_clim",
     "first_clim_on_part",
+    "first_clim_sets_a_deficit",
+    "one_period_rate",
     "split_net_recharge",
     "steady_flags",
     "steady_rate",

@@ -75,3 +75,21 @@ def test_the_commands_never_see_a_real_workspace(tmp_path: Path, monkeypatch) ->
     assert "HMP_WORKSPACE" not in env
     assert env["HOME"] == str(tmp_path)
     assert env["HMP_STATE_HOME"].startswith(str(tmp_path))
+
+
+def test_the_commands_see_only_what_a_fresh_user_has(tmp_path: Path, monkeypatch) -> None:
+    """A project root, a verbosity or a state folder of the developer stays out."""
+    monkeypatch.setenv("HMP_PROJECT_ROOT", "/home/someone/hydromodpy/projects/example")
+    monkeypatch.setenv("HMP_VERBOSITY", "debug")
+    monkeypatch.setenv("HMP_STATE_HOME", "/home/someone/.local/state/hydromodpy")
+    monkeypatch.setenv("HMP_CACHE_HOME", "/cache")
+    monkeypatch.setenv("HMP_BIN", "/bin-folder")
+    env = qs.scratch_env(tmp_path)
+    assert {key for key in env if key.startswith("HMP_")} == {
+        "HMP_CACHE_HOME",
+        "HMP_BIN",
+        "HMP_STATE_HOME",
+    }
+    assert env["HMP_STATE_HOME"].startswith(str(tmp_path))
+    assert env["HMP_CACHE_HOME"] == "/cache"
+    assert env["HMP_BIN"] == "/bin-folder"

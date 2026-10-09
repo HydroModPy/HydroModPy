@@ -122,3 +122,26 @@ def test_the_boussinesq_flow_alone_loads_with_its_default_transport_section() ->
     cfg = HydroModPyConfig.model_validate(_payload(simulation=_flow("boussinesq")))
 
     assert cfg.solver.backend_name == "boussinesq"
+
+
+def test_a_derived_backend_follows_a_later_flow_solver() -> None:
+    from hydromodpy.simulation.planning.config import SimulationConfig
+
+    cfg = HydroModPyConfig.model_validate(_payload(simulation=_flow("modflow6")))
+    assert "backend" not in cfg.solver.model_fields_set
+
+    cfg.simulation = SimulationConfig.model_validate(_flow("modflow_nwt"))
+
+    assert cfg.solver.backend_name == "modflow_nwt"
+    assert "backend" not in cfg.solver.model_fields_set
+
+
+def test_a_written_backend_still_refuses_a_later_flow_solver() -> None:
+    from hydromodpy.simulation.planning.config import SimulationConfig
+
+    cfg = HydroModPyConfig.model_validate(
+        _payload(simulation=_flow("modflow6"), solver={"backend": {"backend": "modflow6"}})
+    )
+
+    with pytest.raises(ValidationError, match="must name the same solver"):
+        cfg.simulation = SimulationConfig.model_validate(_flow("modflow_nwt"))

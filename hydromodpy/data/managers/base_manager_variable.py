@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import warnings
 from collections.abc import Callable
 from dataclasses import replace
@@ -40,6 +41,19 @@ _VAR_FILE_PREFIX = {
     "piezometry": "piezometry",
     "water_quality": "waterquality",
 }
+
+
+_ASKED_WINDOW_KEY = "asked_window"
+"""``fetch_metadata`` key of the period a station chronicle was asked for."""
+
+
+def _hull(
+    first: tuple[datetime, datetime], second: tuple[datetime, datetime] | None
+) -> tuple[datetime, datetime]:
+    """Return the smallest period holding ``first`` and ``second``."""
+    if second is None:
+        return first
+    return (min(first[0], second[0]), max(first[1], second[1]))
 
 
 def _chronicle_sidecar(path: Path) -> dict[str, str | None]:
@@ -236,12 +250,12 @@ class BaseVariableManager(BaseManagerCommon):
                 ),
             )
             records = fetch_fn(station_ids or None, *self.project_period)
-            self._persist_api_records(records, source_name)
+            self._persist_api_records(records, source_name, window=self.project_period)
             return self._apply_mask(records, source_cfg)
 
         ready: list[PointRecord] = []
         missing_ids: list[str] = []
-        to_persist: list[PointRecord] = []
+        to_persist: list[tuple[PointRecord, tuple[datetime, datetime]]] = []
         for sid in station_ids:
             if self._is_empty_sentinel(source=source_name, station_id=sid):
                 logger.debug("%s station without data (cached): %s", source_name, sid)
@@ -250,7 +264,11 @@ class BaseVariableManager(BaseManagerCommon):
             if rec is None:
                 missing_ids.append(sid)
                 continue
-            gaps = self._compute_missing_periods(rec.date_start, rec.date_end)
+            # A station answers for the window it was asked for, which can be
+            # wider than its data: an ONDE campaign never starts on 1 January.
+            asked = self._cached_window(source=source_name, station_id=sid)
+            covered = _hull((rec.date_start, rec.date_end), asked)
+            gaps = self._compute_missing_periods(*covered)
             if not gaps:
                 ready.append(rec)
                 logger.debug("%s cache hit: %s", source_name, sid)
@@ -261,28 +279,38 @@ class BaseVariableManager(BaseManagerCommon):
                 source=source_name,
                 station_id=sid,
                 detail=(
-                    f"is cached from {rec.date_start:%Y-%m-%d} to {rec.date_end:%Y-%m-%d} and "
+                    f"is cached from {covered[0]:%Y-%m-%d} to {covered[1]:%Y-%m-%d} and "
                     f"the run asks for {self.project_period[0]:%Y-%m-%d} to "
                     f"{self.project_period[1]:%Y-%m-%d}"
+                    + (
+                        ""
+                        if asked is not None
+                        else ". The cache does not record the window it was asked for: "
+                        "run once without --frozen to record it"
+                    )
                 ),
             )
             for gap_start, gap_end in gaps:
                 parts.extend(fetch_fn([sid], gap_start, gap_end))
+            window = _hull(covered, self.project_period)
             if parts:
                 merged = self._merge_into_record(rec, *parts)
                 ready.append(merged)
-                to_persist.append(merged)
+                to_persist.append((merged, window))
                 logger.debug("%s cache merge: %s (+%d period(s))", source_name, sid, len(gaps))
             else:
+                # Nothing upstream for the gap: record that it was asked, so
+                # the next run (and a frozen replay) does not ask again.
                 ready.append(rec)
+                self._record_window(rec, source_name, window)
 
-        if to_persist:
-            self._persist_api_records(to_persist, source_name)
+        for merged, window in to_persist:
+            self._persist_api_records([merged], source_name, window=window)
         if not missing_ids:
             return self._apply_mask(ready, source_cfg)
 
         records = fetch_fn(missing_ids, *self.project_period)
-        self._persist_api_records(records, source_name)
+        self._persist_api_records(records, source_name, window=self.project_period)
         fetched_ids = {r.station_id for r in records}
         empty_ids = [sid for sid in missing_ids if sid not in fetched_ids]
         if empty_ids:
@@ -346,11 +374,16 @@ class BaseVariableManager(BaseManagerCommon):
         self,
         records: list[PointRecord],
         source: str,
+        *,
+        window: tuple[datetime, datetime] | None = None,
     ) -> None:
         """Save API records as CSV files in data_dir and register in catalog.
 
         If a previous CSV exists for the same station (different period),
-        the old file is deleted before saving the new one.
+        the old file is deleted before saving the new one. ``window`` is the
+        period the provider was asked for (default: the project period). It
+        is recorded with each entry, so a station whose data stops short of
+        it is not asked again for the days it does not have.
         """
         if self.data_dir is None or not records:
             return
@@ -373,7 +406,44 @@ class BaseVariableManager(BaseManagerCommon):
             if r.location:
                 self._upsert_api_loc(r.location, source)
 
-            self._register_one(r, filepath)
+            asked = _hull((r.date_start, r.date_end), window or self.project_period)
+            self._register_one(r, filepath, window=asked)
+
+    def _record_window(
+        self, record: PointRecord, source: str, window: tuple[datetime, datetime]
+    ) -> None:
+        """Record ``window`` as asked for the cached ``record``, leaving its file as it is."""
+        if self.catalog is None:
+            return
+        entry = self.catalog.find_cached(
+            variable=self.VARIABLE_NAME, source=source, station_id=record.station_id
+        )
+        if entry is None or entry.file_path in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
+            return
+        self._register_one(record, self._resolve_catalog_path(entry.file_path), window=window)
+
+    def _cached_window(self, *, source: str, station_id: str) -> tuple[datetime, datetime] | None:
+        """Return the window a cached station was asked for, or None when not recorded."""
+        if self.catalog is None:
+            return None
+        entry = self.catalog.find_cached(
+            variable=self.VARIABLE_NAME, source=source, station_id=station_id
+        )
+        recorded = getattr(entry, "fetch_metadata", None)
+        if isinstance(recorded, str):
+            try:
+                recorded = json.loads(recorded)
+            except ValueError:
+                return None
+        if not isinstance(recorded, dict):
+            return None
+        window = recorded.get(_ASKED_WINDOW_KEY)
+        if not isinstance(window, list) or len(window) != 2:
+            return None
+        try:
+            return (datetime.fromisoformat(window[0]), datetime.fromisoformat(window[1]))
+        except (TypeError, ValueError):
+            return None
 
     def _cleanup_old_api_file(self, source: str, station_id: str) -> None:
         """Delete old API CSV if a previous download exists for this station."""
@@ -463,8 +533,14 @@ class BaseVariableManager(BaseManagerCommon):
             fp = r.file_path if r.file_path is not None else Path(SENTINEL_CUSTOM)
             self._register_one(r, file_path=fp)
 
-    def _register_one(self, r: PointRecord, file_path: Path) -> None:
-        """Register a single record in the catalog."""
+    def _register_one(
+        self,
+        r: PointRecord,
+        file_path: Path,
+        *,
+        window: tuple[datetime, datetime] | None = None,
+    ) -> None:
+        """Register a single record in the catalog, with the window it was asked for."""
         if self.catalog is None:
             return
         bbox = None
@@ -485,6 +561,11 @@ class BaseVariableManager(BaseManagerCommon):
             bbox=bbox,
             crs=crs,
             is_custom=(r.source == "custom"),
+            fetch_metadata=(
+                None
+                if window is None
+                else {_ASKED_WINDOW_KEY: [window[0].isoformat(), window[1].isoformat()]}
+            ),
         )
 
     # ------------------------------------------------------------------

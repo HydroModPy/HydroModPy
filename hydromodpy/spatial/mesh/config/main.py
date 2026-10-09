@@ -5,12 +5,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, ValidationError, field_validator, model_validator
+from pydantic import Field, ValidationError, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr, PositiveInt, StripLower
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
+from hydromodpy.spatial.geology_config import GeologyConfigBlock
 from hydromodpy.spatial.mesh.config.hydraulic import (
     MeshCatchmentHydraulicPropertiesConfig,
 )
@@ -27,7 +28,6 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
 )
 from hydromodpy.spatial.mesh.refinement.lake_refinement import LakeRefinementConfig
 from hydromodpy.spatial.mesh.refinement.refinement_zones import RefinementZoneConfig
-from hydromodpy.spatial.protocols import get_geology_data_source
 
 
 class MeshCatchmentConfig(HydroModelBase):
@@ -156,7 +156,7 @@ class MeshCatchmentConfig(HydroModelBase):
         ),
     )
     geology: Annotated[
-        dict[str, Any] | None,
+        GeologyConfigBlock | None,
         Profile.USER,
         VisibleWhen("constraints_mode", ("geology_only", "geology_rivers")),
     ] = Field(
@@ -217,15 +217,6 @@ class MeshCatchmentConfig(HydroModelBase):
             "cell size; declare entries as [[mesh_catchment.refinement_zone]] tables."
         ),
     )
-
-    @field_validator("geology", mode="before")
-    @classmethod
-    def _validate_geology_block(cls, value: object) -> dict[str, Any] | None:
-        if value is None:
-            return None
-        if not isinstance(value, Mapping):
-            raise ValueError("geology section must be a mapping.")
-        return get_geology_data_source().validate_config(dict(value))
 
     @model_validator(mode="after")
     def _validate_required_subsections(self) -> MeshCatchmentConfig:

@@ -127,3 +127,29 @@ def test_the_run_panel_writes_the_calibration_name() -> None:
     write_fit_metrics("sim", store)
     assert "nse_log" in store.names
     assert "log_nse" not in store.names
+
+
+def test_an_old_archive_is_imported_under_the_new_name(tmp_path: Path) -> None:
+    """An archive exported before the rename carries ``log_nse`` in its snapshot."""
+    with Catalog(tmp_path / "source") as source:
+        sid = str(uuid.uuid4())
+        registration = source.register_simulation(
+            sid, project="p", solver="modflow6", name="old", n_cells=4, n_layers=1
+        )
+        if registration.zarr is not None:
+            registration.zarr.close()
+        for metric, value in {"log_nse": 0.7, "nse": 0.5}.items():
+            source.write_metric(sid, OUTLET_STATION, metric, value, variable="discharge")
+        source.finalize(sid, "completed")
+        archive = source.export_package(sid, tmp_path / "old.hmp")
+
+    with Catalog(tmp_path / "target") as target:
+        imported = target.import_package(archive)
+        names = {
+            row[0]
+            for row in target.backend.fetch_all(
+                "SELECT metric_name FROM metrics WHERE sim_id = ?", [imported]
+            )
+        }
+        assert names == {"nse_log", "nse"}
+        assert target.resolve("@best:nse_log") == imported

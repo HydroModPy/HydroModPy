@@ -125,3 +125,86 @@ def test_a_covered_period_is_served_from_the_cache(frozen_project: tuple[Path, P
     records = manager._fetch_with_station_cache(cfg, _no_download, source_name="hubeau")
 
     assert [r.station_id for r in records] == ["A"]
+
+
+def _short_station_project(tmp_path: Path, window: tuple[datetime, datetime] | None) -> Path:
+    """A workspace whose station B has no value on the last day of the window."""
+    from hydromodpy.cli.commands.run import _post_run_lockfile_write
+
+    workspace = tmp_path / "workspace"
+    project = workspace / "projects" / "demo"
+    data_dir = workspace / "data" / "hydrometry"
+    data_dir.mkdir(parents=True)
+    project.mkdir(parents=True)
+    catalog = DataCatalogDuckDB(workspace / "data" / "cache.duckdb")
+    manager = _Manager(
+        config=SimpleNamespace(),
+        catalog=catalog,
+        project_period=(datetime(2000, 1, 1), datetime(2000, 1, 31)),
+        data_dir=data_dir,
+    )
+    if window is None:
+        # A normal run asks for the window; the provider has nothing after the 30th.
+        cfg = SimpleNamespace(station_ids=["B"], force_refresh=False, mask_path=None)
+        manager._fetch_with_station_cache(
+            cfg,
+            lambda ids, start, end: [_record("B", "2000-01-01", "2000-01-30")],
+            source_name="hubeau",
+        )
+    else:
+        manager._persist_api_records(
+            [_record("B", "2000-01-01", "2000-01-30")], "hubeau", window=window
+        )
+    catalog.close()
+    config_path = project / "project.toml"
+    config_path.write_text("# placeholder\n")
+    _post_run_lockfile_write(config_path, {"workspace": {"project_root": str(project)}})
+    return project
+
+
+@pytest.mark.fast
+def test_a_station_shorter_than_its_window_replays_frozen(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ONDE campaigns and sparse gauges never fill the window they were asked for."""
+    monkeypatch.delenv("HMP_WORKSPACE", raising=False)
+    project = _short_station_project(tmp_path, window=None)
+    workspace = project.parent.parent
+    set_frozen_mode(True, project_root=project)
+    try:
+        manager = _manager(
+            workspace,
+            workspace / "data" / "hydrometry",
+            (datetime(2000, 1, 1), datetime(2000, 1, 31)),
+        )
+        cfg = SimpleNamespace(station_ids=["B"], force_refresh=False, mask_path=None)
+        records = manager._fetch_with_station_cache(cfg, _no_download, source_name="hubeau")
+    finally:
+        set_frozen_mode(False)
+    assert [r.station_id for r in records] == ["B"]
+    assert records[0].date_end == datetime(2000, 1, 30)
+
+
+@pytest.mark.fast
+def test_an_empty_gap_is_asked_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A gap the provider has nothing for is recorded as asked, then never asked again."""
+    monkeypatch.delenv("HMP_WORKSPACE", raising=False)
+    project = _short_station_project(tmp_path, window=(datetime(2000, 1, 1), datetime(2000, 1, 30)))
+    workspace = project.parent.parent
+    asked: list[tuple[datetime, datetime]] = []
+
+    def provider(ids, start, end):
+        asked.append((start, end))
+        return []
+
+    cfg = SimpleNamespace(station_ids=["B"], force_refresh=False, mask_path=None)
+    for _ in range(2):
+        manager = _manager(
+            workspace,
+            workspace / "data" / "hydrometry",
+            (datetime(2000, 1, 1), datetime(2000, 1, 31)),
+        )
+        records = manager._fetch_with_station_cache(cfg, provider, source_name="hubeau")
+        manager.catalog.close()
+        assert [r.station_id for r in records] == ["B"]
+    assert asked == [(datetime(2000, 1, 31), datetime(2000, 1, 31))]

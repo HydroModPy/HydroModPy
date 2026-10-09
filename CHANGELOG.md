@@ -448,6 +448,15 @@ Each release section includes the following standard categories:
   the site selection map follow the dark theme; the site selection legend names an area class
   as a class. Docs: the five accessibility exceptions of the browser probe are fixed, and the
   quantities page groups every key with a unit.
+- The run identity that `hmp run` and `hmp.run` compare to skip an identical completed run
+  covers the sha256 of every input file the configuration names and the package version, and no
+  longer the run name: a changed input file, or another HydroModPy version, computes again, and a
+  renamed run no longer answers to its old name.
+- `hmp catalog delete <name> --now` refuses a name that both a live and a trashed run carry and
+  lists both ids; `hmp catalog restore <name>` looks the name up in the trash.
+- A search by extent whose stations all lie outside the watershed warns and leaves the variable
+  empty instead of stopping the run; stations named in `station_ids` or a custom file are still
+  refused.
 
 ### Fixed
 - The channel mask of the zonal top covered the whole catchment. The stream raster was
@@ -600,6 +609,29 @@ Each release section includes the following standard categories:
   solver, as for MODFLOW 6; NWT ran on with an inert boundary and a worse budget.
 - A hydrography `rasterize_field` that holds text is numbered per feature instead of being
   handed to Whitebox as text.
+- Runs recorded before the recent refusals rerun and resume again: a stored configuration
+  (catalog snapshot, `runs/<run>/config.toml`, checkpoint `resolved_config.json`) is migrated when
+  read, dropping or moving the root `[persistence]`, a stored `solver.backend` that disagrees with
+  the flow process, a null `cell_id`, `data.lake_abacus.id` and the removed site_selection keys,
+  with one log line. A file a user writes is still refused.
+- Testbed and comparison children make the `mesh_catchment.geology` paths absolute again (the
+  block is now typed), and a comparison child that changes the flow solver keeps what
+  `comparison.base_simulation_overlay` sets in `simulation.process`. A `solver.backend` derived
+  from the flow process no longer counts as written by the user.
+- A forcing record whose time index is not in nanoseconds takes the samples of its own periods;
+  every period silently took the last sample. A piecewise forcing checks the coverage of each
+  segment only on the periods it keeps.
+- Under MODFLOW 6 with `negative_to_evt`, a negative numeric `first_clim` gives the steady period
+  that net rate through EVT even when the record has no negative value; a steady one-period run
+  with `first_clim = "first"` takes the first value of the record again, not its mean.
+- `hmp.run(cfg, until_step=0)` and `from_step=0` run the window instead of returning an identical
+  completed run; an archive exported before the `nse_log` rename is imported under `nse_log`.
+- A station whose data stops short of the window it was asked for (ONDE campaigns, a gauge
+  without a value on the first day) is served by `hmp run --frozen`; stations cached before this
+  change need one run without `--frozen`.
+- Nightly validation results carry the commit and branch that were checked out; the Quick start
+  check passes only `HMP_CACHE_HOME` and `HMP_BIN` to the page commands; the `llms.txt` of each
+  documentation version links its own pages.
 
 ### Removed
 - `[geographic.enforce_streams]`, the burn of the mapped network into the routing DEM, and what
@@ -654,6 +686,9 @@ Each release section includes the following standard categories:
   the flat `observations.flow_station_mode` and `flow_station_max_distance_km` for the nested
   `flow_station` keys. Example 17 still writes them; its tests are marked as expected failures
   until it is migrated.
+- `fill_method` of the CSV forcings (wells, boundaries and the generic CSV forcing) and the
+  `id` of `[data.lake_bathymetry]` and `[data.lake_geometry]`, which no step read. A file that
+  writes one is refused with what decides instead; a run stored before still loads.
 
 ---
 

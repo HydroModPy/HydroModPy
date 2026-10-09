@@ -41,6 +41,15 @@ class RootConfigProvider(Protocol):
         :class:`ValueError` on a legacy key that has no exact equivalent.
         """
 
+    def migrate_stored(
+        self, payload: dict[str, Any], *, source: str | Path | None = None
+    ) -> dict[str, Any]:
+        """Return a copy of a configuration a run stored, with removed keys migrated.
+
+        For a catalog snapshot, a frozen run ``config.toml`` or a checkpoint
+        payload, never for a file a user wrote.
+        """
+
 
 _PROVIDER: RootConfigProvider | None = None
 

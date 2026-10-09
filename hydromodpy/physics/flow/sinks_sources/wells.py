@@ -25,7 +25,7 @@ from hydromodpy.core.config_kit.types import NonEmptyStr
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.core.units import FlowRate
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
-from hydromodpy.physics.base.forcing import FlowTimeAggregate, FlowTimeFillMethod
+from hydromodpy.physics.base.forcing import FlowTimeAggregate
 
 if TYPE_CHECKING:
     from hydromodpy.core.grid_reference import GridReference
@@ -92,6 +92,14 @@ class FlowWellForcingConstantConfig(HydroModelBase):
 class FlowWellForcingCsvConfig(HydroModelBase):
     """CSV-backed well forcing resolved at runtime against simulation.time."""
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "fill_method": (
+            "no step reads it. A stress period with no sample takes the sample in force, "
+            "and simulation.time.coverage_policy decides what happens before or after the "
+            "record."
+        ),
+    }
+
     kind: Annotated[Literal["csv"], Profile.USER] = Field(
         default="csv",
         description="Discriminator tag for the CSV-backed well-forcing variant.",
@@ -118,10 +126,6 @@ class FlowWellForcingCsvConfig(HydroModelBase):
     )
     value_column: Annotated[NonEmptyStr, Profile.USER] = Field(
         default="value", description="Name of the CSV column that holds the values."
-    )
-    fill_method: Annotated[FlowTimeFillMethod, Profile.DEV] = Field(
-        default="ffill",
-        description="Gap-filling policy used when a stress period has no direct sample.",
     )
     aggregate: Annotated[FlowTimeAggregate, Profile.DEV] = Field(
         default="mean",

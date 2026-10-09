@@ -95,6 +95,8 @@ class DiscoveryMixin:
         ref: str | UUID,
         *,
         project: str | None = None,
+        in_trash: bool = False,
+        unambiguous: bool = False,
     ) -> str:
         """Resolve a user reference to a simulation UUID.
 
@@ -113,6 +115,13 @@ class DiscoveryMixin:
         5. ``name_stem``: a bare name resolves to the latest live version of
            that stem (``baseline`` -> ``baseline.v3``).
         6. Exact ``name`` of a trashed run, when no live run answers to it.
+
+        With ``in_trash``, a name looks only at trashed runs, under the name
+        the trash listing shows (``original_name``): it is what ``restore``
+        means. With ``unambiguous``, a name that a live run answers to (rules
+        4 and 5) while a trashed run still carries it raises
+        :class:`AmbiguousReferenceError` listing both: a purge must not pick
+        one of two runs the user could mean.
 
         Raises :class:`SimulationNotFoundError` when nothing matches, with the
         closest known names and tags suggested.
@@ -159,6 +168,9 @@ class DiscoveryMixin:
             if len(name_rows) == 1:
                 return str(name_rows[0][0])
 
+        if in_trash:
+            return self._resolve_trashed_name(ref_s, project)
+
         # Exact name match, live runs only. A run that ``if_exists = "replace"``
         # sent to the trash keeps its name; answering with it would hand back
         # the run the user just replaced instead of the one that replaced it.
@@ -174,6 +186,8 @@ class DiscoveryMixin:
         exact_rows = self._backend.fetch_all(exact_sql, exact_params)
         live_exact = [r for r in exact_rows if not r[2]]
         if len(live_exact) == 1:
+            if unambiguous:
+                self._refuse_a_name_the_trash_holds(ref_s, project, str(live_exact[0][0]), ref_s)
             return str(live_exact[0][0])
         if len(live_exact) > 1:
             raise AmbiguousReferenceError(
@@ -183,7 +197,7 @@ class DiscoveryMixin:
 
         # Bare stem -> latest live version of the stem.
         stem_sql = (
-            "SELECT CAST(sim_id AS VARCHAR), project FROM simulations "
+            "SELECT CAST(sim_id AS VARCHAR), project, name FROM simulations "
             "WHERE name_stem = ? "
             "AND status_id <> (SELECT id FROM statuses WHERE code = 'trashed') "
         )
@@ -196,6 +210,10 @@ class DiscoveryMixin:
         if stem_rows:
             projects = {r[1] for r in stem_rows}
             if len(projects) == 1:
+                if unambiguous:
+                    self._refuse_a_name_the_trash_holds(
+                        ref_s, project, str(stem_rows[0][0]), str(stem_rows[0][2])
+                    )
                 return str(stem_rows[0][0])
             raise AmbiguousReferenceError(
                 ref_s,
@@ -213,6 +231,47 @@ class DiscoveryMixin:
             )
 
         raise SimulationNotFoundError(self._not_found_message(ref_s, project))
+
+    def _trashed_name_rows(self, ref: str, project: str | None) -> list[tuple]:
+        """Return ``(sim_id, project)`` of the trashed runs that carry ``ref``.
+
+        A run sent to the trash by ``if_exists = "replace"`` keeps ``name``; one
+        trashed by ``Catalog.trash`` keeps it only as ``original_name``, which
+        is what the trash listing shows. Both count.
+        """
+        sql = (
+            "SELECT CAST(sim_id AS VARCHAR), project FROM simulations "
+            "WHERE status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
+            "AND (name = ? OR original_name = ?)"
+        )
+        params: list[str] = [ref, ref]
+        if project is not None:
+            sql += " AND project = ?"
+            params.append(project)
+        return list(self._backend.fetch_all(sql + " ORDER BY trashed_at DESC", params))
+
+    def _resolve_trashed_name(self, ref: str, project: str | None) -> str:
+        """Resolve ``ref`` as the name of a trashed run, the way the trash lists it."""
+        rows = self._trashed_name_rows(ref, project)
+        if len(rows) == 1:
+            return str(rows[0][0])
+        if len(rows) > 1:
+            raise AmbiguousReferenceError(
+                ref, [(str(r[0]), f"{ref} (project={r[1]}, trashed)") for r in rows]
+            )
+        raise SimulationNotFoundError(f"No trashed simulation named '{ref}'.")
+
+    def _refuse_a_name_the_trash_holds(
+        self, ref: str, project: str | None, live_sid: str, live_name: str
+    ) -> None:
+        """Raise when ``ref`` names both the live run ``live_sid`` and a trashed one."""
+        trashed = [r for r in self._trashed_name_rows(ref, project) if str(r[0]) != live_sid]
+        if trashed:
+            raise AmbiguousReferenceError(
+                ref,
+                [(live_sid, f"{live_name} (live)")]
+                + [(str(r[0]), f"{ref} (trashed)") for r in trashed],
+            )
 
     def _resolve_selector(self, body: str, *, project: str | None) -> str:
         """Resolve an ``@``-selector body (the part after ``@``)."""
