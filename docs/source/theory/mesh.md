@@ -164,6 +164,13 @@ $\varphi_{nm} = 0$ on every connection whose two cells kept their seed as centre
 (the 16 inner ones moved at random, $n_b = 20$) give 50 triangles, and
 `voronoi_dual_of_mesh` returns 36 cells with $0^\circ$ on every connection.
 
+**The features.** Wells and boundaries are placed on the dual cells, not on the
+triangles. A well goes in the cell that holds its point. A side boundary takes the
+cells whose seed lies on that side, so the head is held on the boundary and not in a
+clipped inner cell that only touches it; a corner cell belongs to both sides. A side
+with no seed on it falls back to the cells with a face on it, with a warning. The
+stream boundary takes the cells the river runs through.
+
 With {toml}`modflow6.sgrid.grid_dual` set to `"triangle"`, the triangles are the cells
 and the centre of a cell is the mean of its three vertices.
 

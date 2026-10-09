@@ -7,10 +7,20 @@ adapters may need later for robust boundary-condition or forcing mapping.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+from hydromodpy.core.logging import get_logger
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
+
+logger = get_logger(__name__)
+
+_SIDE_IDS = ("west_side", "east_side", "south_side", "north_side")
 
 
 def _point_on_segment(
@@ -179,6 +189,10 @@ class GmshSupportMetadata:
     geology_a_key: tuple[str, ...] = ()
     geology_b_key: tuple[str, ...] = ()
     boundary_labels_by_edge_id: dict[int, str] = field(default_factory=dict)
+    # Cells that carry each outer side when the mesh fixes them (a Voronoi dual:
+    # the cells centred on the side). A side left out takes the owner cells of
+    # its boundary faces.
+    side_cell_indices: dict[str, np.ndarray] = field(default_factory=dict)
 
     @property
     def n_cells(self) -> int:
@@ -312,6 +326,8 @@ class GmshSupportMetadata:
             return np.empty(0, dtype=int)
         if label_text in {"stream", "river"}:
             return self.river_cell_indices()
+        if label_text in self.side_cell_indices:
+            return np.asarray(self.side_cell_indices[label_text], dtype=int).copy()
 
         edge_indices = self.edge_indices_for_label(label_text)
         if edge_indices.size == 0:
@@ -386,7 +402,13 @@ class GmshSupportMetadata:
         *,
         tolerance_m: float | None = None,
     ) -> np.ndarray:
-        """Return unique owner cells touched by one side boundary."""
+        """Return the cells that carry one side boundary.
+
+        The cells fixed in ``side_cell_indices`` when the side is there, else the
+        unique owner cells of the side boundary faces.
+        """
+        if bc_id in self.side_cell_indices:
+            return np.asarray(self.side_cell_indices[bc_id], dtype=int).copy()
         edge_indices = self.boundary_edge_indices_for_side(
             bc_id,
             tolerance_m=tolerance_m,
@@ -533,7 +555,197 @@ def build_gmsh_support_metadata(bundle: object | None) -> GmshSupportMetadata | 
     )
 
 
+def _river_face_mask(
+    support: GmshSupportMetadata,
+    *,
+    vertices: np.ndarray,
+    edge_node_a: np.ndarray,
+    edge_node_b: np.ndarray,
+) -> np.ndarray:
+    """Flag the faces of another mesh that a river edge of ``support`` crosses."""
+    river = np.flatnonzero(np.asarray(support.edge_is_river, dtype=bool).reshape(-1))
+    mask = np.zeros(edge_node_a.size, dtype=bool)
+    if river.size == 0 or edge_node_a.size == 0:
+        return mask
+
+    import shapely
+    from shapely.strtree import STRtree
+
+    node_x_m = np.asarray(support.node_x_m, dtype=float)
+    node_y_m = np.asarray(support.node_y_m, dtype=float)
+    river_a = np.asarray(support.edge_node_a_index, dtype=int)[river]
+    river_b = np.asarray(support.edge_node_b_index, dtype=int)[river]
+    river_lines = shapely.linestrings(
+        np.stack(
+            [
+                np.column_stack([node_x_m[river_a], node_y_m[river_a]]),
+                np.column_stack([node_x_m[river_b], node_y_m[river_b]]),
+            ],
+            axis=1,
+        )
+    )
+    faces = shapely.linestrings(np.stack([vertices[edge_node_a], vertices[edge_node_b]], axis=1))
+    hits = STRtree(faces).query(river_lines, predicate="intersects")
+    mask[np.unique(hits[1])] = True
+    return mask
+
+
+def _cell_sizes_m(
+    vertices: np.ndarray, cell_node_indices: tuple[tuple[int, ...], ...]
+) -> np.ndarray:
+    """Return the square root of each polygon area (shoelace)."""
+    sizes = np.zeros(len(cell_node_indices), dtype=float)
+    for cell_index, nodes in enumerate(cell_node_indices):
+        xy = vertices[list(nodes)]
+        area = 0.5 * abs(
+            float(np.dot(xy[:, 0], np.roll(xy[:, 1], -1)))
+            - float(np.dot(xy[:, 1], np.roll(xy[:, 0], -1)))
+        )
+        sizes[cell_index] = np.sqrt(area)
+    return sizes
+
+
+def _with_centred_side_cells(
+    face_support: GmshSupportMetadata, *, cell_size_m: np.ndarray
+) -> GmshSupportMetadata:
+    """Give each outer side the cells whose centre lies on it.
+
+    A Dirichlet head belongs on the boundary. A dual cell centred on a boundary
+    node carries it there; a clipped interior cell that only touches the side
+    would hold it up to half a cell inside. A corner cell belongs to both sides,
+    as on the structured grid. A side with no centred cell keeps the cells with a
+    face on it, with a warning.
+    """
+    center_x_m = np.asarray(face_support.cell_centroid_x_m, dtype=float)
+    center_y_m = np.asarray(face_support.cell_centroid_y_m, dtype=float)
+    tolerance_m = np.maximum(1.0e-9, 1.0e-6 * np.asarray(cell_size_m, dtype=float))
+    offsets = {
+        "west_side": center_x_m - face_support.x_min_m,
+        "east_side": center_x_m - face_support.x_max_m,
+        "south_side": center_y_m - face_support.y_min_m,
+        "north_side": center_y_m - face_support.y_max_m,
+    }
+    side_cells: dict[str, np.ndarray] = {}
+    for side in _SIDE_IDS:
+        centred = np.flatnonzero(np.abs(offsets[side]) <= tolerance_m).astype(int)
+        if centred.size > 0:
+            side_cells[side] = centred
+            continue
+        touching = face_support.boundary_cell_indices_for_side(side)
+        if touching.size > 0:
+            logger.warning(
+                "No cell of the solver mesh is centred on %s; the %d cells with a face "
+                "on it carry it instead.",
+                side,
+                int(touching.size),
+            )
+
+    edge_ids = np.asarray(face_support.edge_ids, dtype=int)
+    edge_cell_a = np.asarray(face_support.edge_cell_a, dtype=int)
+    owner_by_edge_id = dict(zip(edge_ids.tolist(), edge_cell_a.tolist(), strict=True))
+    cells_by_side = {side: set(cells.tolist()) for side, cells in side_cells.items()}
+    # A side face keeps its label only when its cell carries the side.
+    labels = {
+        edge_id: label
+        for edge_id, label in face_support.boundary_labels_by_edge_id.items()
+        if label not in cells_by_side or owner_by_edge_id[edge_id] in cells_by_side[label]
+    }
+    return replace(face_support, side_cell_indices=side_cells, boundary_labels_by_edge_id=labels)
+
+
+def support_on_planar_mesh(
+    support: GmshSupportMetadata, planar_mesh: HydroMesh
+) -> GmshSupportMetadata:
+    """Rebuild one support on the cells of another planar mesh of the same domain.
+
+    MODFLOW 6 solves on the Voronoi dual of the bundle triangles by default. A
+    feature located on ``support`` then names a triangle, not a solver cell. The
+    support returned here describes the cells of ``planar_mesh`` instead: its
+    nodes, cells and faces; as river faces, the faces a river edge of ``support``
+    crosses, so the river cells are the cells the river runs through; and as
+    the cells of each outer side, the cells centred on it. Cell centres are the
+    mesh cell centres (the Voronoi generators). The bundle cell properties do
+    not carry over: they stay NaN.
+    """
+    vertices = np.asarray(planar_mesh.vertices, dtype=float)[:, :2]
+    cell_node_indices = tuple(
+        tuple(int(index) for index in np.asarray(cell, dtype=int).reshape(-1))
+        for cell in planar_mesh.flat_connectivity
+    )
+    n_cells = len(cell_node_indices)
+    center_x_m, center_y_m = planar_mesh.cell_centroids()
+
+    owners: dict[tuple[int, int], list[int]] = {}
+    for cell_index, nodes in enumerate(cell_node_indices):
+        arity = len(nodes)
+        for position in range(arity):
+            node_a = nodes[position]
+            node_b = nodes[(position + 1) % arity]
+            if node_a == node_b:
+                # Two corners merged by the vertex rounding: no face.
+                continue
+            key = (node_a, node_b) if node_a < node_b else (node_b, node_a)
+            owners.setdefault(key, []).append(cell_index)
+
+    edge_node_a = np.asarray([key[0] for key in owners], dtype=int)
+    edge_node_b = np.asarray([key[1] for key in owners], dtype=int)
+    edge_cell_a = np.asarray([cells[0] for cells in owners.values()], dtype=int)
+    edge_cell_b = np.asarray(
+        [cells[1] if len(cells) > 1 else -1 for cells in owners.values()], dtype=int
+    )
+    edge_ids = np.arange(edge_node_a.size, dtype=int)
+    edge_midpoint_x_m = 0.5 * (vertices[edge_node_a, 0] + vertices[edge_node_b, 0])
+    edge_midpoint_y_m = 0.5 * (vertices[edge_node_a, 1] + vertices[edge_node_b, 1])
+    edge_is_river = _river_face_mask(
+        support,
+        vertices=vertices,
+        edge_node_a=edge_node_a,
+        edge_node_b=edge_node_b,
+    )
+    no_value = np.full(n_cells, np.nan, dtype=float)
+    face_support = GmshSupportMetadata(
+        mesh_path=support.mesh_path,
+        bundle_dir=support.bundle_dir,
+        cell_ids=np.arange(n_cells, dtype=int),
+        node_ids=np.arange(vertices.shape[0], dtype=int),
+        node_x_m=vertices[:, 0].copy(),
+        node_y_m=vertices[:, 1].copy(),
+        cell_node_indices=cell_node_indices,
+        cell_centroid_x_m=np.asarray(center_x_m, dtype=float).reshape(-1),
+        cell_centroid_y_m=np.asarray(center_y_m, dtype=float).reshape(-1),
+        cell_z_top_m=no_value.copy(),
+        cell_z_bottom_m=no_value.copy(),
+        cell_hydraulic_conductivity_m_s=no_value.copy(),
+        cell_storage_coefficient=no_value.copy(),
+        edge_ids=edge_ids,
+        edge_node_a_index=edge_node_a,
+        edge_node_b_index=edge_node_b,
+        edge_cell_a=edge_cell_a,
+        edge_cell_b=edge_cell_b,
+        edge_midpoint_x_m=edge_midpoint_x_m,
+        edge_midpoint_y_m=edge_midpoint_y_m,
+        edge_kind=tuple("boundary" if cell_b < 0 else "internal" for cell_b in edge_cell_b),
+        edge_is_river=edge_is_river,
+        geology_a_key=("",) * int(edge_ids.size),
+        geology_b_key=("",) * int(edge_ids.size),
+        boundary_labels_by_edge_id=_infer_boundary_labels_by_edge_id(
+            edge_ids=edge_ids,
+            edge_cell_b=edge_cell_b,
+            edge_midpoint_x_m=edge_midpoint_x_m,
+            edge_midpoint_y_m=edge_midpoint_y_m,
+            x_min_m=float(np.min(vertices[:, 0])),
+            x_max_m=float(np.max(vertices[:, 0])),
+            y_min_m=float(np.min(vertices[:, 1])),
+            y_max_m=float(np.max(vertices[:, 1])),
+        ),
+    )
+    return _with_centred_side_cells(
+        face_support, cell_size_m=_cell_sizes_m(vertices, cell_node_indices)
+    )
+
+
 __all__ = [
     "GmshSupportMetadata",
     "build_gmsh_support_metadata",
+    "support_on_planar_mesh",
 ]

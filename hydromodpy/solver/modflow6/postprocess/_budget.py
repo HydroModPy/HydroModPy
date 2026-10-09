@@ -80,7 +80,7 @@ def east_side_cell_ids(model: FlowPostprocessModel) -> set[int]:
         nrow = int(model.nrow)
         ncol = int(model.ncol)
         return {row * ncol + (ncol - 1) for row in range(nrow)}
-    support = getattr(model, "runtime_mesh_support", None)
+    support = getattr(model, "solver_mesh_support", None)
     if support is None:
         return set()
     return {

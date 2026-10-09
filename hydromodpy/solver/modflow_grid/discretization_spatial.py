@@ -21,6 +21,10 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     VerticalGridConfig,
 )
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
+from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
+    GmshSupportMetadata,
+    support_on_planar_mesh,
+)
 from hydromodpy.spatial.mesh.ops.zonal_stats import regular_grid_cell_ids, zonal_top
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
@@ -424,6 +428,7 @@ def build_spatial_discretization(
     domain: DomainLike,
     sgrid_config: SolverSGridConfig | None,
     runtime_planar_mesh: object | None = None,
+    runtime_mesh_support: GmshSupportMetadata | None = None,
     channel_mask: np.ndarray | None = None,
 ) -> SolverGridContext:
     """Build normalized spatial discretization from domain surfaces or runtime mesh.
@@ -433,6 +438,10 @@ def build_spatial_discretization(
     serves the runtime mesh and a structured grid coarser than the DEM
     (``planar.mode == 'resample_to_shape'``); a grid whose cells are the DEM pixels
     already holds the pixel values.
+
+    ``runtime_mesh_support`` describes the triangles of ``runtime_planar_mesh``.
+    The returned context carries a support on the solver cells: the same one when
+    ``grid_dual = 'triangle'``, one rebuilt on the dual when ``'voronoi'``.
     """
     vertical_config: VerticalGridConfig | None = None
     planar_config: PlanarGridConfig | None = None
@@ -500,6 +509,14 @@ def build_spatial_discretization(
             channel_mask=channel_mask,
         )
 
+    mesh_support: GmshSupportMetadata | None = None
+    if runtime_planar_mesh is not None and runtime_mesh_support is not None:
+        mesh_support = (
+            runtime_mesh_support
+            if grid_dual == "triangle"
+            else support_on_planar_mesh(runtime_mesh_support, solver_mesh.planar_mesh)
+        )
+
     return SolverGridContext(
         grid=grid_reference_from_solver_mesh(
             solver_mesh,
@@ -509,6 +526,7 @@ def build_spatial_discretization(
         solver_mesh=solver_mesh,
         top_surface=top_surface,
         bottom_surface=bottom_surface,
+        mesh_support=mesh_support,
     )
 
 

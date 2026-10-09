@@ -465,6 +465,11 @@ Each release section includes the following standard categories:
   refused.
 
 ### Fixed
+- With `grid_dual = "voronoi"`, the default on a Gmsh mesh, MODFLOW 6 now places wells,
+  side boundaries and the stream boundary on the Voronoi cells it solves, not on the
+  triangles of the mesh. Since 2.0.0a1 such a run stopped on an out-of-range cell, or put a
+  well in an unrelated cell without a warning (802 m off on a validation case). A side
+  boundary takes the cells centred on its nodes, where a fixed head belongs.
 - `hmp calibrate FILE --list-phases` on a file without phases printed only "declares no
   phases". It now prints one line for the single search, with its method and why it was
   chosen, and what each block compares.

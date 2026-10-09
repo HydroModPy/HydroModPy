@@ -46,6 +46,7 @@ from hydromodpy.solver.modflow_common import (
     ensure_solver_binary,
 )
 from hydromodpy.solver.modflow_grid import SolverGridContext
+from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import GmshSupportMetadata
 
 
 class Modflow6:
@@ -77,6 +78,8 @@ class Modflow6:
         self.full_path = os.path.join(model_folder, model_name)
         self.dem_watershed_path = None
         self.grid_ctx: SolverGridContext | None = None
+        # Feature locations on the solved cells, set by build.run_pre_processing.
+        self.solver_mesh_support: GmshSupportMetadata | None = None
         self.routing_ctx: SolverRoutingContext | None = None
         # The descent D of the build, set by build.run_pre_processing.
         self.descent: Descent | None = None
