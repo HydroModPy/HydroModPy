@@ -84,8 +84,7 @@ Each release section includes the following standard categories:
   Explore2 NetCDF: cut by the run box in its Lambert II extended grid before any value is read,
   converted from kg m-2 s-1 to mm/day, resampled onto an 8 km grid in EPSG:2154, read again at
   each run; a calendar other than the standard ones is refused.
-- Example 04 gains `step6_soil_reservoir.toml`, and the user guide gains "Recharge from a soil
-  reservoir".
+- Example 04 gains `step6_soil_reservoir.toml`, the sixth step of the staircase.
 - `method = "lhs"`: a stratified Latin hypercube over the transformed parameter space
   (`scipy.stats.qmc.LatinHypercube`), sized by `method_options.n_samples`, with
   `optimization = "random-cd"` to spread the points further. `max_iter = "auto"` budgets
@@ -211,8 +210,8 @@ Each release section includes the following standard categories:
   metric. `register_simulation(..., config_hash=...)` takes a precomputed hash and
   `Catalog.closed` tells a closed catalog.
 - Docs: Understand pages (in five minutes, how sure, what validated means, where the data come
-  from, can I check what was run) and a glossary of 75 terms; the guide Set up your editor; the
-  reference pages Calibrable parameters, Minimal files, Objects and how they relate, Exceptions
+  from, can I check what was run) and a glossary of 75 terms; the reference pages Calibrable
+  parameters, Minimal files, Objects and how they relate, Exceptions
   and error codes, and the exit codes of each command; the Validation page with the measured
   value, threshold, outcome, date and commit of each check, a case-by-solver matrix and the real
   CI schedule; generated contributor pages (layers, gates, CI, tests, packages, storage tree,
@@ -247,10 +246,7 @@ Each release section includes the following standard categories:
   the docs deploy fetches the results of both nightly jobs before it builds.
 - Docs: generated reference pages for the calibration methods and metrics (formulas in the new
   module `hydromodpy/calibration/criteria/formulas.py`) and for the catchment report file;
-  guides for wells, the mesh, the terrain and the stream network, the depth of the aquifer,
-  boundaries and starting heads, transport and particles, sharing a run, audit and purge,
-  background runs, several projects, a parameter sweep, several piezometers, a catchment
-  outside France and a GIS hand-off; a Get started quick start on the synthetic demo; the
+  a Get started quick start on the synthetic demo; the
   theory of the exits in six pages, a page on the time alignment of outputs, and the theory
   figures drawn at build time from the code.
 - `hmp viz show --opt NAME=VALUE`, repeatable, sets any option of the figure, typed as the
@@ -262,8 +258,8 @@ Each release section includes the following standard categories:
 - `VisibleWhen` accepts a boolean value (`VisibleWhen("enabled", True)`).
 - Docs: the URLs of the site published before the restructuring redirect to the matching page
   (`docs/source/redirects.txt`), and a pull request that moves or deletes a page without a
-  redirect fails. Gates in CI: typos, a Vale house style, sybil on the Python blocks of the
-  guides, a test that every message quoted in a guide exists in the code, dead references to
+  redirect fails. Gates in CI: typos, a Vale house style, sybil on the Python blocks of Get
+  started, a test that every message quoted in a page exists in the code, dead references to
   docs paths, a browser probe (axe, overflow at 390 px, header height), weekly external links
   (lychee), and a job that runs the Get started quick start. A ratchet test fails when a gate
   total of the parameter reference goes up (`tools/docs/field_gates_baseline.json`).
@@ -429,9 +425,9 @@ Each release section includes the following standard categories:
 - The NSE on log discharge has one name, `nse_log`, in calibration files, in the catalog and in
   `@best:`. Catalog migration 0005 and `hmp catalog reindex` rename stored rows; `@best:log_nse`
   is refused with the name to write.
-- Keys the guides teach are user keys and appear in `hmp config template --profile user`: wells
-  units and forcing, lake and SFR forcings, the PRT, MODPATH, GWT and MT3DMS parameters the
-  guides use, `simulation.results.keep_solver_files` and the derived fluxes, `lay_decay` and
+- Keys a user sets are user keys and appear in `hmp config template --profile user`: wells
+  units and forcing, lake and SFR forcings, the PRT, MODPATH, GWT and MT3DMS parameters,
+  `simulation.results.keep_solver_files` and the derived fluxes, `lay_decay` and
   `lay_proportions`, `mesh_catchment.zone_meshing`, `data.inference_mode`,
   `simulation.time.coverage_policy` and others. The parameter reference gives every user key a
   description, every number a unit or a dimensionless mark, and every choice its values.
@@ -608,7 +604,7 @@ Each release section includes the following standard categories:
   m/s and `units` must be a length per time. They were typed as a volume per time.
 - A negative lake rainfall, evaporation, runoff, inflow or withdrawal is refused with the
   MODFLOW 6 LAK convention (each is zero or more), at `hmp config check` for values in the file
-  and before the solver for values read from a file; the lake guide wrote negative withdrawals.
+  and before the solver for values read from a file.
 - A transport solver name that is neither built in nor a registered plugin is refused with the
   valid names.
 - A side or sea constant head below the bottom of its cell stops a MODFLOW-NWT run before the
@@ -695,6 +691,9 @@ Each release section includes the following standard categories:
 - `fill_method` of the CSV forcings (wells, boundaries and the generic CSV forcing) and the
   `id` of `[data.lake_bathymetry]` and `[data.lake_geometry]`, which no step read. A file that
   writes one is refused with what decides instead; a run stored before still loads.
+- Docs: the user guide. Its task pages had to follow every change of the code by hand; a
+  series of examples will replace them. Its old URLs redirect to the reference, Understand or
+  Theory page of the same subject.
 
 ---
 

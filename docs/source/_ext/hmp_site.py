@@ -2,8 +2,8 @@
 
 - The image-comparison slider, the UML viewer and the image lightbox load only
   on the pages that use them, not on all 300 pages.
-- Previous and next links stay inside a door: the link from the last guide to
-  the first reference page means nothing to a reader.
+- Previous and next links stay inside a door: the link from the last step of
+  Get started to the first reference page means nothing to a reader.
 - Pagefind indexes the article of each page only, with its door as a filter;
   the parameter explorer and the general index stay out of the search. Inside
   a parameter page the name of a quantity counts more than the long text of a
@@ -22,9 +22,9 @@
   of the terms (``js/hmp-site.js`` over ``window.hmpHoverCard``).
 - The expand buttons of the sidebar toctree, which the theme writes with an icon
   and no text, get an ``aria-label`` that names the entry they open.
-- ``hmp-task`` opens every guide with the same box: one definition list of
-  Task, Time, Needs and Gives, in that order. Another shape warns, so a strict
-  build keeps the guides alike.
+- ``hmp-task`` opens every step of the staircase with the same box: one
+  definition list of Task, Time, Needs and Gives, in that order. Another shape
+  warns, so a strict build keeps the steps alike.
 """
 
 from __future__ import annotations
@@ -48,7 +48,6 @@ _DOORS = {
     "index": "Home",
     "understand": "Understand",
     "get-started": "Get started",
-    "guides": "Guides",
     "reference": "Reference",
     "theory": "Theory",
     "contribute": "Contribute",
@@ -308,7 +307,7 @@ def on_page_context(
     door_title = _DOORS.get(_door(pagename) or "")
     if "body" in context and door_title and pagename not in _NOT_SEARCHED:
         # Contributor pages weigh less in the ranking: a user query should land on
-        # a guide or a reference page before an architecture note. Pagefind reads
+        # a user page or a reference page before an architecture note. Pagefind reads
         # the weight on an element inside the indexed body, not on the body itself.
         body = weigh_for_search(context["body"])
         if door_title == "Contribute":
@@ -328,7 +327,7 @@ def on_page_context(
 
 
 class TaskDirective(SphinxDirective):
-    """The box that opens a guide: Task, Time, Needs and Gives."""
+    """The box that opens a step: Task, Time, Needs and Gives."""
 
     has_content = True
     TERMS = ("Task", "Time", "Needs", "Gives")

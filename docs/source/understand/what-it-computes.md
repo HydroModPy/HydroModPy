@@ -55,9 +55,9 @@ which is the default, there is no hydraulic computation of the river. The
 
 | Data | Role | In example 04 |
 |---|---|---|
-| Relief | It gives the ground surface, hence the elevation at which water leaves. It delimits the {term}`catchment` from the {term}`outlet` and tells where the water flows downstream. | A digital elevation model, 75 m cells; 64.6 km² catchment traced from the outlet ({doc}`guide <../guides/describe-a-catchment>`). |
-| Geology | It sets how easily water moves (the {term}`hydraulic conductivity` K) and the volume of water released when the water table drops (the {term}`specific yield` Sy). One value for the whole aquifer, or one per zone of a geological map ({doc}`guide <../guides/k-per-zone>`). | A single value of K and a single value of Sy for the whole catchment: the geological map is not used. Both are calibrated ({ref}`two-stage-calibration`). |
-| Recharge | The water that reaches the water table. It is provided (a series from a file, or {term}`SIM2` data from Météo-France), or computed by a {term}`soil reservoir` from rainfall and {term}`potential evapotranspiration` ({doc}`guide <../guides/recharge>`). | A single monthly recharge series for the whole catchment, and a runoff series ({doc}`guide <../guides/get-the-data>`). |
+| Relief | It gives the ground surface, hence the elevation at which water leaves. It delimits the {term}`catchment` from the {term}`outlet` and tells where the water flows downstream. | A digital elevation model, 75 m cells; 64.6 km² catchment traced from the outlet. |
+| Geology | It sets how easily water moves (the {term}`hydraulic conductivity` K) and the volume of water released when the water table drops (the {term}`specific yield` Sy). One value for the whole aquifer, or one per zone of a geological map ({doc}`[flow.param] <../reference/parameters/flow/param>`). | A single value of K and a single value of Sy for the whole catchment: the geological map is not used. Both are calibrated ({ref}`two-stage-calibration`). |
+| Recharge | The water that reaches the water table. It is provided (a series from a file, or {term}`SIM2` data from Météo-France), or computed by a {term}`soil reservoir` from rainfall and {term}`potential evapotranspiration` ({doc}`theory <../theory/soil-reservoir>`). | A single monthly recharge series for the whole catchment, and a runoff series ({doc}`data sources <../reference/data-sources>`). |
 | Thickness | The depth of the aquifer below the ground surface. It is an assumption, not a measurement. | 30 m everywhere. |
 | Observations | The {term}`mapped network` and the flow measured at the outlet are not part of the physical computation. They are used to compare the results and to calibrate K and Sy. | The permanent stretches of the {term}`BD TOPO` and the {term}`NANCON station`. |
 
@@ -81,10 +81,10 @@ in example 04 and not for the other conditions of {doc}`stream-network`.
 | Water leaves through {term}`drains <drain>` placed at the ground surface, in one direction only (drain setup). | Water that leaves does not return to the aquifer. A river does not feed the aquifer in this setup. |
 | The efficiency of a drain depends on K and on the thickness of the clogging layer of the drain bed ({doc}`stream-network`). | The larger K is, the more the aquifer is drained. This is why the seepage network carries information on K. |
 | Identical recharge over the whole catchment, monthly average (example 04). | No variation of rainfall from one hillside to another, or from one day to another within the month. |
-| One {term}`stress period` per month, and the first month in {term}`steady state`. | The first month sets the starting state. The documentation of the setting that cuts a month into several steps states that a single step per month changes the monthly flow by 4 to 28 % compared with a refined computation, depending on the case ({doc}`guide <../guides/time-and-initial-state>`). |
+| One {term}`stress period` per month, and the first month in {term}`steady state`. | The first month sets the starting state. The documentation of the setting that cuts a month into several steps, {toml}`simulation.time.substeps_per_period`, states that a single step per month changes the monthly flow by 4 to 28 % compared with a refined computation, depending on the case. |
 | No hydraulic model of the rivers (drain setup). | No water level, flood or propagation. A stream that "flows" means: the aquifer feeds it. |
 | The simulated network follows the slope of the ground downstream of the seepage cells. | Its shape depends on the digital elevation model and on the cell size. |
-| If the recharge comes from the {term}`soil reservoir` ({doc}`guide <../guides/recharge>`): the soil ignores the height of the water table, and snow counts as rain. | A high water table does not reduce the soil reserve. The documentation of the soil reservoir judges it unsuitable for a snow-covered catchment. Available with MODFLOW 6 only. |
+| If the recharge comes from the {term}`soil reservoir` ({doc}`theory <../theory/soil-reservoir>`): the soil ignores the height of the water table, and snow counts as rain. | A high water table does not reduce the soil reserve. The documentation of the soil reservoir judges it unsuitable for a snow-covered catchment. Available with MODFLOW 6 only. |
 
 The intended range of validity of the project, as the scientific documentation states it:
 shallow aquifers at catchment scale, unconfined or weakly confined, where the relief, the
@@ -100,9 +100,9 @@ Example 04 uses {term}`MODFLOW 6`. HydroModPy runs two other flow solvers behind
 configuration file: MODFLOW-NWT, an older code of the same family, and a Boussinesq solver
 that is part of HydroModPy. They do not support the same boundaries or the same meshes. Lakes,
 reservoirs and routed streams, for example, need MODFLOW 6. A lumped rainfall-runoff model,
-{term}`GR4J`, can be calibrated in place of the distributed model. Which solver to pick is a
-task of the {doc}`guide <../guides/choose-a-solver>`. Every statement about the solver on
-this page is about example 04.
+{term}`GR4J`, can be calibrated in place of the distributed model. The
+{doc}`list of solvers <../reference/solvers>` says what each one supports. Every statement
+about the solver on this page is about example 04.
 
 (two-stage-calibration)=
 ## Calibration in two stages
@@ -120,7 +120,8 @@ with the method published by Abhervé et al. (2023, *Hydrology and Earth System 
 Direct consequence: in a calibrated run, the map of the network and the flow curve show what
 was adjusted. Their agreement is expected. It does not prove on its own that the model is
 right. The page {doc}`reading-results` comes back to this point map by map. The settings
-of this method are in the {doc}`guide <../guides/calibrate-on-the-stream-network>`.
+of this method are those of
+{doc}`[calibration.protocol] <../reference/parameters/calibration/protocol>`.
 
 ## What it does not compute
 

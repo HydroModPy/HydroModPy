@@ -86,8 +86,6 @@ A `--set` value is read as TOML when it can be, and as a plain string otherwise:
 a number and `my_run` is a string. In an environment variable name, two underscores stand
 for a dot.
 
-The full guide, with the traps, is {doc}`../../guides/inheritance`.
-
 ## Merging: tables, lists, `__append`, `__merge`, `__delete`
 
 The same merge applies to the files of the chain, to overlays and to `--set` values.

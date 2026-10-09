@@ -91,8 +91,9 @@ hmp install-binaries
 The other options are in {doc}`the command reference <../reference/cli/install-binaries>`.
 The environment variable `HMP_BIN` points HydroModPy at a folder of your own binaries, flat,
 with the file names `mf6`, `mfnwt` and so on. When it is set, HydroModPy reads that folder
-and downloads nothing. To run without a network after this step, see
-{doc}`../guides/work-offline`.
+and downloads nothing. The data still need the network once: a first run fills the cache of
+the workspace, and {doc}`hmp run --frozen <../reference/cli/run>` then refuses any new
+download.
 
 ## Check the install
 
@@ -150,7 +151,7 @@ other solvers do not need it. The workflows are in `.github/workflows/` and desc
 | `WARN solver:mf6 not cached, not on PATH` from `hmp doctor` | Nothing was downloaded yet. | Run `hmp install-binaries`, or run any simulation: the first one downloads. |
 | Pip builds a library for a long time, or fails on `rasterio` or `pyproj` | No wheel for your Python or platform. | Use the conda tab above and let conda-forge provide that library. |
 
-Other messages are listed by symptom in {doc}`../guides/troubleshooting`.
+Every exit code and its category are listed in {doc}`../reference/cli/exit-codes`.
 
 ## Optional extras
 

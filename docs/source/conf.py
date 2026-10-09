@@ -402,7 +402,7 @@ myst_substitutions = {
     ),
 }
 
-# The tutorial and the guides read the files of example 04.
+# The staircase of Get started reads the files of example 04.
 hmp_example_dir = str(
     package_path / "examples" / "projects" / "04_streamflow_intermittence_in_transient"
 )
@@ -515,7 +515,6 @@ html_theme_options = {
             "index",
             "understand/**",
             "get-started/**",
-            "guides/**",
             "theory/**",
             "contribute/**",
             "about/**",

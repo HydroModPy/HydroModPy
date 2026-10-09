@@ -5,9 +5,9 @@ Usage:
                                          [--pages NAME ...] [--no-axe] [--json FILE]
 
 SITE is the built HTML folder (``docs/build/html``). The probe serves it on a
-local port and opens about 25 pages, one of each type: the home, a door index, a
-generated reference page, a guide, a theory page with maths, the explorer, the
-search page, a Contribute page. On each page it checks:
+local port and opens about 23 pages, one of each type: the home, a door index, a
+generated reference page, a staircase step, a theory page with maths, the explorer,
+the search page, a Contribute page. On each page it checks:
 
 - axe-core finds no violation of WCAG 2.1 A and AA, in the light and the dark
   theme (a violation listed in ``site_probe_allow.toml`` is skipped, with its
@@ -41,12 +41,10 @@ PAGES: dict[str, str] = {
     "home": "index.html",
     "understand-index": "understand/index.html",
     "understand-figures": "understand/reading-results.html",
+    "understand-tables": "understand/what-it-computes.html",
     "get-started-index": "get-started/index.html",
     "get-started-install": "get-started/install.html",
     "staircase-step": "get-started/staircase/step1.html",
-    "guides-index": "guides/index.html",
-    "guide": "guides/describe-a-catchment.html",
-    "guide-tables": "guides/troubleshooting.html",
     "theory-index": "theory/index.html",
     "theory-maths": "theory/groundwater-flow.html",
     "theory-long": "theory/exits.html",

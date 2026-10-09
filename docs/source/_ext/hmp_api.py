@@ -1055,7 +1055,7 @@ def python_index(verbs: list[str], results: list[dict], engines: list[dict]) -> 
         "",
         "```{toctree}",
         ":hidden:",
-        ":caption: Guides to the API",
+        ":caption: About the API",
         "",
         "objects",
         "exceptions",

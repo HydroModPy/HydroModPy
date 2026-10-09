@@ -61,13 +61,8 @@ The whole configuration file as a tree, filterable by key, value or word: *snap*
 
 The other doors:
 
-::::{grid} 1 2 4 4
+::::{grid} 1 1 3 3
 :gutter: 2
-
-:::{grid-item}
-**{doc}`Guides <guides/index>`**
-One task per page.
-:::
 
 :::{grid-item}
 **{doc}`Reference <reference/index>`**
@@ -130,7 +125,6 @@ catchments where it has been deployed. Questions and bug reports go to
 
 Understand <understand/index>
 Get started <get-started/index>
-Guides <guides/index>
 Reference <reference/index>
 Theory <theory/index>
 Contribute <contribute/index>

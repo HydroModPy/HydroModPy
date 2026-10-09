@@ -3,8 +3,8 @@
 What head does the aquifer hold, in every cell and at every time? This page gives
 the equation HydroModPy solves for that head, the geometry it is solved on, the
 properties that enter it and the state it starts from. For the same subject in
-plain words, see {doc}`../understand/what-it-computes`. To set up a run, see
-{doc}`../guides/choose-a-solver`.
+plain words, see {doc}`../understand/what-it-computes`. What each solver supports
+is listed in {doc}`../reference/solvers`.
 
 :::{note}
 **Scope.** Three solvers read the same `[flow]` section: MODFLOW 6 (the default),
@@ -83,7 +83,7 @@ elevation kind, in every cell but one. The table gives the bottom of that cell, 
 
 A raster kind needs the raster. {toml}`data.substratum` takes exactly one source.
 A file that inherits a constant thickness removes it with `thickness__delete`
-when it switches to a raster (see {doc}`../guides/inheritance`):
+when it switches to a raster (see {doc}`../reference/parameters/grammar`):
 
 ```toml
 base_config = "step4_transient.toml"
@@ -167,7 +167,7 @@ code: `_compute_layer_proportions`.
 ## The properties
 
 Each property is a field: one value for the whole domain, or one value per zone
-({doc}`../guides/k-per-zone`). How a zone map becomes one value per cell is on
+({doc}`[flow.param] <../reference/parameters/flow/param>`). How a zone map becomes one value per cell is on
 {doc}`solvers/field-to-cell-parameter-transfer`.
 
 | Property | Needed by a steady run | Needed by a transient run |
@@ -471,7 +471,7 @@ with $\varepsilon_h$ the {toml}`flow.ic.h.tol_head`, or after
 default, period 0 is solved as a steady state, and the heads above are only the
 first guess of that solve. They change the convergence and not the state reached.
 To make the run start from a state you choose, write `first_period_steady = false`
-(see {doc}`../guides/time-and-initial-state`).
+(see {doc}`[flow.ic] <../reference/parameters/flow/ic>`).
 
 ```toml
 base_config = "step4_transient.toml"
@@ -548,9 +548,8 @@ areal rates. A well is a volume per unit of time.
 - **A steady first period is refused with the soil reservoir.** The reservoir
   sends a daily recharge that is zero after a dry day, and a one-period steady
   state would start the run from a drained aquifer.
-- **Each solver has its own boundaries.** {doc}`../guides/choose-a-solver` gives
-  the table, and the file is refused when the solver cannot carry a boundary it
-  asks for.
+- **Each solver has its own boundaries.** The file is refused when the solver
+  cannot carry a boundary it asks for.
 
 ## Parameters of this page
 
@@ -625,4 +624,4 @@ hydromodpy.solver.modflow_nwt.nwt
 - {doc}`solvers`: what each solver adds to this problem.
 - {doc}`mf6-vs-nwt`: where MODFLOW 6 and MODFLOW-NWT differ.
 - {doc}`boussinesq`: the in-house solver in full.
-- {doc}`../guides/time-and-initial-state`: how to set the window and the starting state.
+- {doc}`../reference/parameters/flow/ic`: the keys of the starting state.

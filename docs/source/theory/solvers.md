@@ -4,8 +4,7 @@ HydroModPy integrates the groundwater flow equation with one of three solvers: M
 MODFLOW-NWT or the in-house Boussinesq solver. This page says what each of them does with
 the model you describe in the file: the packages it writes, how it solves the nonlinear
 balance and when it stops, what happens to a cell that dries, and how a transport run
-hooks onto a flow run. To pick a solver, see {doc}`../guides/choose-a-solver`. To make a
-run converge, see {doc}`../guides/non-convergence`.
+hooks onto a flow run. What each solver supports is listed in {doc}`../reference/solvers`.
 
 :::{note}
 **Scope.** The continuous equation and the balance of a cell, {eq}`eq-cell-balance`, are
@@ -249,8 +248,8 @@ LAK, SFR, MVR and HFB exist under MODFLOW 6 only. LAK and SFR are built after th
 so that the drains that coincide with a stream reach can be removed and the drainage of
 the hillslope can be handed to the stream or lake it flows to. MVR is built last, because
 it names the packages it moves water between. The equations of these exits are on
-{doc}`exits`, and the task guides are {doc}`../guides/lakes-and-reservoirs`,
-{doc}`../guides/route-streams-with-sfr` and {doc}`../guides/add-a-flow-barrier`.
+{doc}`exits`, and their keys are in
+{doc}`[flow.sinks_sources] <../reference/parameters/flow/sinks_sources/index>`.
 
 (solvers-newton-ims)=
 ### The solution: Newton and IMS
@@ -404,8 +403,8 @@ cells and wells bring water in at concentration zero.
 ### MODFLOW 6 particle tracking
 
 `modflow6_prt` builds a PRT model on the same flow model. It needs the cell-by-cell
-velocity that {toml}`modflow6.runtime.save_specific_discharge` writes. The task guide is
-{doc}`../guides/track-particles`.
+velocity that {toml}`modflow6.runtime.save_specific_discharge` writes. Its keys are in
+{doc}`[transport] <../reference/parameters/transport>`.
 
 ### MODFLOW-NWT: MODPATH and MT3DMS
 

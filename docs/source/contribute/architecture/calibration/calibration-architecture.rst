@@ -66,7 +66,6 @@ See also
 --------
 
 - :doc:`calibration-guide` for the full operational reference.
-- :doc:`/guides/calibrate` for the task.
 - :doc:`/theory/index` for inverse-problem
   formulation and methods.
 - :doc:`/theory/validation` for stable benchmark

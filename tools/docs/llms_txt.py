@@ -32,7 +32,6 @@ VERSION_MATCH = re.compile(r"theme_switcher_version_match = '([^']+)'")
 DOORS = (
     ("understand", "Understand"),
     ("get-started", "Get started"),
-    ("guides", "Guides"),
     ("reference", "Reference"),
     ("theory", "Theory"),
     ("about", "About"),
@@ -239,7 +238,7 @@ def article_text(page_html: str) -> str:
 
 
 def describe(text: str, limit: int = 200) -> str:
-    """The sentence a link of llms.txt carries: the Task of a guide, else the first paragraph."""
+    """The sentence a link of llms.txt carries: the Task of a step, else the first paragraph."""
     lines = [line.strip() for line in text.splitlines()]
     task = next((line for line in lines if line.startswith("**Task**:")), "")
     if task:

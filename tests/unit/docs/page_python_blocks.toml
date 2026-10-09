@@ -1,0 +1,24 @@
+# Python blocks of Get started, one entry per block.
+#
+# test_page_python_blocks.py reads every ```python block of these pages with sybil.
+# Every block is parsed, and every `hydromodpy` import, every `hmp.<name>` and every
+# keyword of an `hmp.<name>(...)` call is checked against the package. A block marked
+# "run" is also executed, in an empty folder, with the files listed under [files].
+# Any other value names the reason the block is not executed (see [reasons]).
+# A new block has no entry and fails the test until it is classified here.
+
+[reasons]
+example-run = "starts a run of an example 04 file, which needs the example data (92 MiB) and a solver"
+
+[blocks]
+"get-started/install.md" = { "1" = "run" }
+"get-started/staircase/index.md" = { "1" = "example-run" }
+"get-started/staircase/step1.md" = { "1" = "example-run" }
+"get-started/staircase/step2.md" = { "1" = "example-run" }
+"get-started/staircase/step3.md" = { "1" = "example-run" }
+"get-started/staircase/step4.md" = { "1" = "example-run" }
+"get-started/staircase/step5.md" = { "1" = "example-run" }
+"get-started/staircase/step6.md" = { "1" = "example-run" }
+
+# Files an executed block reads, written into its empty folder first.
+[files]

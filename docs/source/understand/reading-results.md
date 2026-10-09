@@ -318,7 +318,7 @@ storage is not plotted: it is the difference between the two curves. Together th
   with rainfall: see the options of `flux_timeseries` in the
   {doc}`catalog of figures <../reference/figures>`.
 - *The catchment and not the domain.* The model extends beyond the catchment
-  (a margin of 10% more area, see {doc}`../guides/describe-a-catchment`); the figure says
+  (a margin of 10% more area); the figure says
   "frame: the delineated catchment".
 - *The `water_budget` bar chart has another use:* it adds up the flows stored at each time step:
   it is a sum of flows, not a volume.
@@ -363,8 +363,7 @@ theme. The dark version recolours the background, the texts and the light greys,
 dry cells of the intermittence map and the ground of the seepage map.
 
 To draw a figure of an existing run again, at another date, see the
-{doc}`catalog of figures <../reference/figures>` and the guide
-{doc}`../guides/read-the-results`.
+{doc}`catalog of figures <../reference/figures>` and {doc}`hmp viz <../reference/cli/viz>`.
 
 ## Going further
 

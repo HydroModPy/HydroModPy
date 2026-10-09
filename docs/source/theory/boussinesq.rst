@@ -3,7 +3,7 @@ Boussinesq theory
 
 This page gives the equations of the in-house Boussinesq solver, in the order the
 code applies them, with what they assume and where they stop being true. It does not
-say how to set up a run: for that, see :doc:`../guides/choose-a-solver`.
+say how to set up a run: the solvers and what each supports are in :doc:`../reference/solvers`.
 
 The solver is not a MODFLOW wrapper. It writes one mass balance per triangular cell
 of a 2D mesh, with the hydraulic head as the unknown. The shallow-groundwater
@@ -807,7 +807,7 @@ In the code
 See also
 --------
 
-- :doc:`../guides/choose-a-solver`: how to choose a solver and set its runtime keys.
+- :doc:`../reference/solvers`: the solvers and what each supports.
 - :doc:`groundwater-flow`: the discrete problem of the three solvers side by side.
 - :doc:`solvers`: what each solver does with the same file.
 - :doc:`mf6-vs-nwt`: the two MODFLOW solvers against each other.

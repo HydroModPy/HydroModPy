@@ -3,8 +3,8 @@
 A property such as $K$ is given per zone of a map: geology classes, bands, rings, or the
 zones of a raster. The solver needs one value per cell and per layer. This page gives
 the rule that turns the first into the second, what that rule means for the
-conductivity, and a worked example. How to give a value per zone is in
-{doc}`../../guides/k-per-zone`.
+conductivity, and a worked example. The keys of a value per zone are in
+{doc}`[flow.param] <../../reference/parameters/flow/param>`.
 
 ::::{dropdown} Notation of this page
 ```{hmp-notation}
@@ -134,4 +134,4 @@ hydromodpy.solver.field_property_mapping
 
 - {doc}`../groundwater-flow`: the properties in the flow equation, and the depth factor.
 - {doc}`../mesh`: the cells the values land on.
-- {doc}`../../guides/k-per-zone`: give a value per zone.
+- {doc}`../../reference/parameters/flow/param`: give a value per zone.

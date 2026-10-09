@@ -9,7 +9,7 @@ those data files.
 
 | Part of the site | Source of truth | Written by |
 |---|---|---|
-| Guides, Theory, Understand, Get started, About, Contribute | `docs/source/**/*.md` and `*.rst` | a person |
+| Theory, Understand, Get started, About, Contribute | `docs/source/**/*.md` and `*.rst` | a person |
 | Parameter reference (`reference/parameters/`) | the Pydantic models under `HydroModPyConfig` | `tools/docs/field_registry.py`, then `_ext/hmp_params.py` and `_ext/hmp_tview.py` |
 | Python API and command line (`reference/python/`, `reference/cli/`) | `hydromodpy.__all__`, the signatures, the docstrings and the `argparse` parser | `tools/docs/api_registry.py`, then `_ext/hmp_api.py` |
 | Catalogs of solvers, figures and data sources | the registries of the code | `tools/docs/catalogs.py`, then `_ext/hmp_catalogs.py` |

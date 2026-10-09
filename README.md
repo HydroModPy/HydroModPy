@@ -105,8 +105,9 @@ water_table = hmp.read(run, "watertable_elevation", time=-1)  # numpy array
 ```
 
 The tables are plain Parquet, so `pandas.read_parquet` on
-`runs/demo/tables.parquet/metrics.parquet` works too. See the
-[results guide](https://docs.hydromodpy.fr/main/guides/index.html)
+`runs/demo/tables.parquet/metrics.parquet` works too. See
+[Reading the results](https://docs.hydromodpy.fr/main/understand/reading-results.html)
+and the [Python API](https://docs.hydromodpy.fr/main/reference/python/index.html)
 for the full reading and export path.
 
 ## Documentation
@@ -118,7 +119,6 @@ Full documentation lives at
 |---------|----------------|
 | [Understand](https://docs.hydromodpy.fr/main/understand/index.html) | What the model computes and how to read its maps, in plain words. |
 | [Get started](https://docs.hydromodpy.fr/main/get-started/index.html) | Install, then example 04 file by file. |
-| [Guides](https://docs.hydromodpy.fr/main/guides/index.html) | One task per page: K per zone, recharge, calibration, a run that does not converge. |
 | [Reference](https://docs.hydromodpy.fr/main/reference/index.html) | Every TOML parameter, every `hmp` command and the Python API, generated from the code. |
 | [Theory](https://docs.hydromodpy.fr/main/theory/index.html) | The equations, their assumptions and limits, and the validation against references. |
 | [Contribute](https://docs.hydromodpy.fr/main/contribute/index.html) | Contributor handbook, layer matrix, storage layout, package maps. |

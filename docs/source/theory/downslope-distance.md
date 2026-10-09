@@ -9,8 +9,8 @@ each direction, and at which value of the calibrated ratio do the two walks
 balance?
 
 How a model makes streams in plain words is on
-{doc}`../understand/stream-network`. How to set up and read a calibration on a
-network is on {doc}`../guides/calibrate-on-the-stream-network`.
+{doc}`../understand/stream-network`. The keys of a calibration on a network are
+in {doc}`../reference/parameters/calibration/outputs`.
 
 :::{note}
 **Scope.** The page covers the distances, the criterion, what it identifies, and
@@ -351,7 +351,7 @@ and the zero is a plateau whose width sets how precisely the parameter is known.
 A bisection therefore stops on the width of its bracket, on a logarithmic
 transform, never on the size of the residual. A coarse sweep runs first and sees
 every crossing; a bracket with no sign change is reported, not closed. The
-options are on {doc}`../guides/calibrate-on-the-stream-network`.
+options are on {doc}`../reference/calibration-methods`.
 
 ## Assumptions
 
@@ -498,9 +498,8 @@ hydromodpy.calibration.criteria.hydrographic_network_distance
 
 ## See also
 
-- {doc}`../guides/calibrate-on-the-stream-network`: how to set up and read a
-  calibration on the network.
-- {doc}`../guides/score-two-maps`: the two-bound mode of a transient run.
+- {doc}`../reference/parameters/calibration/outputs`: the keys of a calibration on
+  the network, the two-bound mode of a transient run included.
 - {doc}`exits/simulated-network`: the sources, the closure and the diagnostics
   against a map.
 - {doc}`../understand/stream-network`: how the model makes streams, in plain

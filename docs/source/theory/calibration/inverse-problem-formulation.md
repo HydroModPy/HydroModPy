@@ -5,8 +5,7 @@ reproduce the gauge and the mapped streams?", into the search for the minimum, o
 of one number computed from the model. This page writes that number down: the space the
 search walks, the cost each objective block adds, the metrics, the root a network
 criterion has instead of a minimum, the likelihood of the one sampler, and what the width
-printed beside a value means. The steps of a calibration are in the guide
-{doc}`../../guides/calibrate`. Every option of every method is in the reference
+printed beside a value means. Every option of every method is in the reference
 {doc}`../../reference/calibration-methods`.
 
 The tables of metrics and methods on this page are generated from the code at each build,
@@ -199,8 +198,8 @@ posterior.
 
 A narrow `cost_profile` interval means either that the cost rises fast around the value, or
 that the search never tried far from it. A high correlation means two parameters were not
-told apart: they are one number and a ratio. The guide
-{doc}`../../guides/calibration-uncertainty` says how to read each case.
+told apart: they are one number and a ratio.
+{doc}`../../understand/how-sure` says how to read each case.
 
 ## Limits
 
@@ -217,7 +216,6 @@ told apart: they are one number and a ratio. The guide
 
 - {doc}`../downslope-distance`: the network criterion, its equations and its biases.
 - {doc}`../../reference/calibration-methods`: every method with its options, every metric.
-- {doc}`../../guides/calibrate`: the steps of a calibration.
 - {cite:t}`abherve2023`: a calibration of catchment hydraulic properties on the stream
   network.
 - {doc}`../bibliography`: the full list of cited references.

@@ -5,9 +5,9 @@ Each exit is a boundary package of the solver, with its own law: a drain where
 the water table reaches the ground, a fixed head at the sea, a stream that routes
 what it receives, a lake that stores it. These pages give the law of each exit,
 the way HydroModPy builds it, and how the cells where the water table reaches
-the surface become a simulated network. To set up a run, see
-{doc}`../guides/route-streams-with-sfr` and
-{doc}`../guides/lakes-and-reservoirs`.
+the surface become a simulated network. The keys of a routed network and of a lake
+are in {doc}`../reference/parameters/flow/sinks_sources/sfr` and
+{doc}`../reference/parameters/flow/sinks_sources/lakes`.
 
 :::{note}
 **Scope.** MODFLOW 6 builds every exit below. MODFLOW-NWT builds the drains, the

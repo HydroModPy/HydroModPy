@@ -4,8 +4,9 @@ Rain falls and the air asks for water every day. The aquifer model does not see
 days: it sees stress periods, and one rate per cell for each period. This page
 gives the rules that turn daily series and daily grids into those rates, and the
 terms the solver builds from them. How the outputs are put back on the same
-periods is on {doc}`time-alignment`. To set up a run, see
-{doc}`../guides/recharge` and {doc}`../guides/time-and-initial-state`.
+periods is on {doc}`time-alignment`. The keys are in
+{doc}`[flow.sinks_sources.recharge] <../reference/parameters/flow/sinks_sources/recharge>`
+and {doc}`[simulation] <../reference/parameters/simulation>`.
 
 :::{note}
 **Scope.** Every rule below is the same under the three flow solvers, MODFLOW 6,
@@ -179,8 +180,8 @@ Periods 1 to 3 keep 4, 9 and 1 in both rows.
 
 A run that starts from a steady state of its own ({toml}`flow.ic`, type
 `steady_state`) builds an auxiliary steady model for that state, with
-`first_clim` set to `"mean"`, or to the prescribed rate. The guide
-{doc}`../guides/time-and-initial-state` describes the starting states.
+`first_clim` set to `"mean"`, or to the prescribed rate. The starting states are
+the types of {doc}`[flow.ic] <../reference/parameters/flow/ic>`.
 
 ```toml
 base_config = "step4_transient.toml"
@@ -383,6 +384,6 @@ hydromodpy.solver.modflow6.builders.recharge
 - {doc}`time-alignment`: how outputs and observations are put on the periods.
 - {doc}`soil-reservoir`: the daily balance that turns rain and ETP into recharge.
 - {doc}`exits`: how water leaves the aquifer.
-- {doc}`../guides/recharge`: choose where the recharge comes from.
-- {doc}`../guides/time-and-initial-state`: the window, the first period and the
-  starting state.
+- {doc}`../reference/parameters/flow/sinks_sources/recharge`: choose where the
+  recharge comes from.
+- {doc}`../reference/parameters/flow/ic`: the starting state.

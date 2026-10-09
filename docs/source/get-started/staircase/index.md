@@ -167,8 +167,8 @@ run = hmp.run("step1_minimal.toml")
 print(run.name)
 ```
 
-A relative path is read from the folder you are in. `hmp.run` returns the `Run`, which the
-{doc}`guide to the Python API <../../guides/drive-from-python>` shows how to read.
+A relative path is read from the folder you are in. `hmp.run` returns the
+{doc}`Run <../../reference/python/Run>`, whose reference page lists what it reads.
 :::
 
 ::::
@@ -190,8 +190,7 @@ and logs a warning, and `hmp.run(path, force=True)` computes it again.
 Edit the file, even one value, and the second run is a new one. It lands next to the first,
 as `runs/nancon_step1_minimal.v2/`, then `.v3`, because {toml}`simulation.if_exists` is
 `"version"` by default. Set it to `"replace"` and the older run goes to the trash instead.
-{doc}`../../guides/find-and-compare-runs` shows how to list and compare them, and
-{doc}`../../guides/clean-and-reindex-runs` how to delete them.
+{doc}`hmp catalog <../../reference/cli/catalog>` lists, compares and deletes them.
 
 ```{toctree}
 :hidden:

@@ -4,7 +4,7 @@ The equations HydroModPy solves, in the order the water meets them, with what
 each one assumes and where it stops being true. Read this part to review a
 result, to cite the model, or to know exactly what a parameter does inside an
 equation. Each page names the keys that set its terms; the steps of a run are in
-the {doc}`guides <../guides/index>`.
+the {doc}`staircase <../get-started/staircase/index>`.
 
 ## Same subject, four doors
 
@@ -13,7 +13,7 @@ Take the soil reservoir. Each door says something different about it.
 | Door | What it says | Example |
 |---|---|---|
 | {doc}`Understand <../understand/what-it-computes>` | What it means, in plain words | Part of the rain never reaches the water table: the soil keeps it and plants take it back. |
-| {doc}`Guides <../guides/recharge>` | How to do it | Switch the soil reservoir on and check its water balance. |
+| {doc}`Get started <../get-started/staircase/step6>` | How to do it | Switch the soil reservoir on, in step 6 of example 04. |
 | {toml}`Reference\|flow.sinks_sources.recharge.soil` | Every key, generated | `ru`: capacity of the store, in mm, default and range. |
 | {doc}`Theory <soil-reservoir>` | The equations | $S_t = W_t - \mathrm{ETR}_t - X_t$, where $X_t$ is the water above $\mathrm{RU}$. |
 

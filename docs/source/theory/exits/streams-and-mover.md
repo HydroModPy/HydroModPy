@@ -3,8 +3,8 @@
 A stream network (SFR) routes the water it receives from reach to reach and
 exchanges water with the aquifer through its bed. The water mover (MVR) hands
 the outflow of one package to another: a drain to a reach, a reach to a lake, a
-lake to a reach. Both need MODFLOW 6. To set up a network, see
-{doc}`../../guides/route-streams-with-sfr`.
+lake to a reach. Both need MODFLOW 6. The keys of a network are in
+{doc}`../../reference/parameters/flow/sinks_sources/sfr`.
 
 ::::{dropdown} Notation of this page
 ```{hmp-notation}

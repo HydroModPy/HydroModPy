@@ -4,7 +4,7 @@ Usage: python -m tools.docs.check_refs [--site BUILT_HTML]
 
 A README, a docstring, a workflow, a test or a page names a file of the
 documentation (``docs/source/contribute/architecture/storage-layout.rst``) or a
-page of the published site (``https://docs.hydromodpy.fr/main/guides/index.html``).
+page of the published site (``https://docs.hydromodpy.fr/main/get-started/index.html``).
 When the page moves, the reference stays and sends the reader nowhere. Two kinds
 of reference are checked, in every file git tracks:
 
@@ -56,10 +56,6 @@ WRITTEN_BY_SCRIPTS = ("docs/_dev_notes/diagnostics",)
 # A path that is not a reference to a file: (file, text) -> why.
 NOT_REFERENCES = {
     ("docs/source/contribute/handbook.rst", "docs/release-recipe"): "a branch name",
-    (
-        "docs/source/contribute/documentation/write-a-guide.md",
-        "docs/source/guides/your-page.md",
-    ): "the page the reader is about to write",
 }
 # A path in a text. The character before it must not belong to a longer path
 # (``tools/docs/check_refs.py`` is not a path of ``docs/``).

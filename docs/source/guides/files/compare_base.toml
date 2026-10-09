@@ -1,7 +1,0 @@
-# Step 1 of example 04 with the path of its DEM written out, so that a
-# comparison child, which lives in its own folder, can find the file.
-# Put it next to step1_minimal.toml in the example 04 folder.
-base_config = "step1_minimal.toml"
-
-[geographic.catchment]
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"

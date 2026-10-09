@@ -129,4 +129,4 @@ hydromodpy.results.derive.time_alignment
 - {doc}`forcing`: how the inputs are put on the periods.
 - {doc}`calibration/inverse-problem-formulation`: the scores that compare the
   aligned series.
-- {doc}`../guides/time-and-initial-state`: the window and the first period.
+- {doc}`../reference/parameters/simulation`: the keys of the window and the periods.

@@ -3,7 +3,7 @@ Comparison workflow architecture
 
 This page documents the contract of ``[workflow].mode = "comparison"``. The goal is
 to compare several HydroModPy simulations without adding logic to the simulation
-workflow itself. For the task, see the guide :doc:`/guides/compare-runs`.
+workflow itself. Its keys are in :doc:`/reference/parameters/analysis/comparison`.
 
 Positioning
 -----------

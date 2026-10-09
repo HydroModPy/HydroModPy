@@ -12,15 +12,15 @@ Keep the example open beside your project, and change one thing at a time.
    `run_demo.toml` on a synthetic catchment, like the project `example` of the quick start.
    Run the demo first, to know the install is sound.
 2. Put the outlet and a DEM under `[geographic.catchment]`, as `step1_minimal.toml` does.
-   {doc}`../../guides/describe-a-catchment` draws the identity card of a catchment before
-   any model exists, and costs seconds.
-3. Bring the data: {doc}`../../guides/get-the-data` fetches rain, evapotranspiration, the
-   stream network and gauges from public services, and {doc}`../../guides/use-your-own-files`
-   reads your own files. The smallest valid file of each section is on
+   The {doc}`overview <../../reference/parameters/overview>` draws the identity card of a
+   catchment before any model exists, and costs seconds.
+3. Bring the data: each section of {doc}`[data] <../../reference/parameters/data/index>`
+   reads a public service (rain, evapotranspiration, the stream network, gauges) or a file
+   of your own. The smallest valid file of each section is on
    {doc}`../../reference/parameters/minimal-files`.
 4. Grow the model one step at a time, as the staircase does: a steady run first, then
    time, then the forcing. Each file inherits the one before
-   ({doc}`../../guides/inheritance`).
+   ({doc}`../../reference/parameters/grammar`).
 
 Public data come from French services (BD Topage, Hub'Eau, SIM2). For a catchment elsewhere,
 the {doc}`list of data sources <../../reference/data-sources>` says what each one covers.
@@ -45,9 +45,9 @@ hmp run run_calibration.toml
 | `run_calibration_api_daily.toml` | Every input from an API except the DEM, daily over 2015-2020. K takes five fixed values and each run is kept with its figures. Needs network |
 
 The observed network and the gauge are targets: they score the model and are never an input
-to it. {doc}`../../guides/calibrate` takes the task from the start,
-{doc}`../../guides/calibrate-on-the-stream-network` explains the network criterion, and
-{doc}`../../guides/calibration-uncertainty` reads what the result can and cannot say.
+to it. {doc}`../../reference/calibration-methods` lists the methods and their options,
+{doc}`../../understand/network-metrics` explains the network criterion, and
+{doc}`../../understand/how-sure` says what the result can and cannot say.
 
 ## The Python scripts
 
@@ -77,9 +77,9 @@ recharge.
 
 ## The Python API
 
-Everything the command line does is a function of `import hydromodpy as hmp`.
-{doc}`../../guides/drive-from-python` runs a file, edits a configuration in memory, runs one
-model many times and reads the results back as pandas and xarray objects. The
+Everything the command line does is a function of `import hydromodpy as hmp`. The scripts
+above run a file, edit a configuration in memory, run one model many times and read the
+results back as pandas and xarray objects. The
 {doc}`reference of the Python API <../../reference/python/index>` lists every function, and the
 {doc}`exceptions <../../reference/python/exceptions>` say what a script can catch.
 
@@ -88,8 +88,7 @@ model many times and reads the results back as pandas and xarray objects. The
 | You want to | Go to |
 |---|---|
 | Know what a key does | {doc}`../../reference/parameters/index` |
-| Write the results as files | {doc}`../../guides/export-results` |
-| Find and compare runs | {doc}`../../guides/find-and-compare-runs` |
-| Delete runs and rebuild the index | {doc}`../../guides/clean-and-reindex-runs` |
-| Fix an error message | {doc}`../../guides/troubleshooting` |
+| Write the results as files | {doc}`../../reference/parameters/export` |
+| Find, compare or delete runs, rebuild the index | {doc}`../../reference/cli/catalog` |
+| Read what an exit code means | {doc}`../../reference/cli/exit-codes` |
 | Read how the equations work | {doc}`../../theory/index` |

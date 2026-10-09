@@ -129,8 +129,8 @@ a study of the catchment.
   {doc}`in-five-minutes`, then {doc}`what-it-computes` and {doc}`reading-results`.
 - You judge the quality of a result: {doc}`how-sure`, {doc}`what-validated-means`,
   {doc}`where-the-data-come-from` and {doc}`can-i-check-what-was-run`.
-- You are building a model: the {doc}`guides <../guides/index>` describe each task, and the
-  {doc}`reference <../reference/index>` describes each parameter.
+- You are building a model: the {doc}`staircase <../get-started/staircase/index>` builds one
+  step by step, and the {doc}`reference <../reference/index>` describes each parameter.
 - You are installing the tool for the first time: {doc}`../get-started/index`.
 
 ```{toctree}

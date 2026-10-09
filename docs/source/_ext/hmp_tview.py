@@ -279,7 +279,7 @@ class TBlockDirective(SphinxDirective):
 
 
 class ParamsDirective(SphinxDirective):
-    """Lines of the reference embedded in a guide, grouped under their table header."""
+    """Lines of the reference embedded in a page, grouped under their table header."""
 
     has_content = True
     option_spec = {"flat": directives.flag, "advanced-title": directives.unchanged}

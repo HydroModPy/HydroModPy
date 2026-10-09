@@ -1,6 +1,6 @@
-"""Messages quoted in the "What can go wrong" tables of the guides.
+"""Messages quoted in the "What can go wrong" tables of Get started.
 
-A guide tells the reader which message to look for. The message has to exist
+A page tells the reader which message to look for. The message has to exist
 in the code, or the table sends the reader after a text that is never printed.
 
 ``quoted_messages`` reads the first column of each table and returns the
@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-PAGE_DIRS = ("docs/source/guides", "docs/source/get-started")
+PAGE_DIRS = ("docs/source/get-started",)
 HEADING = re.compile(r"^##\s+What can go wrong\s*$")
 NEXT_HEADING = re.compile(r"^##\s+")
 CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)")
@@ -88,7 +88,7 @@ def quoted_messages(page: Path) -> list[Quoted]:
 
 
 def pages() -> list[Path]:
-    """Return the guide and get-started pages that carry the table."""
+    """Return the pages that carry the table."""
     out: list[Path] = []
     for directory in PAGE_DIRS:
         out.extend(sorted((ROOT / directory).rglob("*.md")))
@@ -196,7 +196,7 @@ def unexplained(quoted: Quoted, corpus: Corpus) -> bool:
 
 
 def all_quotes() -> list[Quoted]:
-    """Return every message-like quote of the tables of the guides."""
+    """Return every message-like quote of the tables."""
     return [quoted for page in pages() for quoted in quoted_messages(page)]
 
 

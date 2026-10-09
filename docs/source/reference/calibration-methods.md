@@ -7,8 +7,8 @@ description: Every calibration method with its options and defaults, and every m
 Every search method a calibration file can name, and every metric an objective block can
 score with. Both lists are read from the code at each build: the optimizer registry, the
 options model and the declared traits of each engine, the metric kernels and their formulas.
-How to choose and chain them is a guide, {doc}`../guides/calibrate`. Why the objective is
-built this way is in {doc}`../theory/calibration/inverse-problem-formulation`.
+Why the objective is built this way is in
+{doc}`../theory/calibration/inverse-problem-formulation`.
 
 (calibration-methods)=
 ## Methods

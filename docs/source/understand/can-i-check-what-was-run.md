@@ -44,8 +44,7 @@ data cache before the run?
 | To rerun a stored run, changing one setting | A rerun from the stored configuration. | `hmp catalog rerun <run> --set path=value` |
 | Whether the log of operations was altered | A check of its chain of hashes. | `hmp audit verify` |
 
-Which one to choose, with the options, is in the guides
-{doc}`../guides/find-and-compare-runs` and {doc}`../guides/work-offline`.
+The options of each command are in the {doc}`command reference <../reference/cli/index>`.
 
 ## What this does not prove
 
@@ -59,5 +58,5 @@ before you share a run folder outside your organisation if that matters to you.
 ## Where to go next
 
 - {doc}`where-the-data-come-from`: the origin of each input.
-- {doc}`../guides/work-offline`: run from the cache, with no download.
+- {doc}`../reference/cli/run`: `--frozen` runs from the cache, with no download.
 - {doc}`glossary`: the terms of this page.

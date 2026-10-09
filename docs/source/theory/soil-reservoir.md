@@ -3,7 +3,7 @@
 Each day, a soil store takes the rain, loses water to evapotranspiration, and
 sends the water it cannot hold down to the water table. This page gives the
 equations the code solves, what they assume, and where they stop being true.
-It does not say how to set up a run: for that, see {doc}`../guides/recharge`.
+It does not say how to set up a run: for that, see {doc}`step 6 of the staircase <../get-started/staircase/step6>`.
 
 :::{note}
 **Scope.** The reservoir runs under MODFLOW 6 only. A file that declares
@@ -443,6 +443,6 @@ hydromodpy.simulation.soil_recharge
 
 ## See also
 
-- {doc}`../guides/recharge`: how to set up and check a run with the soil reservoir.
+- {doc}`../get-started/staircase/step6`: a run with the soil reservoir.
 - {toml}`flow.sinks_sources.recharge.soil`: the section as a reference page.
 - {doc}`index`: the other theory pages.

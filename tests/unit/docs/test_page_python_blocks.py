@@ -1,8 +1,8 @@
-"""The Python blocks of the guides and of Get started are valid, and name real things.
+"""The Python blocks of Get started are valid, and name real things.
 
 sybil reads every ```python block of these pages. Almost none can run alone: a
 block starts a run of example 04 or opens a project that holds finished runs.
-So each block is classified in ``guide_python_blocks.toml``: executed, or not
+So each block is classified in ``page_python_blocks.toml``: executed, or not
 executed with the reason. A new block fails the test until it is classified.
 
 Every block, executed or not, is held to what a reader can check without a run:
@@ -39,11 +39,11 @@ except ImportError:  # pragma: no cover - depends on the environment
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SOURCE = REPO_ROOT / "docs" / "source"
-PAGE_DIRS = ("guides", "get-started")
-MANIFEST = Path(__file__).with_name("guide_python_blocks.toml")
-# The pages held about 52 blocks when this test was written. Far fewer means
-# the reader stopped finding them.
-FLOOR = 45
+PAGE_DIRS = ("get-started",)
+MANIFEST = Path(__file__).with_name("page_python_blocks.toml")
+# The pages held 8 blocks when the guides were removed. Far fewer means the
+# reader stopped finding them.
+FLOOR = 6
 
 
 def _manifest() -> dict[str, Any]:
@@ -232,8 +232,8 @@ def test_a_self_contained_block_runs(
 def test_a_block_that_cannot_run_is_not_run() -> None:
     """The reason table, not the reader's luck, decides what is executed."""
     manifest = _manifest()
+    assert manifest["reasons"]
     assert "run" not in manifest["reasons"]
-    assert set(manifest["reasons"]) >= {"fragment", "finished-runs"}
 
 
 def test_the_static_check_catches_a_renamed_name() -> None:

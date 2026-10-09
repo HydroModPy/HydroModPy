@@ -3,7 +3,7 @@
 A lake is a boundary package laid on the aquifer grid. Its cells are made
 inactive in their top layers, and the LAK package of MODFLOW 6 holds the storage
 and the exchange through connections it builds itself. The stage is a result.
-To set up a lake, see {doc}`../../guides/lakes-and-reservoirs`.
+The keys of a lake are in {doc}`../../reference/parameters/flow/sinks_sources/lakes`.
 
 ::::{dropdown} Notation of this page
 ```{hmp-notation}

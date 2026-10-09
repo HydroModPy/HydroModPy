@@ -3,8 +3,8 @@
 The same project file can run on MODFLOW 6 or on MODFLOW-NWT. Both write the balance
 {eq}`eq-cell-balance` and solve it with Newton steps ({ref}`solvers-newton`). This page
 says where the two differ: the smoothing of a drying cell, the tests that stop the
-iteration, the output, and what each one refuses. It ranks neither. To pick one, see
-{doc}`../guides/choose-a-solver`.
+iteration, the output, and what each one refuses. It ranks neither. What each one
+supports is listed in {doc}`../reference/solvers`.
 
 The solver that runs is the first name in {toml}`simulation.process.solvers` of the `flow`
 process; {toml}`solver.backend` is the fallback when no process names one, and the key the
@@ -217,5 +217,4 @@ hydromodpy.solver.modflow_common
 ## See also
 
 - {doc}`solvers`: the packages each solver writes and the nonlinear solve.
-- {doc}`../guides/non-convergence`: what to read when a run does not converge.
 - {doc}`validation`: every check, with its thresholds.

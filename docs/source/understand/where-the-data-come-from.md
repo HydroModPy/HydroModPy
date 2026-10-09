@@ -2,8 +2,8 @@
 
 A result is only as good as its inputs. This page names the data that HydroModPy can read, who
 produces them, how fine they are, and what to do about their licences. It is written for a reader
-who must judge a result, not for one who must download data: that task is the guide
-{doc}`../guides/get-the-data`.
+who must judge a result, not for one who must download data: the keys that declare the data
+are in {doc}`[data] <../reference/parameters/data/index>`.
 
 ## What the model reads
 
@@ -68,5 +68,5 @@ cache. See {doc}`can-i-check-what-was-run`.
 ## Where to go next
 
 - {doc}`/reference/data-sources`: every source, its producer and its licence.
-- {doc}`../guides/get-the-data`: declare or download the data of a project.
+- {doc}`/reference/parameters/data/index`: declare or download the data of a project.
 - {doc}`what-validated-means`: why a good input is not a validated result.
