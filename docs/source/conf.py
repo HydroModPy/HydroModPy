@@ -485,7 +485,8 @@ html_theme_options = {
     "navbar_start": ["navbar-logo"],
     "navbar_center": ["navbar-nav"],
     "navbar_end": ["theme-switcher", "version-switcher", "navbar-icon-links"],
-    "navbar_align": "left",
+    # The links start at the content column, away from the logo.
+    "navbar_align": "content",
     "header_links_before_dropdown": 7,
     "switcher": {
         "json_url": "https://docs.hydromodpy.fr/switcher.json",

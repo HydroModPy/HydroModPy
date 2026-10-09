@@ -10,8 +10,7 @@ calibrated model: where the water table sits, where it reaches the ground, which
 it keeps flowing, and how all of it changes with the seasons.
 
 :::{div} hmp-badges
-{{ version_badge }}
-[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
+{{ version_badge }} [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-EPL--2.0-2563eb?style=flat-square)](https://github.com/HydroModPy/HydroModPy/blob/main/LICENSE)
 [![Docs](https://img.shields.io/github/actions/workflow/status/HydroModPy/HydroModPy/docs-deploy-pages.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=docs)](https://docs.hydromodpy.fr/main/)
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-D7FF64?style=flat-square&logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
