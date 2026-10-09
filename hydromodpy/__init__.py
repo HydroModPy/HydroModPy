@@ -39,7 +39,7 @@ from hydromodpy.core.version import __version__
 
 __author__ = "Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy"
 __email__ = (
-    "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
+    "alexandre.gauvain.ag@gmail.com, ronan.abherve@inrae.fr, jean-raynald.de-dreuzy@univ-rennes.fr"
 )
 
 _log_manager = LogManager(

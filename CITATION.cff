@@ -6,6 +6,14 @@ type: software
 license: EPL-2.0
 repository-code: "https://github.com/HydroModPy/HydroModPy"
 url: "https://docs.hydromodpy.fr/"
+# Concept DOI on Zenodo: every version, resolves to the latest archive.
+doi: "10.5281/zenodo.22141925"
+# One DOI per version archived on Zenodo. The Cite page uses the one of the
+# version it documents, the concept DOI above for a version not archived.
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.22141926"
+    description: "Version 1.0.0"
 keywords:
   - hydrology
   - hydrogeology
@@ -22,7 +30,7 @@ authors:
     orcid: "https://orcid.org/0000-0002-9473-1108"
   - family-names: Abhervé
     given-names: Ronan
-    email: ronan.abherve@gmail.com
+    email: ronan.abherve@inrae.fr
     orcid: "https://orcid.org/0000-0001-7085-5272"
   - family-names: Boivin
     given-names: Bastien
@@ -30,12 +38,15 @@ authors:
     orcid: "https://orcid.org/0009-0001-5738-3503"
   - family-names: Coche
     given-names: Alexandre
+    orcid: "https://orcid.org/0000-0003-2481-1134"
   - family-names: Le Mesnil
     given-names: Martin
+    orcid: "https://orcid.org/0000-0001-6006-9403"
   - family-names: Babey
     given-names: Tristan
   - family-names: Maugan
     given-names: Enzo
+    orcid: "https://orcid.org/0009-0000-7782-4196"
   - family-names: Touzeau
     given-names: Théa
   - family-names: Issolah
@@ -52,6 +63,7 @@ authors:
     orcid: "https://orcid.org/0000-0002-1729-9964"
   - family-names: Leray
     given-names: Sarah
+    orcid: "https://orcid.org/0000-0002-0341-7210"
   - family-names: Marti
     given-names: Etienne
     orcid: "https://orcid.org/0000-0002-6007-3282"
@@ -60,34 +72,42 @@ authors:
     orcid: "https://orcid.org/0000-0002-6295-2176"
   - family-names: Figueroa
     given-names: Ronny
+    orcid: "https://orcid.org/0000-0002-7609-6577"
   - family-names: Pélissier
     given-names: Mathias
   - family-names: Carlier
     given-names: Simon
   - family-names: Guillaumot
     given-names: Luca
+    orcid: "https://orcid.org/0000-0002-6579-6287"
   - family-names: Bagagnan
     given-names: Rock S.
+    orcid: "https://orcid.org/0009-0006-6328-8402"
   - family-names: Vautier
     given-names: Camille
     orcid: "https://orcid.org/0000-0002-9358-7271"
   - family-names: Longuevergne
     given-names: Laurent
+    orcid: "https://orcid.org/0000-0003-3169-743X"
   - family-names: Sallou
     given-names: June
+    orcid: "https://orcid.org/0000-0003-2230-9351"
   - family-names: Bourcier
     given-names: Johan
     orcid: "https://orcid.org/0000-0003-2947-9150"
   - family-names: Combemale
     given-names: Benoit
+    orcid: "https://orcid.org/0000-0002-7104-7848"
   - family-names: Brunner
     given-names: Philip
     orcid: "https://orcid.org/0000-0001-6304-6274"
   - family-names: Aquilina
     given-names: Luc
+    orcid: "https://orcid.org/0009-0005-5019-4952"
   - family-names: de Dreuzy
     given-names: Jean-Raynald
     email: jean-raynald.de-dreuzy@univ-rennes.fr
+    orcid: "https://orcid.org/0000-0003-2993-2015"
 preferred-citation:
   type: article
   title: "Technical note: HydroModPy (v1.0) – a Python toolbox for deploying catchment-scale shallow groundwater models"

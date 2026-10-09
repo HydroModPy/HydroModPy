@@ -275,6 +275,10 @@ Each release section includes the following standard categories:
   copy of the reference into its scratch project and draws the group `solvers`.
 
 ### Changed
+- Citation: the technical note is cited as published in HESS 30, 5571-5592 (2026), with the
+  28 authors in the published order. The software entry carries its Zenodo DOI, the one of the
+  version when Zenodo archived it, the concept DOI otherwise. Ronan Abhervé's address is now
+  `ronan.abherve@inrae.fr`.
 - `[modflownwt.sgrid.top_sampling] mode = "zonal"` needs `channel_source = "none"`: MODFLOW-NWT
   builds no channel mask, so a channel source is refused at load instead of being ignored.
 - The default of `observed_rasterization` is now `"heads"`. A network output that does not set

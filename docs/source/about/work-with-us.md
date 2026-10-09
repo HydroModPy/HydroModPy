@@ -7,7 +7,7 @@ use it for a study, or report a problem.
 ## Who to write to
 
 - Alexandre Gauvain, [alexandre.gauvain.ag@gmail.com](mailto:alexandre.gauvain.ag@gmail.com)
-- Ronan Abhervé, [ronan.abherve@gmail.com](mailto:ronan.abherve@gmail.com)
+- Ronan Abhervé, [ronan.abherve@inrae.fr](mailto:ronan.abherve@inrae.fr)
 
 Two public places are better when the answer can help others:
 

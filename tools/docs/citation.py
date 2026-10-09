@@ -6,7 +6,9 @@ The Cite page asks for the entries at build time. Nothing is copied by hand: the
 authors, the title and the DOI of the technical note come from the file that
 GitHub also reads behind "Cite this repository", and the version is the one the
 site is built from. Two entries come out in each format: the technical note
-(``preferred-citation``) and the software at a given version.
+(``preferred-citation``) and the software at a given version. The software
+carries the Zenodo DOI of that version when ``identifiers`` lists one, the
+concept DOI (``doi``) otherwise.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 FORMATS = ("bibtex", "ris", "text")
+VERSION_DOI = re.compile(r"^Version (?P<version>\S+)$")
 RELEASE_LINE = re.compile(r"^## \[v?(?P<version>[^\]]+)\]\s*-\s*(?P<date>\d{4}-\d{2}-\d{2})\s*$")
 
 # TeX accent commands for the combining marks that occur in names and titles.
@@ -152,6 +155,15 @@ def note(cff: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def software_doi(cff: dict[str, Any], version: str) -> str | None:
+    """The Zenodo DOI of ``version``, or the concept DOI when it has none."""
+    for ident in cff.get("identifiers", []):
+        match = VERSION_DOI.match(ident.get("description", ""))
+        if ident.get("type") == "doi" and match and match["version"] == version:
+            return str(ident["value"])
+    return cff.get("doi")
+
+
 def software(cff: dict[str, Any], version: str, year: str | None) -> dict[str, Any]:
     """The software at ``version``, as a flat record."""
     return {
@@ -159,6 +171,7 @@ def software(cff: dict[str, Any], version: str, year: str | None) -> dict[str, A
         "authors": authors(cff),
         "version": version,
         "year": year,
+        "doi": software_doi(cff, version),
         "url": cff["repository-code"],
         "license": cff.get("license"),
     }
@@ -188,6 +201,7 @@ def bibtex(cff: dict[str, Any], version: str, year: str | None = None) -> str:
             ("author", _name_list(s["authors"])),
             ("version", s["version"]),
             ("year", s["year"]),
+            ("doi", s["doi"]),
             ("url", s["url"]),
             ("license", s["license"]),
         ]
@@ -219,6 +233,7 @@ def ris(cff: dict[str, Any], version: str, year: str | None = None) -> str:
     for tag, value in (
         ("ET", s["version"]),
         ("PY", s["year"]),
+        ("DO", s["doi"]),
         ("UR", s["url"]),
         ("N1", f"License: {s['license']}" if s["license"] else None),
     ):
@@ -240,9 +255,10 @@ def text(cff: dict[str, Any], version: str, year: str | None = None) -> str:
         f"{_text_names(n['authors'])} ({n['year']}). {n['title']}. "
         f"{n['journal']}{volume}{issue}{pages}.{doi}"
     )
+    where = f"https://doi.org/{s['doi']}" if s["doi"] else s["url"]
     soft = (
         f"{_text_names(s['authors'])} ({s['year'] or 'n.d.'}). {s['title']} "
-        f"(Version {s['version']}) [Computer software]. {s['license']}. {s['url']}"
+        f"(Version {s['version']}) [Computer software]. {s['license']}. {where}"
     )
     wrap = lambda t: textwrap.fill(t, 88, break_on_hyphens=False, break_long_words=False)  # noqa: E731
     return wrap(article) + "\n\n" + wrap(soft) + "\n"
