@@ -145,6 +145,7 @@ def note(cff: dict[str, Any]) -> dict[str, Any]:
         "journal": pref.get("journal"),
         "year": str(pref["year"]),
         "volume": str(pref["volume"]) if pref.get("volume") else None,
+        "issue": str(pref["issue"]) if pref.get("issue") else None,
         "pages": (pref.get("start"), pref.get("end")),
         "doi": pref.get("doi"),
         "url": pref.get("url"),
@@ -174,6 +175,7 @@ def bibtex(cff: dict[str, Any], version: str, year: str | None = None) -> str:
             ("author", _name_list(n["authors"])),
             ("journal", n["journal"]),
             ("volume", n["volume"]),
+            ("number", n["issue"]),
             ("year", n["year"]),
             ("pages", pages),
             ("doi", n["doi"]),
@@ -204,6 +206,7 @@ def ris(cff: dict[str, Any], version: str, year: str | None = None) -> str:
         ("JO", n["journal"]),
         ("PY", n["year"]),
         ("VL", n["volume"]),
+        ("IS", n["issue"]),
         ("SP", start),
         ("EP", end),
         ("DO", n["doi"]),
@@ -229,10 +232,13 @@ def text(cff: dict[str, Any], version: str, year: str | None = None) -> str:
     """Plain-text references (author-year) for the technical note then the software."""
     n, s = note(cff), software(cff, version, year)
     start, end = n["pages"]
+    volume = f", {n['volume']}" if n["volume"] else ""
+    issue = f"({n['issue']})" if n["volume"] and n["issue"] else ""
     pages = f", {start}–{end}" if start and end else ""
     doi = f" https://doi.org/{n['doi']}" if n["doi"] else f" {n['url']}"
     article = (
-        f"{_text_names(n['authors'])} ({n['year']}). {n['title']}. {n['journal']}{pages}.{doi}"
+        f"{_text_names(n['authors'])} ({n['year']}). {n['title']}. "
+        f"{n['journal']}{volume}{issue}{pages}.{doi}"
     )
     soft = (
         f"{_text_names(s['authors'])} ({s['year'] or 'n.d.'}). {s['title']} "

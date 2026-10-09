@@ -10,8 +10,8 @@ when they meet the rule in ``year_quorum`` of the complete years.
 
 This map draws both, outside any calibration, over the two maps the run
 stored: the simulated extents filled, the mapped networks outlined, the way the
-figure 4f of the HydroModPy technical note (EGUsphere 2026) sets the minimum
-and maximum simulated extents beside the permanent and complete maps. Asked
+figure 5f of the HydroModPy technical note (HESS 2026) sets the minimum and
+maximum simulated extents beside the permanent and complete maps. Asked
 for one bound, it draws the valid, excess and missing cells of that bound
 instead, the partition the criterion scores for it.
 

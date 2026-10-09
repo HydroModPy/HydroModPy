@@ -119,8 +119,8 @@ models, in {doc}`reference/changes`.
 
 ## Cite, authors, contact
 
-The citation, the BibTeX entries, the preprint that describes the toolbox and the list of
-authors are in {doc}`About </about/index>`, with the papers that use HydroModPy and the
+The citation, the BibTeX entries, the technical note that describes the toolbox and the list
+of authors are in {doc}`About </about/index>`, with the papers that use HydroModPy and the
 catchments where it has been deployed. Questions and bug reports go to
 [GitHub issues](https://github.com/HydroModPy/HydroModPy/issues) or to the
 [Google Group](https://groups.google.com/g/hydromodpy).

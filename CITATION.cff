@@ -28,20 +28,28 @@ authors:
     given-names: Bastien
     email: bastien.boivin@proton.me
     orcid: "https://orcid.org/0009-0001-5738-3503"
+  - family-names: Coche
+    given-names: Alexandre
+  - family-names: Le Mesnil
+    given-names: Martin
+  - family-names: Babey
+    given-names: Tristan
+  - family-names: Maugan
+    given-names: Enzo
+  - family-names: Touzeau
+    given-names: Théa
+  - family-names: Issolah
+    given-names: Imene
+    orcid: "https://orcid.org/0009-0001-2903-4971"
   - family-names: Roques
     given-names: Clément
     orcid: "https://orcid.org/0000-0002-5021-6008"
-  - family-names: Le Mesnil
-    given-names: Martin
-  - family-names: Coche
-    given-names: Alexandre
-  - family-names: Babey
-    given-names: Tristan
+  - family-names: Bouchez
+    given-names: Camille
+    orcid: "https://orcid.org/0000-0002-3094-6070"
   - family-names: Marçais
     given-names: Jean
     orcid: "https://orcid.org/0000-0002-1729-9964"
-  - family-names: Bouchez
-    given-names: Camille
   - family-names: Leray
     given-names: Sarah
   - family-names: Marti
@@ -54,20 +62,17 @@ authors:
     given-names: Ronny
   - family-names: Pélissier
     given-names: Mathias
+  - family-names: Carlier
+    given-names: Simon
   - family-names: Guillaumot
     given-names: Luca
-  - family-names: Touzeau
-    given-names: Théa
-  - family-names: Issolah
-    given-names: Imene
-    orcid: "https://orcid.org/0009-0001-2903-4971"
-  - family-names: Maugan
-    given-names: Enzo
   - family-names: Bagagnan
     given-names: Rock S.
   - family-names: Vautier
     given-names: Camille
     orcid: "https://orcid.org/0000-0002-9358-7271"
+  - family-names: Longuevergne
+    given-names: Laurent
   - family-names: Sallou
     given-names: June
   - family-names: Bourcier
@@ -78,8 +83,6 @@ authors:
   - family-names: Brunner
     given-names: Philip
     orcid: "https://orcid.org/0000-0001-6304-6274"
-  - family-names: Longuevergne
-    given-names: Laurent
   - family-names: Aquilina
     given-names: Luc
   - family-names: de Dreuzy
@@ -87,14 +90,16 @@ authors:
     email: jean-raynald.de-dreuzy@univ-rennes.fr
 preferred-citation:
   type: article
-  title: "Technical note: HydroModPy – a Python toolbox for deploying catchment-scale shallow groundwater models"
-  doi: "10.5194/egusphere-2026-868"
-  url: "https://egusphere.copernicus.org/preprints/2026/egusphere-2026-868/"
-  journal: "EGUsphere [preprint]"
+  title: "Technical note: HydroModPy (v1.0) – a Python toolbox for deploying catchment-scale shallow groundwater models"
+  doi: "10.5194/hess-30-5571-2026"
+  url: "https://hess.copernicus.org/articles/30/5571/2026/"
+  journal: "Hydrology and Earth System Sciences"
   year: 2026
-  volume: "2026"
-  start: 1
-  end: 31
+  month: 9
+  volume: 30
+  issue: 17
+  start: 5571
+  end: 5592
   authors:
     - family-names: Gauvain
       given-names: Alexandre
@@ -102,18 +107,24 @@ preferred-citation:
       given-names: Ronan
     - family-names: Boivin
       given-names: Bastien
-    - family-names: Roques
-      given-names: Clément
-    - family-names: Le Mesnil
-      given-names: Martin
     - family-names: Coche
       given-names: Alexandre
+    - family-names: Le Mesnil
+      given-names: Martin
     - family-names: Babey
       given-names: Tristan
-    - family-names: Marçais
-      given-names: Jean
+    - family-names: Maugan
+      given-names: Enzo
+    - family-names: Touzeau
+      given-names: Théa
+    - family-names: Issolah
+      given-names: Imene
+    - family-names: Roques
+      given-names: Clément
     - family-names: Bouchez
       given-names: Camille
+    - family-names: Marçais
+      given-names: Jean
     - family-names: Leray
       given-names: Sarah
     - family-names: Marti
@@ -124,18 +135,16 @@ preferred-citation:
       given-names: Ronny
     - family-names: Pélissier
       given-names: Mathias
+    - family-names: Carlier
+      given-names: Simon
     - family-names: Guillaumot
       given-names: Luca
-    - family-names: Touzeau
-      given-names: Théa
-    - family-names: Issolah
-      given-names: Imene
-    - family-names: Maugan
-      given-names: Enzo
     - family-names: Bagagnan
       given-names: Rock S.
     - family-names: Vautier
       given-names: Camille
+    - family-names: Longuevergne
+      given-names: Laurent
     - family-names: Sallou
       given-names: June
     - family-names: Bourcier
@@ -144,8 +153,6 @@ preferred-citation:
       given-names: Benoit
     - family-names: Brunner
       given-names: Philip
-    - family-names: Longuevergne
-      given-names: Laurent
     - family-names: Aquilina
       given-names: Luc
     - family-names: de Dreuzy

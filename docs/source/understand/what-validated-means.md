@@ -41,9 +41,10 @@ The papers and the catchments where HydroModPy has been used are listed in
 
 The two-stage method of calibration used in example 04 is published and peer reviewed (Abhervé et
 al., 2023, *Hydrology and Earth System Sciences*, 27, 3221-3239). The technical note that
-describes the toolbox itself is a preprint on EGUsphere: it has not been peer reviewed. A
-published method does not make a particular run right, and a run is no more reliable for being
-made with a reviewed method.
+describes the toolbox is published and peer reviewed too (Gauvain et al., 2026, *Hydrology and
+Earth System Sciences*, 30, 5571-5592), but it describes version 1.0. The review did not cover
+the code of version 2 that this site documents. A published method does not make a particular
+run right, and a run is no more reliable for being made with a reviewed method.
 
 ## What this means for a decision
 
