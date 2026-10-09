@@ -17,7 +17,11 @@ was re-captured a second time when every array started declaring
 ``dimension_names`` and float fields stopped carrying a NaN ``_FillValue``
 attribute, and a third time when the root attributes stopped asserting a
 creator nobody declared and a CDM feature type the mesh is not: same members,
-same chunk bytes, different node metadata.
+same chunk bytes, different node metadata. It was re-captured a fourth time
+when fields became compact by default: the head array is float32 rounded to
+16 mantissa bits, carries the CF ``quantization`` attributes, and the store
+gains the ``quantization_info`` container. The head values of this store are
+exact in float32, so the decoded field is unchanged.
 
 Everything entering the digest is byte-identical on Linux and on Windows:
 
@@ -54,7 +58,7 @@ _FROZEN_NOW = datetime(2026, 5, 16, 12, 0, 0, tzinfo=UTC)
 # before computing the snapshot SHA-256.
 _VOLATILE_KEYS = frozenset({"history", "created_at", "date_modified"})
 
-EXPECTED_DIGEST = "f77812b17305897940f835173af55c77fea212559c2df9d8596a58f00072cfd6"
+EXPECTED_DIGEST = "cc89183efe10339d92dfa793c4e699614c458313940d26a8f95aa296a06cf358"
 
 STORE_MEMBERS: tuple[str, ...] = (
     "forcing/zarr.json",
@@ -72,6 +76,7 @@ STORE_MEMBERS: tuple[str, ...] = (
     "mesh/zarr.json",
     "meta/zarr.json",
     "particles/zarr.json",
+    "quantization_info/zarr.json",
     "state/zarr.json",
     "time/c/0",
     "time/zarr.json",
