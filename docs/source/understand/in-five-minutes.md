@@ -2,14 +2,14 @@
 
 One map, five sentences. If you read nothing else, read this page.
 
-```{figure} img/ex04_flow_intermittence_map.png
+```{figure} /_static/figures/understand/ex04_flow_intermittence_map.webp
 :alt: Map of the Nançon catchment for the year 2002. Perennial streams in blue form a trunk and its main branches. Intermittent streams in orange are at the upstream ends and on side branches. The rest of the catchment is dry, in gray.
 :width: 75%
 
 {bdg-warning}`Indicative` **Look at:** the blue trunk that flows all year and the orange ends that dry up first.
 **Does not show:** which reaches dry up in the field, or any other year.
 
-`flow_intermittence_map`, year 2002, demonstration model of example 04 (archived run).
+`flow_intermittence_map`, year 2002, demonstration model of example 04.
 ```
 
 1. HydroModPy computes, for a whole catchment and for each month, the level of the

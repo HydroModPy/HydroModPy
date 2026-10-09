@@ -179,6 +179,12 @@
           "items": {
             "$ref": "#/$defs/AreaRangeConfig"
           }
+        },
+        "^ranges__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AreaRangeConfig"
+          }
         }
       }
     },
@@ -897,6 +903,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^uses_outputs__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -1019,7 +1031,19 @@
             "type": "number"
           }
         },
+        "^observed_values__merge$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
         "^time__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^time__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -1235,7 +1259,19 @@
             "type": "number"
           }
         },
+        "^observed_values__merge$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
         "^time__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^time__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -1368,7 +1404,19 @@
             "type": "number"
           }
         },
+        "^observed_values__merge$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
         "^time__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^time__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -1426,6 +1474,7 @@
         "stream_geometry_path": {
           "anyOf": [
             {
+              "format": "path",
               "type": "string"
             },
             {
@@ -1440,6 +1489,7 @@
         "minimal_stream_geometry_path": {
           "anyOf": [
             {
+              "format": "path",
               "type": "string"
             },
             {
@@ -1996,7 +2046,19 @@
             "type": "number"
           }
         },
+        "^observed_values__merge$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
         "^time__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^time__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -2122,6 +2184,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^bounds__append$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "^bounds__merge$": {
           "type": "array",
           "items": {
             "type": "number"
@@ -2273,6 +2341,9 @@
                 },
                 "^.+__append$": {
                   "type": "array"
+                },
+                "^.+__merge$": {
+                  "type": "array"
                 }
               }
             }
@@ -2338,6 +2409,9 @@
         "method_options": {
           "additionalProperties": true,
           "description": "Options of this phase's method, named as that method names them: sweep_points for 'bisection', points_per_dim for 'grid', sampler for 'optuna'. They belong to one method, so a phase that gives them writes method beside them. A key the method does not take is refused when the file loads. hmp calibrate --check names the phase.",
+          "renamed_from": [
+            "calibration.phases.optimizer_kwargs"
+          ],
           "title": "Method Options",
           "type": "object",
           "x-hmp-profile": "user"
@@ -2377,6 +2451,9 @@
                   "description": "Remove the inherited key. Only the literal true is accepted."
                 },
                 "^.+__append$": {
+                  "type": "array"
+                },
+                "^.+__merge$": {
                   "type": "array"
                 }
               }
@@ -2461,13 +2538,31 @@
             "type": "string"
           }
         },
+        "^objective_blocks__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^outputs__append$": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
+        "^outputs__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^parameters__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^parameters__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -3001,6 +3096,9 @@
         "method_options": {
           "additionalProperties": true,
           "description": "Options of the method, named as that method names them: points_per_dim for 'grid', sampler for 'optuna', sweep_points for 'bisection'. They belong to one method, so a calibration that gives them writes method beside them. A key the method does not take is refused when the file loads.",
+          "renamed_from": [
+            "calibration.optimizer_kwargs"
+          ],
           "title": "Method Options",
           "type": "object",
           "x-hmp-profile": "user"
@@ -3019,6 +3117,9 @@
               "description": "Remove the inherited key. Only the literal true is accepted."
             },
             "^.+__append$": {
+              "type": "array"
+            },
+            "^.+__merge$": {
               "type": "array"
             }
           }
@@ -3064,6 +3165,9 @@
               "description": "Remove the inherited key. Only the literal true is accepted."
             },
             "^.+__append$": {
+              "type": "array"
+            },
+            "^.+__merge$": {
               "type": "array"
             }
           }
@@ -3176,7 +3280,19 @@
             "$ref": "#/$defs/CalibObjectiveBlockDecl"
           }
         },
+        "^objective_blocks__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CalibObjectiveBlockDecl"
+          }
+        },
         "^phases__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CalibPhaseDecl"
+          }
+        },
+        "^phases__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/CalibPhaseDecl"
@@ -3248,6 +3364,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^assets__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^assets__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -3479,6 +3601,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^value__append$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "^value__merge$": {
           "type": "array",
           "items": {
             "type": "number"
@@ -3980,6 +4108,14 @@
             "type": "integer"
           }
         },
+        "^cell_indices__merge$": {
+          "type": "array",
+          "items": {
+            "description": "Non-negative integer.",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
         "^simulations__append$": {
           "type": "array",
           "items": {
@@ -3988,7 +4124,18 @@
             "type": "string"
           }
         },
+        "^simulations__merge$": {
+          "type": "array",
+          "items": {
+            "description": "Snake-case identifier starting with a lowercase letter.",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          }
+        },
         "^time_window__append$": {
+          "type": "array"
+        },
+        "^time_window__merge$": {
           "type": "array"
         }
       }
@@ -4016,6 +4163,7 @@
         "base_simulation_config": {
           "anyOf": [
             {
+              "format": "path",
               "type": "string"
             },
             {
@@ -4036,6 +4184,7 @@
         "anchors_file": {
           "anyOf": [
             {
+              "format": "path",
               "type": "string"
             },
             {
@@ -4049,6 +4198,7 @@
         "output_root": {
           "anyOf": [
             {
+              "format": "path",
               "type": "string"
             },
             {
@@ -4137,7 +4287,19 @@
             "$ref": "#/$defs/ComparisonObservable"
           }
         },
+        "^observable__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ComparisonObservable"
+          }
+        },
         "^simulation__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ComparisonSimulationConfig"
+          }
+        },
+        "^simulation__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/ComparisonSimulationConfig"
@@ -4197,6 +4359,7 @@
         "simulation_config": {
           "anyOf": [
             {
+              "format": "path",
               "type": "string"
             },
             {
@@ -4210,6 +4373,7 @@
         "run_folder": {
           "anyOf": [
             {
+              "format": "path",
               "type": "string"
             },
             {
@@ -4543,7 +4707,19 @@
             "type": "string"
           }
         },
+        "^hard_reject__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^report_only__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^report_only__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -4555,7 +4731,19 @@
             "type": "string"
           }
         },
+        "^soft_score__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^warning__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^warning__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -4705,6 +4893,17 @@
             ],
             "type": "string"
           }
+        },
+        "^kinds__merge$": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "road",
+              "railway",
+              "bridge"
+            ],
+            "type": "string"
+          }
         }
       }
     },
@@ -4765,6 +4964,31 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "description": "Discriminated union of crossings data sources tagged by the 'source' provider key.",
+            "discriminator": {
+              "mapping": {
+                "bdtopo": "#/$defs/BdtopoCrossingsSource",
+                "custom": "#/$defs/CustomCrossingsSource",
+                "roe": "#/$defs/RoeCrossingsSource"
+              },
+              "propertyName": "source"
+            },
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CustomCrossingsSource"
+              },
+              {
+                "$ref": "#/$defs/BdtopoCrossingsSource"
+              },
+              {
+                "$ref": "#/$defs/RoeCrossingsSource"
+              }
+            ]
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "description": "Discriminated union of crossings data sources tagged by the 'source' provider key.",
@@ -5798,6 +6022,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^types__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -5888,8 +6118,10 @@
               "type": "null"
             }
           ],
-          "default": null,
-          "description": "Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.",
+          "description": "Path to the DEM raster that is the model domain. A relative path is read from the folder of the TOML file; a bare file name is also looked up in the dem folder of the workspace data. May be left out only when [[data.dem.sources]] declares the DEM.",
+          "examples": [
+            "dem.tif"
+          ],
           "title": "Dem Init Path",
           "x-hmp-profile": "user"
         },
@@ -6172,6 +6404,12 @@
           "items": {
             "type": "number"
           }
+        },
+        "^value__merge$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
         }
       }
     },
@@ -6355,6 +6593,9 @@
             },
             "^.+__append$": {
               "type": "array"
+            },
+            "^.+__merge$": {
+              "type": "array"
             }
           }
         }
@@ -6367,6 +6608,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^figures__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^figures__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -6480,6 +6727,14 @@
             "pattern": "^[a-z][a-z0-9_]*$",
             "type": "string"
           }
+        },
+        "^zone_ids__merge$": {
+          "type": "array",
+          "items": {
+            "description": "Snake-case identifier starting with a lowercase letter.",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          }
         }
       }
     },
@@ -6540,6 +6795,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EtpSourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/EtpSourceConfig"
@@ -6771,6 +7032,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^station_ids__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -6852,6 +7119,14 @@
             }
           ],
           "description": "What to export: a name, a list of names, or \"all\" for everything the run holds. One namespace covers the mesh fields (head, watertable_depth, seepage_mask...), the series (discharge, discharge_obs...), the vector layers (watershed, hydrographic_network_reference...), the raster layers (watershed_dem...) and the table budget; 'hmp export <run> --list' prints what a run holds. A name no run can hold is refused before the solve.",
+          "examples": [
+            "head",
+            [
+              "head",
+              "discharge"
+            ],
+            "all"
+          ],
           "title": "Variables",
           "x-hmp-profile": "user"
         },
@@ -7017,6 +7292,9 @@
         "^period__append$": {
           "type": "array"
         },
+        "^period__merge$": {
+          "type": "array"
+        },
         "^time__append$": {
           "type": "array",
           "items": {
@@ -7030,7 +7308,26 @@
             ]
           }
         },
+        "^time__merge$": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          }
+        },
         "^variables__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^variables__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -7116,6 +7413,9 @@
                 },
                 "^.+__append$": {
                   "type": "array"
+                },
+                "^.+__merge$": {
+                  "type": "array"
                 }
               }
             },
@@ -7139,6 +7439,7 @@
         "values_csv_file": {
           "anyOf": [
             {
+              "format": "path",
               "type": "string"
             },
             {
@@ -7407,7 +7708,19 @@
             "type": "number"
           }
         },
+        "^depths__merge$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
         "^factors__append$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "^factors__merge$": {
           "type": "array",
           "items": {
             "type": "number"
@@ -7709,7 +8022,29 @@
             "type": "number"
           }
         },
+        "^depths__merge$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
         "^line__append$": {
+          "type": "array",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          }
+        },
+        "^line__merge$": {
           "type": "array",
           "items": {
             "maxItems": 2,
@@ -8110,6 +8445,9 @@
             },
             "^.+__append$": {
               "type": "array"
+            },
+            "^.+__merge$": {
+              "type": "array"
             }
           }
         },
@@ -8173,6 +8511,9 @@
               "description": "Remove the inherited key. Only the literal true is accepted."
             },
             "^.+__append$": {
+              "type": "array"
+            },
+            "^.+__merge$": {
               "type": "array"
             }
           }
@@ -8290,6 +8631,14 @@
             "type": "string"
           }
         },
+        "^active_bc__merge$": {
+          "type": "array",
+          "items": {
+            "description": "Snake-case identifier starting with a lowercase letter.",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          }
+        },
         "^active_sinks_sources__append$": {
           "type": "array",
           "items": {
@@ -8298,7 +8647,21 @@
             "type": "string"
           }
         },
+        "^active_sinks_sources__merge$": {
+          "type": "array",
+          "items": {
+            "description": "Snake-case identifier starting with a lowercase letter.",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          }
+        },
         "^param_list__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^param_list__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -9486,6 +9849,31 @@
               }
             ]
           }
+        },
+        "^outlets__merge$": {
+          "type": "array",
+          "items": {
+            "description": "Discriminated union of lake outlet payloads (WEIR, MANNING, or SPECIFIED).",
+            "discriminator": {
+              "mapping": {
+                "MANNING": "#/$defs/FlowLakeOutletManning",
+                "SPECIFIED": "#/$defs/FlowLakeOutletSpecified",
+                "WEIR": "#/$defs/FlowLakeOutletWeir"
+              },
+              "propertyName": "couttype"
+            },
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FlowLakeOutletWeir"
+              },
+              {
+                "$ref": "#/$defs/FlowLakeOutletManning"
+              },
+              {
+                "$ref": "#/$defs/FlowLakeOutletSpecified"
+              }
+            ]
+          }
         }
       }
     },
@@ -9732,6 +10120,9 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^discharge_xy__append$": {
+          "type": "array"
+        },
+        "^discharge_xy__merge$": {
           "type": "array"
         }
       }
@@ -10075,6 +10466,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^solvers__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -10273,7 +10670,19 @@
             "type": "integer"
           }
         },
+        "^downstream__merge$": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
         "^upstream__append$": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "^upstream__merge$": {
           "type": "array",
           "items": {
             "type": "integer"
@@ -10979,7 +11388,19 @@
             "$ref": "#/$defs/FlowReachDiversionConfig"
           }
         },
+        "^diversions__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FlowReachDiversionConfig"
+          }
+        },
         "^reaches__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FlowReachConfig"
+          }
+        },
+        "^reaches__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/FlowReachConfig"
@@ -11045,6 +11466,9 @@
               "description": "Remove the inherited key. Only the literal true is accepted."
             },
             "^.+__append$": {
+              "type": "array"
+            },
+            "^.+__merge$": {
               "type": "array"
             }
           }
@@ -11305,6 +11729,9 @@
             },
             "^.+__append$": {
               "type": "array"
+            },
+            "^.+__merge$": {
+              "type": "array"
             }
           }
         },
@@ -11322,6 +11749,9 @@
               "description": "Remove the inherited key. Only the literal true is accepted."
             },
             "^.+__append$": {
+              "type": "array"
+            },
+            "^.+__merge$": {
               "type": "array"
             }
           }
@@ -11341,6 +11771,9 @@
             },
             "^.+__append$": {
               "type": "array"
+            },
+            "^.+__merge$": {
+              "type": "array"
             }
           }
         },
@@ -11358,6 +11791,9 @@
               "description": "Remove the inherited key. Only the literal true is accepted."
             },
             "^.+__append$": {
+              "type": "array"
+            },
+            "^.+__merge$": {
               "type": "array"
             }
           }
@@ -11594,6 +12030,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^flux__append$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "^flux__merge$": {
           "type": "array",
           "items": {
             "type": "number"
@@ -11848,6 +12290,12 @@
           "items": {
             "$ref": "#/$defs/FlowWellForcingSegment"
           }
+        },
+        "^segments__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FlowWellForcingSegment"
+          }
         }
       }
     },
@@ -11880,6 +12328,9 @@
                 },
                 "^.+__append$": {
                   "type": "array"
+                },
+                "^.+__merge$": {
+                  "type": "array"
                 }
               }
             },
@@ -11905,6 +12356,9 @@
                   "description": "Remove the inherited key. Only the literal true is accepted."
                 },
                 "^.+__append$": {
+                  "type": "array"
+                },
+                "^.+__merge$": {
                   "type": "array"
                 }
               }
@@ -12096,6 +12550,9 @@
         },
         "^cell__append$": {
           "type": "array"
+        },
+        "^cell__merge$": {
+          "type": "array"
         }
       }
     },
@@ -12248,7 +12705,26 @@
             ]
           }
         },
+        "^breaks__merge$": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
         "^labels__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^labels__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -12370,7 +12846,26 @@
             "type": "string"
           }
         },
+        "^labels__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^radii__append$": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "^radii__merge$": {
           "type": "array",
           "items": {
             "anyOf": [
@@ -12435,8 +12930,7 @@
               "type": "null"
             }
           ],
-          "default": null,
-          "description": "Catchment definition payload used when source_mode='standard'. Discriminated by 'catch_def' on the nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'.",
+          "description": "How the model domain is defined. Required when source_mode='standard', left out when it is 'synthetic'. The shape is chosen by 'catch_def' on the nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'.",
           "title": "Catchment",
           "x-hmp-profile": "user"
         },
@@ -12673,6 +13167,31 @@
               }
             ]
           }
+        },
+        "^sources__merge$": {
+          "type": "array",
+          "items": {
+            "description": "Discriminated union of geology data sources tagged by the 'source' provider key.",
+            "discriminator": {
+              "mapping": {
+                "brgm_1m": "#/$defs/BrgmGeology1mSource",
+                "brgm_50k": "#/$defs/BrgmGeology50kSource",
+                "custom": "#/$defs/CustomGeologySource"
+              },
+              "propertyName": "source"
+            },
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CustomGeologySource"
+              },
+              {
+                "$ref": "#/$defs/BrgmGeology1mSource"
+              },
+              {
+                "$ref": "#/$defs/BrgmGeology50kSource"
+              }
+            ]
+          }
         }
       }
     },
@@ -12730,6 +13249,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^layers__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GeologyLayerConfig"
+          }
+        },
+        "^layers__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/GeologyLayerConfig"
@@ -12889,6 +13414,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HumiditySourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/HumiditySourceConfig"
@@ -13085,6 +13616,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^station_ids__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -13126,6 +13663,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HydrographySourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/HydrographySourceConfig"
@@ -13235,6 +13778,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^waterway_types__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^waterway_types__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -13376,6 +13925,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HydrometrySourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/HydrometrySourceConfig"
@@ -13630,6 +14185,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^station_ids__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -13785,7 +14346,19 @@
             "type": "string"
           }
         },
+        "^departments__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^regions__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^regions__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -13879,6 +14452,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^layers__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InfluenceLayerConfig"
+          }
+        },
+        "^layers__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/InfluenceLayerConfig"
@@ -13993,6 +14572,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^major_values__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -14053,6 +14638,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IntermittencySourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/IntermittencySourceConfig"
@@ -14292,7 +14883,19 @@
             "type": "string"
           }
         },
+        "^code_departement__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^station_ids__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^station_ids__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -14338,6 +14941,12 @@
           "items": {
             "$ref": "#/$defs/CustomLakeAbacusSource"
           }
+        },
+        "^sources__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CustomLakeAbacusSource"
+          }
         }
       }
     },
@@ -14375,6 +14984,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CustomLakeBathymetrySource"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/CustomLakeBathymetrySource"
@@ -14533,6 +15148,12 @@
           "items": {
             "$ref": "#/$defs/CustomLakeGeometrySource"
           }
+        },
+        "^sources__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CustomLakeGeometrySource"
+          }
         }
       }
     },
@@ -14593,6 +15214,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LakeInflowSourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/LakeInflowSourceConfig"
@@ -14786,6 +15413,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^station_ids__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -14846,6 +15479,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LakeLevelsSourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/LakeLevelsSourceConfig"
@@ -15039,6 +15678,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^station_ids__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -15099,6 +15744,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LakeOutflowSourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/LakeOutflowSourceConfig"
@@ -15288,6 +15939,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^station_ids__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^station_ids__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -15483,6 +16140,12 @@
           "items": {
             "$ref": "#/$defs/LakeWithdrawalSourceConfig"
           }
+        },
+        "^sources__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LakeWithdrawalSourceConfig"
+          }
         }
       }
     },
@@ -15672,6 +16335,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^station_ids__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -15786,6 +16455,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^layers__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MapContextLayerConfig"
+          }
+        },
+        "^layers__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/MapContextLayerConfig"
@@ -15995,6 +16670,9 @@
         "steady_method_options": {
           "additionalProperties": true,
           "description": "Options of the stage-one method, named as that method names them: for the bisection, sweep_points, bracket_expand, rel_tol and signed_component. Which ones exist depends on steady_method; a key the method does not know is refused when the file loads. Used to reproduce a published call; a precision is said once, in steady_tolerance.",
+          "renamed_from": [
+            "calibration.protocol.steady_engine_options"
+          ],
           "title": "Steady Method Options",
           "type": "object",
           "x-hmp-profile": "user"
@@ -16018,6 +16696,9 @@
                   "description": "Remove the inherited key. Only the literal true is accepted."
                 },
                 "^.+__append$": {
+                  "type": "array"
+                },
+                "^.+__merge$": {
                   "type": "array"
                 }
               }
@@ -16081,6 +16762,9 @@
         "transient_method_options": {
           "additionalProperties": true,
           "description": "Options of the stage-two method, named as that method names them, and refused when the file loads if it does not know them. Which ones exist depends on transient_method.",
+          "renamed_from": [
+            "calibration.protocol.transient_engine_options"
+          ],
           "title": "Transient Method Options",
           "type": "object",
           "x-hmp-profile": "user"
@@ -16129,6 +16813,9 @@
                 },
                 "^.+__append$": {
                   "type": "array"
+                },
+                "^.+__merge$": {
+                  "type": "array"
                 }
               }
             },
@@ -16163,6 +16850,7 @@
             "geology_rivers"
           ],
           "examples": [
+            "rivers_only",
             "geology_rivers"
           ],
           "title": "Constraints Mode",
@@ -16421,6 +17109,12 @@
           "items": {
             "$ref": "#/$defs/RefinementZoneConfig"
           }
+        },
+        "^refinement_zone__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RefinementZoneConfig"
+          }
         }
       }
     },
@@ -16460,6 +17154,7 @@
         "values_csv_file": {
           "anyOf": [
             {
+              "format": "path",
               "type": "string"
             },
             {
@@ -16585,6 +17280,7 @@
         "path": {
           "anyOf": [
             {
+              "format": "path",
               "type": "string"
             },
             {
@@ -16730,6 +17426,7 @@
         "values_csv_file": {
           "anyOf": [
             {
+              "format": "path",
               "type": "string"
             },
             {
@@ -17320,6 +18017,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^solvers__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -17712,13 +18415,31 @@
             "type": "integer"
           }
         },
+        "^particle_cell_ids__merge$": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
         "^release_times_days__append$": {
           "type": "array",
           "items": {
             "type": "number"
           }
         },
+        "^release_times_days__merge$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
         "^track_times_days__append$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "^track_times_days__merge$": {
           "type": "array",
           "items": {
             "type": "number"
@@ -18315,6 +19036,12 @@
           "items": {
             "type": "number"
           }
+        },
+        "^bore_depth__merge$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
         }
       }
     },
@@ -18510,7 +19237,19 @@
             "$ref": "#/$defs/ObservationPointConfig"
           }
         },
+        "^points__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ObservationPointConfig"
+          }
+        },
         "^variables__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^variables__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -18604,6 +19343,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^variables__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^variables__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -18719,6 +19464,12 @@
           "items": {
             "$ref": "#/$defs/PiezometerLayerConfig"
           }
+        },
+        "^piezometer_layers__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PiezometerLayerConfig"
+          }
         }
       }
     },
@@ -18803,6 +19554,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OceanicSourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/OceanicSourceConfig"
@@ -19035,6 +19792,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^station_ids__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^station_ids__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -19879,6 +20642,12 @@
           "items": {
             "$ref": "#/$defs/PiezometrySourceConfig"
           }
+        },
+        "^sources__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PiezometrySourceConfig"
+          }
         }
       }
     },
@@ -20128,6 +20897,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^station_ids__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -20330,6 +21105,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PrecipitationSourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/PrecipitationSourceConfig"
@@ -20556,7 +21337,24 @@
             "type": "string"
           }
         },
+        "^components__merge$": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "liquid",
+              "solid",
+              "total"
+            ],
+            "type": "string"
+          }
+        },
         "^station_ids__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^station_ids__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -20723,6 +21521,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RadiationSourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/RadiationSourceConfig"
@@ -20948,7 +21752,23 @@
             "type": "string"
           }
         },
+        "^components__merge$": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "atmospheric",
+              "visible"
+            ],
+            "type": "string"
+          }
+        },
         "^station_ids__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^station_ids__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -21152,6 +21972,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RechargeSourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/RechargeSourceConfig"
@@ -21465,7 +22291,19 @@
             "type": "string"
           }
         },
+        "^station_ids__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^values__append$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "^values__merge$": {
           "type": "array",
           "items": {
             "type": "number"
@@ -21480,8 +22318,9 @@
         "path": {
           "description": "Vector layer (gpkg / shp / GeoJSON) of polygons (zones) and/or points or lines (corridors). A bare filename resolves against <workspace>/data/refinement_zone/; relative paths resolve against that directory, the data directory, then the config directory.",
           "examples": [
-            "example"
+            "data/input.csv"
           ],
+          "format": "path",
           "title": "Path",
           "type": "string",
           "x-hmp-profile": "user"
@@ -21876,7 +22715,19 @@
             "type": "string"
           }
         },
+        "^path_fields__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^required_fields__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^required_fields__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -22041,7 +22892,29 @@
             "type": "string"
           }
         },
+        "^cluster_tags__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^field_equals__append$": {
+          "type": "array",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          }
+        },
+        "^field_equals__merge$": {
           "type": "array",
           "items": {
             "maxItems": 2,
@@ -22205,7 +23078,19 @@
             "$ref": "#/$defs/RegionalLabClusterRuleConfig"
           }
         },
+        "^cluster_rules__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RegionalLabClusterRuleConfig"
+          }
+        },
         "^recipes__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RegionalLabRecipeConfig"
+          }
+        },
+        "^recipes__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/RegionalLabRecipeConfig"
@@ -22310,7 +23195,19 @@
             "type": "string"
           }
         },
+        "^allowed_platforms__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^required_fields__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^required_fields__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -22440,7 +23337,19 @@
             "type": "string"
           }
         },
+        "^cluster_ids__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^families__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^families__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -22452,7 +23361,19 @@
             "type": "string"
           }
         },
+        "^maturity_levels__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^regions__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^regions__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -22464,7 +23385,19 @@
             "type": "string"
           }
         },
+        "^scales__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^site_ids__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^site_ids__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -22476,7 +23409,19 @@
             "type": "string"
           }
         },
+        "^statuses__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^tags__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^tags__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -22778,6 +23723,12 @@
           "items": {
             "type": "number"
           }
+        },
+        "^value__merge$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
         }
       }
     },
@@ -22884,6 +23835,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RunoffSourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/RunoffSourceConfig"
@@ -23076,6 +24033,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^station_ids__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^station_ids__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -23309,7 +24272,38 @@
             ]
           }
         },
+        "^process__merge$": {
+          "type": "array",
+          "items": {
+            "description": "Discriminated union of simulation processes tagged by the 'type' family (flow, transport, mesh).",
+            "discriminator": {
+              "mapping": {
+                "flow": "#/$defs/FlowProcessConfig",
+                "mesh": "#/$defs/MeshProcessConfig",
+                "transport": "#/$defs/TransportProcessConfig"
+              },
+              "propertyName": "type"
+            },
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FlowProcessConfig"
+              },
+              {
+                "$ref": "#/$defs/TransportProcessConfig"
+              },
+              {
+                "$ref": "#/$defs/MeshProcessConfig"
+              }
+            ]
+          }
+        },
         "^tags__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^tags__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -23448,7 +24442,7 @@
         "selection_id": {
           "description": "Stable identifier for this selection campaign.",
           "examples": [
-            "example"
+            "small_basins"
           ],
           "minLength": 1,
           "title": "Selection Id",
@@ -23458,7 +24452,7 @@
         "output_root": {
           "description": "Output directory for all site-selection artifacts.",
           "examples": [
-            "data/input.csv"
+            "site_selection"
           ],
           "format": "path",
           "title": "Output Root",
@@ -23698,6 +24692,12 @@
           "items": {
             "$ref": "#/$defs/CustomSoilCapacitySource"
           }
+        },
+        "^sources__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CustomSoilCapacitySource"
+          }
         }
       }
     },
@@ -23758,6 +24758,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SoilMoistureSourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/SoilMoistureSourceConfig"
@@ -23950,6 +24956,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^station_ids__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^station_ids__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -24691,6 +25703,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^comment_keywords__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -24858,6 +25876,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^primary_axes__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -24885,6 +25909,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CustomSubstratumSource"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/CustomSubstratumSource"
@@ -25122,6 +26152,12 @@
           "items": {
             "$ref": "#/$defs/TemperatureSourceConfig"
           }
+        },
+        "^sources__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TemperatureSourceConfig"
+          }
         }
       }
     },
@@ -25314,6 +26350,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "^station_ids__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -25441,13 +26483,28 @@
         "^bbox__append$": {
           "type": "array"
         },
+        "^bbox__merge$": {
+          "type": "array"
+        },
         "^departments__append$": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
+        "^departments__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^regions__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^regions__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -25659,7 +26716,29 @@
             "type": "string"
           }
         },
+        "^exclude_tags__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^field_equals__append$": {
+          "type": "array",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          }
+        },
+        "^field_equals__merge$": {
           "type": "array",
           "items": {
             "maxItems": 2,
@@ -25681,7 +26760,19 @@
             "type": "string"
           }
         },
+        "^required_fields__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^tags__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^tags__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -25926,7 +27017,29 @@
             "type": "string"
           }
         },
+        "^exclude_tags__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^field_equals__append$": {
+          "type": "array",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          }
+        },
+        "^field_equals__merge$": {
           "type": "array",
           "items": {
             "maxItems": 2,
@@ -25948,13 +27061,31 @@
             "type": "string"
           }
         },
+        "^path_fields__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^required_fields__append$": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
+        "^required_fields__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^tags__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^tags__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -25997,45 +27128,48 @@
           "x-hmp-profile": "expert"
         },
         "id": {
-          "description": "Stable testbed identifier.",
+          "description": "Stable testbed identifier. Left out, the TOML file name without its extension is used.",
           "examples": [
-            "example"
+            "k_sensitivity"
           ],
           "title": "Id",
           "type": "string",
           "x-hmp-profile": "user"
         },
         "profile": {
-          "description": "Selected testbed profile.",
+          "default": "generic",
+          "description": "Testbed profile: 'generic' runs the declared cases, 'regional_lab' runs them over every site of a site catalog.",
           "examples": [
-            "example"
+            "generic"
           ],
           "title": "Profile",
           "type": "string",
           "x-hmp-profile": "user"
         },
         "subject": {
-          "description": "High-level subject covered by the testbed (flow, mesh, transport).",
+          "default": "mesh",
+          "description": "What the cases vary: 'flow', 'mesh' or 'transport'.",
           "examples": [
-            "example"
+            "mesh"
           ],
           "title": "Subject",
           "type": "string",
           "x-hmp-profile": "user"
         },
         "purpose": {
-          "description": "Stated purpose of the testbed (robustness, sensitivity, ...).",
+          "default": "robustness",
+          "description": "Stated purpose of the testbed, written in its report (robustness, sensitivity...).",
           "examples": [
-            "example"
+            "robustness"
           ],
           "title": "Purpose",
           "type": "string",
           "x-hmp-profile": "user"
         },
         "output_root": {
-          "description": "Directory where testbed artifacts are written.",
+          "description": "Directory where testbed artifacts are written, relative to the TOML file. Left out, testbed/<id> next to the TOML file.",
           "examples": [
-            "data/input.csv"
+            "testbed_output"
           ],
           "format": "path",
           "title": "Output Root",
@@ -26138,13 +27272,31 @@
             "$ref": "#/$defs/TestbedCaseConfig"
           }
         },
+        "^case__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TestbedCaseConfig"
+          }
+        },
         "^case_from_catalog__append$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/TestbedCatalogCaseConfig"
           }
         },
+        "^case_from_catalog__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TestbedCatalogCaseConfig"
+          }
+        },
         "^metrics__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TestbedMetricConfig"
+          }
+        },
+        "^metrics__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/TestbedMetricConfig"
@@ -26199,9 +27351,10 @@
       "description": "Child-runner selection for one testbed.",
       "properties": {
         "type": {
-          "description": "Runner identifier dispatched for every case (comparison, simulation).",
+          "default": "simulation",
+          "description": "Workflow every case runs: 'simulation', 'comparison' or 'calibration'. Which ones a subject accepts: mesh takes simulation; transport takes simulation and comparison; flow takes all three.",
           "examples": [
-            "example"
+            "simulation"
           ],
           "title": "Type",
           "type": "string",
@@ -26461,13 +27614,31 @@
             "type": "string"
           }
         },
+        "^active_bc__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^active_sinks_sources__append$": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
+        "^active_sinks_sources__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^param_list__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^param_list__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -26595,6 +27766,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^solvers__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^solvers__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -26800,6 +27977,12 @@
           "items": {
             "type": "number"
           }
+        },
+        "^lay_proportions__merge$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
         }
       }
     },
@@ -26860,6 +28043,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WaterQualitySourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/WaterQualitySourceConfig"
@@ -27113,7 +28302,19 @@
             "type": "string"
           }
         },
+        "^parameters__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "^station_ids__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^station_ids__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -27202,6 +28403,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WindSourceConfig"
+          }
+        },
+        "^sources__merge$": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/WindSourceConfig"
@@ -27394,6 +28601,12 @@
           "description": "Remove the inherited key. Only the literal true is accepted."
         },
         "^station_ids__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^station_ids__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -27696,6 +28909,12 @@
           "items": {
             "type": "number"
           }
+        },
+        "^bbox__merge$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
         }
       }
     },
@@ -27812,6 +29031,15 @@
             },
             "type": "array"
           }
+        },
+        "^coordinates__merge$": {
+          "type": "array",
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          }
         }
       }
     },
@@ -27830,9 +29058,11 @@
           "x-hmp-profile": "user"
         },
         "path": {
+          "description": "Vector file (gpkg, shp, GeoJSON) holding the polygon of the meshed domain.",
           "examples": [
-            "example"
+            "data/input.csv"
           ],
+          "format": "path",
           "title": "Path",
           "type": "string",
           "x-hmp-profile": "user"
@@ -28167,6 +29397,9 @@
             },
             "^.+__append$": {
               "type": "array"
+            },
+            "^.+__merge$": {
+              "type": "array"
             }
           }
         }
@@ -28414,6 +29647,27 @@
               }
             ]
           }
+        },
+        "^sources__merge$": {
+          "type": "array",
+          "items": {
+            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC) and 'ign_geoplateforme_dem' for assembled BD ALTI or RGE ALTI retrieval.",
+            "discriminator": {
+              "mapping": {
+                "custom": "#/$defs/CustomDemSource",
+                "ign_geoplateforme_dem": "#/$defs/IgnGeoplateformeDemSource"
+              },
+              "propertyName": "source"
+            },
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CustomDemSource"
+              },
+              {
+                "$ref": "#/$defs/IgnGeoplateformeDemSource"
+              }
+            ]
+          }
         }
       }
     },
@@ -28620,6 +29874,17 @@
       "items": {
         "$ref": "#/$defs/ExportRequest"
       },
+      "renamed_from": [
+        "export.artifacts",
+        "export.csv_timeseries",
+        "export.geopackage",
+        "export.geotiff",
+        "export.netcdf",
+        "export.output_dir",
+        "export.package",
+        "export.shapefile",
+        "export.vtu"
+      ],
       "title": "Export",
       "type": "array",
       "x-hmp-profile": "user"
@@ -28753,7 +30018,7 @@
     },
     "base_config": {
       "type": "string",
-      "description": "Path of a TOML file this file extends, relative to this file. The keys written here replace the ones the base file sets. Lists replace the base list unless the key carries the suffix __append, and a key is removed with <key>__delete = true."
+      "description": "Path of a TOML file this file extends, relative to this file. The keys written here replace the ones the base file sets. Lists replace the base list: the suffix __append extends it, __merge merges its tables in order, and a key is removed with <key>__delete = true."
     }
   },
   "title": "HydroModPyConfig",
@@ -28764,6 +30029,12 @@
       "description": "Remove the inherited key. Only the literal true is accepted."
     },
     "^export__append$": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ExportRequest"
+      }
+    },
+    "^export__merge$": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/ExportRequest"

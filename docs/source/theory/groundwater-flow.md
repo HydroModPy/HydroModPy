@@ -61,6 +61,15 @@ it, no aquifer is left. A raster kind:
 5. refuses the run if every cell needs that correction, since no aquifer would
    remain.
 
+```{eval-rst}
+.. plot:: theory/figures/gwf_depth_models.py
+   :alt: Four cross-sections of one valley, each with the top and the bottom of the aquifer that one depth model gives.
+   :caption: The four depth models on one valley, as ``build_domain`` returns them. Look at the
+      valley floor of the two raster kinds: where the raster bottom (dotted) comes within
+      :math:`H_\mathrm{min}` of the top (8 m here), the cells (dots) are lowered to
+      :math:`z_\mathrm{top} - H_\mathrm{min}`.
+```
+
 Take a top of 120 m everywhere and a raster that holds 40 m, or 85 m for the
 elevation kind, in every cell but one. The table gives the bottom of that cell, as
 `build_domain` returns it (the check ran the function).
@@ -124,6 +133,14 @@ then thicken with depth. With $\rho = 2$ and four layers they hold 1, 2, 4 and 8
 fifteenths of the column, from the top down. A `list` must sum to 1. With one
 layer, $p_1 = 1$ and the column is one cell. MODFLOW-NWT reads the same keys
 under `modflownwt.sgrid.vertical`.
+
+```{eval-rst}
+.. plot:: theory/figures/gwf_layers.py
+   :alt: Four columns of 100 m, each cut into four layers by one rule.
+   :caption: Four layers in a column of 100 m, from ``_compute_layer_proportions``. Look at
+      the decay columns: the larger :math:`\rho`, the thinner the top layer and the thicker
+      the bottom one.
+```
 
 ```toml
 base_config = "step4_transient.toml"
@@ -190,6 +207,15 @@ factor is a linear or stepwise interpolation of the table you give, equal to the
 first and last factor outside the table. With one layer, $d_j$ is half the
 thickness: the profile then gives one factor per cell and no variation with
 depth.
+
+```{eval-rst}
+.. plot:: theory/figures/gwf_depth_factor.py
+   :alt: The exponential depth factor against depth, with and without a floor, and the value of each layer.
+   :caption: The depth factor for :math:`d_c = 20` m, from ``FieldParam.vertical_factor``.
+      Each layer of a four-layer decay column takes the factor at its centre (dots), not
+      an average over its thickness. Look at the deepest layer: without a floor its
+      factor would be 0.03, with :math:`f_\mathrm{min} = 0.05` it stays at 0.05.
+```
 
 **Vertical conductivity.** MODFLOW 6 reads $K_z = K / \beta$, with $\beta$ the
 {toml}`modflow6.process_specific.vka`, layer by layer, so a depth factor on $K$
@@ -264,6 +290,16 @@ $S_y = 0.05$ and $S_s B \le 3 \times 10^{-4}$, a ratio of about 170. The steady
 problem drops the left-hand side. When {eq}`eq-boussinesq` is no longer a good
 reading of {eq}`eq-gwf-3d` is the subject of {doc}`dupuit-limits`.
 
+```{eval-rst}
+.. plot:: theory/figures/gwf_saturated_thickness.py
+   :alt: Saturated thickness and storage coefficient of one cell plotted against its head.
+   :caption: One cell, with :math:`z_\mathrm{bot} = 70` m, :math:`z_\mathrm{top} = 100` m,
+      :math:`S_y = 0.05` and :math:`S_s = 10^{-5}` m⁻¹. Left: :math:`B(h)`, the clipped
+      thickness of :eq:`eq-saturated-thickness`. Right: the storage term of
+      :eq:`eq-boussinesq`, on a log scale. Look at the drop at the top: once the cell is
+      full, a rise of the head stores about 170 times less water.
+```
+
 (gwf-discrete)=
 ## The discrete problem in MODFLOW 6 and MODFLOW-NWT
 
@@ -304,6 +340,15 @@ $K_z$ and the area of the shared face. A cell with $B_n = 0$ carries no flow out
 it. On Voronoi cells the face is the perpendicular bisector of the two centres,
 which is the case the two-point form needs. Where it is not, the error and the
 XT3D correction are on {doc}`solvers/xt3d-on-irregular-disv-meshes`.
+
+```{eval-rst}
+.. plot:: theory/figures/gwf_conductance.py
+   :alt: Two neighbouring cells in plan and in section, with the lengths that enter their conductance.
+   :caption: The lengths of :eq:`eq-conductance`. In plan, :math:`c_{nm}` and :math:`c_{mn}`
+      go from each centre to the shared face of width :math:`w_{nm}`; they differ when the
+      cells differ in size. In section, cell :math:`n` holds the higher head, so it is the
+      upstream cell whose saturated fraction scales the conductance under Newton.
+```
 
 **Newton.** The balance is nonlinear in $h$, through $B$ and through the switch
 $\chi$. MODFLOW 6 solves it with the Newton-Raphson formulation by default, with
@@ -411,6 +456,16 @@ $$ (eq-spinup)
 
 with $\varepsilon_h$ the {toml}`flow.ic.h.tol_head`, or after
 {toml}`flow.ic.h.max_cycles` cycles. The maximum counts every cell, not the mean.
+
+```{eval-rst}
+.. plot:: theory/figures/gwf_spinup.py
+   :alt: Largest and mean change of the end-of-cycle heads against the cycle number, with the tolerance.
+   :caption: The stopping test of :eq:`eq-spinup`, applied by ``cycles_have_settled`` to 200
+      cells of which 10 drift slowly. Look at the two curves: the mean change falls under
+      :math:`\varepsilon_h` at cycle 6, the largest change only at cycle 10, and
+      the largest change decides. With the default of 4 cycles, this loop would stop
+      before it settles.
+```
 
 **When the first period is steady.** With {toml}`flow.first_period_steady` at its
 default, period 0 is solved as a steady state, and the heads above are only the

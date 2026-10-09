@@ -10,12 +10,13 @@ solver or the catalog, so any caller can feed it the two abacus tables.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
 
 from hydromodpy.core.metrics import nse, rmse
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.style import place_legend
 
@@ -180,7 +181,17 @@ class LakeAbacusComparison(BaseFigure):
             return "run holds no lake abacus"
         return None
 
-    def render(self, sim: Run, ax: Axes, *, lake_id: str | None = None, **_: Any) -> Axes:
+    def render(
+        self,
+        sim: Run,
+        ax: Axes,
+        *,
+        lake_id: Annotated[
+            str | None,
+            Opt("Lake to draw, by its id. Left out, the lake holding the most water at full pool."),
+        ] = None,
+        **_: Any,
+    ) -> Axes:
         from hydromodpy.results.run.lake_abacus_view import run_lake_abacus
 
         try:
@@ -220,8 +231,11 @@ class LakeAbacusComparison(BaseFigure):
         # Name the lake, not just the run: a two-lake model renders one curve per lake and
         # the default picks the first, so the run name alone leaves the reader guessing.
         which = lake_id or str(ab.get("lake_id") or "")
-        run_label = sim.name or sim.sim_id
-        title = f"Lake abacus - {which} ({run_label})" if which else f"Lake abacus - {run_label}"
+        title = (
+            f"Lake abacus - {which}{run_suffix(sim, ' ({})')}"
+            if which
+            else f"Lake abacus{run_suffix(sim)}"
+        )
         ax.set_title(title)
         ax.legend(fontsize=9, loc="upper left", frameon=False)
         ax.grid(alpha=0.25, linewidth=0.6)

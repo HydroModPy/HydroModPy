@@ -59,8 +59,23 @@ html {
 .bd-article .sd-card:hover { border-color: var(--pst-color-primary); }
 .bd-article .sd-card ul { list-style: none; padding-left: 0; }
 
-/* Figures are white PNGs: dim them in dark mode. */
-html[data-theme="dark"] .bd-article figure img { filter: brightness(.88); }
+/* Images keep their ratio: hmp_site.py gives each one its intrinsic width and height. */
+.bd-article img { height: auto; }
+
+/* Figures are white images: dim them in dark mode. An image with a dark twin
+   (hmp_site.py adds class dark-light) is not dimmed: the twin is drawn dark. */
+html[data-theme="dark"] .bd-article figure img:not(.dark-light) { filter: brightness(.88); }
+
+/* One of the two images of a pair is shown, by theme. Without script the page
+   is light. */
+html[data-theme="dark"] .bd-article img.hmp-light { display: none; }
+html:not([data-theme="dark"]) .bd-article img.hmp-dark { display: none; }
+
+/* Glossary terms: a dotted underline says a definition is one hover or tap away. */
+.bd-article a.reference.internal[href*="#term-"] {
+  text-decoration: underline dotted;
+  text-underline-offset: .2em;
+}
 
 /* Zoomable figures say so. */
 .bd-article figure img.hmp-zoomable { cursor: zoom-in; }
@@ -74,3 +89,27 @@ ul.navbar-icon-links i.fa-brands,
 ul.navbar-icon-links i.fa-solid { font-size: var(--pst-font-size-icon); vertical-align: middle; }
 #pst-search-dialog[open] form.bd-search i { font-size: var(--pst-font-size-icon); }
 form.bd-search i.fa-solid.fa-magnifying-glass { position: static; }
+
+/* The box that opens a guide (hmp-task): Task, Time, Needs, Gives. */
+.bd-article .hmp-task {
+  border: 1px solid var(--pst-color-border);
+  border-left: 4px solid var(--pst-color-primary);
+  border-radius: .4rem;
+  padding: .6rem 1rem;
+  margin: 1rem 0 1.5rem;
+  background: var(--pst-color-surface);
+}
+.bd-article .hmp-task dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 1rem;
+  row-gap: .3rem;
+  margin: 0;
+}
+.bd-article .hmp-task dt { font-weight: 600; margin: 0; }
+.bd-article .hmp-task dd { margin: 0; }
+.bd-article .hmp-task dd p { margin: 0; }
+@media (max-width: 600px) {
+  .bd-article .hmp-task dl { grid-template-columns: 1fr; row-gap: 0; }
+  .bd-article .hmp-task dd { margin-bottom: .4rem; }
+}

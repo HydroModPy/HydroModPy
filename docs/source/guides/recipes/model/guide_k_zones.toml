@@ -1,0 +1,28 @@
+# Guide "Give K and Sy per geological zone": three bands of K across the
+# Nancon model, west, middle and east, with no zone file.
+# Save this file in the folder of example 04.
+#
+#   hmp run guide_k_zones.toml
+
+base_config = "step1_minimal.toml"
+
+[simulation]
+name = "nancon_guide_k_zones"
+
+# Breaks at 30 % and 70 % of the width of the domain.
+[domain.supports.west_east]
+kind = "generated_bands"
+axis = "x"
+breaks = [0.3, 0.7]
+labels = ["west", "middle", "east"]
+
+# value__delete removes the single value inherited from step 1.
+[flow.param.K.field]
+kind = "heterogeneous"
+value__delete = true
+unit = "m/day"
+field_spatial_id = "west_east"
+values = { west = 8.0, middle = 2.0, east = 0.5 }
+
+[display]
+figures = ["parameter_map", "watertable_depth_map"]

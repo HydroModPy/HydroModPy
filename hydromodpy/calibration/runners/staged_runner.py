@@ -1468,11 +1468,12 @@ def _write_methods_beside_the_root(
 def _backend_name(document: Mapping[str, Any]) -> str | None:
     """Return the flow backend's tag from the raw document, or ``None`` if unset.
 
-    Read before validation, from ``[solver]``: the discriminated union accepts
-    both the bare tag (``backend = "modflow6"``) and the explicit table
-    (``backend = { backend = "modflow6" }``), and the Methods paragraph names
-    whichever backend actually ran without this module importing the solver
-    layer to ask an already-loaded ``SolverConfig``.
+    Read before validation, from ``[solver]``, so this module does not import the
+    solver layer. ``SolverConfig`` takes the table form only
+    (``backend = { backend = "modflow6" }``) and refuses a bare tag, so a
+    document that loaded holds the table. A file that leaves ``solver.backend`` out
+    gets its backend from the flow process at validation; this reader then
+    returns ``None`` and the Methods paragraph names no backend.
     """
     solver = document.get("solver")
     if not isinstance(solver, Mapping):

@@ -33,7 +33,9 @@ def build_page(
 
     return render_report_page(
         title=page_title,
-        subtitle=("Diagnostic reproductible de calibration reseau permanent + debit transitoire."),
+        subtitle=(
+            "Reproducible diagnostic of a calibration on a steady network and a transient discharge."
+        ),
         blocks=build_network_transient_blocks(
             normalization=normalization,
             score_rows=score_rows,
@@ -82,21 +84,21 @@ def _calibration_problem_block(
     missing = list(artifact_report.required_missing) + list(artifact_report.optional_missing)
     warnings = list(artifact_report.contract_warnings)
     if missing:
-        warnings.append("Artefacts absents ou non exploitables: " + ", ".join(missing[:8]))
+        warnings.append("Artifacts missing or unreadable: " + ", ".join(missing[:8]))
     return ReportBlock(
         block_id="calibration_problem",
-        title="Probleme de calibration",
+        title="Calibration problem",
         level="compact",
         status=status,
         lead=(
-            "On cherche deux parametres globaux: le multiplicateur de conductivite "
-            "hydraulique mK et le stockage specifique libre Sy."
+            "Two global parameters are sought: the hydraulic conductivity multiplier "
+            "mK and the specific yield Sy."
         ),
         metrics=(
-            ReportMetric("contrat artefacts", "complet" if artifact_report.ok else "incomplet"),
-            ReportMetric("manquants requis", len(artifact_report.required_missing)),
-            ReportMetric("manquants optionnels", len(artifact_report.optional_missing)),
-            ReportMetric("alertes contrat", len(artifact_report.contract_warnings)),
+            ReportMetric("artifact contract", "complete" if artifact_report.ok else "incomplete"),
+            ReportMetric("required missing", len(artifact_report.required_missing)),
+            ReportMetric("optional missing", len(artifact_report.optional_missing)),
+            ReportMetric("contract warnings", len(artifact_report.contract_warnings)),
         ),
         warnings=tuple(warnings),
     )
@@ -118,28 +120,28 @@ def _candidate_ranking_block(
         else {}
     )
     metrics = [
-        ReportMetric("points termines", f"{len(completed)} / {len(score_rows)}"),
-        ReportMetric("points en echec", failed_count),
-        ReportMetric("meilleur candidat non cible", best.get("candidate_id", "-")),
-        ReportMetric("mK trouve", _nt_io.fmt_float(best.get("mK"), 2)),
-        ReportMetric("Sy trouve", _nt_io.fmt_float(best.get("Sy"), 3)),
+        ReportMetric("points completed", f"{len(completed)} / {len(score_rows)}"),
+        ReportMetric("points failed", failed_count),
+        ReportMetric("best candidate other than the target", best.get("candidate_id", "-")),
+        ReportMetric("mK found", _nt_io.fmt_float(best.get("mK"), 2)),
+        ReportMetric("Sy found", _nt_io.fmt_float(best.get("Sy"), 3)),
         ReportMetric("J minimum", _nt_io.fmt_float(best.get("J"), 5)),
     ]
     if target is not None:
         metrics.insert(
             0,
             ReportMetric(
-                "valeur cible",
+                "target value",
                 f"mK={_nt_io.fmt_float(target[0], 2)}, Sy={_nt_io.fmt_float(target[1], 3)}",
             ),
         )
     return ReportBlock(
         block_id="candidate_ranking",
-        title="Classement des candidats",
+        title="Candidate ranking",
         level="compact",
-        lead="Synthese de la grille de candidats et du meilleur point non cible.",
+        lead="Summary of the candidate grid and of the best point other than the target.",
         metrics=tuple(metrics),
-        warnings=() if completed else ("Aucun candidat termine dans la table de score.",),
+        warnings=() if completed else ("No candidate completed in the score table.",),
     )
 
 
@@ -159,31 +161,31 @@ def _configuration_block(normalization: dict[str, Any], truth_dir: Path | None) 
         period_text = f"{q_rows[0].get('datetime', '')} -> {q_rows[-1].get('datetime', '')}"
     return ReportBlock(
         block_id="site_characterization",
-        title="Configuration spatiale et temporelle",
+        title="Spatial and temporal setup",
         level="standard",
-        lead="Caracterisation du site, du support spatial et de la fenetre de score.",
+        lead="The site, the spatial support and the scoring window.",
         metrics=(
             ReportMetric("site", metadata.get("site_id", "")),
-            ReportMetric("solveur", metadata.get("steady_solver", "modflow6")),
-            ReportMetric("cellules DISV", metadata.get("n_cells", "")),
-            ReportMetric("periodes debit", metadata.get("n_timesteps", "")),
-            ReportMetric("cellules drainantes cible", active_count),
+            ReportMetric("solver", metadata.get("steady_solver", "modflow6")),
+            ReportMetric("DISV cells", metadata.get("n_cells", "")),
+            ReportMetric("discharge periods", metadata.get("n_timesteps", "")),
+            ReportMetric("target draining cells", active_count),
             ReportMetric(
-                "Q steady cible", _nt_io.fmt_float(normalization.get("Q_ref_steady"), 5), "m3/s"
+                "target steady Q", _nt_io.fmt_float(normalization.get("Q_ref_steady"), 5), "m3/s"
             ),
             ReportMetric(
-                "Q moyen cible", _nt_io.fmt_float(normalization.get("Qbar_ref"), 5), "m3/s"
+                "target mean Q", _nt_io.fmt_float(normalization.get("Qbar_ref"), 5), "m3/s"
             ),
-            ReportMetric("L reseau cible", _nt_io.fmt_float(normalization.get("L_ref"), 1), "m"),
+            ReportMetric("target network L", _nt_io.fmt_float(normalization.get("L_ref"), 1), "m"),
             ReportMetric("d_tol", _nt_io.fmt_float(normalization.get("d_tol"), 1), "m"),
         ),
         tables=(
             key_value_table(
                 "score_window",
-                "Fenetre temporelle",
+                "Time window",
                 (
-                    ("Fenetre temporelle", period_text),
-                    ("Pas de temps", "mensuel"),
+                    ("Time window", period_text),
+                    ("Time step", "monthly"),
                 ),
             ),
         ),
@@ -193,15 +195,15 @@ def _configuration_block(normalization: dict[str, Any], truth_dir: Path | None) 
 def _recharge_block(figures: dict[str, Path]) -> ReportBlock:
     return ReportBlock(
         block_id="forcing_flux_context",
-        title="Recharge imposee",
+        title="Imposed recharge",
         level="standard",
-        lead="Forcage de recharge utilise pour construire et diagnostiquer les runs.",
+        lead="Recharge forcing used to build and diagnose the runs.",
         figures=(
             ReportFigure(
                 "recharge_chronicle",
-                "Chronique de recharge",
+                "Recharge series",
                 figures.get("recharge_chronicle"),
-                "Recharge mensuelle issue de la configuration transitoire source.",
+                "Monthly recharge taken from the source transient configuration.",
                 required=False,
             ),
         ),
@@ -211,32 +213,32 @@ def _recharge_block(figures: dict[str, Path]) -> ReportBlock:
 def _basin_steady_context_block(figures: dict[str, Path]) -> ReportBlock:
     return ReportBlock(
         block_id="basin_steady_context",
-        title="Contexte bassin et permanent cible",
+        title="Catchment and target steady state",
         level="standard",
         lead=(
-            "Le signal de calibration reseau vient de la repartition spatiale des "
-            "cellules drainantes, pas seulement du bilan steady total."
+            "The network calibration signal comes from where the draining cells are, "
+            "not only from the total steady budget."
         ),
         figures=(
             ReportFigure(
                 "watershed_id_card",
-                "Bassin, maillage et exutoire",
+                "Catchment, mesh and outlet",
                 figures.get("watershed_id_card"),
-                "Carte d'identite du bassin et de son support.",
+                "Identity card of the catchment and of its support.",
                 required=False,
             ),
             ReportFigure(
                 "dem_context_map",
-                "Contexte topographique / DEM",
+                "Topographic context / DEM",
                 figures.get("dem_context_map"),
-                "Fond topographique ou repli z_top_mean porte par le maillage.",
+                "Topographic background, or the z_top_mean of the mesh as a fallback.",
                 required=False,
             ),
             ReportFigure(
                 "steady_balance_didactic",
-                "Lecture didactique du permanent",
+                "Reading the steady state",
                 figures.get("steady_balance_didactic"),
-                "Bilan total du permanent cible et effet de mK.",
+                "Total budget of the target steady state, and the effect of mK.",
                 required=False,
             ),
         ),
@@ -246,25 +248,25 @@ def _basin_steady_context_block(figures: dict[str, Path]) -> ReportBlock:
 def _objective_landscape_block(figures: dict[str, Path]) -> ReportBlock:
     return ReportBlock(
         block_id="objective_landscape",
-        title="Fonction objectif dans l'espace des parametres",
+        title="Objective function over the parameter space",
         level="standard",
         lead=(
-            "Lecture de la fonction objectif dans le plan (mK, Sy), avec cartes "
-            "2D et coupes autour de la cible."
+            "The objective function over the (mK, Sy) plane, with 2D maps and cuts "
+            "around the target."
         ),
         figures=(
             ReportFigure(
                 "objective_parameter_maps",
-                "Objectifs flux, reseau et combine",
+                "Flux, network and combined objectives",
                 figures.get("objective_parameter_maps"),
-                "Echelle logarithmique; blancs pour simulations absentes ou non terminees.",
+                "Logarithmic scale; blank where a simulation is missing or did not complete.",
                 required=False,
             ),
             ReportFigure(
                 "objective_profile_cuts",
-                "Coupes autour de la cible",
+                "Cuts around the target",
                 figures.get("objective_profile_cuts"),
-                "Coupes a mK cible et Sy cible.",
+                "Cuts at the target mK and the target Sy.",
                 required=False,
             ),
         ),
@@ -274,15 +276,17 @@ def _objective_landscape_block(figures: dict[str, Path]) -> ReportBlock:
 def _hydrographic_network_block(figures: dict[str, Path]) -> ReportBlock:
     return ReportBlock(
         block_id="hydrographic_network",
-        title="Cartes de drainage vis-a-vis de la cible",
+        title="Drainage maps against the target",
         level="standard",
-        lead=("Comparaison spatiale entre le reseau cible et le meilleur candidat non cible."),
+        lead=(
+            "Spatial comparison of the target network and the best candidate other than the target."
+        ),
         figures=(
             ReportFigure(
                 "outflow_drain_maps",
-                "Cible et meilleur candidat sur fond topographique",
+                "Target and best candidate on the topography",
                 figures.get("outflow_drain_maps"),
-                "Drainage actif en couleur, cellules inactives en gris transparent.",
+                "Active drainage in colour, inactive cells in transparent grey.",
                 required=False,
             ),
         ),
@@ -292,15 +296,15 @@ def _hydrographic_network_block(figures: dict[str, Path]) -> ReportBlock:
 def _flow_timeseries_block(figures: dict[str, Path]) -> ReportBlock:
     return ReportBlock(
         block_id="flow_timeseries",
-        title="Chroniques de flux",
+        title="Flux series",
         level="standard",
-        lead="Comparaison des chroniques Q_total_release candidates et de la cible.",
+        lead="Q_total_release series of the candidates and of the target.",
         figures=(
             ReportFigure(
                 "q_total_release_timeseries",
-                "Q_total_release mensuel",
+                "Monthly Q_total_release",
                 figures.get("q_total_release_timeseries"),
-                "Somme de tous les flux outflow_drain sortant du domaine.",
+                "Sum of every outflow_drain flux leaving the domain.",
                 required=False,
             ),
         ),
@@ -316,9 +320,9 @@ def _artifact_links_block(
 ) -> ReportBlock:
     links: list[ReportLink] = []
     if truth_dir is not None:
-        links.append(ReportLink("Package de reference", truth_dir, "truth"))
+        links.append(ReportLink("Reference package", truth_dir, "truth"))
     if score_table is not None:
-        links.append(ReportLink("Table de scores", score_table, "score"))
+        links.append(ReportLink("Score table", score_table, "score"))
     links.extend(ReportLink(path.name, path, "figure") for _, path in sorted(figures.items()))
     rows = (
         {"kind": "available", "items": ", ".join(artifact_report.available)},
@@ -327,12 +331,12 @@ def _artifact_links_block(
     )
     return ReportBlock(
         block_id="artifact_links",
-        title="Artefacts",
+        title="Artifacts",
         level="audit",
         tables=(
             key_value_table(
                 "artifact_contract",
-                "Contrat artefacts",
+                "Artifact contract",
                 ((row["kind"], row["items"]) for row in rows),
             ),
         ),

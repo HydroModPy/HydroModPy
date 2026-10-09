@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 import tomlkit
 
+from hydromodpy.core.exceptions import FrozenDataError
 from hydromodpy.data.provenance.lockfile import (
     LOCKFILE_NAME,
     LOCKFILE_VERSION,
@@ -869,5 +870,5 @@ def test_a_frozen_refusal_is_a_typed_data_failure(
     with pytest.raises(DataCacheError) as info:
         cache_store.locked_artifacts()
 
-    assert isinstance(info.value, cache_store.FrozenDataError)
+    assert isinstance(info.value, FrozenDataError)
     assert exit_code_for(info.value) == EXIT_VALIDATION

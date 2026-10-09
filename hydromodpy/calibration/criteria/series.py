@@ -37,11 +37,7 @@ from hydromodpy.core.metrics import (
     nse_seasonal,
     rmse,
 )
-
-# Kernels whose score rises with agreement, so the cost is one minus the score.
-HIGHER_IS_BETTER: frozenset[str] = frozenset(
-    {"nse", "kge", "nse_delta", "nse_seasonal", "nse_log", "reservoir"}
-)
+from hydromodpy.results.catalog.constants import METRIC_SENSE
 
 # Kernels that take a logarithm and therefore refuse a negative value.
 LOG_METRICS: frozenset[str] = frozenset({"nse_log"})
@@ -114,6 +110,12 @@ METRICS: dict[str, Callable[..., float]] = {
     "distance_mean": distance_mean,
     "reservoir": _reservoir_score,
 }
+
+# Kernels whose score rises with agreement, so the cost is one minus the score.
+# Read from the one table of metric directions; every other kernel is a cost.
+HIGHER_IS_BETTER: frozenset[str] = frozenset(
+    name for name in METRICS if METRIC_SENSE.get(name) == "max"
+)
 
 
 def clip_negatives_for_log_metric(

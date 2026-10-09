@@ -51,12 +51,15 @@ contract between the models and the UI. Honour them and you need no mapping
 layer. They are added to a field as described in :doc:`add-a-config-field`.
 
 A second schema file is committed under ``docs/source/_static/`` and published
-with the site: ``hydromodpy-schema.json``, a raw JSON Schema 2020-12 export of
-``HydroModPyConfig`` for Ajv, an IDE schema store or any external validator.
-``python -m tools.docs.schema_export`` writes it, and
+with the site: ``hydromodpy-schema.json``, the editor schema. It accepts what
+the loader reads: ``base_config``, the ``__append``, ``__delete`` and
+``__merge`` directives, quantities written as text with a unit, bare dates and
+files that omit required keys. ``hmp config schema --editor`` and
+``python -m tools.docs.schema_export`` write it, and
 ``tests/unit/docs/test_docs_config_consistency.py`` keeps it equal to what the
-code exports. ``hmp dev schema export`` stays the canonical export for a
-frontend.
+code exports. A frontend that needs the required keys and the strict unions
+reads the model schema instead: ``hmp config schema``, or the three files of
+``hmp dev schema export``.
 
 The partial validator
 ---------------------

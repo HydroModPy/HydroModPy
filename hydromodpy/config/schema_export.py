@@ -36,8 +36,8 @@ say:
 
 - ``base_config`` at the top level, and a file that omits any key (an overlay
   states only what it changes, so no ``required`` survives);
-- the ``<key>__append`` and ``<key>__delete`` forms of a key (see
-  :mod:`hydromodpy.core.toml_io.merge`);
+- the ``<key>__append``, ``<key>__merge`` and ``<key>__delete`` forms of a
+  key (see :mod:`hydromodpy.core.toml_io.merge`);
 - a quantity written as text with a unit (``'150 m'``, ``'0.36 m/h'``) wherever
   the field is a quantity type;
 - a date written without a time (``2019-01-01``) where the model reads a datetime;
@@ -323,6 +323,7 @@ _DATE_TEXT_PATTERN = (
 """A date, or a date and a time: ``2019-01-01``, ``2019-01-01T06:00:00Z``."""
 
 _APPEND_SUFFIX = "__append"
+_MERGE_SUFFIX = "__merge"
 _DELETE_SUFFIX = "__delete"
 _ANY_KEY = ".+"
 
@@ -330,8 +331,9 @@ _BASE_CONFIG_SCHEMA: dict[str, Any] = {
     "type": "string",
     "description": (
         "Path of a TOML file this file extends, relative to this file. The keys written "
-        "here replace the ones the base file sets. Lists replace the base list unless the "
-        "key carries the suffix __append, and a key is removed with <key>__delete = true."
+        "here replace the ones the base file sets. Lists replace the base list: the suffix "
+        "__append extends it, __merge merges its tables in order, and a key is removed "
+        "with <key>__delete = true."
     ),
 }
 
@@ -421,19 +423,21 @@ def _model_directive_patterns(properties: dict[str, Any]) -> dict[str, Any]:
 
     ``__delete`` may name any key: an overlay that switches a union to another
     variant removes a key the new variant does not even declare. ``__append``
-    must name a key that holds a list, and carries that list's item schema.
+    and ``__merge`` must name a key that holds a list, and carry that list's item
+    schema; the loader refuses ``__merge`` on a list whose items are not tables.
     """
     patterns: dict[str, Any] = {f"^{_ANY_KEY}{_DELETE_SUFFIX}$": dict(_DELETE_DIRECTIVE)}
     for name, member in sorted(properties.items()):
         branch = _array_branch(member) if isinstance(member, dict) else None
         if branch is not None:
             items = {"items": branch["items"]} if "items" in branch else {}
-            patterns[f"^{re.escape(name)}{_APPEND_SUFFIX}$"] = {"type": "array", **items}
+            for suffix in (_APPEND_SUFFIX, _MERGE_SUFFIX):
+                patterns[f"^{re.escape(name)}{suffix}$"] = {"type": "array", **items}
     return patterns
 
 
 def _admit_directives(node: dict[str, Any]) -> None:
-    """Make an object schema accept ``<key>__append`` and ``<key>__delete`` (in place).
+    """Make an object schema accept the merge directives of its keys (in place).
 
     A schema that already accepts any key needs nothing. A model that refuses
     unknown keys gets its directives named by key, and a map of free keys cannot
@@ -457,6 +461,7 @@ def _admit_directives(node: dict[str, Any]) -> None:
         node["patternProperties"] = {
             f"^{_ANY_KEY}{_DELETE_SUFFIX}$": dict(_DELETE_DIRECTIVE),
             f"^{_ANY_KEY}{_APPEND_SUFFIX}$": {"type": "array"},
+            f"^{_ANY_KEY}{_MERGE_SUFFIX}$": {"type": "array"},
         }
 
 

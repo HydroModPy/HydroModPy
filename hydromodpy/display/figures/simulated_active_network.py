@@ -29,18 +29,18 @@ Neither reads a solver: both take a per-cell field and the reduction
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
 from hydromodpy.core.stream_extent import VisibleFlow, parse_visible_flow
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Extent, Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._memo import RunMemo
 from hydromodpy.display.figures._stream_comparison import (
     CELL_WEIGHT_PT,
     GROUND_COLOR,
-    MapExtentName,
     cell_count,
     draw_cells,
     flowing_words,
@@ -107,6 +107,32 @@ _DEFAULT_THRESHOLD = 0.0
 _FLOWING_MEMO = RunMemo()
 
 
+ActiveMode = Annotated[
+    CellFieldActiveMode | None,
+    Opt(
+        'How the timesteps reduce to one map: "last" (one instant), "any", '
+        '"persistent" (active at least persistence_threshold of the time), '
+        '"always_active" (or "perennial"), or "persistence" (the share of the time, '
+        'drawn as a ramp). Left out, "last" on a steady run, "persistent" otherwise.'
+    ),
+]
+PersistenceThreshold = Annotated[
+    float,
+    Opt(
+        'Share of the timesteps a cell must be active for, in the "persistent" mode.',
+        unit="-",
+    ),
+]
+ActiveTimestep = Annotated[
+    int | None,
+    Opt(
+        'The instant drawn in the "last" mode: a date ("2002-10-15"), "first" or '
+        '"last". The figure draws the stress period that holds the date. Left out, '
+        "the last period."
+    ),
+]
+
+
 @register
 class SimulatedActiveNetworkMap(BaseFigure):
     """Map the active drainage network inferred from a simulated flux field.
@@ -134,14 +160,39 @@ class SimulatedActiveNetworkMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        variable: str | None = None,
-        threshold: float | None = None,
-        mode: CellFieldActiveMode | None = None,
-        persistence_threshold: float = 0.5,
-        timestep: int | None = None,
-        cmap: str | None = None,
-        output: str | None = None,
-        extent: MapExtentName = "catchment",
+        variable: Annotated[
+            str | None,
+            Opt(
+                "Stored field cut by threshold. Left out, accumulation_flux; in the "
+                '"persistence" mode with threshold left out too, the network '
+                "criterion says which cells flow."
+            ),
+        ] = None,
+        threshold: Annotated[
+            float | None,
+            Opt(
+                "A cell is active where the field exceeds it, in the unit of the "
+                "field. Left out, 0."
+            ),
+        ] = None,
+        mode: ActiveMode = None,
+        persistence_threshold: PersistenceThreshold = 0.5,
+        timestep: ActiveTimestep = None,
+        cmap: Annotated[
+            str | None,
+            Opt(
+                'Matplotlib colormap of the "persistence" ramp, by name. Left out, the '
+                "sequential colormap of the theme."
+            ),
+        ] = None,
+        output: Annotated[
+            str | None,
+            Opt(
+                "Calibration output whose criterion settings are read, when the run "
+                "sealed several network outputs. Left out, the first one."
+            ),
+        ] = None,
+        extent: Extent = "catchment",
         **_,
     ) -> Axes:
         is_persistence = views.resolve_cell_field_active_mode(sim, mode) == "persistence"
@@ -185,7 +236,7 @@ class SimulatedActiveNetworkMap(BaseFigure):
             title_mode = _FLOWING_TITLE
         else:
             title_mode = _PERSISTENCE_TITLE if is_persistence else mode_label
-        ax.set_title(f"{self.spec.title} ({title_mode}) - {sim.name or sim.sim_id}")
+        ax.set_title(f"{self.spec.title} ({title_mode}){run_suffix(sim)}")
 
         window = map_extent(sim, polygons, extent=extent)
         if flowing is not None:
@@ -371,16 +422,32 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        variable: str = "accumulation_flux",
-        threshold: float = 0.0,
-        mode: CellFieldActiveMode | None = None,
-        persistence_threshold: float = 0.5,
-        timestep: int | None = None,
-        buffer_m: float = 0.0,
-        cmap: str = "Blues",
-        active_color: str = "#9ecae1",
-        active_alpha: float = 0.55,
-        reference_color: str = "#9b1c1c",
+        variable: Annotated[str, Opt("Stored field cut by threshold.")] = "accumulation_flux",
+        threshold: Annotated[
+            float,
+            Opt("A cell is active where the field exceeds it, in the unit of the field."),
+        ] = 0.0,
+        mode: ActiveMode = None,
+        persistence_threshold: PersistenceThreshold = 0.5,
+        timestep: ActiveTimestep = None,
+        buffer_m: Annotated[
+            float,
+            Opt(
+                "Distance from the reference lines within which a cell counts as a "
+                "network cell, for the overlap scores printed on the map.",
+                unit="m",
+            ),
+        ] = 0.0,
+        cmap: Annotated[
+            str, Opt('Matplotlib colormap of the "persistence" ramp, by name.')
+        ] = "Blues",
+        active_color: Annotated[
+            str, Opt("Colour of the active cells outside the persistence mode.")
+        ] = "#9ecae1",
+        active_alpha: Annotated[
+            float, Opt("Opacity of the active cells, from 0 to 1.", unit="-")
+        ] = 0.55,
+        reference_color: Annotated[str, Opt("Colour of the reference network lines.")] = "#9b1c1c",
         **_,
     ) -> Axes:
         import matplotlib.pyplot as plt
@@ -443,7 +510,7 @@ class SimulatedActiveNetworkReferenceOverlay(BaseFigure):
             mode=mode,
             persistence_threshold=persistence_threshold,
         )
-        ax.set_title(f"Simulated active vs reference ({mode_label}) - {sim.name or sim.sim_id}")
+        ax.set_title(f"Simulated active vs reference ({mode_label}){run_suffix(sim)}")
 
         try:
             metrics = views.cell_field_network_overlap_metrics(

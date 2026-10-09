@@ -44,7 +44,7 @@
     },
     "env": [
       "HMP_NO_PROGRESS",
-      "HMP_LOG_LEVEL"
+      "HMP_VERBOSITY"
     ]
   },
   "inputs": {

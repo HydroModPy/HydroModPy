@@ -42,7 +42,7 @@ from hydromodpy.analysis.comparison.config import (
 )
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import IdentifierStr, OptionalText
+from hydromodpy.core.config_kit.types import IdentifierStr, OptionalPath, OptionalText
 from hydromodpy.core.config_kit.validators import validate_optional_identifier
 
 
@@ -85,8 +85,8 @@ class ComparisonSimulationConfig(HydroModelBase):
     label: Annotated[OptionalText, Profile.USER] = None
     enabled: Annotated[bool, Profile.USER] = True
     solver: Annotated[OptionalText, Profile.EXPERT] = None
-    simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
-    run_folder: Annotated[OptionalText, Profile.EXPERT] = None
+    simulation_config: Annotated[OptionalPath, Profile.EXPERT] = None
+    run_folder: Annotated[OptionalPath, Profile.EXPERT] = None
     mesh_label: Annotated[IdentifierStr | None, Profile.USER] = None
     mesh_mode: Annotated[
         Literal[
@@ -142,7 +142,7 @@ class ComparisonSection(HydroModelBase):
         default=None,
         description="Stable identifier for this comparison run.",
     )
-    base_simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
+    base_simulation_config: Annotated[OptionalPath, Profile.EXPERT] = None
     base_simulation_overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
         default_factory=dict,
         description=(
@@ -157,8 +157,8 @@ class ComparisonSection(HydroModelBase):
             "or method differences remain in each comparison.simulation.overlay."
         ),
     )
-    anchors_file: Annotated[OptionalText, Profile.EXPERT] = None
-    output_root: Annotated[OptionalText, Profile.EXPERT] = None
+    anchors_file: Annotated[OptionalPath, Profile.EXPERT] = None
+    output_root: Annotated[OptionalPath, Profile.EXPERT] = None
     reference_simulation: Annotated[IdentifierStr | None, Profile.EXPERT] = None
     continue_on_error: Annotated[bool, Profile.DEV] = False
     execution: Annotated[ComparisonExecutionConfig, Profile.DEV] = Field(

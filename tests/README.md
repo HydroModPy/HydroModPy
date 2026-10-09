@@ -224,8 +224,11 @@ The active GitHub Actions gates are split across `.github/workflows/`:
 - **main-ci.yml** - PR + push gate: quality (ruff), secrets, architecture,
   a `--collect-only` gate over the whole tree, fast / unit (`-m "not slow"`) /
   contract / integration / regression-fast tiers, package-smoke, typing.
-- **ci-nightly.yml** - nightly extensive regression, validation (not petsc),
-  integration with coverage.
+- **ci-nightly.yml** - nightly extensive regression, validation (not petsc; the
+  petsc variants run in ci-nightly-petsc.yml), integration with coverage.
+- **ci-nightly-petsc.yml** - nightly PETSc validation variants
+  (`tests/validation -m petsc`, conda env with petsc4py), uploads
+  `validation-results-petsc-<branch>`.
 - **ci-weekly.yml** - cross-OS unit + fast-regression + analytical, serial
   e2e, full regression.
 - **perf.yml** - pytest-benchmark drift gate over `tests/performance/`.

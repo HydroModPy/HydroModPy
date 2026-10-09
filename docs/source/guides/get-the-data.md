@@ -9,6 +9,20 @@ The worked case is example 04, the Nançon. Step 2 reads the river network and t
 from local files. Step 3 asks BD Topage and Hub'Eau for the same two. This guide takes you
 from the first to the second, then adds SIM2 rain and ETP.
 
+```{hmp-task}
+Task
+: List the inputs of a catchment, say where each one comes from, and load them without a model.
+
+Time
+: Seconds once the cache is filled. The first run adds the download: BD Topage over the catchment of the Nançon took 6 s and one Hub'Eau station over three years 5 s when measured.
+
+Needs
+: A project file that runs (example 04), and network access for the first run of a service. No key.
+
+Gives
+: The files of the cache under `data/<variable>/`, a sidecar beside each, and `loaded_data.json` in the checkpoint of the run.
+```
+
 ## What you need first
 
 - A project file that runs. The blocks below are merged onto a file of example 04 and
@@ -77,9 +91,10 @@ A variable has one or more sources, written as repeated `[[data.<variable>.sourc
 tables. {toml}`source|data.hydrography.sources.source` names the provider. `"custom"` reads
 your own files and is the subject of {doc}`use-your-own-files`. Any other value downloads.
 
-Step 3 replaces the two local sources of step 2. `sources__delete = true` drops the
-inherited list first, so no key of the local source leaks into the new one
-({doc}`inheritance` gives the rule). The network comes from BD Topage:
+Step 3 replaces the two local sources of step 2. A list of tables in a child file replaces the
+inherited one, so no key of the local source leaks into the new one ({doc}`inheritance`
+gives the rule). Step 3 also writes `sources__delete = true`, which says the same thing aloud.
+The network comes from BD Topage:
 
 ```toml
 base_config = "step2_local_data.toml"
@@ -276,8 +291,10 @@ Results stay in the project (`runs/`, `.hmp/`). Only the input data is shared.
 1. `hmp config check step3_api_data.toml` reads the file against the schema and prints
    `OK: <path>`. It does not contact any service and does not test the links between
    tables, so it passes a variable that is listed without a table.
-2. `hmp run step3_api_data.toml --until load_data` runs the real load. Read the lines
-   after `load_data`: a line that starts with `[ERROR]` is a variable that did not load.
+2. `hmp run step3_api_data.toml --until load_data` runs the real load. It stops with a
+   `step 'load_data' failed:` line, and a non-zero exit code, when a listed variable does
+   not load. A warning that names a station or a variable the run goes on without is
+   worth reading too.
 3. `hmp data ls --workspace <folder>` lists what the cache holds. Pass the folder of the
    rule above, the one that contains `data/cache.duckdb`. Without `--workspace`, the
    command reads `~/hydromodpy`. The columns are the variable, the source, the station and
@@ -303,8 +320,44 @@ Results stay in the project (`runs/`, `.hmp/`). Only the input data is shared.
    `hydrographic_network_permanence`, and exports the two networks as GeoPackages under
    `share/<simulation name>/`.
 
+The control figure of step 3 is `hydrographic_network_permanence`. If BD Topage was read,
+the catchment of the Nançon holds 679 reaches, 235 of them permanent (46.01 km), and the
+rest intermittent (84.08 km):
+
+```{figure} /_static/figures/guides/hydrographic_network_permanence.webp
+:alt: Map of the Nançon catchment with the BD Topage network. Permanent reaches are drawn in dark blue, the other reaches of the maximal map in orange.
+:width: 90%
+
+`hydrographic_network_permanence`, drawn by `hmp run step3_api_data.toml`. The legend gives the
+length and the number of reaches of each class.
+```
+
+A map with no reach, or with the reaches of another basin, means the request box is wrong:
+check the outlet and the DEM before you look at the service.
+
 For a look at every variable of a catchment without a model, use the overview workflow:
 {doc}`describe-a-catchment`.
+
+## Licence and outside France
+
+Each file of the cache has a sidecar `.json`. Its `license` field holds the licence the
+provider publishes, written as an SPDX identifier, and its `source` field names the provider.
+BD Topage, Hub'Eau, SIM2 and the others publish under the Licence Ouverte 2.0 (`etalab-2.0`),
+which asks for the source to be cited. OpenStreetMap is under ODbL, which asks for the same
+licence on a derived database. {doc}`../reference/data-sources` gives, for each source, the
+publisher, the licence, the page that states it, the cache file names and the facts the code
+knows: coverage, resolution, period, key, limits. A `custom` file has no licence in the code:
+the licence is yours to declare. A sidecar written before the licence of a source was recorded
+keeps `LicenseRef-undetermined` until the file is downloaded again.
+
+Most public sources are French. Outside France:
+
+- The DEM is yours: `custom`. The IGN source covers France only.
+- The river network can come from EU-Hydro (`euhydro`, the 39 countries of the European
+  Environment Agency, scale 1:50 000, reference period 2006 to 2012) or from OpenStreetMap
+  (`osm`, anywhere, as mapped today). Otherwise it is yours.
+- Gauges, rain, ETP, geology and sea level have no source outside France in the code. Give
+  them as files: {doc}`use-your-own-files`.
 
 ## Fetch one variable without a project
 
@@ -339,56 +392,24 @@ cache of that workspace. The full list of options is in {doc}`the reference <../
 
 ## What can go wrong
 
-**A table is missing for a listed variable.** `hmp config check` passes. The load does
-not stop, so the line is easy to miss:
+A variable you list in {toml}`data.types` and that cannot be loaded stops the run, with
+the exit code of its cause: 10 for a file that is not there, 14 for a refused file, 16 for a
+data or a service error ({doc}`../reference/cli/exit-codes`). The message always starts with
+`step 'load_data' failed: <ErrorClass>:`. Only a variable the planner added on its own,
+with `data.inference_mode = "warn"`, is dropped, and then with a warning.
 
-```text
-[ERROR] Load of 'hydrometry' failed: Data manager 'hydrometry' is active but missing [data.hydrometry] section.
-```
+| Symptom | Cause | Fix |
+|---|---|---|
+| `hmp config check` exits 14: `data.types lists 'hydrometry' but the file has no [data.hydrometry] section. Add the section with its sources, or remove 'hydrometry' from data.types.` | A variable is listed and has no table. Geology is the one exception: it has a default table. | Write the table with its sources, or take the name out of `data.types`. |
+| `[WARNING] Data manager 'hydrography' is active but missing [data.hydrography] section. The run goes on without 'hydrography'.` | The planner added the variable because of another key (for example `"stream"` in {toml}`flow.active_bc`), and the file has no table for it. `inference_mode` is `warn`. | Write the table, or set {toml}`data.inference_mode` to `strict` so that the plan stops before any download. |
+| `step 'load_data' failed: FileNotFoundError: Failed to load data manager 'hydrometry': Custom data directory not found: <path>`, exit 10 | The `path` of a custom source does not exist. A bare name is looked for next to the TOML file, then in `data/<variable>/` and `data/` of the workspace. | Fix the path. {doc}`use-your-own-files` lists the messages of each kind of file. |
+| `step 'load_data' failed: DataError: Failed to load data manager 'hydrography': <path>/nope.gpkg: No such file or directory`, exit 16 | The same fault on a river network. | Fix the path. |
+| `step 'load_data' failed: MissingForcingError: Failed to load data manager 'hydrometry': project_period required to fetch hydrometry stations: declare date_start and date_end in [data.hydrometry], or a window in [simulation.time].`, exit 16 | A service that serves stations needs a window, and the file has neither a window on the table nor a {toml}`simulation.time`. `hmp config check` cannot know. | Write the window once under `[simulation.time]`, or write both dates on the table (section 3). |
+| `hmp config check` exits 14: `data.hydrometry: date_end is missing: declare date_start and date_end together, or declare neither and inherit the window from [simulation.time]` | Only one of the two dates is written. | Write both or neither. The mirror message names `date_start`. |
+| `[WARNING] Hub'Eau: 1 of 1 stations returned no QmnJ observation between 2000-01-01 and 2002-12-31 and were dropped: XXXX. Their declared service period overlaps the window, which is all require_observations can check before downloading.` then `Hub'Eau: 0 station records loaded`, exit 0 | The station code is wrong, or the gauge has no record in the window. The run goes on without it, and the observed series of its figures is empty. | Check the code and the window. The cache remembers the answer: `hmp data ls` shows the station with the file `empty`, and a later request over another period skips it too. Set `force_refresh = true` on the source to ask again. |
+| `data.inference_mode='strict' requires explicit data sections for inferred types: hydrography.`, exit 14 | `strict` mode and a variable the planner added with no table. | Write the table. |
+| `HTTP GET <url> -> 502, retry 2/4 in 1.18s`, then `step 'load_data' failed:` with the error of the service, exit 16 | The service answers late or not at all. The client retries four times. | Run again later. To work with no network after one good run, see {doc}`work-offline`. |
 
-**A custom file is not found.** For `dem`, `geology` and `hydrography`, a failure stops the
-run with exit code 1. A bare file name is looked for next to the TOML file, then
-in `data/<variable>/` and `data/` of the workspace:
-
-```text
-step 'load_data' failed: ValueError: Failed to load data manager 'hydrography': <path>/nope.gpkg: No such file or directory
-```
-
-**A station variable has no period.** The file has neither a window on the table nor a
-{toml}`simulation.time`. `hmp config check` passes, and the run goes on after this line:
-
-```text
-[ERROR] Load of 'hydrometry' failed: Failed to load data manager 'hydrometry': project_period required to fetch hydrometry stations.
-```
-
-Every variable other than `dem`, `geology` and `hydrography` fails this way: the error is
-logged, the exit code stays 0, and the run goes on without that variable. Read the console
-after `load_data`.
-
-**Half a window.** Only one of `date_start` and `date_end` is written. `hmp config check`
-stops:
-
-```text
-data.hydrometry: date_end is missing: declare date_start and date_end together, or declare neither and inherit the window from [simulation.time]
-```
-
-**A station returns nothing.** The code is wrong, or the gauge has no record in the
-window. The run goes on without it:
-
-```text
-[WARNING] Hub'Eau: 1 of 1 stations returned no QmnJ observation between 2000-01-01 and 2002-12-31 and were dropped: XXXX. Their declared service period overlaps the window, which is all require_observations can check before downloading.
-Hub'Eau: 0 station records loaded
-```
-
-The cache remembers that answer. `hmp data ls` shows the station with the file `empty`, and
-the next run does not ask again. The marker belongs to the station, not to the window: a
-later request over another period skips it too. Set `force_refresh = true` on the source
-to ask again.
-
-**The service answers late or not at all.** The client retries and warns, for example
-`HTTP GET <url> -> 502, retry 2/4 in 1.18s`. If the retries run out, the variable does not
-load, and the cases above say what each kind of variable does then. To run with no network
-after one good run, see {doc}`work-offline`.
 
 ## Next
 

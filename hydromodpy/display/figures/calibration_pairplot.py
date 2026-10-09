@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_options import ObjectiveName, ParameterNames, TrialsSessionId
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._trial_diagnostics import trial_table
 
@@ -48,9 +49,9 @@ class CalibrationPairplotFigure(BaseFigure):
         self,
         sim: Run,
         *,
-        parameters: list[str] | None = None,
-        objective: str | None = None,
-        session_id: str | None = None,
+        parameters: ParameterNames = None,
+        objective: ObjectiveName = None,
+        session_id: TrialsSessionId = None,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,

@@ -45,7 +45,7 @@ data cache before the run?
 | Whether the log of operations was altered | A check of its chain of hashes. | `hmp audit verify` |
 
 Which one to choose, with the options, is in the guides
-{doc}`../guides/find-compare-and-clean-runs` and {doc}`../guides/work-offline`.
+{doc}`../guides/find-and-compare-runs` and {doc}`../guides/work-offline`.
 
 ## What this does not prove
 

@@ -24,6 +24,7 @@ from hydromodpy.data.provenance.sidecars import (
     sidecar_path_for,
     unlink_with_sidecar,
 )
+from hydromodpy.data.registry.cache_store import reject_frozen_download
 from hydromodpy.data.registry.constants import (
     SENTINEL_CUSTOM,
     SENTINEL_EMPTY,
@@ -225,6 +226,15 @@ class BaseVariableManager(BaseManagerCommon):
             station_ids = station_ids[:max_stations]
 
         if not station_ids or source_cfg.force_refresh:
+            reject_frozen_download(
+                variable=self.VARIABLE_NAME,
+                source=source_name,
+                station_id=None,
+                detail=(
+                    "is asked for by extent or with force_refresh, which the cache cannot "
+                    "answer. Name the stations in station_ids and drop force_refresh"
+                ),
+            )
             records = fetch_fn(station_ids or None, *self.project_period)
             self._persist_api_records(records, source_name)
             return self._apply_mask(records, source_cfg)
@@ -246,6 +256,16 @@ class BaseVariableManager(BaseManagerCommon):
                 logger.debug("%s cache hit: %s", source_name, sid)
                 continue
             parts: list[PointRecord] = []
+            reject_frozen_download(
+                variable=self.VARIABLE_NAME,
+                source=source_name,
+                station_id=sid,
+                detail=(
+                    f"is cached from {rec.date_start:%Y-%m-%d} to {rec.date_end:%Y-%m-%d} and "
+                    f"the run asks for {self.project_period[0]:%Y-%m-%d} to "
+                    f"{self.project_period[1]:%Y-%m-%d}"
+                ),
+            )
             for gap_start, gap_end in gaps:
                 parts.extend(fetch_fn([sid], gap_start, gap_end))
             if parts:

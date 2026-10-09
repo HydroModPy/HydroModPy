@@ -677,8 +677,8 @@ def test_testbed_required_metric_failure_is_persisted(
 
 def test_a_testbed_whose_case_fails_ends_with_a_typed_error(tmp_path: Path) -> None:
     """The evidence of every case is written, then the run is not a success."""
-    from hydromodpy.analysis.testbed.contracts import FailedCasesError
     from hydromodpy.cli.helpers import EXIT_CASES_FAILED, exit_code_for
+    from hydromodpy.core.exceptions import FailedCasesError
 
     flow_base = tmp_path / "flow_base.toml"
     _write_flow_base(flow_base)

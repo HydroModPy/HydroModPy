@@ -10,11 +10,12 @@ concentration - can be drawn across it.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Layer, Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.style import place_legend
 
@@ -41,11 +42,29 @@ class ConcentrationBoxplot(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        layer: int | None = None,
-        reference: float | None = None,
-        scale: float = 1.0,
-        units: str = "kg/m³",
-        max_steps: int = 60,
+        layer: Layer = None,
+        reference: Annotated[
+            float | None,
+            Opt(
+                "Concentration drawn as a dashed line, in units, for example a "
+                "drinking-water limit. Left out, none."
+            ),
+        ] = None,
+        scale: Annotated[
+            float,
+            Opt(
+                "Factor applied to the stored concentration before drawing, to pass "
+                "from kg/m3 to the unit written in units.",
+                unit="-",
+            ),
+        ] = 1.0,
+        units: Annotated[
+            str, Opt("Unit written on the axis, once scale has converted the values.")
+        ] = "kg/m³",
+        max_steps: Annotated[
+            int,
+            Opt("Boxes drawn at most: above it, one timestep in every n is kept."),
+        ] = 60,
         **_,
     ) -> Axes:
         n_steps = int(sim.n_timesteps or 0)
@@ -93,6 +112,6 @@ class ConcentrationBoxplot(BaseFigure):
         ax.set_ylabel(f"Concentration ({units})")
         ax.grid(True, ls=":", lw=0.4)
         shown = f"{len(kept)} of {n_steps}" if step > 1 else f"{n_steps}"
-        ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}\n{shown} timesteps")
+        ax.set_title(f"{self.spec.title}{run_suffix(sim)}\n{shown} timesteps")
         place_legend(ax, fontsize=8, framealpha=0.9)
         return ax

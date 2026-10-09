@@ -108,6 +108,9 @@ def split_plan() -> dict[str, str]:
 
     for root in S["meta"]["roots"]:
         visit(root, f"reference/parameters/{root}", 1)
+    for file in S["meta"].get("files", {}).values():
+        for root in file["roots"]:
+            pages[root] = file["page"]
     return pages
 
 
@@ -302,6 +305,8 @@ _AUTO = re.compile(r"(?<![\w./#-])(\[{0,2})([a-z][a-z0-9_]*(?:\.[A-Za-z0-9_<>&;]
 def autolink_paths(html_text: str, builder, fromdoc: str) -> str:
     """Link every TOML path written in a description, outside tags and links."""
     roots = set(S["meta"]["roots"])
+    for file in S["meta"].get("files", {}).values():
+        roots.update(file["roots"])
     parts = re.split(r"(<[^>]+>)", html_text)
     depth_a = 0
     for i, part in enumerate(parts):
@@ -1171,6 +1176,7 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_directive("hmp-changelog", ChangelogDirective)
     app.add_directive("hmp-resolved", ResolvedDirective)
     import hmp_api
+    import hmp_calibration
     import hmp_catalogs
     import hmp_tview
     import hmp_validation
@@ -1179,6 +1185,7 @@ def setup(app: Sphinx) -> dict[str, Any]:
     hmp_api.setup_api(app)
     hmp_validation.setup_validation(app)
     hmp_catalogs.setup_catalogs(app)
+    hmp_calibration.setup_calibration(app)
     app.add_css_file("hmp.css")
     app.add_js_file("hmp.js", defer="defer")
     return {"version": "0.2", "parallel_read_safe": True, "parallel_write_safe": True}

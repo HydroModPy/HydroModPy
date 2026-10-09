@@ -110,6 +110,17 @@ below $\ell_g$ is raised back to $\ell_g$. An {toml}`interface_size\|mesh_catchm
 below the background size then changes nothing ({ref}`mesh-limits`). In the code:
 `apply_mesh_options`.
 
+```{eval-rst}
+.. plot:: theory/figures/mesh_size.py
+   :alt: Cell size against the distance to an interface, with the lower bound unset and set to 20 m.
+   :caption: The size of :eq:`eq-mesh-size` (dotted) and the size Gmsh keeps under the
+      bounds that ``apply_mesh_options`` sets, for :math:`\ell_s = 20` m,
+      :math:`\ell_g = 100` m and :math:`\xi_s = 300` m. Look at the shaded band: without
+      ``min_size`` the lower bound is :math:`\ell_g`, and the refinement near the
+      interface is lost. The test of the Limits counted 250 triangles in the first case
+      and 602 in the second.
+```
+
 The 2D algorithm is the one named by {toml}`mesh_catchment.zone_meshing.algorithm`. The
 code knows four names and maps them to the Gmsh codes. Gmsh does not give the same triangulation twice for the same input.
 {toml}`mesh_catchment.cache` keeps the first one and reuses it while the inputs that
@@ -203,6 +214,17 @@ four cells of $1 \times 0.5$ with four connections, all at $0^\circ$. Both resul
 checked with `connection_nonorthogonality_deg`, and the four cells with
 `voronoi_planar_mesh`.
 
+```{eval-rst}
+.. plot:: theory/figures/mesh_voronoi.py
+   :alt: Two triangles with their connection vector and face normal, and a triangulation of 36 seeds with its Voronoi dual.
+   :caption: Left: the two triangles above, with :math:`\mathbf{d}_{nm}` between the
+      centres and :math:`\mathbf{n}_{nm}` normal to the shared face; the angle comes from
+      ``connection_nonorthogonality_deg``. Right: the 36 seeds of the worked example of
+      :ref:`mesh-budget`, their 50 triangles (dotted) and the 36 cells of
+      ``voronoi_dual_of_mesh`` (blue). Look at the title: the triangles reach 35°, every
+      connection of the dual is at 0°.
+```
+
 (mesh-top)=
 ## 5. The top of a cell
 
@@ -270,6 +292,17 @@ above the bottom. Only the top is zonal; the bottom keeps its centroid value, so
 lowered top thins every layer of that column. The code logs, once per build, how many cells
 took a zonal value, how many are channel cells, and how far the tops were lowered.
 
+```{eval-rst}
+.. plot:: theory/figures/mesh_zonal_top.py
+   :alt: A hexagonal cell over a DEM with an incised channel, and the elevations of its pixels with three candidate tops.
+   :caption: A cell of 32 m radius over a DEM of 5 m pixels, its centre on a bank 18 m from
+      a channel incised 2 m (blue). Right: the elevation of each pixel inside the cell,
+      and the top three rules give, from ``zonal_top`` with ``channel_stat = "min"`` and
+      ``hillslope_stat = "median"``. Look at the gap: the centroid sample and the
+      hillslope median sit on the bank, about 4 m above the channel minimum the cell
+      takes when the stream raster is read.
+```
+
 The zonal rule falls back to the centroid value, with a message in the log, in three
 cases: a surface with no georeferencing (`Zonal top sampling needs a georeferenced surface; using centroid sample.`),
 a channel source with no stream raster (`Zonal channel_source=%s but no stream raster found`;
@@ -325,6 +358,15 @@ triangles of about $114\ \mathrm{m}$ side. These are ideal figures. A real mesh 
 near the interfaces, so its count is the integral of $1/\ell(\mathbf{x})^2$ over the
 domain, and the count of a run is the number of cells ($\mathrm{ncpl}$) of its DISV
 file.
+
+```{eval-rst}
+.. plot:: theory/figures/mesh_cell_count.py
+   :alt: Number of cells against cell size for square pixels, Voronoi cells and triangles, on log axes.
+   :caption: :eq:`eq-cell-count` for :math:`A_\Omega` = 120 km². The three lines are
+      parallel: halving the size multiplies the count by four for every layout. Look at
+      the dots, 21406 cells each: 75 m pixels, Voronoi seeds 81 m apart, triangles of
+      114 m.
+```
 
 **Worked example of the vertex count.** Take 36 seeds on a $6 \times 6$ lattice, the 16
 inner ones moved at random, $n_b = 20$ of them on the outline. The Delaunay triangulation

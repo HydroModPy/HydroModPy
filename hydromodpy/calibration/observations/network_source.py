@@ -233,7 +233,7 @@ def _from_path(output: Any) -> ObservedNetwork:
         )
     return resolve_network_file(
         path,
-        message_source=f"stream_geometry_path = {path!r}",
+        message_source=f"stream_geometry_path = {str(path)!r}",
         empty_reason="the file carries no feature",
     )
 

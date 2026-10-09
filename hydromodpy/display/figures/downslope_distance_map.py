@@ -36,17 +36,23 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import (
+    DiagonalNeighbors,
+    Extent,
+    NetworkTimestep,
+    Opt,
+    TauSpecificRatio,
+)
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
     CASING_COLOR,
     CELL_WEIGHT_PT,
     GROUND_COLOR,
-    MapExtentName,
     cell_count,
     checked_cells,
     comparison_from_run,
@@ -185,12 +191,27 @@ class DownslopeDistanceMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        direction: DistanceDirection = "to_mapped",
-        tau_specific_ratio: float | None = None,
-        diagonal_neighbors: bool | None = None,
-        timestep: int | None = None,
-        class_edges: Sequence[float] | None = None,
-        extent: MapExtentName = "catchment",
+        direction: Annotated[
+            DistanceDirection,
+            Opt(
+                '"to_mapped" draws D_so, how far each simulated stream cell descends '
+                'before it reaches the mapped network; "to_simulated" draws D_os, the '
+                "reverse."
+            ),
+        ] = "to_mapped",
+        tau_specific_ratio: TauSpecificRatio = None,
+        diagonal_neighbors: DiagonalNeighbors = None,
+        timestep: NetworkTimestep = None,
+        class_edges: Annotated[
+            Sequence[float] | None,
+            Opt(
+                "Lower edge of each distance class, strictly increasing; the last one "
+                "opens an unbounded class. Left out, 0, 75, 500 and 1000 m, the "
+                "classes of the criterion's paper.",
+                unit="m",
+            ),
+        ] = None,
+        extent: Extent = "catchment",
         **_,
     ) -> Axes:
         from matplotlib.patches import Patch
@@ -262,7 +283,7 @@ class DownslopeDistanceMap(BaseFigure):
         ax.set_title(
             dated_title(
                 f"{self.spec.title}: {reading.origin} down to {reading.target}\n"
-                f"{reading.symbol} - {sim.name or sim.sim_id}",
+                f"{reading.symbol}{run_suffix(sim)}",
                 sim,
                 timestep,
             )

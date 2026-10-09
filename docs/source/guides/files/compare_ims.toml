@@ -1,0 +1,46 @@
+# Compare two settings of the MODFLOW 6 solver on one case.
+# Put this file and compare_base.toml in the example 04 folder, then:
+#
+#   hmp config check compare_ims.toml
+#   hmp run compare_ims.toml
+#
+# Each child is a full run of compare_base.toml. The results go to
+# comparison/nancon_ims/ next to this file.
+
+[workflow]
+mode = "comparison"
+
+[comparison]
+comparison_id = "nancon_ims"
+base_simulation_config = "compare_base.toml"
+reference_simulation = "complex"
+
+# The reference child: the IMS preset the base file already uses.
+[[comparison.simulation]]
+id = "complex"
+label = "IMS COMPLEX"
+solver = "modflow6"
+
+# The method that changes: one IMS option, nothing else.
+[[comparison.simulation]]
+id = "moderate"
+label = "IMS MODERATE"
+solver = "modflow6"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "MODERATE"
+
+# The water table and the seepage cells over the catchment, at the last period.
+[[comparison.observable]]
+name = "head_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "seepage_last"
+variable = "seepage_areas"
+support = "map"
+time = "last"
+unit = "-"

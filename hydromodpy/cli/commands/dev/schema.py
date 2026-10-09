@@ -18,8 +18,17 @@ def register(subparsers) -> argparse.ArgumentParser:
 
     export_p = sub.add_parser(
         "export",
-        help="Write config.json + config_meta.json",
-        epilog="Example:\n  hmp dev schema export --output schema_dir",
+        help="Write config.json, config_meta.json and field_validators.json",
+        description=(
+            "Write three files into the output directory: config.json (the JSON "
+            "Schema of HydroModPyConfig), config_meta.json (the root sections in "
+            "order, their titles and UI groups) and field_validators.json (the "
+            "validator type of each field path, for a frontend)."
+        ),
+        epilog=(
+            "Example:\n  hmp dev schema export --output schema_dir\n\n"
+            "The editor schema of one TOML file is `hmp config schema --editor`."
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     export_p.add_argument("--output", default="schema", help="Destination directory")

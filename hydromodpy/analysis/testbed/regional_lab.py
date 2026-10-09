@@ -8,7 +8,6 @@ from typing import Any
 
 from hydromodpy.analysis.testbed.child_artifacts import extract_child_artifacts
 from hydromodpy.analysis.testbed.contracts import (
-    FailedCasesError,
     RegionalLabFlowMaterializer,
     failed_cases_message,
     get_testbed_runner_provider,
@@ -29,6 +28,7 @@ from hydromodpy.analysis.testbed.regional_lab_types import (
     RegionalLabPlannedCase,
 )
 from hydromodpy.core import progress
+from hydromodpy.core.exceptions import FailedCasesError
 
 
 class RegionalLabProfileLauncher:

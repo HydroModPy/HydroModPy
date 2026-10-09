@@ -31,11 +31,12 @@ map.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._routing_surface import (
     RoutingSurface,
@@ -45,6 +46,7 @@ from hydromodpy.display.figures._routing_surface import (
 from hydromodpy.display.figures._stream_comparison import annotate_note, cell_count
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
+from hydromodpy.display.style import neutral
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -139,7 +141,9 @@ class FlowDirectionMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        arrow_bins: int = DEFAULT_ARROW_BINS,
+        arrow_bins: Annotated[
+            int, Opt("Arrows drawn across the widest side of the domain; 0 draws none.")
+        ] = DEFAULT_ARROW_BINS,
         **_,
     ) -> Axes:
         from matplotlib.lines import Line2D
@@ -184,7 +188,9 @@ class FlowDirectionMap(BaseFigure):
             edgecolor=_PIT_EDGE,
             hatch=_PIT_HATCH,
         )
-        _add_layer(ax, polygons, ~surface.active, color=_INACTIVE_FACE, label=INACTIVE_LABEL)
+        _add_layer(
+            ax, polygons, ~surface.active, color=neutral(_INACTIVE_FACE), label=INACTIVE_LABEL
+        )
 
         drawn_arrows = _draw_arrows(ax, surface.centroids, delta, routed, bins)
         if raised.any():
@@ -210,7 +216,7 @@ class FlowDirectionMap(BaseFigure):
 
         style_map_axes(ax)
         _draw_watershed_contour(ax, sim)
-        ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}")
+        ax.set_title(f"{self.spec.title}{run_suffix(sim)}")
         handles: list[Patch | Line2D] = [
             Patch(
                 facecolor=_PIT_FACE,
@@ -236,7 +242,7 @@ class FlowDirectionMap(BaseFigure):
         if not surface.active.all():
             handles.append(
                 Patch(
-                    facecolor=_INACTIVE_FACE,
+                    facecolor=neutral(_INACTIVE_FACE),
                     edgecolor="none",
                     label=f"{INACTIVE_LABEL} ({cell_count(~surface.active)})",
                 )
@@ -359,9 +365,9 @@ def _draw_compass(ax: Axes, colors: tuple[str, ...], counts: tuple[int, ...]) ->
     rose.set_xticks([])
     rose.set_yticks([])
     for spine in rose.spines.values():
-        spine.set_color(_COMPASS_EDGE)
+        spine.set_color(neutral(_COMPASS_EDGE))
         spine.set_linewidth(0.5)
-    rose.patch.set_facecolor(_COMPASS_GROUND)
+    rose.patch.set_facecolor(neutral(_COMPASS_GROUND))
     rose.patch.set_alpha(0.95)
     for index, name in enumerate(OCTANT_NAMES):
         bearing = index * span
@@ -373,7 +379,7 @@ def _draw_compass(ax: Axes, colors: tuple[str, ...], counts: tuple[int, ...]) ->
                 bearing - span / 2.0,
                 bearing + span / 2.0,
                 facecolor="none" if empty else colors[index],
-                edgecolor=_COMPASS_EDGE,
+                edgecolor=neutral(_COMPASS_EDGE),
                 linewidth=0.4,
                 linestyle="--" if empty else "solid",
             )

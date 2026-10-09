@@ -104,7 +104,7 @@ _VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
 
 
 def split_stem_version(name: str) -> tuple[str, int | None]:
-    """Split ``cheze_baseline.v3`` into ``("cheze_baseline", 3)``.
+    """Split ``baseline.v3`` into ``("baseline", 3)``.
 
     A bare name returns ``(name, None)``.
     """
@@ -402,6 +402,62 @@ class RegistrationMixin:
         outlet_x: float | None = None,
         outlet_y: float | None = None,
     ) -> RegistrationResult:
+        """Record a new run in the catalog, with status ``running``.
+
+        The first write of a run: a workflow calls it before the solver runs,
+        then writes the outputs, then :meth:`finalize`. It creates the row,
+        picks the final name and, when ``n_cells`` and ``n_layers`` are given,
+        the empty field store under ``runs/<name>/``. The keywords not listed
+        below (``flow_regime``, ``bbox``, ``crs``, ``period_start``,
+        ``period_end``, ``mesh_hash``, ``tags``, ``notes``, ``doi``, the
+        outlet...) are columns of the run row, stored as given.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the new run, a UUID.
+        project
+            Project the run belongs to.
+        solver
+            Solver code, for example ``"modflow6"``.
+        name
+            Run name. ``None`` gives a generated ``adjective_noun`` name.
+        if_exists
+            What happens when a run of the project already holds ``name``:
+            ``"version"`` (default) names the new run ``<name>.v2``,
+            ``.v3``...; ``"replace"`` trashes the old run, then versions the
+            new one; ``"fail"`` raises :class:`DuplicateSimulationNameError`.
+        config
+            The resolved configuration, stored with the run and hashed into
+            ``config_hash`` when no hash is given.
+        config_hash
+            Identity hash of the run. Two runs with the same hash computed the
+            same thing.
+        n_cells, n_layers
+            Grid size. Given together, they create the field store now.
+
+        Returns
+        -------
+        RegistrationResult
+            The id, the final name, the field store (or ``None``) and the id of
+            a run ``"replace"`` trashed.
+
+        Raises
+        ------
+        DuplicateSimulationNameError
+            With ``if_exists="fail"``, when the name is taken.
+        RunNameTooLongError
+            When the name cannot be a directory name.
+
+        Examples
+        --------
+        >>> import uuid  # doctest: +SKIP
+        >>> result = cat.register_simulation(
+        ...     str(uuid.uuid4()), project="my_project", solver="modflow6", name="baseline"
+        ... )  # doctest: +SKIP
+        >>> result.name  # doctest: +SKIP
+        'baseline'
+        """
         sid = str(sim_id)
         replaced_sid: str | None = None
         requested_name = name if name else _memorable_name(sid)

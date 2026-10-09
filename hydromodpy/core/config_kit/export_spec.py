@@ -216,6 +216,7 @@ class ExportRequest(HydroModelBase):
             "(watershed_dem...) and the table budget; 'hmp export <run> --list' prints what "
             "a run holds. A name no run can hold is refused before the solve."
         ),
+        examples=["head", ["head", "discharge"], "all"],
     )
     time: Annotated[str | int | list[str | int] | None, Profile.USER] = Field(
         default=None,

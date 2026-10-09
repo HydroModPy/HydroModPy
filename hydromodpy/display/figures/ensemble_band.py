@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
 
 from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_options import Opt, Station, Variable
 from hydromodpy.display.figure_registry import register
 
 if TYPE_CHECKING:
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
 
 @register
 class EnsembleBandFigure(BaseFigure):
-    """Median + inter-quartile band across an ensemble of simulations."""
+    """Median and a quantile band across an ensemble of simulations."""
 
     spec = FigureSpec(
         name="ensemble_band",
@@ -41,11 +42,17 @@ class EnsembleBandFigure(BaseFigure):
         sim: Any,
         ax: Axes,
         *,
-        station: str = CATCHMENT_OUTLET_STATION,
-        variable: str = "discharge",
-        observed: Any | None = None,
-        q_low: float = 0.1,
-        q_high: float = 0.9,
+        station: Station = CATCHMENT_OUTLET_STATION,
+        variable: Variable = "discharge",
+        observed: Annotated[
+            Any | None,
+            Opt(
+                "Observed series drawn over the band, a pandas Series indexed by date.",
+                python_only=True,
+            ),
+        ] = None,
+        q_low: Annotated[float, Opt("Quantile of the lower edge of the band.", unit="-")] = 0.1,
+        q_high: Annotated[float, Opt("Quantile of the upper edge of the band.", unit="-")] = 0.9,
         **_,
     ) -> Axes:
         import pandas as pd

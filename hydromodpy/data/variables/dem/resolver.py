@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
+from hydromodpy.data.common.geo_helpers import require_declared_crs
 
 _API_SOURCES = {"ign_geoplateforme_dem"}
 _BOOTSTRAP_BUFFER_M = 30_000
@@ -126,3 +127,24 @@ def _bootstrap_api_source(
         crs=getattr(source_cfg, "crs", None),
         force_refresh=bool(getattr(source_cfg, "force_refresh", False)),
     )
+
+
+def require_dem_crs(path: Path | str) -> None:
+    """Refuse a DEM raster that declares no CRS, before the terrain tools read it.
+
+    The catchment is cut out of the file named by ``dem_init_path`` before any
+    data manager runs, and the terrain engine stops on such a file with no word on
+    the cause. Only the formats rasterio opens as a georeferenced grid are looked
+    at; any other file is left to the step that reads it.
+    """
+    path = Path(path)
+    if path.suffix.strip().lower() not in (".tif", ".tiff", ".asc") or not path.is_file():
+        return
+    import rasterio
+
+    try:
+        with rasterio.open(str(path)) as src:
+            crs = src.crs
+    except rasterio.errors.RasterioError:
+        return
+    require_declared_crs(crs, path=path, variable="dem")

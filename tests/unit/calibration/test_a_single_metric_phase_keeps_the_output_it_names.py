@@ -68,7 +68,7 @@ def test_the_network_output_the_variable_names_is_kept() -> None:
 
     assert set(phase_cfg.outputs) == {"net"}
     assert phase_cfg.outputs["net"].extent is not None
-    assert phase_cfg.outputs["net"].minimal_stream_geometry_path == "permanent.gpkg"
+    assert str(phase_cfg.outputs["net"].minimal_stream_geometry_path) == "permanent.gpkg"
     # The one block the whole-file (objective, variable) route builds, no other.
     [block] = phase_cfg.objective_blocks
     assert (str(block.metric), list(block.uses_outputs)) == ("distance_gap", ["net"])

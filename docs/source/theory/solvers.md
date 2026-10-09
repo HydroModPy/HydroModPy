@@ -74,6 +74,18 @@ approximately. The same case reports that one step per period moves the monthly 
 of a drained hillslope by tens of per cent against a refined run. One step per period is
 therefore not a neutral choice.
 
+```{eval-rst}
+.. plot:: theory/figures/solvers_substeps.py
+   :alt: Head error at the end of a period against the number of steps, with two geometric partitions of ten steps.
+   :caption: The confined column of ``test_stress_period_substepping``: 200 cells of 5 m, a
+      head step of 1 m held for 31 days. The steps are the backward Euler equations
+      MODFLOW 6 solves for this linear case, computed at build time; their error matches
+      the one of a MODFLOW 6 run within :math:`10^{-7}` m. Look at 1 against 10 steps, then at
+      the two triangles: ten steps that grow or shrink by 2 give the same error, about
+      four times that of ten equal steps. Past about 10 steps the error of the 5 m cells
+      dominates.
+```
+
 A period is steady or transient. With {toml}`flow.flow_regime` set to `"steady"`, every
 period is steady. With `"transient"`, only the first period is steady, and only when
 {toml}`flow.first_period_steady` is true. With {toml}`modflow6.runtime.mf6_ats`, MODFLOW 6

@@ -4,6 +4,10 @@ The terms used in this part of the site, with a short definition. Where a term h
 the configuration file, the second line of its entry says where. A term can be cited from
 another page with `` {term}`unconfined aquifer` ``.
 
+On the pages of this part, a term underlined with dots shows its definition when you point at it
+or move the keyboard focus to it. On a touch screen, tap it once for the definition and a second
+time to open this page.
+
 ```{glossary}
 :sorted:
 

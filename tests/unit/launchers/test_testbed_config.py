@@ -537,3 +537,14 @@ def test_the_retired_metric_spelling_is_refused(tmp_path: Path) -> None:
         ValueError, match="testbed.metric is no longer supported; use testbed.metrics"
     ):
         MethodTestbedConfig.from_file(config_path)
+
+
+def test_the_model_defaults_are_the_ones_the_toml_parser_fills() -> None:
+    """The reference shows the value a key takes when the [testbed] table leaves it out."""
+    fields = MethodTestbedConfig.model_fields
+
+    assert fields["profile"].default == "generic"
+    assert fields["subject"].default == "mesh"
+    assert fields["purpose"].default == "robustness"
+    assert fields["runner"].default_factory().type == "simulation"
+    assert fields["id"].examples and fields["output_root"].examples

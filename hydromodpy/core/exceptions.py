@@ -222,6 +222,18 @@ class DataProductError(DataError):
     code = "HMPY.E209"
 
 
+class FrozenDataError(DataCacheError, RuntimeError):
+    """A frozen run asked the cache for something the lockfile does not pin.
+
+    Raised under ``--frozen`` when the lockfile is missing, an entry is not
+    pinned in it, the cache has no file for it, or its SHA-256 differs. A
+    :class:`DataCacheError`, so the command exits as a data failure. Still a
+    ``RuntimeError``, for the callers written when this was one.
+    """
+
+    code = "HMPY.E210"
+
+
 # -- Mesh ----------------------------------------------------------------------
 
 
@@ -472,6 +484,29 @@ class WorkflowDAGCycleError(PipelineError):
     code = "HMPY.E510"
 
 
+class FailedCasesError(PipelineError):
+    """One or more cases of a testbed failed; the evidence of every case is written.
+
+    Raised once all the cases ran, so a testbed whose cases fail never ends as
+    a success. ``summary`` is the summary the launcher would have returned: the
+    counts and the paths of the plan, the manifest, the tables and the report.
+    """
+
+    code = "HMPY.E511"
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        summary: Mapping[str, Any] | None = None,
+        sim_id: str | None = None,
+        run_id: str | None = None,
+        **context: Any,
+    ) -> None:
+        super().__init__(message, sim_id=sim_id, run_id=run_id, **context)
+        self.summary: dict[str, Any] = dict(summary or {})
+
+
 # -- Calibration ---------------------------------------------------------------
 
 
@@ -676,6 +711,7 @@ __all__ = [
     "DataRequestError",
     "DataCapabilityError",
     "DataProductError",
+    "FrozenDataError",
     # Mesh
     "MeshError",
     "MeshGenerationError",
@@ -711,6 +747,7 @@ __all__ = [
     "ExportError",
     "WorkspaceLockedError",
     "WorkflowDAGCycleError",
+    "FailedCasesError",
     # Calibration
     "CalibrationError",
     "ObjectiveError",

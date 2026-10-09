@@ -261,3 +261,88 @@ def test_every_snapshot_names_its_version_and_holds_the_root_sections() -> None:
         data = json.loads(snap.read_text())
         assert snap.stem == f"fields-{data['meta']['label']}"
         assert {"workflow", "workspace", "geographic", "flow"} <= set(data["nodes"])
+
+
+def test_the_report_file_has_its_own_tables_outside_the_project_file(registry: dict) -> None:
+    nodes = registry["nodes"]
+    info = registry["meta"]["files"]["report-file"]
+    assert set(info["roots"]) == {"report", "layout", "context", "pipeline"}
+    assert info["page"] == "reference/parameters/report-file"
+    assert not set(info["roots"]) & set(registry["meta"]["roots"])
+    assert not set(info["roots"]) & set(nodes[""]["children"])
+    assert nodes["report.site_label"]["file"] == "report-file"
+    assert nodes["context.observed_discharge.path"]["file"] == "report-file"
+    assert nodes["pipeline.strict_figure_postflight"]["default"] == "false"
+    assert nodes["layout.simulation_name"]["description"]
+    assert "file" not in nodes["flow.param.<id>"]
+
+
+def test_a_key_of_the_report_file_is_not_a_change_of_the_project_file(registry: dict) -> None:
+    snap = toml_changelog.snapshot(registry)
+    assert "report.site_label" not in snap["nodes"]
+    assert "pipeline" not in snap["nodes"]
+    old = {"meta": {"label": "a"}, "nodes": {"": {}}}
+    assert "report.site_label" not in toml_changelog.diff(old, registry)["added"]
+
+
+def test_every_key_of_the_report_file_is_described(registry: dict) -> None:
+    leaves = [
+        n
+        for n in registry["nodes"].values()
+        if n.get("file") == "report-file" and n.get("kind") == "leaf"
+    ]
+    assert len(leaves) >= 20
+    assert all(len(n["description"].split()) >= 4 for n in leaves)
+
+
+def test_the_page_check_validates_a_whole_report_file_block(page_env: Path) -> None:
+    good = (
+        "[report]\nsite_label = 'A'\nstation_label = 'B'\noutput_dir = 'out'\n"
+        "[layout]\nwatershed_project_dir = '.'\ncontext_outputs_dir = 'ctx'\n"
+    )
+    bad = good.replace("[layout]", "[layout]\nsimulation_nam = 'x'")
+    page = page_env / "guides" / "report.md"
+    page.write_text(f"# Report\n\n```toml\n{good}```\n")
+    assert check_page.check(page, check_page.Registry(), check_page.docnames()) == []
+    page.write_text(f"# Report\n\n```toml\n{bad}```\n")
+    problems = check_page.check(page, check_page.Registry(), check_page.docnames())
+    assert any("refused by ReportConfig" in p and "simulation_nam" in p for p in problems)
+    page.write_text(f"# Report\n\n```toml\n# not checked: a fragment\n{bad}```\n")
+    assert check_page.check(page, check_page.Registry(), check_page.docnames()) == []
+
+
+def test_the_page_check_reads_a_testbed_file_by_its_own_schema(page_env: Path) -> None:
+    good = (
+        '[workflow]\nmode = "testbed"\n\n'
+        '[testbed]\nid = "t"\nsubject = "flow"\nbase_config = "step1_minimal.toml"\n'
+        'output_root = "out"\nexecute = false\n\n'
+        '[testbed.runner]\ntype = "simulation"\n\n'
+        '[[testbed.case]]\nid = "a"\n'
+    )
+    page = page_env / "guides" / "tb.md"
+    page.write_text(f"# Tb\n\n```toml\n{good}```\n")
+    assert check_page.check(page, check_page.Registry(), check_page.docnames()) == []
+
+    bad = good.replace("execute = false", "exceute = false")
+    page.write_text(f"# Tb\n\n```toml\n{bad}```\n")
+    problems = check_page.check(page, check_page.Registry(), check_page.docnames())
+    assert any("refused by hmp config check" in p and "exceute" in p for p in problems)
+
+
+def test_the_page_check_reads_a_comparison_file_by_its_own_schema(page_env: Path) -> None:
+    good = (
+        '[workflow]\nmode = "comparison"\n\n'
+        '[comparison]\ncomparison_id = "c"\nbase_simulation_config = "step1_minimal.toml"\n'
+        'reference_simulation = "a"\n\n'
+        '[[comparison.simulation]]\nid = "a"\nsolver = "modflow6"\n\n'
+        '[[comparison.observable]]\nname = "h"\nvariable = "watertable_elevation"\n'
+        'support = "map"\ntime = "last"\n'
+    )
+    page = page_env / "guides" / "cmp.md"
+    page.write_text(f"# Cmp\n\n```toml\n{good}```\n")
+    assert check_page.check(page, check_page.Registry(), check_page.docnames()) == []
+
+    bad = good.replace('support = "map"', 'support = "blob"')
+    page.write_text(f"# Cmp\n\n```toml\n{bad}```\n")
+    problems = check_page.check(page, check_page.Registry(), check_page.docnames())
+    assert any("refused by hmp config check" in p for p in problems)

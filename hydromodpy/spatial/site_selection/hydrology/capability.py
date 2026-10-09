@@ -263,7 +263,7 @@ TERRAIN_DELINEATE = CapabilityDecl(
         TerrainProductError,
         EmptyCatchmentError,
     ),
-    env=("HMP_NO_PROGRESS", "HMP_LOG_LEVEL", "TMPDIR"),
+    env=("HMP_NO_PROGRESS", "HMP_VERBOSITY", "TMPDIR"),
     # The delineation writes one catchment per outlet under a scratch root
     # before the two vector products are assembled, and that root is a
     # ``TemporaryDirectory`` (``worker.py``). It is removed when the job ends,

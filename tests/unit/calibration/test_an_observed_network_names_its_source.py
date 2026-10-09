@@ -29,7 +29,7 @@ def test_observed_network_geographic_river_network_validates() -> None:
 def test_stream_geometry_path_alone_validates() -> None:
     """Every file in the repository declares only this field today."""
     output = CalibOutputNetwork(**_kwargs(stream_geometry_path="streams.gpkg"))
-    assert output.stream_geometry_path == "streams.gpkg"
+    assert str(output.stream_geometry_path) == "streams.gpkg"
     assert output.observed_network is None
 
 

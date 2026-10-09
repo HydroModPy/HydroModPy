@@ -1,56 +1,57 @@
-# Reference calibration 1 of 4: one parameter, one gauge, one metric.
+# Recipe 1 of 4: one parameter, one gauge, a first scan.
 #
-# The shape almost every calibration starts from. One hydraulic property is
-# searched over a bounded range, the run is scored against one observed
-# discharge series, and the best value is replayed with its full outputs so the
-# figures show the calibrated model and not the last trial.
+# The shape almost every calibration starts from. One conductivity is tried on
+# a regular grid and each run is scored against one gauged discharge. A grid
+# does not search: it maps the cost, so you see its shape before you spend a
+# search on it.
 #
-# Load it with `hmp calibrate calibration_single_gauge.toml`.
+# Save this file beside project.toml in
+# examples/projects/04_streamflow_intermittence_in_transient/, then:
+#
+#   hmp calibrate calibration_single_gauge.toml --check   nothing solves
+#   hmp calibrate calibration_single_gauge.toml           7 monthly runs of 2000-2002
+#
+# For another site, point base_config at your own project file and change the
+# station name and the dates.
 
-# This file is an overlay: it carries the calibration and inherits the
-# catchment, the data and the solver from the project it points at. Every
-# calibration in the repository is written this way, so the same model is
-# run and calibrated from one description.
+# The model comes from the project: catchment, data, solver, time window.
+# This file only adds the search.
 base_config = "project.toml"
 
 [workflow]
 mode = "calibration"
 
-[simulation.time]
-start_datetime = "2000-01-01"
-end_datetime = "2005-12-31"
-step_value = 1
-step_unit = "day"
+[simulation]
+name = "recipe_single_gauge"
 
 [calibration]
-# 'grid' sweeps the range on a regular lattice: no tuning, reproducible, and it
-# shows the shape of the cost rather than a single point. Switch to 'optuna' or
-# 'scipy_nelder_mead' once the shape is known and the budget matters.
+# Seven values of K, evenly spaced in log space between the two bounds. A
+# grid ends when its last point is solved.
 method = "grid"
-max_iter = 25
-seed = 42
-
-# Which observed series the cost is computed on, and how.
-variable = "discharge"
-objective = "nse_log"
-
-# Keep one full simulation: the best trial, replayed with every output.
-save_runs = "best_n"
-save_best_n = 1
+method_options = { points_per_dim = 7 }
+# The best run is replayed with its figures and exports.
 rerun_best_with_outputs = true
 
-# The first year is still forgetting its initial condition. Scoring from the
-# second keeps that memory out of the calibrated value. A date means the same
-# span at any time step. Move it later until the objective stops moving, not
-# by picking a round number.
+# The name is one that `hmp config targets project.toml` lists. A conductivity
+# is searched in log space without a word from you: only the range is yours.
+# Three decades is a wide prior for a fractured basement aquifer; narrow it
+# when a pumping test or a regional map says more.
+[calibration.parameters.K]
+bounds = [1e-6, 1e-3]
+
+# The record of station NANCON that project.toml loads, on the simulated months.
+[calibration.outputs.hydrograph]
+support = "point"
+variable = "discharge"
+observes = "NANCON"
+
+# NSE on the log of the discharge: the recessions weigh as much as the peaks.
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+uses_outputs = ["hydrograph"]
+
+# 2000 is spin-up: simulated, not scored. A date means the same span at any
+# time step.
 [calibration.scoring_window]
 start = "2001-01-01"
-
-# `K` is the id this project declares in [flow].param_list, and it is resolved
-# against what the project exposes: neither the path nor the log space a
-# conductivity is searched in has to be written here.
-[calibration.parameters.K]
-# Bounds are the statement of what the site could plausibly be. Six decades is
-# what a fractured basement aquifer spans; narrow it when a pumping test or a
-# regional map says more.
-bounds = [1e-7, 1e-3]

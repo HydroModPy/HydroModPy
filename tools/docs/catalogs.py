@@ -108,64 +108,24 @@ def parse_parameters(doc: str | None) -> dict[str, tuple[str, str]]:
     return out
 
 
-def parse_options(doc: str | None) -> dict[str, str]:
-    """The Options section of a figure docstring: option name -> description.
+def option_details(cls: type) -> list[dict[str, Any]]:
+    """Type, default, unit and description of each option a figure class accepts.
 
-    An entry is a name in double backticks on its own line, then its text indented.
+    All of it is declared on the parameter that takes the option, read by
+    :func:`hydromodpy.display.figure.options_of`.
     """
-    from tools.docs.api_registry import section_body
+    from hydromodpy.display.figure import options_of
 
-    out: dict[str, str] = {}
-    name = ""
-    for line in section_body(doc, "Options").splitlines():
-        m = re.match(r"^``([^`]+)``\s*$", line)
-        if m:
-            name = m.group(1)
-            out[name] = ""
-        elif name and line.strip():
-            out[name] = (out[name] + " " + line.strip()).strip()
-    return out
-
-
-def option_details(cls: type, names: set[str]) -> list[dict[str, Any]]:
-    """Type, default and description of each option a figure class accepts.
-
-    The description comes from the Options section of the class docstring, then
-    from the Parameters section of ``plot`` or ``render``. The type and the
-    default come from the signature.
-    """
-    found: dict[str, dict[str, Any]] = {}
-    class_docs = parse_options(inspect.getdoc(cls))
-    for method in ("plot", "render"):
-        for klass in cls.__mro__:
-            func = klass.__dict__.get(method)
-            if func is None:
-                continue
-            docs = parse_parameters(inspect.getdoc(func))
-            try:
-                params = inspect.signature(func).parameters
-            except (TypeError, ValueError):
-                continue
-            for param in params.values():
-                # `time` is what the display layer resolves to the `timestep` argument.
-                name = "time" if param.name == "timestep" and "time" in names else param.name
-                if name not in names or name in found:
-                    continue
-                ann = param.annotation
-                found[name] = {
-                    "name": name,
-                    "type": ""
-                    if ann is inspect.Parameter.empty
-                    else (ann if isinstance(ann, str) else inspect.formatannotation(ann)),
-                    "default": None
-                    if param.default is inspect.Parameter.empty
-                    else repr(param.default),
-                    "doc": class_docs.get(name)
-                    or class_docs.get(param.name)
-                    or docs.get(param.name, ("", ""))[1],
-                }
     return [
-        found.get(n, {"name": n, "type": "", "default": None, "doc": ""}) for n in sorted(names)
+        {
+            "name": o.name,
+            "type": o.type,
+            "default": o.default,
+            "unit": o.unit,
+            "doc": o.description,
+            "python_only": o.python_only,
+        }
+        for o in options_of(cls)
     ]
 
 
@@ -189,7 +149,7 @@ def figures() -> list[dict[str, Any]]:
                 "required_tables": list(spec.required_tables),
                 "required_solvers": list(spec.required_solvers),
                 "options": sorted(figure_option_names(spec.name)),
-                "option_details": option_details(cls, set(figure_option_names(spec.name))),
+                "option_details": option_details(cls),
                 "summary": _first_paragraph(inspect.getdoc(cls)),
                 "own_availability_rule": cls.unavailable_reason
                 is not BaseFigure.unavailable_reason,

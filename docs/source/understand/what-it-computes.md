@@ -55,11 +55,11 @@ which is the default, there is no hydraulic computation of the river. The
 
 | Data | Role | In example 04 |
 |---|---|---|
-| Relief | It gives the ground surface, hence the elevation at which water leaves. It delimits the {term}`catchment` from the {term}`outlet` and tells where the water flows downstream. | A digital elevation model, 75 m cells ({toml}`data.dem`); 64.6 km² catchment traced from the outlet ({toml}`geographic.catchment.snap_dist`). |
-| Geology | It sets how easily water moves (the {term}`hydraulic conductivity` K) and the volume of water released when the water table drops (the {term}`specific yield` Sy). One value for the whole aquifer, or one per zone of a geological map ({doc}`guide <../guides/k-per-zone>`). | A single value of K and a single value of Sy for the whole catchment: the geological map is not used. {toml}`flow.param.K.field.value`, {toml}`flow.param.Sy.field.value`. |
-| Recharge | The water that reaches the water table. It is provided (a series from a file, or {term}`SIM2` data from Météo-France), or computed by a {term}`soil reservoir` from rainfall and {term}`potential evapotranspiration` ({doc}`guide <../guides/recharge>`). | A single monthly series for the whole catchment ({toml}`data.recharge`), and a runoff series ({toml}`data.runoff`). |
-| Thickness | The depth of the aquifer below the ground surface. It is an assumption, not a measurement. | 30 m everywhere ({toml}`domain.depth_model.thickness`). |
-| Observations | The {term}`mapped network` and the flow measured at the outlet are not part of the physical computation. They are used to compare the results and to calibrate K and Sy. | The permanent stretches of the {term}`BD TOPO` ({toml}`data.hydrography`) and the {term}`NANCON station` ({toml}`data.hydrometry`). |
+| Relief | It gives the ground surface, hence the elevation at which water leaves. It delimits the {term}`catchment` from the {term}`outlet` and tells where the water flows downstream. | A digital elevation model, 75 m cells; 64.6 km² catchment traced from the outlet ({doc}`guide <../guides/describe-a-catchment>`). |
+| Geology | It sets how easily water moves (the {term}`hydraulic conductivity` K) and the volume of water released when the water table drops (the {term}`specific yield` Sy). One value for the whole aquifer, or one per zone of a geological map ({doc}`guide <../guides/k-per-zone>`). | A single value of K and a single value of Sy for the whole catchment: the geological map is not used. Both are calibrated ({ref}`two-stage-calibration`). |
+| Recharge | The water that reaches the water table. It is provided (a series from a file, or {term}`SIM2` data from Météo-France), or computed by a {term}`soil reservoir` from rainfall and {term}`potential evapotranspiration` ({doc}`guide <../guides/recharge>`). | A single monthly recharge series for the whole catchment, and a runoff series ({doc}`guide <../guides/get-the-data>`). |
+| Thickness | The depth of the aquifer below the ground surface. It is an assumption, not a measurement. | 30 m everywhere. |
+| Observations | The {term}`mapped network` and the flow measured at the outlet are not part of the physical computation. They are used to compare the results and to calibrate K and Sy. | The permanent stretches of the {term}`BD TOPO` and the {term}`NANCON station`. |
 
 Where each dataset comes from is on {doc}`where-the-data-come-from`.
 
@@ -79,12 +79,12 @@ in example 04 and not for the other conditions of {doc}`stream-network`.
 | Unconfined aquifer, a single layer of constant thickness below the ground (example 04: 30 m). | No deep aquifer and no layers of different kinds. The depth of the water table cannot exceed the thickness of the model. |
 | Uniform K and Sy (example 04). | The pattern of the water table mostly follows the relief. Geological contrasts are not represented. |
 | Water leaves through {term}`drains <drain>` placed at the ground surface, in one direction only (drain setup). | Water that leaves does not return to the aquifer. A river does not feed the aquifer in this setup. |
-| The efficiency of a drain depends on K ({toml}`solver.drain_bed_thickness_m`). | The larger K is, the more the aquifer is drained. This is why the seepage network carries information on K. |
+| The efficiency of a drain depends on K and on the thickness of the clogging layer of the drain bed ({doc}`stream-network`). | The larger K is, the more the aquifer is drained. This is why the seepage network carries information on K. |
 | Identical recharge over the whole catchment, monthly average (example 04). | No variation of rainfall from one hillside to another, or from one day to another within the month. |
-| One {term}`stress period` per month, and the first month in {term}`steady state` ({toml}`flow.first_period_steady`). | The first month sets the starting state. The documentation of the parameter {toml}`simulation.time.substeps_per_period` states that a single step per month changes the monthly flow by 4 to 28 % compared with a refined computation, depending on the case. |
+| One {term}`stress period` per month, and the first month in {term}`steady state`. | The first month sets the starting state. The documentation of the setting that cuts a month into several steps states that a single step per month changes the monthly flow by 4 to 28 % compared with a refined computation, depending on the case ({doc}`guide <../guides/time-and-initial-state>`). |
 | No hydraulic model of the rivers (drain setup). | No water level, flood or propagation. A stream that "flows" means: the aquifer feeds it. |
 | The simulated network follows the slope of the ground downstream of the seepage cells. | Its shape depends on the digital elevation model and on the cell size. |
-| If the recharge comes from the soil reservoir ({toml}`flow.sinks_sources.recharge.soil`): the soil ignores the height of the water table, and snow counts as rain. | A high water table does not reduce the soil reserve. The documentation of the soil reservoir judges it unsuitable for a snow-covered catchment. Available with MODFLOW 6 only. |
+| If the recharge comes from the {term}`soil reservoir` ({doc}`guide <../guides/recharge>`): the soil ignores the height of the water table, and snow counts as rain. | A high water table does not reduce the soil reserve. The documentation of the soil reservoir judges it unsuitable for a snow-covered catchment. Available with MODFLOW 6 only. |
 
 The intended range of validity of the project, as the scientific documentation states it:
 shallow aquifers at catchment scale, unconfined or weakly confined, where the relief, the
@@ -119,8 +119,8 @@ with the method published by Abhervé et al. (2023, *Hydrology and Earth System 
 
 Direct consequence: in a calibrated run, the map of the network and the flow curve show what
 was adjusted. Their agreement is expected. It does not prove on its own that the model is
-right. The page {doc}`reading-results` comes back to this point map by map. The parameters
-of this method: {toml}`calibration.protocol.name`.
+right. The page {doc}`reading-results` comes back to this point map by map. The settings
+of this method are in the {doc}`guide <../guides/calibrate-on-the-stream-network>`.
 
 ## What it does not compute
 
@@ -143,9 +143,8 @@ of this method: {toml}`calibration.protocol.name`.
 
 - A single catchment and three years: the result says nothing about the variability from one
   year to the next.
-- The figures of {doc}`reading-results` come from an archived run, drawn before the mapped
-  network was placed on the grid with the current rule. The numbers quoted there are those of
-  that run.
+- The figures and the numbers of {doc}`reading-results` come from one calibrated run, described
+  at the end of that page. A new run gives different values.
 - No comparison with piezometer levels or with field flow observations: example 04 does not
   use them.
 - A 75 m cell: a map is read at the scale of the hillside, not of the field.

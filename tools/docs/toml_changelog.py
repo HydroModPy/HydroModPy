@@ -5,7 +5,8 @@ Usage: python -m tools.docs.toml_changelog OLD.json NEW.json OUT.json
 An added or removed table is listed once, not field by field. A removed path
 that a field of the new tree declares in ``renamed_from`` is listed as renamed,
 not as removed. Pseudo-nodes (named instances such as ``flow.param.K``) are not
-fields of the file and never count as a change.
+fields of the file and never count as a change. Nor do the keys of another file
+(the catchment report file), which the project file does not hold.
 """
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ def snapshot(payload: dict) -> dict:
     """The part of a registry payload a changelog compares, empty values dropped."""
     nodes = {}
     for path, node in payload["nodes"].items():
-        if node.get("pseudo"):
+        if node.get("pseudo") or node.get("file"):
             continue
         nodes[path] = {k: node[k] for k in SNAPSHOT_KEYS if _norm(node.get(k)) is not None}
     return {"meta": dict(payload.get("meta", {})), "nodes": nodes}
@@ -59,8 +60,8 @@ def _renamed_to(path: str, renames: dict[str, str]) -> str | None:
 
 def diff(old_doc: dict, new_doc: dict) -> dict:
     """Keys added, removed, renamed and changed between two registry payloads."""
-    old = {p: n for p, n in old_doc["nodes"].items() if not n.get("pseudo")}
-    new = {p: n for p, n in new_doc["nodes"].items() if not n.get("pseudo")}
+    old = {p: n for p, n in old_doc["nodes"].items() if not (n.get("pseudo") or n.get("file"))}
+    new = {p: n for p, n in new_doc["nodes"].items() if not (n.get("pseudo") or n.get("file"))}
     added = {p for p in new if p and p not in old}
     removed = {p for p in old if p and p not in new}
     renames = _renames(new)

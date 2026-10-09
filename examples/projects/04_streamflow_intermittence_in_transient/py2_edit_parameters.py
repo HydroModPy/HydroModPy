@@ -1,5 +1,5 @@
-"""Charge project.toml en objet Python, change K et Sy, lance le modèle
-modifié et le compare au modèle de référence.
+"""Load project.toml as a Python object, change K and Sy, run the modified
+model and compare it with the reference model.
 
     python py2_edit_parameters.py
 """
@@ -14,38 +14,40 @@ from hydromodpy.config import HydroModPyConfig
 
 HERE = Path(__file__).resolve().parent
 
-# %% La référence
+# %% The reference
 
-# Le modèle tel que project.toml le décrit, relancé à chaque exécution (une
-# minute). Avec if_exists = "replace", le run précédent part à la corbeille.
+# The model as project.toml describes it (one minute). An unchanged file is
+# not computed again: hmp.run returns the run of the last execution and logs a
+# warning that names it. Pass force=True to compute it again. Once the file
+# changes, if_exists = "replace" sends the previous run to the trash.
 reference = hmp.run(HERE / "project.toml")
 
-# %% Le modèle modifié
+# %% The modified model
 
-# from_toml suit les base_config et rend l'objet que `hmp run` valide : chaque
-# clé du TOML y devient un attribut.
+# from_toml follows the base_config chain and returns the object that
+# `hmp run` validates: every key of the TOML becomes an attribute.
 cfg = HydroModPyConfig.from_toml(HERE / "project.toml")
 K = cfg.flow.param["K"].field
 Sy = cfg.flow.param["Sy"].field
-print(f"project.toml : K = {K.value} {K.unit}, Sy = {Sy.value}")
+print(f"project.toml: K = {K.value} {K.unit}, Sy = {Sy.value}")
 
-# Chaque affectation est validée : une unité autre que celle du champ, ou un
-# nom de figure inconnu, lève une erreur tout de suite.
+# Each assignment is validated. A unit other than the one of the field, or an
+# unknown figure name, raises an error at once.
 K.value = 2e-5
 Sy.value = 0.02
 
-# Un essai n'a pas besoin de toutes les figures ni des exports. On remplace la
-# liste entière : un append sur la liste échapperait à la validation.
+# A trial needs neither every figure nor the exports. Replace the whole list:
+# an append on the list would escape the validation.
 cfg.display.figures = ["hydrograph_log_nse", "seepage_map"]
 cfg.export = []
 
-# La config complète du run est gardée dans runs/<nom du run>/config.toml.
+# The full config of the run is kept in runs/<run name>/config.toml.
 variant = hmp.run(cfg, name="nancon_variant")
 print(variant.name)
 
-# %% Comparaison
+# %% Comparison
 
-# Scores du catalogue, sur les 36 mois du run.
+# Scores from the catalog, over the 36 months of the run.
 scores = pd.concat(
     {
         run.name: run.metrics.query("station_id == 'NANCON'").set_index("metric_name")["value"]
@@ -61,7 +63,7 @@ in_catchment = reference.catchment_mask.ravel()
 cell_km2 = reference.grid.cell_size**2 / 1e6
 
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), sharex=True, constrained_layout=True)
-ax1.plot(months, q_obs, color="k", lw=1, label="jaugé")
+ax1.plot(months, q_obs, color="k", lw=1, label="gauged")
 for run, color in [(reference, "tab:blue"), (variant, "tab:red")]:
     label = f"{run.name} (K = {run.params['K']:.0e} m/s, Sy = {run.params['Sy']})"
     ax1.plot(months, hmp.read(run, "discharge").to_numpy(), color=color, label=label)
@@ -70,11 +72,11 @@ for run, color in [(reference, "tab:blue"), (variant, "tab:red")]:
 ax1.set_yscale("log")
 ax1.set_yticks([0.2, 0.5, 1, 2], ["0.2", "0.5", "1", "2"])
 ax1.minorticks_off()
-ax1.set_ylabel("débit (m³/s)")
+ax1.set_ylabel("discharge (m³/s)")
 ax1.legend(fontsize="small")
-ax2.set_ylabel("surface suintante (km²)")
+ax2.set_ylabel("seepage area (km²)")
 
-# Une figure qui compare deux runs n'appartient à aucun des deux : share/figures.
+# A figure that compares two runs belongs to neither of them: share/figures.
 out = HERE / "share" / "figures" / "reference_vs_variant.png"
 out.parent.mkdir(parents=True, exist_ok=True)
 fig.savefig(out, dpi=150)

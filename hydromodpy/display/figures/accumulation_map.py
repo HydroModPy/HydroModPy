@@ -14,11 +14,12 @@ the drainage network itself.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, Annotated, ClassVar, Literal
 
 import numpy as np
 
 from hydromodpy.display.figure import FigureSpec
+from hydromodpy.display.figure_options import CmapOrOwn, Opt, Overlays, Timestep
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
 from hydromodpy.display.maps.axes import style_relative_km_axes
@@ -78,13 +79,36 @@ class AccumulationMap(ScalarFaceMap):
         sim: Run,
         ax: Axes,
         *,
-        timestep: int | None = None,
-        scale: Literal["log", "linear"] = "log",
-        cmap: str | None = None,
-        palette_floor: float = PALETTE_FLOOR,
-        vmin: float | None = None,
-        vmax: float | None = None,
-        overlays: tuple[str, ...] | list[str] | None = None,
+        timestep: Timestep = None,
+        scale: Annotated[
+            Literal["log", "linear"],
+            Opt(
+                'Colour ramp: "log" (the default) spreads the small flows of the '
+                'headwaters, "linear" keeps the raw proportions.'
+            ),
+        ] = "log",
+        cmap: CmapOrOwn = None,
+        palette_floor: Annotated[
+            float,
+            Opt(
+                "Share of the palette cut at its light end, in [0, 1), so no drawn "
+                "cell is lighter than the cells without flux.",
+                unit="-",
+            ),
+        ] = PALETTE_FLOOR,
+        vmin: Annotated[
+            float | None,
+            Opt(
+                "Lower end of the ramp. Left out, the smallest positive flux. Set it "
+                "with vmax to compare two runs on one scale.",
+                unit="m3/s",
+            ),
+        ] = None,
+        vmax: Annotated[
+            float | None,
+            Opt("Upper end of the ramp. Left out, the largest flux.", unit="m3/s"),
+        ] = None,
+        overlays: Overlays = None,
         **_,
     ) -> Axes:
         from matplotlib.colors import LogNorm

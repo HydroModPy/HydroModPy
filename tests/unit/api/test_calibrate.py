@@ -591,7 +591,7 @@ def test_file_backed_python_phases_document_keeps_the_projects_own_paths(
     # The relative stream_geometry_path is meant relative to the project, as
     # in TOML mode: the document must carry it resolved, not relative to
     # sessions/, one level short of where the project keeps it.
-    assert written.calibration.outputs["streams"].stream_geometry_path == str(
+    assert written.calibration.outputs["streams"].stream_geometry_path == (
         (tmp_path / "k_python_stream_network.gpkg").resolve()
     )
 

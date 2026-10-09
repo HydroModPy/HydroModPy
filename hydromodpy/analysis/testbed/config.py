@@ -92,7 +92,12 @@ class TestbedRunnerConfig(HydroModelBase):
     """Child-runner selection for one testbed."""
 
     type: Annotated[str, Profile.USER] = Field(
-        description="Runner identifier dispatched for every case (comparison, simulation)."
+        default="simulation",
+        description=(
+            "Workflow every case runs: 'simulation', 'comparison' or 'calibration'. "
+            "Which ones a subject accepts: mesh takes simulation; transport takes "
+            "simulation and comparison; flow takes all three."
+        ),
     )
     no_display: Annotated[bool, Profile.USER] = Field(
         default=True,
@@ -290,16 +295,33 @@ class TestbedConfig(HydroModelBase):
         exclude=True,
         description="Directory used to resolve relative paths. Set by the parser.",
     )
-    id: Annotated[str, Profile.USER] = Field(description="Stable testbed identifier.")
-    profile: Annotated[str, Profile.USER] = Field(description="Selected testbed profile.")
+    id: Annotated[str, Profile.USER] = Field(
+        description=(
+            "Stable testbed identifier. Left out, the TOML file name without its extension is used."
+        ),
+        examples=["k_sensitivity"],
+    )
+    profile: Annotated[str, Profile.USER] = Field(
+        default="generic",
+        description=(
+            "Testbed profile: 'generic' runs the declared cases, 'regional_lab' runs "
+            "them over every site of a site catalog."
+        ),
+    )
     subject: Annotated[str, Profile.USER] = Field(
-        description="High-level subject covered by the testbed (flow, mesh, transport)."
+        default="mesh",
+        description="What the cases vary: 'flow', 'mesh' or 'transport'.",
     )
     purpose: Annotated[str, Profile.USER] = Field(
-        description="Stated purpose of the testbed (robustness, sensitivity, ...)."
+        default="robustness",
+        description="Stated purpose of the testbed, written in its report (robustness, sensitivity...).",
     )
     output_root: Annotated[Path, Profile.USER] = Field(
-        description="Directory where testbed artifacts are written."
+        description=(
+            "Directory where testbed artifacts are written, relative to the TOML file. "
+            "Left out, testbed/<id> next to the TOML file."
+        ),
+        examples=["testbed_output"],
     )
     execute: Annotated[bool, Profile.USER] = Field(
         default=True,
@@ -318,7 +340,8 @@ class TestbedConfig(HydroModelBase):
         ),
     )
     runner: Annotated[TestbedRunnerConfig, Profile.USER] = Field(
-        description="Child-runner selection for every case."
+        default_factory=TestbedRunnerConfig,
+        description="Child-runner selection for every case.",
     )
     case: Annotated[tuple[TestbedCaseConfig, ...], Profile.USER] = Field(
         default=(),

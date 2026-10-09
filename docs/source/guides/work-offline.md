@@ -5,6 +5,30 @@ run stores every download in the data folder of the workspace and indexes it. A 
 records the SHA-256 digest of each stored file. A run started with `--frozen` then refuses
 any download and any file that differs from the lockfile.
 
+```{hmp-task}
+Task
+: Run a project again with no network, and refuse any input that is not the one of the first run.
+
+Time
+: Minutes. The load of step 3 from a filled cache, frozen, took 14 s when measured on a busy machine.
+
+Needs
+: A project that reads at least one service (step 3 of example 04), and one run with network access.
+
+Gives
+: The cache of the workspace, `hydromodpy.lock` next to the project, and a run that stops with exit code 16 as soon as it would touch the network.
+```
+
+The short version, from the folder of the project:
+
+```bash
+hmp run step3_api_data.toml                    # online: the run fills the cache and writes the lockfile
+hmp data ls --workspace ../..                  # what the cache holds
+hmp dev lock update                            # pin the files, after any change of the cache
+hmp run step3_api_data.toml --frozen --force   # offline: any download is refused
+hmp dev lock verify                            # on another machine, after copying the cache
+```
+
 ## What you need first
 
 - A project that reads at least one API source. Step 3 of example 04, `step3_api_data.toml`,
@@ -145,11 +169,12 @@ the offline load is never tried.
 A frozen run still writes the lockfile when it ends. The content is the same, and the
 timestamps change. Add `--no-lock` to leave the file as it is.
 
-`--frozen` refuses every download, and says so. For the DEM, the geology and the river
-network, the refusal stops the run. For any other variable, such as the gauge of step 3, the
-refusal is logged as `[ERROR] Load of '<variable>' failed: ...` and the run goes on without
-that variable. Read the log after `load_data`. A run without `--frozen` also makes no request
-for a source whose cache covers the request, but it downloads the rest.
+`--frozen` refuses every download, and says so. A refusal stops the run, for every variable,
+with the exit code 16 of a data cache error (`FrozenDataError`, code `HMPY.E202`). The message
+ends the line `step 'load_data' failed: FrozenDataError: Failed to load data manager
+'<variable>': ...`, and the lines of the next section follow. A request is refused before it
+reaches the network, and no file of the cache is touched. A run without `--frozen` also makes no
+request for a source whose cache covers the request, but it downloads the rest.
 
 ## 5. Refresh a source on purpose
 
@@ -232,75 +257,33 @@ default.
 - `hmp dev lock verify` prints `OK: catalog matches lockfile`. Add `--strict` to make a drift an error instead of a
   warning.
 - Disconnect the network and run `hmp run step3_api_data.toml --frozen --force`. The run goes
-  to the end with no `[ERROR]` line from the data layer.
+  to the end. Any refusal would have stopped it with exit code 16.
 - `hmp run step3_api_data.toml --debug` prints one line `<source> cache hit: <station>` for
   each station served from the cache.
 
 ## What can go wrong
 
-The messages below exist in the code. The first block is the check before a frozen run. It
-ends the command with exit code 14.
+Before a frozen run starts, the check of the lockfile ends the command with exit code 14.
+Once the run is under way, a refusal of the cache ends it with exit code 16 and a line that
+starts with `step 'load_data' failed: FrozenDataError: Failed to load data manager
+'<variable>':`. The first column gives what follows.
 
-```text
---frozen: hydromodpy.lock not found at <path>; --frozen requires a prior run.
---frozen: Data cache not found at <path>; --frozen requires a populated workspace.
---frozen: <n> lockfile mismatch(es); first: <kind> on <path> (variable=<variable>)
-```
-
-- **No lockfile.** Run once without `--frozen`, or run `hmp dev lock update`.
-- **No cache.** The run looks for `cache.duckdb` in the data folder of its own workspace. Check
-  step 1, and `HMP_WORKSPACE`.
-- **A mismatch.** `<kind>` is `sha256` when a file changed and `missing` when a file is gone.
-  If you changed the file on purpose, run again without `--frozen`, with `--force` when the
-  TOML did not change, so the new file is registered, then update the lockfile. `hmp dev lock update` alone keeps the old digest.
-
-During a frozen run, the cache raises one of these. For a variable other than the DEM, the
-geology and the river network, the message follows `[ERROR] Load of '<variable>' failed:` and
-the run goes on:
-
-```text
-Frozen data mode forbids cache misses: <variable>/<source>/<station> is absent from the catalog at <path>.
-Frozen data mode forbids catalog entries absent from hydromodpy.lock: <variable>/<source>/<station>.
-Frozen data mode detected a SHA-256 mismatch for <variable>/<source>/<station>.
-Frozen data mode forbids registering a custom file absent from hydromodpy.lock: <variable>/<source>/<station>.
-```
-
-- **A cache miss** means the run asks for data the cache does not hold: another station, a
-  longer period, another box. Widen the period online first, then update the lockfile.
-- **An entry absent from the lockfile** means a file entered the cache after the last
-  `hmp dev lock update`.
-- **A custom file absent from the lockfile** means you added a file to a `custom` source.
-  Update the lockfile.
-
-Without `--frozen`, a cache that does not cover the request sends the run to the network.
-With no network the HTTP client gives up and raises:
-
-```text
-HTTP GET <url> failed after <n> retries
-```
-
-This is a `NetworkError`, code `HMPY.E205`. Run once online, or use `--frozen` to find the
-source that is not cached.
-
-`hmp dev lock update` and `hmp dev lock verify` have their own messages, and end with exit
-code 10:
-
-```text
-Data cache not found: <path>
-Lockfile not found: <path>
-Workspace not found: <path>. Run 'hmp workspace init' first.
-```
-
-The `hmp data` commands print `Workspace <path> does not exist. Run 'hmp workspace init' first.`
-when the folder given to `--workspace` is not there.
-
-`hmp dev lock verify` ends with exit code 16 when it finds a mismatch, with or without
-`--strict`. It also warns when the configuration schema has changed since the lockfile was
-written. With `--strict` this warning is an error.
-
-`hmp data ls` prints `(no cache found)` when the workspace has no `data/cache.duckdb`, and
-`(empty cache - drop files in data/<variable>/ then run 'hmp run')` when the index has no
-entry.
+| Symptom | Cause | Fix |
+|---|---|---|
+| `--frozen: hydromodpy.lock not found at <path>; --frozen requires a prior run.` (exit 14) | The project has no lockfile. | Run once without `--frozen`, or run `hmp dev lock update`. |
+| `--frozen: Data cache not found at <path>; --frozen requires a populated workspace.` (exit 14) | The run looks for `cache.duckdb` in the data folder of its own workspace, and there is none. | Check step 1 of this page, and `HMP_WORKSPACE`. |
+| `--frozen: <n> lockfile mismatch(es); first: <kind> on <path> (variable=<variable>)` (exit 14) | `<kind>` is `sha256` when a file changed, and `missing` when a file is gone. | If you changed the file on purpose, run again without `--frozen` (with `--force` when the TOML did not change) so the new file is registered, then run `hmp dev lock update`. `hmp dev lock update` alone keeps the old digest. |
+| `Frozen data mode forbids cache misses: <variable>/<source>/<station> is absent from the catalog at <path>.` | The run asks for data the cache does not hold: another station, another box. | Run online first, then update the lockfile. |
+| `Frozen data mode forbids a download: <variable>/<source>/<station> is cached from <start> to <end> and the run asks for <start> to <end>.` | The cache holds the station for a shorter period than the run asks for. No file of the cache is touched. | Widen the period online first, then update the lockfile. |
+| `Frozen data mode forbids a download: <variable>/<source>/- is asked for by extent or with force_refresh, which the cache cannot answer. Name the stations in station_ids and drop force_refresh.` | A station source with no `station_ids`, or with `force_refresh`, always goes to the service. | Name the stations, and drop `force_refresh` for the frozen run. |
+| `Frozen data mode forbids catalog entries absent from hydromodpy.lock: <variable>/<source>/<station>.` | A file entered the cache after the last `hmp dev lock update`. | Update the lockfile. |
+| `Frozen data mode detected a SHA-256 mismatch for <variable>/<source>/<station>.` | A file of the cache changed since the lockfile was written. | Restore the file, or update the lockfile if the change is meant. |
+| `Frozen data mode forbids registering a custom file absent from hydromodpy.lock: <variable>/<source>/<station>.` | You added a file to a `custom` source. | Update the lockfile. |
+| `HTTP GET <url> failed after <n> retries` (a `NetworkError`, code `HMPY.E205`) | The run is not frozen, the cache does not cover the request, and there is no network. | Run once online, or use `--frozen` to find the source that is not cached. |
+| `Data cache not found: <path>`, `Lockfile not found: <path>` or `Workspace not found: <path>. Run 'hmp workspace init' first.` (exit 10) | `hmp dev lock update` or `verify` cannot find what it needs. | Name `--project` and `--workspace`, or run from the project folder. |
+| `Workspace <path> does not exist. Run 'hmp workspace init' first.` | The folder given to `--workspace` of an `hmp data` command is not there. | Check the path. |
+| `hmp dev lock verify` prints `WARNING: <n> mismatch(es):` and exits 16 | A file of the cache differs from the lockfile. With `--strict` the line is `ERROR:`, and a change of the configuration schema since the lockfile is an error too. | Same as the mismatch of the check above. |
+| `hmp data ls` prints `(no cache found)` or `(empty cache - drop files in data/<variable>/ then run 'hmp run')` | The workspace has no `data/cache.duckdb`, or the index has no entry. | Pass `--workspace` the folder that holds `data/`. |
 
 The solver executables do not go through the cache. They are fetched at the first solver use.
 To have them before you disconnect, run `hmp install-binaries`. They go to the `bin` folder of

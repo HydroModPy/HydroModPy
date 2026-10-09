@@ -16,7 +16,7 @@ from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import NonEmptyStr
+from hydromodpy.core.config_kit.types import NonEmptyPath
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -27,7 +27,7 @@ __all__ = ["RefinementZoneConfig", "build_refinement_zone_size_fields"]
 class RefinementZoneConfig(HydroModelBase):
     """One user-provided refinement zone layer."""
 
-    path: Annotated[NonEmptyStr, Profile.USER] = Field(
+    path: Annotated[NonEmptyPath, Profile.USER] = Field(
         description=(
             "Vector layer (gpkg / shp / GeoJSON) of polygons (zones) and/or "
             "points or lines (corridors). A bare filename resolves against "
@@ -60,7 +60,9 @@ class RefinementZoneConfig(HydroModelBase):
         return self
 
 
-def _resolve_zone_path(raw_path: str, *, data_dir: object | None, config_dir: Path | None) -> Path:
+def _resolve_zone_path(
+    raw_path: str | Path, *, data_dir: object | None, config_dir: Path | None
+) -> Path:
     resolved = Path(str(raw_path)).expanduser()
     if resolved.is_absolute():
         return resolved

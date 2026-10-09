@@ -17,7 +17,7 @@ flowing, and how all of it changes with the seasons.
 [![licence EPL-2.0](https://img.shields.io/badge/license-EPL--2.0-2563eb?style=flat-square){width=100px height=20px}](https://github.com/HydroModPy/HydroModPy/blob/main/LICENSE)
 :::
 
-```{image} understand/img/ex04_flow_intermittence_map.png
+```{image} /_static/figures/hero/flow-intermittence-map.webp
 :alt: Map of the Nançon catchment in 2002. Perennial streams in blue form a trunk and its main branches. Intermittent streams in orange sit at the upstream ends and on side branches. The rest of the catchment is dry, in gray.
 :width: 560px
 :align: center

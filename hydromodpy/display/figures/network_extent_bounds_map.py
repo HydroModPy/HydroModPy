@@ -21,11 +21,12 @@ belong to a calibration trial.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import DiagonalNeighbors, Extent, Opt, TauSpecificRatio
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._memo import RunMemo
 from hydromodpy.display.figures._stream_comparison import (
@@ -33,7 +34,6 @@ from hydromodpy.display.figures._stream_comparison import (
     CASING_COLOR,
     CELL_WEIGHT_PT,
     GROUND_COLOR,
-    MapExtentName,
     cell_count,
     checked_cells,
     class_label,
@@ -90,6 +90,13 @@ _FLAT_WEIGHT_PT = 0.0
 _EXTENTS_MEMO = RunMemo()
 
 
+_RULE = (
+    "Left out, the rule the run's network output scored with, else the default of "
+    "[calibration.outputs.<n>.extent]"
+)
+"""How an extent rule left out of the figure options is chosen."""
+
+
 @register
 class NetworkExtentBoundsMap(BaseFigure):
     """Maximal and minimal simulated extents beside the maximal and minimal maps.
@@ -98,29 +105,9 @@ class NetworkExtentBoundsMap(BaseFigure):
     ``reference`` and the permanent one as ``reference_permanent``. A steady
     run, or a run with one map only, gets a sentence instead of a figure.
 
-    Options
-    -------
-    ``bound``
-        ``"both"`` (default) draws the two extents and the two maps; ``"minimal"``
-        or ``"maximal"`` draws the valid, excess and missing cells of that bound.
-    ``year``
-        One complete calendar year to draw instead of the climatological extents.
-    ``maximal_flowing_steps``, ``minimal_dry_steps``, ``year_quorum``, ``visible_flow``
-        The rules of ``[calibration.outputs.<n>.extent]``. Left out, the rules
-        the run's sealed network output scored with, or the defaults of that
-        table when it sealed none.
-    ``tau_specific_ratio``, ``diagonal_neighbors``
-        The criterion's seepage threshold and neighbour graph. Left out, the
-        run's sealed network output, or the criterion's defaults. The
-        rasterisation of the maps and the positional accuracy
-        always come from there, and the years counted from
-        ``[calibration] scoring_window``.
-    ``output``
-        The calibration output to read the settings of, when the run sealed
-        several network outputs; the first one otherwise.
-    ``extent``
-        ``"catchment"`` crops to the delineated watershed, ``"mesh"`` keeps the
-        whole domain.
+    The rasterisation of the maps and the positional accuracy always come
+    from the run's sealed network output, and the years counted from
+    ``[calibration] scoring_window``.
     """
 
     spec = FigureSpec(
@@ -151,16 +138,57 @@ class NetworkExtentBoundsMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        bound: BoundChoice = "both",
-        year: int | str | None = None,
-        maximal_flowing_steps: int | None = None,
-        minimal_dry_steps: int | None = None,
-        year_quorum: float | None = None,
-        visible_flow: str | None = None,
-        tau_specific_ratio: float | None = None,
-        diagonal_neighbors: bool | None = None,
-        output: str | None = None,
-        extent: MapExtentName = "catchment",
+        bound: Annotated[
+            BoundChoice,
+            Opt(
+                '"both" draws the two extents and the two maps; "minimal" or "maximal" '
+                "draws the valid, excess and missing cells of that bound."
+            ),
+        ] = "both",
+        year: Annotated[
+            int | str | None,
+            Opt(
+                "One complete calendar year to draw instead of the climatological "
+                "extents. Left out, every complete year of the scoring window."
+            ),
+        ] = None,
+        maximal_flowing_steps: Annotated[
+            int | None,
+            Opt(
+                f"Timesteps a cell has to flow in a year to enter the maximal extent. {_RULE} (1)."
+            ),
+        ] = None,
+        minimal_dry_steps: Annotated[
+            int | None,
+            Opt(
+                f"Timesteps a cell may be dry in a year and stay in the minimal extent. {_RULE} (1)."
+            ),
+        ] = None,
+        year_quorum: Annotated[
+            float | None,
+            Opt(
+                f"Share of the years in which a cell meets a bound's rule to enter it. {_RULE} (0.5).",
+                unit="-",
+            ),
+        ] = None,
+        visible_flow: Annotated[
+            str | None,
+            Opt(
+                "Routed discharge a cell of the seepage closure must carry to flow: a "
+                'discharge with its unit ("1 L/s"), a share of the outlet discharge '
+                f'("1%"), or "0 L/s" for the closure alone. {_RULE} ("1 L/s").'
+            ),
+        ] = None,
+        tau_specific_ratio: TauSpecificRatio = None,
+        diagonal_neighbors: DiagonalNeighbors = None,
+        output: Annotated[
+            str | None,
+            Opt(
+                "Calibration output whose settings are read, when the run sealed "
+                "several network outputs. Left out, the first one."
+            ),
+        ] = None,
+        extent: Extent = "catchment",
         **_,
     ) -> Axes:
         if bound not in ("both", "minimal", "maximal"):
@@ -196,9 +224,7 @@ class NetworkExtentBoundsMap(BaseFigure):
         style_map_axes(ax)
         overlay_watershed_contour(ax, sim, color="#404040", linewidth=0.9, alpha=0.7)
         what = "both bounds" if bound == "both" else f"{bound} bound"
-        ax.set_title(
-            f"{self.spec.title} - {sim.name or sim.sim_id}\n{what}, {_window(extents, chosen_year)}"
-        )
+        ax.set_title(f"{self.spec.title}{run_suffix(sim)}\n{what}, {_window(extents, chosen_year)}")
         window = map_extent(sim, polygons, extent=extent)
         note = "\n".join(
             [*extent_notes(extents, chosen_year), settings.note(), f"frame: {window.name}"]

@@ -78,6 +78,7 @@ ACCEPTED = {
     "base_config": 'base_config = "step1_minimal.toml"\n',
     "append a list": 'base_config = "a.toml"\n[display]\nfigures__append = ["x"]\n',
     "append a table list": 'export__append = [{ format = "csv" }]\n',
+    "merge a table list": 'export__merge = [{ format = "csv" }]\n',
     "delete a section": 'base_config = "a.toml"\nmesh_catchment__delete = true\n',
     "delete a key in a section": "[data]\nrecharge__delete = true\n",
     "delete a key the variant lacks": (
@@ -108,6 +109,7 @@ REFUSED = {
     "quantity out of range": '[domain.depth_model]\nkind = "constant_thickness"\nthickness = -5\n',
     "delete that is not true": "export__delete = false\n",
     "append on a key that is no list": "flow__append = [1]\n",
+    "merge on a key that is no list": "flow__merge = [1]\n",
     "base_config that is no path": "base_config = 3\n",
 }
 

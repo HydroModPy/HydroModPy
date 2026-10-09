@@ -1,21 +1,18 @@
 """Make the paths of a generated child config absolute, as its schema types them.
 
-A testbed writes each child TOML in its own output folder, so a relative path
-copied from the base config or from a case overlay would be read against the
-wrong folder. Only the values the schema declares as paths are rewritten. The
-schema says so in one of three ways:
+A testbed or a comparison writes each child TOML in its own output folder, so a
+relative path copied from the base config or from an overlay would be read
+against the wrong folder. Only the values the schema declares as paths are
+rewritten:
 
 - the field is typed ``Path`` (or a ``PurePath``), or carries ``InputFile``;
-- the field is typed ``str`` and its name says it holds a path: ``path``,
-  or a name ending in ``_path``, ``_file``, ``_dir``, ``_root`` or ``_folder``.
-  These fields predate the ``Path`` typing and are read as paths by their
-  loaders;
-- the key is ``base_config``, the inheritance key of every TOML file, or one
-  of the two comparison keys that name a simulation TOML.
+- the key is ``base_config``, the inheritance key of every TOML file, which no
+  model declares.
 
-Any other value is copied as written. The rule used before matched a key name
-by substring anywhere in the tree, so ``track_dir = "forward"`` and
-``profile = "x"`` came out as ``/base/forward`` and ``/base/x``.
+Any other value is copied as written, whatever its key is called. A rule on
+key names made ``track_dir = "forward"``, ``profile = "x"``, the dotted key
+``calibration.parameters.<name>.path`` and the folder name
+``display.output_dir`` into absolute paths.
 
 A bare file name given to an ``InputFile`` field, and absent from the folder
 of its source, is left bare: the child loader then looks it up in the data
@@ -25,7 +22,6 @@ folders of the workspace, as it would for a TOML written next to the file.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from enum import Enum
 from pathlib import Path, PurePath
 from typing import Any, Literal, get_args, get_origin
 
@@ -34,18 +30,14 @@ from pydantic.fields import FieldInfo
 
 from hydromodpy.core.config_kit.introspect import iter_basemodels
 from hydromodpy.core.toml_io import is_declared_absolute_path
+from hydromodpy.core.toml_io.merge import DIRECTIVE_SUFFIXES
 from hydromodpy.core.tracking.input_file import InputFile
 
-PATH_NAME_SUFFIXES = ("_path", "_file", "_dir", "_root", "_folder")
-"""Suffixes that mark a ``str`` field as a path."""
-
-PATH_KEYS = frozenset({"base_config", "base_simulation_config", "simulation_config"})
-"""Keys that name a TOML file, whatever their declared type."""
+PATH_KEYS = frozenset({"base_config"})
+"""Keys that name a TOML file and that no model declares."""
 
 OVERLAY_KEYS = frozenset({"overlay", "base_simulation_overlay"})
 """Free mappings that hold a fragment of the root simulation config."""
-
-_MERGE_SUFFIXES = ("__append", "__delete")
 
 
 def root_simulation_model() -> type[BaseModel]:
@@ -67,9 +59,18 @@ def absolutize_child_paths(
     *,
     model: type[BaseModel],
     source_dir: Path,
+    data_dirs: tuple[Path, ...] = (),
 ) -> dict[str, Any]:
-    """Return *payload* with each path the schema of *model* declares made absolute."""
-    return _walk_mapping(payload, (model,), source_dir=Path(source_dir))
+    """Return *payload* with each path the schema of *model* declares made absolute.
+
+    A bare file name given to an input-file field, and absent from *source_dir*, is
+    looked for in *data_dirs*, as ``<data>/<role>/<name>`` then ``<data>/<name>``,
+    and made absolute when found. It stays bare when it is found nowhere, so a child
+    that shares the workspace of its source can still look it up itself.
+    """
+    return _walk_mapping(
+        payload, (model,), source_dir=Path(source_dir), data_dirs=tuple(Path(d) for d in data_dirs)
+    )
 
 
 def _walk_mapping(
@@ -77,11 +78,12 @@ def _walk_mapping(
     models: tuple[type[BaseModel], ...],
     *,
     source_dir: Path,
+    data_dirs: tuple[Path, ...],
 ) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for raw_key, value in mapping.items():
         key = str(raw_key)
-        out[key] = _walk_value(key, value, models, source_dir=source_dir)
+        out[key] = _walk_value(key, value, models, source_dir=source_dir, data_dirs=data_dirs)
     return out
 
 
@@ -91,20 +93,24 @@ def _walk_value(
     models: tuple[type[BaseModel], ...],
     *,
     source_dir: Path,
+    data_dirs: tuple[Path, ...],
 ) -> Any:
     name = _field_key(key)
     if name in PATH_KEYS:
-        return _absolutize(value, source_dir=source_dir, data_lookup=False)
+        return _absolutize(value, source_dir=source_dir, data_dirs=data_dirs, roles=None)
     fields = [field for model in models if (field := _field_of(model, name)) is not None]
     if not fields:
         if name in OVERLAY_KEYS and isinstance(value, Mapping):
-            return _walk_mapping(value, (root_simulation_model(),), source_dir=source_dir)
+            return _walk_mapping(
+                value, (root_simulation_model(),), source_dir=source_dir, data_dirs=data_dirs
+            )
         return value
-    if any(_is_path_field(name, field) for field in fields):
+    if any(_is_path_field(field) for field in fields):
         return _absolutize(
             value,
             source_dir=source_dir,
-            data_lookup=any(_is_input_file(field) for field in fields),
+            data_dirs=data_dirs,
+            roles=_input_roles(fields),
         )
     nested = tuple(
         dict.fromkeys(model for field in fields for model in iter_basemodels(field.annotation))
@@ -115,12 +121,14 @@ def _walk_value(
         ):
             # The keys are names the user chose (a parameter, a boundary).
             return {
-                str(entry): _walk_nested(item, nested, source_dir=source_dir)
+                str(entry): _walk_nested(item, nested, source_dir=source_dir, data_dirs=data_dirs)
                 for entry, item in value.items()
             }
-        return _walk_nested(value, nested, source_dir=source_dir)
+        return _walk_nested(value, nested, source_dir=source_dir, data_dirs=data_dirs)
     if name in OVERLAY_KEYS and isinstance(value, Mapping):
-        return _walk_mapping(value, (root_simulation_model(),), source_dir=source_dir)
+        return _walk_mapping(
+            value, (root_simulation_model(),), source_dir=source_dir, data_dirs=data_dirs
+        )
     return value
 
 
@@ -129,17 +137,20 @@ def _walk_nested(
     models: tuple[type[BaseModel], ...],
     *,
     source_dir: Path,
+    data_dirs: tuple[Path, ...],
 ) -> Any:
     if isinstance(value, Mapping):
-        return _walk_mapping(value, models, source_dir=source_dir)
+        return _walk_mapping(value, models, source_dir=source_dir, data_dirs=data_dirs)
     if isinstance(value, list):
-        return [_walk_nested(item, models, source_dir=source_dir) for item in value]
+        return [
+            _walk_nested(item, models, source_dir=source_dir, data_dirs=data_dirs) for item in value
+        ]
     return value
 
 
 def _field_key(key: str) -> str:
     """The field a TOML key writes to, without its merge suffix."""
-    for suffix in _MERGE_SUFFIXES:
+    for suffix in DIRECTIVE_SUFFIXES:
         if key.endswith(suffix):
             return key[: -len(suffix)]
     return key
@@ -159,12 +170,8 @@ def _is_input_file(field: FieldInfo) -> bool:
     return any(isinstance(meta, InputFile) for meta in field.metadata or ())
 
 
-def _is_path_field(name: str, field: FieldInfo) -> bool:
-    if _declares_path(field.annotation) or _is_input_file(field):
-        return True
-    if not _declares_plain_str(field.annotation):
-        return False
-    return name == "path" or name.endswith(PATH_NAME_SUFFIXES)
+def _is_path_field(field: FieldInfo) -> bool:
+    return _declares_path(field.annotation) or _is_input_file(field)
 
 
 def _declares_path(annotation: Any) -> bool:
@@ -173,16 +180,6 @@ def _declares_path(annotation: Any) -> bool:
     if get_origin(annotation) is Literal:
         return False
     return any(_declares_path(arg) for arg in get_args(annotation))
-
-
-def _declares_plain_str(annotation: Any) -> bool:
-    if annotation is str:
-        return True
-    if isinstance(annotation, type) and issubclass(annotation, Enum):
-        return False
-    if get_origin(annotation) is Literal:
-        return False
-    return any(_declares_plain_str(arg) for arg in get_args(annotation))
 
 
 def _is_mapping_of_models(annotation: Any) -> bool:
@@ -196,9 +193,29 @@ def _is_mapping_of_models(annotation: Any) -> bool:
     return False
 
 
-def _absolutize(value: Any, *, source_dir: Path, data_lookup: bool) -> Any:
+def _input_roles(fields: list[FieldInfo]) -> tuple[str, ...] | None:
+    """The roles of the input-file markers of *fields*, or None when none is an input file."""
+    roles = [
+        meta.role
+        for field in fields
+        for meta in field.metadata or ()
+        if isinstance(meta, InputFile)
+    ]
+    return tuple(dict.fromkeys(roles)) if roles else None
+
+
+def _absolutize(
+    value: Any,
+    *,
+    source_dir: Path,
+    data_dirs: tuple[Path, ...],
+    roles: tuple[str, ...] | None,
+) -> Any:
     if isinstance(value, list):
-        return [_absolutize(item, source_dir=source_dir, data_lookup=data_lookup) for item in value]
+        return [
+            _absolutize(item, source_dir=source_dir, data_dirs=data_dirs, roles=roles)
+            for item in value
+        ]
     if not isinstance(value, str):
         return value
     text = value.strip()
@@ -208,7 +225,12 @@ def _absolutize(value: Any, *, source_dir: Path, data_lookup: bool) -> Any:
     if is_declared_absolute_path(declared):
         return declared.as_posix()
     candidate = (source_dir / declared).resolve()
-    if data_lookup and _is_bare_file_name(text) and not candidate.exists():
+    if roles is not None and _is_bare_file_name(text) and not candidate.exists():
+        for data_dir in data_dirs:
+            for folder in (*(data_dir / role for role in roles), data_dir):
+                found = folder / text
+                if found.exists():
+                    return found.resolve().as_posix()
         return value
     return candidate.as_posix()
 
@@ -220,7 +242,6 @@ def _is_bare_file_name(text: str) -> bool:
 __all__ = [
     "OVERLAY_KEYS",
     "PATH_KEYS",
-    "PATH_NAME_SUFFIXES",
     "absolutize_child_paths",
     "comparison_model",
     "root_simulation_model",

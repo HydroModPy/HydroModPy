@@ -948,3 +948,114 @@ class TestASingleMetricPhaseScoringANetworkOutput:
         assert len(named) == 1
         assert named[0].severity == "error"
         assert named[0].where == "[[calibration.phases]] 'one'"
+
+
+_GAUGED = """
+[calibration]
+method = "grid"
+max_iter = 4
+
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+path = "flow.param.K.field.value"
+
+[calibration.outputs.hydrograph]
+support = "point"
+variable = "discharge"
+observes = "GAUGE"
+
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse"
+uses_outputs = ["hydrograph"]
+"""
+
+
+class TestTheObservedStationIsLoaded:
+    def test_a_station_no_source_lists_is_named(self, tmp_path) -> None:
+        doc = (
+            """
+            [data]
+            types = ["hydrometry"]
+
+            [[data.hydrometry.sources]]
+            source = "custom"
+            path = "hydrometry"
+            station_ids = ["OTHER"]
+            """
+            + _GAUGED
+        )
+        findings = _preflight(_write(tmp_path, doc))
+
+        named = [item for item in findings if "GAUGE" in item.detail]
+        assert len(named) == 1
+        assert named[0].where == "[calibration.outputs.hydrograph]"
+        assert "Listed: OTHER" in named[0].detail
+
+    def test_a_listed_station_passes(self, tmp_path) -> None:
+        doc = (
+            """
+            [data]
+            types = ["hydrometry"]
+
+            [[data.hydrometry.sources]]
+            source = "custom"
+            path = "hydrometry"
+            station_ids = ["GAUGE"]
+            """
+            + _GAUGED
+        )
+        findings = _preflight(_write(tmp_path, doc))
+
+        assert not any("GAUGE" in item.detail for item in findings)
+
+
+class TestTheScoringWindowHoldsADateOfTheRun:
+    def test_a_window_after_the_run_is_named(self, tmp_path) -> None:
+        doc = _GAUGED + '\n[calibration.scoring_window]\nstart = "2010-01-01"\n'
+        findings = _preflight(_write(tmp_path, doc))
+
+        named = [item for item in findings if "holds no date of the run" in item.detail]
+        assert len(named) == 1
+        assert named[0].severity == "error"
+        assert "2010-01-01" in named[0].detail
+
+    def test_a_window_inside_the_run_passes(self, tmp_path) -> None:
+        doc = _GAUGED + '\n[calibration.scoring_window]\nstart = "2000-03-01"\n'
+        findings = _preflight(_write(tmp_path, doc))
+
+        assert not any("holds no date of the run" in item.detail for item in findings)
+
+
+class TestASamplerScoredOnAnotherMetricThanItsLikelihood:
+    def _doc(self, metric: str) -> str:
+        return f"""
+        [calibration]
+        method = "da_mh_gp"
+
+        [calibration.parameters.K]
+        bounds = [1e-7, 1e-3]
+        path = "flow.param.K.field.value"
+
+        [calibration.outputs.hydrograph]
+        support = "point"
+        variable = "discharge"
+        observes = "GAUGE"
+
+        [[calibration.objective_blocks]]
+        name = "hydrograph"
+        metric = "{metric}"
+        uses_outputs = ["hydrograph"]
+        """
+
+    def test_an_efficiency_score_is_warned(self, tmp_path) -> None:
+        findings = _preflight(_write(tmp_path, self._doc("nse")))
+
+        named = [item for item in findings if "reads its cost as rmse" in item.detail]
+        assert len(named) == 1
+        assert named[0].severity == "warning"
+
+    def test_an_rmse_passes(self, tmp_path) -> None:
+        findings = _preflight(_write(tmp_path, self._doc("rmse")))
+
+        assert not any("reads its cost as" in item.detail for item in findings)

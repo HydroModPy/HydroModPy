@@ -36,14 +36,16 @@ class VariableSpec:
     )
     kind: str  # auto_scan scanner: "timeseries" | "raster" | "vector"
     unit: str
-    label_fr: str
+    label: str  # what the folder holds, in words
     pivot: str  # parquet | geoparquet | geotiff_cog | netcdf
 
 
 VARIABLES: tuple[VariableSpec, ...] = (
-    VariableSpec("hydrometry", "hydrometry", "point", "timeseries", "m3/s", "debits", "parquet"),
     VariableSpec(
-        "piezometry", "piezometry", "point", "timeseries", "m", "niveaux piezometriques", "parquet"
+        "hydrometry", "hydrometry", "point", "timeseries", "m3/s", "river discharge", "parquet"
+    ),
+    VariableSpec(
+        "piezometry", "piezometry", "point", "timeseries", "m", "groundwater levels", "parquet"
     ),
     VariableSpec(
         "intermittency",
@@ -51,7 +53,7 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "point",
         "timeseries",
         "code",
-        "etat d'ecoulement (ONDE)",
+        "flow state (ONDE)",
         "parquet",
     ),
     VariableSpec(
@@ -60,7 +62,7 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "point",
         "timeseries",
         "mg/L",
-        "qualite des eaux",
+        "water quality",
         "parquet",
     ),
     VariableSpec("recharge", "recharge", "grid", "timeseries", "mm/day", "recharge", "parquet"),
@@ -70,38 +72,36 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "grid",
         "timeseries",
         "mm/day",
-        "precipitations",
+        "precipitation",
         "parquet",
     ),
     VariableSpec("etp", "etp", "grid", "timeseries", "mm/day", "evapotranspiration", "parquet"),
-    VariableSpec("runoff", "runoff", "grid", "timeseries", "mm/day", "ruissellement", "parquet"),
+    VariableSpec("runoff", "runoff", "grid", "timeseries", "mm/day", "runoff", "parquet"),
     VariableSpec(
         "temperature", "temperature", "grid", "timeseries", "degC", "temperature", "parquet"
     ),
-    VariableSpec("wind", "wind", "grid", "timeseries", "m/s", "vent", "parquet"),
-    VariableSpec("humidity", "humidity", "grid", "timeseries", "%", "humidite", "parquet"),
-    VariableSpec(
-        "radiation", "radiation", "grid", "timeseries", "MJ/m2/j", "rayonnement", "parquet"
-    ),
+    VariableSpec("wind", "wind", "grid", "timeseries", "m/s", "wind", "parquet"),
+    VariableSpec("humidity", "humidity", "grid", "timeseries", "%", "humidity", "parquet"),
+    VariableSpec("radiation", "radiation", "grid", "timeseries", "MJ/m2/j", "radiation", "parquet"),
     VariableSpec(
         "soil_moisture",
         "soil_moisture",
         "grid",
         "timeseries",
         "%",
-        "humidite du sol",
+        "soil moisture",
         "parquet",
     ),
-    VariableSpec("oceanic", "oceanic", "grid", "timeseries", "m", "niveau marin", "parquet"),
-    VariableSpec("dem", "dem", "dem", "raster", "m", "modele numerique de terrain", "geotiff_cog"),
-    VariableSpec("geology", "geology", "geology", "vector", "-", "carte geologique", "geoparquet"),
+    VariableSpec("oceanic", "oceanic", "grid", "timeseries", "m", "sea level", "parquet"),
+    VariableSpec("dem", "dem", "dem", "raster", "m", "digital elevation model", "geotiff_cog"),
+    VariableSpec("geology", "geology", "geology", "vector", "-", "geological map", "geoparquet"),
     VariableSpec(
         "hydrography",
         "hydrography",
         "hydrography",
         "vector",
         "-",
-        "reseau hydrographique",
+        "river network",
         "geoparquet",
     ),
     VariableSpec(
@@ -110,7 +110,7 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "hydrography",
         "vector",
         "-",
-        "emprise lac / reservoir",
+        "lake or reservoir outline",
         "geoparquet",
     ),
     VariableSpec(
@@ -119,7 +119,7 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "raster",
         "raster",
         "m",
-        "bathymetrie du lac",
+        "lake bathymetry",
         "geotiff_cog",
     ),
     VariableSpec(
@@ -128,7 +128,7 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "table",
         "table",
         "m|m3|m2",
-        "abaque hauteur-volume-surface",
+        "stage-volume-area table",
         "parquet",
     ),
     VariableSpec(
@@ -137,7 +137,7 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "point",
         "timeseries",
         "m",
-        "niveaux de lac observes",
+        "observed lake levels",
         "parquet",
     ),
     VariableSpec(
@@ -146,7 +146,7 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "point",
         "timeseries",
         "m3/s",
-        "apports volumiques au lac",
+        "inflow to the lake",
         "parquet",
     ),
     VariableSpec(
@@ -155,7 +155,7 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "point",
         "timeseries",
         "m3/s",
-        "debits sortants du lac",
+        "outflow from the lake",
         "parquet",
     ),
     VariableSpec(
@@ -164,7 +164,7 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "point",
         "timeseries",
         "m3/s",
-        "prelevements sur le lac",
+        "withdrawals from the lake",
         "parquet",
     ),
     VariableSpec(
@@ -173,7 +173,7 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "raster",
         "raster",
         "m",
-        "substratum (fond de l'aquifere)",
+        "substratum (base of the aquifer)",
         "geotiff_cog",
     ),
     VariableSpec(
@@ -182,7 +182,7 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "raster",
         "raster",
         "mm",
-        "reserve utile du sol",
+        "soil available water capacity",
         "geotiff_cog",
     ),
     VariableSpec(
@@ -191,14 +191,14 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "crossings",
         "vector",
         "-",
-        "ouvrages de franchissement",
+        "river crossing structures",
         "geoparquet",
     ),
 )
 
 
 _README_HEADER = """\
-# data/{name}/ - {label_fr}
+# data/{name}/ - {label}
 
 Drop your `{name}` files in this folder. HydroModPy reads them directly: the
 provider is encoded in the file NAME, not in a subfolder.
@@ -416,8 +416,7 @@ def _render_readme(spec: VariableSpec) -> str:
     body = _README_BODY[spec.category]
     parts = (_README_HEADER, body, _README_FOOTER)
     return "\n".join(
-        part.format(name=spec.name, prefix=spec.file_prefix, label_fr=spec.label_fr)
-        for part in parts
+        part.format(name=spec.name, prefix=spec.file_prefix, label=spec.label) for part in parts
     )
 
 

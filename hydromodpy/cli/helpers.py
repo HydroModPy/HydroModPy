@@ -53,7 +53,6 @@ def exit_code_for(exc: BaseException) -> int:
     Returns :data:`EXIT_GENERIC` when no specific mapping is registered.
     :class:`KeyboardInterrupt` is routed to :data:`EXIT_SIGINT` (POSIX 130).
     """
-    from hydromodpy.analysis.testbed.contracts import FailedCasesError
     from hydromodpy.core.exceptions import (
         BackupFailedError,
         CalibrationError,
@@ -63,6 +62,7 @@ def exit_code_for(exc: BaseException) -> int:
         ConfigMissingError,
         CrossProjectsError,
         DataError,
+        FailedCasesError,
         JobUsageError,
         MigrationFailedError,
         ReadOnlyError,

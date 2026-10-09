@@ -406,7 +406,7 @@ def resolve_minimal_network(run_ctx: RunContext, output: Any) -> ObservedNetwork
         return None
     return resolve_network_file(
         path,
-        message_source=f"minimal_stream_geometry_path = {path!r}",
+        message_source=f"minimal_stream_geometry_path = {str(path)!r}",
         empty_reason="the file carries no feature",
     )
 

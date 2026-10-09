@@ -194,7 +194,7 @@ def _write_map_png(
         ax.text(
             0.5,
             0.5,
-            "Aucun artefact spatial disponible",
+            "No spatial artifact available",
             transform=ax.transAxes,
             ha="center",
             va="center",
@@ -670,7 +670,7 @@ def _legend_handles(
                 color="#0284c7",
                 linewidth=0.8,
                 alpha=0.7,
-                label="Reseau DEM genere",
+                label="Network generated from the DEM",
             )
         )
     handles.extend(_area_legend_handles(Patch=Patch, selected_basins=selected_basins))
@@ -680,7 +680,7 @@ def _legend_handles(
                 facecolor="#fee2e2",
                 edgecolor="#b91c1c",
                 alpha=0.14,
-                label="Bassin rejete",
+                label="Rejected catchment",
             )
         )
     if "flow_station" in observation_types:
@@ -693,7 +693,7 @@ def _legend_handles(
                 markerfacecolor="#2563eb",
                 markeredgecolor="#1e3a8a",
                 markersize=5.5,
-                label="Station hydro",
+                label="Gauging station",
             )
         )
     if "piezometer" in observation_types:
@@ -706,7 +706,7 @@ def _legend_handles(
                 markerfacecolor="#7c3aed",
                 markeredgecolor="#4c1d95",
                 markersize=5.5,
-                label="Station piezo",
+                label="Piezometer",
             )
         )
     if selected_outlet_symbols:
@@ -719,7 +719,7 @@ def _legend_handles(
                 markerfacecolor="white",
                 markeredgecolor="#0f766e",
                 markersize=5.5,
-                label="Exutoire retenu",
+                label="Selected outlet",
             )
         )
     if _has_visible_snap_links([*selected_outlet_symbols, *rejected_outlets], observation_points):
@@ -730,7 +730,7 @@ def _legend_handles(
                 color="#b45309",
                 linestyle=(0, (2.5, 2.5)),
                 linewidth=0.8,
-                label="Deplacement station -> exutoire",
+                label="Move from station to outlet",
             )
         )
     if rejected_outlets:
@@ -742,7 +742,7 @@ def _legend_handles(
                 color="#b91c1c",
                 linestyle="none",
                 markersize=5.5,
-                label="Exutoire rejete",
+                label="Rejected outlet",
             )
         )
     return handles
@@ -779,15 +779,15 @@ def _area_legend_handles(*, Patch: Any, selected_basins: list[dict[str, Any]]) -
     for _, label, color in AREA_COLOR_CLASSES:
         if label in classes_present:
             handles.append(
-                Patch(facecolor=color, edgecolor=color, alpha=0.32, label=f"Bassin {label}")
+                Patch(facecolor=color, edgecolor=color, alpha=0.32, label=f"Catchment {label}")
             )
-    if "surface non renseignee" in classes_present:
+    if "area not given" in classes_present:
         handles.append(
             Patch(
-                facecolor=classes_present["surface non renseignee"],
-                edgecolor=classes_present["surface non renseignee"],
+                facecolor=classes_present["area not given"],
+                edgecolor=classes_present["area not given"],
                 alpha=0.32,
-                label="Bassin surface non renseignee",
+                label="Catchment, area not given",
             )
         )
     return handles
@@ -796,7 +796,7 @@ def _area_legend_handles(*, Patch: Any, selected_basins: list[dict[str, Any]]) -
 def _area_class_for_feature(feature: Mapping[str, Any]) -> tuple[str, str]:
     area_km2 = _area_km2_from_feature(feature)
     if area_km2 is None:
-        return "surface non renseignee", UNKNOWN_AREA_COLOR
+        return "area not given", UNKNOWN_AREA_COLOR
     for max_area, label, color in AREA_COLOR_CLASSES:
         if area_km2 <= max_area:
             return label, color
@@ -830,8 +830,8 @@ def _map_note(
     *, dem_path: Path | None, dem_extent: tuple[float, float, float, float] | None
 ) -> str:
     if dem_path is not None and dem_extent is not None:
-        return "Fond DEM regional; contours calcules depuis les exutoires"
-    return "Contours calcules depuis les exutoires quand les produits DEM sont disponibles"
+        return "Regional DEM background; outlines computed from the outlets"
+    return "Outlines computed from the outlets when the DEM products are available"
 
 
 def _add_count_box(
@@ -843,10 +843,10 @@ def _add_count_box(
     rejected_outlets: list[dict[str, Any]],
 ) -> None:
     lines = [
-        f"Bassins retenus: {len(selected_basins)}",
-        f"Bassins rejetes: {len(rejected_basins)}",
-        f"Exutoires retenus: {len(selected_outlets)}",
-        f"Exutoires rejetes: {len(rejected_outlets)}",
+        f"Selected catchments: {len(selected_basins)}",
+        f"Rejected catchments: {len(rejected_basins)}",
+        f"Selected outlets: {len(selected_outlets)}",
+        f"Rejected outlets: {len(rejected_outlets)}",
     ]
     ax.text(
         0.01,

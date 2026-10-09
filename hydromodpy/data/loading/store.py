@@ -65,8 +65,8 @@ class DataStore:
             self.workspace_root = Path(workspace_root).expanduser().resolve()
             if not (self.workspace_root / "data").is_dir():
                 raise FileNotFoundError(
-                    f"Workspace invalide : dossier 'data/' introuvable dans "
-                    f"{self.workspace_root}. Lancez 'hmp workspace init' ou verifiez le chemin."
+                    f"Not a workspace: the folder 'data/' is not in {self.workspace_root}. "
+                    "Run 'hmp workspace init', or check the path."
                 )
             self.data_root = self.workspace_root / "data"
         else:

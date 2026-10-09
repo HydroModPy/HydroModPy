@@ -6,12 +6,27 @@ own, and you want the model to read them instead of a download. A source written
 provider. This guide takes each kind of file in turn, says what the loader accepts, and shows
 how to check what was read before a long run.
 
+```{hmp-task}
+Task
+: Make the model read a DEM, a geology map, a river network, station series or a grid from your disk.
+
+Time
+: Seconds to a minute to check a file with `hmp run --until load_data`. Preparing your files is the long part.
+
+Needs
+: Your files, the coordinate system (CRS) of each one, and for a series its unit. A project file that runs (example 04).
+
+Gives
+: A catchment and its inputs read from your files, and a `loaded_data.json` that lists what was read.
+```
+
 ## What you need first
 
 - A project file that runs. The blocks below are merged onto a file of example 04
   (`step1_minimal.toml`, `step2_local_data.toml` or `step4_transient.toml`) and validated
   there. Replace the names of the files by yours.
-- Your files, and for each one its coordinate system (CRS). For a series, its unit.
+- Your files, and for each one its coordinate system (CRS). A file with no CRS is refused:
+  HydroModPy does not guess one. For a series, its unit.
 - The place where they live. Any folder works. A workspace folder gives you short paths,
   as `step1_minimal.toml` shows.
 
@@ -85,6 +100,9 @@ If neither is written, the check refuses the file:
 catch_def='from_outlet_coord' requires 'dem_init_path' (path to the DEM raster or XYZ text file).
 ```
 
+Whichever place you use, a raster with no CRS is refused before the catchment is cut, with the
+command that writes the CRS into the file (see the table of the loaders below).
+
 A GeoTIFF is the safe format for either place. The DEM source also reads `.tiff`, `.asc` and `.nc`. If
 `path` is a folder, the first file found is used, trying the extensions in that order. The
 format templates created by `hmp workspace init`, whose name holds `EXAMPLE`, are skipped. A
@@ -129,7 +147,8 @@ Two properties of the map matter for the model.
 - It must cover the model domain, not only the catchment. The domain is wider than the
   catchment by the margin {toml}`buff_area|geographic.catchment.buff_area`. A cell that no
   zone covers gets no value.
-- A vector file must be in the CRS of the project. See the CRS rules below.
+- A vector file must be in the CRS of the project. The loader cuts it with a box written in
+  that CRS and does not convert the file.
 
 The map gives zone codes, not values. The values of K and Sy per zone are written in the
 flow section, or read from a CSV with
@@ -149,17 +168,13 @@ A network is a vector file of lines. Example 04 compares it with the simulated s
 ```toml
 base_config = "step2_local_data.toml"
 
-[data.hydrography]
-sources__delete = true
-
 [[data.hydrography.sources]]
 source = "custom"
 path = "network/my_rivers.gpkg"
 ```
 
-`sources__delete = true` removes the source that step 2 declares. Without it, the two lists
-of tables are merged element by element and a key you did not write can come back from
-step 2. {doc}`inheritance` explains the trap.
+A list of tables in a child file replaces the inherited one, so the network of step 2 is gone
+and no key of it comes back. {doc}`inheritance` gives the rule.
 
 For a single file, a `.tif` or `.tiff` is read as a raster, and any other file goes to
 geopandas as a vector, so a Shapefile, a GeoPackage and a GeoJSON all work. If `path` is a
@@ -227,9 +242,6 @@ the files.
 ```toml
 base_config = "step4_transient.toml"
 
-[data.hydrometry]
-sources__delete = true
-
 [[data.hydrometry.sources]]
 source = "custom"
 path = "gauge"
@@ -241,15 +253,23 @@ col_value = "Q"
 The unit is read from the `unit` column of the location file and converted to the unit the
 variable has inside HydroModPy. For discharge and piezometry, a station with no unit stops the
 load. For recharge, runoff and the other climate variables, a station with no unit is taken as
-already in the internal unit, and nothing is converted.
+already in the internal unit and nothing is converted. A warning says so for each station:
+`Station <id> has no unit in its LOC file; its values are taken as <unit> and not converted.`
 {toml}`source_unit|data.hydrometry.sources.source_unit` does not apply to a folder of CSV
 files, only to a NetCDF or a GeoTIFF.
 
-The stations are also filtered by position, and nothing says so. A station on the boundary of
-the delineated watershed stays. A station outside it is kept for discharge and piezometry when
-you name it in {toml}`station_ids|data.hydrometry.sources.station_ids`, and dropped in every
-other case. For recharge, runoff and the other climate variables, it is dropped even when
-named. A station whose chronicle file is missing is skipped, with a warning
+The stations are also filtered by position. A station on the boundary of the delineated
+watershed stays. A station outside it is kept for discharge and piezometry when you name it in
+{toml}`station_ids|data.hydrometry.sources.station_ids`, and dropped in every other case. For
+recharge, runoff and the other climate variables, it is dropped even when named. A dropped
+station is named in a warning, so a gauge that vanished from the run is easy to find:
+
+```text
+[WARNING] hydrometry: 1 station(s) of source 'custom' outside the mask watershed.shp dropped: ['FAR'].
+```
+
+If every station of the source is outside, nothing is left to load and the run stops. A
+station whose chronicle file is missing is skipped, with a warning
 `No chronicle for station <id>`.
 
 ```{hmp-params}
@@ -274,9 +294,6 @@ GeoTIFF. The same `path` key takes a file here and a folder above.
 ```toml
 base_config = "step4_transient.toml"
 
-[data.recharge]
-sources__delete = true
-
 [[data.recharge.sources]]
 source = "custom"
 path = "recharge/recharge_daily.nc"
@@ -290,10 +307,11 @@ is refused. The file must satisfy these points, and each one is checked when the
   `recharge` for recharge, `runoff` for runoff, and so on. Other names are refused with the
   list of those present.
 - **NetCDF, the CRS.** It is read from the CRS of the file, or from an attribute named `crs`,
-  `crs_wkt` or `spatial_ref`, or from the grid mapping. The coordinates are `x` and `y`, or
-  `lon` and `lat`, or `LAMBX` and `LAMBY`.
-- **NetCDF, the nodata value.** It must be an attribute of the variable called `nodata`. A
-  `_FillValue` is not enough: it is no longer an attribute once xarray has opened the file.
+  `crs_wkt`, `spatial_ref` or `proj4`, or from the grid mapping. The coordinates are `x` and
+  `y`, or `lon` and `lat`, or `LAMBX` and `LAMBY`.
+- **NetCDF, the nodata value.** It is the `nodata` attribute of the variable, or its finite
+  `_FillValue` or `missing_value`. A NaN fill value does not count: writers add one by default,
+  and it declares nothing.
 - **NetCDF, the time axis.** It must be regular. It is cut to the period of the run.
 - **GeoTIFF.** It declares a CRS and a nodata value.
 - **The unit.** Write {toml}`source_unit|data.recharge.sources.source_unit`, or a `units`
@@ -313,25 +331,24 @@ data.etp.sources.nodata
 
 How the recharge enters the model, once it is loaded, is in {doc}`recharge`.
 
-## The CRS rules
+## What each loader accepts
 
-Each loader does something different when a file declares no CRS. Write the CRS into your
-files and the last column does not apply.
+One table for the five kinds of file. A file that declares no CRS is refused, with the file
+named and the command that writes the CRS into it: `gdal_edit.py -a_srs EPSG:<code> <file>`
+for a raster, `ogr2ogr -a_srs EPSG:<code> <new file> <file>` for a vector, or a `.prj` file
+beside a Shapefile.
 
-| File | Where the CRS comes from | If the file has none |
-|---|---|---|
-| DEM | The file. | The DEM loader labels it `EPSG:2154`. The delineated watershed can then carry no CRS, and the data loaders refuse a mask without one. |
-| Geology, vector or GeoTIFF | The file. The vector must be in the CRS of the project. | Taken as `EPSG:2154`. |
-| Geology, CSV points | {toml}`default_crs\|data.geology.sources.default_crs` | Not applicable: a CSV has no CRS, and this key gives it. |
-| River network, vector | The file. It is converted to the CRS of the watershed. | Taken as `EPSG:4326`. |
-| Stations | The `crs` column of the location file, one value per station. A vector location file gives its own. | {toml}`default_crs\|data.hydrometry.sources.default_crs` for a CSV file. |
-| NetCDF grid | The file, or an attribute `crs`, `crs_wkt` or `spatial_ref`. | The file is refused. Only ETP can take the CRS from the TOML. |
-| GeoTIFF grid | The file. | The file is refused. |
-
-The geology rule is the one that bites. The vector is cut with a box that is written in the
-CRS of the project. A vector in another CRS is cut with the wrong box, and the run stops
-with `No geology feature intersects bbox after clipping`. Convert the file to the CRS of the
-project before you use it.
+| Kind | Extensions | CRS | Also required |
+|---|---|---|---|
+| DEM | `.tif`, `.tiff`, `.asc`, `.nc` | The file. Refused if none, whether the DEM is named by `dem_init_path` or by `[[data.dem.sources]]`. | A NetCDF names its variable `elevation`, `dem`, `z`, `altitude`, `height` or `Band1`, or holds only one. |
+| Geology, vector | `.shp`, `.gpkg`, `.geojson`, `.json` | The file, and it must be the CRS of the project. Refused if none. | {toml}`code_field\|data.geology.sources.code_field`, a column of the file. |
+| Geology, raster | `.tif`, `.tiff` | The file. Refused if none. | One numeric class per cell. |
+| Geology, points | `.csv` | {toml}`default_crs\|data.geology.sources.default_crs`: a CSV has no CRS, and this key gives it. | The columns named by `col_x`, `col_y` and `col_code`. |
+| River network, vector | `.shp`, `.gpkg`, `.geojson`, any vector | The file. Converted to the CRS of the watershed. Refused if none. | Optional `rasterize_field` and `permanence` columns. |
+| River network, raster | `.tif`, `.tiff` | The file. Refused if none. | Burnt as is. |
+| Stations | A folder: `<section>_custom_LOC.csv` (or `.shp`, `.gpkg`, `.geojson`) and one `<section>_custom_<id>_<start>_<end>_<freq>.csv` per station | The `crs` column of the location file, one value per station, or the geometry of a vector file. {toml}`default_crs\|data.hydrometry.sources.default_crs` for a CSV with no such column. | A `unit` column for discharge and piezometry. The columns `datetime` and `value`, or the names in `col_datetime` and `col_value`. |
+| NetCDF grid | `.nc` | The file, or an attribute `crs`, `crs_wkt`, `spatial_ref` or `proj4`. Only ETP can take it from the TOML. Refused if none. | A variable named after the section, a regular time axis, a nodata value (attribute or finite fill value). |
+| GeoTIFF grid | `.tif`, `.tiff` | The file. Refused if none. | A nodata value. |
 
 ## What is checked, and when
 
@@ -339,19 +356,14 @@ project before you use it.
 |---|---|
 | `hmp config check` | The shape of the TOML: keys, types, the keys a source requires. It does not open a file and does not test that a path exists. |
 | Start of `hmp run` | Files named `<section>_custom_*` in `<workspace>/data/<section>/` are indexed. A file that cannot be read gives the warning `auto_scan could not read <file>: <reason>`, and the run goes on. |
-| Step `build_geographic` | The DEM, and for a diagnostic of the network, the first custom vector of the hydrography section. |
+| Step `build_geographic` | The DEM of `dem_init_path` or of the first custom DEM source: a raster with no CRS is refused here, before the catchment is cut. For a diagnostic of the network, the first custom vector of the hydrography section. |
 | Step `load_data` | Every section of {toml}`data.types`: first the DEM, the geology and the hydrography, then the series and the grids. |
 
-A failure at `load_data` does not always stop the run. A failure on the DEM, the geology or
-the hydrography does, with a message that starts with `step 'load_data' failed:`. A failure on
-a series or a grid is only logged, and the run goes on without that data:
-
-```text
-[ERROR] Load of 'hydrometry' failed: Failed to load data manager 'hydrometry': <reason>
-```
-
-Read the log of `load_data` after every change of file. A run that was meant to read your
-gauge may carry on without it.
+A listed section that fails at `load_data` stops the run, whatever its kind. The message
+starts with `step 'load_data' failed: <ErrorClass>: Failed to load data manager '<section>':`,
+and the exit code names the cause: 10 for a file that is not there, 16 for a file the loader
+refuses ({doc}`../reference/cli/exit-codes`). The table at the end of this page gives the end
+of each message.
 
 ## Check that it worked
 
@@ -385,46 +397,74 @@ gauge may carry on without it.
    It requires the columns `id`, `x`, `y`, `crs` and `unit` in the location file, and
    `datetime` and `value` in a chronicle, whatever you wrote in `col_datetime` or `col_value`.
 
-4. Run the model and open the figures. `watershed_id_card` draws the delineated catchment,
-   `hydrographic_network_reference` your network, and `hydrograph_sim_obs` your gauge against
-   the simulation. Name them in {toml}`display.figures`, as the files of example 04 do. If the
-   basin looks shifted, cropped or empty, the CRS of a file is wrong. Fix the file, not the
-   solver settings.
+4. Run the model and open the figures. Name them in {toml}`display.figures`, as the files of
+   example 04 do. If the basin looks shifted, cropped or empty, the CRS of a file is wrong.
+   Fix the file, not the solver settings. Three figures answer for three kinds of file.
+
+   `watershed_id_card` draws the delineated catchment and what the run holds of it:
+
+   ```{figure} /_static/figures/guides/watershed_id_card.webp
+   :alt: Identity card of the Nançon catchment: the outline on the DEM, the outlet and a table of the run.
+   :width: 90%
+
+   `watershed_id_card`: the outline must enclose the basin you mean, and the outlet must sit on the stream.
+   ```
+
+   `hydrographic_network_reference` draws your network inside the outline:
+
+   ```{figure} /_static/figures/guides/hydrographic_network_reference.webp
+   :alt: Map of the Nançon catchment with its mapped river network drawn over the outline.
+   :width: 90%
+
+   `hydrographic_network_reference`: the reaches must fall inside the outline and meet the outlet.
+   ```
+
+   `hydrograph_sim_obs` draws your gauge against the simulation:
+
+   ```{figure} /_static/figures/guides/hydrograph_sim_obs.webp
+   :alt: Daily discharge of the Nançon, observed and simulated.
+   :width: 90%
+
+   `hydrograph_sim_obs`: the observed series is your gauge, in the unit of the model.
+   ```
 
 ## What can go wrong
 
-The messages below are the ones of the code. A message that comes from `load_data` is written
-in full as `step 'load_data' failed: ValueError: Failed to load data manager '<section>': <message>`.
-For a series or a grid, the run does not stop, and the same text reaches the log as
-`[ERROR] Load of '<section>' failed: Failed to load data manager '<section>': <message>`. The table
-gives `<message>`.
+The message of a run that stops starts with `step 'load_data' failed: <ErrorClass>: Failed to
+load data manager '<section>':`. The first column gives what follows. The folder part of a
+path is written `<folder>`.
 
-| The message | Cause and fix |
-|---|---|
-| `Custom source requires 'path'` | A source says `custom` and has no `path`. `hmp config check` reports it, before any run. A series adds a hint after the message. |
-| `[data.dem] custom source path not found: <path>` | The same fault, found early, when `dem_init_path` is left out and the DEM comes from the data source. |
-| `Custom DEM path not found: <path>` | The path does not exist. Check the path rules above. |
-| `Unsupported custom DEM format: '<ext>'. Supported: .tif, .tiff, .asc, .nc` | Convert the DEM. |
-| `No DEM file (TIF, ASC, NC) found in <folder>. EXAMPLE templates are ignored: add your own file or point 'path' at it.` | The folder holds no DEM, or only the templates of `hmp workspace init`. |
-| `Custom geology path not found: <path>` | The path does not exist. |
-| `'code_field' is required for custom vector geology source (<file>). Set it in [[data.geology.sources]] to the column containing geology codes.` | Add {toml}`code_field\|data.geology.sources.code_field`. |
-| `Column '<name>' not found in <file>. Available: [...]` | `code_field`, or a CSV column name, is misspelled. The list shows the columns. |
-| `No geology feature intersects bbox after clipping` | The map does not cover the domain, or it is in another CRS than the project. |
-| `No vector or raster file (*.shp, *.gpkg, *.geojson, *.tif, *.tiff) found in <folder>. EXAMPLE templates are ignored: add your own file or point 'path' at it.` | The network folder holds no usable file. |
-| `<path>: No such file or directory` | The `path` of a network file does not exist. A warning `[data.hydrography] custom source path not found` comes first, at `build_geographic`, and says the diagnostic of the network is skipped. |
-| `Mask <file> declares no CRS, so the shape it describes means nothing on its own. Write the file with a CRS, or name the extent explicitly.` | A mask file, such as the watershed made from a DEM with no CRS, has none. |
-| `Custom data directory not found: <folder>` | The `path` of a series is not a folder. |
-| `No <section>_custom_LOC.* in <folder>` | The location file is missing or badly named. |
-| `<section>: station_ids declares ['X'], absent from <section>_custom_LOC.csv. Known ids: ...` | The station is not in the location file. The list shows the known ones. |
-| `No unit for station 'X'. Add a 'unit' column in the LOC file.` | Add the column. |
-| `Unknown unit: '<unit>'` | The unit string is not one HydroModPy converts. Use a common spelling such as `m3/s` or `L/s`. |
-| `Chronicle CSV <file> missing datetime column. Expected 'datetime'. Columns: [...]` | Set {toml}`col_datetime\|data.hydrometry.sources.col_datetime`, or rename the column. The same message exists for `value`. |
-| `Unsupported custom format: <ext>. Use a directory (CSV), .nc, or .tif.` | A grid file has another extension, or its extension is in capitals. |
-| `Custom grid dataset does not contain variable '<name>'; available variables: [...]` | Rename the variable in the NetCDF file. |
-| `Custom grid dataset <file> must declare nodata metadata.` | Add a `nodata` attribute to the variable. |
-| `Custom grid dataset must declare CRS metadata.` | Write a `crs` attribute, or a CRS in the file. |
-| `Custom grid dataset <file> must declare a regular time axis.` | The time steps are not evenly spaced. |
-| `Custom GeoTIFF <file> must declare a CRS.` | Write the CRS into the file. The same message exists for the nodata value. |
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Custom source requires 'path'` (`hmp config check`, exit 14) | A source says `custom` and has no `path`. A series adds a hint after the message. | Add the path. |
+| `[data.dem] custom source path not found: <path>` | The DEM comes from the data source, and the path does not exist. | Check the path rules of section 1. |
+| `Custom DEM path not found: <path>` | The path of a custom DEM does not exist. | Same. |
+| `Unsupported custom DEM format: '<ext>'. Supported: .tif, .tiff, .asc, .nc` | The DEM has another extension. | Convert the DEM. |
+| `No DEM file (TIF, ASC, NC) found in <folder>. EXAMPLE templates are ignored: add your own file or point 'path' at it.` | The folder holds no DEM, or only the templates of `hmp workspace init`. | Add your file, or point `path` at it. |
+| `step 'build_geographic' failed: DataContractViolation: dem: <file> declares no CRS, and HydroModPy does not guess one. Write the CRS into the file: for a raster, 'gdal_edit.py -a_srs EPSG:<code> <file>'; ...` (exit 16) | The DEM has no CRS. A geology map or a network with no CRS gives the same text after `geology:` or `hydrography:`, from `load_data`. | Write the CRS into the file with the command in the message. |
+| `Custom geology path not found: <path>` | The path does not exist. | Check the path. |
+| `'code_field' is required for custom vector geology source (<file>). Set it in [[data.geology.sources]] to the column containing geology codes.` | A vector geology map with no `code_field`. | Add {toml}`code_field\|data.geology.sources.code_field`. |
+| `Column '<name>' not found in <file>. Available: [...]` | `code_field`, or a CSV column name, is misspelled. The list shows the columns. | Copy a name from the list. |
+| `No geology feature intersects bbox after clipping` | The map does not cover the domain, or it is not in the CRS of the project. | Convert the file to the CRS of the project, and check its extent. |
+| `No vector or raster file (*.shp, *.gpkg, *.geojson, *.tif, *.tiff) found in <folder>. EXAMPLE templates are ignored: add your own file or point 'path' at it.` | The network folder holds no usable file. | Add your file. |
+| `<path>: No such file or directory` (exit 16) | The `path` of a network file does not exist. A warning `[data.hydrography] custom source path not found` comes first, at `build_geographic`, and says the diagnostic of the network is skipped. | Check the path. |
+| `Mask <file> declares no CRS, so the shape it describes means nothing on its own. Write the file with a CRS, or name the extent explicitly.` | A mask file, such as a watershed made from a DEM with no CRS, has none. | Write the CRS into the mask. |
+| `Custom data directory not found: <folder>` (exit 10) | The `path` of a series is not a folder. | Check the path. |
+| `No <section>_custom_LOC.* in <folder>` (exit 10) | The location file is missing or badly named. | Name it `<section>_custom_LOC.csv`. |
+| `<section>: station_ids declares ['X'], absent from <section>_custom_LOC.csv. Known ids: ...` | The station is not in the location file. The list shows the known ones. | Copy an id from the list. |
+| `No unit for station 'X'. Add a 'unit' column in the LOC file.` | A discharge or piezometry station has no unit. | Add the column. |
+| `Unknown unit: '<unit>'` | The unit string is not one HydroModPy converts. | Use a common spelling such as `m3/s`, `L/s` or `mm/day`. |
+| `Chronicle CSV <file> missing datetime column. Expected 'datetime'. Columns: [...]` | The chronicle has other column names. The same message exists for `value`. | Set {toml}`col_datetime\|data.hydrometry.sources.col_datetime`, or rename the column. |
+| `<section>: N station(s) of source '<source>' outside the mask <file> dropped: [...]` (warning) | A station lies outside the watershed and is dropped. | Check the coordinates and the CRS of the station. For discharge or piezometry, name the station in `station_ids` to keep it. |
+| `<section>: every station of source '<source>' lies outside the mask <file>: [...]. No station is left to load.` (exit 16) | Every station of the source is outside the watershed. | Same, or the outlet is not where you think. |
+| `Station <id> has no unit in its LOC file; its values are taken as <unit> and not converted.` (warning) | A climate station has no unit. | Add the `unit` column. |
+| `No chronicle for station <id>` (warning) | The location file lists a station and no chronicle file matches. | Name the file `<section>_custom_<id>_<start>_<end>_<freq>.csv`. |
+| `Unsupported custom format: <ext>. Use a directory (CSV), .nc, or .tif.` | A grid file has another extension, or its extension is in capitals. | Rename or convert it. |
+| `Custom grid dataset does not contain variable '<name>'; available variables: [...]` | The NetCDF variable has another name. | Rename the variable in the file. |
+| `Custom grid dataset <file> must declare a nodata value: an attribute 'nodata', '_FillValue' or 'missing_value' on the variable.` | No `nodata` attribute and no finite fill value. | Add a `nodata` attribute to the variable. |
+| `Custom grid dataset must declare CRS metadata.` | The NetCDF has no CRS. | Write a `crs` attribute, or a grid mapping. |
+| `Custom grid dataset <file> must declare a regular time axis.` | The time steps are not evenly spaced. | Resample the series. |
+| `Custom GeoTIFF <file> must declare a CRS.` | The grid has no CRS. The same message exists for the nodata value. | Write it into the file. |
 
 ## Next
 

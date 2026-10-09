@@ -11,12 +11,17 @@ Stages (``--stage``), each one idempotent:
 ``runs``
     Bootstrap the workspace (``hmp workspace init``, ``hmp example add 04``),
     then run the staircase steps, the frozen reference, the two-stage
-    calibration and the two synthetic demo runs. A run that already exists in
-    the project catalog is not run again. Steps 3 and 6 and the calibration
-    need the network on their first run.
+    calibration, the files of the modelling guides and the two synthetic demo
+    runs. A run that already exists in the project catalog is not run again.
+    Steps 3 and 6 and the calibration need the network on their first run.
 ``figures``
     Redraw the figures from the stored runs (hero, Understand, staircase,
-    guides, catalog) and write the manifest.
+    guides, model, catalog) and write the manifest.
+
+The modelling guides (wells, mesh, terrain, depth, boundaries, zones,
+particles, solute, SFR) each ship a file under ``docs/source/guides/recipes/model/``.
+The ``model`` group copies it into the example 04 project, runs it, and draws
+the figures its page shows from that run.
 
 Run it from anywhere, never with the workspace inside the repository::
 
@@ -24,9 +29,9 @@ Run it from anywhere, never with the workspace inside the repository::
 
 Figures are drawn through ``hydromodpy.display.runs.render_figure``, the path
 of ``hmp viz show``. The theme is the ``[display] preset`` of the figure API:
-``default`` for the light variant and ``dark`` for the dark one. The figure
-titles name the run they came from; this script removes that name, because a
-page shows a figure, not a dated run.
+``default`` for the light variant and ``dark`` for the dark one. Every figure
+is drawn with ``show_run_name = false``: a page shows a figure, not a dated
+run, so no title names the run it came from.
 """
 
 from __future__ import annotations
@@ -107,6 +112,86 @@ CALIBRATED_RUNS = (
     "nancon_intermittence_mf6_calibrated_transient_storage",
     "nancon_intermittence_mf6_calibrated_steady_conductivity",
 )
+
+
+@dataclass(frozen=True)
+class GuideFigure:
+    """One figure a modelling guide shows, drawn from the run of its own file."""
+
+    figure: str
+    reference: str | None = None
+
+
+@dataclass(frozen=True)
+class GuideRun:
+    """The file of a modelling guide, the run it writes and the figures its page shows."""
+
+    spec: RunSpec
+    page: str
+    figures: tuple[GuideFigure, ...]
+    extras: tuple[str, ...] = ()
+
+    @property
+    def folder(self) -> str:
+        return Path(self.page).stem
+
+
+RECIPES = DOCS_SOURCE / "guides" / "recipes" / "model"
+
+GUIDE_RUNS: tuple[GuideRun, ...] = (
+    GuideRun(
+        RunSpec("guide_wells", "guide_wells.toml", "nancon_guide_wells"),
+        "guides/add-wells.md",
+        (GuideFigure("watertable_depth_map"), GuideFigure("cross_section")),
+    ),
+    GuideRun(
+        RunSpec("guide_mesh", "guide_mesh.toml", "nancon_guide_mesh"),
+        "guides/choose-and-build-the-mesh.md",
+        (GuideFigure("mesh_map"),),
+        extras=("well_w1.geojson",),
+    ),
+    GuideRun(
+        RunSpec("guide_terrain", "guide_terrain.toml", "nancon_guide_terrain"),
+        "guides/prepare-the-terrain.md",
+        (
+            GuideFigure("depression_map"),
+            GuideFigure("conditioning_impact_map", reference="nancon_step1_minimal"),
+        ),
+    ),
+    GuideRun(
+        RunSpec("guide_depth", "guide_depth.toml", "nancon_guide_depth"),
+        "guides/depth-and-substratum.md",
+        (GuideFigure("cross_section"), GuideFigure("parameter_section")),
+    ),
+    GuideRun(
+        RunSpec("guide_boundaries", "guide_boundaries.toml", "nancon_guide_boundaries"),
+        "guides/boundary-and-initial-conditions.md",
+        (GuideFigure("boundary_package_map"),),
+    ),
+    GuideRun(
+        RunSpec("guide_k_zones", "guide_k_zones.toml", "nancon_guide_k_zones"),
+        "guides/k-per-zone.md",
+        (GuideFigure("parameter_map"),),
+    ),
+    GuideRun(
+        RunSpec("guide_particles", "guide_particles.toml", "nancon_guide_particles"),
+        "guides/track-particles.md",
+        (GuideFigure("particle_tracks"), GuideFigure("residence_time_distribution")),
+    ),
+    GuideRun(
+        RunSpec("guide_solute", "guide_solute.toml", "nancon_guide_solute"),
+        "guides/transport-and-particles.md",
+        (GuideFigure("concentration_map"),),
+    ),
+    GuideRun(
+        RunSpec("guide_sfr", "guide_sfr.toml", "nancon_guide_sfr"),
+        "guides/route-streams-with-sfr.md",
+        (GuideFigure("sfr_reach_network"), GuideFigure("hydrograph_sim_obs")),
+    ),
+)
+"""The modelling guides that show a run of their own file. Their pages are left
+out of the ``guides`` group, which draws cited figures from the example runs."""
+
 
 # Where a guide figure is looked for, first run that can draw it wins.
 GUIDE_RUN_ORDER = (
@@ -276,6 +361,17 @@ def stage_runs(workspace: Path, cores: int, only: set[str]) -> None:
             cwd=project,
             cores=cores,
         )
+    for guide in GUIDE_RUNS:
+        spec = guide.spec
+        if only and "model" not in only and spec.key not in only:
+            continue
+        if spec.run in done:
+            print(f"= {spec.toml}: run {spec.run} exists", flush=True)
+            continue
+        # The recipe inherits a step file of the example: it runs from the project.
+        for name in (spec.toml, *guide.extras):
+            (project / name).write_bytes((RECIPES / name).read_bytes())
+        hmp(["run", spec.toml], cwd=project, cores=cores)
     demo = workspace / "projects" / "example"
     if only and "demo" not in only:
         return
@@ -289,30 +385,20 @@ def stage_runs(workspace: Path, cores: int, only: set[str]) -> None:
 # -- stage 2: drawing ----------------------------------------------------------
 
 
-def strip_run_name(fig, names: Iterable[str]) -> list[str]:
-    """Remove the run name from every text of ``fig``; return the texts that still hold one.
+def run_names_left(fig, names: Iterable[str]) -> list[str]:
+    """Return the texts of ``fig`` that still name a run, which should be none.
 
-    A figure title reads ``<title> - <run name>``. The name is a label of the
-    stored run and means nothing on a documentation page.
+    ``show_run_name = false`` keeps the run out of every title; a text found
+    here is a figure that writes the run some other way.
     """
     from matplotlib.text import Text
 
     names = [n for n in names if n]
-    leftovers: list[str] = []
-    for text in fig.findobj(Text):
-        before = text.get_text()
-        if not before or not any(n in before for n in names):
-            continue
-        after = before
-        for name in sorted(names, key=len, reverse=True):
-            after = re.sub(rf"\s*[-–:|]\s*{re.escape(name)}", "", after)
-            after = after.replace(name, "")
-        after = re.sub(r"[ \t]{2,}", " ", after)
-        after = re.sub(r"\s+\n", "\n", after).strip()
-        text.set_text(after)
-        if any(n in after for n in names):
-            leftovers.append(after)
-    return leftovers
+    return [
+        text.get_text()
+        for text in fig.findobj(Text)
+        if text.get_text() and any(n in text.get_text() for n in names)
+    ]
 
 
 def to_webp(png: bytes, *, width: int | None = None) -> tuple[bytes, tuple[int, int]]:
@@ -397,10 +483,10 @@ class Drawer:
             options["reference"] = self.run(reference)
         with matplotlib_backend(dpi=DPI):
             apply_theme("dark" if dark else "default")
-            fig = render_figure(figure, sim, **options)
+            fig = render_figure(figure, sim, show_run_name=False, **options)
             runs = [sim] + ([options["reference"]] if "reference" in options else [])
             known = [t for r in runs for t in (r.name, str(r.sim_id), str(r.sim_id)[:8])]
-            left = strip_run_name(fig, known)
+            left = run_names_left(fig, known)
             self.leftovers += [(f"{name}/{figure}", text) for text in left]
             buffer = io.BytesIO()
             fig.savefig(buffer, format="png", dpi=DPI, bbox_inches="tight")
@@ -436,7 +522,10 @@ def guide_citations() -> dict[str, list[str]]:
     guides = sorted((DOCS_SOURCE / "guides").glob("*.md")) + sorted(
         (DOCS_SOURCE / "guides").glob("*.rst")
     )
+    own_runs = {guide.page for guide in GUIDE_RUNS}
     for page in guides:
+        if str(page.relative_to(DOCS_SOURCE)) in own_runs:
+            continue
         text = page.read_text(encoding="utf-8")
         for figure in names():
             pattern = rf"[`\"']{re.escape(figure)}[`\"']|hmp viz show \S+ {re.escape(figure)}\b"
@@ -458,6 +547,7 @@ def stage_figures(workspace: Path, only: set[str], dark_guides: bool) -> list[En
     entries: list[Entry] = []
     drawer = Drawer(project)
     run_spec = {spec.run: spec for spec in (*STEPS, REFERENCE, ACTIVE_NETWORK)}
+    run_spec.update({guide.spec.run: guide.spec for guide in GUIDE_RUNS})
     run_spec.update({name: CALIBRATION for name in CALIBRATED_RUNS})
 
     def emit(
@@ -575,6 +665,24 @@ def stage_figures(workspace: Path, only: set[str], dark_guides: bool) -> list[En
                 continue
             for dark in (False, True) if dark_guides else (False,):
                 emit("guide", figure, source, f"guides/{figure}", dark=dark, pages=pages)
+
+    if wanted("model"):
+        print("model", flush=True)
+        for guide in GUIDE_RUNS:
+            for item in guide.figures:
+                reason = drawer.can_draw(guide.spec.run, item.figure)
+                if reason:
+                    print(f"  {guide.spec.run} {item.figure}: skipped, {reason}", flush=True)
+                    continue
+                emit(
+                    "guide",
+                    item.figure,
+                    guide.spec.run,
+                    f"guides/{guide.folder}/{item.figure}",
+                    dark=False,
+                    pages=[guide.page],
+                    reference=item.reference,
+                )
 
     drawer.close()
     if drawer.leftovers:
@@ -723,7 +831,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--only",
         default="",
-        help="comma list: runs (step1..step6, reference, calibrated, demo); figures (hero, understand, staircase, guides, catalog)",
+        help=(
+            "comma list: runs (step1..step6, reference, calibrated, model or one guide_* key, "
+            "demo); figures (hero, understand, staircase, guides, model, catalog)"
+        ),
     )
     parser.add_argument(
         "--dark-guides", action="store_true", help="also draw the dark variant of the guide figures"

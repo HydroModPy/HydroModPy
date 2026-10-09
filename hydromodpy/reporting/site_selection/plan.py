@@ -46,7 +46,7 @@ def render_site_selection_plan_html_report(
         manifest_path=manifest_file,
         output_root=output_root,
     )
-    subtitle = "Rapport HTML de plan - site selection HydroModPy."
+    subtitle = "HydroModPy site selection plan."
     level_links = _level_links(destination)
     for level in DETAIL_LEVELS:
         write_report_page(

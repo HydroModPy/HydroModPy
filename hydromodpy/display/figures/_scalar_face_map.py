@@ -15,7 +15,8 @@ from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure
+from hydromodpy.display.figure import BaseFigure, run_suffix
+from hydromodpy.display.figure_options import CmapOrOwn, Layer, Overlays, Timestep, Vmax, Vmin
 from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.maps.axes import style_relative_km_axes
 from hydromodpy.display.maps.overlays import apply_overlays
@@ -70,7 +71,7 @@ class ScalarFaceMap(BaseFigure):
 
     def title(self, sim: Run, *, timestep: int) -> str:
         """Return the axes title, naming the period drawn when the run has dates."""
-        base = f"{self.spec.title} - {sim.name or sim.sim_id}"
+        base = f"{self.spec.title}{run_suffix(sim)}"
         period = instant_label(sim, timestep)
         return f"{base}\n{period}" if period else base
 
@@ -79,12 +80,12 @@ class ScalarFaceMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        timestep: int | None = None,
-        layer: int | None = None,
-        cmap: str | None = None,
-        vmin: float | None = None,
-        vmax: float | None = None,
-        overlays: tuple[str, ...] | list[str] | None = None,
+        timestep: Timestep = None,
+        layer: Layer = None,
+        cmap: CmapOrOwn = None,
+        vmin: Vmin = None,
+        vmax: Vmax = None,
+        overlays: Overlays = None,
         **_,
     ) -> Axes:
         step = last_timestep(sim) if timestep is None else timestep

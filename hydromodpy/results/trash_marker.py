@@ -23,7 +23,7 @@ Format
     {
       "trash_version": 1,
       "sim_id": "3060a003-1226-4b32-a0dd-05806d678a0a",
-      "original_name": "cheze_baseline",
+      "original_name": "baseline",
       "original_status": "completed",
       "trashed_at": "2026-07-26T09:12:44+00:00"
     }

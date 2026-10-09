@@ -15,11 +15,12 @@ does not cover the domain uniformly.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.style import place_legend
 from hydromodpy.results.run.particles import (
@@ -97,9 +98,18 @@ class ResidenceTimeDistribution(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        normalize: bool = True,
-        bins: int | None = None,
-        show_model: bool = True,
+        normalize: Annotated[
+            bool,
+            Opt("Divide the residence times by their mean, so the axis reads t/tau."),
+        ] = True,
+        bins: Annotated[
+            int | None,
+            Opt("Number of log-spaced bins. Left out, 2 n^(2/5) for n particles, at least 5."),
+        ] = None,
+        show_model: Annotated[
+            bool,
+            Opt("Draw the exponential law of a well-mixed aquifer for comparison."),
+        ] = True,
         **_,
     ) -> Axes:
         years = particle_travel_years(sim)
@@ -150,7 +160,7 @@ class ResidenceTimeDistribution(BaseFigure):
         ax.set_ylabel("Probability density (-)")
         ax.grid(True, which="both", ls=":", lw=0.4)
         ax.set_title(
-            f"{self.spec.title} - {sim.name or sim.sim_id}\n"
+            f"{self.spec.title}{run_suffix(sim)}\n"
             rf"mean residence time $\tau$ = {tau:.3g} years"
         )
         place_legend(ax, fontsize=8, framealpha=0.9)

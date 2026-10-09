@@ -17,7 +17,7 @@ from pydantic import (
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import NonEmptyStr
+from hydromodpy.core.config_kit.types import NonEmptyPath, NonEmptyStr
 from hydromodpy.spatial.field.core._field_param_sections import (
     FieldKind,
     FieldVerticalProfileSection,
@@ -58,7 +58,7 @@ class ResolvedFieldParam(HydroModelBase):
         default=None,
         description="Optional helper flag describing heterogeneous values source.",
     )
-    values_csv_file: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
+    values_csv_file: Annotated[NonEmptyPath | None, Profile.DEV] = Field(
         default=None,
         description="Optional helper CSV path used before resolution.",
     )

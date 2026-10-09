@@ -1,7 +1,7 @@
-"""Relit les runs déjà calculés du projet, sans rien relancer, pour en
-tirer ce que les TOML n'avaient pas demandé.
+"""Read the runs already computed in the project, without running anything, to
+get what the TOML files did not ask for.
 
-Il faut au moins un run de project.toml :
+At least one run of project.toml is needed:
 
     hmp run project.toml
     python py5_catalog.py
@@ -17,21 +17,21 @@ from hydromodpy.display import names
 
 HERE = Path(__file__).resolve().parent
 
-# %% Le catalogue
+# %% The catalog
 
-# L'index du projet, .hmp/index.duckdb, ouvert en lecture seule : le script
-# ne le modifie pas.
+# The index of the project, .hmp/index.duckdb, opened read-only: the script
+# does not modify it.
 cat = hmp.open(HERE)
 
-# Une ligne par run. Ceux qu'un if_exists = "replace" a remplacés sont à la
-# corbeille, avec le statut "trashed".
+# One row per run. The runs that an if_exists = "replace" replaced are in the
+# trash, with the status "trashed".
 frame = cat.frame
 done = frame[frame["status"] == "completed"]
 print(done[["name", "flow_regime", "n_timesteps", "duration_s"]].to_string(index=False))
 
-# Les scores au débit de la jauge, pour tous les runs transitoires. Attention
-# en les comparant : les runs journaliers n'ont ni la même période ni le même
-# pas que les runs mensuels.
+# The scores against the discharge of the gauge, for every transient run. Take
+# care when you compare them: the daily runs have neither the same period nor
+# the same step as the monthly runs.
 transient = cat.find(status="completed", flow_regime="transient")
 scores = pd.DataFrame(
     {
@@ -41,38 +41,37 @@ scores = pd.DataFrame(
 )
 print(scores.sort_values("nse", ascending=False).round(3))
 
-# %% Un run
+# %% One run
 
-# Le dernier run de project.toml. find ne rend que les runs vivants, du plus
-# récent au plus ancien. cat["nancon_intermittence_mf6"] viserait le run qui
-# porte exactement ce nom, la toute première version, même à la corbeille.
+# The latest run of project.toml. find returns the live runs of that name,
+# from the most recent to the oldest, and leaves the trash out.
 run = cat.find(name_stem="nancon_intermittence_mf6")[0]
 print(run.name, run.params)
 
-# Les figures du catalogue se dessinent aussi depuis Python, avec les mêmes
-# options que [display.overrides]. names() les liste toutes.
-print(len(names()), "figures :", ", ".join(names()))
+# The figures of the catalog can also be drawn from Python, with the same
+# options as [display.overrides]. names() lists them all.
+print(len(names()), "figures:", ", ".join(names()))
 
-# La carte de suintement du mois le plus humide et du mois le plus sec, sur
-# tout le maillage plutôt que sur le seul bassin.
+# The seepage map of the wettest and of the driest month, over the whole mesh
+# instead of the catchment alone.
 figures = HERE / "runs" / run.name / "figures"
 for date in ["2001-01-15", "2002-10-15"]:
     fig = hmp.figure(run, "seepage_map", time=date, extent="mesh")
     fig.savefig(figures / f"seepage_map_{date[:7]}.png", dpi=150)
     plt.close(fig)
 
-# Une figure rendue est une figure matplotlib comme une autre : on peut la
-# reprendre avant de l'enregistrer.
+# A rendered figure is a matplotlib figure like any other: you can edit it
+# before you save it.
 fig = hmp.figure(run, "hydrograph_sim_obs", log_y=True)
 ax = fig.axes[0]
 ax.axvspan(pd.Timestamp("2000-01-01"), pd.Timestamp("2001-01-01"), color="0.9", zorder=0)
-ax.text(pd.Timestamp("2000-02-01"), 0.95, "mise en route", transform=ax.get_xaxis_transform())
+ax.text(pd.Timestamp("2000-02-01"), 0.95, "spin-up", transform=ax.get_xaxis_transform())
 fig.savefig(figures / "hydrograph_spinup.png", dpi=150)
 plt.close(fig)
 
-# %% Un export à la demande
+# %% An export on demand
 
-# Les états de janvier 2001, en GeoTIFF, écrits dans share/<run>/ avec ceux
-# que le TOML demande déjà.
+# The states of January 2001, as GeoTIFF, written in share/<run>/ next to the
+# ones the TOML already asks for.
 for path in hmp.export(run, ["watertable_depth", "seepage_mask"], time="2001-01-15"):
     print(path)

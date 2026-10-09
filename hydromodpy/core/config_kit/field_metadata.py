@@ -20,6 +20,10 @@ Use :func:`field_metadata` when declaring a new ``Field``::
 
 The helper rejects unknown keys at module import time, catching typos in CI
 rather than at first JSON schema export.
+
+``renamed_from`` lists the TOML paths a field replaces, written in full
+(``calibration.optimizer_kwargs``). The changes page of the parameter
+reference reads it to list a rename instead of a removal.
 """
 
 from __future__ import annotations
@@ -52,6 +56,7 @@ class FieldMetadata(TypedDict, total=False):
     group: str
     stability: Stability
     value_docs: dict[str, str]
+    renamed_from: list[str]
 
 
 _ALLOWED_KEYS: Final[frozenset[str]] = frozenset(FieldMetadata.__annotations__)

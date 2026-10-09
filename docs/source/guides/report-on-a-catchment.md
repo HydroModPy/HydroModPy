@@ -4,10 +4,24 @@ You have run a model of one catchment and want one web page that shows it: the s
 hydraulic properties, the river network, the simulated and observed discharge, the
 water budget. `hmp report catchment` builds that page, as blocks of figures and tables,
 from one report file. It also writes three more views of the same blocks, from a short
-read to a full audit.
+read to a full audit. The page, its titles and its captions are in English.
 
 The report file is not a simulation file. The simulation file makes the outputs. The
 report file says where to find them, and which steps to run before the page is built.
+
+```{hmp-task}
+Task
+: Build one web page of a modelled catchment, and four views of it, from a report file.
+
+Time
+: 2 min 17 s when measured on a busy machine, with the overview and the simulation of step 4 run first. Rebuilding the page alone takes 5 s.
+
+Needs
+: A simulation file of example 04 that runs (`step4_transient.toml`), and optionally a CSV of observed discharge.
+
+Gives
+: `<output_dir>/web/index.html`, four views under `web_review/`, and `block_report_postflight.json` that lists the figures the page expected.
+```
 
 ## What you need first
 
@@ -18,7 +32,8 @@ report file says where to find them, and which steps to run before the page is b
   file. Step 1 adds them.
 - Optionally, the overview figures of the catchment (identity card, maps, station
   inventory), made by a file with {toml}`workflow.mode` set to `overview`. Step 2 writes it.
-- Optionally, a CSV of observed discharge with the columns `datetime` and `value`.
+- Optionally, a CSV of observed discharge with the columns `datetime` and `value`. It is
+  a figure of the report and never an input of the model.
 
 In this guide the report file sits in the project folder, next to the simulation file.
 Every relative path in the report file is resolved from the folder that holds it.
@@ -35,6 +50,9 @@ base_config = "step4_transient.toml"
 [simulation]
 name = "nancon_report"
 
+[simulation.results.derived]
+accumulation_flux = true
+
 [display]
 time = "2002-10-15"
 figures = [
@@ -44,23 +62,24 @@ figures = [
     "seepage_map",
     "simulated_active_network_reference_overlay",
     "hydrographic_network_reference",
-    "hydrographic_network_generated",
-    "hydrographic_network_comparison",
-    "hydrographic_network_reference_missing_only",
-    "hydrographic_network_generated_extra_only",
 ]
 ```
 
 Save it as `run_report.toml`. Each name is a figure the run writes as
-`runs/<run>/figures/<name>.png`. These ten are the only run figures the report reads. A
-figure whose requirements the run does not meet is skipped with a reason, and the page
-shows what it has. A figure that applies but fails while it is drawn follows
-{toml}`display.on_error`.
+`runs/<run>/figures/<name>.png`. The report reads ten run figures. Example 04 can draw the six
+above. The other four compare a network generated from the DEM with the reference one:
+`hydrographic_network_generated`, `hydrographic_network_comparison`,
+`hydrographic_network_reference_missing_only` and `hydrographic_network_generated_extra_only`.
+They need a generated network, which example 04 does not build, so the page shows what it has.
+`accumulation_flux` is the derived field that `simulated_active_network_reference_overlay` reads.
+A figure whose requirements the run does not meet is skipped with a reason. A figure that
+applies but fails while it is drawn follows {toml}`display.on_error`.
 
 ```{hmp-params}
 display.figures
 display.time
 display.on_error
+simulation.results.derived.accumulation_flux
 ```
 
 Check the file before any run:
@@ -99,13 +118,13 @@ lists them as missing (step 5).
 
 ## 3. Write the report file
 
-The report file has two required sections, `[report]` and `[layout]`. `[pipeline]` and
-`[context.observed_discharge]` are optional. `hmp report catchment` reads this file, not
-the project loader, so `hmp config check` does not read it and the site has no card for
-its keys. This page is their reference.
+The report file has two required tables, `[report]` and `[layout]`. `[context]` and
+`[pipeline]` are optional. `hmp report catchment` reads this file, not the project loader,
+so `hmp config check` does not read it. The command checks it against its own model before
+any step runs: a key it does not know, a missing key, a quoted boolean or an unknown preset
+stops it at once, with the line of the file, and the exit code 14.
 
 ```toml
-# not checked: report file
 [report]
 site_label = "Nancon"
 station_label = "Nancon outlet"
@@ -128,54 +147,38 @@ station_id = "NANCON"
 ```
 
 Save it as `catchment_report.toml`, next to `run_report.toml`. Replace the observed
-discharge path by your own CSV. If the file named by `path` does not exist, the report is
-built without observed discharge and no message says so.
+discharge path by your own CSV. Without the `[context.observed_discharge]` table, or if the
+file named by `path` does not exist, the report shows the simulation alone, and a warning
+names the file:
 
-### The `[report]` section
+```text
+[WARNING] Catchment report: observed discharge file <path> not found; the report shows the simulation alone.
+```
 
-| Key | Needed | Meaning |
-|---|---|---|
-| `site_label` | yes | Catchment name used in titles. |
-| `station_label` | yes | Gauge or outlet name used in the site block. |
-| `output_dir` | yes | Folder of the report. The page is `<output_dir>/web/index.html`. |
-| `title` | no | Replaces the title of the page. |
-| `preset` | no | `generic_catchment_report`, or its alias `generic`. These are the only presets. |
+Every key of the four tables, with its default, its type and its meaning, is in the generated
+reference: {doc}`../reference/parameters/report-file`. Four things need a word here.
 
-### The `[layout]` section
+- {toml}`layout.simulation_name` must be the {toml}`simulation.name` of the simulation file.
+  If the name was used before, the run is registered as `<name>.vN`, and the report takes the
+  newest completed one. A name written with a version, such as `nancon_report.v2`, is read as
+  written. Its default is `transient_nwt`, the name of a run of the example projects: write
+  yours.
+- {toml}`layout.simulation_workspace_dir` and {toml}`layout.data_overview_project_dir` name the
+  project of the run and the project of the overview when they are not the project of the
+  simulation file. Both default to {toml}`layout.watershed_project_dir`.
+- {toml}`pipeline.run_overview` and {toml}`pipeline.run_simulation` say which runs start before
+  the page is built. An option of the command wins over the file, as the table below shows.
+  The other keys of `[pipeline]` are `build_context_artifacts`, `build_report_html`, `no_lock`,
+  `stream_run_logs` and `strict_figure_postflight`.
+- The legend of the geology block is read from a geological map. Without a table, the BRGM
+  GeoPackages that the geology loader cached for you are tried, the newest first, until one
+  covers the catchment. To name the map, add {toml}`context.geology.path`:
 
-| Key | Needed | Meaning |
-|---|---|---|
-| `watershed_project_dir` | yes | Project folder that holds the simulation file. |
-| `context_outputs_dir` | yes | Folder that receives the context files, under `context/` and `web/assets/`. |
-| `data_overview_project_dir` | no | Project that holds the overview figures and the overview file. Default: `watershed_project_dir`. |
-| `simulation_workspace_dir` | no | Project that holds the run catalog and the run. Default: `watershed_project_dir`. |
-| `simulation_name` | no | Name of the run to describe. Default: `transient_nwt`. |
-| `context_summary_name` | no | File name of the context summary under `<context_outputs_dir>/context`. Default: the only `*_gauged_context_summary.json` found there, else a name derived from `site_label`. |
-| `transient_config_name` | no | Simulation file, under `watershed_project_dir`. Default: `run_<simulation_name>.toml`. |
-| `overview_config_name` | no | Overview file, under `data_overview_project_dir`. Default: `config_overview.toml`. |
-
-`simulation_name` must be the {toml}`simulation.name` of the simulation file. If the name
-was used before, the run is registered as `<name>.vN`, and the report takes the newest
-completed one. A name written with a version, such as `nancon_report.v2`, is read as
-written.
-
-### The `[pipeline]` section
-
-It says which steps run when the command has no option. An option on the command line
-wins over the file.
-
-| Key | Default | Meaning |
-|---|---|---|
-| `run_overview` | `false` | Run the overview file first. |
-| `run_simulation` | `false` | Run the simulation file first. |
-| `build_context_artifacts` | `true` | Build the context summary, its page and its images. |
-| `build_report_html` | `true` | Build the report page. |
-| `no_lock` | `true` | Pass `--no-lock` to the two runs above. |
-| `stream_run_logs` | `false` | Print the logs of the two runs instead of keeping them. |
-| `strict_figure_postflight` | `false` | Fail the command if an expected figure is missing. |
-
-A value that is not `true` or `false` stops the command with
-`Catchment report config key 'run_simulation' must be a boolean.`, with the key you wrote.
+  ```toml
+  # not checked: fragment of the report file
+  [context.geology]
+  path = "geology/map.gpkg"
+  ```
 
 ## 4. Build the report
 
@@ -204,12 +207,12 @@ These options pick the steps for one call:
 |---|---|
 | `--run-overview`, `--no-run-overview` | Run the overview file, or not. |
 | `--run-simulation`, `--no-run-simulation` | Run the simulation file, or not. |
-| `--context-only` | Build the context files, not the page. |
-| `--report-only` | Build the page from the context files that exist. The two runs are skipped unless you name them. |
+| `--context-only` | Build the context files, not the page: `build_context_artifacts` on, `build_report_html` off. |
+| `--report-only` | Build the page from the context files that exist: `build_context_artifacts` off, `build_report_html` on. The two runs are skipped unless you name them. |
 | `--with-lock` | Do not pass `--no-lock` to the runs. |
-| `--stream-run-logs`, `--no-stream-run-logs` | Print the logs of the runs, or keep them. |
-| `--strict-figure-postflight`, `--no-strict-figure-postflight` | Fail on a missing figure, or not. |
-| `--preset` | Name the preset, `generic` or `generic_catchment_report`. |
+| `--stream-run-logs`, `--no-stream-run-logs` | Print the logs of the runs, or keep them (`stream_run_logs`). |
+| `--strict-figure-postflight`, `--no-strict-figure-postflight` | Fail on a missing figure, or not (`strict_figure_postflight`). |
+| `--preset` | Name the preset, `generic` or `generic_catchment_report`. They are the only two, and the same preset. |
 
 `--context-only` and `--report-only` exclude each other. Once the run is done, rebuild
 only the page, after a change of title or label, with:
@@ -223,20 +226,38 @@ The full list is in the {doc}`reference of the command <../reference/cli/report>
 ## 5. Check that it worked
 
 Open the `html_report` path in a browser. The page has the blocks site, hydraulic
-properties, spatial context, hydrographic network, simulated network and seepage,
-discharge and forcings, simulated fluxes, and, at the audit level, the artifacts and
-limits. The titles and captions of the page are written in French.
+properties, spatial context (DEM and geology), observed and generated hydrographic network,
+simulated active network and seepage, fluxes (observed discharge and forcings), and simulated
+fluxes. The audit view adds a block of artifacts and limits. For this guide the page carries
+these control figures, among others:
+
+```{figure} /_static/figures/guides/hydrograph.webp
+:alt: Simulated discharge of the Nançon at its outlet from 2000 to 2003, with a flood in early 2001.
+:width: 85%
+
+`hydrograph`: the simulated discharge at the outlet. With an observed CSV, the page draws the observed series beside it.
+```
+
+```{figure} /_static/figures/guides/simulated_active_network_reference_overlay.webp
+:alt: Map of the Nançon catchment with the simulated active cells in light blue and the reference river network in dark red. The legend gives the overlap scores.
+:width: 85%
+
+`simulated_active_network_reference_overlay`: the cells the model keeps active, against the mapped network, with the overlap scores of the legend.
+```
 
 The same run writes four more views under `<output_dir>/web_review`:
 
 - `compact/index.html` for a fast read;
 - `standard/index.html`, the same content as the main page;
-- `audit/index.html` for sources, detailed tables and artifact links;
+- `audit/index.html` for sources, detailed tables, artifact links and limits;
 - `by_block/index.html` to choose the level block by block.
 
 Then open `block_report_postflight.json`, next to `block_report_manifest.json`. It lists
 the figures the page expected, those it found, those it did not find (`missing_count`),
-and those whose file is gone (`dangling_count`). Both counts should be 0.
+and those whose file is gone (`dangling_count`). `dangling_count` should be 0. With the files
+of this guide, 22 figures are expected, 17 are present, and `missing_count` is 5: the geology map
+(step 2 loads no geology) and the four figures of a generated network (the run has none). To
+have 0, load geology in the overview file and give the run a generated network.
 
 A `missing_count` above 0 does not fail the command, unless the strict postflight is on:
 `strict_figure_postflight = true` in `[pipeline]`, or `--strict-figure-postflight`. The
@@ -245,60 +266,27 @@ included, so a strict run needs all of them.
 
 ## What can go wrong
 
-**The report file is incomplete.** The command exits with code 14 and prints one of:
-
-- `Missing [layout] section in catchment report config.` (or `[report]`);
-- `Missing required catchment report config key: 'output_dir'.`
-
-**A file or a run is not found.** The preflight stops before any step and exits with
-code 10:
-
-```text
-Catchment report preflight failed. Required inputs were not found:
-- simulation config: .../run_report.toml
-- simulation run 'nancon_report': .../.hmp/index.duckdb
-```
-
-Read each line. `simulation config` is the file named by `transient_config_name`. The
-`simulation run` line says the catalog has no run of that name: run the simulation first,
-or set `run_simulation = true`, or check that `simulation_name` equals the name in the
-simulation file and that `simulation_workspace_dir` is the project that ran it.
-`--report-only` asks for a `context summary` instead, which `--context-only` or a full
-build writes.
-
-**The simulation ran but its outputs are not where the report looks.** The command
-raises `Simulation completed but the catchment report expected outputs were not found:`
-and lists the run in the catalog and the `figures` folder of the run. The report file and
-the simulation file do not point to the same project or the same name.
-
-**A run of the pipeline fails.** The command prints the tail of its output under
-`--- hydromodpy run stdout (last N lines) ---` and the same for stderr, then stops. Run
-the file alone with `hmp run run_report.toml` and fix it there.
-
-**A strict postflight fails.** The command raises
-`Catchment report figure postflight failed. Missing expected figures:` and the list, then
-`Postflight report:` with the path. The page and the JSON are written first, so you can
-read what is missing. A missing figure comes from one of three places:
-
-- a run figure that step 1 did not list, or that the run skipped with a reason;
-- an overview figure, if step 2 did not run;
-- a context image, if the context step was skipped.
-
-**Two options at once.** `--context-only and --report-only are mutually exclusive.`,
-exit code 14.
-
-**Unknown preset.** The option takes `generic` or `generic_catchment_report`. In the
-file, any other name stops the command with
-`Unknown catchment report preset 'x'. Choices: generic, generic_catchment_report.`
-
-**An empty geology table.** The legend of the geology block is read from a BRGM
-GeoPackage (`geology_brgm_50k_*.gpkg`, else `geology_brgm_1m_*.gpkg`) under
-`examples/data/geology/` of the HydroModPy tree. Without one, the table is left out.
+| Symptom | Cause | Fix |
+|---|---|---|
+| `1 validation error(s) in <file>:` then `layout: Field required` (exit 14) | A required table is missing. | Add it. `[report]` and `[layout]` are required. |
+| `report.output_dir: Field required` (exit 14) | A required key is missing in a table. The line of the file is given. | Add the key. |
+| `layout.simulation_nam: Extra inputs are not permitted` (exit 14) | A key is misspelled. A table the model does not know is refused the same way. | Fix the key. The reference page lists them. |
+| `pipeline: Value error, run_simulation = 'true' is quoted, so it is a string and not a boolean. TOML writes booleans unquoted: write run_simulation = true or run_simulation = false.` (exit 14) | A boolean is written between quotes. | Remove the quotes. |
+| `report.preset: Input should be 'generic' or 'generic_catchment_report'` (exit 14) | The preset name is unknown. `--preset` accepts the same two names. | Use one of the two. |
+| `context.observed_discharge.path: Field required` (exit 14) | The table `[context.observed_discharge]` exists and has no `path`. | Give the CSV, or remove the table. |
+| `--context-only and --report-only are mutually exclusive.` (exit 14) | Two options at once. | Pick one. |
+| `Catchment report preflight failed. Required inputs were not found:` then `- simulation config: <file>` or `- simulation run '<name>': <folder>/.hmp/index.duckdb` (exit 10) | `simulation config` is the file named by `transient_config_name`. The `simulation run` line says the catalog has no run of that name. `--report-only` asks for a `context summary` instead. | Run the simulation first, or set `run_simulation = true`. Check that `simulation_name` equals the name in the simulation file and that `simulation_workspace_dir` is the project that ran it. For `--report-only`, run `--context-only` or a full build first. |
+| `Simulation completed but the catchment report expected outputs were not found:` followed by the run in the catalog and the `figures` folder of the run | The report file and the simulation file do not point to the same project or the same name. | Align `watershed_project_dir`, `simulation_workspace_dir` and `simulation_name`. |
+| `--- hydromodpy run stdout (last N lines) ---`, then the same for stderr | A run of the pipeline failed. | Run the file alone with `hmp run run_report.toml` and fix it there. |
+| `Catchment report figure postflight failed. Missing expected figures:` then the list and `Postflight report: <path>` (exit 16) | The strict postflight is on and a figure is missing. The page and the JSON are written first. | A missing figure comes from a run figure that step 1 did not list or that the run skipped with a reason, an overview figure if step 2 did not run, or a context image if the context step was skipped. |
+| `[WARNING] Catchment report: observed discharge file <path> not found; the report shows the simulation alone.` | The CSV of `[context.observed_discharge]` is not there. | Check the path: it is read from the folder of the report file. |
+| `[WARNING] Catchment report: no geology file to build the legend from; set [context.geology] path in the report file or load geology once.` | No `[context.geology]` table, and the user cache holds no BRGM map. The legend table is left out. | Add the table, or load geology once with a BRGM source. |
+| `[WARNING] Catchment report: no geology legend, <files> do not cover the catchment.` | The maps tried do not cover the catchment. | Name a map that does. |
 
 ## Where to go next
 
 - {doc}`Compare runs <compare-runs>` for a side-by-side of two runs.
 - {doc}`Describe a catchment <describe-a-catchment>` for the data the overview reads.
-- {doc}`Results and exports <results-and-exports>` for what a run writes and how the
+- {doc}`Read the results of a run <read-the-results>` for what a run writes and how the
   catalog holds it.
 - {doc}`Troubleshooting <troubleshooting>` for a run that fails before the report.

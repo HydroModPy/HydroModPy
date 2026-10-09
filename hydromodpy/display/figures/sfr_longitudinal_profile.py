@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.figures.sfr_reach_timeseries import (
@@ -45,8 +46,20 @@ class SfrLongitudinalProfile(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        variable: str = "downstream_flow",
-        timestep: int = -1,
+        variable: Annotated[
+            str,
+            Opt(
+                'Stream-reach series to draw: "downstream_flow" (the default), '
+                '"stage", "depth" or another series the SFR package wrote.'
+            ),
+        ] = "downstream_flow",
+        timestep: Annotated[
+            int,
+            Opt(
+                'The instant drawn: a date ("2002-10-15"), "first" or "last". The '
+                "figure draws the stress period that holds the date. Left out, the last."
+            ),
+        ] = -1,
         **_,
     ) -> Axes:
         triples = sfr_reach_stations(sim, variable)
@@ -69,7 +82,7 @@ class SfrLongitudinalProfile(BaseFigure):
         ax.set_ylabel(f"{variable} ({STATE_UNITS.get(variable, 'm³/s')})")
         when = instant_label(sim, timestep) or (f"{stamp:%Y-%m-%d}" if stamp is not None else "")
         ax.set_title(
-            f"SFR {variable} profile - {sim.name or sim.sim_id} @ {network_id}"
+            f"SFR {variable} profile{run_suffix(sim)} @ {network_id}"
             + (f" ({when})" if when else "")
         )
         ax.grid(True, ls=":", lw=0.4)

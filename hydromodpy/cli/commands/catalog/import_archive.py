@@ -18,7 +18,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser(), verbosity_parser()],
-        epilog="Example:\n  hmp catalog import paper.hmp",
+        epilog="Examples:\n  hmp catalog import paper.hmp\n  hmp catalog import paper.hmp --as lab_copy",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("package", help="Path to the .hmp archive")
@@ -26,6 +26,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--force",
         action="store_true",
         help="Overwrite an existing run with the same identity",
+    )
+    parser.add_argument(
+        "--as",
+        dest="as_project",
+        default=None,
+        help="Project name given to the imported run, when a project of that name already holds runs",
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -37,7 +43,12 @@ def run(args: argparse.Namespace) -> None:
 
     workspace_root = Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     try:
-        result = import_package_run(args.package, workspace=workspace_root, force=args.force)
+        result = import_package_run(
+            args.package,
+            workspace=workspace_root,
+            force=args.force,
+            as_project=args.as_project,
+        )
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

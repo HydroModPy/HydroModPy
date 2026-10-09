@@ -121,6 +121,15 @@ dry. On a sloping substratum a dry cell can sit higher than its wet neighbour an
 be asked to give water it does not hold. That is the case the lower obstacle
 handles (see `The lower obstacle`_).
 
+.. plot:: theory/figures/bq_stencil.py
+   :alt: Two triangles with their centroids and shared edge, and the flow between them against the saturated thickness of the upper one.
+   :caption: Left: the two cells of :eq:`eq-bq-edge-flux`, the shared edge of length
+      :math:`L_e` and the distance :math:`d_e` between the centroids. Right: cell
+      :math:`b` sits 6 m higher on the substratum and drains into :math:`a`, whose
+      saturated thickness stays 5 m; the flow comes from ``internal_edge_flux_from_head``.
+      Look at :math:`B_b = 0`: with the mean thickness the dry cell :math:`b` still gives
+      water, where a donor thickness would give none.
+
 3. Cells with an imposed head
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -189,9 +198,9 @@ The recharge :math:`N_i` is a rate per unit of area. It is constant over a stres
 period. It is either one number per period, the same on every cell, or one value
 per cell when the file loads a recharge field. The volume rate that enters the cell
 is :math:`a_i N_i`. A negative recharge is refused: the message says
-``must be non-negative.`` When the series has one value per period, the first stress period does not take its
-own value. It takes the policy of :toml:`flow.sinks_sources.recharge.first_clim`,
-whatever that policy is.
+``must be non-negative.`` In a transient run every period keeps its own value; in
+a steady run the period takes :toml:`flow.sinks_sources.recharge.first_clim`
+(:doc:`forcing`).
 
 A well is a volume rate :math:`\Phi^{\mathrm{well}}_i`, positive for injection and
 negative for pumping. It is placed on the triangle that contains its x and y
@@ -366,24 +375,16 @@ The radius :math:`\varepsilon_r` is a constant of the code, 0.05, set in
 :toml:`flow.surface_interaction_model` call this law a Marcais-style regularized
 partition: it follows the regularized partition of seepage and subsurface flow of
 :cite:t:`marcais2017`. The wells and the storage are not in :math:`\gamma_i`. The factor
-in front of :math:`\gamma_i` takes these values:
+in front of :math:`\gamma_i`:
 
-.. list-table::
-   :header-rows: 1
-   :widths: 30 30
-
-   * - Saturation :math:`\sigma_i`
-     - Factor :math:`\exp(-(1-\sigma_i)/\varepsilon_r)`
-   * - 1.0
-     - 1
-   * - 0.95
-     - 0.37
-   * - 0.9
-     - 0.14
-   * - 0.8
-     - 0.018
-   * - 0.5
-     - 4.5e-5
+.. plot:: theory/figures/bq_partition.py
+   :alt: The release factor against the saturation of the cell, on a linear and a log scale, for three radii.
+   :caption: The factor of :eq:`eq-bq-partition`, from
+      ``regularized_partition_surface_rate_from_balance``. The dots are the saturations
+      1, 0.95, 0.9, 0.8 and 0.5. Look at the left panel: the factor is 0.37 at 0.95 and
+      0.14 at 0.9, so the release starts well before the cell is full. The right panel
+      shows that it never reaches zero. The dotted and dash-dotted curves are the radii
+      0.02 and 0.1, which no key sets.
 
 A full cell releases the whole of what arrives. A cell that is nine tenths full
 releases about one seventh of it. The factor is never exactly zero, so a cell that
@@ -430,6 +431,15 @@ The length :math:`h_s` is the thickest cell of the mesh, and at least 1 m. The r
 conductivity, and in a transient run :math:`S_y h_s / \Delta t`, with a floor of
 :math:`10^{-12}` m/s. These scales are numerical. They change the conditioning of
 the system and not its solution.
+
+.. plot:: theory/figures/bq_fischer_burmeister.py
+   :alt: Map of the Fischer-Burmeister function over the scaled release and the scaled gap, zero on the two positive half-axes.
+   :caption: :math:`\phi_\mathrm{FB}` over the two scaled arguments, from
+      ``_fischer_burmeister_residual_and_derivatives``. Look at the thick line, the only
+      place where the function is zero: either no release and a head below the surface,
+      or a release and a head at the surface. A negative release or a head above the
+      surface gives a positive value (red), and a release with a head below the surface
+      a negative one (blue).
 
 A constrained cell does not release: its unknown :math:`q^{\mathrm{ex}}` is held at
 zero.
@@ -504,6 +514,17 @@ the residual is :math:`R = 0.008` m\ :sup:`3`/s. The second complementarity give
 which is the value the test asserts. The well asked for 0.01 m\ :sup:`3`/s, the
 aquifer could give 0.002 m\ :sup:`3`/s from storage, and the other 0.008 is the
 unmet demand.
+
+.. plot:: theory/figures/bq_lower_obstacle.py
+   :alt: Residual of the one cell against its head, and the split of the pumped rate between storage and unmet demand.
+   :caption: The cell of the test. Left: its residual against the head, from the assembly of
+      the code. Without a floor on the storage (dotted), the balance reaches zero at
+      :math:`h = -0.4` m (cross), below the bottom. The code's storage stops at the
+      bottom, so :math:`R` stays at 0.008 there and has no root. The obstacle subtracts
+      :math:`a\,q^\mathrm{dry}` (dashed) and puts the solution at :math:`h = 0` (dot).
+      Right: of the 0.01 m\ :sup:`3`/s pumped, 0.002 comes from storage and 0.008 is
+      unmet. :math:`q^\mathrm{dry}` is the value the test asserts, since the PETSc
+      solve does not run at build time.
 
 .. _bq-methods-engines:
 

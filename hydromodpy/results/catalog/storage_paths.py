@@ -1,7 +1,7 @@
 """Filesystem path resolution for run artefacts.
 
 A run owns one directory, ``runs/<name>``, named after the run itself
-(``cheze_demo``, ``cheze_demo.v2`` ...). Everything the run produced lives
+(``my_run``, ``my_run.v2`` ...). Everything the run produced lives
 inside it: ``fields.zarr``, ``tables.parquet/<view>.parquet``,
 ``config.toml``, ``figures/``. The layout is therefore readable without the
 index, and deleting a run is deleting one directory.

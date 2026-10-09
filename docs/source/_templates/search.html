@@ -3,7 +3,9 @@
     `python -m pagefind --site <html dir>` (make html, docs.yml, the deploy) and
     loads in small chunks when a query is typed. The theme's search button
     submits to this page with ?q=, read below. Extending page.html rather than
-    the theme's search.html keeps the 1 MB Sphinx index off this page too. #}
+    the theme's search.html keeps the 1 MB Sphinx index off this page too.
+    The Component UI of Pagefind follows the WAI-ARIA patterns; its colours are
+    mapped to the theme tokens so it follows the light and dark modes. #}
 {%- block htmltitle -%}
   <title>{{ _("Search") }} - {{ docstitle }}</title>
 {%- endblock htmltitle -%}
@@ -16,28 +18,63 @@
         <p>The search needs JavaScript.</p>
       </div>
     </noscript>
-    <div id="hmp-search"></div>
+    <div class="hmp-search" id="hmp-search">
+      {#- The components import pagefind.js relative to their own file, which
+          sits in the same folder: ./ works at any page depth. #}
+      <pagefind-config bundle-path="./"></pagefind-config>
+      <pagefind-input placeholder="Search the documentation" autofocus></pagefind-input>
+      <pagefind-filter-dropdown filter="door" label="Door"></pagefind-filter-dropdown>
+      <pagefind-summary></pagefind-summary>
+      <pagefind-results></pagefind-results>
+    </div>
   </div>
-  <link rel="stylesheet" href="{{ pathto('pagefind/pagefind-ui.css', 1) }}">
-  <script src="{{ pathto('pagefind/pagefind-ui.js', 1) }}"></script>
-  <script>
-    window.addEventListener("DOMContentLoaded", function () {
-      if (typeof PagefindUI === "undefined") {
-        document.getElementById("hmp-search").textContent =
-          "The search index is missing: build it with python -m pagefind --site <html dir>.";
-        return;
-      }
-      var ui = new PagefindUI({
-        element: "#hmp-search",
-        showSubResults: true,
-        showImages: false,
-        autofocus: true,
-        translations: { placeholder: "Search the documentation" },
-      });
-      var query = new URLSearchParams(window.location.search).get("q");
-      if (query) {
-        ui.triggerSearch(query);
-      }
+  <link rel="stylesheet" href="{{ pathto('pagefind/pagefind-component-ui.css', 1) }}">
+  <style>
+    .hmp-search.hmp-search {
+      --pf-font: inherit;
+      --pf-text: var(--pst-color-text-base);
+      --pf-text-secondary: var(--pst-color-text-muted);
+      --pf-text-muted: var(--pst-color-text-muted);
+      --pf-background: var(--pst-color-background);
+      --pf-border: var(--pst-color-border);
+      --pf-border-focus: var(--pst-color-primary);
+      --pf-outline-focus: var(--pst-color-primary);
+      --pf-hover: var(--pst-color-surface);
+      --pf-mark: var(--pst-color-text-base);
+      display: grid;
+      gap: .75rem;
+      max-width: 48rem;
+    }
+    /* A grid item grows to its longest excerpt line unless allowed to shrink. */
+    .hmp-search > * { min-width: 0; }
+    .hmp-search mark { padding: 0; }
+  </style>
+  <script type="module" src="{{ pathto('pagefind/pagefind-component-ui.js', 1) }}"></script>
+  <script type="module">
+    const box = document.getElementById("hmp-search");
+    // The components read their dark colours from data-pf-theme; the theme
+    // keeps its mode on <html data-theme>.
+    const follow = () => {
+      box.dataset.pfTheme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    };
+    follow();
+    new MutationObserver(follow).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
     });
+    // Module scripts run in document order: the components ran before this one,
+    // unless their file is missing.
+    const query = new URLSearchParams(window.location.search).get("q");
+    if (!window.PagefindComponents) {
+      box.textContent =
+        "The search index is missing: build it with python -m pagefind --site <html dir>.";
+    } else if (query) {
+      await customElements.whenDefined("pagefind-input");
+      window.PagefindComponents.getInstanceManager().getInstance("default").triggerSearch(query);
+      requestAnimationFrame(() => {
+        const input = box.querySelector("pagefind-input input");
+        if (input && !input.value) input.value = query;
+      });
+    }
   </script>
 {% endblock docs_body %}

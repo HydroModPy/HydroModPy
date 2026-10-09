@@ -98,7 +98,10 @@ hydromodpy/display/
 ├── __init__.py            facade: BaseFigure, Figure, FigureSpec, get, list_figures, names, register
 │
 │   the figure catalogue of a run
-├── figure.py              contract: FigureSpec (metadata), BaseFigure (plot, render, unavailable_reason)
+├── figure.py              contract: FigureSpec (metadata), BaseFigure (plot, render, unavailable_reason),
+│                          the title and show_run_name options every figure takes (run_suffix), options_of
+├── figure_options.py      what each figure option means: Opt on the parameter, shared aliases,
+│                          describe_options; figure.options_of gives the catalog type, default, unit
 ├── figure_registry.py     register, get, resolve, names, list_figures; imports figures/ on first lookup
 ├── figures/               one figure per file, flat, discovered automatically
 │   ├── _scalar_face_map.py    base of the "one value per mesh face" maps
@@ -183,6 +186,7 @@ the base first and returns a sentence (model: `figures/lake_abacus_comparison.py
 |---|---|
 | `figure.py` | what is a figure, and when does it apply to a run? |
 | `figure_registry.py` | which class carries this figure name (or this former name)? |
+| `figure_options.py` | what does each option of a figure do, in which unit, with which default? |
 | `figures/` | how is figure `<name>` drawn? |
 | `config.py` | what does the `[display]` section of the project ask for? |
 | `runs.py` | which figures does this run support, which to render, where to write them, which were skipped and why, under which matplotlib backend? |
@@ -354,6 +358,7 @@ generated from the registry into the figures page of the documentation, and
 - `hydromodpy.display.{get, list_figures, names, register, BaseFigure, FigureSpec}`
 - `hydromodpy.display.figure_registry.{register, get, resolve, names,
   figure_option_names}`
+- `hydromodpy.display.figure_options.Opt` and `hydromodpy.display.figure.options_of`
 - `hydromodpy.display.runs.{render_figures_for_run, render_figure,
   figure_availability}`
 - `hydromodpy.display.config.DisplayConfig`

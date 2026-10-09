@@ -18,7 +18,6 @@ from hydromodpy.analysis.testbed.config import (
     TestbedConfig,
 )
 from hydromodpy.analysis.testbed.contracts import (
-    FailedCasesError,
     failed_cases_message,
     run_testbed_child_workflow,
     testbed_runner_workflow,
@@ -43,6 +42,7 @@ from hydromodpy.analysis.testbed.pipeline import (
     _slugify,
 )
 from hydromodpy.core import progress
+from hydromodpy.core.exceptions import FailedCasesError
 from hydromodpy.core.toml_io import load_toml_with_base_config, merge_toml_payloads
 
 __all__ = (

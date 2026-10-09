@@ -183,9 +183,9 @@ The resolved catalog path and source manifest provenance are written into
 2. Load the base TOML with `load_toml_with_base_config`.
 3. Remove `[testbed]` from the child payload.
 4. Make absolute the values the child schema declares as paths
-   (`child_paths.py`): fields typed `Path` or carrying `InputFile`, `str`
-   fields named `path` or ending in `_path`, `_file`, `_dir`, `_root`,
-   `_folder`, and `base_config`. Every other value is copied as written.
+   (`child_paths.py`): fields typed `Path` or carrying `InputFile`, and
+   `base_config`. Every other value is copied as written, whatever its key is
+   called. A comparison uses the same rule for its children.
 5. Merge each case overlay, its paths resolved against the testbed file.
 6. Write one generated child TOML per enabled case.
 7. Persist `testbed_plan.json`, `testbed_cases.csv`, `testbed_metrics.csv`,

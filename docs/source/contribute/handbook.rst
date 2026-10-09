@@ -10,7 +10,7 @@ a first commit, start with :doc:`quick-start`.
 .. admonition:: User install
    :class: tip
 
-   For the user install only (``pip``, ``uv``, ``conda``, ``docker``, solver
+   For the user install only (``pip``, ``conda`` or ``micromamba``, solver
    binaries), see :doc:`/get-started/install`.
 
 Open an issue
@@ -268,5 +268,6 @@ Where to look next
 - :doc:`architecture/how-to/index`: the recipes.
 - :doc:`/reference/parameters/index`: every TOML key, generated from the
   Pydantic models.
-- :doc:`/get-started/concepts`: the workspace layout and the TOML inheritance
-  rules.
+- :doc:`/get-started/concepts`: the workspace layout;
+  :doc:`/guides/inheritance` and :doc:`/reference/parameters/grammar`: the TOML
+  inheritance rules.

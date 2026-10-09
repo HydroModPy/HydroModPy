@@ -57,6 +57,15 @@ golden reference of the regression test `test_xt3d_irregular_tri_fast_regression
 a head RMSE of 0.238 m without XT3D and 0.035 m with it, a factor of 6.7. The test fails
 if the factor falls below 5 or the RMSE with XT3D rises above 0.05 m.
 
+```{eval-rst}
+.. plot:: theory/figures/xt3d_error.py
+   :alt: The dropped share tan phi against the connection angle, and the head errors with and without XT3D.
+   :caption: Left: the share of the tangential gradient that the two-point flux drops,
+      :math:`\tan\varphi_{nm}` from :eq:`eq-xt3d-split`, with the 30° angle of the rule
+      below. Right: the head errors of the golden reference, read from the test folder at
+      build time. Look at the RMSE: 0.238 m without XT3D, 0.035 m with it.
+```
+
 (xt3d-rule)=
 ## When HydroModPy turns it on
 

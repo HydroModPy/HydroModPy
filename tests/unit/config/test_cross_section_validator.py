@@ -85,3 +85,20 @@ def test_a_geographic_bottom_path_is_accepted_ignored_and_warned_about() -> None
         )
 
     assert "bottom_path" not in cfg.model_dump()
+
+
+def test_the_overview_workflow_without_an_overview_section_is_rejected(tmp_path) -> None:
+    kwargs = _base_kwargs(tmp_path)
+    kwargs["workflow"] = {"mode": "overview"}
+
+    with pytest.raises(ValidationError, match=r"needs an \[overview\] section"):
+        HydroModPyConfig(**kwargs)
+
+
+def test_the_overview_workflow_with_an_overview_section_is_accepted(tmp_path) -> None:
+    kwargs = _base_kwargs(tmp_path)
+    kwargs["workflow"] = {"mode": "overview"}
+
+    cfg = HydroModPyConfig(**kwargs, overview={"name": "card"})
+
+    assert cfg.overview.name == "card"

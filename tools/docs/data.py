@@ -12,24 +12,17 @@ import argparse
 import json
 from pathlib import Path
 
-from packaging.version import Version
-
-from tools.docs import api_registry, catalogs, field_registry, tests_index, toml_changelog
+from tools.docs import api_registry, catalogs, field_registry, tests_index
 
 ROOT = Path(__file__).resolve().parents[2]
-SNAPSHOTS = Path(__file__).with_name("snapshots")
-
-
-def latest_snapshot() -> Path | None:
-    """The field snapshot of the newest release, or None."""
-    snaps = list(SNAPSHOTS.glob("fields-*.json"))
-    if not snaps:
-        return None
-    return max(snaps, key=lambda p: Version(p.stem.removeprefix("fields-")))
 
 
 def write_all(out_dir: Path, label: str = "") -> dict[str, Path]:
-    """Build the registry, the API index, the test index, the catalogs and the TOML changelog."""
+    """Build the registry, the API index, the test index and the catalogs.
+
+    The history of the TOML keys is not written here: ``hmp_params`` computes it
+    from ``tools/docs/snapshots`` and the live registry.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     registry, gates = field_registry.build_payload(label)
     payloads = {
@@ -39,9 +32,6 @@ def write_all(out_dir: Path, label: str = "") -> dict[str, Path]:
         "tests": tests_index.build(ROOT),
         "catalogs": catalogs.build(registry["nodes"]),
     }
-    snap = latest_snapshot()
-    if snap is not None:
-        payloads["changelog"] = toml_changelog.diff(json.loads(snap.read_text()), registry)
     paths = {}
     for name, payload in payloads.items():
         path = out_dir / f"{name}.json"

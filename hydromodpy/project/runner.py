@@ -427,7 +427,10 @@ class ProjectRunner:
                 parallel=parallel,
                 model_phase_ready=model_phase_ready,
             )
-        except Exception:
+        except BaseException:
+            # BaseException on purpose: Ctrl+C and SIGTERM (a scheduler stop, a
+            # plain kill) unwind as KeyboardInterrupt and must not leave the
+            # run "running" in the index.
             from hydromodpy.project import phases as project_phases
 
             project_phases.open_catalog(project)

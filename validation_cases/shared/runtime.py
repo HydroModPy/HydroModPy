@@ -25,6 +25,16 @@ from validation_cases.shared.loaders import load_case_metadata
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+VALIDATION_FIELD_PRECISION = "exact"
+"""Field precision of every validation run store.
+
+A validation compares solver heads with a reference at full precision. The
+default ``compact`` storage keeps 16 mantissa bits: between 4 m and 8 m two
+nearly equal heads can end one step of 6.1e-5 m apart, and the cross-row
+spread of a steady case then reads 2.4e-5 m or more against thresholds of
+5e-6 m to 2e-5 m.
+"""
+
 _WINDOWS_VALIDATION_PATH_LIMIT = 240
 _VALIDATION_GENERATED_PATH_HEADROOM = 96
 _VALIDATION_COMPONENT_LENGTHS = (28, 24, 20, 16, 12)
@@ -590,9 +600,13 @@ def write_validation_fields_to_store(
     n_timesteps = max(len(series) for series in payloads.values())
     sim_id = str(uuid.uuid4())
 
+    from hydromodpy.core.config_kit.persistence import PersistenceConfig
     from hydromodpy.results.catalog import Catalog
 
-    store = Catalog(out_path)
+    store = Catalog(
+        out_path,
+        persistence=PersistenceConfig(field_precision=VALIDATION_FIELD_PRECISION),
+    )
     registration = store.register_simulation(
         sim_id,
         project=Path(out_path).name,
@@ -736,6 +750,11 @@ def _build_validation_launcher_config(
     stable_name = _short_validation_name(f"{case_id}_{solver_name}", max_length=48)
     sim_section = merged_payload.setdefault("simulation", {})
     sim_section["name"] = stable_name
+    # A run reads [simulation.results.persistence]; the top-level
+    # [persistence] table does not reach the run catalog.
+    results_section = sim_section.setdefault("results", {})
+    persistence_section = results_section.setdefault("persistence", {})
+    persistence_section.setdefault("field_precision", VALIDATION_FIELD_PRECISION)
 
     if "workflow" not in merged_payload:
         raise ValueError(f"{config_path} must define [workflow] or inherit it from base_config.")

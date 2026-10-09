@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import functools
 import inspect
 import json
 import re
@@ -114,7 +115,8 @@ def resolve_class(name: str, fn: Any) -> Any:
                 obj = getattr(__import__(imports[name], fromlist=[name]), name, None)
             except Exception:
                 obj = None
-            if inspect.isclass(obj):
+            # A class of another package (matplotlib's Figure) gets no page here.
+            if inspect.isclass(obj) and obj.__module__.startswith("hydromodpy"):
                 return obj
     found = {
         id(cls): cls
@@ -141,20 +143,42 @@ def resolve_class(name: str, fn: Any) -> Any:
     return None
 
 
+def attribute_docs(owner: type) -> dict[str, str]:
+    """Docstrings written under the attributes of a class: name -> text.
+
+    The string literal (or ``#:`` comment) under a field, the form autodoc
+    renders for an attribute. A class whose source cannot be read gives none.
+    """
+    from sphinx.pycode import ModuleAnalyzer
+
+    try:
+        found = ModuleAnalyzer.for_module(owner.__module__).find_attr_docs()
+    except Exception:
+        return {}
+    return {
+        attr: "\n".join(lines).strip()
+        for (scope, attr), lines in found.items()
+        if scope == owner.__qualname__
+    }
+
+
 def members_of(cls: Any) -> list[dict[str, Any]]:
     out = []
     skip_owners = {object, BaseModel, Exception, BaseException, dict, tuple, list}
+    attr_docs: dict[type, dict[str, str]] = {}
     for name in sorted(m for m in dir(cls) if not m.startswith("_")):
         owner = next((k for k in cls.__mro__ if name in vars(k)), None)
         if owner in skip_owners or owner is None:
             continue
         raw_attr = vars(owner)[name]
-        if isinstance(raw_attr, property):
+        if isinstance(raw_attr, (property, functools.cached_property)):
             kind, doc = "property", inspect.getdoc(raw_attr)
         elif isinstance(raw_attr, (classmethod, staticmethod)) or inspect.isfunction(raw_attr):
             kind, doc = "method", inspect.getdoc(getattr(cls, name, None))
         else:
-            kind, doc = "attribute", ""
+            if owner not in attr_docs:
+                attr_docs[owner] = attribute_docs(owner)
+            kind, doc = "attribute", attr_docs[owner].get(name, "")
         out.append(
             {
                 "name": name,
@@ -901,6 +925,12 @@ def build(nodes: dict[str, dict[str, Any]]) -> dict[str, Any]:
                 "params": params_of(obj),
             }
             _, aliases = type_checking_names(sys.modules[obj.__module__])
+            # Aliases a signature names (PathLike, ConfigLike...), with what they stand for.
+            entry["type_aliases"] = [
+                {"name": alias, "alias": aliases[alias]}
+                for alias in sorted(aliases)
+                if re.search(rf"\b{re.escape(alias)}\b", entry["signature"])
+            ]
             for rname in return_names(obj):
                 if rname in aliases:
                     entry["returns"].append({"name": rname, "alias": aliases[rname]})

@@ -1,5 +1,19 @@
 # Add a lake or a reservoir
 
+```{hmp-task}
+Task
+: Add a lake or a reservoir whose stage the solver computes from its exchange with the aquifer, its outlets and its forcings.
+
+Time
+: An hour, most of it preparing the footprint and the stage-volume-area table.
+
+Needs
+: A MODFLOW 6 model with two layers or more, a polygon of the lake and its stage-volume-area table. Example 04 provides neither.
+
+Gives
+: The stage, the volume and the lake-aquifer exchange of every lake at every step.
+```
+
 A lake or a reservoir exchanges water with the aquifer, and its level moves with that
 exchange. HydroModPy writes it as a MODFLOW 6 LAK package: you give a footprint and a
 stage-volume-area table, and the solver computes the stage, the volume and the flow
@@ -20,9 +34,21 @@ The lake needs MODFLOW 6. The balance that the stage-volume table closes is expl
 - At least two layers in the mesh. A lake takes the top layer or layers of its cells, and
   the aquifer below must stay active.
 
-The solver that runs is the one named in the flow process, and `hmp config check` refuses
-a lake when {toml}`solver.backend` names MODFLOW-NWT. Write the solver name in both places,
-as {doc}`choose-a-solver` shows.
+The lake needs MODFLOW 6, the solver of example 04. `hmp config check` refuses a lake on
+a file whose flow process names MODFLOW-NWT.
+
+Example 04 has no lake, and the data shipped with the examples hold no lake footprint and
+no stage-volume-area table: the folders `lake_geometry` and `lake_abacus` that
+`hmp workspace init` creates carry only `EXAMPLE` templates, which are never loaded and do
+not lie in the Nançon catchment. This page therefore shows no result figure. To run it, you
+provide two files of your own:
+
+- `lake/lac0.gpkg`, one polygon of the lake in the project CRS (EPSG:2154 for example
+  04), with a `lake_id` column when the file holds several lakes;
+- `lake/lac0.csv`, the table of step 3, from a bathymetry survey or from the DEM of a
+  reservoir drawn down.
+
+Both paths are read from the folder of the config file.
 
 ## 1. Declare the lake
 
@@ -167,19 +193,12 @@ each one.
 | `MANNING` | A channel with a roughness and a bed slope. | `invert`, `width`, `rough`, `slope` |
 | `SPECIFIED` | A release you impose, such as a gate. | `rate`, or a `forcing` |
 
-The block below gives the lake a weir and a gate. It repeats the lake of step 1 so that it
-loads on its own.
+The lines below give the lake of step 1 a weir and a gate. Here and in the next steps a
+block shows only what to add to the file of step 1; the whole file, with every addition,
+is at the end of the page and loads as written.
 
 ```toml
-base_config = "step4_transient.toml"
-
-[flow]
-active_bc = ["drainage", "lake"]
-
-[flow.sinks_sources.lakes.lac0]
-bedleak = 1e-6
-stageinit = "101.0 m"
-
+# not checked: add these lines to the file of step 1; the full file is validated at the end
 [[flow.sinks_sources.lakes.lac0.outlets]]
 couttype = "WEIR"
 invert = "104.0 m"
@@ -188,18 +207,6 @@ width = "5.0 m"
 [[flow.sinks_sources.lakes.lac0.outlets]]
 couttype = "SPECIFIED"
 rate = "-0.02 m^3/s"
-
-[[data.lake_geometry.sources]]
-source = "custom"
-path = "lake/lac0.gpkg"
-
-[[data.lake_abacus.sources]]
-source = "custom"
-path = "lake/lac0.csv"
-lake_id = "lac0"
-
-[modflow6.sgrid.vertical]
-nlay = 2
 ```
 
 A `SPECIFIED` rate is signed: a negative rate takes water out of the lake. A release that
@@ -263,9 +270,6 @@ lake_id = "lac_upper"
 source = "custom"
 path = "lake/lac0.csv"
 lake_id = "lac0"
-
-[modflow6.sgrid.vertical]
-nlay = 2
 ```
 
 Here `lake = 2` is the second lake of the file, `lac0`. With two lakes, the footprint file
@@ -302,15 +306,7 @@ To declare a forcing, write it under the lake. Rainfall and evaporation are rate
 of lake surface. Runoff, inflow and withdrawal are volumes per time.
 
 ```toml
-base_config = "step4_transient.toml"
-
-[flow]
-active_bc = ["drainage", "lake"]
-
-[flow.sinks_sources.lakes.lac0]
-bedleak = 1e-6
-stageinit = "101.0 m"
-
+# not checked: add these lines to the file of step 1; the full file is validated at the end
 [flow.sinks_sources.lakes.lac0.rainfall]
 kind = "constant"
 value = 2.0e-8
@@ -320,18 +316,6 @@ units = "m/s"
 kind = "seasonal"
 units = "m3/s"
 by_season = { DJF = -0.01, MAM = -0.03, JJA = -0.05, SON = -0.02 }
-
-[[data.lake_geometry.sources]]
-source = "custom"
-path = "lake/lac0.gpkg"
-
-[[data.lake_abacus.sources]]
-source = "custom"
-path = "lake/lac0.csv"
-lake_id = "lac0"
-
-[modflow6.sgrid.vertical]
-nlay = 2
 ```
 
 A forcing is `constant`, `csv`, `piecewise` or `seasonal`, picked by `kind`. A `piecewise`
@@ -350,31 +334,11 @@ An inflow or a withdrawal can also come from files. The station id of each chron
 lake name, and the series is averaged over each stress period.
 
 ```toml
-base_config = "step4_transient.toml"
-
-[flow]
-active_bc = ["drainage", "lake"]
-
-[flow.sinks_sources.lakes.lac0]
-bedleak = 1e-6
-stageinit = "101.0 m"
-
-[[data.lake_geometry.sources]]
-source = "custom"
-path = "lake/lac0.gpkg"
-
-[[data.lake_abacus.sources]]
-source = "custom"
-path = "lake/lac0.csv"
-lake_id = "lac0"
-
+# not checked: add these lines to the file of step 1; the full file is validated at the end
 [[data.lake_inflow.sources]]
 source = "custom"
 path = "lake_inflow"
 station_ids = ["lac0"]
-
-[modflow6.sgrid.vertical]
-nlay = 2
 ```
 
 ```{hmp-params}
@@ -401,36 +365,16 @@ area of the carved basin follows the table. The table stays the source of truth 
 storage.
 
 ```toml
-base_config = "step4_transient.toml"
-
-[flow]
-active_bc = ["drainage", "lake"]
-
-[flow.sinks_sources.lakes.lac0]
-bedleak = 1e-6
-stageinit = "101.0 m"
-
+# not checked: add these lines to the file of step 1; the full file is validated at the end
 [flow.sinks_sources.lakes.lac0.bed_reconstruction]
 dynamic_area = true
 
 [data]
 types = ["hydrography", "hydrometry", "recharge", "runoff", "lake_bathymetry"]
 
-[[data.lake_geometry.sources]]
-source = "custom"
-path = "lake/lac0.gpkg"
-
-[[data.lake_abacus.sources]]
-source = "custom"
-path = "lake/lac0.csv"
-lake_id = "lac0"
-
 [[data.lake_bathymetry.sources]]
 source = "custom"
 path = "lake/lac0_bathymetry.tif"
-
-[modflow6.sgrid.vertical]
-nlay = 2
 ```
 
 The bathymetry is not inferred from `active_bc`, because it is read only by a lake that
@@ -523,33 +467,15 @@ stage = run.timeseries("stage", station="lake:lac0")
 
 To write the series to a file, add an `[[export]]` block, or call `hmp export` for a run
 you already have. The CSV holds the columns `datetime`, `station_id`, `variable`, `value`
-and `unit`, one row per value.
+and `unit`, one row per value. Give the block a `file` of its own: step 4 already writes
+its discharge series to the default CSV of the run, and two exports to one file stop the
+run.
 
 ```toml
-base_config = "step4_transient.toml"
-
-[flow]
-active_bc = ["drainage", "lake"]
-
-[flow.sinks_sources.lakes.lac0]
-bedleak = 1e-6
-stageinit = "101.0 m"
-
-[[data.lake_geometry.sources]]
-source = "custom"
-path = "lake/lac0.gpkg"
-
-[[data.lake_abacus.sources]]
-source = "custom"
-path = "lake/lac0.csv"
-lake_id = "lac0"
-
-[modflow6.sgrid.vertical]
-nlay = 2
-
+# not checked: add these lines to the file of step 1; the full file is validated at the end
 [[export__append]]
 variables = ["stage", "volume", "gwf_exchange"]
-format = "csv"
+file = "lake_series.csv"
 ```
 
 ```text
@@ -563,34 +489,14 @@ records. The station id is the lake name. It is never loaded by itself, so list 
 {toml}`data.types`.
 
 ```toml
-base_config = "step4_transient.toml"
-
-[flow]
-active_bc = ["drainage", "lake"]
-
-[flow.sinks_sources.lakes.lac0]
-bedleak = 1e-6
-stageinit = "101.0 m"
-
+# not checked: add these lines to the file of step 1; the full file is validated at the end
 [data]
 types = ["hydrography", "hydrometry", "recharge", "runoff", "lake_levels"]
-
-[[data.lake_geometry.sources]]
-source = "custom"
-path = "lake/lac0.gpkg"
-
-[[data.lake_abacus.sources]]
-source = "custom"
-path = "lake/lac0.csv"
-lake_id = "lac0"
 
 [[data.lake_levels.sources]]
 source = "custom"
 path = "lake_levels"
 station_ids = ["lac0"]
-
-[modflow6.sgrid.vertical]
-nlay = 2
 
 [display]
 figures = ["lake_stage_sim_obs", "lake_volume_sim_obs"]
@@ -602,27 +508,106 @@ the lake, never through the carved bed. Both figures are refused when the run ha
 level. A calibration can target the stage of a lake with
 {toml}`calibration.outputs.<name>.lake_id`: see {doc}`calibrate`.
 
+## Put it together
+
+This file holds the lake of step 1 and every addition of steps 4 to 8, except the second
+lake of the mover. It loads as written; it runs once the two files of the first section
+and the files it names exist. {download}`Download it <recipes/model/guide_lake.toml>`.
+
+```toml
+base_config = "step4_transient.toml"
+
+[simulation]
+name = "nancon_guide_lake"
+
+[flow]
+active_bc = ["drainage", "lake"]
+
+[flow.sinks_sources.lakes.lac0]
+bedleak = 1e-6
+stageinit = "101.0 m"
+
+[[flow.sinks_sources.lakes.lac0.outlets]]
+couttype = "WEIR"
+invert = "104.0 m"
+width = "5.0 m"
+
+[[flow.sinks_sources.lakes.lac0.outlets]]
+couttype = "SPECIFIED"
+rate = "-0.02 m^3/s"
+
+[flow.sinks_sources.lakes.lac0.rainfall]
+kind = "constant"
+value = 2.0e-8
+units = "m/s"
+
+[flow.sinks_sources.lakes.lac0.withdrawal]
+kind = "seasonal"
+units = "m3/s"
+by_season = { DJF = -0.01, MAM = -0.03, JJA = -0.05, SON = -0.02 }
+
+[flow.sinks_sources.lakes.lac0.bed_reconstruction]
+dynamic_area = true
+
+[data]
+types = ["hydrography", "hydrometry", "recharge", "runoff", "lake_bathymetry", "lake_levels"]
+
+[[data.lake_geometry.sources]]
+source = "custom"
+path = "lake/lac0.gpkg"
+
+[[data.lake_abacus.sources]]
+source = "custom"
+path = "lake/lac0.csv"
+lake_id = "lac0"
+
+[[data.lake_inflow.sources]]
+source = "custom"
+path = "lake_inflow"
+station_ids = ["lac0"]
+
+[[data.lake_bathymetry.sources]]
+source = "custom"
+path = "lake/lac0_bathymetry.tif"
+
+[[data.lake_levels.sources]]
+source = "custom"
+path = "lake_levels"
+station_ids = ["lac0"]
+
+[modflow6.sgrid.vertical]
+nlay = 2
+
+[display]
+figures = ["lake_stage_sim_obs", "lake_volume_sim_obs", "lake_abacus_comparison"]
+
+[[export__append]]
+variables = ["stage", "volume", "gwf_exchange"]
+file = "lake_series.csv"
+```
+
 ## What can go wrong
 
-| Where | Message | What to do |
+| Symptom | Cause | Fix |
 |---|---|---|
-| `hmp config check` | `flow.sinks_sources.lakes declares lakes but flow.active_bc lists neither 'lake' nor 'reservoir'; ...` | Add `"lake"` to `active_bc`. The check refuses a lake table that nothing would build. |
-| `hmp config check` | `solver.backend='modflow_nwt' does not support the 'lake' boundary (supported by: modflow6); it would be silently ignored. ...` | Use MODFLOW 6. The refusal appears only when `[solver] backend` is set to NWT. |
-| `hmp config check` | `Unsupported leakance unit 'm'. Allowed units: 1/s, 1/day, 1/h, 1/min` | Write a leakance unit in `bedleak_unit`. |
-| `hmp config check` | `flow.sinks_sources.lakes outlet 'SPECIFIED' requires either rate or forcing` | Give the outlet a `rate` or a `forcing`, not both. |
-| `hmp config check` | `flow.sinks_sources.lakes outlet sets both lakeout and mover; keep lakeout = 0 when a mover is declared` | Choose one routing. |
-| `hmp config check` | `flow.active_bc lists "lake" without "sfr": ...` | Only in soil mode. The water reaches the lake through the streams: add the network, see {doc}`recharge`. |
-| Run, data step (warning) | `Data manager 'lake_geometry' is active but missing [data.lake_geometry] section.` | Write the section. The same warning appears for `lake_inflow` and `lake_withdrawal`, and is harmless when you declare no file for them. |
-| Run, data step | `Abacus contract violated (lac0.csv)` | The table breaks a rule of step 3. The message lists the failed checks. |
-| Run, mesh | `flow.sinks_sources.lakes.lac0 has no polygon geometry; load the lake_geometry data family before pre-processing.` | The footprint did not reach the lake. With several lakes, add a `lake_id` column whose values are the lake names. |
-| Run, mesh | `flow.sinks_sources.lakes.lac0 polygon does not intersect any grid cell; check the lake geometry CRS and the model extent.` | The polygon is outside the domain, or not in the project CRS. |
-| Run, mesh | `flow.sinks_sources.lakes.lac0 occupied_layers (1) must leave at least one active layer below the lake (nlay=1); the VERTICAL connection needs an aquifer cell to leak into.` | Add a layer: `[modflow6.sgrid.vertical] nlay = 2`. |
-| Run, build | `flow.sinks_sources.lakes.lac0.abacus is required to build the LAK stage-volume-area table.` | The table did not reach the lake: its `lake_id` is not `lac0`. See the three names of step 1. |
-| Run, build | `flow.sinks_sources.lakes.lac0.abacus volume must strictly increase with stage (MF6 rejects equal volumes); got 0.0 after 0.0. Drop dead-storage rows of equal volume below the bed.` | Remove the repeated rows. |
-| Run, build | `flow.sinks_sources.lakes.lac0 outlet lakeout=3 has no matching downstream lake (2 lakes declared).` | `lakeout` counts the lake tables from 1. |
-| Run, build | `flow.sinks_sources.lakes.lac0 sets bed_reconstruction but no lake_bathymetry raster was loaded; declare [data.lake_bathymetry].` | Add `lake_bathymetry` to `data.types` and write its section. |
-| After the run (warning) | `LAK binary budget <file> is missing; the lake-aquifer exchange series (gwf_exchange, seepage_under_dam, lak_gwf) is not extracted. ...` | The run publishes no exchange series rather than a wrong one. Run again. |
-| Figure | `run holds no gauged lake level for 'lac0'; declare [data.lake_levels]` | See the last step above. |
+| `flow.sinks_sources.lakes declares lakes but flow.active_bc lists neither 'lake' nor 'reservoir'; ...` from `hmp config check` | A lake table that nothing would build. | Add `"lake"` to `active_bc`. |
+| `solver.backend='modflow_nwt' does not support the 'lake' boundary (supported by: modflow6); it would be silently ignored. ...` from `hmp config check` | The flow process names MODFLOW-NWT. | Use MODFLOW 6. |
+| `Unsupported leakance unit 'm'. Allowed units: 1/s, 1/day, 1/h, 1/min` from `hmp config check` | `bedleak_unit` is not a leakance. | Write a unit per time. |
+| `flow.sinks_sources.lakes outlet 'SPECIFIED' requires either rate or forcing` from `hmp config check` | A gate with no release. | Give the outlet a `rate` or a `forcing`, not both. |
+| `flow.sinks_sources.lakes outlet sets both lakeout and mover; keep lakeout = 0 when a mover is declared` from `hmp config check` | Two routings on one outlet. | Choose one. |
+| `flow.active_bc lists "lake" without "sfr": ...` from `hmp config check` | A lake in soil mode, where the water reaches a lake only through the streams. | Add the network: see {doc}`recharge` and {doc}`route-streams-with-sfr`. |
+| `Data manager 'lake_geometry' is active but missing [data.lake_geometry] section.` (warning, data step) | No footprint section. The same warning appears for `lake_inflow` and `lake_withdrawal`. | Write the section. The warning is harmless for the two optional families. |
+| `Abacus contract violated (lac0.csv)` (data step) | The table breaks a rule of step 3. The message lists the failed checks. | Fix the table. |
+| `flow.sinks_sources.lakes.lac0 has no polygon geometry; load the lake_geometry data family before pre-processing.` (mesh step) | The footprint did not reach the lake. | With several lakes, add a `lake_id` column whose values are the lake names. |
+| `flow.sinks_sources.lakes.lac0 polygon does not intersect any grid cell; check the lake geometry CRS and the model extent.` (mesh step) | The polygon is outside the domain, or not in the project CRS. | Reproject the footprint, or move the model. |
+| `flow.sinks_sources.lakes.lac0 occupied_layers (1) must leave at least one active layer below the lake (nlay=1); the VERTICAL connection needs an aquifer cell to leak into.` (mesh step) | One layer under a lake. | Add a layer: `[modflow6.sgrid.vertical] nlay = 2`. |
+| `flow.sinks_sources.lakes.lac0.abacus is required to build the LAK stage-volume-area table.` (build step) | The table did not reach the lake: its `lake_id` is not `lac0`. | See the three names of step 1. |
+| `flow.sinks_sources.lakes.lac0.abacus volume must strictly increase with stage (MF6 rejects equal volumes); got 0.0 after 0.0. Drop dead-storage rows of equal volume below the bed.` (build step) | Rows of equal volume. | Remove the repeated rows. |
+| `flow.sinks_sources.lakes.lac0 outlet lakeout=3 has no matching downstream lake (2 lakes declared).` (build step) | `lakeout` counts the lake tables from 1. | Name a lake that exists. |
+| `flow.sinks_sources.lakes.lac0 sets bed_reconstruction but no lake_bathymetry raster was loaded; declare [data.lake_bathymetry].` (build step) | A carve with no bathymetry. | Add `lake_bathymetry` to `data.types` and write its section. |
+| `export[<i>] and export[<j>] both write <run>/<run>_series.csv. Give one of them its own file or folder.` when the run starts | An appended export of series without a `file`, on a base file that already exports series. | Give it a `file`, as in step 8. |
+| `LAK binary budget <file> is missing; the lake-aquifer exchange series (gwf_exchange, seepage_under_dam, lak_gwf) is not extracted. ...` (warning, after the run) | The solver wrote no lake budget. The run publishes no exchange series rather than a wrong one. | Run again. |
+| `run holds no gauged lake level for 'lac0'; declare [data.lake_levels]` (figure) | A level figure without a gauged level. | See the last block of step 8. |
 
 If the solver does not converge, go to {doc}`non-convergence`. One setting belongs to
 lakes. {toml}`surfdep|flow.sinks_sources.lakes.<name>.surfdep` smooths the dry and wet

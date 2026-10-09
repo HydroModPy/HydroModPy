@@ -28,8 +28,8 @@ Take the soil reservoir. Each door says something different about it.
 (step-forcing)=
 ### 1. Rain and evaporation reach the ground
 
-What arrives at the surface each day, how daily data become the forcing of a
-stress period, and how outputs align on the periods.
+What arrives at the surface each day, and how daily data become the forcing of
+a stress period.
 
 ```{toctree}
 :caption: 1. Rain and evaporation
@@ -85,8 +85,10 @@ boussinesq
 (step-exits)=
 ### 4. The water leaves the aquifer
 
-Drains at the ground surface, streams, lakes, the sea, and the network of cells
-where the water table reaches the surface.
+Fixed heads at the sea and on the rivers, drains and evapotranspiration at the
+ground surface, lakes, streams and the water mover, the routing of the released
+water on the mesh, and the network of cells where the water table reaches the
+surface.
 
 ```{toctree}
 :caption: 4. Exits
@@ -98,12 +100,14 @@ exits
 (step-observations)=
 ### 5. The model meets the observations
 
-How a run is scored against measured flow or a mapped network.
+How outputs and observations are put on the same periods, and how a run is
+scored against measured flow or a mapped network.
 
 ```{toctree}
 :caption: 5. Observations
 :maxdepth: 1
 
+time-alignment
 calibration/inverse-problem-formulation
 downslope-distance
 ```
@@ -124,8 +128,8 @@ validation
 {doc}`validation` lists every check of `tests/validation/`: the reference it
 is compared with (a closed-form solution, a published MODFLOW 6 example, a
 manufactured solution, or a parameter to find again), the solvers it runs,
-and the thresholds it must stay under. The page is generated from the tests,
-so it cannot announce a check that does not run.
+and the thresholds it must stay under. The page is generated from the source of
+the tests: a check appears there only when a test exists for it.
 
 How a theory page is written, and what its build checks, is in
 {doc}`../contribute/write-a-theory-page`.

@@ -5,12 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.analysis.testbed.contracts import (
-    FailedCasesError,
-    register_testbed_runner_provider,
-)
+from hydromodpy.analysis.testbed.contracts import register_testbed_runner_provider
 from hydromodpy.analysis.testbed.regional_lab import RegionalLabProfileLauncher
 from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabConfig
+from hydromodpy.core.exceptions import FailedCasesError
 
 from ._regional_lab_builders import (
     write_csv_catalog,

@@ -171,3 +171,57 @@ def test_a_cron_line_reads_in_words(cron: str, words: str) -> None:
     from tools.docs import tests_index
 
     assert tests_index.cron_words(cron) == words
+
+
+def test_every_validation_variant_runs_in_a_job_that_can_run_it() -> None:
+    from tools.docs import tests_index
+
+    index = tests_index.build(ROOT)
+    orphans = [
+        (entry["file"], solver)
+        for entry in index["validation"]
+        for solver, hits in entry["runs_in"].items()
+        if not any(not hit["skipped"] for hit in hits)
+    ]
+    assert orphans == []
+
+
+def test_fetch_merges_the_artifacts_it_finds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = V.collect([_part(tmp_path, "a", "2026-10-01T00:00:00", "aaaa", "passed", 0.01)])
+    artifact = json.dumps(V.merge({}, run, replace=True, repo=ROOT))
+    calls: list[list[str]] = []
+
+    def fake_run(command: list[str], **_: object) -> SimpleNamespace:
+        calls.append(command)
+        if command[:3] == ["gh", "run", "list"]:
+            workflow = command[command.index("--workflow") + 1]
+            return SimpleNamespace(returncode=0, stdout="11\n" if "petsc" in workflow else "7\n")
+        name = command[command.index("--name") + 1]
+        if "petsc" in name:
+            return SimpleNamespace(returncode=1, stdout="")
+        target = Path(command[command.index("--dir") + 1])
+        target.mkdir(parents=True)
+        (target / "validation-results.json").write_text(artifact)
+        return SimpleNamespace(returncode=0, stdout="")
+
+    monkeypatch.setattr(V.subprocess, "run", fake_run)
+    snapshot = tmp_path / "snapshot.json"
+    assert V.main(["fetch", "--branch", "dev", "--snapshot", str(snapshot)]) == 0
+    downloads = [c for c in calls if c[:3] == ["gh", "run", "download"]]
+    assert [(c[3], c[c.index("--name") + 1]) for c in downloads] == [
+        ("7", "validation-results-dev"),
+        ("11", "validation-results-petsc-dev"),
+    ]
+    assert json.loads(snapshot.read_text())["tests"] == json.loads(artifact)["tests"]
+
+
+def test_fetch_fails_when_no_artifact_is_found(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        V.subprocess, "run", lambda *a, **k: SimpleNamespace(returncode=1, stdout="")
+    )
+    with pytest.raises(SystemExit, match="no validation result artifact"):
+        V.main(["fetch", "--snapshot", str(tmp_path / "s.json")])

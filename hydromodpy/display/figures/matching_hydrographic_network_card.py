@@ -44,13 +44,14 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
 import pandas as pd
 
 from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_BY_CODE
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt, OutputName, ParameterUnits
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
     completed_descriptor,
@@ -245,14 +246,47 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path: str | Path | None = None,
-        parameter: str | None = None,
-        storage_parameter: str | None = None,
-        session_id: str | None = None,
-        output: str | None = None,
-        parameter_units: str | None = None,
-        mean_recharge: float | None = None,
-        recharge_units: str = "m/s",
-        roots: Mapping[str, Any] | None = None,
+        parameter: Annotated[
+            str | None,
+            Opt(
+                "Parameter of the first stage, the root search, by name. Left out, the "
+                "one that stage sampled."
+            ),
+        ] = None,
+        storage_parameter: Annotated[
+            str | None,
+            Opt(
+                "Parameter of the second stage, the storage fit, by name. Left out, the "
+                "one that stage sampled."
+            ),
+        ] = None,
+        session_id: Annotated[
+            str | None,
+            Opt(
+                "Any session of the calibration chain to draw, by id: the card reads "
+                "every phase sharing its root. Left out, every session of the run's trials."
+            ),
+        ] = None,
+        output: OutputName = None,
+        parameter_units: ParameterUnits = None,
+        mean_recharge: Annotated[
+            float | None,
+            Opt(
+                "Mean recharge the ratio K/R is read against, in recharge_units. Left "
+                "out, the median R_mean_m_s the trials published, else none."
+            ),
+        ] = None,
+        recharge_units: Annotated[
+            str, Opt("Unit written after the mean recharge on the card.")
+        ] = "m/s",
+        roots: Annotated[
+            Mapping[str, Any] | None,
+            Opt(
+                "Roots record of a two-bound search, as the session journal writes it. "
+                "Left out, the one the session recorded.",
+                python_only=True,
+            ),
+        ] = None,
         **_,
     ) -> MplFigure:
         import matplotlib.pyplot as plt
@@ -325,7 +359,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         self._draw_counts(ax_counts, table, reading, output=output)
 
         fig.suptitle(
-            f"Two-stage calibration card - {sim.name or sim.sim_id[:8]}",
+            f"Two-stage calibration card{run_suffix(sim)}",
             fontweight="bold",
             fontsize=14,
         )

@@ -731,9 +731,9 @@ class ValidationDirective(SphinxDirective):
         sec += H.raw(
             "<p>Read from <code>.github/workflows/</code>. A job runs a file when one of its paths "
             "holds it and its marker expression accepts the markers of the file. A test marked "
-            "<code>petsc</code> is skipped where petsc4py is not installed. The nightly job "
-            "uploads what it measured; this page shows the snapshot committed with the "
-            "documentation.</p>"
+            "<code>petsc</code> is skipped where petsc4py is not installed. The nightly jobs "
+            "upload what they measured. The deployed page lays the latest nightly results of "
+            "its branch over the snapshot committed with the documentation.</p>"
             '<div class="hmp-val-scroll"><table class="hmp-val-sched"><thead><tr><th>Job</th>'
             "<th>When</th><th>Selects</th><th>petsc4py</th></tr></thead>"
             f"<tbody>{''.join(rows)}</tbody></table></div>{never_html}"

@@ -111,7 +111,7 @@ class DiscoveryMixin:
            raises :class:`AmbiguousReferenceError` otherwise.
         4. Exact ``name`` of a live run (globally, or within ``project``).
         5. ``name_stem``: a bare name resolves to the latest live version of
-           that stem (``cheze_baseline`` -> ``cheze_baseline.v3``).
+           that stem (``baseline`` -> ``baseline.v3``).
         6. Exact ``name`` of a trashed run, when no live run answers to it.
 
         Raises :class:`SimulationNotFoundError` when nothing matches, with the
@@ -335,6 +335,43 @@ class DiscoveryMixin:
         return Run(sid, self)
 
     def find(self, **filters) -> RunSet:
+        """Return the runs that match every filter, newest first.
+
+        Trashed runs are left out unless ``status`` asks for them.
+
+        Parameters
+        ----------
+        **filters
+            Each keyword narrows the set:
+
+            - ``project``, ``name``, ``name_stem``, ``config_hash``,
+              ``crs_wkt`` (or ``crs``), ``geographic_fingerprint``: exact value
+              of that run column.
+            - ``solver``, ``solver_category``, ``status``, ``flow_regime``,
+              ``mesh_topology``: their code, for example ``solver="modflow6"``
+              or ``status="completed"``.
+            - ``tags``: one tag the run carries.
+            - ``<metric>_gt``, ``<metric>_gte``, ``<metric>_lt``,
+              ``<metric>_lte``: bound on an outlet metric, for example
+              ``nse_gt=0.7``.
+
+        Returns
+        -------
+        RunSet
+            The matching runs. It is empty when nothing matches.
+
+        Raises
+        ------
+        ValueError
+            If a keyword is none of the above. The message lists them.
+
+        Examples
+        --------
+        >>> good = cat.find(
+        ...     project="my_project", status="completed", nse_gt=0.7
+        ... )  # doctest: +SKIP
+        >>> good.best("nse")  # doctest: +SKIP
+        """
         from hydromodpy.results.run.group import RunSet
 
         # v2 dim-table joins for filters that hit text codes (solver/status/etc.).
@@ -452,6 +489,28 @@ class DiscoveryMixin:
         return RunSet(sim_ids, self)
 
     def latest(self, project: str | None = None) -> Run:
+        """Return the most recently created completed run.
+
+        Parameters
+        ----------
+        project
+            Look only at the runs of this project. ``None`` looks at the
+            whole catalog.
+
+        Returns
+        -------
+        Run
+            The newest run whose status is ``completed``.
+
+        Raises
+        ------
+        KeyError
+            If no run is completed (in ``project``, when given).
+
+        Examples
+        --------
+        >>> run = hmp.open("~/ws/projects/my_project").latest()  # doctest: +SKIP
+        """
         from hydromodpy.results.run import Run
 
         if project is not None:

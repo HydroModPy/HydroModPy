@@ -642,11 +642,77 @@ def walk(model: type[BaseModel], path: str, stack: tuple[type, ...], variant: di
             walk(m, target_path, stack + (m,), None)
 
 
+#: Files other than the project file, whose keys are documented from their own model.
+#: Name of the file -> (title, command that reads it, dotted path of its root model).
+#: The name is also the name of its reference page, ``reference/parameters/<name>``.
+EXTRA_FILES: dict[str, tuple[str, str, str]] = {
+    "report-file": (
+        "The catchment report file",
+        "hmp report catchment FILE",
+        "hydromodpy.display.catchment_report.settings:ReportConfig",
+    ),
+}
+
+
+def _load_model(dotted: str) -> type[BaseModel] | None:
+    """The model at ``module:Class``, or None when this tree has no such module.
+
+    A snapshot of an older release runs this script on that release, which may
+    not have the file yet.
+    """
+    module, _, name = dotted.partition(":")
+    try:
+        model = getattr(__import__(module, fromlist=[name]), name)
+    except (ImportError, AttributeError):
+        return None
+    return model if _is_model(model) else None
+
+
+def _walk_extra_files() -> dict[str, dict[str, Any]]:
+    """Walk the models of ``EXTRA_FILES`` next to the project file.
+
+    Their tables are not children of the root of ``HydroModPyConfig``: the loader
+    of the project would refuse them. Each node carries ``file`` (the name of its
+    file), and the files are listed in ``files`` with their root tables.
+    """
+    project_roots = list(children[""])
+    files: dict[str, dict[str, Any]] = {}
+    for name, (title, command, dotted) in EXTRA_FILES.items():
+        model = _load_model(dotted)
+        if model is None:
+            continue
+        clash = sorted({f.alias or n for n, f in model.model_fields.items()} & set(project_roots))
+        if clash:
+            raise ValueError(f"{name}: tables {clash} are also sections of HydroModPyConfig")
+        walk(model, "", (model,), None)
+        roots = [p for p in children[""] if p not in project_roots]
+        children[""] = list(project_roots)
+        stack = list(roots)
+        while stack:
+            path = stack.pop()
+            nodes[path]["file"] = name
+            stack.extend(children.get(path, []))
+        files[name] = {
+            "title": title,
+            "command": command,
+            "model": model.__name__,
+            "doc": _first_paragraph(inspect.getdoc(model)),
+            "roots": roots,
+            "page": f"reference/parameters/{name}",
+        }
+    return files
+
+
+FILES: dict[str, dict[str, Any]] = {}
+
+
 def build() -> dict[str, Any]:
     nodes.clear()
     children.clear()
+    FILES.clear()
     nodes[""] = {"path": "", "name": "", "kind": "root", "anchor": "p-root"}
     walk(HydroModPyConfig, "", (HydroModPyConfig,), None)
+    FILES.update(_walk_extra_files())
     _known_keys()
     for path, node in nodes.items():
         node["children"] = children.get(path, [])
@@ -994,14 +1060,19 @@ def build_payload(label: str = "") -> tuple[dict[str, Any], dict[str, Any]]:
     for path, items in mentions.items():
         if path in reg:
             reg[path]["co_mentions"] = items
-    leaves = [n for n in reg.values() if n.get("kind") == "leaf" and not n.get("pseudo")]
+    leaves = [
+        n
+        for n in reg.values()
+        if n.get("kind") == "leaf" and not n.get("pseudo") and not n.get("file")
+    ]
     payload = {
         "meta": {
             "label": label,
-            "paths": len(reg) - 1,
+            "paths": sum(1 for n in reg.values() if not n.get("file")) - 1,
             "leaves": len(leaves),
             "user_leaves": sum(1 for n in leaves if n["profile"] == "user"),
             "roots": reg[""]["children"],
+            "files": dict(FILES),
         },
         "nodes": reg,
     }

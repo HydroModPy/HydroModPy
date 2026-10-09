@@ -297,6 +297,24 @@ class WritesMixinDuckDB:
         sim_id: str | UUID,
         params: list[dict],
     ) -> None:
+        """Store the parameter values a run used.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        params
+            One mapping per value with ``param_name`` and ``value``, and
+            optionally ``zone_id`` (default: the whole domain), ``unit`` and
+            ``parameterization``. A value already stored for the same name and
+            zone is replaced.
+
+        Examples
+        --------
+        >>> cat.write_parameters(
+        ...     run.sim_id, [{"param_name": "K", "value": 1e-5, "unit": "m/s"}]
+        ... )  # doctest: +SKIP
+        """
         if not self._persistence.save_catalog:
             return
         sid = str(sim_id)
@@ -379,6 +397,24 @@ class WritesMixinDuckDB:
         last_valid: Any = None,
         metadata: dict[str, Any] | None = None,
     ) -> None:
+        """Record a station of the catalog, or update it.
+
+        A station is shared by every run. It is keyed by ``station_id`` and
+        ``variable_type``: writing the same pair again replaces its fields.
+
+        Parameters
+        ----------
+        station_id
+            Station code.
+        variable_type
+            What the station measures, for example ``"discharge"``.
+        name, latitude, longitude, elevation, source
+            Description of the station, stored as given.
+        first_valid, last_valid
+            First and last dates of its record.
+        metadata
+            Any other description, stored as JSON.
+        """
         if not self._persistence.save_catalog:
             return
         self._backend.execute(
@@ -894,6 +930,11 @@ class WritesMixinDuckDB:
         sim_id: str | UUID,
         metadata: dict[str, object],
     ) -> None:
+        """Store catchment metadata of a run, one ``key -> value`` pair each.
+
+        Values are stored as text with their Python type, and read back with
+        :meth:`read_geographic_metadata`. A key already stored is replaced.
+        """
         if not self._persistence.save_catalog:
             return
         sid = str(sim_id)

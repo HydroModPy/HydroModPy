@@ -124,7 +124,7 @@ jobs:
               pth.unlink()
           "
 
-      # Skip PETSc-only validation tests here; they live in the petsc-smoke workflow.
+      # The PETSc variants (-m petsc) run in ci-nightly-petsc.yml (conda-forge env).
       - name: Install solver binaries
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
 

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
@@ -67,6 +68,13 @@ _BUFF_AREA_DESCRIPTION = (
 )
 
 
+_MISSING_CATCHMENT = (
+    "geographic.catchment.catch_def is required when "
+    "geographic.source_mode='standard'. Add a [geographic.catchment] table "
+    'with catch_def = "dem", "txt", "from_outlet_coord" or "from_polyg_shp".'
+)
+
+
 class _CatchDefBase(HydroModelBase):
     """Common base for catchment definition variants."""
 
@@ -91,6 +99,19 @@ class DemCatchDef(_CatchDefBase):
     catch_def: Annotated[Literal["dem"], Profile.USER] = Field(
         default="dem",
         description="Catchment defined by the DEM raster extent.",
+    )
+    dem_init_path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="dem", category="data"),
+    ] = Field(
+        description=(
+            "Path to the DEM raster that is the model domain. A relative path is read "
+            "from the folder of the TOML file; a bare file name is also looked up in "
+            "the dem folder of the workspace data. May be left out only when "
+            "[[data.dem.sources]] declares the DEM."
+        ),
+        examples=["dem.tif"],
     )
 
 
@@ -609,11 +630,10 @@ class GeographicConfig(HydroModelBase):
         Profile.USER,
         VisibleWhen("source_mode", "standard"),
     ] = Field(
-        default=None,
         description=(
-            "Catchment definition payload used when source_mode='standard'. "
-            "Discriminated by 'catch_def' on the nested table: "
-            "'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'."
+            "How the model domain is defined. Required when source_mode='standard', "
+            "left out when it is 'synthetic'. The shape is chosen by 'catch_def' on the "
+            "nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'."
         ),
     )
     crs_project: Annotated[str | None, Profile.USER] = Field(
@@ -964,18 +984,34 @@ class GeographicConfig(HydroModelBase):
             )
         return self
 
+    @model_validator(mode="before")
+    @classmethod
+    def _catchment_follows_source_mode(cls, data: Any) -> Any:
+        """Let a document leave the catchment, or its DEM, out.
+
+        Neither field has a default, so the reference shows both as required. A
+        synthetic support carries no catchment, and a [data.dem] source may give
+        the DEM. What is still missing is refused by ``_check_source_mode_payload``
+        after the other keys are checked, with a message that names the key.
+        """
+        if not isinstance(data, Mapping):
+            return data
+        catchment = data.get("catchment")
+        if "catchment" not in data:
+            return {**data, "catchment": None}
+        if isinstance(catchment, Mapping) and "dem_init_path" not in catchment:
+            # Same rule one level down: the dem shape shows its DEM as required,
+            # and a [data.dem] source may still supply it.
+            return {**data, "catchment": {**catchment, "dem_init_path": None}}
+        return data
+
     @model_validator(mode="after")
     def _check_source_mode_payload(self, info: ValidationInfo) -> GeographicConfig:
         """Enforce mode-level invariants between source_mode and catchment."""
         if self.uses_synthetic_geographic():
             return self
         if self.catchment is None:
-            raise ValueError(
-                "geographic.catchment.catch_def is required when "
-                "geographic.source_mode='standard'. Add a [geographic.catchment] table "
-                'with catch_def = "dem", "txt", "from_outlet_coord" or '
-                '"from_polyg_shp".'
-            )
+            raise ValueError(_MISSING_CATCHMENT)
         context = info.context or {}
         allow_dem_bootstrap = bool(context.get("allow_dem_bootstrap"))
         if self.catchment.dem_init_path is None and not allow_dem_bootstrap:

@@ -30,7 +30,7 @@ from typing import NoReturn, TypeVar
 
 import duckdb
 
-from hydromodpy.core.exceptions import CatalogUnreadableError
+from hydromodpy.core.exceptions import CatalogUnreadableError, WriteConflictError
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -61,6 +61,10 @@ _ATTACH_CONFLICT_SNIPPETS = (
     "already attached",
 )
 
+# DuckDB refuses a second connection to a file this process already holds when
+# the two do not share a mode, such as one read-only and one read-write.
+_MODE_CONFLICT_SNIPPETS = ("different configuration",)
+
 F = TypeVar("F", bound=Callable[..., object])
 
 
@@ -78,6 +82,13 @@ def _raise_open_failure(db_path: str, exc: duckdb.Error) -> NoReturn:
     different, already legible failure and propagates unwrapped.
     """
     if db_path != ":memory:" and Path(db_path).exists():
+        message = str(exc).lower()
+        if any(snippet in message for snippet in _MODE_CONFLICT_SNIPPETS):
+            raise WriteConflictError(
+                f"The index '{db_path}' is already open in this process in another mode. "
+                "A read-only and a read-write catalog of one project cannot be open at once: "
+                "close the first one, or open both the same way. The file is not damaged."
+            ) from exc
         raise CatalogUnreadableError(db_path) from exc
     raise exc
 

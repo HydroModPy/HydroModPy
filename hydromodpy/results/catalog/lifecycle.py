@@ -334,6 +334,16 @@ class LifecycleMixin:
                 logger.warning("Could not close SimulationZarr handle", exc_info=True)
 
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
+        """Open the field store (``fields.zarr``) of a run.
+
+        An empty store is created when the run has none yet. The catalog
+        tracks the handle and closes it in :meth:`close`.
+
+        Returns
+        -------
+        SimulationZarr
+            The store holding the fields of the run, one array per variable.
+        """
         fields = self._paths.fields_path_for(sim_id)
         if not fields.exists():
             fields.parent.mkdir(parents=True, exist_ok=True)
@@ -415,6 +425,30 @@ class LifecycleMixin:
         status: str | None = None,
         older_than: str | None = None,
     ) -> int:
+        """Delete for good every run that matches, with its files.
+
+        Each run goes through :meth:`delete`: its row, its tables and its
+        ``runs/<name>`` folder are removed. Nothing goes to the trash, so
+        prefer ``trash`` for a run that may be needed again.
+
+        Parameters
+        ----------
+        status
+            Keep only the runs with this status, for example ``"failed"``.
+        older_than
+            Keep only the runs created before this date (``"2026-01-01"``).
+
+        Returns
+        -------
+        int
+            The number of runs deleted. With no argument, every run of the
+            catalog is deleted.
+
+        Examples
+        --------
+        >>> cat = hmp.open("~/ws/projects/my_project", read_only=False)  # doctest: +SKIP
+        >>> cat.cleanup(status="failed")  # doctest: +SKIP
+        """
         query = (
             "SELECT s.sim_id FROM simulations s JOIN statuses st ON s.status_id = st.id WHERE 1=1"
         )
@@ -1103,6 +1137,11 @@ class LifecycleMixin:
             self._backend.execute("DELETE FROM calibration_sessions WHERE session_id = ?", [sess])
 
     def close(self) -> None:
+        """Close the open field stores and the database connection.
+
+        The handle answers nothing afterwards. ``with hmp.open(...) as cat:``
+        calls it at the end of the block.
+        """
         self._close_open_zarr_handles()
         self._backend.close()
         self._db.close()

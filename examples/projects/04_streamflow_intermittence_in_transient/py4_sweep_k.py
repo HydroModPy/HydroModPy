@@ -1,8 +1,8 @@
-"""Balayage de K à partir de project.toml : un run par valeur, puis une
-figure qui les met tous ensemble.
+"""Sweep K from project.toml: one run per value, then one figure that puts
+them all together.
 
-Le bassin, les données et le maillage sont préparés au premier run et
-servent aux suivants, qui ne changent que K. Compter une minute par run.
+The catchment, the data and the mesh are prepared by the first run and reused
+by the next ones, which only change K. Count one minute per run.
 
     python py4_sweep_k.py
 """
@@ -18,12 +18,12 @@ from hydromodpy.config import HydroModPyConfig
 
 HERE = Path(__file__).resolve().parent
 
-# m/s. project.toml prend 5e-5.
+# m/s. project.toml takes 5e-5.
 K_VALUES = [1e-5, 2e-5, 5e-5, 1e-4, 2e-4]
 
-# %% Les runs
+# %% The runs
 
-# Ni figures ni exports par run, la figure du balayage suffit.
+# No figures and no exports per run: the figure of the sweep is enough.
 cfg = HydroModPyConfig.from_toml(HERE / "project.toml")
 cfg.export = []
 
@@ -32,12 +32,12 @@ with hmp.Project(cfg, no_display=True) as project:
     for k in K_VALUES:
         sim_ids.append(project.simulate(name=f"nancon_k_{k:.0e}", K=k).sim_id)
 
-# Le Project ferme son catalogue en sortant du with : on relit les runs dans
-# le catalogue du projet.
+# The Project closes its catalog when the with block ends: open the catalog of
+# the project to read the runs back.
 cat = hmp.open(HERE)
 runs = [cat[sim_id] for sim_id in sim_ids]
 
-# %% Ce que chaque run donne
+# %% What each run gives
 
 months = runs[0].periods.edges[:-1]
 in_catchment = runs[0].catchment_mask.ravel()
@@ -53,20 +53,21 @@ for run in runs:
     rows.append(
         {
             "K": run.params["K"],
-            "surface moyenne (km²)": area.mean(),
-            "surface min (km²)": area.min(),
+            "mean area (km²)": area.mean(),
+            "min area (km²)": area.min(),
             "NSE": scores["nse"],
-            "NSE log": scores["log_nse"],
+            "log NSE": scores["log_nse"],
         }
     )
 table = pd.DataFrame(rows).set_index("K")
 print(table.round(3))
 
-# Le NSE bouge à peine d'un K à l'autre quand la surface suintante varie d'un
-# facteur dix : le débit à la jauge ne contraint pas K, le réseau si. C'est
-# pour cela que run_calibration.toml cale K sur le réseau cartographié.
+# The NSE barely moves from one K to the next while the seepage area varies by
+# a factor of ten: the discharge at the gauge does not constrain K, the
+# network does. This is why run_calibration.toml calibrates K on the mapped
+# network.
 
-# %% La figure
+# %% The figure
 
 fig, (ax1, ax2) = plt.subplots(
     1, 2, figsize=(12, 4.5), width_ratios=[1.8, 1], constrained_layout=True
@@ -77,16 +78,16 @@ for (k, area), color in zip(areas.items(), colors, strict=True):
 ax1.set_yscale("log")
 ax1.set_yticks([0.3, 1, 3, 10], ["0.3", "1", "3", "10"])
 ax1.minorticks_off()
-ax1.set_ylabel("surface suintante (km²)")
+ax1.set_ylabel("seepage area (km²)")
 ax1.legend(fontsize="small")
 
 ax2.plot(table.index, table["NSE"], "o-", color="k", label="NSE")
-ax2.plot(table.index, table["NSE log"], "s--", color="0.5", label="NSE sur log Q")
+ax2.plot(table.index, table["log NSE"], "s--", color="0.5", label="NSE on log Q")
 ax2.set_xscale("log")
 ax2.set_xticks(K_VALUES, [f"{k:.0e}" for k in K_VALUES])
 ax2.minorticks_off()
 ax2.set_xlabel("K (m/s)")
-ax2.set_ylabel("score du débit à la jauge")
+ax2.set_ylabel("discharge score at the gauge")
 ax2.legend()
 
 out = HERE / "share" / "figures" / "sweep_k.png"

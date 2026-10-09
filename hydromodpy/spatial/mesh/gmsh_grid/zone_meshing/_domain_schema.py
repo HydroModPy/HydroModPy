@@ -16,7 +16,7 @@ from pydantic import (
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import NonEmptyStr
+from hydromodpy.core.config_kit.types import NonEmptyPath, NonEmptyStr
 
 
 class ZoneMeshingDomainBBox(HydroModelBase):
@@ -58,7 +58,9 @@ class ZoneMeshingDomainVector(HydroModelBase):
     """Vector file domain contract."""
 
     kind: Annotated[Literal["vector"], Profile.USER] = "vector"
-    path: Annotated[NonEmptyStr, Profile.USER]
+    path: Annotated[NonEmptyPath, Profile.USER] = Field(
+        description="Vector file (gpkg, shp, GeoJSON) holding the polygon of the meshed domain.",
+    )
     id_field: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description="Optional vector attribute field name used to filter features.",

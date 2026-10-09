@@ -15,7 +15,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import NonEmptyStr, Probability
+from hydromodpy.core.config_kit.types import NonEmptyPath, NonEmptyStr, Probability
 from hydromodpy.core.units import LengthMeters
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.spatial.field.core._field_param_units import UnitStr, normalize_unit_token
@@ -175,7 +175,7 @@ class FieldHeterogeneousSection(HydroModelBase):
             )
         ),
     )
-    values_csv_file: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
+    values_csv_file: Annotated[NonEmptyPath | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Path to CSV mapping file used when values_source='csv'. "

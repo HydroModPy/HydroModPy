@@ -92,3 +92,47 @@ def test_a_river_raster_without_a_crs_is_refused(tmp_path: Path) -> None:
 
     with pytest.raises(DataContractViolation, match="hydrography: .*declares no CRS"):
         load_custom(SimpleNamespace(path=path))
+
+
+@pytest.mark.fast
+def test_the_dem_of_dem_init_path_is_refused_before_the_terrain_tools_read_it(
+    tmp_path: Path,
+) -> None:
+    from hydromodpy.data.variables.dem.resolver import require_dem_crs
+
+    path = _raster(tmp_path / "regional.tif", crs=None)
+
+    with pytest.raises(DataContractViolation, match=r"dem: .*regional\.tif declares no CRS"):
+        require_dem_crs(path)
+
+    assert require_dem_crs(_raster(tmp_path / "ok.tif", crs="EPSG:2154")) is None
+
+
+@pytest.mark.fast
+def test_a_dem_that_rasterio_does_not_open_is_left_to_the_step_that_reads_it(
+    tmp_path: Path,
+) -> None:
+    from hydromodpy.data.variables.dem.resolver import require_dem_crs
+
+    (tmp_path / "points.xyz").write_text("0 0 1\n")
+    (tmp_path / "broken.tif").write_bytes(b"not a tiff")
+
+    assert require_dem_crs(tmp_path / "points.xyz") is None
+    assert require_dem_crs(tmp_path / "broken.tif") is None
+    assert require_dem_crs(tmp_path / "absent.tif") is None
+
+
+@pytest.mark.fast
+def test_the_resolve_step_refuses_a_dem_init_path_without_a_crs(tmp_path: Path) -> None:
+    from hydromodpy.workflow.steps.setup import resolve_dem_init_path
+
+    path = _raster(tmp_path / "regional.tif", crs=None)
+    cfg = SimpleNamespace(
+        geographic=SimpleNamespace(
+            uses_synthetic_geographic=lambda: False,
+            dem_init_path=path,
+        )
+    )
+
+    with pytest.raises(DataContractViolation, match=r"declares no CRS"):
+        resolve_dem_init_path(cfg, SimpleNamespace(config_path=None))

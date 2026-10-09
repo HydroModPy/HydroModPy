@@ -9,11 +9,12 @@ fitted a Gaussian-process surrogate; we only keep the RAM-side interpolation
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import ObjectiveName, Opt, TrialsSessionId
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
 
@@ -80,10 +81,18 @@ class CalibrationObjectiveSurfaceFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        parameters: tuple[str, ...] | list[str] | None = None,
-        objective: str | None = None,
-        session_id: str | None = None,
-        grid_size: int = 120,
+        parameters: Annotated[
+            tuple[str, ...] | list[str] | None,
+            Opt(
+                "The two parameters the surface spans. Left out, the two the session "
+                "sampled; a session that sampled another count is refused."
+            ),
+        ] = None,
+        objective: ObjectiveName = None,
+        session_id: TrialsSessionId = None,
+        grid_size: Annotated[
+            int, Opt("Points per side of the interpolation grid, at least 25.")
+        ] = 120,
         **_,
     ) -> Axes:
         table = trial_table(sim, session_id=session_id)
@@ -129,7 +138,7 @@ class CalibrationObjectiveSurfaceFigure(BaseFigure):
         fig.colorbar(pcm, ax=ax, label=objective_name)
         ax.set_xlabel(first)
         ax.set_ylabel(second)
-        ax.set_title(f"Objective surface ({method}) - {sim.name or sim.sim_id}")
+        ax.set_title(f"Objective surface ({method}){run_suffix(sim)}")
         return ax
 
     def plot(

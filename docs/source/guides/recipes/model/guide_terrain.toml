@@ -1,0 +1,30 @@
+# Guide "Prepare the terrain and the stream network": a capped breach of the
+# routing DEM, the stream network, and channel beds that never rise downstream.
+# Save this file in the folder of example 04.
+#
+#   hmp run guide_terrain.toml
+
+base_config = "step1_minimal.toml"
+
+[simulation]
+name = "nancon_guide_terrain"
+
+# Breach within 0.5 m of cumulative lowering and 200 m of path, fill the rest.
+[geographic]
+dem_correc_type = "capped_breach"
+
+[geographic.capped_breach]
+max_depth = 0.5
+max_distance = 200.0
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 0.5
+
+# The only setting of this file that changes the model top.
+[geographic.bed_regularization]
+enabled = true
+
+[display]
+figures = ["depression_map", "watertable_depth_map"]

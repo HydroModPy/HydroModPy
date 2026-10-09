@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Cmap, FieldName, ReferenceRun, Timestep
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.ugrid import last_timestep, render_face_field
 
@@ -36,14 +37,16 @@ class DifferenceMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        reference: Run | None = None,
-        field: str = "head",
-        timestep: int | None = None,
-        cmap: str = "RdBu_r",
+        reference: ReferenceRun = None,
+        field: FieldName = "head",
+        timestep: Timestep = None,
+        cmap: Cmap = "RdBu_r",
         **_,
     ) -> Axes:
         if reference is None:
-            raise ValueError("difference_map: 'reference' simulation required")
+            raise FigureNotApplicable(
+                "this figure compares two runs on one mesh: pass reference=<run>."
+            )
         ts = last_timestep(sim) if timestep is None else timestep
         a = np.asarray(sim.field(field, timestep=ts)).ravel()
         b = np.asarray(reference.field(field, timestep=ts)).ravel()
@@ -64,7 +67,10 @@ class DifferenceMap(BaseFigure):
             vmax=vmax,
             cbar_label=f"Δ {descriptor.long_name} ({descriptor.units})",
         )
-        ax.set_title(f"Δ {field} - {sim.sim_id} - {reference.id}")
+        # Runs are named, never by id: a reader knows a run by its name.
+        ax.set_title(
+            f"Δ {descriptor.long_name}{run_suffix(sim)}{run_suffix(reference, ' minus {}')}"
+        )
         ax.set_xlabel("x (m)")
         ax.set_ylabel("y (m)")
         return ax

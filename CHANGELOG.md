@@ -227,6 +227,32 @@ Each release section includes the following standard categories:
 - Docs: the figures of the documentation are drawn by `tools/docs/figures/render_ex04_figures.py`
   from runs of example 04; `tools/docs/figures/figures.toml` lists each image with the command
   that produced it.
+- `hmp config schema --editor [--out FILE]` writes the editor JSON Schema, the file the
+  documentation publishes at `_static/hydromodpy-schema.json`. The editor schema also accepts
+  the `__merge` directive.
+- `hmp catalog import --as NAME` names the project of an imported run, and
+  `Catalog.import_package_multi(..., as_project=...)` does the same in Python.
+- `hmp calibrate --check` refuses an output whose `observes` station no source of its data
+  section lists, and a scoring window that holds no date of the run (exit 14, before any
+  solve). It warns when `da_mh_gp` is scored on a metric other than `rmse`, the metric its
+  likelihood is written for.
+- Every figure option declares its type, default, unit and meaning where the figure takes it
+  (`hydromodpy.display.figure_options.Opt`); the figures catalog shows them. Every figure
+  takes `title` and `show_run_name`, in `[display.overrides.<figure>]`, `hmp.figure` and
+  `render_figure`.
+- `renamed_from` in the field metadata: the changes page lists the old calibration option
+  names and the old `[export]` tables as renames.
+- `.github/workflows/ci-nightly-petsc.yml` runs every `petsc`-marked validation test each
+  night, the 14 Boussinesq analytical variants and the 2 PETSc obstacle variants included;
+  the docs deploy fetches the results of both nightly jobs before it builds.
+- Docs: generated reference pages for the calibration methods and metrics (formulas in the new
+  module `hydromodpy/calibration/criteria/formulas.py`) and for the catchment report file;
+  guides for wells, the mesh, the terrain and the stream network, the depth of the aquifer,
+  boundaries and starting heads, transport and particles, sharing a run, audit and purge,
+  background runs, several projects, a parameter sweep, several piezometers, a catchment
+  outside France and a GIS hand-off; a Get started quick start on the synthetic demo; the
+  theory of the exits in six pages, a page on the time alignment of outputs, and the theory
+  figures drawn at build time from the code.
 
 ### Changed
 - `[modflownwt.sgrid.top_sampling] mode = "zonal"` needs `channel_source = "none"`: MODFLOW-NWT
@@ -354,6 +380,29 @@ Each release section includes the following standard categories:
   folder and removes the folders the site no longer keeps. The About door has five pages, the
   release ceremony moved to the Contribute recipe Cut a release, and the Contribute door went
   from 87 to 78 pages, rewritten against the code.
+- `geographic.catchment` and, in the dem shape, `dem_init_path` are shown as required in the
+  reference and the JSON schema. Loading is unchanged.
+- `[testbed]` declares the defaults its parser always applied: `profile = "generic"`,
+  `subject = "mesh"`, `purpose = "robustness"`, `runner.type = "simulation"`.
+- Path keys are typed as paths: `mesh_catchment.rivers.path`, `domain.path` and
+  `refinement_zone.path`, the `values_csv_file` keys, `calibration.outputs.*.stream_geometry_path`
+  and `minimal_stream_geometry_path`, and the `[comparison]` keys `anchors_file`, `output_root`,
+  `base_simulation_config`, `simulation.simulation_config` and `simulation.run_folder`.
+- One table of metric directions (`hydromodpy.results.catalog.constants.METRIC_SENSE`) drives
+  `@best`/`@worst`, `Catalog.best/worst/rank`, `RunSet.best/worst`, `hmp dev rank` and the
+  calibration criteria. `distance_gap` and `distance_mean` are lower-is-better.
+- `FrozenDataError` and `FailedCasesError` live in `hydromodpy.core.exceptions`, with the codes
+  `HMPY.E210` and `HMPY.E511`; their exit codes stay 16 and 23. They are no longer importable
+  from `hydromodpy.data.registry.cache_store` or `hydromodpy.analysis.testbed.contracts`.
+- The top-level verbs (`hmp.open`, `index`, `run`, `calibrate`, `spinup`, `read`, `figure`,
+  `export`, `compare_pair`, `report`, `example_add`) declare real argument types.
+- The data folders that `hmp workspace init` writes describe each variable in English
+  (`VariableSpec.label_fr` is now `label`). The example 04 README and its scripts py2 to py6
+  are in English, and `hmp example list` describes example 04 as six steps with measured times.
+- Validation runs store their fields at full precision (`field_precision = "exact"`): the 8
+  fast cross-row failures were the steps of the 16-bit compact rounding, not solver error.
+- Comparison children make absolute only the values their schema types as paths, and find a
+  bare input file name in the data folder of the base file's workspace.
 
 ### Fixed
 - The channel mask of the zonal top covered the whole catchment. The stream raster was
@@ -427,6 +476,37 @@ Each release section includes the following standard categories:
   `name=`, no longer stops on "Resolved configuration changed since the checkpoint was written
   (workspace)": the per-run scratch folder, which carries the process id and the run label, is
   left out of the checkpoint fingerprint as it is left out of the run identity.
+- A transport process under the `boussinesq` flow is refused by `hmp config check`; the
+  check read a field the transport config does not have.
+- Testbed and comparison children no longer rewrite `calibration.parameters.<name>.path` or
+  `display.output_dir` as absolute paths.
+- The data-request, domain-build and terrain-delineate capabilities declare `HMP_VERBOSITY`
+  instead of `HMP_LOG_LEVEL`, which nothing reads.
+- `hmp dev rank` works again (it failed on every call with a DuckDB Binder Error) and ranks by
+  the direction of the metric; a metric without a direction exits 10.
+- `difference_map` no longer crashes on its title and names the runs by name; `side_by_side`
+  and `conditioning_impact_map` no longer print sim ids; without a reference they are skipped.
+- A figure that needs `release_flux` (or the accumulated fluxes) on a model with no drain,
+  stream, lake or surface excess is skipped with its reason instead of stopping the run.
+- The dark preset darkens the dry cells of `flow_intermittence_map`, the table of
+  `watershed_id_card`, the inactive cells of `flow_direction_map` and every legend frame.
+- The network calibration diagnostic page, the site-selection report and plan, and the Nançon
+  river-network case figure are written in English.
+- `hmp calibrate` prints the calibrated values, their interval and the cost for a file without
+  phases; it printed nothing after "Calibration finished".
+- A DEM without a CRS named by `dem_init_path` or a custom source is refused before the
+  catchment is cut (exit 16), instead of a Whitebox panic with exit 1.
+- `workflow.mode = "overview"` without an `[overview]` section is refused (exit 14); it ran,
+  wrote nothing and exited 0.
+- `hmp run --frozen` refuses a request the cache covers only in part before any download; it
+  downloaded the gap, replaced the pinned file, then refused.
+- `hmp report catchment --strict-figure-postflight` exits 16 on a missing figure (was 1), and
+  the refusal of a workspace without `data/` is in English.
+- `hmp catalog watch` no longer shows live runs as `[STALE]`; a run stopped by Ctrl+C or
+  SIGTERM is marked `failed`; `hmp workspace search` works when two projects hold one run and
+  while the full-text index is missing; the `label` of a probed point fills a new `point`
+  column; opening one index read-only and read-write in one process raises
+  `WriteConflictError` (exit 12) instead of advising to reindex a file that is not damaged.
 
 ### Removed
 - `[geographic.enforce_streams]`, the burn of the mapped network into the routing DEM, and what
@@ -466,6 +546,8 @@ Each release section includes the following standard categories:
   Applications and papers, and Versions and stability; the theory pages Vertical representation
   and storage assumptions and MODFLOW governing equation and CVFD formulation, merged into
   Groundwater flow and Solvers.
+- The `geology_field` keyword of `discretize_fieldparam_on_sgrid`: use `support_field`.
+- `_data/changelog.json`, which the docs build wrote and nothing read.
 
 ---
 

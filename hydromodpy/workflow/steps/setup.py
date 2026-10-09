@@ -77,6 +77,7 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
 
     existing = getattr(geographic_cfg, "dem_init_path", None)
     if existing is not None:
+        _require_dem_crs(existing)
         return
     if not _cfg_declares_dem_source(cfg):
         return
@@ -111,11 +112,19 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
                 "geographic.catchment.catch_def is required when [[data.dem.sources]] is "
                 "the DEM source. Add a [geographic.catchment] table with catch_def."
             )
+        _require_dem_crs(resolved)
         catchment.dem_init_path = resolved
         return
     raise ConfigError(
         "geographic.catchment.dem_init_path is missing and [[data.dem.sources]] did not resolve."
     )
+
+
+def _require_dem_crs(path: object) -> None:
+    """Refuse a DEM file with no CRS here, where the message can name the file."""
+    from hydromodpy.data.variables.dem.resolver import require_dem_crs
+
+    require_dem_crs(Path(str(path)))
 
 
 def _cfg_declares_dem_source(cfg: object) -> bool:

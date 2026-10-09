@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.hydrographic_network import plot_topography_background
 from hydromodpy.display.maps.axes import (
@@ -46,9 +47,19 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        tolerance_m: float = 50.0,
-        reference_role: str = "reference",
-        candidate_role: str = "generated",
+        tolerance_m: Annotated[
+            float,
+            Opt(
+                "Buffer around each network: a line of the other one inside it counts as matched.",
+                unit="m",
+            ),
+        ] = 50.0,
+        reference_role: Annotated[
+            str, Opt('Stored network compared against, by role, for example "reference".')
+        ] = "reference",
+        candidate_role: Annotated[
+            str, Opt('Stored network compared, by role, for example "generated".')
+        ] = "generated",
         **_,
     ) -> Axes:
         comparison = sim.hydrographic_network_comparison(
@@ -73,9 +84,19 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
         self,
         sim: Run,
         *,
-        tolerance_m: float = 50.0,
-        reference_role: str = "reference",
-        candidate_role: str = "generated",
+        tolerance_m: Annotated[
+            float,
+            Opt(
+                "Buffer around each network: a line of the other one inside it counts as matched.",
+                unit="m",
+            ),
+        ] = 50.0,
+        reference_role: Annotated[
+            str, Opt('Stored network compared against, by role, for example "reference".')
+        ] = "reference",
+        candidate_role: Annotated[
+            str, Opt('Stored network compared, by role, for example "generated".')
+        ] = "generated",
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,
@@ -121,7 +142,7 @@ class HydrographicNetworkComparisonFigure(GeoFigureMixin, BaseFigure):
         self._draw_overlay(axes[2], sim, comparison)
         self._draw_difference(axes[3], sim, comparison)
         fig.suptitle(
-            f"Hydrographic network comparison - {sim.name or sim.sim_id[:8]}",
+            f"Hydrographic network comparison{run_suffix(sim)}",
             fontweight="bold",
             fontsize=13,
         )
@@ -354,9 +375,19 @@ class _HydrographicNetworkDifferenceRoleFigure(HydrographicNetworkComparisonFigu
         self,
         sim: Run,
         *,
-        tolerance_m: float = 50.0,
-        reference_role: str = "reference",
-        candidate_role: str = "generated",
+        tolerance_m: Annotated[
+            float,
+            Opt(
+                "Buffer around each network: a line of the other one inside it counts as matched.",
+                unit="m",
+            ),
+        ] = 50.0,
+        reference_role: Annotated[
+            str, Opt('Stored network compared against, by role, for example "reference".')
+        ] = "reference",
+        candidate_role: Annotated[
+            str, Opt('Stored network compared, by role, for example "generated".')
+        ] = "generated",
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,
@@ -378,7 +409,7 @@ class _HydrographicNetworkDifferenceRoleFigure(HydrographicNetworkComparisonFigu
         )
         self._draw_focus(ax, sim, comparison)
         fig.suptitle(
-            f"Hydrographic network comparison - {sim.name or sim.sim_id[:8]}",
+            f"Hydrographic network comparison{run_suffix(sim)}",
             fontweight="bold",
             fontsize=13,
         )
@@ -393,9 +424,19 @@ class _HydrographicNetworkDifferenceRoleFigure(HydrographicNetworkComparisonFigu
         sim: Run,
         ax: Axes,
         *,
-        tolerance_m: float = 50.0,
-        reference_role: str = "reference",
-        candidate_role: str = "generated",
+        tolerance_m: Annotated[
+            float,
+            Opt(
+                "Buffer around each network: a line of the other one inside it counts as matched.",
+                unit="m",
+            ),
+        ] = 50.0,
+        reference_role: Annotated[
+            str, Opt('Stored network compared against, by role, for example "reference".')
+        ] = "reference",
+        candidate_role: Annotated[
+            str, Opt('Stored network compared, by role, for example "generated".')
+        ] = "generated",
         **_,
     ) -> Axes:
         comparison = sim.hydrographic_network_comparison(

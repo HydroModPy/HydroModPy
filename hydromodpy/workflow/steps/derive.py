@@ -163,6 +163,7 @@ class DeriveStep:
                         sim_id=sim_id,
                         results_config=results_cfg,
                         store=store,
+                        forced_flags=tuple(getattr(ctx, "forced_results_flags", ())),
                     )
 
         return state.advance(

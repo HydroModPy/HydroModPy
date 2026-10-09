@@ -66,7 +66,9 @@ def _load_fixture() -> _B0Defaults:
             paths.get("steady_summary_csv", "steady_mK_network_extent_summary.csv")
         ),
         page_title=str(
-            report.get("page_title", "B0 - calibration MF6 reseau permanent + debit transitoire")
+            report.get(
+                "page_title", "B0 - MF6 calibration on a steady network and a transient discharge"
+            )
         ),
         truth_package_candidates=tuple(
             str(name)

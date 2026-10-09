@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.sfr_reach_timeseries import (
     no_reach_series_reason,
@@ -47,7 +48,10 @@ class SfrReachNetwork(GeoFigureMixin, BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        variable: str = "downstream_flow",
+        variable: Annotated[
+            str,
+            Opt("Stream-reach series whose value at the last reach and last step is printed."),
+        ] = "downstream_flow",
         **_,
     ) -> Axes:
         triples = sfr_reach_stations(sim, variable)
@@ -80,7 +84,7 @@ class SfrReachNetwork(GeoFigureMixin, BaseFigure):
         style_relative_km_axes(ax)
         self.add_scale_bar(ax)
         self.add_north_arrow(ax)
-        ax.set_title(f"SFR reach network - {sim.name or sim.sim_id}")
+        ax.set_title(f"SFR reach network{run_suffix(sim)}")
         ax.text(
             0.02,
             0.98,

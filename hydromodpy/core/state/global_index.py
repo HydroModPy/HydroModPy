@@ -60,8 +60,14 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-_FTS_TABLE = "_fts_simulations"
+_FTS_TABLE = "_fts_simulations_v2"
+# The table before runs had a (project, run) key. A global index written by that
+# version still holds it, and nothing reads it any more.
+_FTS_LEGACY_TABLE = "_fts_simulations"
 _FTS_DOC_COLUMN = "description"
+# One document per (project, run): a run imported into two projects keeps its
+# sim_id, so sim_id alone is not a key.
+_FTS_KEY_COLUMN = "doc_key"
 
 
 def _default_index_path() -> Path:
@@ -640,23 +646,37 @@ class GlobalIndex:
         Returns
         -------
         pandas.DataFrame
-            Matched rows. Empty when the FTS extension or index is unavailable.
+            Matched rows. Without the FTS extension or index (offline, or an index
+            not rebuilt yet) the term is matched as a substring of the description.
         """
         if not self._has_view("all_simulations"):
             return pd.DataFrame()
         if _FTS_DOC_COLUMN not in self._view_columns("all_simulations"):
             return pd.DataFrame()
         if not self._fts_index_exists():
-            return pd.DataFrame()
+            return self._search_substring(term)
         sql = (
             "SELECT a.* FROM all_simulations a "
-            f"JOIN {_FTS_TABLE} f ON a.sim_id = f.sim_id "
-            f"WHERE fts_main_{_FTS_TABLE}.match_bm25(f.sim_id, ?) IS NOT NULL"
+            f"JOIN {_FTS_TABLE} f ON a.sim_id = f.sim_id AND a.project_id = f.project_id "
+            f"WHERE fts_main_{_FTS_TABLE}.match_bm25(f.{_FTS_KEY_COLUMN}, ?) IS NOT NULL"
         )
         try:
             return self._conn.execute(sql, [term]).fetchdf()
         except duckdb.Error as exc:
             logger.warning("FTS search failed: %s", exc)
+            return pd.DataFrame()
+
+    def _search_substring(self, term: str) -> pd.DataFrame:
+        """Match ``term`` as a case-insensitive substring of the description."""
+        sql = (
+            "SELECT * FROM all_simulations "
+            f"WHERE {_quote_identifier(_FTS_DOC_COLUMN)} ILIKE ? ESCAPE '\\'"
+        )
+        escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        try:
+            return self._conn.execute(sql, [f"%{escaped}%"]).fetchdf()
+        except duckdb.Error as exc:
+            logger.warning("Substring search failed: %s", exc)
             return pd.DataFrame()
 
     def _ensure_fts_extension(self) -> None:
@@ -677,15 +697,18 @@ class GlobalIndex:
         if _FTS_DOC_COLUMN not in self._view_columns("all_simulations"):
             self._conn.execute(f"DROP TABLE IF EXISTS {_FTS_TABLE}")
             return
+        self._conn.execute(f"DROP TABLE IF EXISTS {_FTS_LEGACY_TABLE}")
         self._conn.execute(f"DROP TABLE IF EXISTS {_FTS_TABLE}")
         self._conn.execute(
             f"CREATE TABLE {_FTS_TABLE} AS "
-            f"SELECT sim_id, {_quote_identifier(_FTS_DOC_COLUMN)} AS {_FTS_DOC_COLUMN} "
+            "SELECT project_id, sim_id, "
+            f"CONCAT(project_id, ':', sim_id) AS {_FTS_KEY_COLUMN}, "
+            f"{_quote_identifier(_FTS_DOC_COLUMN)} AS {_FTS_DOC_COLUMN} "
             "FROM all_simulations"
         )
         try:
             self._conn.execute(
-                f"PRAGMA create_fts_index('{_FTS_TABLE}', 'sim_id', '{_FTS_DOC_COLUMN}', "
+                f"PRAGMA create_fts_index('{_FTS_TABLE}', '{_FTS_KEY_COLUMN}', '{_FTS_DOC_COLUMN}', "
                 "overwrite=1, stemmer='porter')"
             )
         except duckdb.Error as exc:

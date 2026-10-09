@@ -4,7 +4,8 @@ Subparsers:
   - ``hmp config template [OUTPUT]``  : generate a TOML template
   - ``hmp config check FILE.toml``    : validate a TOML against the Pydantic schema
   - ``hmp config resolve FILE.toml``  : print the file its base_config chain resolves to
-  - ``hmp config schema ...``         : export the JSON Schema (same as ``hmp dev schema``)
+  - ``hmp config schema ...``         : export the JSON Schema, or with ``--editor``
+                                        the editor schema of one TOML file
   - ``hmp config wizard``             : stdin-driven wizard
 """
 
@@ -18,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_USAGE
 from hydromodpy.core.exceptions import ConfigError
 
 if TYPE_CHECKING:
@@ -83,8 +84,22 @@ def register(subparsers) -> argparse.ArgumentParser:
     sch = sub.add_parser(
         "schema",
         help="Export the JSON Schema",
-        epilog="Examples:\n  hmp config schema --list-sections\n  hmp config schema --section flow --out flow.schema.json",
+        epilog=(
+            "Examples:\n"
+            "  hmp config schema --list-sections\n"
+            "  hmp config schema --section flow --out flow.schema.json\n"
+            "  hmp config schema --editor --out hydromodpy-schema.json"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sch.add_argument(
+        "--editor",
+        action="store_true",
+        help=(
+            "Export the editor schema, the one published with the documentation: "
+            "it checks one TOML file as written (base_config, __append, __delete, "
+            "quantities with a unit) and requires no key"
+        ),
     )
     sch.add_argument(
         "--section", default=None, help="Export a single root TOML section (e.g. 'flow')"
@@ -217,7 +232,7 @@ def _cmd_config_targets(args: argparse.Namespace) -> None:
 def _warn_about_suffix_only_parameters(path: Path, targets: list[CalibrationTarget]) -> None:
     """Name every declared parameter that reaches its target only by suffix.
 
-    ``bedleak`` resolves to ``reservoir_cheze.bedleak`` today because it is the
+    ``bedleak`` resolves to ``my_lake.bedleak`` today because it is the
     only target ending in ``.bedleak``. That stops the day a second lake also
     carries one, so the file is told its canonical spelling while the shortcut
     still works.
@@ -430,6 +445,10 @@ def _cmd_config_schema(args: argparse.Namespace) -> None:
     out_path = getattr(args, "out", None)
     profile = getattr(args, "profile", None)
 
+    if getattr(args, "editor", False):
+        _write_editor_schema(out_path, section=section, profile=profile)
+        return
+
     if out_path:
         written = write_schema(out_path, section=section, profile=profile)
         print(f"Written to: {written}", file=sys.stderr)
@@ -437,6 +456,27 @@ def _cmd_config_schema(args: argparse.Namespace) -> None:
 
     schema = export_schema(section=section, profile=profile)
     print(json.dumps(schema, indent=2, ensure_ascii=False))
+
+
+def _write_editor_schema(out_path: str | None, *, section: str | None, profile: str | None) -> None:
+    """Print or write the editor schema of a whole TOML file."""
+    from hydromodpy.config.schema_export import editor_schema
+
+    if section or profile:
+        print(
+            "--editor describes a whole TOML file: it takes no --section and no --profile.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_USAGE)
+    # Same serialization as the copy published with the documentation.
+    text = json.dumps(editor_schema(), indent=2) + "\n"
+    if not out_path:
+        sys.stdout.write(text)
+        return
+    dest = Path(out_path).expanduser().resolve()
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(text, encoding="utf-8")
+    print(f"Written to: {dest}", file=sys.stderr)
 
 
 def _cmd_config_wizard(args: argparse.Namespace) -> None:

@@ -84,3 +84,21 @@ def test_checks_read_the_solver_the_process_names() -> None:
         HydroModPyConfig.model_validate(
             _payload(simulation=_flow("modflow_nwt"), flow={"active_bc": ["drainage", "sfr"]})
         )
+
+
+def test_a_transport_process_under_the_boussinesq_flow_is_refused() -> None:
+    simulation = {
+        "process": [
+            {"id": "flow_main", "type": "flow", "solvers": ["boussinesq"]},
+            {"id": "particles", "type": "transport", "solvers": ["modpath"]},
+        ]
+    }
+
+    with pytest.raises(ValidationError, match=r"'boussinesq' runs no transport.*modpath"):
+        HydroModPyConfig.model_validate(_payload(simulation=simulation))
+
+
+def test_the_boussinesq_flow_alone_loads_with_its_default_transport_section() -> None:
+    cfg = HydroModPyConfig.model_validate(_payload(simulation=_flow("boussinesq")))
+
+    assert cfg.solver.backend_name == "boussinesq"

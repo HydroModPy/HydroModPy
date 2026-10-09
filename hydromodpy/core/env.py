@@ -99,14 +99,6 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "applies.",
     ),
     EnvVar(
-        "HMP_LOG_LEVEL",
-        "unset",
-        "user",
-        "Listed in the ``env`` declaration of three capabilities (data request, domain, "
-        "site-selection hydrology). No module reads it: the console level is "
-        "``HMP_VERBOSITY``.",
-    ),
-    EnvVar(
         "HMP_NO_PROGRESS",
         "unset",
         "user",

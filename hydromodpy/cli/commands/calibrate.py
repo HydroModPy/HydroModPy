@@ -773,7 +773,9 @@ def run(args: argparse.Namespace) -> None:
     profile_output = resolve_profile_output(profile_arg, target)
     try:
         with profile_run(profile_output, description=f"hmp calibrate {target.name}"):
-            result = hmp.calibrate(target, phase=args.phase)
+            # The report object, not its to_dict(): the lines below read its
+            # attributes, and a file with no phases returns the dict by default.
+            result = hmp.calibrate(target, phase=args.phase, return_report=True)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)

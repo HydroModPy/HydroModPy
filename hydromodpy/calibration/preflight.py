@@ -83,6 +83,56 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     findings.extend(
         _check_the_scoring_windows_hold_what_they_score(calibration, config, where_from)
     )
+    findings.extend(_check_the_observed_stations_are_loaded(calibration, config))
+    return findings
+
+
+_DATA_SECTION_BY_FAMILY: Mapping[str, str] = {
+    "discharge": "hydrometry",
+    "head": "piezometry",
+    "lake_level": "lake_levels",
+}
+"""The ``[data.<section>]`` that loads each observed family."""
+
+
+def _check_the_observed_stations_are_loaded(
+    calibration: Any, project_config: Any
+) -> list[PreflightFinding]:
+    """Refuse a station that the data step cannot load, from what the file declares.
+
+    The record itself is loaded by the run. What can be told here is narrower and
+    certain: every source of the data section of the station's family lists its
+    stations, and none is this one. A source that lists no station, and a
+    section the file does not write, are left to the run.
+    """
+    from hydromodpy.calibration.metrics.observed_pairing import OBSERVED_FAMILY_BY_VARIABLE
+
+    data = getattr(project_config, "data", None)
+    if data is None:
+        return []
+    findings: list[PreflightFinding] = []
+    for name, decl in (calibration.outputs or {}).items():
+        station = getattr(decl, "observes", None)
+        family = OBSERVED_FAMILY_BY_VARIABLE.get(str(getattr(decl, "variable", "") or ""))
+        section = _DATA_SECTION_BY_FAMILY.get(family or "")
+        if not station or section is None:
+            continue
+        where = f"[calibration.outputs.{name}]"
+        sources = list(getattr(getattr(data, section, None), "sources", None) or [])
+        listed = [list(getattr(source, "station_ids", None) or []) for source in sources]
+        if not sources or any(not ids for ids in listed):
+            continue
+        known = sorted({str(item) for ids in listed for item in ids})
+        if str(station) not in known:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    where,
+                    f"observes station {station!r}, which no source of [data.{section}] "
+                    f"lists in station_ids. Listed: {', '.join(known)}. Write one of them, "
+                    f"or add the station to a source.",
+                )
+            )
     return findings
 
 
@@ -200,7 +250,7 @@ def _check_outputs(calibration: Any, source: Path, project_config: Any) -> list[
                 PreflightFinding(
                     "error",
                     where,
-                    f"stream_geometry_path {geometry!r} is not there, and none of the "
+                    f"stream_geometry_path {str(geometry)!r} is not there, and none of the "
                     "places the run looks holds it. The criterion resolves no geometry "
                     "of its own, so the run would stop at the first trial.",
                 )
@@ -409,6 +459,18 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                     f"the cost IS that residual. This search is scored on {named}. "
                     f"Score it on {', '.join(_signed_residual_metrics())}, or "
                     "search it with a minimiser.",
+                )
+            )
+        if traits.reads_cost_as is not None and metrics and metrics != {traits.reads_cost_as}:
+            named = ", ".join(sorted(metrics))
+            findings.append(
+                PreflightFinding(
+                    "warning",
+                    where,
+                    f"{method!r} reads its cost as {traits.reads_cost_as} and builds its "
+                    f"likelihood on it, and this search is scored on {named}. The chain "
+                    f"would sample that number as if it were {traits.reads_cost_as}. "
+                    f"Score it on {traits.reads_cost_as}.",
                 )
             )
         if parallel > 1 and not traits.supports_parallel:
@@ -993,7 +1055,7 @@ def _check_the_minimal_maps_are_there(calibration: Any, source: Path) -> list[Pr
                 PreflightFinding(
                     "error",
                     f"[calibration.outputs.{name}]",
-                    f"minimal_stream_geometry_path {geometry!r} is not there, and none of "
+                    f"minimal_stream_geometry_path {str(geometry)!r} is not there, and none of "
                     "the places the run looks holds it. The minimal map is read at the "
                     "first trial, so the run would stop there.",
                 )
@@ -1164,6 +1226,20 @@ def _check_the_scoring_windows_hold_what_they_score(
                     )
                 )
                 edges = None
+        if window is not None and edges is not None and len(edges) > 1:
+            first, last = pd.Timestamp(edges[0]), pd.Timestamp(edges[-1])
+            start, end = window
+            if (start is not None and start > last) or (end is not None and end < first):
+                findings.append(
+                    PreflightFinding(
+                        "error",
+                        where,
+                        f"scoring_window {_day(start)} to {_day(end)} holds no date of the "
+                        f"run, which runs from {_day(first)} to {_day(last)}. Move the "
+                        "window inside the run.",
+                    )
+                )
+                continue
         try:
             refuse_window_without_dates(
                 outputs, blocks, window, observing_outputs(outputs), boundaries=edges
@@ -1171,6 +1247,11 @@ def _check_the_scoring_windows_hold_what_they_score(
         except ValueError as exc:
             findings.append(PreflightFinding("error", where, str(exc)))
     return findings
+
+
+def _day(stamp: Any) -> str:
+    """A window bound as a date, or ``open`` when it is not set."""
+    return "open" if stamp is None else str(stamp)[:10]
 
 
 def _search_edges(

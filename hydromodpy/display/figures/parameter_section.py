@@ -9,11 +9,19 @@ colour, which is the whole point of the paper figure this reproduces.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_label, run_suffix
+from hydromodpy.display.figure_options import (
+    Cmap,
+    Opt,
+    SectionLine,
+    SectionOrientation,
+    SectionSamples,
+    SectionThrough,
+)
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.transect import build_transect, layer_interfaces
 
@@ -33,21 +41,7 @@ LOG_SCALE_DECADES = 1.0
 
 @register
 class ParameterSection(BaseFigure):
-    """Aquifer properties along one transect, one panel per property.
-
-    Options
-    -------
-    ``variables``
-        Properties to draw. Defaults to every one the run persisted.
-    ``line``
-        ``[x0, y0, x1, y1]`` in the project CRS. Overrides ``orientation``.
-    ``orientation``
-        ``"we"`` (west to east, default) or ``"sn"`` (south to north).
-    ``through``
-        ``[x, y]`` the section must pass through. Defaults to the outlet.
-    ``log``
-        Force a log colour scale on or off. Defaults to deciding per panel.
-    """
+    """Aquifer properties along one transect, one panel per property."""
 
     spec = FigureSpec(
         name="parameter_section",
@@ -64,12 +58,18 @@ class ParameterSection(BaseFigure):
         ax: Axes,
         *,
         variable: str = "hydraulic_conductivity",
-        line: tuple[float, float, float, float] | list[float] | None = None,
-        orientation: str = "we",
-        through: tuple[float, float] | list[float] | None = None,
-        n_samples: int | None = None,
-        log: bool | None = None,
-        cmap: str = "viridis",
+        line: SectionLine = None,
+        orientation: SectionOrientation = "we",
+        through: SectionThrough = None,
+        n_samples: SectionSamples = None,
+        log: Annotated[
+            bool | None,
+            Opt(
+                "Force a log colour scale on or off. Left out, each panel takes a log "
+                "scale when its positive values span more than one decade."
+            ),
+        ] = None,
+        cmap: Cmap = "viridis",
         **_,
     ) -> Axes:
         transect = _section_transect(
@@ -85,20 +85,34 @@ class ParameterSection(BaseFigure):
         self._panel(ax, sim, transect, interfaces, variable, log=log, cmap=cmap)
         ax.set_ylabel("Elevation (m)")
         # The panel already names the property, and says when it is uniform.
-        ax.set_title(f"{sim.name or sim.sim_id}\n{ax.get_title()}")
+        label = run_label(sim)
+        if label:
+            ax.set_title(f"{label}\n{ax.get_title()}")
         return ax
 
     def plot(
         self,
         sim: Run,
         *,
-        variables: tuple[str, ...] | list[str] | None = None,
-        line: tuple[float, float, float, float] | list[float] | None = None,
-        orientation: str = "we",
-        through: tuple[float, float] | list[float] | None = None,
-        n_samples: int | None = None,
-        log: bool | None = None,
-        cmap: str = "viridis",
+        variables: Annotated[
+            tuple[str, ...] | list[str] | None,
+            Opt(
+                'Properties to draw, one panel each: "hydraulic_conductivity", '
+                '"specific_yield", "specific_storage". Left out, every one the run stored.'
+            ),
+        ] = None,
+        line: SectionLine = None,
+        orientation: SectionOrientation = "we",
+        through: SectionThrough = None,
+        n_samples: SectionSamples = None,
+        log: Annotated[
+            bool | None,
+            Opt(
+                "Force a log colour scale on or off. Left out, each panel takes a log "
+                "scale when its positive values span more than one decade."
+            ),
+        ] = None,
+        cmap: Cmap = "viridis",
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,
@@ -131,7 +145,7 @@ class ParameterSection(BaseFigure):
         for ax, variable in zip(axes[0], names, strict=True):
             self._panel(ax, sim, transect, interfaces, variable, log=log, cmap=cmap)
         axes[0][0].set_ylabel("Elevation (m)")
-        fig.suptitle(f"{self.spec.title} - {sim.name or sim.sim_id}")
+        fig.suptitle(f"{self.spec.title}{run_suffix(sim)}")
         if save_path is not None:
             fig.savefig(save_path, bbox_inches="tight")
         return fig

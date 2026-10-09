@@ -182,6 +182,25 @@ class WritesMixinParquet:
         unit: str = "",
         quality: str | None = None,
     ) -> None:
+        """Store an observed series of a station, shared by every run.
+
+        Observations belong to the catalog, not to a run: a criterion or a
+        figure compares a run with them. Values at a date already stored for
+        the station and variable are replaced.
+
+        Parameters
+        ----------
+        station_id
+            Station code, for example a Hub'Eau gauge code.
+        variable_type
+            What was observed, for example ``"discharge"``.
+        ts
+            Values indexed by date. A naive index is taken as UTC.
+        unit
+            Unit of the values, stored as given.
+        quality
+            Quality flag of the series, stored as given.
+        """
         n = len(ts)
         if n == 0:
             return
@@ -242,6 +261,12 @@ class WritesMixinParquet:
         flux_out: float,
         unit: str = "m3/s",
     ) -> None:
+        """Store one term of the water budget of a run.
+
+        One row of :meth:`write_budgets`: the flux of ``component`` into and
+        out of ``zone_id`` at ``timestep``. A row with the same timestep, zone
+        and component is replaced.
+        """
         # Single-row convenience wrapper over the batched method so both
         # entry points share a single Parquet write path.
         self.write_budgets(
@@ -264,6 +289,22 @@ class WritesMixinParquet:
         sim_id: str | UUID,
         records: list[dict],
     ) -> None:
+        """Store water budget rows of a run in its ``budgets`` table.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        records
+            One mapping per row with ``timestep``, ``component``, ``flux_in``
+            and ``flux_out``. ``zone_id`` defaults to the whole domain and
+            ``unit`` to ``"m3/s"``.
+
+        Notes
+        -----
+        A row with the same timestep, zone and component as a stored one
+        replaces it. Nothing is written when the run keeps no Parquet tables.
+        """
         if not self._persistence.save_parquet:
             return
         if not records:
@@ -299,6 +340,11 @@ class WritesMixinParquet:
         storage_in: float = 0.0,
         storage_out: float = 0.0,
     ) -> None:
+        """Store the mass balance of a run at one timestep.
+
+        One row of :meth:`write_mass_balances`: total inflow, total outflow,
+        their percent discrepancy and the storage terms.
+        """
         # Single-row convenience wrapper; see ``write_budget``.
         self.write_mass_balances(
             sim_id,
@@ -320,6 +366,23 @@ class WritesMixinParquet:
         sim_id: str | UUID,
         records: list[dict],
     ) -> None:
+        """Store mass-balance rows of a run in its ``mass_balance`` table.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        records
+            One mapping per timestep with ``timestep``, ``total_in``,
+            ``total_out`` and ``percent_error``. ``storage_in`` and
+            ``storage_out`` default to ``0.0``, ``unit`` to ``"m3/s"`` and
+            ``quantity`` to ``"water"`` (``"solute"`` for a transport budget).
+
+        Notes
+        -----
+        A row with the same timestep and quantity as a stored one replaces it.
+        Nothing is written when the run keeps no Parquet tables.
+        """
         if not self._persistence.save_parquet:
             return
         if not records:
@@ -428,6 +491,25 @@ class WritesMixinParquet:
         *,
         geoparquet_path: str | None = None,
     ) -> None:
+        """Store a vector layer of a run as GeoParquet.
+
+        The layer reads back with :meth:`read_geographic_feature` and is
+        listed by :meth:`list_geographic_features`. An empty layer is not
+        stored.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        feature_name
+            Name of the layer, for example ``"watershed"``.
+        gdf
+            The layer, with its CRS.
+        geoparquet_path
+            Where to write the file. ``None`` writes
+            ``geographic_<feature_name>.parquet`` in the tables folder of the
+            run.
+        """
         if not self._persistence.save_catalog:
             return
         if gdf.empty:

@@ -56,6 +56,7 @@ from hydromodpy.config.toml_section_loader import (
 )
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.export_spec import ExportRequest, load_export_requests
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.introspect import (
     collect_profile_violations,
     resolve_profile,
@@ -424,6 +425,19 @@ class HydroModPyConfig(HydroModelBase):
             "in the order of the file. Each block says what (variables), when (time or "
             "period) and where (folder or file); the format follows the data."
         ),
+        json_schema_extra=field_metadata(
+            renamed_from=[
+                "export.artifacts",
+                "export.csv_timeseries",
+                "export.geopackage",
+                "export.geotiff",
+                "export.netcdf",
+                "export.output_dir",
+                "export.package",
+                "export.shapefile",
+                "export.vtu",
+            ]
+        ),
     )
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
         default_factory=PersistenceConfig,
@@ -602,7 +616,17 @@ class HydroModPyConfig(HydroModelBase):
           since MODFLOW-NWT builds no channel mask.
         * ``[data.soil_capacity]`` declared ⇒ ``[flow.sinks_sources.recharge.soil]``
           is declared, since only the soil reservoir reads that raster.
+        * ``workflow.mode = "overview"`` ⇒ an ``[overview]`` section is declared:
+          without it the workflow delineates and loads, then writes no report.
         """
+        if getattr(getattr(self, "workflow", None), "mode", None) == "overview" and (
+            getattr(self, "overview", None) is None
+        ):
+            raise ValueError(
+                "workflow.mode = 'overview' needs an [overview] section: it names the card and "
+                "holds its window and panels. Add the section, with at least a name."
+            )
+
         data_cfg = getattr(self, "data", None)
         if data_cfg is not None and getattr(data_cfg, "inference_mode", None) == "strict":
             declared_types = list(getattr(data_cfg, "types", []) or [])
@@ -647,15 +671,25 @@ class HydroModPyConfig(HydroModelBase):
                     "one tunable parameter"
                 )
 
-        transport_cfg = getattr(self, "transport", None)
         solver_cfg = getattr(self, "solver", None)
-        if transport_cfg is not None and solver_cfg is not None:
+        if solver_cfg is not None:
+            # A transport runs when [[simulation.process]] declares one; the
+            # [transport] section is always there, filled with its defaults.
             engine = getattr(solver_cfg, "backend_name", None)
             engine_value = getattr(engine, "value", engine)
-            active_transport_solver = getattr(transport_cfg, "solver", None)
-            if engine_value == "boussinesq" and active_transport_solver:
+            processes = getattr(getattr(self, "simulation", None), "process", None) or []
+            transport_solvers = [
+                name
+                for process in processes
+                if getattr(process, "type", None) == "transport"
+                for name in getattr(process, "solvers", None) or []
+            ]
+            if engine_value == "boussinesq" and transport_solvers:
                 raise ValueError(
-                    "solver.backend='boussinesq' does not support the [transport] section"
+                    "solver.backend = 'boussinesq' runs no transport: the transport "
+                    f"solvers ({', '.join(transport_solvers)}) read the flow of a MODFLOW "
+                    "model. Remove the transport entry of [[simulation.process]], or run "
+                    "the flow with 'modflow6' or 'modflow_nwt'."
                 )
 
         if flow_cfg is not None and solver_cfg is not None:

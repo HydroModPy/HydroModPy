@@ -2,16 +2,8 @@
 
 This page is a reading guide to the main outputs of example 04 (the Nançon catchment, see
 {doc}`index`). For each map or curve: what it shows, how to read it, the pitfalls, and what makes
-it reliable or only indicative. For a first look, {doc}`in-five-minutes` is shorter.
-
-```{note}
-The figures come from an archived run of example 04, drawn on 2026-09-29 with HydroModPy
-2.0.0a4. Since then, the mapped network is placed on the model grid with a new default rule.
-Every number quoted on this page, such as a count of cells or a score, belongs to the archived
-run. It is not the output of the current version, and a new run gives different values. The
-way of reading each figure does not change. The section
-[Where these figures come from](#where-these-figures-come-from) says more.
-```
+it reliable or only indicative. For a first look, {doc}`in-five-minutes` is shorter. Every figure and every number on this page comes from one run, described in
+[Where these figures come from](#where-these-figures-come-from).
 
 ## Three rules before reading
 
@@ -48,14 +40,14 @@ one:
 (reading-depth)=
 ## Water table depth
 
-```{figure} img/ex04_watertable_depth_map.png
+```{figure} /_static/figures/understand/ex04_watertable_depth_map.webp
 :alt: Map of the depth of the water table below the ground surface, Nançon catchment, October 2002. Dark colors are water tables close to the ground, pale yellow ones are deep water tables.
 :width: 75%
 
 {bdg-warning}`Indicative` **Look at:** where the water table is close to the ground (dark) and where it is deep
 (pale). **Does not show:** a measured level, or any depth beyond the 30 m of the model.
 
-`watertable_depth_map`, October 2002, archived run. Legend in English: "Depth of the water table below land surface (m)".
+`watertable_depth_map`, October 2002. Color bar: "Depth of the water table below land surface (m)".
 ```
 
 **What the map shows.** The distance between the ground and the top of the {term}`water table`,
@@ -71,9 +63,10 @@ two valleys), which the map shows clearly.
 **Pitfalls.**
 
 - *The scale stops at the model thickness.* The modeled aquifer is 30 m thick
-  ({toml}`domain.depth_model.thickness`). A pale yellow color means "at the bottom of the model",
-  not "at exactly 30 m". In the archived run, about 6.5% of the cells have, in October 2002,
-  the water table within 0.5 m of the bottom (computed from the stored data of the run).
+  (an assumption, see {doc}`what-it-computes`). A pale yellow color means "at the bottom of the
+  model", not "at exactly 30 m". In this run, about 5.2% of the cells of the catchment (598 of
+  11,488) have, in October 2002, the water table within 0.5 m of the bottom (computed from the
+  stored data of the run).
 - *The pattern follows the relief by construction.* K is uniform and the drains are at the
   surface: a water table close to the ground in the valleys is the expected result of the setup,
   not a discovery.
@@ -86,19 +79,19 @@ validated.
 (reading-seepage)=
 ## Seepage cells
 
-```{figure} img/ex04_seepage_map.png
+```{figure} /_static/figures/understand/ex04_seepage_map.webp
 :alt: Map of the seepage cells of the Nançon catchment, October 2002. The blue cells, isolated or in short lines, are those where the water table reaches the surface.
 :width: 75%
 
 {bdg-warning}`Indicative` **Look at:** the blue cells, where the water table reaches the ground and water
 comes out. **Does not show:** streams, or how much water comes out of a cell.
 
-`seepage_map`, October 2002, archived run. Legend in English: "seepage (110 cells)", "no seepage (11,378 cells)".
+`seepage_map`, October 2002. Legend: "seepage (112 cells)", "no seepage (11,376 cells)".
 ```
 
 **What the map shows.** The cells where the water table reaches or exceeds the ground surface,
-one by one, with no extension downstream. This is the raw state of the model: in the archived
-run, 110 cells of the catchment out of 11,488 in October 2002.
+one by one, with no extension downstream. This is the raw state of the model: in this
+run, 112 cells of the 11,488 cells of the catchment in October 2002.
 
 **How to read it.** Each blue cell is a point where water appears, a {term}`spring`. These are not
 streams: isolated cells or short lines of cells are normal. The pale cells outside the catchment
@@ -120,14 +113,14 @@ spring or a seep is compared with it in the example.
 (reading-network)=
 ## Comparison with the mapped network
 
-```{figure} img/ex04_seepage_network_confusion_map.png
+```{figure} /_static/figures/understand/ex04_seepage_network_confusion_map.webp
 :alt: Map comparing the simulated network and the mapped network, Nançon catchment, October 2002. Dark blue: simulated and mapped; yellow: simulated only; red: mapped only.
 :width: 75%
 
 {bdg-info}`Calibrated` **Look at:** how much yellow and red remain around the dark blue. **Does not show:**
 which of the two networks is right, or the months other than October.
 
-`seepage_network_confusion_map`, October 2002, archived run. Dark blue "valid" (228 cells), yellow "excess" (131), red "missing" (268).
+`seepage_network_confusion_map`, October 2002. Dark blue "valid" (297 cells), yellow "excess" (62), red "missing" (174).
 ```
 
 **What the map shows.** Each cell belongs to a single class:
@@ -143,19 +136,19 @@ model grid. The {term}`simulated network` is the downstream extension of the see
 following the slope of the terrain ({doc}`what-it-computes`).
 
 **How to read it.** A perfect agreement would be all dark blue: we look for little yellow and
-little red at the same time. In the archived run, the model misses a good share of the upstream
-reaches of the map (red, at the edge of the network), and adds short segments (yellow) along the
-main axis. A plain count of cells does not say whether a small gap comes from a good fit or from
+little red at the same time. In this run, the model misses 174 of the 471 mapped cells (37%),
+mostly at the upstream ends and on the side branches (red), and adds 62 cells (yellow) in a few
+short stretches beside the main axis. A plain count of cells does not say whether a small gap comes from a good fit or from
 two errors that cancel each other: the map shows it.
 
-```{figure} img/ex04_downslope_distance_map.png
+```{figure} /_static/figures/understand/ex04_downslope_distance_map.webp
 :alt: Map of the downslope distances between each cell of the simulated network and the mapped network, in four classes from 0 to more than 1000 m.
 :width: 75%
 
 {bdg-info}`Calibrated` **Look at:** the cells far from the mapped network, in the darker classes. **Does not show:**
 whether the mapped network itself is complete.
 
-`downslope_distance_map`, October 2002, archived run. Distance traveled downslope by each simulated cell before it reaches the mapped network: 0 to 75 m (229 cells), 75 to 500 m (119), 500 to 1000 m (15), more than 1000 m (0).
+`downslope_distance_map`, October 2002. Distance traveled downslope by each simulated cell before it reaches the mapped network: 0 to 75 m (299 cells), 75 to 500 m (54), 500 to 1000 m (10), more than 1000 m (0).
 ```
 
 The second map no longer counts the cells that coincide: it measures how far each one is off. A
@@ -170,11 +163,15 @@ previous map: the two maps do not count exactly the same cells. How the scores a
   stream that the map ignores, or an error of the model: the map does not settle it.
 - *One month only,* October 2002.
 - *The threshold matters.* A cell is counted as seepage if it returns more than 0.01% of its own
-  recharge ({toml}`calibration.outputs.<name>.tau_specific_ratio`, the
-  {term}`seepage threshold`). Another threshold moves the three classes.
-- *The mapped network is placed on the 75 m grid* with a transfer rule
-  ({toml}`calibration.outputs.<name>.observed_rasterization`): a one-cell gap can come from the
-  transfer and not from the model. The archived run used a rule that is no longer the default.
+  recharge (the {term}`seepage threshold`, setting
+  {toml}`calibration.outputs.<name>.tau_specific_ratio`). Another threshold moves the three
+  classes.
+- *The mapped network is placed on the 75 m grid* with a transfer rule: a one-cell gap can come
+  from the transfer and not from the model. This run uses the default rule
+  ({toml}`calibration.outputs.<name>.observed_rasterization`): it places each stream head of the
+  map on a nearby cell, within 100 m, and draws the rest of the reach down the slope of the
+  model, so that field ditches below a head do not count as model errors
+  ({doc}`stream-network`).
 
 **Reliability.** Calibrated. K was adjusted so that this network looks like the map: a good
 agreement is the goal reached, not an independent validation. The method itself is published and
@@ -183,28 +180,28 @@ peer reviewed (Abhervé et al., 2023).
 (reading-persistence)=
 ## Flow persistence
 
-```{figure} img/ex04_flow_persistence_map.png
+```{figure} /_static/figures/understand/ex04_flow_persistence_map.webp
 :alt: Flow persistence map of the Nançon catchment over three years. Dark blue cells flow almost all the time, light blue ones part of the time.
 :width: 75%
 
 {bdg-warning}`Indicative` **Look at:** the dark cells that flow almost all the time and the light ones that flow
 only in the wettest months. **Does not show:** the discharge of a reach, or any year-to-year change.
 
-`flow_persistence_map`, January 2000 to December 2002, archived run. Color bar: "Timesteps flowing (%)". Title: 768 cells flow at least one month out of the 36.
+`flow_persistence_map`, January 2000 to December 2002. Color bar: "Timesteps flowing (%)". Title: 772 cells ever flowing in the 36 months.
 ```
 
 **What the map shows.** For each cell, the share of the 36 months during which it flows (the
 {term}`persistence`). Dark blue: almost always. Light blue: only in the wettest months. Gray:
 never.
 
-```{figure} img/ex04_flow_intermittence_map.png
+```{figure} /_static/figures/understand/ex04_flow_intermittence_map.webp
 :alt: Map of perennial streams in blue, intermittent ones in orange and dry ones in gray, Nançon catchment, year 2002.
 :width: 75%
 
 {bdg-warning}`Indicative` **Look at:** the orange stream heads, which dry up first, and the blue trunk that keeps
 flowing. **Does not show:** which reaches really dry up in the field.
 
-`flow_intermittence_map`, year 2002, archived run. Blue "perennial" (336 cells), orange "intermittent" (126), gray "dry" (11,026).
+`flow_intermittence_map`, year 2002. Blue "perennial" (336 cells), orange "intermittent" (128), gray "dry" (11,024).
 ```
 
 The second map classes each cell over a single calendar year (2002): *perennial* if it flows all
@@ -212,8 +209,8 @@ The second map classes each cell over a single calendar year (2002): *perennial*
 {term}`heads <stream head>` are orange: they dry up first.
 
 **How to read it.** A cell "flows" if it is downstream of a seepage cell and carries at least
-1 L/s of water coming from the aquifer ({toml}`calibration.outputs.<name>.extent.visible_flow`,
-the {term}`visible flow`). This is not the same meaning as on the seepage map, which counts only
+1 L/s of water coming from the aquifer (the {term}`visible flow`, setting
+{toml}`calibration.outputs.<name>.extent.visible_flow`). This is not the same meaning as on the seepage map, which counts only
 the exit points.
 
 **Pitfalls.**
@@ -237,14 +234,14 @@ and intermittent is a model output, not verified.
 (reading-discharge)=
 ## Simulated against observed discharge
 
-```{figure} img/ex04_hydrograph_log_nse.png
+```{figure} /_static/figures/understand/ex04_hydrograph_log_nse.webp
 :alt: Simulated and observed discharge at the Nançon outlet from 2000 to 2002, on a logarithmic axis. The scored period, 2001 and 2002, is shaded gray.
 :width: 90%
 
 {bdg-info}`Calibrated` **Look at:** whether the blue line follows the black dashes in season and in volume, in the
 gray window. **Does not show:** daily discharge, or a period the calibration has not used.
 
-`hydrograph_log_nse`, archived run. Blue line: total simulated discharge. Black dashes: discharge observed at the NANCON station. Gray area: scoring window, 24 of the 36 months. Logarithmic vertical axis, in m³/s.
+`hydrograph_log_nse`. Blue line: total simulated discharge. Black dashes: discharge observed at the NANCON station. Gray area: scoring window, 24 of the 36 months. Logarithmic vertical axis, in m³/s.
 ```
 
 **What the curve shows.** The monthly discharge at the {term}`outlet`, simulated and measured at
@@ -255,10 +252,9 @@ only: this run stores no groundwater / surface split". This curve is a {term}`hy
 
 **How to read it.** The axis is logarithmic: low flows weigh as much as floods, and a gap of 0.1
 to 0.2 m³/s is as visible as a gap of 1 to 2. This is intended: the calibration of Sy uses a
-Nash-Sutcliffe efficiency computed on the logarithms
-({toml}`calibration.protocol.transient_metric`), which gives weight to the recessions. The gray
-area is the {term}`scoring window` (2001 and 2002); 2000, the spin-up year, is not scored
-({toml}`calibration.protocol.scoring_window`).
+Nash-Sutcliffe efficiency computed on the logarithms, which gives weight to the recessions
+({ref}`two-stage-calibration`). The gray area is the
+{term}`scoring window` (2001 and 2002); 2000, the spin-up year, is not scored.
 
 **The scores of this run.** The run metrics table covers the 36 months, spin-up included:
 {term}`Nash-Sutcliffe efficiency <NSE>` (NSE) 0.68, and volume bias ({term}`PBIAS <percent bias>`) +20.5%. A positive PBIAS means that the model underestimates: here the simulated
@@ -274,7 +270,7 @@ reference, not a threshold specific to HydroModPy.
 
 **Pitfalls.**
 
-- *Runoff is an input.* It is given to the model ({toml}`data.runoff`): only the groundwater part
+- *Runoff is an input.* It is given to the model as data: only the groundwater part
   is computed. A good agreement of the total does not prove that the groundwater part is right.
 - *Sy was calibrated on this window.* A high NSE on 2001 and 2002 shows that the calibration
   worked, not that the model would predict another period.
@@ -291,7 +287,7 @@ the example.
 (reading-budget)=
 ## The water budget
 
-```{figure} img/ex04_flux_timeseries.png
+```{figure} /_static/figures/understand/ex04_flux_timeseries.webp
 :alt: Step curves of recharge, positive in blue, and drainage, negative in red, in m³/s, from 2000 to 2002, over the Nançon catchment.
 :width: 90%
 
@@ -299,7 +295,7 @@ the example.
 exceeds drainage, and the summer months, when drainage continues alone. **Does not show:** the
 change in storage, or the water outside the delineated catchment.
 
-`flux_timeseries`, archived run. Blue: recharge, which enters the aquifer. Red: drainage, which leaves it. In m³/s, over the delineated catchment. Legend in English: "positive = into the aquifer".
+`flux_timeseries`. Blue: recharge, which enters the aquifer. Red: drainage, which leaves it. In m³/s, over the delineated catchment. Title: "positive = into the aquifer".
 ```
 
 **What the curve shows.** The two fluxes that cross the aquifer, month by month: {term}`recharge`
@@ -312,17 +308,18 @@ storage is not plotted: it is the difference between the two curves. Together th
 - *In winter, the aquifer fills up.* In January 2001, recharge reaches 3.1 m³/s for a drainage of
   1.7 m³/s: the difference goes into storage.
 - *In summer, it slowly empties and feeds the streams.* From July to September 2002, recharge is
-  almost zero (0.01 to 0.02 m³/s) and drainage continues at 0.25 to 0.29 m³/s. This is the
+  almost zero (0.01 to 0.02 m³/s) and drainage continues at 0.24 to 0.29 m³/s. This is the
   {term}`baseflow`: the water stored in winter that sustains the streams in dry periods.
 - *The first month is in steady state,* so recharge and drainage are roughly equal there.
 
 **Pitfalls.**
 
-- *m³/s, not mm.* The figure can also be plotted as a water depth (option
-  `units = "mm/period"` of {toml}`display.overrides`), which is easier to compare with rainfall.
+- *m³/s, not mm.* The figure can also be plotted as a water depth, which is easier to compare
+  with rainfall: see the options of `flux_timeseries` in the
+  {doc}`catalog of figures <../reference/figures>`.
 - *The catchment and not the domain.* The model extends beyond the catchment
-  ({toml}`geographic.catchment.buff_area`, 10% more area); the figure says "frame: the delineated
-  catchment".
+  (a margin of 10% more area, see {doc}`../guides/describe-a-catchment`); the figure says
+  "frame: the delineated catchment".
 - *The `water_budget` bar chart has another use:* it adds up the flows stored at each time step:
   it is a sum of flows, not a volume.
 
@@ -350,20 +347,24 @@ rules below hold for any run. Each figure has an entry in the
 ## Where these figures come from
 
 The eight figures are real outputs of the run
-`nancon_intermittence_mf6_calibrated_transient_storage`, produced on 2026-09-29 by
-`hmp run run_calibration.toml` with HydroModPy 2.0.0a4 (a run promoted from trial 8 of the
-calibration). The files are copies from `runs/<run>/figures/` in the example 04 project. Two
-remarks:
+`nancon_intermittence_mf6_calibrated_transient_storage`. It was produced on 2026-10-09 by
+`hmp run run_calibration.toml` with HydroModPy 2.0.0a4, from the files of example 04. It is the
+run promoted from trial 8 of the second calibration stage: K = 7.96e-5 m/s, then
+Sy = 0.045. The mapped network is placed on the grid by the default `heads` rule, as described
+under {ref}`reading-network`.
 
-- they were drawn before the changes of 2026-10-05 on the relief and the network: in the current
-  version, the mapped network is placed on the grid by the default `heads` rule, whereas this run
-  used `crossing`. A new run can therefore give slightly different maps, and different K, counts
-  and scores;
-- the titles and the legends are in English.
+The images are redrawn from the stored run, the way `hmp viz show` draws them, for instance
+`hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_map`. The titles
+carry no run name, and the legends are in English. The repository keeps, for every image, the run,
+the command and the option that made it, in `tools/docs/figures/figures.toml`.
+
+Each figure exists in a light and a dark version, and the page shows the one that matches the
+theme. The dark version recolors the background and the texts. A few colors stay light, such as
+the dry cells of the intermittence map.
 
 To draw a figure of an existing run again, at another date, see the
 {doc}`catalog of figures <../reference/figures>` and the guide
-{doc}`../guides/results-and-exports`.
+{doc}`../guides/read-the-results`.
 
 ## Going further
 

@@ -44,7 +44,7 @@ class MeshCatchmentConfig(HydroModelBase):
             "'rivers_only' conforms the mesh to river traces only, and "
             "'geology_rivers' enforces both sets of constraints in one mesh."
         ),
-        examples=["geology_rivers"],
+        examples=["rivers_only", "geology_rivers"],
     )
     output_mesh: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,

@@ -8,6 +8,20 @@ produce it, how to change its width, and what it does not tell you.
 The calibrated value never moves. The uncertainty is read after the search, and it only
 decides what is printed beside the value.
 
+```{hmp-task}
+Task
+: Read, choose and widen the interval printed beside each calibrated value.
+
+Time
+: Nothing for the default; one model run per parameter for `linearized`; the whole search again per restart for `multistart`.
+
+Needs
+: A calibration file that runs.
+
+Gives
+: An interval or a width per parameter, and the pairs of parameters the data did not tell apart.
+```
+
 You need a calibration file that already runs. The worked case is example 04,
 `examples/projects/04_streamflow_intermittence_in_transient`, file
 `run_calibration_composite.toml`. It searches K and Sy together on two criteria, the
@@ -67,18 +81,20 @@ The method is {toml}`calibration.uncertainty.method`. Three exist.
 | `multistart` | the whole search again, once per restart | a second basin, if a restart lands in it | {toml}`restarts\|calibration.uncertainty.restarts` |
 | `linearized` | one model run per parameter | which parameters trade off against which | {toml}`perturbation\|calibration.uncertainty.perturbation` |
 
-### `cost_profile`, the default
+::::{tab-set}
 
-It keeps every sampled value whose cost stayed within the width of the best cost. It costs
-nothing and rests on no error model. It cannot see a second, separate optimum: if the search
-explored one basin, the interval describes that basin.
+:::{tab-item} cost_profile
+It keeps every sampled value whose cost stayed within the width of the best cost. It is the
+default, costs nothing and rests on no error model. It cannot see a second, separate
+optimum: if the search explored one basin, the interval describes that basin. You write
+nothing to get it.
+:::
 
-You write nothing to get it.
-
-### `multistart`
-
+:::{tab-item} multistart
 It runs the whole search again from other starting points and reports the spread of the
-optima reached. It is the only method that can see a second basin.
+optima reached. It is the only method that can see a second basin. The first restart is the
+search you would have run without it, the others start from draws of the priors, and the
+calibrated value is the best of them. Each restart is a full search.
 
 ```toml
 base_config = "run_calibration_composite.toml"
@@ -88,21 +104,14 @@ method = "multistart"
 restarts = 3
 ```
 
-Each restart is a full search. Three restarts cost three times the single search that
-`run_calibration_composite.toml` describes in its header. The first restart is the search
-you would have run without `multistart`, the others start from draws of the declared priors,
-and the calibrated value is the best of them.
+It is refused on an engine that returns the same answer every time, `bisection` and `grid`,
+so the network stage of the published method cannot take restarts.
+:::
 
-Restarts are refused on an engine that returns the same answer every time. Those are
-`bisection` and `grid`. The step one of the published two-stage method uses `bisection`, so
-it cannot take restarts.
-
-### `linearized`
-
-It takes derivatives of the cost around the answer, one model run per parameter, and reports
-for each parameter a first-order width, `sigma`, and the parameter it trades off against.
-It rebuilds the model around the answer, so it needs an output that names a station to take
-residuals from.
+:::{tab-item} linearized
+It takes derivatives of the simulated values around the answer, one model run per
+parameter, and reports for each parameter a first-order width, `sigma`, and the parameter it
+trades off against. It needs an output that names a station to take residuals from.
 
 ```toml
 base_config = "run_calibration_composite.toml"
@@ -112,14 +121,14 @@ method = "linearized"
 perturbation = 0.01
 ```
 
-The step is a fraction of each calibrated value, so 0.01 moves it by one per cent. Too small
-and the difference is solver noise. Too large and it is no longer a derivative. Run it twice
-with two steps: if the reported width moves with the step, do not trust it.
+The step is a fraction of each calibrated value: 0.01 moves it by one per cent. Too small and
+the difference is solver noise; too large and it is no longer a derivative. Run it twice with
+two steps: if the width moves with the step, do not trust it. It refuses a cost that drops
+leading samples with `warmup_periods`: cut the record with
+{toml}`calibration.scoring_window` instead.
+:::
 
-`linearized` refuses a calibration whose cost drops leading samples, with `warmup_periods`
-or a block `warmup`, because the residuals would cover a window the search was told to
-ignore. Cut the record with {toml}`calibration.scoring_window` instead. The composite file
-does so.
+::::
 
 ```{hmp-params}
 calibration.uncertainty.restarts
@@ -238,6 +247,15 @@ base_config = "run_calibration_composite.toml"
 parameter = "Sy"
 ```
 
+```{figure} ../_static/figures/guides/parameter_cost_profile.webp
+:alt: The cost 1 - NSElog against Sy for the 8 trials of stage two in example 04, with a minimum at Sy = 0.045 and a shaded band from 0.0418 to 0.0517.
+:width: 80%
+
+`parameter_cost_profile` of stage two in example 04: 6 of 8 trials scored within 5 % of the
+best, so $S_y$ lies in $[0.0418, 0.0517]$. The half-widths are $-0.0032$ and $+0.0067$: the
+interval is 2.1 times wider above the value than below it.
+```
+
 The best run of the calibration holds the figure in its `figures` folder: the `hmp run`
 recap prints that folder on its `Best runs:` line. Draw it again for that run with:
 
@@ -309,36 +327,33 @@ When you publish a conductivity, say which method and which width the interval r
 
 ## What can go wrong
 
-These messages come from `hmp calibrate FILE --check` and from the file load. `FILE` is the
-file you wrote.
+These come from the file load and from `hmp calibrate FILE --check`, before any solve.
 
-| Message | Cause and fix |
-|---|---|
-| `method='posterior' is not offered` | No posterior exists here, for the reason given above. Use `linearized` or `multistart`. |
-| `method='multistart' needs 'restarts'` | Write {toml}`restarts\|calibration.uncertainty.restarts`, at least 2. |
-| `method='linearized' needs 'perturbation'` | Write {toml}`perturbation\|calibration.uncertainty.perturbation`. |
-| `restarts=3 is only read by method='multistart'; got method='cost_profile'` | Remove `restarts`, or set the method. The same holds for `perturbation` with a method other than `linearized`. |
-| `phase 'conductivity_and_storage' writes an uncertainty that does not hold once read over [calibration.uncertainty]` | The phase table is merged over the section, and the merged result is invalid. The message ends with the reason, one of the lines above. |
-| `'bisection' returns the same answer every time` | `multistart` on an engine that visits the same points whatever the seed. Use `cost_profile`, or run the phase on an engine a restart can move. |
-| `mode = 'relative', written in [calibration.uncertainty], reads the interval width as a fraction of the best cost` | A phase scored only on network distances cannot read a fraction. Write `mode = "absolute"` with a tolerance in metres, or write neither. |
-| `no output names a station to be compared against` | `linearized` needs residuals. Declare {toml}`observes\|calibration.outputs.<name>.observes` on the output, or use `cost_profile`. A phase scored on a network output has none. |
-| `Score the burn-in out with scoring_window` | `linearized` on a cost that drops leading samples. Use {toml}`calibration.scoring_window`, or `cost_profile`. |
+| Symptom | Cause | Fix |
+|---|---|---|
+| `method='posterior' is not offered` | No posterior exists here, for the reason given at the top. | Use `linearized` or `multistart`. |
+| `method='multistart' needs 'restarts'` | Restarts without their number. | Write {toml}`restarts\|calibration.uncertainty.restarts`, at least 2. |
+| `method='linearized' needs 'perturbation'` | A derivative without its step. | Write {toml}`perturbation\|calibration.uncertainty.perturbation`. |
+| `restarts=3 is only read by method='multistart'` | An option of another method. | Remove it, or set the method. The same holds for `perturbation`. |
+| `phase 'conductivity_and_storage' writes an uncertainty that does not hold once read over [calibration.uncertainty]` | The phase table, merged over the section, is invalid. | Read the reason at the end of the message. |
+| `'bisection' returns the same answer every time` | `multistart` on an engine that never moves. | Use `cost_profile`, or another engine for that phase. |
+| `no calibration output names a station to be compared against` | `linearized` needs residuals. | Declare {toml}`observes\|calibration.outputs.<name>.observes`, or use `cost_profile`. |
+| `Score the burn-in out with scoring_window` | `linearized` on a cost that drops leading samples. | Use {toml}`calibration.scoring_window`. |
 
-Two warnings appear at run time instead, and the calibration still ends with its value.
+Three warnings appear at run time instead, and the calibration still ends with its value.
 
-| Message | Cause and fix |
-|---|---|
-| `No interval was reported around the calibrated values: the width is one mesh cell, and no trial measured the mesh.` | The phase has no network criterion that measured the mesh. Write {toml}`tolerance\|calibration.uncertainty.tolerance` in metres. |
-| `No width is reported: the normal matrix J'J is singular` | Two parameters move the simulated values in the same way. The data did not identify them separately. Report the value, not a width. |
-
-A fit with as many parameters as observations also reports no width. The message says that
-a linearized covariance needs at least one degree of freedom.
+| Symptom | Cause | Fix |
+|---|---|---|
+| `No interval was reported around the calibrated values: the width is one mesh cell, and no trial measured the mesh.` | No network criterion measured the mesh. | Write {toml}`tolerance\|calibration.uncertainty.tolerance` in metres. |
+| `No interval was reported around the calibrated values: mode = 'relative' reads the width as a fraction of the best cost` | A relative width on a phase scored on network distances only. | Write `mode = "absolute"` with a tolerance in metres, or neither key. |
+| `No width is reported: the normal matrix J'J is singular` | Two parameters move the simulated values in the same way. | Report the value, not a width. |
 
 ## Next
 
 - Run the calibration itself: {doc}`calibrate`.
 - A calibration on the stream network, and the measure it uses: {doc}`calibrate-on-the-stream-network`.
-- The search engines and how to choose one: {ref}`calibrate-method`.
-- Complete calibration files to copy: {doc}`calibration-recipes`.
+- The search methods and their options: {doc}`../reference/calibration-methods`.
+- Complete calibration files to download: {doc}`calibration-recipes`.
+- The equations of each width: {doc}`../theory/calibration/inverse-problem-formulation`.
 - Every key of the section: {doc}`../reference/parameters/calibration/uncertainty`.
 - The command and its options: {doc}`../reference/cli/calibrate`.

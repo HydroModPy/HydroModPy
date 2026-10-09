@@ -14,15 +14,15 @@ schema_version = 1
 id = "04"
 directory = "04_streamflow_intermittence_in_transient"
 title = "Streamflow intermittence in transient"
-summary = "Nancon catchment, monthly transient 2000-2002, MODFLOW 6. Five layered step files, from the shortest config that solves to a run that exports its seepage fields."
-runtime = "6 s for step 1, about 50 s for the full transient step 5"
+summary = "Nancon catchment, MODFLOW 6. Six layered step files, from the shortest config that solves to a daily run with a soil reservoir, then the calibration files and six Python scripts."
+runtime = "15 to 25 s for step 1, 1 to 2 min for steps 4 and 5, about 18 min for step 6"
 entry_config = "step1_minimal.toml"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/README.md"
 dest = "projects/04_streamflow_intermittence_in_transient/README.md"
-size = 4822
-sha256 = "30d43d75ee81bbf2fd1514b2bd54146fa6206e24a2e99e5edf47ed663a14703f"
+size = 5187
+sha256 = "31f31caa949343bb814cd331994c73fb8408b1549b5b57e481aea0803ca049ba"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/project.toml"
@@ -39,32 +39,32 @@ sha256 = "bf9b17e7ca6f94f56d9e166edd8b763fc4bdfb1465c5f1e0410c66d770551570"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py2_edit_parameters.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py2_edit_parameters.py"
-size = 2950
-sha256 = "15df10d0ce8ee6f687a374355a10068c75dfb97e3218b075f65b916548b4fcea"
+size = 3069
+sha256 = "0fdbedf1ad58b02ff1ebf9dd58d0461d22e1468629c6bab3a7b8a950af9dda7c"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py3_read_exports.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py3_read_exports.py"
-size = 5216
-sha256 = "8e28066413a26fdd0375ab067a62959574bc712af332e5fe85207b1550307efd"
+size = 5255
+sha256 = "444d0a5e02b04faaaa2392e2e426dda57c704dd026dccb7d8d6bc1b81fd0cb26"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py4_sweep_k.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py4_sweep_k.py"
-size = 3019
-sha256 = "2068800f38fba18e82f49e074056aa0b85aac23916fd0933038ca472dc61a4c9"
+size = 3013
+sha256 = "724549f422d7d218294847674135be32cd8fae21cb6ee4a088976754d72566d3"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py5_catalog.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py5_catalog.py"
-size = 2870
-sha256 = "0bb711b7a727f3d28ae119b032a094a4b892704a444fe5b6fc13663dca8c8fd3"
+size = 2739
+sha256 = "5a702703ef927c17acf38f18b3fb010af0a969f93c3661dd593ed6ef07360751"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py6_monthly_maps.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py6_monthly_maps.py"
-size = 3145
-sha256 = "a4de6cca71eed9fca337178945d548ca1a595827da6dbe80cffde5dfbd523107"
+size = 3089
+sha256 = "2ce4393bfeafa8b0f60545322ff3d5090fcaf45fd354e8b96dd3899a18c03c4e"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration.toml"

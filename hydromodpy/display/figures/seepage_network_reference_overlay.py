@@ -23,15 +23,22 @@ figure names on the page.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import (
+    DiagonalNeighbors,
+    Extent,
+    NetworkTimestep,
+    Opt,
+    Overlays,
+    TauSpecificRatio,
+)
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
     CELL_WEIGHT_PT,
-    MapExtentName,
     cell_count,
     checked_cells,
     comparison_from_run,
@@ -124,13 +131,19 @@ class SeepageNetworkReferenceOverlay(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        tau_specific_ratio: float | None = None,
-        diagonal_neighbors: bool | None = None,
-        timestep: int | None = None,
-        azimuth_deg: float = 315.0,
-        altitude_deg: float = 45.0,
-        overlays: tuple[str, ...] | list[str] | None = None,
-        extent: MapExtentName = "catchment",
+        tau_specific_ratio: TauSpecificRatio = None,
+        diagonal_neighbors: DiagonalNeighbors = None,
+        timestep: NetworkTimestep = None,
+        azimuth_deg: Annotated[
+            float,
+            Opt("Direction the light of the relief comes from, clockwise from north.", unit="deg"),
+        ] = 315.0,
+        altitude_deg: Annotated[
+            float,
+            Opt("Height of the light of the shaded relief above the horizon.", unit="deg"),
+        ] = 45.0,
+        overlays: Overlays = None,
+        extent: Extent = "catchment",
         **_,
     ) -> Axes:
         from matplotlib.patches import Patch
@@ -198,7 +211,7 @@ class SeepageNetworkReferenceOverlay(BaseFigure):
         ax.autoscale_view()
         apply_overlays(ax, sim, _DEFAULT_OVERLAYS if overlays is None else overlays)
         style_map_axes(ax)
-        ax.set_title(dated_title(f"{self.spec.title} - {sim.name or sim.sim_id}", sim, timestep))
+        ax.set_title(dated_title(f"{self.spec.title}{run_suffix(sim)}", sim, timestep))
 
         handles = [
             Patch(

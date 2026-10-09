@@ -150,8 +150,11 @@ def validate_solver_code(solver_name: str) -> str:
     return key
 
 
-# Which value of a metric is the good one. ``@best:<metric>``, ``Catalog.best``
-# and ``RunSet.best`` read it, so "best" means the best fit whatever the metric.
+# Which value of a metric is the good one. The single table of metric
+# directions: ``@best:<metric>``, ``Catalog.best``, ``RunSet.best``,
+# ``hmp dev rank`` and the calibration criteria read it, so "best" means the
+# best fit whatever the metric, and a score becomes a cost the same way
+# everywhere.
 # The seeded ``metric_definitions`` rows of the catalog agree with it
 # (``higher_is_better`` TRUE is "max", FALSE is "min", NULL is "zero").
 #
@@ -180,6 +183,8 @@ METRIC_SENSE: dict[str, str] = {
     "closure_rmse_m3_s": "min",
     "closure_max_abs_mm_d": "min",
     "closure_relative_error_p95": "min",
+    "distance_gap": "min",
+    "distance_mean": "min",
     "bias": "zero",
     "pbias": "zero",
     "kge_alpha": "one",

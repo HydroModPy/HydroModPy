@@ -13,6 +13,7 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
     apply_analytical_boussinesq_runtime_defaults,
 )
 from validation_cases.shared.runtime import (
+    VALIDATION_FIELD_PRECISION,
     ValidationRunResult,
     resolve_model_workspace,
     resolve_validation_results_dir,
@@ -493,6 +494,9 @@ def write_piecewise_strip_launcher_config(
             "",
             "[simulation.results]",
             "keep_solver_files = true",
+            "",
+            "[simulation.results.persistence]",
+            f'field_precision = "{VALIDATION_FIELD_PRECISION}"',
             "",
             "[data]",
             "types = []",

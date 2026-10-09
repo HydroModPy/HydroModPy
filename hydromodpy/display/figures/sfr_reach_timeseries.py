@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import LogY, Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import style_date_axis
 
@@ -71,9 +72,18 @@ class SfrReachTimeseries(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        variable: str = "downstream_flow",
-        reach: int | None = None,
-        log_y: bool = False,
+        variable: Annotated[
+            str,
+            Opt(
+                'Stream-reach series to draw: "downstream_flow" (the default), '
+                '"stage", "depth" or another series the SFR package wrote.'
+            ),
+        ] = "downstream_flow",
+        reach: Annotated[
+            int | None,
+            Opt("Reach number to draw. Left out, the last reach, at the outlet end."),
+        ] = None,
+        log_y: LogY = False,
         **_,
     ) -> Axes:
         triples = sfr_reach_stations(sim, variable)
@@ -95,7 +105,7 @@ class SfrReachTimeseries(BaseFigure):
         ax.set_ylabel(f"{variable} ({STATE_UNITS.get(variable, 'm³/s')})")
         if log_y:
             ax.set_yscale("log")
-        ax.set_title(f"SFR {variable} - {sim.name or sim.sim_id} @ {network_id}:{ifno}")
+        ax.set_title(f"SFR {variable}{run_suffix(sim)} @ {network_id}:{ifno}")
         ax.grid(True, ls=":", lw=0.4)
         ax.legend(fontsize=13, framealpha=0.94)
         style_date_axis(ax)

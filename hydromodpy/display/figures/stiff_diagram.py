@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 
 if TYPE_CHECKING:
@@ -61,7 +62,7 @@ class StiffDiagramFigure(BaseFigure):
         sim: Run | Any,
         ax: Axes,
         *,
-        sample: int = 0,
+        sample: Annotated[int, Opt("Row of the sample table drawn, 0 for the first.")] = 0,
         **_,
     ) -> Axes:
         df = _to_dataframe(sim)

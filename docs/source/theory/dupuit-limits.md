@@ -43,6 +43,16 @@ the shape of the recharge and of the outlet. It says which way the error goes. A
 thick aquifer, a short hillslope, or a strong vertical anisotropy pulls the model
 away from Dupuit.
 
+```{eval-rst}
+.. plot:: theory/figures/dupuit_ratio.py
+   :alt: Map of the Dupuit ratio over the aspect ratio and the anisotropy, with two hillslopes marked.
+   :caption: The ratio of :eq:`eq-dupuit-ratio` over the aspect ratio and the anisotropy.
+      The lines are the ratios 0.01, 0.1 and 1. Look at the two dots, one aquifer of
+      :math:`B = 30` m with :math:`\beta = 10`: under hillslopes of 500 m the ratio is
+      0.036, under hillslopes of 100 m it is 0.9 and Dupuit no longer holds. The bands
+      are orders of magnitude, not bounds.
+```
+
 (dupuit-streams)=
 ## Next to a stream
 

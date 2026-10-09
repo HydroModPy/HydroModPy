@@ -1,0 +1,33 @@
+# Guide "Choose and build the mesh": a Gmsh mesh of the Nancon catchment along
+# the rivers drawn on the DEM, refined around the well of well_w1.geojson.
+# Save this file and well_w1.geojson in the folder of example 04.
+#
+#   hmp run guide_mesh.toml
+
+base_config = "step1_minimal.toml"
+
+[simulation]
+name = "nancon_guide_mesh"
+
+# The rivers the mesh follows: every cell that drains more than 0.5 km2.
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 0.5
+
+# Gmsh reseeds from the clock: cache = true pins the first mesh.
+[mesh_catchment]
+constraints_mode = "rivers_only"
+cache = true
+
+[mesh_catchment.zone_meshing]
+global_size = 200.0
+
+# 30 m cells within 600 m of the well, back to 200 m beyond.
+[[mesh_catchment.refinement_zone]]
+path = "well_w1.geojson"
+cell_size = 30.0
+buffer = 600.0
+
+[display]
+figures = ["mesh_map", "watertable_depth_map"]

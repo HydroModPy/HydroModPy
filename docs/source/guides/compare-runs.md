@@ -1,4 +1,18 @@
-# Compare runs and methods
+# Compare methods on one case
+
+```{hmp-task}
+Task
+: Run one physical case with two or more methods, another solver, another solver option, another mesh, and read the differences against a reference.
+
+Time
+: One full run per method, one after the other. The worked case is steady, so two children cost about a minute. A transient case costs one full run per child.
+
+Needs
+: A simulation file that runs and that writes the paths of its data files relative to itself (see below), the solver executables of the methods you compare (`hmp doctor` lists the ones it finds), and a comparison file next to the base file.
+
+Gives
+: An audit that says whether the children still describe one case, metrics against a reference child, figures and a report in one folder.
+```
 
 You have one physical case and two or more ways to solve it: another solver, another
 solver option, another value of one parameter. A comparison file takes one base simulation
@@ -9,16 +23,28 @@ report in one folder.
 Use it when the case is fixed and the method changes. It does not check a run against an
 analytical solution or a trusted reference. That is validation, and the comparison does
 not replace it. To compare two runs that already exist, see
-{doc}`find-compare-and-clean-runs`.
+{doc}`find-and-compare-runs`. To change one value over many runs, see
+{doc}`sweep-a-parameter`.
 
-## What you need first
+## The comparison file
 
-- A simulation file that runs, with exactly one `flow` process. The blocks below use
-  `step4_transient.toml` of example 04. Its first period is solved steady and gives the
-  initial heads.
-- The solver executables of the methods you compare. `hmp doctor` lists the ones it finds.
-- Time. Each child is a full run. Two children on example 04 cost two runs of
-  `step4_transient.toml`, one after the other.
+The blocks below use `compare_base.toml`, which has exactly one `flow` process. It is step 1
+of example 04, a steady run, with one line added: the path of its DEM.
+
+```toml
+# compare_base.toml
+base_config = "step1_minimal.toml"
+
+[geographic.catchment]
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+```
+
+The line is there because of where a child lives. Each child is written as a self-contained
+file in its own folder, with its own project and its own workspace. A relative path of the
+base file is made absolute from the folder of the base file, and the data folders of the
+shared workspace are not searched. Example 04 reads its DEM, its gauge and its forcing by bare
+names that the workspace finds, so a child cannot read them as they are. Write the paths of
+your data files relative to the base file, or absolute, in the file you compare.
 
 A comparison file is not a project file. It is read by its own schema, and
 `hmp config check` picks that schema from {toml}`workflow.mode`. Its tables are written
@@ -42,7 +68,7 @@ mode = "comparison"
 
 [comparison]
 comparison_id = "nancon_ims"
-base_simulation_config = "step4_transient.toml"
+base_simulation_config = "compare_base.toml"
 reference_simulation = "complex"
 ```
 
@@ -103,8 +129,10 @@ outlet. Put in the child overlay what makes the method differ.
 changes one option of the solver. {toml}`mf6_ims_complexity|modflow6.runtime.mf6_ims_complexity`
 is the key it sets.
 
-For a child that must run another solver, name the solver and write the same name in
-{toml}`solver.backend`, as {doc}`choose-a-solver` explains for a normal file.
+For a child that must run another solver, name the solver. The comparison rewrites the
+solver of the flow process, and {toml}`solver.backend` follows it, as
+{doc}`choose-a-solver` explains for a normal file. The overlay keeps the options of that
+solver.
 
 ```toml
 # not checked: comparison file
@@ -113,8 +141,8 @@ id = "nwt"
 label = "MODFLOW-NWT"
 solver = "modflow_nwt"
 
-[comparison.simulation.overlay.solver]
-backend = { backend = "modflow_nwt" }
+[comparison.simulation.overlay.modflownwt.runtime.nwt]
+iprnwt = 1
 ```
 
 An overlay can reach the solver and numerical sections (`modflow6`, `modflownwt`,
@@ -144,24 +172,15 @@ time = "last"
 unit = "m"
 
 [[comparison.observable]]
-name = "head_outlet"
-variable = "watertable_elevation"
-support = "point"
-x = 389285.910
-y = 6816518.749
-time = "all"
-unit = "m"
+name = "seepage_last"
+variable = "seepage_areas"
+support = "map"
+time = "last"
+unit = "-"
 ```
 
-The point is the outlet of example 04. These are its coordinates:
-
-```{hmp-resolved} geographic.catchment.x_outlet
-:config: step4_transient.toml
-```
-
-```{hmp-resolved} geographic.catchment.y_outlet
-:config: step4_transient.toml
-```
+The two maps are the water table and the seepage cells at the last period. A `map` keeps the
+whole field and works on every run.
 
 ```{hmp-params}
 analysis.comparison.observable.name
@@ -177,9 +196,12 @@ analysis.comparison.observable.unit
 
 - A `point` needs `x` and `y`, an `anchor_id` or a `cell_index`. An `outlet` needs one of
   them too. A `map` keeps the whole field.
-- A point series is cheap to read. A map is richer and needs the children to share a
-  support. When the children use different meshes, add a common raster:
-  {toml}`enabled|analysis.comparison.fine_raster.enabled` with a
+- At this version a point found by `x` and `y` fails on a run stored in the current layout:
+  `Point observable '<name>' needs a mesh bundle cells.csv for x/y lookup, or a cell_index.`
+  The lookup found no cell centres for the run, even with `[geographic] write_intermediates =
+  true`, and no command prints a cell index. Use maps, as here, until the lookup reads the run store.
+- A map needs the children to share a support. When the children use different meshes, add a
+  common raster: {toml}`enabled|analysis.comparison.fine_raster.enabled` with a
   {toml}`resolution|analysis.comparison.fine_raster.resolution`.
 - Only one map observable gets a figure: `head_map_last` when you declare it, else the
   first map you declare. The figure is written only when the fine raster is on.
@@ -206,7 +228,7 @@ and you tell it the difference is wanted. Here K of example 04 is the base value
 child and lower in the other:
 
 ```{hmp-resolved} flow.param.K.field.value
-:config: step4_transient.toml
+:config: step1_minimal.toml
 ```
 
 ```toml
@@ -229,6 +251,17 @@ value = 2e-5
 The audit then reports the section `flow.param` as a warning, and the status of the audit
 is `warn` instead of `fail`. Mixing a method change and a parameter change in one
 comparison makes the result hard to read. Change one thing per child.
+
+### The whole file
+
+The fragments above, assembled for the worked case. It is a file that runs: put it and the
+base file next to `step1_minimal.toml` in the example 04 folder.
+{download}`Download compare_ims.toml <files/compare_ims.toml>` and
+{download}`compare_base.toml <files/compare_base.toml>`.
+
+```{literalinclude} files/compare_ims.toml
+:language: toml
+```
 
 ## 5. Check the file
 
@@ -282,7 +315,7 @@ one case.
    concerns.
 2. `web/index.html`. It is the reading page of the comparison: it links the audit, the
    metrics, the figures and the tables below. The files stay the source, the page only
-   shows them. Its text is in French at this version.
+   shows them.
 3. `comparison_report.md`. It starts with the audit status, then lists the reference,
    the other children and the observables.
 4. `comparison_figures/case_configuration.png`. The case itself: support, boundaries,
@@ -336,47 +369,134 @@ component `comparable_outflow_total_m3_s`, which is `drainage_total_m3_s` plus
 `surface_excess_total_m3_s`, a missing term counted as zero. Use it to ask how much water
 leaves the aquifer. Keep the native components to ask which mechanism carried it.
 
+## 8. Sweep the mesh
+
+A mesh question is a convergence question: how much does the answer move when the cells get
+smaller? It is answered by a comparison, one child per mesh, read for convergence and not for
+a best score. A mesh size is not a calibration parameter: the file is refused with the
+reason, because the stream-network criterion is normalised by cell size and a search that
+refines the mesh improves the number by changing the ruler.
+
+```toml
+# not checked: a comparison file, not a project file
+# mesh_sweep.toml
+[workflow]
+mode = "comparison"
+
+[comparison]
+comparison_id = "mesh_convergence"
+base_simulation_config = "project.toml"
+output_root = "outputs/mesh_convergence"
+reference_simulation = "mesh_250"
+
+[[comparison.simulation]]
+id = "mesh_500"
+label = "target cell size 500 m"
+solver = "modflow6"
+
+[comparison.simulation.overlay.mesh_catchment.zone_meshing]
+global_size = 500.0
+
+[[comparison.simulation]]
+id = "mesh_350"
+label = "target cell size 350 m"
+solver = "modflow6"
+
+[comparison.simulation.overlay.mesh_catchment.zone_meshing]
+global_size = 350.0
+
+[[comparison.simulation]]
+id = "mesh_250"
+label = "target cell size 250 m"
+solver = "modflow6"
+
+[comparison.simulation.overlay.mesh_catchment.zone_meshing]
+global_size = 250.0
+
+# What the three meshes are compared on. The seepage extent is the quantity
+# the stream-network criterion reads, so it is the one whose mesh sensitivity
+# decides how fine the calibration has to be.
+[[comparison.observable]]
+name = "seepage_map_last"
+variable = "seepage_areas"
+support = "map"
+time = "last"
+unit = "-"
+
+[[comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+```
+
+```bash
+hmp run mesh_sweep.toml
+```
+
+The children use different meshes, so the maps are compared on the common raster of
+{toml}`enabled|analysis.comparison.fine_raster.enabled` (step 3). The last mesh is the
+reference, so every difference is a difference to the finest one.
+
+Read the spread across the three as the numerical error on whatever you report, and refine
+until it stops moving. Calibrate on the coarsest mesh whose answer no longer changes: a finer
+one buys solve time, not information. Running a calibration on each mesh in turn and keeping
+the K that scored best is the same circularity in a longer form, because the criterion those
+K are compared on is itself normalised by cell size.
+
+A child may be a whole calibration rather than a single run, which is what a structural sweep
+actually is: one calibration per mesh. Declare it in the overlay of the child. What the
+comparison must not do is rank the children: the cheapest cost belongs to the finest mesh
+whatever the hydrogeology.
+
+```toml
+# not checked: an overlay of a comparison child, not a project file
+[comparison.simulation.overlay.workflow]
+mode = "calibration"
+
+[comparison.simulation.overlay.calibration]
+protocol = "matching_hydrographic_network"
+```
+
+{doc}`choose-and-build-the-mesh` says how the mesh is built and which keys set its size.
+
+## How to check it worked
+
+- `hmp config check compare_ims.toml` prints `OK:` and the path.
+- The run ends with `Workflow 'comparison' complete: compare_ims.toml`.
+- `comparison_audit.md` says `pass`. Read it before any figure.
+- `comparison_metrics.csv` has one row per child and observable. The reference child has no
+  row: every row is a difference to it.
+- For a mesh sweep, the metrics of the children shrink as the mesh gets finer. If they do not,
+  the case is not converged.
+
 ## What can go wrong
 
 Messages of `hmp config check`:
 
-- `comparison.reference_simulation must match an enabled simulation id`: the reference is
-  not the `id` of an enabled child.
-- `comparison.simulation.solver is required unless simulation_config or run_folder is
-  provided`: a child names no solver.
-- `point observables require x/y coordinates, anchor_id, or cell_index`: a point has no
-  location. An outlet gives a similar message.
-- `comparison.base_simulation_config not found: <path>`: the path did not resolve against
-  the folder of the comparison file.
-- `comparison.execution.max_parallel_runs must be 1 in V1`.
-- `comparison.simulation ids must be unique` and `comparison.observable names must be
-  unique`.
+| What you see | Cause and fix |
+|---|---|
+| `comparison.reference_simulation must match an enabled simulation id` | The reference is not the `id` of an enabled child. Name an enabled child. |
+| `comparison.simulation.solver is required unless simulation_config or run_folder is provided` | A child names no solver. Add `solver`. |
+| `point observables require x/y coordinates, anchor_id, or cell_index` | A point has no location. An outlet gives a similar message. Add `x` and `y`. |
+| `comparison.base_simulation_config not found: <path>` | The path did not resolve against the folder of the comparison file. |
+| `comparison.execution.max_parallel_runs must be 1 in V1` | Children run one after the other. Remove the key or write 1. |
+| `comparison.simulation ids must be unique`, `comparison.observable names must be unique` | Two blocks share an `id` or a `name`. |
 
 Messages when the comparison runs:
 
-- `comparison.simulation.overlay contains forbidden sections: domain`: the overlay of a
-  child reaches a section it may not change. A key of `flow` that is not allowed gives
-  `comparison.simulation.overlay.flow contains forbidden keys: <keys>`.
-- `Cannot generate child process overlay: base_simulation_config must declare exactly one
-  flow process.`: the base file has no `flow` process, or has several. Declare one, or give
-  each child its own `simulation_config`.
-- `Comparison child '<id>' failed: hmp run exited with code <n>`, followed by the end of
-  the error output of the child. The child ran as a normal `hmp run`, so its message is
-  the one to read, for instance in {doc}`non-convergence`. The failed child solved
-  nothing that the comparison can use.
-- `Comparison audit failed. See <path> for equivalence diagnostics.` The outputs are
-  already written. Open `comparison_audit.md`. Either the case differs between children,
-  and you fix the overlay, or the difference is wanted, and you set
-  {toml}`on_mismatch|analysis.comparison.audit.on_mismatch` to `"warn"`. The value
-  `"ignore"` does not hide the issue: the code records it as a warning like `"warn"`.
-- `Could not find variable '<name>' in Catalog sim_id=<id>. Tried variables: ...`: the
-  children ran, but a run did not store the variable of an observable. The comparison ends
-  before any output. Fix the `variable`, then run again with `run_simulations = false` to
-  skip the solves.
-- `Time selector <value> not found for variable '<name>'`: the {toml}`time|analysis.comparison.observable.time`
-  of an observable does not exist in the series of a child. The same remedy applies.
-- `No completed reference simulation is available for audit.` is an issue in the audit.
-  The reference child failed or was not run.
+| What you see | Cause and fix |
+|---|---|
+| `comparison.simulation.overlay contains forbidden sections: domain` | The overlay of a child reaches a section it may not change. A key of `flow` that is not allowed gives `comparison.simulation.overlay.flow contains forbidden keys: <keys>`. Move the change to the base file. |
+| `Cannot generate child process overlay: base_simulation_config must declare exactly one flow process.` | The base file has no `flow` process, or has several. Declare one, or give each child its own `simulation_config`. |
+| `Comparison child '<id>' failed: hmp run exited with code <n>`, then the end of the error output of the child | The child ran as a normal `hmp run`, so its message is the one to read, for instance in {doc}`non-convergence`. The failed child solved nothing the comparison can use. |
+| `Comparison child '<id>' failed ...` and, in its error tail, `step 'build_geographic' failed: RasterioIOError: <folder>/<file>.tif: No such file or directory` | The base file reads a data file by a bare name that the workspace finds. A child lives in its own folder and does not search the workspace. | Write the path of the file relative to the base file, or absolute, as `compare_base.toml` does. |
+| `Comparison audit failed. See <path> for equivalence diagnostics.` | The outputs are already written. Open `comparison_audit.md`. Either the case differs between children, and you fix the overlay, or the difference is wanted, and you set {toml}`on_mismatch\|analysis.comparison.audit.on_mismatch` to `"warn"`. The value `"ignore"` does not hide the issue: the code records it as a warning like `"warn"`. |
+| `Could not find variable '<name>' in Catalog sim_id=<id>. Tried variables: ...` | The children ran, but a run did not store the variable of an observable. The comparison ends before any output. Fix the `variable`, then run again with `run_simulations = false` to skip the solves. |
+| `Time selector <value> not found for variable '<name>'` | The {toml}`time\|analysis.comparison.observable.time` of an observable does not exist in the series of a child. The same remedy applies. |
+| `Point observable '<name>' needs a mesh bundle cells.csv for x/y lookup, or a cell_index.` | A point or an outlet found by `x` and `y` cannot be located on a run of the current layout. The comparison ends before any output. | Use a `map` observable (step 3). |
+| `No completed reference simulation is available for audit.` | An issue in the audit. The reference child failed or was not run. |
 
 Two cases do not stop anything and are easy to miss:
 
@@ -392,5 +512,5 @@ Two cases do not stop anything and are easy to miss:
 - {doc}`../theory/mf6-vs-nwt` for what separates MODFLOW 6 and MODFLOW-NWT.
 - {doc}`non-convergence` when a child fails to converge.
 - {doc}`test-a-method` to run a method on many catchments.
-- {doc}`find-compare-and-clean-runs` to compare runs that already exist.
+- {doc}`find-and-compare-runs` to compare runs that already exist.
 - {doc}`../reference/parameters/analysis/comparison` for every key of the comparison file.

@@ -13,10 +13,20 @@ from __future__ import annotations
 import functools
 import inspect
 from abc import ABC, abstractmethod
+from collections.abc import Callable
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
+from hydromodpy.display.figure_options import (
+    COMMON_OPTIONS,
+    Figsize,
+    FigureOption,
+    ShowRunName,
+    Title,
+    describe_options,
+)
 from hydromodpy.results import field_registry
 from hydromodpy.results.field_registry import FieldDescriptor
 
@@ -126,6 +136,78 @@ def _iso(stamp) -> str:
     return stamp.strftime("%Y-%m-%dT%H:%M:%S")
 
 
+_SHOW_RUN_NAME: ContextVar[bool] = ContextVar("hmp_show_run_name", default=True)
+
+
+def run_label(sim: object) -> str:
+    """Return the name a reader knows ``sim`` by, or "" when titles hide it.
+
+    The run name, else its ``sim_id``. A figure drawn with
+    ``show_run_name = false`` gets "" and writes no run in its titles.
+    """
+    if not _SHOW_RUN_NAME.get():
+        return ""
+    return str(getattr(sim, "name", None) or getattr(sim, "sim_id", None) or "")
+
+
+def run_suffix(sim: object, fmt: str = " - {}") -> str:
+    """Return the run label put in ``fmt``, or "" when titles hide it.
+
+    Every figure writes the run into its titles through this, so
+    ``show_run_name`` reaches every title in one place:
+    ``f"Hydrograph{run_suffix(sim)} @ outlet"``.
+    """
+    label = run_label(sim)
+    return fmt.format(label) if label else ""
+
+
+def _apply_title(fig: MplFigure, title: str) -> None:
+    """Replace the main title of ``fig``: its suptitle, else the first axes title."""
+    suptitle = getattr(fig, "_suptitle", None)
+    if suptitle is not None and suptitle.get_text():
+        suptitle.set_text(title)
+        return
+    if fig.axes:
+        fig.axes[0].set_title(title)
+
+
+_UNSET: Any = object()
+
+
+def _titled(plot: Callable[..., MplFigure]) -> Callable[..., MplFigure]:
+    """Give a figure's own ``plot`` the ``title`` and ``show_run_name`` options.
+
+    The figure draws with the run name shown or hidden, then the title is
+    replaced and the file written, so the saved image carries the title.
+    """
+
+    @functools.wraps(plot)
+    def wrapper(
+        self: BaseFigure,
+        sim: Run,
+        *args: Any,
+        title: str | None = _UNSET,
+        show_run_name: bool = _UNSET,
+        **kwargs: Any,
+    ) -> MplFigure:
+        if title is _UNSET and show_run_name is _UNSET:
+            return plot(self, sim, *args, **kwargs)
+        save_path = kwargs.pop("save_path", None)
+        token = _SHOW_RUN_NAME.set(bool(show_run_name)) if show_run_name is not _UNSET else None
+        try:
+            fig = plot(self, sim, *args, **kwargs)
+        finally:
+            if token is not None:
+                _SHOW_RUN_NAME.reset(token)
+        if title is not _UNSET and title is not None:
+            _apply_title(fig, title)
+        if save_path is not None:
+            self._save(fig, Path(save_path), dpi=int(kwargs.get("dpi", 150)), sim=sim)
+        return fig
+
+    return wrapper
+
+
 @runtime_checkable
 class Figure(Protocol):
     """The unique figure contract."""
@@ -143,6 +225,13 @@ class BaseFigure(ABC):
     """ABC providing the universal ``plot()`` boilerplate."""
 
     spec: FigureSpec
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        own_plot = cls.__dict__.get("plot")
+        if own_plot is not None:
+            # A figure that lays out its own figure still takes the common options.
+            cls.plot = _titled(own_plot)  # type: ignore[method-assign]
 
     @abstractmethod
     def render(self, sim: Run, ax: Axes, **opts) -> Axes:
@@ -176,7 +265,9 @@ class BaseFigure(ABC):
         self,
         sim: Run,
         *,
-        figsize: tuple[float, float] | None = None,
+        figsize: Figsize = None,
+        title: Title = None,
+        show_run_name: ShowRunName = True,
         dpi: int = 150,
         save_path: str | Path | None = None,
         **opts,
@@ -188,12 +279,18 @@ class BaseFigure(ABC):
             dpi=dpi,
             constrained_layout=True,
         )
+        # A figure's own plot that calls this one has already set the switch.
+        token = _SHOW_RUN_NAME.set(bool(show_run_name) and _SHOW_RUN_NAME.get())
         try:
             self.render(sim, ax, **opts)
         except FigureNotApplicable:
             # A skipped figure must not stay open: a batch skips one per run.
             plt.close(fig)
             raise
+        finally:
+            _SHOW_RUN_NAME.reset(token)
+        if title is not None:
+            _apply_title(fig, title)
         if save_path is not None:
             self._save(
                 fig,
@@ -308,9 +405,10 @@ def option_names_of(cls: type) -> frozenset[str]:
 
     They are the named parameters of its ``plot`` and ``render``, read along
     the MRO while a ``**`` parameter forwards them. ``figsize`` comes from
-    :meth:`BaseFigure.plot`. A figure that draws one instant takes ``time``,
-    which the display layer resolves to the step it draws; the internal
-    ``timestep`` is never a user option. ``dpi`` belongs to ``[display]``.
+    :meth:`BaseFigure.plot`, as ``title`` and ``show_run_name``, which every
+    figure takes. A figure that draws one instant takes ``time``, which the
+    display layer resolves to the step it draws; the internal ``timestep`` is
+    never a user option. ``dpi`` belongs to ``[display]``.
     """
     found, forwards = _walk_keywords(cls, "plot")
     if forwards:
@@ -320,4 +418,16 @@ def option_names_of(cls: type) -> frozenset[str]:
     found -= _NOT_OPTIONS
     if draws_one_instant:
         found.add("time")
+    # ``title`` and ``show_run_name`` reach every figure, through BaseFigure.plot
+    # or through the wrapper a figure's own plot gets.
+    found |= set(COMMON_OPTIONS)
     return frozenset(found)
+
+
+def options_of(cls: type) -> tuple[FigureOption, ...]:
+    """Return every option of the figure class ``cls``: type, default, unit, meaning.
+
+    Read from the parameters that take them (:mod:`hydromodpy.display.figure_options`),
+    so the catalog of figures shows what the code declares and nothing else.
+    """
+    return describe_options(cls, option_names_of(cls), BaseFigure)

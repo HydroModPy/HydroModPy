@@ -60,11 +60,13 @@ from pydantic import (
 )
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import (
     NonEmptyStr,
     NonNegativeInt,
+    OptionalPath,
     PositiveFloat,
     PositiveInt,
 )
@@ -214,6 +216,9 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         "signed_component. Which ones exist depends on steady_method; a key the "
         "method does not know is refused when the file loads. Used to reproduce a "
         "published call; a precision is said once, in steady_tolerance.",
+        json_schema_extra=field_metadata(
+            renamed_from=["calibration.protocol.steady_engine_options"]
+        ),
     )
     steady_window: Annotated[ProtocolSteadySpan | None, Profile.USER] = Field(
         default=None,
@@ -248,6 +253,9 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         description="Options of the stage-two method, named as that method names "
         "them, and refused when the file loads if it does not know them. Which ones "
         "exist depends on transient_method.",
+        json_schema_extra=field_metadata(
+            renamed_from=["calibration.protocol.transient_engine_options"]
+        ),
     )
     discharge_variable: Annotated[str, Profile.USER] = Field(
         default="discharge",
@@ -827,14 +835,14 @@ class CalibOutputNetwork(HydroModelBase):
             }
         },
     )
-    stream_geometry_path: Annotated[str | None, Profile.USER] = Field(
+    stream_geometry_path: Annotated[OptionalPath, Profile.USER] = Field(
         default=None,
         description="Vector file holding the mapped stream network, read only from "
         "here: the criterion resolves no geometry of its own and does not reuse the "
         "one the hydrography data family loaded. The way out of 'observed_network' "
         "when neither of its two sources is the one you want scored.",
     )
-    minimal_stream_geometry_path: Annotated[str | None, Profile.USER] = Field(
+    minimal_stream_geometry_path: Annotated[OptionalPath, Profile.USER] = Field(
         default=None,
         description="Vector file holding the minimal map: the permanent network, which "
         "the map named by 'observed_network' or 'stream_geometry_path' (the maximal map, "
@@ -1626,6 +1634,7 @@ class CalibPhaseDecl(HydroModelBase):
         "'optuna'. They belong to one method, so a phase that gives them writes "
         "method beside them. A key the method does not take is refused when the "
         "file loads. hmp calibrate --check names the phase.",
+        json_schema_extra=field_metadata(renamed_from=["calibration.phases.optimizer_kwargs"]),
     )
     regime: Annotated[Literal["steady", "transient"] | None, Profile.USER] = Field(
         default=None,
@@ -2146,6 +2155,7 @@ class CalibrationConfig(HydroModelBase):
         "'bisection'. They belong to one method, so a calibration that gives them "
         "writes method beside them. A key the method does not take is refused when "
         "the file loads.",
+        json_schema_extra=field_metadata(renamed_from=["calibration.optimizer_kwargs"]),
     )
     parameters: Annotated[dict[str, CalibParameterDecl], Profile.USER] = Field(
         default_factory=dict,

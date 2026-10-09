@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.field_routing import select_budget_zone
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_registry import register
 
 if TYPE_CHECKING:
@@ -40,7 +40,7 @@ class WaterBudget(BaseFigure):
         agg = df.groupby("component")[["flux_in", "flux_out"]].sum()
         agg.plot.bar(ax=ax, color=["#3b8686", "#cf3a3a"])
         unit = _budget_unit_label(df)
-        ax.set_title(f"Solver budget by component - {sim.name or sim.sim_id}\nframe: {frame_label}")
+        ax.set_title(f"Solver budget by component{run_suffix(sim)}\nframe: {frame_label}")
         ax.set_ylabel(
             f"Sum of stored timestep rates ({unit})" if unit else "Sum of stored timestep rates"
         )

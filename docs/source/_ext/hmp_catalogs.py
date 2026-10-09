@@ -179,22 +179,23 @@ def options_table(r: dict, builder, doc: str) -> str:
     rows = []
     for o in r["option_details"]:
         text = o["doc"]
-        if not text and o["name"] == "figsize":
-            text = (
-                "Size of the figure in inches, `(width, height)`. "
-                f"The figure's own default is `{tuple(r['default_figsize'])}`."
-            )
+        if o["name"] == "figsize":
+            text = f"{text} For this figure: `{tuple(r['default_figsize'])}`."
+        if o.get("python_only"):
+            text = f"{text} Python only: `hmp.figure` takes it, a TOML file cannot write it."
         typ = f"<code>{esc(o['type'])}</code>" if o["type"] else ""
         default = f"<code>{esc(o['default'])}</code>" if o["default"] is not None else ""
+        unit = f"<code>{esc(o['unit'])}</code>" if o.get("unit") else ""
         what = H.inline_md(text, builder, doc) if text else '<span class="hmp-muted">-</span>'
         rows.append(
-            f"<tr><td><code>{esc(o['name'])}</code></td><td>{typ}</td><td>{default}</td><td>{what}</td></tr>"
+            f"<tr><td><code>{esc(o['name'])}</code></td><td>{typ}</td><td>{default}</td>"
+            f"<td>{unit}</td><td>{what}</td></tr>"
         )
     if not rows:
         return '<span class="hmp-muted">none</span>'
     return (
         '<div class="hmp-matrix-wrap"><table class="api-t hmp-opts"><thead><tr><th>Option</th><th>Type</th>'
-        "<th>Default</th><th>What it does</th></tr></thead>"
+        "<th>Default</th><th>Unit</th><th>What it does</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>"
     )
 

@@ -7,6 +7,20 @@ table and one web page. It runs no solver, so it costs seconds, not hours.
 Use it to answer three questions before you build a model. Is this the basin I mean? What
 data exist inside it? Do the layers agree in space and in time?
 
+```{hmp-task}
+Task
+: Delineate a catchment, load the data you list, and check the maps and the tables before any model exists.
+
+Time
+: About 30 s on a busy machine with a filled cache (the Nançon, one gauge, SIM2 rain and ETP). A first download adds the time of the services.
+
+Needs
+: An outlet and a DEM, and a project file. A network connection if a family comes from an API. No solver, no MODFLOW binary.
+
+Gives
+: One PNG per panel that is on, and one web page, under `share/` of the project.
+```
+
 ## What you need first
 
 - A project folder and a TOML file. The overview reads the same sections as a simulation
@@ -23,13 +37,18 @@ sit in your file. Put the blocks in a file next to the step files, for example
 ## 1. Select the overview workflow
 
 Set {toml}`workflow.mode` to `"overview"`. The mode is what `hmp run` reads to choose the
-workflow. The presence of an `[overview]` section does not choose it.
+workflow. The presence of an `[overview]` section does not choose it, and the mode needs the
+section: `hmp config check` refuses a file with the mode and no `[overview]`. Step 3 says what the
+section holds. A first file needs only the mode and a name:
 
 ```toml
 base_config = "step3_api_data.toml"
 
 [workflow]
 mode = "overview"
+
+[overview]
+name = "Nançon"
 ```
 
 ```{hmp-params}
@@ -256,44 +275,23 @@ The web page shows the DEM, the location and the river network, the inventory ta
 observation series. It does not carry the geology map, the stats card or the climate
 bars; open those as PNG files.
 
-At this version, the map titles, the stats card, the date headers of the station table
-and the web page are written in French. The time-series figures carry English titles.
-
 If a map is wrong, stop here. Fix the outlet, the DEM, the CRS or the window before you
 build a model on it.
 
 ## What can go wrong
 
-**`overview.date_end is missing: declare date_start and date_end together`.**
-`hmp config check` refuses a window with one bound. Add the other one. The mirror message is
-`overview.date_start is missing: declare date_start and date_end together`.
-
-**`overview.date_start must be before overview.date_end`.** The two dates are in the
-wrong order, or equal.
-
-**`overview.panels.map_foo: Extra inputs are not permitted`.** A key of `[overview.panels]`
-is spelled wrong. The ten names are in the table of step 5.
-
-**`catch_def='from_outlet_coord' requires 'dem_init_path'`.** The catchment has no DEM. Set
-{toml}`geographic.catchment.dem_init_path`, or declare a DEM source in `[data]`. When
-`dem_init_path` names a file that does not exist and no DEM source is declared, the run
-stops with `No dem_init_path and no [data.dem] source configured.`
-
-**The run ends and no figure appears.** The file has no `[overview]` section. The
-workflow returns without a report. With `-v`, the log shows
-`[overview] No [overview] section - skipping report generation.` Add the section, even with
-only a name.
-
-**`Failed to load data manager '<type>'` followed by a reason.** A family you listed in
-{toml}`data.types` did not load. For `dem`, `geology` and `hydrography` the run stops. For
-any other family the message is logged as `[ERROR] Load of '<type>' failed: ...`, the run
-goes on, and the panel of that family comes out empty. Read the console after the loading
-phase. Remove the family, or fix its source. If the reason says that a source needs a period and
-the request carries none, add {toml}`overview.date_start` and {toml}`overview.date_end`.
-
-**A panel is on but empty.** The figure says there are no records, or no stations. The
-family is not loaded, or no station falls inside the box in the window. Switch the panel
-off, or widen the window.
+| Symptom | Cause | Fix |
+|---|---|---|
+| `hmp config check` exits 14: `overview.date_end is missing: declare date_start and date_end together`. The mirror message names `date_start`. | The window has one bound. | Add the other one. |
+| `overview.date_start must be before overview.date_end` | The two dates are in the wrong order, or equal. | Swap them. |
+| `overview.panels.map_foo: Extra inputs are not permitted` | A key of `[overview.panels]` is spelled wrong. | Use the ten names of the table in step 5. |
+| `workflow.mode = 'overview' needs an [overview] section: it names the card and holds its window and panels. Add the section, with at least a name.` (exit 14) | The file selects the overview workflow and has no `[overview]` section. | Add the section, even with only a name. |
+| `catch_def='from_outlet_coord' requires 'dem_init_path' (path to the DEM raster or XYZ text file).` | The catchment has no DEM. | Set {toml}`geographic.catchment.dem_init_path`, or declare a DEM source in `[data]`. |
+| `No dem_init_path and no [data.dem] source configured.` | `dem_init_path` names no existing file and no DEM source is declared. | Same. |
+| `step 'build_geographic' failed: DataContractViolation: dem: <file> declares no CRS, and HydroModPy does not guess one. ...` (exit 16) | The DEM has no CRS. | Write the CRS into the file with the command in the message. |
+| `Missing file: Failed to load data manager '<type>': <reason>` (exit 10), or the same text after another prefix, with exit code 16 | A family you listed in {toml}`data.types` did not load. The run stops, with the exit code of the cause: 10 for a missing file, 16 for a refused file or a service error. | Remove the family, or fix its source. If the reason says that a source needs a period and the request carries none, add {toml}`overview.date_start` and {toml}`overview.date_end`. |
+| `[WARNING] Data manager '<type>' is active but missing [data.<type>] section. The run goes on without '<type>'.` | The planner added a family that the file does not declare. | Declare it, or ignore the warning: the panel of that family is empty. |
+| A panel is on but empty. The figure says there are no records, or no stations. | The family is not loaded, or no station falls inside the box in the window. | Switch the panel off, or widen the window. |
 
 ## Where next
 

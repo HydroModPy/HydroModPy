@@ -1,5 +1,19 @@
 # Route streams with SFR
 
+```{hmp-task}
+Task
+: Turn the stream network drawn on the DEM into MODFLOW 6 SFR streams that carry the water they receive down to the outlet.
+
+Time
+: Thirty minutes. The file below runs in about two minutes on two cores.
+
+Needs
+: A transient MODFLOW 6 model with drains at the ground surface.
+
+Gives
+: A discharge for every reach, and a catchment discharge to compare with a gauge.
+```
+
 You want the water that the aquifer gives back to travel down a river, not to leave the
 model at the cell where it surfaces. This guide turns the river network that HydroModPy
 draws on the DEM into a MODFLOW 6 SFR (streamflow routing) network. Each reach exchanges
@@ -13,10 +27,9 @@ that reached the network and left it.
 
 - **MODFLOW 6.** SFR exists for this solver only, and MODFLOW-NWT builds no SFR package.
   Example 04 sets `solvers = ["modflow6"]` in its `[[simulation.process]]`. A file that
-  lists `"sfr"` in {toml}`flow.active_bc` and picks another solver with
-  {toml}`solver.backend.backend` is refused when it is read, with a message that contains
-  `does not support the 'sfr' boundary`. A process that names `"modflow_nwt"` in
-  `solvers` passes the check, so name MODFLOW 6 there.
+  lists `"sfr"` in {toml}`flow.active_bc` with another solver in its flow process is
+  refused when it is read, with a message that contains `does not support the 'sfr'
+  boundary`.
 - **A river network from the DEM.** The reaches are the stream links of the network that
   HydroModPy extracts from the DEM, cut by the model mesh. An observed network never
   becomes a reach.
@@ -46,10 +59,11 @@ base_config = "step4_transient.toml"
 [geographic.river_network]
 enabled = true
 threshold_mode = "area_km2"
-threshold_area_km2 = 0.1
+threshold_area_km2 = 0.5
 ```
 
-The value `0.1` only completes the block. It belongs to your catchment and your mesh.
+The value `0.5` only completes the block. It belongs to your catchment and your mesh. On
+example 04 it gives 712 reaches.
 
 ```{hmp-params}
 geographic.river_network.enabled
@@ -339,6 +353,8 @@ flow.sinks_sources.sfr.<name>.diversions
 Three figures read the reach series from the run. List them with
 {toml}`display.figures`. `step4_transient.toml` already sets {toml}`display.time`, which the longitudinal
 profile uses. `[[export__append]]` adds a CSV of the series to the exports of that file.
+It needs a `file` of its own: step 4 already writes the discharge series to the default
+CSV of the run, and two exports to one file stop the run.
 
 ```toml
 base_config = "step4_transient.toml"
@@ -352,6 +368,7 @@ reach = 3
 
 [[export__append]]
 variables = ["downstream_flow", "gw_exchange"]
+file = "sfr_reaches.csv"
 ```
 
 - `sfr_reach_network`: the delineated network, coloured by Strahler order when the layer
@@ -364,19 +381,20 @@ variables = ["downstream_flow", "gw_exchange"]
 
 ## Put it together
 
-This file adds the whole chain to `step4_transient.toml`: the network, the streambed, the drains routed
-to the reaches, the figures.
+This file adds the whole chain to `step4_transient.toml`: the network, the streambed, the
+drains routed to the reaches, the figures.
+{download}`Download it <recipes/model/guide_sfr.toml>` and save it in the folder of example 04.
 
 ```toml
 base_config = "step4_transient.toml"
 
 [simulation]
-name = "nancon_step4_sfr"
+name = "nancon_guide_sfr"
 
 [geographic.river_network]
 enabled = true
 threshold_mode = "area_km2"
-threshold_area_km2 = 0.1
+threshold_area_km2 = 0.5
 
 [flow]
 active_bc = ["drainage", "sfr"]
@@ -397,7 +415,56 @@ figures__append = ["sfr_reach_network", "sfr_reach_timeseries", "sfr_longitudina
 
 [[export__append]]
 variables = ["downstream_flow", "gw_exchange"]
+file = "sfr_reaches.csv"
 ```
+
+## Run it and read the result
+
+::::{tab-set}
+
+:::{tab-item} Command line
+```bash
+hmp run guide_sfr.toml
+hmp viz show @last sfr_reach_network
+hmp viz show @last hydrograph_sim_obs
+```
+:::
+
+:::{tab-item} Python
+```python
+import hydromodpy as hmp
+
+run = hmp.run("guide_sfr.toml")
+outlet = run.timeseries("downstream_flow", station="sfr:main:711")
+hmp.figure(run, "sfr_reach_network")
+```
+:::
+
+::::
+
+On example 04 the network has 712 reaches. `sfr_reach_network` draws them over the
+catchment, with the discharge of the last reach at the last date:
+
+```{figure} /_static/figures/guides/route-streams-with-sfr/sfr_reach_network.webp
+:alt: The 712 SFR reaches of the Nançon catchment drawn over the catchment outline.
+
+`sfr_reach_network` of the file above.
+```
+
+With an SFR network, the catchment discharge is the water that left through the reaches.
+Step 4 loads the gauge of the Nançon, so `hydrograph_sim_obs` sets that discharge against
+it. The routed drainage and the runoff of step 4 give the monthly hydrograph its shape; K
+and Sy are assumed, not calibrated, so the low flows are not fitted:
+
+```{figure} /_static/figures/guides/route-streams-with-sfr/hydrograph_sim_obs.webp
+:alt: Monthly discharge of the SFR network at the outlet against the gauged discharge of the Nançon, 2000 to 2002.
+
+`hydrograph_sim_obs` of the file above.
+```
+
+`sfr_longitudinal_profile` puts the reaches in their build order. On a branched network
+that order interleaves the tributaries, so the profile zigzags between branches; the
+envelope still grows to the outlet. Read one reach over time with `sfr_reach_timeseries`.
 
 ## Check that it worked
 
@@ -412,8 +479,8 @@ variables = ["downstream_flow", "gw_exchange"]
    were routed, how many to a reach, how many to a lake, how many kept a plain drain, and
    how many reaches received no drainage. If almost no cell is routed, look at the mesh
    and at the river network before you look at the solver.
-4. Open `sfr_reach_network`, then `sfr_longitudinal_profile` of `downstream_flow`. The flow
-   should grow from head to outlet. `hmp viz list` names every figure and
+4. Open `sfr_reach_network`, then `sfr_longitudinal_profile` of `downstream_flow`. The
+   flow should grow toward the outlet. `hmp viz list` names every figure and
    `hmp viz show @last sfr_reach_network` draws one for the last run.
 
 (sfr-reports)=
@@ -448,7 +515,7 @@ series as a CSV with the columns `datetime`, `station_id`, `variable`, `value` a
 
 ## What can go wrong
 
-| What you see | Cause | What to do |
+| Symptom | Cause | Fix |
 |---|---|---|
 | `flow.sinks_sources.sfr needs the river-network products; set [geographic.river_network] enabled = true.` | The network is declared, the river network is off. | Section 1. |
 | `flow.sinks_sources.sfr needs the stream-link raster; set [geographic.river_network] compute_stream_links = true.` | The link raster is switched off. | Remove the key, or set it to `true`. |
@@ -460,6 +527,7 @@ series as a CSV with the columns `datetime`, `station_id`, `variable`, `value` a
 | A warning `dead-end reach(es) stop short of every shoreline and stay unrouted` | Some reaches stop before the lake and their flow leaves the model. | Raise {toml}`lake_feeder_snap\|flow.sinks_sources.sfr.<name>.lake_feeder_snap`, as the message says. |
 | A warning `crosses inactive cell` | A reach crosses a cell outside the aquifer. | None needed. That reach routes water and exchanges nothing there. |
 | The solver does not converge | Routed drainage adds a coupling that the solver must converge. | {doc}`non-convergence`. |
+| `export[5] and export[6] both write <run>/<run>_series.csv. Give one of them its own file or folder.` when the run starts | An appended export of series that writes to the same CSV as an inherited one. | Give the new export a `file`, as in step 8. |
 
 With {toml}`route_drainage|flow.sinks_sources.sfr.<name>.route_drainage` on, the code does not
 cap the SFR Picard iterations at one, as it does without it. A run that stops at a stress

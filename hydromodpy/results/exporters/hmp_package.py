@@ -1063,6 +1063,7 @@ def import_hmp_package_multi(
     package_path: Path | str,
     *,
     force: bool = False,
+    as_project: str | None = None,
     dematerialise_inputs: bool = True,
     dry_run: bool = False,
 ) -> list[str]:
@@ -1092,6 +1093,7 @@ def import_hmp_package_multi(
                     catalog,
                     pkg,
                     force=force,
+                    as_project=as_project,
                     dematerialise_inputs=dematerialise_inputs,
                     dry_run=dry_run,
                 )
@@ -1110,6 +1112,7 @@ def import_hmp_package_multi(
                     catalog,
                     inner,
                     force=force,
+                    as_project=as_project,
                     dematerialise_inputs=dematerialise_inputs,
                     dry_run=dry_run,
                     allow_existing_project=True,

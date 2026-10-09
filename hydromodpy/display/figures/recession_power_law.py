@@ -19,13 +19,14 @@ converted to m3/day first, so ``K`` is read in m/day and ``a`` comes out in
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 import pandas as pd
 
 from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt, Station
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.style import place_legend
 
@@ -124,18 +125,64 @@ class RecessionPowerLaw(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: str = CATCHMENT_OUTLET_STATION,
-        variable: str = "discharge",
-        component: str | None = None,
-        a: float | None = None,
-        b: float = 1.5,
-        k: float | None = None,
-        porosity: float | None = None,
-        stream_length: float | None = None,
-        area: float | None = None,
-        sides: int = 2,
-        skip: int = 0,
-        show_residuals: bool = True,
+        station: Station = CATCHMENT_OUTLET_STATION,
+        variable: Annotated[
+            str, Opt('Stored discharge series read, in m3/s, for example "discharge".')
+        ] = "discharge",
+        component: Annotated[
+            str | None,
+            Opt(
+                "Budget component whose outflow is read instead of the series, for a "
+                'boundary that is not a stream, such as "constant_head". Left out, the '
+                "series of station and variable."
+            ),
+        ] = None,
+        a: Annotated[
+            float | None,
+            Opt(
+                "Coefficient of the reference law -dQ/dt = a Q^b, for Q in m3/day and t "
+                "in days. Left out, computed from k, porosity, stream_length and area "
+                "when all four are given, else fitted to the cloud at exponent b."
+            ),
+        ] = None,
+        b: Annotated[float, Opt("Exponent of the reference law -dQ/dt = a Q^b.", unit="-")] = 1.5,
+        k: Annotated[
+            float | None,
+            Opt("Hydraulic conductivity of the Brutsaert-Nieber coefficient.", unit="m/day"),
+        ] = None,
+        porosity: Annotated[
+            float | None,
+            Opt("Drainable porosity of the Brutsaert-Nieber coefficient.", unit="-"),
+        ] = None,
+        stream_length: Annotated[
+            float | None,
+            Opt("Length of the draining stream of the Brutsaert-Nieber coefficient.", unit="m"),
+        ] = None,
+        area: Annotated[
+            float | None,
+            Opt(
+                "Area of the aquifer drained, on both banks when sides is 2, of the "
+                "Brutsaert-Nieber coefficient.",
+                unit="m2",
+            ),
+        ] = None,
+        sides: Annotated[
+            int,
+            Opt(
+                "Banks that drain into the stream: 2 for a reach drained from both "
+                "sides, 1 for a single hillslope, which halves the coefficient."
+            ),
+        ] = 2,
+        skip: Annotated[
+            int,
+            Opt(
+                "Values dropped at the head of the series, where the forcing that "
+                "built the mound still acts."
+            ),
+        ] = 0,
+        show_residuals: Annotated[
+            bool, Opt("Draw the log10 residual to the reference law in an inset.")
+        ] = True,
         **_,
     ) -> Axes:
         if component is None:
@@ -199,7 +246,7 @@ class RecessionPowerLaw(BaseFigure):
         ax.set_ylabel("Recession rate $-dQ/dt$ (m³/day²)")
         ax.grid(True, which="both", ls=":", lw=0.4)
         ax.set_title(
-            f"{self.spec.title} - {sim.name or sim.sim_id}\n"
+            f"{self.spec.title}{run_suffix(sim)}\n"
             f"{flow.size} falling steps, mean residual {residual.mean():+.3f} log10"
         )
         place_legend(ax, fontsize=8, framealpha=0.9)

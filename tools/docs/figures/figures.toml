@@ -24,7 +24,7 @@ pages = ["index.md"]
 options = { cycle = "2002" }
 width = 1020
 height = 974
-bytes = 21798
+bytes = 21716
 
 [[figure]]
 name = "flow_intermittence_map"
@@ -50,11 +50,11 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage downslope_distance_map --time 2002-10-15"
-pages = ["understand/reading-results.md"]
+pages = []
 options = { time = "2002-10-15" }
 width = 1032
 height = 1004
-bytes = 28698
+bytes = 28714
 
 [[figure]]
 name = "downslope_distance_map"
@@ -65,7 +65,7 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage downslope_distance_map --time 2002-10-15"
-pages = ["understand/reading-results.md"]
+pages = []
 options = { time = "2002-10-15" }
 width = 1032
 height = 1004
@@ -80,11 +80,11 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_intermittence_map"
-pages = ["understand/reading-results.md", "understand/stream-network.md"]
+pages = []
 options = { cycle = "2002" }
 width = 1020
 height = 974
-bytes = 21798
+bytes = 21716
 
 [[figure]]
 name = "flow_intermittence_map"
@@ -95,7 +95,7 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_intermittence_map"
-pages = ["understand/reading-results.md", "understand/stream-network.md"]
+pages = []
 options = { cycle = "2002" }
 width = 1020
 height = 974
@@ -110,10 +110,10 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_persistence_map"
-pages = ["understand/reading-results.md"]
+pages = []
 width = 1048
 height = 974
-bytes = 28272
+bytes = 28250
 
 [[figure]]
 name = "flow_persistence_map"
@@ -124,7 +124,7 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_persistence_map"
-pages = ["understand/reading-results.md"]
+pages = []
 width = 1048
 height = 974
 bytes = 28948
@@ -138,10 +138,10 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flux_timeseries"
-pages = ["understand/reading-results.md"]
+pages = []
 width = 1292
 height = 692
-bytes = 13154
+bytes = 13144
 
 [[figure]]
 name = "flux_timeseries"
@@ -152,7 +152,7 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flux_timeseries"
-pages = ["understand/reading-results.md"]
+pages = []
 width = 1292
 height = 692
 bytes = 13956
@@ -166,11 +166,11 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrograph_log_nse"
-pages = ["understand/reading-results.md"]
+pages = []
 options = { scoring_window = ["2001-01-01", "2002-12-31"] }
 width = 1337
 height = 767
-bytes = 31226
+bytes = 31198
 
 [[figure]]
 name = "hydrograph_log_nse"
@@ -181,7 +181,7 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrograph_log_nse"
-pages = ["understand/reading-results.md"]
+pages = []
 options = { scoring_window = ["2001-01-01", "2002-12-31"] }
 width = 1337
 height = 767
@@ -196,11 +196,11 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_map --time 2002-10-15"
-pages = ["understand/reading-results.md", "understand/stream-network.md"]
+pages = []
 options = { time = "2002-10-15" }
 width = 850
 height = 944
-bytes = 19208
+bytes = 19170
 
 [[figure]]
 name = "seepage_map"
@@ -211,7 +211,7 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_map --time 2002-10-15"
-pages = ["understand/reading-results.md", "understand/stream-network.md"]
+pages = []
 options = { time = "2002-10-15" }
 width = 850
 height = 944
@@ -226,11 +226,11 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_network_confusion_map --time 2002-10-15"
-pages = ["understand/reading-results.md"]
+pages = []
 options = { time = "2002-10-15" }
 width = 895
 height = 944
-bytes = 23096
+bytes = 23066
 
 [[figure]]
 name = "seepage_network_confusion_map"
@@ -241,7 +241,7 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_network_confusion_map --time 2002-10-15"
-pages = ["understand/reading-results.md"]
+pages = []
 options = { time = "2002-10-15" }
 width = 895
 height = 944
@@ -256,11 +256,11 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage watertable_depth_map --time 2002-10-15"
-pages = ["understand/reading-results.md"]
+pages = []
 options = { time = "2002-10-15" }
 width = 1066
 height = 842
-bytes = 85140
+bytes = 85098
 
 [[figure]]
 name = "watertable_depth_map"
@@ -271,7 +271,7 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage watertable_depth_map --time 2002-10-15"
-pages = ["understand/reading-results.md"]
+pages = []
 options = { time = "2002-10-15" }
 width = 1066
 height = 842
@@ -340,7 +340,7 @@ redraw = "hmp viz show nancon_step1_minimal watershed_id_card"
 pages = ["get-started/staircase/step1.md"]
 width = 1742
 height = 1142
-bytes = 51950
+bytes = 50748
 
 [[figure]]
 name = "watertable_depth_map"
@@ -356,7 +356,7 @@ redraw = "hmp viz show nancon_step1_minimal watertable_depth_map"
 pages = ["get-started/staircase/step1.md", "get-started/staircase/index.md"]
 width = 1066
 height = 842
-bytes = 87624
+bytes = 87636
 
 [[figure]]
 name = "watertable_depth_map"
@@ -420,7 +420,7 @@ redraw = "hmp viz show nancon_step2_local seepage_network_confusion_map"
 pages = ["get-started/staircase/step2.md", "get-started/staircase/index.md"]
 width = 904
 height = 944
-bytes = 23306
+bytes = 23286
 
 [[figure]]
 name = "seepage_network_confusion_map"
@@ -452,7 +452,7 @@ redraw = "hmp viz show nancon_step2_local watershed_id_card"
 pages = ["get-started/staircase/step2.md"]
 width = 1742
 height = 1142
-bytes = 51910
+bytes = 50748
 
 [[figure]]
 name = "downslope_distance_map"
@@ -484,7 +484,7 @@ redraw = "hmp viz show nancon_step3_api hydrographic_network_permanence"
 pages = ["get-started/staircase/step3.md", "get-started/staircase/index.md"]
 width = 1187
 height = 887
-bytes = 65122
+bytes = 65134
 
 [[figure]]
 name = "hydrographic_network_permanence"
@@ -548,7 +548,7 @@ redraw = "hmp viz show nancon_step3_api watershed_id_card"
 pages = ["get-started/staircase/step3.md"]
 width = 1742
 height = 1142
-bytes = 51906
+bytes = 50748
 
 [[figure]]
 name = "flow_intermittence_map"
@@ -565,7 +565,7 @@ pages = ["get-started/staircase/step4.md", "get-started/staircase/index.md"]
 options = { cycle = "2002" }
 width = 1020
 height = 974
-bytes = 22358
+bytes = 22340
 
 [[figure]]
 name = "flow_intermittence_map"
@@ -762,7 +762,7 @@ redraw = "hmp viz show nancon_step5_export watershed_id_card"
 pages = ["get-started/staircase/step5.md"]
 width = 1742
 height = 1142
-bytes = 54652
+bytes = 53248
 
 [[figure]]
 name = "watertable_depth_map"
@@ -779,7 +779,7 @@ pages = ["get-started/staircase/step5.md", "get-started/staircase/index.md"]
 options = { time = "2002-10-15" }
 width = 1066
 height = 842
-bytes = 86480
+bytes = 86180
 
 [[figure]]
 name = "watertable_depth_map"
@@ -878,7 +878,7 @@ redraw = "hmp viz show nancon_soil_reservoir_daily flux_timeseries"
 pages = ["get-started/staircase/step6.md", "get-started/staircase/index.md"]
 width = 1292
 height = 692
-bytes = 28240
+bytes = 28212
 
 [[figure]]
 name = "flux_timeseries"
@@ -976,7 +976,7 @@ redraw = "hmp viz show nancon_soil_reservoir_daily watershed_id_card"
 pages = ["get-started/staircase/step6.md"]
 width = 1742
 height = 1142
-bytes = 54796
+bytes = 53302
 
 [[figure]]
 name = "watertable_depth_map"
@@ -996,6 +996,36 @@ height = 842
 bytes = 86744
 
 [[figure]]
+name = "cross_section"
+path = "docs/source/_static/figures/guides/add-wells/cross_section.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_wells"
+config = "guide_wells.toml"
+command = "hmp run guide_wells.toml"
+redraw = "hmp viz show nancon_guide_wells cross_section"
+pages = ["guides/add-wells.md"]
+options = { orientation = "we", through = [391460.0, 6821060.0] }
+width = 1217
+height = 692
+bytes = 54648
+
+[[figure]]
+name = "watertable_depth_map"
+path = "docs/source/_static/figures/guides/add-wells/watertable_depth_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_wells"
+config = "guide_wells.toml"
+command = "hmp run guide_wells.toml"
+redraw = "hmp viz show nancon_guide_wells watertable_depth_map"
+pages = ["guides/add-wells.md"]
+options = { overlays = ["watershed", "wells", "outlet"] }
+width = 1066
+height = 842
+bytes = 89052
+
+[[figure]]
 name = "bisection_bracket_trace"
 path = "docs/source/_static/figures/guides/bisection_bracket_trace.webp"
 kind = "guide"
@@ -1008,6 +1038,20 @@ pages = ["guides/calibrate-on-the-stream-network.md", "guides/calibrate.md"]
 width = 1217
 height = 737
 bytes = 21592
+
+[[figure]]
+name = "boundary_package_map"
+path = "docs/source/_static/figures/guides/boundary-and-initial-conditions/boundary_package_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_boundaries"
+config = "guide_boundaries.toml"
+command = "hmp run guide_boundaries.toml"
+redraw = "hmp viz show nancon_guide_boundaries boundary_package_map"
+pages = ["guides/boundary-and-initial-conditions.md"]
+width = 1465
+height = 1142
+bytes = 24792
 
 [[figure]]
 name = "calibration_progress"
@@ -1024,6 +1068,50 @@ height = 1372
 bytes = 102630
 
 [[figure]]
+name = "mesh_map"
+path = "docs/source/_static/figures/guides/choose-and-build-the-mesh/mesh_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_mesh"
+config = "guide_mesh.toml"
+command = "hmp run guide_mesh.toml"
+redraw = "hmp viz show nancon_guide_mesh mesh_map"
+pages = ["guides/choose-and-build-the-mesh.md"]
+width = 1066
+height = 842
+bytes = 145648
+
+[[figure]]
+name = "cross_section"
+path = "docs/source/_static/figures/guides/depth-and-substratum/cross_section.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_depth"
+config = "guide_depth.toml"
+command = "hmp run guide_depth.toml"
+redraw = "hmp viz show nancon_guide_depth cross_section"
+pages = ["guides/depth-and-substratum.md"]
+options = { orientation = "sn" }
+width = 1217
+height = 692
+bytes = 65878
+
+[[figure]]
+name = "parameter_section"
+path = "docs/source/_static/figures/guides/depth-and-substratum/parameter_section.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_depth"
+config = "guide_depth.toml"
+command = "hmp run guide_depth.toml"
+redraw = "hmp viz show nancon_guide_depth parameter_section"
+pages = ["guides/depth-and-substratum.md"]
+options = { orientation = "sn" }
+width = 1667
+height = 692
+bytes = 27732
+
+[[figure]]
 name = "downslope_distance_crossing"
 path = "docs/source/_static/figures/guides/downslope_distance_crossing.webp"
 kind = "guide"
@@ -1032,7 +1120,7 @@ run = "nancon_intermittence_mf6_calibrated_steady_conductivity"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_steady_conductivity downslope_distance_crossing"
-pages = ["guides/calibrate-on-the-stream-network.md", "guides/calibrate.md"]
+pages = ["guides/calibrate-on-the-stream-network.md"]
 width = 1157
 height = 767
 bytes = 66572
@@ -1053,6 +1141,20 @@ height = 1004
 bytes = 29506
 
 [[figure]]
+name = "flux_timeseries"
+path = "docs/source/_static/figures/guides/flux_timeseries.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flux_timeseries"
+pages = ["guides/recharge.md"]
+width = 1292
+height = 692
+bytes = 13956
+
+[[figure]]
 name = "hydrograph"
 path = "docs/source/_static/figures/guides/hydrograph.webp"
 kind = "guide"
@@ -1061,7 +1163,7 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrograph"
-pages = ["guides/calibrate.md", "guides/drive-from-python.md", "guides/report-on-a-catchment.md"]
+pages = ["guides/calibrate.md", "guides/drive-from-python.md", "guides/read-the-results.md", "guides/report-on-a-catchment.md"]
 width = 1217
 height = 692
 bytes = 21644
@@ -1075,7 +1177,7 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrograph_log_nse"
-pages = ["guides/calibrate-on-the-stream-network.md", "guides/drive-from-python.md"]
+pages = ["guides/drive-from-python.md"]
 options = { scoring_window = ["2001-01-01", "2002-12-31"] }
 width = 1337
 height = 767
@@ -1104,7 +1206,7 @@ run = "nancon_step3_api"
 config = "step3_api_data.toml"
 command = "hmp run step3_api_data.toml"
 redraw = "hmp viz show nancon_step3_api hydrographic_network_permanence"
-pages = ["guides/get-the-data.md"]
+pages = ["guides/get-the-data.md", "guides/score-two-maps.md"]
 width = 1187
 height = 887
 bytes = 73212
@@ -1118,10 +1220,24 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrographic_network_reference"
-pages = ["guides/get-the-data.md", "guides/report-on-a-catchment.md", "guides/results-and-exports.md", "guides/use-your-own-files.md"]
+pages = ["guides/export-results.md", "guides/get-the-data.md", "guides/hand-off-to-gis.md", "guides/outside-france.md", "guides/report-on-a-catchment.md", "guides/use-your-own-files.md"]
 width = 1187
 height = 887
 bytes = 30746
+
+[[figure]]
+name = "parameter_map"
+path = "docs/source/_static/figures/guides/k-per-zone/parameter_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_k_zones"
+config = "guide_k_zones.toml"
+command = "hmp run guide_k_zones.toml"
+redraw = "hmp viz show nancon_guide_k_zones parameter_map"
+pages = ["guides/k-per-zone.md"]
+width = 1066
+height = 842
+bytes = 19896
 
 [[figure]]
 name = "mass_balance_error"
@@ -1166,6 +1282,34 @@ height = 1034
 bytes = 31690
 
 [[figure]]
+name = "outside_france_watertable_depth_map"
+path = "docs/source/_static/figures/guides/outside_france_watertable_depth_map-dark.webp"
+kind = "guide"
+theme = "dark"
+run = "ardennes_steady"
+config = "outside_france.toml"
+command = "hmp run outside_france.toml (docs/source/guides/recipes/outside_france.toml, with data/dem/dem_ardennes_25831.tif supplied by the user)"
+redraw = "python tools/docs/figures/render_platform_figures.py ardennes --abroad <workspace>/projects/ardennes"
+pages = ["guides/outside-france.md"]
+width = 1000
+height = 790
+bytes = 55816
+
+[[figure]]
+name = "outside_france_watertable_depth_map"
+path = "docs/source/_static/figures/guides/outside_france_watertable_depth_map.webp"
+kind = "guide"
+theme = "light"
+run = "ardennes_steady"
+config = "outside_france.toml"
+command = "hmp run outside_france.toml (docs/source/guides/recipes/outside_france.toml, with data/dem/dem_ardennes_25831.tif supplied by the user)"
+redraw = "python tools/docs/figures/render_platform_figures.py ardennes --abroad <workspace>/projects/ardennes"
+pages = ["guides/outside-france.md"]
+width = 1000
+height = 790
+bytes = 57990
+
+[[figure]]
 name = "parameter_cost_profile"
 path = "docs/source/_static/figures/guides/parameter_cost_profile.webp"
 kind = "guide"
@@ -1174,7 +1318,7 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage parameter_cost_profile"
-pages = ["guides/calibrate-on-the-stream-network.md", "guides/calibrate.md", "guides/calibration-uncertainty.md"]
+pages = ["guides/calibrate.md", "guides/calibration-recipes.md", "guides/calibration-uncertainty.md"]
 width = 1157
 height = 767
 bytes = 31470
@@ -1221,6 +1365,91 @@ options = { time = "2002-10-15" }
 width = 1066
 height = 842
 bytes = 46056
+
+[[figure]]
+name = "conditioning_impact_map"
+path = "docs/source/_static/figures/guides/prepare-the-terrain/conditioning_impact_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_terrain"
+reference_run = "nancon_step1_minimal"
+config = "guide_terrain.toml"
+command = "hmp run guide_terrain.toml"
+redraw = "hmp viz show nancon_guide_terrain conditioning_impact_map"
+pages = ["guides/prepare-the-terrain.md"]
+width = 1141
+height = 917
+bytes = 21502
+
+[[figure]]
+name = "depression_map"
+path = "docs/source/_static/figures/guides/prepare-the-terrain/depression_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_terrain"
+config = "guide_terrain.toml"
+command = "hmp run guide_terrain.toml"
+redraw = "hmp viz show nancon_guide_terrain depression_map"
+pages = ["guides/prepare-the-terrain.md"]
+width = 1141
+height = 1004
+bytes = 37870
+
+[[figure]]
+name = "read_piezometers"
+path = "docs/source/_static/figures/guides/read_piezometers-dark.webp"
+kind = "guide"
+theme = "dark"
+run = "nancon_step4_transient"
+config = "step4_transient.toml"
+command = "python read_piezometers.py nancon_step4_transient (docs/source/guides/recipes/read_piezometers.py)"
+redraw = "python tools/docs/figures/render_platform_figures.py piezometers --project <workspace>/projects/04_streamflow_intermittence_in_transient"
+pages = ["guides/read-piezometers.md"]
+width = 1000
+height = 482
+bytes = 21194
+
+[[figure]]
+name = "read_piezometers"
+path = "docs/source/_static/figures/guides/read_piezometers.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_step4_transient"
+config = "step4_transient.toml"
+command = "python read_piezometers.py nancon_step4_transient (docs/source/guides/recipes/read_piezometers.py)"
+redraw = "python tools/docs/figures/render_platform_figures.py piezometers --project <workspace>/projects/04_streamflow_intermittence_in_transient"
+pages = ["guides/read-piezometers.md"]
+width = 1000
+height = 482
+bytes = 22030
+
+[[figure]]
+name = "hydrograph_sim_obs"
+path = "docs/source/_static/figures/guides/route-streams-with-sfr/hydrograph_sim_obs.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_sfr"
+config = "guide_sfr.toml"
+command = "hmp run guide_sfr.toml"
+redraw = "hmp viz show nancon_guide_sfr hydrograph_sim_obs"
+pages = ["guides/route-streams-with-sfr.md"]
+width = 1292
+height = 692
+bytes = 33814
+
+[[figure]]
+name = "sfr_reach_network"
+path = "docs/source/_static/figures/guides/route-streams-with-sfr/sfr_reach_network.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_sfr"
+config = "guide_sfr.toml"
+command = "hmp run guide_sfr.toml"
+redraw = "hmp viz show nancon_guide_sfr sfr_reach_network"
+pages = ["guides/route-streams-with-sfr.md"]
+width = 1067
+height = 992
+bytes = 24928
 
 [[figure]]
 name = "seepage_map"
@@ -1276,7 +1505,7 @@ run = "nancon_ex04_active_network"
 config = "project.toml"
 command = "hmp run project.toml --set simulation.name=nancon_ex04_active_network --set simulation.results.derived.accumulation_flux=true"
 redraw = "hmp viz show nancon_ex04_active_network simulated_active_network --time 2002-10-15"
-pages = ["guides/results-and-exports.md"]
+pages = ["guides/export-results.md", "guides/hand-off-to-gis.md"]
 options = { time = "2002-10-15" }
 width = 854
 height = 944
@@ -1296,6 +1525,78 @@ options = { time = "2002-10-15" }
 width = 1186
 height = 887
 bytes = 39636
+
+[[figure]]
+name = "sweep_k"
+path = "docs/source/_static/figures/guides/sweep_k-dark.webp"
+kind = "guide"
+theme = "dark"
+run = "sweep_k_1e-05 .. sweep_k_2e-04"
+config = "step4_transient.toml"
+command = "python sweep_k.py (docs/source/guides/recipes/sweep_k.py, from the folder of example 04)"
+redraw = "python tools/docs/figures/render_platform_figures.py sweep --project <workspace>/projects/04_streamflow_intermittence_in_transient"
+pages = ["guides/sweep-a-parameter.md"]
+width = 1200
+height = 466
+bytes = 30094
+
+[[figure]]
+name = "sweep_k"
+path = "docs/source/_static/figures/guides/sweep_k.webp"
+kind = "guide"
+theme = "light"
+run = "sweep_k_1e-05 .. sweep_k_2e-04"
+config = "step4_transient.toml"
+command = "python sweep_k.py (docs/source/guides/recipes/sweep_k.py, from the folder of example 04)"
+redraw = "python tools/docs/figures/render_platform_figures.py sweep --project <workspace>/projects/04_streamflow_intermittence_in_transient"
+pages = ["guides/sweep-a-parameter.md"]
+width = 1200
+height = 466
+bytes = 31488
+
+[[figure]]
+name = "particle_tracks"
+path = "docs/source/_static/figures/guides/track-particles/particle_tracks.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_particles"
+config = "guide_particles.toml"
+command = "hmp run guide_particles.toml"
+redraw = "hmp viz show nancon_guide_particles particle_tracks"
+pages = ["guides/track-particles.md"]
+options = { max_tracks = 300 }
+width = 1066
+height = 842
+bytes = 98238
+
+[[figure]]
+name = "residence_time_distribution"
+path = "docs/source/_static/figures/guides/track-particles/residence_time_distribution.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_particles"
+config = "guide_particles.toml"
+command = "hmp run guide_particles.toml"
+redraw = "hmp viz show nancon_guide_particles residence_time_distribution"
+pages = ["guides/track-particles.md"]
+width = 1067
+height = 767
+bytes = 31582
+
+[[figure]]
+name = "concentration_map"
+path = "docs/source/_static/figures/guides/transport-and-particles/concentration_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_solute"
+config = "guide_solute.toml"
+command = "hmp run guide_solute.toml"
+redraw = "hmp viz show nancon_guide_solute concentration_map --time 2002-10-15"
+pages = ["guides/transport-and-particles.md"]
+options = { time = "2002-10-15" }
+width = 1066
+height = 842
+bytes = 70570
 
 [[figure]]
 name = "water_budget"
@@ -1320,10 +1621,10 @@ run = "nancon_intermittence_mf6_calibrated_transient_storage"
 config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage watershed_id_card"
-pages = ["guides/choose-a-solver.md", "guides/use-your-own-files.md"]
+pages = ["guides/choose-a-solver.md", "guides/share-a-run.md", "guides/use-your-own-files.md"]
 width = 1742
 height = 1142
-bytes = 55600
+bytes = 53248
 
 [[figure]]
 name = "conditioning_impact_map"
@@ -1338,7 +1639,7 @@ redraw = "hmp viz show demo conditioning_impact_map"
 pages = ["reference/figures.md"]
 width = 320
 height = 258
-bytes = 9750
+bytes = 10194
 
 [[figure]]
 name = "conditioning_impact_map"
@@ -1353,7 +1654,7 @@ redraw = "hmp viz show demo conditioning_impact_map"
 pages = ["reference/figures.md"]
 width = 320
 height = 258
-bytes = 8776
+bytes = 9064
 
 [[figure]]
 name = "cross_section"
@@ -1367,7 +1668,7 @@ redraw = "hmp viz show demo cross_section"
 pages = ["reference/figures.md"]
 width = 320
 height = 182
-bytes = 12646
+bytes = 12600
 
 [[figure]]
 name = "cross_section"
@@ -1395,7 +1696,7 @@ redraw = "hmp viz show demo depression_map"
 pages = ["reference/figures.md"]
 width = 320
 height = 281
-bytes = 9772
+bytes = 9982
 
 [[figure]]
 name = "depression_map"
@@ -1412,6 +1713,36 @@ height = 281
 bytes = 8058
 
 [[figure]]
+name = "difference_map"
+path = "docs/source/_static/figures/catalog/difference_map-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+reference_run = "demo_k3"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo difference_map"
+pages = ["reference/figures.md"]
+width = 320
+height = 253
+bytes = 12962
+
+[[figure]]
+name = "difference_map"
+path = "docs/source/_static/figures/catalog/difference_map.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+reference_run = "demo_k3"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo difference_map"
+pages = ["reference/figures.md"]
+width = 320
+height = 253
+bytes = 11666
+
+[[figure]]
 name = "flow_direction_map"
 path = "docs/source/_static/figures/catalog/flow_direction_map-dark.webp"
 kind = "catalog"
@@ -1423,7 +1754,7 @@ redraw = "hmp viz show demo flow_direction_map"
 pages = ["reference/figures.md"]
 width = 320
 height = 257
-bytes = 33764
+bytes = 33812
 
 [[figure]]
 name = "flow_direction_map"
@@ -1451,7 +1782,7 @@ redraw = "hmp viz show demo flux_timeseries"
 pages = ["reference/figures.md"]
 width = 320
 height = 171
-bytes = 5986
+bytes = 5944
 
 [[figure]]
 name = "flux_timeseries"
@@ -1479,7 +1810,7 @@ redraw = "hmp viz show demo mass_balance_error"
 pages = ["reference/figures.md"]
 width = 320
 height = 173
-bytes = 10402
+bytes = 10320
 
 [[figure]]
 name = "mass_balance_error"
@@ -1563,7 +1894,7 @@ redraw = "hmp viz show demo seepage_map"
 pages = ["reference/figures.md"]
 width = 320
 height = 375
-bytes = 8398
+bytes = 8326
 
 [[figure]]
 name = "seepage_map"
@@ -1592,7 +1923,7 @@ redraw = "hmp viz show demo side_by_side"
 pages = ["reference/figures.md"]
 width = 320
 height = 147
-bytes = 12784
+bytes = 13030
 
 [[figure]]
 name = "side_by_side"
@@ -1607,7 +1938,7 @@ redraw = "hmp viz show demo side_by_side"
 pages = ["reference/figures.md"]
 width = 320
 height = 147
-bytes = 11606
+bytes = 11810
 
 [[figure]]
 name = "water_budget"
@@ -1621,7 +1952,7 @@ redraw = "hmp viz show demo water_budget"
 pages = ["reference/figures.md"]
 width = 320
 height = 208
-bytes = 5968
+bytes = 5916
 
 [[figure]]
 name = "water_budget"
@@ -1649,7 +1980,7 @@ redraw = "hmp viz show demo watershed_id_card"
 pages = ["reference/figures.md"]
 width = 320
 height = 210
-bytes = 6598
+bytes = 8346
 
 [[figure]]
 name = "watershed_id_card"
@@ -1663,7 +1994,7 @@ redraw = "hmp viz show demo watershed_id_card"
 pages = ["reference/figures.md"]
 width = 320
 height = 210
-bytes = 7988
+bytes = 7702
 
 [[figure]]
 name = "watertable_depth_map"

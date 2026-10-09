@@ -52,6 +52,13 @@ Every figure a run can draw, what it reads, when it can be drawn and the options
 Every process and solver pair, the TOML lines that select it, its executable and what it needs before it.
 :::
 
+:::{grid-item-card} Calibration methods
+:link: calibration-methods
+:link-type: doc
+
+Every search method with its options and defaults, and every metric with its formula, read from the registries of the code.
+:::
+
 ::::
 
 ```{toctree}
@@ -77,4 +84,5 @@ cli/index
 data-sources
 figures
 solvers
+calibration-methods
 ```

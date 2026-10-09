@@ -1,23 +1,40 @@
 # Track particles
 
+```{hmp-task}
+Task
+: Release particles in the flow of a MODFLOW 6 model and follow them to where they leave the aquifer.
+
+Time
+: Twenty minutes. The file below runs in about two minutes on two cores.
+
+Needs
+: A transient MODFLOW 6 model that runs, and a MODFLOW 6 executable of version 6.5.0 or newer.
+
+Gives
+: The path of every particle, its travel time, and the distribution of the travel times.
+```
+
 You release particles in the flow field of a MODFLOW 6 model and follow them. Each particle
 moves with the water until it leaves the aquifer or reaches the time limit you set. You get
 its path (x, y, z against time), so you can read a travel path, a travel time and the
 distribution of residence times.
 
-The tracking is advective. A particle follows the pore velocity of the flow and does not
-disperse, react or change the flow. For concentrations, use a solute transport process, not
-this one.
+The tracking is advective, forward in time. A particle follows the pore velocity of the
+flow and does not disperse, react or change the flow. For concentrations, or for a
+backward tracking from a well, see {doc}`transport-and-particles`.
 
-The worked case is example 04, `examples/projects/04_streamflow_intermittence_in_transient`.
-The blocks below are merged onto its `step4_transient.toml`. That file gives the particles
-a transient flow field to follow. Its K and Sy are assumed, not calibrated, so the travel
-times you read are those of that model, not of the Nançon aquifer.
+The worked case is example 04. The blocks below are merged onto its
+`step4_transient.toml`, which gives the particles a transient flow field to follow. Its K
+and Sy are assumed, not calibrated, so the travel times you read are those of that model,
+not of the Nançon aquifer.
+
+{download}`Download the file of this guide <recipes/model/guide_particles.toml>`.
 
 ## What you need first
 
 - **A MODFLOW 6 flow process.** The particle process attaches to the flow model of the same
-  run. It cannot follow a MODFLOW-NWT model.
+  run. A MODFLOW-NWT model is tracked by MODPATH instead: see
+  {doc}`transport-and-particles`.
 - **MODFLOW 6 version 6.5.0 or newer.** The PRT model shipped with 6.5.0. An older executable
   runs a flow model but rejects a particle model. Step 1 checks the version.
 - **The Darcy velocity written by the flow run.** The card of
@@ -214,13 +231,15 @@ transport.modflow6prt.parameters.track_times_days
 transport.modflow6prt.parameters.track_time_step_days
 ```
 
-Together, steps 2 to 5 give this file:
+Together, steps 2 to 5 give this file. It releases one particle from each of 300 cells
+spread over the whole domain, and lets them run for a hundred years, long enough for
+almost every particle to reach a drain:
 
 ```toml
 base_config = "step4_transient.toml"
 
 [simulation]
-name = "nancon_particles"
+name = "nancon_guide_particles"
 
 [[simulation.process__append]]
 id = "prt_main"
@@ -228,13 +247,18 @@ type = "transport"
 solvers = ["modflow6_prt"]
 
 [transport.modflow6prt.parameters]
-release_zone = "upstream"
+release_zone = "domain"
 max_particles = 300
 porosity = 0.05
 release_times_days = [0.0]
-stop_time_days = 3650.0
-track_time_step_days = 30.0
+stop_time_days = 36500.0
+track_time_step_days = 180.0
 ```
+
+The flow model covers three years. The particles go on after its last step on the last
+flow field, because {toml}`transport.modflow6prt.parameters.extend_tracking` is on by
+default. A stop time that cuts the slowest particles short piles them on the last bin of
+the residence-time distribution.
 
 ## 6. Ask for the figures
 
@@ -248,7 +272,7 @@ base_config = "step4_transient.toml"
 figures__append = ["particle_tracks", "residence_time_distribution"]
 
 [display.overrides.particle_tracks]
-max_tracks = 200
+max_tracks = 300
 ```
 
 - `particle_tracks` draws the paths in plan view over the catchment, coloured by travel time
@@ -261,39 +285,84 @@ max_tracks = 200
 display.figures
 ```
 
-## 7. Check and run
+## 7. Run it and read the result
 
-Save the blocks above as `step4_particles.toml` in the folder of example 04, then:
+The file of this guide holds steps 2 to 6. It draws only the two particle figures.
 
+::::{tab-set}
+
+:::{tab-item} Command line
 ```bash
-hmp config check step4_particles.toml
-hmp run step4_particles.toml
+hmp config check guide_particles.toml
+hmp run guide_particles.toml
+hmp viz show @last particle_tracks
 ```
+:::
+
+:::{tab-item} Python
+```python
+import hydromodpy as hmp
+
+run = hmp.run("guide_particles.toml")
+hmp.figure(run, "particle_tracks", max_tracks=300)
+hmp.figure(run, "residence_time_distribution")
+```
+:::
+
+::::
 
 `hmp config check` validates the schema only. It does not build the plan and it does not
 know the release zone names. A wrong solver name, a missing flow process or a misspelt zone
 only shows when you run. The messages are in the next section.
 
-The run first solves the flow, then the particles. The console shows "Writing particle
-tracking input files" and "Solving particle tracking" for the second part.
+The run first solves the flow, then the particles. With `-v`, the console shows "Writing
+particle tracking input files" and "Solving particle tracking" for the second part.
 
-When it ends, check three things.
+The paths run from the hillslopes to the valleys, where the drains take the water out.
+Most particles reach a valley within a few years; the ones released far from a stream,
+on the plateaus, travel for decades:
+
+```{figure} /_static/figures/guides/track-particles/particle_tracks.webp
+:alt: Map of 300 particle paths over the Nançon catchment, coloured by travel time, running from the hillslopes to the valleys.
+
+`particle_tracks` of the file of this guide.
+```
+
+On this model, 296 of the 300 particles moved. Their mean travel time is 5.5 years, and
+the distribution falls off close to the exponential law of one well-mixed store, the line
+of the figure:
+
+```{figure} /_static/figures/guides/track-particles/residence_time_distribution.webp
+:alt: Residence-time distribution of the particles on log axes, close to an exponential law, mean 5.5 years.
+
+`residence_time_distribution` of the same run.
+```
+
+When the run ends, check three things.
 
 - **The figures.** `hmp viz list` shows `particle_tracks` and `residence_time_distribution`.
-  To draw one again for the last run:
-
-  ```bash
-  hmp viz show @last particle_tracks
-  ```
-
-  The file goes to `runs/<run>/figures/particle_tracks.png` unless you give `--output`.
+  `hmp viz show` writes a figure to `runs/<run>/figures/<figure>.png` unless you give
+  `--output`.
 - **The store.** The paths are in the `particles` group of `runs/<name>/fields.zarr/`. The
   arrays `x`, `y`, `z` and `time` have the shape (particle, track step). `x`, `y` and `z` use the
   coordinates of the mesh, `z` being an elevation. A particle with fewer records than the
   longest one is padded with NaN. `time` is in days: it is the absolute time of the
   simulation, so a travel time is the last time minus the first. The arrays `status` and
   `reason` are there when the solver file carries those columns. The group records its
-  `time_units`, the file it was read from and the solver.
+  `time_units`, the file it was read from and the solver. `hmp export` does not list the
+  paths, so read them from the store:
+
+  ```python
+  import numpy as np
+  import zarr
+
+  paths = zarr.open_group("runs/nancon_guide_particles/fields.zarr", mode="r")["particles"]
+  time = np.asarray(paths["time"])  # days, one row per particle, padded with NaN
+  travel = np.nanmax(time, axis=1) - np.nanmin(time, axis=1)
+  print(f"median travel time: {np.nanmedian(travel) / 365.25:.1f} years")
+  ```
+
+  On the run of this guide it prints 3.3 years.
 - **The solver file.** MODFLOW 6 writes `<model name>_prt.trk.csv` in the solver folder. The
   run deletes that folder when the results are stored, unless you ask to keep it. Keep it to
   read the raw records:
@@ -321,22 +390,24 @@ transport.modflow6prt.parameters.write_track_binary
 
 The messages below are the ones the code prints. Names in angle brackets stand for your values.
 
-| Message | Cause and fix |
-|---|---|
-| `Simulation process '<id>' (transport/modflow6_prt) requires an earlier process using flow/modflow6.` | The plan has no MODFLOW 6 flow process before the particle process. Declare flow first. In a file that inherits a list of processes, use `[[simulation.process__append]]`, as in step 2. |
-| `Unsupported simulation process/solver pair: transport/<name>.` | The solver name is wrong. It is `modflow6_prt`. |
-| `At most one process of each type is supported. Duplicate 'transport' process found.` | You declared two transport processes. A simulation takes one. |
-| `Unsupported modflow6prt release_zone '<name>'; expected domain, domain_nonriver, upstream, upstream_nonriver, river, outlet, or custom.` | The zone name is misspelt. The file check does not catch it. |
-| `release_zone='custom' requires particle_cell_ids.` | Add {toml}`transport.modflow6prt.parameters.particle_cell_ids`. |
-| `MODFLOW 6 PRT release zone '<name>' selected no cells.` | The zone is empty. With `river` and no stream boundary, this is expected: see step 3. For `custom`, none of your ids is an active cell. |
-| `track_time_step_days requires stop_time_days.` | You gave a step without a stop time, and no list of tracking times. Add {toml}`transport.modflow6prt.parameters.stop_time_days`. |
-| `No PRT porosity set; falling back to the flow specific yield` | A warning, not an error. Set {toml}`transport.modflow6prt.parameters.porosity`, as in step 4. |
-| `[HMPY.E401] Particle transport solver 'modflow6_prt' failed for run '<run>'.` | MODFLOW 6 stopped during the particle solve. The message names the folder to open. Run `hmp doctor --prt` first: an executable older than 6.5.0 rejects the particle model. |
-| `No MODFLOW 6 PRT track CSV found in <folder>` | A warning. The solver wrote no CSV, so nothing was stored. Check {toml}`transport.modflow6prt.parameters.write_track_csv`. |
-| `figure 'particle_tracks' does not apply to this run: missing result field(s): particles` | The run stored no path. Either it has no particle process, or no CSV file was read (previous row). |
-| `figure 'particle_tracks' does not apply to this run: run holds no particle pathline: no particle moved from its release point` | The group exists, but no particle has two positions. Open the CSV file with `keep_solver_files = true` and read it. |
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Simulation process '<id>' (transport/modflow6_prt) requires an earlier process using flow/modflow6.` | The plan has no MODFLOW 6 flow process before the particle process. | Declare flow first. In a file that inherits a list of processes, use `[[simulation.process__append]]`, as in step 2. |
+| `Unsupported simulation process/solver pair: transport/<name>.` | The solver name is wrong. | Write `modflow6_prt`. |
+| `At most one process of each type is supported. Duplicate 'transport' process found.` | Two transport processes. | Keep one: a simulation takes one. |
+| `Unsupported modflow6prt release_zone '<name>'; expected domain, domain_nonriver, upstream, upstream_nonriver, river, outlet, or custom.` | The zone name is misspelt. The file check does not catch it. | Write a name of the table of step 3. |
+| `release_zone='custom' requires particle_cell_ids.` | A custom zone without its cells. | Add {toml}`transport.modflow6prt.parameters.particle_cell_ids`. |
+| `MODFLOW 6 PRT release zone '<name>' selected no cells.` | The zone is empty. With `river` and no stream boundary, this is expected (step 3). For `custom`, none of your ids is an active cell. | Pick another zone, or other cells. |
+| `track_time_step_days requires stop_time_days.` | A step without a stop time, and no list of tracking times. | Add {toml}`transport.modflow6prt.parameters.stop_time_days`. |
+| `No PRT porosity set; falling back to the flow specific yield` (warning) | No porosity: the particles move too fast. | Set {toml}`transport.modflow6prt.parameters.porosity`, as in step 4. |
+| `[HMPY.E401] Particle transport solver 'modflow6_prt' failed for run '<run>'.` | MODFLOW 6 stopped during the particle solve. The message names the folder to open. | Run `hmp doctor --prt` first: an executable older than 6.5.0 rejects the particle model. |
+| `No MODFLOW 6 PRT track CSV found in <folder>` (warning) | The solver wrote no CSV, so nothing was stored. | Check {toml}`transport.modflow6prt.parameters.write_track_csv`. |
+| `figure 'particle_tracks' does not apply to this run: missing result field(s): particles` | The run stored no path: it has no particle process, or no CSV file was read. | See the two rows above. |
+| `figure 'particle_tracks' does not apply to this run: run holds no particle pathline: no particle moved from its release point` | The group exists, but no particle has two positions. | Keep the solver files (`keep_solver_files = true`) and read the CSV. |
+| A spike on the last bin of `residence_time_distribution` | The stop time cut the slowest particles short. | Raise {toml}`transport.modflow6prt.parameters.stop_time_days`. |
+| `transport.modflow6prt.parameters.track_dir: Input should be 'forward' (input='backward')` | Backward tracking on PRT. | PRT tracks forward only; see {doc}`transport-and-particles` for MODPATH. |
 
-A wrong direction is refused by the file check. Only forward tracking exists.
+A backward direction is refused by the file check:
 
 ```toml
 # not checked: shows a mistake on purpose
@@ -359,5 +430,8 @@ transport.modflow6prt.parameters.track_dir
 - The keys of the particle process, with their defaults and units, are in the
   {doc}`transport reference <../reference/parameters/transport>`.
 - If the flow run stops before the particles start, see {doc}`non-convergence`.
+- Solute transport and MODPATH, for a MODFLOW-NWT model or a backward tracking: see
+  {doc}`transport-and-particles`.
 - To pick a solver family, see {doc}`choose-a-solver`.
-- To export or compare what a run stored, see {doc}`results-and-exports`.
+- To export what a run stored, see {doc}`export-results`; to compare runs, see
+  {doc}`compare-runs`.

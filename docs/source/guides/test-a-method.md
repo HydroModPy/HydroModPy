@@ -3,13 +3,26 @@
 You have a way of building or solving the model, and you want to know how it behaves on
 twenty catchments, not on one. After these steps one file expands a table of catchments
 and a list of variants into one child file each, runs the children one after the other,
-and writes tables that put the variants side by side. A second profile, `regional_lab`,
-does the same for child files you already have, and records what it planned, skipped,
-reused and failed.
+and writes tables that put the variants side by side. If the child files already exist, the
+`regional_lab` profile plans and records a whole campaign over them: {doc}`regional-lab`.
 
-The worked case is example 04, `examples/projects/04_streamflow_intermittence_in_transient`.
-The variants are two aquifer thicknesses, 30 m and 50 m. The sites are Nançon and
-placeholders. Take the structure from them, not the numbers.
+The worked case chains two guides. {doc}`select-catchments` finds five basins of about 20 km2
+around the Nançon. This guide tests two aquifer thicknesses, 30 m and 50 m, on each of them.
+Take the structure from the example, not the numbers.
+
+```{hmp-task}
+Task
+: Run one change of the model on a table of catchments, and read the evidence side by side.
+
+Time
+: Planning takes seconds. The ten cases of this page took 111 s: 10 to 12 s each. A second run of the same file took 6 s, the children being read and not solved again.
+
+Needs
+: A base file that runs and depends on no single catchment, a table of outlets, and the MODFLOW 6 executable (`hmp doctor`).
+
+Gives
+: The child files, the tables `testbed_cases.csv` and `testbed_metrics.csv`, a report, and one catalog run per case.
+```
 
 ## What you need first
 
@@ -33,19 +46,18 @@ testbed.profile
 
 ## Choose a profile
 
-| | generic testbed | `regional_lab` profile |
+| | generic testbed (this page) | `regional_lab` profile ({doc}`regional-lab`) |
 |---|---|---|
 | You write | the base file, the cases, the metrics | one child file per site and recipe, and a catalog of sites |
 | The tool writes | the child files, then the tables | nothing but the tables and the plan |
 | Variants | an overlay per case | one recipe per variant, each with its own file template |
 | Metrics | you name them, read from the stored run | status, duration and wall time per case |
 | Interrupted run | children already solved are not solved again | the report says which cases are done, and they are skipped |
-| A site that cannot run | a row that lacks a required column stops the plan | a line in the plan with the reason |
+| A site that cannot run | a case that fails is recorded, and the command ends with exit code 23 | a line in the plan with the reason |
 
 Start with the generic testbed. It tells you quickly whether an overlay isolates the
 variant you mean to test. Use `regional_lab` when the child files exist, differ by more than
-an overlay, or when a campaign is long enough to be interrupted. Steps 1 to 7 are the generic
-testbed, {ref}`regional-lab` is the other profile.
+an overlay, or when a campaign is long enough to be interrupted.
 
 ## What a testbed does
 
@@ -58,56 +70,77 @@ testbed, {ref}`regional-lab` is the other profile.
 
 The testbed owns the matrix of cases and the evidence. It does not solve anything itself.
 
-Relative paths are made absolute before the child is written. A path of the base file is
-read from the folder of the base file, and a path of an overlay from the folder of the
-testbed file. A value counts as a path when its key contains `path`, `root`, `dir`,
-`folder`, `file` or `mask`. Step 3 shows the consequence.
+Relative paths are made absolute before the child is written, and only the ones the child
+schema declares as paths. A path of the base file is read from the folder of the base file, and a
+path of an overlay from the folder of the testbed file. A value becomes absolute when its field is
+typed as a path or as an input file, or when it is a text named `path` or ending in `_path`,
+`_file`, `_dir`, `_root` or `_folder`. A choice such as `track_dir = "forward"` or a text such as
+`profile = "x"` is copied as written. A bare file name given to an input-file key, such as
+`DEM_armorican_massif.tif`, and absent from the folder of the base file, stays bare: the child
+looks for it in the data folders of the workspace, as {doc}`use-your-own-files` says.
 
 ## 1. Write the catalog
 
 One row per catchment. The columns you name in the file are read, and any other column is
-available as a placeholder.
+available as a placeholder. Here is the file `regional_lab_sites.csv` that the area route of
+{doc}`select-catchments` wrote, saved as `sites.csv`, with the columns the testbed uses:
 
 ```text
-site_id,site_label,x_outlet,y_outlet,tags
-nancon,Nancon,389285.910,6816518.749,selected
-site_b,Site B,389500.0,6817000.0,selected
-site_c,Site C,390000.0,6818000.0,spare
+site_id,site_label,x_outlet,y_outlet,area_km2,tags
+dem_area_00001,dem_area_00001,382950.0,6820500.0,20.10375,site_selection;nancon_area
+dem_area_00002,dem_area_00002,375600.0,6826725.0,19.895625,site_selection;nancon_area
+dem_area_00003,dem_area_00003,396000.0,6825150.0,20.154375,site_selection;nancon_area
+dem_area_00004,dem_area_00004,375075.0,6810750.0,19.749375,site_selection;nancon_area
+dem_area_00005,dem_area_00005,385875.0,6805800.0,20.311875,site_selection;nancon_area
 ```
 
-The first row is the outlet of example 04. The other two are placeholders: write the
-outlets of your catchments. The columns `site_id`, `site_label`, `x_outlet`, `y_outlet`,
-`tags` and `enabled` are among those of `regional_lab_sites.csv`, the table that a site
-selection writes, so the output of {doc}`select-catchments` can feed this step. A row whose
+The columns `site_id`, `site_label`, `x_outlet`, `y_outlet`, `tags` and `enabled` are among
+those of that file, so the output of a site selection feeds this step with no editing. The
+catalog can also take the file through the manifest, see {doc}`regional-lab`. A row whose
 `enabled` column is false is dropped.
 
 ## 2. Declare the testbed
 
 ```toml
-# not checked: fragment of testbed.toml, the whole file is shown after step 4
 [workflow]
 mode = "testbed"
 
 [testbed]
-id = "depth_model_test"
+id = "depth_on_five_basins"
 subject = "flow"
 base_config = "step1_minimal.toml"
-output_root = "outputs/depth_model_test"
+output_root = "outputs/depth_on_five_basins"
 execute = false
 
 [testbed.runner]
 type = "simulation"
+no_display = true
 
 [testbed.catalog]
 path = "sites.csv"
 id_field = "site_id"
 label_field = "site_label"
-tags = ["selected"]
+tags = ["site_selection"]
 required_fields = ["site_id", "x_outlet", "y_outlet"]
+
+[[testbed.case_from_catalog]]
+id_template = "{site_id}_30m"
+axis_template = "thickness_30m"
+
+[testbed.case_from_catalog.overlay.simulation]
+name = "{site_id}_30m"
+
+[testbed.case_from_catalog.overlay.geographic.catchment]
+x_outlet = "{x_outlet}"
+y_outlet = "{y_outlet}"
+
+[testbed.case_from_catalog.overlay.domain.depth_model]
+thickness = "30 m"
 ```
 
 `execute = false` plans the cases and writes the child files without running them. Keep it
-until step 5 is done.
+until step 5 is done. The block is the start of the file, with the rule of step 3 for 30 m; the
+whole file is at the end of step 4.
 
 ```{hmp-params}
 testbed.id
@@ -116,6 +149,7 @@ testbed.base_config
 testbed.output_root
 testbed.execute
 testbed.runner.type
+testbed.runner.no_display
 testbed.catalog.path
 testbed.catalog.id_field
 testbed.catalog.label_field
@@ -127,11 +161,13 @@ testbed.catalog.required_fields
   transport subjects require it.
 - {toml}`runner.type|testbed.runner.type` says what runs a case. `simulation` runs one
   simulation file. `comparison` runs one comparison file, see {ref}`testbed-comparison`.
-  `calibration` runs one calibration file.
-- A row stays when it carries every tag of {toml}`tags|testbed.catalog.tags`. Here the row
-  of `site_c` is left out.
+  `calibration` runs one calibration file, see the metrics of step 4.
+- A row stays when it carries every tag of {toml}`tags|testbed.catalog.tags`. The five rows
+  above carry `site_selection`.
 - Without {toml}`output_root|testbed.output_root` the files go to `testbed/<id>` next to the
   testbed file.
+- {toml}`no_display|testbed.runner.no_display` skips the figures of the children. Their
+  `[display]` figures are the longest part of a small run.
 
 ```{note}
 The `[testbed]` table refuses a key it does not know: `exceute = false` stops the file with
@@ -146,7 +182,27 @@ holds a column name between braces is replaced by the value of that column. When
 string is one placeholder, the value keeps its type, so `"{x_outlet}"` becomes a number.
 
 ```toml
-# not checked: fragment of testbed.toml, the whole file is shown after step 4
+[workflow]
+mode = "testbed"
+
+[testbed]
+id = "depth_on_five_basins"
+subject = "flow"
+base_config = "step1_minimal.toml"
+output_root = "outputs/depth_on_five_basins"
+execute = false
+
+[testbed.runner]
+type = "simulation"
+no_display = true
+
+[testbed.catalog]
+path = "sites.csv"
+id_field = "site_id"
+label_field = "site_label"
+tags = ["site_selection"]
+required_fields = ["site_id", "x_outlet", "y_outlet"]
+
 [[testbed.case_from_catalog]]
 id_template = "{site_id}_30m"
 axis_template = "thickness_30m"
@@ -155,7 +211,6 @@ axis_template = "thickness_30m"
 name = "{site_id}_30m"
 
 [testbed.case_from_catalog.overlay.geographic.catchment]
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 
@@ -170,7 +225,6 @@ axis_template = "thickness_50m"
 name = "{site_id}_50m"
 
 [testbed.case_from_catalog.overlay.geographic.catchment]
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 
@@ -195,15 +249,11 @@ What each overlay table does:
 - {toml}`simulation.name` names the run of the case. Give every case its own name, or the
   second run takes the next free version of the name.
 - {toml}`x_outlet|geographic.catchment.x_outlet` and
-  {toml}`y_outlet|geographic.catchment.y_outlet` move the catchment to the row.
+  {toml}`y_outlet|geographic.catchment.y_outlet` move the catchment to the row. The DEM is the
+  one of the base file: `step1_minimal.toml` names it as a bare file, and the child finds it in the
+  data folder of the workspace.
 - {toml}`thickness|domain.depth_model.thickness` is the variant. Replace it by any key of the
   base file: a solver option, a mesh setting, a source of data.
-- {toml}`dem_init_path|geographic.catchment.dem_init_path` is there because of the path
-  rule above. Step 1 writes the DEM as a bare file name, and a bare name is looked for in
-  the `data/dem` folder of the workspace. The testbed turns it into a path in the folder of
-  the base file, where the DEM is not, and every child stops at its first step. Writing the
-  path in the overlay avoids that. The path above is right for the example folder, one
-  folder below `projects/`, with `data/dem/` next to `projects/`.
 
 Two rules need two id templates. Without `id_template`, both rules take the id from the
 catalog column and the testbed refuses the duplicate.
@@ -218,7 +268,7 @@ no child file.
 A metric copies one value of the child summary into a column of `testbed_metrics.csv`.
 
 ```toml
-# not checked: fragment of testbed.toml, the whole file is shown below
+# not checked: fragment of the testbed file, the whole file is shown below
 [[testbed.metrics]]
 name = "n_cells"
 source = "flow_metrics.n_cells"
@@ -231,6 +281,10 @@ required = true
 [[testbed.metrics]]
 name = "head_range_m"
 source = "flow_metrics.head_range_m"
+
+[[testbed.metrics]]
+name = "drain_out_m3_s"
+source = "flow_metrics.budget_drain_total_out"
 ```
 
 ```{hmp-params}
@@ -252,39 +306,99 @@ testbed reopens the run in its catalog and adds these blocks to the summary:
 | `flow_metrics` | the same values as flat keys, the ones to use as a source |
 
 The keys of `flow_metrics` are `duration_s`, `n_cells`, `n_layers`, `n_timesteps`;
-`param_<name>` for each parameter; `max_abs_mass_balance_percent_error`,
-`mean_mass_balance_percent_error`, `last_mass_balance_percent_error`;
-`budget_<component>_total_in`, `_total_out` and `_net`; `<field>_min`, `_max`, `_mean`,
-`_abs_max` and the counts of cells; and `head_range_m`. The component names come from the
-solver result, for example `chd` or `rcha` for MODFLOW 6.
+`param_<name>` for each parameter (`param_K`, `param_Sy`, `param_thickness`);
+`max_abs_mass_balance_percent_error`, `mean_mass_balance_percent_error`,
+`last_mass_balance_percent_error`; `budget_<component>_total_in`, `_total_out` and `_net`;
+`<field>_min`, `_max`, `_mean`, `_abs_max` and the counts of cells; and `head_range_m`. The
+component names come from the budget of the run. For the steady MODFLOW 6 run of this page they
+are `drain`, `recharge`, `storage_ss` and `storage_sy`.
 
 - A metric that is not found is an empty cell. With `required = true` it fails the case.
 - With no metric at all, `testbed_metrics.csv` holds every numeric value of the summary, as
   flat columns.
+- A field the run did not store gives a warning, and its metrics are left out: `Skipping testbed
+  field metrics: field 'outflow_drain' is not in the store. Set [simulation.results.derived]
+  outflow_drain = true and run the simulation again: this field is written during the run, not on
+  read.` Put the flag in the overlay or in the base file.
 - The older spelling `[[testbed.metric]]` is refused: write `[[testbed.metrics]]`.
 
-The whole file, ready to check:
+### Discharge metrics
+
+The metrics above are the flow of the model, not a score against a gauge. Three ways to read
+the discharge, from the least to the most demanding:
+
+- **The simulated discharge of a case.** `budget_drain_total_out` is the water that leaves
+  through the drains in the zone the budget covers, in m3/s. For a steady run it is the baseflow
+  to the streams, to read beside `budget_recharge_total_in`, the recharge that enters. On the
+  five basins it ranged from 0.14 to 0.24 m3/s for 0.18 m3/s of recharge. The run warns that this
+  discharge is baseflow only when it has no runoff forcing.
+- **A score against a gauge, with the `calibration` runner.** The child is a calibration file,
+  and the summary is the report of the calibration. `best_objective` is the lowest cost the
+  search reached, in the units of the objective of the file (the objective is scored against the
+  observed discharge, so a lower cost is a better score). `best_parameters.<name>`,
+  `n_iterations` and `duration_s` are in the summary too. A calibration needs observations for
+  every site, so the base file cannot carry the gauge of the Nançon for all of them.
+
+  ```toml
+  [workflow]
+  mode = "testbed"
+
+  [testbed]
+  id = "calibration_on_sites"
+  subject = "flow"
+  base_config = "run_calibration.toml"
+  output_root = "outputs/calibration_on_sites"
+  execute = false
+
+  [testbed.runner]
+  type = "calibration"
+
+  [testbed.catalog]
+  path = "sites.csv"
+  id_field = "site_id"
+  required_fields = ["site_id", "x_outlet", "y_outlet"]
+
+  [[testbed.case_from_catalog]]
+  id_template = "{site_id}"
+
+  [testbed.case_from_catalog.overlay.geographic.catchment]
+  x_outlet = "{x_outlet}"
+  y_outlet = "{y_outlet}"
+
+  [[testbed.metrics]]
+  name = "best_cost"
+  source = "best_objective"
+  ```
+
+  This file is checked against its schema only: no calibration was run on many sites for this
+  page.
+- **A comparison of simulations on a discharge observable**, with the `comparison` runner, see
+  the last section of this page.
+
+## The whole file
+
+The whole file of the five basins, ready to check:
 
 ```toml
-# not checked: testbed file, hmp config check reads it with its own schema
 [workflow]
 mode = "testbed"
 
 [testbed]
-id = "depth_model_test"
+id = "depth_on_five_basins"
 subject = "flow"
 base_config = "step1_minimal.toml"
-output_root = "outputs/depth_model_test"
+output_root = "outputs/depth_on_five_basins"
 execute = false
 
 [testbed.runner]
 type = "simulation"
+no_display = true
 
 [testbed.catalog]
 path = "sites.csv"
 id_field = "site_id"
 label_field = "site_label"
-tags = ["selected"]
+tags = ["site_selection"]
 required_fields = ["site_id", "x_outlet", "y_outlet"]
 
 [[testbed.case_from_catalog]]
@@ -295,7 +409,6 @@ axis_template = "thickness_30m"
 name = "{site_id}_30m"
 
 [testbed.case_from_catalog.overlay.geographic.catchment]
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 
@@ -310,7 +423,6 @@ axis_template = "thickness_50m"
 name = "{site_id}_50m"
 
 [testbed.case_from_catalog.overlay.geographic.catchment]
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 
@@ -329,6 +441,10 @@ required = true
 [[testbed.metrics]]
 name = "head_range_m"
 source = "flow_metrics.head_range_m"
+
+[[testbed.metrics]]
+name = "drain_out_m3_s"
+source = "flow_metrics.budget_drain_total_out"
 ```
 
 ## 5. Check and plan
@@ -343,16 +459,16 @@ the base file, the catalog or the overlays.
 
 With `execute = false`, `hmp run` expands the cases and writes the child files and the
 tables, then prints `Workflow 'testbed' complete: testbed.toml` and the keys of the
-summary. `case_count` is 4 here: two rules, two sites. `executed_count` is 0.
+summary. `case_count` is 10 here: two rules, five sites. `executed_count` is 0.
 
 Open the plan before you pay for any solve.
 
 1. `testbed_cases.csv` has one row per case, with the status `planned`, the `axis` and the
    path of the child file.
-2. In `outputs/depth_model_test/_generated_configs/`, open `site_b_50m.toml`. Read the
+2. In `outputs/depth_on_five_basins/_generated_configs/`, open `dem_area_00004_50m.toml`. Read the
    outlet, the thickness and the path of the DEM. The file is a normal simulation file:
    `hmp config check` accepts it, and `hmp run` runs it by hand.
-3. Check that the path of the DEM exists. `hmp config check` does not look for it.
+3. Check that the DEM exists where the child will look for it. `hmp config check` does not look.
 
 `testbed_metrics.csv` is empty at this stage: it holds one row per executed case.
 
@@ -370,18 +486,26 @@ the testbed writes its tables, then raises the error of the failed case.
 
 ```{hmp-params}
 testbed.continue_on_error
-testbed.runner.no_display
 ```
 
 - Each case is an ordinary run of the project of the base file, named by
   {toml}`simulation.name`. `hmp catalog ls` lists them, and the guide
-  {doc}`find-compare-and-clean-runs` shows how to open, compare and delete them.
+  {doc}`find-and-compare-runs` shows how to open and compare them, and
+  {doc}`clean-and-reindex-runs` how to delete them.
 - A child whose resolved configuration equals a completed run of the project is not solved
-  again, and the testbed still reads its results. After a failure, run the file again: the
-  children that completed are read, the others are solved.
-- When a case failed, `hmp run` writes every file of the evidence, then stops with exit
-  code 23 (`FailedCasesError`). Read `failed_count` in the summary, or the `status` column
-  of `testbed_cases.csv`, to see which cases failed.
+  again, and the testbed still reads its results. The second run of the file above took 6 s,
+  with 0.2 s for each case. After a failure, run the file again: the children that completed are
+  read, the others are solved.
+- When a case failed, `hmp run` writes every file of the evidence, then ends with the exit code
+  23 (`FailedCasesError`), so that a script or a CI job sees it. It prints the cases that failed
+  and the report to read:
+
+  ```text
+  testbed 'one_fails': 1 of 2 case(s) failed: outside_the_dem. Read outputs/one_fails/testbed_report.md.
+  ```
+
+  Read `failed_count` in the summary, or the `status` column of `testbed_cases.csv`, to see
+  which cases failed. In Python, the summary is the `.summary` of the exception.
 
 ## 7. Read the evidence
 
@@ -404,12 +528,80 @@ side:
 ```python
 import pandas as pd
 
-metrics = pd.read_csv("outputs/depth_model_test/testbed_metrics.csv")
+metrics = pd.read_csv("outputs/depth_on_five_basins/testbed_metrics.csv")
 ok = metrics[metrics["status"] == "ok"]
-print(ok.pivot(index="case_label", columns="axis", values="head_range_m"))
+print(ok.pivot(index="case_label", columns="axis", values="head_range_m").round(1))
 ```
 
-A site that failed under one variant has no value in its column. Look at its `error` first.
+```text
+axis            thickness_30m  thickness_50m
+case_label
+dem_area_00001           54.2           38.1
+dem_area_00002           78.9           72.4
+dem_area_00003           39.6           33.2
+dem_area_00004           60.0           51.1
+dem_area_00005           39.2           30.1
+```
+
+On the five basins the head range, the difference between the highest and the lowest head, is
+smaller with the thicker aquifer on every one, by 6 to 16 m, and the number of cells is the same in
+the two columns (6 080 to 7 308), as it should be: the thickness moves the bottom of the model,
+not its mesh. The mass balance closes on every case (`max_abs_balance_error` is 0.0). A site that
+failed under one variant has no value in its column. Look at its `error` first.
+
+## The subjects: flow, mesh and transport
+
+{toml}`testbed.subject` says what the testbed is about. It sets the runners a case may use and
+whether `base_config` is required.
+
+| Subject | Runners | `base_config` | The child is |
+|---|---|---|---|
+| `flow` | `simulation`, `comparison`, `calibration` | required | a flow model, a comparison of flow models, or a calibration |
+| `mesh` | `simulation` | optional | a simulation with a mesh process: the testbed adds `[[simulation.process]] type = "mesh"`, `backend = "catchment"` when the file declares none |
+| `transport` | `simulation`, `comparison` | required | a transport model, or a comparison of transport models |
+
+A subject left out is `mesh`. A runner the subject does not accept is refused at the check. The
+cases, the catalog, the metrics and the evidence are the same for the three. What changes is
+what the child produces, and so which sources a metric can read: the budget and field blocks of
+step 4 exist for a child that stored a flow run.
+
+A mesh testbed varies a meshing option over a table of catchments. The base file is a simulation
+file with a `[mesh_catchment]` section, which example 04 does not have, so this block is checked
+against the schema only:
+
+```toml
+[workflow]
+mode = "testbed"
+
+[testbed]
+id = "mesh_resolution"
+subject = "mesh"
+base_config = "mesh_base.toml"
+output_root = "outputs/mesh_resolution"
+execute = false
+
+[testbed.runner]
+type = "simulation"
+
+[[testbed.case]]
+id = "coarse"
+axis = "resolution"
+
+[testbed.case.overlay.mesh_catchment.zone_meshing]
+global_size = 3500.0
+
+[[testbed.case]]
+id = "fine"
+axis = "resolution"
+
+[testbed.case.overlay.mesh_catchment.zone_meshing]
+global_size = 1600.0
+```
+
+A transport testbed has the same shape, with `subject = "transport"` and a base file that
+declares a `[transport]` section; the comparison runner compares the transport solvers. The
+base file must be a transport model that runs: example 04 has none, and this page ran no
+transport or mesh case.
 
 (testbed-comparison)=
 ## Compare several methods on each site
@@ -420,7 +612,6 @@ base. Each case then runs one comparison, with its audit, its metrics and its fi
 work at every site, as in the first section of this page.
 
 ```toml
-# not checked: comparison file, the base of a comparison testbed
 [workflow]
 mode = "comparison"
 
@@ -443,21 +634,20 @@ solver = "modflow6"
 mf6_ims_complexity = "MODERATE"
 
 [[comparison.observable]]
-name = "head_outlet"
+name = "head_last"
 variable = "watertable_elevation"
-support = "point"
-x = 389285.910
-y = 6816518.749
-time = "all"
+support = "map"
+time = "last"
 unit = "m"
 ```
 
-Save it as `compare_ims.toml`. The testbed file sets what changes with the site: the name
-and folder of the comparison, the catchment of the base simulation, and the point of the
-observable.
+Save it as `compare_ims.toml`. The observable is a map, because the two children share the
+grid: a `point` given by `x` and `y` needs a mesh bundle to find its cell, which a structured
+grid does not have, and the comparison would stop with `Point observable '<name>' needs a mesh
+bundle cells.csv for x/y lookup, or a cell_index.` The testbed file sets what changes with the
+site: the name and folder of the comparison, and the catchment of the base simulation.
 
 ```toml
-# not checked: testbed file, hmp config check reads it with its own schema
 [workflow]
 mode = "testbed"
 
@@ -474,7 +664,7 @@ type = "comparison"
 [testbed.catalog]
 path = "sites.csv"
 id_field = "site_id"
-tags = ["selected"]
+tags = ["site_selection"]
 required_fields = ["site_id", "x_outlet", "y_outlet"]
 
 [[testbed.case_from_catalog]]
@@ -485,335 +675,75 @@ comparison_id = "ims_{site_id}"
 output_root = "outputs/ims_on_sites/comparisons/{site_id}"
 
 [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
-dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
-
-[[testbed.case_from_catalog.overlay.comparison.observable]]
-x = "{x_outlet}"
-y = "{y_outlet}"
 ```
 
-- The path of the DEM is written in the overlay for the reason given in step 3.
-- The last table has the same length as the list of observables of the base file, so the
-  two lists merge element by element: the observable keeps its name, variable and unit and
-  takes the point of the site. With one observable more or less in the overlay, the
-  overlay would replace the list. {doc}`inheritance` gives the rule.
+- `base_simulation_overlay` is the part of the comparison file that every child inherits: it
+  moves the catchment of the base simulation to the row. The DEM stays the bare name of
+  `step1_minimal.toml`. Each child runs in a workspace of its own, so the testbed looks the name
+  up in the data folder of the workspace of the base file, and writes the path it finds into the
+  child. A name found nowhere stays bare, and the child stops at its first step.
+- To change a list of the comparison for each site, such as the list of observables, write
+  `observable__merge` instead of `observable` in the overlay: the table then merges, element by
+  element, into the one of the base file, and the directive is refused when the lengths differ.
+  {doc}`inheritance` gives the rule.
 - With no `[[testbed.metrics]]`, `testbed_metrics.csv` holds a default summary of each
   comparison: `comparison_id`, `audit_status`, `n_metric_rows`, `n_difference_rows` and the
   numerical closure columns when the comparison produced them.
 - Read the audit of a comparison before its metrics, as {doc}`compare-runs` says.
 
-(regional-lab)=
-## The regional_lab profile
+The files above ran on the five basins of step 1, with `execute = true`. It took 180 s, 34 to 38 s
+for each site, and ended with the exit code 23 because two cases failed. This is the evidence, in
+`testbed_metrics.csv` (the column `closure_max_abs_mm_d` is empty and left out):
 
-Use it when a child file already exists for each site, and you want one plan and one report
-for the whole campaign. The file keeps `[workflow].mode = "testbed"`, and selects the
-profile in {toml}`testbed.profile`. The settings of the campaign are in a table
-`[regional_lab]`.
+| `case_id` | `status` | `audit_status` | `n_difference_rows` | `closure_max_abs_m3_s` | `closure_relative_error_p95` |
+|---|---|---|---:|---:|---:|
+| `dem_area_00001` | `failed` | | | | |
+| `dem_area_00002` | `ok` | `pass` | 7308 | 0.0125 | 0.0114 |
+| `dem_area_00003` | `failed` | | | | |
+| `dem_area_00004` | `ok` | `pass` | 6256 | 0.0090 | 0.0090 |
+| `dem_area_00005` | `ok` | `pass` | 6080 | 0.0295 | 0.0290 |
 
-The reference lists the keys of this table under `analysis.batch`: the two names are one
-model, and the links below point there. In a testbed file you write `[regional_lab]`,
-because `hmp run` reads that name. A testbed file with the same keys under
-`[analysis.batch]` is refused.
-
-### The child files
-
-One file per site. It is a normal simulation file. It sits in a subfolder here, so it
-states its project folder: without that line the folder of the child becomes the project,
-and the DEM is not found.
-
-```toml
-base_config = "../step1_minimal.toml"
-
-[workspace]
-project_root = ".."
-
-[simulation]
-name = "site_b_regional"
-
-[geographic.catchment]
-x_outlet = 389500.0
-y_outlet = 6817000.0
-```
-
-Save it as `children/site_b.toml`, and write the others the same way. A script can write
-them from your catalog.
-
-### The campaign file
-
-The catalog describes sites. It is not a model file. The columns below are the defaults; a
-column with another name is declared in {toml}`catalog|analysis.batch.catalog`.
-
-```text
-site_id,site_label,region_id,cluster_id,enabled,x,y,tags
-nancon,Nancon,brittany,headwater,true,389285.910,6816518.749,headwater;gauged
-site_b,Site B,brittany,headwater,true,389500.0,6817000.0,headwater
-site_c,Site C,brittany,regional,true,390000.0,6818000.0,regional
-```
-
-```toml
-# not checked: a regional_lab file is read by its own schema, not by HydroModPyConfig
-[workflow]
-mode = "testbed"
-
-[testbed]
-profile = "regional_lab"
-
-[regional_lab]
-lab_id = "headwaters"
-output_root = "outputs/headwaters"
-execute = false
-
-[regional_lab.catalog]
-path = "site_catalog.csv"
-
-[regional_lab.selection]
-regions = ["brittany"]
-
-[[regional_lab.recipe]]
-id = "steady_mf6"
-label = "Steady MODFLOW 6"
-launcher = "simulation"
-config_path_template = "children/{site_id}.toml"
-```
-
-```{hmp-params}
-analysis.batch.lab_id
-analysis.batch.output_root
-analysis.batch.execute
-analysis.batch.continue_on_error
-analysis.batch.validate_config_paths
-analysis.batch.resume_from_report
-analysis.batch.skip_completed_cases
-analysis.batch.catalog.path
-analysis.batch.selection.regions
-analysis.batch.selection.tags
-analysis.batch.recipes.id
-analysis.batch.recipes.launcher
-analysis.batch.recipes.config_path_template
-```
-
-The expansion goes in this order:
-
-```text
-catalog of sites
-  -> cluster rules (optional)
-  -> global selection
-  -> selection of each recipe
-  -> one case per site and recipe, named <recipe id>::<site id>
-  -> plan, then execution
-  -> tables and report
-```
-
-- A recipe turns the row of a site into the path of a child file. Any column of the
-  catalog can appear in the template, with `site_id` and `lab_id`.
-- {toml}`launcher|analysis.batch.recipes.launcher` is `simulation` or `comparison`. Several
-  recipes can use different launchers in one campaign.
-- Selection filters keep the sites that match every filter you give: regions, clusters,
-  families, scales, statuses, maturity levels, site ids and tags. A site must carry every
-  tag listed. `limit` keeps the first sites in the order of region, cluster and site id.
-- {toml}`cluster_rules|analysis.batch.cluster_rules` give a cluster to sites that have none,
-  by their region, tags or any column.
-- A site-selection manifest can replace the catalog `path`. Write
-  `from_site_selection_manifest = "<manifest.json>"` and, optionally, `output = "<key>"`
-  in the catalog table, in a regional lab or in a generic testbed. The default key is
-  `regional_lab_sites_csv`. The option
-  {toml}`write_regional_lab_csv|site_selection.output.write_regional_lab_csv` of a site
-  selection writes that file. A catalog table holding both `path` and the manifest key is
-  refused.
-
-### Plan, then run
-
-```bash
-hmp config check regional.toml
-hmp run regional.toml
-```
-
-With `execute = false` the command plans and writes the tables. The summary it prints has
-`selected_site_count`, `planned_case_count` and `skipped_case_count`. A pair of site and
-recipe that cannot run is skipped with a reason, not with an error:
-
-| Status in the case matrix | Meaning |
-|---|---|
-| `skipped_missing_config_path` | the child file of the template does not exist and `validate_config_paths` is true |
-| `skipped_missing_required_fields` | the site lacks a column that the recipe lists in `required_fields` |
-| `skipped_unsupported_platform` | the recipe lists `allowed_platforms` and this one is not in it |
-
-With the three sites above and no file for `site_c`, the plan has two cases and one skipped
-case, and the summary lists the gap:
-
-```text
-## Coverage Gaps
-
-- `steady_mf6` / `site_c`: missing_config_path (Resolved child config is missing: <folder>/children/site_c.toml)
-```
-
-When the plan is right, set `execute = true`. The cases run in order, each through the
-launcher of its recipe, and every table is rewritten after each case.
-
-- A case is `ok` or `failed`. The report keeps no message for a failed case: run the child
-  file by hand, for example `hmp run children/site_b.toml`, to read the error.
-- A second run skips the cases that the previous report marks as completed, and lists them
-  with the status `skipped_existing_ok`. Both
-  {toml}`resume_from_report|analysis.batch.resume_from_report` and
-  {toml}`skip_completed_cases|analysis.batch.skip_completed_cases` must be true. A failed
-  case is tried again.
-- With {toml}`continue_on_error|analysis.batch.continue_on_error` false, the loop stops
-  after the first failed case, and `hmp run` still exits with 0.
-
-### The files it writes
-
-All are in `output_root`. Read them in this order.
-
-1. `regional_lab_summary.md`: the counts, then one table per recipe, cluster and region,
-   then the coverage gaps with their reasons.
-2. `regional_lab_case_matrix.csv`: one row per planned or skipped case, with `status`,
-   `reason`, `detail`, `duration_seconds` and `reused_from_report`.
-3. `regional_lab_execution_metrics.csv`: one row per executed case, with the artifacts of
-   the child, such as its wall time and its project folder.
-4. `regional_lab_recipe_summary.csv`, `regional_lab_cluster_summary.csv`,
-   `regional_lab_region_summary.csv`, `regional_lab_family_summary.csv` and
-   `regional_lab_scale_summary.csv`: the counts and durations by group, with the share of
-   candidate sites that the recipe covers. A table is written only when it has rows.
-5. `regional_lab_site_inventory.csv`: the selected sites and what happened to each.
-6. `regional_lab_plan.json` and `regional_lab_report.json`: the same content for a
-   program. The report has `all_passed`, true when nothing failed and nothing is pending.
-
-The profile does not read metrics from the runs. To compare the results of the sites, open
-the runs from the catalog of each project, as in {doc}`find-compare-and-clean-runs`.
-
-### Share the terrain work between sites
-
-When the children of a campaign use one DEM, {toml}`share_regional_flow|analysis.batch.share_regional_flow`
-does the terrain analysis once. It applies when `execute` is true. It accepts simulation
-recipes with an outlet catchment and a DEM path, and refuses lake enforcement and river
-network extraction. The launcher writes the shared job in `regional_flow_jobs/` and one
-child file per case in `materialized_configs/`. A refusal names the case, for example
-`<case id>: shared flow requires an outlet catchment`.
+On three basins the two settings agree: the audit passes, and the 95th percentile of the relative
+closure error is 0.9 to 2.9 %. On the two others the `error` column says
+`Comparison child 'moderate' failed: hmp run exited with code 15` and the end of the log of the
+child, `SolverDivergedError: [HMPY.E401] Flow solver 'modflow6' failed`: IMS MODERATE did not
+converge where IMS COMPLEX did. One site would not have shown it. Run the child of such a case by
+hand, from its folder `comparisons/<site>/workspaces/moderate`, to read its `mfsim.lst`.
 
 ## What can go wrong
 
-The message that `hmp config check` or `hmp run` prints is quoted. The folder part of a
-path is replaced by `<folder>`.
+The message that `hmp config check` or `hmp run` prints is quoted. The folder part of a path is
+replaced by `<folder>`.
 
-A subject that is not known:
-
-```text
-Config invalid: Unsupported testbed.subject 'mash'. Supported values: flow, mesh, transport.
-```
-
-A runner that the subject does not accept, for example a mesh subject with a comparison:
-
-```text
-Config invalid: testbed.subject='mesh' requires runner.type to be one of simulation.
-```
-
-A flow test with no base file:
-
-```text
-Config invalid: testbed.runner.type='simulation' requires testbed.base_config to point to the delegated child workflow TOML. Keep the testbed declaration outside the child config.
-```
-
-A testbed with no case, or catalog rules with no catalog:
-
-```text
-Config invalid: testbed.case or testbed.case_from_catalog must contain at least one item
-Config invalid: testbed.case_from_catalog requires a [testbed.catalog] section
-```
-
-The old spelling of a case:
-
-```text
-Config invalid: testbed.variant is no longer supported; use testbed.case.
-```
-
-Two cases with the same id, in the same testbed or across two rules. The comparison ignores
-case:
-
-```text
-Duplicate testbed.case id 'nancon_30m'
-```
-
-Give each rule its own `id_template`.
-
-A placeholder that is not a column of the catalog, or a column that a rule requires and the
-catalog lacks:
-
-```text
-testbed.case_from_catalog[nancon_30m].overlay.geographic.catchment.x_outlet references unknown catalog field 'xx'
-testbed catalog row is missing required field(s): zz
-```
-
-A catalog or a base file that does not exist. Both are found by `hmp run`, not by
-`hmp config check`:
-
-```text
-Missing file: testbed catalog path not found: <folder>/nofile.csv
-Missing file: [Errno 2] No such file or directory: '<folder>/nope.toml'
-```
-
-A catalog whose tags filter leaves no row:
-
-```text
-testbed did not expand any case
-```
-
-A required metric that the summary does not hold. The case is marked `failed`, and the
-text is in the `error` column, after `ValueError: `:
-
-```text
-Required testbed metric 'max_abs_balance_error' could not be found at source 'flow_metrics.max_abs_mass_balance_percent_error'.
-```
-
-The usual cause is a source with a typo. The `flow_metrics` block exists for the
-`simulation` runner only, so a source that starts with it fails for a `comparison` or a
-`calibration` runner. When the run of a child cannot be reopened, the summary has a
-`catalog_extraction_error` key instead of `flow_metrics`.
-
-A child that stops at its first step. The `error` column holds the error of the child,
-here a DEM path that the testbed made absolute:
-
-```text
-StepError: step 'build_geographic' failed: RasterioIOError: <folder>/DEM_armorican_massif.tif: No such file or directory
-```
-
-Put the DEM path in the overlay, as in step 3. The same applies to any other bare file name
-that the base file leaves to the data folder of the workspace, as long as its key looks
-like a path. To see the error of a child without the testbed, run one generated file by
-hand with `hmp run <child file>`.
-
-The regional lab refuses what it does not know, where the generic testbed does not:
-
-```text
-Config invalid: <folder>/regional.toml
-  exceute: Extra inputs are not permitted (input=False)
-```
-
-Other messages of the profile:
-
-```text
-regional_lab selection did not match any site
-regional_lab.recipe[steady_mf6] references unknown template key 'site'
-Missing file: regional_lab.catalog.path not found: <folder>/nocatalog.csv
-Config invalid: <folder>/regional.toml
-  recipes.0.launcher: Value error, Unsupported regional_lab.recipe launcher 'calibration'. Use 'simulation' or 'comparison'. (input='calibration')
-```
-
-A `[regional_lab]` table in a project file, which is not a testbed file, is refused:
-
-```text
-Config invalid: <folder>/project.toml: Section [regional_lab] is not a HydroModPyConfig section. Use [analysis.batch] for regional-lab testbed settings.
-```
-
-In a testbed file the table must stay `[regional_lab]`, as above.
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Config invalid: Unsupported testbed.subject 'mash'. Supported values: flow, mesh, transport.` | A subject that is not known. | Use one of the three. |
+| `Config invalid: testbed.subject='mesh' requires runner.type to be one of simulation.` | A runner that the subject does not accept. | Use a runner of the table of subjects. |
+| `Config invalid: testbed.runner.type='simulation' requires testbed.base_config to point to the delegated child workflow TOML. Keep the testbed declaration outside the child config.` | A flow or transport test with no base file. | Write {toml}`testbed.base_config`. |
+| `Config invalid: testbed.case or testbed.case_from_catalog must contain at least one item`, or `testbed.case_from_catalog requires a [testbed.catalog] section` | A testbed with no case, or rules with no catalog. | Add a case, or the catalog table. |
+| `Config invalid: testbed.variant is no longer supported; use testbed.case.` | The old spelling of a case. | Write `testbed.case`. |
+| `Config invalid: [testbed] does not accept 'exceute'. Accepted keys: ...` | A key is misspelled. Every `[testbed]` table refuses what it does not know. | Fix the key. |
+| `testbed.id is no longer supported` style messages for `testbed_id` and `testbed.metric` | The retired spellings are refused. | Write `id` and `[[testbed.metrics]]`. |
+| `Duplicate testbed.case id 'dem_area_00001_30m'` | Two cases with the same id, in the same testbed or across two rules. The comparison ignores case. | Give each rule its own `id_template`. |
+| `testbed.case_from_catalog[...].overlay.geographic.catchment.x_outlet references unknown catalog field 'xx'` or `testbed catalog row is missing required field(s): zz` | A placeholder is not a column of the catalog, or a required column is missing. | Fix the placeholder, or the catalog. |
+| `Missing file: testbed catalog path not found: <folder>/nofile.csv` or `Missing file: [Errno 2] No such file or directory: '<folder>/nope.toml'` | The catalog or the base file does not exist. `hmp run` finds it, `hmp config check` does not. | Check the paths. |
+| `testbed did not expand any case` | The tags filter of the catalog leaves no row. | Check the tags of the rows. |
+| `Required testbed metric 'max_abs_balance_error' could not be found at source 'flow_metrics.max_abs_mass_balance_percent_error'.` in the `error` column of a failed case, after `ValueError: ` | A required metric the summary does not hold, usually a typo in the source. `flow_metrics` exists for the `simulation` runner only. When the run of a child cannot be reopened, the summary has a `catalog_extraction_error` key instead. | Fix the source, or use a source of the runner. |
+| `Comparison child 'moderate' failed: hmp run exited with code 15` then `SolverDivergedError: [HMPY.E401] Flow solver 'modflow6' failed ...` in the `error` column | A child of a comparison did not converge at that site. The case fails, and the other sites go on. | Read `mfsim.lst` in the workspace of the child under `comparisons/<site>/workspaces/<id>`. |
+| `Point observable '<name>' needs a mesh bundle cells.csv for x/y lookup, or a cell_index.` | A `point` observable given by `x` and `y` on a structured grid. | Declare a `map` observable, or a `cell_index`. |
+| `StepError: step 'build_geographic' failed: EmptyCatchmentError: Outlet 'outlet' delineated an empty catchment. Check geographic.catchment.x_outlet / y_outlet, ...` in the `error` column | The outlet of a row is outside the DEM or on no stream. | Check the coordinates and the CRS of the catalog. |
+| The run ends with exit code 23, and `testbed '<id>': <n> of <m> case(s) failed: <ids>. Read <folder>/testbed_report.md.` | A case failed. Every table was written first. | Read the `error` column of `testbed_cases.csv`. To see the error of a child without the testbed, run its generated file by hand with `hmp run <child file>`. |
+| `[WARNING] Skipping testbed field metrics: field 'outflow_drain' is not in the store. ...` | A field metric needs a derived field the run did not write. | Set `[simulation.results.derived] outflow_drain = true` in the overlay. |
 
 ## Next
 
+- Plan and record a whole campaign over child files you already have: {doc}`regional-lab`.
 - Run the cases of a comparison and read their audit: {doc}`compare-runs`.
 - Find the runs of a testbed in the catalog, compare and delete them:
-  {doc}`find-compare-and-clean-runs`.
+  {doc}`find-and-compare-runs`.
 - Choose the catchments of a campaign: {doc}`select-catchments`.
 - How a file inherits another and how lists of tables merge: {doc}`inheritance`.
 - Search a parameter on one catchment: {doc}`calibrate`.
-- Every key of the testbed: {toml}`testbed`. Every key of the profile: {toml}`analysis.batch`.
+- Every key of the testbed: {toml}`testbed`.

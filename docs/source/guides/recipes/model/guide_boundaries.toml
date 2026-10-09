@@ -1,0 +1,20 @@
+# Guide "Set the boundaries and the starting heads": the boundaries of example
+# 04 written out, drains at the ground surface and four closed sides, with the
+# per-cell budget kept for boundary_package_map.
+# Save this file in the folder of example 04.
+#
+#   hmp run guide_boundaries.toml
+
+base_config = "step1_minimal.toml"
+
+[simulation]
+name = "nancon_guide_boundaries"
+
+[flow]
+active_bc = ["drainage"]
+
+[simulation.results.budget]
+spatial_fields = true
+
+[display]
+figures = ["boundary_package_map", "water_budget"]

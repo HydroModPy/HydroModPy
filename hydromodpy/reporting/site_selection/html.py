@@ -98,9 +98,7 @@ def render_site_selection_html_report(
         evidence=evidence,
         candidate_generation=candidate_generation,
     )
-    subtitle = (
-        f"Rapport HTML v0 - selection de sites HydroModPy. {manifest.get('created_at_utc', '')}"
-    )
+    subtitle = f"HydroModPy site selection report. {manifest.get('created_at_utc', '')}"
     level_links = _level_links(destination)
     for level in DETAIL_LEVELS:
         write_report_page(

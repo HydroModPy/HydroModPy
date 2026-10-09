@@ -28,7 +28,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import OneParameter, OutputName, SessionId
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
     chosen_session,
@@ -122,9 +123,9 @@ class BisectionBracketTraceFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        parameter: str | None = None,
-        session_id: str | None = None,
-        output: str | None = None,
+        parameter: OneParameter = None,
+        session_id: SessionId = None,
+        output: OutputName = None,
         **_,
     ) -> Axes:
         from matplotlib.ticker import MaxNLocator
@@ -157,7 +158,7 @@ class BisectionBracketTraceFigure(BaseFigure):
         ax.set_xlim(0.5, float(size) + 0.5)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         ax.grid(True, ls=":", lw=0.4)
-        ax.set_title(f"Bisection bracket trace - {sim.name or sim.sim_id}")
+        ax.set_title(f"Bisection bracket trace{run_suffix(sim)}")
 
         # The note sits in a band kept free of evaluations at the bottom, and
         # the legend is placed above it, so neither covers a marker.

@@ -50,6 +50,8 @@ concurrency:
 
 permissions:
   contents: read
+  # Read the artifacts of the nightly validation runs (validation results).
+  actions: read
 
 env:
   MPLBACKEND: Agg
@@ -82,6 +84,17 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[docs]"
+
+      # The Validation page reads docs/source/theory/validation_results.json.
+      # Lay the results of the last nightly validation runs of this branch
+      # over the committed snapshot, so the page follows the nightly jobs
+      # without a commit. No artifact (a tag, an expired run): the committed
+      # snapshot is what deploys.
+      - name: Fetch the nightly validation results
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: python -m tools.docs.validation_results fetch --branch "${BRANCH}" || true
 
       - name: Build this version only
         id: build

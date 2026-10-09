@@ -121,11 +121,13 @@ class DataOverviewLauncher:
         pipeline and the overview pipeline behave identically.
         """
         from hydromodpy.data.variables.dem.resolver import (
+            require_dem_crs,
             resolve_dem_path_from_data_sources,
         )
 
         geo_cfg = state.cfg.geographic
         if geo_cfg.dem_init_path is not None and geo_cfg.dem_init_path.exists():
+            require_dem_crs(geo_cfg.dem_init_path)
             return
 
         cache_dir = None
@@ -149,6 +151,7 @@ class DataOverviewLauncher:
                 '  [[data.dem.sources]]\n  source = "custom"\n  path = "..."'
             )
         logger.debug("[overview] DEM resolved from [data.dem]: %s", resolved)
+        require_dem_crs(resolved)
         if geo_cfg.catchment is None:
             raise ConfigMissingError(
                 "geographic.catchment.catch_def is required when [[data.dem.sources]] is "

@@ -1,8 +1,8 @@
 """Only the values the schema declares as paths are made absolute in a child config.
 
-The rule used before matched any key containing ``dir``, ``file``, ``root``,
-``path``, ``folder`` or ``mask``: ``track_dir = "forward"`` became
-``/base/forward`` and ``profile = "x"`` became ``/base/x``.
+A rule on key names made ``track_dir = "forward"`` into ``/base/forward``,
+``profile = "x"`` into ``/base/x``, and rewrote the dotted key of a calibrated
+parameter and the figure folder name.
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ def test_a_bare_file_name_present_in_the_source_folder_becomes_absolute(tmp_path
 
 
 @pytest.mark.fast
-def test_a_text_field_named_as_a_path_becomes_absolute(tmp_path: Path) -> None:
+def test_a_mesh_domain_file_becomes_absolute(tmp_path: Path) -> None:
     payload = {"mesh_catchment": {"domain": {"path": "masks/domain.gpkg"}}}
 
     out = _walk(payload, tmp_path)
@@ -88,10 +88,53 @@ def test_a_source_list_is_walked_item_by_item(tmp_path: Path) -> None:
 
 
 @pytest.mark.fast
-def test_a_bare_output_folder_is_resolved_against_its_source(tmp_path: Path) -> None:
+def test_the_figure_folder_name_stays_a_name(tmp_path: Path) -> None:
+    """display.output_dir names a folder inside the run, not a path."""
     payload = {"display": {"output_dir": "figures"}}
 
-    assert _walk(payload, tmp_path)["display"]["output_dir"] == (tmp_path / "figures").as_posix()
+    assert _walk(payload, tmp_path)["display"]["output_dir"] == "figures"
+
+
+@pytest.mark.fast
+def test_the_dotted_key_of_a_calibrated_parameter_is_copied(tmp_path: Path) -> None:
+    payload = {"calibration": {"parameters": {"k": {"path": "flow.param.K.field.value"}}}}
+
+    out = _walk(payload, tmp_path)
+
+    assert out["calibration"]["parameters"]["k"]["path"] == "flow.param.K.field.value"
+
+
+@pytest.mark.fast
+def test_the_paths_typed_as_paths_become_absolute(tmp_path: Path) -> None:
+    payload = {
+        "flow": {"param": {"K": {"field": {"values_csv_file": "k.csv"}}}},
+        "mesh_catchment": {
+            "rivers": {"source": "file", "path": "rivers.gpkg"},
+            "refinement_zone": [{"path": "zones.gpkg", "cell_size": 50.0}],
+        },
+        "calibration": {"outputs": {"net": {"stream_geometry_path": "net.gpkg"}}},
+    }
+
+    out = _walk(payload, tmp_path)
+
+    assert out["flow"]["param"]["K"]["field"]["values_csv_file"] == (tmp_path / "k.csv").as_posix()
+    mesh = out["mesh_catchment"]
+    assert mesh["rivers"]["path"] == (tmp_path / "rivers.gpkg").as_posix()
+    assert mesh["refinement_zone"][0]["path"] == (tmp_path / "zones.gpkg").as_posix()
+    network = out["calibration"]["outputs"]["net"]["stream_geometry_path"]
+    assert network == (tmp_path / "net.gpkg").as_posix()
+
+
+@pytest.mark.fast
+def test_a_merge_directive_is_walked_as_its_field(tmp_path: Path) -> None:
+    payload = {"mesh_catchment": {"refinement_zone__merge": [{"path": "zones.gpkg"}]}}
+
+    out = _walk(payload, tmp_path)
+
+    assert (
+        out["mesh_catchment"]["refinement_zone__merge"][0]["path"]
+        == (tmp_path / "zones.gpkg").as_posix()
+    )
 
 
 @pytest.mark.fast

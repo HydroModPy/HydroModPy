@@ -1,5 +1,19 @@
 # Add a flow barrier
 
+```{hmp-task}
+Task
+: Put a thin vertical wall in the aquifer, such as a cutoff wall, a grout curtain or a sealed fault, that water crosses with difficulty.
+
+Time
+: Ten minutes to write. The run takes the time of the model you add it to.
+
+Needs
+: A flow process solved with MODFLOW 6, the trace of the wall, its depth or the elevation of its foot, and its resistance.
+
+Gives
+: A Horizontal Flow Barrier package in the MODFLOW 6 model, and heads that go under or around the wall.
+```
+
 A flow barrier is a thin vertical wall inside the aquifer that water crosses with
 difficulty: a dam cutoff wall, a grout curtain, a sheet pile, a sealed fault. You
 draw its trace on the map, say how deep it goes and how tight it is. HydroModPy writes

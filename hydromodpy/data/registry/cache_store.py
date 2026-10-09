@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 
-from hydromodpy.core.exceptions import DataCacheError
+from hydromodpy.core.exceptions import FrozenDataError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import decode_workspace_path, encode_workspace_path
 from hydromodpy.data.provenance.sidecars import (
@@ -37,14 +37,6 @@ if TYPE_CHECKING:
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 logger = get_logger(__name__)
-
-
-class FrozenDataError(DataCacheError, RuntimeError):
-    """A frozen run asked the cache for something the lockfile does not pin.
-
-    A :class:`DataCacheError`, so the command that met it exits as a data
-    failure. Still a ``RuntimeError``, for the callers written when this was one.
-    """
 
 
 _RETRY = 8
@@ -190,6 +182,27 @@ def reject_frozen_cache_miss(
         "Frozen data mode forbids cache misses: "
         f"{variable}/{source}/{station_id or '-'} is absent from the catalog at "
         f"{catalog._db_path or ':memory:'}."
+    )
+
+
+def reject_frozen_download(
+    *,
+    variable: str,
+    source: str,
+    station_id: str | None,
+    detail: str,
+) -> None:
+    """Refuse a request that would reach the network, before it is made.
+
+    A cached entry that covers only part of the request passes the lookup. Without
+    this guard the missing days were downloaded, merged into the entry, and the
+    file the lockfile pins was replaced before anything refused the new one.
+    """
+    if not frozen_enabled():
+        return
+    locked_artifacts()
+    raise FrozenDataError(
+        f"Frozen data mode forbids a download: {variable}/{source}/{station_id or '-'} {detail}."
     )
 
 

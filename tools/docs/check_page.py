@@ -11,7 +11,9 @@ For each page (Markdown or reStructuredText under docs/source):
 - every TOML block parses, and a block that writes a section of the file
   validates against ``HydroModPyConfig`` once merged onto ``step1_minimal.toml``
   of example 04. A block whose first line is ``# not checked: <reason>`` is
-  skipped, for a block that shows a mistake on purpose;
+  skipped, for a block that shows a mistake on purpose. A whole file of the
+  catchment report, of a testbed or of a comparison (``workflow.mode``), is read
+  by its own model, as ``hmp report catchment`` and ``hmp config check`` read it;
 - no French, no em dash, no wording of the mock-up.
 
 Reads ``docs/source/_data/registry.json``, written by the last build. Exit
@@ -44,7 +46,16 @@ FRENCH = re.compile(
     r"mais|nous|vous|ils|leur|leurs|ces|aussi|très|plus|donc)\b"
 )
 ACCENT = re.compile(r"[àâäçéèêëîïôöùûüÿœÀÂÇÉÈÊËÎÏÔÙÛÜ«»]")
-ALLOWED_NAMES = ("Nançon", "Abhervé", "Hub'Eau", "Météo-France", "Élorn", "Gouville", "Brévilly")
+ALLOWED_NAMES = (
+    "Nançon",
+    "Abhervé",
+    "Hub'Eau",
+    "Météo-France",
+    "Élorn",
+    "Gouville",
+    "Brévilly",
+    "Chèze",
+)
 BANNED = (
     "mock-up",
     "mockup",
@@ -76,6 +87,10 @@ class Registry:
         data = json.loads(path.read_text())
         self.nodes: dict = data["nodes"]
         self.roots: set[str] = set(data["meta"]["roots"])
+        # Tables of the files other than the project file: file name -> root tables.
+        self.file_roots: dict[str, set[str]] = {
+            name: set(info["roots"]) for name, info in data["meta"].get("files", {}).items()
+        }
 
     def resolve(self, concrete: str) -> str | None:
         concrete = concrete.strip()
@@ -163,8 +178,11 @@ def validate_toml(text: str, reg: Registry) -> list[str]:
         fragment = tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
         return [f"TOML syntax: {exc}"]
+    workflow = fragment.get("workflow")
+    if isinstance(workflow, dict) and workflow.get("mode") in CHECKED_BY_CONFIG_CHECK:
+        return validate_testbed_block(text)
     if not any(key in reg.roots for key in fragment):
-        return []
+        return validate_file_block(fragment, reg)
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     own = fragment.get("base_config")
@@ -182,6 +200,61 @@ def validate_toml(text: str, reg: Registry) -> list[str]:
         finally:
             tmp.unlink(missing_ok=True)
     return [first] if first else []
+
+
+#: The workflow modes whose files have a schema of their own, which ``hmp config check``
+#: picks by ``workflow.mode``. The project loader would refuse them.
+CHECKED_BY_CONFIG_CHECK = ("testbed", "comparison")
+
+
+def validate_testbed_block(text: str) -> list[str]:
+    """Problems of a testbed or comparison file, read by ``hmp config check`` as a user would.
+
+    The check reads the tables of the mode only. It opens neither the base file,
+    nor the catalog, nor the overlays.
+    """
+    import argparse
+    import contextlib
+    import io
+
+    from hydromodpy.cli.commands.config import _cmd_config_check
+
+    tmp = EX04 / f".check_page_{os.getpid()}_{uuid.uuid4().hex[:8]}.toml"
+    tmp.write_text(text, encoding="utf-8")
+    said = io.StringIO()
+    try:
+        with contextlib.redirect_stderr(said), contextlib.redirect_stdout(said):
+            _cmd_config_check(argparse.Namespace(file=tmp))
+    except SystemExit as stop:
+        if stop.code in (0, None):
+            return []
+        message = " ".join(said.getvalue().replace(str(tmp), "the block").split())
+        return [f"refused by hmp config check: {message[:400]}"]
+    finally:
+        tmp.unlink(missing_ok=True)
+    return []
+
+
+def validate_file_block(fragment: dict, reg: Registry) -> list[str]:
+    """Problems of a block that writes a file other than the project file.
+
+    A block whose tables are those of the catchment report file is validated by
+    its own model, as the command does. It must be a whole file: a fragment
+    that leaves out a required table starts with ``# not checked``.
+    """
+    from tools.docs.field_registry import EXTRA_FILES, _load_model
+
+    for name, roots in reg.file_roots.items():
+        if not any(key in roots for key in fragment):
+            continue
+        model = _load_model(EXTRA_FILES[name][2])
+        if model is None:
+            return []
+        try:
+            model.model_validate(fragment)
+        except Exception as exc:  # noqa: BLE001 - any refusal is reported
+            return [f"refused by {model.__name__}: {' '.join(str(exc).split())[:400]}"]
+    return []
 
 
 def check(page: Path, reg: Registry, docs: set[str]) -> list[str]:

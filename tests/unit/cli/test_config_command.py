@@ -103,6 +103,29 @@ def test_config_schema_forwards_section_profile_and_output(monkeypatch, tmp_path
     assert f"Written to: {out}" in result.stderr
 
 
+def test_config_schema_editor_writes_the_published_editor_schema(monkeypatch, tmp_path) -> None:
+    out = tmp_path / "editor.json"
+    monkeypatch.setattr(
+        "hydromodpy.config.schema_export.editor_schema",
+        lambda: {"$comment": "editor", "properties": {"base_config": {}}},
+    )
+
+    result = CliRunner().invoke(["config", "schema", "--editor", "--out", str(out)])
+
+    assert result.exit_code == 0
+    assert f"Written to: {out}" in result.stderr
+    assert out.read_text(encoding="utf-8") == (
+        '{\n  "$comment": "editor",\n  "properties": {\n    "base_config": {}\n  }\n}\n'
+    )
+
+
+def test_config_schema_editor_refuses_a_section() -> None:
+    result = CliRunner().invoke(["config", "schema", "--editor", "--section", "flow"])
+
+    assert result.exit_code == 2
+    assert "--editor describes a whole TOML file" in result.stderr
+
+
 def test_config_template_list_modules_prints_modules_without_generating(
     monkeypatch,
 ) -> None:

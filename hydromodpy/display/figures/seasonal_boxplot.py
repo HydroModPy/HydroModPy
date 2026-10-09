@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Station, Variable
 from hydromodpy.display.figure_registry import register
 
 if TYPE_CHECKING:
@@ -49,8 +50,8 @@ class SeasonalBoxplotFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: str = CATCHMENT_OUTLET_STATION,
-        variable: str = "discharge",
+        station: Station = CATCHMENT_OUTLET_STATION,
+        variable: Variable = "discharge",
         **_,
     ) -> Axes:
         ts = sim.timeseries(variable, station=station)
@@ -75,6 +76,6 @@ class SeasonalBoxplotFigure(BaseFigure):
         ax.set_xticks(positions)
         ax.set_xticklabels(_MONTH_NAMES)
         ax.set_ylabel(axis_label(variable))
-        ax.set_title(f"Seasonal distribution - {sim.name or sim.sim_id} @ {station_label(station)}")
+        ax.set_title(f"Seasonal distribution{run_suffix(sim)} @ {station_label(station)}")
         ax.grid(True, axis="y", ls=":", lw=0.4)
         return ax

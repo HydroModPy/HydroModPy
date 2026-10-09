@@ -1148,10 +1148,12 @@ class SiteSelectionConfig(HydroModelBase):
         ...,
         min_length=1,
         description="Stable identifier for this selection campaign.",
+        examples=["small_basins"],
     )
     output_root: Annotated[Path, Profile.USER] = Field(
         ...,
         description="Output directory for all site-selection artifacts.",
+        examples=["site_selection"],
     )
     random_seed: Annotated[int | None, Profile.USER] = Field(
         default=None,

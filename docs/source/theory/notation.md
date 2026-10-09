@@ -51,9 +51,7 @@ column of a result file.
 
 A recharge series is read in the unit of {toml}`flow.sinks_sources.recharge.units`
 and converted to m/s. When the soil reservoir computes it, $N = (1 - f)\,O_t$
-(see {doc}`soil-reservoir`). {doc}`forcing`, {doc}`exits` and
-{doc}`downslope-distance` write the recharge $R$, as the $K/R$ ratio of the
-stream-network method does. Their symbols are not in the registry yet.
+(see {doc}`soil-reservoir`).
 
 ## Cells and their balance
 
@@ -92,6 +90,22 @@ Stores are in mm of water per unit of unsealed area, fluxes in mm/day.
 
 ```{hmp-notation}
 :groups: soil
+```
+
+## Forcing and time
+
+{doc}`forcing` and {doc}`time-alignment` define each one.
+
+```{hmp-notation}
+:groups: forcing
+```
+
+## The exits of the aquifer
+
+{doc}`exits` and its six pages define each one.
+
+```{hmp-notation}
+:groups: exits
 ```
 
 ## The descent and the distance between networks

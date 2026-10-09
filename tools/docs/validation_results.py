@@ -12,8 +12,12 @@ the nightly job), and writes the snapshot that the Validation page reads:
 a test the run did not reach keeps the result of an older run, with that run's
 date and commit. ``--replace`` drops every older result instead.
 
-``fetch`` downloads the ``validation-results-<branch>`` artifact of the latest
-successful-or-not nightly run with the GitHub CLI (``gh``), then merges it.
+``fetch`` downloads, with the GitHub CLI (``gh``), the artifact each nightly
+validation workflow leaves for one branch: ``validation-results-<branch>`` from
+``ci-nightly.yml`` and ``validation-results-petsc-<branch>`` from
+``ci-nightly-petsc.yml``. It takes the latest completed run of each workflow,
+passed or failed, and merges what it found. A missing artifact is reported and
+skipped; ``fetch`` fails only when it finds none.
 
 Local run, then refresh:
   HMP_VALIDATION_RESULTS=/some/dir pytest tests/validation -m fast -n 2
@@ -32,7 +36,11 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT = ROOT / "docs" / "source" / "theory" / "validation_results.json"
 SCHEMA = 1
-NIGHTLY = "ci-nightly.yml"
+NIGHTLY = (
+    ("ci-nightly.yml", "validation-results-{branch}"),
+    ("ci-nightly-petsc.yml", "validation-results-petsc-{branch}"),
+)
+"""Each nightly validation workflow and the name of its artifact for one branch."""
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -117,28 +125,41 @@ def cmd_merge(args: argparse.Namespace) -> int:
     return 0
 
 
+def _latest_completed_run(workflow: str) -> str:
+    """The id of the latest completed run of ``workflow``, or an empty string."""
+    listed = subprocess.run(
+        ["gh", "run", "list", "--workflow", workflow, "--status", "completed", "--limit", "1"]
+        + ["--json", "databaseId", "--jq", ".[0].databaseId"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    return listed.stdout.strip() if listed.returncode == 0 else ""
+
+
 def cmd_fetch(args: argparse.Namespace) -> int:
-    run_id = args.run_id
-    if not run_id:
-        listed = subprocess.run(
-            ["gh", "run", "list", "--workflow", NIGHTLY, "--limit", "1"]
-            + ["--json", "databaseId", "--jq", ".[0].databaseId"],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=ROOT,
-        )
-        run_id = listed.stdout.strip()
-        if not run_id:
-            raise SystemExit(f"no run of {NIGHTLY} found")
+    pairs = [(wf, name.format(branch=args.branch)) for wf, name in NIGHTLY]
+    if args.run_id:
+        pairs = [(args.run_id, name) for _, name in pairs]
     with tempfile.TemporaryDirectory() as tmp:
-        subprocess.run(
-            ["gh", "run", "download", run_id, "--name", f"validation-results-{args.branch}"]
-            + ["--dir", tmp],
-            check=True,
-            cwd=ROOT,
-        )
-        args.sources = [str(p) for p in sorted(Path(tmp).glob("*.json"))]
+        found: list[str] = []
+        for source, name in pairs:
+            run_id = source if args.run_id else _latest_completed_run(source)
+            if not run_id:
+                print(f"no completed run of {source}: {name} skipped")
+                continue
+            target = Path(tmp) / name
+            done = subprocess.run(
+                ["gh", "run", "download", run_id, "--name", name, "--dir", str(target)],
+                cwd=ROOT,
+            )
+            if done.returncode != 0:
+                print(f"run {run_id} has no artifact {name}: skipped")
+                continue
+            found.extend(str(p) for p in sorted(target.glob("*.json")))
+        if not found:
+            raise SystemExit(f"no validation result artifact found for branch {args.branch}")
+        args.sources = found
         args.replace = False
         return cmd_merge(args)
 
@@ -151,9 +172,9 @@ def main(argv: list[str] | None = None) -> int:
     m.add_argument("--snapshot", default=str(SNAPSHOT))
     m.add_argument("--replace", action="store_true", help="drop the results of older runs")
     m.set_defaults(func=cmd_merge)
-    f = sub.add_parser("fetch", help="download the nightly artifact with gh, then merge it")
+    f = sub.add_parser("fetch", help="download the nightly artifacts with gh, then merge them")
     f.add_argument("--branch", default="dev")
-    f.add_argument("--run-id", default="")
+    f.add_argument("--run-id", default="", help="read both artifact names from this one run")
     f.add_argument("--snapshot", default=str(SNAPSHOT))
     f.set_defaults(func=cmd_fetch)
     args = ap.parse_args(argv)

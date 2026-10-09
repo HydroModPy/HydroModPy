@@ -8,11 +8,12 @@ zones landed where the geology says they should before reading any head.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Cmap, Opt, Overlays
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures.parameter_section import LOG_SCALE_DECADES, PARAMETER_FIELDS
 from hydromodpy.display.maps.axes import style_relative_km_axes
@@ -27,17 +28,7 @@ if TYPE_CHECKING:
 
 @register
 class ParameterMap(BaseFigure):
-    """One aquifer property across the domain, for one layer.
-
-    Options
-    -------
-    ``variable``
-        Property to draw. Defaults to the hydraulic conductivity.
-    ``layer``
-        Layer index, top layer by default.
-    ``log``
-        Force a log colour scale on or off. Decided from the spread by default.
-    """
+    """One aquifer property across the domain, for one layer."""
 
     spec = FigureSpec(
         name="parameter_map",
@@ -53,11 +44,23 @@ class ParameterMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        variable: str = "hydraulic_conductivity",
-        layer: int = 0,
-        log: bool | None = None,
-        cmap: str = "viridis",
-        overlays: tuple[str, ...] | list[str] | None = None,
+        variable: Annotated[
+            str,
+            Opt(
+                'Property to draw: "hydraulic_conductivity", "specific_yield" or '
+                '"specific_storage".'
+            ),
+        ] = "hydraulic_conductivity",
+        layer: Annotated[int, Opt("Model layer to draw, 0 for the top one.")] = 0,
+        log: Annotated[
+            bool | None,
+            Opt(
+                "Force a log colour scale on or off. Left out, a log scale when the "
+                "positive values span more than one decade."
+            ),
+        ] = None,
+        cmap: Cmap = "viridis",
+        overlays: Overlays = None,
         **_,
     ) -> Axes:
         from matplotlib.colors import LogNorm
@@ -98,8 +101,7 @@ class ParameterMap(BaseFigure):
         )
         style_relative_km_axes(ax)
         ax.set_title(
-            f"{self.field_descriptor_for(variable).long_name} - "
-            f"{sim.name or sim.sim_id}\nlayer {int(layer)}"
+            f"{self.field_descriptor_for(variable).long_name}{run_suffix(sim)}\nlayer {int(layer)}"
         )
         return ax
 

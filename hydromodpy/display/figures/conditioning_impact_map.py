@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Cmap, Opt, ReferenceRun
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.ugrid import render_face_field
 
@@ -60,9 +61,17 @@ class ConditioningImpactMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        reference: Run | None = None,
-        cmap: str = "RdBu_r",
-        clip_percentile: float = 99.0,
+        reference: ReferenceRun = None,
+        cmap: Cmap = "RdBu_r",
+        clip_percentile: Annotated[
+            float,
+            Opt(
+                "Percentile of the absolute differences that sets the ends of the "
+                "colour scale, never under 0.5 m, so a few carved cells do not flatten "
+                "the rest.",
+                unit="%",
+            ),
+        ] = 99.0,
         **_,
     ) -> Axes:
         if reference is None:
@@ -91,8 +100,8 @@ class ConditioningImpactMap(BaseFigure):
             cbar_label="top - reference top (m)  |  red raised, blue lowered",
         )
         ax.set_title(
-            f"Top differs from {reference.sim_id}: {frac * 100:.0f}% of cells "
-            f"(scale +/-{vmax:.1f} m) - {sim.sim_id}"
+            f"Top differs from the reference{run_suffix(reference, ' {}')}: "
+            f"{frac * 100:.0f}% of cells (scale +/-{vmax:.1f} m){run_suffix(sim)}"
         )
         ax.set_xlabel("x (m)")
         ax.set_ylabel("y (m)")

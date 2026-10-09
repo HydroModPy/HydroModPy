@@ -17,11 +17,11 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.display.figure import FigureSpec
+from hydromodpy.display.figure_options import Extent, Layer, Overlays, Timestep
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
 from hydromodpy.display.figures._stream_comparison import (
     GROUND_COLOR,
-    MapExtentName,
     catchment_cells,
     checked_cells,
     draw_cells,
@@ -72,10 +72,10 @@ class SeepageMap(ScalarFaceMap):
         sim: Run,
         ax: Axes,
         *,
-        timestep: int | None = None,
-        layer: int | None = None,
-        overlays: tuple[str, ...] | list[str] | None = None,
-        extent: MapExtentName = "catchment",
+        timestep: Timestep = None,
+        layer: Layer = None,
+        overlays: Overlays = None,
+        extent: Extent = "catchment",
         **_,
     ) -> Axes:
         step = last_timestep(sim) if timestep is None else timestep

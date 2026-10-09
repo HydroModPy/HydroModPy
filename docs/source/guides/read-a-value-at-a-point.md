@@ -1,5 +1,19 @@
 # Read a value at a point
 
+```{hmp-task}
+Task
+: Read one variable at one place of the model, as a table with one row per time step.
+
+Time
+: Seconds on a finished run. A point declared in the file is read as the run finishes.
+
+Needs
+: A completed run, or a project file to run; the place in the project CRS or as a cell index; the name of the variable.
+
+Gives
+: A table of the value over time, printed, written to a file or stored with the run.
+```
+
 You want the value of one variable at one place of the model, for example the head or the
 depth of the water table at a piezometer. You get a table with one row per time step. There
 are two ways to get it. You can ask a finished run, at any place, after the fact. Or you can
@@ -112,6 +126,7 @@ and run.
 |---|---|
 | `run`, `sim_id` | The run the row comes from |
 | `variable`, `unit` | The field and its registered unit |
+| `point` | The label you gave (`--label`, `label=`), else `cell<N>` for a cell or `<x>_<y>` for coordinates |
 | `timestep`, `time` | The step index and its date. `NaT` when the run has no calendar axis |
 | `value` | The number |
 | `cell`, `layer` | The cell and the layer actually read. `layer` is `<NA>` when the stored field has no layer axis, as `watertable_depth` |
@@ -262,5 +277,5 @@ depth = 12.5
 - The whole [observation] section, with every field: {toml}`observation`.
 - The options of the command: {doc}`../reference/cli/catalog`.
 - Open a catalog and drive runs from a script: {doc}`drive-from-python`.
-- The run folder and what each file holds: {doc}`results-and-exports`.
-- Find several runs and compare them: {doc}`find-compare-and-clean-runs`.
+- The run folder and what each file holds: {doc}`read-the-results`.
+- Find several runs and compare them: {doc}`find-and-compare-runs`.

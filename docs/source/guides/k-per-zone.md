@@ -1,5 +1,19 @@
 # Give K and Sy per geological zone
 
+```{hmp-task}
+Task
+: Give one hydraulic conductivity (K) and one specific yield (Sy) to each zone of a map.
+
+Time
+: Twenty minutes. A steady run of example 04 with zones takes under a minute on two cores.
+
+Needs
+: A model that runs, and a polygon or raster file of the zones, or a rule that cuts the domain into zones.
+
+Gives
+: A model whose cells take the value of their zone, and a map of K to check it.
+```
+
 You have a way of cutting the model domain into zones, and you want one hydraulic
 conductivity (K) and one specific yield (Sy) per zone. After these steps each cell takes
 the value of its zone. A cell that a zone boundary cuts takes the mean of its zones,
@@ -141,25 +155,10 @@ The third storage parameter can stay homogeneous. Step 4 gives Ss one number:
 :tables: flow.param.Ss.field
 ```
 
-### Why `value__delete = true`
-
-The two shapes of {toml}`flow.param.K.field` do not share all their keys. A homogeneous
-field has `value`. A heterogeneous field has `values` and `field_spatial_id`, and refuses
-`value`.
-
-Step 1 writes `value = 5e-5`, and step 4 inherits it. A file that inherits another through
-`base_config` merges table by table, so that `value` is still there when you change `kind`.
-Without the line `value__delete = true`, the check fails:
-
-```text
-$ hmp config check k.toml
-Config invalid: 1 validation error(s) in k.toml:
-  k.toml:3: flow.param.K.field.value: Extra inputs are not permitted (input=5e-05)
-```
-
-`value__delete = true` removes the inherited key before the file is validated. A file
-that does not inherit anything has nothing to delete: write the heterogeneous shape
-and leave `value` out. The merge rules are in {doc}`inheritance`.
+`value__delete = true` removes the `value` that step 4 inherits from step 1: a
+heterogeneous field refuses `value`, and a table written in a file merges with the
+inherited one key by key. A file that inherits nothing writes the heterogeneous shape and
+leaves `value` out. The merge rules are in {doc}`inheritance`.
 
 ### Keep the values in a table file
 
@@ -271,80 +270,34 @@ cannot.
    `hmp viz show @last parameter_section` cuts the aquifer along a line and colours K,
    Sy and Ss. Both figures read the fields the run stored.
 
+Example 04 ships no geology polygons, so the figure below comes from the three bands of
+{ref}`zones-without-a-file`, west, middle and east, at 8, 2 and 0.5 m/day.
+{download}`The file of that run <recipes/model/guide_k_zones.toml>` is step 1 of example 04 with
+those bands; it runs in under a minute.
+
+```{figure} /_static/figures/guides/k-per-zone/parameter_map.webp
+:alt: Map of K over the Nançon model in three vertical bands, high in the west, low in the east.
+
+`parameter_map` of the three bands. Each cell takes the value of its band.
+```
+
 (k-per-zone-problems)=
 ## What can go wrong
 
-A support name with no declaration stops the run at the resolve step:
+Names in angle brackets stand for your values.
 
-```text
-Missing domain support declaration for 'lithology'. Declare [domain.supports.<id>] with an explicit provider.
-```
-
-Declare `[domain.supports.lithology]` with the same name as `field_spatial_id`.
-
-A polygon file read without `code_field` stops the data step. The message names the file:
-
-```text
-'code_field' is required for custom vector geology source (lithology.gpkg). Set it in [[data.geology.sources]] to the column containing geology codes.
-```
-
-A `code_field` that is not a column of the file stops it too:
-
-```text
-Column 'unit' not found in /path/to/lithology.gpkg. Available: ['id', 'name', 'geometry']
-```
-
-A zone code with no entry in `values` stops the run when the values are mapped onto
-the mesh. For a `geology` support, the message names the loaded layer
-({toml}`data.geology.id`, `field_geology` by default), not the name of your support:
-
-```text
-Field parameter 'K' has no value for zone key(s) schist of spatial support 'field_geology'. Add these keys to the parameter's value table ('values' or the file named by 'values_csv_file').
-```
-
-The opposite mistake is silent. A key of `values` that matches no zone is ignored, so a
-stale or misspelled key never raises an error. Compare the keys with the codes of the
-file when a zone takes a value you did not expect.
-
-A polygon map that leaves some active cells uncovered stops the run when the solver inputs are built:
-
-```text
-K is zero, negative or not finite on <n> of <m> active cell(s) (<n> zero, 0 not finite). K is heterogeneous on spatial support 'lithology'. A cell that no zone of this support covers gets no value, so the support data does not cover the whole active domain. Make the support source cover the model extent, or check the values of the zones it does cover.
-```
-
-Extend the polygons, or load a second source that fills the gap. In that message `<n>` and
-`<m>` stand for the cell counts, and the support name is yours.
-
-## Let K change with depth
-
-A depth factor is optional and independent of the zones. It sits in its own table under
-the property, and it multiplies the value of every zone by the same factor.
-
-The factor is evaluated at the centre of each layer, measured down from the top of the
-cell. With `mode = "exponential"` it is $\exp(-d / d_c)$, where $d$ is that depth and
-$d_c$ the {toml}`characteristic depth|flow.param.K.field_vertical_profile.characteristic_depth`.
-It never goes below {toml}`min_factor|flow.param.K.field_vertical_profile.min_factor`
-when you give one. The value you write is therefore the value at the surface.
-
-```toml
-[flow.param.K.field_vertical_profile]
-mode = "exponential"
-characteristic_depth = "20 m"
-min_factor = 0.1
-```
-
-The numbers above only make the block complete. The range of $d_c$ belongs to the site.
-`mode = "tabulated"` reads a factor from the lists `depths` and `factors` instead, both
-listed with the advanced settings.
-
-```{hmp-params}
-flow.param.<id>.field_vertical_profile.mode
-flow.param.<id>.field_vertical_profile.characteristic_depth
-flow.param.<id>.field_vertical_profile.min_factor
-```
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Missing domain support declaration for 'lithology'. Declare [domain.supports.<id>] with an explicit provider.` at the resolve step | {toml}`flow.param.K.field.field_spatial_id` names a support that no table declares. | Declare `[domain.supports.lithology]` with the same name. |
+| `'code_field' is required for custom vector geology source (lithology.gpkg). Set it in [[data.geology.sources]] to the column containing geology codes.` | A polygon file read without `code_field`. | Name the column of the codes. |
+| `Column 'unit' not found in /path/to/lithology.gpkg. Available: ['id', 'name', 'geometry']` | `code_field` is not a column of the file. | Take a name from the list. |
+| `Field parameter 'K' has no value for zone key(s) schist of spatial support 'field_geology'. Add these keys to the parameter's value table ('values' or the file named by 'values_csv_file').` | A zone code with no entry in `values`. For a `geology` support, the message names the loaded layer ({toml}`data.geology.id`, `field_geology` by default), not your support. | Add the code to `values`. |
+| A zone takes a value you did not write, and nothing is reported | A key of `values` that matches no zone is ignored: a stale or misspelt key never raises an error. | Compare the keys of `values` with the codes of the file. |
+| `K is zero, negative or not finite on <n> of <m> active cell(s) (<n> zero, 0 not finite). K is heterogeneous on spatial support 'lithology'. A cell that no zone of this support covers gets no value, ...` when the solver inputs are built | The polygons leave active cells uncovered. | Extend the polygons, or load a second source that fills the gap. |
 
 ## Next
 
+- Let K change with depth, inside every zone: {doc}`depth-and-substratum`.
 - The whole section, with every field and the choice of shape:
   {toml}`flow.param.<id>`.
 - Search the zone values with a calibration: each zone is one target, named like `K.granite`.

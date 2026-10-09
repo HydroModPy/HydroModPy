@@ -74,6 +74,18 @@ For a flow along the row, across the interface, the middle cell conducts about 2
 more than its harmonic mean. Refining the mesh at the interface, or aligning the cell
 faces with it, removes the mixed cell.
 
+```{eval-rst}
+.. plot:: theory/figures/f2c_zones.py
+   :alt: Nine square cells cut by a vertical zone boundary with their sample points, and the cell conductivity against the share of zone A.
+   :caption: The example above, three rows of it, run through the code. Left: the sample
+      points of each cell (:math:`n_s = 8` per axis, the default) take the colour of
+      their zone, and :math:`F_{c,A}` counts them. Right: the value
+      ``FieldParam.to_mesh_field`` gives each cell (dots) lies on the arithmetic mean;
+      the harmonic mean (dashed) is the value for a flow across the boundary. Look at the
+      middle cells: :math:`5.05 \times 10^{-6}` m/s against
+      :math:`1.98 \times 10^{-7}` m/s.
+```
+
 ## Assumptions
 
 - A cell holds one value of each property per layer.

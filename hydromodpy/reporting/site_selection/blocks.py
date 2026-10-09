@@ -46,101 +46,101 @@ def build_site_selection_plan_blocks(
     return [
         ReportBlock(
             block_id="selection_identity",
-            title="Identite de la selection",
+            title="Selection identity",
             level="compact",
-            lead="Synthese du plan avant execution spatiale.",
+            lead="Summary of the plan before any spatial step runs.",
             metrics=(
                 ReportMetric("Selection", selection_id),
                 ReportMetric("Mode", input_cfg.get("mode") or "plan_only"),
-                ReportMetric("Sorties prevues", len(planned_outputs)),
-                ReportMetric("Racine de sortie", output_root),
+                ReportMetric("Planned outputs", len(planned_outputs)),
+                ReportMetric("Output root", output_root),
             ),
             warnings=(
-                "Aucun site n'est retenu ou rejete dans ce rapport: il decrit le plan avant execution.",
+                "No site is selected or rejected in this report: it describes the plan before it runs.",
             ),
         ),
         ReportBlock(
             block_id="selection_strategy",
-            title="Strategie",
+            title="Strategy",
             level="standard",
             tables=(
                 key_value_table(
                     "selection_strategy_table",
-                    "Parametres de strategie",
+                    "Strategy parameters",
                     (
-                        ("Principe", strategy.get("principle")),
-                        ("Profil", strategy.get("effective_profile") or strategy.get("profile")),
-                        ("Mode candidats", strategy.get("candidate_mode")),
-                        ("Observation principale", strategy.get("primary_observation_type")),
-                        ("Axes principaux", _format_value(strategy.get("primary_axes"))),
+                        ("Principle", strategy.get("principle")),
+                        ("Profile", strategy.get("effective_profile") or strategy.get("profile")),
+                        ("Candidate mode", strategy.get("candidate_mode")),
+                        ("Primary observation", strategy.get("primary_observation_type")),
+                        ("Main axes", _format_value(strategy.get("primary_axes"))),
                     ),
                 ),
             ),
         ),
         ReportBlock(
             block_id="territory_context",
-            title="Territoire et contexte",
+            title="Territory and context",
             level="standard",
             tables=(
                 key_value_table(
                     "territory_context_table",
-                    "Perimetre spatial",
+                    "Spatial extent",
                     (
-                        ("Territoire", _territory_label(territory)),
-                        ("Couches contexte", _context_layer_summary(context_layers)),
+                        ("Territory", _territory_label(territory)),
+                        ("Context layers", _context_layer_summary(context_layers)),
                     ),
                 ),
             ),
         ),
         ReportBlock(
             block_id="dem_and_hydrology",
-            title="Donnees et calculs prevus",
+            title="Planned data and computations",
             level="standard",
             tables=(
                 key_value_table(
                     "dem_and_hydrology_table",
-                    "DEM et hydrologie",
+                    "DEM and hydrology",
                     (
-                        ("Source DEM", dem.get("source")),
-                        ("Chemin DEM", dem.get("path")),
-                        ("Resolution DEM", _unit_value(dem.get("resolution_m"), "m")),
-                        ("Politique cache", dem.get("cache_policy")),
-                        ("Methode hydrologique", hydrology.get("method")),
-                        ("Algorithme d'ecoulement", hydrology.get("flow_algorithm")),
-                        ("Conditionnement DEM", hydrology.get("dem_correction_type")),
+                        ("DEM source", dem.get("source")),
+                        ("DEM path", dem.get("path")),
+                        ("DEM resolution", _unit_value(dem.get("resolution_m"), "m")),
+                        ("Cache policy", dem.get("cache_policy")),
+                        ("Hydrological method", hydrology.get("method")),
+                        ("Flow algorithm", hydrology.get("flow_algorithm")),
+                        ("DEM conditioning", hydrology.get("dem_correction_type")),
                     ),
                 ),
             ),
         ),
         ReportBlock(
             block_id="selection_criteria",
-            title="Criteres",
+            title="Criteria",
             level="standard",
             tables=(
                 key_value_table(
                     "selection_criteria_table",
-                    "Configuration des criteres",
+                    "Criteria setup",
                     _criteria_items(criteria),
                 ),
             ),
         ),
         ReportBlock(
             block_id="planned_outputs",
-            title="Sorties prevues",
+            title="Planned outputs",
             level="audit",
             tables=(
                 ReportTable(
                     "planned_outputs_table",
-                    "Sorties",
-                    columns=(("output", "Sortie"),),
+                    "Outputs",
+                    columns=(("output", "Output"),),
                     rows=tuple({"output": item} for item in planned_outputs),
-                    empty_message="Aucune sortie prevue.",
+                    empty_message="No output planned.",
                 ),
             ),
         ),
         ReportBlock(
             block_id="artifact_links",
-            title="Artefacts disponibles",
+            title="Available artifacts",
             level="audit",
             links=(ReportLink(manifest_path.name, manifest_path, "manifest"),),
         ),
@@ -202,35 +202,35 @@ def build_site_selection_result_blocks(
     return [
         ReportBlock(
             block_id="selection_identity",
-            title="Identite de la selection",
+            title="Selection identity",
             level="compact",
-            lead="Synthese de la selection executee.",
+            lead="Summary of the selection that ran.",
             metrics=(
                 ReportMetric("Selection", selection_id),
-                ReportMetric("Sites retenus", counts.get("selected", len(selected))),
-                ReportMetric("Sites rejetes", counts.get("rejected", len(rejected))),
+                ReportMetric("Selected sites", counts.get("selected", len(selected))),
+                ReportMetric("Rejected sites", counts.get("rejected", len(rejected))),
                 ReportMetric("Decisions", counts.get("decisions", len(decisions))),
-                ReportMetric("Criteres traces", counts.get("criteria_components", len(components))),
+                ReportMetric("Criteria traced", counts.get("criteria_components", len(components))),
             ),
             warnings=provenance_warnings,
         ),
         ReportBlock(
             block_id="selection_strategy",
-            title="Strategie",
+            title="Strategy",
             level="standard",
-            lead="Regles de selection et contexte de calcul declares dans le manifeste.",
+            lead="Selection rules and computation context declared in the manifest.",
             tables=(
                 key_value_table(
                     "selection_strategy_table",
-                    "Parametres de strategie",
+                    "Strategy parameters",
                     (
-                        ("Principe", strategy.get("principle")),
-                        ("Profil", strategy.get("effective_profile") or strategy.get("profile")),
-                        ("Mode candidats", strategy.get("candidate_mode")),
-                        ("Observation principale", strategy.get("primary_observation_type")),
-                        ("Territoire", _territory_label(territory)),
+                        ("Principle", strategy.get("principle")),
+                        ("Profile", strategy.get("effective_profile") or strategy.get("profile")),
+                        ("Candidate mode", strategy.get("candidate_mode")),
+                        ("Primary observation", strategy.get("primary_observation_type")),
+                        ("Territory", _territory_label(territory)),
                         ("Ruleset", criteria.get("ruleset")),
-                        ("Contexte cartographique", _context_layer_summary(context_layers)),
+                        ("Map context", _context_layer_summary(context_layers)),
                     ),
                 ),
             ),
@@ -245,16 +245,16 @@ def build_site_selection_result_blocks(
         ),
         ReportBlock(
             block_id="selection_map",
-            title="Carte de controle",
+            title="Control map",
             level="compact",
             figures=(
                 ReportFigure(
                     "site_selection_map",
-                    "Carte de controle",
+                    "Control map",
                     map_path,
                     (
-                        "Fond DEM regional, contours des bassins, exutoires retenus/rejetes "
-                        "et stations d'observation associees."
+                        "Regional DEM background, catchment outlines, selected and rejected outlets "
+                        "and the observation stations attached to them."
                     ),
                     embed=True,
                 ),
@@ -263,76 +263,76 @@ def build_site_selection_result_blocks(
         _candidate_generation_block(candidate_generation_rows),
         ReportBlock(
             block_id="selected_sites",
-            title="Sites retenus",
+            title="Selected sites",
             level="standard",
             tables=(
                 ReportTable(
                     "selected_sites_table",
-                    "Sites retenus",
+                    "Selected sites",
                     columns=(
                         ("site_id", "Site"),
                         ("region_id", "Region"),
-                        ("area_km2", "Surface km2"),
+                        ("area_km2", "Area km2"),
                         ("rank_score", "Score"),
                         ("decision_reason", "Decision"),
-                        ("warning_flags", "Avertissements"),
+                        ("warning_flags", "Warnings"),
                     ),
                     rows=tuple(
                         _selected_row(row, decision_by_site.get(row.get("site_id", "")))
                         for row in selected
                     ),
-                    empty_message="Aucun site retenu.",
+                    empty_message="No site selected.",
                 ),
             ),
         ),
         ReportBlock(
             block_id="rejected_sites",
-            title="Sites rejetes",
+            title="Rejected sites",
             level="standard",
             tables=(
                 ReportTable(
                     "rejected_sites_table",
-                    "Sites rejetes",
+                    "Rejected sites",
                     columns=(
                         ("site_id", "Site"),
-                        ("area_km2", "Surface km2"),
-                        ("status", "Statut"),
-                        ("decision_stage", "Etape"),
-                        ("decision_reason", "Raison"),
-                        ("blocking_flags", "Flags bloquants"),
+                        ("area_km2", "Area km2"),
+                        ("status", "Status"),
+                        ("decision_stage", "Step"),
+                        ("decision_reason", "Reason"),
+                        ("blocking_flags", "Blocking flags"),
                     ),
                     rows=tuple(
                         _rejected_row(row, decision_by_site.get(row.get("site_id", "")))
                         for row in rejected
                     ),
-                    empty_message="Aucun site rejete.",
+                    empty_message="No site rejected.",
                 ),
             ),
         ),
         _station_influence_block(components),
         ReportBlock(
             block_id="criteria_components",
-            title="Criteres et evidences",
+            title="Criteria and evidence",
             level="audit",
             metrics=(
-                ReportMetric("Observations tracees", len(evidence)),
-                ReportMetric("Rejets bloquants", counts.get("blocking_rejections", 0)),
-                ReportMetric("Avertissements", counts.get("warnings", 0)),
+                ReportMetric("Observations traced", len(evidence)),
+                ReportMetric("Blocking rejections", counts.get("blocking_rejections", 0)),
+                ReportMetric("Warnings", counts.get("warnings", 0)),
             ),
             tables=(
                 key_value_table(
                     "criteria_component_summary",
-                    "Synthese des criteres",
+                    "Criteria summary",
                     (
-                        ("Criteres", _component_summary(component_counts)),
-                        ("Familles auditees", _component_summary(family_counts)),
+                        ("Criteria", _component_summary(component_counts)),
+                        ("Families audited", _component_summary(family_counts)),
                     ),
                 ),
             ),
         ),
         ReportBlock(
             block_id="artifact_links",
-            title="Artefacts",
+            title="Artifacts",
             level="audit",
             links=_artifact_links(
                 manifest_path=manifest_path, output_root=output_root, outputs=outputs
@@ -400,7 +400,7 @@ def build_block_variants(
                     title=block.title,
                     level=level,
                     status="empty",
-                    lead=f"Bloc disponible a partir du niveau {block.level}.",
+                    lead=f"Block shown from the {block.level} level up.",
                 )
         groups.append((block.block_id, variants))
     return tuple(groups)
@@ -462,7 +462,7 @@ def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:
     if not rows:
         return ReportBlock(
             block_id="candidate_generation",
-            title="Generation de candidats",
+            title="Candidate generation",
             level="audit",
             status="not_applicable",
         )
@@ -478,42 +478,42 @@ def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:
         if row.get("reference_network_distance_m") not in (None, "")
     ]
     metrics = [
-        ReportMetric("Candidats acceptes", statuses.get("accepted", 0)),
-        ReportMetric("Candidats rejetes audites", statuses.get("rejected", 0)),
-        ReportMetric("Raisons de rejet", _component_summary(reasons)),
+        ReportMetric("Candidates accepted", statuses.get("accepted", 0)),
+        ReportMetric("Rejected candidates audited", statuses.get("rejected", 0)),
+        ReportMetric("Rejection reasons", _component_summary(reasons)),
     ]
     if scored_distances:
         metrics.append(
             ReportMetric(
-                "Distance mediane au reseau de reference",
+                "Median distance to the reference network",
                 f"{_median(scored_distances):.1f}",
                 "m",
             )
         )
     return ReportBlock(
         block_id="candidate_generation",
-        title="Generation de candidats",
+        title="Candidate generation",
         level="audit",
         lead=(
-            "Audit des cellules du reseau DEM transformees en exutoires candidats. "
-            "Les lignes rejetees expliquent pourquoi une cellule n'a pas ete delimitee."
+            "Audit of the DEM network cells turned into candidate outlets. "
+            "A rejected row says why a cell was not delineated."
         ),
         metrics=tuple(metrics),
         tables=(
             ReportTable(
                 "candidate_generation_table",
-                "Candidats generes et rejets audites",
+                "Candidates generated and rejections audited",
                 columns=(
-                    ("candidate_id", "Candidat"),
-                    ("status", "Statut"),
-                    ("rejection_reason", "Rejet"),
+                    ("candidate_id", "Candidate"),
+                    ("status", "Status"),
+                    ("rejection_reason", "Rejection"),
                     ("accumulation_value", "Accumulation"),
-                    ("nearest_selected_distance_m", "Distance selection m"),
-                    ("reference_network_distance_m", "Distance ref m"),
-                    ("reference_network_status", "Statut ref"),
+                    ("nearest_selected_distance_m", "Selection distance m"),
+                    ("reference_network_distance_m", "Reference distance m"),
+                    ("reference_network_status", "Reference status"),
                 ),
                 rows=tuple(_candidate_generation_row(row) for row in rows[:80]),
-                empty_message="Aucun candidat genere.",
+                empty_message="No candidate generated.",
             ),
         ),
     )
@@ -540,47 +540,47 @@ def _station_influence_block(components: list[dict[str, Any]]) -> ReportBlock:
     if not rows:
         return ReportBlock(
             block_id="station_influence",
-            title="Influence hydrometrique des stations",
+            title="Hydrometric influence of the stations",
             level="standard",
             status="not_applicable",
         )
     status_counts = Counter(str(row.get("decision") or "unknown") for row in rows)
     return ReportBlock(
         block_id="station_influence",
-        title="Influence hydrometrique des stations",
+        title="Hydrometric influence of the stations",
         level="standard",
         lead=(
-            "Controle des metadonnees d'influence associees aux stations de debit. "
-            "Ce filtre signale une station ou un site hydrometrique declare influence; "
-            "il ne prouve pas l'absence de barrage en amont du bassin."
+            "Check of the influence metadata attached to the discharge stations. "
+            "This filter flags a station or a gauging site declared as influenced; "
+            "it does not prove that no dam stands upstream in the catchment."
         ),
         metrics=(
-            ReportMetric("Sans influence connue", status_counts.get("no_known_influence", 0)),
-            ReportMetric("Influence locale", status_counts.get("local_influence", 0)),
-            ReportMetric("Influence generale", status_counts.get("general_influence", 0)),
-            ReportMetric("Inconnu", status_counts.get("unknown", 0)),
+            ReportMetric("No known influence", status_counts.get("no_known_influence", 0)),
+            ReportMetric("Local influence", status_counts.get("local_influence", 0)),
+            ReportMetric("General influence", status_counts.get("general_influence", 0)),
+            ReportMetric("Unknown", status_counts.get("unknown", 0)),
         ),
         tables=(
             ReportTable(
                 "station_influence_table",
-                "Influence station",
+                "Station influence",
                 columns=(
                     ("site_id", "Site"),
                     ("station_id", "Station"),
                     ("decision", "Influence"),
-                    ("criterion_status", "Decision critere"),
+                    ("criterion_status", "Criterion decision"),
                     ("flags", "Flags"),
-                    ("keywords", "Mots-cles"),
-                    ("reason", "Raison"),
+                    ("keywords", "Keywords"),
+                    ("reason", "Reason"),
                 ),
                 rows=tuple(rows),
-                empty_message="Aucun critere station_influence trace.",
+                empty_message="No station_influence criterion traced.",
             ),
         ),
         warnings=(
-            "Le controle station_influence utilise les metadonnees hydrometriques "
-            "disponibles. Pour prouver spatialement l'absence d'obstacle amont, il "
-            "faudra une couche dediee type ROE.",
+            "The station_influence check reads the hydrometric metadata "
+            "available. Proving on the map that no obstacle stands upstream needs "
+            "a dedicated layer such as the ROE.",
         ),
     )
 
@@ -626,9 +626,9 @@ def _provenance_warnings(
         return ()
     labels = ", ".join(sorted(provenance))
     return (
-        "Cette selection utilise des entrees de fixture ou synthetiques "
-        f"({labels}). Les positions et bassins servent au controle du workflow "
-        "et du rendu; ils ne doivent pas etre interpretes comme des sites reels.",
+        "This selection uses fixture or synthetic inputs "
+        f"({labels}). The positions and catchments test the workflow "
+        "and its rendering; they are not real sites.",
     )
 
 
@@ -722,11 +722,11 @@ def _criteria_items(criteria: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
         ("Warning", _format_value(criteria.get("warning"))),
         ("Soft score", _format_value(criteria.get("soft_score"))),
         ("Report only", _format_value(criteria.get("report_only"))),
-        ("Surface", criteria.get("area_mode")),
-        ("Plages surface", _format_value(criteria.get("area_ranges"))),
-        ("Hydrometrie", criteria.get("flow_station_mode")),
-        ("Piezometrie", criteria.get("piezometer_mode")),
-        ("Geologie", criteria.get("geology_mode")),
+        ("Area", criteria.get("area_mode")),
+        ("Area ranges", _format_value(criteria.get("area_ranges"))),
+        ("Hydrometry", criteria.get("flow_station_mode")),
+        ("Piezometry", criteria.get("piezometer_mode")),
+        ("Geology", criteria.get("geology_mode")),
     )
 
 
@@ -766,7 +766,7 @@ def _territory_label(territory: Mapping[str, Any]) -> str:
 
 def _context_layer_summary(layers: list[Any]) -> str:
     if not layers:
-        return "aucune"
+        return "none"
     labels = []
     for layer in layers:
         if isinstance(layer, Mapping):
@@ -778,7 +778,7 @@ def _context_layer_summary(layers: list[Any]) -> str:
 
 def _component_summary(counts: Mapping[str, int]) -> str:
     if not counts:
-        return "aucun critere trace"
+        return "no criterion traced"
     return ", ".join(f"{key}: {value}" for key, value in sorted(counts.items()))
 
 
@@ -803,41 +803,40 @@ def _principle_explanation(
     area_rule = _area_rule_label(area)
     if principle == "observation_led" or candidate_mode == "station_outlets":
         return (
-            "La selection est pilotee par les observations: les stations de jaugeage "
-            "fournissent d'abord les exutoires candidats. Les bassins sont ensuite "
-            "delimites depuis ces exutoires et filtres par les criteres declares "
-            f"(station principale: {observation_type or 'non precisee'}; {area_rule})."
+            "The selection is led by the observations: the gauging stations give "
+            "the candidate outlets first. The catchments are then delineated from "
+            "these outlets and filtered by the declared criteria "
+            f"(primary station: {observation_type or 'not given'}; {area_rule})."
         )
     return (
-        "La selection croise directement les criteres spatiaux et physiques declares "
-        f"({area_rule})."
+        f"The selection crosses the declared spatial and physical criteria directly ({area_rule})."
     )
 
 
 def _area_rule_label(area: Mapping[str, Any]) -> str:
     mode = str(area.get("mode") or "report_only")
     mode_label = {
-        "hard_reject": "exigee",
-        "warning": "controlee en avertissement",
-        "score": "scoree",
-        "stratify": "utilisee pour stratifier",
-        "report_only": "rapportee",
+        "hard_reject": "required",
+        "warning": "checked as a warning",
+        "score": "scored",
+        "stratify": "used to stratify",
+        "report_only": "reported",
     }.get(mode, mode)
     ranges = _area_ranges_label(area.get("ranges"))
     if ranges:
-        return f"surface {mode_label} dans les plages {ranges}"
+        return f"area {mode_label} within the ranges {ranges}"
     minimum = area.get("hard_min_area_km2")
     maximum = area.get("hard_max_area_km2")
     if minimum is not None and maximum is not None:
-        return f"surface {mode_label} entre {minimum} et {maximum} km2"
+        return f"area {mode_label} between {minimum} and {maximum} km2"
     if minimum is not None:
-        return f"surface {mode_label} >= {minimum} km2"
+        return f"area {mode_label} >= {minimum} km2"
     if maximum is not None:
-        return f"surface {mode_label} <= {maximum} km2"
+        return f"area {mode_label} <= {maximum} km2"
     preferred = area.get("preferred_area_km2")
     if preferred is not None:
-        return f"surface {mode_label} autour de {preferred} km2"
-    return f"surface {mode_label}"
+        return f"area {mode_label} around {preferred} km2"
+    return f"area {mode_label}"
 
 
 def _area_ranges_label(value: object) -> str:
@@ -866,12 +865,12 @@ def _dem_explanation(
     has_map_dem = bool(flow_products.get("map_dem_path"))
     if has_map_dem and request_extent == "outlets" and map_extent == "territory":
         return (
-            "Le calcul hydrologique utilise un DEM limite aux exutoires, tandis que "
-            "la carte recharge un DEM regional pour le contexte visuel complet."
+            "The hydrological computation reads a DEM cut to the outlets, while the "
+            "map loads a regional DEM for the full visual context."
         )
     if has_map_dem:
-        return "La carte utilise un DEM de fond dedie au controle visuel des bassins."
-    return "La carte utilise les artefacts spatiaux disponibles dans le manifeste."
+        return "The map uses a background DEM kept for the visual check of the catchments."
+    return "The map uses the spatial artifacts the manifest lists."
 
 
 def _unit_value(value: object, unit: str) -> str:

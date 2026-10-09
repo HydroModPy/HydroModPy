@@ -25,13 +25,18 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import (
+    DiagonalNeighbors,
+    Extent,
+    NetworkTimestep,
+    TauSpecificRatio,
+)
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
     AGREEMENT_COLORS,
     CASING_COLOR,
     CELL_WEIGHT_PT,
-    MapExtentName,
     catchment_cells,
     cell_count,
     checked_cells,
@@ -117,10 +122,10 @@ class SeepageNetworkConfusionMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        tau_specific_ratio: float | None = None,
-        diagonal_neighbors: bool | None = None,
-        timestep: int | None = None,
-        extent: MapExtentName = "catchment",
+        tau_specific_ratio: TauSpecificRatio = None,
+        diagonal_neighbors: DiagonalNeighbors = None,
+        timestep: NetworkTimestep = None,
+        extent: Extent = "catchment",
         **_,
     ) -> Axes:
         comparison = comparison_from_run(
@@ -160,7 +165,7 @@ class SeepageNetworkConfusionMap(BaseFigure):
 
         style_map_axes(ax)
         overlay_watershed_contour(ax, sim, color="#404040", linewidth=0.9, alpha=0.7)
-        ax.set_title(dated_title(f"{self.spec.title} - {sim.name or sim.sim_id}", sim, timestep))
+        ax.set_title(dated_title(f"{self.spec.title}{run_suffix(sim)}", sim, timestep))
 
         window = map_extent(sim, polygons, extent=extent)
         scope = catchment_cells(sim, polygons) if extent == "catchment" else None

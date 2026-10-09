@@ -136,4 +136,4 @@ python -m pytest tests/unit/field -q
 ## UML
 
 - Canonical UML sources: `docs/source/contribute/architecture/field/diagrams/`
-- Architecture page: `docs/source/contribute/architecture/field/field-uml-diagrams.rst`
+- Architecture page: `docs/source/contribute/architecture/field/index.rst`

@@ -7,8 +7,23 @@ builds no model and runs no solver.
 
 Example 04, `examples/projects/04_streamflow_intermittence_in_transient`, is one
 catchment and has no site-selection file. The files below stand alone: each one is a
-complete project file for this workflow. The coordinates, the region and the thresholds
-are placeholders for your own campaign.
+complete project file for this workflow. The measures quoted in this guide come from a run
+of each route on a 25 km by 25 km box around the Nançon, with the regional DEM of example 04
+(`DEM_armorican_massif.tif`) as the DEM. Write your own region and thresholds.
+
+```{hmp-task}
+Task
+: Find the catchments of a region that pass your criteria, and keep a reason for each one that fails.
+
+Time
+: On a 25 km by 25 km box: 4 s for the plan and for a CSV of outlets, 23 s for two gauged catchments, 38 s for 20 candidates by area, 59 s for 40 sampled candidates. A larger region takes longer, and a DEM to download adds its own time. Only this box was measured.
+
+Needs
+: A region, a DEM (your file, or the IGN download), and for the gauged route network access to Hub'Eau.
+
+Gives
+: `selected_sites.csv`, a reason for every rejected candidate, GeoJSON of outlets and basins, and a static HTML review. From 0.1 MB for a plan to 12 MB for 40 sampled candidates.
+```
 
 ## What you need first
 
@@ -34,8 +49,10 @@ decision, and it sets {toml}`site_selection.input.mode`.
 | A region and its DEM drainage network | `generated_candidates` | a DEM |
 | Only the wish to check a file | `plan_only` | nothing |
 
-`generated_candidates` samples the DEM drainage network for outlets. It takes the
-{toml}`site_selection.outlets` table, which this guide does not walk through.
+Each route is a value of {toml}`site_selection.input.mode`. `plan_only`, the default, is step 1.
+`generated_candidates` and `dem_area_light` both start from the DEM. `dem_area_light`
+looks for outlets whose upstream area falls near a target. `generated_candidates` samples the
+cells of highest flow accumulation, so it finds large basins first.
 
 ```{hmp-params}
 site_selection.input.mode
@@ -43,8 +60,10 @@ site_selection.input.mode
 
 ## 1. Name the campaign and the region
 
-This file loads and runs in plan mode. It reads no data and delineates nothing, so use it
-to see that the file is valid before you add anything heavy.
+This file loads and runs in plan mode, the `plan_only` route: `input.mode` is left at its default.
+It reads no data and delineates nothing, so use it to see that the file is valid before you add
+anything heavy. `hmp run` on it took 4 s and wrote `site_selection_plan.json` (2 KB) and a
+`review/` folder with the HTML plan (about 0.5 MB).
 
 ```toml
 [workflow]
@@ -103,8 +122,8 @@ criteria. A station whose catchment cannot be delineated is rejected and says wh
 mode = "site_selection"
 
 [site_selection]
-selection_id = "bretagne_gauged"
-output_root = "bretagne_gauged"
+selection_id = "nancon_gauged"
+output_root = "nancon_gauged"
 
 [site_selection.strategy]
 principle = "observation_led"
@@ -113,9 +132,8 @@ primary_observation_type = "flow_station"
 candidate_mode = "station_outlets"
 
 [site_selection.territory]
-mode = "admin_regions"
-country = "FR"
-regions = ["Bretagne"]
+mode = "bbox"
+bbox = [375000.0, 6805000.0, 400000.0, 6830000.0]
 
 [site_selection.input]
 mode = "hydrometry"
@@ -127,7 +145,7 @@ margin_km = 5.0
 
 [site_selection.criteria.area]
 mode = "hard_reject"
-hard_min_area_km2 = 50.0
+hard_min_area_km2 = 10.0
 hard_max_area_km2 = 500.0
 
 [site_selection.output]
@@ -144,6 +162,13 @@ extent = "study_area"
 max_stations = 20
 ```
 
+On the box of 25 km by 25 km, Hub'Eau lists two flow stations: the Nançon gauge
+(`J001401001`, 64.5 km2) and `I912201002` (148.0 km2). Both pass the area window, so the run
+selects both. It took 23 s with the DEM given as a file, and left 2.3 MB. The `data/` folder
+under the output folder (0.7 MB) is the cache of the stations. To replace the box by a region,
+write `mode = "admin_regions"` with `regions = ["Bretagne"]`, and give the DEM as the IGN
+download.
+
 Three things differ from a simulation file.
 
 - The stations come from the top-level {toml}`hydrometry` section. This workflow does not
@@ -153,7 +178,8 @@ Three things differ from a simulation file.
 - {toml}`site_selection.dem.source` set to `"ign_geoplateforme_dem"` fetches the IGN DEM
   without a `[data.dem]` section. With `request_extent = "outlets"`, the request is the
   box of the station outlets plus {toml}`site_selection.dem.margin_km`, not the whole
-  region. A `[data.dem]` section, when you write one, wins over the shorthand.
+  region. A `[data.dem]` section, when you write one, wins over the shorthand. The measure
+  above used {toml}`site_selection.dem.path` instead, a file you already have.
 
 The profile `gauged_downstream_station` fixes four keys together. The file is refused
 when any of them disagrees: {toml}`site_selection.strategy.principle`,
@@ -211,8 +237,8 @@ selects at most {toml}`site_selection.dem_area_light.n_basins`.
 mode = "site_selection"
 
 [site_selection]
-selection_id = "calvados_area"
-output_root = "calvados_area"
+selection_id = "nancon_area"
+output_root = "nancon_area"
 
 [site_selection.strategy]
 principle = "criteria_crossing"
@@ -220,9 +246,8 @@ profile = "area_only"
 primary_axes = ["area"]
 
 [site_selection.territory]
-mode = "admin_departments"
-country = "FR"
-departments = ["14"]
+mode = "bbox"
+bbox = [375000.0, 6805000.0, 400000.0, 6830000.0]
 
 [site_selection.input]
 mode = "dem_area_light"
@@ -231,16 +256,16 @@ mode = "dem_area_light"
 source = "ign_geoplateforme_dem"
 
 [site_selection.dem_area_light]
-target_area_km2 = 100.0
-min_area_km2 = 75.0
-max_area_km2 = 125.0
-n_basins = 10
-max_candidates_before_delineation = 40
+target_area_km2 = 20.0
+min_area_km2 = 10.0
+max_area_km2 = 30.0
+n_basins = 5
+max_candidates_before_delineation = 20
 
 [site_selection.criteria.area]
 mode = "hard_reject"
-hard_min_area_km2 = 75.0
-hard_max_area_km2 = 125.0
+hard_min_area_km2 = 10.0
+hard_max_area_km2 = 30.0
 
 [site_selection.output]
 write_report_html = true
@@ -268,6 +293,78 @@ site_selection.dem_area_light.max_candidates_before_delineation
 
 A low value of `max_candidates_before_delineation` makes the run faster. It can also leave
 fewer accepted basins after the spatial rules of step 4.
+
+On the box of 25 km by 25 km, the scan found 857 raw outlets in the window, thinned them to 20
+(`diagnostics.csv` lists these counts), delineated the 20 basins, and selected 5 of 19.7 to 20.3
+km2. It took 38 s, with 120 s of processor time and 1.3 GB of memory at the peak, and left
+7.9 MB. The delineated basins (1 MB), the DEM drainage network as GeoJSON (3 MB) and the HTML
+review (3 MB in all) are most of it. With `source = "ign_geoplateforme_dem"` in place of a
+`path`, add the time to download the DEM of the box.
+
+### Candidates sampled from the drainage network
+
+`generated_candidates` takes the cells of the DEM drainage network with the largest flow
+accumulation, keeps the ones at least
+{toml}`site_selection.outlets.min_distance_between_outlets_km` apart, up to
+{toml}`site_selection.outlets.max_generated_candidates`, and delineates each. The largest
+basins come first, so the area window has to be set for large basins, or the run rejects every
+candidate: with a window of 10 to 30 km2 and the default spacing, all of the first 20 candidates
+were 328 to 331 km2, on the main river, and none was selected.
+
+```toml
+[workflow]
+mode = "site_selection"
+
+[site_selection]
+selection_id = "nancon_generated"
+output_root = "nancon_generated"
+
+[site_selection.strategy]
+principle = "criteria_crossing"
+profile = "area_only"
+primary_axes = ["area"]
+
+[site_selection.territory]
+mode = "bbox"
+bbox = [375000.0, 6805000.0, 400000.0, 6830000.0]
+
+[site_selection.input]
+mode = "generated_candidates"
+
+[site_selection.dem]
+source = "ign_geoplateforme_dem"
+
+[site_selection.outlets]
+candidate_mode = "network_sampling"
+max_generated_candidates = 40
+min_distance_between_outlets_km = 2.0
+allow_nested_basins = true
+
+[site_selection.criteria.area]
+mode = "hard_reject"
+hard_min_area_km2 = 5.0
+hard_max_area_km2 = 40.0
+
+[site_selection.spatial_selection]
+max_selected_sites = 5
+min_outlet_distance_km = 3.0
+
+[site_selection.output]
+write_report_html = true
+```
+
+`generated_candidates` requires `candidate_mode = "network_sampling"`. With 40 candidates
+(nested basins allowed, spaced by 2 km) the run rejected 23 for the area, 11 because the
+count of 5 was reached and 1 for a spacing under 3 km, and selected 5 basins of 31 to 37 km2. It took 59 s with
+200 s of processor time and 1.1 GB of memory at the peak, and left 12 MB, the DEM drainage
+network and the review included.
+
+```{hmp-params}
+site_selection.outlets.candidate_mode
+site_selection.outlets.max_generated_candidates
+site_selection.outlets.min_distance_between_outlets_km
+site_selection.outlets.allow_nested_basins
+```
 
 ### Outlets you already have
 
@@ -311,7 +408,8 @@ hard_max_area_km2 = 200.0
 write_report_html = true
 ```
 
-The run takes `area_km2` from the file. It needs no DEM and no network. To have the run
+The run takes `area_km2` from the file. It needs no DEM and no network. With the three rows
+above it took 4 s and left 1.2 MB, 0.6 MB of it the HTML review. To have the run
 compute the catchments from the outlets, set
 {toml}`site_selection.input.delineate_from_outlets` and give a DEM as in the other routes.
 The CSV can also carry the paths of catchments you delineated before, in the columns
@@ -503,16 +601,16 @@ the outputs are written, unless
 
 ## 6. Check before you run
 
-1. `hmp config check bretagne_gauged.toml` validates the `[site_selection]` section and,
+1. `hmp config check nancon_gauged.toml` validates the `[site_selection]` section and,
    when the file has one, the `[hydrometry]` section. It catches a wrong mode, a missing
    key, an unknown key and an unknown region. It does not look for the CSV, the DEM or the
    network, and it does not test the link between the route and its sections.
-2. `hmp site-selection plan bretagne_gauged.toml` validates the file the same way, then
+2. `hmp site-selection plan nancon_gauged.toml` validates the file the same way, then
    prints the plan as JSON: the strategy, the territory, the DEM, the criteria and the
    outputs the run will write. With `--write-manifest` it writes `site_selection_plan.json`
    under `output_root`. With `--write-report` it also writes `review/index.html` from that
    plan.
-3. `hmp run bretagne_gauged.toml` runs the route.
+3. `hmp run nancon_gauged.toml` runs the route.
 
 For the CSV route, `hmp site-selection select-catchments config.toml sites.csv` applies
 the criteria of the file to a CSV you name on the command line. `--output-root` and
@@ -540,7 +638,21 @@ Workflow 'site_selection' complete: from_csv.toml
 ```
 
 The gauged and area routes print `candidates` as well: the number of outlets that were
-tried, before any criterion.
+tried, before any criterion. For the area route above it printed `candidates: 20`,
+`selected: 5` and `rejected: 15`.
+
+To draw the review again from a manifest, after you edited the manifest or deleted the page,
+use the verb `report`:
+
+```bash
+hmp site-selection report nancon_area/site_selection_manifest.json --output review_again.html
+```
+
+It reads the manifest and the files it names, writes the page (3.5 s for the CSV route) and
+prints `[written] site_selection_report_html: <path>`. Without `--output`, the page goes to
+`<output_root>/review/index.html`. A path that is not there exits with 10 and `File not found:
+<path>`. A file that is not a manifest exits with 14 and lists the keys it misses, for example
+`Invalid site-selection manifest: missing top-level key: schema_version; ...`.
 
 ## Read the result
 
@@ -567,6 +679,16 @@ The other files follow the switches of step 5.
 | `diagnostics.csv` | the `dem_area_light` route |
 | `review/index.html` | `write_report_html` |
 
+What each route left, in the runs above:
+
+| Route | Time | Selected of tried | Size | Largest parts |
+| --- | --- | --- | --- | --- |
+| `plan_only` | 4 s | none | 0.08 MB | the three views of the plan |
+| `delineated_catchments`, three rows | 4 s | 1 of 3 | 1.2 MB | the review (0.6 MB), `criteria_components.jsonl` (12 KB) |
+| `hydrometry`, two stations | 23 s | 2 of 2 | 2.3 MB | the review (1.3 MB), the cache of the stations in `data/` (0.7 MB) |
+| `dem_area_light`, 20 candidates | 38 s | 5 of 20 | 7.9 MB | the DEM network (3 MB), the review (3 MB), the basins in `catchments/` (1 MB) |
+| `generated_candidates`, 40 candidates | 59 s | 5 of 40 | 11.5 MB | the DEM network, the review, `catchments/` |
+
 The decisions file says why each candidate stands where it does. This is the file of the
 CSV route above:
 
@@ -578,7 +700,17 @@ from_csv,C,REJECT,0,0,2,5,area: area 45 km2 is below hard_min_area_km2 50; final
 ```
 
 `selected_sites.csv` is the catalog. `regional_lab_sites.csv` holds the same selected sites
-with the columns the regional-lab profile of the testbed reads.
+with the columns the regional-lab profile of the testbed reads (`site_id`, `site_label`,
+`x_outlet`, `y_outlet`, `area_km2`, `tags` and a few more). For the area route above:
+
+```text
+site_id,site_label,region_id,source_selection_id,site_status,maturity,x,y,x_outlet,y_outlet,area_km2,tags,enabled
+dem_area_00001,dem_area_00001,,nancon_area,selected,screening,382950.0,6820500.0,382950.0,6820500.0,20.10375,site_selection;nancon_area,True
+dem_area_00002,dem_area_00002,,nancon_area,selected,screening,375600.0,6826725.0,375600.0,6826725.0,19.895625,site_selection;nancon_area,True
+...
+```
+
+These five outlets are the catalog of the next guide, {doc}`test-a-method`.
 
 Open `review/index.html` to review the choice. It is built from the manifest and the files
 the manifest names, so check the manifest first when a number looks wrong. The page
@@ -594,112 +726,36 @@ gauged route it also shows the stations and the link from each station to its ou
 
 ## What can go wrong
 
-`hmp config check` stops on an unknown region, and lists the names it knows:
+`hmp config check` ends with exit code 14 on the first six rows. The next ones come from
+`hmp run`, after the file has passed the check.
 
-```text
-Config invalid: bretagne.toml
-  territory: Value error, Unknown French region 'Bretagn'. Known regions: Auvergne-Rhone-Alpes, Bourgogne-Franche-Comte, Bretagne, ...
-```
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `Config invalid: <file>` then `territory: Value error, Unknown French region 'Bretagn'. Known regions: Auvergne-Rhone-Alpes, ...` | A region is misspelled. The message lists the names it knows. | Copy a name from the list. |
+| `criteria.area: Value error, area mode='hard_reject' requires at least one area range or a hard min/max area.` | A mode lacks its companion key. | Write `hard_min_area_km2` and `hard_max_area_km2`, or `ranges`. |
+| `input: Value error, mode='delineated_catchments' requires catchments_csv.` | The route has no input file. | Write {toml}`site_selection.input.catchments_csv`. |
+| `Value error, site_selection.input.mode='dem_area_light' requires strategy.profile='area_only'.` | A route and a strategy that do not go together. | Write the profile of the route. |
+| `strategy: Value error, observation_led requires primary_observation_type (for example 'flow_station').` | The gauged principle is incomplete. | Write the four keys of the profile `gauged_downstream_station` together. |
+| `Config invalid: TOML file must contain a [site_selection] section.` | The mode is `site_selection` and the file has no section. | Add `[site_selection]`. |
+| `site_selection.input.mode='hydrometry' requires [hydrometry].` (exit 14) | A gauged run with no `[hydrometry]` section. It stops before it loads anything. | Add the section. It is a top-level section, not `[data.hydrometry]`. |
+| `site_selection.input.mode='generated_candidates' or 'dem_area_light' requires either site_selection.dem.path or a [data.dem] source.` (exit 14) | An area or generated run with no DEM source. | Set {toml}`site_selection.dem.path`, or {toml}`site_selection.dem.source` to `"ign_geoplateforme_dem"`, or write a `[data.dem]` section. |
+| `site_selection.input.mode='hydrometry' requires either site_selection.dem.path or a [data.dem] source so station outlets can be delineated from a DEM.` | A gauged run reaches the DEM after the stations. | The same fix. |
+| `site_selection failed while loading hydrometry data. data_root=<default>. Check [site_selection.input].data_root, the matching [hydrometry] TOML section, and provider cache permissions. Original error: ...` | The run could not fetch the stations. For a DEM the text says `loading DEM data` and names `[data.dem]`. | Look at the network first, then at {toml}`site_selection.input.data_root`, the folder that holds the provider cache. Its default is a `data` folder under `output_root`. |
+| `catchments CSV row 1 is missing numeric 'y_outlet' or fallback 'y'.` (exit 16) | A row has no usable coordinate. | Fix the row. |
+| `catchments CSV row 1 is missing required field 'site_id'.` (exit 16) | A row has no `site_id`. | Fix the row. |
+| In `site_selection_decisions.csv`: `area: area_km2 is missing; final_selection: area_km2 is missing` | A candidate whose area is unknown fails an area criterion in `hard_reject` mode. The run ends with exit 0 and the candidate lands in `rejected_sites.csv`. | Add an `area_km2` column, or delineate the catchments with {toml}`site_selection.input.delineate_from_outlets`. |
+| Every candidate is rejected | The criteria are tighter than the candidates. | Read `reject_reasons` in `site_selection_decisions.csv` before you loosen a threshold. A candidate that the run could not delineate has the stage `delineation` in its decision and its `failure_reason` in `rejected_sites.csv`. |
+| `generated_candidates` selects nothing, and the rejected areas are all 300 km2 or more | The sampler takes the cells of largest accumulation first, on the main river. | Move the area window to large basins, or use `dem_area_light`. |
+| `Invalid site-selection manifest: missing top-level key: schema_version; ...` (exit 14), from `hmp site-selection report` | The file is not a manifest. | Name `site_selection_manifest.json` of a run. |
 
-The same command stops on a mode that lacks its companion key:
-
-```text
-Config invalid: area.toml
-  criteria.area: Value error, area mode='hard_reject' requires at least one area range or a hard min/max area. (input={'mode': 'hard_reject'})
-```
-
-```text
-Config invalid: sites.toml
-  input: Value error, mode='delineated_catchments' requires catchments_csv. (input={'mode': 'delineated_catchments'})
-```
-
-A route and a strategy that do not go together are refused:
-
-```text
-Config invalid: area.toml
-  : Value error, site_selection.input.mode='dem_area_light' requires strategy.profile='area_only'. (...)
-```
-
-```text
-Config invalid: gauged.toml
-  strategy: Value error, observation_led requires primary_observation_type (for example 'flow_station'). (input={'principle': 'observation_led'})
-```
-
-A file with no `[site_selection]` section, run with the mode `site_selection`, stops with:
-
-```text
-Config invalid: TOML file must contain a [site_selection] section.
-```
-
-The next errors come from `hmp run`, after the file has passed the check. A gauged run
-without a `[hydrometry]` section stops before it loads anything:
-
-```text
-site_selection.input.mode='hydrometry' requires [hydrometry].
-```
-
-An area or generated run with no DEM source stops with the message below. Set
-{toml}`site_selection.dem.path`, or {toml}`site_selection.dem.source` to
-`"ign_geoplateforme_dem"`, or write a `[data.dem]` section.
-
-```text
-site_selection.input.mode='generated_candidates' or 'dem_area_light' requires either site_selection.dem.path or a [data.dem] source.
-```
-
-A gauged run reaches the DEM after the stations. Without a DEM source it stops with this
-message, once the stations are loaded:
-
-```text
-site_selection.input.mode='hydrometry' requires either site_selection.dem.path or a [data.dem] source so station outlets can be delineated from a DEM.
-```
-
-A failure while the run fetches stations or the DEM begins with this text. The end of the
-message is the error of the provider:
-
-```text
-site_selection failed while loading hydrometry data. data_root=<default>. Check [site_selection.input].data_root, the matching [hydrometry] TOML section, and provider cache permissions. Original error: ...
-```
-
-For a DEM the message says `loading DEM data` and names `[data.dem]`. Look at the network
-first, then at {toml}`site_selection.input.data_root`, the folder that holds the provider
-cache. Its default is a `data` folder under `output_root`.
-
-A CSV row with no usable coordinate stops the run, with exit code 16
-(see {doc}`../reference/cli/exit-codes`):
-
-```text
-catchments CSV row 1 is missing numeric 'y_outlet' or fallback 'y'.
-```
-
-A row with no `site_id` stops it the same way:
-
-```text
-catchments CSV row 1 is missing required field 'site_id'.
-```
-
-A candidate whose area is unknown fails an area criterion in `hard_reject` mode. The
-decisions file says so, and the candidate lands in `rejected_sites.csv`:
-
-```text
-from_csv,A,REJECT,0,0,2,5,area: area_km2 is missing; final_selection: area_km2 is missing,,flow_station:A:A
-```
-
-Add an `area_km2` column, or delineate the catchments with
-{toml}`site_selection.input.delineate_from_outlets`.
-
-When every candidate is rejected, read `reject_reasons` in
-`site_selection_decisions.csv` before you loosen a threshold. A candidate that the run could
-not delineate has the stage `delineation` in its decision and its `failure_reason` in
-`rejected_sites.csv`.
-
-When selected sites sit on a regular grid, the input is a generated one, such as the
+When the selected sites sit on a regular grid, the input is a generated one, such as the
 `dem_area_light` route, and not a set of real stations.
 
 ## Next
 
-- Test a method on the sites you kept: {doc}`test-a-method`. The regional-lab profile of
-  the testbed takes the catalog from the manifest, through the key
-  `from_site_selection_manifest` of its catalog table.
+- Test a method on the sites you kept: {doc}`test-a-method`. The testbed and the regional lab
+  ({doc}`regional-lab`) take the catalog from the manifest, through the key
+  `from_site_selection_manifest` of their catalog table.
 - Run again with no network after a first run: {doc}`work-offline`.
 - Every key of the section: {toml}`site_selection`.
 - The commands and their options: {doc}`../reference/cli/site-selection`.

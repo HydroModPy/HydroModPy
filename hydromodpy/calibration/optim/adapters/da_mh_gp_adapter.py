@@ -21,6 +21,7 @@ import numpy as np
 
 from hydromodpy.calibration.optim.optimizer import (
     FAILED_EVAL_COST,
+    EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
@@ -113,6 +114,9 @@ class DaMhGpOptimizer:
     """
 
     name = "da_mh_gp"
+
+    # The log-likelihood is written for an RMSE: -0.5 * (cost / sigma_noise)**2.
+    traits = EngineTraits(reads_cost_as="rmse")
 
     def __init__(
         self,

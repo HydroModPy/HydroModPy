@@ -58,8 +58,7 @@ says the simulated network is under-developed. A low precision says it spreads w
 nothing. Two combined scores fold the two shares into one number.
 
 One detail changes the numbers. This way marks every cell the map touches, so a line becomes a
-ribbon of cells. The downslope method draws the map one cell wide, like the simulated network
-({toml}`calibration.outputs.<name>.observed_rasterization`). The cell counts of the two ways are
+ribbon of cells. The downslope method draws the map one cell wide, like the simulated network. The cell counts of the two ways are
 therefore not comparable.
 
 ### Straight-line distance
@@ -93,7 +92,7 @@ diagnostic, and the three classes of cells that the confusion map draws: {term}`
 The average walk has a validity length. When it is longer than that length, the two networks are
 further apart than the map can be trusted to place them, and the score says little about the
 hydrogeology. By default the length is two cells, widened by the positional accuracy you declare
-for the map ({toml}`calibration.outputs.<name>.validity_length`). A violation is a warning
+for the map. A violation is a warning
 unless you ask for an error, as the {doc}`guide <../guides/calibrate-on-the-stream-network>`
 explains.
 
@@ -141,7 +140,7 @@ Before you compare two scores, check that they were computed the same way.
   grid cannot place a stream closer than about a cell.
 - **The state that is read.** A steady run gives one network. A run that changes with time gives
   one network per time step. A calibration can score one state, or two bounds: the complete
-  network and the permanent one ({toml}`calibration.outputs.<name>.extent`). A cell is counted
+  network and the permanent one. A cell is counted
   as flowing above a {term}`visible flow`.
 - **The map.** The permanent network of a map does not hold the temporary streams. An "excess"
   can be a real stream the map ignores.

@@ -72,6 +72,16 @@ smoothing is there to keep the Newton step defined, not to move the water table.
 {eq}`eq-saturated-thickness`. In the code: `_initialize_solver_packages` passes
 `thickfact` to MODFLOW-NWT.
 
+```{eval-rst}
+.. plot:: theory/figures/mf6nwt_smoothing.py
+   :alt: The smoothed saturated fraction against the saturated fraction for the three solvers, on the whole range and near zero.
+   :caption: :eq:`eq-smoothed-saturation` for the three solvers. Left: over the whole
+      range the three curves are one line. Right: the first :math:`3 \times 10^{-5}` of
+      the thickness. Look at the MODFLOW-NWT curve: it starts flat at zero and joins a
+      line shifted by :math:`\varepsilon_s / 2`; MODFLOW 6 does the same over a tenth of
+      the width, and the clip has a kink at zero.
+```
+
 The vertical conductivity is a ratio in both, $K_z = K / \beta$: the key is
 {toml}`modflownwt.process_specific.vka` for MODFLOW-NWT, with `layvka` set so that `vka`
 is read as a ratio, and {toml}`modflow6.process_specific.vka` for MODFLOW 6.

@@ -9,12 +9,13 @@ grid whose cuvette is off does not quietly rescale the observation.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
 
 from hydromodpy.core.metrics import bias, kge, nse, rmse
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import style_date_axis
 from hydromodpy.results.derive.time_alignment import (
@@ -158,7 +159,17 @@ class LakeStageSimObs(BaseFigure):
         """Require a simulated stage and a gauged level for the lake."""
         return super().unavailable_reason(sim) or _no_lake_pair_reason(sim, "stage")
 
-    def render(self, sim: Run, ax: Axes, *, lake_id: str | None = None, **_: Any) -> Axes:
+    def render(
+        self,
+        sim: Run,
+        ax: Axes,
+        *,
+        lake_id: Annotated[
+            str | None,
+            Opt("Lake to draw, by its id. Left out, the lake holding the most water at full pool."),
+        ] = None,
+        **_: Any,
+    ) -> Axes:
         lake = lake_id or _default_lake(sim)
         sim_ts = normalize_datetime_series(
             sim.timeseries("stage", station=f"{_STATION_PREFIX}{lake}")
@@ -177,7 +188,7 @@ class LakeStageSimObs(BaseFigure):
         _metrics_box(ax, sim_v, obs_v, "m")
         ax.set_xlabel("Date")
         ax.set_ylabel("Stage [m]")
-        ax.set_title(f"Lake stage sim vs obs - {lake} ({sim.name or sim.sim_id})")
+        ax.set_title(f"Lake stage sim vs obs - {lake}{run_suffix(sim, ' ({})')}")
         ax.grid(True, ls=":", lw=0.4)
         ax.legend(fontsize=10, framealpha=0.94, loc="upper left")
         style_date_axis(ax)
@@ -200,7 +211,17 @@ class LakeVolumeSimObs(BaseFigure):
         """Require a simulated storage and a gauged level for the lake."""
         return super().unavailable_reason(sim) or _no_lake_pair_reason(sim, "volume")
 
-    def render(self, sim: Run, ax: Axes, *, lake_id: str | None = None, **_: Any) -> Axes:
+    def render(
+        self,
+        sim: Run,
+        ax: Axes,
+        *,
+        lake_id: Annotated[
+            str | None,
+            Opt("Lake to draw, by its id. Left out, the lake holding the most water at full pool."),
+        ] = None,
+        **_: Any,
+    ) -> Axes:
         from hydromodpy.results.run.lake_abacus_view import run_lake_abacus
 
         lake = lake_id or _default_lake(sim)
@@ -236,7 +257,7 @@ class LakeVolumeSimObs(BaseFigure):
         _metrics_box(ax, sim_v, obs_v, "Mm3")
         ax.set_xlabel("Date")
         ax.set_ylabel("Storage [Mm3]")
-        ax.set_title(f"Lake storage sim vs obs - {lake} ({sim.name or sim.sim_id})")
+        ax.set_title(f"Lake storage sim vs obs - {lake}{run_suffix(sim, ' ({})')}")
         ax.grid(True, ls=":", lw=0.4)
         ax.legend(fontsize=9, framealpha=0.94, loc="upper left")
         style_date_axis(ax)

@@ -326,3 +326,46 @@ def test_simulation_comparison_rejects_path_like_comparison_id(tmp_path: Path) -
 
     with pytest.raises(ValueError, match="String should match pattern"):
         SimulationComparisonConfig.from_toml(raw, config_path=config_path)
+
+
+def test_a_comparison_child_rewrites_only_the_paths_its_schema_declares(tmp_path: Path) -> None:
+    """The figure folder is a name inside the run; the CSV of a field is a file."""
+    _write_base_simulation_config(tmp_path / "base.toml")
+    config_path = tmp_path / "compare_paths.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "comparison"',
+                "",
+                "[comparison]",
+                'comparison_id = "demo_paths"',
+                'base_simulation_config = "base.toml"',
+                "",
+                "[[comparison.simulation]]",
+                'id = "mf6_ref"',
+                'solver = "modflow6"',
+                "",
+                "[comparison.simulation.overlay.display]",
+                'output_dir = "figs"',
+                "",
+                "[comparison.simulation.overlay.flow.param.K.field]",
+                'values_csv_file = "tables/k.csv"',
+                "",
+                "[[comparison.observable]]",
+                'name = "head_mid"',
+                'variable = "watertable_elevation"',
+                'support = "point"',
+                "cell_index = 0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    cfg = _load_comparison_cfg(config_path)
+    (child,) = materialize_child_configs(cfg)
+    raw = load_toml_with_base_config(child.config_path)
+
+    assert raw["display"]["output_dir"] == "figs"
+    csv = raw["flow"]["param"]["K"]["field"]["values_csv_file"]
+    assert csv == (tmp_path / "tables" / "k.csv").as_posix()

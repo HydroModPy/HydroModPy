@@ -27,14 +27,13 @@ Pages
       (config, runtime, execution flows, case structure) in one
       place.
 
-   .. grid-item-card:: Operational calibration guide
+   .. grid-item-card:: How the calibration engine runs
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: calibration-guide
       :link-type: doc
 
-      TOML sections, optimizer catalogue, storage rules, common
-      pitfalls, and the Python API for custom observables and
-      objectives.
+      How a calibration file becomes trials: the steps a trial replays,
+      what is stored, the cache, and what a search reports about itself.
 
 .. toctree::
    :hidden:

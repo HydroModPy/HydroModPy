@@ -69,3 +69,23 @@ def test_a_missing_index_still_raises_the_bare_duckdb_error(tmp_path: Path) -> N
         connect_with_retry(str(missing), read_only=True)
 
     assert not isinstance(excinfo.value, CatalogUnreadableError)
+
+
+def test_two_modes_of_one_index_are_not_called_a_corruption(tmp_path: Path) -> None:
+    """A read-only and a read-write open of one file in one process is a mode conflict."""
+    from hydromodpy.core.exceptions import WriteConflictError
+
+    index = tmp_path / "index.duckdb"
+    first = duckdb.connect(str(index))
+    first.execute("CREATE TABLE simulations (sim_id VARCHAR)")
+    first.close()
+
+    reader = connect_with_retry(str(index), read_only=True)
+    try:
+        with pytest.raises(WriteConflictError) as excinfo:
+            connect_with_retry(str(index))
+    finally:
+        reader.close()
+
+    assert "already open in this process" in str(excinfo.value)
+    assert "reindex" not in str(excinfo.value)

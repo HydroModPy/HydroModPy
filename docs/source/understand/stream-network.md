@@ -27,11 +27,11 @@ How much water a drain passes for a given rise of the water table depends on the
 {term}`hydraulic conductivity` K of the cell: the more permeable the ground, the more freely it
 drains. The drain is not a free exit. Unless you declare a {term}`conductance`, the model derives
 it from K and from the thickness of the clogging layer of the drain bed (the thin, less permeable
-film that lines a stream bed, {toml}`solver.drain_bed_thickness_m`). The drain follows K, and this
+film that lines a stream bed). The drain follows K, and this
 is why the extent of the network carries information on K.
 
-In example 04, drains are the only way water leaves the aquifer: {toml}`flow.active_bc` lists
-`"drainage"` and nothing else.
+In example 04, drains are the only way water leaves the aquifer: the list of boundary
+conditions of the model names the drain and nothing else.
 
 ## A seepage cell is a point, not a stream
 
@@ -39,24 +39,24 @@ A cell where the aquifer gives water back to the ground is a *seepage cell*. It 
 where water appears, a spring, and not a stretch of river. Isolated cells and short lines of
 cells are normal.
 
-```{figure} img/ex04_seepage_map.png
+```{figure} /_static/figures/understand/ex04_seepage_map.webp
 :alt: Map of the Nançon catchment in October 2002. Blue cells, isolated or in short lines, are the cells where the water table is at or above the ground.
 :width: 75%
 
 {bdg-warning}`Indicative` **Look at:** the isolated blue cells, each a point where water leaves the aquifer.
 **Does not show:** any stream, which is drawn in the next step.
 
-The `seepage_map` of example 04, October 2002, the driest month of the record, from an archived
-run.
+The `seepage_map` of example 04, October 2002, the driest month of the series according to the
+comments of the example file ({doc}`reading-results`).
 ```
 
 The map above shows the raw state of the water table. For the network, the model asks a
 slightly different question: how much water leaves the cell. A cell counts as a source when it
 gives back more than a small share of the mean {term}`recharge` over its area
-({toml}`calibration.outputs.<name>.tau_specific_ratio`). The test is
+(the {term}`seepage threshold`). The test is
 made on the flux because the water budget fixes the flux, while "the head touches the ground"
-is a geometric condition that changes a lot when the drain conductance moves. See
-{term}`seepage threshold`.
+is a geometric condition that changes a lot when the drain conductance moves. The
+{doc}`guide <../guides/calibrate-on-the-stream-network>` shows the setting.
 
 ## Seepage cells draw the network
 
@@ -75,14 +75,14 @@ active network. **Does not show:** a river volume. The network is a view drawn a
 computation, and the water budget fields stay untouched.
 ```
 
-```{figure} img/ex04_flow_intermittence_map.png
+```{figure} /_static/figures/understand/ex04_flow_intermittence_map.webp
 :alt: Map of the Nançon catchment for the year 2002. Perennial streams in blue form a trunk and its main branches. Intermittent streams in orange are at the upstream ends and on side branches. The rest of the catchment is dry, in gray.
 :width: 75%
 
 {bdg-warning}`Indicative` **Look at:** the blue trunk and the orange upstream ends. **Does not show:** which
 reaches dry up in the field.
 
-The `flow_intermittence_map` of example 04, year 2002 (a calibrated archived run). Blue cells flow
+The `flow_intermittence_map` of example 04, year 2002, from the calibrated run. Blue cells flow
 every month of the year, orange cells some months, gray cells never.
 ```
 
@@ -97,7 +97,7 @@ Three things follow from this construction.
   hillside, not of the field (see {term}`resolution`).
 - **A flow threshold keeps only cells that carry water.** On the flow maps, a downstream cell
   flows only if the water routed to it reaches a minimum discharge
-  ({toml}`calibration.outputs.<name>.extent.visible_flow`). It is a convention. See
+  (the {term}`visible flow`). It is a convention. See
   {term}`visible flow`.
 
 ## Why the network grows in winter and shrinks in summer
@@ -172,13 +172,12 @@ the {term}`BD TOPO`. It is a reference. The model never receives it.
 - It does not set K.
 
 The model is built from the relief, the geology, the recharge and the thickness. The map is
-read afterwards, to score and to draw ({doc}`reading-results`). You declare it under
-{toml}`data.hydrography`, and the code treats it as a {term}`diagnostic`, not as a model input.
+read afterwards, to score and to draw ({doc}`reading-results`). You declare it as a data source ({doc}`../guides/get-the-data`), and the code treats it as a {term}`diagnostic`, not as a model input.
 
 To compare the two networks, the lines of the map are first placed on the model cells.
 By default HydroModPy keeps only the places where the map says a stream starts, and lets the
 slope of the model draw the path below them
-({toml}`calibration.outputs.<name>.observed_rasterization`). Field ditches and rectified
+({doc}`../guides/calibrate-on-the-stream-network`). Field ditches and rectified
 reaches follow paths that a model on a digital elevation model cannot reproduce, and drawn
 cell by cell they would count as errors of the model.
 

@@ -14,11 +14,19 @@ whole record rather than over one cycle.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import (
+    DiagonalNeighbors,
+    Extent,
+    FlowTauSpecificRatio,
+    Opt,
+    Overlays,
+    VisibleFlow,
+)
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._flow_persistence import (
     FLOW_FIELD,
@@ -29,7 +37,6 @@ from hydromodpy.display.figures._flow_persistence import (
     span_label,
 )
 from hydromodpy.display.figures._stream_comparison import (
-    MapExtentName,
     catchment_cells,
     map_extent,
     map_legend,
@@ -53,32 +60,7 @@ if TYPE_CHECKING:
 
 @register
 class FlowPersistenceMap(BaseFigure):
-    """Fraction of the simulated timesteps each cell flowed.
-
-    Options
-    -------
-    ``cycle``
-        Label of one hydrological cycle, usually a calendar year, to read
-        instead of the whole record. Set it to the cycle
-        ``flow_intermittence_map`` classifies when the two maps are read side
-        by side: a cell that ran through a wet year and stopped through a dry
-        one otherwise reads as dry on one map and as flowing on the other,
-        which is two windows disagreeing and not two answers.
-    ``visible_flow``
-        Routed discharge a cell of the seepage closure must carry to flow:
-        ``"1 L/s"`` (the default of the criterion's two-bound mode), any
-        discharge with its unit, a share of the outlet discharge such as
-        ``"1%"``, or ``"0 L/s"`` for the closure alone.
-    ``tau_specific_ratio``
-        Seepage threshold as a fraction of the recharge a cell receives; the
-        criterion's default when left out.
-    ``cmap``
-        Sequential palette. Its pale end is cut so no drawn cell is lighter
-        than the cells the ramp says nothing about.
-    ``extent``
-        ``"catchment"`` (default) crops to the delineated watershed and counts
-        the cells inside it; ``"mesh"`` keeps the whole modelled domain.
-    """
+    """Fraction of the simulated timesteps each cell flowed."""
 
     spec = FigureSpec(
         name="flow_persistence_map",
@@ -93,13 +75,27 @@ class FlowPersistenceMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        cycle: str | None = None,
-        visible_flow: str | None = None,
-        tau_specific_ratio: float | None = None,
-        diagonal_neighbors: bool | None = None,
-        cmap: str = "Blues",
-        overlays: tuple[str, ...] | list[str] | None = None,
-        extent: MapExtentName = "catchment",
+        cycle: Annotated[
+            str | None,
+            Opt(
+                "Label of one hydrological cycle, usually a calendar year, to read "
+                "instead of the whole record. Set it to the cycle "
+                "flow_intermittence_map classifies when the two maps are read side by "
+                "side. Left out, the whole record."
+            ),
+        ] = None,
+        visible_flow: VisibleFlow = None,
+        tau_specific_ratio: FlowTauSpecificRatio = None,
+        diagonal_neighbors: DiagonalNeighbors = None,
+        cmap: Annotated[
+            str,
+            Opt(
+                "Sequential palette, by Matplotlib name. Its pale end is cut so no drawn "
+                "cell is lighter than the cells that never flowed."
+            ),
+        ] = "Blues",
+        overlays: Overlays = None,
+        extent: Extent = "catchment",
         **_,
     ) -> Axes:
         from matplotlib.patches import Patch
@@ -143,7 +139,7 @@ class FlowPersistenceMap(BaseFigure):
         style_map_axes(ax)
         window = span_label(sim, steps)
         ax.set_title(
-            f"{self.spec.title} - {sim.name or sim.sim_id}\n"
+            f"{self.spec.title}{run_suffix(sim)}\n"
             f"{window + ', ' if window else ''}{steps.size} timesteps, "
             f"{int((ever & scope).sum()):,} cells ever flowing"
         )

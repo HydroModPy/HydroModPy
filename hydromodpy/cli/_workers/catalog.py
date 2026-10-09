@@ -570,7 +570,13 @@ def diff_simulations(ref_a: str, ref_b: str, *, workspace: Any) -> dict:
         return catalog.diff(ref_a, ref_b)
 
 
-def import_package_run(package_path: Any, *, workspace: Any, force: bool = False) -> dict:
+def import_package_run(
+    package_path: Any,
+    *,
+    workspace: Any,
+    force: bool = False,
+    as_project: str | None = None,
+) -> dict:
     """Import a single- or multi-run ``.hmp`` archive (catalog created if absent).
 
     Returns ``{"sim_ids": [...]}`` (one id for a single-run archive, one per run
@@ -583,7 +589,7 @@ def import_package_run(package_path: Any, *, workspace: Any, force: bool = False
     if not pkg.is_file():
         raise FileNotFoundError(f"No archive at {pkg}")
     with Catalog(root) as catalog:
-        return {"sim_ids": catalog.import_package_multi(pkg, force=force)}
+        return {"sim_ids": catalog.import_package_multi(pkg, force=force, as_project=as_project)}
 
 
 def _read_running_sidecars(project_root: Path, cutoff_s: float) -> dict[str, dict]:
@@ -912,7 +918,7 @@ def _gc_live_runs(project_root: Path) -> tuple[list[_RetentionRun], set[str]]:
 def _gc_superseded_runs(runs: list[_RetentionRun], keep: int) -> list[_RetentionRun]:
     """Return the runs beyond the ``keep`` newest versions of their lineage.
 
-    A lineage is a ``name_stem``: ``cheze`` and ``cheze.v2`` are two versions
+    A lineage is a ``name_stem``: ``my_run`` and ``my_run.v2`` are two versions
     of one run, and registration guarantees the version number orders them.
     """
     from collections import defaultdict

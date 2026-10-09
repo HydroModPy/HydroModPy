@@ -42,11 +42,12 @@ then the map answers which cells are exchanging water on that day instead.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_relative_km_axes
@@ -191,8 +192,20 @@ class BoundaryPackageMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        over: Literal["run", "step"] = "run",
-        timestep: int | None = None,
+        over: Annotated[
+            Literal["run", "step"],
+            Opt(
+                '"run" maps the cells each package exchanges water through at any step '
+                'of the run; "step" only those exchanging at the instant drawn.'
+            ),
+        ] = "run",
+        timestep: Annotated[
+            int | None,
+            Opt(
+                'The instant drawn when over is "step": a date ("2002-10-15"), "first" '
+                'or "last". Left out, the last period.'
+            ),
+        ] = None,
         **_,
     ) -> Axes:
         if over not in ("run", "step"):
@@ -234,7 +247,7 @@ class BoundaryPackageMap(BaseFigure):
         # the shape of the axes box, which puts the empty bands the crop just
         # removed straight back on the page.
         ax.set_aspect("equal", adjustable="box")
-        ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}")
+        ax.set_title(f"{self.spec.title}{run_suffix(sim)}")
         overlay_handles, _labels = ax.get_legend_handles_labels()
         ax.legend(
             handles=_legend_handles(acting, several, none) + overlay_handles,
