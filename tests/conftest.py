@@ -369,11 +369,12 @@ def pytest_collection_modifyitems(config, items):
                     item.add_marker(pytest.mark.timeout(_LAYER_TIMEOUTS_SECONDS[layer]))
                 break
 
+        # The `boussinesq` variant of an analytical case runs the PETSc backend.
+        # A test that needs PETSc otherwise carries the mark itself: a name says
+        # nothing about the engine (`boussinesq_local` runs without PETSc).
         if "validation" in parts and "analytical" in parts:
             callspec = getattr(item, "callspec", None)
             if callspec is not None and callspec.params.get("solver") == "boussinesq":
-                item.add_marker(pytest.mark.petsc)
-            elif callspec is None and "boussinesq" in item.nodeid.lower():
                 item.add_marker(pytest.mark.petsc)
 
         if item_path.name in _WHITEBOX_XDIST_GROUP_TEST_FILES and not any(

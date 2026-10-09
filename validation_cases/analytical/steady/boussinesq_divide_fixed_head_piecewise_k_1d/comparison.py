@@ -19,6 +19,8 @@ from validation_cases.shared import (
     rmse,
     run_launcher_validation_case,
 )
+from validation_cases.shared.boussinesq_analytical_runtime import DEFAULT_ENGINE_SOLVER
+from validation_cases.shared.strip_geometry import strip_geometry_for_run
 
 from .reference import expected_boussinesq_divide_fixed_head_piecewise_profile
 from .runtime_boussinesq import run_boussinesq_divide_fixed_head_piecewise_k_case
@@ -129,22 +131,29 @@ def build_boussinesq_divide_fixed_head_piecewise_k_comparison(
 
     profile_axis = int(reference_cfg.get("profile_axis", 0))
     numerical_profile = mean_along_axis(heads, axis=profile_axis)
-    x = np.linspace(
-        float(reference_cfg["xmin"]),
-        float(reference_cfg["xmax"]),
-        numerical_profile.size,
-        dtype=float,
-    )
-    analytical_profile = expected_boussinesq_divide_fixed_head_piecewise_profile(
+    geometry = strip_geometry_for_run(
+        result,
+        ncol=numerical_profile.size,
         xmin=float(reference_cfg["xmin"]),
         xmax=float(reference_cfg["xmax"]),
-        ncol=numerical_profile.size,
-        east_head=float(reference_cfg["east_head"]),
-        recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
-        x_zone_breaks_m=reference_cfg["x_zone_breaks_m"],
-        hydraulic_conductivity_m_per_s_by_zone=reference_cfg[
-            "hydraulic_conductivity_m_per_s_by_zone"
-        ],
+    )
+    x = geometry.x
+    divide_side = str(reference_cfg.get("divide_side", "west"))
+    if divide_side != "west":
+        raise ValueError(f"Unsupported divide_side {divide_side!r}: only 'west' is posed.")
+    analytical_profile = geometry.profile(
+        lambda points: expected_boussinesq_divide_fixed_head_piecewise_profile(
+            x=points,
+            divide_x=geometry.xmin,
+            east_x=geometry.east_x,
+            east_head=float(reference_cfg["east_head"]),
+            recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
+            x_zone_breaks_m=reference_cfg["x_zone_breaks_m"],
+            hydraulic_conductivity_m_per_s_by_zone=reference_cfg[
+                "hydraulic_conductivity_m_per_s_by_zone"
+            ],
+        ),
+        within=(geometry.xmin, geometry.east_x),
     )
     residual_profile = np.asarray(numerical_profile - analytical_profile, dtype=float)
 
@@ -176,10 +185,11 @@ def run_boussinesq_divide_fixed_head_piecewise_k_comparison(
     metadata = load_case_metadata(CASE_DIR)
     tolerances = load_case_tolerances(CASE_DIR, solver=solver)
     normalized_solver = None if solver is None else str(solver).strip().lower()
-    if normalized_solver == "boussinesq":
+    if normalized_solver in {"boussinesq", DEFAULT_ENGINE_SOLVER}:
         result = run_boussinesq_divide_fixed_head_piecewise_k_case(
             caller_file=caller_file,
             timeout=timeout,
+            public_solver_label=normalized_solver,
         )
     else:
         result = run_launcher_validation_case(

@@ -18,6 +18,8 @@ from validation_cases.shared import (
     rmse,
     run_launcher_validation_case,
 )
+from validation_cases.shared.boussinesq_analytical_runtime import DEFAULT_ENGINE_SOLVER
+from validation_cases.shared.strip_geometry import strip_geometry_for_run
 
 from .reference import expected_dupuit_divide_river_profile
 from .runtime_boussinesq import run_boussinesq_dupuit_divide_river_case
@@ -76,19 +78,26 @@ def build_dupuit_divide_river_comparison(
 
     profile_axis = int(reference_cfg.get("profile_axis", 0))
     numerical_profile = mean_along_axis(heads, axis=profile_axis)
-    x = np.linspace(
-        float(reference_cfg["xmin"]),
-        float(reference_cfg["xmax"]),
-        numerical_profile.size,
-        dtype=float,
-    )
-    analytical_profile = expected_dupuit_divide_river_profile(
+    divide_side = str(reference_cfg.get("divide_side", "west"))
+    if divide_side != "west":
+        raise ValueError(f"Unsupported divide_side {divide_side!r}: only 'west' is posed.")
+    geometry = strip_geometry_for_run(
+        result,
+        ncol=numerical_profile.size,
         xmin=float(reference_cfg["xmin"]),
         xmax=float(reference_cfg["xmax"]),
-        ncol=numerical_profile.size,
-        river_head=float(reference_cfg["river_head"]),
-        recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
-        hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
+    )
+    x = geometry.x
+    analytical_profile = geometry.profile(
+        lambda points: expected_dupuit_divide_river_profile(
+            x=points,
+            divide_x=geometry.xmin,
+            river_x=geometry.east_x,
+            river_head=float(reference_cfg["river_head"]),
+            recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
+            hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
+        ),
+        within=(geometry.xmin, geometry.east_x),
     )
     residual_profile = np.asarray(numerical_profile - analytical_profile, dtype=float)
 
@@ -120,10 +129,11 @@ def run_dupuit_divide_river_comparison(
     metadata = load_case_metadata(CASE_DIR)
     tolerances = load_case_tolerances(CASE_DIR, solver=solver)
     normalized_solver = None if solver is None else str(solver).strip().lower()
-    if normalized_solver == "boussinesq":
+    if normalized_solver in {"boussinesq", DEFAULT_ENGINE_SOLVER}:
         result = run_boussinesq_dupuit_divide_river_case(
             caller_file=caller_file,
             timeout=timeout,
+            public_solver_label=normalized_solver,
         )
     else:
         result = run_launcher_validation_case(

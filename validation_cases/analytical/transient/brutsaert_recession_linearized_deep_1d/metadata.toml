@@ -11,13 +11,14 @@ modflow_nwt = "config_modflownwt.toml"
 modflow6 = "config_modflow6.toml"
 modflow6_irregular_tri = "config_modflow6_irregular_tri.toml"
 boussinesq = "config_boussinesq.toml"
+boussinesq_local = "config_boussinesq_local.toml"
 
 [workspace]
 results_folder_name = "results_simulations"
 
 [output]
 observable_name = "outlet_discharge_east_side_m3_s"
-expected_periods = 12
+expected_periods = 9
 head_observable_name = "watertable_elevation"
 
 [output.warmup_periods_by_solver]
@@ -25,31 +26,19 @@ modflow_nwt = 1
 modflow6 = 1
 modflow6_irregular_tri = 1
 boussinesq = 0
+boussinesq_local = 0
 
 [time]
-nper = 12
+nper = 9
 dt_seconds = 864000.0
 
-[geometry]
-nx = 40
-ny = 3
-length_x_m = 400.0
-width_y_m = 30.0
-z_top_m = 100.0
-z_bottom_m = 0.0
-
 [runtime]
-east_head_m = 50.0
-steady_recharge_mm_day = 2.0
 acceptable_steady_residual_inf = 1e-6
 
+# The strip geometry and hydraulics come from config_common.toml. The series
+# solution covers the whole recession; from day 30 the second mode is below
+# 1e-8 of the first, so the late window sees the single exponential.
 [reference]
-solution = "exponential"
-hydraulic_conductivity_m_per_s = 1e-4
-specific_yield = 0.1
-aquifer_thickness_m = 50.0
-watershed_area_m2 = 12000.0
-channel_length_m = 30.0
-active_drainage_fraction = 1.0
-linearization_constant = 0.25
+solution = "linear"
 compare_start_day = 0.0
+late_window_start_day = 30.0

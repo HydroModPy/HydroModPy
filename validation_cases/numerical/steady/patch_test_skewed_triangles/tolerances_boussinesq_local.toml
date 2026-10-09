@@ -1,0 +1,22 @@
+[heads]
+rmse = 0.0064
+max_abs_error = 0.0144
+
+[doc]
+reason = """
+1.1 times the measurement, a documented gap (below): RMSE 0.0058 m, max error
+0.0131 m, for a head drop of 0.2 m across the strip.
+"""
+gap = """
+The Boussinesq solver has a two-point flux between triangle centroids,
+T L (h_b - h_a) / d, d the distance between the centroids, with no correction
+for skewed cells. It is the flux of a uniform gradient only where the centroid
+line is normal to the edge. On this strip the angle between them has a median of
+23 deg and a 95th percentile of 42 deg, so a linear head does not balance and
+the solution bends: 3 to 6 % of the head drop, as for MODFLOW 6 with XT3D off
+(5.7e-3 m). The error does not fall with the cell size: 5.8e-3, 5.6e-3 and
+5.5e-3 m RMSE on 80, 320 and 1280 triangles of the same shapes, the mark of an
+inconsistent scheme. MODFLOW 6 with XT3D reproduces the head to 6e-8 m. A Gmsh
+catchment mesh has such angles; the island cases mesh near-equilateral
+triangles for this reason.
+"""

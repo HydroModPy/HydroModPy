@@ -27,6 +27,10 @@ python -m validation_cases.analytical.transient.linearized_unconfined_recharge_s
 Reference used by the documentation:
 
 - reference: linearized 1D unconfined response to a recharge step
+- boundary positions: each side head is posed where the model holds it, at the
+  centre of the boundary column, or at the mean centroid of the boundary
+  triangles on the triangle strip; a no-flow side stays on the domain face
+  (`validation_cases/shared/strip_geometry.py`)
 
 ## Equations
 

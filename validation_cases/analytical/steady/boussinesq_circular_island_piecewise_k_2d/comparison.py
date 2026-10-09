@@ -18,16 +18,54 @@ from validation_cases.shared import (
     rmse,
     run_launcher_validation_case,
 )
+from validation_cases.shared.boussinesq_analytical_runtime import DEFAULT_ENGINE_SOLVER
+from validation_cases.shared.loaders import (
+    bundle_cell_centers,
+    load_cell_polygons,
+    load_last_cell_values,
+    map_polygons_payload,
+    resolve_case_mesh_bundle_dir,
+    structured_cell_polygons,
+)
 
 from .reference import expected_boussinesq_circular_island_piecewise_k_head
-from .runtime_boussinesq import run_boussinesq_circular_island_piecewise_k_case
+from .runtime_boussinesq import (
+    boussinesq_island_cell_heads,
+    run_boussinesq_circular_island_piecewise_k_case,
+)
 
 CASE_DIR = Path(__file__).resolve().parent
+# Variants read on their own triangles, the reference at each centroid.
+BOUSSINESQ_SOLVERS = frozenset({"boussinesq", DEFAULT_ENGINE_SOLVER})
 
 
 @dataclass(frozen=True, slots=True)
 class BoussinesqCircularIslandPiecewiseKComparison:
-    """All arrays and metrics required to validate or plot the case."""
+    """All arrays and metrics required to validate or plot the case.
+
+    ``heads`` is the head on the structured comparison grid. A run on a mesh
+    bundle is projected onto it: a triangle grid by nearest centroid, a Voronoi
+    dual by the cell under each grid centre. The radial profile, the azimuthal
+    spread and the land freeboard of a Voronoi run are read on its own cells
+    instead: each cell centre is a bundle node, so every node ring is compared
+    at its exact radius.
+    A Boussinesq run is read on its own triangles too, with the reference at
+    each centroid; its azimuthal spread is the spread of the head error in a
+    bin, since the centroids of one bin sit at different radii.
+
+    ``land_clearance_min`` is the smallest gap between the land surface and the
+    simulated head over the island (the freeboard). The analytical solution
+    holds only while the water table stays below the land surface.
+
+    Plan-view map of the run, one entry per solver cell, for figures:
+
+    - ``map_cell_polygons``: the cell outline, a list of ``(x, y)`` vertices in
+      metres from the island centre, rounded to 0.01 m. A structured grid gives
+      one square per cell, row by row from the northern row.
+    - ``map_simulated``: the simulated head at the compared (final) time, NaN
+      off the island.
+    - ``map_reference``: the analytical head at the cell centre, NaN off the island.
+    """
 
     result: ValidationRunResult
     metadata: dict
@@ -49,8 +87,16 @@ class BoussinesqCircularIslandPiecewiseKComparison:
     rms_error: float
     max_error: float
     azimuthal_spread: float
-    ocean_head_max_error: float
     land_clearance_min: float
+    map_cell_polygons: list[list[tuple[float, float]]]
+    map_simulated: np.ndarray
+    map_reference: np.ndarray
+
+    @property
+    def map_overlay(self) -> dict:
+        """The coastline, a circle around the island centre, for the map figure."""
+        radius = float(self.metadata["reference"]["island_radius_m"])
+        return {"coast_circle": [0.0, 0.0, radius]}
 
 
 def _build_reference_surfaces(
@@ -84,6 +130,25 @@ def _build_reference_surfaces(
         + (yy - float(reference_cfg["center_y_m"])) ** 2
     )
     return dem, radius, xx, yy
+
+
+def _island_dem_at_radius(radius: np.ndarray, reference_cfg: dict) -> np.ndarray:
+    """Return the land surface of the synthetic island at the given radii."""
+    island_radius = float(reference_cfg["island_radius_m"])
+    relief = np.sqrt(np.maximum(0.0, 1.0 - (np.asarray(radius) / island_radius) ** 2))
+    return np.where(
+        np.asarray(radius) <= island_radius,
+        float(reference_cfg["crest_elevation_m"]) * relief,
+        float(reference_cfg["ocean_floor_elevation_m"]),
+    )
+
+
+def _value_for_solver(reference_cfg: dict, key: str, solver_name: str | None) -> float:
+    """Return ``reference_cfg[key]``, or its ``<key>_by_solver`` override."""
+    by_solver = reference_cfg.get(f"{key}_by_solver", {})
+    if isinstance(by_solver, dict) and solver_name in by_solver:
+        return float(by_solver[solver_name])
+    return float(reference_cfg[key])
 
 
 def _build_annular_profile(
@@ -134,6 +199,23 @@ def _build_annular_profile(
     )
 
 
+def _reference_head(radius: np.ndarray, reference_cfg: dict) -> np.ndarray:
+    return np.asarray(
+        expected_boussinesq_circular_island_piecewise_k_head(
+            radius_m=radius,
+            island_radius_m=float(reference_cfg["island_radius_m"]),
+            recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
+            ring_radius_breaks_m=reference_cfg["ring_radius_breaks_m"],
+            hydraulic_conductivity_m_per_s_by_ring=reference_cfg[
+                "hydraulic_conductivity_m_per_s_by_ring"
+            ],
+            substratum_elevation_m=float(reference_cfg["substratum_elevation_m"]),
+            sea_level_m=float(reference_cfg["sea_level_m"]),
+        ),
+        dtype=float,
+    )
+
+
 def build_boussinesq_circular_island_piecewise_k_comparison(
     *,
     result: ValidationRunResult,
@@ -178,36 +260,70 @@ def build_boussinesq_circular_island_piecewise_k_comparison(
 
     dem, radius, xx, yy = _build_reference_surfaces(reference_cfg)
     sea_level = float(reference_cfg["sea_level_m"])
+    center_x = float(reference_cfg["center_x_m"])
+    center_y = float(reference_cfg["center_y_m"])
     land_mask = dem > sea_level
     ocean_mask = dem <= sea_level
-    heads = np.asarray(heads, dtype=float).copy()
-    if solver_name == "modflow6_irregular_tri":
-        heads[ocean_mask] = sea_level
-    comparison_radius_max_by_solver = reference_cfg.get("comparison_radius_max_by_solver", {})
-    comparison_radius_max_m = float(reference_cfg["comparison_radius_max_m"])
-    if (
-        isinstance(comparison_radius_max_by_solver, dict)
-        and solver_name in comparison_radius_max_by_solver
-    ):
-        comparison_radius_max_m = float(comparison_radius_max_by_solver[solver_name])
+    heads = np.asarray(heads, dtype=float)
+
+    bundle_dir = resolve_case_mesh_bundle_dir(CASE_DIR, case_metadata, solver_name)
+    native_triangles = solver_name in BOUSSINESQ_SOLVERS
+    if bundle_dir is not None:
+        cell_heads = load_last_cell_values(
+            observable_name=observable_name, store=result.store, sim_id=result.sim_id
+        )
+        centers, grid_dual = bundle_cell_centers(bundle_dir, cell_heads.size)
+        polygons = load_cell_polygons(store=result.store, sim_id=result.sim_id)
+    elif native_triangles:
+        centers, cell_heads, polygons = boussinesq_island_cell_heads(result)
+        grid_dual = "triangle"
+    else:
+        cell_heads = heads.reshape(-1)
+        grid_dual = None
+        polygons = structured_cell_polygons(
+            x_min=float(reference_cfg["xmin"]),
+            x_max=float(reference_cfg["xmin"]) + float(reference_cfg["length_x_m"]),
+            y_min=float(reference_cfg["ymin"]),
+            y_max=float(reference_cfg["ymin"]) + float(reference_cfg["length_y_m"]),
+            nrow=int(heads.shape[0]),
+            ncol=int(heads.shape[1]),
+        )
+        centers = np.asarray([polygon.mean(axis=0) for polygon in polygons], dtype=float)
+    # Radii are rounded to the 1 mm precision of the mesh nodes, so a node on
+    # the shoreline reads the sea-level DEM of the shoreline and is not land.
+    cell_radius = np.round(np.hypot(centers[:, 0] - center_x, centers[:, 1] - center_y), 3)
+    cell_dem = _island_dem_at_radius(cell_radius, reference_cfg)
+    cell_land = cell_dem > sea_level
+
+    if grid_dual == "voronoi" or native_triangles:
+        profile_heads, profile_radius, profile_land, profile_dem = (
+            cell_heads,
+            cell_radius,
+            cell_land,
+            cell_dem,
+        )
+    else:
+        profile_heads, profile_radius, profile_land, profile_dem = heads, radius, land_mask, dem
+    bin_width_m = _value_for_solver(reference_cfg, "radial_bin_width_m", solver_name)
+    max_radius_m = _value_for_solver(reference_cfg, "comparison_radius_max_m", solver_name)
     annular_radius, annular_counts, numerical_profile, annular_std = _build_annular_profile(
-        heads=np.asarray(heads, dtype=float),
-        radius=radius,
-        land_mask=land_mask,
-        bin_width_m=float(reference_cfg["radial_bin_width_m"]),
-        max_radius_m=comparison_radius_max_m,
+        heads=profile_heads,
+        radius=profile_radius,
+        land_mask=profile_land,
+        bin_width_m=bin_width_m,
+        max_radius_m=max_radius_m,
     )
-    analytical_profile = expected_boussinesq_circular_island_piecewise_k_head(
-        radius_m=annular_radius,
-        island_radius_m=float(reference_cfg["island_radius_m"]),
-        recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
-        ring_radius_breaks_m=reference_cfg["ring_radius_breaks_m"],
-        hydraulic_conductivity_m_per_s_by_ring=reference_cfg[
-            "hydraulic_conductivity_m_per_s_by_ring"
-        ],
-        substratum_elevation_m=float(reference_cfg["substratum_elevation_m"]),
-        sea_level_m=sea_level,
-    )
+    analytical_profile = _reference_head(annular_radius, reference_cfg)
+    if native_triangles:
+        # Mean of the reference over the centroids of each bin, spread of the error.
+        _, _, mean_error, annular_std = _build_annular_profile(
+            heads=cell_heads - _reference_head(cell_radius, reference_cfg),
+            radius=profile_radius,
+            land_mask=profile_land,
+            bin_width_m=bin_width_m,
+            max_radius_m=max_radius_m,
+        )
+        analytical_profile = numerical_profile - mean_error
     residual_profile = np.asarray(numerical_profile - analytical_profile, dtype=float)
 
     return BoussinesqCircularIslandPiecewiseKComparison(
@@ -216,7 +332,7 @@ def build_boussinesq_circular_island_piecewise_k_comparison(
         tolerances=case_tolerances,
         timestep=timestep,
         observable_name=observable_name,
-        heads=np.asarray(heads, dtype=float),
+        heads=heads,
         dem=np.asarray(dem, dtype=float),
         radius=np.asarray(radius, dtype=float),
         x_centers=np.asarray(xx, dtype=float),
@@ -226,19 +342,15 @@ def build_boussinesq_circular_island_piecewise_k_comparison(
         annular_radius=annular_radius,
         annular_counts=annular_counts,
         numerical_profile=numerical_profile,
-        analytical_profile=np.asarray(analytical_profile, dtype=float),
+        analytical_profile=analytical_profile,
         residual_profile=residual_profile,
         rms_error=rmse(numerical_profile, analytical_profile),
         max_error=max_abs_error(numerical_profile, analytical_profile),
         azimuthal_spread=float(np.max(annular_std)) if annular_std.size else 0.0,
-        ocean_head_max_error=float(
-            np.max(np.abs(np.asarray(heads, dtype=float)[ocean_mask] - sea_level))
-        ),
-        land_clearance_min=float(
-            np.min(
-                np.asarray(dem, dtype=float)[land_mask] - np.asarray(heads, dtype=float)[land_mask]
-            )
-        ),
+        land_clearance_min=float(np.min(profile_dem[profile_land] - profile_heads[profile_land])),
+        map_cell_polygons=map_polygons_payload(polygons, origin_x=center_x, origin_y=center_y),
+        map_simulated=np.where(cell_land, cell_heads, np.nan),
+        map_reference=np.where(cell_land, _reference_head(cell_radius, reference_cfg), np.nan),
     )
 
 
@@ -252,10 +364,11 @@ def run_boussinesq_circular_island_piecewise_k_comparison(
     metadata = load_case_metadata(CASE_DIR)
     tolerances = load_case_tolerances(CASE_DIR, solver=solver)
     normalized_solver = None if solver is None else str(solver).strip().lower()
-    if normalized_solver == "boussinesq":
+    if normalized_solver in BOUSSINESQ_SOLVERS:
         result = run_boussinesq_circular_island_piecewise_k_case(
             caller_file=caller_file,
             timeout=timeout,
+            public_solver_label=normalized_solver,
         )
     else:
         result = run_launcher_validation_case(

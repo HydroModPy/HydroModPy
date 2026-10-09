@@ -18,6 +18,8 @@ from validation_cases.shared import (
     rmse,
     run_launcher_validation_case,
 )
+from validation_cases.shared.boussinesq_analytical_runtime import DEFAULT_ENGINE_SOLVER
+from validation_cases.shared.strip_geometry import strip_geometry_for_run
 
 from .reference import expected_dupuit_fixed_head_profile
 from .runtime_boussinesq import run_boussinesq_dupuit_fixed_head_case
@@ -77,18 +79,22 @@ def build_dupuit_fixed_head_comparison(
 
     profile_axis = int(reference_cfg.get("profile_axis", 0))
     numerical_profile = mean_along_axis(heads, axis=profile_axis)
-    x = np.linspace(
-        float(reference_cfg["xmin"]),
-        float(reference_cfg["xmax"]),
-        numerical_profile.size,
-        dtype=float,
-    )
-    analytical_profile = expected_dupuit_fixed_head_profile(
+    geometry = strip_geometry_for_run(
+        result,
+        ncol=numerical_profile.size,
         xmin=float(reference_cfg["xmin"]),
         xmax=float(reference_cfg["xmax"]),
-        ncol=numerical_profile.size,
-        west_head=float(reference_cfg["west_head"]),
-        east_head=float(reference_cfg["east_head"]),
+    )
+    x = geometry.x
+    analytical_profile = geometry.profile(
+        lambda points: expected_dupuit_fixed_head_profile(
+            x=points,
+            west_x=geometry.west_x,
+            east_x=geometry.east_x,
+            west_head=float(reference_cfg["west_head"]),
+            east_head=float(reference_cfg["east_head"]),
+        ),
+        within=(geometry.west_x, geometry.east_x),
     )
     residual_profile = np.asarray(numerical_profile - analytical_profile, dtype=float)
 
@@ -148,6 +154,13 @@ def run_dupuit_fixed_head_comparison(
             runtime_backend=runtime_backend,
             surface_interaction_model=surface_interaction_model,
             public_solver_label=str(normalized_solver),
+        )
+    elif normalized_solver == DEFAULT_ENGINE_SOLVER:
+        result = run_boussinesq_dupuit_fixed_head_case(
+            caller_file=caller_file,
+            timeout=timeout,
+            surface_interaction_model=None,
+            public_solver_label=normalized_solver,
         )
     else:
         result = run_launcher_validation_case(

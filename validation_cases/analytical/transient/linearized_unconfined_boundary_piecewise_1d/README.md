@@ -19,6 +19,10 @@ Comparison:
 - simulated observable: `watertable_elevation`
 - compared quantity: full transient head profile matrix along `x`
 - reference: linearized 1D unconfined response to a piecewise west-boundary series
+- boundary positions: each side head is posed where the model holds it, at the
+  centre of the boundary column, or at the mean centroid of the boundary
+  triangles on the triangle strip; a no-flow side stays on the domain face
+  (`validation_cases/shared/strip_geometry.py`)
 
 Direct execution:
 

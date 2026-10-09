@@ -1,0 +1,21 @@
+[recession]
+coefficient_relative_error = 0.0047
+exponent_abs_error = 0.0023
+late_relative_rmse = 0.0043
+
+[uniformity]
+row_spread = 1e-6
+
+[monotonicity]
+max_positive_increment_m3_s = 1e-12
+
+[doc]
+reason = """
+Twice the error measured with the default 'auto' engine, which runs scipy_sparse
+on these 1920 cells and takes the 4 backward-Euler steps a day of the case:
+coefficient error -0.0023, |b - 3/2| 0.0011, late RMSE 0.0021, the PETSc values
+to three digits. The Newton closure of the case is 1e-12 m3/s (see
+config_boussinesq_local.toml): with the default 1e-9 m3/s the coefficient reads
+2.2 % off. The row spread (3e-16 m measured) and monotonicity bounds are those
+of the PETSc variant.
+"""

@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+from hydromodpy.core.state.run_state import RunState
+from hydromodpy.core.state.setup import SetupContext
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.simulation.planning.plan import (
@@ -14,7 +16,8 @@ from hydromodpy.simulation.planning.plan import (
 )
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    apply_analytical_boussinesq_runtime_defaults,
+    boussinesq_variant_config_name,
+    boussinesq_variant_flow_section,
 )
 from validation_cases.shared.boussinesq_piecewise_strip import (
     PIECEWISE_STRIP_HYDRAULIC_CONDUCTIVITY_M_S_BY_ZONE,
@@ -54,12 +57,13 @@ def _build_flow_config(
     flow_section: dict[str, object],
     *,
     case_dir: Path | None = None,
+    config_name: str = "config_boussinesq.toml",
 ) -> FlowConfig:
     base_dir = Path(".") if case_dir is None else Path(case_dir)
     merged_flow = (
         dict(flow_section)
         if case_dir is None
-        else merge_case_flow_section(Path(case_dir), flow_section)
+        else merge_case_flow_section(Path(case_dir), flow_section, config_name=config_name)
     )
     return FlowConfig.from_toml_section(merged_flow, base_dir=base_dir)
 
@@ -82,25 +86,26 @@ def run_boussinesq_fixed_head_piecewise_k_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> ValidationRunResult:
-    """Run the fixed-head piecewise-K case through the PETSc VI backend."""
+    """Run the fixed-head piecewise-K case for one Boussinesq variant."""
     del timeout
 
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
-        run_name=f"{CASE_ID}_boussinesq",
+        run_name=f"{CASE_ID}_{public_solver_label}",
     )
     bundle_dir = _write_piecewise_strip_bundle(out_path / "mesh_bundle")
     simulations_folder = out_path / "results_simulations"
     simulations_folder.mkdir(parents=True, exist_ok=True)
 
-    state = SimpleNamespace(
-        setup=SimpleNamespace(
+    state = RunState(
+        setup=SetupContext(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=Flow(
                 _build_flow_config(
-                    apply_analytical_boussinesq_runtime_defaults(
+                    boussinesq_variant_flow_section(
                         {
                             "flow_regime": "steady",
                             "ic": {"type": "custom", "value": 7.5},
@@ -111,8 +116,10 @@ def run_boussinesq_fixed_head_piecewise_k_case(
                             },
                         },
                         flow_regime="steady",
+                        solver=public_solver_label,
                     ),
                     case_dir=Path(__file__).resolve().parent,
+                    config_name=boussinesq_variant_config_name(public_solver_label),
                 )
             ),
             domain=None,
@@ -152,7 +159,7 @@ def run_boussinesq_fixed_head_piecewise_k_case(
     )
     return ValidationRunResult(
         case_dir=Path(__file__).resolve().parent,
-        solver_name="boussinesq",
+        solver_name=public_solver_label,
         out_path=out_path,
         model_ws=model_ws,
         postprocess_dir=postprocess_dir,

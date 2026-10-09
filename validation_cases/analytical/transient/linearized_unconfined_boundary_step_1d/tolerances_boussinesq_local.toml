@@ -1,0 +1,18 @@
+[space_time]
+rmse = 0.0028
+max_abs_error = 0.025
+row_spread = 1e-07
+
+[final_profile]
+rmse = 0.00018
+max_abs_error = 0.00025
+
+[doc]
+reason = """
+The band of tolerances.toml, shared with MODFLOW. The default local engine takes
+one backward-Euler step a period, as MODFLOW does, and on 40 x 4 square cells of
+2.5 m it reads space-time RMSE 0.0014 m, max error 0.012 m, final RMSE 9.9e-05
+m, against 1.4e-3, 1.2e-2 and 9.0e-5 m for MODFLOW. The strip is uniform across
+rows, so a row spread is solver noise: the local engine reads below 1e-8 m (its
+head closure is 1e-9 m); the bound is 1e-7 m.
+"""

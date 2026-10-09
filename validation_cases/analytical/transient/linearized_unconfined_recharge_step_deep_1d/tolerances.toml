@@ -1,8 +1,18 @@
 [space_time]
-rmse = 0.02
-max_abs_error = 0.03
-row_spread = 1e-4
+rmse = 4.6e-4
+max_abs_error = 0.005
+row_spread = 1e-5
 
 [final_profile]
-rmse = 0.02
-max_abs_error = 0.03
+rmse = 2.1e-5
+max_abs_error = 3e-5
+
+[doc]
+reason = """
+Twice the error measured on the 50-column grid, MODFLOW-NWT and MODFLOW 6
+alike: space-time RMSE 2.3e-4 m, max error 2.5e-3 m, final RMSE 1.0e-5 m.
+Backward Euler is first order in time: on the boundary step, 1, 2, 4 and 8
+sub-steps per period give a space-time RMSE of 1.4e-3, 7.1e-4, 3.4e-4 and
+1.6e-4 m. The heads are posed at the centres of the boundary cells. The row
+spread bound is 0.1 times the MODFLOW 6 head closure (1e-4 m).
+"""

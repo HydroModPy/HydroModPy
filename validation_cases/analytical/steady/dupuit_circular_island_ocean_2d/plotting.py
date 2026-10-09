@@ -238,7 +238,6 @@ def plot_dupuit_circular_island_ocean_comparison(
         f"RMSE={comparison.rms_error:.4f} m   "
         f"max abs error={comparison.max_error:.4f} m   "
         f"azimuthal spread={comparison.azimuthal_spread:.4f} m   "
-        f"ocean head error={comparison.ocean_head_max_error:.2e} m   "
         f"min freeboard={comparison.land_clearance_min:.4f} m"
     )
     footer_lines = with_boussinesq_method_line(

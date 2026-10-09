@@ -1,4 +1,4 @@
-"""Shared PETSc Boussinesq runtime for Brutsaert recession validation strips."""
+"""Shared Boussinesq runtime for Brutsaert recession validation strips."""
 
 from __future__ import annotations
 
@@ -17,12 +17,14 @@ from validation_cases.analytical.transient.runtime_boussinesq_1d import (
     aggregate_triangle_history_to_structured_fields,
 )
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    apply_analytical_boussinesq_runtime_defaults,
+    boussinesq_variant_config_name,
+    boussinesq_variant_flow_section,
 )
 from validation_cases.shared.boussinesq_uniform_strip import (
     build_flow_config,
     write_uniform_strip_bundle,
 )
+from validation_cases.shared.loaders import load_case_config, load_case_metadata
 from validation_cases.shared.runtime import (
     ValidationRunResult,
     resolve_validation_results_dir,
@@ -64,6 +66,14 @@ def _east_outlet_discharge_m3_s(model, internal_edge_flux_m3_s: np.ndarray) -> f
     return float(max(outward_flux_m3_s, 0.0))
 
 
+def _case_steps_per_period(case_dir: Path) -> int:
+    """Return the backward-Euler steps per period the case gives MODFLOW."""
+    metadata = load_case_metadata(case_dir)
+    config = load_case_config(case_dir, str(metadata["base_config"]))
+    time_cfg = dict(config.get("simulation", {}).get("time", {}))
+    return int(time_cfg.get("substeps_per_period", 1))
+
+
 def run_boussinesq_brutsaert_recession_case(
     *,
     case_dir: Path,
@@ -83,12 +93,19 @@ def run_boussinesq_brutsaert_recession_case(
     nper: int,
     dt_seconds: float,
     acceptable_steady_residual_inf: float = 1.0e-6,
+    public_solver_label: str = "boussinesq",
 ) -> ValidationRunResult:
-    """Run one transient Brutsaert recession benchmark on the PETSc Boussinesq backend."""
+    """Run one transient Brutsaert recession benchmark on one Boussinesq variant.
+
+    The time grid carries the backward-Euler steps a period of the case, as a
+    run with ``[simulation.time].substeps_per_period`` does.
+    """
     del timeout
+    solver_name = str(public_solver_label or "boussinesq")
+    config_name = boussinesq_variant_config_name(solver_name)
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
-        run_name=f"{case_id}_boussinesq",
+        run_name=f"{case_id}_{solver_name}",
     )
     bundle_dir = write_uniform_strip_bundle(
         out_path / "mesh_bundle",
@@ -107,7 +124,7 @@ def run_boussinesq_brutsaert_recession_case(
 
     steady_flow = Flow(
         build_flow_config(
-            apply_analytical_boussinesq_runtime_defaults(
+            boussinesq_variant_flow_section(
                 {
                     "flow_regime": "steady",
                     "ic": {"type": "custom", "value": float(east_head_m)},
@@ -125,8 +142,10 @@ def run_boussinesq_brutsaert_recession_case(
                     },
                 },
                 flow_regime="steady",
+                solver=solver_name,
             ),
             case_dir=case_dir,
+            config_name=config_name,
         )
     )
     steady_model = Boussinesq(
@@ -152,9 +171,11 @@ def run_boussinesq_brutsaert_recession_case(
 
     transient_flow = Flow(
         build_flow_config(
-            apply_analytical_boussinesq_runtime_defaults(
+            boussinesq_variant_flow_section(
                 {
                     "flow_regime": "transient",
+                    # The time grid holds the steps; TS VI takes one per grid step.
+                    "ts_vi_steps_per_period": 1,
                     "ic": {"type": "custom", "value": float(east_head_m)},
                     "active_bc": ["east_side"],
                     "bc": {
@@ -162,8 +183,10 @@ def run_boussinesq_brutsaert_recession_case(
                     },
                 },
                 flow_regime="transient",
+                solver=solver_name,
             ),
             case_dir=case_dir,
+            config_name=config_name,
         )
     )
     period_lengths_seconds = tuple(float(dt_seconds) for _ in range(int(nper)))
@@ -174,6 +197,8 @@ def run_boussinesq_brutsaert_recession_case(
         time_grid=SimpleNamespace(
             period_lengths_seconds=period_lengths_seconds,
             window=None,
+            # Same time steps as MODFLOW: the recession rate drops by a dt / 2.
+            nstp_per_period=_case_steps_per_period(case_dir),
         ),
         model_folder=simulations_folder,
         model_name="flow_validation__boussinesq",
@@ -189,7 +214,7 @@ def run_boussinesq_brutsaert_recession_case(
     transient_success = bool(transient_model._run_transient_runtime())
     if not transient_success:
         raise RuntimeError(
-            "Brutsaert transient recession run failed on the PETSc Boussinesq backend. "
+            f"Brutsaert transient recession run failed on the {solver_name} variant. "
             f"workspace={transient_model.full_path}"
         )
     transient_model.has_numerical_solution = True
@@ -234,9 +259,12 @@ def run_boussinesq_brutsaert_recession_case(
         "initial_outlet_discharge_m3_s": float(initial_outlet_discharge_m3_s),
         "steady_residual_norm_inf": float(steady_residual),
         "acceptable_steady_residual_inf": float(acceptable_steady_residual_inf),
-        "steady_runtime_backend": str(steady_model.flow.config.runtime_backend),
+        "steady_runtime_backend": str(steady_model.runtime_summary.get("runtime_backend")),
         "steady_surface_interaction_model": str(steady_model.flow.config.surface_interaction_model),
-        "transient_runtime_backend": str(transient_model.flow.config.runtime_backend),
+        "transient_runtime_backend": str(transient_model.runtime_summary.get("runtime_backend")),
+        "transient_time_steps_per_period": int(
+            transient_model.runtime_summary.get("time_steps_per_period", 1)
+        ),
         "transient_surface_interaction_model": str(
             transient_model.flow.config.surface_interaction_model
         ),
@@ -263,7 +291,7 @@ def run_boussinesq_brutsaert_recession_case(
     )
     return ValidationRunResult(
         case_dir=case_dir,
-        solver_name="boussinesq",
+        solver_name=solver_name,
         out_path=out_path,
         model_ws=model_ws,
         postprocess_dir=postprocess_dir,

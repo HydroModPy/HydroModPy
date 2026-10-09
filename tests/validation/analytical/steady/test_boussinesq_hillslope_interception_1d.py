@@ -15,8 +15,19 @@ from validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.com
 @pytest.mark.analytical
 @pytest.mark.steady
 @pytest.mark.fast
-def test_boussinesq_hillslope_interception_1d_matches_reference_position() -> None:
-    """Run the PETSc VI Boussinesq case and compare emergence position."""
+@pytest.mark.parametrize(
+    "solver",
+    [
+        pytest.param("boussinesq", marks=pytest.mark.petsc, id="boussinesq"),
+        pytest.param("boussinesq_local", id="boussinesq_local"),
+    ],
+)
+def test_boussinesq_hillslope_interception_1d_matches_reference_position(solver: str) -> None:
+    """Run one Boussinesq variant and compare it to the exact seepage-face solution.
+
+    ``boussinesq`` runs the PETSc VI obstacle; ``boussinesq_local`` runs the
+    default engine with its regularized partition closure, without PETSc.
+    """
     assert_required_executables(
         require_modflow=False,
         require_modflow6=False,
@@ -26,12 +37,23 @@ def test_boussinesq_hillslope_interception_1d_matches_reference_position() -> No
 
     comparison = run_boussinesq_hillslope_interception_comparison(
         caller_file=__file__,
-        solver="boussinesq",
+        solver=solver,
     )
     record_comparison(comparison)
     interception_tol = dict(comparison.tolerances.get("interception", {}))
+    profile_tol = dict(comparison.tolerances.get("profile", {}))
     uniformity_tol = dict(comparison.tolerances.get("uniformity", {}))
     contact_tol = dict(comparison.tolerances.get("contact", {}))
+
+    assert_metric_below(
+        "Head-profile RMSE", comparison.profile_rmse, float(profile_tol["rmse"]), unit="m"
+    )
+    assert_metric_below(
+        "Head-profile max abs error",
+        comparison.profile_max_error,
+        float(profile_tol["max_abs_error"]),
+        unit="m",
+    )
 
     assert_metric_below(
         "Interception x error",

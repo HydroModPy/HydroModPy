@@ -1,6 +1,17 @@
 [radial_profile]
-rmse = 0.20
-max_abs_error = 0.35
-azimuthal_spread = 0.25
-ocean_head_max_error = 1e-8
-min_land_clearance = 0.75
+rmse = 0.048
+max_abs_error = 0.063
+azimuthal_spread = 0.088
+min_land_clearance = 0.98
+
+[doc]
+reason = """
+Twice the error measured with PETSc (SNESVI obstacle)
+on the triangles themselves, the reference at each centroid: radial RMSE
+0.024 m, max error 0.031 m, spread of the error in a 10 m bin 0.044 m, and half
+the measured freeboard of 1.96 m. PETSc and the default engine agree to 1e-3 m.
+The mesh has near-equilateral triangles of 10 m with a node ring on each K
+break (70 and 140 m) and on the coast, and one ring of ocean triangles held at
+the sea level. The ring mesh it replaces (16 sectors cut along one diagonal,
+half of its ocean triangles capped at the sea floor) read 0.22 m.
+"""

@@ -127,9 +127,19 @@ INLINE_ROWS: frozenset[str] = frozenset(
 # the case store as the runtime authority; tol() is intentionally not used.
 CASE_TOML_ROWS: frozenset[str] = frozenset(
     {
-        # Dupuit fixed-head head RMSE, per-solver tolerances*.toml head_profile.rmse.
+        # Dupuit fixed-head head RMSE, the tolerances.toml head_profile.rmse that
+        # NWT and MF6 share.
         "dupuit_fixed_head_1d_nwt__head_rmse",
         "dupuit_fixed_head_1d_mf6__head_rmse",
+        # Brutsaert recessions, tolerances.toml blocks [recession] and
+        # [uniformity] of the thin and deep cases.
+        "brutsaert_thin_1d_mf6_mf6_triangles_nwt__relative_error_of_the_fitted_a_of_dq_dt_a_q_3_2_days_16_to_128",
+        "brutsaert_thin_1d__b_3_2_fitted_exponent_of_dq_dt_a_q_b",
+        "brutsaert_thin_1d__rmse_of_q_q_ref_1_days_16_to_128_q_ref_on_the_analytical_a_with_a_fitted_origin",
+        "brutsaert_thin_1d__cross_row_head_spread",
+        "brutsaert_deep_1d__relative_error_of_the_fitted_decay_rate_days_30_to_90",
+        "brutsaert_deep_1d__b_1_fitted_exponent",
+        "brutsaert_deep_1d__rmse_of_q_q_ref_1_days_30_to_90",
         # Dupuit seepage limit, tolerances.toml blocks [seepage_limit], [invariance]
         # and [control]; asserted in
         # tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py.
@@ -138,8 +148,7 @@ CASE_TOML_ROWS: frozenset[str] = frozenset(
         "dupuit_seepage_limit_1d_k_r_invariance__water_table_max_abs_difference_across_the_k_r_sweep",
         "dupuit_seepage_limit_1d_k_only_control__total_drain_outflow_relative_drift",
         # Linearized transient cross-row spread, *_modflow6_irregular_tri.toml
-        # space_time.row_spread (values match the doc exactly: 0.006/0.006/0.012/
-        # 0.005/0.0007).
+        # space_time.row_spread (values match the doc exactly: 1e-9).
         "linearized_transient_recharge_step_1d_mf6_irregular_tri__cross_row_spread",
         "linearized_transient_recharge_periodic_1d_mf6_irregular_tri__cross_row_spread",
         "linearized_transient_boundary_piecewise_1d_mf6_irregular_tri__cross_row_spread",
@@ -157,9 +166,6 @@ CASE_TOML_ROWS: frozenset[str] = frozenset(
 # UNUSED: documented but not enforced by any test today.
 UNUSED_ROWS: frozenset[str] = frozenset(
     {
-        # No test asserts max head change per iteration; HCLOSE lives in solver
-        # config inputs, not a pass/fail gate.
-        "modflow_nwt_mf6_head_convergence__max_head_change_per_iteration",
         # No test asserts the absolute NSE drift vs a calibration baseline.
         "calibration_nse_vs_baseline__absolute_nse_drift",
         # No test references the Marcais 2017 recession-slope benchmark.
@@ -217,7 +223,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 55, sorted(loadable)
+    assert len(loadable) == 61, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"
@@ -259,27 +265,22 @@ def test_every_inline_row_is_referenced_by_a_tol_call() -> None:
 def test_dupuit_fixed_head_doc_agrees_with_case_toml() -> None:
     """The Dupuit fixed-head head-RMSE doc rows match their enforced case-TOML.
 
-    MODFLOW 6 now runs the Newton default; its ``tolerances_modflow6.toml``
-    ``head_profile.rmse`` was re-aligned to the documented literature value
-    (0.02 m, TOLERANCES.md row 12), closing the old 100x doc-vs-TOML gap (the
-    override used to enforce 2e-4 to fit the standard formulation). NWT (row 11)
-    stays at 0.05 m. This keeps both stores in sync: a silent edit to either side
-    surfaces here.
+    MF6 and NWT share ``tolerances.toml``, 0.011 m, rows 11 and 12: since the
+    reference poses its heads at the centres of the boundary columns, the two
+    solvers measure the same error. A silent edit to either side surfaces here.
     """
     doc_mf6 = tol("dupuit_fixed_head_1d_mf6__head_rmse")
     doc_nwt = tol("dupuit_fixed_head_1d_nwt__head_rmse")
-    assert doc_mf6 == pytest.approx(0.02)
-    assert doc_nwt == pytest.approx(0.05)
+    assert doc_mf6 == pytest.approx(0.011)
+    assert doc_nwt == pytest.approx(0.011)
 
     case_root = (
         _TESTS_ROOT.parent / "validation_cases" / "analytical" / "steady" / "dupuit_fixed_head_1d"
     )
-    mf6_toml = (case_root / "tolerances_modflow6.toml").read_text(encoding="utf-8")
-    nwt_toml = (case_root / "tolerances.toml").read_text(encoding="utf-8")
-    # Enforced MF6 head_profile.rmse now matches the documented 0.02 m.
-    assert "rmse = 0.02" in mf6_toml, "dupuit MF6 case-TOML rmse changed; revisit row 12"
-    # Enforced NWT head_profile.rmse agrees with the documented 0.05 m.
-    assert "rmse = 0.05" in nwt_toml, "dupuit NWT case-TOML rmse changed; revisit row 11"
+    # NWT and MF6 share one file since the heads are posed at the boundary-cell centres.
+    assert not (case_root / "tolerances_modflow6.toml").exists()
+    shared_toml = (case_root / "tolerances.toml").read_text(encoding="utf-8")
+    assert "rmse = 0.011" in shared_toml, "dupuit case-TOML rmse changed; revisit rows 11 and 12"
 
 
 def test_documented_tolerance_count_matches_the_table() -> None:

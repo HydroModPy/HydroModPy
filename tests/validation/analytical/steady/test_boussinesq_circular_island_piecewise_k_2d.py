@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
-from tests.validation.helpers import assert_metric_below, record_comparison
+from tests.validation.helpers import assert_metric_below, record_comparison, record_metric
 from validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.comparison import (
     run_boussinesq_circular_island_piecewise_k_comparison,
 )
@@ -21,7 +21,9 @@ from validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2
         pytest.param("modflow_nwt", True, False, id="modflow_nwt"),
         pytest.param("modflow6", False, True, id="modflow6"),
         pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
+        pytest.param("modflow6_voronoi", False, True, id="modflow6_voronoi"),
         pytest.param("boussinesq", False, False, id="boussinesq"),
+        pytest.param("boussinesq_local", False, False, id="boussinesq_local"),
     ],
 )
 def test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile(
@@ -56,10 +58,11 @@ def test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile(
         float(profile_tol["azimuthal_spread"]),
         unit="m",
     )
-    assert_metric_below(
-        "Ocean head max abs error",
-        comparison.ocean_head_max_error,
-        float(profile_tol["ocean_head_max_error"]),
+    record_metric(
+        "Minimum land freeboard",
+        comparison.land_clearance_min,
+        float(profile_tol["min_land_clearance"]),
+        op=">=",
         unit="m",
     )
     assert comparison.land_clearance_min >= float(profile_tol["min_land_clearance"]), (

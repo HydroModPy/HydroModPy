@@ -22,6 +22,7 @@ from validation_cases.analytical.transient.brutsaert_recession_linearized_deep_1
         pytest.param("modflow6", False, True, id="modflow6"),
         pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
         pytest.param("boussinesq", False, False, id="boussinesq"),
+        pytest.param("boussinesq_local", False, False, id="boussinesq_local"),
     ],
 )
 def test_brutsaert_recession_linearized_deep_1d_matches_reference_recession(
@@ -29,7 +30,7 @@ def test_brutsaert_recession_linearized_deep_1d_matches_reference_recession(
     require_modflow: bool,
     require_modflow6: bool,
 ) -> None:
-    """Run one solver variant and compare it to the linearized Brutsaert law."""
+    """Run one solver variant and compare it to the linearized recession and its tail."""
     assert_required_executables(
         require_modflow=require_modflow,
         require_modflow6=require_modflow6,
@@ -43,6 +44,7 @@ def test_brutsaert_recession_linearized_deep_1d_matches_reference_recession(
     )
     record_comparison(comparison)
     discharge_tol = dict(comparison.tolerances.get("discharge", {}))
+    recession_tol = dict(comparison.tolerances.get("recession", {}))
     uniformity_tol = dict(comparison.tolerances.get("uniformity", {}))
     monotonicity_tol = dict(comparison.tolerances.get("monotonicity", {}))
 
@@ -55,6 +57,21 @@ def test_brutsaert_recession_linearized_deep_1d_matches_reference_recession(
         "Relative discharge max abs error",
         comparison.relative_max_error,
         float(discharge_tol["relative_max_error"]),
+    )
+    assert_metric_below(
+        "Recession coefficient relative error",
+        abs(comparison.recession_coefficient_relative_error),
+        float(recession_tol["coefficient_relative_error"]),
+    )
+    assert_metric_below(
+        "Recession exponent error",
+        abs(comparison.recession_exponent - comparison.expected_recession_exponent),
+        float(recession_tol["exponent_abs_error"]),
+    )
+    assert_metric_below(
+        "Late relative discharge RMSE",
+        comparison.late_relative_rmse,
+        float(recession_tol["late_relative_rmse"]),
     )
     assert_metric_below(
         "Cross-row head spread",

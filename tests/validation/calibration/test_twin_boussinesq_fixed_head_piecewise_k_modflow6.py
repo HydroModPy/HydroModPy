@@ -8,6 +8,7 @@ import pytest
 
 from tests.regression.golden_utils import assert_required_executables
 from tests.validation.calibration.helpers import (
+    TwinCheck,
     assert_lightweight_method_result,
     run_lightweight_twin_benchmark_case,
 )
@@ -36,6 +37,11 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
     benchmark = run_lightweight_twin_benchmark_case(
         PIECEWISE_K_TWIN_CASE,
         caller_file=__file__,
+        checks={
+            "random_search": TwinCheck(meets_target=True, in_distribution=True),
+            "scipy_nelder_mead": TwinCheck(best_within=1.5),
+            "cma_es": TwinCheck(best_within=5.0, second_smallest_within=2.0),
+        },
     )
 
     assert benchmark.observations_truth["head_west"]
@@ -48,12 +54,6 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
     ]
     optuna_result = next(
         result for result in benchmark.method_results if result.method_name == "optuna"
-    )
-    nelder_mead_result = next(
-        result for result in benchmark.method_results if result.method_name == "scipy_nelder_mead"
-    )
-    cma_es_result = next(
-        result for result in benchmark.method_results if result.method_name == "cma_es"
     )
     assert len(random_results) == 2
     assert optuna_result.model_distribution_sample_count >= 1
@@ -68,20 +68,4 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
         assert "K_middle" in result.param_abs_error
         assert "K_east" in result.param_abs_error
         assert_lightweight_method_result(result)
-    assert all(result.meets_success_target for result in random_results)
-    tolerance_ratios = {
-        name: nelder_mead_result.param_abs_error[name]
-        / PIECEWISE_K_TWIN_CASE.parameter_abs_tolerances[name]
-        for name in PIECEWISE_K_TWIN_CASE.truth_params
-    }
-    assert max(tolerance_ratios.values()) <= 1.5, nelder_mead_result.to_mapping()
-    cma_tolerance_ratios = {
-        name: cma_es_result.param_abs_error[name]
-        / PIECEWISE_K_TWIN_CASE.parameter_abs_tolerances[name]
-        for name in PIECEWISE_K_TWIN_CASE.truth_params
-    }
-    sorted_cma_ratios = sorted(float(value) for value in cma_tolerance_ratios.values())
-    assert sorted_cma_ratios[1] <= 2.0, cma_es_result.to_mapping()
-    assert sorted_cma_ratios[-1] <= 5.0, cma_es_result.to_mapping()
-    assert all(result.truth_in_distribution is True for result in random_results)
     assert all(result.model_distribution_sample_count >= 96 for result in random_results)

@@ -24,24 +24,21 @@ Numerical setup:
 Comparison:
 
 - simulated observable: `watertable_elevation`,
-- primary metric: inland interception position along `x`,
-- secondary sanity checks: no overshoot above topography and low cross-row spread,
-- reference: analytical no-drain steady Boussinesq recharge profile with west
-  divide and east fixed head, intersected with the linear topography,
-- numerical interception is detected with a small `5 cm` contact tolerance on
-  the row-averaged profile.
+- reference: the exact steady free-boundary solution under Dupuit. Below the
+  emergence point `x_e` the head is the land surface and seeps out; above it
+  all the recharge flows through the aquifer and the water table meets the
+  surface tangentially at `x_e` (322.4 m here),
+- metrics: the head profile on every column, and the contact point, where the
+  head comes within `5 cm` of the surface, read the same way on the model and
+  on the reference (281.6 m here: the tangent contact starts 41 m upslope of
+  `x_e` at that tolerance),
+- sanity checks: no overshoot above topography and low cross-row spread,
+- the solve starts from the outlet head over the whole hillslope, not from the
+  answer.
 
-Important limitation:
-
-- this case is intentionally exposed only for `solver=boussinesq`;
-- `solver=boussinesq` runs with `runtime_backend = "petsc"` and
-  `surface_interaction_model = "vi_obstacle"`;
-- the analytical target is an interception-position approximation inherited
-  from the no-drain profile, not a full free-boundary seepage-face solution;
-- the PETSc VI obstacle result is numerically clean but shifts the interception
-  position relative to that no-drain diagnostic;
-- dry-zone profile metrics are reported for diagnosis, but the asserted
-  benchmark remains the emergence position itself.
+Until 2026-10-09 the reference was the profile without the surface, crossed with
+the topography (244.8 m). It ignores the seepage face: its dry heads sit 0.1 to
+0.16 m above the exact ones.
 
 Direct execution:
 
@@ -55,9 +52,9 @@ python -m validation_cases.analytical.steady.boussinesq_hillslope_interception_1
 The equations of the reference solution the comparison uses.
 
 $$
-h(x)^2=h_e^2+\frac{R}{K}\left(L^2-x^2\right)
+R\left(x_e-x_{\min}\right)=K\,S\left(z_{\mathrm{top}}(x_e)-z_b\right),\qquad z_{\mathrm{top}}(x)=z_{\mathrm{toe}}+S\left(L-x\right)
 $$
 
 $$
-z_{\mathrm{top}}(x)=z_{\mathrm{toe}}+S\left(L-x\right),\qquad h(x_{\mathrm{int}})=z_{\mathrm{top}}(x_{\mathrm{int}})
+\left(h-z_b\right)^2=\left(z_{\mathrm{top}}(x_e)-z_b\right)^2+\frac{R}{K}\left[\left(x_e-x_{\min}\right)^2-\left(x-x_{\min}\right)^2\right]\quad (x<x_e),\qquad h=z_{\mathrm{top}}\quad (x\ge x_e)
 $$

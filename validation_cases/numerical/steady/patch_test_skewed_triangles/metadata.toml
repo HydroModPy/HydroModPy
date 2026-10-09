@@ -1,0 +1,22 @@
+case_id = "patch_test_skewed_triangles"
+category = "numerical"
+regime = "steady"
+dimension = "2d"
+default_solver = "modflow6_irregular_tri"
+base_config = "config_common.toml"
+
+[config_files]
+modflow6_irregular_tri = "config_modflow6_irregular_tri.toml"
+modflow6_irregular_tri_xt3d_off = "config_modflow6_irregular_tri_xt3d_off.toml"
+boussinesq_local = "config_boussinesq_local.toml"
+
+[workspace]
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "watertable_elevation"
+
+[reference]
+west_head_m = 50.2
+east_head_m = 50.0
+bottom_elevation_m = -1000.0

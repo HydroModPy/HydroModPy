@@ -23,8 +23,9 @@ which is what makes the network a function of K/R alone. The mapped network is
 the downstream closure of the seepage cells, built by the same functions the
 criterion calls, and its round trip through the GPKG back onto the mesh is
 checked cell for cell before any calibration runs. The round trip goes through
-the resolver and ``observed_network_mask`` under its default crossing rule,
-the route a ``stream_geometry_path`` takes in a calibration trial.
+the resolver and ``observed_network_mask`` under the crossing rule, the route a
+``stream_geometry_path`` takes in a calibration trial. The calibration sets that
+rule: the default, ``heads``, needs a drained area this hillslope never reaches.
 
 What this twin cannot see: on a single row no two network cells meet only at a
 corner, so the crossing and the touch rules give the same mask here. The
@@ -106,6 +107,11 @@ release_flux = true
 
 [simulation.results.budget]
 spatial_fields = true
+
+# The round trip compares the recharge read back to 1e-9: compact storage
+# keeps 16 mantissa bits, about 1e-5.
+[simulation.results.persistence]
+field_precision = "exact"
 
 [workspace]
 project_root = "."
@@ -199,6 +205,9 @@ bounds = [{k_low!r}, {k_high!r}]
 [calibration.outputs.{output}]
 support = "network"
 stream_geometry_path = "{mapped}"
+# The twin checks the crossing rule. Under the heads rule the one head of the
+# map needs 0.02 km2 drained; the whole hillslope drains 0.0016 km2.
+observed_rasterization = "crossing"
 
 [[calibration.objective_blocks]]
 name = "network"

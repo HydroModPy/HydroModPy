@@ -23,6 +23,10 @@ Comparison:
 
 - compared quantity: row-averaged head profile along `x`,
 - reference: exact steady profile `H(x) = z_b(x) + b*` with `b* = 8 m`,
+- boundary positions: each side head is posed where the model holds it, at the
+  centre of the boundary column, or at the mean centroid of the boundary
+  triangles on the triangle strip; a no-flow side stays on the domain face
+  (`validation_cases/shared/strip_geometry.py`)
 - primary metrics: head-profile RMSE, max abs error, cross-row spread.
 
 Solver variants:

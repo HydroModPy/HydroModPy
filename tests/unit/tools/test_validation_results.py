@@ -127,12 +127,10 @@ def test_the_index_reads_equations_gaps_and_the_schedule() -> None:
     by_file = {e["file"]: e for e in index["validation"]}
     dupuit = by_file["tests/validation/analytical/steady/test_dupuit_uniform_recharge_1d.py"]
     assert "$$" in dupuit["cases"][0]["equations"]
-    thin = by_file[
-        "tests/validation/analytical/transient/test_brutsaert_recession_boussinesq_thin_1d.py"
-    ]
-    notes = thin["cases"][0]["tolerance_notes"]
+    island = by_file["tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py"]
+    notes = island["cases"][0]["tolerance_notes"]
     assert "gap" in notes["tolerances_modflow6.toml"]
-    assert "doc" not in thin["cases"][0]["tolerance_files"]["tolerances_modflow6.toml"]
+    assert "doc" not in island["cases"][0]["tolerance_files"]["tolerances_modflow6.toml"]
     theis = by_file["tests/validation/analytical/transient/test_theis.py"]
     assert theis["reference"].startswith("the Theis (1935) drawdown")
     nightly = [j for j in index["schedule"] if j["workflow"] == "ci-nightly.yml"]

@@ -13,7 +13,10 @@ from validation_cases.shared import load_case_metadata
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "lu_recharge_step_deep_1d"
 NX = 40
-NY = 3
+# Square cells (dx = dy = 2.5 m). On right triangles of unequal sides the
+# two-point flux of the solver is not consistent and acts as a conductance
+# error: with NY = 3 the recharge step ended 1.1e-2 m off, against 8e-4 m here.
+NY = 4
 LENGTH_X_M = 100.0
 WIDTH_Y_M = 10.0
 
@@ -22,6 +25,7 @@ def run_boussinesq_linearized_unconfined_recharge_step_deep_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> object:
     """Run the deep recharge-step case through the local transient Boussinesq backend."""
     metadata = load_case_metadata(CASE_DIR)
@@ -40,6 +44,7 @@ def run_boussinesq_linearized_unconfined_recharge_step_deep_case(
         case_id=CASE_ID,
         caller_file=caller_file,
         timeout=timeout,
+        public_solver_label=public_solver_label,
         nx=NX,
         ny=NY,
         nper=nper,

@@ -10,7 +10,6 @@ import numpy as np
 from validation_cases.analytical.steady.boussinesq_sloping_substratum import (
     build_linear_substratum_values,
     build_linear_topography_values,
-    build_validation_profile_x_values,
 )
 from validation_cases.shared import (
     ValidationRunResult,
@@ -23,6 +22,8 @@ from validation_cases.shared import (
     rmse,
     run_launcher_validation_case,
 )
+from validation_cases.shared.boussinesq_analytical_runtime import DEFAULT_ENGINE_SOLVER
+from validation_cases.shared.strip_geometry import strip_geometry_for_run
 
 from .reference import (
     expected_sloping_substratum_uniform_recharge_profile_at_x,
@@ -96,38 +97,56 @@ def build_boussinesq_sloping_substratum_uniform_recharge_comparison(
 
     profile_axis = int(reference_cfg.get("profile_axis", 0))
     numerical_profile = mean_along_axis(heads, axis=profile_axis)
-    x = build_validation_profile_x_values(
-        xmin=float(reference_cfg["xmin"]),
-        xmax=float(reference_cfg["xmax"]),
+    geometry = strip_geometry_for_run(
+        result,
         ncol=numerical_profile.size,
-        solver_name=solver_name,
-    )
-    topography_profile = build_linear_topography_values(
-        x_m=x,
         xmin=float(reference_cfg["xmin"]),
         xmax=float(reference_cfg["xmax"]),
-        topography_base_elevation_m=float(reference_cfg["topography_base_elevation_m"]),
-        topography_right_to_left_amplitude_m=float(
-            reference_cfg["topography_right_to_left_amplitude_m"]
+        area_weighted=True,
+    )
+    x = geometry.x
+    surface = {
+        "surface_west_x": geometry.surface_west_x,
+        "surface_east_x": geometry.surface_east_x,
+    }
+    bottom = {
+        "bottom_base_elevation_m": float(reference_cfg["bottom_base_elevation_m"]),
+        "bottom_right_to_left_amplitude_m": float(
+            reference_cfg["bottom_right_to_left_amplitude_m"]
         ),
+    }
+    posed_heads = {
+        "west_x": geometry.west_x,
+        "east_x": geometry.east_x,
+        "west_head_m": float(reference_cfg["west_head"]),
+        "east_head_m": float(reference_cfg["east_head"]),
+    }
+    topography_profile = geometry.profile(
+        lambda points: build_linear_topography_values(
+            x_m=points,
+            **surface,
+            topography_base_elevation_m=float(reference_cfg["topography_base_elevation_m"]),
+            topography_right_to_left_amplitude_m=float(
+                reference_cfg["topography_right_to_left_amplitude_m"]
+            ),
+        )
     )
-    bottom_profile = build_linear_substratum_values(
-        x_m=x,
-        xmin=float(reference_cfg["xmin"]),
-        xmax=float(reference_cfg["xmax"]),
-        bottom_base_elevation_m=float(reference_cfg["bottom_base_elevation_m"]),
-        bottom_right_to_left_amplitude_m=float(reference_cfg["bottom_right_to_left_amplitude_m"]),
+    bottom_profile = geometry.profile(
+        lambda points: build_linear_substratum_values(x_m=points, **surface, **bottom)
     )
-    analytical_profile = expected_sloping_substratum_uniform_recharge_profile_at_x(
-        x_m=x,
-        xmin=float(reference_cfg["xmin"]),
-        xmax=float(reference_cfg["xmax"]),
-        west_head_m=float(reference_cfg["west_head"]),
-        east_head_m=float(reference_cfg["east_head"]),
-        bottom_base_elevation_m=float(reference_cfg["bottom_base_elevation_m"]),
-        bottom_right_to_left_amplitude_m=float(reference_cfg["bottom_right_to_left_amplitude_m"]),
-        hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
-        recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
+    hydraulics = {
+        "hydraulic_conductivity_m_per_s": float(reference_cfg["hydraulic_conductivity_m_per_s"]),
+        "recharge_mm_day": float(reference_cfg["recharge_mm_day"]),
+    }
+    analytical_profile = geometry.profile(
+        lambda points: expected_sloping_substratum_uniform_recharge_profile_at_x(
+            x_m=points,
+            **surface,
+            **posed_heads,
+            **bottom,
+            **hydraulics,
+        ),
+        within=(geometry.west_x, geometry.east_x),
     )
     residual_profile = np.asarray(numerical_profile - analytical_profile, dtype=float)
     analytical_thickness_profile = np.asarray(
@@ -139,18 +158,14 @@ def build_boussinesq_sloping_substratum_uniform_recharge_comparison(
         dtype=float,
     )
     west_discharge = solve_sloping_substratum_uniform_recharge_west_discharge_per_width(
-        xmin=float(reference_cfg["xmin"]),
-        xmax=float(reference_cfg["xmax"]),
-        west_head_m=float(reference_cfg["west_head"]),
-        east_head_m=float(reference_cfg["east_head"]),
-        bottom_base_elevation_m=float(reference_cfg["bottom_base_elevation_m"]),
-        bottom_right_to_left_amplitude_m=float(reference_cfg["bottom_right_to_left_amplitude_m"]),
-        hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
-        recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
+        **surface,
+        **posed_heads,
+        **bottom,
+        **hydraulics,
     )
     east_discharge = float(west_discharge) + _mm_day_to_m_s(
         float(reference_cfg["recharge_mm_day"])
-    ) * (float(reference_cfg["xmax"]) - float(reference_cfg["xmin"]))
+    ) * (geometry.east_x - geometry.west_x)
 
     return BoussinesqSlopingSubstratumUniformRechargeComparison(
         result=result,
@@ -187,10 +202,11 @@ def run_boussinesq_sloping_substratum_uniform_recharge_comparison(
     metadata = load_case_metadata(CASE_DIR)
     tolerances = load_case_tolerances(CASE_DIR, solver=solver)
     normalized_solver = None if solver is None else str(solver).strip().lower()
-    if normalized_solver == "boussinesq":
+    if normalized_solver in {"boussinesq", DEFAULT_ENGINE_SOLVER}:
         result = run_boussinesq_sloping_substratum_uniform_recharge_case(
             caller_file=caller_file,
             timeout=timeout,
+            public_solver_label=normalized_solver,
         )
     else:
         result = run_launcher_validation_case(

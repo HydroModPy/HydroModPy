@@ -8,6 +8,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from hydromodpy.core.state.run_state import RunState
+from hydromodpy.core.state.setup import SetupContext
 from hydromodpy.physics.flow import Flow
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
@@ -354,9 +356,13 @@ def run_boussinesq_hillslope_overflow_case(
     if recharge_mm_day.size != nper:
         raise ValueError(f"Expected {nper} recharge periods, got {recharge_mm_day.size} values.")
 
+    # One directory per variant and preset: they run in parallel in one test file.
+    run_label = "_".join(
+        str(part) for part in (variant.solver_name, context_preset, forcing_preset) if part
+    )
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
-        run_name=f"{CASE_ID}_{variant.solver_name}",
+        run_name=f"{CASE_ID}_{run_label}",
     )
     bundle_dir = write_uniform_strip_bundle(
         out_path / "mesh_bundle",
@@ -414,8 +420,8 @@ def run_boussinesq_hillslope_overflow_case(
             saturation_excess_regularization_radius
         )
 
-    state = SimpleNamespace(
-        setup=SimpleNamespace(
+    state = RunState(
+        setup=SetupContext(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=flow,

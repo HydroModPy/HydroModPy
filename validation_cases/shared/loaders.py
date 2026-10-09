@@ -212,6 +212,177 @@ def _reshape_to_expected(
     return values
 
 
+def resolve_case_mesh_bundle_dir(
+    case_dir: Path,
+    metadata: Mapping[str, object],
+    solver: str | None,
+) -> Path | None:
+    """Return the mesh bundle a solver config reads in ``[mesh_input]``, or None."""
+    config_files = metadata.get("config_files")
+    solver_name = str(solver or "").strip().lower()
+    if not isinstance(config_files, Mapping) or solver_name == "":
+        return None
+    config_name = str(config_files.get(solver_name, "")).strip()
+    if config_name == "":
+        return None
+    mesh_input = load_case_config(case_dir, config_name).get("mesh_input")
+    if not isinstance(mesh_input, Mapping):
+        return None
+    bundle_dir_raw = str(mesh_input.get("bundle_dir", "")).strip()
+    if bundle_dir_raw == "":
+        return None
+    bundle_dir = Path(bundle_dir_raw).expanduser()
+    return bundle_dir if bundle_dir.is_absolute() else (case_dir / bundle_dir).resolve()
+
+
+def _read_bundle_table(bundle_dir: Path, name: str) -> np.ndarray:
+    """Read one CSV table of a mesh bundle as a structured array."""
+    return np.genfromtxt(
+        Path(bundle_dir) / name, delimiter=",", names=True, dtype=None, encoding="utf-8"
+    )
+
+
+def bundle_cell_centers(bundle_dir: Path, n_cells: int) -> tuple[np.ndarray, str]:
+    """Return the ``(n_cells, 2)`` solver cell centres of one mesh bundle and the dual kind.
+
+    A triangle grid (``grid_dual = "triangle"``) keeps one cell per bundle
+    triangle, centred on its centroid. A Voronoi dual (``grid_dual = "voronoi"``)
+    has one cell per bundle node, and the node is the cell centre. The cell
+    count tells the two apart.
+    """
+    cells = _read_bundle_table(bundle_dir, "cells.csv")
+    if cells.size == int(n_cells):
+        centers = np.column_stack([cells["centroid_x"], cells["centroid_y"]])
+        return np.asarray(centers, dtype=float), "triangle"
+    nodes = _read_bundle_table(bundle_dir, "nodes.csv")
+    if nodes.size == int(n_cells):
+        return np.asarray(np.column_stack([nodes["x"], nodes["y"]]), dtype=float), "voronoi"
+    raise ValueError(
+        f"{n_cells} solver cells match neither the {cells.size} triangles nor the "
+        f"{nodes.size} nodes of the mesh bundle {bundle_dir}."
+    )
+
+
+def _nearest_cell_history_to_grid(
+    history: np.ndarray,
+    centers: np.ndarray,
+    *,
+    nx: int,
+    ny: int,
+    x_min: float,
+    x_max: float,
+    y_min: float,
+    y_max: float,
+) -> np.ndarray:
+    """Give each structured cell the value of the solver cell with the nearest centre.
+
+    For a Voronoi dual the nearest centre is the cell that holds the point, so
+    each structured cell reads the solver cell under its centre. Rows run from
+    ``y_min`` up, like ``interpolate_bundle_history_to_structured_grids``.
+    """
+    from scipy.spatial import cKDTree
+
+    x_centers = x_min + (np.arange(int(nx), dtype=float) + 0.5) * (x_max - x_min) / float(nx)
+    y_centers = y_min + (np.arange(int(ny), dtype=float) + 0.5) * (y_max - y_min) / float(ny)
+    xx, yy = np.meshgrid(x_centers, y_centers)
+    _, nearest = cKDTree(np.asarray(centers, dtype=float)).query(
+        np.column_stack([xx.ravel(), yy.ravel()])
+    )
+    data = np.asarray(history, dtype=float).reshape(-1, len(centers))
+    return data[:, nearest].reshape(data.shape[0], int(ny), int(nx))
+
+
+def _regrid_bundle_history(
+    history: np.ndarray,
+    *,
+    bundle_dir: Path,
+    nx: int,
+    ny: int,
+    x_min_m: float | None,
+    x_max_m: float | None,
+    y_min_m: float | None,
+    y_max_m: float | None,
+    collapse_y_to_x_profile: bool = False,
+) -> np.ndarray:
+    """Project one time-cell history of a mesh-bundle run onto a ``ny x nx`` grid.
+
+    A triangle grid goes through ``interpolate_bundle_history_to_structured_grids``.
+    A Voronoi dual reads, for each structured cell, the solver cell under its centre.
+    """
+    from validation_cases.shared.gmsh_irregular_strip import (
+        interpolate_bundle_history_to_structured_grids,
+    )
+
+    data = np.asarray(history, dtype=float)
+    n_cells = int(data.shape[-1])
+    if collapse_y_to_x_profile or _read_bundle_table(bundle_dir, "cells.csv").size == n_cells:
+        return interpolate_bundle_history_to_structured_grids(
+            data,
+            bundle_dir=bundle_dir,
+            nx=nx,
+            ny=ny,
+            x_min_m=x_min_m,
+            x_max_m=x_max_m,
+            y_min_m=y_min_m,
+            y_max_m=y_max_m,
+            collapse_y_to_x_profile=collapse_y_to_x_profile,
+        )
+    centers, _ = bundle_cell_centers(bundle_dir, n_cells)
+    return _nearest_cell_history_to_grid(
+        data,
+        centers,
+        nx=nx,
+        ny=ny,
+        x_min=float(np.min(centers[:, 0])) if x_min_m is None else float(x_min_m),
+        x_max=float(np.max(centers[:, 0])) if x_max_m is None else float(x_max_m),
+        y_min=float(np.min(centers[:, 1])) if y_min_m is None else float(y_min_m),
+        y_max=float(np.max(centers[:, 1])) if y_max_m is None else float(y_max_m),
+    )
+
+
+def load_cell_polygons(*, store: Any, sim_id: str) -> list[np.ndarray]:
+    """Return the plan-view ``(n_vertices, 2)`` polygon of every solver cell of one run."""
+    sz = store.open_zarr(sim_id)
+    try:
+        vertices = np.asarray(sz.root["mesh"]["vertices"][:], dtype=float)[:, :2]
+        faces = np.asarray(sz.root["mesh"]["face_node_connectivity"][:], dtype=int)
+    finally:
+        sz.close()
+    return [vertices[row[row >= 0]] for row in faces]
+
+
+def structured_cell_polygons(
+    *,
+    x_min: float,
+    x_max: float,
+    y_min: float,
+    y_max: float,
+    nrow: int,
+    ncol: int,
+) -> list[np.ndarray]:
+    """Return one square per cell of a regular grid, row by row from the northern row.
+
+    This is the order in which the result store lists the cells of a structured grid.
+    """
+    xs = np.linspace(float(x_min), float(x_max), int(ncol) + 1)
+    ys = np.linspace(float(y_max), float(y_min), int(nrow) + 1)
+    return [
+        np.array([(xs[j], ys[i]), (xs[j + 1], ys[i]), (xs[j + 1], ys[i + 1]), (xs[j], ys[i + 1])])
+        for i in range(int(nrow))
+        for j in range(int(ncol))
+    ]
+
+
+def map_polygons_payload(
+    polygons: list[np.ndarray], *, origin_x: float, origin_y: float
+) -> list[list[tuple[float, float]]]:
+    """Shift cell polygons to ``(origin_x, origin_y)`` and round them to 0.01 m for a figure."""
+    return [
+        [(round(float(x) - origin_x, 2), round(float(y) - origin_y, 2)) for x, y in polygon]
+        for polygon in polygons
+    ]
+
+
 def _load_last_array_from_store(
     *,
     observable_name: str,
@@ -372,11 +543,7 @@ def load_field_on_expected_grid(
         tiled = np.repeat(profile.reshape(1, -1), int(expected_shape[0]), axis=0)
         return timestep, np.asarray(tiled, dtype=float)
 
-    from validation_cases.shared.gmsh_irregular_strip import (
-        interpolate_bundle_history_to_structured_grids,
-    )
-
-    regridded = interpolate_bundle_history_to_structured_grids(
+    regridded = _regrid_bundle_history(
         values,
         bundle_dir=bundle_dir,
         nx=int(expected_shape[1]),
@@ -387,6 +554,14 @@ def load_field_on_expected_grid(
         y_max_m=y_max_m,
     )
     return timestep, np.asarray(regridded[0], dtype=float)
+
+
+def load_last_cell_values(*, observable_name: str, store: Any, sim_id: str | None) -> np.ndarray:
+    """Return the flat per-cell values of one observable at the last stored timestep."""
+    _, values = _load_last_array_from_store(
+        observable_name=observable_name, store=store, sim_id=sim_id
+    )
+    return np.asarray(values, dtype=float).reshape(-1)
 
 
 def load_field(
@@ -553,11 +728,7 @@ def load_time_series_fields(
                 and data[:1].size > 0
             ):
                 if mesh_bundle_dir is not None and len(tuple(eff_shape)) == 2:
-                    from validation_cases.shared.gmsh_irregular_strip import (
-                        interpolate_bundle_history_to_structured_grids,
-                    )
-
-                    data = interpolate_bundle_history_to_structured_grids(
+                    data = _regrid_bundle_history(
                         data,
                         bundle_dir=Path(mesh_bundle_dir),
                         nx=int(eff_shape[1]),

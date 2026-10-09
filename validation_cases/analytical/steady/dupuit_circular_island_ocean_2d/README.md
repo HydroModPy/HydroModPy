@@ -19,6 +19,13 @@ Comparison:
 - simulated observable: `watertable_elevation`
 - compared quantity: annular mean head profile on land
 - reference: steady radial Dupuit-Boussinesq solution with fixed coastal head
+- for `solver=boussinesq` and `boussinesq_local`, the runtime meshes the island
+  with near-equilateral triangles of 10 m (a node ring on the coast, one ring
+  of ocean triangles at the sea level), and the profile is read on the
+  triangles, the reference at each centroid
+- for `solver=modflow6_voronoi`, the profile is read on the solver cells, which
+  are centred on the nodes of the mesh bundle, in 5 m bins that each hold one
+  node ring
 
 Direct execution:
 

@@ -21,6 +21,7 @@ def run_boussinesq_sloping_substratum_constant_thickness_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> object:
     """Run the steady sloping-substratum constant-thickness case with PETSc VI."""
     metadata = load_case_metadata(CASE_DIR)
@@ -31,6 +32,7 @@ def run_boussinesq_sloping_substratum_constant_thickness_case(
         case_id=CASE_ID,
         caller_file=caller_file,
         timeout=timeout,
+        public_solver_label=public_solver_label,
         nx=NX,
         ny=NY,
         length_x_m=LENGTH_X_M,

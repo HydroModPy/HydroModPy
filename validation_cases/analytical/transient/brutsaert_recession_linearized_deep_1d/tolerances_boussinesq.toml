@@ -1,9 +1,24 @@
 [discharge]
-relative_rmse = 0.03
-relative_max_error = 0.08
+relative_rmse = 1e-3
+relative_max_error = 2e-3
+
+[recession]
+coefficient_relative_error = 5e-3
+exponent_abs_error = 2e-3
+late_relative_rmse = 0.015
 
 [uniformity]
 row_spread = 1e-6
 
 [monotonicity]
 max_positive_increment_m3_s = 1e-12
+
+[doc]
+reason = """
+The band of tolerances.toml, shared with MODFLOW. The PETSc runtime takes the
+100 backward-Euler steps a period of the case, as MODFLOW does, and reads
+relative RMSE 1.2e-4, maximum 1.8e-4, decay rate -0.32 %, |b - 1| 1.8e-4 and
+late RMSE 0.0090, against 1.28e-4, 1.9e-4 to 2.0e-4, -0.33 to -0.35 %, 1.8e-4 to
+2.9e-4 and 0.0095 to 0.0099 for MODFLOW. With 4 steps a period (before
+2026-10-09) the rate came out 7.6 % low.
+"""

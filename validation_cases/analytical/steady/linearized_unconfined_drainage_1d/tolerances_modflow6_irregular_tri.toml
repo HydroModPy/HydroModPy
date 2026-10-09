@@ -1,0 +1,18 @@
+[head_profile]
+rmse = 0.015
+max_abs_error = 0.025
+row_spread = 1e-9
+
+[doc]
+gap = """
+Known gap. The drain conductance is set per cell, and the triangles range from
+0.3 to 12.5 m2: the drained flux per unit area varies about forty-fold along
+the strip. The 1D reference uses the mean rate, the total conductance of the
+mesh over its area. On the 50-column grid every cell has the same area.
+"""
+reason = """
+Twice the error measured on the 352-triangle strip: RMSE 7.3e-3 m, max error
+1.2e-2 m. The heads are posed at the mean centroid of the triangles that own a
+boundary edge, and the reference is averaged over the same x bins as the
+model. The row spread is zero by construction: the loader tiles one profile.
+"""

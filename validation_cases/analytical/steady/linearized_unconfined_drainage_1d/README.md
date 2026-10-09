@@ -6,7 +6,8 @@ drainage boundary condition against a closed-form linearized 1D reference with:
 - fixed heads on the west and east sides,
 - uniform top drainage conductance applied everywhere,
 - a flat drainage elevation below the simulated water table,
-- a homogeneous unconfined aquifer interpreted around one reference thickness.
+- a homogeneous aquifer whose heads stay above the cell top, so the cells are
+  full and the reference thickness is the cell thickness, `20 m`.
 
 Intent:
 
@@ -19,6 +20,10 @@ Comparison:
 - simulated observable: `watertable_elevation`
 - compared quantity: domain-averaged head profile along `x`
 - reference: steady linearized unconfined profile with distributed top drainage
+- boundary positions: each side head is posed where the model holds it, at the
+  centre of the boundary column, or at the mean centroid of the boundary
+  triangles on the triangle strip; a no-flow side stays on the domain face
+  (`validation_cases/shared/strip_geometry.py`)
 
 Solver variants:
 

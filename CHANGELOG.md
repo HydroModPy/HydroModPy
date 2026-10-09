@@ -34,6 +34,14 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- Validation variants `modflow6_voronoi` (the default dual of a Gmsh mesh) and
+  `boussinesq_local` (the default Boussinesq engine, no PETSc), a patch test of uniform
+  flow on skewed triangles, a grid-convergence test on the production path, and the
+  data-rich transient twin (K and Sy from heads and discharge) again.
+- The Validation page draws, per case, the plan-view error of the 2D cases with their
+  meshes, the space-time error of the transient 1D cases and the samples of each
+  calibration method against the truth. It compares MODFLOW 6 and MODFLOW-NWT on example
+  04 from runs stored at full precision.
 - `observed_rasterization = "heads"` on a network calibration output draws the mapped network
   from its heads only. The free ends of the map are found by geometry, whatever the source;
   an end is a head when the largest drained area within the snap radius does not exceed the
@@ -469,6 +477,22 @@ Each release section includes the following standard categories:
   refused.
 
 ### Fixed
+- Validation references compare what the model computes. The 1D cases pose their heads at
+  the centres of the boundary cells, where the model holds them (errors of 3 to 5 cm down
+  to 3 to 7 mm). The late-time pumping case evaluates the Theis well function with SciPy,
+  where a hand-written E1 was wrong between u = 1 and 8, and reads it at the solver cell
+  each monitor point reads. Ogata-Banks measures from the centre of the source cell. The
+  thin Brutsaert case drains to the substratum and is read on its late recession, with the
+  dimensions of the strip. The steady interception case compares with the exact
+  seepage-face solution and starts from a neutral state, not from the reference.
+- The MODFLOW-NWT validation profile runs chi-MD with closures below the compared
+  discharges: the deep Brutsaert recession, frozen at a -200 % budget, recesses again and
+  keeps the thresholds of the other solvers.
+- The Boussinesq validation runtime builds the run view the solver adapters read since
+  2026-09-18 (every Boussinesq validation test failed), and each variant writes to its own
+  folder.
+- The twin calibration tests publish the thresholds they assert; the stream-network twin
+  stores its fields at full precision and sets the crossing rule it checks.
 - The Boussinesq solver honours `simulation.time.substeps_per_period` with every engine:
   each stress period is solved in that many backward Euler steps of equal length. The
   `local`, `scipy`, `scipy_sparse` and PETSc partition engines took one step per period

@@ -13,6 +13,7 @@ from validation_cases.shared import (
     load_case_tolerances,
     run_launcher_validation_case,
 )
+from validation_cases.shared.boussinesq_analytical_runtime import DEFAULT_ENGINE_SOLVER
 
 from .runtime_boussinesq import (
     run_boussinesq_brutsaert_recession_linearized_deep_case,
@@ -49,10 +50,11 @@ def run_brutsaert_recession_linearized_deep_comparison(
         normalized_solver or str(metadata.get("default_solver", "")).strip().lower() or None
     )
     tolerances = load_case_tolerances(CASE_DIR, solver=effective_solver)
-    if normalized_solver == "boussinesq":
+    if normalized_solver in {"boussinesq", DEFAULT_ENGINE_SOLVER}:
         result = run_boussinesq_brutsaert_recession_linearized_deep_case(
             caller_file=caller_file,
             timeout=timeout,
+            public_solver_label=normalized_solver,
         )
     else:
         result = run_launcher_validation_case(

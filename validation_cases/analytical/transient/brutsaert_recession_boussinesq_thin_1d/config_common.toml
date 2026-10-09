@@ -4,13 +4,17 @@ mode = "simulation"
 
 [simulation]
 name = "Brutsaert recession thin validation"
-description = "Synthetic thin-aquifer Brutsaert recession with one steady warm-up period followed by transient recession."
+description = "Synthetic thin-aquifer Brutsaert recession: one steady warm-up day under recharge, then 128 days of recession to an outlet on the substratum."
 
 [simulation.time]
 start_datetime = "2003-01-01 00:00:00"
-end_datetime = "2003-01-17 00:00:00"
+end_datetime = "2003-05-09 00:00:00"
 step_value = "1 day"
 coverage_policy = "ignore"
+# Four backward-Euler steps a day. Q declines by at most 4 % a day over the
+# compared window. The recession coefficient moves by 0.17 % from 4 to 16
+# steps a day, so the time error at 4 steps is about 0.2 %.
+substeps_per_period = 4
 
 [[simulation.process]]
 id = "flow_validation"
@@ -41,6 +45,15 @@ base_elevation = 5.0
 kind = "constant_thickness"
 thickness = "5.0 m"
 
+# The MF6 IMS presets are absolute: the stock COMPLEX closure (0.1 m3/s on
+# the residual, 1e-4 m on the head) is larger than this model's whole budget
+# (3.5e-5 m3/s) and than one time step of head decline late in the recession
+# (2.5e-4 m). Both MF6 grids inherit these values.
+[modflow6.runtime]
+mf6_outer_dvclose = 1e-7
+mf6_inner_dvclose = 1e-8
+mf6_inner_rclose = 1e-9
+
 [flow]
 flow_regime = "transient"
 first_period_steady = true
@@ -65,14 +78,17 @@ value = "0.10 -"
 
 [flow.ic]
 type = "custom"
-value = "1.0 m"
+value = "0.5 m"
 
+# The outlet head sits on the substratum (bottom at 0 m). This is the
+# Brutsaert-Nieber condition h = 0 that gives -dQ/dt = a Q^(3/2). An outlet
+# head above the substratum would add a linear regime: 1 m gave b = 1.08.
 [flow.bc.east_side]
 kind = "dirichlet"
 
 [flow.bc.east_side.forcing]
 mode = "constant"
-value = 1.0
+value = 0.0
 units = "m"
 
 [flow.sinks_sources.recharge]
@@ -85,7 +101,18 @@ inference_mode = "warn"
 
 [[data.recharge.sources]]
 source = "synthetic"
-values = [2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+# One value per period: a synthetic list repeats to fill the run.
+values = [
+    2.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+]
 freq = "D"
 runoff_ratio = 0.0
 

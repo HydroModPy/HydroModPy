@@ -1,0 +1,5 @@
+{
+  "constraints_mode": "geology_only",
+  "generator": "patch_test_skewed_triangles",
+  "n_cells": 80
+}

@@ -1,4 +1,12 @@
 [head_profile]
-rmse = 0.05
-max_abs_error = 0.10
-row_spread = 2e-5
+rmse = 7e-7
+max_abs_error = 1.3e-6
+row_spread = 1e-5
+
+[doc]
+reason = """
+Twice the MODFLOW-NWT measurement with the validation profile (head closure
+1e-9 m): RMSE 3.2e-7 m, max error 6.1e-7 m. The case is linear (heads above
+the cell top, full cell thickness), and the centred scheme gives about 4e-7 m
+on the 50-column grid.
+"""

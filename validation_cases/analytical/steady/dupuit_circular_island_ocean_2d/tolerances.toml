@@ -2,5 +2,4 @@
 rmse = 0.25
 max_abs_error = 0.50
 azimuthal_spread = 0.25
-ocean_head_max_error = 1e-6
 min_land_clearance = 0.10

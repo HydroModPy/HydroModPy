@@ -90,26 +90,52 @@ def _head_from_squared(head_squared) -> np.ndarray:
     return np.sqrt(head_squared_arr)
 
 
-def expected_boussinesq_fixed_head_piecewise_profile(
+def _local_piecewise_support(
     *,
-    xmin: float,
-    xmax: float,
-    ncol: int,
-    west_head: float,
-    east_head: float,
+    x,
+    start_x: float,
+    end_x: float,
     x_zone_breaks_m: Iterable[float],
     hydraulic_conductivity_m_per_s_by_zone: Iterable[float],
-) -> np.ndarray:
-    """Return the steady 1D Boussinesq profile with piecewise-constant K and no recharge."""
-    length = float(xmax) - float(xmin)
-    x_local = np.linspace(0.0, length, int(ncol), dtype=float)
-    breaks_local = np.asarray(tuple(x_zone_breaks_m), dtype=float) - float(xmin)
+) -> tuple[np.ndarray, float, np.ndarray, np.ndarray]:
+    """Return local abscissas, length, zone edges and zone K on ``[start_x, end_x]``.
+
+    The zone breaks are absolute positions, the faces where the model changes
+    K. Breaks outside ``(start_x, end_x)`` cannot be posed and are rejected.
+    """
+    length = float(end_x) - float(start_x)
+    x_local = np.asarray(x, dtype=float) - float(start_x)
+    breaks_local = np.asarray(tuple(x_zone_breaks_m), dtype=float) - float(start_x)
     edges, conductivity = validate_piecewise_constant_segments(
         start=0.0,
         end=length,
         breaks=breaks_local,
         values=hydraulic_conductivity_m_per_s_by_zone,
         coordinate_label="x",
+    )
+    return x_local, length, edges, conductivity
+
+
+def expected_boussinesq_fixed_head_piecewise_profile(
+    *,
+    x,
+    west_x: float,
+    east_x: float,
+    west_head: float,
+    east_head: float,
+    x_zone_breaks_m: Iterable[float],
+    hydraulic_conductivity_m_per_s_by_zone: Iterable[float],
+) -> np.ndarray:
+    """Return the steady 1D Boussinesq profile with piecewise-constant K and no recharge.
+
+    The heads sit at ``west_x`` and ``east_x``, where the model holds them.
+    """
+    x_local, length, edges, conductivity = _local_piecewise_support(
+        x=x,
+        start_x=west_x,
+        end_x=east_x,
+        x_zone_breaks_m=x_zone_breaks_m,
+        hydraulic_conductivity_m_per_s_by_zone=hydraulic_conductivity_m_per_s_by_zone,
     )
     resistance = integrate_piecewise_inverse(x_local, edges=edges, values=conductivity)
     total_resistance = float(
@@ -125,26 +151,26 @@ def expected_boussinesq_fixed_head_piecewise_profile(
 
 def expected_boussinesq_uniform_recharge_piecewise_profile(
     *,
-    xmin: float,
-    xmax: float,
-    ncol: int,
+    x,
+    west_x: float,
+    east_x: float,
     west_head: float,
     east_head: float,
     recharge_mm_day: float,
     x_zone_breaks_m: Iterable[float],
     hydraulic_conductivity_m_per_s_by_zone: Iterable[float],
 ) -> np.ndarray:
-    """Return the steady 1D Boussinesq profile with recharge and piecewise-constant K."""
-    length = float(xmax) - float(xmin)
+    """Return the steady 1D Boussinesq profile with recharge and piecewise-constant K.
+
+    The heads sit at ``west_x`` and ``east_x``, where the model holds them.
+    """
     recharge_m_per_s = mm_day_to_m_s(recharge_mm_day)
-    x_local = np.linspace(0.0, length, int(ncol), dtype=float)
-    breaks_local = np.asarray(tuple(x_zone_breaks_m), dtype=float) - float(xmin)
-    edges, conductivity = validate_piecewise_constant_segments(
-        start=0.0,
-        end=length,
-        breaks=breaks_local,
-        values=hydraulic_conductivity_m_per_s_by_zone,
-        coordinate_label="x",
+    x_local, length, edges, conductivity = _local_piecewise_support(
+        x=x,
+        start_x=west_x,
+        end_x=east_x,
+        x_zone_breaks_m=x_zone_breaks_m,
+        hydraulic_conductivity_m_per_s_by_zone=hydraulic_conductivity_m_per_s_by_zone,
     )
     resistance = integrate_piecewise_inverse(x_local, edges=edges, values=conductivity)
     weighted_integral = integrate_piecewise_linear_weight(x_local, edges=edges, values=conductivity)
@@ -173,25 +199,26 @@ def expected_boussinesq_uniform_recharge_piecewise_profile(
 
 def expected_boussinesq_divide_fixed_head_piecewise_profile(
     *,
-    xmin: float,
-    xmax: float,
-    ncol: int,
+    x,
+    divide_x: float,
+    east_x: float,
     east_head: float,
     recharge_mm_day: float,
     x_zone_breaks_m: Iterable[float],
     hydraulic_conductivity_m_per_s_by_zone: Iterable[float],
 ) -> np.ndarray:
-    """Return the steady 1D Boussinesq profile with west no-flow, east fixed head, and piecewise K."""
-    length = float(xmax) - float(xmin)
+    """Return the steady 1D Boussinesq profile with a west divide, an east head and piecewise K.
+
+    The no-flow divide sits at ``divide_x`` (the west face) and the head at
+    ``east_x``, where the model holds it.
+    """
     recharge_m_per_s = mm_day_to_m_s(recharge_mm_day)
-    x_local = np.linspace(0.0, length, int(ncol), dtype=float)
-    breaks_local = np.asarray(tuple(x_zone_breaks_m), dtype=float) - float(xmin)
-    edges, conductivity = validate_piecewise_constant_segments(
-        start=0.0,
-        end=length,
-        breaks=breaks_local,
-        values=hydraulic_conductivity_m_per_s_by_zone,
-        coordinate_label="x",
+    x_local, length, edges, conductivity = _local_piecewise_support(
+        x=x,
+        start_x=divide_x,
+        end_x=east_x,
+        x_zone_breaks_m=x_zone_breaks_m,
+        hydraulic_conductivity_m_per_s_by_zone=hydraulic_conductivity_m_per_s_by_zone,
     )
     weighted_integral = integrate_piecewise_linear_weight(x_local, edges=edges, values=conductivity)
     total_weighted = float(

@@ -15,14 +15,19 @@ Comparison:
 - simulated observable: `watertable_elevation`
 - compared quantity: domain-averaged head profile along `x`
 - reference: Dupuit steady fixed-head solution
+- boundary positions: each side head is posed where the model holds it, at the
+  centre of the boundary column, or at the mean centroid of the boundary
+  triangles on the triangle strip; a no-flow side stays on the domain face
+  (`validation_cases/shared/strip_geometry.py`)
 - configured solver variants: `modflownwt` (default), `modflow6`,
   Linux-only PETSc `boussinesq` VI obstacle, Linux-only `petsc`
   complementarity, and Linux-only `petsc_partition` regularized partition.
 
 Solver-specific tolerances are stored in:
 
-- `tolerances.toml` for the historical `modflownwt` baseline,
-- `tolerances_modflow6.toml` for the `modflow6` variant,
+- `tolerances.toml` for the structured grid, shared by `modflownwt` and `modflow6`,
+- `tolerances_modflow6_irregular_tri.toml` for the triangle strip,
+- `tolerances_boussinesq.toml` for the PETSc Boussinesq strip,
 - `tolerances_petsc_vi_obstacle.toml` for the PETSc Boussinesq VI obstacle variant,
 - `tolerances_petsc.toml` for the Linux PETSc Boussinesq complementarity variant,
 - `tolerances_petsc_partition.toml` for the Linux PETSc regularized partition variant.

@@ -1,8 +1,26 @@
 [interception]
-x_error_m = 45.0
+x_error_m = 8.4
+
+[profile]
+rmse = 0.013
+max_abs_error = 0.075
 
 [uniformity]
-row_spread = 0.001
+row_spread = 1e-8
 
 [contact]
 max_positive_clearance_m = 1e-6
+
+[doc]
+reason = """
+PETSc VI, the boussinesq variant, against the exact seepage-face solution,
+started from the outlet head over the whole hillslope. SNESVI converges in 31
+iterations (residual 9.8e-11 m3/s). Head profile: RMSE 0.0066 m, max 0.0375 m in
+the column that holds the tangent point x_e = 322.4 m, the dry zone within 2e-5
+m; bounds twice the measurement. The contact point is read on 10 m columns with
+a 5 cm tolerance, as on the reference (281.6 m): measured 3.4 m off, the bound
+sits half a column above and fails on the next column. The head may not exceed
+the land surface by more than the solver closure (1e-6 m). Row spread: 9e-16 m
+measured, bound 1e-8 m. Until 2026-10-09 the reference ignored the seepage face
+and the solve started from that reference and stopped at 20 iterations.
+"""

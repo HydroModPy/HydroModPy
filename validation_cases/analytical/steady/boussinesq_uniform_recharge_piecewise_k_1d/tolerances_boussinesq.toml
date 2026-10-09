@@ -1,4 +1,22 @@
 [head_profile]
-rmse = 0.08
-max_abs_error = 0.10
-row_spread = 0.04
+rmse = 0.00053
+max_abs_error = 0.00098
+row_spread = 1e-08
+
+[doc]
+reason = """
+Twice the error measured with PETSc VI on 40 columns; PETSc and the local engine
+agree to 1e-8 m: RMSE 0.00026 m, max error 0.00049 m. The strip splits each 10 m
+square into two right triangles, the diagonal alternating like a checkerboard.
+On it the solver reproduces the h^2 profile at the triangle centroids to 1e-8 m
+(checked cell by cell with recharge), far below the MODFLOW band of this case.
+What is left comes from the column average of two triangles, centroids at dx/3
+and 2 dx/3, against the reference at the column centre. The heads sit at the
+centroid of the triangle that owns a side edge, dx/3 inside the face. The run
+goes through the launcher. Before 2026-10-09 the strip had one diagonal
+everywhere and the recharge mound came out 7 cm too high (RMSE 4.5e-2 m): the x
+conductance was about 7 % low. The launcher stores one profile per column and
+the loader tiles it: the row spread is zero by construction. The strip is
+uniform across rows, so a row spread is solver noise: PETSc reads below 1e-14 m;
+the bound is 1e-8 m.
+"""

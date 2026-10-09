@@ -10,7 +10,9 @@ base_config = "config_modflownwt.toml"
 modflow_nwt = "config_modflownwt.toml"
 modflow6 = "config_modflow6.toml"
 modflow6_irregular_tri = "config_modflow6_irregular_tri.toml"
+modflow6_voronoi = "config_modflow6_voronoi.toml"
 boussinesq = "config_boussinesq.toml"
+boussinesq_local = "config_boussinesq_local.toml"
 
 
 [workspace]
@@ -41,5 +43,8 @@ ring_radius_breaks_m = [70.0, 140.0]
 hydraulic_conductivity_m_per_s_by_ring = [8e-6, 4e-6, 1e-5]
 recharge_mm_day = 1.0
 
-[reference.comparison_radius_max_by_solver]
-boussinesq = 180.0
+[reference.radial_bin_width_m_by_solver]
+# Voronoi cells are centred on the node rings of the mesh bundle (0, 20, 40, 60,
+# 70, 90, 120, 140, 160, 180 and 190 m). A 5 m bin holds one ring, so the profile
+# reads each ring at its own radius and the spread is azimuthal only.
+modflow6_voronoi = 5.0

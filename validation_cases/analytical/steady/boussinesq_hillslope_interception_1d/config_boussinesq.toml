@@ -7,3 +7,6 @@ mode = "simulation"
 [flow]
 runtime_backend = "petsc"
 surface_interaction_model = "vi_obstacle"
+# From the outlet head over the whole hillslope the SNESVI active set moves the
+# seepage front about a column an iteration: 31 iterations to 1e-9.
+runtime_max_iterations = 60

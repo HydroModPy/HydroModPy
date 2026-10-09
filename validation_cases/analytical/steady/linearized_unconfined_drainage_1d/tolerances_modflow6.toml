@@ -1,4 +1,11 @@
 [head_profile]
-rmse = 0.015
-max_abs_error = 0.02
+rmse = 2.5e-4
+max_abs_error = 4e-4
 row_spread = 5e-6
+
+[doc]
+reason = """
+MODFLOW 6 stops at its default head closure of 1e-4 m, which is the whole
+error of this case. Twice the measurement: RMSE 1.2e-4 m, max error 1.9e-4 m.
+MODFLOW-NWT closes at 1e-9 m and reads 3.2e-7 m.
+"""

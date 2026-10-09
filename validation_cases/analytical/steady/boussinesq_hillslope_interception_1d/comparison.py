@@ -17,11 +17,13 @@ from validation_cases.shared import (
     mean_along_axis,
     rmse,
 )
+from validation_cases.shared.boussinesq_analytical_runtime import DEFAULT_ENGINE_SOLVER
 
 from .reference import (
     build_hillslope_topography_values,
-    expected_boussinesq_hillslope_profile_at_x,
-    find_boussinesq_hillslope_interception_x,
+    expected_hillslope_seepage_profile_at_x,
+    hillslope_contact_x,
+    hillslope_seepage_emergence_x,
 )
 from .runtime_boussinesq import run_boussinesq_hillslope_interception_case
 
@@ -30,7 +32,13 @@ CASE_DIR = Path(__file__).resolve().parent
 
 @dataclass(frozen=True, slots=True)
 class BoussinesqHillslopeInterceptionComparison:
-    """Arrays and metrics required to validate the hillslope-interception case."""
+    """Arrays and metrics required to validate the hillslope-interception case.
+
+    The reference is the exact free-boundary solution with a seepage face.
+    ``analytical_interception_x_m`` is where its head comes within the contact
+    tolerance of the surface, read like the model; ``analytical_emergence_x_m``
+    is the tangent point itself. The profile metrics cover every column.
+    """
 
     result: ValidationRunResult
     metadata: dict
@@ -45,9 +53,12 @@ class BoussinesqHillslopeInterceptionComparison:
     numerical_profile: np.ndarray
     dry_zone_mask: np.ndarray
     contact_tolerance_m: float
+    analytical_emergence_x_m: float
     analytical_interception_x_m: float
     numerical_interception_x_m: float
     interception_x_error_m: float
+    profile_rmse: float
+    profile_max_error: float
     dry_zone_rmse: float
     dry_zone_max_error: float
     row_spread: float
@@ -110,14 +121,18 @@ def build_boussinesq_hillslope_interception_comparison(
     )
     x = float(reference_cfg["xmin"]) + ((np.arange(numerical_profile.size, dtype=float) + 0.5) * dx)
 
-    analytical_profile = expected_boussinesq_hillslope_profile_at_x(
-        x_m=x,
-        xmin=float(reference_cfg["xmin"]),
-        xmax=float(reference_cfg["xmax"]),
-        east_head_m=float(reference_cfg["east_head_m"]),
-        recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
-        hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
-    )
+    contact_tolerance_m = float(reference_cfg.get("numerical_contact_tolerance_m", 0.02))
+    profile_kwargs = {
+        "xmin": float(reference_cfg["xmin"]),
+        "xmax": float(reference_cfg["xmax"]),
+        "east_head_m": float(reference_cfg["east_head_m"]),
+        "toe_elevation_m": float(reference_cfg["toe_elevation_m"]),
+        "slope_m_per_m": float(reference_cfg["topography_slope_m_per_m"]),
+        "bottom_elevation_m": float(reference_cfg["bottom_elevation_m"]),
+        "recharge_mm_day": float(reference_cfg["recharge_mm_day"]),
+        "hydraulic_conductivity_m_per_s": float(reference_cfg["hydraulic_conductivity_m_per_s"]),
+    }
+    analytical_profile = expected_hillslope_seepage_profile_at_x(x_m=x, **profile_kwargs)
     topography_profile = build_hillslope_topography_values(
         x_m=x,
         xmin=float(reference_cfg["xmin"]),
@@ -125,17 +140,14 @@ def build_boussinesq_hillslope_interception_comparison(
         toe_elevation_m=float(reference_cfg["toe_elevation_m"]),
         slope_m_per_m=float(reference_cfg["topography_slope_m_per_m"]),
     )
-    analytical_interception_x_m = find_boussinesq_hillslope_interception_x(
-        xmin=float(reference_cfg["xmin"]),
-        xmax=float(reference_cfg["xmax"]),
-        east_head_m=float(reference_cfg["east_head_m"]),
-        recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
-        hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
-        toe_elevation_m=float(reference_cfg["toe_elevation_m"]),
-        slope_m_per_m=float(reference_cfg["topography_slope_m_per_m"]),
-        search_samples=int(reference_cfg.get("interception_search_samples", 20001)),
+    analytical_emergence_x_m = hillslope_seepage_emergence_x(
+        **{key: value for key, value in profile_kwargs.items() if key != "east_head_m"}
     )
-    contact_tolerance_m = float(reference_cfg.get("numerical_contact_tolerance_m", 0.02))
+    analytical_interception_x_m = hillslope_contact_x(
+        contact_tolerance_m=contact_tolerance_m,
+        search_samples=int(reference_cfg.get("interception_search_samples", 20001)),
+        **profile_kwargs,
+    )
     clearance_m = np.asarray(numerical_profile - topography_profile, dtype=float)
     numerical_interception_x_m = _resolve_numerical_interception_x(
         x=x,
@@ -143,7 +155,7 @@ def build_boussinesq_hillslope_interception_comparison(
         contact_tolerance_m=contact_tolerance_m,
     )
 
-    dry_zone_mask = np.asarray(x < analytical_interception_x_m, dtype=bool)
+    dry_zone_mask = np.asarray(x < analytical_emergence_x_m, dtype=bool)
     if not np.any(dry_zone_mask):
         raise ValueError(
             "Dry-zone mask is empty; the interception point is too close to the divide."
@@ -163,11 +175,14 @@ def build_boussinesq_hillslope_interception_comparison(
         numerical_profile=np.asarray(numerical_profile, dtype=float),
         dry_zone_mask=dry_zone_mask,
         contact_tolerance_m=contact_tolerance_m,
+        analytical_emergence_x_m=float(analytical_emergence_x_m),
         analytical_interception_x_m=float(analytical_interception_x_m),
         numerical_interception_x_m=float(numerical_interception_x_m),
         interception_x_error_m=abs(
             float(numerical_interception_x_m) - float(analytical_interception_x_m)
         ),
+        profile_rmse=rmse(numerical_profile, analytical_profile),
+        profile_max_error=max_abs_error(numerical_profile, analytical_profile),
         dry_zone_rmse=rmse(
             np.asarray(numerical_profile[dry_zone_mask], dtype=float),
             np.asarray(analytical_profile[dry_zone_mask], dtype=float),
@@ -188,16 +203,20 @@ def run_boussinesq_hillslope_interception_comparison(
     timeout: int = 1800,
     solver: str | None = None,
 ) -> BoussinesqHillslopeInterceptionComparison:
-    """Run the PETSc VI Boussinesq hillslope case and return the comparison payload."""
+    """Run one Boussinesq variant of the hillslope case and return the comparison payload."""
     normalized_solver = None if solver is None else str(solver).strip().lower()
-    if normalized_solver not in {None, "boussinesq"}:
-        raise ValueError("This validation case supports only solver='boussinesq'.")
+    if normalized_solver not in {None, "boussinesq", DEFAULT_ENGINE_SOLVER}:
+        raise ValueError(
+            f"This validation case supports only solver='boussinesq' or '{DEFAULT_ENGINE_SOLVER}'."
+        )
+    solver_label = normalized_solver or "boussinesq"
 
     metadata = load_case_metadata(CASE_DIR)
-    tolerances = load_case_tolerances(CASE_DIR, solver="boussinesq")
+    tolerances = load_case_tolerances(CASE_DIR, solver=solver_label)
     result = run_boussinesq_hillslope_interception_case(
         caller_file=caller_file,
         timeout=timeout,
+        public_solver_label=solver_label,
     )
     return build_boussinesq_hillslope_interception_comparison(
         result=result,

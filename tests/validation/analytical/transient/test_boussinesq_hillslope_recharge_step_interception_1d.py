@@ -15,8 +15,21 @@ from validation_cases.analytical.transient.boussinesq_hillslope_recharge_step_in
 @pytest.mark.analytical
 @pytest.mark.transient
 @pytest.mark.slow
-def test_boussinesq_hillslope_recharge_step_interception_1d_matches_onset_approximation() -> None:
-    """Run the PETSc TS VI Boussinesq case and compare the onset diagnostics."""
+@pytest.mark.parametrize(
+    "solver",
+    [
+        pytest.param("boussinesq", marks=pytest.mark.petsc, id="boussinesq"),
+        pytest.param("boussinesq_local", id="boussinesq_local"),
+    ],
+)
+def test_boussinesq_hillslope_recharge_step_interception_1d_matches_onset_approximation(
+    solver: str,
+) -> None:
+    """Run one Boussinesq variant and compare the onset diagnostics.
+
+    ``boussinesq`` runs the PETSc TS VI obstacle; ``boussinesq_local`` runs the
+    default engine with its regularized partition closure, without PETSc.
+    """
     assert_required_executables(
         require_modflow=False,
         require_modflow6=False,
@@ -26,7 +39,7 @@ def test_boussinesq_hillslope_recharge_step_interception_1d_matches_onset_approx
 
     comparison = run_boussinesq_hillslope_recharge_step_interception_comparison(
         caller_file=__file__,
-        solver="boussinesq",
+        solver=solver,
     )
     record_comparison(comparison)
     onset_tol = dict(comparison.tolerances.get("onset", {}))

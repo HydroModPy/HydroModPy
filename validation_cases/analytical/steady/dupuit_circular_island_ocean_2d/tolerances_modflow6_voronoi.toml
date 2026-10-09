@@ -1,0 +1,24 @@
+[radial_profile]
+rmse = 0.23
+max_abs_error = 0.25
+azimuthal_spread = 0.071
+min_land_clearance = 1.7
+
+[doc]
+gap = """
+Known gap. MODFLOW 6 on the Voronoi dual of the triangle mesh sits about 0.2 m
+above the reference. Most of it is the Newton conductance bias of the
+structured MODFLOW 6 run: the cell top follows the DEM and the full-thickness
+conductance underestimates the transmissivity towards the coast. Control run,
+the same input files with a flat 13 m top: radial RMSE 0.068 m. What remains
+is at the coast. The nodes on the shoreline (r = 200 m) are cell centres, and
+a cell takes the ocean head only where the DEM sampled at its node is at or
+below sea level: 12 of the 48 shoreline cells. The others hold about 0.24 m,
+where the reference holds sea level.
+"""
+reason = """
+Measured values with a 10 % margin: radial RMSE 0.204 m, max error 0.224 m,
+spread 0.064 m, freeboard 1.95 m. The profile is read on the node rings
+(5 m bins), so the spread is azimuthal only. The freeboard is read on land
+cells, whose last ring is at 196 m, where the land stands 2.4 m high.
+"""

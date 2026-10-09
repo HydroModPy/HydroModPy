@@ -1,9 +1,25 @@
-[discharge]
-relative_rmse = 0.04
-relative_max_error = 0.06
+# Derived from a grid and time-step refinement of this case on MODFLOW 6 and
+# MODFLOW-NWT: nx = 40, 80, 160 and 1, 4, 16 steps a day. The metrics are read
+# from day 16, once the water table has the separable shape. The same values
+# hold for the three MODFLOW variants.
+[recession]
+# Fitted a of -dQ/dt = a Q^(3/2) against the analytical a. Upstream weighting
+# next to the dry outlet gives a first-order error: +4.0 % at dx = 1.25 m
+# (+4.2 % with 16 steps a day), +2.1 % at 0.625 m, +1.1 % at 0.3125 m. The
+# triangle grid, with its outlet heads 0.34 m inside the edge, reads +2.3 %.
+coefficient_relative_error = 0.05
+# Fitted b against 3/2. Every refined run gives 1.4945 to 1.5008. An outlet
+# above the substratum gives a linear tail, b = 1.08 with 1 m.
+exponent_abs_error = 0.01
+# RMSE of Q / Q_ref - 1 over the late window, Q_ref on the analytical a and
+# anchored on the run: 0.033 to 0.035 at dx = 1.25 m, 0.018 at 0.625 m,
+# 0.009 at 0.3125 m. It follows the coefficient error.
+late_relative_rmse = 0.04
 
 [uniformity]
-row_spread = 1e-6
+# MODFLOW 6 leaves 2e-6 to 5e-6 m between rows, with an outer closure of 1e-8
+# or 1e-7 m alike; MODFLOW-NWT and the triangle grid read 0.
+row_spread = 1e-5
 
 [monotonicity]
 max_positive_increment_m3_s = 1e-12

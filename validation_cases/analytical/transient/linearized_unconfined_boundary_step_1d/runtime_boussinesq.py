@@ -12,7 +12,10 @@ from validation_cases.shared import load_case_metadata
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "lu_boundary_step_1d"
 NX = 40
-NY = 3
+# Square cells (dx = dy = 2.5 m). On right triangles of unequal sides the
+# two-point flux of the solver is not consistent and acts as a conductance
+# error: with NY = 3 the recharge step ended 1.1e-2 m off, against 8e-4 m here.
+NY = 4
 LENGTH_X_M = 100.0
 WIDTH_Y_M = 10.0
 

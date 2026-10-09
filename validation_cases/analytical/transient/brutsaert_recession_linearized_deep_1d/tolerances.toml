@@ -1,6 +1,27 @@
+# Derived from a time-step refinement of this case on MODFLOW 6 and
+# MODFLOW-NWT, 10 to 400 steps per 10-day period. The reference is the
+# linearized series solution from the steady warm-up. With dx = 10 m the
+# space error on the decay rate is about 1e-4, so the time step sets the
+# bounds.
 [discharge]
-relative_rmse = 0.03
-relative_max_error = 0.05
+# Whole series, scaled by Q0: RMSE 1.3e-4 and maximum 2e-4 at 100 steps. The
+# error does not fall with the step (RMSE 4e-4, maximum 9e-4 at 400 steps), so
+# the bound covers 50 to 400 steps.
+relative_rmse = 1e-3
+relative_max_error = 2e-3
+
+[recession]
+# Fitted decay rate of the tail against pi^2 K D / (4 Sy B^2). Backward Euler
+# lowers it by a dt / 2 = 0.33 % at 100 steps a period; measured -0.33 to
+# -0.35 %.
+coefficient_relative_error = 5e-3
+# Fitted b against 1. From day 30 the head rise is below 0.1 % of D, so the
+# nonlinearity moves b by less than 1e-3; measured 2e-4 to 7e-4.
+exponent_abs_error = 2e-3
+# RMSE of Q / Q_ref - 1 from day 30 to day 90. The rate bias accumulates to
+# (a dt / 2) a t, 0.7 % at day 30 and 2.0 % at day 90, RMS 1.4 %; measured
+# 0.95 to 0.99 %.
+late_relative_rmse = 0.015
 
 [uniformity]
 row_spread = 1e-6

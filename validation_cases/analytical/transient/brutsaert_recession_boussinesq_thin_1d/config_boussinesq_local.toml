@@ -1,0 +1,16 @@
+# Default-engine `flow/boussinesq` variant: what a run with
+# solvers = ["boussinesq"] and no runtime key gets. The validation runtime reads
+# `[flow]` defaults from this file and drops every runtime key of the case, so
+# the FlowConfig defaults apply: runtime_backend = "auto" with the regularized
+# partition surface closure. "auto" runs the dense local engine up to 400 cells
+# and scipy_sparse above. In transient each stress period takes the
+# [simulation.time].substeps_per_period backward-Euler steps of the case.
+#
+# One key is set, the Newton closure: the default 1e-9 m3/s per cell is
+# absolute and sits above the storage rate of a cell in the late tail of this
+# thin strip. With it the recession coefficient reads 2.2 % off, a closure
+# error; from 1e-10 m3/s it settles at -0.23 % (1e-11 and 1e-12 change it by
+# less than 1e-8). It is set at 1e-12, as on the deep strip.
+
+[flow]
+runtime_tol_residual_inf = 1e-12

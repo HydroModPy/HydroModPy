@@ -9,8 +9,7 @@ from .plotting import plot_boussinesq_sloping_substratum_constant_thickness_comp
 from .reference import (
     build_linear_substratum_values,
     build_linear_topography_values,
-    expected_sloping_substratum_constant_thickness_profile,
-    expected_sloping_substratum_constant_thickness_profile_at_x,
+    expected_sloping_substratum_fixed_head_profile_at_x,
 )
 
 __all__ = [
@@ -18,8 +17,7 @@ __all__ = [
     "build_boussinesq_sloping_substratum_constant_thickness_comparison",
     "build_linear_substratum_values",
     "build_linear_topography_values",
-    "expected_sloping_substratum_constant_thickness_profile",
-    "expected_sloping_substratum_constant_thickness_profile_at_x",
+    "expected_sloping_substratum_fixed_head_profile_at_x",
     "plot_boussinesq_sloping_substratum_constant_thickness_comparison",
     "run_boussinesq_sloping_substratum_constant_thickness_comparison",
 ]

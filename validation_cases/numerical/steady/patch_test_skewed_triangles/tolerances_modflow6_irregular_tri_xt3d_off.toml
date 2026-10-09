@@ -1,0 +1,21 @@
+[heads]
+rmse = 0.0063
+max_abs_error = 0.0132
+
+[doc]
+reason = """
+1.1 times the measurement, a documented gap (below): RMSE 0.0057 m, max error
+0.0120 m, for a head drop of 0.2 m across the strip.
+"""
+gap = """
+The two-point flux is not consistent on these triangles. It takes the flux
+across an edge as T L (h_b - h_a) / d, d the distance between the two cell
+centres: that is the flux of a uniform gradient only where the centre line is
+normal to the edge. On this strip the angle between them has a median of 23 deg
+and a 95th percentile of 42 deg, so a linear head does not balance and the
+solution bends: 3 to 6 % of the head drop. Control run, the same files with
+XT3D: 6e-8 m. The error does not fall with the cell size: the Boussinesq solver,
+which has the same flux, reads 5.8e-3, 5.6e-3 and 5.5e-3 m RMSE on 80, 320 and
+1280 triangles of the same shapes. Gmsh catchment meshes have such angles;
+HydroModPy switches XT3D on by itself when their 95th percentile passes 30 deg.
+"""

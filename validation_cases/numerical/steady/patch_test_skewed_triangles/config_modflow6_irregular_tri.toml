@@ -1,0 +1,25 @@
+# MODFLOW 6 on the triangles with XT3D, the flux that reconstructs the gradient
+# from the neighbours. XT3D would switch on by itself on this mesh (95th
+# percentile of the non-orthogonality 42 deg, trigger 30 deg); the key makes
+# the variant explicit.
+
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_enable_xt3d = true
+mf6_outer_dvclose = 1e-9
+mf6_inner_dvclose = 1e-10
+mf6_inner_rclose = 1e-10
+mf_verbose = false
+
+[modflow6.sgrid]
+grid_dual = "triangle"
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+[mesh_input]
+mesh_path = "../../../shared/mesh_bundles/patch_test_skewed_triangles_100x40/mesh_2d.msh"
+bundle_dir = "../../../shared/mesh_bundles/patch_test_skewed_triangles_100x40"

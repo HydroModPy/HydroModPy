@@ -28,7 +28,7 @@ def test_percent_is_normalised_to_fraction() -> None:
 def test_unique_substring_match() -> None:
     """A unique substring resolves to a single key."""
     value = tol("dupuit_fixed_head_1d_mf6")
-    assert value == pytest.approx(0.02)
+    assert value == pytest.approx(0.011)
 
 
 @pytest.mark.fast

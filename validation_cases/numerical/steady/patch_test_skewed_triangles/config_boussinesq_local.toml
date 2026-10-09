@@ -1,0 +1,10 @@
+# The Boussinesq solver with its default engine and no runtime key, as a run
+# with solvers = ["boussinesq"] gets: 'auto' runs the dense local engine on
+# these 80 cells. Its flux is the two-point flux between triangle centroids.
+
+[[simulation.process]]
+solvers = ["boussinesq"]
+
+[mesh_input]
+mesh_path = "../../../shared/mesh_bundles/patch_test_skewed_triangles_100x40/mesh_2d.msh"
+bundle_dir = "../../../shared/mesh_bundles/patch_test_skewed_triangles_100x40"
