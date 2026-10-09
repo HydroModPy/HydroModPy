@@ -273,6 +273,8 @@ Each release section includes the following standard categories:
   and shape, with a panel of each run minus its reference, from the recorded curves. It also
   compares MODFLOW 6 with MODFLOW-NWT on example 04: `render_ex04_figures.py` writes the NWT
   copy of the reference into its scratch project and draws the group `solvers`.
+- Docs: `HMP_VALIDATION_RESULTS_FILE` points a docs build at a results file other than the
+  committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
 - Citation: the technical note is cited as published in HESS 30, 5571-5592 (2026), with the
