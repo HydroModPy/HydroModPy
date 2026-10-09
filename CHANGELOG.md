@@ -270,6 +270,9 @@ Each release section includes the following standard categories:
 - Docs: the `{hmp-toml-diff}` directive resolves the diff of two example files through the
   loader at build time; the staircase uses it. `llms.txt` and `llms-full.txt` are written into
   each built version.
+- `HydroModelBase.model_refused_keys` refuses a removed key with the key to write; rate
+  forcings in length per time (`hydromodpy.physics.flow.sinks_sources.rate_forcing`).
+- Docs: the root of the site serves the `llms.txt` of main.
 
 ### Changed
 - `[modflownwt.sgrid.top_sampling] mode = "zonal"` needs `channel_source = "none"`: MODFLOW-NWT
@@ -439,6 +442,12 @@ Each release section includes the following standard categories:
   fallbacks), so the header no longer shifts while a page loads; the header stays on one row
   from 390 to 1440 px; text reaches the WCAG AA contrast; the search page uses the Pagefind
   Component UI, and math source, buttons and card labels are out of its index.
+- `hmp data import` and `hmp catalog import` exit 12 (write conflict) when the run is already in
+  the catalog or its project name is taken, through `ImportConflictError` (`HMPY.E809`).
+- The overview stats card, the station inventory, the catchment outline of the overview maps and
+  the site selection map follow the dark theme; the site selection legend names an area class
+  as a class. Docs: the five accessibility exceptions of the browser probe are fixed, and the
+  quantities page groups every key with a unit.
 
 ### Fixed
 - The channel mask of the zonal top covered the whole catchment. The stream raster was
@@ -578,6 +587,19 @@ Each release section includes the following standard categories:
   `mesh_map` and the text boxes; `sfr_longitudinal_profile` plots each branch against its
   distance to the outlet; the wells overlay warns with the key to set when the run kept no
   well field.
+- A forcing value written with its unit (`'100 m**3/day'`) is no longer scaled a second time by
+  `units`, wells included; a `units` key beside such a value is refused ("Write the unit once").
+- Lake and SFR rainfall and evaporation are rates in length per time: `'2 mm/day'` is read as
+  m/s and `units` must be a length per time. They were typed as a volume per time.
+- A negative lake rainfall, evaporation, runoff, inflow or withdrawal is refused with the
+  MODFLOW 6 LAK convention (each is zero or more), at `hmp config check` for values in the file
+  and before the solver for values read from a file; the lake guide wrote negative withdrawals.
+- A transport solver name that is neither built in nor a registered plugin is refused with the
+  valid names.
+- A side or sea constant head below the bottom of its cell stops a MODFLOW-NWT run before the
+  solver, as for MODFLOW 6; NWT ran on with an inert boundary and a worse budget.
+- A hydrography `rasterize_field` that holds text is numbered per feature instead of being
+  handed to Whitebox as text.
 
 ### Removed
 - `[geographic.enforce_streams]`, the burn of the mapped network into the routing DEM, and what
@@ -622,6 +644,16 @@ Each release section includes the following standard categories:
 - The top-level `[persistence]` table, which no run read. A file that writes it is refused
   with the key to write: `[simulation.results.persistence]` for a run, `[calibration.persistence]`
   for a calibration.
+- `transport.modpath.parameters.track_dir = "custom"`, which gave MODPATH no starting location.
+- `calibration.outputs.<name>.cell_id`, which every run refused: name the cell with `row` and
+  `col`, or place the output with `support = "point"` and `x`, `y`.
+- The site_selection keys no step read (`random_seed`, `dem.resolution_m`, `dem.cache_policy`,
+  `criteria.ruleset`, `criteria.hard_reject`, `warning`, `soft_score`, `report_only`,
+  `criteria.geology.prefer_diversity`) and `data.lake_abacus.id`; each is refused with what to
+  write. One key per job: `strategy.candidate_mode` is refused for `outlets.candidate_mode`, and
+  the flat `observations.flow_station_mode` and `flow_station_max_distance_km` for the nested
+  `flow_station` keys. Example 17 still writes them; its tests are marked as expected failures
+  until it is migrated.
 
 ---
 

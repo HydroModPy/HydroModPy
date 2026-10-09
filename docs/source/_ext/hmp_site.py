@@ -20,6 +20,8 @@
   shift), and ``loading="lazy"`` unless it is the first image of the page.
 - The glossary is written to ``_static/hmp-glossary.json`` for the hover card
   of the terms (``js/hmp-site.js`` over ``window.hmpHoverCard``).
+- The expand buttons of the sidebar toctree, which the theme writes with an icon
+  and no text, get an ``aria-label`` that names the entry they open.
 - ``hmp-task`` opens every guide with the same box: one definition list of
   Task, Time, Needs and Gives, in that order. Another shape warns, so a strict
   build keeps the guides alike.
@@ -253,6 +255,39 @@ def weigh_for_search(body: str) -> str:
     )
 
 
+def name_toctree_toggles(soup: Any) -> Any:
+    """Give each expand button of the sidebar toctree an accessible name.
+
+    The theme writes ``<summary><span class="toctree-toggle"><i/></span></summary>``
+    next to the link of the entry: an icon and no text, so a screen reader reads
+    an empty button. The name is "Show or hide" and the text of that link. An
+    entry without a link of its own holds its caption in the summary, which
+    already names it. The soup may be shared between pages: a name is set once.
+    """
+    if not hasattr(soup, "select"):
+        return soup
+    for summary in soup.select("li > details > summary"):
+        if summary.get("aria-label") or summary.get_text(strip=True):
+            continue
+        link = summary.parent.parent.find("a", recursive=False)
+        title = link.get_text(" ", strip=True) if link is not None else ""
+        summary["aria-label"] = f"Show or hide the pages under {title}" if title else "Show or hide"
+    return soup
+
+
+def wrap_toctree(app: Sphinx, pagename: str, templatename: str, context: dict[str, Any], doctree):
+    """Name the toggles of every toctree the theme gives to the templates."""
+    original = context.get("generate_toctree_html")
+    if original is None or getattr(original, "hmp_named", False):
+        return
+
+    def generate(*args: Any, **kwargs: Any) -> Any:
+        return name_toctree_toggles(original(*args, **kwargs))
+
+    generate.hmp_named = True  # type: ignore[attr-defined]
+    context["generate_toctree_html"] = generate
+
+
 def on_page_context(
     app: Sphinx, pagename: str, templatename: str, context: dict[str, Any], doctree
 ) -> None:
@@ -319,5 +354,7 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_directive("hmp-task", TaskDirective)
     app.connect("doctree-read", add_dark_twins, priority=400)
     app.connect("html-page-context", on_page_context)
+    # After the theme has put its functions in the context.
+    app.connect("html-page-context", wrap_toctree, priority=900)
     app.connect("build-finished", write_glossary)
     return {"version": "1.0", "parallel_read_safe": True, "parallel_write_safe": True}

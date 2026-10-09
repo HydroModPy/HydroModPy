@@ -103,8 +103,6 @@ def build_site_selection_plan_blocks(
                     (
                         ("DEM source", dem.get("source")),
                         ("DEM path", dem.get("path")),
-                        ("DEM resolution", _unit_value(dem.get("resolution_m"), "m")),
-                        ("Cache policy", dem.get("cache_policy")),
                         ("Hydrological method", hydrology.get("method")),
                         ("Flow algorithm", hydrology.get("flow_algorithm")),
                         ("DEM conditioning", hydrology.get("dem_correction_type")),
@@ -229,7 +227,6 @@ def build_site_selection_result_blocks(
                         ("Candidate mode", strategy.get("candidate_mode")),
                         ("Primary observation", strategy.get("primary_observation_type")),
                         ("Territory", _territory_label(territory)),
-                        ("Ruleset", criteria.get("ruleset")),
                         ("Map context", _context_layer_summary(context_layers)),
                     ),
                 ),
@@ -717,11 +714,6 @@ def _looks_synthetic_label(value: str) -> bool:
 
 def _criteria_items(criteria: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
     return (
-        ("Ruleset", criteria.get("ruleset")),
-        ("Hard reject", _format_value(criteria.get("hard_reject"))),
-        ("Warning", _format_value(criteria.get("warning"))),
-        ("Soft score", _format_value(criteria.get("soft_score"))),
-        ("Report only", _format_value(criteria.get("report_only"))),
         ("Area", criteria.get("area_mode")),
         ("Area ranges", _format_value(criteria.get("area_ranges"))),
         ("Hydrometry", criteria.get("flow_station_mode")),
@@ -871,12 +863,6 @@ def _dem_explanation(
     if has_map_dem:
         return "The map uses a background DEM kept for the visual check of the catchments."
     return "The map uses the spatial artifacts the manifest lists."
-
-
-def _unit_value(value: object, unit: str) -> str:
-    if value in (None, ""):
-        return ""
-    return f"{value} {unit}"
 
 
 def _format_value(value: object) -> str:

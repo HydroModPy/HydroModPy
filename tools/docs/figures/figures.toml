@@ -1123,7 +1123,7 @@ redraw = "hmp run overview.toml"
 pages = ["guides/describe-a-catchment.md"]
 width = 1208
 height = 1228
-bytes = 127840
+bytes = 123108
 
 [[figure]]
 name = "map_dem"
@@ -1151,7 +1151,7 @@ redraw = "hmp run overview.toml"
 pages = ["guides/describe-a-catchment.md"]
 width = 1216
 height = 1227
-bytes = 136314
+bytes = 131494
 
 [[figure]]
 name = "map_hydrography"
@@ -1174,12 +1174,12 @@ kind = "guide"
 theme = "dark"
 run = ""
 config = "overview.toml"
-command = "hmp run overview.toml (the dark twin is the light table with its lightness inverted)"
+command = "hmp run overview.toml (drawn with the dark matplotlib theme applied first)"
 redraw = "hmp run overview.toml"
 pages = ["guides/describe-a-catchment.md"]
 width = 1975
 height = 408
-bytes = 7390
+bytes = 7272
 
 [[figure]]
 name = "station_inventory"
@@ -1193,7 +1193,7 @@ redraw = "hmp run overview.toml"
 pages = ["guides/describe-a-catchment.md"]
 width = 1975
 height = 408
-bytes = 7390
+bytes = 7378
 
 [[figure]]
 name = "stats_card"
@@ -1202,12 +1202,12 @@ kind = "guide"
 theme = "dark"
 run = ""
 config = "overview.toml"
-command = "hmp run overview.toml (the dark twin is the light table with its lightness inverted)"
+command = "hmp run overview.toml (drawn with the dark matplotlib theme applied first)"
 redraw = "hmp run overview.toml"
 pages = ["guides/describe-a-catchment.md"]
 width = 1223
 height = 804
-bytes = 17528
+bytes = 17048
 
 [[figure]]
 name = "stats_card"
@@ -1221,7 +1221,7 @@ redraw = "hmp run overview.toml"
 pages = ["guides/describe-a-catchment.md"]
 width = 1223
 height = 804
-bytes = 17524
+bytes = 17526
 
 [[figure]]
 name = "downslope_distance_crossing"
@@ -1610,6 +1610,20 @@ bytes = 64072
 
 [[figure]]
 name = "site_selection_map"
+path = "docs/source/_static/figures/guides/select-catchments/site_selection_map-dark.webp"
+kind = "guide"
+theme = "dark"
+run = ""
+config = "site_selection_area.toml"
+command = "hmp run site_selection_area.toml (drawn with the dark matplotlib theme applied first)"
+redraw = "hmp run site_selection_area.toml"
+pages = ["guides/select-catchments.md"]
+width = 1705
+height = 1352
+bytes = 120070
+
+[[figure]]
+name = "site_selection_map"
 path = "docs/source/_static/figures/guides/select-catchments/site_selection_map.webp"
 kind = "guide"
 theme = "light"
@@ -1618,9 +1632,9 @@ config = "site_selection_area.toml"
 command = "hmp run site_selection_area.toml"
 redraw = "hmp run site_selection_area.toml"
 pages = ["guides/select-catchments.md"]
-width = 1696
+width = 1705
 height = 1352
-bytes = 137740
+bytes = 138612
 
 [[figure]]
 name = "simulated_active_network"

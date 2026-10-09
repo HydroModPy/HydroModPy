@@ -11,6 +11,8 @@ import json
 import shutil
 from pathlib import Path
 
+import pytest
+
 from hydromodpy.workflow.site_selection import run_site_selection_workflow
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -20,8 +22,14 @@ EXAMPLE_ROOT = REPO_ROOT / "examples" / "projects" / "17_site_selection_workflow
 # that path overruns the 259-character Windows limit as soon as pytest-xdist adds
 # its popen-gwN level to the base temp directory.
 WORK_DIRNAME = "ex"
+EXAMPLE_17_REFUSED_KEYS = (
+    "Example 17 is not maintained and still writes site-selection keys that are "
+    "refused now: dem.resolution_m, dem.cache_policy, the criteria lists, "
+    "observations.flow_station_mode."
+)
 
 
+@pytest.mark.xfail(strict=True, reason=EXAMPLE_17_REFUSED_KEYS)
 def test_bretagne_hydrometry_primary_example_runs_from_fixture(tmp_path, monkeypatch):
     monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(tmp_path / "workspace"))
     work_example = tmp_path / WORK_DIRNAME
@@ -80,6 +88,7 @@ def test_bretagne_hydrometry_primary_example_runs_from_fixture(tmp_path, monkeyp
     }
 
 
+@pytest.mark.xfail(strict=True, reason=EXAMPLE_17_REFUSED_KEYS)
 def test_auvergne_rhone_alpes_area_only_example_runs_from_fixture(tmp_path, monkeypatch):
     monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(tmp_path / "workspace"))
     work_example = tmp_path / WORK_DIRNAME

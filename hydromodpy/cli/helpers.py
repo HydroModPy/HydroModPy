@@ -63,6 +63,7 @@ def exit_code_for(exc: BaseException) -> int:
         CrossProjectsError,
         DataError,
         FailedCasesError,
+        ImportConflictError,
         JobUsageError,
         MigrationFailedError,
         ReadOnlyError,
@@ -97,6 +98,9 @@ def exit_code_for(exc: BaseException) -> int:
         (CapabilityVersionMismatchError, EXIT_SCHEMA_MISMATCH),
         (SchemaVersionMismatchError, EXIT_SCHEMA_MISMATCH),
         (WriteConflictError, EXIT_WRITE_CONFLICT),
+        # The archive collides with a row the catalog holds: a write conflict
+        # that --force or --as resolves, not a concurrent writer.
+        (ImportConflictError, EXIT_WRITE_CONFLICT),
         (ReadOnlyError, EXIT_READ_ONLY),
         (ConfigError, EXIT_CONFIG),
         (ConfigMissingError, EXIT_CONFIG),

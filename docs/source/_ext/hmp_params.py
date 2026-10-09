@@ -273,6 +273,29 @@ def inline_md(text: str, builder, fromdoc: str) -> str:
     return autolink_paths(_bold(out), builder, fromdoc)
 
 
+_TOML_LINK = re.compile(r'<a class="hmp-toml-ref[^"]*" href="([^"]*)"[^>]*>(.*?)</a>', re.S)
+
+
+def summary_md(text: str, builder, fromdoc: str) -> str:
+    """Like ``inline_md``, for the inside of a ``<summary>``, where a link is not allowed.
+
+    A link inside a ``<summary>`` is an interactive element nested in another one:
+    a screen reader cannot tell what a click does. The path stays visible as text;
+    ``render_card`` lists the links again under the line (row "See").
+    """
+    return _TOML_LINK.sub(
+        r'<span class="hmp-toml-ref">\2</span>', inline_md(text, builder, fromdoc)
+    )
+
+
+def summary_links(text: str, builder, fromdoc: str) -> list[tuple[str, str]]:
+    """The links ``inline_md`` writes in a text, as (href, label html), without repeats."""
+    seen: dict[str, str] = {}
+    for href, label in _TOML_LINK.findall(inline_md(text, builder, fromdoc)):
+        seen.setdefault(href, label)
+    return list(seen.items())
+
+
 def _bold(html_text: str) -> str:
     """Render **x** as bold, outside code spans."""
     parts = re.split(r"(<code\b.*?</code>)", html_text, flags=re.S)
@@ -367,8 +390,11 @@ def unexplained(n: dict[str, Any]) -> set[str]:
     return out
 
 
-def render_card(builder, fromdoc: str, path: str, n: dict) -> str:
-    """The card under a key line: what the line itself cannot say."""
+def render_card(builder, fromdoc: str, path: str, n: dict, line_text: str | None = None) -> str:
+    """The card under a key line: what the line itself cannot say.
+
+    ``line_text`` is the text the line shows when it is not the summary of the key.
+    """
     rows = []
 
     def add(label: str, value: str) -> None:
@@ -385,6 +411,15 @@ def render_card(builder, fromdoc: str, path: str, n: dict) -> str:
     rest = rest_of_description(n)
     if rest:
         add("More", block_md(rest, builder, fromdoc))
+    shown = (n.get("summary") or "") if line_text is None else line_text
+    links = summary_links(shown, builder, fromdoc)
+    if links:
+        add(
+            "See",
+            ", ".join(
+                f'<a class="hmp-toml-ref" href="{esc(href)}">{label}</a>' for href, label in links
+            ),
+        )
     lits = n.get("literal", [])
     vdocs = n.get("value_docs", {})
     if lits:
@@ -592,12 +627,13 @@ class KnownKeysDirective(SphinxDirective):
                 f'<details class="tl" id="{anchor_of(value_path)}"><summary><span class="tl-code">'
                 f'<span class="k">value</span><span class="eq"> = </span>'
                 f'<span class="ph">‹{esc(vn.get("form", ""))}›</span></span>'
-                f'<span class="tl-note"><span class="tl-sum">{inline_md(vn.get("summary", ""), builder, doc)}</span></span>'
+                f'<span class="tl-note"><span class="tl-sum">{summary_md(vn.get("summary", ""), builder, doc)}</span></span>'
                 f"</summary>{render_card(builder, doc, value_path, vn)}</details></td></tr>"
             )
         table = (
-            '<div class="hmp-matrix-wrap"><table class="hmp-known"><thead><tr><th>Table</th>'
-            "<th>Quantity</th><th>Unit</th><th>Valid range (refused outside)</th></tr></thead><tbody>"
+            '<div class="hmp-matrix-wrap"><table class="hmp-known"><thead><tr><th>Table</th> '
+            # The spaces keep Pagefind from running the header cells into one word.
+            "<th>Quantity</th> <th>Unit</th> <th>Valid range (refused outside)</th></tr></thead><tbody>"
             + "".join(rows)
             + "</tbody></table></div>"
         )

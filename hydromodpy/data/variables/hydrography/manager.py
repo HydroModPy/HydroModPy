@@ -337,17 +337,7 @@ class HydrographyManager(SourceTable):
 
         tif_path = self._data_folder / "streams.tif"
 
-        if field not in shp_base.columns:
-            logger.debug(
-                "Rasterize field %r not found in data; creating synthetic sequential field.",
-                field,
-            )
-            shp_base[field] = range(1, len(shp_base) + 1)
-        else:
-            try:
-                shp_base[field] = pd.to_numeric(shp_base[field])
-            except (ValueError, KeyError):
-                pass
+        shp_base[field] = numeric_raster_field(shp_base, field)
         _write_shapefile(shp_base, streams_path)
 
         if self._base_raster is None:
@@ -408,6 +398,24 @@ class HydrographyManager(SourceTable):
                 "same box; set data.hydrography.mask_path to a SHP/GPKG/GeoJSON/TIF."
             )
         return Path(mask_path)
+
+
+def numeric_raster_field(frame: pd.DataFrame, field: str) -> pd.Series:
+    """Return the values burned into the stream raster for *field*.
+
+    A raster cell holds a number. A column the layer lacks, or a column of text
+    such as a BD Topage reach code, is replaced by a sequential number per
+    feature, starting at 1.
+    """
+    sequential = pd.Series(range(1, len(frame) + 1), index=frame.index)
+    if field not in frame.columns:
+        logger.debug("Rasterize field %r not found; numbering the features instead.", field)
+        return sequential
+    try:
+        return pd.to_numeric(frame[field])
+    except ValueError:
+        logger.debug("Rasterize field %r holds text; numbering the features instead.", field)
+        return sequential
 
 
 class NetworkCache:

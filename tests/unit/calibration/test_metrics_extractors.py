@@ -19,6 +19,7 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 
 from hydromodpy.calibration.config import (
     CalibObjectiveBlockDecl,
@@ -194,11 +195,9 @@ class TestHelpers:
         request = _request_for_output("h", out, _empty_ctx())
         assert (request.support, request.cell) == ("cell", (2, 0, 1))
 
-    def test_cell_output_without_row_col_is_refused(self):
-        # A flat cell_id passes the schema but no solver exposes that selector.
-        out = validate_calib_output({"variable": "head", "support": "cell", "cell_id": 7})
-        with pytest.raises(NotImplementedError, match="needs row and col"):
-            _request_for_output("h", out, _empty_ctx())
+    def test_a_flat_cell_id_is_refused_with_the_keys_to_write(self):
+        with pytest.raises(ValidationError, match="cell_id.*row and col.*support = 'point'"):
+            validate_calib_output({"variable": "head", "support": "cell", "cell_id": 7})
 
     def test_extract_outputs_batches_every_declaration_in_one_call(self, monkeypatch):
         seen = {}
@@ -254,7 +253,7 @@ class TestHelpers:
             "resolve_flow_adapter",
             lambda ctx: (_Adapter(), run_ctx),
         )
-        out = validate_calib_output({"variable": "head", "support": "cell", "cell_id": 7})
+        out = validate_calib_output({"variable": "head", "support": "point", "x": 0.0, "y": 0.0})
         with pytest.raises(RuntimeError, match="Output 'h' extraction failed"):
             _extract_outputs(_empty_ctx(), {"h": out})
 

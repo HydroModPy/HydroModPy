@@ -62,6 +62,18 @@
       attributes: true,
       attributeFilter: ["data-theme"],
     });
+    // The Door filter is a <button role="combobox">, and a combobox takes no name
+    // from its content: the component leaves the button without a name. It is
+    // drawn after the filters load, so the names are set as the box changes.
+    const nameFilters = () => {
+      for (const button of box.querySelectorAll(".pf-dropdown-trigger:not([aria-label])")) {
+        const label = button.querySelector(".pf-dropdown-trigger-label");
+        const text = label ? label.textContent.trim() : "";
+        button.setAttribute("aria-label", text ? "Filter by " + text : "Filter results");
+      }
+    };
+    nameFilters();
+    new MutationObserver(nameFilters).observe(box, { childList: true, subtree: true });
     // Module scripts run in document order: the components ran before this one,
     // unless their file is missing.
     const query = new URLSearchParams(window.location.search).get("q");

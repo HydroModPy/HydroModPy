@@ -116,7 +116,7 @@ def tline(
     ) + f'<span class="k">{esc(name)}</span><span class="eq"> = </span>{value_html}'
     summary = chosen_doc if chosen is not None else (n.get("summary") or "")
     note = (
-        f'<span class="tl-sum">{H.inline_md(summary, builder, fromdoc)}</span>' if summary else ""
+        f'<span class="tl-sum">{H.summary_md(summary, builder, fromdoc)}</span>' if summary else ""
     )
     bits = (
         chips(n, in_variant=in_variant)
@@ -133,7 +133,7 @@ def tline(
     if ids is not None and anchor not in ids:
         ids.add(anchor)
         id_attr = f' id="{anchor}"'
-    card = H.render_card(builder, fromdoc, path, n)
+    card = H.render_card(builder, fromdoc, path, n, summary)
     cls = f"tl tl-{kind}" + (" tl-adv" if adv else "") + (" tl-cmt" if commented else "")
     line = (
         f'<details class="{cls}"{id_attr} data-path="{esc(path)}">'
@@ -490,9 +490,12 @@ class ExplorerDirective(SphinxDirective):
                 )
             return (
                 f'<li class="ex-table" data-profile="{esc(n.get("profile", "user"))}"><details>'
-                f'<summary><a href="{esc(H.uri(builder, doc, p))}"><code>{esc(header_of(p))}</code></a>'
-                f' <span class="ex-count">{count}</span> {shapes}<span class="ex-sum">{H.inline_md(n.get("summary") or n.get("doc") or "", builder, doc)}</span></summary>'
-                f"<ul>{inner}</ul></details></li>"
+                f"<summary><code>{esc(header_of(p))}</code>"
+                f' <span class="ex-count">{count}</span> {shapes}<span class="ex-sum">{H.summary_md(n.get("summary") or n.get("doc") or "", builder, doc)}</span></summary>'
+                # A link is not allowed inside a <summary>: the page of the table is
+                # the first item of the list that the summary opens.
+                f'<ul><li class="ex-page"><a href="{esc(H.uri(builder, doc, p))}">'
+                f"Open the page of <code>{esc(header_of(p))}</code></a></li>{inner}</ul></details></li>"
             )
 
         roots = H.S["meta"]["roots"]
@@ -517,14 +520,30 @@ class ExplorerDirective(SphinxDirective):
 QUANTITIES = [
     ("Lengths, depths and distances", "metres", lambda n, u: u in ("m", "km")),
     ("Water depths and soil capacities", "millimetres", lambda n, u: u == "mm"),
-    ("Durations", "days, seconds", lambda n, u: u in ("day", "s", "h")),
-    ("Conductivities and fluxes", "m/s", lambda n, u: u == "m/s"),
+    ("Durations", "days, seconds, years", lambda n, u: u in ("day", "s", "h", "year")),
+    ("Conductivities and fluxes", "m/s, mm/day", lambda n, u: u in ("m/s", "mm/day")),
     ("Storage", "1/m", lambda n, u: u == "1/m"),
     ("Discharges", "m3/s", lambda n, u: u == "m3/s"),
     ("Areas", "m2, km2", lambda n, u: u in ("m2", "km2")),
-    ("Fractions and ratios", "dimensionless", lambda n, u: u in ("-", "%") and n.get("numeric")),
+    ("Concentrations", "mass per volume", lambda n, u: u == "mass/volume"),
+    ("Image resolutions", "dots per inch", lambda n, u: u == "dpi"),
+    # A whole number marked "-" counts or indexes something (cells, layers, trials,
+    # seeds); it is not a share of anything. It goes before the ratios.
+    (
+        "Counts and indices",
+        "dimensionless whole numbers",
+        lambda n, u: u == "-" and n.get("numeric") and n.get("form") == "integer",
+    ),
+    (
+        "Fractions and ratios",
+        "dimensionless, percent",
+        lambda n, u: u in ("-", "%") and n.get("numeric"),
+    ),
     ("Dates", "", lambda n, u: str(n.get("form", "")).startswith("date")),
     ("Coordinate systems", "", lambda n, u: "crs" in n["name"]),
+    # What is left with a unit: a unit that depends on another key ("- or m3/s",
+    # "CRS unit") or that only one key uses. The Unit column says which.
+    ("Other units", "the Unit column gives it", lambda n, u: bool(u)),
     (
         "Other numbers",
         "the code declares no unit for these",
@@ -555,6 +574,25 @@ def what_it_is(builder, doc: str, path: str, n: dict) -> str:
     )
 
 
+def group_quantities(
+    leaves: list[tuple[str, dict]],
+) -> list[tuple[str, str, list[tuple[str, dict]]]]:
+    """The groups of the quantities page: (title, unit label, [(path, node)]), none empty.
+
+    A key lands in the first group whose test it passes, so it is listed once. The
+    files group comes last and takes the path keys no unit group holds.
+    """
+    groups = []
+    taken: set[str] = set()
+    for title, unit_label, test in [*QUANTITIES, PATHS]:
+        hits = [(p, n) for p, n in leaves if p not in taken and test(n, unit_of(n))]
+        if not hits:
+            continue
+        taken.update(p for p, _ in hits)
+        groups.append((title, unit_label, hits))
+    return groups
+
+
 class QuantitiesDirective(SphinxDirective):
     """Every user key with a declared unit or form, grouped by what it measures."""
 
@@ -568,13 +606,7 @@ class QuantitiesDirective(SphinxDirective):
         ]
         parts = []
         nav = []
-        taken: set[str] = set()
-        for title, unit_label, test in [*QUANTITIES, PATHS]:
-            hits = [(p, n) for p, n in leaves if p not in taken and test(n, unit_of(n))]
-            if not hits:
-                continue
-            if title != PATHS[0]:
-                taken.update(p for p, _ in hits)
+        for title, unit_label, hits in group_quantities(leaves):
             slug = title.lower().replace(",", "").replace(" ", "-")
             nav.append(
                 f'<a href="#q-{slug}">{esc(title)} <span class="hmp-muted">({len(hits)})</span></a>'

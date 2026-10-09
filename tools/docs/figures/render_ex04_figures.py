@@ -28,10 +28,9 @@ the overview of the Nançon catchment (guide "Describe a catchment": the DEM map
 hydrography map, the stats card and the station inventory) and a site selection by
 catchment area (guide "Select catchments in a region": its map). Neither workflow has a
 run in the catalog, so their PNG files are copied to ``overview-figures/`` of the workspace
-and drawn from there. The overview maps also get a dark twin: the same run, with the dark
-matplotlib theme applied first. The two tables are drawn on white by the workflow, so their
-dark twin is the light image with its lightness inverted. The site selection map saves its
-own white background, so it has no dark twin.
+and drawn from there. Each of them also gets a dark twin: the same run, with the dark
+matplotlib theme applied first. The tables and the site selection map follow that theme
+(the figure code reads the rcParams), so no image is inverted by this script.
 
 Run it from anywhere, never with the workspace inside the repository::
 
@@ -222,7 +221,7 @@ SELECTION_TOML = "site_selection_area.toml"
 OVERVIEW_DIR = "overview-figures"
 OVERVIEW_PAGE = "guides/describe-a-catchment.md"
 SELECTION_PAGE = "guides/select-catchments.md"
-# panel -> is it a table the workflow draws on white
+# panel -> is it a table the workflow draws on a large page, to be cropped
 OVERVIEW_PANELS = {
     "map_dem": False,
     "map_hydrography": False,
@@ -444,31 +443,32 @@ def _run_themed(toml: str, *, cwd: Path, cores: int, dark: bool) -> None:
 def stage_overview_runs(workspace: Path, cores: int) -> None:
     """Run the overview and the site selection of ``recipes/figures`` and keep their PNG files."""
     project = workspace / "projects" / EXAMPLE_DIR
-    wanted = [(panel, False) for panel in OVERVIEW_PANELS] + [
-        (panel, True) for panel, table in OVERVIEW_PANELS.items() if not table
-    ]
-    if all(overview_png(workspace, name, dark).is_file() for name, dark in wanted):
+    # The two workflows are independent: one that has its figures is not run again.
+    if all(
+        overview_png(workspace, panel, dark).is_file()
+        for panel in OVERVIEW_PANELS
+        for dark in (False, True)
+    ):
         print(f"= {OVERVIEW_TOML}: figures exist", flush=True)
     else:
         (project / OVERVIEW_TOML).write_bytes((FIGURE_RECIPES / OVERVIEW_TOML).read_bytes())
         for dark in (False, True):
             _run_themed(OVERVIEW_TOML, cwd=project, cores=cores, dark=dark)
-            for panel, table in OVERVIEW_PANELS.items():
-                if dark and table:
-                    continue  # drawn on white by the workflow: inverted from the light one
+            for panel in OVERVIEW_PANELS:
                 _keep(
                     project / "share" / "figures" / "overview" / f"{panel}.png",
                     overview_png(workspace, panel, dark),
                 )
-    if overview_png(workspace, SELECTION_MAP, False).is_file():
-        print(f"= {SELECTION_TOML}: figure exists", flush=True)
+    if all(overview_png(workspace, SELECTION_MAP, dark).is_file() for dark in (False, True)):
+        print(f"= {SELECTION_TOML}: figures exist", flush=True)
         return
     (project / SELECTION_TOML).write_bytes((FIGURE_RECIPES / SELECTION_TOML).read_bytes())
-    hmp(["run", SELECTION_TOML], cwd=project, cores=cores)
-    _keep(
-        project / "nancon_area" / "review" / f"{SELECTION_MAP}.png",
-        overview_png(workspace, SELECTION_MAP, False),
-    )
+    for dark in (False, True):
+        _run_themed(SELECTION_TOML, cwd=project, cores=cores, dark=dark)
+        _keep(
+            project / "nancon_area" / "review" / f"{SELECTION_MAP}.png",
+            overview_png(workspace, SELECTION_MAP, dark),
+        )
 
 
 # -- stage 2: drawing ----------------------------------------------------------
@@ -517,11 +517,15 @@ def to_webp(png: bytes, *, width: int | None = None) -> tuple[bytes, tuple[int, 
 
 
 def autocrop(png: bytes, margin: int = 24) -> bytes:
-    """Cut the white border of a table the workflow draws on a large white page."""
+    """Cut the border of a table the workflow draws on a large page.
+
+    The page colour is the one of the top left pixel: white, or the dark background.
+    """
     from PIL import Image, ImageChops
 
     image = Image.open(io.BytesIO(png)).convert("RGB")
-    box = ImageChops.difference(image, Image.new("RGB", image.size, (255, 255, 255))).getbbox()
+    page = Image.new("RGB", image.size, image.getpixel((0, 0)))
+    box = ImageChops.difference(image, page).getbbox()
     if box is None:
         return png
     left, top, right, bottom = box
@@ -535,16 +539,6 @@ def autocrop(png: bytes, margin: int = 24) -> bytes:
     )
     buffer = io.BytesIO()
     cropped.save(buffer, "PNG")
-    return buffer.getvalue()
-
-
-def invert_lightness(png: bytes) -> bytes:
-    """The dark twin of a black-on-white table: white and black swap, greys follow."""
-    from PIL import Image, ImageOps
-
-    image = Image.open(io.BytesIO(png)).convert("RGB")
-    buffer = io.BytesIO()
-    ImageOps.invert(image).save(buffer, "PNG")
     return buffer.getvalue()
 
 
@@ -814,23 +808,17 @@ def stage_figures(workspace: Path, only: set[str], dark_guides: bool) -> list[En
         )
         for toml, folder, page, names in recipes:
             for name in names:
-                light = overview_png(workspace, name, False)
-                if not light.is_file():
-                    print(f"  {name}: no stored PNG, run the runs stage first", flush=True)
-                    continue
                 table = OVERVIEW_PANELS.get(name, False)
-                is_map = name == SELECTION_MAP
-                png = autocrop(light.read_bytes()) if table else light.read_bytes()
-                twins = (False,) if is_map else (False, True)
-                for dark in twins:
-                    if dark and table:
-                        png_dark = invert_lightness(png)
-                        note = " (the dark twin is the light table with its lightness inverted)"
-                    elif dark:
-                        png_dark = overview_png(workspace, name, True).read_bytes()
-                        note = " (drawn with the dark matplotlib theme applied first)"
-                    else:
-                        png_dark, note = png, ""
+                for dark in (False, True):
+                    stored = overview_png(workspace, name, dark)
+                    if not stored.is_file():
+                        print(
+                            f"  {name}: no stored {theme_name(dark)} PNG, run the runs stage first",
+                            flush=True,
+                        )
+                        continue
+                    png_dark = autocrop(stored.read_bytes()) if table else stored.read_bytes()
+                    note = " (drawn with the dark matplotlib theme applied first)" if dark else ""
                     data, size = to_webp(png_dark)
                     path = OUT_ROOT / "guides" / folder / f"{name}{suffix(dark)}.webp"
                     write(path, data)

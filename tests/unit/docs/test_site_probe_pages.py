@@ -24,9 +24,8 @@ def test_every_page_type_has_a_source_or_a_generator() -> None:
 
 
 def test_every_allowed_violation_has_a_reason_and_names_its_fix() -> None:
-    entries = site_probe.load_allow()
-    assert entries
-    for entry in entries:
+    # The list may be empty: every violation found so far is fixed.
+    for entry in site_probe.load_allow():
         assert entry["rule"] and entry["reason"], entry
         assert "Fix:" in entry["reason"], entry
 

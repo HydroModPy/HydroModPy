@@ -1823,7 +1823,7 @@
               },
               "rasterize_field": {
                 "default": "FID",
-                "description": "Attribute column whose values are written into the stream raster. A column the layer lacks is replaced by a sequential number per feature.",
+                "description": "Attribute column whose values are written into the stream raster. A column the layer lacks, or a column of text, is replaced by a sequential number per feature.",
                 "examples": [
                   "FID"
                 ],
@@ -2615,17 +2615,6 @@
                 "minItems": 1,
                 "title": "Sources",
                 "type": "array",
-                "x-hmp-profile": "user"
-              },
-              "id": {
-                "default": "lake_abacus",
-                "description": "Name of the abacus variable, kept with the configuration. Each source says which lake its table belongs to with lake_id.",
-                "examples": [
-                  "lake_abacus"
-                ],
-                "pattern": "^[a-z][a-z0-9_]*$",
-                "title": "Id",
-                "type": "string",
                 "x-hmp-profile": "user"
               }
             },

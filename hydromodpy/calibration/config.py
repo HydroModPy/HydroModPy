@@ -48,7 +48,7 @@ from __future__ import annotations
 import datetime
 from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
 from pydantic import (
     AfterValidator,
@@ -660,9 +660,15 @@ class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
     """Observable extracted at one structured cell.
 
     Use this variant for explicit ``(row, col)`` selectors on a structured
-    grid, optionally with a non-zero ``layer``. ``cell_id`` is a flat index
-    accepted on backends that expose one.
+    grid, optionally with a non-zero ``layer``.
     """
+
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "cell_id": (
+            "no solver reads a flat cell index. Name the cell with row and col "
+            "(and layer), or place the output with support = 'point' and x, y."
+        )
+    }
 
     variable: Annotated[str, Profile.USER] = Field(
         description="Simulated variable to extract (e.g. 'head').",
@@ -671,22 +677,16 @@ class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
         default="cell",
         description="Discriminator tag. 'cell' reads one structured cell.",
     )
-    cell_id: Annotated[NonNegativeInt | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Flat cell index. No solver reads it today: a run refuses a cell output "
-            "without row and col."
-        ),
-        json_schema_extra={"unit": "-"},
-    )
-    row: Annotated[NonNegativeInt | None, Profile.USER] = Field(
-        default=None,
+    row: Annotated[NonNegativeInt, Profile.USER] = Field(
+        ...,
         description="Row of the cell on the structured grid, counted from 0 at the north edge.",
+        examples=[10],
         json_schema_extra={"unit": "-"},
     )
-    col: Annotated[NonNegativeInt | None, Profile.USER] = Field(
-        default=None,
+    col: Annotated[NonNegativeInt, Profile.USER] = Field(
+        ...,
         description="Column of the cell on the structured grid, counted from 0 at the west edge.",
+        examples=[12],
         json_schema_extra={"unit": "-"},
     )
     layer: Annotated[NonNegativeInt, Profile.USER] = Field(
@@ -723,8 +723,6 @@ class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
 
     @model_validator(mode="after")
     def _check_cell_selectors(self) -> CalibOutputCell:
-        if self.cell_id is None and (self.row is None or self.col is None):
-            raise ValueError("support='cell' requires 'cell_id' or both 'row' and 'col'.")
         _check_snap_radius(self.snap_radius, self.variable, support="cell")
         return self
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -23,12 +23,11 @@ class ModpathParametersConfig(HydroModelBase):
             "watershed), or the path of a raster that marks the release cells."
         ),
     )
-    track_dir: Annotated[Literal["forward", "backward", "custom"], Profile.USER] = Field(
+    track_dir: Annotated[Literal["forward", "backward"], Profile.USER] = Field(
         default="forward",
         description=(
             "Direction particles are tracked in: with the flow ('forward') or against "
-            "it ('backward', from where water leaves back to where it entered). "
-            "'custom' fills in no release point of its own."
+            "it ('backward', from where water leaves back to where it entered)."
         ),
     )
     bore_depth: Annotated[list[float] | None, Profile.DEV] = Field(
@@ -58,6 +57,18 @@ class ModpathParametersConfig(HydroModelBase):
         ),
         json_schema_extra={"unit": "-"},
     )
+
+    @field_validator("track_dir", mode="before")
+    @classmethod
+    def _refuse_custom_track_dir(cls, value: object) -> object:
+        """Refuse 'custom': MODPATH would get no starting location from it."""
+        if isinstance(value, str) and value.strip().lower() == "custom":
+            raise ValueError(
+                "track_dir = 'custom' gives MODPATH no starting location, so no "
+                "particle would be released. Write 'forward' or 'backward', and mark "
+                "the release cells with zone_partic."
+            )
+        return value
 
 
 class TransportModpathConfig(HydroModelBase):

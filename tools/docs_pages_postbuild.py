@@ -7,7 +7,8 @@ not publish pre-releases (a, b, rc). For one built version this script:
   developer tools);
 - writes the root files: ``switcher.json`` (the kept versions, main preferred),
   an ``index.html`` that sends to main, a ``404.html`` that offers the same page
-  in main, and ``robots.txt``;
+  in main, ``robots.txt``, and, when the version is main, its ``llms.txt``
+  (https://docs.hydromodpy.fr/llms.txt, where an assistant looks for it);
 - lists the version folders of the site that are not kept, one per line, so the
   deploy removes them.
 
@@ -22,6 +23,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 from pathlib import Path
 
 BASE_URL = "https://docs.hydromodpy.fr"
@@ -116,6 +118,25 @@ def write_root_pages(root_dir: Path, base_url: str = BASE_URL) -> None:
     (root_dir / "robots.txt").write_text(_ROBOTS.format(base=base_url))
 
 
+def copy_llms(version_dir: Path, root_dir: Path) -> bool:
+    """Copy ``llms.txt`` of main to the site root; return whether it was copied.
+
+    Every version folder holds its own ``llms.txt`` with absolute links to its own
+    pages. Only main is the entry of the site, so only main writes the root copy;
+    the root keeps the last one (the deploy does not clear the root).
+    """
+    if version_dir.name != "main":
+        return False
+    source = version_dir / "llms.txt"
+    if not source.is_file():
+        raise FileNotFoundError(
+            f"{source} is missing: run python -m tools.docs.llms_txt {version_dir} first"
+        )
+    shutil.copyfile(source, root_dir / "llms.txt")
+    print("llms.txt -> root")
+    return True
+
+
 def drop_source_maps(version_dir: Path) -> None:
     """Remove the ``.map`` files of the built version."""
     maps = list(version_dir.rglob("*.map"))
@@ -142,6 +163,7 @@ def main() -> int:
     args.root_dir.mkdir(parents=True, exist_ok=True)
     write_switcher(args.root_dir, kept, args.base_url)
     write_root_pages(args.root_dir, args.base_url)
+    copy_llms(args.version_dir, args.root_dir)
     args.remove_list.write_text("".join(f"{name}\n" for name in remove))
     print(f"versions to remove: {remove}")
     return 0

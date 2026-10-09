@@ -970,8 +970,6 @@ def _output_where(output: CalibOutputDecl) -> str:
     if support == "boundary":
         return f"boundary {output.boundary_id!r}"
     if support == "cell":
-        if getattr(output, "cell_id", None) is not None:
-            return f"cell {output.cell_id}"
         return f"cell (row {output.row}, col {output.col})"
     if support == "lake":
         return f"lake {output.lake_id!r}"

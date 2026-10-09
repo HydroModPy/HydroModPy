@@ -25,6 +25,51 @@ AREA_COLOR_CLASSES: tuple[tuple[float, str, str], ...] = (
     (float("inf"), "> 500 km2", "#7b3294"),
 )
 UNKNOWN_AREA_COLOR = "#0f766e"
+# The map is written with the colours of a white page. On a dark page (the ``dark``
+# preset of hydromodpy.display.style) these inks swap for a twin that keeps its
+# contrast; a colour not listed here reads well on both.
+_DARK_INK: dict[str, str] = {
+    "#eef7fb": "#24303a",
+    "#cbd5e1": "#475569",
+    "#94a3b8": "#64748b",
+    "#64748b": "#94a3b8",
+    "#475569": "#94a3b8",
+    "#334155": "#e2e8f0",
+    "#0284c7": "#38bdf8",
+    "#2563eb": "#60a5fa",
+    "#1e3a8a": "#bfdbfe",
+    "#7c3aed": "#a78bfa",
+    "#4c1d95": "#ddd6fe",
+    "#b91c1c": "#f87171",
+    "#b45309": "#f59e0b",
+    "#0f766e": "#2dd4bf",
+    "#134e4a": "#99f6e4",
+    "#99f6e4": "#134e4a",
+}
+
+
+def _page_color() -> str | None:
+    """The background of a dark page (the ``axes.facecolor`` of the theme), else ``None``.
+
+    The ``dark`` preset of ``hydromodpy.display.style`` sets it. The test is the one
+    of ``hydromodpy.display.style.is_dark``, which this layer may not import.
+    """
+    import matplotlib as mpl
+    from matplotlib.colors import to_rgb
+
+    background = mpl.rcParams["axes.facecolor"]
+    red, green, blue = to_rgb(background)
+    return str(background) if 0.2126 * red + 0.7152 * green + 0.0722 * blue < 0.5 else None
+
+
+def _ink(color: str) -> str:
+    """The colour to draw with: as written for a white page, or its twin on a dark one."""
+    page = _page_color()
+    if page is None:
+        return color
+    return page if color == "white" else _DARK_INK.get(color, color)
+
+
 SNAP_LINK_MIN_DISTANCE_M = 250.0
 SNAP_LINK_WARN_DISTANCE_M = 1000.0
 
@@ -127,8 +172,8 @@ def _write_map_png(
     from matplotlib.ticker import FuncFormatter
 
     fig, ax = plt.subplots(figsize=(12.8, 7.4), constrained_layout=True)
-    ax.set_facecolor("#eef7fb")
-    fig.patch.set_facecolor("white")
+    ax.set_facecolor(_ink("#eef7fb"))
+    fig.patch.set_facecolor(_ink("white"))
 
     dem_extent = _plot_dem_background(ax, dem_path)
     _plot_context_layers(ax, context_layers)
@@ -198,7 +243,7 @@ def _write_map_png(
             transform=ax.transAxes,
             ha="center",
             va="center",
-            color="#64748b",
+            color=_ink("#64748b"),
             fontsize=13,
         )
         ax.set_xlim(0.0, 1.0)
@@ -214,12 +259,12 @@ def _write_map_png(
     ax.set_ylabel("Y Lambert-93 (km)")
     ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value / 1000:.0f}"))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value / 1000:.0f}"))
-    ax.grid(color="#cbd5e1", linewidth=0.45, alpha=0.38)
+    ax.grid(color=_ink("#cbd5e1"), linewidth=0.45, alpha=0.38)
     ax.tick_params(labelsize=9)
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
-    ax.spines["left"].set_color("#94a3b8")
-    ax.spines["bottom"].set_color("#94a3b8")
+    ax.spines["left"].set_color(_ink("#94a3b8"))
+    ax.spines["bottom"].set_color(_ink("#94a3b8"))
     legend_handles = _legend_handles(
         Patch=Patch,
         Line2D=Line2D,
@@ -422,8 +467,8 @@ def _plot_polygons(
                 PolygonPatch(
                     ring,
                     closed=True,
-                    facecolor=facecolor,
-                    edgecolor=edgecolor,
+                    facecolor=_ink(facecolor),
+                    edgecolor=_ink(edgecolor),
                     linewidth=linewidth,
                     alpha=alpha,
                     hatch=hatch,
@@ -478,7 +523,7 @@ def _plot_lines(
             ax.plot(
                 xs,
                 ys,
-                color=color,
+                color=_ink(color),
                 linewidth=linewidth,
                 alpha=alpha,
                 linestyle=linestyle,
@@ -505,12 +550,12 @@ def _plot_points(
     scatter_kwargs = {
         "marker": marker,
         "s": size,
-        "c": color,
+        "c": _ink(color),
         "linewidths": 0.85,
         "zorder": zorder,
     }
     if marker != "x":
-        scatter_kwargs["edgecolors"] = edgecolor
+        scatter_kwargs["edgecolors"] = _ink(edgecolor)
     ax.scatter(xs, ys, **scatter_kwargs)
 
 
@@ -568,7 +613,7 @@ def _plot_snap_links(
         ax.plot(
             [station[0], outlet_point[0]],
             [station[1], outlet_point[1]],
-            color=color,
+            color=_ink(color),
             linewidth=0.55,
             alpha=0.62,
             linestyle=(0, (2.5, 2.5)),
@@ -638,11 +683,11 @@ def _label_selected_sites(ax: Any, features: list[dict[str, Any]]) -> None:
             xytext=offsets[index % len(offsets)],
             textcoords="offset points",
             fontsize=7.5,
-            color="#134e4a",
+            color=_ink("#134e4a"),
             bbox={
                 "boxstyle": "round,pad=0.18",
-                "facecolor": "white",
-                "edgecolor": "#99f6e4",
+                "facecolor": _ink("white"),
+                "edgecolor": _ink("#99f6e4"),
                 "alpha": 0.9,
             },
             zorder=8,
@@ -667,7 +712,7 @@ def _legend_handles(
             Line2D(
                 [0],
                 [0],
-                color="#0284c7",
+                color=_ink("#0284c7"),
                 linewidth=0.8,
                 alpha=0.7,
                 label="Network generated from the DEM",
@@ -677,8 +722,8 @@ def _legend_handles(
     if rejected_basins:
         handles.append(
             Patch(
-                facecolor="#fee2e2",
-                edgecolor="#b91c1c",
+                facecolor=_ink("#fee2e2"),
+                edgecolor=_ink("#b91c1c"),
                 alpha=0.14,
                 label="Rejected catchment",
             )
@@ -690,8 +735,8 @@ def _legend_handles(
                 [0],
                 marker="^",
                 color="none",
-                markerfacecolor="#2563eb",
-                markeredgecolor="#1e3a8a",
+                markerfacecolor=_ink("#2563eb"),
+                markeredgecolor=_ink("#1e3a8a"),
                 markersize=5.5,
                 label="Gauging station",
             )
@@ -703,8 +748,8 @@ def _legend_handles(
                 [0],
                 marker="s",
                 color="none",
-                markerfacecolor="#7c3aed",
-                markeredgecolor="#4c1d95",
+                markerfacecolor=_ink("#7c3aed"),
+                markeredgecolor=_ink("#4c1d95"),
                 markersize=5.5,
                 label="Piezometer",
             )
@@ -717,7 +762,7 @@ def _legend_handles(
                 marker="o",
                 color="none",
                 markerfacecolor="white",
-                markeredgecolor="#0f766e",
+                markeredgecolor=_ink("#0f766e"),
                 markersize=5.5,
                 label="Selected outlet",
             )
@@ -727,7 +772,7 @@ def _legend_handles(
             Line2D(
                 [0],
                 [0],
-                color="#b45309",
+                color=_ink("#b45309"),
                 linestyle=(0, (2.5, 2.5)),
                 linewidth=0.8,
                 label="Move from station to outlet",
@@ -739,7 +784,7 @@ def _legend_handles(
                 [0],
                 [0],
                 marker="x",
-                color="#b91c1c",
+                color=_ink("#b91c1c"),
                 linestyle="none",
                 markersize=5.5,
                 label="Rejected outlet",
@@ -779,7 +824,12 @@ def _area_legend_handles(*, Patch: Any, selected_basins: list[dict[str, Any]]) -
     for _, label, color in AREA_COLOR_CLASSES:
         if label in classes_present:
             handles.append(
-                Patch(facecolor=color, edgecolor=color, alpha=0.32, label=f"Catchment {label}")
+                Patch(
+                    facecolor=color,
+                    edgecolor=color,
+                    alpha=0.32,
+                    label=f"Catchment, area class {label}",
+                )
             )
     if "area not given" in classes_present:
         handles.append(
@@ -856,11 +906,11 @@ def _add_count_box(
         ha="left",
         va="top",
         fontsize=8.5,
-        color="#334155",
+        color=_ink("#334155"),
         bbox={
             "boxstyle": "round,pad=0.35",
-            "facecolor": "white",
-            "edgecolor": "#cbd5e1",
+            "facecolor": _ink("white"),
+            "edgecolor": _ink("#cbd5e1"),
             "alpha": 0.95,
         },
         zorder=10,

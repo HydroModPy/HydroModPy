@@ -363,7 +363,7 @@ Two profiles are treated as the supported short-term contract:
 - `gauged_downstream_station`: select gauged basins from downstream flow
   stations. It requires `principle = "observation_led"`,
   `primary_observation_type = "flow_station"` and
-  `candidate_mode = "station_outlets"`. Optional influence layers can reject
+  `outlets.candidate_mode = "station_outlets"`. Optional influence layers can reject
   basins with major upstream dams or other configured major influences.
 
 Station-led hydrometry TOML files must declare

@@ -94,7 +94,7 @@ value = "150 m"
 ```
 
 The head must stand above the bottom of every cell it is applied to, or the run stops
-before MODFLOW 6 starts and names the cells. One head along a side whose ground climbs is therefore a strong statement. On
+before the solver starts, MODFLOW 6 or MODFLOW-NWT, and names the cells. One head along a side whose ground climbs is therefore a strong statement. On
 example 04, the west side of the domain runs from 133 m to 191 m of ground over 30 m of
 aquifer: no single head stays inside all of its cells. A fixed side suits an edge that
 follows a canal, a lake shore or the coast, or a model on a flat substratum
@@ -197,7 +197,7 @@ valleys:
 |---|---|---|
 | `flow.active_bc: '<name>' is not a valid boundary-condition id for Flow` | A boundary id that does not exist. | Use an id of the table of step 1. |
 | `solver.backend='modflow_nwt' does not support the 'sfr' boundary (supported by: modflow6)` | A boundary the solver does not build. | See {doc}`choose-a-solver`. |
-| The run stops at `run_solver`, before MODFLOW 6 starts, with `SolverInputError: A constant head is below the bottom of its cell, and MODFLOW 6 stops on it. flow.bc.west_side: 4 cell(s): layer 1 row 102 column 1 (head 150.00 m, bottom 160.60 m, period 1), ...` | A side, sea or river head below the bottom of some of its cells. The message names the boundary and the cells. | Raise the head, or deepen the aquifer under that edge. |
+| The run stops at `run_solver`, before MODFLOW 6 starts, with `SolverInputError: A constant head is below the bottom of its cell, and MODFLOW 6 stops on it. flow.bc.west_side: 4 cell(s): layer 1 row 102 column 1 (head 150.00 m, bottom 160.60 m, period 1), ...` | A side, sea or river head below the bottom of some of its cells. The message names the boundary and the cells. MODFLOW-NWT gives the same refusal with `MODFLOW-NWT runs on, but the cell holds no saturated thickness`. | Raise the head, or deepen the aquifer under that edge. |
 | `Boundary 'stream' is active but its selected runtime mesh support is empty.` | `stream` without river cells on the mesh. | Build a Gmsh mesh that follows the rivers: {doc}`choose-and-build-the-mesh`. |
 | `flow.ic.type='steady_state' is only supported when flow.flow_regime='transient'` | A steady start on a steady run. | Remove `[flow.ic]` from a steady file. |
 | A steady run stays in its `run_solver` step for minutes | No boundary takes water out: `drainage` is missing from {toml}`flow.active_bc` and no head is fixed, so the recharge has no exit. | Add `drainage`. |

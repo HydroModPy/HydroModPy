@@ -45,6 +45,7 @@ from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import (
     build_ocean_chd,
     build_side_chd,
     merge_chd_payloads,
+    refuse_constant_heads_below_bottom,
     validate_ibound_strt_contract,
 )
 from hydromodpy.solver.modflow_nwt.nwt.payloads.recharge_etp import (
@@ -268,6 +269,7 @@ class FlowToModflowAdapter:
             strt=np.asarray(strt, dtype=float),
             drain_array=np.asarray(drain_array, dtype=float),
         )
+        refuse_constant_heads_below_bottom(self, ibound=ibound, strt=strt, chd_spd=chd_spd)
 
         required_properties = resolve_required_flow_properties(
             flow_regime=resolve_flow_regime(self.flow),

@@ -1326,8 +1326,29 @@ def prune_generated(written: set[Path], *folders: Path) -> None:
                 page.unlink()
 
 
+# A signature too long for one line (maximum_signature_line_length) is written by
+# Sphinx as a <dl> that holds one <dd> per parameter and no <dt>: not a valid
+# definition list, and axe refuses it.
+_SIG_LIST = re.compile(r"<dl>\s*((?:<dd>(?:(?!</dd>).)*?</dd>\s*)+)</dl>", re.S)
+
+
+def _sig_lines(match: re.Match[str]) -> str:
+    lines = match.group(1)
+    if "sig-param" not in lines and 'class="optional"' not in lines:
+        return match.group(0)
+    lines = lines.replace("<dd>", "<div>").replace("</dd>", "</div>")
+    return f'<div class="hmp-sig-params">{lines}</div>'
+
+
+def fix_signature_lists(body: str) -> str:
+    """Write the parameters of a long signature as lines of a <div>, not of a <dl>."""
+    return _SIG_LIST.sub(_sig_lines, body)
+
+
 def on_html_page_context(app, pagename, templatename, context, doctree) -> None:
     """Load the reference stylesheet on the pages that use its classes, and no other."""
+    if "body" in context and "<dl>" in context["body"]:
+        context["body"] = fix_signature_lists(context["body"])
     if pagename.startswith("reference/") and not pagename.startswith("reference/parameters"):
         app.add_css_file("css/hmp-reference.css")
     if pagename in ("reference/figures", "reference/data-sources", "reference/solvers"):

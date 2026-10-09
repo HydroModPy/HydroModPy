@@ -37,6 +37,7 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import Length
 from hydromodpy.core.units.hydraulic_conductivity import normalize_m_per_s_unit
+from hydromodpy.physics.flow.sinks_sources.rate_forcing import FlowRateForcingConfig
 from hydromodpy.physics.flow.sinks_sources.wells import (
     FlowWellForcingConfig,
     FlowWellLocation,
@@ -349,11 +350,11 @@ class FlowReachNetworkConfig(HydroModelBase):
             "shared over the reaches by length."
         ),
     )
-    rainfall: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
+    rainfall: Annotated[FlowRateForcingConfig | None, Profile.USER] = Field(
         default=None,
         description="Rainfall on the channel surface, as a rate (m/s in SI).",
     )
-    evaporation: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
+    evaporation: Annotated[FlowRateForcingConfig | None, Profile.USER] = Field(
         default=None,
         description=(
             "Evaporation from the channel surface, as a positive rate (m/s in SI) that "

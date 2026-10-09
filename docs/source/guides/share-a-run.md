@@ -210,8 +210,8 @@ The archive of the example 04 cache is 22.7 MB and took 11 s. `restore` unpacks 
 | `Name what to export (see --list), or write 'all'. Example: hmp export <run> head --time 2002-10-15`, exit 2 | No variable after the run | Write `all` for a package or a description |
 | `format = 'stac' describes the whole run, not a variable. Write variables = "all".` | A variable name with `stac`, `rocrate`, `prov` or `package` | Write `all` |
 | ``Reference 'run_x' not found. Run `hmp catalog ls` to list known runs.``, exit 10 | The name matches no run of the project | Check the name, and the folder you run from |
-| ``Project '<name>' already exists in this workspace. Use `--as <new_name>` to import under a different project name.``, exit 1 | A run of the same origin project is already in the receiving project | Add `--as NAME` |
-| `Simulation '<sim_id>' is already in this catalog. Import with force to replace it: --force on the command line, force=True in Python.`, exit 1 | The run is already there | Skip the import, or add `--force` to replace the run |
+| ``Project '<name>' already exists in this workspace. Use `--as <new_name>` to import under a different project name.``, exit 12 | A run of the same origin project is already in the receiving project | Add `--as NAME` |
+| `Simulation '<sim_id>' is already in this catalog. Import with force to replace it: --force on the command line, force=True in Python.`, exit 12 | The run is already there | Skip the import, or add `--force` to replace the run |
 | `No archive at <path>`, exit 10 | The path is wrong | Check the path |
 | `zstd decompress error: Unknown frame descriptor`, exit 1 | The file is not a package | Send the `.hmp` file, not a folder or an archive of another kind |
 | `SHA-256 mismatch for <file>: expected <digest>, got <digest>` | The file was changed or damaged after it was written | Send it again |

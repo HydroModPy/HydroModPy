@@ -3,29 +3,3 @@
 # every page unless the entry names one with `page`. `target` is a substring of the
 # CSS selector axe gives for the node. Remove an entry when its cause is fixed.
 
-[[allow]]
-rule = "summary-name"
-target = "summary"
-reason = "The expand button of the sidebar toctree is a <summary> with an icon and no text. pydata-sphinx-theme 0.23 writes it. Fix: an aria-label on those summaries, added by docs/source/_ext/hmp_site.py."
-
-[[allow]]
-rule = "nested-interactive"
-target = "details"
-reason = "A link sits inside the <summary> of a TOML table (explorer, annotated TOML views). Fix: move the link out of the summary in docs/source/_ext/hmp_params.py and hmp_tview.py."
-
-[[allow]]
-rule = "definition-list"
-target = "dl"
-reason = "The class pages of the Python reference hold <dl> blocks with children that are not <dt> or <dd>. Fix: docs/source/_ext/hmp_api.py."
-
-[[allow]]
-rule = "scrollable-region-focusable"
-page = "validation"
-target = "hmp-val-scroll"
-reason = "A wide validation table scrolls inside its box and the box cannot take the keyboard focus. Fix: tabindex=0 on .hmp-val-scroll in docs/source/_ext/hmp_validation.py."
-
-[[allow]]
-rule = "button-name"
-page = "search"
-target = "pf-dropdown"
-reason = "The Door filter of the search page is a <button role=combobox> whose only name is its text, and a combobox takes no name from its content. Pagefind Component UI 1.5.2 writes it. Fix: an aria-label on that button, set by a script in docs/source/_templates/search.html."

@@ -651,6 +651,17 @@ class CatalogUnreadableError(CatalogError):
         self.db_path = db_path
 
 
+class ImportConflictError(CatalogError):
+    """An imported run or project is already in the catalog.
+
+    Raised by the import of a ``.hmp`` package when its run is already
+    indexed, or when its project name is taken and no new name was given.
+    The message names the option that resolves it.
+    """
+
+    code = "HMPY.E809"
+
+
 class ZarrStoreError(StorageError):
     """Zarr store read/write failure."""
 
@@ -766,6 +777,7 @@ __all__ = [
     "BackupFailedError",
     "MigrationFailedError",
     "CatalogUnreadableError",
+    "ImportConflictError",
     "ZarrStoreError",
     # Results
     "ResultsError",

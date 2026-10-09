@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import IdentifierStr
 from hydromodpy.core.tracking import InputFile
 
 
@@ -50,17 +50,17 @@ class LakeAbacusConfig(HydroModelBase):
         lake_id = "lac0"
     """
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "id": (
+            "no step read the name of the abacus. Each source names the lake its "
+            "table belongs to with lake_id."
+        ),
+    }
+
     sources: Annotated[list[CustomLakeAbacusSource], Profile.USER] = Field(
         ...,
         min_length=1,
         description="At least one lake-abacus data source.",
-    )
-    id: Annotated[IdentifierStr, Profile.USER] = Field(
-        default="lake_abacus",
-        description=(
-            "Name of the abacus variable, kept with the configuration. Each source says "
-            "which lake its table belongs to with lake_id."
-        ),
     )
 
     @classmethod

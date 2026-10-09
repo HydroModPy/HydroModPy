@@ -363,7 +363,7 @@ def results_table(entry: dict, records: list[dict], builder, docname: str) -> st
         else ""
     )
     return (
-        '<div class="hmp-val-scroll"><table class="hmp-val-res"><thead><tr><th>Variant</th>'
+        '<div class="hmp-val-scroll" tabindex="0" role="region" aria-label="Results of the variants"><table class="hmp-val-res"><thead><tr><th>Variant</th>'
         "<th>Metric</th><th>Measured</th><th>Threshold</th><th>Share used</th>"
         "<th>Share of the signal</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>"
@@ -485,7 +485,7 @@ def criteria_html(entry: dict, case: dict) -> str:
         if f
     )
     return (
-        '<div class="hmp-val-scroll"><table class="hmp-val-crit"><thead><tr><th>Threshold</th>'
+        '<div class="hmp-val-scroll" tabindex="0" role="region" aria-label="Thresholds"><table class="hmp-val-crit"><thead><tr><th>Threshold</th>'
         f"{head}</tr></thead><tbody>{''.join(rows)}</tbody></table></div>"
         f'<p class="hmp-muted">From <code>{esc(case["path"])}/</code>: {src}.</p>'
     )
@@ -734,7 +734,7 @@ class ValidationDirective(SphinxDirective):
             "<code>petsc</code> is skipped where petsc4py is not installed. The nightly jobs "
             "upload what they measured. The deployed page lays the latest nightly results of "
             "its branch over the snapshot committed with the documentation.</p>"
-            '<div class="hmp-val-scroll"><table class="hmp-val-sched"><thead><tr><th>Job</th>'
+            '<div class="hmp-val-scroll" tabindex="0" role="region" aria-label="Scheduled jobs"><table class="hmp-val-sched"><thead><tr><th>Job</th>'
             "<th>When</th><th>Selects</th><th>petsc4py</th></tr></thead>"
             f"<tbody>{''.join(rows)}</tbody></table></div>{never_html}"
         )
@@ -787,7 +787,7 @@ class ValidationDirective(SphinxDirective):
             "are <code>modflow_nwt</code>, <code>modflow6</code>, <code>modflow6_irregular_tri</code> "
             "and <code>boussinesq</code>.</p>"
             f'<p class="hmp-val-legend">{legend}</p>'
-            '<div class="hmp-val-scroll"><table class="hmp-val-matrix"><thead><tr><th>Case</th>'
+            '<div class="hmp-val-scroll" tabindex="0" role="region" aria-label="Cases and what they check"><table class="hmp-val-matrix"><thead><tr><th>Case</th>'
             f"{head}</tr></thead><tbody>{''.join(rows)}</tbody></table></div>"
         )
         return sec

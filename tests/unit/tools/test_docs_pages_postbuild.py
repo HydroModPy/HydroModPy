@@ -61,3 +61,53 @@ def test_one_deploy_writes_the_root_and_lists_what_to_remove(
     assert not (version_dir / "theme.js.map").exists()
     for name in ("index.html", "404.html", "robots.txt"):
         assert (root_dir / name).is_file()
+
+
+def test_main_copies_its_llms_txt_to_the_root(tmp_path: Path) -> None:
+    version_dir = tmp_path / "site" / "main"
+    version_dir.mkdir(parents=True)
+    (version_dir / "llms.txt").write_text("# HydroModPy\n")
+    root_dir = tmp_path / "site-root"
+    root_dir.mkdir()
+    assert post.copy_llms(version_dir, root_dir) is True
+    assert (root_dir / "llms.txt").read_text() == "# HydroModPy\n"
+
+
+def test_another_version_leaves_the_root_llms_txt_alone(tmp_path: Path) -> None:
+    version_dir = tmp_path / "site" / "dev"
+    version_dir.mkdir(parents=True)
+    (version_dir / "llms.txt").write_text("dev\n")
+    root_dir = tmp_path / "site-root"
+    root_dir.mkdir()
+    assert post.copy_llms(version_dir, root_dir) is False
+    assert not (root_dir / "llms.txt").exists()
+
+
+def test_main_without_llms_txt_stops_the_deploy_step(tmp_path: Path) -> None:
+    version_dir = tmp_path / "site" / "main"
+    version_dir.mkdir(parents=True)
+    with pytest.raises(FileNotFoundError, match="tools.docs.llms_txt"):
+        post.copy_llms(version_dir, tmp_path)
+
+
+def test_the_main_deploy_writes_llms_txt_beside_the_root_pages(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    version_dir = tmp_path / "site" / "main"
+    version_dir.mkdir(parents=True)
+    (version_dir / "llms.txt").write_text("# HydroModPy\n")
+    root_dir = tmp_path / "site-root"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "docs_pages_postbuild",
+            "--version-dir",
+            str(version_dir),
+            "--root-dir",
+            str(root_dir),
+            "--remove-list",
+            str(tmp_path / "remove.txt"),
+        ],
+    )
+    assert post.main() == 0
+    assert (root_dir / "llms.txt").read_text() == "# HydroModPy\n"

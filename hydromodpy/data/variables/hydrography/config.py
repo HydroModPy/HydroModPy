@@ -74,7 +74,8 @@ class HydrographySourceConfig(HydroModelBase):
         default="FID",
         description=(
             "Attribute column whose values are written into the stream raster. A column "
-            "the layer lacks is replaced by a sequential number per feature."
+            "the layer lacks, or a column of text, is replaced by a sequential number per "
+            "feature."
         ),
     )
 

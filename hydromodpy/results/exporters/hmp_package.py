@@ -43,6 +43,7 @@ from importlib import metadata as _importlib_metadata
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.exceptions import ImportConflictError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import RUNS_DIRNAME, decode_workspace_path
 from hydromodpy.results.geographic_cache import (
@@ -744,7 +745,7 @@ def _check_project_conflict(
         [incoming_project],
     )
     if existing_sid is not None:
-        raise ValueError(
+        raise ImportConflictError(
             f"Project '{incoming_project}' already exists in this workspace. "
             "Use `--as <new_name>` to import under a different project name."
         )
@@ -949,7 +950,7 @@ def import_hmp_package(
         )
         if existing is not None:
             if not force:
-                raise ValueError(
+                raise ImportConflictError(
                     f"Simulation '{sid}' is already in this catalog. Import with force to "
                     "replace it: --force on the command line, force=True in Python."
                 )

@@ -243,6 +243,27 @@ def _raw_flow_process_solver(simulation: Any) -> tuple[str, str] | None:
     return None
 
 
+def _refuse_unknown_transport_solvers(names: list[str]) -> None:
+    """Refuse a transport solver name that is neither built in nor a plugin.
+
+    Without this check the name passed validation and the run failed later,
+    far from the line of the file that holds the typo.
+    """
+    if not names:
+        return
+    from hydromodpy.solver.base import registry
+
+    registry.load_plugins()
+    unknown = [name for name in names if not registry.is_supported("transport", name)]
+    if not unknown:
+        return
+    known = ", ".join(name for _, name in registry.pairs_for_process("transport"))
+    raise ValueError(
+        f"Unknown transport solver '{unknown[0]}' in [[simulation.process]]: it is "
+        f"neither built in nor a registered plugin. Write one of: {known}."
+    )
+
+
 def _section_refusal(
     section: str,
     message: str,
@@ -730,6 +751,7 @@ class HydroModPyConfig(HydroModelBase):
                 if getattr(process, "type", None) == "transport"
                 for name in getattr(process, "solvers", None) or []
             ]
+            _refuse_unknown_transport_solvers(transport_solvers)
             if engine_value == "boussinesq" and transport_solvers:
                 raise ValueError(
                     "solver.backend = 'boussinesq' runs no transport: the transport "

@@ -1070,7 +1070,7 @@
     },
     "CalibOutputCell": {
       "additionalProperties": false,
-      "description": "Observable extracted at one structured cell.\n\nUse this variant for explicit ``(row, col)`` selectors on a structured\ngrid, optionally with a non-zero ``layer``. ``cell_id`` is a flat index\naccepted on backends that expose one.",
+      "description": "Observable extracted at one structured cell.\n\nUse this variant for explicit ``(row, col)`` selectors on a structured\ngrid, optionally with a non-zero ``layer``.",
       "properties": {
         "observes": {
           "anyOf": [
@@ -1106,54 +1106,25 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "cell_id": {
-          "anyOf": [
-            {
-              "description": "Non-negative integer.",
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Flat cell index. No solver reads it today: a run refuses a cell output without row and col.",
-          "title": "Cell Id",
-          "unit": "-",
-          "x-hmp-profile": "user"
-        },
         "row": {
-          "anyOf": [
-            {
-              "description": "Non-negative integer.",
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
           "description": "Row of the cell on the structured grid, counted from 0 at the north edge.",
+          "examples": [
+            10
+          ],
+          "minimum": 0,
           "title": "Row",
+          "type": "integer",
           "unit": "-",
           "x-hmp-profile": "user"
         },
         "col": {
-          "anyOf": [
-            {
-              "description": "Non-negative integer.",
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
           "description": "Column of the cell on the structured grid, counted from 0 at the west edge.",
+          "examples": [
+            12
+          ],
+          "minimum": 0,
           "title": "Col",
+          "type": "integer",
           "unit": "-",
           "x-hmp-profile": "user"
         },
@@ -4751,54 +4722,8 @@
     },
     "CriteriaConfig": {
       "additionalProperties": false,
-      "description": "Versioned criteria set and criterion-mode lists.",
+      "description": "Criteria of the selection, one table per family.",
       "properties": {
-        "ruleset": {
-          "default": "site_selection_v1",
-          "description": "Name of the criteria set, written to the selection manifest and report.",
-          "examples": [
-            "site_selection_v1"
-          ],
-          "title": "Ruleset",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "hard_reject": {
-          "description": "Criteria named as hard rejections in the manifest and report. The list is recorded; each criterion's own mode makes the decision. A name may sit in one list only.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Hard Reject",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "warning": {
-          "description": "Criteria named as warnings in the manifest and report. The list is recorded; each criterion's own mode makes the decision.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Warning",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "soft_score": {
-          "description": "Criteria named as scores in the manifest and report. The list is recorded; each criterion's own mode makes the decision.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Soft Score",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "report_only": {
-          "description": "Criteria named as reported only in the manifest and report. The list is recorded; each criterion's own mode makes the decision.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Report Only",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
         "area": {
           "$ref": "#/$defs/AreaCriteriaConfig",
           "x-hmp-profile": "user"
@@ -4822,54 +4747,6 @@
         "^.+__delete$": {
           "const": true,
           "description": "Remove the inherited key. Only the literal true is accepted."
-        },
-        "^hard_reject__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^hard_reject__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^report_only__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^report_only__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^soft_score__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^soft_score__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^warning__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^warning__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         }
       }
     },
@@ -9796,28 +9673,28 @@
         "rainfall": {
           "anyOf": [
             {
-              "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
+              "description": "Rate per unit of surface over time (constant, csv, piecewise or seasonal), in length per time.",
               "discriminator": {
                 "mapping": {
-                  "constant": "#/$defs/FlowWellForcingConstantConfig",
-                  "csv": "#/$defs/FlowWellForcingCsvConfig",
-                  "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
-                  "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
+                  "constant": "#/$defs/FlowRateForcingConstantConfig",
+                  "csv": "#/$defs/FlowRateForcingCsvConfig",
+                  "piecewise": "#/$defs/FlowRateForcingPiecewiseConfig",
+                  "seasonal": "#/$defs/FlowRateForcingSeasonalConfig"
                 },
                 "propertyName": "kind"
               },
               "anyOf": [
                 {
-                  "$ref": "#/$defs/FlowWellForcingConstantConfig"
+                  "$ref": "#/$defs/FlowRateForcingConstantConfig"
                 },
                 {
-                  "$ref": "#/$defs/FlowWellForcingCsvConfig"
+                  "$ref": "#/$defs/FlowRateForcingCsvConfig"
                 },
                 {
-                  "$ref": "#/$defs/FlowWellForcingPiecewiseConfig"
+                  "$ref": "#/$defs/FlowRateForcingPiecewiseConfig"
                 },
                 {
-                  "$ref": "#/$defs/FlowWellForcingSeasonalConfig"
+                  "$ref": "#/$defs/FlowRateForcingSeasonalConfig"
                 }
               ]
             },
@@ -9833,28 +9710,28 @@
         "evaporation": {
           "anyOf": [
             {
-              "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
+              "description": "Rate per unit of surface over time (constant, csv, piecewise or seasonal), in length per time.",
               "discriminator": {
                 "mapping": {
-                  "constant": "#/$defs/FlowWellForcingConstantConfig",
-                  "csv": "#/$defs/FlowWellForcingCsvConfig",
-                  "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
-                  "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
+                  "constant": "#/$defs/FlowRateForcingConstantConfig",
+                  "csv": "#/$defs/FlowRateForcingCsvConfig",
+                  "piecewise": "#/$defs/FlowRateForcingPiecewiseConfig",
+                  "seasonal": "#/$defs/FlowRateForcingSeasonalConfig"
                 },
                 "propertyName": "kind"
               },
               "anyOf": [
                 {
-                  "$ref": "#/$defs/FlowWellForcingConstantConfig"
+                  "$ref": "#/$defs/FlowRateForcingConstantConfig"
                 },
                 {
-                  "$ref": "#/$defs/FlowWellForcingCsvConfig"
+                  "$ref": "#/$defs/FlowRateForcingCsvConfig"
                 },
                 {
-                  "$ref": "#/$defs/FlowWellForcingPiecewiseConfig"
+                  "$ref": "#/$defs/FlowRateForcingPiecewiseConfig"
                 },
                 {
-                  "$ref": "#/$defs/FlowWellForcingSeasonalConfig"
+                  "$ref": "#/$defs/FlowRateForcingSeasonalConfig"
                 }
               ]
             },
@@ -9974,7 +9851,7 @@
             }
           ],
           "default": null,
-          "description": "Rate of water taken from the lake over time, as a volume per time (m3/s in SI). It is passed to the WITHDRAWAL setting of MODFLOW 6 LAK.",
+          "description": "Rate of water taken from the lake over time, as a volume per time (m3/s in SI), written positive. It is passed to the WITHDRAWAL setting of MODFLOW 6 LAK, which reads every lake forcing as zero or more.",
           "title": "Withdrawal",
           "x-hmp-profile": "user"
         }
@@ -10662,6 +10539,399 @@
         }
       }
     },
+    "FlowRateForcingConstantConfig": {
+      "additionalProperties": false,
+      "description": "One constant rate per unit of surface, applied to every stress period.",
+      "properties": {
+        "kind": {
+          "const": "constant",
+          "default": "constant",
+          "description": "Discriminator tag for the constant well-forcing variant.",
+          "examples": [
+            "constant"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            }
+          ],
+          "description": "Rate applied to every stress period, as a length per time. A text value carries its unit, such as '2 mm/day'. A bare number is read in the unit that units names, else in m/s.",
+          "examples": [
+            "2 mm/day"
+          ],
+          "title": "Value",
+          "x-hmp-profile": "user"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unit of the forcing values, a length per time such as 'mm/day' or 'm/s'. Values are converted to m/s when the run starts. Unset, the values are read in m/s.",
+          "title": "Units",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FlowRateForcingConstantConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FlowRateForcingCsvConfig": {
+      "additionalProperties": false,
+      "description": "CSV-backed rate forcing resolved at runtime against simulation.time.",
+      "properties": {
+        "kind": {
+          "const": "csv",
+          "default": "csv",
+          "description": "Discriminator tag for the CSV-backed well-forcing variant.",
+          "examples": [
+            "csv"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path_file": {
+          "description": "CSV file of the dated values. Each stress period takes the aggregate of the samples that fall inside it.",
+          "examples": [
+            "forcing.csv"
+          ],
+          "format": "path",
+          "title": "Path File",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sep": {
+          "default": ",",
+          "description": "CSV delimiter.",
+          "examples": [
+            ","
+          ],
+          "title": "Sep",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "date_column": {
+          "default": "date",
+          "description": "Name of the CSV column that holds the dates.",
+          "examples": [
+            "date"
+          ],
+          "title": "Date Column",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "date_format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional datetime format passed to pandas.to_datetime.",
+          "title": "Date Format",
+          "x-hmp-profile": "dev"
+        },
+        "value_column": {
+          "default": "value",
+          "description": "Name of the CSV column that holds the values.",
+          "examples": [
+            "value"
+          ],
+          "title": "Value Column",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "fill_method": {
+          "default": "ffill",
+          "description": "Gap-filling policy used when a stress period has no direct sample.",
+          "enum": [
+            "ffill",
+            "bfill"
+          ],
+          "examples": [
+            "ffill"
+          ],
+          "title": "Fill Method",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "aggregate": {
+          "default": "mean",
+          "description": "Stress-period aggregation method.",
+          "enum": [
+            "mean",
+            "last"
+          ],
+          "examples": [
+            "mean"
+          ],
+          "title": "Aggregate",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unit of the forcing values, a length per time such as 'mm/day' or 'm/s'. Values are converted to m/s when the run starts. Unset, the values are read in m/s.",
+          "title": "Units",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FlowRateForcingCsvConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FlowRateForcingPiecewiseConfig": {
+      "additionalProperties": false,
+      "description": "Ordered dated segments of a rate, each a constant or a csv.",
+      "properties": {
+        "kind": {
+          "const": "piecewise",
+          "default": "piecewise",
+          "description": "Discriminator tag for the piecewise well-forcing variant.",
+          "examples": [
+            "piecewise"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "segments": {
+          "description": "Date-ordered segments covering the simulation window.",
+          "items": {
+            "$ref": "#/$defs/FlowRateForcingSegment"
+          },
+          "minItems": 1,
+          "title": "Segments",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unit of the forcing values, a length per time such as 'mm/day' or 'm/s'. Values are converted to m/s when the run starts. Unset, the values are read in m/s.",
+          "title": "Units",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FlowRateForcingPiecewiseConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^segments__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FlowRateForcingSegment"
+          }
+        },
+        "^segments__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FlowRateForcingSegment"
+          }
+        }
+      }
+    },
+    "FlowRateForcingSeasonalConfig": {
+      "additionalProperties": false,
+      "description": "Calendar month or season to rate mapping repeated across years.",
+      "properties": {
+        "kind": {
+          "const": "seasonal",
+          "default": "seasonal",
+          "description": "Discriminator tag for the seasonal well-forcing variant.",
+          "examples": [
+            "seasonal"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "by_month": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object",
+              "patternProperties": {
+                "^.+__delete$": {
+                  "const": true,
+                  "description": "Remove the inherited key. Only the literal true is accepted."
+                },
+                "^.+__append$": {
+                  "type": "array"
+                },
+                "^.+__merge$": {
+                  "type": "array"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mapping of calendar month (1-12) to a forcing value.",
+          "title": "By Month",
+          "x-hmp-profile": "user"
+        },
+        "by_season": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object",
+              "patternProperties": {
+                "^.+__delete$": {
+                  "const": true,
+                  "description": "Remove the inherited key. Only the literal true is accepted."
+                },
+                "^.+__append$": {
+                  "type": "array"
+                },
+                "^.+__merge$": {
+                  "type": "array"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mapping of meteorological season (DJF/MAM/JJA/SON) to a forcing value.",
+          "title": "By Season",
+          "x-hmp-profile": "user"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unit of the forcing values, a length per time such as 'mm/day' or 'm/s'. Values are converted to m/s when the run starts. Unset, the values are read in m/s.",
+          "title": "Units",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FlowRateForcingSeasonalConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "FlowRateForcingSegment": {
+      "additionalProperties": false,
+      "description": "One dated segment of a piecewise rate forcing.",
+      "properties": {
+        "start": {
+          "description": "Inclusive segment start date (ISO date or datetime string).",
+          "examples": [
+            "2020-01-01"
+          ],
+          "title": "Start",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Exclusive segment end date (ISO string); None extends to the simulation end.",
+          "title": "End",
+          "x-hmp-profile": "user"
+        },
+        "forcing": {
+          "description": "Rate for this segment, discriminated by 'kind' (constant or csv).",
+          "discriminator": {
+            "mapping": {
+              "constant": "#/$defs/FlowRateForcingConstantConfig",
+              "csv": "#/$defs/FlowRateForcingCsvConfig"
+            },
+            "propertyName": "kind"
+          },
+          "title": "Forcing",
+          "x-hmp-profile": "user",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowRateForcingConstantConfig"
+            },
+            {
+              "$ref": "#/$defs/FlowRateForcingCsvConfig"
+            }
+          ]
+        }
+      },
+      "title": "FlowRateForcingSegment",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
     "FlowReachConfig": {
       "additionalProperties": false,
       "description": "One explicit reach row, used to bypass automatic network delineation.\n\nConnectivity is given by 1-based reach ids. ``upstream`` lists the reaches\nwhose downstream end feeds this reach; ``downstream`` lists the reaches this\nreach feeds. The two must be reciprocal across the network.",
@@ -11334,28 +11604,28 @@
         "rainfall": {
           "anyOf": [
             {
-              "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
+              "description": "Rate per unit of surface over time (constant, csv, piecewise or seasonal), in length per time.",
               "discriminator": {
                 "mapping": {
-                  "constant": "#/$defs/FlowWellForcingConstantConfig",
-                  "csv": "#/$defs/FlowWellForcingCsvConfig",
-                  "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
-                  "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
+                  "constant": "#/$defs/FlowRateForcingConstantConfig",
+                  "csv": "#/$defs/FlowRateForcingCsvConfig",
+                  "piecewise": "#/$defs/FlowRateForcingPiecewiseConfig",
+                  "seasonal": "#/$defs/FlowRateForcingSeasonalConfig"
                 },
                 "propertyName": "kind"
               },
               "anyOf": [
                 {
-                  "$ref": "#/$defs/FlowWellForcingConstantConfig"
+                  "$ref": "#/$defs/FlowRateForcingConstantConfig"
                 },
                 {
-                  "$ref": "#/$defs/FlowWellForcingCsvConfig"
+                  "$ref": "#/$defs/FlowRateForcingCsvConfig"
                 },
                 {
-                  "$ref": "#/$defs/FlowWellForcingPiecewiseConfig"
+                  "$ref": "#/$defs/FlowRateForcingPiecewiseConfig"
                 },
                 {
-                  "$ref": "#/$defs/FlowWellForcingSeasonalConfig"
+                  "$ref": "#/$defs/FlowRateForcingSeasonalConfig"
                 }
               ]
             },
@@ -11371,28 +11641,28 @@
         "evaporation": {
           "anyOf": [
             {
-              "description": "Discriminated union of well-forcing payloads (constant, csv, piecewise, or seasonal).",
+              "description": "Rate per unit of surface over time (constant, csv, piecewise or seasonal), in length per time.",
               "discriminator": {
                 "mapping": {
-                  "constant": "#/$defs/FlowWellForcingConstantConfig",
-                  "csv": "#/$defs/FlowWellForcingCsvConfig",
-                  "piecewise": "#/$defs/FlowWellForcingPiecewiseConfig",
-                  "seasonal": "#/$defs/FlowWellForcingSeasonalConfig"
+                  "constant": "#/$defs/FlowRateForcingConstantConfig",
+                  "csv": "#/$defs/FlowRateForcingCsvConfig",
+                  "piecewise": "#/$defs/FlowRateForcingPiecewiseConfig",
+                  "seasonal": "#/$defs/FlowRateForcingSeasonalConfig"
                 },
                 "propertyName": "kind"
               },
               "anyOf": [
                 {
-                  "$ref": "#/$defs/FlowWellForcingConstantConfig"
+                  "$ref": "#/$defs/FlowRateForcingConstantConfig"
                 },
                 {
-                  "$ref": "#/$defs/FlowWellForcingCsvConfig"
+                  "$ref": "#/$defs/FlowRateForcingCsvConfig"
                 },
                 {
-                  "$ref": "#/$defs/FlowWellForcingPiecewiseConfig"
+                  "$ref": "#/$defs/FlowRateForcingPiecewiseConfig"
                 },
                 {
-                  "$ref": "#/$defs/FlowWellForcingSeasonalConfig"
+                  "$ref": "#/$defs/FlowRateForcingSeasonalConfig"
                 }
               ]
             },
@@ -12066,7 +12336,7 @@
       "properties": {
         "mode": {
           "default": "report_only",
-          "description": "What the flow-station checks do to a candidate: reject it, warn, score it, group it, or only report. Left at 'report_only', observations.flow_station_mode decides instead.",
+          "description": "What the flow-station checks do to a candidate: reject it, warn, score it, group it, or only report.",
           "enum": [
             "hard_reject",
             "warning",
@@ -12115,7 +12385,7 @@
             }
           ],
           "default": null,
-          "description": "Largest distance, in km, between the station and the candidate outlet. Unset, observations.flow_station_max_distance_km applies.",
+          "description": "Largest distance, in km, between the station and the candidate outlet. Unset, the distance is not checked.",
           "title": "Max Station To Outlet Distance Km",
           "x-hmp-profile": "user"
         },
@@ -13476,16 +13746,6 @@
           },
           "x-hmp-profile": "user"
         },
-        "prefer_diversity": {
-          "default": false,
-          "description": "Records a wish for geologically diverse sites in the evidence. No step reads it yet, so the selection is the same either way.",
-          "examples": [
-            false
-          ],
-          "title": "Prefer Diversity",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
         "layers": {
           "description": "Optional polygon layers used to compute geology evidence.",
           "items": {
@@ -13968,7 +14228,7 @@
         },
         "rasterize_field": {
           "default": "FID",
-          "description": "Attribute column whose values are written into the stream raster. A column the layer lacks is replaced by a sequential number per feature.",
+          "description": "Attribute column whose values are written into the stream raster. A column the layer lacks, or a column of text, is replaced by a sequential number per feature.",
           "examples": [
             "FID"
           ],
@@ -15177,17 +15437,6 @@
           "minItems": 1,
           "title": "Sources",
           "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "id": {
-          "default": "lake_abacus",
-          "description": "Name of the abacus variable, kept with the configuration. Each source says which lake its table belongs to with lake_id.",
-          "examples": [
-            "lake_abacus"
-          ],
-          "pattern": "^[a-z][a-z0-9_]*$",
-          "title": "Id",
-          "type": "string",
           "x-hmp-profile": "user"
         }
       },
@@ -19229,11 +19478,10 @@
         },
         "track_dir": {
           "default": "forward",
-          "description": "Direction particles are tracked in: with the flow ('forward') or against it ('backward', from where water leaves back to where it entered). 'custom' fills in no release point of its own.",
+          "description": "Direction particles are tracked in: with the flow ('forward') or against it ('backward', from where water leaves back to where it entered).",
           "enum": [
             "forward",
-            "backward",
-            "custom"
+            "backward"
           ],
           "examples": [
             "forward"
@@ -19652,45 +19900,6 @@
       "additionalProperties": false,
       "description": "Criteria applied to observation families.",
       "properties": {
-        "flow_station_mode": {
-          "default": "report_only",
-          "description": "Mode of the flow-station checks, read only while flow_station.mode stays 'report_only'. flow_station.mode wins when it is set to another value.",
-          "enum": [
-            "hard_reject",
-            "warning",
-            "score",
-            "stratify",
-            "report_only"
-          ],
-          "examples": [
-            "hard_reject"
-          ],
-          "title": "Flow Station Mode",
-          "type": "string",
-          "value_docs": {
-            "hard_reject": "Rejects candidates that fail the configured flow-station check.",
-            "report_only": "Records flow-station evidence without any automatic accept or reject decision.",
-            "score": "Scores candidates by record length and station-to-outlet distance.",
-            "stratify": "Makes flow-station available for grouping candidates into strata.",
-            "warning": "Flags candidates that fail the configured flow-station check, without rejecting them."
-          },
-          "x-hmp-profile": "user"
-        },
-        "flow_station_max_distance_km": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Largest distance, in km, between the flow station and the candidate outlet. flow_station.max_station_to_outlet_distance_km wins when it is set.",
-          "title": "Flow Station Max Distance Km",
-          "x-hmp-profile": "user"
-        },
         "piezometer_mode": {
           "default": "report_only",
           "description": "What the piezometer checks do to a candidate: reject it, warn, score it, group it, or only report.",
@@ -24786,21 +24995,6 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "random_seed": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Seed for a random draw. No step of the selection draws a random number today, so a run is the same with or without it.",
-          "title": "Random Seed",
-          "unit": "-",
-          "x-hmp-profile": "user"
-        },
         "terrain_engine": {
           "anyOf": [
             {
@@ -26178,28 +26372,6 @@
           "default": null,
           "description": "Provider or normalized source used for primary observations.",
           "title": "Observation Source",
-          "x-hmp-profile": "user"
-        },
-        "candidate_mode": {
-          "anyOf": [
-            {
-              "enum": [
-                "network_sampling",
-                "station_outlets"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Candidate mode written to the manifest and the report in place of outlets.candidate_mode. Candidate generation itself reads outlets.candidate_mode.",
-          "title": "Candidate Mode",
-          "value_docs": {
-            "network_sampling": "Generates candidate outlets by sampling the DEM-derived stream network.",
-            "station_outlets": "Uses imported observation station locations, such as flow stations, as candidate outlets."
-          },
           "x-hmp-profile": "user"
         }
       },
@@ -30109,31 +30281,6 @@
           "default": null,
           "description": "Local DEM raster used to delineate the catchments. When set, it wins over [data.dem] and over source.",
           "title": "Path",
-          "x-hmp-profile": "user"
-        },
-        "resolution_m": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Resolution of the DEM, in metres. It is written to the selection manifest only: no step resamples the DEM to it.",
-          "title": "Resolution M",
-          "x-hmp-profile": "user"
-        },
-        "cache_policy": {
-          "default": "use_cache_else_download",
-          "description": "Cache policy label written to the selection manifest and report. No step reads it: force_refresh is what bypasses the cache.",
-          "examples": [
-            "use_cache_else_download"
-          ],
-          "title": "Cache Policy",
-          "type": "string",
           "x-hmp-profile": "user"
         },
         "margin_km": {

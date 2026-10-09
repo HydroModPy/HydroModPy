@@ -65,3 +65,6 @@ section.hmp-provider h3 { margin-top: 1.6rem; }
   img.hmp-fig-thumb { width: 3.4rem; height: 2.4rem; }
   .hmp-cat-bar .hmp-filter { flex-basis: 100%; }
 }
+
+/* The parameters of a signature too long for one line (hmp_api.fix_signature_lists). */
+.hmp-sig-params > div { margin: 0 0 0 2rem; }

@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 from hydromodpy.display.overview.summary import OverviewSummary
-from hydromodpy.display.style import place_legend
+from hydromodpy.display.style import neutral, place_legend
 
 _FONT_SCALE = 1.25
 
@@ -77,7 +77,7 @@ def render_dem_map(
     handles = []
     if watershed_shp:
         _plot_watershed_outline(ax, watershed_shp)
-        handles.append(Line2D([0], [0], color="black", linewidth=1.2, label="Catchment"))
+        handles.append(Line2D([0], [0], color=_outline_color(), linewidth=1.2, label="Catchment"))
 
     if streams_gdf is not None and not streams_gdf.empty:
         # The 'terrain' colormap renders valley bottoms in blue, which would
@@ -179,10 +179,10 @@ def render_regional_context_map(
     cbar.ax.tick_params(labelsize=_MAP_COLORBAR_TICK_SIZE)
 
     handles = [
-        Line2D([0], [0], color="black", linewidth=1.6, label="Catchment"),
+        Line2D([0], [0], color=_outline_color(), linewidth=1.6, label="Catchment"),
     ]
     if watershed_gdf is not None and not watershed_gdf.empty:
-        watershed_gdf.boundary.plot(ax=ax, color="black", linewidth=1.6, zorder=6)
+        watershed_gdf.boundary.plot(ax=ax, color=_outline_color(), linewidth=1.6, zorder=6)
 
     if streams_gdf is not None and not streams_gdf.empty:
         streams_gdf = _to_crs_safely(streams_gdf, raster_crs)
@@ -560,7 +560,7 @@ def _time_axis(ax: Axes, date_start, date_end, *, last: bool) -> None:
     ax.xaxis.set_major_locator(mdates.YearLocator(step))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=(1, 7)))
-    ax.grid(True, axis="x", which="major", color="0.75", lw=0.8)
+    ax.grid(True, axis="x", which="major", color=neutral("0.75"), lw=0.8)
     ax.tick_params(axis="x", labelsize=_font(7.5), labelbottom=last)
 
 
@@ -686,6 +686,7 @@ def render_stats_card(ax: Axes, *, summary: OverviewSummary) -> Axes:
     table.auto_set_font_size(False)
     table.set_fontsize(_font(9))
     table.scale(1.0, 1.5)
+    _theme_table(table)
     for i, _ in enumerate(rows):
         table[(i, 0)].set_text_props(fontweight="bold")
     ax.set_title(
@@ -736,9 +737,10 @@ def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
     table.auto_set_font_size(False)
     table.set_fontsize(_font(7))
     table.scale(1.0, 1.25)
+    _theme_table(table)
     for j in range(len(headers)):
         table[(0, j)].set_text_props(fontweight="bold")
-        table[(0, j)].set_facecolor("#e8e8e8")
+        table[(0, j)].set_facecolor(neutral("#e8e8e8"))
     ax.set_title(f"Station inventory - {len(inventory)} stations", fontsize=_font(10))
     return ax
 
@@ -746,6 +748,22 @@ def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _outline_color() -> str:
+    """The colour of the catchment outline: black on a light page, light on a dark one."""
+    return neutral("black")
+
+
+def _theme_table(table) -> None:
+    """Give the cells of a table the colours of the current theme.
+
+    A matplotlib table draws white cells with black edges, whatever the theme, so
+    the light text of the dark theme would sit on white.
+    """
+    for cell in table.get_celld().values():
+        cell.set_facecolor(neutral("#ffffff"))
+        cell.set_edgecolor(neutral("#c8c8c8"))
 
 
 def _map_legend(ax, handles: list, *, fontsize: float) -> None:
@@ -790,7 +808,7 @@ def _plot_watershed_outline(ax, watershed_shp) -> None:
         import geopandas as gpd
 
         gdf = gpd.read_file(watershed_shp)
-        gdf.boundary.plot(ax=ax, color="black", linewidth=1.2)
+        gdf.boundary.plot(ax=ax, color=_outline_color(), linewidth=1.2)
     except Exception:
         pass
 

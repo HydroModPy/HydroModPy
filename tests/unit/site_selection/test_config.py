@@ -41,7 +41,7 @@ def test_area_only_config_keeps_observations_and_geology_report_only(tmp_path):
                     "hard_max_area_km2": 125.0,
                 },
                 "observations": {
-                    "flow_station_mode": "report_only",
+                    "flow_station": {"mode": "report_only"},
                     "piezometer_mode": "report_only",
                 },
                 "geology": {"mode": "report_only"},
@@ -50,7 +50,7 @@ def test_area_only_config_keeps_observations_and_geology_report_only(tmp_path):
     )
 
     assert cfg.strategy.profile == "area_only"
-    assert cfg.criteria.observations.flow_station_mode == "report_only"
+    assert cfg.criteria.observations.flow_station.mode == "report_only"
     assert cfg.criteria.geology.mode == "report_only"
     assert cfg.criteria.area.hard_min_area_km2 == pytest.approx(75.0)
 
@@ -130,7 +130,6 @@ def test_observation_led_requires_explicit_gauged_profile(tmp_path):
                 "strategy": {
                     "principle": "observation_led",
                     "primary_observation_type": "flow_station",
-                    "candidate_mode": "station_outlets",
                 },
                 "territory": {
                     "mode": "admin_regions",
@@ -151,13 +150,13 @@ def test_observation_led_accepts_station_outlets(tmp_path):
                 "principle": "observation_led",
                 "profile": "gauged_downstream_station",
                 "primary_observation_type": "flow_station",
-                "candidate_mode": "station_outlets",
             },
             "territory": {
                 "mode": "admin_regions",
                 "country": "FR",
                 "regions": ["Bretagne"],
             },
+            "outlets": {"candidate_mode": "station_outlets"},
         }
     )
 
@@ -175,7 +174,6 @@ def test_gauged_downstream_station_profile_is_explicit(tmp_path):
                 "principle": "observation_led",
                 "profile": "gauged_downstream_station",
                 "primary_observation_type": "flow_station",
-                "candidate_mode": "station_outlets",
             },
             "territory": {
                 "mode": "admin_regions",
@@ -203,7 +201,6 @@ def test_gauged_downstream_station_profile_requires_flow_station(tmp_path):
                     "principle": "observation_led",
                     "profile": "gauged_downstream_station",
                     "primary_observation_type": "piezometer",
-                    "candidate_mode": "station_outlets",
                 },
                 "territory": {
                     "mode": "admin_regions",

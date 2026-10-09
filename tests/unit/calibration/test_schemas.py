@@ -204,7 +204,7 @@ class TestCalibOutputDeclSelectors:
         assert decl.geometry["type"] == "Point"
 
     def test_cell_requires_structural_selector(self):
-        with pytest.raises(ValidationError, match="support='cell' requires"):
+        with pytest.raises(ValidationError, match="row"):
             validate_calib_output({"variable": "head", "support": "cell"})
 
     def test_cell_accepts_row_col(self):
@@ -212,9 +212,9 @@ class TestCalibOutputDeclSelectors:
         assert decl.row == 2
         assert decl.col == 3
 
-    def test_cell_accepts_cell_id(self):
-        decl = validate_calib_output({"variable": "head", "support": "cell", "cell_id": 42})
-        assert decl.cell_id == 42
+    def test_cell_refuses_cell_id(self):
+        with pytest.raises(ValidationError, match="'cell_id' is not accepted any more"):
+            validate_calib_output({"variable": "head", "support": "cell", "cell_id": 42})
 
 
 # ---------------------------------------------------------------------------

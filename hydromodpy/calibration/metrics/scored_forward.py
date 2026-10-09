@@ -23,8 +23,8 @@ construction rather than at the first trial:
   prepared model -- there is no project to load it from;
 - an output on ``support = "network"``, because the pair of distances it scores
   is prepared from a routed mesh by the pipeline producer, not by a model;
-- an output on ``support = "point"``, or a cell named by a flat ``cell_id``,
-  because both are resolved against a mesh this route does not build.
+- an output on ``support = "point"``, because it is resolved against a mesh
+  this route does not build.
 
 A window is refused too, by the scorer itself: without ``observes`` nothing here
 carries a date to cut on. So is a record of a length no answer to this
@@ -244,15 +244,7 @@ def requests_for_outputs(
             )
         cell: tuple[int, int, int] | None = None
         if support == "cell":
-            row = getattr(output, "row", None)
-            col = getattr(output, "col", None)
-            if row is None or col is None:
-                raise CalibrationError(
-                    f"output {name!r} names cell_id={getattr(output, 'cell_id', None)!r}, a "
-                    "flat index resolved against a mesh this route does not build. Declare "
-                    "'row' and 'col'."
-                )
-            cell = (int(getattr(output, "layer", 0) or 0), int(row), int(col))
+            cell = (int(getattr(output, "layer", 0) or 0), int(output.row), int(output.col))
         key = getattr(output, "boundary_id", None) or getattr(output, "lake_id", None)
         requests.append(
             ObservableRequest(

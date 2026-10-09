@@ -35,7 +35,7 @@ units = "m/s"
 [flow.sinks_sources.lakes.lac0.withdrawal]
 kind = "seasonal"
 units = "m3/s"
-by_season = { DJF = -0.01, MAM = -0.03, JJA = -0.05, SON = -0.02 }
+by_season = { DJF = 0.01, MAM = 0.03, JJA = 0.05, SON = 0.02 }
 
 [flow.sinks_sources.lakes.lac0.bed_reconstruction]
 dynamic_area = true

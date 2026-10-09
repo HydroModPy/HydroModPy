@@ -32,7 +32,6 @@ def evaluate_geology_criterion(
     )
     evidence = {
         "geology_class": geology_value,
-        "prefer_diversity": config.prefer_diversity,
         "source_name": _first_text(attributes, "geology_source"),
         "evidence_ref": geology_evidence_ref(
             site_id=site_id,

@@ -162,7 +162,7 @@ def plan_site_selection(path: str | Path) -> SiteSelectionPlan:
             "effective_profile": cfg.effective_profile,
             "primary_axes": list(cfg.strategy.primary_axes),
             "primary_observation_type": cfg.strategy.primary_observation_type,
-            "candidate_mode": cfg.strategy.candidate_mode or cfg.outlets.candidate_mode,
+            "candidate_mode": cfg.outlets.candidate_mode,
         },
         "territory": {
             "mode": cfg.territory.mode,
@@ -175,8 +175,6 @@ def plan_site_selection(path: str | Path) -> SiteSelectionPlan:
         "dem": {
             "source": cfg.dem.source,
             "path": _path_or_none(cfg.dem.path),
-            "resolution_m": cfg.dem.resolution_m,
-            "cache_policy": cfg.dem.cache_policy,
             "margin_km": cfg.dem.margin_km,
             "request_extent": cfg.dem.request_extent,
             "map_background_extent": cfg.dem.map_background_extent,
@@ -213,14 +211,9 @@ def plan_site_selection(path: str | Path) -> SiteSelectionPlan:
             "reference_network_fetch_margin_m": cfg.outlets.reference_network_fetch_margin_m,
         },
         "criteria": {
-            "ruleset": cfg.criteria.ruleset,
-            "hard_reject": list(cfg.criteria.hard_reject),
-            "warning": list(cfg.criteria.warning),
-            "soft_score": list(cfg.criteria.soft_score),
-            "report_only": list(cfg.criteria.report_only),
             "area_mode": cfg.criteria.area.mode,
             "geology_mode": cfg.criteria.geology.mode,
-            "flow_station_mode": cfg.criteria.observations.flow_station_mode,
+            "flow_station_mode": cfg.criteria.observations.flow_station.mode,
             "piezometer_mode": cfg.criteria.observations.piezometer_mode,
             "influence_layers": [
                 layer.model_dump(mode="json") for layer in cfg.criteria.influence.layers

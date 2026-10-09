@@ -40,6 +40,7 @@ from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.units import FlowRate, Length
 from hydromodpy.core.units.leakance import normalize_per_s_unit
 from hydromodpy.physics.flow.sinks_sources.flow_barrier import FlowBarrierConfig
+from hydromodpy.physics.flow.sinks_sources.rate_forcing import FlowRateForcingConfig
 from hydromodpy.physics.flow.sinks_sources.wells import FlowWellForcingConfig
 
 
@@ -387,6 +388,46 @@ class BathymetryReconstructionConfig(HydroModelBase):
         return self
 
 
+LAKE_FORCING_SIGN_CONVENTION: dict[str, str] = {
+    "rainfall": "the rate that falls on the lake",
+    "evaporation": "the largest rate that evaporates from the lake",
+    "runoff": "the rate that runs off into the lake",
+    "inflow": "the rate that flows into the lake",
+    "withdrawal": "the largest rate taken out of the lake",
+}
+"""Lake forcings, each read by MODFLOW 6 LAK as a value of zero or more."""
+
+
+def lake_forcing_sign_refusal(keyword: str, value: float, *, where: str = "") -> str:
+    """Return the message that refuses a negative lake forcing."""
+    location = f" ({where})" if where else ""
+    return (
+        f"Lake {keyword} = {value:g}{location} is negative. MODFLOW 6 LAK reads "
+        f"{keyword.upper()} as {LAKE_FORCING_SIGN_CONVENTION[keyword]}, zero or more, "
+        f"and stops on a negative value. Write {keyword} as a positive rate."
+    )
+
+
+def declared_forcing_values(forcing: object) -> list[float]:
+    """Return the values a forcing declares in the file, before any CSV is read."""
+    if forcing is None:
+        return []
+    kind = getattr(forcing, "kind", None)
+    if kind == "constant":
+        value = forcing.value
+        return [float(getattr(value, "magnitude", value))]
+    if kind == "seasonal":
+        mapping = forcing.by_month or forcing.by_season or {}
+        return [float(value) for value in mapping.values()]
+    if kind == "piecewise":
+        return [
+            value
+            for segment in forcing.segments
+            for value in declared_forcing_values(segment.forcing)
+        ]
+    return []
+
+
 class FlowLakeConfig(HydroModelBase):
     """
     Typed boundary-condition payload for one MODFLOW 6 LAK lake.
@@ -492,14 +533,14 @@ class FlowLakeConfig(HydroModelBase):
             "of leaking through the top layers."
         ),
     )
-    rainfall: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
+    rainfall: Annotated[FlowRateForcingConfig | None, Profile.USER] = Field(
         default=None,
         description=(
             "Rainfall on the lake over time, as a rate per unit of lake surface (m/s in SI). "
             "It wins over the rainfall taken from [data.precipitation]."
         ),
     )
-    evaporation: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
+    evaporation: Annotated[FlowRateForcingConfig | None, Profile.USER] = Field(
         default=None,
         description=(
             "Open-water evaporation over time, as a rate per unit of lake surface "
@@ -521,7 +562,8 @@ class FlowLakeConfig(HydroModelBase):
         default=None,
         description=(
             "Rate of water taken from the lake over time, as a volume per time "
-            "(m3/s in SI). It is passed to the WITHDRAWAL setting of MODFLOW 6 LAK."
+            "(m3/s in SI), written positive. It is passed to the WITHDRAWAL setting of "
+            "MODFLOW 6 LAK, which reads every lake forcing as zero or more."
         ),
     )
 
@@ -553,8 +595,19 @@ class FlowLakeConfig(HydroModelBase):
                 )
         return self
 
+    @model_validator(mode="after")
+    def _refuse_negative_forcings(self) -> FlowLakeConfig:
+        """Refuse a negative lake forcing: MODFLOW 6 LAK stops on one."""
+        for keyword in LAKE_FORCING_SIGN_CONVENTION:
+            forcing = getattr(self, keyword)
+            negative = [value for value in declared_forcing_values(forcing) if value < 0.0]
+            if negative:
+                raise ValueError(lake_forcing_sign_refusal(keyword, negative[0]))
+        return self
+
 
 __all__ = [
+    "LAKE_FORCING_SIGN_CONVENTION",
     "BathymetryReconstructionConfig",
     "FlowLakeConfig",
     "FlowLakeOutletConfig",
@@ -562,4 +615,6 @@ __all__ = [
     "FlowLakeOutletMover",
     "FlowLakeOutletSpecified",
     "FlowLakeOutletWeir",
+    "declared_forcing_values",
+    "lake_forcing_sign_refusal",
 ]

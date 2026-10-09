@@ -7,8 +7,9 @@ catchment delineation are delegated to existing ``hydromodpy.spatial`` modules.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field, field_validator, model_validator
 
@@ -88,6 +89,13 @@ _OBSERVATION_ROLE_VALUE_DOCS = {
 class StrategyConfig(HydroModelBase):
     """High-level strategy controlling candidate generation and criterion order."""
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "candidate_mode": (
+            "candidate generation reads site_selection.outlets.candidate_mode. Write "
+            "the mode there."
+        ),
+    }
+
     principle: Annotated[SelectionPrinciple, Profile.USER] = Field(
         default="criteria_crossing",
         description="Selection principle: observation-led or direct criteria crossing.",
@@ -132,14 +140,6 @@ class StrategyConfig(HydroModelBase):
         default=None,
         description="Provider or normalized source used for primary observations.",
     )
-    candidate_mode: Annotated[CandidateMode | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Candidate mode written to the manifest and the report in place of "
-            "outlets.candidate_mode. Candidate generation itself reads outlets.candidate_mode."
-        ),
-        json_schema_extra={"value_docs": _CANDIDATE_MODE_VALUE_DOCS},
-    )
 
     @model_validator(mode="after")
     def _validate_strategy(self) -> StrategyConfig:
@@ -161,10 +161,6 @@ class StrategyConfig(HydroModelBase):
                 raise ValueError(
                     "profile='gauged_downstream_station' requires "
                     "primary_observation_type='flow_station'."
-                )
-            if self.candidate_mode not in {None, "station_outlets"}:
-                raise ValueError(
-                    "profile='gauged_downstream_station' requires candidate_mode='station_outlets'."
                 )
 
         if self.profile == "area_only":
@@ -263,6 +259,18 @@ class TerritoryConfig(HydroModelBase):
 class DemConfig(HydroModelBase):
     """DEM source requested by site selection."""
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "resolution_m": (
+            "no step resampled the DEM to it. The DEM keeps the resolution of its "
+            "source: set resolution_m under [data.dem], or give dem.path a raster at "
+            "the resolution you want."
+        ),
+        "cache_policy": (
+            "no step read it. Write dem.force_refresh = true to fetch the DEM again "
+            "instead of reading the cache."
+        ),
+    }
+
     source: Annotated[Literal["custom", "data", "ign_geoplateforme_dem"], Profile.USER] = Field(
         default="custom",
         description=(
@@ -285,21 +293,6 @@ class DemConfig(HydroModelBase):
         description=(
             "Local DEM raster used to delineate the catchments. When set, it wins over "
             "[data.dem] and over source."
-        ),
-    )
-    resolution_m: Annotated[float | None, Profile.USER] = Field(
-        default=None,
-        gt=0,
-        description=(
-            "Resolution of the DEM, in metres. It is written to the selection manifest "
-            "only: no step resamples the DEM to it."
-        ),
-    )
-    cache_policy: Annotated[str, Profile.USER] = Field(
-        default="use_cache_else_download",
-        description=(
-            "Cache policy label written to the selection manifest and report. No step "
-            "reads it: force_refresh is what bypasses the cache."
         ),
     )
     margin_km: Annotated[float, Profile.USER] = Field(
@@ -861,8 +854,7 @@ class FlowStationCriteriaConfig(HydroModelBase):
         default="report_only",
         description=(
             "What the flow-station checks do to a candidate: reject it, warn, score it, "
-            "group it, or only report. Left at 'report_only', "
-            "observations.flow_station_mode decides instead."
+            "group it, or only report."
         ),
         json_schema_extra={
             "value_docs": _criterion_mode_value_docs(
@@ -885,7 +877,7 @@ class FlowStationCriteriaConfig(HydroModelBase):
         gt=0,
         description=(
             "Largest distance, in km, between the station and the candidate outlet. "
-            "Unset, observations.flow_station_max_distance_km applies."
+            "Unset, the distance is not checked."
         ),
     )
     require_station_inside_or_at_outlet: Annotated[bool, Profile.USER] = Field(
@@ -1010,27 +1002,18 @@ class PiezometerLayerConfig(HydroModelBase):
 class ObservationsCriteriaConfig(HydroModelBase):
     """Criteria applied to observation families."""
 
-    flow_station_mode: Annotated[CriterionMode, Profile.USER] = Field(
-        default="report_only",
-        description=(
-            "Mode of the flow-station checks, read only while flow_station.mode stays "
-            "'report_only'. flow_station.mode wins when it is set to another value."
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "flow_station_mode": (
+            "it did the job of flow_station.mode. Write mode under "
+            "[site_selection.criteria.observations.flow_station]."
         ),
-        json_schema_extra={
-            "value_docs": _criterion_mode_value_docs(
-                "flow-station",
-                score_hint="record length and station-to-outlet distance",
-            )
-        },
-    )
-    flow_station_max_distance_km: Annotated[float | None, Profile.USER] = Field(
-        default=None,
-        gt=0,
-        description=(
-            "Largest distance, in km, between the flow station and the candidate outlet. "
-            "flow_station.max_station_to_outlet_distance_km wins when it is set."
+        "flow_station_max_distance_km": (
+            "it did the job of flow_station.max_station_to_outlet_distance_km. Write "
+            "max_station_to_outlet_distance_km under "
+            "[site_selection.criteria.observations.flow_station]."
         ),
-    )
+    }
+
     piezometer_mode: Annotated[CriterionMode, Profile.USER] = Field(
         default="report_only",
         description=(
@@ -1219,6 +1202,13 @@ class GeologyLayerConfig(HydroModelBase):
 class GeologyCriteriaConfig(HydroModelBase):
     """Geology criterion configuration."""
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "prefer_diversity": (
+            "no step read it, so the selection was the same either way. To group the "
+            "candidates by geology class, write geology.mode = 'stratify'."
+        ),
+    }
+
     mode: Annotated[CriterionMode, Profile.USER] = Field(
         default="report_only",
         description=(
@@ -1241,55 +1231,30 @@ class GeologyCriteriaConfig(HydroModelBase):
             }
         },
     )
-    prefer_diversity: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description=(
-            "Records a wish for geologically diverse sites in the evidence. No step "
-            "reads it yet, so the selection is the same either way."
-        ),
-    )
     layers: Annotated[list[GeologyLayerConfig], Profile.USER] = Field(
         default_factory=list,
         description="Optional polygon layers used to compute geology evidence.",
     )
 
 
-class CriteriaConfig(HydroModelBase):
-    """Versioned criteria set and criterion-mode lists."""
+_CRITERIA_LIST_REFUSAL = (
+    "the list was recorded and never decided anything: each criterion's own mode "
+    "decides. Write mode under the criterion: criteria.area.mode, criteria.geology.mode, "
+    "criteria.influence.mode, criteria.observations.flow_station.mode or "
+    "criteria.observations.piezometer_mode."
+)
 
-    ruleset: Annotated[str, Profile.USER] = Field(
-        default="site_selection_v1",
-        description="Name of the criteria set, written to the selection manifest and report.",
-    )
-    hard_reject: Annotated[list[str], Profile.USER] = Field(
-        default_factory=list,
-        description=(
-            "Criteria named as hard rejections in the manifest and report. The list is "
-            "recorded; each criterion's own mode makes the decision. A name may sit in "
-            "one list only."
-        ),
-    )
-    warning: Annotated[list[str], Profile.USER] = Field(
-        default_factory=list,
-        description=(
-            "Criteria named as warnings in the manifest and report. The list is recorded; "
-            "each criterion's own mode makes the decision."
-        ),
-    )
-    soft_score: Annotated[list[str], Profile.USER] = Field(
-        default_factory=list,
-        description=(
-            "Criteria named as scores in the manifest and report. The list is recorded; "
-            "each criterion's own mode makes the decision."
-        ),
-    )
-    report_only: Annotated[list[str], Profile.USER] = Field(
-        default_factory=list,
-        description=(
-            "Criteria named as reported only in the manifest and report. The list is "
-            "recorded; each criterion's own mode makes the decision."
-        ),
-    )
+
+class CriteriaConfig(HydroModelBase):
+    """Criteria of the selection, one table per family."""
+
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "ruleset": "no step read the name of the criteria set. Remove the key.",
+        "hard_reject": _CRITERIA_LIST_REFUSAL,
+        "warning": _CRITERIA_LIST_REFUSAL,
+        "soft_score": _CRITERIA_LIST_REFUSAL,
+        "report_only": _CRITERIA_LIST_REFUSAL,
+    }
     area: Annotated[AreaCriteriaConfig, Profile.USER] = Field(default_factory=AreaCriteriaConfig)
     observations: Annotated[ObservationsCriteriaConfig, Profile.USER] = Field(
         default_factory=ObservationsCriteriaConfig,
@@ -1300,25 +1265,6 @@ class CriteriaConfig(HydroModelBase):
     geology: Annotated[GeologyCriteriaConfig, Profile.USER] = Field(
         default_factory=GeologyCriteriaConfig,
     )
-
-    @model_validator(mode="after")
-    def _validate_disjoint_mode_lists(self) -> CriteriaConfig:
-        seen: dict[str, str] = {}
-        for family, values in (
-            ("hard_reject", self.hard_reject),
-            ("warning", self.warning),
-            ("soft_score", self.soft_score),
-            ("report_only", self.report_only),
-        ):
-            for value in values:
-                key = value.strip()
-                previous = seen.get(key)
-                if previous is not None:
-                    raise ValueError(
-                        f"criterion {key!r} is listed in both {previous} and {family}."
-                    )
-                seen[key] = family
-        return self
 
 
 class OutputConfig(HydroModelBase):
@@ -1416,6 +1362,12 @@ class SiteSelectionConfig(HydroModelBase):
     """Top-level site-selection workflow configuration."""
 
     _TOML_SECTION = "site_selection"
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "random_seed": (
+            "no step of the selection draws a random number, so the seed changed "
+            "nothing. Remove the key."
+        ),
+    }
 
     selection_id: Annotated[str, Profile.USER] = Field(
         ...,
@@ -1427,14 +1379,6 @@ class SiteSelectionConfig(HydroModelBase):
         ...,
         description="Output directory for all site-selection artifacts.",
         examples=["site_selection"],
-    )
-    random_seed: Annotated[int | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Seed for a random draw. No step of the selection draws a random number "
-            "today, so a run is the same with or without it."
-        ),
-        json_schema_extra={"unit": "-"},
     )
     terrain_engine: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -1494,11 +1438,9 @@ class SiteSelectionConfig(HydroModelBase):
     @model_validator(mode="after")
     def _validate_selection_config(self) -> SiteSelectionConfig:
         if self.strategy.principle == "observation_led":
-            mode = self.strategy.candidate_mode or self.outlets.candidate_mode
-            if mode != "station_outlets":
+            if self.outlets.candidate_mode != "station_outlets":
                 raise ValueError(
-                    "observation_led requires candidate_mode='station_outlets' "
-                    "in strategy or outlets."
+                    "observation_led requires outlets.candidate_mode='station_outlets'."
                 )
 
         if self.input.mode == "dem_area_light":
@@ -1512,8 +1454,8 @@ class SiteSelectionConfig(HydroModelBase):
 
         if self.strategy.profile == "area_only":
             allowed_report_modes = {"report_only"}
-            if self.criteria.observations.flow_station_mode not in allowed_report_modes:
-                raise ValueError("area_only requires flow_station_mode='report_only'.")
+            if self.criteria.observations.flow_station.mode not in allowed_report_modes:
+                raise ValueError("area_only requires flow_station.mode='report_only'.")
             if self.criteria.observations.piezometer_mode not in allowed_report_modes:
                 raise ValueError("area_only requires piezometer_mode='report_only'.")
             if self.criteria.geology.mode != "report_only":
@@ -1522,11 +1464,10 @@ class SiteSelectionConfig(HydroModelBase):
                 raise ValueError("area_only requires area to be an active criterion.")
 
         if self.strategy.profile == "gauged_downstream_station":
-            mode = self.strategy.candidate_mode or self.outlets.candidate_mode
-            if mode != "station_outlets":
+            if self.outlets.candidate_mode != "station_outlets":
                 raise ValueError(
                     "profile='gauged_downstream_station' requires "
-                    "candidate_mode='station_outlets' in strategy or outlets."
+                    "outlets.candidate_mode='station_outlets'."
                 )
             if self.strategy.primary_observation_type != "flow_station":
                 raise ValueError(

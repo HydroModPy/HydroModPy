@@ -161,6 +161,25 @@ class HydroModelBase(BaseModel):
     rewriting history on disk.
     """
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {}
+    """Keys this model no longer accepts, mapped to what to write instead.
+
+    For a key that no step ever read, or that did the job of another key. No
+    run can depend on it, so it is refused rather than accepted and ignored:
+    the message names the key and the advice says which key does the job.
+    """
+
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_removed_keys(cls, data: Any) -> Any:
+        refused = cls.model_refused_keys
+        if not refused or not isinstance(data, Mapping):
+            return data
+        for key, advice in refused.items():
+            if key in data:
+                raise ValueError(f"{key!r} is not accepted any more: {advice}")
+        return data
+
     @model_validator(mode="before")
     @classmethod
     def _drop_retired_keys(cls, data: Any) -> Any:

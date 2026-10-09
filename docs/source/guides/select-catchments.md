@@ -129,6 +129,8 @@ output_root = "nancon_gauged"
 principle = "observation_led"
 profile = "gauged_downstream_station"
 primary_observation_type = "flow_station"
+
+[site_selection.outlets]
 candidate_mode = "station_outlets"
 
 [site_selection.territory]
@@ -185,13 +187,12 @@ The profile `gauged_downstream_station` fixes four keys together. The file is re
 when any of them disagrees: {toml}`site_selection.strategy.principle`,
 {toml}`site_selection.strategy.profile`,
 {toml}`site_selection.strategy.primary_observation_type` and
-{toml}`site_selection.strategy.candidate_mode`.
+{toml}`site_selection.outlets.candidate_mode`.
 
 ```{hmp-params}
 site_selection.strategy.principle
 site_selection.strategy.profile
 site_selection.strategy.primary_observation_type
-site_selection.strategy.candidate_mode
 site_selection.dem.source
 site_selection.dem.path
 site_selection.dem.request_extent
@@ -497,10 +498,9 @@ general or a local influence. A station whose metadata is missing is never rejec
 `"neutral"` raises no warning for it, and set to `"warning"` raises one. Comment keywords
 found in the station notes are flagged as warnings. They never reject a candidate.
 
-The four lists {toml}`site_selection.criteria.hard_reject`,
-{toml}`site_selection.criteria.warning`, {toml}`site_selection.criteria.soft_score` and
-{toml}`site_selection.criteria.report_only` are copied into the manifest. They change no
-decision. The decision of a family is its own `mode`.
+The decision of a family is its own `mode`. A file that still writes the lists
+`hard_reject`, `warning`, `soft_score` or `report_only` under `[site_selection.criteria]`
+is refused: they never decided anything.
 
 ### Several area windows
 

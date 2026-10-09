@@ -303,7 +303,9 @@ withdrawal. Three of them have a source without any key from you.
 - A forcing you declare for the lake wins over these.
 
 To declare a forcing, write it under the lake. Rainfall and evaporation are rates per unit
-of lake surface. Runoff, inflow and withdrawal are volumes per time.
+of lake surface. Runoff, inflow and withdrawal are volumes per time. Every one of them is
+zero or more: a withdrawal is the rate taken out of the lake, written positive, and a
+negative value is refused.
 
 ```toml
 # not checked: add these lines to the file of step 1; the full file is validated at the end
@@ -315,7 +317,7 @@ units = "m/s"
 [flow.sinks_sources.lakes.lac0.withdrawal]
 kind = "seasonal"
 units = "m3/s"
-by_season = { DJF = -0.01, MAM = -0.03, JJA = -0.05, SON = -0.02 }
+by_season = { DJF = 0.01, MAM = 0.03, JJA = 0.05, SON = 0.02 }
 ```
 
 A forcing is `constant`, `csv`, `piecewise` or `seasonal`, picked by `kind`. A `piecewise`
@@ -544,7 +546,7 @@ units = "m/s"
 [flow.sinks_sources.lakes.lac0.withdrawal]
 kind = "seasonal"
 units = "m3/s"
-by_season = { DJF = -0.01, MAM = -0.03, JJA = -0.05, SON = -0.02 }
+by_season = { DJF = 0.01, MAM = 0.03, JJA = 0.05, SON = 0.02 }
 
 [flow.sinks_sources.lakes.lac0.bed_reconstruction]
 dynamic_area = true
@@ -595,6 +597,7 @@ file = "lake_series.csv"
 | `Unsupported leakance unit 'm'. Allowed units: 1/s, 1/day, 1/h, 1/min` from `hmp config check` | `bedleak_unit` is not a leakance. | Write a unit per time. |
 | `flow.sinks_sources.lakes outlet 'SPECIFIED' requires either rate or forcing` from `hmp config check` | A gate with no release. | Give the outlet a `rate` or a `forcing`, not both. |
 | `flow.sinks_sources.lakes outlet sets both lakeout and mover; keep lakeout = 0 when a mover is declared` from `hmp config check` | Two routings on one outlet. | Choose one. |
+| `Lake withdrawal = -0.01 is negative. MODFLOW 6 LAK reads WITHDRAWAL as the largest rate taken out of the lake, zero or more, and stops on a negative value. ...` from `hmp config check` | A lake forcing written with a sign. The same refusal names `rainfall`, `evaporation`, `runoff` or `inflow`; a value read from a file stops the run before MODFLOW 6 starts. | Write the rate positive: the keyword says which way the water goes. |
 | `flow.active_bc lists "lake" without "sfr": ...` from `hmp config check` | A lake in soil mode, where the water reaches a lake only through the streams. | Add the network: see {doc}`recharge` and {doc}`route-streams-with-sfr`. |
 | `Data manager 'lake_geometry' is active but missing [data.lake_geometry] section.` (warning, data step) | No footprint section. The same warning appears for `lake_inflow` and `lake_withdrawal`. | Write the section. The warning is harmless for the two optional families. |
 | `Abacus contract violated (lac0.csv)` (data step) | The table breaks a rule of step 3. The message lists the failed checks. | Fix the table. |
