@@ -45,6 +45,13 @@ def test_the_last_discrepancy_of_the_run_is_the_one_read(tmp_path: Path) -> None
     assert last_percent_discrepancy(tmp_path) == -12.34
 
 
+def test_the_modflow_nwt_listing_is_read(tmp_path: Path) -> None:
+    """FloPy names the NWT listing ``.list``: its budget was never read before."""
+    (tmp_path / "model.list").write_text(_LISTING, encoding="utf-8")
+
+    assert last_percent_discrepancy(tmp_path) == -12.34
+
+
 def test_the_simulation_listing_is_not_a_model_listing(tmp_path: Path) -> None:
     """``mfsim.lst`` carries no budget of its own."""
     (tmp_path / "mfsim.lst").write_text(_LISTING, encoding="utf-8")

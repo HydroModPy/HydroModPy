@@ -19344,7 +19344,7 @@
         },
         "mf6_newton": {
           "default": true,
-          "description": "Enable the MODFLOW 6 Newton-Raphson formulation. Catchment cells are always convertible (unconfined), so Newton with under-relaxation is the robust default and matches the MODFLOW-NWT backend.",
+          "description": "Enable the MODFLOW 6 Newton-Raphson formulation. Catchment cells are always convertible (unconfined), so Newton with under-relaxation is the robust default. Unlike MODFLOW-NWT, it builds the horizontal conductance from the full cell thickness times the upstream saturation, so where the cell top steps down from one cell to the next (a top that follows the DEM) it gives a lower transmissivity than NWT.",
           "examples": [
             true
           ],
@@ -19759,10 +19759,10 @@
           "x-hmp-profile": "expert"
         },
         "fluxtol": {
-          "default": 500.0,
-          "description": "Flux closure criterion for the NWT nonlinear solver.",
+          "default": 0.005787037037037037,
+          "description": "Flux closure criterion of the NWT nonlinear solver, in m3/s: HydroModPy writes MODFLOW-NWT in seconds. The default is the 500 m3/day of the NWT manual. A value of 500 here would be 500 m3/s, a bound no model reaches.",
           "examples": [
-            500.0
+            0.005787037037037037
           ],
           "title": "Fluxtol",
           "type": "number",
@@ -19791,10 +19791,10 @@
           "x-hmp-profile": "expert"
         },
         "linmeth": {
-          "default": 1,
-          "description": "Linear solver choice for NWT (see MODFLOW-NWT documentation).",
+          "default": 2,
+          "description": "Linear solver of MODFLOW-NWT: 1 for GMRES, 2 for chi-MD. chi-MD is the default: on a stiff recession GMRES stops reducing the residual and NWT then accepts a frozen head as converged, with a budget off by 200 per cent.",
           "examples": [
-            1
+            2
           ],
           "title": "Linmeth",
           "type": "integer",
