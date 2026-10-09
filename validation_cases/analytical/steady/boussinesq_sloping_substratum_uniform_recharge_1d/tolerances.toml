@@ -1,4 +1,15 @@
 [head_profile]
-rmse = 0.04
+rmse = 0.039
 max_abs_error = 0.05
 row_spread = 1e-5
+
+[doc]
+reason = """
+Twice the error measured on the 40-column grid, MODFLOW-NWT and MODFLOW 6
+alike: RMSE 1.9e-2 m, max error 2.9e-2 m. Both upstream-weight the saturated
+thickness between cells, a first-order scheme: refining the grid by 2 halves
+the error. The heads are posed where the model holds them, at the centres of
+the boundary cells. The max error keeps its previous bound of 0.05 m, still 1.75
+times the measurement. The row spread bound is 0.1 times the MODFLOW 6 head
+closure (1e-4 m).
+"""

@@ -8,8 +8,6 @@ from validation_cases.analytical.transient.brutsaert_common import (
     plot_brutsaert_recession_comparison,
 )
 
-from .reference import build_parameter_lines
-
 
 def plot_brutsaert_recession_boussinesq_thin_comparison(
     comparison,
@@ -23,7 +21,6 @@ def plot_brutsaert_recession_boussinesq_thin_comparison(
         comparison,
         output_png=output_png,
         title="Brutsaert Recession Validation: Thin Nonlinear Aquifer",
-        parameter_lines=build_parameter_lines(comparison.metadata),
         show_plot=show_plot,
         dpi=dpi,
     )

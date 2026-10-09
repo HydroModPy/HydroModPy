@@ -1,0 +1,23 @@
+[onset]
+time_error_days = 25.0
+
+[trajectory]
+rmse_m = 13.0
+max_abs_error_m = 15.0
+reversal_m = 1e-6
+
+[uniformity]
+row_spread = 1e-7
+
+[contact]
+max_positive_clearance_m = 1e-6
+
+[doc]
+reason = """
+The default local engine, regularized partition closure, one backward-Euler step
+a period. The onset is read on 10-day periods and the contact on 10 m columns:
+measured 20 days (two periods, PETSc reads one) and 10 m, and the bounds sit
+half a step above. Trajectory RMSE twice the measured 6.45 m. Reversal and
+clearance are solver-closure bounds. Row spread: 1.4e-8 m measured, bound 1e-7
+m.
+"""

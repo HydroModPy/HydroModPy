@@ -1,10 +1,12 @@
-"""Local `flow/boussinesq` runtime for the steady circular-island ocean case."""
+"""`flow/boussinesq` runtime for the steady circular-island ocean case."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
 
+from hydromodpy.core.state.run_state import RunState
+from hydromodpy.core.state.setup import SetupContext
 from hydromodpy.physics.flow import Flow
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
@@ -20,7 +22,8 @@ from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.run
 )
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    apply_analytical_boussinesq_runtime_defaults,
+    boussinesq_variant_config_name,
+    boussinesq_variant_flow_section,
 )
 from validation_cases.shared.runtime import (
     ValidationRunResult,
@@ -30,8 +33,6 @@ from validation_cases.shared.runtime import (
 
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "dupuit_circular_island_ocean_2d"
-DUPUIT_ISLAND_N_SECTORS = 18
-DUPUIT_ISLAND_SUPPORT_RADII_M = (25.0, 50.0, 70.0, 100.0, 140.0, 180.0, 200.0)
 
 
 def _build_uniform_reference_cfg(case_metadata: dict) -> dict:
@@ -47,29 +48,23 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> ValidationRunResult:
-    """Run the steady circular-island ocean case through the PETSc VI backend."""
+    """Run the steady circular-island ocean case on one Boussinesq variant."""
     del timeout
+    solver_name = str(public_solver_label or "boussinesq")
 
     case_metadata = load_case_metadata(CASE_DIR)
     reference_cfg = _build_uniform_reference_cfg(case_metadata)
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
-        run_name=f"{CASE_ID}_boussinesq",
+        run_name=f"{CASE_ID}_{solver_name}",
     )
     recharge_rate_m_s = float(reference_cfg["recharge_mm_day"]) * 1.0e-3 / 86400.0
-    previous_sectors = int(circular_runtime.N_SECTORS)
-    previous_radii = tuple(float(value) for value in circular_runtime.LAND_SUPPORT_RADII_M)
-    circular_runtime.N_SECTORS = DUPUIT_ISLAND_N_SECTORS
-    circular_runtime.LAND_SUPPORT_RADII_M = DUPUIT_ISLAND_SUPPORT_RADII_M
-    try:
-        bundle_dir, ocean_cell_specs = circular_runtime._write_circular_island_bundle(
-            out_path / "mesh_bundle",
-            reference_cfg,
-        )
-    finally:
-        circular_runtime.N_SECTORS = previous_sectors
-        circular_runtime.LAND_SUPPORT_RADII_M = previous_radii
+    bundle_dir, ocean_cell_specs = circular_runtime._write_circular_island_bundle(
+        out_path / "mesh_bundle",
+        reference_cfg,
+    )
     simulations_folder = out_path / "results_simulations"
     simulations_folder.mkdir(parents=True, exist_ok=True)
     wells_payload = {
@@ -85,13 +80,13 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
         for index, (x_m, y_m, area_m2) in enumerate(ocean_cell_specs)
     }
 
-    state = SimpleNamespace(
-        setup=SimpleNamespace(
+    state = RunState(
+        setup=SetupContext(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=Flow(
                 _build_flow_config(
-                    apply_analytical_boussinesq_runtime_defaults(
+                    boussinesq_variant_flow_section(
                         {
                             "flow_regime": "steady",
                             "ic": {"type": "custom", "value": 1.0},
@@ -110,8 +105,10 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
                             },
                         },
                         flow_regime="steady",
+                        solver=solver_name,
                     ),
                     case_dir=CASE_DIR,
+                    config_name=boussinesq_variant_config_name(solver_name),
                 )
             ),
             domain=None,
@@ -154,7 +151,7 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
     )
     return ValidationRunResult(
         case_dir=CASE_DIR,
-        solver_name="boussinesq",
+        solver_name=solver_name,
         out_path=out_path,
         model_ws=model_ws,
         postprocess_dir=postprocess_dir,

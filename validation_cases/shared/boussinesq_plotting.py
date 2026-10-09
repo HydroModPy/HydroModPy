@@ -34,12 +34,12 @@ def load_boussinesq_runtime_summary(result: ValidationRunResult) -> dict[str, An
 def format_boussinesq_method_line(result: ValidationRunResult) -> str | None:
     """Return one compact method label suitable for figure footers."""
     solver_name = str(getattr(result, "solver_name", "") or "").strip().lower()
-    if solver_name != "boussinesq" and "petsc" not in solver_name:
+    if not solver_name.startswith("boussinesq") and "petsc" not in solver_name:
         return None
 
     summary = load_boussinesq_runtime_summary(result)
     if summary is None:
-        if solver_name == "boussinesq":
+        if solver_name.startswith("boussinesq"):
             return "method=Boussinesq (runtime summary unavailable)"
         return None
 

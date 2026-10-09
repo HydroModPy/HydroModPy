@@ -1,4 +1,4 @@
-"""Local ``flow/boussinesq`` runtime for the hillslope-interception benchmark."""
+"""``flow/boussinesq`` runtime for the hillslope-interception benchmark."""
 
 from __future__ import annotations
 
@@ -8,8 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.physics.flow import Flow
-from hydromodpy.solver.boussinesq import Boussinesq, BoussinesqState
-from hydromodpy.solver.boussinesq.assembly import saturated_thickness_from_head
+from hydromodpy.solver.boussinesq import Boussinesq
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
@@ -19,15 +18,14 @@ from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.run
 )
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    apply_analytical_boussinesq_runtime_defaults,
+    boussinesq_variant_config_name,
+    boussinesq_variant_flow_section,
 )
 from validation_cases.shared.runtime import (
     ValidationRunResult,
     resolve_validation_results_dir,
     write_validation_fields_to_store,
 )
-
-from .reference import expected_boussinesq_hillslope_profile_at_x
 
 CASE_ID = "boussinesq_hillslope_interception_1d"
 NX = 40
@@ -38,11 +36,9 @@ BOTTOM_ELEVATION_M = 0.0
 TOE_ELEVATION_M = 5.0
 TOPOGRAPHY_SLOPE_M_PER_M = 0.0125
 EAST_HEAD_M = 5.0
-INITIAL_HEAD_M = 7.0
 RECHARGE_MM_DAY = 2.0
 HYDRAULIC_CONDUCTIVITY_M_S = 1.0e-4
 STORAGE_COEFFICIENT = 0.10
-ACCEPTABLE_STEADY_RESIDUAL_INF = 1.0e-5
 
 
 def _write_csv(path: Path, header: str, rows: list[str]) -> None:
@@ -215,13 +211,14 @@ def run_boussinesq_hillslope_interception_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> ValidationRunResult:
-    """Run the steady hillslope-interception benchmark on the PETSc VI runtime."""
+    """Run the steady hillslope-interception benchmark for one Boussinesq variant."""
     del timeout
 
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
-        run_name=f"{CASE_ID}_boussinesq",
+        run_name=f"{CASE_ID}_{public_solver_label}",
     )
     bundle_dir = _write_hillslope_strip_bundle(out_path / "mesh_bundle")
     bundle = load_catchment_mesh_bundle(bundle_dir)
@@ -231,10 +228,11 @@ def run_boussinesq_hillslope_interception_case(
 
     flow = Flow(
         _build_flow_config(
-            apply_analytical_boussinesq_runtime_defaults(
+            boussinesq_variant_flow_section(
                 {
                     "flow_regime": "steady",
-                    "ic": {"type": "custom", "value": INITIAL_HEAD_M},
+                    # A neutral start: the whole hillslope at the outlet head.
+                    "ic": {"type": "custom", "value": EAST_HEAD_M},
                     "active_sinks_sources": ["recharge"],
                     "active_bc": ["east_side"],
                     "sinks_sources": {
@@ -249,8 +247,10 @@ def run_boussinesq_hillslope_interception_case(
                     },
                 },
                 flow_regime="steady",
+                solver=public_solver_label,
             ),
             case_dir=Path(__file__).resolve().parent,
+            config_name=boussinesq_variant_config_name(public_solver_label),
         )
     )
 
@@ -267,34 +267,18 @@ def run_boussinesq_hillslope_interception_case(
     if model.mesh is None:
         raise RuntimeError("Boussinesq mesh was not built for the hillslope-interception case.")
 
-    head_guess = expected_boussinesq_hillslope_profile_at_x(
-        x_m=np.asarray(model.mesh.cell_centroid_x_m, dtype=float),
-        xmin=0.0,
-        xmax=LENGTH_X_M,
-        east_head_m=EAST_HEAD_M,
-        recharge_mm_day=RECHARGE_MM_DAY,
-        hydraulic_conductivity_m_per_s=HYDRAULIC_CONDUCTIVITY_M_S,
-    )
-    model.state = BoussinesqState.initial(
-        head_m=np.asarray(head_guess, dtype=float).copy(),
-        saturated_thickness_m=saturated_thickness_from_head(model.mesh, head_guess),
-    )
+    model.state = model._build_initial_state()
     model.solve_stage = "initialized"
 
-    success = bool(model._run_steady_runtime())
-    residual = float(model.runtime_summary.get("steady_residual_norm_inf", np.inf))
-    accepted = success or residual <= ACCEPTABLE_STEADY_RESIDUAL_INF
-    model.runtime_summary["accepted_with_relaxed_residual"] = bool((not success) and accepted)
-    model.runtime_summary["acceptable_steady_residual_inf"] = float(ACCEPTABLE_STEADY_RESIDUAL_INF)
-
-    if not accepted:
+    if not bool(model._run_steady_runtime()):
         model.has_numerical_solution = False
         model.solve_stage = "failed"
+        summary = model.runtime_summary
         raise RuntimeError(
-            "Boussinesq hillslope-interception solve did not converge to an "
-            f"acceptable steady residual. residual_inf={residual:.6g}, "
-            f"threshold={ACCEPTABLE_STEADY_RESIDUAL_INF:.6g}, "
-            f"workspace={model.full_path}"
+            "Boussinesq hillslope-interception steady solve did not converge: "
+            f"residual_inf={float(summary.get('steady_residual_norm_inf', np.inf)):.6g} "
+            f"after {summary.get('steady_nonlinear_iterations')} iterations "
+            f"({summary.get('steady_termination_reason')}), workspace={model.full_path}"
         )
 
     model.has_numerical_solution = True
@@ -312,7 +296,7 @@ def run_boussinesq_hillslope_interception_case(
     )
     return ValidationRunResult(
         case_dir=Path(__file__).resolve().parent,
-        solver_name="boussinesq",
+        solver_name=public_solver_label,
         out_path=out_path,
         model_ws=model_ws,
         postprocess_dir=postprocess_dir,

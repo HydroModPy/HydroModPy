@@ -22,18 +22,19 @@ from hydromodpy.physics.flow.flow_runtime_config import FlowRuntimeConfig
 class FlowRuntimeFields(HydroModelBase):
     """Flat runtime fields kept on :class:`FlowConfig` for TOML compat."""
 
-    runtime_backend: Annotated[Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.USER] = (
-        Field(
-            default="local",
-            description=(
-                "Engine the Boussinesq solver uses for its nonlinear solve. 'local' and "
-                "'scipy' build a dense matrix and suit small meshes; 'scipy_sparse' and "
-                "'petsc' (it needs petsc4py) suit large ones. The MODFLOW solvers do not "
-                "read it."
-            ),
-            examples=["local", "scipy_sparse"],
-            json_schema_extra=field_metadata(stability="experimental"),
-        )
+    runtime_backend: Annotated[
+        Literal["auto", "local", "scipy", "scipy_sparse", "petsc"], Profile.USER
+    ] = Field(
+        default="auto",
+        description=(
+            "Engine the Boussinesq solver uses for its nonlinear solve. 'local' and "
+            "'scipy' build a dense matrix and run on at most 400 cells; 'scipy_sparse' "
+            "and 'petsc' (it needs petsc4py) have no such limit. 'auto' runs 'local' "
+            "up to 400 cells and 'scipy_sparse' above, and logs the choice. The "
+            "MODFLOW solvers do not read it."
+        ),
+        examples=["auto", "scipy_sparse"],
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     surface_interaction_model: Annotated[
         Literal[
@@ -89,16 +90,16 @@ class FlowRuntimeFields(HydroModelBase):
     vi_substeps_per_period: Annotated[int, Profile.DEV] = Field(
         default=1,
         description=(
-            "Fixed number of Backward-Euler substeps per stress period for the "
-            "experimental PETSc VI obstacle runtime. Rate-based forcing values "
-            "are kept unchanged on each substep."
+            "Fixed number of Backward-Euler substeps per time step for the "
+            "experimental PETSc VI obstacle runtime. A stress period holds "
+            "simulation.time.substeps_per_period time steps. Rate-based forcing "
+            "values are kept unchanged on each substep."
         ),
     )
     vi_substep_on_failure: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description=(
-            "When true, retry a failed PETSc VI obstacle stress period with "
-            "increasing substep counts."
+            "When true, retry a failed PETSc VI obstacle time step with increasing substep counts."
         ),
     )
     vi_max_adaptive_substeps: Annotated[int | None, Profile.DEV] = Field(
@@ -110,8 +111,9 @@ class FlowRuntimeFields(HydroModelBase):
     ts_vi_steps_per_period: Annotated[int, Profile.DEV] = Field(
         default=4,
         description=(
-            "Fixed PETSc TS Backward-Euler steps per stress period for the "
-            "experimental TS VI obstacle runtime."
+            "Fixed PETSc TS Backward-Euler steps per time step for the "
+            "experimental TS VI obstacle runtime. A stress period holds "
+            "simulation.time.substeps_per_period time steps."
         ),
     )
     ts_vi_adapt: Annotated[bool, Profile.DEV] = Field(
@@ -120,11 +122,11 @@ class FlowRuntimeFields(HydroModelBase):
     )
     ts_vi_dt_min_fraction: Annotated[float, Profile.DEV] = Field(
         default=1.0 / 64.0,
-        description="Minimum TS VI time-step as a fraction of the stress-period length.",
+        description="Minimum TS VI step as a fraction of the time-step length.",
     )
     ts_vi_dt_max_fraction: Annotated[float, Profile.DEV] = Field(
         default=1.0 / 4.0,
-        description="Maximum TS VI time-step as a fraction of the stress-period length.",
+        description="Maximum TS VI step as a fraction of the time-step length.",
     )
     ts_vi_type: Annotated[str, Profile.DEV] = Field(
         default="beuler",

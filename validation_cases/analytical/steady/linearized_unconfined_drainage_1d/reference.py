@@ -7,9 +7,9 @@ import numpy as np
 
 def expected_linearized_unconfined_drainage_profile(
     *,
-    xmin: float,
-    xmax: float,
-    ncol: int,
+    x: np.ndarray,
+    west_x: float,
+    east_x: float,
     west_head_m: float,
     east_head_m: float,
     drainage_elevation_m: float,
@@ -18,12 +18,13 @@ def expected_linearized_unconfined_drainage_profile(
     hydraulic_conductivity_m_per_s: float,
     reference_saturated_thickness_m: float,
 ) -> np.ndarray:
-    """Return the steady linearized profile with distributed top drainage."""
-    length = float(xmax) - float(xmin)
+    """Return the steady linearized profile with distributed top drainage.
+
+    The heads sit at ``west_x`` and ``east_x``, where the model holds them.
+    """
+    length = float(east_x) - float(west_x)
     if length <= 0.0:
-        raise ValueError("xmax must be strictly larger than xmin.")
-    if int(ncol) <= 0:
-        raise ValueError("ncol must be > 0.")
+        raise ValueError("east_x must be strictly larger than west_x.")
     if float(cell_area_m2) <= 0.0:
         raise ValueError("cell_area_m2 must be > 0.")
 
@@ -37,7 +38,7 @@ def expected_linearized_unconfined_drainage_profile(
     if drainage_rate_per_area < 0.0:
         raise ValueError("drainage_conductance_m2_per_s must be >= 0.")
 
-    x_local = np.linspace(0.0, length, int(ncol), dtype=float)
+    x_local = np.asarray(x, dtype=float) - float(west_x)
     drainage_elevation = float(drainage_elevation_m)
     west_u = float(west_head_m) - drainage_elevation
     east_u = float(east_head_m) - drainage_elevation
@@ -45,7 +46,7 @@ def expected_linearized_unconfined_drainage_profile(
         raise ValueError("Boundary heads must remain strictly above drainage_elevation_m.")
 
     if np.isclose(drainage_rate_per_area, 0.0):
-        return np.linspace(float(west_head_m), float(east_head_m), int(ncol), dtype=float)
+        return float(west_head_m) + (float(east_head_m) - float(west_head_m)) * x_local / length
 
     lambda_value = np.sqrt(drainage_rate_per_area / transmissivity)
     denominator = np.sinh(lambda_value * length)

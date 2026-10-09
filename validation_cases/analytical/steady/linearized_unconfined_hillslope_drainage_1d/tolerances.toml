@@ -1,4 +1,11 @@
 [head_profile]
-rmse = 0.08
-max_abs_error = 0.12
-row_spread = 2e-5
+rmse = 3.2e-5
+max_abs_error = 4.1e-5
+row_spread = 1e-5
+
+[doc]
+reason = """
+Twice the MODFLOW-NWT measurement with the validation profile: RMSE 1.5e-5 m,
+max error 2.0e-5 m on the 50-column grid. The heads sit above the cell top, so
+the case is linear and Newton plays no part.
+"""

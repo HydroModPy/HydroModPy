@@ -16,6 +16,7 @@ from validation_cases.shared import (
     max_std_along_axis,
     rmse,
 )
+from validation_cases.shared.boussinesq_analytical_runtime import DEFAULT_ENGINE_SOLVER
 
 from .reference import (
     SECONDS_PER_DAY,
@@ -226,14 +227,18 @@ def run_boussinesq_hillslope_recharge_step_interception_comparison(
 ) -> BoussinesqTransientHillslopeInterceptionComparison:
     """Run the PETSc Boussinesq recharge-step interception case and compare it."""
     normalized_solver = None if solver is None else str(solver).strip().lower()
-    if normalized_solver not in {None, "boussinesq"}:
-        raise ValueError("This validation case supports only solver='boussinesq'.")
+    if normalized_solver not in {None, "boussinesq", DEFAULT_ENGINE_SOLVER}:
+        raise ValueError(
+            f"This validation case supports only solver='boussinesq' or '{DEFAULT_ENGINE_SOLVER}'."
+        )
+    solver_label = normalized_solver or "boussinesq"
 
     metadata = load_case_metadata(CASE_DIR)
-    tolerances = load_case_tolerances(CASE_DIR, solver="boussinesq")
+    tolerances = load_case_tolerances(CASE_DIR, solver=solver_label)
     result = run_boussinesq_hillslope_recharge_step_interception_case(
         caller_file=caller_file,
         timeout=timeout,
+        public_solver_label=solver_label,
     )
     return build_boussinesq_hillslope_recharge_step_interception_comparison(
         result=result,

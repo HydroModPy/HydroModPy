@@ -1,4 +1,4 @@
-"""PETSc Boussinesq runtime for the deep-aquifer Brutsaert recession case."""
+"""Boussinesq runtime for the deep-aquifer Brutsaert recession case."""
 
 from __future__ import annotations
 
@@ -18,8 +18,9 @@ def run_boussinesq_brutsaert_recession_linearized_deep_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ):
-    """Run the deep-aquifer Brutsaert recession case on the PETSc Boussinesq backend."""
+    """Run the deep-aquifer Brutsaert recession case on one Boussinesq variant."""
     params = load_case_parameters()
     return run_boussinesq_brutsaert_recession_case(
         case_dir=CASE_DIR,
@@ -39,6 +40,7 @@ def run_boussinesq_brutsaert_recession_linearized_deep_case(
         nper=params["nper"],
         dt_seconds=params["dt_seconds"],
         acceptable_steady_residual_inf=params["acceptable_steady_residual_inf"],
+        public_solver_label=public_solver_label,
     )
 
 

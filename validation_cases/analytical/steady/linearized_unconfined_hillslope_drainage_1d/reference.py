@@ -13,7 +13,10 @@ def build_linear_topography_values(
     topography_base_elevation_m: float,
     topography_right_to_left_amplitude_m: float,
 ) -> np.ndarray:
-    """Return linear topography values sampled at explicit x positions."""
+    """Return linear topography values sampled at explicit x positions.
+
+    The surface is ``base + amplitude`` at ``xmin`` and ``base`` at ``xmax``.
+    """
     length = float(xmax) - float(xmin)
     if length <= 0.0:
         raise ValueError("xmax must be strictly larger than xmin.")
@@ -25,32 +28,13 @@ def build_linear_topography_values(
     )
 
 
-def build_linear_topography_profile(
-    *,
-    xmin: float,
-    xmax: float,
-    ncol: int,
-    topography_base_elevation_m: float,
-    topography_right_to_left_amplitude_m: float,
-) -> np.ndarray:
-    """Return one linear topographic profile on a uniform support."""
-    if int(ncol) <= 0:
-        raise ValueError("ncol must be > 0.")
-    x = np.linspace(float(xmin), float(xmax), int(ncol), dtype=float)
-    return build_linear_topography_values(
-        x_m=x,
-        xmin=float(xmin),
-        xmax=float(xmax),
-        topography_base_elevation_m=float(topography_base_elevation_m),
-        topography_right_to_left_amplitude_m=float(topography_right_to_left_amplitude_m),
-    )
-
-
 def expected_linearized_unconfined_hillslope_drainage_profile_at_x(
     *,
     x_m: np.ndarray,
-    xmin: float,
-    xmax: float,
+    surface_west_x: float,
+    surface_east_x: float,
+    west_x: float,
+    east_x: float,
     west_head_m: float,
     east_head_m: float,
     drainage_conductance_m2_per_s: float,
@@ -60,10 +44,16 @@ def expected_linearized_unconfined_hillslope_drainage_profile_at_x(
     topography_base_elevation_m: float,
     topography_right_to_left_amplitude_m: float,
 ) -> np.ndarray:
-    """Return the steady linearized profile sampled at explicit x positions."""
-    length = float(xmax) - float(xmin)
+    """Return the steady linearized profile sampled at explicit x positions.
+
+    The drains sit on the linear topography, which takes its west and east
+    values at ``surface_west_x`` and ``surface_east_x``. The heads sit at
+    ``west_x`` and ``east_x``, where the model holds them. A linear drain
+    elevation leaves ``u = h - z_d`` the solution of ``T u'' = (C / A) u``.
+    """
+    length = float(east_x) - float(west_x)
     if length <= 0.0:
-        raise ValueError("xmax must be strictly larger than xmin.")
+        raise ValueError("east_x must be strictly larger than west_x.")
     if float(cell_area_m2) <= 0.0:
         raise ValueError("cell_area_m2 must be > 0.")
 
@@ -77,58 +67,27 @@ def expected_linearized_unconfined_hillslope_drainage_profile_at_x(
     if drainage_rate_per_area < 0.0:
         raise ValueError("drainage_conductance_m2_per_s must be >= 0.")
 
+    def topography(points: np.ndarray) -> np.ndarray:
+        return build_linear_topography_values(
+            x_m=points,
+            xmin=float(surface_west_x),
+            xmax=float(surface_east_x),
+            topography_base_elevation_m=float(topography_base_elevation_m),
+            topography_right_to_left_amplitude_m=float(topography_right_to_left_amplitude_m),
+        )
+
     x = np.asarray(x_m, dtype=float)
-    x_local = x - float(xmin)
-    topography_profile = build_linear_topography_values(
-        x_m=x,
-        xmin=float(xmin),
-        xmax=float(xmax),
-        topography_base_elevation_m=float(topography_base_elevation_m),
-        topography_right_to_left_amplitude_m=float(topography_right_to_left_amplitude_m),
-    )
-    west_u = float(west_head_m) - float(topography_profile[0])
-    east_u = float(east_head_m) - float(topography_profile[-1])
+    x_local = x - float(west_x)
+    west_u = float(west_head_m) - float(topography(np.asarray([float(west_x)]))[0])
+    east_u = float(east_head_m) - float(topography(np.asarray([float(east_x)]))[0])
     if west_u <= 0.0 or east_u <= 0.0:
         raise ValueError("Boundary heads must remain strictly above the local topography.")
 
     if np.isclose(drainage_rate_per_area, 0.0):
-        return np.linspace(float(west_head_m), float(east_head_m), len(x), dtype=float)
+        return float(west_head_m) + (float(east_head_m) - float(west_head_m)) * x_local / length
 
     lambda_value = np.sqrt(drainage_rate_per_area / transmissivity)
     denominator = np.sinh(lambda_value * length)
     west_shape = np.sinh(lambda_value * (length - x_local)) / denominator
     east_shape = np.sinh(lambda_value * x_local) / denominator
-    return topography_profile + (west_u * west_shape) + (east_u * east_shape)
-
-
-def expected_linearized_unconfined_hillslope_drainage_profile(
-    *,
-    xmin: float,
-    xmax: float,
-    ncol: int,
-    west_head_m: float,
-    east_head_m: float,
-    drainage_conductance_m2_per_s: float,
-    cell_area_m2: float,
-    hydraulic_conductivity_m_per_s: float,
-    reference_saturated_thickness_m: float,
-    topography_base_elevation_m: float,
-    topography_right_to_left_amplitude_m: float,
-) -> np.ndarray:
-    """Return the steady linearized profile with linearly varying drainage elevation."""
-    if int(ncol) <= 0:
-        raise ValueError("ncol must be > 0.")
-    x = np.linspace(float(xmin), float(xmax), int(ncol), dtype=float)
-    return expected_linearized_unconfined_hillslope_drainage_profile_at_x(
-        x_m=x,
-        xmin=float(xmin),
-        xmax=float(xmax),
-        west_head_m=float(west_head_m),
-        east_head_m=float(east_head_m),
-        drainage_conductance_m2_per_s=float(drainage_conductance_m2_per_s),
-        cell_area_m2=float(cell_area_m2),
-        hydraulic_conductivity_m_per_s=float(hydraulic_conductivity_m_per_s),
-        reference_saturated_thickness_m=float(reference_saturated_thickness_m),
-        topography_base_elevation_m=float(topography_base_elevation_m),
-        topography_right_to_left_amplitude_m=float(topography_right_to_left_amplitude_m),
-    )
+    return topography(x) + (west_u * west_shape) + (east_u * east_shape)

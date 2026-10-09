@@ -8247,16 +8247,17 @@
       "description": "Flow-process configuration.\n\nParameters are declared in `param_list` (ordered list of ids), and\nparameter payloads are stored in `param`. The 13 flat\n``runtime_*``/``vi_*``/``ts_vi_*`` Boussinesq knobs are declared on\n:class:`FlowRuntimeFields` and grouped together by the\n:attr:`runtime` property as a :class:`FlowRuntimeConfig` view.",
       "properties": {
         "runtime_backend": {
-          "default": "local",
-          "description": "Engine the Boussinesq solver uses for its nonlinear solve. 'local' and 'scipy' build a dense matrix and suit small meshes; 'scipy_sparse' and 'petsc' (it needs petsc4py) suit large ones. The MODFLOW solvers do not read it.",
+          "default": "auto",
+          "description": "Engine the Boussinesq solver uses for its nonlinear solve. 'local' and 'scipy' build a dense matrix and run on at most 400 cells; 'scipy_sparse' and 'petsc' (it needs petsc4py) have no such limit. 'auto' runs 'local' up to 400 cells and 'scipy_sparse' above, and logs the choice. The MODFLOW solvers do not read it.",
           "enum": [
+            "auto",
             "local",
             "scipy",
             "scipy_sparse",
             "petsc"
           ],
           "examples": [
-            "local",
+            "auto",
             "scipy_sparse"
           ],
           "stability": "experimental",
@@ -8333,7 +8334,7 @@
         },
         "vi_substeps_per_period": {
           "default": 1,
-          "description": "Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep.",
+          "description": "Fixed number of Backward-Euler substeps per time step for the experimental PETSc VI obstacle runtime. A stress period holds simulation.time.substeps_per_period time steps. Rate-based forcing values are kept unchanged on each substep.",
           "examples": [
             1
           ],
@@ -8343,7 +8344,7 @@
         },
         "vi_substep_on_failure": {
           "default": false,
-          "description": "When true, retry a failed PETSc VI obstacle stress period with increasing substep counts.",
+          "description": "When true, retry a failed PETSc VI obstacle time step with increasing substep counts.",
           "examples": [
             false
           ],
@@ -8367,7 +8368,7 @@
         },
         "ts_vi_steps_per_period": {
           "default": 4,
-          "description": "Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime.",
+          "description": "Fixed PETSc TS Backward-Euler steps per time step for the experimental TS VI obstacle runtime. A stress period holds simulation.time.substeps_per_period time steps.",
           "examples": [
             4
           ],
@@ -8387,7 +8388,7 @@
         },
         "ts_vi_dt_min_fraction": {
           "default": 0.015625,
-          "description": "Minimum TS VI time-step as a fraction of the stress-period length.",
+          "description": "Minimum TS VI step as a fraction of the time-step length.",
           "examples": [
             0.015625
           ],
@@ -8397,7 +8398,7 @@
         },
         "ts_vi_dt_max_fraction": {
           "default": 0.25,
-          "description": "Maximum TS VI time-step as a fraction of the stress-period length.",
+          "description": "Maximum TS VI step as a fraction of the time-step length.",
           "examples": [
             0.25
           ],
@@ -25069,7 +25070,7 @@
         },
         "substeps_per_period": {
           "default": 1,
-          "description": "Number of solver time steps within each stress period, the one knob that buys transient accuracy. The default of 1 integrates a whole period in a single backward-Euler step, which is not a neutral choice: on a seasonally recharged hillslope drained by DRN cells it moves the monthly discharge by 4 to 28 % against a refined run, across the whole plausible bedrock range, and a calibration scored on discharge absorbs that into the fitted parameters. The right count compares the aquifer response time `tau = L^2 S / (K b)` with the period length, and the solver cost is linear in it; 30 gives daily steps inside monthly periods. Consumed by the MODFLOW backends as DIS NSTP / TDIS nstp; the Boussinesq backend has its own [flow].vi_substeps_per_period.",
+          "description": "Number of solver time steps within each stress period, the one knob that buys transient accuracy. The default of 1 integrates a whole period in a single backward-Euler step, which is not a neutral choice: on a seasonally recharged hillslope drained by DRN cells it moves the monthly discharge by 4 to 28 % against a refined run, across the whole plausible bedrock range, and a calibration scored on discharge absorbs that into the fitted parameters. The right count compares the aquifer response time `tau = L^2 S / (K b)` with the period length, and the solver cost is linear in it; 30 gives daily steps inside monthly periods. Consumed by the MODFLOW backends as DIS NSTP / TDIS nstp, and by the Boussinesq backend, which solves each period in as many backward-Euler steps of equal length.",
           "examples": [
             1
           ],

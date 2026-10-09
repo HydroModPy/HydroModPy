@@ -13,6 +13,8 @@ from validation_cases.analytical.transient.linearized_unconfined_1d import (
 def expected_linearized_unconfined_boundary_step_profiles(
     *,
     x: np.ndarray,
+    west_x: float,
+    east_x: float,
     eval_times_seconds,
     period_start_seconds,
     base_head_m: float,
@@ -35,6 +37,8 @@ def expected_linearized_unconfined_boundary_step_profiles(
     )
     return west_boundary_profiles_from_period_levels(
         x=np.asarray(x, dtype=float),
+        west_x=float(west_x),
+        east_x=float(east_x),
         eval_times_seconds=eval_times_seconds,
         period_start_seconds=period_start_seconds,
         west_head_levels_m=west_levels,

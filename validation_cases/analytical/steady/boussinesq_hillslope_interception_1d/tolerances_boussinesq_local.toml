@@ -1,0 +1,25 @@
+[interception]
+x_error_m = 8.4
+
+[profile]
+rmse = 0.021
+max_abs_error = 0.076
+
+[uniformity]
+row_spread = 8e-7
+
+[contact]
+max_positive_clearance_m = 1e-6
+
+[doc]
+reason = """
+The default local engine, regularized partition closure, against the exact
+seepage-face solution, started from the outlet head over the whole hillslope,
+with the Newton closure of config_boussinesq_local.toml (1e-8 m3/s): 8
+iterations. Head profile: RMSE 0.0105 m, max 0.038 m in the column that holds
+the tangent point; the dry heads sit 0.009 m low, the partition releasing water
+within its 0.05 m radius of the surface. Bounds twice the measurement. The
+contact point, read on 10 m columns with a 5 cm tolerance as on the reference,
+is 3.4 m off: the bound sits half a column above. Row spread 3.8e-7 m, bound
+twice that. The head may not exceed the land surface by more than 1e-6 m.
+"""

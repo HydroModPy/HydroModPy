@@ -108,9 +108,37 @@ def merge(
     }
 
 
+def _is_numeric(value: Any) -> bool:
+    """True for a number, a null, or a list of them, nested at any depth."""
+    if isinstance(value, list):
+        return all(_is_numeric(v) for v in value)
+    return value is None or (isinstance(value, (int, float)) and not isinstance(value, bool))
+
+
+def _dumps(value: Any, depth: int = 0) -> str:
+    """JSON with one key per line and every array of numbers on one line.
+
+    One number per line made the maps and fields of the snapshot several times
+    larger than their content, and its diffs unreadable.
+    """
+    pad = " " * (depth + 1)
+    if isinstance(value, dict) and value:
+        items = [
+            f"{pad}{json.dumps(k, ensure_ascii=False)}: {_dumps(v, depth + 1)}"
+            for k, v in value.items()
+        ]
+        return "{\n" + ",\n".join(items) + "\n" + " " * depth + "}"
+    if isinstance(value, list) and value and not _is_numeric(value):
+        items = [f"{pad}{_dumps(v, depth + 1)}" for v in value]
+        return "[\n" + ",\n".join(items) + "\n" + " " * depth + "]"
+    return json.dumps(
+        value, ensure_ascii=False, separators=(",", ":") if isinstance(value, list) else None
+    )
+
+
 def write(payload: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=1, ensure_ascii=False, sort_keys=False) + "\n")
+    path.write_text(_dumps(payload) + "\n")
 
 
 def cmd_merge(args: argparse.Namespace) -> int:

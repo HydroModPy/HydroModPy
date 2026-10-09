@@ -1,8 +1,17 @@
 [space_time]
-rmse = 0.03
-max_abs_error = 0.08
-azimuthal_spread = 0.10
+rmse = 0.009
+max_abs_error = 0.022
+azimuthal_spread = 0.1
 
 [final_time]
-rmse = 0.02
-max_abs_error = 0.03
+rmse = 0.009
+max_abs_error = 0.014
+
+[doc]
+reason = """
+Twice the error measured on the refined triangle mesh, the reference read at
+the centroid of the triangle each monitor point reads: space-time RMSE 4.5e-3 m,
+max error 1.07e-2 m, final RMSE 4.3e-3 m, final max error 6.7e-3 m. The
+azimuthal spread, 0.087 m, measures the asymmetry of the mesh around the well:
+its bound keeps a 15 % margin.
+"""

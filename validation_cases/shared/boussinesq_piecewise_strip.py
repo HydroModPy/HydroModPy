@@ -11,6 +11,7 @@ import numpy as np
 
 from validation_cases.shared.boussinesq_analytical_runtime import (
     apply_analytical_boussinesq_runtime_defaults,
+    is_default_engine_solver,
 )
 from validation_cases.shared.runtime import (
     VALIDATION_FIELD_PRECISION,
@@ -41,6 +42,21 @@ def _zone_index_for_x(x_m: float) -> int:
         if float(x_m) < float(x_break):
             return index
     return len(PIECEWISE_STRIP_X_ZONE_BREAKS_M)
+
+
+def _rectangle_triangles(
+    n00: int, n10: int, n01: int, n11: int, *, ix: int, iy: int
+) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+    """Split one rectangle along a diagonal that alternates like a checkerboard.
+
+    A two-point flux on right triangles that all share one diagonal direction
+    carries an orientation bias: the x conductance of the strip comes out about
+    7 % low at dx = dy, and the error grows as dx shrinks. Alternating the
+    diagonal cancels it, as in the uniform strip of the validation runtime.
+    """
+    if (ix + iy) % 2 == 0:
+        return (n00, n10, n11), (n00, n11, n01)
+    return (n00, n10, n01), (n10, n11, n01)
 
 
 def _write_piecewise_strip_mesh(mesh_path: Path) -> Path:
@@ -74,7 +90,7 @@ def _write_piecewise_strip_mesh(mesh_path: Path) -> Path:
             n10 = n00 + 1
             n01 = n00 + (PIECEWISE_STRIP_NX + 1)
             n11 = n01 + 1
-            for triangle in ((n00, n10, n11), (n00, n11, n01)):
+            for triangle in _rectangle_triangles(n00, n10, n01, n11, ix=ix, iy=iy):
                 lines.append(
                     f"{element_id} 2 0 {triangle[0] + 1} {triangle[1] + 1} {triangle[2] + 1}"
                 )
@@ -142,7 +158,7 @@ def write_piecewise_strip_bundle(bundle_dir: Path) -> Path:
             n10 = n00 + 1
             n01 = n00 + (PIECEWISE_STRIP_NX + 1)
             n11 = n01 + 1
-            for triangle in ((n00, n10, n11), (n00, n11, n01)):
+            for triangle in _rectangle_triangles(n00, n10, n01, n11, ix=ix, iy=iy):
                 triangle_points = np.asarray(
                     [node_xy[node_id] for node_id in triangle],
                     dtype=float,
@@ -382,11 +398,15 @@ def write_piecewise_strip_launcher_config(
     west_head_m: float | None = None,
     east_head_m: float | None = None,
     recharge_rate_m_s: float | None = None,
-    runtime_backend: str = "petsc",
+    runtime_backend: str | None = "petsc",
     surface_interaction_model: str | None = None,
     apply_runtime_defaults: bool = True,
 ) -> Path:
-    """Write one minimal self-contained launcher config for the strip bundle."""
+    """Write one minimal self-contained launcher config for the strip bundle.
+
+    With ``runtime_backend=None`` the ``[flow]`` table has no runtime key, so
+    the run gets the default engine of the library.
+    """
     active_bc: list[str] = []
     if west_head_m is not None:
         active_bc.append("west_side")
@@ -396,17 +416,24 @@ def write_piecewise_strip_launcher_config(
     if recharge_rate_m_s is not None:
         active_sinks_sources.append("recharge")
 
-    runtime_flow = {
-        "flow_regime": "steady",
-        "runtime_backend": runtime_backend,
-    }
-    if surface_interaction_model is not None:
-        runtime_flow["surface_interaction_model"] = surface_interaction_model
-    if apply_runtime_defaults:
-        runtime_flow = apply_analytical_boussinesq_runtime_defaults(
-            runtime_flow,
-            flow_regime="steady",
-        )
+    runtime_lines: list[str] = []
+    if runtime_backend is not None:
+        runtime_flow = {
+            "flow_regime": "steady",
+            "runtime_backend": runtime_backend,
+        }
+        if surface_interaction_model is not None:
+            runtime_flow["surface_interaction_model"] = surface_interaction_model
+        if apply_runtime_defaults:
+            runtime_flow = apply_analytical_boussinesq_runtime_defaults(
+                runtime_flow,
+                flow_regime="steady",
+            )
+        runtime_lines = [
+            f"runtime_backend = {json.dumps(str(runtime_flow['runtime_backend']))}",
+            "surface_interaction_model = "
+            f"{json.dumps(str(runtime_flow['surface_interaction_model']))}",
+        ]
 
     lines = [
         '[workflow]\nmode = "simulation"',
@@ -454,8 +481,7 @@ def write_piecewise_strip_launcher_config(
         "",
         "[flow]",
         'flow_regime = "steady"',
-        f"runtime_backend = {json.dumps(str(runtime_flow['runtime_backend']))}",
-        f"surface_interaction_model = {json.dumps(str(runtime_flow['surface_interaction_model']))}",
+        *runtime_lines,
         f"active_sinks_sources = [{', '.join(json.dumps(item) for item in active_sinks_sources)}]",
         f"active_bc = [{', '.join(json.dumps(item) for item in active_bc)}]",
         "",
@@ -523,16 +549,22 @@ def run_piecewise_strip_boussinesq_launcher_case(
     runtime_backend: str = "petsc",
     surface_interaction_model: str | None = None,
     apply_runtime_defaults: bool = True,
+    public_solver_label: str = "boussinesq",
 ) -> ValidationRunResult:
-    """Run one steady Boussinesq piecewise-strip case through ``hmp run``."""
+    """Run one steady Boussinesq piecewise-strip case through ``hmp run``.
+
+    The default-engine label writes no runtime key, whatever ``runtime_backend`` says.
+    """
+    solver_name = str(public_solver_label or "boussinesq")
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
-        run_name=f"{case_id}_boussinesq",
+        run_name=f"{case_id}_{solver_name}",
     )
     bundle_dir = write_piecewise_strip_bundle(out_path / "mesh_bundle")
+    default_engine = is_default_engine_solver(solver_name)
     config_path = write_piecewise_strip_launcher_config(
-        out_path / "config_boussinesq_launcher.toml",
-        run_id=f"{case_id}_boussinesq",
+        out_path / f"config_{solver_name}_launcher.toml",
+        run_id=f"{case_id}_{solver_name}",
         process_id=process_id,
         simulation_name=simulation_name,
         simulation_description=simulation_description,
@@ -541,8 +573,8 @@ def run_piecewise_strip_boussinesq_launcher_case(
         west_head_m=None if west_head_m is None else float(west_head_m),
         east_head_m=None if east_head_m is None else float(east_head_m),
         recharge_rate_m_s=(None if recharge_rate_m_s is None else float(recharge_rate_m_s)),
-        runtime_backend=runtime_backend,
-        surface_interaction_model=surface_interaction_model,
+        runtime_backend=None if default_engine else runtime_backend,
+        surface_interaction_model=None if default_engine else surface_interaction_model,
         apply_runtime_defaults=apply_runtime_defaults,
     )
 
@@ -593,7 +625,7 @@ def run_piecewise_strip_boussinesq_launcher_case(
 
     return ValidationRunResult(
         case_dir=Path(case_dir),
-        solver_name="boussinesq",
+        solver_name=solver_name,
         out_path=out_path,
         model_ws=model_ws,
         postprocess_dir=postprocess_dir,

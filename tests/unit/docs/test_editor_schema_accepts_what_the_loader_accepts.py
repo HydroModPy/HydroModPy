@@ -54,7 +54,11 @@ def _problems(validator: Draft202012Validator, text: str) -> list[str]:
     ]
 
 
-EXAMPLE_FILES = sorted(EXAMPLE.rglob("*.toml"))
+# A run folder holds the resolved config.toml HydroModPy wrote, not a file a
+# user edits: the editor schema has nothing to say about it.
+EXAMPLE_FILES = sorted(
+    p for p in EXAMPLE.rglob("*.toml") if "runs" not in p.relative_to(EXAMPLE).parts
+)
 
 
 def test_the_example_corpus_is_found() -> None:

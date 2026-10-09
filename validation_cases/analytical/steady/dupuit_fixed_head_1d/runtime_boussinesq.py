@@ -88,6 +88,7 @@ def run_boussinesq_dupuit_fixed_head_case(
         nper=1 if use_ts_vi else None,
         dt_seconds=1.0e8 if use_ts_vi else None,
         export_initial_state=False if use_ts_vi else None,
+        public_solver_label=public_solver_label,
     )
     return replace(result, solver_name=str(public_solver_label or "boussinesq"))
 

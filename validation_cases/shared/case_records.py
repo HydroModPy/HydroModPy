@@ -14,7 +14,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SOLVER_ORDER = ("modflow_nwt", "modflow6", "modflow6_irregular_tri", "boussinesq")
+SOLVER_ORDER = (
+    "modflow_nwt",
+    "modflow6",
+    "modflow6_irregular_tri",
+    "modflow6_voronoi",
+    "boussinesq",
+    "boussinesq_local",
+)
 
 
 @dataclass(frozen=True, slots=True)

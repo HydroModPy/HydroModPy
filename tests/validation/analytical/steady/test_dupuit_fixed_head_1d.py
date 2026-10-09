@@ -25,6 +25,7 @@ from validation_cases.analytical.steady.dupuit_fixed_head_1d.comparison import (
         pytest.param("modflow6", False, True, id="modflow6"),
         pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
         pytest.param("boussinesq", False, False, id="boussinesq"),
+        pytest.param("boussinesq_local", False, False, id="boussinesq_local"),
     ],
 )
 def test_dupuit_fixed_head_1d_matches_reference_profile(

@@ -22,9 +22,11 @@ class FlowRuntimeConfig(HydroModelBase):
     :attr:`FlowConfig.runtime` for new call-sites.
     """
 
-    backend: Annotated[Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.DEV] = Field(
-        default="local",
-        description=("Nonlinear runtime backend used by Boussinesq-style solvers."),
+    backend: Annotated[Literal["auto", "local", "scipy", "scipy_sparse", "petsc"], Profile.DEV] = (
+        Field(
+            default="auto",
+            description=("Nonlinear runtime backend used by Boussinesq-style solvers."),
+        )
     )
     surface_model: Annotated[
         Literal[
@@ -61,14 +63,14 @@ class FlowRuntimeConfig(HydroModelBase):
     vi_substeps_per_period: Annotated[int, Profile.DEV] = Field(
         default=1,
         description=(
-            "Fixed number of Backward-Euler substeps per stress period for the "
+            "Fixed number of Backward-Euler substeps per time step for the "
             "experimental PETSc VI obstacle runtime."
         ),
     )
     vi_substep_on_failure: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description=(
-            "Retry failed PETSc VI obstacle periods with more substeps, up to "
+            "Retry failed PETSc VI obstacle time steps with more substeps, up to "
             "vi_max_adaptive_substeps."
         ),
     )
@@ -79,7 +81,7 @@ class FlowRuntimeConfig(HydroModelBase):
     ts_vi_steps_per_period: Annotated[int, Profile.DEV] = Field(
         default=4,
         description=(
-            "Fixed PETSc TS Backward-Euler steps per stress period for the "
+            "Fixed PETSc TS Backward-Euler steps per time step for the "
             "experimental TS VI obstacle runtime."
         ),
     )
@@ -89,11 +91,11 @@ class FlowRuntimeConfig(HydroModelBase):
     )
     ts_vi_dt_min_fraction: Annotated[float, Profile.DEV] = Field(
         default=1.0 / 64.0,
-        description="Minimum TS VI time-step as a fraction of the stress-period length.",
+        description="Minimum TS VI step as a fraction of the time-step length.",
     )
     ts_vi_dt_max_fraction: Annotated[float, Profile.DEV] = Field(
         default=1.0 / 4.0,
-        description="Maximum TS VI time-step as a fraction of the stress-period length.",
+        description="Maximum TS VI step as a fraction of the time-step length.",
     )
     ts_vi_type: Annotated[str, Profile.DEV] = Field(
         default="beuler",

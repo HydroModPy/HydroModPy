@@ -15,18 +15,20 @@ def mm_day_to_m_s(value: float) -> float:
 
 def expected_dupuit_uniform_recharge_profile(
     *,
-    xmin: float,
-    xmax: float,
-    ncol: int,
+    x: np.ndarray,
+    west_x: float,
+    east_x: float,
     west_head: float,
     east_head: float,
     recharge_mm_day: float,
     hydraulic_conductivity_m_per_s: float,
 ) -> np.ndarray:
-    """Return the steady Dupuit profile with uniform recharge and fixed heads."""
-    x = np.linspace(float(xmin), float(xmax), int(ncol), dtype=float)
-    length = float(xmax) - float(xmin)
-    local_x = x - float(xmin)
+    """Return the steady Dupuit profile with uniform recharge between two held heads.
+
+    The heads sit at ``west_x`` and ``east_x``, where the model holds them.
+    """
+    length = float(east_x) - float(west_x)
+    local_x = np.asarray(x, dtype=float) - float(west_x)
     recharge_m_per_s = mm_day_to_m_s(recharge_mm_day)
     head_squared = (
         float(west_head) ** 2

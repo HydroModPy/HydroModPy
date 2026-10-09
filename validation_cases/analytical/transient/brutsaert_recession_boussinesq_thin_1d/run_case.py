@@ -24,7 +24,11 @@ def _build_metric_lines(comparison) -> tuple[str, ...]:
     return (
         f"Solution: {comparison.solution_name}",
         f"Initial discharge: {comparison.initial_discharge_m3_s:.6e} m3/s",
+        f"Drainage length: {comparison.drainage_length_m:.3f} m",
         f"Characteristic time: {comparison.characteristic_time_days:.2f} d",
+        f"Recession coefficient error: {comparison.recession_coefficient_relative_error:+.4f}",
+        f"Recession exponent b: {comparison.recession_exponent:.4f}",
+        f"Late relative RMSE: {comparison.late_relative_rmse:.4f}",
         f"Relative RMSE: {comparison.relative_rmse:.4f}",
         f"Relative max abs error: {comparison.relative_max_error:.4f}",
         f"Cross-row head spread: {comparison.row_spread:.2e} m",

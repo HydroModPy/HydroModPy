@@ -27,6 +27,10 @@ Comparison:
 - reference: steady 1D sloping-substratum system
   `dq/dx = R`, `db/dx = S0 - q / (K b)` solved by shooting on the west
   discharge and RK4 integration of the thickness profile,
+- boundary positions: each side head is posed where the model holds it, at the
+  centre of the boundary column, or at the mean centroid of the boundary
+  triangles on the triangle strip; a no-flow side stays on the domain face
+  (`validation_cases/shared/strip_geometry.py`)
 - primary metrics: head-profile RMSE, max abs error, cross-row spread.
 
 Solver variants:

@@ -30,6 +30,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
@@ -73,8 +74,13 @@ from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
     write_vi_obstacle_diagnostic_files,
 )
 from hydromodpy.solver.boussinesq.solver_contract import (
+    AUTO_RUNTIME_BACKEND,
+    DENSE_ENGINE_MAX_CELLS,
     BoussinesqSolverContract,
+    build_runtime_options,
+    resolve_runtime_backend_name,
     resolve_solver_contract,
+    runtime_backend_name,
 )
 from hydromodpy.solver.initial_conditions import (
     summarize_head_initial_condition_bounds,
@@ -91,6 +97,8 @@ from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
 
 _SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
 _DEFAULT_SATURATION_EXCESS_REGULARIZATION = 0.05
+
+logger = get_logger(__name__)
 
 
 class Boussinesq:
@@ -128,6 +136,7 @@ class Boussinesq:
         self.has_numerical_solution = False
         self.solve_stage = "created"
         self.saturation_excess_regularization_radius = _DEFAULT_SATURATION_EXCESS_REGULARIZATION
+        self._runtime_engine_logged = False
 
     def pre_processing(self):
         """Build the compact solver mesh and initialize static run metadata."""
@@ -317,11 +326,15 @@ class Boussinesq:
                 + "."
             )
 
+    def _mesh_cell_count(self) -> int | None:
+        """Return the number of solver cells, or None before the mesh exists."""
+        return None if self.mesh is None else int(self.mesh.n_cells)
+
     def _runtime_backend_name(self) -> str:
-        """Return the selected nonlinear runtime backend name."""
-        return (
-            str(getattr(self.flow, "runtime_backend", "local") or "local").strip().lower()
-            or "local"
+        """Return the engine that runs, with ``"auto"`` resolved on the mesh size."""
+        return resolve_runtime_backend_name(
+            runtime_backend_name(self.flow),
+            n_cells=self._mesh_cell_count(),
         )
 
     def _surface_interaction_model(self) -> str:
@@ -344,54 +357,39 @@ class Boussinesq:
 
     def _runtime_options(self) -> NonlinearRuntimeOptions:
         """Build backend-neutral nonlinear options for the selected runtime."""
-        runtime_backend_name = self._runtime_backend_name()
-        max_iterations = 20
-        if runtime_backend_name == "scipy_sparse":
-            max_iterations = 30
-        runtime_max_iterations = getattr(self.flow, "runtime_max_iterations", None)
-        if runtime_max_iterations is not None:
-            max_iterations = int(runtime_max_iterations)
-        tol_residual_inf = float(getattr(self.flow, "runtime_tol_residual_inf", 1.0e-9) or 1.0e-9)
-        tol_state_update_inf = float(
-            getattr(self.flow, "runtime_tol_state_update_inf", 1.0e-9) or 1.0e-9
-        )
-        vi_substeps_per_period = int(getattr(self.flow, "vi_substeps_per_period", 1) or 1)
-        vi_substep_on_failure = bool(getattr(self.flow, "vi_substep_on_failure", False))
-        vi_max_adaptive_substeps = int(
-            getattr(self.flow, "vi_max_adaptive_substeps", vi_substeps_per_period)
-            or vi_substeps_per_period
-        )
-        ts_vi_steps_per_period = int(getattr(self.flow, "ts_vi_steps_per_period", 4) or 4)
-        ts_vi_adapt = bool(getattr(self.flow, "ts_vi_adapt", False))
-        ts_vi_dt_min_fraction = float(
-            getattr(self.flow, "ts_vi_dt_min_fraction", 1.0 / 64.0) or (1.0 / 64.0)
-        )
-        ts_vi_dt_max_fraction = float(
-            getattr(self.flow, "ts_vi_dt_max_fraction", 1.0 / 4.0) or (1.0 / 4.0)
-        )
-        ts_vi_type = str(getattr(self.flow, "ts_vi_type", "beuler") or "beuler")
-        ts_vi_snes_type = str(
-            getattr(self.flow, "ts_vi_snes_type", "vinewtonrsls") or "vinewtonrsls"
-        )
-        return NonlinearRuntimeOptions(
+        return build_runtime_options(
+            self.flow,
             regularization_radius=float(self.saturation_excess_regularization_radius),
-            max_iterations=int(max_iterations),
-            tol_residual_inf=tol_residual_inf,
-            tol_state_update_inf=tol_state_update_inf,
-            vi_substeps_per_period=vi_substeps_per_period,
-            vi_substep_on_failure=vi_substep_on_failure,
-            vi_max_adaptive_substeps=vi_max_adaptive_substeps,
-            ts_vi_steps_per_period=ts_vi_steps_per_period,
-            ts_vi_adapt=ts_vi_adapt,
-            ts_vi_dt_min_fraction=ts_vi_dt_min_fraction,
-            ts_vi_dt_max_fraction=ts_vi_dt_max_fraction,
-            ts_vi_type=ts_vi_type,
-            ts_vi_snes_type=ts_vi_snes_type,
+            n_cells=self._mesh_cell_count(),
         )
 
     def _resolve_solver_contract(self) -> BoussinesqSolverContract:
         """Resolve the explicit solver contract from the current ``Flow``."""
-        return resolve_solver_contract(self.flow)
+        contract = resolve_solver_contract(self.flow, n_cells=self._mesh_cell_count())
+        self._log_runtime_engine_once(contract)
+        return contract
+
+    def _log_runtime_engine_once(self, contract: BoussinesqSolverContract) -> None:
+        """Log at info level, once per solver, which engine runs and why."""
+        if self._runtime_engine_logged:
+            return
+        self._runtime_engine_logged = True
+        n_cells = self._mesh_cell_count()
+        engine = contract.runtime_backend.name
+        if contract.runtime_backend_requested == AUTO_RUNTIME_BACKEND:
+            logger.info(
+                "Boussinesq engine '%s', chosen by runtime_backend 'auto' for %s cells "
+                "(dense 'local' up to %d cells, sparse 'scipy_sparse' above).",
+                engine,
+                n_cells,
+                DENSE_ENGINE_MAX_CELLS,
+            )
+            return
+        logger.info(
+            "Boussinesq engine '%s', set by flow.runtime_backend, for %s cells.",
+            engine,
+            n_cells,
+        )
 
     def _forcing_resolver(self) -> BoussinesqForcingResolver:
         """Build one forcing resolver bound to the current solver state."""
@@ -488,19 +486,22 @@ class Boussinesq:
         self,
         runtime_backend: ResolvedBoussinesqRuntimeBackend,
     ) -> None:
-        """Fail fast when the selected runtime still relies on dense Jacobians."""
+        """Refuse a dense engine on a mesh above its size limit.
+
+        ``"auto"`` never resolves to a dense engine above the limit, so this
+        only stops an explicit ``local`` or ``scipy`` request.
+        """
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before checking runtime limits.")
         if runtime_backend.linear_system_layout != "dense":
             return
-        max_cells_dense = 400
-        if self.mesh.n_cells > max_cells_dense:
-            raise NotImplementedError(
-                f"The current {runtime_backend.name} boussinesq runtime still "
-                "assembles a dense Jacobian and is limited to "
-                f"small meshes (<= {max_cells_dense} cells). "
-                "Use a reduced test mesh for now. A future sparse Jacobian path "
-                "should lift this limitation without changing the runtime contract."
+        if self.mesh.n_cells > DENSE_ENGINE_MAX_CELLS:
+            raise IncompatibleCapabilitiesError(
+                f"flow.runtime_backend = '{runtime_backend.name}' builds a dense "
+                f"Jacobian by design and runs on at most {DENSE_ENGINE_MAX_CELLS} "
+                f"cells; this mesh has {self.mesh.n_cells}. Remove the key, or set "
+                "it to 'auto', to run 'scipy_sparse' on this mesh, or set "
+                "'scipy_sparse' or 'petsc'."
             )
 
     def _resolve_initial_head_field(self) -> np.ndarray:

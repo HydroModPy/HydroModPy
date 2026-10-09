@@ -3,8 +3,8 @@
 This driver folds five sibling 1D linearized-unconfined transient benchmarks into one
 parametrized suite. Each scenario keeps its own forcing (via its own launcher comparison
 function) and its own tolerances (read from the per-case tolerance TOML through the
-comparison payload, including the per-scenario cross-row spread envelope documented in
-``tests/TOLERANCES.md`` rows 25-29).
+comparison payload). The references pose the side heads where the model holds them, at
+the centres of the boundary cells.
 """
 
 from __future__ import annotations
@@ -53,6 +53,10 @@ SCENARIO_RUNNERS: dict[str, ComparisonRunner] = {
 # Scenarios that additionally exercise the Boussinesq PETSc obstacle solvers.
 PETSC_SCENARIOS: tuple[str, ...] = ("recharge_step", "boundary_step")
 
+# Every scenario runs the default Boussinesq engine: 'auto' takes the dense local
+# engine on the 160-cell strips and scipy_sparse on the 500-cell ones.
+DEFAULT_ENGINE_SCENARIOS: tuple[str, ...] = tuple(SCENARIO_RUNNERS)
+
 
 def _require_linux_petsc4py() -> None:
     if platform.system().strip().lower() != "linux":
@@ -94,6 +98,31 @@ def test_linearized_unconfined_transient_1d_matches_reference_profiles(
     comparison = SCENARIO_RUNNERS[scenario](caller_file=__file__, solver=solver)
     record_comparison(comparison)
 
+    assert_space_time_metrics(comparison)
+    assert_profile_metrics(comparison)
+
+
+@pytest.mark.validation
+@pytest.mark.analytical
+@pytest.mark.transient
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    "scenario",
+    [pytest.param(name, id=name) for name in DEFAULT_ENGINE_SCENARIOS],
+)
+@pytest.mark.parametrize(
+    "solver",
+    [pytest.param("boussinesq_local", id="boussinesq_local")],
+)
+def test_linearized_unconfined_transient_1d_default_engine_matches_reference_profiles(
+    scenario: str,
+    solver: str,
+) -> None:
+    """Run one scenario on the default Boussinesq engine, which needs no PETSc."""
+    comparison = SCENARIO_RUNNERS[scenario](caller_file=__file__, solver=solver)
+    record_comparison(comparison)
+
+    assert comparison.result.solver_name == solver
     assert_space_time_metrics(comparison)
     assert_profile_metrics(comparison)
 

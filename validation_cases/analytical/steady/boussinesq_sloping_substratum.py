@@ -1,81 +1,52 @@
-"""Analytical helpers for steady 1D Boussinesq cases on a sloping substratum."""
+"""Analytical helpers for steady 1D Boussinesq cases on a sloping substratum.
+
+A linear surface (substratum, topography) is given by its west and east values
+and by the abscissas where it takes them, ``surface_west_x`` and
+``surface_east_x``. The side heads are posed at ``west_x`` and ``east_x``. On a
+launcher model the surface anchors are the centres of the first and last
+raster columns and the heads sit on the boundary-cell centroids
+(``validation_cases.shared.strip_geometry``).
+"""
 
 from __future__ import annotations
 
 import numpy as np
 
 
-def build_uniform_cell_center_x_values(
-    *,
-    xmin: float,
-    xmax: float,
-    ncol: int,
-) -> np.ndarray:
-    """Return the uniform cell-center abscissas used by 1D strip benchmarks."""
-    length = float(xmax) - float(xmin)
-    if length <= 0.0:
-        raise ValueError("xmax must be strictly larger than xmin.")
-    if int(ncol) <= 0:
-        raise ValueError("ncol must be > 0.")
-
-    dx = length / float(ncol)
-    return float(xmin) + ((np.arange(int(ncol), dtype=float) + 0.5) * dx)
-
-
-def build_validation_profile_x_values(
-    *,
-    xmin: float,
-    xmax: float,
-    ncol: int,
-    solver_name: str | None,
-) -> np.ndarray:
-    """Return the x support that matches one validation backend output.
-
-    Launcher-backed MODFLOW profiles are sampled on the full strip support,
-    whereas the PETSc Boussinesq strip runtime is exported on structured bins
-    built from triangle centroids and therefore aligns with cell centers.
-    """
-    normalized_solver = "" if solver_name is None else str(solver_name).strip().lower()
-    if normalized_solver == "boussinesq":
-        return build_uniform_cell_center_x_values(
-            xmin=float(xmin),
-            xmax=float(xmax),
-            ncol=int(ncol),
-        )
-    return np.linspace(float(xmin), float(xmax), int(ncol), dtype=float)
-
-
 def build_linear_surface_values(
     *,
     x_m: np.ndarray,
-    xmin: float,
-    xmax: float,
+    surface_west_x: float,
+    surface_east_x: float,
     base_elevation_m: float,
     right_to_left_amplitude_m: float,
 ) -> np.ndarray:
-    """Return one linear profile sampled at explicit x positions."""
-    length = float(xmax) - float(xmin)
-    if length <= 0.0:
-        raise ValueError("xmax must be strictly larger than xmin.")
+    """Return one linear surface sampled at explicit x positions.
 
-    x = np.asarray(x_m, dtype=float)
-    x_local = x - float(xmin)
-    return float(base_elevation_m) + float(right_to_left_amplitude_m) * (1.0 - (x_local / length))
+    The surface is ``base + amplitude`` at ``surface_west_x`` and ``base`` at
+    ``surface_east_x``, and keeps its slope beyond them.
+    """
+    span = float(surface_east_x) - float(surface_west_x)
+    if span <= 0.0:
+        raise ValueError("surface_east_x must be strictly larger than surface_west_x.")
+
+    fraction = (np.asarray(x_m, dtype=float) - float(surface_west_x)) / span
+    return float(base_elevation_m) + float(right_to_left_amplitude_m) * (1.0 - fraction)
 
 
 def build_linear_substratum_values(
     *,
     x_m: np.ndarray,
-    xmin: float,
-    xmax: float,
+    surface_west_x: float,
+    surface_east_x: float,
     bottom_base_elevation_m: float,
     bottom_right_to_left_amplitude_m: float,
 ) -> np.ndarray:
     """Return the impermeable-bottom elevation along one sloping strip."""
     return build_linear_surface_values(
         x_m=x_m,
-        xmin=float(xmin),
-        xmax=float(xmax),
+        surface_west_x=float(surface_west_x),
+        surface_east_x=float(surface_east_x),
         base_elevation_m=float(bottom_base_elevation_m),
         right_to_left_amplitude_m=float(bottom_right_to_left_amplitude_m),
     )
@@ -84,71 +55,46 @@ def build_linear_substratum_values(
 def build_linear_topography_values(
     *,
     x_m: np.ndarray,
-    xmin: float,
-    xmax: float,
+    surface_west_x: float,
+    surface_east_x: float,
     topography_base_elevation_m: float,
     topography_right_to_left_amplitude_m: float,
 ) -> np.ndarray:
     """Return the land-surface elevation along one linear hillslope."""
     return build_linear_surface_values(
         x_m=x_m,
-        xmin=float(xmin),
-        xmax=float(xmax),
+        surface_west_x=float(surface_west_x),
+        surface_east_x=float(surface_east_x),
         base_elevation_m=float(topography_base_elevation_m),
         right_to_left_amplitude_m=float(topography_right_to_left_amplitude_m),
     )
 
 
+def _substratum_slope(
+    surface_west_x: float,
+    surface_east_x: float,
+    bottom_right_to_left_amplitude_m: float,
+) -> float:
+    """Return the downward east slope of the linear substratum."""
+    span = float(surface_east_x) - float(surface_west_x)
+    if span <= 0.0:
+        raise ValueError("surface_east_x must be strictly larger than surface_west_x.")
+    return float(bottom_right_to_left_amplitude_m) / span
+
+
+def _same_thickness(west_thickness_m: float, east_thickness_m: float) -> bool:
+    """Return True when both ends hold the same saturated thickness.
+
+    The steady profile is then the uniform flow ``q = K * S0 * b`` at constant
+    thickness, the singular branch of the implicit profile.
+    """
+    scale = max(abs(float(west_thickness_m)), abs(float(east_thickness_m)))
+    return abs(float(west_thickness_m) - float(east_thickness_m)) <= 1.0e-12 * scale
+
+
 def _mm_day_to_m_s(recharge_mm_day: float) -> float:
     """Convert one recharge rate from mm/day to m/s."""
     return float(recharge_mm_day) * 1.0e-3 / 86400.0
-
-
-def expected_sloping_substratum_constant_thickness_profile_at_x(
-    *,
-    x_m: np.ndarray,
-    xmin: float,
-    xmax: float,
-    bottom_base_elevation_m: float,
-    bottom_right_to_left_amplitude_m: float,
-    saturated_thickness_m: float,
-) -> np.ndarray:
-    """Return the exact steady head for one constant-thickness sloping case."""
-    bottom = build_linear_substratum_values(
-        x_m=np.asarray(x_m, dtype=float),
-        xmin=float(xmin),
-        xmax=float(xmax),
-        bottom_base_elevation_m=float(bottom_base_elevation_m),
-        bottom_right_to_left_amplitude_m=float(bottom_right_to_left_amplitude_m),
-    )
-    if float(saturated_thickness_m) <= 0.0:
-        raise ValueError("saturated_thickness_m must be > 0.")
-    return bottom + float(saturated_thickness_m)
-
-
-def expected_sloping_substratum_constant_thickness_profile(
-    *,
-    xmin: float,
-    xmax: float,
-    ncol: int,
-    bottom_base_elevation_m: float,
-    bottom_right_to_left_amplitude_m: float,
-    saturated_thickness_m: float,
-) -> np.ndarray:
-    """Return the exact steady head on one uniform cell-center support."""
-    x = build_uniform_cell_center_x_values(
-        xmin=float(xmin),
-        xmax=float(xmax),
-        ncol=int(ncol),
-    )
-    return expected_sloping_substratum_constant_thickness_profile_at_x(
-        x_m=x,
-        xmin=float(xmin),
-        xmax=float(xmax),
-        bottom_base_elevation_m=float(bottom_base_elevation_m),
-        bottom_right_to_left_amplitude_m=float(bottom_right_to_left_amplitude_m),
-        saturated_thickness_m=float(saturated_thickness_m),
-    )
 
 
 def _sloping_substratum_length_from_discharge(
@@ -193,8 +139,10 @@ def _sloping_substratum_length_from_discharge(
 
 def solve_sloping_substratum_fixed_head_discharge_per_width(
     *,
-    xmin: float,
-    xmax: float,
+    surface_west_x: float,
+    surface_east_x: float,
+    west_x: float,
+    east_x: float,
     west_head_m: float,
     east_head_m: float,
     bottom_base_elevation_m: float,
@@ -203,21 +151,22 @@ def solve_sloping_substratum_fixed_head_discharge_per_width(
 ) -> float:
     """Return the steady discharge per unit width for one sloping no-recharge strip.
 
-    The current validation case uses one eastward-flow regime where the lateral
-    discharge exceeds ``K * S0 * b`` along the whole strip, so the implicit
-    profile remains on the same monotonic branch.
+    The thickness ``b`` follows ``db/dx = S0 - q / (K b)`` and cannot cross
+    ``q / (K S0)``. A thickness that thins eastward needs ``q > K S0 b`` all
+    along, one that thickens eastward needs ``q < K S0 b``, and equal end
+    thicknesses carry the uniform flow ``q = K S0 b``.
     """
-    length = float(xmax) - float(xmin)
+    length = float(east_x) - float(west_x)
     if length <= 0.0:
-        raise ValueError("xmax must be strictly larger than xmin.")
+        raise ValueError("east_x must be strictly larger than west_x.")
     conductivity = float(hydraulic_conductivity_m_per_s)
     if conductivity <= 0.0:
         raise ValueError("hydraulic_conductivity_m_per_s must be > 0.")
 
     bottom_boundary = build_linear_substratum_values(
-        x_m=np.asarray([float(xmin), float(xmax)], dtype=float),
-        xmin=float(xmin),
-        xmax=float(xmax),
+        x_m=np.asarray([float(west_x), float(east_x)], dtype=float),
+        surface_west_x=float(surface_west_x),
+        surface_east_x=float(surface_east_x),
         bottom_base_elevation_m=float(bottom_base_elevation_m),
         bottom_right_to_left_amplitude_m=float(bottom_right_to_left_amplitude_m),
     )
@@ -228,11 +177,17 @@ def solve_sloping_substratum_fixed_head_discharge_per_width(
     if west_thickness_m <= 0.0 or east_thickness_m <= 0.0:
         raise ValueError("Boundary heads must remain strictly above the local substratum.")
 
-    slope = float(bottom_right_to_left_amplitude_m) / length
+    slope = _substratum_slope(surface_west_x, surface_east_x, bottom_right_to_left_amplitude_m)
     alpha = conductivity * slope
-    branch_floor = alpha * max(west_thickness_m, east_thickness_m)
-    lo = branch_floor * (1.0 + 1.0e-6) + 1.0e-12
-    hi = max(2.0 * lo, 1.0e-8)
+    if _same_thickness(west_thickness_m, east_thickness_m):
+        return alpha * west_thickness_m
+    thinning = west_thickness_m > east_thickness_m
+    if thinning:
+        lo = alpha * max(west_thickness_m, east_thickness_m) * (1.0 + 1.0e-6) + 1.0e-12
+        hi = max(2.0 * lo, 1.0e-8)
+    else:
+        hi = alpha * min(west_thickness_m, east_thickness_m) * (1.0 - 1.0e-6) - 1.0e-12
+        lo = hi - max(abs(hi), 1.0e-8)
 
     def _residual(discharge_m2_s: float) -> float:
         return (
@@ -250,8 +205,12 @@ def solve_sloping_substratum_fixed_head_discharge_per_width(
     residual_hi = _residual(hi)
     expansion_count = 0
     while residual_lo * residual_hi > 0.0:
-        hi *= 2.0
-        residual_hi = _residual(hi)
+        if thinning:
+            hi += hi - lo
+            residual_hi = _residual(hi)
+        else:
+            lo -= hi - lo
+            residual_lo = _residual(lo)
         expansion_count += 1
         if expansion_count > 80:
             raise RuntimeError(
@@ -275,8 +234,10 @@ def solve_sloping_substratum_fixed_head_discharge_per_width(
 def expected_sloping_substratum_fixed_head_saturated_thickness_at_x(
     *,
     x_m: np.ndarray,
-    xmin: float,
-    xmax: float,
+    surface_west_x: float,
+    surface_east_x: float,
+    west_x: float,
+    east_x: float,
     west_head_m: float,
     east_head_m: float,
     bottom_base_elevation_m: float,
@@ -284,19 +245,19 @@ def expected_sloping_substratum_fixed_head_saturated_thickness_at_x(
     hydraulic_conductivity_m_per_s: float,
 ) -> np.ndarray:
     """Return the saturated-thickness profile for one sloping no-recharge strip."""
-    length = float(xmax) - float(xmin)
+    length = float(east_x) - float(west_x)
     if length <= 0.0:
-        raise ValueError("xmax must be strictly larger than xmin.")
+        raise ValueError("east_x must be strictly larger than west_x.")
 
     x = np.asarray(x_m, dtype=float)
-    x_local = x - float(xmin)
+    x_local = x - float(west_x)
     if np.any(x_local < -1.0e-12) or np.any(x_local > length + 1.0e-12):
-        raise ValueError("x_m values must remain inside [xmin, xmax].")
+        raise ValueError("x_m values must remain inside [west_x, east_x].")
 
     bottom_boundary = build_linear_substratum_values(
-        x_m=np.asarray([float(xmin), float(xmax)], dtype=float),
-        xmin=float(xmin),
-        xmax=float(xmax),
+        x_m=np.asarray([float(west_x), float(east_x)], dtype=float),
+        surface_west_x=float(surface_west_x),
+        surface_east_x=float(surface_east_x),
         bottom_base_elevation_m=float(bottom_base_elevation_m),
         bottom_right_to_left_amplitude_m=float(bottom_right_to_left_amplitude_m),
     )
@@ -307,10 +268,15 @@ def expected_sloping_substratum_fixed_head_saturated_thickness_at_x(
     if west_thickness_m <= 0.0 or east_thickness_m <= 0.0:
         raise ValueError("Boundary heads must remain strictly above the local substratum.")
 
-    slope = float(bottom_right_to_left_amplitude_m) / length
+    if _same_thickness(west_thickness_m, east_thickness_m):
+        return np.full(x.shape, west_thickness_m, dtype=float)
+
+    slope = _substratum_slope(surface_west_x, surface_east_x, bottom_right_to_left_amplitude_m)
     discharge = solve_sloping_substratum_fixed_head_discharge_per_width(
-        xmin=float(xmin),
-        xmax=float(xmax),
+        surface_west_x=float(surface_west_x),
+        surface_east_x=float(surface_east_x),
+        west_x=float(west_x),
+        east_x=float(east_x),
         west_head_m=float(west_head_m),
         east_head_m=float(east_head_m),
         bottom_base_elevation_m=float(bottom_base_elevation_m),
@@ -355,8 +321,10 @@ def expected_sloping_substratum_fixed_head_saturated_thickness_at_x(
 def expected_sloping_substratum_fixed_head_profile_at_x(
     *,
     x_m: np.ndarray,
-    xmin: float,
-    xmax: float,
+    surface_west_x: float,
+    surface_east_x: float,
+    west_x: float,
+    east_x: float,
     west_head_m: float,
     east_head_m: float,
     bottom_base_elevation_m: float,
@@ -366,15 +334,17 @@ def expected_sloping_substratum_fixed_head_profile_at_x(
     """Return the steady head profile for one sloping no-recharge strip."""
     bottom = build_linear_substratum_values(
         x_m=np.asarray(x_m, dtype=float),
-        xmin=float(xmin),
-        xmax=float(xmax),
+        surface_west_x=float(surface_west_x),
+        surface_east_x=float(surface_east_x),
         bottom_base_elevation_m=float(bottom_base_elevation_m),
         bottom_right_to_left_amplitude_m=float(bottom_right_to_left_amplitude_m),
     )
     thickness = expected_sloping_substratum_fixed_head_saturated_thickness_at_x(
         x_m=np.asarray(x_m, dtype=float),
-        xmin=float(xmin),
-        xmax=float(xmax),
+        surface_west_x=float(surface_west_x),
+        surface_east_x=float(surface_east_x),
+        west_x=float(west_x),
+        east_x=float(east_x),
         west_head_m=float(west_head_m),
         east_head_m=float(east_head_m),
         bottom_base_elevation_m=float(bottom_base_elevation_m),
@@ -382,35 +352,6 @@ def expected_sloping_substratum_fixed_head_profile_at_x(
         hydraulic_conductivity_m_per_s=float(hydraulic_conductivity_m_per_s),
     )
     return bottom + thickness
-
-
-def expected_sloping_substratum_fixed_head_profile(
-    *,
-    xmin: float,
-    xmax: float,
-    ncol: int,
-    west_head_m: float,
-    east_head_m: float,
-    bottom_base_elevation_m: float,
-    bottom_right_to_left_amplitude_m: float,
-    hydraulic_conductivity_m_per_s: float,
-) -> np.ndarray:
-    """Return the steady head profile on one uniform cell-center support."""
-    x = build_uniform_cell_center_x_values(
-        xmin=float(xmin),
-        xmax=float(xmax),
-        ncol=int(ncol),
-    )
-    return expected_sloping_substratum_fixed_head_profile_at_x(
-        x_m=x,
-        xmin=float(xmin),
-        xmax=float(xmax),
-        west_head_m=float(west_head_m),
-        east_head_m=float(east_head_m),
-        bottom_base_elevation_m=float(bottom_base_elevation_m),
-        bottom_right_to_left_amplitude_m=float(bottom_right_to_left_amplitude_m),
-        hydraulic_conductivity_m_per_s=float(hydraulic_conductivity_m_per_s),
-    )
 
 
 def _integrate_sloping_substratum_uniform_recharge_saturated_thickness(
@@ -429,7 +370,7 @@ def _integrate_sloping_substratum_uniform_recharge_saturated_thickness(
 
     ``dq/dx = R`` and ``db/dx = S0 - q/(K b)``,
 
-    with ``q(x) = q_w + R (x - xmin)`` on one strip of unit width.
+    with ``q(x) = q_w + R (x - west_x)`` on one strip of unit width.
     """
     length = float(length_m)
     if length <= 0.0:
@@ -479,8 +420,10 @@ def _integrate_sloping_substratum_uniform_recharge_saturated_thickness(
 
 def solve_sloping_substratum_uniform_recharge_west_discharge_per_width(
     *,
-    xmin: float,
-    xmax: float,
+    surface_west_x: float,
+    surface_east_x: float,
+    west_x: float,
+    east_x: float,
     west_head_m: float,
     east_head_m: float,
     bottom_base_elevation_m: float,
@@ -495,9 +438,9 @@ def solve_sloping_substratum_uniform_recharge_west_discharge_per_width(
 
     ``dq/dx = R`` and ``db/dx = S0 - q / (K b)``.
     """
-    length = float(xmax) - float(xmin)
+    length = float(east_x) - float(west_x)
     if length <= 0.0:
-        raise ValueError("xmax must be strictly larger than xmin.")
+        raise ValueError("east_x must be strictly larger than west_x.")
     conductivity = float(hydraulic_conductivity_m_per_s)
     if conductivity <= 0.0:
         raise ValueError("hydraulic_conductivity_m_per_s must be > 0.")
@@ -506,9 +449,9 @@ def solve_sloping_substratum_uniform_recharge_west_discharge_per_width(
         raise ValueError("recharge_mm_day must be >= 0.")
 
     bottom_boundary = build_linear_substratum_values(
-        x_m=np.asarray([float(xmin), float(xmax)], dtype=float),
-        xmin=float(xmin),
-        xmax=float(xmax),
+        x_m=np.asarray([float(west_x), float(east_x)], dtype=float),
+        surface_west_x=float(surface_west_x),
+        surface_east_x=float(surface_east_x),
         bottom_base_elevation_m=float(bottom_base_elevation_m),
         bottom_right_to_left_amplitude_m=float(bottom_right_to_left_amplitude_m),
     )
@@ -519,10 +462,12 @@ def solve_sloping_substratum_uniform_recharge_west_discharge_per_width(
     if west_thickness_m <= 0.0 or east_thickness_m <= 0.0:
         raise ValueError("Boundary heads must remain strictly above the local substratum.")
 
-    slope = float(bottom_right_to_left_amplitude_m) / length
+    slope = _substratum_slope(surface_west_x, surface_east_x, bottom_right_to_left_amplitude_m)
     no_recharge_discharge = solve_sloping_substratum_fixed_head_discharge_per_width(
-        xmin=float(xmin),
-        xmax=float(xmax),
+        surface_west_x=float(surface_west_x),
+        surface_east_x=float(surface_east_x),
+        west_x=float(west_x),
+        east_x=float(east_x),
         west_head_m=float(west_head_m),
         east_head_m=float(east_head_m),
         bottom_base_elevation_m=float(bottom_base_elevation_m),
@@ -583,8 +528,10 @@ def solve_sloping_substratum_uniform_recharge_west_discharge_per_width(
 def expected_sloping_substratum_uniform_recharge_saturated_thickness_at_x(
     *,
     x_m: np.ndarray,
-    xmin: float,
-    xmax: float,
+    surface_west_x: float,
+    surface_east_x: float,
+    west_x: float,
+    east_x: float,
     west_head_m: float,
     east_head_m: float,
     bottom_base_elevation_m: float,
@@ -593,19 +540,19 @@ def expected_sloping_substratum_uniform_recharge_saturated_thickness_at_x(
     recharge_mm_day: float,
 ) -> np.ndarray:
     """Return the saturated-thickness profile for one recharge hillslope."""
-    length = float(xmax) - float(xmin)
+    length = float(east_x) - float(west_x)
     if length <= 0.0:
-        raise ValueError("xmax must be strictly larger than xmin.")
+        raise ValueError("east_x must be strictly larger than west_x.")
 
     x = np.asarray(x_m, dtype=float)
-    x_local = x - float(xmin)
+    x_local = x - float(west_x)
     if np.any(x_local < -1.0e-12) or np.any(x_local > length + 1.0e-12):
-        raise ValueError("x_m values must remain inside [xmin, xmax].")
+        raise ValueError("x_m values must remain inside [west_x, east_x].")
 
     bottom_boundary = build_linear_substratum_values(
-        x_m=np.asarray([float(xmin), float(xmax)], dtype=float),
-        xmin=float(xmin),
-        xmax=float(xmax),
+        x_m=np.asarray([float(west_x), float(east_x)], dtype=float),
+        surface_west_x=float(surface_west_x),
+        surface_east_x=float(surface_east_x),
         bottom_base_elevation_m=float(bottom_base_elevation_m),
         bottom_right_to_left_amplitude_m=float(bottom_right_to_left_amplitude_m),
     )
@@ -615,8 +562,10 @@ def expected_sloping_substratum_uniform_recharge_saturated_thickness_at_x(
         raise ValueError("west_head_m must remain above the local substratum.")
 
     west_discharge = solve_sloping_substratum_uniform_recharge_west_discharge_per_width(
-        xmin=float(xmin),
-        xmax=float(xmax),
+        surface_west_x=float(surface_west_x),
+        surface_east_x=float(surface_east_x),
+        west_x=float(west_x),
+        east_x=float(east_x),
         west_head_m=float(west_head_m),
         east_head_m=float(east_head_m),
         bottom_base_elevation_m=float(bottom_base_elevation_m),
@@ -630,7 +579,9 @@ def expected_sloping_substratum_uniform_recharge_saturated_thickness_at_x(
             west_saturated_thickness_m=west_thickness_m,
             west_discharge_per_width_m2_s=float(west_discharge),
             hydraulic_conductivity_m_per_s=float(hydraulic_conductivity_m_per_s),
-            bottom_slope_m_per_m=float(bottom_right_to_left_amplitude_m) / length,
+            bottom_slope_m_per_m=_substratum_slope(
+                surface_west_x, surface_east_x, bottom_right_to_left_amplitude_m
+            ),
             recharge_m_per_s=_mm_day_to_m_s(float(recharge_mm_day)),
             n_steps=4096,
         )
@@ -645,8 +596,10 @@ def expected_sloping_substratum_uniform_recharge_saturated_thickness_at_x(
 def expected_sloping_substratum_uniform_recharge_profile_at_x(
     *,
     x_m: np.ndarray,
-    xmin: float,
-    xmax: float,
+    surface_west_x: float,
+    surface_east_x: float,
+    west_x: float,
+    east_x: float,
     west_head_m: float,
     east_head_m: float,
     bottom_base_elevation_m: float,
@@ -657,15 +610,17 @@ def expected_sloping_substratum_uniform_recharge_profile_at_x(
     """Return the steady head profile for one recharge hillslope."""
     bottom = build_linear_substratum_values(
         x_m=np.asarray(x_m, dtype=float),
-        xmin=float(xmin),
-        xmax=float(xmax),
+        surface_west_x=float(surface_west_x),
+        surface_east_x=float(surface_east_x),
         bottom_base_elevation_m=float(bottom_base_elevation_m),
         bottom_right_to_left_amplitude_m=float(bottom_right_to_left_amplitude_m),
     )
     thickness = expected_sloping_substratum_uniform_recharge_saturated_thickness_at_x(
         x_m=np.asarray(x_m, dtype=float),
-        xmin=float(xmin),
-        xmax=float(xmax),
+        surface_west_x=float(surface_west_x),
+        surface_east_x=float(surface_east_x),
+        west_x=float(west_x),
+        east_x=float(east_x),
         west_head_m=float(west_head_m),
         east_head_m=float(east_head_m),
         bottom_base_elevation_m=float(bottom_base_elevation_m),
@@ -676,48 +631,11 @@ def expected_sloping_substratum_uniform_recharge_profile_at_x(
     return bottom + thickness
 
 
-def expected_sloping_substratum_uniform_recharge_profile(
-    *,
-    xmin: float,
-    xmax: float,
-    ncol: int,
-    west_head_m: float,
-    east_head_m: float,
-    bottom_base_elevation_m: float,
-    bottom_right_to_left_amplitude_m: float,
-    hydraulic_conductivity_m_per_s: float,
-    recharge_mm_day: float,
-) -> np.ndarray:
-    """Return the steady recharge profile on one uniform cell-center support."""
-    x = build_uniform_cell_center_x_values(
-        xmin=float(xmin),
-        xmax=float(xmax),
-        ncol=int(ncol),
-    )
-    return expected_sloping_substratum_uniform_recharge_profile_at_x(
-        x_m=x,
-        xmin=float(xmin),
-        xmax=float(xmax),
-        west_head_m=float(west_head_m),
-        east_head_m=float(east_head_m),
-        bottom_base_elevation_m=float(bottom_base_elevation_m),
-        bottom_right_to_left_amplitude_m=float(bottom_right_to_left_amplitude_m),
-        hydraulic_conductivity_m_per_s=float(hydraulic_conductivity_m_per_s),
-        recharge_mm_day=float(recharge_mm_day),
-    )
-
-
 __all__ = [
     "build_linear_substratum_values",
     "build_linear_topography_values",
-    "build_validation_profile_x_values",
-    "build_uniform_cell_center_x_values",
-    "expected_sloping_substratum_constant_thickness_profile",
-    "expected_sloping_substratum_constant_thickness_profile_at_x",
-    "expected_sloping_substratum_fixed_head_profile",
     "expected_sloping_substratum_fixed_head_profile_at_x",
     "expected_sloping_substratum_fixed_head_saturated_thickness_at_x",
-    "expected_sloping_substratum_uniform_recharge_profile",
     "expected_sloping_substratum_uniform_recharge_profile_at_x",
     "expected_sloping_substratum_uniform_recharge_saturated_thickness_at_x",
     "solve_sloping_substratum_fixed_head_discharge_per_width",

@@ -1,4 +1,4 @@
-"""Local `flow/boussinesq` runtime for the circular-island piecewise-K validation case."""
+"""`flow/boussinesq` runtime for the circular-island piecewise-K validation case."""
 
 from __future__ import annotations
 
@@ -7,7 +7,10 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+from scipy.spatial import Delaunay
 
+from hydromodpy.core.state.run_state import RunState
+from hydromodpy.core.state.setup import SetupContext
 from hydromodpy.physics.flow import Flow
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
@@ -22,7 +25,8 @@ from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.run
 )
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    apply_analytical_boussinesq_runtime_defaults,
+    boussinesq_variant_config_name,
+    boussinesq_variant_flow_section,
 )
 from validation_cases.shared.gmsh_irregular_strip import write_gmsh22_triangle_mesh_from_bundle_csv
 from validation_cases.shared.runtime import (
@@ -33,9 +37,13 @@ from validation_cases.shared.runtime import (
 
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "boussinesq_circular_island_piecewise_k_2d"
-N_SECTORS = 16
-LAND_SUPPORT_RADII_M = (25.0, 50.0, 70.0, 100.0, 140.0, 180.0, 200.0)
-OUTER_OCEAN_BUFFER_M = 5.0
+# Near-equilateral triangles of about this side. The two-point flux between
+# centroids is exact only where the centroid line is normal to the edge: on the
+# former ring mesh, quads cut along one diagonal, it sat 0.25 to 1.2 m high.
+TARGET_EDGE_M = 10.0
+RING_SPACING_M = TARGET_EDGE_M * float(np.sqrt(3.0)) / 2.0
+# One ring of ocean triangles beyond the coast holds the sea level.
+OUTER_OCEAN_BUFFER_M = RING_SPACING_M
 OCEAN_RING_CONDUCTIVITY_M_S = 1.0
 STORAGE_COEFFICIENT = 0.1
 
@@ -104,6 +112,49 @@ def _reference_grid(
     return np.asarray(dem, dtype=float), np.asarray(xx, dtype=float), np.asarray(yy, dtype=float)
 
 
+def _island_ring_radii_m(reference_cfg: dict) -> tuple[float, ...]:
+    """Return the node ring radii: one ring on every K break and on the coast."""
+    island_radius_m = float(reference_cfg["island_radius_m"])
+    anchors = sorted(
+        float(value)
+        for value in reference_cfg.get("ring_radius_breaks_m", [])
+        if 0.0 < float(value) < island_radius_m
+    )
+    anchors.append(island_radius_m)
+    radii: list[float] = []
+    start_m = 0.0
+    for anchor_m in anchors:
+        n_rings = max(1, int(round((anchor_m - start_m) / RING_SPACING_M)))
+        radii.extend(
+            start_m + (anchor_m - start_m) * index / n_rings for index in range(1, n_rings + 1)
+        )
+        start_m = anchor_m
+    radii.append(island_radius_m + OUTER_OCEAN_BUFFER_M)
+    return tuple(radii)
+
+
+def _island_nodes_and_triangles(
+    reference_cfg: dict,
+) -> tuple[np.ndarray, list[tuple[int, int, int]]]:
+    """Return node offsets from the centre and their Delaunay triangles.
+
+    Each ring holds nodes about ``TARGET_EDGE_M`` apart, shifted by half a step
+    on every other ring, so the triangles are close to equilateral.
+    """
+    points: list[tuple[float, float]] = [(0.0, 0.0)]
+    for ring_index, radius_m in enumerate(_island_ring_radii_m(reference_cfg)):
+        n_nodes = max(6, int(round(2.0 * np.pi * radius_m / TARGET_EDGE_M)))
+        shift = 0.5 * float(ring_index % 2)
+        for node_index in range(n_nodes):
+            theta_rad = 2.0 * np.pi * (float(node_index) + shift) / float(n_nodes)
+            points.append(
+                (radius_m * float(np.cos(theta_rad)), radius_m * float(np.sin(theta_rad)))
+            )
+    offsets = np.asarray(points, dtype=float)
+    triangles = [tuple(int(node) for node in simplex) for simplex in Delaunay(offsets).simplices]
+    return offsets, triangles
+
+
 def _write_circular_island_bundle(
     bundle_dir: Path,
     reference_cfg: dict,
@@ -141,34 +192,25 @@ def _write_circular_island_bundle(
     crest_elevation_m = float(reference_cfg["crest_elevation_m"])
     ocean_floor_elevation_m = float(reference_cfg["ocean_floor_elevation_m"])
     substratum_elevation_m = float(reference_cfg["substratum_elevation_m"])
+    sea_level_m = float(reference_cfg["sea_level_m"])
 
-    support_radii_m = LAND_SUPPORT_RADII_M + (island_radius_m + float(OUTER_OCEAN_BUFFER_M),)
-
-    node_xy_by_id: dict[int, tuple[float, float]] = {0: (center_x_m, center_y_m)}
-    node_rows = [
-        f"0,{center_x_m:.6f},{center_y_m:.6f},{crest_elevation_m:.6f},{substratum_elevation_m:.6f}"
-    ]
-
-    def ring_node_id(ring_index: int, sector_index: int) -> int:
-        return 1 + (int(ring_index) * int(N_SECTORS)) + int(sector_index)
-
-    for ring_index, radius_m in enumerate(support_radii_m):
-        for sector_index in range(N_SECTORS):
-            theta_rad = (2.0 * np.pi * float(sector_index)) / float(N_SECTORS)
-            x_m = center_x_m + float(radius_m) * float(np.cos(theta_rad))
-            y_m = center_y_m + float(radius_m) * float(np.sin(theta_rad))
-            radius_for_top_m = min(float(radius_m), island_radius_m)
-            z_top_m = _radial_island_top_elevation_m(
-                radius_for_top_m,
-                island_radius_m=island_radius_m,
-                crest_elevation_m=crest_elevation_m,
-                ocean_floor_elevation_m=ocean_floor_elevation_m,
-            )
-            node_id = ring_node_id(ring_index, sector_index)
-            node_xy_by_id[node_id] = (x_m, y_m)
-            node_rows.append(
-                f"{node_id},{x_m:.6f},{y_m:.6f},{z_top_m:.6f},{substratum_elevation_m:.6f}"
-            )
+    node_offsets_m, triangles = _island_nodes_and_triangles(reference_cfg)
+    node_xy_by_id: dict[int, tuple[float, float]] = {}
+    node_rows: list[str] = []
+    for node_id, (dx_m, dy_m) in enumerate(node_offsets_m):
+        x_m = center_x_m + float(dx_m)
+        y_m = center_y_m + float(dy_m)
+        radius_for_top_m = min(float(np.hypot(dx_m, dy_m)), island_radius_m)
+        z_top_m = _radial_island_top_elevation_m(
+            radius_for_top_m,
+            island_radius_m=island_radius_m,
+            crest_elevation_m=crest_elevation_m,
+            ocean_floor_elevation_m=ocean_floor_elevation_m,
+        )
+        node_xy_by_id[node_id] = (x_m, y_m)
+        node_rows.append(
+            f"{node_id},{x_m:.6f},{y_m:.6f},{z_top_m:.6f},{substratum_elevation_m:.6f}"
+        )
     _write_csv(bundle_dir / "nodes.csv", "node_id,x,y,z_top,z_bottom", node_rows)
 
     cell_rows: list[str] = []
@@ -195,7 +237,11 @@ def _write_circular_island_bundle(
             geology_code = int(len(conductivity_by_ring) + 1)
             geology_key = "ocean_ring"
             hydraulic_conductivity_m_s = float(OCEAN_RING_CONDUCTIVITY_M_S)
-            z_top_m = float(ocean_floor_elevation_m)
+            # The ocean boundary holds only the triangles that own an outer edge.
+            # The others are capped at their top by the surface closure: at the
+            # sea floor they made a sink 1 m below the sea. At the sea level they
+            # hold the sea level, as the reference does.
+            z_top_m = sea_level_m
         else:
             zone_index = _ring_index_for_radius(centroid_radius_m, ring_breaks_m)
             geology_code = int(zone_index + 1)
@@ -259,25 +305,8 @@ def _write_circular_island_bundle(
                 edge["geology_b_key"] = geology_key
         cell_id += 1
 
-    for sector_index in range(N_SECTORS):
-        next_sector_index = (sector_index + 1) % N_SECTORS
-        append_triangle(
-            (
-                0,
-                ring_node_id(0, sector_index),
-                ring_node_id(0, next_sector_index),
-            )
-        )
-
-    for ring_index in range(len(support_radii_m) - 1):
-        for sector_index in range(N_SECTORS):
-            next_sector_index = (sector_index + 1) % N_SECTORS
-            inner_a = ring_node_id(ring_index, sector_index)
-            inner_b = ring_node_id(ring_index, next_sector_index)
-            outer_a = ring_node_id(ring_index + 1, sector_index)
-            outer_b = ring_node_id(ring_index + 1, next_sector_index)
-            append_triangle((inner_a, outer_a, outer_b))
-            append_triangle((inner_a, outer_b, inner_b))
+    for triangle in triangles:
+        append_triangle(triangle)
 
     _write_csv(
         bundle_dir / "cells.csv",
@@ -368,18 +397,43 @@ def _aggregate_triangle_history_to_reference_fields(
     }
 
 
+def boussinesq_island_cell_heads(
+    result: ValidationRunResult,
+) -> tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
+    """Return the triangle centroids, the final heads and the triangle outlines of one run.
+
+    The comparison reads the solver on its own cells: a grid point reads the
+    head of a triangle whose centroid lies up to half a cell away, which on the
+    coastal slope is a sampling error, not a model error.
+    """
+    bundle_dir = Path(result.out_path) / "mesh_bundle"
+    nodes = np.genfromtxt(bundle_dir / "nodes.csv", delimiter=",", names=True)
+    cells = np.genfromtxt(
+        bundle_dir / "cells.csv", delimiter=",", names=True, dtype=None, encoding="utf-8"
+    )
+    history = np.load(Path(result.model_ws) / "_boussinesq_state_history.npz")
+    heads = np.asarray(history["head_history_m"], dtype=float)
+    final_heads = heads.reshape(-1, heads.shape[-1])[-1]
+    node_xy = np.column_stack([nodes["x"], nodes["y"]])
+    outlines = [node_xy[[int(row["n0"]), int(row["n1"]), int(row["n2"])]] for row in cells]
+    centers = np.column_stack([cells["centroid_x"], cells["centroid_y"]]).astype(float)
+    return centers, final_heads, outlines
+
+
 def run_boussinesq_circular_island_piecewise_k_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> ValidationRunResult:
-    """Run the circular-island piecewise-K case through the PETSc VI backend."""
+    """Run the circular-island piecewise-K case on one Boussinesq variant."""
     del timeout
+    solver_name = str(public_solver_label or "boussinesq")
 
     reference_cfg = _load_reference_cfg()
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
-        run_name=f"{CASE_ID}_boussinesq",
+        run_name=f"{CASE_ID}_{solver_name}",
     )
     recharge_rate_m_s = float(reference_cfg["recharge_mm_day"]) * 1.0e-3 / 86400.0
     bundle_dir, ocean_cell_specs = _write_circular_island_bundle(
@@ -401,13 +455,13 @@ def run_boussinesq_circular_island_piecewise_k_case(
         for index, (x_m, y_m, area_m2) in enumerate(ocean_cell_specs)
     }
 
-    state = SimpleNamespace(
-        setup=SimpleNamespace(
+    state = RunState(
+        setup=SetupContext(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=Flow(
                 _build_flow_config(
-                    apply_analytical_boussinesq_runtime_defaults(
+                    boussinesq_variant_flow_section(
                         {
                             "flow_regime": "steady",
                             "ic": {"type": "custom", "value": 1.0},
@@ -426,8 +480,10 @@ def run_boussinesq_circular_island_piecewise_k_case(
                             },
                         },
                         flow_regime="steady",
+                        solver=solver_name,
                     ),
                     case_dir=CASE_DIR,
+                    config_name=boussinesq_variant_config_name(solver_name),
                 )
             ),
             domain=None,
@@ -467,7 +523,7 @@ def run_boussinesq_circular_island_piecewise_k_case(
     )
     return ValidationRunResult(
         case_dir=CASE_DIR,
-        solver_name="boussinesq",
+        solver_name=solver_name,
         out_path=out_path,
         model_ws=model_ws,
         postprocess_dir=postprocess_dir,
@@ -480,4 +536,7 @@ def run_boussinesq_circular_island_piecewise_k_case(
     )
 
 
-__all__ = ["run_boussinesq_circular_island_piecewise_k_case"]
+__all__ = [
+    "boussinesq_island_cell_heads",
+    "run_boussinesq_circular_island_piecewise_k_case",
+]

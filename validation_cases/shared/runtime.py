@@ -39,63 +39,27 @@ _WINDOWS_VALIDATION_PATH_LIMIT = 240
 _VALIDATION_GENERATED_PATH_HEADROOM = 96
 _VALIDATION_COMPONENT_LENGTHS = (28, 24, 20, 16, 12)
 
-_NWT_VALIDATION_PROFILE_SIMPLE = """[modflownwt.runtime.nwt]
+# One MODFLOW-NWT profile for every validation case that sets one. The run is
+# in seconds, so both closures are absolute, in m and m3/s.
+# - linmeth = 2 (chi-MD), options = COMPLEX. GMRES (linmeth = 1) left the deep
+#   Brutsaert recession frozen at a -200 % rate budget: it did not reduce the
+#   residual and NWT took the near-zero update as converged. chi-MD with SIMPLE
+#   froze the same recession at day 70. This profile moves the other cases by
+#   6e-5 m at most.
+# - fluxtol = 1e-10 m3/s, three decades below the smallest discharge a case
+#   compares (4e-7 m3/s), so a solve that leaves the residual in place fails
+#   instead of passing. The former 1e-4 m3/s was a whole case budget.
+# - headtol = 1e-9 m, three decades below the head change of one time step
+#   at the end of the deep Brutsaert recession (4e-6 m).
+_NWT_VALIDATION_PROFILE = """[modflownwt.runtime.nwt]
 version = "mfnwt"
 listunit = 2
 verbose = false
-headtol = 1e-6
-fluxtol = 1e-4
-maxiterout = 500
-thickfact = 1e-5
-linmeth = 1
-iprnwt = 0
-ibotav = 1
-options = "SIMPLE"
-continue_run = false
-backflag = 0
-stoptol = 1e-10
-
-[modflownwt.runtime.dis]
-itmuni = 1
-
-[modflownwt.runtime.bas]
-hnoflo = -9999.0
-
-[modflownwt.runtime.upw]
-iphdry = 1
-hdry = -100.0
-layvka = 1
-
-[modflownwt.runtime.evt]
-nevtop = 3
-ievt = 1
-ipakcb = 1
-
-[modflownwt.runtime.oc]
-compact = true
-
-[modflownwt.runtime.wel]
-ipakcb = 1
-
-[modflownwt.runtime.lmt]
-output_file_name = "mt3d_link.ftl"
-extension = "lmt8"
-output_format = "unformatted"
-
-[modflownwt.process_specific]
-vka = 1.0
-exdp = "1.0 m"
-"""
-
-_NWT_VALIDATION_PROFILE_COMPLEX = """[modflownwt.runtime.nwt]
-version = "mfnwt"
-listunit = 2
-verbose = false
-headtol = 1e-6
-fluxtol = 1e-4
+headtol = 1e-9
+fluxtol = 1e-10
 maxiterout = 1000
 thickfact = 1e-5
-linmeth = 1
+linmeth = 2
 iprnwt = 0
 ibotav = 1
 options = "COMPLEX"
@@ -137,19 +101,23 @@ exdp = "1.0 m"
 
 _VALIDATION_PROFILES_BY_SOLVER_AND_CASE: dict[str, dict[str, str]] = {
     "modflow_nwt": {
-        "boussinesq_fixed_head_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "boussinesq_uniform_recharge_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "boussinesq_sloping_substratum_constant_thickness_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "boussinesq_sloping_substratum_fixed_head_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "boussinesq_sloping_substratum_uniform_recharge_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "brutsaert_recession_linearized_deep_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "brutsaert_recession_boussinesq_thin_1d": _NWT_VALIDATION_PROFILE_COMPLEX,
-        "dupuit_divide_river_1d": _NWT_VALIDATION_PROFILE_COMPLEX,
-        "dupuit_fixed_head_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "dupuit_uniform_recharge_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "linearized_unconfined_drainage_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "linearized_unconfined_hillslope_drainage_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
-        "linearized_unconfined_boundary_piecewise_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
+        case_name: _NWT_VALIDATION_PROFILE
+        for case_name in (
+            "boussinesq_divide_fixed_head_piecewise_k_1d",
+            "boussinesq_fixed_head_piecewise_k_1d",
+            "boussinesq_uniform_recharge_piecewise_k_1d",
+            "boussinesq_sloping_substratum_constant_thickness_1d",
+            "boussinesq_sloping_substratum_fixed_head_1d",
+            "boussinesq_sloping_substratum_uniform_recharge_1d",
+            "brutsaert_recession_linearized_deep_1d",
+            "brutsaert_recession_boussinesq_thin_1d",
+            "dupuit_divide_river_1d",
+            "dupuit_fixed_head_1d",
+            "dupuit_uniform_recharge_1d",
+            "linearized_unconfined_drainage_1d",
+            "linearized_unconfined_hillslope_drainage_1d",
+            "linearized_unconfined_boundary_piecewise_1d",
+        )
     },
 }
 
@@ -274,24 +242,29 @@ def _dump_toml(payload: Mapping[str, Any]) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
-def _rmtree_onerror(func, path, exc_info) -> None:
-    """Retry one failed ``rmtree`` step after clearing a read-only bit."""
-    del exc_info
+def _add_owner_bits(path: str, bits: int) -> None:
+    """Add ``bits`` to the mode of ``path``, keeping the bits it already has."""
     try:
-        os.chmod(path, stat.S_IWRITE)
+        os.chmod(path, stat.S_IMODE(os.lstat(path).st_mode) | bits)
     except OSError:
-        # Some filesystems or locked files may reject a direct read-only bit change.
-        # Try a permissive fallback before giving the retry loop another chance.
-        try:
-            os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
-        except OSError:
-            pass
-    try:
-        func(path)
-    except OSError:
-        # Intentionally let the caller retry; this is common on Windows when
-        # binaries still hold temporary locks during directory cleanup.
+        # A mode that cannot change is left to the retry loop.
         pass
+
+
+def _rmtree_onerror(func, path, exc_info) -> None:
+    """Retry one failed ``rmtree`` removal after giving the owner write access.
+
+    A failed scan or open is raised again once the owner can read and search
+    the directory: the retry loop of the caller then runs ``rmtree`` again.
+    Bits are only added, so a directory never loses its read or search bit.
+    """
+    if func not in (os.unlink, os.remove, os.rmdir):
+        _add_owner_bits(path, stat.S_IRWXU)
+        raise exc_info[1]
+    _add_owner_bits(os.path.dirname(path), stat.S_IRWXU)
+    _add_owner_bits(path, stat.S_IWRITE)
+    # A second failure goes to the retry loop: on Windows a binary can still hold a lock.
+    func(path)
 
 
 def remove_tree_with_retry(

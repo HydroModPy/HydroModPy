@@ -1,0 +1,17 @@
+[space_time]
+rmse = 0.019
+max_abs_error = 0.046
+azimuthal_spread = 0.08
+
+[final_time]
+rmse = 0.013
+max_abs_error = 0.016
+
+[doc]
+reason = """
+Twice the error measured on the Voronoi dual of the refined mesh, the reference
+read at the node of the cell each monitor point reads: space-time RMSE 9.4e-3 m,
+max error 2.3e-2 m, final RMSE 6.3e-3 m, final max error 7.7e-3 m, azimuthal
+spread 0.040 m. Read at the monitor radius instead, 1 to 18 m from that node,
+the error was twice as large.
+"""

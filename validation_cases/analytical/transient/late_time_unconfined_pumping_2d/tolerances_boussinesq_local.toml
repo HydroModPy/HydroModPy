@@ -1,0 +1,20 @@
+[space_time]
+rmse = 0.025
+max_abs_error = 0.066
+azimuthal_spread = 0.16
+
+[final_time]
+rmse = 0.033
+max_abs_error = 0.066
+
+[doc]
+reason = """
+Twice the error measured with the default 'auto' engine, which runs scipy_sparse
+on these 1922 cells with one backward-Euler step a period, the reference read
+at the centroid of the triangle each monitor point reads: space-time RMSE
+0.012 m, max error 0.033 m, final RMSE 0.016 m, within 15 % of PETSc and its 4
+steps a period. The error is the 64.5 m mesh: on 61 x 61 squares the same run
+reads 0.0045, 0.0098 and 0.0052 m. The azimuthal spread, 0.136 m, is the
+asymmetry of the mesh around the well and the offset of the centroids each
+monitor point reads (0.054 m on 61 x 61): its bound keeps a 15 % margin.
+"""

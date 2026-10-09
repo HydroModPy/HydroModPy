@@ -1,4 +1,12 @@
 [head_profile]
-rmse = 0.05
-max_abs_error = 0.10
-row_spread = 2e-5
+rmse = 6e-7
+max_abs_error = 1e-6
+row_spread = 1e-5
+
+[doc]
+reason = """
+Equal end thicknesses carry a uniform flow at constant thickness, which both
+conductance formulations reproduce exactly on a column grid. What is left is
+the solver closure. Twice the MODFLOW-NWT measurement with the validation
+profile (head closure 1e-9 m): RMSE 2.7e-7 m, max error 4.6e-7 m.
+"""

@@ -1,4 +1,9 @@
-"""Shared analytical references for 1D linearized unconfined transient flow."""
+"""Shared analytical references for 1D linearized unconfined transient flow.
+
+The side heads sit at ``west_x`` and ``east_x``, where the model holds them:
+on a structured grid, the centres of the boundary columns
+(``validation_cases.shared.strip_geometry``).
+"""
 
 from __future__ import annotations
 
@@ -13,11 +18,6 @@ MM_PER_M = 1000.0
 def mm_day_to_m_s(value: float) -> float:
     """Convert one recharge rate from mm/day to m/s."""
     return float(value) / MM_PER_M / SECONDS_PER_DAY
-
-
-def build_profile_x(*, xmin: float, xmax: float, ncol: int) -> np.ndarray:
-    """Return the 1D profile support used by validation comparisons."""
-    return np.linspace(float(xmin), float(xmax), int(ncol), dtype=float)
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,18 +96,6 @@ def recharge_step_response(
     return np.asarray(response, dtype=float)
 
 
-def _piecewise_level_at_eval_times(
-    *,
-    period_start_seconds: np.ndarray,
-    period_levels: np.ndarray,
-    eval_times_seconds: np.ndarray,
-) -> np.ndarray:
-    """Return the active piecewise-constant level at each solver output time."""
-    indices = np.searchsorted(period_start_seconds, eval_times_seconds, side="left") - 1
-    indices = np.clip(indices, 0, len(period_levels) - 1)
-    return np.asarray(period_levels[indices], dtype=float)
-
-
 def superpose_piecewise_steps(
     *,
     base_profile: float | np.ndarray,
@@ -151,6 +139,8 @@ def superpose_piecewise_steps(
 def west_boundary_profiles_from_period_levels(
     *,
     x: np.ndarray,
+    west_x: float,
+    east_x: float,
     eval_times_seconds,
     period_start_seconds,
     west_head_levels_m,
@@ -159,7 +149,8 @@ def west_boundary_profiles_from_period_levels(
     n_terms: int = 400,
 ) -> np.ndarray:
     """Return absolute head profiles for a piecewise-constant west boundary series."""
-    x_arr = np.asarray(x, dtype=float).reshape(-1)
+    x_arr = np.asarray(x, dtype=float).reshape(-1) - float(west_x)
+    length_m = float(east_x) - float(west_x)
     eval_times = _as_1d_seconds(eval_times_seconds)
     start_times = np.asarray(period_start_seconds, dtype=float).reshape(-1)
     west_levels = np.asarray(west_head_levels_m, dtype=float).reshape(-1)
@@ -173,25 +164,19 @@ def west_boundary_profiles_from_period_levels(
         step_response_builder=lambda tau: boundary_step_response(
             x=x_arr,
             times_seconds=tau,
-            length_m=float(x_arr[-1] - x_arr[0]),
+            length_m=length_m,
             diffusivity_m2_per_s=properties.diffusivity_m2_per_s,
             n_terms=n_terms,
         ),
     )
-
-    active_west = _piecewise_level_at_eval_times(
-        period_start_seconds=start_times,
-        period_levels=west_levels,
-        eval_times_seconds=eval_times,
-    )
-    profiles[:, 0] = active_west
-    profiles[:, -1] = float(base_head_m)
     return np.asarray(profiles, dtype=float)
 
 
 def recharge_profiles_from_period_levels(
     *,
     x: np.ndarray,
+    west_x: float,
+    east_x: float,
     eval_times_seconds,
     period_start_seconds,
     recharge_levels_m_per_s,
@@ -200,7 +185,8 @@ def recharge_profiles_from_period_levels(
     n_terms: int = 400,
 ) -> np.ndarray:
     """Return absolute head profiles for a piecewise-constant recharge series."""
-    x_arr = np.asarray(x, dtype=float).reshape(-1)
+    x_arr = np.asarray(x, dtype=float).reshape(-1) - float(west_x)
+    length_m = float(east_x) - float(west_x)
     eval_times = _as_1d_seconds(eval_times_seconds)
     start_times = np.asarray(period_start_seconds, dtype=float).reshape(-1)
     recharge_levels = np.asarray(recharge_levels_m_per_s, dtype=float).reshape(-1)
@@ -213,12 +199,10 @@ def recharge_profiles_from_period_levels(
         step_response_builder=lambda tau: recharge_step_response(
             x=x_arr,
             times_seconds=tau,
-            length_m=float(x_arr[-1] - x_arr[0]),
+            length_m=length_m,
             transmissivity_m2_per_s=properties.transmissivity_m2_per_s,
             diffusivity_m2_per_s=properties.diffusivity_m2_per_s,
             n_terms=n_terms,
         ),
     )
-    profiles[:, 0] = float(base_head_m)
-    profiles[:, -1] = float(base_head_m)
     return np.asarray(profiles, dtype=float)

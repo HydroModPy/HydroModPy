@@ -14,13 +14,13 @@
       "max_abs_error": 0.03286344331072044
     },
     "reference_against_analytical": {
-      "rmse": 0.047321523934103084,
-      "max_abs_error": 0.0628131483271055,
+      "rmse": 0.006413256903464185,
+      "max_abs_error": 0.0076359193177477636,
       "row_spread": 1.362156638023992e-06
     },
     "candidate_against_analytical": {
-      "rmse": 0.0353981835434502,
-      "max_abs_error": 0.053353942920234765,
+      "rmse": 0.007703937468415723,
+      "max_abs_error": 0.010985307316072834,
       "row_spread": 0.0
     }
   }

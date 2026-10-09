@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+from hydromodpy.core.state.run_state import RunState
+from hydromodpy.core.state.setup import SetupContext
 from hydromodpy.physics.flow import Flow
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
@@ -24,7 +26,7 @@ from validation_cases.analytical.transient.runtime_boussinesq_1d import (
     aggregate_triangle_history_to_structured_fields,
 )
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    apply_analytical_boussinesq_runtime_defaults,
+    boussinesq_variant_flow_section,
 )
 from validation_cases.shared.runtime import (
     ValidationRunResult,
@@ -42,26 +44,27 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> ValidationRunResult:
-    """Run the transient recharge-step hillslope case through PETSc TS VI."""
+    """Run the transient recharge-step hillslope case for one Boussinesq variant."""
     del timeout
 
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
-        run_name=f"{CASE_ID}_boussinesq",
+        run_name=f"{CASE_ID}_{public_solver_label}",
     )
     bundle_dir = _write_hillslope_strip_bundle(out_path / "mesh_bundle")
     simulations_folder = out_path / "results_simulations"
     simulations_folder.mkdir(parents=True, exist_ok=True)
     period_lengths_seconds = tuple(86400.0 * DT_DAYS for _ in range(NPER))
 
-    state = SimpleNamespace(
-        setup=SimpleNamespace(
+    state = RunState(
+        setup=SetupContext(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=Flow(
                 _build_flow_config(
-                    apply_analytical_boussinesq_runtime_defaults(
+                    boussinesq_variant_flow_section(
                         {
                             "flow_regime": "transient",
                             "ic": {"type": "custom", "value": EAST_HEAD_M},
@@ -79,6 +82,7 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
                             },
                         },
                         flow_regime="transient",
+                        solver=public_solver_label,
                     )
                 )
             ),
@@ -127,7 +131,7 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
     )
     return ValidationRunResult(
         case_dir=Path(__file__).resolve().parent,
-        solver_name="boussinesq",
+        solver_name=public_solver_label,
         out_path=out_path,
         model_ws=model_ws,
         postprocess_dir=postprocess_dir,

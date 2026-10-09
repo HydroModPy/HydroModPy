@@ -115,7 +115,8 @@ def test_history_contract_payload_axes_validate_explicit_lengths() -> None:
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
-        (None, "local"),
+        (None, "auto"),
+        ("local", "local"),
         (" PETSC ", "petsc"),
         ("scipy_sparse", "scipy_sparse"),
     ],

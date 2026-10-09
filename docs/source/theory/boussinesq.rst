@@ -433,9 +433,11 @@ Methods and engines
 
 :toml:`flow.surface_interaction_model` picks the closure and
 :toml:`flow.runtime_backend` the engine; the pair resolves to one method. A closure
-that the backend does not implement is refused when the solve starts. The dense
-engines ``local`` and ``scipy`` refuse a mesh of more than 400 cells. The sparse engine
-``scipy_sparse`` has no such limit. ``petsc`` needs ``petsc4py``, runs on Linux only, in
+that the backend does not implement is refused when the solve starts. The default
+``auto`` runs the dense engine ``local`` up to 400 cells and the sparse engine
+``scipy_sparse`` above, and logs which one runs. Asked by name, the dense engines
+``local`` and ``scipy`` refuse a mesh of more than 400 cells; ``scipy_sparse`` has no
+such limit. ``petsc`` needs ``petsc4py``, runs on Linux only, in
 serial, and is the only engine of the mixed closure. The engines step by step, the
 experimental closures and the diagnostics a run writes are on
 :doc:`/contribute/architecture/solver/boussinesq-engines`. What each solver supports is
@@ -445,8 +447,10 @@ The starting state and the time loop
 ------------------------------------
 
 The transient driver loops over the stress periods. At each period it takes the
-forcing of the period, the heads of the previous period as the previous state and as
-the initial guess, and solves one step. The first period is a transient step like the
+forcing of the period and solves :toml:`simulation.time.substeps_per_period`
+backward Euler steps of equal length, each from the heads of the step before, as the
+previous state and as the initial guess. The forcing holds over the period, as in
+MODFLOW. The first period is a transient step like the
 others: the solver does not read :toml:`flow.first_period_steady`.
 
 The initial heads come from :toml:`flow.ic.h.type`. With ``steady_state``, the solver
@@ -477,8 +481,8 @@ Limits
   when it is read.
 - **Boundary bias.** Near a boundary with a strong gradient, the head of a pinned
   cell differs from the edge value (step 3). Refine the mesh there to reduce it.
-- **One step per period.** A stress period that does not converge ends the run. The
-  experimental obstacle runtimes can substep.
+- **Fixed steps.** A time step that does not converge ends the run. The step length
+  is fixed; the experimental obstacle runtimes can cut each step into substeps.
 - **What can be read back.** The solver serves the head at a cell, the discharge
   over the domain, and the release per cell. It has no lake stage and no routed
   discharge, because it has no lake package and no stream reaches.
@@ -502,6 +506,7 @@ the engine. Open a row for its card.
 
    simulation.process.solvers
    flow.flow_regime
+   simulation.time.substeps_per_period
    flow.runtime_backend
    flow.surface_interaction_model
    flow.runtime_max_iterations

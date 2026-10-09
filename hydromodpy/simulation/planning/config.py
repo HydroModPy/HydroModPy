@@ -119,8 +119,9 @@ class SimulationTimeConfig(HydroModelBase):
             "count compares the aquifer response time `tau = L^2 S / (K b)` with "
             "the period length, and the solver cost is linear in it; 30 gives "
             "daily steps inside monthly periods. Consumed by the MODFLOW "
-            "backends as DIS NSTP / TDIS nstp; the Boussinesq backend has its "
-            "own [flow].vi_substeps_per_period."
+            "backends as DIS NSTP / TDIS nstp, and by the Boussinesq backend, "
+            "which solves each period in as many backward-Euler steps of equal "
+            "length."
         ),
     )
     coverage_policy: Annotated[CoveragePolicy, Profile.USER] = Field(

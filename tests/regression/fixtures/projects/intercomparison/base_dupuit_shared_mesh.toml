@@ -4,6 +4,11 @@ base_config = "../../../../../validation_cases/analytical/steady/dupuit_fixed_he
 [workflow]
 mode = "simulation"
 
+# The golden compares two solvers to the millimetre: compact storage rounds
+# these heads to steps of 0.1 mm, the size of the differences it locks.
+[simulation.results.persistence]
+field_precision = "exact"
+
 [mesh_input]
 mesh_path = "../../../../../validation_cases/shared/mesh_bundles/sloping_substratum_irregular_tri_400x50/mesh_2d.msh"
 bundle_dir = "../../../../../validation_cases/shared/mesh_bundles/sloping_substratum_irregular_tri_400x50"

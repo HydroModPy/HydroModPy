@@ -1,0 +1,21 @@
+[radial_profile]
+rmse = 0.048
+max_abs_error = 0.066
+azimuthal_spread = 0.11
+min_land_clearance = 0.95
+
+[doc]
+reason = """
+Twice the error measured with the default 'auto' engine (scipy_sparse on 3147 cells)
+on the triangles themselves, the reference at each centroid: radial RMSE
+0.024 m, max error 0.033 m, spread of the error in a 10 m bin 0.055 m, and half
+the measured freeboard of 1.90 m. PETSc and the default engine agree to 1e-3 m.
+The mesh has near-equilateral triangles of 10 m, a node ring on the coast and
+one ring of ocean triangles held at the sea level. Until 2026-10-09 it was a
+ring mesh of 18 sectors cut along one diagonal: there the two-point flux sat
+0.25 m high with the reference imposed beyond 180 m, and refining that mesh
+made it worse (+1.1 m at 1476 and 5832 cells), while near-equilateral meshes
+converge (+0.08, +0.07, +0.02 m at 257, 886, 3147 cells). Half of its ocean
+triangles were capped at the sea floor (-1 m), a coastal sink that hid most of
+that bias.
+"""

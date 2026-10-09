@@ -26,7 +26,15 @@ _CURRENT: dict[str, Any] | None = None
 
 def new_record() -> dict[str, Any]:
     """Return an empty record for one test."""
-    return {"metrics": [], "series": [], "scale": None, "case": None}
+    return {
+        "metrics": [],
+        "series": [],
+        "scale": None,
+        "case": None,
+        "samples": [],
+        "maps": [],
+        "spacetime": [],
+    }
 
 
 @contextmanager
@@ -132,6 +140,196 @@ def record_series(
     )
 
 
+# Most evaluated points kept per method. The page draws a figure, not the trace.
+MAX_SAMPLES = 200
+
+
+def record_samples(
+    name: str,
+    parameters: list[str],
+    points: Sequence[Sequence[float]] | np.ndarray,
+    objective: Sequence[float] | np.ndarray,
+    truth: dict[str, float],
+) -> None:
+    """Keep the points one calibration method evaluated, thinned for a figure.
+
+    ``points`` has one row per evaluation and one column per name in
+    ``parameters``. ``objective`` is the cost of each row. Rows with a
+    non-finite cost are dropped. At most ``MAX_SAMPLES`` rows are kept, evenly
+    spaced in evaluation order, the best one always included. ``truth`` maps
+    each parameter to the value that produced the observations.
+    """
+    if _CURRENT is None:
+        return
+    pts = np.asarray(points, dtype=float)
+    obj = np.asarray(objective, dtype=float).ravel()
+    if pts.ndim != 2 or pts.shape[0] != obj.size or pts.shape[1] != len(parameters):
+        return
+    finite = np.isfinite(obj) & np.isfinite(pts).all(axis=1)
+    pts, obj = pts[finite], obj[finite]
+    if obj.size == 0:
+        return
+    keep = np.unique(np.linspace(0, obj.size - 1, min(MAX_SAMPLES, obj.size)).round().astype(int))
+    keep = np.unique(np.append(keep, int(np.argmin(obj))))
+    _CURRENT["samples"].append(
+        {
+            "name": str(name),
+            "parameters": [str(p) for p in parameters],
+            "truth": {str(k): _number(v) for k, v in truth.items()},
+            "n_evaluated": int(obj.size),
+            "points": [[_number(f"{v:.6g}") for v in row] for row in pts[keep]],
+            "objective": _thin(obj, keep),
+        }
+    )
+
+
+# Largest grid of the space-time error kept per run.
+MAX_SPACETIME_X = 40
+MAX_SPACETIME_T = 30
+
+
+def _sig(values: np.ndarray, digits: int = 6) -> list[float | None]:
+    return [_number(f"{v:.{digits}g}") for v in values]
+
+
+def record_spacetime(
+    name: str,
+    x: Sequence[float] | np.ndarray,
+    times: Sequence[float] | np.ndarray,
+    reference: np.ndarray,
+    simulated: np.ndarray,
+    *,
+    x_label: str,
+    t_label: str,
+    unit: str,
+) -> None:
+    """Keep simulated minus reference on an (x, time) grid, thinned for a figure.
+
+    ``reference`` and ``simulated`` have one row per output time and one column
+    per ``x``. At most ``MAX_SPACETIME_X`` columns and ``MAX_SPACETIME_T`` rows
+    are kept, evenly spaced. The error is stored with 4 significant digits.
+    """
+    if _CURRENT is None:
+        return
+    xs = np.asarray(x, dtype=float).ravel()
+    ts = np.asarray(times, dtype=float).ravel()
+    ref = np.asarray(reference, dtype=float)
+    sim = np.asarray(simulated, dtype=float)
+    if ref.shape != (ts.size, xs.size) or sim.shape != ref.shape or xs.size < 2 or ts.size < 2:
+        return
+    ix = np.unique(np.linspace(0, xs.size - 1, min(MAX_SPACETIME_X, xs.size)).round().astype(int))
+    it = np.unique(np.linspace(0, ts.size - 1, min(MAX_SPACETIME_T, ts.size)).round().astype(int))
+    error = (sim - ref)[np.ix_(it, ix)]
+    _CURRENT["spacetime"].append(
+        {
+            "name": str(name),
+            "x_label": x_label,
+            "t_label": t_label,
+            "unit": unit,
+            "x": _sig(xs[ix]),
+            "t": _sig(ts[it]),
+            "error": [_sig(row, 3) for row in error],
+        }
+    )
+
+
+def _grid_of(polygons: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
+    """Edges and the (row, column) of each cell when the cells tile a regular grid.
+
+    A regular grid may come as ``{"x_edges": [...], "y_edges": [...]}``, row
+    major, or as axis-aligned rectangles whose corners fall on shared edges.
+    Returns ``None`` for any other mesh.
+    """
+    if isinstance(polygons, dict):
+        xe = np.asarray(polygons.get("x_edges"), dtype=float).ravel()
+        ye = np.asarray(polygons.get("y_edges"), dtype=float).ravel()
+        if xe.size < 2 or ye.size < 2:
+            return None
+        rows, cols = np.divmod(np.arange((xe.size - 1) * (ye.size - 1)), xe.size - 1)
+        return xe, ye, np.column_stack([rows, cols])
+    boxes = []
+    for poly in polygons:
+        pts = np.round(np.asarray(poly, dtype=float).reshape(-1, 2), 2)
+        xs, ys = np.unique(pts[:, 0]), np.unique(pts[:, 1])
+        if pts.shape[0] != 4 or xs.size != 2 or ys.size != 2:
+            return None
+        boxes.append((xs[0], xs[1], ys[0], ys[1]))
+    if not boxes:
+        return None
+    box = np.array(boxes)
+    xe = np.unique(box[:, :2])
+    ye = np.unique(box[:, 2:])
+    cols = np.searchsorted(xe, box[:, 0])
+    rows = np.searchsorted(ye, box[:, 2])
+    one_cell = (xe[np.minimum(cols + 1, xe.size - 1)] == box[:, 1]) & (
+        ye[np.minimum(rows + 1, ye.size - 1)] == box[:, 3]
+    )
+    if not one_cell.all():
+        return None
+    return xe, ye, np.column_stack([rows, cols])
+
+
+def _mesh_of(polygons: Any) -> tuple[np.ndarray, list[list[int]]] | None:
+    """Shared vertices and one index list per cell, rounded to 0.1 m."""
+    index: dict[tuple[float, float], int] = {}
+    faces = []
+    for poly in polygons:
+        pts = np.round(np.asarray(poly, dtype=float).reshape(-1, 2), 1)
+        faces.append([index.setdefault((float(x), float(y)), len(index)) for x, y in pts])
+    if not faces:
+        return None
+    return np.array(list(index)), faces
+
+
+def record_map(
+    name: str,
+    polygons: Any,
+    simulated: Sequence[float] | np.ndarray,
+    reference: Sequence[float] | np.ndarray,
+    *,
+    overlay: dict[str, Any] | None = None,
+) -> None:
+    """Keep the plan-view error of one run: simulated minus reference, per cell.
+
+    ``polygons`` is one (n, 2) array per cell in local metres, or a regular grid
+    as ``{"x_edges", "y_edges"}``. The values have one entry per cell, NaN for
+    sea or inactive cells. A regular grid is kept as its edges and a row-major
+    error array (key ``grid``). Any other mesh keeps shared vertices and one
+    vertex index list per cell. The error keeps 2 significant digits: the page
+    draws a map, not the raw output. ``overlay`` may carry ``coast_circle``
+    ``[cx, cy, radius]`` or ``well`` ``[x, y]``, in metres.
+    """
+    if _CURRENT is None:
+        return
+    sim = np.asarray(simulated, dtype=float).ravel()
+    ref = np.asarray(reference, dtype=float).ravel()
+    if sim.size != ref.size:
+        return
+    error = sim - ref
+    keep = {}
+    for key in ("coast_circle", "well"):
+        value = (overlay or {}).get(key)
+        if value is not None:
+            keep[key] = _sig(np.asarray(value, dtype=float).ravel(), 6)
+    entry: dict[str, Any] = {"name": str(name), "overlay": keep}
+    grid = _grid_of(polygons)
+    if grid is not None and len(grid[2]) == error.size:
+        xe, ye, where = grid
+        full = np.full((ye.size - 1, xe.size - 1), np.nan)
+        full[where[:, 0], where[:, 1]] = error
+        entry["grid"] = {"x_edges": _sig(xe, 8), "y_edges": _sig(ye, 8)}
+        entry["error"] = _sig(full.ravel(), 2)
+    else:
+        mesh = _mesh_of(polygons)
+        if mesh is None or len(mesh[1]) != error.size:
+            return
+        vertices, faces = mesh
+        entry["vertices"] = [_sig(v, 8) for v in vertices]
+        entry["faces"] = faces
+        entry["error"] = _sig(error, 2)
+    _CURRENT["maps"].append(entry)
+
+
 def _range(values: np.ndarray) -> float:
     finite = values[np.isfinite(values)]
     return float(finite.max() - finite.min()) if finite.size else 0.0
@@ -151,6 +349,15 @@ def record_comparison(comparison: Any) -> None:
     metadata = getattr(comparison, "metadata", None) or {}
     record_case(metadata.get("case_id"))
     get = lambda name: getattr(comparison, name, None)  # noqa: E731
+
+    if get("map_cell_polygons") is not None:
+        record_map(
+            "Head error map",
+            get("map_cell_polygons"),
+            get("map_simulated"),
+            get("map_reference"),
+            overlay=get("map_overlay"),
+        )
 
     if get("analytical_discharge_m3_s") is not None:
         ref = np.asarray(get("analytical_discharge_m3_s"), dtype=float)
@@ -204,6 +411,18 @@ def record_comparison(comparison: Any) -> None:
             x_label="x (m)",
             y_label="head (m)",
         )
+        times = get("elapsed_days")
+        if times is not None:
+            record_spacetime(
+                "Head error over space and time",
+                get("x"),
+                times,
+                ref_all,
+                sim_all,
+                x_label="x (m)",
+                t_label="time (d)",
+                unit="m",
+            )
         record_scale(_range(ref_all), "head range of the reference over space and time", "m")
         return
 
@@ -240,11 +459,15 @@ def record_comparison(comparison: Any) -> None:
 
 __all__ = [
     "MAX_POINTS",
+    "MAX_SAMPLES",
     "new_record",
     "record_case",
     "record_comparison",
+    "record_map",
     "record_metric",
+    "record_samples",
     "record_scale",
     "record_series",
+    "record_spacetime",
     "recording",
 ]

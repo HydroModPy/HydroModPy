@@ -15,17 +15,20 @@ def mm_day_to_m_s(value: float) -> float:
 
 def expected_dupuit_divide_river_profile(
     *,
-    xmin: float,
-    xmax: float,
-    ncol: int,
+    x: np.ndarray,
+    divide_x: float,
+    river_x: float,
     river_head: float,
     recharge_mm_day: float,
     hydraulic_conductivity_m_per_s: float,
 ) -> np.ndarray:
-    """Return the steady Dupuit profile with west-side divide and east-side river."""
-    x = np.linspace(float(xmin), float(xmax), int(ncol), dtype=float)
-    length = float(xmax) - float(xmin)
-    local_x = x - float(xmin)
+    """Return the steady Dupuit profile between a divide and a held river head.
+
+    The no-flow divide sits at ``divide_x`` (the west face) and the river head
+    at ``river_x``, where the model holds it.
+    """
+    length = float(river_x) - float(divide_x)
+    local_x = np.asarray(x, dtype=float) - float(divide_x)
     recharge_m_per_s = mm_day_to_m_s(recharge_mm_day)
     head_squared = float(river_head) ** 2 + (
         recharge_m_per_s / float(hydraulic_conductivity_m_per_s)

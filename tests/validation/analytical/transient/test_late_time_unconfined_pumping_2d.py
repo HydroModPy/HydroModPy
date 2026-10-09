@@ -72,6 +72,7 @@ def _assert_late_time_unconfined_pumping_case(
         pytest.param("modflow_nwt", True, False, id="modflow_nwt"),
         pytest.param("modflow6", False, True, id="modflow6"),
         pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
+        pytest.param("modflow6_voronoi", False, True, id="modflow6_voronoi"),
     ],
 )
 def test_late_time_unconfined_pumping_2d_matches_late_time_reference_fast_solvers(
@@ -91,10 +92,30 @@ def test_late_time_unconfined_pumping_2d_matches_late_time_reference_fast_solver
 @pytest.mark.analytical
 @pytest.mark.transient
 @pytest.mark.slow
+@pytest.mark.petsc
 def test_late_time_unconfined_pumping_2d_matches_late_time_reference_boussinesq() -> None:
-    """Run the slower Boussinesq late-time radial benchmark in the slow tier."""
+    """Run the slower Boussinesq late-time radial benchmark in the slow tier, on PETSc."""
     _assert_late_time_unconfined_pumping_case(
         solver="boussinesq",
+        require_modflow=False,
+        require_modflow6=False,
+    )
+
+
+@pytest.mark.validation
+@pytest.mark.analytical
+@pytest.mark.transient
+@pytest.mark.slow
+@pytest.mark.parametrize("solver", [pytest.param("boussinesq_local", id="boussinesq_local")])
+def test_late_time_unconfined_pumping_2d_matches_late_time_reference_default_engine(
+    solver: str,
+) -> None:
+    """Run the benchmark on the default Boussinesq engine, which needs no PETSc.
+
+    The mesh has 1922 cells, so 'auto' runs the sparse engine.
+    """
+    _assert_late_time_unconfined_pumping_case(
+        solver=solver,
         require_modflow=False,
         require_modflow6=False,
     )

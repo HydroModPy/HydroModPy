@@ -18,6 +18,8 @@ from validation_cases.shared import (
     rmse,
     run_launcher_validation_case,
 )
+from validation_cases.shared.boussinesq_analytical_runtime import DEFAULT_ENGINE_SOLVER
+from validation_cases.shared.strip_geometry import strip_geometry_for_run
 
 from .reference import expected_boussinesq_fixed_head_piecewise_profile
 from .runtime_boussinesq import run_boussinesq_fixed_head_piecewise_k_case
@@ -81,22 +83,26 @@ def build_boussinesq_fixed_head_piecewise_k_comparison(
 
     profile_axis = int(reference_cfg.get("profile_axis", 0))
     numerical_profile = mean_along_axis(heads, axis=profile_axis)
-    x = np.linspace(
-        float(reference_cfg["xmin"]),
-        float(reference_cfg["xmax"]),
-        numerical_profile.size,
-        dtype=float,
-    )
-    analytical_profile = expected_boussinesq_fixed_head_piecewise_profile(
+    geometry = strip_geometry_for_run(
+        result,
+        ncol=numerical_profile.size,
         xmin=float(reference_cfg["xmin"]),
         xmax=float(reference_cfg["xmax"]),
-        ncol=numerical_profile.size,
-        west_head=float(reference_cfg["west_head"]),
-        east_head=float(reference_cfg["east_head"]),
-        x_zone_breaks_m=reference_cfg["x_zone_breaks_m"],
-        hydraulic_conductivity_m_per_s_by_zone=reference_cfg[
-            "hydraulic_conductivity_m_per_s_by_zone"
-        ],
+    )
+    x = geometry.x
+    analytical_profile = geometry.profile(
+        lambda points: expected_boussinesq_fixed_head_piecewise_profile(
+            x=points,
+            west_x=geometry.west_x,
+            east_x=geometry.east_x,
+            west_head=float(reference_cfg["west_head"]),
+            east_head=float(reference_cfg["east_head"]),
+            x_zone_breaks_m=reference_cfg["x_zone_breaks_m"],
+            hydraulic_conductivity_m_per_s_by_zone=reference_cfg[
+                "hydraulic_conductivity_m_per_s_by_zone"
+            ],
+        ),
+        within=(geometry.west_x, geometry.east_x),
     )
     residual_profile = np.asarray(numerical_profile - analytical_profile, dtype=float)
 
@@ -128,10 +134,11 @@ def run_boussinesq_fixed_head_piecewise_k_comparison(
     metadata = load_case_metadata(CASE_DIR)
     tolerances = load_case_tolerances(CASE_DIR, solver=solver)
     normalized_solver = None if solver is None else str(solver).strip().lower()
-    if normalized_solver == "boussinesq":
+    if normalized_solver in {"boussinesq", DEFAULT_ENGINE_SOLVER}:
         result = run_boussinesq_fixed_head_piecewise_k_case(
             caller_file=caller_file,
             timeout=timeout,
+            public_solver_label=normalized_solver,
         )
     else:
         result = run_launcher_validation_case(

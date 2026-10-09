@@ -1,8 +1,22 @@
 [space_time]
-rmse = 0.10
-max_abs_error = 0.12
-azimuthal_spread = 0.15
+rmse = 0.028
+max_abs_error = 0.068
+azimuthal_spread = 0.16
 
 [final_time]
-rmse = 0.10
-max_abs_error = 0.12
+rmse = 0.034
+max_abs_error = 0.068
+
+[doc]
+reason = """
+Twice the error measured with PETSc TS VI (4 steps a period), the reference read
+at the centroid of the triangle each monitor point reads, as for the MODFLOW
+triangle grid: space-time RMSE 0.014 m, max error 0.034 m, final RMSE 0.017 m.
+The runtime meshes the 2 km square with 31 x 31 squares of 64.5 m split into
+1922 triangles, and the error is the mesh: on 61 x 61 squares the same runtime
+reads 0.0045, 0.0098 and 0.0052 m. The azimuthal spread, 0.136 m, is the
+asymmetry of the mesh around the well and the offset of the centroids each
+monitor point reads (0.054 m on 61 x 61): its bound keeps a 15 % margin. Until
+2026-10-09 the reference was read at the monitor point, up to 30 m from the
+centroid the projection reads, and the case read 0.064 m.
+"""

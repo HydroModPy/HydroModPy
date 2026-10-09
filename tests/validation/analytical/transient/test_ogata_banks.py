@@ -18,7 +18,9 @@ Numerical and analytical concentrations are compared at probe points
 along the column at three times.
 
 Tolerance rationale - ``tests/TOLERANCES.md`` row 7: NSE > 0.95 across
-all (x, t) probes with a maximum pointwise relative error below 3 %.
+all (x, t) probes with a maximum pointwise relative error below 2.5 %
+(measured 2.2 % at the production grid). A second test refines dt by 4 and
+dx by 2 and requires the error to fall below that of the production run.
 
 Scope - ``solver_sanity``:
    The coupled GWF + GWT column with inlet auxiliary concentration is
@@ -45,7 +47,6 @@ from tests.validation.helpers import assert_metric_above, assert_metric_below
 
 COLUMN_LENGTH_M = 50.0
 N_CELLS = 500
-CELL_SIZE_M = COLUMN_LENGTH_M / N_CELLS
 POROSITY = 0.3
 
 PORE_VELOCITY_M_PER_DAY = 0.1
@@ -87,6 +88,8 @@ def _ogata_banks_concentration(x_m: float, t_d: float) -> float:
 
 def _build_and_run_ogata_banks_model(
     workspace: Path,
+    n_steps: int = N_TRANSPORT_STEPS,
+    n_cells: int = N_CELLS,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Run the coupled GWF + GWT model and return ``(numerical, analytical)`` grids.
 
@@ -95,6 +98,8 @@ def _build_and_run_ogata_banks_model(
     import flopy
 
     mf6_exe = resolve_bundled_executable("mf6")
+
+    cell_size = COLUMN_LENGTH_M / n_cells
 
     # Aquifer geometry - unit cross-section, uniform cells.
     aquifer_top = 1.0
@@ -117,7 +122,7 @@ def _build_and_run_ogata_banks_model(
         sim,
         time_units="DAYS",
         nper=1,
-        perioddata=[(DURATION_D, N_TRANSPORT_STEPS, 1.0)],
+        perioddata=[(DURATION_D, n_steps, 1.0)],
     )
 
     # ----- Flow model ------------------------------------------------------
@@ -138,8 +143,8 @@ def _build_and_run_ogata_banks_model(
         gwf,
         nlay=1,
         nrow=1,
-        ncol=N_CELLS,
-        delr=CELL_SIZE_M,
+        ncol=n_cells,
+        delr=cell_size,
         delc=1.0,
         top=aquifer_top,
         botm=aquifer_bot,
@@ -163,7 +168,7 @@ def _build_and_run_ogata_banks_model(
         stress_period_data={
             0: [
                 ((0, 0, 0), head_left, 0.0),
-                ((0, 0, N_CELLS - 1), head_right, 0.0),
+                ((0, 0, n_cells - 1), head_right, 0.0),
             ]
         },
         pname="CHD-1",
@@ -193,8 +198,8 @@ def _build_and_run_ogata_banks_model(
         gwt,
         nlay=1,
         nrow=1,
-        ncol=N_CELLS,
-        delr=CELL_SIZE_M,
+        ncol=n_cells,
+        delr=cell_size,
         delc=1.0,
         top=aquifer_top,
         botm=aquifer_bot,
@@ -237,7 +242,10 @@ def _build_and_run_ogata_banks_model(
     )
     times = np.asarray(conc_file.get_times())
 
-    x_centers = np.arange(N_CELLS) * CELL_SIZE_M + 0.5 * CELL_SIZE_M
+    x_centers = np.arange(n_cells) * cell_size + 0.5 * cell_size
+    # The CNC fixes the concentration at the centre of cell 0, not at the
+    # column edge, so the inlet of the reference sits at x_centers[0].
+    inlet_x = float(x_centers[0])
 
     numerical = np.zeros((len(OBSERVATION_TIMES_D), len(OBSERVATION_X_M)))
     analytical = np.zeros_like(numerical)
@@ -248,10 +256,29 @@ def _build_and_run_ogata_banks_model(
             cell_idx = int(np.argmin(np.abs(x_centers - probe_x)))
             numerical[ti, xi] = float(snapshot[cell_idx])
             analytical[ti, xi] = _ogata_banks_concentration(
-                float(x_centers[cell_idx]), float(times[time_idx])
+                float(x_centers[cell_idx]) - inlet_x, float(times[time_idx])
             )
 
     return numerical, analytical
+
+
+def _score(numerical: np.ndarray, analytical: np.ndarray) -> tuple[float, float]:
+    """Return ``(nse, max relative error where c > 1e-3 c0)`` over all probes."""
+    num = numerical.ravel()
+    ana = analytical.ravel()
+    nse = 1.0 - float(np.sum((num - ana) ** 2)) / float(np.sum((ana - ana.mean()) ** 2))
+    mask = ana > 1e-3
+    max_rel = float((np.abs(num[mask] - ana[mask]) / ana[mask]).max())
+    return nse, max_rel
+
+
+def _require_mf6() -> None:
+    assert_required_executables(
+        require_modflow=False,
+        require_modflow6=True,
+        require_modpath=False,
+        require_mt3dms=False,
+    )
 
 
 @pytest.mark.validation
@@ -262,30 +289,32 @@ def _build_and_run_ogata_banks_model(
 @pytest.mark.solver_sanity
 def test_ogata_banks_1d_transport_matches_analytical_reference(tmp_path: Path) -> None:
     """Run the MF6 GWF+GWT column and compare ``c(x, t)`` to the Ogata-Banks profile."""
-    assert_required_executables(
-        require_modflow=False,
-        require_modflow6=True,
-        require_modpath=False,
-        require_mt3dms=False,
-    )
-
-    numerical, analytical = _build_and_run_ogata_banks_model(tmp_path)
-    numerical_flat = numerical.ravel()
-    analytical_flat = analytical.ravel()
-
-    # Keep only probes with non-trivial analytical signal to avoid NaNs in
-    # relative-error denominators. Values below this threshold are still
-    # included in the NSE calculation.
-    signal_mask = analytical_flat > 1e-3
-
-    variance = float(np.sum((analytical_flat - analytical_flat.mean()) ** 2))
-    residual = float(np.sum((numerical_flat - analytical_flat) ** 2))
-    nse = 1.0 - residual / variance
+    _require_mf6()
+    nse, max_rel = _score(*_build_and_run_ogata_banks_model(tmp_path))
     assert_metric_above("Nash-Sutcliffe efficiency of the concentration", nse, 0.95, ideal=1.0)
+    assert_metric_below("Largest relative concentration error where c > 1e-3 c0", max_rel, 0.025)
 
-    if signal_mask.any():
-        relative_errors = np.abs(
-            numerical_flat[signal_mask] - analytical_flat[signal_mask]
-        ) / np.abs(analytical_flat[signal_mask])
-        max_rel = float(relative_errors.max())
-        assert_metric_below("Largest relative concentration error where c > 1e-3 c0", max_rel, 0.03)
+
+@pytest.mark.validation
+@pytest.mark.analytical
+@pytest.mark.transient
+@pytest.mark.mf6
+@pytest.mark.slow
+@pytest.mark.solver_sanity
+def test_ogata_banks_error_shrinks_under_refinement(tmp_path: Path) -> None:
+    """Refining dt by 4 and dx by 2 must reduce the error, so no compensation hides.
+
+    Measured: 2.2 % at the production grid, 0.5 % refined. Refining dt alone
+    is not monotone (spatial TVD error dominates and has the opposite sign to
+    the implicit Euler error), hence the joint refinement.
+    """
+    _require_mf6()
+    _, base_err = _score(*_build_and_run_ogata_banks_model(tmp_path / "base"))
+    nse, refined_err = _score(
+        *_build_and_run_ogata_banks_model(
+            tmp_path / "refined", n_steps=4 * N_TRANSPORT_STEPS, n_cells=2 * N_CELLS
+        )
+    )
+    assert_metric_above("Refined-grid Nash-Sutcliffe efficiency", nse, 0.99, ideal=1.0)
+    assert_metric_below("Refined-grid largest relative concentration error", refined_err, 0.01)
+    assert_metric_below("Refined error over production error", refined_err / base_err, 0.5)

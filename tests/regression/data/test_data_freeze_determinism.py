@@ -73,6 +73,11 @@ def _normalise_section(section: Any) -> dict:
     return out
 
 
+def _key(workspace: Path, path: Path) -> str:
+    """Return the catalog key of ``path``: its workspace-relative POSIX form."""
+    return path.relative_to(workspace).as_posix()
+
+
 def _seed_two_inputs(tmp: Path) -> tuple[DataCatalogDuckDB, Path, Path, Path]:
     """Two catalog entries under a workspace; deterministic byte payloads."""
     workspace = tmp / "workspace"
@@ -148,7 +153,7 @@ def test_input_ordering_is_stable_across_writes(tmp_path: Path) -> None:
     keys_two = list(read_lockfile_inputs(dest))
     catalog.close()
 
-    assert keys_one == keys_two == sorted([first.name, second.name])
+    assert keys_one == keys_two == sorted([_key(workspace, first), _key(workspace, second)])
 
 
 def test_artefact_sha256_independent_of_run(tmp_path: Path) -> None:
@@ -159,9 +164,11 @@ def test_artefact_sha256_independent_of_run(tmp_path: Path) -> None:
     inputs = read_lockfile_inputs(dest)
     catalog.close()
 
-    assert inputs[first.name]["sha256"] == sha256_of(first)
-    assert inputs[second.name]["sha256"] == sha256_of(second)
-    assert inputs[first.name]["sha256"] != inputs[second.name]["sha256"]
+    key_a = _key(workspace, first)
+    key_b = _key(workspace, second)
+    assert inputs[key_a]["sha256"] == sha256_of(first)
+    assert inputs[key_b]["sha256"] == sha256_of(second)
+    assert inputs[key_a]["sha256"] != inputs[key_b]["sha256"]
 
 
 # ---------------------------------------------------------------- round-trip
@@ -176,9 +183,9 @@ def test_snapshot_round_trips_to_source_state(tmp_path: Path) -> None:
 
     entries = read_lockfile(dest)
     by_path = {entry.file_path: entry for entry in entries}
-    assert set(by_path) == {first.name, second.name}
+    assert set(by_path) == {_key(workspace, first), _key(workspace, second)}
 
-    a = by_path[first.name]
+    a = by_path[_key(workspace, first)]
     assert isinstance(a, LockedArtifact)
     assert a.variable == "hydrometry"
     assert a.source == "hubeau"
@@ -188,7 +195,7 @@ def test_snapshot_round_trips_to_source_state(tmp_path: Path) -> None:
     assert a.file_mtime == 1_600_000_000.5
     assert a.fetched_at.endswith("+00:00")
 
-    b = by_path[second.name]
+    b = by_path[_key(workspace, second)]
     assert b.station_id == "B"
     assert b.file_mtime == 1_600_000_100.25
     # A clean snapshot must verify with no mismatch.
@@ -246,7 +253,7 @@ def test_verify_frozen_flags_entry_absent_from_lockfile(tmp_path: Path) -> None:
     assert len(mismatches) == 1
     m = mismatches[0]
     assert m.kind == "missing"
-    assert m.path == extra.name
+    assert m.path == _key(workspace, extra)
     assert m.station_id == "C"
     assert m.expected is None
 
@@ -261,7 +268,7 @@ def test_verify_frozen_flags_deleted_artefact(tmp_path: Path) -> None:
 
     mismatches = verify_frozen(catalog, dest)
     catalog.close()
-    missing = [m for m in mismatches if m.path == first.name]
+    missing = [m for m in mismatches if m.path == _key(workspace, first)]
     assert len(missing) == 1
     m = missing[0]
     assert m.kind == "missing"
@@ -278,7 +285,7 @@ def test_verify_inputs_strict_flags_deleted_artefact(tmp_path: Path) -> None:
 
     mismatches = verify_inputs_strict(catalog, dest)
     catalog.close()
-    missing = [m for m in mismatches if m.path == first.name]
+    missing = [m for m in mismatches if m.path == _key(workspace, first)]
     assert len(missing) == 1
     assert missing[0].kind == "missing"
     assert missing[0].expected == expected_sha

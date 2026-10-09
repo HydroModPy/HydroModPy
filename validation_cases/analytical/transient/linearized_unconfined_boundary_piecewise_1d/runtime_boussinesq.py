@@ -21,6 +21,7 @@ def run_boussinesq_linearized_unconfined_boundary_piecewise_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> object:
     """Run the boundary-piecewise case through the local transient Boussinesq backend."""
     metadata = load_case_metadata(CASE_DIR)
@@ -36,6 +37,7 @@ def run_boussinesq_linearized_unconfined_boundary_piecewise_case(
         case_id=CASE_ID,
         caller_file=caller_file,
         timeout=timeout,
+        public_solver_label=public_solver_label,
         nx=NX,
         ny=NY,
         nper=int(output_cfg["expected_periods"]),

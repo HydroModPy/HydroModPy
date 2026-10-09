@@ -25,6 +25,10 @@ Comparison:
 
 - compared quantity: row-averaged head profile along `x`,
 - reference: steady linearized solution of `T h'' - c_a (h - z_top) = 0`,
+- boundary positions: each side head is posed where the model holds it, at the
+  centre of the boundary column, or at the mean centroid of the boundary
+  triangles on the triangle strip; a no-flow side stays on the domain face
+  (`validation_cases/shared/strip_geometry.py`)
 - additional sanity check: the numerical profile must stay above topography so
   the distributed-drainage analytical assumption remains active everywhere.
 

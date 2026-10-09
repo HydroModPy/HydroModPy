@@ -13,7 +13,3 @@ resampling = "nearest"
 
 [modflownwt.sgrid.vertical]
 nlay = 1
-
-[flow.ic]
-type = "custom"
-value = "50.1 m"

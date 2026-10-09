@@ -1,4 +1,4 @@
-"""Local ``flow/boussinesq`` runtime for the late-time pumping 2D validation case."""
+"""``flow/boussinesq`` runtime for the late-time pumping 2D validation case."""
 
 from __future__ import annotations
 
@@ -8,6 +8,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from hydromodpy.core.state.run_state import RunState
+from hydromodpy.core.state.setup import SetupContext
 from hydromodpy.physics.flow import Flow
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.simulation.planning.plan import (
@@ -18,7 +20,8 @@ from hydromodpy.simulation.planning.plan import (
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.boussinesq_analytical_runtime import (
-    apply_analytical_boussinesq_runtime_defaults,
+    boussinesq_variant_config_name,
+    boussinesq_variant_flow_section,
 )
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
@@ -37,10 +40,10 @@ def _write_csv(path: Path, header: str, rows: list[str]) -> None:
     path.write_text(header + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
 
 
-def _build_flow_config(flow_section: dict[str, object]) -> FlowConfig:
-    merged_flow = merge_case_flow_section(
-        CASE_DIR, flow_section, config_name="config_boussinesq.toml"
-    )
+def _build_flow_config(
+    flow_section: dict[str, object], *, config_name: str = "config_boussinesq.toml"
+) -> FlowConfig:
+    merged_flow = merge_case_flow_section(CASE_DIR, flow_section, config_name=config_name)
     return FlowConfig.from_toml_section(merged_flow, base_dir=CASE_DIR)
 
 
@@ -209,6 +212,29 @@ def _write_uniform_square_bundle(
     return bundle_dir
 
 
+def nearest_centroid_indices(centroids_xy: np.ndarray, points_xy: np.ndarray) -> np.ndarray:
+    """Return the index of the triangle centroid nearest to each point."""
+    from scipy.spatial import cKDTree
+
+    _, nearest = cKDTree(np.asarray(centroids_xy, dtype=float)).query(
+        np.asarray(points_xy, dtype=float)
+    )
+    return np.asarray(nearest, dtype=int)
+
+
+def boussinesq_sampled_centroids(result: ValidationRunResult, points_xy: np.ndarray) -> np.ndarray:
+    """Return the centroid of the triangle the projection reads at each point."""
+    cells = np.genfromtxt(
+        Path(result.out_path) / "mesh_bundle" / "cells.csv",
+        delimiter=",",
+        names=True,
+        dtype=None,
+        encoding="utf-8",
+    )
+    centroids = np.column_stack([cells["centroid_x"], cells["centroid_y"]]).astype(float)
+    return centroids[nearest_centroid_indices(centroids, points_xy)]
+
+
 def _project_head_history_to_reference_fields(
     model,
     *,
@@ -240,14 +266,11 @@ def _project_head_history_to_reference_fields(
     )
     xx, yy = np.meshgrid(x_centers, y_centers)
 
-    projection_indices = np.empty((int(ny), int(nx)), dtype=int)
-    for row in range(int(ny)):
-        for col in range(int(nx)):
-            projection_indices[row, col] = model.mesh.locate_cell_index_for_point(
-                float(xx[row, col]),
-                float(yy[row, col]),
-                allow_nearest=True,
-            )
+    centroids = np.column_stack([model.mesh.cell_centroid_x_m, model.mesh.cell_centroid_y_m])
+    projection_indices = nearest_centroid_indices(
+        centroids, np.column_stack([xx.ravel(), yy.ravel()])
+    )
+    projection_indices = projection_indices.reshape(int(ny), int(nx))
 
     watertable_elevation: dict[int, np.ndarray] = {}
     watertable_depth: dict[int, np.ndarray] = {}
@@ -266,9 +289,11 @@ def run_boussinesq_late_time_unconfined_pumping_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    public_solver_label: str = "boussinesq",
 ) -> ValidationRunResult:
-    """Run the transient 2D pumping case through the local sparse Boussinesq adapter."""
+    """Run the transient 2D pumping case through the Boussinesq adapter."""
     del timeout
+    solver_name = str(public_solver_label or "boussinesq")
 
     metadata = load_case_metadata(CASE_DIR)
     reference_cfg = dict(metadata.get("reference", {}))
@@ -291,7 +316,7 @@ def run_boussinesq_late_time_unconfined_pumping_case(
 
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
-        run_name=f"{CASE_ID}_boussinesq",
+        run_name=f"{CASE_ID}_{solver_name}",
     )
     bundle_dir = _write_uniform_square_bundle(
         out_path / "mesh_bundle",
@@ -309,13 +334,13 @@ def run_boussinesq_late_time_unconfined_pumping_case(
     simulations_folder = out_path / simulations_folder_name
     period_lengths_seconds = tuple(float(dt_seconds) for _ in range(int(nper)))
 
-    state = SimpleNamespace(
-        setup=SimpleNamespace(
+    state = RunState(
+        setup=SetupContext(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=Flow(
                 _build_flow_config(
-                    apply_analytical_boussinesq_runtime_defaults(
+                    boussinesq_variant_flow_section(
                         {
                             "flow_regime": "transient",
                             "ic": {"type": "custom", "value": base_head_m},
@@ -342,7 +367,9 @@ def run_boussinesq_late_time_unconfined_pumping_case(
                             },
                         },
                         flow_regime="transient",
-                    )
+                        solver=solver_name,
+                    ),
+                    config_name=boussinesq_variant_config_name(solver_name),
                 )
             ),
             domain=None,
@@ -395,7 +422,7 @@ def run_boussinesq_late_time_unconfined_pumping_case(
     )
     return ValidationRunResult(
         case_dir=CASE_DIR,
-        solver_name="boussinesq",
+        solver_name=solver_name,
         out_path=out_path,
         model_ws=model_ws,
         postprocess_dir=postprocess_dir,

@@ -1,0 +1,12 @@
+[heads]
+rmse = 1e-5
+max_abs_error = 1e-5
+
+[doc]
+reason = """
+Derived. XT3D reconstructs the gradient from the neighbours and is exact for a
+uniform flow on any cell shape: what is left is the solver closure (outer
+dvclose 1e-9 m) and the spread of the transmissivity, 2e-4 across the strip,
+which moves the exact head off a straight line by 5e-6 m. The bound is twice
+that. Measured: RMSE 2.3e-8 m, max 5.8e-8 m.
+"""

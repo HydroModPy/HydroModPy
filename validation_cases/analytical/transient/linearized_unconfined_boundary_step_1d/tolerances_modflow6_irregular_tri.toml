@@ -1,8 +1,18 @@
 [space_time]
-rmse = 0.01
-max_abs_error = 0.02
-row_spread = 0.005
+rmse = 0.0029
+max_abs_error = 0.025
+row_spread = 1e-9
 
 [final_profile]
-rmse = 0.01
-max_abs_error = 0.02
+rmse = 3.1e-4
+max_abs_error = 4.4e-4
+
+[doc]
+reason = """
+Twice the error measured on the triangle strip: space-time RMSE 1.4e-3 m, max
+error 1.2e-2 m, final RMSE 1.5e-4 m. The row spread is zero by construction:
+the loader collapses the strip to one profile. Backward Euler is first order
+in time: on the boundary step, 1, 2, 4 and 8 sub-steps per period give a
+space-time RMSE of 1.4e-3, 7.1e-4, 3.4e-4 and 1.6e-4 m. The heads are posed at
+the centres of the boundary cells.
+"""
