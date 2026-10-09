@@ -215,9 +215,9 @@ Each release section includes the following standard categories:
   and error codes, and the exit codes of each command; the Validation page with the measured
   value, threshold, outcome, date and commit of each check, a case-by-solver matrix and the real
   CI schedule; generated contributor pages (layers, gates, CI, tests, packages, storage tree,
-  environment variables, optional dependencies); the theory page Where Dupuit stops being true;
-  one symbol registry (`docs/source/theory/symbols.yaml`) for every notation table, the build
-  failing on a symbol with two meanings; About pages built from `CITATION.cff` and data files
+  environment variables, optional dependencies); one symbol registry
+  (`docs/source/theory/symbols.yaml`) for every notation table, the build failing on a symbol
+  with two meanings; About pages built from `CITATION.cff` and data files
   (Cite, Applications and papers, Changelog, Versions and stability, Work with us).
 - Docs: every `hmp` leaf command shows an example in `--help`, and 35 options gained a help
   string. The parameter explorer ranks its results; one dev/expert switch serves the whole site;
@@ -694,6 +694,12 @@ Each release section includes the following standard categories:
 - Docs: the user guide. Its task pages had to follow every change of the code by hand; a
   series of examples will replace them. Its old URLs redirect to the reference, Understand or
   Theory page of the same subject.
+- Docs: the theory that external sources already give. The MODFLOW 6 and MODFLOW-NWT
+  equations, the laws of the DRN, EVT, CHD, LAK, SFR and MVR packages, the Newton and IMS tests
+  and the textbook derivations are now a sentence with the USGS report or the MODFLOW 6 input
+  guide. Theory keeps what HydroModPy computes or decides. The comparison of MODFLOW 6 and
+  MODFLOW-NWT and the limits of Dupuit are sections of Solvers and Groundwater flow, and their
+  URLs redirect there.
 
 ---
 

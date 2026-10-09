@@ -1,13 +1,12 @@
 # Routing on the mesh: the descent D
 
-A drain releases water in its cell. Where that water goes next, and which cells
-the water of a cell flows through, is a question of routing. A mesh top has pits
-that a DEM routed on its own grid never had, and a pit holds the water it
-receives. Routing needs a surface on which every cell has a way down. The model
-top is not that surface, and raising it would change the ground the solver sees.
-The descent $D$ solves this on a copy: the copy is filled, the receivers of every
-cell are read on it, and it never goes back to the solver. The drain elevations,
-the streambeds and the reach tops keep reading $z_\mathrm{top}$.
+Where the water of a drain goes next is a question of routing. A mesh top has pits
+that a DEM routed on its own grid never had, and a pit holds the water it receives.
+Routing needs a surface on which every cell has a way down. The model top is not
+that surface, and raising it would change the ground the solver sees. The descent
+$D$ solves this on a copy: the copy is filled, the receivers of every cell are read
+on it, and it never goes back to the solver. The drain elevations, the streambeds
+and the reach tops keep reading $z_\mathrm{top}$.
 
 ::::{dropdown} Notation of this page
 ```{hmp-notation}
@@ -49,8 +48,8 @@ level is raised too, so that no link of the receiver graph drops by less than th
 tolerance of that graph.
 
 A lake is crossed, never used as a seed. Its cells keep their top and are
-flooded to their spill level like any depression. The lake drains through its
-outlet, and the cells below a dam keep draining downstream. The role of a sink
+flooded to their spill level like any depression, so the lake drains through its
+outlet and the cells below a dam keep draining downstream. The role of a sink
 belongs to the walks that read $D$: they stop at the first lake cell.
 
 In the code: `build_descent`.
@@ -58,10 +57,10 @@ In the code: `build_descent`.
 (routing-receivers)=
 ## The receivers
 
-On the filled copy, the receiver $r(n)$ of a cell is the neighbour with the
-steepest drop per metre, among the neighbours lower by more than the tolerance
-$\eta_r = 10^{-9} \max(\Delta\tilde z,\ 1)$ m, where $\Delta\tilde z$ is the
-range of the filled copy:
+On the filled copy, the receiver $r(n)$ of a cell is its steepest-descent
+neighbour {cite:p}`ocallaghan1984`. Only the neighbours lower by more than the
+tolerance $\eta_r = 10^{-9} \max(\Delta\tilde z,\ 1)$ m count, where
+$\Delta\tilde z$ is the range of the filled copy:
 
 $$
 r(n) = \underset{m \in \mathcal{N}_D(n),\ \tilde z_n - \tilde z_m > \eta_r}{\arg\max}\
@@ -69,20 +68,19 @@ r(n) = \underset{m \in \mathcal{N}_D(n),\ \tilde z_n - \tilde z_m > \eta_r}{\arg
 \qquad r(n) = -1 \text{ if there is none.}
 $$ (eq-receiver)
 
-The filled range is a little wider than the range of the top, and the factor 2
-of {eq}`eq-flood-tolerance` covers that difference.
+The filled range is a little wider than the range of the top, and the factor 2 of
+{eq}`eq-flood-tolerance` covers that difference. The distance is between cell
+centres, so a diagonal step on a square grid is $\sqrt 2$ cells long and wins only
+when it is steeper.
 
-The distance is between cell centres, so a diagonal step on a square grid is
-$\sqrt 2$ cells long and wins only when it is steeper. The neighbours
-$\mathcal{N}_D(n)$ are the cells that share a node with $n$ on a quad mesh (the
-D8 descent, diagonals included) and the cells that share a face on any other
-mesh. A seed keeps its steepest descent too, so that an accumulation passes
-through a fixed-head cell. The walks that must end where water leaves the model
-read the receiver with $-1$ on the fixed-head cells.
+The neighbours $\mathcal{N}_D(n)$ are the cells that share a node with $n$ on a
+quad mesh (diagonals included, as in the D8 descent) and the cells that share a
+face on any other mesh. A seed keeps its steepest descent too, so that an
+accumulation passes through a fixed-head cell. The walks that must end where water
+leaves the model read the receiver with $-1$ on the fixed-head cells.
 
-Every link of $D$ descends, so the receiver chains never cycle and every
-routable cell reaches a seed. The build refuses a $D$ where a cell has no way
-down.
+Every link of $D$ descends, so the receiver chains never cycle and every routable
+cell reaches a seed. The build refuses a $D$ where a cell has no way down.
 
 (routing-pit)=
 ## A pit, by hand
@@ -107,31 +105,27 @@ centre is below the flood level, so it takes $4 + 0.001$ m.
 (routing-channel)=
 ## The channel tree
 
-When the run generates a stream network (see
-{doc}`streams-and-mover`), $D$ follows it. That network was
-traced on the D8 pointer of the DEM routing. On the mesh, a cell that holds a
-pixel of it is a channel cell, and it is pinned to the next channel cell along
-the network. A pinned cell drains to its pin, adjacent or not, even where the top
-climbs along the channel. Without the pins, $D$ would descend its own flats by
-flood order and run beside the channel, and the hillslope would join the river
-lower down. A cell outside the channel keeps its steepest descent. A run with
+When the run generates a stream network (see {doc}`streams-and-mover`), $D$
+follows it. That network was traced on the D8 pointer of the DEM routing. On the
+mesh, a cell that holds a pixel of it is a channel cell, and it is pinned to the
+next channel cell along the network. A pinned cell drains to its pin, adjacent or
+not, even where the top climbs along the channel. Without the pins, $D$ would
+descend its own flats by flood order and run beside the channel. A cell outside
+the channel keeps its steepest descent. A run with
 {toml}`geographic.river_network.enabled` off has no pinned cell.
 
 (routing-uses)=
 ## What D is used for
 
-- The stream reaches are re-derived as a single-flow-direction channel on its
-  receivers ({doc}`streams-and-mover`).
-- With `route_drainage`, each drain cell hands its outflow to the first reach or
-  lake its chain meets ({doc}`streams-and-mover`).
-- The outflow of each cell accumulates on it ({doc}`simulated-network`).
-- The flow direction figure reads its receivers, and the heads rule of the
-  stream criterion reads the foot of each dam stored with it.
+- Stream reaches and drainage routing ({doc}`streams-and-mover`).
+- Accumulation of the outflow of each cell ({doc}`simulated-network`).
+- The flow direction figure, and the foot of each dam read by the heads rule of
+  the stream criterion.
 
 Both MODFLOW solvers build it at every run and store it with the mesh. A run
 stored without it gets one rebuilt on read from the stored top, without pins,
-fixed-head seeds or lakes, and the log says so. MODFLOW-NWT seeds $D$ on the
-cells it writes as a fixed head, and builds no stream head and no lake.
+fixed-head seeds or lakes, and the log says so. MODFLOW-NWT seeds $D$ on the cells
+it writes as a fixed head, and builds no stream head and no lake.
 
 (routing-criterion-graph)=
 ## The graph of the stream criterion

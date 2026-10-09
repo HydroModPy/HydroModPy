@@ -8,9 +8,6 @@ criterion has instead of a minimum, the likelihood of the one sampler, and what 
 printed beside a value means. Every option of every method is in the reference
 {doc}`../../reference/calibration-methods`.
 
-The tables of metrics and methods on this page are generated from the code at each build,
-so they cannot name a metric or a method the code does not have.
-
 ## What the search walks
 
 The file declares the parameters $\theta = (\theta_1, \dots, \theta_p)$, each with a box
@@ -145,18 +142,12 @@ $$
 $$
 
 A proposal $y' = y + \varepsilon$, with $\varepsilon \sim \mathcal{N}(0, \sigma_q^2)$ and
-$\sigma_q$ the option `proposal_sigma`, is dropped when it leaves the box. A Gaussian process
-$\tilde\pi$, fitted to the log-posteriors already computed, screens it first. One run of the
-model then corrects the acceptance, following {cite:t}`christen2005`:
-
-$$
-\alpha_1 = \min\!\left(1,\ e^{\tilde\pi(y') - \tilde\pi(y)}\right), \qquad
-\alpha_2 = \min\!\left(1,\ e^{[\ln\pi(y') - \ln\pi(y)] - [\tilde\pi(y') - \tilde\pi(y)]}\right).
-$$
-
-A proposal is solved only when it passes the first stage, which is what saves runs. The
-second stage makes the chain target $\pi$ and not its surrogate. The candidate the
-calibration returns is the state of highest log-posterior.
+$\sigma_q$ the option `proposal_sigma`, is dropped when it leaves the box. Otherwise a
+Gaussian process {cite:p}`rasmussen2006`, fitted to the log-posteriors already computed,
+screens it. A proposal that passes the screen is then run through the model, which
+corrects the acceptance so the chain targets $\pi$ and not the surrogate
+({cite:t}`christen2005`, delayed acceptance). The candidate the calibration returns is
+the state of highest log-posterior.
 
 Read this likelihood for what it is. A Gaussian likelihood of $n$ independent residuals of
 standard deviation $\sigma$ is $-\tfrac{n}{2}(\mathrm{RMSE}/\sigma)^2$. The one above has no
@@ -182,19 +173,12 @@ posterior.
 - `multistart` runs the whole search again from other starting points and reports the spread
   of the optima. A parameter whose optima span more than a factor ten is flagged as not
   identified.
-- `linearized` differentiates the simulated values $f_k$ at the answer, one run per
-  parameter with a forward step of {toml}`calibration.uncertainty.perturbation` times the
-  value, and reports the first-order covariance
-
-  $$
-  C = s^2 \left(\mathbf{J}^\top \mathbf{J}\right)^{-1}, \qquad
-  \mathbf{J}_{ki} = \frac{\partial f_k}{\partial \theta_i}, \qquad
-  s^2 = \frac{\mathbf{r}^\top \mathbf{r}}{n - p},
-  $$
-
-  with $\mathbf{r}$ the residuals and $n - p \ge 1$. It prints $\sigma_i = \sqrt{C_{ii}}$ and
-  the correlation $C_{ij} / (\sigma_i \sigma_j)$ that names the parameter each one trades
-  off against.
+- `linearized` gives the first-order parameter covariance. It differentiates the simulated
+  values at the answer with a forward step of {toml}`calibration.uncertainty.perturbation`
+  times the value, one run per parameter, and scales the covariance by
+  $s^2 = \mathbf{r}^\top \mathbf{r} / (n - p)$, with $\mathbf{r}$ the residuals and
+  $n - p \ge 1$. It prints $\sigma_i$ and the correlation that names the parameter each
+  one trades off against.
 
 A narrow `cost_profile` interval means either that the cost rises fast around the value, or
 that the search never tried far from it. A high correlation means two parameters were not

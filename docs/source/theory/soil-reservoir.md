@@ -3,7 +3,8 @@
 Each day, a soil store takes the rain, loses water to evapotranspiration, and
 sends the water it cannot hold down to the water table. This page gives the
 equations the code solves, what they assume, and where they stop being true.
-It does not say how to set up a run: for that, see {doc}`step 6 of the staircase <../get-started/staircase/step6>`.
+It does not say how to set up a run: for that, see
+{doc}`step 6 of the staircase <../get-started/staircase/step6>`.
 
 :::{note}
 **Scope.** The reservoir runs under MODFLOW 6 only. A file that declares
@@ -90,45 +91,28 @@ day.
 ### 1. Curve-number runoff (optional)
 
 Read only when {toml}`curve_number|flow.sinks_sources.recharge.soil.curve_number`
-is set. Without it, $Q_t = 0$ and the step costs nothing.
+is set, between 30 and 98. Without it, $Q_t = 0$ and the step costs nothing:
+the result is the same, bit for bit, as without the term.
 
-The wetness of the soil is the store at the end of the day before, as a share
-of its capacity:
+The runoff is the SCS curve-number runoff as the HELP model uses it
+{cite:p}`schroeder1994`. The conversion of a class II number to the dry (class
+I) and wet (class III) numbers is the one of {cite:t}`chow1988`, equations
+5.5.6 and 5.5.7. The code makes these choices:
+
+- The number in the file is the class II one. The code derives the other two.
+- The wetness of the soil is the store at the end of the day before, as a share
+  of its capacity (next equation).
+- The retention $\sigma_t$, in mm, moves linearly with $w_t$ between its value
+  at the dry number ($w_t = 0$) and its value at the wet number ($w_t = 1$)
+  {cite:p}`schroeder1994`.
+- The initial abstraction is $0.2\,\sigma_t$, with no other choice.
+- The rain that infiltrates is $P_t - Q_t$. The runoff $Q_t$ is taken before
+  the soil sees the rain, so the soil gets less of it.
 
 $$
 w_t = \min\!\left(1,\ \max\!\left(0,\ \frac{S_{t-1}}{\mathrm{RU}}\right)\right),
 \qquad w_t = 1 \text{ if } \mathrm{RU} = 0 .
 $$ (eq-soil-wetness)
-
-The curve number of class II is turned into a dry-soil number (class I) and a
-wet-soil number (class III), equations 5.5.6 and 5.5.7 of {cite:t}`chow1988`:
-
-$$
-\mathrm{CN}_\mathrm{I} = \frac{4.2\,\mathrm{CN}}{10 - 0.058\,\mathrm{CN}},
-\qquad
-\mathrm{CN}_\mathrm{III} = \frac{23\,\mathrm{CN}}{10 + 0.13\,\mathrm{CN}} .
-$$ (eq-soil-cn-classes)
-
-The retention $\sigma$ in mm is $s(x) = 25400/x - 254$ at each of the two
-numbers, and moves linearly with the wetness:
-
-$$
-\sigma_t = s(\mathrm{CN}_\mathrm{I}) + \bigl[s(\mathrm{CN}_\mathrm{III}) - s(\mathrm{CN}_\mathrm{I})\bigr]\,w_t .
-$$ (eq-soil-retention)
-
-The runoff is the SCS formula with an initial abstraction of $0.2\,\sigma_t$
-of the HELP model {cite:p}`schroeder1994`:
-
-$$
-Q_t =
-\begin{cases}
-\dfrac{(P_t - 0.2\,\sigma_t)^2}{P_t + 0.8\,\sigma_t} & \text{if } P_t > 0.2\,\sigma_t,\\[1ex]
-0 & \text{otherwise.}
-\end{cases}
-$$ (eq-soil-cn-runoff)
-
-The rain that infiltrates is $P_t - Q_t$. The runoff $Q_t$ is taken before the
-soil sees the rain, so the soil gets less of it.
 
 ### 2. Bypass
 
@@ -235,7 +219,8 @@ In the code: `soil_step`.
 
 The numbers below come from one call of `soil_step`, {eq}`eq-soil-wetness` to
 {eq}`eq-soil-column`, for each day, with $\mathrm{RU} = 150$ mm, $\alpha = 0.6$, $k_c = 1$,
-$f = b = \tau = 0$. The last day adds a curve number of 80 with $\tau_q = 0$.
+$f = b = \tau = 0$. The last day adds a curve number of 80 with $\tau_q = 0$. Its store is
+full, so $w = 1$ and $\sigma$ is the retention at the wet number, $\mathrm{CN}_\mathrm{III} = 90.2$.
 
 | | Dry day | Overflow | Curve number |
 |---|---|---|---|
@@ -310,17 +295,15 @@ recharge falls as the capacity grows.
 ```
 
 Example 04 prints the same ladder on its own forcing, the SIM2 rain and ETP of
-2015 to 2020 over its catchment, with
-`hmp run step6_soil_reservoir.toml --until load_data`:
+2015 to 2020 over its catchment:
 
 | $\mathrm{RU}$ (mm) | 50 | 100 | 150 | 200 | 250 |
 |---|---|---|---|---|---|
 | Recharge (mm/year) | 443 | 392 | 356 | 325 | 295 |
 
 Over the same days the rain is 904 mm/year, the ETP 698 mm/year and the gauged
-discharge 327 mm/year. From 50 to 250 mm the recharge loses a third. The capacity
-is a property of the site: take it from a soil map ({toml}`data.soil_capacity`)
-or state it as an assumption.
+discharge 327 mm/year. From 50 to 250 mm the recharge loses a third. To set the
+capacity, see {toml}`ru|flow.sinks_sources.recharge.soil.ru`.
 
 ## Assumptions
 

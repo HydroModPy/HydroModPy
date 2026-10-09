@@ -22,7 +22,8 @@ plus the elapsed solver time. January 2000 of a monthly run is stamped
 The stamp of period $k$ is therefore $b_{k+1}$.
 
 What a stamp stands for depends on the quantity. The rule is read from the CF
-`cell_methods` of the field in the field registry of the code, or, for a
+[`cell_methods`](https://cfconventions.org/) (`mean` or `point`) of the field in
+the field registry of the code, or, for a
 calibration variable the field registry does not hold, from a table of the
 code. A name that nothing declares is a mean.
 

@@ -76,21 +76,22 @@ they are two sources for the same mesh. A mesh that already exists is declared w
 {toml}`mesh_input.mesh_path` or {toml}`mesh_input.bundle_dir` instead, and goes through
 the steps below like a mesh the run built.
 
-The triangle sizes come from a size field. Around the interface curves (rivers,
-geology interfaces, the catchment boundary), when
-{toml}`mesh_catchment.zone_meshing.refine_interfaces` is on, the code gives Gmsh a
-Distance field to the curves and a Threshold field on it, with the lower distance set to
-zero. With $\xi$ the distance to the nearest interface, the wanted size is linear
-between the two limits:
+The triangle sizes come from a size field, in the sense of the Gmsh manual
+({cite:p}`geuzaine2009gmsh`, [reference manual](https://gmsh.info/doc/texinfo/gmsh.html)):
+a Distance field to some curves, a Threshold field on it, and the minimum of all fields.
+Around the interface curves (rivers, geology interfaces, the catchment boundary), when
+{toml}`mesh_catchment.zone_meshing.refine_interfaces` is on, the code sets the lower
+distance of the Threshold to zero. With $\xi$ the distance to the nearest interface, the
+wanted size is linear between the two limits:
 
 $$
 \ell_0(\xi) = \ell_s + (\ell_g - \ell_s)\,\min\!\left(1, \frac{\xi}{\xi_s}\right).
 $$ (eq-mesh-size)
 
 When the refinement policy is on, there is one such field per family of curves, with its
-own $\ell_s$ and $\xi_s$, and Gmsh takes the smallest size of all the fields
-(`apply_family_refinement_fields`). The size actually used is bounded by Gmsh options
-the code sets from the three keys of the section (`apply_mesh_options`):
+own $\ell_s$ and $\xi_s$ (`apply_family_refinement_fields`). The size actually used is
+bounded by Gmsh options the code sets from the three keys of the section
+(`apply_mesh_options`):
 
 $$
 \ell(\mathbf{x}) = \min\!\bigl(\ell_{\max}',\ \max(\ell_{\min}',\ \ell_0(\mathbf{x}))\bigr),
@@ -100,15 +101,14 @@ $$
 \ell_{\max}' = \begin{cases}\ell_{\max} & \text{if set,}\\ \ell_g & \text{otherwise.}\end{cases}
 $$ (eq-mesh-size-bounds)
 
-The size fields of the lakes, of the refinement zones and of the coarsening outside the
-catchment are combined with the interface fields by the minimum
-(`set_background_mesh_from_fields`). The upper bound is raised to the largest size of such
-a regional field when the section declares one (`compute_effective_max_size`). The
-lower bound has a consequence that the keys do not announce: with no
+The fields of the lakes, of the refinement zones and of the coarsening outside the
+catchment join the interface fields (`set_background_mesh_from_fields`). The upper bound is
+raised to the largest size of such a regional field when the section declares one
+(`compute_effective_max_size`). The lower bound has a consequence that the keys do not
+announce: with no
 {toml}`mesh_catchment.zone_meshing.min_size`, $\ell_{\min}' = \ell_g$, and every size
 below $\ell_g$ is raised back to $\ell_g$. An {toml}`interface_size\|mesh_catchment.zone_meshing.interface_size`
-below the background size then changes nothing ({ref}`mesh-limits`). In the code:
-`apply_mesh_options`.
+below the background size then changes nothing ({ref}`mesh-limits`).
 
 ```{eval-rst}
 .. plot:: theory/figures/mesh_size.py
@@ -116,15 +116,13 @@ below the background size then changes nothing ({ref}`mesh-limits`). In the code
    :caption: The size of :eq:`eq-mesh-size` (dotted) and the size Gmsh keeps under the
       bounds that ``apply_mesh_options`` sets, for :math:`\ell_s = 20` m,
       :math:`\ell_g = 100` m and :math:`\xi_s = 300` m. Look at the shaded band: without
-      ``min_size`` the lower bound is :math:`\ell_g`, and the refinement near the
-      interface is lost. The test of the Limits counted 250 triangles in the first case
-      and 602 in the second.
+      ``min_size`` the refinement near the interface is lost.
 ```
 
 The 2D algorithm is the one named by {toml}`mesh_catchment.zone_meshing.algorithm`. The
-code knows four names and maps them to the Gmsh codes. Gmsh does not give the same triangulation twice for the same input.
-{toml}`mesh_catchment.cache` keeps the first one and reuses it while the inputs that
-shape the mesh are unchanged.
+code knows four names and maps them to the Gmsh codes. Gmsh does not give the same
+triangulation twice for the same input. {toml}`mesh_catchment.cache` keeps the first one
+and reuses it while the inputs that shape the mesh are unchanged.
 
 (mesh-voronoi)=
 ## 3. The Voronoi dual
@@ -132,13 +130,8 @@ shape the mesh are unchanged.
 MODFLOW 6 does not take the triangles as cells by default. With
 {toml}`modflow6.sgrid.grid_dual` at its default, the code takes the vertices of the
 triangulation as seeds $\mathbf{s}_i$ and builds the Voronoi (PEBI) cell of each seed,
-clipped to the outline of the triangulation:
-
-$$
-\mathcal{V}_i = \bigl\{\mathbf{x} \in \Omega :
-\lVert \mathbf{x} - \mathbf{s}_i \rVert \le \lVert \mathbf{x} - \mathbf{s}_j \rVert
-\ \ \forall j \bigr\}.
-$$
+that is the set of points closer to it than to any other seed, clipped to the outline
+$\Omega$ of the triangulation.
 
 The cell centre written to the DISV file is the seed itself. Three rules complete the
 construction:
@@ -155,15 +148,10 @@ metres.
 
 Three consequences follow.
 
-**The number of cells.** A triangulation of a region without holes has $n_v$ vertices,
-$n_b$ of them on its outline, and $N_T$ triangles with
-
-$$
-N_T = 2 n_v - n_b - 2 .
-$$ (eq-euler-count)
-
-The dual has one cell per seed, so $N_V = n_v$ and $N_V \approx N_T / 2$ when $n_b$ is
-small against $n_v$.
+**The number of cells.** The dual has one cell per seed, so $N_V = n_v$, the number of
+vertices. By Euler's formula a triangulation of a region without holes has
+$N_T = 2 n_v - n_b - 2$ triangles, $n_b$ being the vertices on its outline, so
+$N_V \approx N_T / 2$ when $n_b$ is small against $n_v$.
 
 **The faces.** The face between two cells is the perpendicular bisector of the segment
 between their seeds. The faces are not the edges of the triangulation. A river that was
@@ -172,7 +160,9 @@ longer the boundary of any cell.
 
 **The orthogonality.** The line between the two centres is perpendicular to the face, so
 $\varphi_{nm} = 0$ on every connection whose two cells kept their seed as centre.
-{ref}`mesh-angle` says why this matters. In the code: `voronoi_dual_of_mesh`.
+{ref}`mesh-angle` says why this matters. As a check, 36 seeds on a $6 \times 6$ lattice
+(the 16 inner ones moved at random, $n_b = 20$) give 50 triangles, and
+`voronoi_dual_of_mesh` returns 36 cells with $0^\circ$ on every connection.
 
 With {toml}`modflow6.sgrid.grid_dual` set to `"triangle"`, the triangles are the cells
 and the centre of a cell is the mean of its three vertices.
@@ -180,14 +170,12 @@ and the centre of a cell is the mean of its three vertices.
 (mesh-angle)=
 ## 4. Flow between two cells, and the angle
 
-MODFLOW 6 writes the flow from cell $n$ to a neighbour $m$ with the two-point form of the
-control-volume finite difference method {cite:p}`harbaugh2005,langevin2017`, the term
-$G_{nm}\,(h_m - h_n)$ of {eq}`eq-cell-balance`. The conductance $G_{nm}$ is built from the conductivity of the two cells, the
-length of their shared face and the distance between their centres. The form is exact
-when the conductivity is isotropic in the plane and the line between the centres is
-perpendicular to the face. HydroModPy measures the departure from that condition on
-every connection, as an angle. With $\mathbf{d}_{nm}$ the vector between the two centres
-and $\mathbf{n}_{nm}$ the unit normal of the shared edge:
+MODFLOW 6 writes the flow between two cells with the two-point finite-difference term
+$G_{nm}\,(h_m - h_n)$ of {eq}`eq-cell-balance` {cite:p}`harbaugh2005,langevin2017`. It is
+exact only when the conductivity is isotropic in the plane and the line between the
+centres is perpendicular to the shared face. HydroModPy measures the departure from
+that condition on every connection, as an angle. With $\mathbf{d}_{nm}$ the vector
+between the two centres and $\mathbf{n}_{nm}$ the unit normal of the shared edge:
 
 $$
 \varphi_{nm} = \arccos\!\left(\frac{\lvert \mathbf{d}_{nm} \cdot \mathbf{n}_{nm} \rvert}
@@ -198,7 +186,6 @@ Only an edge shared by exactly two cells counts as a connection. The summary the
 keeps is the median, the 95th and 99th percentiles, the maximum and the share of
 connections above 30 degrees. What the angle does to the flux, and when the code turns
 on the XT3D option that corrects it, is on {doc}`solvers/xt3d-on-irregular-disv-meshes`.
-In the code: `connection_nonorthogonality_deg`.
 
 **Two triangles.** Cut a $2 \times 1$ rectangle along its diagonal. The shared edge goes
 from $(2,0)$ to $(0,1)$, with a normal along $(1,2)$. The centres are the vertex means,
@@ -219,8 +206,8 @@ checked with `connection_nonorthogonality_deg`, and the four cells with
    :alt: Two triangles with their connection vector and face normal, and a triangulation of 36 seeds with its Voronoi dual.
    :caption: Left: the two triangles above, with :math:`\mathbf{d}_{nm}` between the
       centres and :math:`\mathbf{n}_{nm}` normal to the shared face; the angle comes from
-      ``connection_nonorthogonality_deg``. Right: the 36 seeds of the worked example of
-      :ref:`mesh-budget`, their 50 triangles (dotted) and the 36 cells of
+      ``connection_nonorthogonality_deg``. Right: the 36 seeds of the check of
+      :ref:`mesh-voronoi`, their 50 triangles (dotted) and the 36 cells of
       ``voronoi_dual_of_mesh`` (blue). Look at the title: the triangles reach 35°, every
       connection of the dual is at 0°.
 ```
@@ -322,9 +309,9 @@ not finite, or at or below the nodata value.
 (mesh-budget)=
 ## 7. How many cells a size costs
 
-The cost of a run grows with the number of cells, so the sizes of a structured grid and
-of a mesh are compared at equal cell count. The ideal count below assumes cells of one
-uniform size over an area $A_\Omega$.
+The cost of a run grows with the number of cells, so a structured grid and a mesh are
+compared at equal cell count. The ideal count below assumes cells of one uniform size over
+an area $A_\Omega$.
 
 For a structured grid of pixel side $\Delta$:
 
@@ -353,10 +340,9 @@ Equal counts then give the edge length that costs the same as a grid of side $\D
 **Worked example.** The 21406 cells of 75 m of the header of `step1_minimal.toml` (the file does not say if
 the count includes the inactive cells) cover
 $21406 \times 75^2\ \mathrm{m^2} \approx 120\ \mathrm{km^2}$. The same count on a
-Voronoi mesh means seeds about $81\ \mathrm{m}$ apart; on a triangle mesh it means
-triangles of about $114\ \mathrm{m}$ side. These are ideal figures. A real mesh refines
-near the interfaces, so its count is the integral of $1/\ell(\mathbf{x})^2$ over the
-domain, and the count of a run is the number of cells ($\mathrm{ncpl}$) of its DISV
+Voronoi mesh means seeds about $81\ \mathrm{m}$ apart; on a triangle mesh, triangles of
+about $114\ \mathrm{m}$ side. These are ideal figures: a real mesh refines near the
+interfaces, and the count of a run is the number of cells ($\mathrm{ncpl}$) of its DISV
 file.
 
 ```{eval-rst}
@@ -368,14 +354,8 @@ file.
       114 m.
 ```
 
-**Worked example of the vertex count.** Take 36 seeds on a $6 \times 6$ lattice, the 16
-inner ones moved at random, $n_b = 20$ of them on the outline. The Delaunay triangulation
-has $N_T = 2 \cdot 36 - 20 - 2 = 50$ triangles and the dual has 36 cells. Running
-`voronoi_dual_of_mesh` on that triangulation returns 36 cells, with a
-non-orthogonality of $0^\circ$ on every connection.
-
-$N_S$ counts the cells of the whole raster box, active or not ({ref}`mesh-structured`). The count of a
-mesh is its number of cells, and every cell of a mesh lies in $\Omega$.
+$N_S$ counts the cells of the whole raster box, active or not ({ref}`mesh-structured`);
+every cell of a mesh lies in $\Omega$.
 
 (mesh-acceptance)=
 ## 8. The checks the code applies
@@ -404,7 +384,6 @@ summary says `overall_pass: false` still runs.
 ## Assumptions
 
 - A cell has one top and one bottom. The surface inside the cell is flat.
-- The mesh is a vertical extrusion of the plan: all layers share the cells of the plan.
 - A mesh is fixed for the run. It does not move with the water table.
 - The conductivity is isotropic in the plane. The code writes no input for horizontal
   anisotropy.
@@ -418,32 +397,10 @@ summary says `overall_pass: false` still runs.
 
 - **No refinement without `min_size`.** With {toml}`mesh_catchment.zone_meshing.refine_interfaces`
   on and {toml}`mesh_catchment.zone_meshing.min_size` unset, the lower bound of the size is
-  $\ell_g$, and Gmsh raises every size to it. In a test with Gmsh 4.15.2, on a
-  $1000\ \mathrm{m}$ square with a Distance and a Threshold field on one side
-  ($\ell_s = 20$ m, $\ell_g = 100$ m, $\xi_s = 300$ m, the two bounds set as in
-  {eq}`eq-mesh-size-bounds`), the mesh
-  had 250 triangles with the lower bound at $\ell_g$ and 602 with it at 20 m. Set
-  `min_size` at or below `interface_size`.
-
-```toml
-base_config = "step4_transient.toml"
-
-# The lower bound of the size is set, so the refinement acts.
-# The rivers the mesh follows: every cell that drains more than 0.5 km2.
-[geographic.river_network]
-enabled = true
-threshold_area_km2 = 0.5
-
-[mesh_catchment]
-constraints_mode = "rivers_only"
-
-[mesh_catchment.zone_meshing]
-global_size = 300.0
-min_size = 100.0
-refine_interfaces = true
-interface_size = 100.0
-interface_distance = 600.0
-```
+  $\ell_g$, and Gmsh raises every size to it (figure of {ref}`mesh-gmsh`). In a test with
+  Gmsh 4.15.2, on a $1000\ \mathrm{m}$ square refined along one side, the mesh had 250
+  triangles with the lower bound at $\ell_g$ and 602 with it at 20 m. Set `min_size` at
+  or below `interface_size`.
 
 - **The dual does not follow the constraints.** It keeps the outline of the domain, not
   the river traces or the geology interfaces. A cell can hold both sides of an interface.
@@ -455,52 +412,21 @@ interface_distance = 600.0
   not stop a run. The non-orthogonality is the only shape measure the code reads, and it
   decides about XT3D, not about the mesh. `connection_nonorthogonality_deg` and
   `nonorthogonality_summary` can be called on any planar `HydroMesh` for a closer look.
-- **MODFLOW-NWT is structured.** It ignores a runtime mesh, and its zonal top needs
+- **MODFLOW-NWT is structured.** Its zonal top needs
   {toml}`modflownwt.sgrid.top_sampling.channel_source` at `"none"`: the file is refused
   otherwise.
 - **Boussinesq ignores `grid_dual` and the top sampling.** It works on the triangles.
-- **Not a 3D mesh.** The layers are an extrusion. A mesh whose footprint changes from one
-  layer to the next, or that is refined in depth, is not represented.
-- **Gmsh is not reproducible.** Two builds of the same input give two meshes, with
-  different cell counts. {toml}`mesh_catchment.cache` pins the first one.
-- **An outlier thickness only warns.** A raster nodata value read as an elevation gives a
-  cell that is kilometres deep, with a clean top. The run converges. The warning is the
-  only sign, and a structured grid does not emit it.
+- **Gmsh is not reproducible.** Two builds of the same input give meshes with different
+  cell counts. The mesh cache, {toml}`mesh_catchment.cache`, pins the first one
+  (`hydromodpy/spatial/mesh/mesh_cache.py`).
+- **Not a 3D mesh.** The layers are an extrusion of the plan. A footprint that changes
+  from one layer to the next, or a refinement in depth, is not represented.
+- **An outlier thickness only warns.** A nodata value read as an elevation gives a cell
+  that is kilometres deep, with a clean top, and the run converges. The warning of
+  {ref}`mesh-acceptance` is the only sign, and a structured grid does not emit it.
 
-A structured grid can be coarser than the DEM to cut the cost. A resample would raise the
-incised cells, and the zonal top restores them. A file that asks for both:
-
-```toml
-base_config = "step4_transient.toml"
-
-# Cells coarser than the DEM pixels, with a top reduced from every pixel inside.
-[modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 80
-ny = 80
-
-[modflow6.sgrid.top_sampling]
-mode = "zonal"
-channel_stat = "min"
-hillslope_stat = "median"
-```
-
-A runtime mesh with the triangles kept as cells, for a run that compares the two layouts:
-
-```toml
-base_config = "step4_transient.toml"
-
-# The rivers the mesh follows: every cell that drains more than 0.5 km2.
-[geographic.river_network]
-enabled = true
-threshold_area_km2 = 0.5
-
-[mesh_catchment]
-constraints_mode = "rivers_only"
-
-[modflow6.sgrid]
-grid_dual = "triangle"
-```
+The keys of the structured grid are in {doc}`[modflow6] <../reference/parameters/modflow6>`
+and those of the runtime mesh in {doc}`[mesh_catchment] <../reference/parameters/mesh_catchment>`.
 
 ## Parameters of this page
 

@@ -2,10 +2,7 @@
 
 Every symbol of the theory pages, with its unit and the key that sets it. The
 tables are generated from one registry, `docs/source/theory/symbols.yaml`, and
-each theory page renders its own table from the same file. A symbol has one
-meaning on the whole site: the build stops when a symbol is given two, unless
-the pair is declared in the registry and the two meanings never meet on one
-page. No pair is declared today.
+each theory page renders its own table from the same file.
 
 The units are the ones the code stores: lengths in metres, hydraulic
 conductivity in m/s, rates in m/s. The soil reservoir is the exception, because
@@ -110,11 +107,10 @@ Stores are in mm of water per unit of unsealed area, fluxes in mm/day.
 
 ## The descent and the distance between networks
 
-The descent $D$ is where water goes on the model top: from each cell, the path
-to a lower neighbour, down to the outlet or to a cell where water leaves the
-model. It is a computation on a copy of the top. It is never given back to the
-solver. The distances below are not measured on $D$: the stream-network
-criterion floods its own copy of the model top and descends that one
+The descent $D$ is where water goes on the model top: from each cell, the path to a
+lower neighbour, down to the outlet or to a cell where water leaves the model. It is
+a computation on a copy of the top and is never given back to the solver. The
+distances below are not measured on $D$, but on their own copy
 ({doc}`downslope-distance`).
 
 ```{hmp-notation}
@@ -133,11 +129,3 @@ The names below are written in roman type. Each is a value of
 $\mathrm{NSE}_{\log}$ is not {toml}`transform|calibration.objective_blocks.transform`
 set to `log`. The metric takes the logarithm of the series. The transform takes
 the logarithm of a cost that is already computed.
-
-## Add a symbol
-
-Add an entry to `docs/source/theory/symbols.yaml`: the symbol in LaTeX, the
-meaning, the unit, the key that sets it and the pages that use it. Then put
-`hmp-notation` on the page. The table of the page and the tables above follow
-on the next build. The rule of one meaning per symbol is tested by
-`tests/unit/docs/test_notation_registry.py`.

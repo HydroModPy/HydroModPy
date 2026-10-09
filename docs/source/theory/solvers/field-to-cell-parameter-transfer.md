@@ -46,13 +46,10 @@ $\sum_z F_{c,z} = 0$, so a value of zero, and a zero $K$ on an active cell is re
 (transfer-conductivity)=
 ## What the rule means for the conductivity
 
-{eq}`eq-cell-value` is an arithmetic mean weighted by area. For a cell cut by two
-zones, that mean is the right effective value for a flow parallel to the interface,
-where the two parts carry water side by side. For a flow across the interface, where the
-two parts are in series, the effective value is the harmonic mean, and for a random mix
-of zones it lies between the two {cite:p}`renard1997`. The arithmetic mean is the upper
-of these bounds. A cell that holds a thin layer of low $K$ across the flow therefore
-conducts more in the model than in the ground.
+{eq}`eq-cell-value` is an arithmetic mean weighted by area, the upper bound of the
+equivalent conductivity of a cell cut by several zones; the harmonic mean is the lower
+bound, and a random mix lies between {cite:p}`renard1997`. A cell that holds a thin layer
+of low $K$ across the flow therefore conducts more in the model than in the ground.
 
 Between two cells, the conductance {eq}`eq-conductance` joins the two cell values in
 series. A contrast that follows the cell faces is represented in series; a contrast

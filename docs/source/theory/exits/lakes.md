@@ -13,45 +13,28 @@ The keys of a lake are in {doc}`../../reference/parameters/flow/sinks_sources/la
 (lakes-balance)=
 ## The balance
 
-The volume of a lake changes with the water it gains and loses:
+The LAK package of MODFLOW 6 solves a water balance of the lake: the stage
+$s_L$ is the unknown, and the volume $V_L$ and the surface area $A_L$ are looked
+up in the stage-volume-area table of the lake. The lake gains rain, runoff and
+managed inflow, loses evaporation, withdrawal and outlet discharge, and exchanges
+with the aquifer through its connections
+([input guide](https://modflow6.readthedocs.io/en/latest/_mf6io/gwf-lak.html),
+{cite:p}`langevin2017`, chapter 7). The outlets go to the outside, to another
+lake or to the mover ({doc}`streams-and-mover`).
 
-$$
-\frac{dV_L}{dt} = A_L\,(P_L - E_L) + Q^{\mathrm{ro}} + Q^{\mathrm{in}} - Q^{\mathrm{wd}}
-- Q^{\mathrm{out}} + \sum_{c} C^\mathrm{lak}_c\,(h_c - s_L),
-\qquad V_L = V_L(s_L),\quad A_L = A_L(s_L).
-$$ (eq-lake-balance)
-
-The stage $s_L$ is the unknown. The volume and the surface area come from the
-stage-volume-area table of the lake, which MODFLOW 6 reads as a lookup. $P_L$
-and $E_L$ are the rain and the evaporation per unit of lake surface. The runoff
-$Q^{\mathrm{ro}}$, the managed inflow $Q^{\mathrm{in}}$ and the withdrawal
-$Q^{\mathrm{wd}}$ are volumes per time. The sum runs over the connections $c$ of
-the lake with the aquifer, $h_c$ being the head of the connected cell, and a
-positive term is water the lake gains. $Q^{\mathrm{out}}$ is the discharge of the
-outlets, to the outside, to another lake or to the mover
-({doc}`streams-and-mover`). The exact form of the outlets is that of MODFLOW 6
-{cite:p}`langevin2017`.
-
-The table is checked before MODFLOW 6 sees it. The stage increases strictly, the
-volume increases strictly with it, the surface area does not decrease, and no
-volume or area is negative.
+HydroModPy checks the table before MODFLOW 6 sees it. The table has at least two
+rows. The stage increases strictly, the volume increases strictly with it, the
+surface area does not decrease, and no volume or area is negative.
 
 In the code: `build_lake_table`.
 
 (lakes-connections)=
 ## The connections
 
-Each connection carries a conductance, the resistances of the bed and of the
-aquifer in series:
-
-$$
-C^\mathrm{lak}_c = \left(\frac{1}{\lambda_b\,A_c} + \frac{1}{C^{\mathrm{aq}}_c}\right)^{-1}.
-$$ (eq-lake-connection)
-
-$A_c$ is the contact area and $C^{\mathrm{aq}}_c$ the conductance of the aquifer
-cell towards the lake face. A leakance of zero seals the bed and gives a
-conductance of zero. HydroModPy builds two kinds of connection for each lake
-column:
+MODFLOW 6 gives each connection the conductance of the bed and the aquifer in
+series, $C^\mathrm{lak}_c$, from the leakance $\lambda_b$ and the contact area. A
+leakance of zero seals the bed. HydroModPy builds two kinds of connection for
+each lake column:
 
 - one vertical connection to the first active cell under the occupied layers:
   the leakage towards the aquifer, through the vertical conductivity;
@@ -74,8 +57,8 @@ gives the storage. In the active-shore mode,
 the bed cells stay active with the carved bathymetry as their top. A cell
 exchanges with the lake while it is under water, and recharges as land when the
 shore falls below its bed. The drain rows of those cells are removed: a drain
-there would send the leakage of the lake straight back to the streams, through
-the aquifer, the drain and the mover, and the exchange would recirculate.
+there would send the leakage of the lake straight back to the streams, through the
+aquifer, the drain and the mover, and the exchange would recirculate.
 
 (lakes-forcing)=
 ## What falls on the lake
@@ -91,6 +74,14 @@ The managed inflow and the withdrawal are set to zero in the steady periods. A
 steady period has no storage term, and a managed flux that does not balance the
 natural budget has no equilibrium stage: the solve would diverge.
 
+By default the stage is free from the first period. With
+{toml}`steady_stage_hold|flow.sinks_sources.lakes.<name>.steady_stage_hold`, and a
+run that starts with a steady period, the build holds it at the starting stage
+(LAK status constant) through the steady warm-up, and frees it on the first
+transient period. A managed reservoir whose
+observed level is far from the natural equilibrium then keeps that level, and the
+aquifer settles around it.
+
 The package takes one smoothing depth for the wet and dry transition of the lake
 edge, {toml}`surfdep|flow.sinks_sources.lakes.<name>.surfdep`: the largest
 declared among the lakes.
@@ -99,18 +90,15 @@ declared among the lakes.
 ## The mask on the other packages
 
 The lake cells carry no recharge and no aquifer evapotranspiration: the lake
-takes its own rain and evaporates through LAK. Without the recharge mask,
-MODFLOW 6 would hand the recharge of an inactive lake cell to the first active
-cell below it, and the rain would be counted twice ({doc}`drains-and-et`).
-
-## Assumptions
-
-- A lake has one stage. The volume and the surface area follow the table.
-- A lake exchanges with the cells under and beside its footprint, and with no
-  other.
+takes its own rain and evaporates through LAK. Without the mask, MODFLOW 6 would
+hand the recharge of an inactive lake cell to the first active cell below it, and
+the rain would be counted twice ({doc}`drains-and-et`).
 
 ## Limits
 
+- **A lake has one stage.** The volume and the surface area follow the table, and
+  the lake exchanges with the cells under and beside its footprint, and with no
+  other.
 - **A lake needs MODFLOW 6.** The check stops a file that declares one with
   another solver.
 - **A lake in soil mode needs a stream network.** The check refuses a lake
@@ -126,6 +114,7 @@ cell below it, and the rain would be counted twice ({doc}`drains-and-et`).
 ```{hmp-params}
 flow.sinks_sources.lakes.<name>.bedleak
 flow.sinks_sources.lakes.<name>.surfdep
+flow.sinks_sources.lakes.<name>.steady_stage_hold
 flow.sinks_sources.lakes.<name>.bed_reconstruction.dynamic_area
 flow.sinks_sources.lakes.<name>.outlets.mover.mvrtype
 ```

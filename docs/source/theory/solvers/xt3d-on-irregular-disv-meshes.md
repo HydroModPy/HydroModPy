@@ -27,30 +27,20 @@ $$
 - \tan\varphi_{nm}\;\mathbf{t}_{nm}\cdot\nabla h .
 $$ (eq-xt3d-split)
 
-The two heads $h_n$ and $h_m$ give the first term only, through
-$\hat{\mathbf d}_{nm}\cdot\nabla h \approx (h_m - h_n) / \lVert\mathbf{d}_{nm}\rVert$. The
-two-point conductance $G_{nm}$ keeps that term and drops the second. The dropped term is
-the head gradient along the face times $\tan\varphi_{nm}$: zero on an orthogonal
-connection, 0.27 of the tangential gradient at 15 degrees, 0.58 at 30 degrees, 1 at 45
-degrees. A conductivity that differs between two horizontal directions, or whose axes
-are turned, adds a term of the same kind, $\mathbf{n}_{nm}\cdot\mathbf{K}\nabla h \ne
-K\,\mathbf{n}_{nm}\cdot\nabla h$, even on an orthogonal grid.
+The two heads $h_n$ and $h_m$ give the first term only. The two-point conductance
+$G_{nm}$ keeps it and drops the second, the head gradient along the face times
+$\tan\varphi_{nm}$: zero on an orthogonal connection, 0.27 of the tangential gradient at
+15 degrees, 0.58 at 30 degrees, 1 at 45 degrees. A conductivity that differs between two
+horizontal directions, or whose axes are turned, adds a term of the same kind, even on an
+orthogonal grid. The vertical $K_z$ is aligned with the layers and needs no XT3D.
 
 (xt3d-correction)=
 ## What XT3D computes
 
-XT3D writes the flux through the face with the full gradient and the full tensor,
-
-$$
-\Phi_{nm} = -\,w_{nm}\,B_{nm}\;\mathbf{n}_{nm}\cdot\mathbf{K}\,\nabla h ,
-$$ (eq-xt3d-flux)
-
-with $B_{nm}$ the saturated thickness at the face. It estimates $\nabla h$ in each of the
-two cells from the heads of the cell and of its neighbours, and joins the two estimates
-so that the normal flux is continuous across the face {cite:p}`provost2017`. The
-tangential term of {eq}`eq-xt3d-split` is then in the balance. The price is a wider
-stencil: the flux of one face depends on the heads of the neighbours of both cells, so
-the matrix has more entries and is no longer symmetric.
+XT3D writes the flux through each face with the full head gradient, estimated from the
+heads of both cells and of their neighbours, so the tangential term is in the balance
+{cite:p}`provost2017`. The price is a wider stencil and a matrix that is no longer
+symmetric.
 
 On the validation case `dupuit_uniform_recharge_1d` run on irregular triangles, the
 golden reference of the regression test `test_xt3d_irregular_tri_fast_regression` records
@@ -87,8 +77,7 @@ isotropic. The default Voronoi dual of a Gmsh mesh is orthogonal by construction
 {toml}`modflow6.sgrid.grid_dual` are the usual case where it turns on.
 
 When XT3D is on, a `SIMPLE` IMS preset is promoted to `COMPLEX`, because `SIMPLE`
-assumes a symmetric matrix ({ref}`solvers-newton-ims`). In the code:
-`resolve_xt3d_decision`.
+assumes a symmetric matrix ({ref}`solvers-newton-ims`).
 
 ## The same case on two grids
 
@@ -107,8 +96,8 @@ triangles (right), where the rule above turns XT3D on. Drag the handle to compar
 
 ## Assumptions
 
-- The conductivity is isotropic in the horizontal plane. The vertical one is aligned with
-  the layers and needs no XT3D.
+- The conductivity is isotropic in the horizontal plane: `NPF` receives only a horizontal
+  $K$ and a vertical $K_z$.
 - The angle of a connection is measured in the plan; the layers are an extrusion, so the
   vertical connections are orthogonal.
 
@@ -116,8 +105,7 @@ triangles (right), where the rule above turns XT3D on. Drag the handle to compar
 
 - **MODFLOW 6 only.** MODFLOW-NWT runs on structured grids only. The Boussinesq solver
   has no correction for skewed cells.
-- **No horizontal anisotropy input.** The anisotropy branch of the rule is ready and
-  never fires.
+- **No horizontal anisotropy input.** The anisotropy branch of the rule never fires.
 - **Cost.** XT3D widens the stencil and makes the matrix non-symmetric. On a mesh near
   the trigger, a sweep of many runs pays for it on every run.
 

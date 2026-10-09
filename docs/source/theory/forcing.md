@@ -1,19 +1,15 @@
 # Rain and evaporation: the forcing
 
-Rain falls and the air asks for water every day. The aquifer model does not see
-days: it sees stress periods, and one rate per cell for each period. This page
-gives the rules that turn daily series and daily grids into those rates, and the
-terms the solver builds from them. How the outputs are put back on the same
-periods is on {doc}`time-alignment`. The keys are in
+The aquifer model does not see days: it sees stress periods, and one rate per
+cell for each period. This page gives the rules that turn daily series and daily
+grids into those rates. How the outputs are put back on the same periods is on
+{doc}`time-alignment`. The keys are in
 {doc}`[flow.sinks_sources.recharge] <../reference/parameters/flow/sinks_sources/recharge>`
 and {doc}`[simulation] <../reference/parameters/simulation>`.
 
-:::{note}
-**Scope.** Every rule below is the same under the three flow solvers, MODFLOW 6,
-MODFLOW-NWT and Boussinesq, and for one value per period, a mapping or one grid
-per period. The daily soil reservoir that turns rain and ETP into recharge has
-its own page, {doc}`soil-reservoir`; here it is one more source of daily grids.
-:::
+The period, unit, coverage and runoff rules are the same under the three solvers;
+sections 5 and 7 note where they differ. The daily soil reservoir
+({doc}`soil-reservoir`) is here one more source of daily grids.
 
 ::::{dropdown} Notation of this page
 $k$ is a stress period, $n_\mathrm{per}$ the number of periods. $j$ is one sample
@@ -40,6 +36,11 @@ $$ (eq-period-edges)
 Period $k$ is the half-open interval $[b_k, b_{k+1})$. The end date is part of the
 run, so the last edge is the day after it. A step that does not land on that edge
 is refused: the window is not aligned with the step.
+
+Edges can also be given explicitly, as `window.period_bounds`. The code sets them,
+and no TOML key does. {toml}`flow.ic` of type `steady_state` uses this for its
+auxiliary steady model: one period that spans the whole window
+({ref}`forcing-steady`).
 
 In the code: `build_simulation_time_boundaries`.
 
@@ -183,13 +184,6 @@ A run that starts from a steady state of its own ({toml}`flow.ic`, type
 `first_clim` set to `"mean"`, or to the prescribed rate. The starting states are
 the types of {doc}`[flow.ic] <../reference/parameters/flow/ic>`.
 
-```toml
-base_config = "step4_transient.toml"
-
-[flow.sinks_sources.recharge]
-first_clim = "first"
-```
-
 In the code: `apply_first_clim`.
 
 (forcing-negative)=
@@ -221,14 +215,14 @@ In the code: `split_net_recharge`.
 (forcing-solver)=
 ## 7. What the solver does with N and E
 
-Both rates are fluxes per unit of area. The recharge package multiplies $N_k$ by
-the area of the cell and adds that volume per time to the cell (the RCH package
-of MODFLOW, {cite:p}`harbaugh2005`; RCHA of MODFLOW 6, {cite:p}`langevin2017`).
-The rates are constant during a stress period.
-
-The ETP package removes at most the rate $E_k$, in full when the head is at or
-above its surface and linearly less down to the extinction depth. Which rate
-reaches it depends on the solver:
+The recharge package adds $N_k$ times the cell area to each cell, and the
+evapotranspiration package removes at most $E_k$, less as the head falls to the
+extinction depth. Both are constant during a stress period. The packages are
+documented by MODFLOW: [RCHA](https://modflow6.readthedocs.io/en/latest/_mf6io/gwf-rcha.html)
+and [EVTA](https://modflow6.readthedocs.io/en/latest/_mf6io/gwf-evta.html) in
+MODFLOW 6 ({cite:p}`langevin2017`), RCH and EVT in MODFLOW-2005 and MODFLOW-NWT
+({cite:p}`harbaugh2005,niswonger2011`). What HydroModPy decides is which rate
+reaches the ETP package:
 
 - **MODFLOW-NWT.** The loaded ETP drives the package, with the deficit of
   {ref}`forcing-negative`.
@@ -239,9 +233,9 @@ reaches it depends on the solver:
   package.
 - **Boussinesq.** `"etp"` in {toml}`flow.active_sinks_sources` is refused.
 
-The law, the surface and the depth of each case are on
-{doc}`exits/drains-and-et`. Under MODFLOW 6 the recharge is set to zero on lake
-cells: the lake gets its own rain through the lake package.
+Under MODFLOW 6 the recharge is set to zero on lake cells: the lake gets its own
+rain through the lake package. The law, the surface and the depth of the ETP
+package are on {doc}`exits/drains-and-et`.
 
 (forcing-runoff)=
 ## 8. Runoff is not recharge
@@ -287,29 +281,17 @@ recharge of one day only. A soil run therefore has no steady period, and
 `first_clim` acts on none of its periods. The daily rules are on
 {doc}`soil-reservoir`.
 
-## Assumptions
+## Assumptions and limits
 
-- A sample is a rate over the interval from its stamp to the next stamp; the last
-  one stands for one step of its record.
-- A period with samples takes their equal-weight mean: samples are assumed
-  regular.
-- Rain and ETP are one value per period and per cell, constant within the period.
-- Recharge is a flux set from outside. It does not read the water table.
-- A negative net recharge is a deficit that the ETP package draws from the water
-  table near the cell top.
-- Runoff reaches the aquifer only through a stream network or a lake, never as a
-  diffuse term.
-
-## Limits
-
+- **Constant within the period.** Rain, ETP and runoff are one value per period
+  and per cell. Recharge is a flux set from outside and does not read the water
+  table.
 - **`"mean"` weights each period equally.** On periods of unequal length, the
   steady rate is not the time mean of the record.
 - **The ETP is not read under MODFLOW 6 outside soil mode.** A loaded ETP is
   ignored, with a warning.
 - **Aggregation by `last` exists for declared forcings only.** The data layer
   always takes the mean.
-- **No energy balance.** Rain, ETP and the negative-recharge rule are inputs. The
-  model does not compute evapotranspiration from temperature, wind or radiation.
 
 ## Parameters of this page
 
@@ -337,17 +319,6 @@ The step of example 04, then the first period of its soil run:
 
 ```{hmp-resolved} flow.first_period_steady
 :config: step6_soil_reservoir.toml
-```
-
-A daily run with every period transient, rain minus ETP routed to the ETP
-package:
-
-```toml
-base_config = "step6_soil_reservoir.toml"
-
-[flow.sinks_sources.recharge]
-negative_to_evt = true
-spatial_mode = "auto"
 ```
 
 ## Checked by

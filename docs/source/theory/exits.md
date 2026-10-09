@@ -1,12 +1,12 @@
 # How water leaves the aquifer
 
 Water enters the saturated zone as recharge and leaves it through a few exits.
-Each exit is a boundary package of the solver, with its own law: a drain where
-the water table reaches the ground, a fixed head at the sea, a stream that routes
-what it receives, a lake that stores it. These pages give the law of each exit,
-the way HydroModPy builds it, and how the cells where the water table reaches
-the surface become a simulated network. The keys of a routed network and of a lake
-are in {doc}`../reference/parameters/flow/sinks_sources/sfr` and
+Each exit is a boundary package of the solver: a drain where the water table
+reaches the ground, a fixed head at the sea, a stream that routes what it
+receives, a lake that stores it. The laws are those of MODFLOW. These pages give
+the way HydroModPy builds each exit, and how the cells where the water table
+reaches the surface become a simulated network. The keys of a routed network and
+of a lake are in {doc}`../reference/parameters/flow/sinks_sources/sfr` and
 {doc}`../reference/parameters/flow/sinks_sources/lakes`.
 
 :::{note}
@@ -40,9 +40,9 @@ m³/s, a flux per unit of area in m/s. Every symbol of the site is on
 | Stream network | routed flow, head dependent streambed | SFR | none | `"sfr"` | {doc}`exits/streams-and-mover` |
 | Transfer between exits | a rule on a provider flow | MVR | none | a mover key of an exit | {doc}`exits/streams-and-mover` |
 
-Wells are a prescribed flux and are not an exit of these pages. Recharge is not
-an exit either, but the evapotranspiration it leaves behind is drawn by an exit
-package, so both are on {doc}`exits/drains-and-et`.
+Wells are a prescribed flux and not an exit. Recharge is not an exit either, but
+the evapotranspiration is drawn by an exit package, so both are on
+{doc}`exits/drains-and-et`.
 
 ```{eval-rst}
 .. plot:: theory/figures/exits_column.py
@@ -81,21 +81,18 @@ In the code: `run_pre_processing`.
 (exits-budget)=
 ## The budget closes
 
-Every exit has a budget term $\Phi_{n,p}$, the flow into cell $n$ from package
-$p$, positive into the aquifer. Over the cells and a period of length
-$\Delta t$, the terms close against the change of storage $\Delta S$:
+The budget is the one of MODFLOW: each package reports its flow into the cells,
+$\Phi_{n,p}$, positive into the aquifer, and the terms close against the change
+of storage. The solver prints the percent discrepancy of the sum, and the
+options that bound it are on {doc}`solvers`. The budget terms are those of
+{cite:t}`langevin2017`. The input of each package is in the
+[MODFLOW 6 input and output guide](https://modflow6.readthedocs.io/en/latest/mf6io.html).
 
-$$
-\sum_n N_n\,a_n + \sum_n \sum_{p} \Phi_{n,p} = \frac{\Delta S}{\Delta t} ,
-\qquad p \in \{\mathrm{evt},\ \mathrm{drn},\ \mathrm{drn\to mvr},\ \mathrm{sfr},\ \mathrm{lak},\ \mathrm{chd},\ \mathrm{wel}\} .
-$$ (eq-exits-budget)
-
-The terms are stored as `recharge`, `evapotranspiration`, `drain`,
+HydroModPy stores the terms as `recharge`, `evapotranspiration`, `drain`,
 `drain_to_mover`, `stream`, `lake`, `constant_head`, `well` and `storage`. The
 part of the drain handed to the mover leaves the aquifer through its own record
 and enters the stream or the lake as water from the mover, so the package budgets
-of SFR and LAK close the rest. The solver reports the percent discrepancy of this
-sum, {eq}`eq-discrepancy`.
+of SFR and LAK close the rest.
 
 ## Assumptions common to every exit
 

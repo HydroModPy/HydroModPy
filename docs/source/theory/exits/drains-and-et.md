@@ -13,12 +13,13 @@ the build and it decides what the drains carry, so it opens this page.
 (drains-recharge)=
 ## Recharge in
 
-MODFLOW 6 receives the recharge as one array per stress period (RCHA). The flux
-into a column is $N_n a_n$. The package puts it on the top layer, and on the
-first active layer below when the top cell is inactive. A lake cell is the case
-where that would go wrong: its top layers are inactive, and the lake already
-takes its own rain through LAK. The recharge is therefore set to zero on lake
-cells, or the rain would be counted twice.
+MODFLOW 6 reads the recharge as one array per stress period (RCHA), put on the
+top layer or on the first active layer below it
+([RCHA input guide](https://modflow6.readthedocs.io/en/latest/_mf6io/gwf-rcha.html)).
+HydroModPy adds one rule: the recharge is set to zero on lake cells. The lake
+already takes its own rain through LAK, and otherwise RCHA would move the recharge
+of a lake cell to the first active cell under the lake, so the rain would be counted
+twice.
 
 The recharge comes from a series or a grid that the run loads, or from the daily
 soil reservoir of {doc}`../soil-reservoir`. How it becomes one value per stress
@@ -29,18 +30,13 @@ In the code: `mask_recharge_on_lake_cells`.
 (drains-et)=
 ## Evapotranspiration out
 
-MODFLOW 6 and MODFLOW-NWT use the same law
-{cite:p}`harbaugh2005,langevin2017`. The package draws water from a cell where
-the water table is near the surface $z_\mathrm{et}$: at the full rate
-$E^\mathrm{et}_n$ when the head is at or above $z_\mathrm{et}$, and at a rate
-that falls linearly to zero at the depth $d_\mathrm{ext}$ below it:
-
-$$
-Q^{\mathrm{ET}}_n = a_n\, E^\mathrm{et}_n\, \kappa\!\left(\frac{h_n - (z_\mathrm{et} - d_\mathrm{ext})}{d_\mathrm{ext}}\right),
-\qquad \kappa(x) = \min\bigl(1, \max(0, x)\bigr).
-$$ (eq-evt)
-
-Three sources feed it, each with its own surface and depth.
+Both MODFLOW solvers use the same linear law
+{cite:p}`harbaugh2005,langevin2017`: the package draws water at the full rate
+$E^\mathrm{et}_n$ when the head is at or above the surface $z_\mathrm{et}$, and at
+a rate that falls linearly to zero at the depth $d_\mathrm{ext}$ below it (input
+guides: [EVTA](https://modflow6.readthedocs.io/en/latest/_mf6io/gwf-evta.html),
+[EVT](https://modflow6.readthedocs.io/en/latest/_mf6io/gwf-evt.html)). HydroModPy
+chooses the rate, the surface and the depth from three sources.
 
 | Source | Rate $E^\mathrm{et}_n$ | Surface $z_\mathrm{et}$ | Depth $d_\mathrm{ext}$ |
 |---|---|---|---|
@@ -70,19 +66,14 @@ In the code: `build_evt_array_stress_period_data`.
 (drains-law)=
 ## The drain law
 
-A drain removes water from a cell when the head is above the drain elevation
-$z^d_n$, in proportion to the excess:
-
-$$
-Q^{\mathrm{drn}}_n = C_n \,\max\bigl(h_n - z^d_n,\ 0\bigr).
-$$ (eq-drain)
-
-This is the law of the DRN package of MODFLOW 6 and MODFLOW-NWT
-{cite:p}`harbaugh2005,langevin2017`. It is one-sided: a drain never feeds the
-aquifer. In HydroModPy the drain stands for seepage at the ground surface. There
-is one row per cell, in the top layer, at the elevation of the top. The cells
-outside the model domain, the sea cells and the river cells carry no row. The rows
-are dropped later in the cells that host a connected reach
+The drain is the one-sided law of the DRN package of both MODFLOW solvers
+{cite:p}`harbaugh2005,langevin2017`: it removes water in proportion to the head
+above the drain elevation $z^d_n$ and never feeds the aquifer (input guide:
+[DRN](https://modflow6.readthedocs.io/en/latest/_mf6io/gwf-drn.html)). In
+HydroModPy the drain stands for seepage at the ground surface. There is one row
+per cell, in the top layer, at the elevation of the top. The cells outside the
+model domain, the sea cells and the river cells carry no row. The rows are
+dropped later in the cells that host a connected reach
 ({doc}`streams-and-mover`) and in the cells of a lake bed that stays active
 ({doc}`lakes`). A drain does not read $D$: its elevation is $z_{\mathrm{top},n}$,
 never the filled $\tilde z_n$.
@@ -119,25 +110,20 @@ the boundary. The conductance is static unless the value is a series. A period
 is written only when the declared value changes, and MODFLOW 6 reuses the last
 data for the periods left out.
 
-```toml
-base_config = "step4_transient.toml"
-
-[solver]
-drain_bed_thickness_m = 0.5
-```
+The bed thickness $b_d$ is {toml}`solver.drain_bed_thickness_m`.
 
 In the code: `hk_fallback_drain_conductance`.
 
 (drains-band)=
 ## The discharge band
 
-A single drain elevation says that the land inside a cell is flat. The remedy
-the USGS documents is a sub-cell discharge band, not an edit of the elevation:
-the average undulation depth of a cell in UZF1, and the depth of the drain band
-in the DRN package of MODFLOW 6 {cite:p}`langevin2017`. The depth can be taken
-from the standard deviation of the fine land surface elevations inside a cell
-{cite:p}`feinstein2020drain`. With a band of depth $\delta$, the drain sits lower
-and its conductance grows:
+A single drain elevation says that the land inside a cell is flat. The USGS
+remedy is a sub-cell discharge band, not an edit of the elevation
+{cite:p}`langevin2017`, with a depth that can come from the standard deviation of
+the fine land surface elevations inside the cell {cite:p}`feinstein2020drain`.
+With a band of depth $\delta$
+({toml}`solver.drain_band_depth_m`), the drain sits lower and its conductance
+grows:
 
 $$
 z^d_n = z_{\mathrm{top},n} - \frac{\delta}{2},
@@ -152,13 +138,6 @@ cell begins to discharge before the head reaches its mean elevation, and
 discharges harder as the head climbs into the band. No elevation is raised and no
 DEM is rewritten. MODFLOW 6 solves its own band with a smooth curve; this rule is
 the piecewise equivalent, applied alike by both MODFLOW solvers.
-
-```toml
-base_config = "step4_transient.toml"
-
-[solver]
-drain_band_depth_m = 0.5
-```
 
 The seepage mask of {doc}`simulated-network` reads the band: a banded cell
 discharges at $z_{\mathrm{top},n} - \delta/2$ and never climbs back to its top,
@@ -176,15 +155,6 @@ on the shared faces that MODFLOW connects. Both MODFLOW solvers read the same
 mask. No manual or USGS document removes a discharge boundary where a pit is
 found, and the card of the key says so. The band and this key answer the same
 question in opposite directions, and a file that sets both is refused.
-
-```toml
-# not checked: both keys together are refused when the file is read
-base_config = "step4_transient.toml"
-
-[solver]
-sink_fill = true
-drain_band_depth_m = 0.5
-```
 
 (drains-worked-cell)=
 ## One cell, by hand

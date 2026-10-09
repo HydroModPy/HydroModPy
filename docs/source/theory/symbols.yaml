@@ -42,7 +42,7 @@ symbols:
     unit: m
     set_by: ""
     group: space
-    pages: [notation, dupuit-limits]
+    pages: [notation]
   - id: depth
     symbol: d
     meaning: depth below the model top, the variable of the depth factor of a property
@@ -70,7 +70,7 @@ symbols:
     unit: s
     set_by: derived
     group: space
-    pages: [notation, groundwater-flow, solvers, mf6-vs-nwt]
+    pages: [notation, groundwater-flow, solvers]
   - id: nsub
     symbol: n_\mathrm{sub}
     meaning: number of solver time steps in a stress period
@@ -84,7 +84,7 @@ symbols:
     unit: m
     set_by: solved, not set
     group: space
-    pages: [notation, groundwater-flow, dupuit-limits, solvers, mf6-vs-nwt, exits/head-boundaries, exits/drains-and-et, exits/lakes, exits/streams-and-mover, exits/simulated-network]
+    pages: [notation, groundwater-flow, exits/head-boundaries, exits/drains-and-et, exits/lakes, exits/simulated-network]
   - id: head0
     symbol: h_0
     meaning: head at the start of the run
@@ -98,28 +98,28 @@ symbols:
     unit: m
     set_by: ":toml:`data.dem`"
     group: space
-    pages: [notation, groundwater-flow, dupuit-limits, mf6-vs-nwt, exits/routing-on-the-mesh, exits/drains-and-et, exits/streams-and-mover, exits/simulated-network]
+    pages: [notation, groundwater-flow, exits/routing-on-the-mesh, exits/drains-and-et, exits/streams-and-mover, exits/simulated-network]
   - id: zbot
     symbol: z_\mathrm{bot}
     meaning: bottom of the aquifer
     unit: m
     set_by: ":toml:`kind|domain.depth_model.kind`"
     group: space
-    pages: [notation, groundwater-flow, dupuit-limits, mf6-vs-nwt]
+    pages: [notation, groundwater-flow]
   - id: thickness
     symbol: H
     meaning: "aquifer thickness, :math:`H = z_\\mathrm{top} - z_\\mathrm{bot}`"
     unit: m
     set_by: ":toml:`kind|domain.depth_model.kind`"
     group: space
-    pages: [notation, groundwater-flow, dupuit-limits, mf6-vs-nwt]
+    pages: [notation, groundwater-flow]
   - id: satthick
     symbol: B
     meaning: "saturated thickness, :math:`B(h) = \\min\\bigl(\\max(h - z_\\mathrm{bot}, 0), H\\bigr)`"
     unit: m
     set_by: state, not a field
     group: space
-    pages: [notation, groundwater-flow, dupuit-limits, mf6-vs-nwt, downslope-distance]
+    pages: [notation, groundwater-flow, downslope-distance]
   - id: satthick-mean
     symbol: \bar B
     meaning: saturated thickness averaged by area over the catchment (``d_sat_m``)
@@ -134,27 +134,13 @@ symbols:
     set_by: ":toml:`geographic.catchment`"
     group: space
     pages: [notation, forcing, exits/lakes]
-  - id: terrain-rise
-    symbol: \Delta z_\mathrm{max}
-    meaning: largest rise of the land surface above the streams
-    unit: m
-    set_by: derived
-    group: space
-    pages: [dupuit-limits]
-  - id: shape-factor
-    symbol: m_s
-    meaning: shape factor of the criterion of Haitjema and Mitchell-Bruker, 8 for a flow in one direction, 16 for a radial one
-    unit: "-"
-    set_by: ""
-    group: space
-    pages: [dupuit-limits]
   - id: length-flow
     symbol: L_h
     meaning: horizontal length of a flow path, from a divide to the stream that drains it
     unit: m
     set_by: derived
     group: space
-    pages: [dupuit-limits]
+    pages: [groundwater-flow]
 
   # ------------------------------------------------------------ domain
   - id: hc
@@ -235,42 +221,42 @@ symbols:
     unit: m/s
     set_by: ":toml:`flow.param.K.field.value`"
     group: ground
-    pages: [notation, groundwater-flow, dupuit-limits, solvers/field-to-cell-parameter-transfer, solvers, mf6-vs-nwt, exits/drains-and-et, downslope-distance]
+    pages: [notation, groundwater-flow, solvers/field-to-cell-parameter-transfer, solvers, exits/drains-and-et, downslope-distance]
   - id: kz
     symbol: K_z
     meaning: "vertical hydraulic conductivity, :math:`K / \\beta`, or the parameter with the id ``Kv``"
     unit: m/s
     set_by: ":toml:`vka|modflow6.process_specific.vka`"
     group: ground
-    pages: [notation, groundwater-flow, dupuit-limits, solvers, mf6-vs-nwt]
+    pages: [notation, groundwater-flow, solvers]
   - id: anisotropy
     symbol: \beta
     meaning: ratio :math:`K / K_z`
     unit: "-"
     set_by: ":toml:`vka|modflow6.process_specific.vka`"
     group: ground
-    pages: [notation, groundwater-flow, dupuit-limits, mf6-vs-nwt]
+    pages: [notation, groundwater-flow, solvers]
   - id: transmissivity
     symbol: T
     meaning: transmissivity, :math:`T = K\,B`
     unit: m²/s
     set_by: derived
     group: ground
-    pages: [notation, groundwater-flow, downslope-distance]
+    pages: [notation, downslope-distance]
   - id: ss
     symbol: S_s
     meaning: specific storage
     unit: 1/m
     set_by: ":toml:`flow.param.Ss.field.value`"
     group: ground
-    pages: [notation, groundwater-flow, solvers, mf6-vs-nwt]
+    pages: [notation, groundwater-flow, solvers]
   - id: sy
     symbol: S_y
     meaning: specific yield
     unit: "-"
     set_by: ":toml:`flow.param.Sy.field.value`"
     group: ground
-    pages: [notation, groundwater-flow, solvers, mf6-vs-nwt]
+    pages: [notation, groundwater-flow, solvers]
   - id: porosity
     symbol: \theta
     meaning: porosity
@@ -307,7 +293,7 @@ symbols:
     unit: m/s
     set_by: derived
     group: fluxes
-    pages: [notation, groundwater-flow, dupuit-limits, solvers/xt3d-on-irregular-disv-meshes]
+    pages: [notation, solvers/xt3d-on-irregular-disv-meshes]
   - id: discharge
     symbol: \Phi
     meaning: volumetric discharge, for example at the outlet
@@ -321,7 +307,7 @@ symbols:
     unit: m/s
     set_by: ":toml:`flow.sinks_sources.recharge`"
     group: fluxes
-    pages: [notation, groundwater-flow, dupuit-limits, forcing, exits/drains-and-et, exits/simulated-network, soil-reservoir]
+    pages: [notation, groundwater-flow, forcing, exits/drains-and-et, exits/simulated-network, soil-reservoir]
   - id: recharge-mean
     symbol: \bar N
     meaning: recharge averaged over the catchment and a period of time (``R_mean_m_s`` on the stream-network page)
@@ -329,27 +315,13 @@ symbols:
     set_by: derived
     group: fluxes
     pages: [notation, groundwater-flow, downslope-distance, exits/simulated-network]
-  - id: source-volume
-    symbol: W
-    meaning: net volume of water the stress packages add per unit volume and time
-    unit: 1/s
-    set_by: ":toml:`flow.active_sinks_sources`, :toml:`flow.active_bc`"
-    group: fluxes
-    pages: [groundwater-flow]
-  - id: source-area
-    symbol: q_\mathrm{net}
-    meaning: net flux of the stress packages per unit plan area, positive into the aquifer
-    unit: m/s
-    set_by: ":toml:`flow.active_sinks_sources`, :toml:`flow.active_bc`"
-    group: fluxes
-    pages: [groundwater-flow]
   - id: package-flow
     symbol: \Phi_{n,p}
     meaning: flow into cell :math:`n` from the stress package :math:`p`, positive into the aquifer
     unit: m³/s
     set_by: ":toml:`flow.active_sinks_sources`, :toml:`flow.active_bc`"
     group: fluxes
-    pages: [groundwater-flow, solvers, mf6-vs-nwt, exits, exits/simulated-network]
+    pages: [groundwater-flow, exits, exits/simulated-network]
 
   # ------------------------------------------------------------ cells
   - id: cell
@@ -358,28 +330,28 @@ symbols:
     unit: "-"
     set_by: "the grid, :doc:`/theory/mesh`"
     group: cells
-    pages: [groundwater-flow, solvers, mf6-vs-nwt, mesh, solvers/xt3d-on-irregular-disv-meshes, exits, exits/head-boundaries, exits/routing-on-the-mesh, exits/drains-and-et, exits/lakes, exits/streams-and-mover, exits/simulated-network, downslope-distance]
+    pages: [groundwater-flow, mesh, solvers/xt3d-on-irregular-disv-meshes, exits, exits/head-boundaries, exits/routing-on-the-mesh, exits/drains-and-et, exits/lakes, exits/simulated-network, downslope-distance]
   - id: cell-area
     symbol: a_n
     meaning: plan area of cell :math:`n`
     unit: m²
     set_by: the grid
     group: cells
-    pages: [groundwater-flow, solvers, mf6-vs-nwt, mesh, solvers/field-to-cell-parameter-transfer, exits/drains-and-et, exits/simulated-network, downslope-distance]
+    pages: [groundwater-flow, mesh, solvers/field-to-cell-parameter-transfer, exits/drains-and-et, exits/simulated-network, downslope-distance]
   - id: conductance
     symbol: G_{nm}
     meaning: conductance between cells :math:`n` and :math:`m`
     unit: m²/s
     set_by: derived from :math:`K`, the geometry and the heads
     group: cells
-    pages: [groundwater-flow, solvers, mf6-vs-nwt, mesh, solvers/xt3d-on-irregular-disv-meshes]
+    pages: [groundwater-flow, mesh, solvers/xt3d-on-irregular-disv-meshes]
   - id: face-width
     symbol: w_{nm}
     meaning: width of the face shared by cells :math:`n` and :math:`m`
     unit: m
     set_by: the grid
     group: cells
-    pages: [groundwater-flow, solvers/xt3d-on-irregular-disv-meshes]
+    pages: [groundwater-flow]
   - id: face-distance
     symbol: c_{nm}
     meaning: distance from the centre of :math:`n` to the face it shares with :math:`m`
@@ -387,78 +359,6 @@ symbols:
     set_by: the grid
     group: cells
     pages: [groundwater-flow]
-  - id: satfrac
-    symbol: \sigma_n
-    meaning: "saturated fraction of cell :math:`n`, :math:`B_n / H_n`, between 0 and 1"
-    unit: "-"
-    set_by: state, not a field
-    group: cells
-    pages: [mf6-vs-nwt]
-  - id: satfrac-smooth
-    symbol: \tilde\sigma
-    meaning: saturated fraction after the smoothing near the bottom and the top of the cell
-    unit: "-"
-    set_by: state, not a field
-    group: cells
-    pages: [mf6-vs-nwt]
-  - id: smoothing
-    symbol: \varepsilon_s
-    meaning: width of the smoothing, as a fraction of the cell thickness
-    unit: "-"
-    set_by: ":toml:`thickfact|modflownwt.runtime.nwt.thickfact` for MODFLOW-NWT; fixed for MODFLOW 6"
-    group: cells
-    pages: [mf6-vs-nwt]
-  - id: v-in
-    symbol: V_\mathrm{in}
-    meaning: volume that enters the model over a step, summed over every budget term
-    unit: m³
-    set_by: derived
-    group: cells
-    pages: [solvers]
-  - id: v-out
-    symbol: V_\mathrm{out}
-    meaning: volume that leaves the model over a step, summed over every budget term
-    unit: m³
-    set_by: derived
-    group: cells
-    pages: [solvers]
-  - id: discrepancy
-    symbol: E_\%
-    meaning: percent discrepancy of the budget of a step
-    unit: "%"
-    set_by: derived
-    group: cells
-    pages: [solvers]
-
-  # ------------------------------------------------------------ solve
-  - id: residual
-    symbol: R_n
-    meaning: residual of the balance of cell :math:`n`, inflow minus storage change
-    unit: m³/s
-    set_by: state, not a field
-    group: solve
-    pages: [solvers, mf6-vs-nwt]
-  - id: jacobian
-    symbol: \mathbf{J}
-    meaning: "Jacobian of the residuals, :math:`J_{nm} = \\partial R_n / \\partial h_m`"
-    unit: m²/s
-    set_by: state, not a field
-    group: solve
-    pages: [solvers]
-  - id: iterate
-    symbol: \nu
-    meaning: index of the outer (Newton) iteration
-    unit: "-"
-    set_by: ""
-    group: solve
-    pages: [solvers, mf6-vs-nwt]
-  - id: relax
-    symbol: \omega
-    meaning: factor applied to a Newton update, between 0 and 1
-    unit: "-"
-    set_by: ":toml:`mf6_under_relaxation|modflow6.runtime.mf6_under_relaxation`, :toml:`backflag|modflownwt.runtime.nwt.backflag`"
-    group: solve
-    pages: [solvers]
   - id: tol-spinup
     symbol: \varepsilon_h
     meaning: head tolerance of the cyclic spin-up
@@ -1120,7 +1020,7 @@ symbols:
     unit: "-"
     set_by: "derived"
     group: exits
-    pages: [exits/routing-on-the-mesh, exits/simulated-network, downslope-distance]
+    pages: [exits/routing-on-the-mesh, downslope-distance]
   - id: routing-neighbours
     symbol: \mathcal{N}_D(n)
     meaning: "neighbours a cell may drain to: the cells sharing a node on a quad mesh, a face on any other"
@@ -1163,13 +1063,6 @@ symbols:
     set_by: "derived"
     group: exits
     pages: [exits/drains-and-et, downslope-distance]
-  - id: drain-flow
-    symbol: Q^\mathrm{drn}_n
-    meaning: "drain outflow of cell :math:`n`"
-    unit: "m³/s"
-    set_by: "solved, not set"
-    group: exits
-    pages: [exits/drains-and-et]
   - id: et-rate
     symbol: E^\mathrm{et}_n
     meaning: "evapotranspiration rate the package may draw from the water table of cell :math:`n`"
@@ -1259,27 +1152,6 @@ symbols:
     meaning: "depth a bed is cut below the ground of its cell"
     unit: "m"
     set_by: ":toml:`bed_incision|flow.sinks_sources.sfr.<name>.bed_incision`"
-    group: exits
-    pages: [exits/streams-and-mover]
-  - id: reach-flow
-    symbol: Q_j
-    meaning: "flow out of reach :math:`j`"
-    unit: "m³/s"
-    set_by: "solved, not set"
-    group: exits
-    pages: [exits/streams-and-mover]
-  - id: reach-exchange
-    symbol: Q^\mathrm{gw}_j
-    meaning: "exchange of reach :math:`j` with the aquifer, positive into the stream"
-    unit: "m³/s"
-    set_by: "solved, not set"
-    group: exits
-    pages: [exits/streams-and-mover]
-  - id: mover-available
-    symbol: Q_\mathrm{avail}
-    meaning: "flow a mover provider has available in a period"
-    unit: "m³/s"
-    set_by: "solved, not set"
     group: exits
     pages: [exits/streams-and-mover]
   - id: seepage-mask

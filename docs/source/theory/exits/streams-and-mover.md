@@ -61,48 +61,29 @@ In the code: `solve_reach_bed_profile`.
 (streams-flow)=
 ## Flow and exchange
 
-The flow out of reach $j$ is what comes in plus what the reach gains:
+The flow balance of a reach, the exchange through the streambed and the stage
+from Manning's equation for a rectangular section are the MODFLOW 6 SFR package
+{cite:p}`langevin2017` (chapter 7; input guide:
+[SFR](https://modflow6.readthedocs.io/en/latest/_mf6io/gwf-sfr.html)).
+HydroModPy fills it as follows.
 
-$$
-Q_j = \sum_{k \in \mathrm{up}(j)} f_{kj}\,Q_k + Q^{\mathrm{ext}}_j + Q^{\mathrm{ro}}_j
-+ w_j L_j\,(P - E) + Q^{\mathrm{gw}}_j + Q^{\mathrm{mvr}}_j.
-$$ (eq-reach-flow)
-
-$f_{kj}$ is the share of reach $k$ that goes to $j$: 1, unless $k$ is a
-bifurcation, whose shares sum to 1. $Q^{\mathrm{ext}}$ is the inflow of the
-headwater reaches, split by drainage area. $Q^{\mathrm{ro}}_j$ is the share of
-reach $j$ in the catchment runoff of the period ({doc}`../forcing`), distributed
-over the reaches by length. $P$ and $E$ are the rain and the evaporation on the
-open channel. $Q^{\mathrm{mvr}}$ is what the mover hands to the reach.
-
-The exchange with the aquifer goes through the streambed. MODFLOW 6 takes the
-head of the aquifer, or the bottom of the bed when the head is lower
-{cite:p}`langevin2017`:
-
-$$
-Q^{\mathrm{gw}}_j = C^{\mathrm{sb}}_j\,\Bigl(\max\bigl(h_j,\ z^{\mathrm{rtp}}_j - b_s\bigr) - s_j\Bigr),
-\qquad C^{\mathrm{sb}}_j = \frac{K_b\,A^{\mathrm{sb}}_j}{b_s}.
-$$ (eq-reach-exchange)
-
-$h_j$ is the head of the cell under the reach, $s_j$ the stage of the reach, and
-$A^{\mathrm{sb}}_j$ the wetted area of the bed, which MODFLOW 6 computes from the
-width, the length and the stage. A positive $Q^{\mathrm{gw}}$ is water the aquifer
-gives to the stream. The reach switches between connected and disconnected at
-$z^{\mathrm{rtp}}_j - b_s$. The stage comes from Manning's equation for the
-rectangular section MODFLOW 6 assumes, with $A^\mathrm{x}_j$ the flow area and
-$R_{h,j}$ the hydraulic radius:
-
-$$
-Q_j = \frac{1}{n_M}\,A^\mathrm{x}_j\,R_{h,j}^{2/3}\,S_j^{1/2}.
-$$ (eq-manning)
-
-With {toml}`connected_to_aquifer|flow.sinks_sources.sfr.<name>.connected_to_aquifer`
-off, the network is pure routing and has no exchange with the aquifer.
-
-A cell that hosts a connected reach loses its drain row: its baseflow goes into
-the stream through the bed, not out of the model through a drain. The drain rows
-of the cells around stay, and `route_drainage` sends their outflow to the stream
-(below).
+- The exchange goes through the streambed with a conductance of
+  $K_b / b_s$ times the wetted area of the bed, built from
+  {toml}`streambed_k|flow.sinks_sources.sfr.<name>.streambed_k` and
+  {toml}`streambed_thickness|flow.sinks_sources.sfr.<name>.streambed_thickness`.
+  The stage uses {toml}`manning|flow.sinks_sources.sfr.<name>.manning` and the
+  gradient floored by
+  {toml}`min_slope|flow.sinks_sources.sfr.<name>.min_slope`.
+- With {toml}`connected_to_aquifer|flow.sinks_sources.sfr.<name>.connected_to_aquifer`
+  off, the network is pure routing and has no exchange with the aquifer.
+- The inflow of the headwater reaches is split by drainage area. The catchment
+  runoff of the period ({doc}`../forcing`) is distributed over all the reaches by
+  length. Rain and evaporation are rates, the same on every reach, applied by
+  MODFLOW 6 to the reach area.
+- A cell that hosts a connected reach loses its drain row: its baseflow goes into
+  the stream through the bed, not out of the model through a drain. The drain rows
+  of the cells around stay, and `route_drainage` sends their outflow to the stream
+  (below).
 
 (streams-numerics)=
 ## The numerical choice
@@ -120,17 +101,11 @@ In the code: `build_sfr_package_args`.
 ## The water mover
 
 The MVR package takes water from a provider, a feature of one package, and gives
-it to a receiver, a feature of another, by a rule. The rule acts on the flow
-$Q_{\mathrm{avail}}$ the provider has available, with the value $v$ of the record:
-
-$$
-Q^{\mathrm{FACTOR}} = v\,Q_{\mathrm{avail}}, \qquad
-Q^{\mathrm{UPTO}} = \min(v,\ Q_{\mathrm{avail}}), \qquad
-Q^{\mathrm{EXCESS}} = \max(Q_{\mathrm{avail}} - v,\ 0).
-$$ (eq-mover)
-
-The fourth rule, THRESHOLD, is all or nothing above the value. HydroModPy writes
-records for three connections, and writes MVR last, after every package it names.
+it to a receiver, a feature of another, by a rule (FACTOR, UPTO, EXCESS or
+THRESHOLD) {cite:p}`morway2021mvr`; input guide:
+[MVR](https://modflow6.readthedocs.io/en/latest/_mf6io/gwf-mvr.html).
+HydroModPy writes records for three connections, and writes MVR last, after every
+package it names.
 
 | Provider | Receiver | Rule | Set by |
 |---|---|---|---|
@@ -171,21 +146,6 @@ The drain must therefore be static, with a single period of data: a series of
 conductances would renumber the providers and send the water to the wrong place,
 and the build refuses it. The budget stores the part the mover took as its own
 record, `drain_to_mover`.
-
-```toml
-base_config = "step4_transient.toml"
-
-[geographic.river_network]
-enabled = true
-threshold_mode = "area_km2"
-threshold_area_km2 = 0.1
-
-[flow]
-active_bc = ["drainage", "sfr"]
-
-[flow.sinks_sources.sfr.main]
-route_drainage = true
-```
 
 In the code: `build_drainage_mover_records`.
 

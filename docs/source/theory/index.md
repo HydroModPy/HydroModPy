@@ -1,10 +1,25 @@
 # Theory
 
-The equations HydroModPy solves, in the order the water meets them, with what
-each one assumes and where it stops being true. Read this part to review a
-result, to cite the model, or to know exactly what a parameter does inside an
-equation. Each page names the keys that set its terms; the steps of a run are in
-the {doc}`staircase <../get-started/staircase/index>`.
+Theory covers what HydroModPy computes or decides: the rules it applies when it
+builds a model, the conversions from TOML to solver input, the methods it
+implements itself, and what it refuses. The equations of MODFLOW and of the
+literature are read at their source. A page gives external theory a few sentences
+and a citation, then says what HydroModPy does with it. Each page names the keys
+that set its terms; the steps of a run are in the
+{doc}`staircase <../get-started/staircase/index>`.
+
+## Sources we build on
+
+- MODFLOW 6 groundwater flow: {cite:t}`langevin2017`. Framework and IMS solver:
+  {cite:t}`hughes2017framework`. Input guide:
+  [MODFLOW 6 input reference](https://modflow6.readthedocs.io/en/latest/mf6io.html).
+- XT3D on irregular meshes: {cite:t}`provost2017`.
+- MODFLOW-NWT: {cite:t}`niswonger2011`, on {cite:t}`harbaugh2005`. Input guide:
+  [MODFLOW-NWT guide](https://water.usgs.gov/ogw/modflow-nwt/MODFLOW-NWT-Guide/).
+- Mesh generation: [Gmsh manual](https://gmsh.info/doc/texinfo/gmsh.html).
+
+{doc}`solvers` gathers the links package by package. Every citation is listed in
+the {doc}`bibliography`.
 
 ## Same subject, four doors
 
@@ -15,7 +30,7 @@ Take the soil reservoir. Each door says something different about it.
 | {doc}`Understand <../understand/what-it-computes>` | What it means, in plain words | Part of the rain never reaches the water table: the soil keeps it and plants take it back. |
 | {doc}`Get started <../get-started/staircase/step6>` | How to do it | Switch the soil reservoir on, in step 6 of example 04. |
 | {toml}`Reference\|flow.sinks_sources.recharge.soil` | Every key, generated | `ru`: capacity of the store, in mm, default and range. |
-| {doc}`Theory <soil-reservoir>` | The equations | $S_t = W_t - \mathrm{ETR}_t - X_t$, where $X_t$ is the water above $\mathrm{RU}$. |
+| {doc}`Theory <soil-reservoir>` | What HydroModPy computes, with its assumptions | $S_t = W_t - \mathrm{ETR}_t - X_t$, where $X_t$ is the water above $\mathrm{RU}$. |
 
 ## Follow the water
 
@@ -61,7 +76,6 @@ The problem, the grid it is solved on, and the solvers that integrate it.
 :maxdepth: 1
 
 groundwater-flow
-dupuit-limits
 solvers/field-to-cell-parameter-transfer
 ```
 
@@ -78,7 +92,6 @@ solvers/xt3d-on-irregular-disv-meshes
 :maxdepth: 1
 
 solvers
-mf6-vs-nwt
 boussinesq
 ```
 
@@ -125,11 +138,9 @@ validation
 
 ## How we know the code solves them
 
-{doc}`validation` lists every check of `tests/validation/`: the reference it
-is compared with (a closed-form solution, a published MODFLOW 6 example, a
-manufactured solution, or a parameter to find again), the solvers it runs,
-and the thresholds it must stay under. The page is generated from the source of
-the tests: a check appears there only when a test exists for it.
+{doc}`validation` is generated from `tests/validation/`: each check, its
+reference, the solvers it runs and the thresholds it must stay under. A check
+appears there only when a test exists for it.
 
 How a theory page is written, and what its build checks, is in
 {doc}`../contribute/write-a-theory-page`.
