@@ -122,8 +122,9 @@ def _head_rmse(root: Path, *, solver: str, ncol: int, newton: bool | None, label
 @pytest.mark.parametrize(
     ("solver", "newton", "expected_order", "require_modflow", "require_modflow6"),
     [
-        # MODFLOW 6 runs Newton by default: that variant takes the solver's own name.
-        pytest.param("modflow6", False, 2.0, False, True, id="modflow6_no_newton"),
+        # MODFLOW 6 runs Newton by default: that variant takes the solver's own name,
+        # the other one a name of its own, so the page shows them apart.
+        pytest.param("modflow6_no_newton", False, 2.0, False, True, id="modflow6_no_newton"),
         pytest.param("modflow6", True, 1.0, False, True, id="modflow6"),
         pytest.param("modflow_nwt", None, 1.0, True, False, id="modflow_nwt"),
     ],
@@ -148,9 +149,10 @@ def test_grid_convergence_dupuit_fixed_head_1d(
     length_x = float(load_case_metadata(CASE_DIR)["reference"]["xmax"])
     cell_sizes = np.asarray([length_x / ncol for ncol in COLUMNS], dtype=float)
     label = request.node.callspec.id
+    run_solver = "modflow6" if solver == "modflow6_no_newton" else solver
     errors = np.asarray(
         [
-            _head_rmse(tmp_path, solver=solver, ncol=ncol, newton=newton, label=label)
+            _head_rmse(tmp_path, solver=run_solver, ncol=ncol, newton=newton, label=label)
             for ncol in COLUMNS
         ],
         dtype=float,
