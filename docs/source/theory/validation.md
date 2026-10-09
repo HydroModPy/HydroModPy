@@ -12,9 +12,11 @@ is shown as skipped: it proves nothing. Where a threshold lets a known
 discrepancy through, the case says so in a warning box at its top.
 
 The measures come from a results snapshot committed next to this page,
-`docs/source/theory/validation_results.json`. The nightly job writes the same
-file for the code it runs. "When the checks run" below lists the jobs, read
-from the workflow files, and the checks that no job runs.
+`docs/source/theory/validation_results.json`. When the site is deployed, the
+results the nightly jobs uploaded for the branch, if any, replace older ones.
+Each case gives the date and commit of the run its numbers come from. "When the
+checks run" below lists the jobs, read from the workflow files, and the checks
+that no job runs.
 
 ```{hmp-validation}
 ```

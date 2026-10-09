@@ -65,10 +65,6 @@ code, pre, kbd, samp { font-variant-ligatures: none; }
   html[data-theme="auto"] .only-light { display: none !important; }
 }
 
-/* Inter is wider than the system fonts the theme used: with the default link
-   padding the seven links and the end group no longer fit one row at 1280 px. */
-.bd-header ul.navbar-nav > li.nav-item > .nav-link { padding-inline: 4px; font-size: .95rem; }
-
 /* The version button keeps its width while the version list loads: the label
    "Choose version" is wider than the name that replaces it, and the header
    wrapped to a second row until then. The theme sets data-active-version-name
@@ -84,25 +80,35 @@ code, pre, kbd, samp { font-variant-ligatures: none; }
   margin-right: .255em;
 }
 
-/* Header: one row at every width, and anchors land below it. Between 960 and
-   1280 px the seven doors, the search, the theme, the version and the two icons
-   do not fit at the theme's spacing: the search shows its icon only, the gaps
-   close, and under 1100 px the labels get smaller. tools/docs/site_probe.py
-   measures the height at 390, 768, 961, 1024, 1100, 1200, 1280 and 1440 px. */
+/* Header: one row at every width, and anchors land below it. From 1440 px the
+   links start at the content column, away from the logo, as on the site before
+   2.0. Below, the theme's logo column (a quarter of the width) leaves the seven
+   doors, the search, the theme, the version and the two icons no room: the logo
+   takes its own width and the links start 2rem after it, the search shows its
+   icon only, the gaps close, the logo gets smaller, and under 1100 px the labels
+   too. tools/docs/site_probe.py measures the height at 390, 768, 961, 1024,
+   1100, 1200, 1280 and 1440 px. */
 .bd-header .navbar-nav .nav-link { white-space: nowrap; }
 html { scroll-padding-top: calc(var(--pst-header-height) + 1rem); }
-@media (min-width: 960px) and (max-width: 1279.98px) {
+@media (min-width: 960px) and (max-width: 1439.98px) {
+  .bd-header .navbar-header-items__start { flex: 0 0 auto; width: auto; margin-right: 2rem; }
+  .bd-header .navbar-header-items { flex: 1 1 auto; width: auto; }
   .bd-header .navbar-header-items__end .search-button__default-text,
   .bd-header .navbar-header-items__end .search-button__kbd-shortcut { display: none; }
   .bd-header .navbar-header-items__center,
   .bd-header .navbar-header-items__end { column-gap: .35rem; }
   .bd-header .navbar-header-items { padding-left: .25rem; }
   .bd-header ul.navbar-nav > li.nav-item > .nav-link { padding-inline: 4px; }
+}
+@media (min-width: 960px) and (max-width: 1279.98px) {
   .bd-header .navbar-brand img.logo__image { height: 1.9rem; }
+  .bd-header .navbar-header-items__start { margin-right: 1.25rem; }
+  .bd-header ul.navbar-nav > li.nav-item > .nav-link { font-size: .9rem; }
 }
 @media (min-width: 960px) and (max-width: 1099.98px) {
   /* Inter is wider than the system font: at 961 px the end group wrapped by 10 px. */
   .bd-header ul.navbar-nav > li.nav-item > .nav-link { font-size: .82rem; padding-inline: 3px; }
+  .bd-header .navbar-header-items__start { margin-right: .75rem; }
   .bd-header .navbar-header-items__center,
   .bd-header .navbar-header-items__end { column-gap: .15rem; }
   .bd-header .navbar-brand img.logo__image { height: 1.5rem; }
@@ -112,22 +118,17 @@ html { scroll-padding-top: calc(var(--pst-header-height) + 1rem); }
    The theme's teal reaches 4.38:1 there, so the light primary is a little darker. */
 html:root[data-theme="light"] { --pst-color-primary: #097083; }
 
-/* The logo box is sized before the image loads: no layout shift. */
-.navbar-brand img.logo__image { height: 2.25rem; width: auto; aspect-ratio: 629 / 96; }
+/* The logo box is sized before the image loads: no layout shift. It is as wide
+   as on the site before 2.0, whose image had margins around the same drawing. */
+.navbar-brand img.logo__image { height: 2.6rem; width: auto; aspect-ratio: 629 / 96; }
 @media (max-width: 960px) {
   .navbar-brand img.logo__image { height: 1.6rem; }
 }
 
-/* Headings sized for a 650 px column. */
-html {
-  --pst-font-size-h1: 2.25rem;
-  --pst-font-size-h2: 1.75rem;
-  --pst-font-size-h3: 1.4rem;
-  --pst-font-size-h4: 1.15rem;
-}
-
-/* Prose lines stay readable on pages without a right sidebar. */
-.bd-article p, .bd-article li { max-width: 72ch; }
+/* The page and the reading column are as wide as on the site before 2.0: the
+   text uses the screen instead of a 60em column. */
+.bd-page-width { max-width: 100rem; }
+.bd-main .bd-content .bd-article-container { max-width: 80rem; }
 
 /* Long inline literals wrap instead of widening the page. */
 .bd-article :is(p, li, dd) code,

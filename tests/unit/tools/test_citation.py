@@ -85,3 +85,19 @@ def test_untex_reads_the_forms_a_bib_file_uses() -> None:
 def test_an_unknown_format_is_refused() -> None:
     with pytest.raises(ValueError, match="unknown citation format"):
         citation.render("endnote", CFF, VERSION)
+
+
+def test_an_archived_version_gets_its_own_zenodo_doi() -> None:
+    archived = {
+        "doi": "10.5281/zenodo.1",
+        "identifiers": [
+            {"type": "doi", "value": "10.5281/zenodo.2", "description": "Version 1.0.0"}
+        ],
+    }
+    assert citation.software_doi(archived, "1.0.0") == "10.5281/zenodo.2"
+    assert citation.software_doi(archived, "2.0.0a4") == "10.5281/zenodo.1"
+
+
+def test_the_software_entry_carries_the_concept_doi_before_its_archive() -> None:
+    soft = citation.bibtex(CFF, "9.9.9").split("@software")[1]
+    assert f"doi     = {{{CFF['doi']}}}" in soft

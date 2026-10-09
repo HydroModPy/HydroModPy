@@ -1,21 +1,9 @@
 {
  "schema": 1,
  "runs": {
-  "2026-10-09T00:36:28+00:00-953f671ed": {
-   "date": "2026-10-09T00:36:28+00:00",
-   "commit": "953f671edb1aaed12797e0eff15c01851156859a",
-   "dirty": false,
-   "branch": "",
-   "version": "2.0.0a4",
-   "python": "3.13.15",
-   "platform": "Linux x86_64",
-   "ci_run": "",
-   "markers": "fast",
-   "command": "pytest tests/validation -m fast -n 2 --dist loadgroup -q -p no:cacheprovider"
-  },
-  "2026-10-09T00:37:17+00:00-a5ccd6e19": {
-   "date": "2026-10-09T00:37:17+00:00",
-   "commit": "a5ccd6e193da1347e90caa078c843a345e1913c8",
+  "2026-10-09T12:32:59+00:00-d9d5e2444": {
+   "date": "2026-10-09T12:32:59+00:00",
+   "commit": "d9d5e244481a9b916b4ae03f08dba93b6af42292",
    "dirty": false,
    "branch": "",
    "version": "2.0.0a4",
@@ -23,25 +11,10 @@
    "platform": "Linux x86_64",
    "ci_run": "",
    "markers": "not petsc",
-   "command": "pytest tests/validation/analytical/transient/test_brutsaert_recession_boussinesq_thin_1d.py tests/validation/analytical/transient/test_brutsaert_recession_linearized_deep_1d.py tests/validation/analytical/transient/test_theis.py tests/validation/analytical/transient/test_hantush.py tests/validation/analytical/transient/test_ogata_banks.py tests/validation/analytical/transient/test_gwt_first_order_decay.py tests/validation/analytical/transient/test_prt_uniform_velocity.py -m not petsc -n 2 --dist loadgroup -q -p no:cacheprovider"
+   "command": "pytest tests/validation -m not petsc -n 8 --dist loadgroup -q -p no:cacheprovider"
   }
  },
  "tests": {
-  "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[boussinesq]": {
-   "nodeid": "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[boussinesq]",
-   "file": "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py",
-   "function": "test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile",
-   "params": "boussinesq",
-   "solver": "boussinesq",
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
   "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[modflow6]",
    "file": "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py",
@@ -50,7 +23,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 20.28,
+   "duration_s": 9.59,
    "metrics": [
     {
      "name": "Radial head-profile RMSE",
@@ -162,7 +135,7 @@
     "unit": "m"
    },
    "case": "boussinesq_circular_island_piecewise_k_2d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[modflow6_irregular_tri]",
@@ -172,7 +145,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 14.17,
+   "duration_s": 9.23,
    "metrics": [
     {
      "name": "Radial head-profile RMSE",
@@ -284,7 +257,7 @@
     "unit": "m"
    },
    "case": "boussinesq_circular_island_piecewise_k_2d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[modflow_nwt]",
@@ -294,7 +267,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 15.6,
+   "duration_s": 9.83,
    "metrics": [
     {
      "name": "Radial head-profile RMSE",
@@ -406,22 +379,7 @@
     "unit": "m"
    },
    "case": "boussinesq_circular_island_piecewise_k_2d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_boussinesq_divide_fixed_head_piecewise_k_1d.py::test_boussinesq_divide_fixed_head_piecewise_k_1d_matches_reference_profile[boussinesq]": {
-   "nodeid": "tests/validation/analytical/steady/test_boussinesq_divide_fixed_head_piecewise_k_1d.py::test_boussinesq_divide_fixed_head_piecewise_k_1d_matches_reference_profile[boussinesq]",
-   "file": "tests/validation/analytical/steady/test_boussinesq_divide_fixed_head_piecewise_k_1d.py",
-   "function": "test_boussinesq_divide_fixed_head_piecewise_k_1d_matches_reference_profile",
-   "params": "boussinesq",
-   "solver": "boussinesq",
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_divide_fixed_head_piecewise_k_1d.py::test_boussinesq_divide_fixed_head_piecewise_k_1d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_divide_fixed_head_piecewise_k_1d.py::test_boussinesq_divide_fixed_head_piecewise_k_1d_matches_reference_profile[modflow6]",
@@ -431,7 +389,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 14.38,
+   "duration_s": 8.35,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -598,7 +556,7 @@
     "unit": "m"
    },
    "case": "boussinesq_divide_fixed_head_piecewise_k_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_divide_fixed_head_piecewise_k_1d.py::test_boussinesq_divide_fixed_head_piecewise_k_1d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_divide_fixed_head_piecewise_k_1d.py::test_boussinesq_divide_fixed_head_piecewise_k_1d_matches_reference_profile[modflow6_irregular_tri]",
@@ -608,7 +566,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 13.3,
+   "duration_s": 9.02,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -775,7 +733,7 @@
     "unit": "m"
    },
    "case": "boussinesq_divide_fixed_head_piecewise_k_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_divide_fixed_head_piecewise_k_1d.py::test_boussinesq_divide_fixed_head_piecewise_k_1d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_divide_fixed_head_piecewise_k_1d.py::test_boussinesq_divide_fixed_head_piecewise_k_1d_matches_reference_profile[modflow_nwt]",
@@ -785,7 +743,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 10.57,
+   "duration_s": 8.9,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -952,22 +910,7 @@
     "unit": "m"
    },
    "case": "boussinesq_divide_fixed_head_piecewise_k_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_boussinesq_fixed_head_piecewise_k_1d.py::test_boussinesq_fixed_head_piecewise_k_1d_matches_reference_profile[boussinesq]": {
-   "nodeid": "tests/validation/analytical/steady/test_boussinesq_fixed_head_piecewise_k_1d.py::test_boussinesq_fixed_head_piecewise_k_1d_matches_reference_profile[boussinesq]",
-   "file": "tests/validation/analytical/steady/test_boussinesq_fixed_head_piecewise_k_1d.py",
-   "function": "test_boussinesq_fixed_head_piecewise_k_1d_matches_reference_profile",
-   "params": "boussinesq",
-   "solver": "boussinesq",
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_fixed_head_piecewise_k_1d.py::test_boussinesq_fixed_head_piecewise_k_1d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_fixed_head_piecewise_k_1d.py::test_boussinesq_fixed_head_piecewise_k_1d_matches_reference_profile[modflow6]",
@@ -977,7 +920,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 8.54,
+   "duration_s": 9.47,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -1144,7 +1087,7 @@
     "unit": "m"
    },
    "case": "boussinesq_fixed_head_piecewise_k_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_fixed_head_piecewise_k_1d.py::test_boussinesq_fixed_head_piecewise_k_1d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_fixed_head_piecewise_k_1d.py::test_boussinesq_fixed_head_piecewise_k_1d_matches_reference_profile[modflow6_irregular_tri]",
@@ -1154,7 +1097,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 9.25,
+   "duration_s": 9.76,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -1321,7 +1264,7 @@
     "unit": "m"
    },
    "case": "boussinesq_fixed_head_piecewise_k_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_fixed_head_piecewise_k_1d.py::test_boussinesq_fixed_head_piecewise_k_1d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_fixed_head_piecewise_k_1d.py::test_boussinesq_fixed_head_piecewise_k_1d_matches_reference_profile[modflow_nwt]",
@@ -1331,7 +1274,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 9.69,
+   "duration_s": 9.51,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -1498,37 +1441,7 @@
     "unit": "m"
    },
    "case": "boussinesq_fixed_head_piecewise_k_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_boussinesq_hillslope_interception_1d.py::test_boussinesq_hillslope_interception_1d_matches_reference_position": {
-   "nodeid": "tests/validation/analytical/steady/test_boussinesq_hillslope_interception_1d.py::test_boussinesq_hillslope_interception_1d_matches_reference_position",
-   "file": "tests/validation/analytical/steady/test_boussinesq_hillslope_interception_1d.py",
-   "function": "test_boussinesq_hillslope_interception_1d_matches_reference_position",
-   "params": "",
-   "solver": null,
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_constant_thickness_1d.py::test_boussinesq_sloping_substratum_constant_thickness_1d_matches_reference_profile[boussinesq]": {
-   "nodeid": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_constant_thickness_1d.py::test_boussinesq_sloping_substratum_constant_thickness_1d_matches_reference_profile[boussinesq]",
-   "file": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_constant_thickness_1d.py",
-   "function": "test_boussinesq_sloping_substratum_constant_thickness_1d_matches_reference_profile",
-   "params": "boussinesq",
-   "solver": "boussinesq",
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_constant_thickness_1d.py::test_boussinesq_sloping_substratum_constant_thickness_1d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_constant_thickness_1d.py::test_boussinesq_sloping_substratum_constant_thickness_1d_matches_reference_profile[modflow6]",
@@ -1538,7 +1451,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 10.1,
+   "duration_s": 9.38,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -1705,7 +1618,7 @@
     "unit": "m"
    },
    "case": "boussinesq_sloping_substratum_constant_thickness_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_constant_thickness_1d.py::test_boussinesq_sloping_substratum_constant_thickness_1d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_constant_thickness_1d.py::test_boussinesq_sloping_substratum_constant_thickness_1d_matches_reference_profile[modflow6_irregular_tri]",
@@ -1715,7 +1628,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 9.01,
+   "duration_s": 8.51,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -1882,7 +1795,7 @@
     "unit": "m"
    },
    "case": "boussinesq_sloping_substratum_constant_thickness_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_constant_thickness_1d.py::test_boussinesq_sloping_substratum_constant_thickness_1d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_constant_thickness_1d.py::test_boussinesq_sloping_substratum_constant_thickness_1d_matches_reference_profile[modflow_nwt]",
@@ -1892,7 +1805,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 8.6,
+   "duration_s": 10.35,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -2059,22 +1972,7 @@
     "unit": "m"
    },
    "case": "boussinesq_sloping_substratum_constant_thickness_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_fixed_head_1d.py::test_boussinesq_sloping_substratum_fixed_head_1d_matches_reference_profile[boussinesq]": {
-   "nodeid": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_fixed_head_1d.py::test_boussinesq_sloping_substratum_fixed_head_1d_matches_reference_profile[boussinesq]",
-   "file": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_fixed_head_1d.py",
-   "function": "test_boussinesq_sloping_substratum_fixed_head_1d_matches_reference_profile",
-   "params": "boussinesq",
-   "solver": "boussinesq",
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_fixed_head_1d.py::test_boussinesq_sloping_substratum_fixed_head_1d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_fixed_head_1d.py::test_boussinesq_sloping_substratum_fixed_head_1d_matches_reference_profile[modflow6]",
@@ -2084,7 +1982,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 9.06,
+   "duration_s": 9.17,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -2251,7 +2149,7 @@
     "unit": "m"
    },
    "case": "boussinesq_sloping_substratum_fixed_head_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_fixed_head_1d.py::test_boussinesq_sloping_substratum_fixed_head_1d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_fixed_head_1d.py::test_boussinesq_sloping_substratum_fixed_head_1d_matches_reference_profile[modflow6_irregular_tri]",
@@ -2261,7 +2159,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 9.08,
+   "duration_s": 9.54,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -2428,7 +2326,7 @@
     "unit": "m"
    },
    "case": "boussinesq_sloping_substratum_fixed_head_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_fixed_head_1d.py::test_boussinesq_sloping_substratum_fixed_head_1d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_fixed_head_1d.py::test_boussinesq_sloping_substratum_fixed_head_1d_matches_reference_profile[modflow_nwt]",
@@ -2438,7 +2336,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 8.31,
+   "duration_s": 9.58,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -2605,22 +2503,7 @@
     "unit": "m"
    },
    "case": "boussinesq_sloping_substratum_fixed_head_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_uniform_recharge_1d.py::test_boussinesq_sloping_substratum_uniform_recharge_1d_matches_reference_profile[boussinesq]": {
-   "nodeid": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_uniform_recharge_1d.py::test_boussinesq_sloping_substratum_uniform_recharge_1d_matches_reference_profile[boussinesq]",
-   "file": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_uniform_recharge_1d.py",
-   "function": "test_boussinesq_sloping_substratum_uniform_recharge_1d_matches_reference_profile",
-   "params": "boussinesq",
-   "solver": "boussinesq",
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_uniform_recharge_1d.py::test_boussinesq_sloping_substratum_uniform_recharge_1d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_uniform_recharge_1d.py::test_boussinesq_sloping_substratum_uniform_recharge_1d_matches_reference_profile[modflow6]",
@@ -2630,7 +2513,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 14.63,
+   "duration_s": 10.88,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -2797,7 +2680,7 @@
     "unit": "m"
    },
    "case": "boussinesq_sloping_substratum_uniform_recharge_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_uniform_recharge_1d.py::test_boussinesq_sloping_substratum_uniform_recharge_1d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_uniform_recharge_1d.py::test_boussinesq_sloping_substratum_uniform_recharge_1d_matches_reference_profile[modflow6_irregular_tri]",
@@ -2807,7 +2690,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 12.87,
+   "duration_s": 11.12,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -2974,7 +2857,7 @@
     "unit": "m"
    },
    "case": "boussinesq_sloping_substratum_uniform_recharge_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_uniform_recharge_1d.py::test_boussinesq_sloping_substratum_uniform_recharge_1d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_uniform_recharge_1d.py::test_boussinesq_sloping_substratum_uniform_recharge_1d_matches_reference_profile[modflow_nwt]",
@@ -2984,7 +2867,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 14.08,
+   "duration_s": 12.12,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -3151,22 +3034,7 @@
     "unit": "m"
    },
    "case": "boussinesq_sloping_substratum_uniform_recharge_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_boussinesq_uniform_recharge_piecewise_k_1d.py::test_boussinesq_uniform_recharge_piecewise_k_1d_matches_reference_profile[boussinesq]": {
-   "nodeid": "tests/validation/analytical/steady/test_boussinesq_uniform_recharge_piecewise_k_1d.py::test_boussinesq_uniform_recharge_piecewise_k_1d_matches_reference_profile[boussinesq]",
-   "file": "tests/validation/analytical/steady/test_boussinesq_uniform_recharge_piecewise_k_1d.py",
-   "function": "test_boussinesq_uniform_recharge_piecewise_k_1d_matches_reference_profile",
-   "params": "boussinesq",
-   "solver": "boussinesq",
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_uniform_recharge_piecewise_k_1d.py::test_boussinesq_uniform_recharge_piecewise_k_1d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_uniform_recharge_piecewise_k_1d.py::test_boussinesq_uniform_recharge_piecewise_k_1d_matches_reference_profile[modflow6]",
@@ -3176,7 +3044,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 10.52,
+   "duration_s": 8.05,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -3343,7 +3211,7 @@
     "unit": "m"
    },
    "case": "boussinesq_uniform_recharge_piecewise_k_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_uniform_recharge_piecewise_k_1d.py::test_boussinesq_uniform_recharge_piecewise_k_1d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_uniform_recharge_piecewise_k_1d.py::test_boussinesq_uniform_recharge_piecewise_k_1d_matches_reference_profile[modflow6_irregular_tri]",
@@ -3353,7 +3221,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 9.73,
+   "duration_s": 8.85,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -3520,7 +3388,7 @@
     "unit": "m"
    },
    "case": "boussinesq_uniform_recharge_piecewise_k_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_boussinesq_uniform_recharge_piecewise_k_1d.py::test_boussinesq_uniform_recharge_piecewise_k_1d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_uniform_recharge_piecewise_k_1d.py::test_boussinesq_uniform_recharge_piecewise_k_1d_matches_reference_profile[modflow_nwt]",
@@ -3530,7 +3398,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 9.63,
+   "duration_s": 9.03,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -3697,22 +3565,7 @@
     "unit": "m"
    },
    "case": "boussinesq_uniform_recharge_piecewise_k_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[boussinesq]": {
-   "nodeid": "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[boussinesq]",
-   "file": "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py",
-   "function": "test_dupuit_circular_island_ocean_2d_matches_reference_profile",
-   "params": "boussinesq",
-   "solver": "boussinesq",
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[modflow6]",
@@ -3722,7 +3575,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 8.72,
+   "duration_s": 10.2,
    "metrics": [
     {
      "name": "Radial head-profile RMSE",
@@ -3834,7 +3687,7 @@
     "unit": "m"
    },
    "case": "dupuit_circular_island_ocean_2d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[modflow6_irregular_tri]",
@@ -3844,7 +3697,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 9.83,
+   "duration_s": 9.25,
    "metrics": [
     {
      "name": "Radial head-profile RMSE",
@@ -3956,7 +3809,7 @@
     "unit": "m"
    },
    "case": "dupuit_circular_island_ocean_2d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[modflow_nwt]",
@@ -3966,7 +3819,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.95,
+   "duration_s": 11.06,
    "metrics": [
     {
      "name": "Radial head-profile RMSE",
@@ -4078,22 +3931,7 @@
     "unit": "m"
    },
    "case": "dupuit_circular_island_ocean_2d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_dupuit_divide_river_1d.py::test_dupuit_divide_river_1d_matches_reference_profile[boussinesq]": {
-   "nodeid": "tests/validation/analytical/steady/test_dupuit_divide_river_1d.py::test_dupuit_divide_river_1d_matches_reference_profile[boussinesq]",
-   "file": "tests/validation/analytical/steady/test_dupuit_divide_river_1d.py",
-   "function": "test_dupuit_divide_river_1d_matches_reference_profile",
-   "params": "boussinesq",
-   "solver": "boussinesq",
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_divide_river_1d.py::test_dupuit_divide_river_1d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_divide_river_1d.py::test_dupuit_divide_river_1d_matches_reference_profile[modflow6]",
@@ -4103,7 +3941,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 8.64,
+   "duration_s": 8.92,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -4270,7 +4108,7 @@
     "unit": "m"
    },
    "case": "dupuit_divide_river_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_divide_river_1d.py::test_dupuit_divide_river_1d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_divide_river_1d.py::test_dupuit_divide_river_1d_matches_reference_profile[modflow6_irregular_tri]",
@@ -4280,7 +4118,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 8.31,
+   "duration_s": 8.48,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -4447,7 +4285,7 @@
     "unit": "m"
    },
    "case": "dupuit_divide_river_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_divide_river_1d.py::test_dupuit_divide_river_1d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_divide_river_1d.py::test_dupuit_divide_river_1d_matches_reference_profile[modflow_nwt]",
@@ -4457,7 +4295,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 9.1,
+   "duration_s": 8.24,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -4624,22 +4462,7 @@
     "unit": "m"
    },
    "case": "dupuit_divide_river_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_dupuit_fixed_head_1d.py::test_dupuit_fixed_head_1d_matches_reference_profile[boussinesq]": {
-   "nodeid": "tests/validation/analytical/steady/test_dupuit_fixed_head_1d.py::test_dupuit_fixed_head_1d_matches_reference_profile[boussinesq]",
-   "file": "tests/validation/analytical/steady/test_dupuit_fixed_head_1d.py",
-   "function": "test_dupuit_fixed_head_1d_matches_reference_profile",
-   "params": "boussinesq",
-   "solver": "boussinesq",
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_fixed_head_1d.py::test_dupuit_fixed_head_1d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_fixed_head_1d.py::test_dupuit_fixed_head_1d_matches_reference_profile[modflow6]",
@@ -4649,7 +4472,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.45,
+   "duration_s": 8.96,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -4816,7 +4639,7 @@
     "unit": "m"
    },
    "case": "dupuit_fixed_head_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_fixed_head_1d.py::test_dupuit_fixed_head_1d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_fixed_head_1d.py::test_dupuit_fixed_head_1d_matches_reference_profile[modflow6_irregular_tri]",
@@ -4826,7 +4649,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 6.96,
+   "duration_s": 9.59,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -4993,7 +4816,7 @@
     "unit": "m"
    },
    "case": "dupuit_fixed_head_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_fixed_head_1d.py::test_dupuit_fixed_head_1d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_fixed_head_1d.py::test_dupuit_fixed_head_1d_matches_reference_profile[modflow_nwt]",
@@ -5003,7 +4826,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 6.9,
+   "duration_s": 8.42,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -5170,52 +4993,7 @@
     "unit": "m"
    },
    "case": "dupuit_fixed_head_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py::test_dupuit_fixed_head_petsc_variants_match_reference_profile[petsc_complementarity]": {
-   "nodeid": "tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py::test_dupuit_fixed_head_petsc_variants_match_reference_profile[petsc_complementarity]",
-   "file": "tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py",
-   "function": "test_dupuit_fixed_head_petsc_variants_match_reference_profile",
-   "params": "petsc_complementarity",
-   "solver": "petsc",
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py::test_dupuit_fixed_head_petsc_variants_match_reference_profile[petsc_partition]": {
-   "nodeid": "tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py::test_dupuit_fixed_head_petsc_variants_match_reference_profile[petsc_partition]",
-   "file": "tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py",
-   "function": "test_dupuit_fixed_head_petsc_variants_match_reference_profile",
-   "params": "petsc_partition",
-   "solver": "petsc_partition",
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py::test_dupuit_fixed_head_petsc_vi_obstacle_reaches_reference_profile": {
-   "nodeid": "tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py::test_dupuit_fixed_head_petsc_vi_obstacle_reaches_reference_profile",
-   "file": "tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py",
-   "function": "test_dupuit_fixed_head_petsc_vi_obstacle_reaches_reference_profile",
-   "params": "",
-   "solver": null,
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_conductivity_alone_moves_the_mask_but_not_the_discharge@dupuit_seepage_limit": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_conductivity_alone_moves_the_mask_but_not_the_discharge@dupuit_seepage_limit",
@@ -5225,7 +5003,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 0.06,
+   "duration_s": 0.03,
    "metrics": [
     {
      "name": "Drain-outflow drift when K alone doubles",
@@ -5239,7 +5017,7 @@
    "series": [],
    "scale": null,
    "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_every_declared_scenario_is_exercised@dupuit_seepage_limit": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_every_declared_scenario_is_exercised@dupuit_seepage_limit",
@@ -5249,12 +5027,12 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 90.98,
+   "duration_s": 55.06,
    "metrics": [],
    "series": [],
    "scale": null,
    "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_seepage_limit_matches_the_closed_form[modflow6]@dupuit_seepage_limit": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_seepage_limit_matches_the_closed_form[modflow6]@dupuit_seepage_limit",
@@ -5543,7 +5321,7 @@
     "unit": "m"
    },
    "case": "dupuit_seepage_limit_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_seepage_limit_matches_the_closed_form[modflow6_k_only]@dupuit_seepage_limit": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_seepage_limit_matches_the_closed_form[modflow6_k_only]@dupuit_seepage_limit",
@@ -5832,7 +5610,7 @@
     "unit": "m"
    },
    "case": "dupuit_seepage_limit_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_seepage_limit_matches_the_closed_form[modflow6_scaled_down]@dupuit_seepage_limit": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_seepage_limit_matches_the_closed_form[modflow6_scaled_down]@dupuit_seepage_limit",
@@ -6121,7 +5899,7 @@
     "unit": "m"
    },
    "case": "dupuit_seepage_limit_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_seepage_limit_matches_the_closed_form[modflow6_scaled_up]@dupuit_seepage_limit": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_seepage_limit_matches_the_closed_form[modflow6_scaled_up]@dupuit_seepage_limit",
@@ -6410,7 +6188,7 @@
     "unit": "m"
    },
    "case": "dupuit_seepage_limit_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_seepage_mask_and_head_are_invariant_in_conductivity_over_recharge[modflow6_scaled_down]@dupuit_seepage_limit": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_seepage_mask_and_head_are_invariant_in_conductivity_over_recharge[modflow6_scaled_down]@dupuit_seepage_limit",
@@ -6434,7 +6212,7 @@
    "series": [],
    "scale": null,
    "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_seepage_mask_and_head_are_invariant_in_conductivity_over_recharge[modflow6_scaled_up]@dupuit_seepage_limit": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py::test_seepage_mask_and_head_are_invariant_in_conductivity_over_recharge[modflow6_scaled_up]@dupuit_seepage_limit",
@@ -6458,22 +6236,7 @@
    "series": [],
    "scale": null,
    "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
-  },
-  "tests/validation/analytical/steady/test_dupuit_uniform_recharge_1d.py::test_dupuit_uniform_recharge_1d_matches_reference_profile[boussinesq]": {
-   "nodeid": "tests/validation/analytical/steady/test_dupuit_uniform_recharge_1d.py::test_dupuit_uniform_recharge_1d_matches_reference_profile[boussinesq]",
-   "file": "tests/validation/analytical/steady/test_dupuit_uniform_recharge_1d.py",
-   "function": "test_dupuit_uniform_recharge_1d_matches_reference_profile",
-   "params": "boussinesq",
-   "solver": "boussinesq",
-   "outcome": "skipped",
-   "reason": "Boussinesq PETSc runtime is Linux-only and requires petsc4py.",
-   "duration_s": 0.0,
-   "metrics": [],
-   "series": [],
-   "scale": null,
-   "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_uniform_recharge_1d.py::test_dupuit_uniform_recharge_1d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_uniform_recharge_1d.py::test_dupuit_uniform_recharge_1d_matches_reference_profile[modflow6]",
@@ -6483,7 +6246,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.55,
+   "duration_s": 10.46,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -6650,7 +6413,7 @@
     "unit": "m"
    },
    "case": "dupuit_uniform_recharge_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_uniform_recharge_1d.py::test_dupuit_uniform_recharge_1d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_uniform_recharge_1d.py::test_dupuit_uniform_recharge_1d_matches_reference_profile[modflow6_irregular_tri]",
@@ -6660,7 +6423,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.26,
+   "duration_s": 8.84,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -6827,7 +6590,7 @@
     "unit": "m"
    },
    "case": "dupuit_uniform_recharge_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_dupuit_uniform_recharge_1d.py::test_dupuit_uniform_recharge_1d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_uniform_recharge_1d.py::test_dupuit_uniform_recharge_1d_matches_reference_profile[modflow_nwt]",
@@ -6837,7 +6600,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 6.65,
+   "duration_s": 9.2,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -7004,7 +6767,7 @@
     "unit": "m"
    },
    "case": "dupuit_uniform_recharge_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_linearized_unconfined_drainage_1d.py::test_linearized_unconfined_drainage_1d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_linearized_unconfined_drainage_1d.py::test_linearized_unconfined_drainage_1d_matches_reference_profile[modflow6]",
@@ -7014,7 +6777,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 8.95,
+   "duration_s": 8.56,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -7211,7 +6974,7 @@
     "unit": "m"
    },
    "case": "linearized_unconfined_drainage_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_linearized_unconfined_drainage_1d.py::test_linearized_unconfined_drainage_1d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_linearized_unconfined_drainage_1d.py::test_linearized_unconfined_drainage_1d_matches_reference_profile[modflow6_irregular_tri]",
@@ -7221,7 +6984,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 8.07,
+   "duration_s": 9.24,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -7418,7 +7181,7 @@
     "unit": "m"
    },
    "case": "linearized_unconfined_drainage_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_linearized_unconfined_drainage_1d.py::test_linearized_unconfined_drainage_1d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_linearized_unconfined_drainage_1d.py::test_linearized_unconfined_drainage_1d_matches_reference_profile[modflow_nwt]",
@@ -7428,7 +7191,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 8.35,
+   "duration_s": 9.24,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -7625,7 +7388,7 @@
     "unit": "m"
    },
    "case": "linearized_unconfined_drainage_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_linearized_unconfined_hillslope_drainage_1d.py::test_linearized_unconfined_hillslope_drainage_1d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_linearized_unconfined_hillslope_drainage_1d.py::test_linearized_unconfined_hillslope_drainage_1d_matches_reference_profile[modflow6]",
@@ -7635,7 +7398,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.71,
+   "duration_s": 7.96,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -7832,7 +7595,7 @@
     "unit": "m"
    },
    "case": "lu_hillslope_drainage_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_linearized_unconfined_hillslope_drainage_1d.py::test_linearized_unconfined_hillslope_drainage_1d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_linearized_unconfined_hillslope_drainage_1d.py::test_linearized_unconfined_hillslope_drainage_1d_matches_reference_profile[modflow6_irregular_tri]",
@@ -7842,7 +7605,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 8.27,
+   "duration_s": 8.99,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -8039,7 +7802,7 @@
     "unit": "m"
    },
    "case": "lu_hillslope_drainage_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/steady/test_linearized_unconfined_hillslope_drainage_1d.py::test_linearized_unconfined_hillslope_drainage_1d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_linearized_unconfined_hillslope_drainage_1d.py::test_linearized_unconfined_hillslope_drainage_1d_matches_reference_profile[modflow_nwt]",
@@ -8049,7 +7812,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 8.23,
+   "duration_s": 8.48,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -8246,7 +8009,7 @@
     "unit": "m"
    },
    "case": "lu_hillslope_drainage_1d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_a_routed_impulse_matches_the_exponential_reservoir.py::test_a_routed_impulse_matches_the_exponential_reservoir[2.0]": {
    "nodeid": "tests/validation/analytical/transient/test_a_routed_impulse_matches_the_exponential_reservoir.py::test_a_routed_impulse_matches_the_exponential_reservoir[2.0]",
@@ -8256,7 +8019,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 0.16,
+   "duration_s": 0.19,
    "metrics": [
     {
      "name": "Largest daily recharge error",
@@ -8543,7 +8306,7 @@
     "unit": "mm/d"
    },
    "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_a_routed_impulse_matches_the_exponential_reservoir.py::test_a_routed_impulse_matches_the_exponential_reservoir[20.0]": {
    "nodeid": "tests/validation/analytical/transient/test_a_routed_impulse_matches_the_exponential_reservoir.py::test_a_routed_impulse_matches_the_exponential_reservoir[20.0]",
@@ -8553,7 +8316,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 0.07,
+   "duration_s": 0.26,
    "metrics": [
     {
      "name": "Largest daily recharge error",
@@ -8840,7 +8603,7 @@
     "unit": "mm/d"
    },
    "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_a_routed_impulse_matches_the_exponential_reservoir.py::test_a_routed_impulse_matches_the_exponential_reservoir[5.0]": {
    "nodeid": "tests/validation/analytical/transient/test_a_routed_impulse_matches_the_exponential_reservoir.py::test_a_routed_impulse_matches_the_exponential_reservoir[5.0]",
@@ -8850,7 +8613,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 0.11,
+   "duration_s": 0.17,
    "metrics": [
     {
      "name": "Largest daily recharge error",
@@ -9137,7 +8900,7 @@
     "unit": "mm/d"
    },
    "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_brutsaert_recession_boussinesq_thin_1d.py::test_brutsaert_recession_boussinesq_thin_1d_matches_reference_recession[modflow6]": {
    "nodeid": "tests/validation/analytical/transient/test_brutsaert_recession_boussinesq_thin_1d.py::test_brutsaert_recession_boussinesq_thin_1d_matches_reference_recession[modflow6]",
@@ -9147,7 +8910,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.84,
+   "duration_s": 9.52,
    "metrics": [
     {
      "name": "Relative discharge RMSE",
@@ -9250,7 +9013,7 @@
     "unit": "m3/s"
    },
    "case": "brutsaert_recession_boussinesq_thin_1d",
-   "run": "2026-10-09T00:37:17+00:00-a5ccd6e19"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_brutsaert_recession_boussinesq_thin_1d.py::test_brutsaert_recession_boussinesq_thin_1d_matches_reference_recession[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/transient/test_brutsaert_recession_boussinesq_thin_1d.py::test_brutsaert_recession_boussinesq_thin_1d_matches_reference_recession[modflow6_irregular_tri]",
@@ -9260,7 +9023,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 8.42,
+   "duration_s": 10.75,
    "metrics": [
     {
      "name": "Relative discharge RMSE",
@@ -9363,7 +9126,7 @@
     "unit": "m3/s"
    },
    "case": "brutsaert_recession_boussinesq_thin_1d",
-   "run": "2026-10-09T00:37:17+00:00-a5ccd6e19"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_brutsaert_recession_boussinesq_thin_1d.py::test_brutsaert_recession_boussinesq_thin_1d_matches_reference_recession[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/transient/test_brutsaert_recession_boussinesq_thin_1d.py::test_brutsaert_recession_boussinesq_thin_1d_matches_reference_recession[modflow_nwt]",
@@ -9373,7 +9136,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.85,
+   "duration_s": 9.7,
    "metrics": [
     {
      "name": "Relative discharge RMSE",
@@ -9476,7 +9239,7 @@
     "unit": "m3/s"
    },
    "case": "brutsaert_recession_boussinesq_thin_1d",
-   "run": "2026-10-09T00:37:17+00:00-a5ccd6e19"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_brutsaert_recession_linearized_deep_1d.py::test_brutsaert_recession_linearized_deep_1d_matches_reference_recession[modflow6]": {
    "nodeid": "tests/validation/analytical/transient/test_brutsaert_recession_linearized_deep_1d.py::test_brutsaert_recession_linearized_deep_1d_matches_reference_recession[modflow6]",
@@ -9486,7 +9249,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.36,
+   "duration_s": 9.04,
    "metrics": [
     {
      "name": "Relative discharge RMSE",
@@ -9577,7 +9340,7 @@
     "unit": "m3/s"
    },
    "case": "brutsaert_recession_linearized_deep_1d",
-   "run": "2026-10-09T00:37:17+00:00-a5ccd6e19"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_brutsaert_recession_linearized_deep_1d.py::test_brutsaert_recession_linearized_deep_1d_matches_reference_recession[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/transient/test_brutsaert_recession_linearized_deep_1d.py::test_brutsaert_recession_linearized_deep_1d_matches_reference_recession[modflow6_irregular_tri]",
@@ -9587,7 +9350,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 9.4,
+   "duration_s": 11.88,
    "metrics": [
     {
      "name": "Relative discharge RMSE",
@@ -9678,7 +9441,7 @@
     "unit": "m3/s"
    },
    "case": "brutsaert_recession_linearized_deep_1d",
-   "run": "2026-10-09T00:37:17+00:00-a5ccd6e19"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_brutsaert_recession_linearized_deep_1d.py::test_brutsaert_recession_linearized_deep_1d_matches_reference_recession[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/transient/test_brutsaert_recession_linearized_deep_1d.py::test_brutsaert_recession_linearized_deep_1d_matches_reference_recession[modflow_nwt]",
@@ -9688,7 +9451,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.26,
+   "duration_s": 8.62,
    "metrics": [
     {
      "name": "Relative discharge RMSE",
@@ -9779,7 +9542,7 @@
     "unit": "m3/s"
    },
    "case": "brutsaert_recession_linearized_deep_1d",
-   "run": "2026-10-09T00:37:17+00:00-a5ccd6e19"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_gwt_first_order_decay.py::test_gwt_first_order_decay_per_second": {
    "nodeid": "tests/validation/analytical/transient/test_gwt_first_order_decay.py::test_gwt_first_order_decay_per_second",
@@ -9789,7 +9552,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 0.09,
+   "duration_s": 0.73,
    "metrics": [
     {
      "name": "Largest relative concentration error at 3 times",
@@ -9803,7 +9566,7 @@
    "series": [],
    "scale": null,
    "case": null,
-   "run": "2026-10-09T00:37:17+00:00-a5ccd6e19"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_hantush.py::test_hantush_leaky_aquifer_matches_analytical_reference": {
    "nodeid": "tests/validation/analytical/transient/test_hantush.py::test_hantush_leaky_aquifer_matches_analytical_reference",
@@ -9813,7 +9576,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 3.22,
+   "duration_s": 5.4,
    "metrics": [
     {
      "name": "Nash-Sutcliffe efficiency of the drawdown, 9 probes",
@@ -9839,7 +9602,7 @@
     "unit": "m"
    },
    "case": null,
-   "run": "2026-10-09T00:37:17+00:00-a5ccd6e19"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_late_time_unconfined_pumping_2d.py::test_late_time_unconfined_pumping_2d_matches_late_time_reference_fast_solvers[modflow6]": {
    "nodeid": "tests/validation/analytical/transient/test_late_time_unconfined_pumping_2d.py::test_late_time_unconfined_pumping_2d_matches_late_time_reference_fast_solvers[modflow6]",
@@ -9849,7 +9612,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 15.07,
+   "duration_s": 14.97,
    "metrics": [
     {
      "name": "Space-time RMSE",
@@ -9981,7 +9744,7 @@
     "unit": "m"
    },
    "case": "late_time_unconfined_pumping_2d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_late_time_unconfined_pumping_2d.py::test_late_time_unconfined_pumping_2d_matches_late_time_reference_fast_solvers[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/transient/test_late_time_unconfined_pumping_2d.py::test_late_time_unconfined_pumping_2d_matches_late_time_reference_fast_solvers[modflow6_irregular_tri]",
@@ -9991,7 +9754,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 11.4,
+   "duration_s": 11.24,
    "metrics": [
     {
      "name": "Space-time RMSE",
@@ -10123,7 +9886,7 @@
     "unit": "m"
    },
    "case": "late_time_unconfined_pumping_2d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_late_time_unconfined_pumping_2d.py::test_late_time_unconfined_pumping_2d_matches_late_time_reference_fast_solvers[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/transient/test_late_time_unconfined_pumping_2d.py::test_late_time_unconfined_pumping_2d_matches_late_time_reference_fast_solvers[modflow_nwt]",
@@ -10133,7 +9896,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 8.84,
+   "duration_s": 10.79,
    "metrics": [
     {
      "name": "Space-time RMSE",
@@ -10265,7 +10028,3232 @@
     "unit": "m"
    },
    "case": "late_time_unconfined_pumping_2d",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6-boundary_piecewise]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6-boundary_piecewise]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow6-boundary_piecewise",
+   "solver": "modflow6",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 9.33,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.0054790456345116135,
+     "threshold": 0.008,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.03183794515438798,
+     "threshold": 0.04,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 1.4435491562654108e-06,
+     "threshold": 1e-05,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 0.0022302555408368757,
+     "threshold": 0.003,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      10.0,
+      10.0006,
+      10.0012,
+      10.0017,
+      10.0023,
+      10.0028,
+      10.0034,
+      10.0039,
+      10.0044,
+      10.0049,
+      10.0054,
+      10.0058,
+      10.0063,
+      10.0067,
+      10.007,
+      10.0074,
+      10.0077,
+      10.008,
+      10.0082,
+      10.0084,
+      10.0086,
+      10.0087,
+      10.0089,
+      10.0089,
+      10.009,
+      10.009,
+      10.0089,
+      10.0088,
+      10.0087,
+      10.0086,
+      10.0084,
+      10.0082,
+      10.0079,
+      10.0077,
+      10.0073,
+      10.007,
+      10.0066,
+      10.0062,
+      10.0058,
+      10.0053,
+      10.0049,
+      10.0044,
+      10.0039,
+      10.0034,
+      10.0028,
+      10.0023,
+      10.0017,
+      10.0011,
+      10.0006,
+      10.0
+     ],
+     "simulated": [
+      10.0,
+      10.0008,
+      10.0016,
+      10.0024,
+      10.0032,
+      10.004,
+      10.0048,
+      10.0055,
+      10.0062,
+      10.0069,
+      10.0075,
+      10.0081,
+      10.0087,
+      10.0093,
+      10.0098,
+      10.0102,
+      10.0106,
+      10.011,
+      10.0113,
+      10.0115,
+      10.0118,
+      10.0119,
+      10.012,
+      10.0121,
+      10.0121,
+      10.0121,
+      10.012,
+      10.0119,
+      10.0117,
+      10.0115,
+      10.0112,
+      10.0109,
+      10.0106,
+      10.0102,
+      10.0097,
+      10.0093,
+      10.0087,
+      10.0082,
+      10.0076,
+      10.007,
+      10.0064,
+      10.0058,
+      10.0051,
+      10.0044,
+      10.0037,
+      10.003,
+      10.0022,
+      10.0015,
+      10.0007,
+      10.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.3000000000000007,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_boundary_piecewise_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6-boundary_step]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6-boundary_step]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow6-boundary_step",
+   "solver": "modflow6",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 9.81,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.0011936991944837634,
+     "threshold": 0.002,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.011619457940931,
+     "threshold": 0.015,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 1.4980289631363152e-06,
+     "threshold": 1e-05,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 4.726468569456617e-05,
+     "threshold": 0.0001,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      10.1,
+      10.098,
+      10.0959,
+      10.0939,
+      10.0918,
+      10.0898,
+      10.0878,
+      10.0857,
+      10.0837,
+      10.0816,
+      10.0796,
+      10.0776,
+      10.0755,
+      10.0735,
+      10.0714,
+      10.0694,
+      10.0673,
+      10.0653,
+      10.0633,
+      10.0612,
+      10.0592,
+      10.0571,
+      10.0551,
+      10.0531,
+      10.051,
+      10.049,
+      10.0469,
+      10.0449,
+      10.0429,
+      10.0408,
+      10.0388,
+      10.0367,
+      10.0347,
+      10.0327,
+      10.0306,
+      10.0286,
+      10.0265,
+      10.0245,
+      10.0224,
+      10.0204,
+      10.0184,
+      10.0163,
+      10.0143,
+      10.0122,
+      10.0102,
+      10.0082,
+      10.0061,
+      10.0041,
+      10.002,
+      10.0
+     ],
+     "simulated": [
+      10.1,
+      10.098,
+      10.0959,
+      10.0939,
+      10.0918,
+      10.0898,
+      10.0877,
+      10.0857,
+      10.0836,
+      10.0816,
+      10.0796,
+      10.0775,
+      10.0755,
+      10.0734,
+      10.0714,
+      10.0693,
+      10.0673,
+      10.0652,
+      10.0632,
+      10.0612,
+      10.0591,
+      10.0571,
+      10.055,
+      10.053,
+      10.0509,
+      10.0489,
+      10.0469,
+      10.0448,
+      10.0428,
+      10.0407,
+      10.0387,
+      10.0367,
+      10.0346,
+      10.0326,
+      10.0306,
+      10.0285,
+      10.0265,
+      10.0244,
+      10.0224,
+      10.0204,
+      10.0183,
+      10.0163,
+      10.0143,
+      10.0122,
+      10.0102,
+      10.0082,
+      10.0061,
+      10.0041,
+      10.002,
+      10.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.09999999999999964,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_boundary_step_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6-recharge_periodic]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6-recharge_periodic]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow6-recharge_periodic",
+   "solver": "modflow6",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 9.51,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.006568318782371226,
+     "threshold": 0.01,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.01672818247965857,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 7.978817078117926e-07,
+     "threshold": 1e-05,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 0.0009261050408306174,
+     "threshold": 0.002,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      10.0,
+      10.0019,
+      10.0037,
+      10.0055,
+      10.0071,
+      10.0086,
+      10.0101,
+      10.0114,
+      10.0127,
+      10.0139,
+      10.015,
+      10.016,
+      10.017,
+      10.0179,
+      10.0186,
+      10.0194,
+      10.02,
+      10.0206,
+      10.0211,
+      10.0215,
+      10.0218,
+      10.0221,
+      10.0223,
+      10.0224,
+      10.0225,
+      10.0225,
+      10.0224,
+      10.0223,
+      10.0221,
+      10.0218,
+      10.0215,
+      10.0211,
+      10.0206,
+      10.02,
+      10.0194,
+      10.0186,
+      10.0179,
+      10.017,
+      10.016,
+      10.015,
+      10.0139,
+      10.0127,
+      10.0114,
+      10.0101,
+      10.0086,
+      10.0071,
+      10.0055,
+      10.0037,
+      10.0019,
+      10.0
+     ],
+     "simulated": [
+      10.0,
+      10.002,
+      10.0038,
+      10.0056,
+      10.0073,
+      10.0089,
+      10.0104,
+      10.0119,
+      10.0132,
+      10.0145,
+      10.0157,
+      10.0168,
+      10.0178,
+      10.0188,
+      10.0196,
+      10.0204,
+      10.0211,
+      10.0218,
+      10.0223,
+      10.0228,
+      10.0232,
+      10.0235,
+      10.0237,
+      10.0239,
+      10.024,
+      10.024,
+      10.0239,
+      10.0237,
+      10.0235,
+      10.0232,
+      10.0228,
+      10.0223,
+      10.0218,
+      10.0211,
+      10.0204,
+      10.0196,
+      10.0188,
+      10.0178,
+      10.0168,
+      10.0157,
+      10.0145,
+      10.0132,
+      10.0119,
+      10.0104,
+      10.0089,
+      10.0073,
+      10.0056,
+      10.0038,
+      10.002,
+      10.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.13106674198250978,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_recharge_periodic_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6-recharge_step]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6-recharge_step]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow6-recharge_step",
+   "solver": "modflow6",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 11.18,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.005397742685264599,
+     "threshold": 0.008,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.011989359186358683,
+     "threshold": 0.015,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 1.0131407134025e-06,
+     "threshold": 1e-05,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 0.004881922667136653,
+     "threshold": 0.007,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      10.0,
+      10.0116,
+      10.0227,
+      10.0333,
+      10.0434,
+      10.053,
+      10.0622,
+      10.0709,
+      10.0791,
+      10.0868,
+      10.094,
+      10.1007,
+      10.107,
+      10.1128,
+      10.1181,
+      10.1229,
+      10.1273,
+      10.1311,
+      10.1345,
+      10.1374,
+      10.1398,
+      10.1417,
+      10.1432,
+      10.1441,
+      10.1446,
+      10.1446,
+      10.1441,
+      10.1432,
+      10.1417,
+      10.1398,
+      10.1374,
+      10.1345,
+      10.1311,
+      10.1273,
+      10.1229,
+      10.1181,
+      10.1128,
+      10.107,
+      10.1007,
+      10.094,
+      10.0868,
+      10.0791,
+      10.0709,
+      10.0622,
+      10.053,
+      10.0434,
+      10.0333,
+      10.0227,
+      10.0116,
+      10.0
+     ],
+     "simulated": [
+      10.0,
+      10.0111,
+      10.0217,
+      10.0318,
+      10.0415,
+      10.0507,
+      10.0595,
+      10.0677,
+      10.0755,
+      10.0829,
+      10.0897,
+      10.0962,
+      10.1021,
+      10.1076,
+      10.1126,
+      10.1172,
+      10.1213,
+      10.125,
+      10.1282,
+      10.1309,
+      10.1332,
+      10.135,
+      10.1364,
+      10.1373,
+      10.1377,
+      10.1377,
+      10.1373,
+      10.1364,
+      10.135,
+      10.1332,
+      10.1309,
+      10.1282,
+      10.125,
+      10.1213,
+      10.1172,
+      10.1126,
+      10.1076,
+      10.1021,
+      10.0962,
+      10.0897,
+      10.0829,
+      10.0755,
+      10.0677,
+      10.0595,
+      10.0507,
+      10.0415,
+      10.0318,
+      10.0217,
+      10.0111,
+      10.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.14461566939585246,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_recharge_step_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6-recharge_step_deep]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6-recharge_step_deep]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow6-recharge_step_deep",
+   "solver": "modflow6",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 9.77,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.000513951366178355,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.002988991418746423,
+     "threshold": 0.03,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 1.5231447385833696e-07,
+     "threshold": 0.0001,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 0.0004242578456111141,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      100.0,
+      100.001,
+      100.002,
+      100.003,
+      100.004,
+      100.005,
+      100.006,
+      100.007,
+      100.008,
+      100.009,
+      100.009,
+      100.01,
+      100.011,
+      100.011,
+      100.012,
+      100.012,
+      100.013,
+      100.013,
+      100.013,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.013,
+      100.013,
+      100.013,
+      100.012,
+      100.012,
+      100.011,
+      100.011,
+      100.01,
+      100.009,
+      100.009,
+      100.008,
+      100.007,
+      100.006,
+      100.005,
+      100.004,
+      100.003,
+      100.002,
+      100.001,
+      100.0
+     ],
+     "simulated": [
+      100.0,
+      100.001,
+      100.002,
+      100.003,
+      100.004,
+      100.005,
+      100.006,
+      100.007,
+      100.008,
+      100.008,
+      100.009,
+      100.01,
+      100.01,
+      100.011,
+      100.011,
+      100.012,
+      100.012,
+      100.013,
+      100.013,
+      100.013,
+      100.013,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.013,
+      100.013,
+      100.013,
+      100.013,
+      100.012,
+      100.012,
+      100.011,
+      100.011,
+      100.01,
+      100.01,
+      100.009,
+      100.008,
+      100.008,
+      100.007,
+      100.006,
+      100.005,
+      100.004,
+      100.003,
+      100.002,
+      100.001,
+      100.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.014461566939701243,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_recharge_step_deep_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6_irregular_tri-boundary_piecewise]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6_irregular_tri-boundary_piecewise]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow6_irregular_tri-boundary_piecewise",
+   "solver": "modflow6_irregular_tri",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 9.56,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.005551916178919004,
+     "threshold": 0.05,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.03224278799830316,
+     "threshold": 0.12,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 0.0,
+     "threshold": 0.012,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 0.0023158071592615922,
+     "threshold": 0.05,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      10.0,
+      10.0006,
+      10.0012,
+      10.0017,
+      10.0023,
+      10.0028,
+      10.0034,
+      10.0039,
+      10.0044,
+      10.0049,
+      10.0054,
+      10.0058,
+      10.0063,
+      10.0067,
+      10.007,
+      10.0074,
+      10.0077,
+      10.008,
+      10.0082,
+      10.0084,
+      10.0086,
+      10.0087,
+      10.0089,
+      10.0089,
+      10.009,
+      10.009,
+      10.0089,
+      10.0088,
+      10.0087,
+      10.0086,
+      10.0084,
+      10.0082,
+      10.0079,
+      10.0077,
+      10.0073,
+      10.007,
+      10.0066,
+      10.0062,
+      10.0058,
+      10.0053,
+      10.0049,
+      10.0044,
+      10.0039,
+      10.0034,
+      10.0028,
+      10.0023,
+      10.0017,
+      10.0011,
+      10.0006,
+      10.0
+     ],
+     "simulated": [
+      10.0001,
+      10.0008,
+      10.0015,
+      10.0023,
+      10.0032,
+      10.0041,
+      10.0048,
+      10.0055,
+      10.0062,
+      10.0069,
+      10.0075,
+      10.0082,
+      10.0088,
+      10.0093,
+      10.0098,
+      10.0104,
+      10.0107,
+      10.0111,
+      10.0114,
+      10.0117,
+      10.0119,
+      10.0121,
+      10.0122,
+      10.0122,
+      10.0123,
+      10.0122,
+      10.0122,
+      10.012,
+      10.0119,
+      10.0116,
+      10.0114,
+      10.0111,
+      10.0107,
+      10.0102,
+      10.0099,
+      10.0094,
+      10.0089,
+      10.0083,
+      10.0077,
+      10.007,
+      10.0065,
+      10.0058,
+      10.005,
+      10.0045,
+      10.0037,
+      10.0028,
+      10.0022,
+      10.0015,
+      10.0007,
+      10.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.3000000000000007,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_boundary_piecewise_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6_irregular_tri-boundary_step]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6_irregular_tri-boundary_step]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow6_irregular_tri-boundary_step",
+   "solver": "modflow6_irregular_tri",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 9.88,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.0012933364812608365,
+     "threshold": 0.01,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.011583425063143693,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 0.0,
+     "threshold": 0.005,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 0.0003122609543531316,
+     "threshold": 0.01,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      10.1,
+      10.098,
+      10.0959,
+      10.0939,
+      10.0918,
+      10.0898,
+      10.0878,
+      10.0857,
+      10.0837,
+      10.0816,
+      10.0796,
+      10.0776,
+      10.0755,
+      10.0735,
+      10.0714,
+      10.0694,
+      10.0673,
+      10.0653,
+      10.0633,
+      10.0612,
+      10.0592,
+      10.0571,
+      10.0551,
+      10.0531,
+      10.051,
+      10.049,
+      10.0469,
+      10.0449,
+      10.0429,
+      10.0408,
+      10.0388,
+      10.0367,
+      10.0347,
+      10.0327,
+      10.0306,
+      10.0286,
+      10.0265,
+      10.0245,
+      10.0224,
+      10.0204,
+      10.0184,
+      10.0163,
+      10.0143,
+      10.0122,
+      10.0102,
+      10.0082,
+      10.0061,
+      10.0041,
+      10.002,
+      10.0
+     ],
+     "simulated": [
+      10.0998,
+      10.0981,
+      10.0963,
+      10.0942,
+      10.0917,
+      10.0894,
+      10.0876,
+      10.0857,
+      10.0835,
+      10.0816,
+      10.0795,
+      10.0773,
+      10.0752,
+      10.0732,
+      10.0711,
+      10.0687,
+      10.0671,
+      10.0651,
+      10.063,
+      10.0609,
+      10.059,
+      10.0569,
+      10.0549,
+      10.0528,
+      10.0502,
+      10.0485,
+      10.0468,
+      10.0448,
+      10.0426,
+      10.0404,
+      10.0386,
+      10.0366,
+      10.0344,
+      10.0321,
+      10.0306,
+      10.0283,
+      10.0264,
+      10.0244,
+      10.022,
+      10.0199,
+      10.0181,
+      10.0161,
+      10.0138,
+      10.0123,
+      10.01,
+      10.0076,
+      10.0058,
+      10.0041,
+      10.0018,
+      10.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.09999999999999964,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_boundary_step_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6_irregular_tri-recharge_periodic]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6_irregular_tri-recharge_periodic]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow6_irregular_tri-recharge_periodic",
+   "solver": "modflow6_irregular_tri",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 10.5,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.0066341086093103215,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.016723588252602894,
+     "threshold": 0.03,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 0.0,
+     "threshold": 0.006,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 0.0010274636272299216,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      10.0,
+      10.0019,
+      10.0037,
+      10.0055,
+      10.0071,
+      10.0086,
+      10.0101,
+      10.0114,
+      10.0127,
+      10.0139,
+      10.015,
+      10.016,
+      10.017,
+      10.0179,
+      10.0186,
+      10.0194,
+      10.02,
+      10.0206,
+      10.0211,
+      10.0215,
+      10.0218,
+      10.0221,
+      10.0223,
+      10.0224,
+      10.0225,
+      10.0225,
+      10.0224,
+      10.0223,
+      10.0221,
+      10.0218,
+      10.0215,
+      10.0211,
+      10.0206,
+      10.02,
+      10.0194,
+      10.0186,
+      10.0179,
+      10.017,
+      10.016,
+      10.015,
+      10.0139,
+      10.0127,
+      10.0114,
+      10.0101,
+      10.0086,
+      10.0071,
+      10.0055,
+      10.0037,
+      10.0019,
+      10.0
+     ],
+     "simulated": [
+      10.0002,
+      10.0018,
+      10.0035,
+      10.0054,
+      10.0074,
+      10.0092,
+      10.0106,
+      10.0119,
+      10.0133,
+      10.0145,
+      10.0158,
+      10.017,
+      10.018,
+      10.019,
+      10.0198,
+      10.0207,
+      10.0213,
+      10.0219,
+      10.0225,
+      10.023,
+      10.0233,
+      10.0237,
+      10.0239,
+      10.0241,
+      10.0241,
+      10.0241,
+      10.024,
+      10.0239,
+      10.0236,
+      10.0233,
+      10.0229,
+      10.0224,
+      10.0218,
+      10.021,
+      10.0205,
+      10.0196,
+      10.0188,
+      10.0178,
+      10.0166,
+      10.0154,
+      10.0144,
+      10.0131,
+      10.0115,
+      10.0105,
+      10.0087,
+      10.0068,
+      10.0053,
+      10.0038,
+      10.0018,
+      10.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.13106674198250978,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_recharge_periodic_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6_irregular_tri-recharge_step]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6_irregular_tri-recharge_step]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow6_irregular_tri-recharge_step",
+   "solver": "modflow6_irregular_tri",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 8.77,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.0057163936860959354,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.012108648290881874,
+     "threshold": 0.03,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 0.0,
+     "threshold": 0.006,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 0.005131767935862562,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      10.0,
+      10.0116,
+      10.0227,
+      10.0333,
+      10.0434,
+      10.053,
+      10.0622,
+      10.0709,
+      10.0791,
+      10.0868,
+      10.094,
+      10.1007,
+      10.107,
+      10.1128,
+      10.1181,
+      10.1229,
+      10.1273,
+      10.1311,
+      10.1345,
+      10.1374,
+      10.1398,
+      10.1417,
+      10.1432,
+      10.1441,
+      10.1446,
+      10.1446,
+      10.1441,
+      10.1432,
+      10.1417,
+      10.1398,
+      10.1374,
+      10.1345,
+      10.1311,
+      10.1273,
+      10.1229,
+      10.1181,
+      10.1128,
+      10.107,
+      10.1007,
+      10.094,
+      10.0868,
+      10.0791,
+      10.0709,
+      10.0622,
+      10.053,
+      10.0434,
+      10.0333,
+      10.0227,
+      10.0116,
+      10.0
+     ],
+     "simulated": [
+      10.0013,
+      10.0104,
+      10.0197,
+      10.0301,
+      10.0416,
+      10.0519,
+      10.0598,
+      10.0674,
+      10.0756,
+      10.0825,
+      10.0897,
+      10.0964,
+      10.1025,
+      10.1078,
+      10.1129,
+      10.1181,
+      10.1215,
+      10.125,
+      10.1282,
+      10.1311,
+      10.1331,
+      10.135,
+      10.1363,
+      10.1373,
+      10.1377,
+      10.1376,
+      10.1372,
+      10.1363,
+      10.1348,
+      10.1329,
+      10.1309,
+      10.1282,
+      10.1247,
+      10.1203,
+      10.1174,
+      10.1121,
+      10.1074,
+      10.102,
+      10.0949,
+      10.0881,
+      10.082,
+      10.0747,
+      10.0656,
+      10.0596,
+      10.0494,
+      10.0385,
+      10.0303,
+      10.0215,
+      10.0099,
+      10.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.14461566939585246,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_recharge_step_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6_irregular_tri-recharge_step_deep]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow6_irregular_tri-recharge_step_deep]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow6_irregular_tri-recharge_step_deep",
+   "solver": "modflow6_irregular_tri",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 9.27,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.0005663521572813573,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.003123558467493126,
+     "threshold": 0.03,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 0.0,
+     "threshold": 0.0007,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 0.0004511238109059683,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      100.0,
+      100.001,
+      100.002,
+      100.003,
+      100.004,
+      100.005,
+      100.006,
+      100.007,
+      100.008,
+      100.009,
+      100.009,
+      100.01,
+      100.011,
+      100.011,
+      100.012,
+      100.012,
+      100.013,
+      100.013,
+      100.013,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.013,
+      100.013,
+      100.013,
+      100.012,
+      100.012,
+      100.011,
+      100.011,
+      100.01,
+      100.009,
+      100.009,
+      100.008,
+      100.007,
+      100.006,
+      100.005,
+      100.004,
+      100.003,
+      100.002,
+      100.001,
+      100.0
+     ],
+     "simulated": [
+      100.0,
+      100.001,
+      100.002,
+      100.003,
+      100.004,
+      100.005,
+      100.006,
+      100.007,
+      100.008,
+      100.008,
+      100.009,
+      100.01,
+      100.01,
+      100.011,
+      100.011,
+      100.012,
+      100.012,
+      100.013,
+      100.013,
+      100.013,
+      100.013,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.013,
+      100.013,
+      100.013,
+      100.013,
+      100.012,
+      100.012,
+      100.011,
+      100.011,
+      100.01,
+      100.01,
+      100.009,
+      100.008,
+      100.008,
+      100.007,
+      100.006,
+      100.005,
+      100.004,
+      100.003,
+      100.002,
+      100.001,
+      100.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.014461566939701243,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_recharge_step_deep_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow_nwt-boundary_piecewise]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow_nwt-boundary_piecewise]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow_nwt-boundary_piecewise",
+   "solver": "modflow_nwt",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 10.48,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.005460924345021949,
+     "threshold": 0.05,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.03182445387840538,
+     "threshold": 0.12,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 4.6720309119857374e-07,
+     "threshold": 2e-05,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 0.002206207764609506,
+     "threshold": 0.05,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      10.0,
+      10.0006,
+      10.0012,
+      10.0017,
+      10.0023,
+      10.0028,
+      10.0034,
+      10.0039,
+      10.0044,
+      10.0049,
+      10.0054,
+      10.0058,
+      10.0063,
+      10.0067,
+      10.007,
+      10.0074,
+      10.0077,
+      10.008,
+      10.0082,
+      10.0084,
+      10.0086,
+      10.0087,
+      10.0089,
+      10.0089,
+      10.009,
+      10.009,
+      10.0089,
+      10.0088,
+      10.0087,
+      10.0086,
+      10.0084,
+      10.0082,
+      10.0079,
+      10.0077,
+      10.0073,
+      10.007,
+      10.0066,
+      10.0062,
+      10.0058,
+      10.0053,
+      10.0049,
+      10.0044,
+      10.0039,
+      10.0034,
+      10.0028,
+      10.0023,
+      10.0017,
+      10.0011,
+      10.0006,
+      10.0
+     ],
+     "simulated": [
+      10.0,
+      10.0008,
+      10.0016,
+      10.0024,
+      10.0032,
+      10.004,
+      10.0048,
+      10.0055,
+      10.0062,
+      10.0069,
+      10.0075,
+      10.0081,
+      10.0087,
+      10.0093,
+      10.0097,
+      10.0102,
+      10.0106,
+      10.011,
+      10.0113,
+      10.0115,
+      10.0117,
+      10.0119,
+      10.012,
+      10.0121,
+      10.0121,
+      10.0121,
+      10.012,
+      10.0118,
+      10.0117,
+      10.0114,
+      10.0112,
+      10.0109,
+      10.0105,
+      10.0101,
+      10.0097,
+      10.0092,
+      10.0087,
+      10.0082,
+      10.0076,
+      10.007,
+      10.0064,
+      10.0057,
+      10.005,
+      10.0044,
+      10.0037,
+      10.0029,
+      10.0022,
+      10.0015,
+      10.0007,
+      10.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.3000000000000007,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_boundary_piecewise_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow_nwt-boundary_step]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow_nwt-boundary_step]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow_nwt-boundary_step",
+   "solver": "modflow_nwt",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 8.43,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.0018086064380159609,
+     "threshold": 0.01,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.011971987266495177,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 6.823937919616057e-06,
+     "threshold": 0.0001,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 7.917974604789685e-05,
+     "threshold": 0.01,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      10.1,
+      10.098,
+      10.0959,
+      10.0939,
+      10.0918,
+      10.0898,
+      10.0878,
+      10.0857,
+      10.0837,
+      10.0816,
+      10.0796,
+      10.0776,
+      10.0755,
+      10.0735,
+      10.0714,
+      10.0694,
+      10.0673,
+      10.0653,
+      10.0633,
+      10.0612,
+      10.0592,
+      10.0571,
+      10.0551,
+      10.0531,
+      10.051,
+      10.049,
+      10.0469,
+      10.0449,
+      10.0429,
+      10.0408,
+      10.0388,
+      10.0367,
+      10.0347,
+      10.0327,
+      10.0306,
+      10.0286,
+      10.0265,
+      10.0245,
+      10.0224,
+      10.0204,
+      10.0184,
+      10.0163,
+      10.0143,
+      10.0122,
+      10.0102,
+      10.0082,
+      10.0061,
+      10.0041,
+      10.002,
+      10.0
+     ],
+     "simulated": [
+      10.1,
+      10.098,
+      10.0959,
+      10.0939,
+      10.0918,
+      10.0898,
+      10.0877,
+      10.0857,
+      10.0836,
+      10.0816,
+      10.0795,
+      10.0775,
+      10.0754,
+      10.0734,
+      10.0713,
+      10.0693,
+      10.0673,
+      10.0652,
+      10.0632,
+      10.0611,
+      10.0591,
+      10.057,
+      10.055,
+      10.0529,
+      10.0509,
+      10.0489,
+      10.0468,
+      10.0448,
+      10.0427,
+      10.0407,
+      10.0387,
+      10.0366,
+      10.0346,
+      10.0326,
+      10.0305,
+      10.0285,
+      10.0264,
+      10.0244,
+      10.0224,
+      10.0203,
+      10.0183,
+      10.0163,
+      10.0142,
+      10.0122,
+      10.0102,
+      10.0081,
+      10.0061,
+      10.0041,
+      10.002,
+      10.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.09999999999999964,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_boundary_step_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow_nwt-recharge_periodic]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow_nwt-recharge_periodic]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow_nwt-recharge_periodic",
+   "solver": "modflow_nwt",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 8.93,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.007804273142344165,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.01944383198063626,
+     "threshold": 0.03,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 9.991303141562497e-06,
+     "threshold": 0.0001,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 0.000996020831937818,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      10.0,
+      10.0019,
+      10.0037,
+      10.0055,
+      10.0071,
+      10.0086,
+      10.0101,
+      10.0114,
+      10.0127,
+      10.0139,
+      10.015,
+      10.016,
+      10.017,
+      10.0179,
+      10.0186,
+      10.0194,
+      10.02,
+      10.0206,
+      10.0211,
+      10.0215,
+      10.0218,
+      10.0221,
+      10.0223,
+      10.0224,
+      10.0225,
+      10.0225,
+      10.0224,
+      10.0223,
+      10.0221,
+      10.0218,
+      10.0215,
+      10.0211,
+      10.0206,
+      10.02,
+      10.0194,
+      10.0186,
+      10.0179,
+      10.017,
+      10.016,
+      10.015,
+      10.0139,
+      10.0127,
+      10.0114,
+      10.0101,
+      10.0086,
+      10.0071,
+      10.0055,
+      10.0037,
+      10.0019,
+      10.0
+     ],
+     "simulated": [
+      10.0,
+      10.002,
+      10.0039,
+      10.0056,
+      10.0073,
+      10.009,
+      10.0105,
+      10.0119,
+      10.0133,
+      10.0146,
+      10.0158,
+      10.0169,
+      10.0179,
+      10.0188,
+      10.0197,
+      10.0205,
+      10.0212,
+      10.0218,
+      10.0224,
+      10.0229,
+      10.0233,
+      10.0236,
+      10.0238,
+      10.024,
+      10.024,
+      10.024,
+      10.024,
+      10.0238,
+      10.0236,
+      10.0233,
+      10.0229,
+      10.0224,
+      10.0218,
+      10.0212,
+      10.0205,
+      10.0197,
+      10.0188,
+      10.0179,
+      10.0169,
+      10.0158,
+      10.0146,
+      10.0133,
+      10.0119,
+      10.0105,
+      10.009,
+      10.0073,
+      10.0056,
+      10.0039,
+      10.002,
+      10.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.13106674198250978,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_recharge_periodic_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow_nwt-recharge_step]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow_nwt-recharge_step]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow_nwt-recharge_step",
+   "solver": "modflow_nwt",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 9.49,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.006133965698084945,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.014753249430004445,
+     "threshold": 0.03,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 6.512974196992444e-06,
+     "threshold": 0.0001,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 0.0048499252494829375,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      10.0,
+      10.0116,
+      10.0227,
+      10.0333,
+      10.0434,
+      10.053,
+      10.0622,
+      10.0709,
+      10.0791,
+      10.0868,
+      10.094,
+      10.1007,
+      10.107,
+      10.1128,
+      10.1181,
+      10.1229,
+      10.1273,
+      10.1311,
+      10.1345,
+      10.1374,
+      10.1398,
+      10.1417,
+      10.1432,
+      10.1441,
+      10.1446,
+      10.1446,
+      10.1441,
+      10.1432,
+      10.1417,
+      10.1398,
+      10.1374,
+      10.1345,
+      10.1311,
+      10.1273,
+      10.1229,
+      10.1181,
+      10.1128,
+      10.107,
+      10.1007,
+      10.094,
+      10.0868,
+      10.0791,
+      10.0709,
+      10.0622,
+      10.053,
+      10.0434,
+      10.0333,
+      10.0227,
+      10.0116,
+      10.0
+     ],
+     "simulated": [
+      10.0,
+      10.0111,
+      10.0217,
+      10.0319,
+      10.0415,
+      10.0507,
+      10.0595,
+      10.0677,
+      10.0756,
+      10.0829,
+      10.0898,
+      10.0962,
+      10.1021,
+      10.1076,
+      10.1127,
+      10.1172,
+      10.1213,
+      10.125,
+      10.1282,
+      10.1309,
+      10.1332,
+      10.135,
+      10.1364,
+      10.1373,
+      10.1378,
+      10.1378,
+      10.1373,
+      10.1364,
+      10.135,
+      10.1332,
+      10.1309,
+      10.1282,
+      10.125,
+      10.1213,
+      10.1172,
+      10.1127,
+      10.1076,
+      10.1021,
+      10.0962,
+      10.0898,
+      10.0829,
+      10.0756,
+      10.0677,
+      10.0595,
+      10.0507,
+      10.0415,
+      10.0319,
+      10.0217,
+      10.0111,
+      10.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.14461566939585246,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_recharge_step_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow_nwt-recharge_step_deep]": {
+   "nodeid": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[modflow_nwt-recharge_step_deep]",
+   "file": "tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py",
+   "function": "test_linearized_unconfined_transient_1d_matches_reference_profiles",
+   "params": "modflow_nwt-recharge_step_deep",
+   "solver": "modflow_nwt",
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 9.31,
+   "metrics": [
+    {
+     "name": "Space-time RMSE",
+     "value": 0.0018001360694261874,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Space-time max abs error",
+     "value": 0.010267513467368872,
+     "threshold": 0.03,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Cross-row head spread",
+     "value": 1.0349014256477765e-05,
+     "threshold": 0.0001,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    },
+    {
+     "name": "Final-profile RMSE",
+     "value": 0.00042335276528178574,
+     "threshold": 0.02,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [
+    {
+     "name": "Head profile at the last output time",
+     "x_label": "x (m)",
+     "y_label": "head (m)",
+     "x": [
+      0.0,
+      2.04082,
+      4.08163,
+      6.12245,
+      8.16327,
+      10.2041,
+      12.2449,
+      14.2857,
+      16.3265,
+      18.3673,
+      20.4082,
+      22.449,
+      24.4898,
+      26.5306,
+      28.5714,
+      30.6122,
+      32.6531,
+      34.6939,
+      36.7347,
+      38.7755,
+      40.8163,
+      42.8571,
+      44.898,
+      46.9388,
+      48.9796,
+      51.0204,
+      53.0612,
+      55.102,
+      57.1429,
+      59.1837,
+      61.2245,
+      63.2653,
+      65.3061,
+      67.3469,
+      69.3878,
+      71.4286,
+      73.4694,
+      75.5102,
+      77.551,
+      79.5918,
+      81.6327,
+      83.6735,
+      85.7143,
+      87.7551,
+      89.7959,
+      91.8367,
+      93.8776,
+      95.9184,
+      97.9592,
+      100.0
+     ],
+     "reference": [
+      100.0,
+      100.001,
+      100.002,
+      100.003,
+      100.004,
+      100.005,
+      100.006,
+      100.007,
+      100.008,
+      100.009,
+      100.009,
+      100.01,
+      100.011,
+      100.011,
+      100.012,
+      100.012,
+      100.013,
+      100.013,
+      100.013,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.013,
+      100.013,
+      100.013,
+      100.012,
+      100.012,
+      100.011,
+      100.011,
+      100.01,
+      100.009,
+      100.009,
+      100.008,
+      100.007,
+      100.006,
+      100.005,
+      100.004,
+      100.003,
+      100.002,
+      100.001,
+      100.0
+     ],
+     "simulated": [
+      100.0,
+      100.001,
+      100.002,
+      100.003,
+      100.004,
+      100.005,
+      100.006,
+      100.007,
+      100.008,
+      100.008,
+      100.009,
+      100.01,
+      100.01,
+      100.011,
+      100.011,
+      100.012,
+      100.012,
+      100.013,
+      100.013,
+      100.013,
+      100.013,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.014,
+      100.013,
+      100.013,
+      100.013,
+      100.013,
+      100.012,
+      100.012,
+      100.011,
+      100.011,
+      100.01,
+      100.01,
+      100.009,
+      100.008,
+      100.008,
+      100.007,
+      100.006,
+      100.005,
+      100.004,
+      100.003,
+      100.002,
+      100.001,
+      100.0
+     ],
+     "log": false
+    }
+   ],
+   "scale": {
+    "value": 0.014461566939701243,
+    "label": "head range of the reference over space and time",
+    "unit": "m"
+   },
+   "case": "lu_recharge_step_deep_1d",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_ogata_banks.py::test_ogata_banks_1d_transport_matches_analytical_reference": {
    "nodeid": "tests/validation/analytical/transient/test_ogata_banks.py::test_ogata_banks_1d_transport_matches_analytical_reference",
@@ -10275,7 +13263,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 0.36,
+   "duration_s": 0.41,
    "metrics": [
     {
      "name": "Nash-Sutcliffe efficiency of the concentration",
@@ -10297,7 +13285,7 @@
    "series": [],
    "scale": null,
    "case": null,
-   "run": "2026-10-09T00:37:17+00:00-a5ccd6e19"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_prt_uniform_velocity.py::test_prt_uniform_velocity_streamline": {
    "nodeid": "tests/validation/analytical/transient/test_prt_uniform_velocity.py::test_prt_uniform_velocity_streamline",
@@ -10307,7 +13295,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 0.08,
+   "duration_s": 0.17,
    "metrics": [
     {
      "name": "Largest relative position error along the track",
@@ -10321,7 +13309,118 @@
    "series": [],
    "scale": null,
    "case": null,
-   "run": "2026-10-09T00:37:17+00:00-a5ccd6e19"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_stress_period_substepping.py::test_a_geometric_partition_cannot_beat_equal_steps": {
+   "nodeid": "tests/validation/analytical/transient/test_stress_period_substepping.py::test_a_geometric_partition_cannot_beat_equal_steps",
+   "file": "tests/validation/analytical/transient/test_stress_period_substepping.py",
+   "function": "test_a_geometric_partition_cannot_beat_equal_steps",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 0.27,
+   "metrics": [
+    {
+     "name": "RMSE difference between TSMULT 2 and 1/2",
+     "value": 2.1878478509776422e-08,
+     "threshold": 1e-06,
+     "op": "<",
+     "unit": "m",
+     "ideal": null
+    }
+   ],
+   "series": [],
+   "scale": null,
+   "case": null,
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_stress_period_substepping.py::test_adaptive_stepping_preserves_the_declared_substeps": {
+   "nodeid": "tests/validation/analytical/transient/test_stress_period_substepping.py::test_adaptive_stepping_preserves_the_declared_substeps",
+   "file": "tests/validation/analytical/transient/test_stress_period_substepping.py",
+   "function": "test_adaptive_stepping_preserves_the_declared_substeps",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 0.18,
+   "metrics": [
+    {
+     "name": "Relative RMSE difference, ATS on against off",
+     "value": 0.0,
+     "threshold": 1e-12,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    }
+   ],
+   "series": [],
+   "scale": null,
+   "case": null,
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_stress_period_substepping.py::test_one_step_per_period_moves_the_discharge_a_calibration_scores": {
+   "nodeid": "tests/validation/analytical/transient/test_stress_period_substepping.py::test_one_step_per_period_moves_the_discharge_a_calibration_scores",
+   "file": "tests/validation/analytical/transient/test_stress_period_substepping.py",
+   "function": "test_one_step_per_period_moves_the_discharge_a_calibration_scores",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 0.26,
+   "metrics": [
+    {
+     "name": "Largest monthly discharge drift of 1 step against 30",
+     "value": 0.291040852582352,
+     "threshold": 0.1,
+     "op": ">",
+     "unit": "",
+     "ideal": null
+    }
+   ],
+   "series": [],
+   "scale": null,
+   "case": null,
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_stress_period_substepping.py::test_substeps_are_what_buys_transient_accuracy": {
+   "nodeid": "tests/validation/analytical/transient/test_stress_period_substepping.py::test_substeps_are_what_buys_transient_accuracy",
+   "file": "tests/validation/analytical/transient/test_stress_period_substepping.py",
+   "function": "test_substeps_are_what_buys_transient_accuracy",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 0.3,
+   "metrics": [
+    {
+     "name": "RMSE with 1 step over RMSE with 10 steps",
+     "value": 13.62360221713279,
+     "threshold": 10.0,
+     "op": ">",
+     "unit": "",
+     "ideal": null
+    }
+   ],
+   "series": [],
+   "scale": null,
+   "case": null,
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/analytical/transient/test_stress_period_substepping.py::test_the_column_stays_semi_infinite_over_the_period": {
+   "nodeid": "tests/validation/analytical/transient/test_stress_period_substepping.py::test_the_column_stays_semi_infinite_over_the_period",
+   "file": "tests/validation/analytical/transient/test_stress_period_substepping.py",
+   "function": "test_the_column_stays_semi_infinite_over_the_period",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 0.0,
+   "metrics": [],
+   "series": [],
+   "scale": null,
+   "case": null,
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/analytical/transient/test_theis.py::test_theis_confined_pumping_matches_analytical_reference": {
    "nodeid": "tests/validation/analytical/transient/test_theis.py::test_theis_confined_pumping_matches_analytical_reference",
@@ -10331,7 +13430,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 3.37,
+   "duration_s": 3.7,
    "metrics": [
     {
      "name": "Nash-Sutcliffe efficiency of the drawdown, 9 probes",
@@ -10357,7 +13456,7 @@
     "unit": "m"
    },
    "case": null,
-   "run": "2026-10-09T00:37:17+00:00-a5ccd6e19"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/calibration/test_groundwater_1d.py::test_groundwater_1d_nelder_mead_recovers_truth": {
    "nodeid": "tests/validation/calibration/test_groundwater_1d.py::test_groundwater_1d_nelder_mead_recovers_truth",
@@ -10367,7 +13466,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 0.85,
+   "duration_s": 0.68,
    "metrics": [
     {
      "name": "Distance of log10 T to the truth",
@@ -10389,7 +13488,7 @@
    "series": [],
    "scale": null,
    "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/calibration/test_recession_brutsaert.py::test_recession_brutsaert_nelder_mead_recovers_truth": {
    "nodeid": "tests/validation/calibration/test_recession_brutsaert.py::test_recession_brutsaert_nelder_mead_recovers_truth",
@@ -10399,7 +13498,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 0.49,
+   "duration_s": 0.5,
    "metrics": [
     {
      "name": "Distance of log10 a to the truth",
@@ -10421,7 +13520,7 @@
    "series": [],
    "scale": null,
    "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/calibration/test_reservoir.py::test_one_reservoir_nelder_mead_recovers_truth": {
    "nodeid": "tests/validation/calibration/test_reservoir.py::test_one_reservoir_nelder_mead_recovers_truth",
@@ -10431,7 +13530,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 0.01,
+   "duration_s": 0.82,
    "metrics": [
     {
      "name": "Distance of log10 k to the truth",
@@ -10453,7 +13552,295 @@
    "series": [],
    "scale": null,
    "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/calibration/test_reservoir.py::test_two_reservoir_de_recovers_truth": {
+   "nodeid": "tests/validation/calibration/test_reservoir.py::test_two_reservoir_de_recovers_truth",
+   "file": "tests/validation/calibration/test_reservoir.py",
+   "function": "test_two_reservoir_de_recovers_truth",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 0.05,
+   "metrics": [
+    {
+     "name": "Distance of log10 k1 to the truth",
+     "value": 0.23710565034444697,
+     "threshold": 0.5,
+     "op": "<",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "Distance of log10 k2 to the truth",
+     "value": 0.1427965710794301,
+     "threshold": 0.5,
+     "op": "<",
+     "unit": "",
+     "ideal": null
+    }
+   ],
+   "series": [],
+   "scale": null,
+   "case": null,
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/calibration/test_twin_boussinesq_fixed_head_piecewise_k_modflow6.py::test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_recovers_truth": {
+   "nodeid": "tests/validation/calibration/test_twin_boussinesq_fixed_head_piecewise_k_modflow6.py::test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_recovers_truth",
+   "file": "tests/validation/calibration/test_twin_boussinesq_fixed_head_piecewise_k_modflow6.py",
+   "function": "test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_recovers_truth",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 66.57,
+   "metrics": [
+    {
+     "name": "random_search_seed017: closest sample, distance of K_west to the truth",
+     "value": 2.0384251218126136e-06,
+     "threshold": 2.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "random_search_seed017: closest sample, distance of K_middle to the truth",
+     "value": 2.1703905401081343e-08,
+     "threshold": 1.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "random_search_seed017: closest sample, distance of K_east to the truth",
+     "value": 1.7327086627987748e-06,
+     "threshold": 1.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "random_search_seed029: closest sample, distance of K_west to the truth",
+     "value": 1.7744549765326184e-06,
+     "threshold": 2.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "random_search_seed029: closest sample, distance of K_middle to the truth",
+     "value": 1.2303688794741398e-06,
+     "threshold": 1.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "random_search_seed029: closest sample, distance of K_east to the truth",
+     "value": 1.1177319553912186e-06,
+     "threshold": 1.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "optuna: best fit or closest sample, distance of K_west to the truth",
+     "value": 3.43919865106846e-06,
+     "threshold": 2.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "optuna: best fit or closest sample, distance of K_middle to the truth",
+     "value": 2.4580413502948067e-07,
+     "threshold": 1.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "optuna: best fit or closest sample, distance of K_east to the truth",
+     "value": 3.6748276238417795e-07,
+     "threshold": 1.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "cma_es: best fit, distance of K_west to the truth",
+     "value": 9.320657828208002e-06,
+     "threshold": 2.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "cma_es: best fit, distance of K_middle to the truth",
+     "value": 2.512340037425855e-06,
+     "threshold": 1.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "cma_es: best fit, distance of K_east to the truth",
+     "value": 1.430361797320355e-05,
+     "threshold": 1.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "scipy_nelder_mead: best fit, distance of K_west to the truth",
+     "value": 2.0456424244557774e-05,
+     "threshold": 2.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "scipy_nelder_mead: best fit, distance of K_middle to the truth",
+     "value": 1.029081540467859e-06,
+     "threshold": 1.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "scipy_nelder_mead: best fit, distance of K_east to the truth",
+     "value": 3.066365146075703e-06,
+     "threshold": 1.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    }
+   ],
+   "series": [],
+   "scale": null,
+   "case": "calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/calibration/test_twin_dupuit_fixed_head_mesh_perturbed_modflow6.py::test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_truth_under_mesh_mismatch": {
+   "nodeid": "tests/validation/calibration/test_twin_dupuit_fixed_head_mesh_perturbed_modflow6.py::test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_truth_under_mesh_mismatch",
+   "file": "tests/validation/calibration/test_twin_dupuit_fixed_head_mesh_perturbed_modflow6.py",
+   "function": "test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_truth_under_mesh_mismatch",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 18.09,
+   "metrics": [
+    {
+     "name": "grid: best fit, distance of K_global to the truth",
+     "value": 2.383625553960988e-06,
+     "threshold": 2.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "random_search: best fit or closest sample, distance of K_global to the truth",
+     "value": 1.09958364359083e-05,
+     "threshold": 2.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "optuna: best fit or closest sample, distance of K_global to the truth",
+     "value": 4.281514687130638e-07,
+     "threshold": 2.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "cma_es: best fit, distance of K_global to the truth",
+     "value": 1.403538984363949e-06,
+     "threshold": 2.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "scipy_nelder_mead: best fit, distance of K_global to the truth",
+     "value": 1.7319713619081187e-06,
+     "threshold": 2.5e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    }
+   ],
+   "series": [],
+   "scale": null,
+   "case": "calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/calibration/test_twin_dupuit_fixed_head_modflow6.py::test_calibration_twin_dupuit_fixed_head_modflow6_benchmark_recovers_truth@twin_dupuit_steady": {
+   "nodeid": "tests/validation/calibration/test_twin_dupuit_fixed_head_modflow6.py::test_calibration_twin_dupuit_fixed_head_modflow6_benchmark_recovers_truth@twin_dupuit_steady",
+   "file": "tests/validation/calibration/test_twin_dupuit_fixed_head_modflow6.py",
+   "function": "test_calibration_twin_dupuit_fixed_head_modflow6_benchmark_recovers_truth",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 33.14,
+   "metrics": [
+    {
+     "name": "grid: best fit, distance of K_global to the truth",
+     "value": 2.383625553960988e-06,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "random_search: best fit, distance of K_global to the truth",
+     "value": 1.09958364359083e-05,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "optuna: best fit or closest sample, distance of K_global to the truth",
+     "value": 4.281514687130638e-07,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "cma_es: best fit, distance of K_global to the truth",
+     "value": 7.144554906865166e-07,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "scipy_nelder_mead: best fit, distance of K_global to the truth",
+     "value": 1.1824372928817724e-11,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "scipy_nelder_mead: best fit, distance of K_global to the truth",
+     "value": 2.1477450430515367e-09,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    }
+   ],
+   "series": [],
+   "scale": null,
+   "case": "calibration_twin_dupuit_fixed_head_modflow6",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/calibration/test_twin_dupuit_fixed_head_modflow6.py::test_calibration_twin_dupuit_fixed_head_modflow6_fast_grid_search_smoke@twin_dupuit_steady": {
    "nodeid": "tests/validation/calibration/test_twin_dupuit_fixed_head_modflow6.py::test_calibration_twin_dupuit_fixed_head_modflow6_fast_grid_search_smoke@twin_dupuit_steady",
@@ -10463,7 +13850,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 4.71,
+   "duration_s": 3.93,
    "metrics": [
     {
      "name": "grid: best fit, distance of K_global to the truth",
@@ -10477,7 +13864,277 @@
    "series": [],
    "scale": null,
    "case": "calibration_twin_dupuit_fixed_head_modflow6",
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/calibration/test_twin_dupuit_fixed_head_noisy_modflow6.py::test_calibration_twin_dupuit_fixed_head_noisy_modflow6_benchmark_recovers_truth": {
+   "nodeid": "tests/validation/calibration/test_twin_dupuit_fixed_head_noisy_modflow6.py::test_calibration_twin_dupuit_fixed_head_noisy_modflow6_benchmark_recovers_truth",
+   "file": "tests/validation/calibration/test_twin_dupuit_fixed_head_noisy_modflow6.py",
+   "function": "test_calibration_twin_dupuit_fixed_head_noisy_modflow6_benchmark_recovers_truth",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 27.81,
+   "metrics": [
+    {
+     "name": "grid: best fit, distance of K_global to the truth",
+     "value": 2.383625553960988e-06,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "random_search_seed007: best fit, distance of K_global to the truth",
+     "value": 1.09958364359083e-05,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "random_search_seed011: best fit, distance of K_global to the truth",
+     "value": 3.1493666862847635e-06,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "random_search_seed019: best fit, distance of K_global to the truth",
+     "value": 4.177232282715182e-06,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "optuna: best fit or closest sample, distance of K_global to the truth",
+     "value": 4.281514687130638e-07,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "cma_es: best fit, distance of K_global to the truth",
+     "value": 5.013842173475815e-07,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "scipy_nelder_mead: best fit, distance of K_global to the truth",
+     "value": 3.5878532004649953e-07,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    }
+   ],
+   "series": [],
+   "scale": null,
+   "case": "calibration_twin_dupuit_fixed_head_noisy_modflow6",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/calibration/test_twin_dupuit_fixed_head_posterior_modflow6.py::test_calibration_twin_dupuit_fixed_head_posterior_modflow6_distribution_methods_cover_truth": {
+   "nodeid": "tests/validation/calibration/test_twin_dupuit_fixed_head_posterior_modflow6.py::test_calibration_twin_dupuit_fixed_head_posterior_modflow6_distribution_methods_cover_truth",
+   "file": "tests/validation/calibration/test_twin_dupuit_fixed_head_posterior_modflow6.py",
+   "function": "test_calibration_twin_dupuit_fixed_head_posterior_modflow6_distribution_methods_cover_truth",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 26.29,
+   "metrics": [
+    {
+     "name": "random_search: closest sample, distance of K_global to the truth",
+     "value": 1.09958364359083e-05,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "optuna: best fit or closest sample, distance of K_global to the truth",
+     "value": 4.281514687130638e-07,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "cma_es: best fit, distance of K_global to the truth",
+     "value": 7.144554906865166e-07,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "gp_mapping: closest sample, distance of K_global to the truth",
+     "value": 7.613781886183901e-07,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "da_mh_gp: closest sample, distance of K_global to the truth",
+     "value": 7.880098886379973e-08,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    }
+   ],
+   "series": [],
+   "scale": null,
+   "case": "calibration_twin_dupuit_fixed_head_posterior_modflow6",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/calibration/test_twin_linearized_recharge_step_flux_only_noisy_modflow6.py::test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benchmark_stays_informative": {
+   "nodeid": "tests/validation/calibration/test_twin_linearized_recharge_step_flux_only_noisy_modflow6.py::test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benchmark_stays_informative",
+   "file": "tests/validation/calibration/test_twin_linearized_recharge_step_flux_only_noisy_modflow6.py",
+   "function": "test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benchmark_stays_informative",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 12.48,
+   "metrics": [
+    {
+     "name": "random_search: best fit or closest sample, distance of K_global to the truth",
+     "value": 3.1493666862847635e-06,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "random_search: best fit or closest sample, distance of Sy_global to the truth",
+     "value": 0.00192533235347217,
+     "threshold": 0.05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "optuna: best fit or closest sample, distance of K_global to the truth",
+     "value": 4.6760530495154444e-05,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "optuna: best fit or closest sample, distance of Sy_global to the truth",
+     "value": 0.01849262865422878,
+     "threshold": 0.05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "cma_es: best fit, distance of K_global to the truth",
+     "value": 2.0152939262327264e-05,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "cma_es: best fit, distance of Sy_global to the truth",
+     "value": 0.00011527168714778324,
+     "threshold": 0.05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "scipy_nelder_mead: best fit, distance of K_global to the truth",
+     "value": 2.383625553960988e-06,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "scipy_nelder_mead: best fit, distance of Sy_global to the truth",
+     "value": 0.0013748902289664605,
+     "threshold": 0.05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "gp_mapping: best fit or closest sample, distance of K_global to the truth",
+     "value": 2.0124274213023137e-05,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "gp_mapping: best fit or closest sample, distance of Sy_global to the truth",
+     "value": 0.0006923333183628116,
+     "threshold": 0.05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "da_mh_gp: best fit or closest sample, distance of K_global to the truth",
+     "value": 3.59776121699753e-06,
+     "threshold": 2e-05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    },
+    {
+     "name": "da_mh_gp: best fit or closest sample, distance of Sy_global to the truth",
+     "value": 0.029079641833127487,
+     "threshold": 0.05,
+     "op": "<=",
+     "unit": "",
+     "ideal": null
+    }
+   ],
+   "series": [],
+   "scale": null,
+   "case": "calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6",
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/calibration/test_twin_matching_stream_network_modflow6.py::test_a_network_only_bisection_recovers_the_conductivity_that_made_the_network@twin_matching_stream_network": {
+   "nodeid": "tests/validation/calibration/test_twin_matching_stream_network_modflow6.py::test_a_network_only_bisection_recovers_the_conductivity_that_made_the_network@twin_matching_stream_network",
+   "file": "tests/validation/calibration/test_twin_matching_stream_network_modflow6.py",
+   "function": "test_a_network_only_bisection_recovers_the_conductivity_that_made_the_network",
+   "params": "",
+   "solver": null,
+   "outcome": "error",
+   "reason": "hydromodpy.calibration.runners.failure_watch.EveryTrialFailedError: 5 calibration trials in a row failed, the last one with: metric_fn: ValueError: the mapped network draws no stream from its heads: every one of the 1 head(s) is lost (2 free end(s) examined, snap radius 100 m, minimum drained area 0",
+   "duration_s": 3.38,
+   "metrics": [],
+   "series": [],
+   "scale": null,
+   "case": null,
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/calibration/test_twin_matching_stream_network_modflow6.py::test_the_mapped_network_projects_back_onto_the_cells_it_was_written_from@twin_matching_stream_network": {
+   "nodeid": "tests/validation/calibration/test_twin_matching_stream_network_modflow6.py::test_the_mapped_network_projects_back_onto_the_cells_it_was_written_from@twin_matching_stream_network",
+   "file": "tests/validation/calibration/test_twin_matching_stream_network_modflow6.py",
+   "function": "test_the_mapped_network_projects_back_onto_the_cells_it_was_written_from",
+   "params": "",
+   "solver": null,
+   "outcome": "failed",
+   "reason": "assert False",
+   "duration_s": 5.33,
+   "metrics": [],
+   "series": [],
+   "scale": null,
+   "case": null,
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/mms/test_mms_diffusion_transient.py::test_mms_diffusion_transient_space_converges_at_order_two": {
    "nodeid": "tests/validation/mms/test_mms_diffusion_transient.py::test_mms_diffusion_transient_space_converges_at_order_two",
@@ -10487,7 +14144,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 0.02,
+   "duration_s": 0.03,
    "metrics": [
     {
      "name": "Distance of the observed order from 2",
@@ -10526,7 +14183,7 @@
    ],
    "scale": null,
    "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/mms/test_mms_diffusion_transient.py::test_mms_diffusion_transient_time_converges_at_order_one": {
    "nodeid": "tests/validation/mms/test_mms_diffusion_transient.py::test_mms_diffusion_transient_time_converges_at_order_one",
@@ -10536,7 +14193,7 @@
    "solver": null,
    "outcome": "passed",
    "reason": "",
-   "duration_s": 0.05,
+   "duration_s": 0.08,
    "metrics": [
     {
      "name": "Distance of the observed order from 1",
@@ -10575,7 +14232,7 @@
    ],
    "scale": null,
    "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   },
   "tests/validation/mms/test_mms_laplacian_1d.py::test_mms_laplacian_1d_converges_at_order_two": {
    "nodeid": "tests/validation/mms/test_mms_laplacian_1d.py::test_mms_laplacian_1d_converges_at_order_two",
@@ -10624,7 +14281,67 @@
    ],
    "scale": null,
    "case": null,
-   "run": "2026-10-09T00:36:28+00:00-953f671ed"
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/numerical/steady/test_lak_merritt_konikow_p01.py::test_lak_p01_matches_reference_within_tolerances": {
+   "nodeid": "tests/validation/numerical/steady/test_lak_merritt_konikow_p01.py::test_lak_p01_matches_reference_within_tolerances",
+   "file": "tests/validation/numerical/steady/test_lak_merritt_konikow_p01.py",
+   "function": "test_lak_p01_matches_reference_within_tolerances",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 14.62,
+   "metrics": [],
+   "series": [],
+   "scale": null,
+   "case": null,
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/numerical/transient/test_lak_grid_equivalence.py::test_lak_regular_and_irregular_grids_agree": {
+   "nodeid": "tests/validation/numerical/transient/test_lak_grid_equivalence.py::test_lak_regular_and_irregular_grids_agree",
+   "file": "tests/validation/numerical/transient/test_lak_grid_equivalence.py",
+   "function": "test_lak_regular_and_irregular_grids_agree",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 1.63,
+   "metrics": [],
+   "series": [],
+   "scale": null,
+   "case": null,
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/numerical/transient/test_lak_pleasant_transient.py::test_lak_pleasant_transient_matches_tolerances": {
+   "nodeid": "tests/validation/numerical/transient/test_lak_pleasant_transient.py::test_lak_pleasant_transient_matches_tolerances",
+   "file": "tests/validation/numerical/transient/test_lak_pleasant_transient.py",
+   "function": "test_lak_pleasant_transient_matches_tolerances",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 0.62,
+   "metrics": [],
+   "series": [],
+   "scale": null,
+   "case": null,
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
+  },
+  "tests/validation/numerical/transient/test_sfr_lak_mvr_p02.py::test_sfr_lak_mvr_p02_matches_published_stages": {
+   "nodeid": "tests/validation/numerical/transient/test_sfr_lak_mvr_p02.py::test_sfr_lak_mvr_p02_matches_published_stages",
+   "file": "tests/validation/numerical/transient/test_sfr_lak_mvr_p02.py",
+   "function": "test_sfr_lak_mvr_p02_matches_published_stages",
+   "params": "",
+   "solver": null,
+   "outcome": "passed",
+   "reason": "",
+   "duration_s": 8.39,
+   "metrics": [],
+   "series": [],
+   "scale": null,
+   "case": null,
+   "run": "2026-10-09T12:32:59+00:00-d9d5e2444"
   }
  }
 }

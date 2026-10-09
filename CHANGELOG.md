@@ -273,8 +273,14 @@ Each release section includes the following standard categories:
   and shape, with a panel of each run minus its reference, from the recorded curves. It also
   compares MODFLOW 6 with MODFLOW-NWT on example 04: `render_ex04_figures.py` writes the NWT
   copy of the reference into its scratch project and draws the group `solvers`.
+- Docs: `HMP_VALIDATION_RESULTS_FILE` points a docs build at a results file other than the
+  committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- Citation: the technical note is cited as published in HESS 30, 5571-5592 (2026), with the
+  28 authors in the published order. The software entry carries its Zenodo DOI, the one of the
+  version when Zenodo archived it, the concept DOI otherwise. Ronan Abhervé's address is now
+  `ronan.abherve@inrae.fr`.
 - `[modflownwt.sgrid.top_sampling] mode = "zonal"` needs `channel_source = "none"`: MODFLOW-NWT
   builds no channel mask, so a channel source is refused at load instead of being ignored.
 - The default of `observed_rasterization` is now `"heads"`. A network output that does not set

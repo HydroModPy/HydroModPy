@@ -253,10 +253,18 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "``tools/docs/validation_results.py`` merges them into the Validation page.",
     ),
     EnvVar(
+        "HMP_VALIDATION_RESULTS_FILE",
+        "unset, the snapshot committed in docs/source/theory/",
+        "dev",
+        "A results file written by ``tools/docs/validation_results.py merge`` that a docs "
+        "build reads instead of the committed snapshot, to show fresh local measures "
+        "without changing a tracked file.",
+    ),
+    EnvVar(
         "HMP_REQUIRE_SYBIL",
-        "unset, the guide blocks are skipped without sybil",
+        "unset, the page blocks are skipped without sybil",
         "test",
-        "Any non-empty value makes the test of the Python blocks of the guides fail when "
+        "Any non-empty value makes the test of the Python blocks of Get started fail when "
         "sybil is not installed, instead of skipping.",
     ),
     EnvVar(

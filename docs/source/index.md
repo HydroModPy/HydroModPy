@@ -10,12 +10,12 @@ calibrated model: where the water table sits, where it reaches the ground, which
 it keeps flowing, and how all of it changes with the seasons.
 
 :::{div} hmp-badges
-{{ version_badge }}
-[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
+{{ version_badge }} [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-EPL--2.0-2563eb?style=flat-square)](https://github.com/HydroModPy/HydroModPy/blob/main/LICENSE)
 [![Docs](https://img.shields.io/github/actions/workflow/status/HydroModPy/HydroModPy/docs-deploy-pages.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=docs)](https://docs.hydromodpy.fr/main/)
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-D7FF64?style=flat-square&logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![DOI](https://img.shields.io/badge/DOI-10.5194%2Fhess--30--5571--2026-f59e0b?style=flat-square&logo=doi&logoColor=white)](https://doi.org/10.5194/hess-30-5571-2026)
+[![Zenodo](https://img.shields.io/badge/Zenodo-10.5281%2Fzenodo.22141925-1682D4?style=flat-square&logo=zenodo&logoColor=white)](https://doi.org/10.5281/zenodo.22141925)
 [![GitHub stars](https://img.shields.io/github/stars/HydroModPy/HydroModPy?style=flat-square&logo=github&color=181717)](https://github.com/HydroModPy/HydroModPy)
 :::
 
@@ -171,7 +171,8 @@ models, in {doc}`reference/changes`.
 If HydroModPy supports your work, please cite the companion technical note, published in
 *Hydrology and Earth System Sciences* (2026,
 [doi:10.5194/hess-30-5571-2026](https://doi.org/10.5194/hess-30-5571-2026)), and the
-software. {doc}`about/cite` gives BibTeX, RIS and plain-text versions; `CITATION.cff` at
+software, archived on Zenodo
+([doi:10.5281/zenodo.22141925](https://doi.org/10.5281/zenodo.22141925)). {doc}`about/cite` gives BibTeX, RIS and plain-text versions; `CITATION.cff` at
 the root of the repository is what GitHub shows behind "Cite this repository".
 
 ````{dropdown} BibTeX entries
@@ -196,7 +197,7 @@ Papers that use HydroModPy and the catchments where it has been deployed are lis
 For questions or collaboration requests:
 
 - Alexandre Gauvain, `alexandre.gauvain.ag@gmail.com`
-- Ronan Abhervé, `ronan.abherve@gmail.com`
+- Ronan Abhervé, `ronan.abherve@inrae.fr`
 - Bug reports and feature requests: [GitHub issues](https://github.com/HydroModPy/HydroModPy/issues)
 - Discussions: [Google Group](https://groups.google.com/g/hydromodpy)
 

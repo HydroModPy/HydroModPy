@@ -46,9 +46,10 @@ def test_every_author_of_the_citation_file_has_affiliations_and_none_is_unused()
     assert used == set(data["institutions"])
 
 
-def test_the_cite_page_gives_the_doi_of_the_citation_file() -> None:
+def test_the_cite_page_gives_the_dois_of_the_citation_file() -> None:
     text = (ABOUT / "cite.md").read_text(encoding="utf-8")
     assert CFF["preferred-citation"]["doi"] in text
+    assert CFF["doi"] in text
 
 
 def test_the_about_toctree_lists_every_page_of_the_door() -> None:
@@ -60,7 +61,7 @@ def test_the_about_toctree_lists_every_page_of_the_door() -> None:
 
 
 def test_no_stale_statement_comes_back() -> None:
-    banned = ("not tagged", "Zenodo", "Leaflet", "Phase 3", "roadmap", "Documentation refresh")
+    banned = ("not tagged", "Leaflet", "Phase 3", "roadmap", "Documentation refresh")
     for page in ABOUT.glob("*.md"):
         text = page.read_text(encoding="utf-8")
         found = [word for word in banned if word.lower() in text.lower()]

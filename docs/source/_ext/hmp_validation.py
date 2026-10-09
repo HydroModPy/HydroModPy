@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 from collections import Counter
 from pathlib import Path
@@ -24,11 +25,16 @@ from pathlib import Path
 import hmp_params as H
 from docutils import nodes
 from docutils.statemachine import StringList
+from sphinx.util import logging
 from sphinx.util.docutils import SphinxDirective
+
+logger = logging.getLogger(__name__)
 
 DATA: dict = {}
 RESULTS: dict = {}
 RESULTS_FILE = Path("theory") / "validation_results.json"
+# A local build can read fresh results without touching the committed snapshot.
+RESULTS_ENV = "HMP_VALIDATION_RESULTS_FILE"
 REPO_URL = "https://github.com/HydroModPy/HydroModPy"
 
 # Folder of tests/validation -> heading. A folder missing here keeps its own name.
@@ -77,13 +83,22 @@ STATUS_WORDS = {
 }
 
 
+def results_path(srcdir: Path) -> Path:
+    """The results file a build reads: the variable when it is set, else the snapshot."""
+    return Path(os.environ[RESULTS_ENV]) if os.environ.get(RESULTS_ENV) else srcdir / RESULTS_FILE
+
+
 def load(srcdir: Path) -> None:
     DATA.clear()
     RESULTS.clear()
     path = srcdir / "_data" / "tests.json"
     if path.exists():
         DATA.update(json.loads(path.read_text()))
-    res = srcdir / RESULTS_FILE
+    res = results_path(srcdir)
+    if os.environ.get(RESULTS_ENV) and not res.exists():
+        logger.warning(
+            "%s names %s, which does not exist: the page shows no measure", RESULTS_ENV, res
+        )
     if res.exists():
         RESULTS.update(json.loads(res.read_text()))
 
@@ -816,7 +831,7 @@ class ValidationDirective(SphinxDirective):
         if not entries:
             return [H.raw('<p class="hmp-gap">No test index: run tools/docs/tests_index.py.</p>')]
         # Both sources change without the page source changing: read the page again.
-        self.env.note_dependency(str(Path(self.env.srcdir) / RESULTS_FILE))
+        self.env.note_dependency(str(results_path(Path(self.env.srcdir))))
         self.env.note_dependency(str(Path(self.env.srcdir) / "_data" / "tests.json"))
         groups: dict[str, list[dict]] = {}
         for e in entries:

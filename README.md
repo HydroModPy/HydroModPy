@@ -11,6 +11,8 @@ outputs.
 [![CI](https://github.com/HydroModPy/HydroModPy/actions/workflows/main-ci.yml/badge.svg?branch=main)](https://github.com/HydroModPy/HydroModPy/actions/workflows/main-ci.yml?query=branch%3Amain)
 [![Documentation](https://github.com/HydroModPy/HydroModPy/actions/workflows/docs-deploy-pages.yml/badge.svg?branch=main)](https://docs.hydromodpy.fr/main/)
 [![Codecov](https://codecov.io/gh/HydroModPy/HydroModPy/branch/main/graph/badge.svg)](https://codecov.io/gh/HydroModPy/HydroModPy/tree/main)
+[![Paper](https://img.shields.io/badge/HESS-10.5194%2Fhess--30--5571--2026-f59e0b.svg)](https://doi.org/10.5194/hess-30-5571-2026)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22141925.svg)](https://doi.org/10.5281/zenodo.22141925)
 
 ## What you get
 
@@ -137,8 +139,10 @@ advisory rather than a public issue.
 ## How to cite
 
 If HydroModPy supports your work, please cite the technical note below. If you
-also cite the software, give the version you ran. Full BibTeX, RIS and
-plain-text entries are on the
+also cite the software, give the version you ran and its Zenodo DOI. The concept
+DOI [10.5281/zenodo.22141925](https://doi.org/10.5281/zenodo.22141925) names
+every version and resolves to the latest archive; each archived version has its
+own DOI on that page. Full BibTeX, RIS and plain-text entries are on the
 [citation page](https://docs.hydromodpy.fr/main/about/cite.html);
 GitHub renders the "Cite this repository" button from
 [`CITATION.cff`](https://github.com/HydroModPy/HydroModPy/blob/main/CITATION.cff).
@@ -167,7 +171,7 @@ the affiliations are on the
 [citation page](https://docs.hydromodpy.fr/main/about/cite.html).
 
 For questions or collaboration: <alexandre.gauvain.ag@gmail.com> or
-<ronan.abherve@gmail.com>.
+<ronan.abherve@inrae.fr>.
 
 ## License
 
