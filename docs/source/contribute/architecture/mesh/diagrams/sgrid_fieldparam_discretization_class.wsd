@@ -18,13 +18,13 @@ package "hydromodpy.spatial.mesh.cartesian_grid" {
     +build_from_surfaces(top_surface, bottom_surface, vertical_config) StructuredGrid
   }
 
-  class SGridMeshAdapter <<module>> {
+  class "sgrid_mesh_adapter.py" as SGridMeshAdapter <<module>> {
     +extract_structured_vertices(sgrid) (x_vertices, y_vertices)
     +build_field_mesh_from_sgrid(sgrid) StructuredFieldMesh
   }
 
-  class SGridFieldParamDiscretizer <<module>> {
-    +discretize_fieldparam_on_sgrid(geology_field, field_param, sgrid, ...) SGridFieldParamDiscretizationResult
+  class "sgrid_fieldparam_discretization.py" as SGridFieldParamDiscretizer <<module>> {
+    +discretize_fieldparam_on_sgrid(support_field, field_param, sgrid, ...) SGridFieldParamDiscretizationResult
     +_compute_layer_center_depths(sgrid) np.ndarray
   }
 
@@ -51,7 +51,7 @@ package "hydromodpy.spatial.field.core.field_mesh" {
   }
 }
 
-package "hydromodpy.spatial.field.cases.square.field_mesh_square" {
+package "hydromodpy.spatial.field.meshes.structured_field_mesh" {
   class StructuredFieldMesh
 }
 
@@ -100,7 +100,7 @@ FieldParam --> MeshWithValues : to_mesh_field(...)
 
 SGridFieldParamDiscretizer ..> SGridMeshAdapter : uses
 SGridFieldParamDiscretizer ..> StructuredGrid : reads top/botm + dims
-SGridFieldParamDiscretizer ..> Field : geology projection
+SGridFieldParamDiscretizer ..> Field : support field projection
 SGridFieldParamDiscretizer ..> FieldParam : value mapping
 SGridFieldParamDiscretizer --> SGridFieldParamDiscretizationResult : returns
 

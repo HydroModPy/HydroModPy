@@ -1,21 +1,29 @@
 @startuml
-title Data Definition And Transfer - Class Diagram
+title Data definition and transfer - classes
 
-package "hydromodpy" {
-  class Project {
-    +cfg: HydroModPyConfig
-    +data_plan: DataLoadPlan
-    +run_state: ProjectRunState
-    +setup_workspace()
-    +build_geographic()
-    +load_data()
-    +_apply_structural_updates_from_data()
+package "hydromodpy.project" {
+  class "project.phases" as ProjectPhases <<module>> {
+    +builds the DataLoadPlan
+  }
+}
+
+package "hydromodpy.workflow" {
+  class LoadDataStep {
+    +reads
+    +writes
+    +run(state)
+  }
+  class "workflow.steps.data" as DataStepModule <<module>> {
+    +step_data_loading(ctx)
+    +run_data(config_path, data_plan, run_state)
+    +apply_structural_updates_from_data(run_state)
   }
 }
 
 package "hydromodpy.core.state" {
-  class ProjectRunState {
-    +raw_toml: dict
+  class WorkflowContext {
+    +cfg
+    +raw_toml
     +data_plan: DataLoadPlan
     +setup: SetupContext
     +loaded_data: LoadedDataContext
@@ -24,24 +32,29 @@ package "hydromodpy.core.state" {
   class SetupContext {
     +domain
     +flow
+    +transport
   }
 
   class LoadedDataContext {
     +geology
     +oceanic
-    +climatic
+    +hydrography
     +hydrometry
+    +recharge
+    +precipitation
+    +etp
+    +loaded_plan_types
   }
 }
 
-package "hydromodpy.data" {
+package "hydromodpy.data.loading" {
   class DataPlanner {
-    +build(config, domain_zone_ids, raw_toml, flow_active_bc)
+    +build(config, domain_zone_ids, flow_active_bc, ...)
   }
 
   class DataLoadPlan {
-    +types: tuple[str, ...]
-    +inferred_types: tuple[str, ...]
+    +explicit_types
+    +inferred_types
     +reasons_by_type
   }
 
@@ -51,46 +64,45 @@ package "hydromodpy.data" {
 }
 
 package "hydromodpy.spatial.field.geology" {
-  class GeologyField {
-    +from_watershed_config(...)
-  }
-}
-
-package "hydromodpy.data.hydrometry" {
-  class StationSet {
-    +from_config(config_data)
-  }
+  class GeologyField
 }
 
 package "hydromodpy.spatial.domain" {
   class Domain {
     +set_zone(name, zone)
   }
+}
 
-  class DomainBinders {
+package "hydromodpy.physics.flow" {
+  class Flow
+  class "structure_binders" as FlowBinders <<module>> {
+    +apply_oceanic_to_flow(...)
+    +apply_recharge_load_result_to_flow(...)
+    +apply_etp_load_result_to_flow(...)
+    +apply_lake_geometry_to_flow(...)
+    +apply_sfr_network_to_flow(...)
+  }
+}
+
+package "hydromodpy.spatial.geographic" {
+  class "structure_binders" as DomainBinders <<module>> {
     +apply_geology_to_domain(domain, geology)
   }
 }
 
-package "hydromodpy.physics.flow" {
-  class FlowBinders {
-    +apply_oceanic_to_flow(flow, oceanic)
-    +apply_climatic_to_flow_recharge(flow, climatic)
-  }
-}
-
-Project --> DataPlanner : build(...)
+ProjectPhases --> DataPlanner : build(...)
 DataPlanner ..> DataLoadPlan : returns
-Project --> ProjectRunState : stores raw_toml\nand data_plan
-Project --> DataManagersRuntimeLoader : load_all(run_state)
-DataManagersRuntimeLoader --> ProjectRunState : fills loaded_data
+ProjectPhases --> WorkflowContext : stores data_plan
+LoadDataStep --> DataStepModule : delegates
+DataStepModule --> DataManagersRuntimeLoader : load_all(run_state)
+DataManagersRuntimeLoader --> LoadedDataContext : fills one field per variable
+DataManagersRuntimeLoader ..> GeologyField : builds when geology is active
 
-DataManagersRuntimeLoader ..> GeologyField : builds if geology active
-DataManagersRuntimeLoader ..> StationSet : builds if hydrometry active
+WorkflowContext *-- SetupContext
+WorkflowContext *-- LoadedDataContext
 
-Project --> DomainBinders : apply_geology_to_domain(...)
+DataStepModule --> DomainBinders : apply_geology_to_domain
 DomainBinders --> Domain : set_zone("geology", geology)
-Project --> FlowBinders : apply_oceanic/climatic(...)
-
-ProjectRunState ..> DataLoadPlan : resolved activation trace
+DataStepModule --> FlowBinders : apply_*_to_flow
+FlowBinders --> Flow : writes recharge, ETP, lakes, SFR
 @enduml

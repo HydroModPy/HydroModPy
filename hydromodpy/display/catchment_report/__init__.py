@@ -12,7 +12,7 @@ from hydromodpy.display.catchment_report.presets import (
     CatchmentReportPreset,
     preset_from_name,
 )
-from hydromodpy.display.catchment_report.settings import CatchmentReportSettings
+from hydromodpy.display.catchment_report.settings import CatchmentReportSettings, ReportConfig
 
 __all__ = [
     "CatchmentReportConfig",
@@ -20,6 +20,7 @@ __all__ = [
     "CatchmentReportSettings",
     "CatchmentReportPreset",
     "GENERIC_REPORT_PRESET",
+    "ReportConfig",
     "build_context_from_report_config",
     "build_catchment_report",
     "preset_from_name",

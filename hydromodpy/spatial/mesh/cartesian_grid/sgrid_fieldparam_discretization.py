@@ -92,7 +92,6 @@ def discretize_fieldparam_on_sgrid(
     cell_samples_per_axis: int | None = None,
     depth: float = 0.0,
     strict_field_spatial_id_match: bool = True,
-    geology_field=None,
 ) -> SGridFieldParamDiscretizationResult:
     """Discretize one ``FieldParam`` on one structured solver grid.
 
@@ -136,11 +135,6 @@ def discretize_fieldparam_on_sgrid(
         If true, enforce consistency between heterogeneous
         ``field_param.field_spatial_id`` and ``support_field.identifier``.
     """
-    if support_field is not None and geology_field is not None:
-        raise ValueError("Use either 'support_field' or legacy 'geology_field', not both.")
-    if support_field is None:
-        support_field = geology_field
-
     # 1) Interface guards.
     # Fail fast here to avoid cryptic attribute errors deeper in the pipeline.
     if not hasattr(field_param, "to_mesh_field"):

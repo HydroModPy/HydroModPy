@@ -17,11 +17,11 @@ def test_boussinesq_method_text_documents_direct_petsc_vi_obstacle() -> None:
         }
     )
 
-    assert "backend PETSc complet" in text
+    assert "full PETSc backend" in text
     assert "surface_interaction_model=vi_obstacle" in text
-    assert "solveur PETSc SNESVI direct" in text
-    assert "4 sous-pas par periode" in text
-    assert "retry adaptatif active" in text
+    assert "direct PETSc SNESVI solver" in text
+    assert "4 substeps per period" in text
+    assert "adaptive retry enabled" in text
 
 
 def test_initial_condition_text_documents_direct_petsc_vi_obstacle() -> None:
@@ -34,4 +34,4 @@ def test_initial_condition_text_documents_direct_petsc_vi_obstacle() -> None:
     )
 
     assert "PETSc SNESVI" in text
-    assert "vi_obstacle directe" in text
+    assert "direct vi_obstacle closure" in text

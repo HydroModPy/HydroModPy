@@ -134,7 +134,7 @@ def _run_case(
     geology_field = _build_geology_field(geology_path)
     field_param = _build_field_param(vertical_profile=vertical_profile)
     result = discretize_fieldparam_on_sgrid(
-        geology_field=geology_field,
+        support_field=geology_field,
         field_param=field_param,
         sgrid=sgrid,
     )
@@ -229,7 +229,7 @@ def test_discretize_fieldparam_on_sgrid_nominal(tmp_path: Path):
     )
 
     result = discretize_fieldparam_on_sgrid(
-        geology_field=geology_field,
+        support_field=geology_field,
         field_param=field_param,
         sgrid=sgrid,
     )
@@ -353,7 +353,7 @@ def test_discretize_fieldparam_on_sgrid_rejects_mismatching_spatial_id(tmp_path:
 
     with pytest.raises(ValueError, match="field_param.field_spatial_id"):
         _ = discretize_fieldparam_on_sgrid(
-            geology_field=geology_field,
+            support_field=geology_field,
             field_param=field_param,
             sgrid=sgrid,
             strict_field_spatial_id_match=True,

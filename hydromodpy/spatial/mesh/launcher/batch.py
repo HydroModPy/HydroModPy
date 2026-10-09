@@ -189,14 +189,13 @@ class MeshCatchmentBatchRunner:
         validate_outlets_within_raster(
             records=records,
             raster_path=dem_path,
-            label="geographic.dem_init_path",
+            label="geographic.catchment.dem_init_path",
         )
 
         geology_cfg = self.mesh_section_data.geology
         if geology_cfg is None:
             return
-        source_block = geology_cfg.get("source") or {}
-        reference_raster_raw = _optional_text(source_block.get("reference_raster_path"))
+        reference_raster_raw = geology_cfg.source.reference_raster_path
         if reference_raster_raw is None:
             return
         reference_raster_path = Path(reference_raster_raw).expanduser()

@@ -26,7 +26,7 @@ class DomainConfig(HydroModelBase):
         description=(
             "Zone identifiers Domain.set_zone is allowed to register. It is an "
             "allowlist, not a request: nothing here causes a zone to be built. "
-            "'catchment' and 'geology' are appended by the runtime because the "
+            "'catchment' and 'geology' are appended by HydroModPy because the "
             "binders write under those fixed names, and every support id is "
             "appended too, so what belongs here is a project's own zonations. "
             "Order is never read. Spatial-support declarations live under "

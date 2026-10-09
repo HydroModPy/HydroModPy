@@ -115,17 +115,19 @@ class DataOverviewLauncher:
     # ------------------------------------------------------------------
 
     def _bootstrap_dem(self, state: DataOverviewState) -> None:
-        """Resolve ``geographic.dem_init_path`` from ``[[data.dem.sources]]`` if absent.
+        """Resolve ``geographic.catchment.dem_init_path`` from ``[[data.dem.sources]]`` if absent.
 
         Delegates to the shared resolver so the standard simulation
         pipeline and the overview pipeline behave identically.
         """
         from hydromodpy.data.variables.dem.resolver import (
+            require_dem_crs,
             resolve_dem_path_from_data_sources,
         )
 
         geo_cfg = state.cfg.geographic
         if geo_cfg.dem_init_path is not None and geo_cfg.dem_init_path.exists():
+            require_dem_crs(geo_cfg.dem_init_path)
             return
 
         cache_dir = None
@@ -141,7 +143,7 @@ class DataOverviewLauncher:
         if resolved is None:
             raise ConfigMissingError(
                 "No dem_init_path and no [data.dem] source configured. "
-                "Either set geographic.dem_init_path or add:\n"
+                "Either set geographic.catchment.dem_init_path or add:\n"
                 '  [data]\n  types = [..., "dem"]\n'
                 '  [[data.dem.sources]]\n  source = "ign_geoplateforme_dem"\n'
                 '  dataset = "bd-alti"\n  resolution_m = 25.0\n'
@@ -149,10 +151,11 @@ class DataOverviewLauncher:
                 '  [[data.dem.sources]]\n  source = "custom"\n  path = "..."'
             )
         logger.debug("[overview] DEM resolved from [data.dem]: %s", resolved)
+        require_dem_crs(resolved)
         if geo_cfg.catchment is None:
             raise ConfigMissingError(
-                "geographic.catch_def is required when [[data.dem.sources]] is the DEM "
-                "source. Set geographic.catchment.catch_def."
+                "geographic.catchment.catch_def is required when [[data.dem.sources]] is "
+                "the DEM source. Add a [geographic.catchment] table with catch_def."
             )
         geo_cfg.catchment.dem_init_path = resolved
 

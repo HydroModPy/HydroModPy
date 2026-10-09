@@ -1,0 +1,28 @@
+# Messages quoted in a "What can go wrong" table that the package does not print.
+# Each entry is a substring of the quote, the tool that prints it, and why the
+# table quotes it. A quote of HydroModPy itself never goes here: fix the page.
+
+[[external]]
+match = "Index contains duplicate entries"
+tool = "pandas"
+reason = "Raised by a pandas reindex when two observation points share a cell."
+
+[[external]]
+match = "zstd decompress error"
+tool = "zstandard"
+reason = "Raised when a package file is not a zstd archive."
+
+[[external]]
+match = "Input should be"
+tool = "pydantic"
+reason = "The wording of pydantic for a Literal; only the field path is HydroModPy's."
+
+[[external]]
+match = ": No such file or directory"
+tool = "the operating system"
+reason = "The text of FileNotFoundError and of the GDAL and rasterio errors."
+
+[[external]]
+match = "The box must sit inside one one-degree tile"
+tool = "docs/source/guides/recipes/cut_dem.py"
+reason = "Printed by the recipe script of the guide, not by the package."

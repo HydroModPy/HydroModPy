@@ -162,6 +162,16 @@ class TestReadPoint:
         assert len(frame) == N_STEPS
         assert frame["value"].tolist() == [1.0, 11.0, 21.0]
 
+    def test_the_label_names_the_point_in_the_table(self, run):
+        labelled = run.probe.series("head", cell=1, label="PZ1")
+        assert set(labelled["point"]) == {"PZ1"}
+        assert set(run.probe.series("head", cell=1)["point"]) == {"cell1"}
+
+    def test_the_default_label_keeps_every_digit_of_the_coordinates(self, run):
+        frame = run.probe.series("head", x=1.5, y=0.5)
+        assert set(frame["point"]) == {"1.5_0.5"}
+        assert PointRequest(x=388352.0, y=6818548.0).name == "388352_6818548"
+
     def test_the_series_carries_the_solver_calendar(self, run):
         frame = run.probe.series("head", cell=1)
         assert str(frame["time"].iloc[0]) == "2020-01-01 00:00:00"

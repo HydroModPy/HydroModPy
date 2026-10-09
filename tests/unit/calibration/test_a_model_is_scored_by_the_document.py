@@ -439,23 +439,8 @@ class TestWhatTheRouteRefuses:
         with pytest.raises(CalibrationError, match="planar point"):
             requests_for_outputs(outputs)
 
-    def test_a_flat_cell_index_has_no_mesh_to_be_resolved_against(self) -> None:
-        outputs = _config(
-            outputs={
-                "cell": {
-                    "support": "cell",
-                    "variable": "head",
-                    "cell_id": 17,
-                    "observed_values": [1.0],
-                }
-            }
-        ).outputs
-
-        with pytest.raises(CalibrationError, match="cell_id"):
-            requests_for_outputs(outputs)
-
     def test_a_window_has_no_date_to_cut_on_and_is_refused_like_the_others(self) -> None:
-        """The fifth refusal, and the one that used to leave a generic exit code."""
+        """The fourth refusal, and the one that used to leave a generic exit code."""
         with pytest.raises(CalibrationError, match="scoring_window"):
             ScoredForwardEvaluator(
                 cfg=_config(scoring_window={"start": "2020-01-01", "end": "2020-12-31"})

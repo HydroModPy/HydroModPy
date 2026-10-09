@@ -28,7 +28,7 @@ import numpy as np
 
 from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.figures._memo import RunMemo
-from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, neutral
 from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream_network import (
     AGREEMENT_EXCESS,
@@ -54,6 +54,9 @@ GROUND_COLOR = "#EDEDED"
 One tone across the whole set, so a reader moving from one map to the next
 reads the same grey as the same statement: nothing was measured here.
 """
+
+GROUND_EDGE = "#C8C8C8"
+"""A border on the legend swatch of the ground, otherwise near-white on white."""
 
 AGREEMENT_COLORS: dict[int, str] = {
     AGREEMENT_NEITHER: GROUND_COLOR,
@@ -117,8 +120,32 @@ page it takes the whole figure and leaves the map a stamp. Scaling it with the
 page keeps the composition when a caller asks for a smaller one.
 """
 
-_NOTE_BOX = {"facecolor": "white", "alpha": 0.9, "edgecolor": "#c8c8c8"}
-"""The box every note of the gallery sits in."""
+
+def ground_color() -> str:
+    """Return the ground grey for the current theme (darkened on a dark page)."""
+    return neutral(GROUND_COLOR)
+
+
+def ground_edge() -> str:
+    """Return the border grey of a ground swatch for the current theme."""
+    return neutral(GROUND_EDGE)
+
+
+def agreement_color(value: int) -> str:
+    """Return the colour of one agreement class for the current theme.
+
+    Only the ground class is a grey, so only it follows the theme. The three
+    coloured classes carry their meaning and are never touched.
+    """
+    if value == AGREEMENT_NEITHER:
+        return ground_color()
+    return AGREEMENT_COLORS[value]
+
+
+def note_box() -> dict[str, object]:
+    """Return the box every note of the gallery sits in, for the current theme."""
+    return {"facecolor": neutral("white"), "alpha": 0.9, "edgecolor": ground_edge()}
+
 
 _MISSING_FEATURE = (KeyError, ValueError, FileNotFoundError, RuntimeError)
 """What a run raises when a feature it never wrote is asked for.
@@ -253,7 +280,7 @@ def annotate_note(ax: Axes, text: str) -> None:
         ha="center",
         va="bottom",
         fontsize=9,
-        bbox=_NOTE_BOX,
+        bbox=note_box(),
         zorder=10,
     )
 
@@ -515,7 +542,9 @@ def veil_outside_catchment(ax: Axes, sim: Run, window: MapExtent) -> None:
             vertices.append(coords)
             codes.append(ring_codes)
     path = MplPath(np.concatenate(vertices), np.concatenate(codes))
-    ax.add_patch(PathPatch(path, facecolor="white", edgecolor="none", alpha=VEIL_ALPHA, zorder=4))
+    ax.add_patch(
+        PathPatch(path, facecolor=neutral("white"), edgecolor="none", alpha=VEIL_ALPHA, zorder=4)
+    )
 
 
 def _catchment_bounds(sim: Run) -> tuple[float, float, float, float] | None:
@@ -549,10 +578,15 @@ def _padded(
 
 __all__ = (
     "AGREEMENT_COLORS",
+    "agreement_color",
+    "ground_color",
+    "ground_edge",
+    "note_box",
     "CASING_COLOR",
     "CELL_WEIGHT_PT",
     "CRITERION_NAMES",
     "GROUND_COLOR",
+    "GROUND_EDGE",
     "VEIL_ALPHA",
     "MapExtent",
     "MapExtentName",

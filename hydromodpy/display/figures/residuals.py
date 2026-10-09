@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
 from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, station_label
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import ObservedStation, Opt, Station, Variable
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._observed import observed_series
 from hydromodpy.display.maps.axes import style_date_axis
@@ -54,10 +55,10 @@ class Residuals(BaseFigure):
         self,
         sim: Run,
         *,
-        station: str = CATCHMENT_OUTLET_STATION,
-        variable: str = "discharge",
-        observed_station: str | None = None,
-        bins: int = 30,
+        station: Station = CATCHMENT_OUTLET_STATION,
+        variable: Variable = "discharge",
+        observed_station: ObservedStation = None,
+        bins: Annotated[int, Opt("Number of bins of the residual histogram.")] = 30,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path: str | Path | None = None,
@@ -92,7 +93,7 @@ class Residuals(BaseFigure):
         ax_ts.set_xlabel("Date")
         ax_ts.set_ylabel(f"residual {axis_label(variable)}")
         ax_ts.grid(True, ls=":", lw=0.4)
-        ax_ts.set_title(f"Residuals - {sim.name or sim.sim_id} @ {station_label(station)}")
+        ax_ts.set_title(f"Residuals{run_suffix(sim)} @ {station_label(station)}")
         style_date_axis(ax_ts)
 
         ax_hist.hist(

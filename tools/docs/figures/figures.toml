@@ -1,0 +1,2165 @@
+# Manifest of the documentation figures, written by render_ex04_figures.py.
+# Do not edit by hand: run the script. One [[figure]] per image.
+# `command` makes the run, `redraw` draws the figure again from the stored run.
+# A dark image is the same figure drawn with [display] preset = "dark".
+
+[meta]
+generated = "2026-10-09"
+hydromodpy = "2.0.0a4"
+example = "04"
+script = "tools/docs/figures/render_ex04_figures.py"
+budget_bytes = 153600
+thumbnail_width = 320
+
+[[figure]]
+name = "flow_intermittence_map"
+path = "docs/source/_static/figures/hero/flow-intermittence-map-dark.webp"
+kind = "hero"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_intermittence_map --opt show_run_name=false"
+pages = ["index.md"]
+options = { cycle = "2002" }
+width = 1020
+height = 974
+bytes = 21688
+
+[[figure]]
+name = "flow_intermittence_map"
+path = "docs/source/_static/figures/hero/flow-intermittence-map.webp"
+kind = "hero"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_intermittence_map --opt show_run_name=false"
+pages = ["index.md"]
+options = { cycle = "2002" }
+width = 1020
+height = 974
+bytes = 22398
+
+[[figure]]
+name = "downslope_distance_map"
+path = "docs/source/_static/figures/understand/ex04_downslope_distance_map-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage downslope_distance_map --time 2002-10-15 --opt show_run_name=false"
+pages = []
+options = { time = "2002-10-15" }
+width = 1032
+height = 1004
+bytes = 28310
+
+[[figure]]
+name = "downslope_distance_map"
+path = "docs/source/_static/figures/understand/ex04_downslope_distance_map.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage downslope_distance_map --time 2002-10-15 --opt show_run_name=false"
+pages = []
+options = { time = "2002-10-15" }
+width = 1032
+height = 1004
+bytes = 29506
+
+[[figure]]
+name = "flow_intermittence_map"
+path = "docs/source/_static/figures/understand/ex04_flow_intermittence_map-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_intermittence_map --opt show_run_name=false"
+pages = []
+options = { cycle = "2002" }
+width = 1020
+height = 974
+bytes = 21688
+
+[[figure]]
+name = "flow_intermittence_map"
+path = "docs/source/_static/figures/understand/ex04_flow_intermittence_map.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_intermittence_map --opt show_run_name=false"
+pages = []
+options = { cycle = "2002" }
+width = 1020
+height = 974
+bytes = 22398
+
+[[figure]]
+name = "flow_persistence_map"
+path = "docs/source/_static/figures/understand/ex04_flow_persistence_map-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_persistence_map --opt show_run_name=false"
+pages = []
+width = 1048
+height = 974
+bytes = 28074
+
+[[figure]]
+name = "flow_persistence_map"
+path = "docs/source/_static/figures/understand/ex04_flow_persistence_map.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_persistence_map --opt show_run_name=false"
+pages = []
+width = 1048
+height = 974
+bytes = 28948
+
+[[figure]]
+name = "flux_timeseries"
+path = "docs/source/_static/figures/understand/ex04_flux_timeseries-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flux_timeseries --opt show_run_name=false"
+pages = []
+width = 1292
+height = 692
+bytes = 13144
+
+[[figure]]
+name = "flux_timeseries"
+path = "docs/source/_static/figures/understand/ex04_flux_timeseries.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flux_timeseries --opt show_run_name=false"
+pages = []
+width = 1292
+height = 692
+bytes = 13956
+
+[[figure]]
+name = "hydrograph_log_nse"
+path = "docs/source/_static/figures/understand/ex04_hydrograph_log_nse-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrograph_log_nse --opt show_run_name=false"
+pages = []
+options = { scoring_window = ["2001-01-01", "2002-12-31"] }
+width = 1337
+height = 767
+bytes = 31198
+
+[[figure]]
+name = "hydrograph_log_nse"
+path = "docs/source/_static/figures/understand/ex04_hydrograph_log_nse.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrograph_log_nse --opt show_run_name=false"
+pages = []
+options = { scoring_window = ["2001-01-01", "2002-12-31"] }
+width = 1337
+height = 767
+bytes = 35656
+
+[[figure]]
+name = "seepage_map"
+path = "docs/source/_static/figures/understand/ex04_seepage_map-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_map --time 2002-10-15 --opt show_run_name=false"
+pages = []
+options = { time = "2002-10-15" }
+width = 850
+height = 944
+bytes = 19038
+
+[[figure]]
+name = "seepage_map"
+path = "docs/source/_static/figures/understand/ex04_seepage_map.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_map --time 2002-10-15 --opt show_run_name=false"
+pages = []
+options = { time = "2002-10-15" }
+width = 850
+height = 944
+bytes = 19798
+
+[[figure]]
+name = "seepage_network_confusion_map"
+path = "docs/source/_static/figures/understand/ex04_seepage_network_confusion_map-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_network_confusion_map --time 2002-10-15 --opt show_run_name=false"
+pages = []
+options = { time = "2002-10-15" }
+width = 895
+height = 944
+bytes = 22352
+
+[[figure]]
+name = "seepage_network_confusion_map"
+path = "docs/source/_static/figures/understand/ex04_seepage_network_confusion_map.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_network_confusion_map --time 2002-10-15 --opt show_run_name=false"
+pages = []
+options = { time = "2002-10-15" }
+width = 895
+height = 944
+bytes = 23908
+
+[[figure]]
+name = "watertable_depth_map"
+path = "docs/source/_static/figures/understand/ex04_watertable_depth_map-dark.webp"
+kind = "understand"
+theme = "dark"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage watertable_depth_map --time 2002-10-15 --opt show_run_name=false"
+pages = []
+options = { time = "2002-10-15" }
+width = 1066
+height = 842
+bytes = 85098
+
+[[figure]]
+name = "watertable_depth_map"
+path = "docs/source/_static/figures/understand/ex04_watertable_depth_map.webp"
+kind = "understand"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage watertable_depth_map --time 2002-10-15 --opt show_run_name=false"
+pages = []
+options = { time = "2002-10-15" }
+width = 1066
+height = 842
+bytes = 84644
+
+[[figure]]
+name = "cross_section"
+path = "docs/source/_static/figures/staircase/step1/cross_section.webp"
+kind = "staircase"
+theme = "light"
+step = 1
+key = false
+run = "nancon_step1_minimal"
+config = "step1_minimal.toml"
+command = "hmp run step1_minimal.toml"
+redraw = "hmp viz show nancon_step1_minimal cross_section --opt show_run_name=false"
+pages = ["get-started/staircase/step1.md"]
+options = { orientation = "sn" }
+width = 1217
+height = 692
+bytes = 50208
+
+[[figure]]
+name = "seepage_map"
+path = "docs/source/_static/figures/staircase/step1/seepage_map.webp"
+kind = "staircase"
+theme = "light"
+step = 1
+key = false
+run = "nancon_step1_minimal"
+config = "step1_minimal.toml"
+command = "hmp run step1_minimal.toml"
+redraw = "hmp viz show nancon_step1_minimal seepage_map --opt show_run_name=false"
+pages = ["get-started/staircase/step1.md"]
+width = 864
+height = 944
+bytes = 22690
+
+[[figure]]
+name = "water_budget"
+path = "docs/source/_static/figures/staircase/step1/water_budget.webp"
+kind = "staircase"
+theme = "light"
+step = 1
+key = false
+run = "nancon_step1_minimal"
+config = "step1_minimal.toml"
+command = "hmp run step1_minimal.toml"
+redraw = "hmp viz show nancon_step1_minimal water_budget --opt show_run_name=false"
+pages = ["get-started/staircase/step1.md"]
+width = 1067
+height = 692
+bytes = 12232
+
+[[figure]]
+name = "watershed_id_card"
+path = "docs/source/_static/figures/staircase/step1/watershed_id_card.webp"
+kind = "staircase"
+theme = "light"
+step = 1
+key = false
+run = "nancon_step1_minimal"
+config = "step1_minimal.toml"
+command = "hmp run step1_minimal.toml"
+redraw = "hmp viz show nancon_step1_minimal watershed_id_card --opt show_run_name=false"
+pages = ["get-started/staircase/step1.md"]
+width = 1742
+height = 1142
+bytes = 50748
+
+[[figure]]
+name = "watertable_depth_map"
+path = "docs/source/_static/figures/staircase/step1/watertable_depth_map-dark.webp"
+kind = "staircase"
+theme = "dark"
+step = 1
+key = true
+run = "nancon_step1_minimal"
+config = "step1_minimal.toml"
+command = "hmp run step1_minimal.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_step1_minimal watertable_depth_map --opt show_run_name=false"
+pages = ["get-started/staircase/step1.md", "get-started/staircase/index.md"]
+width = 1066
+height = 842
+bytes = 87636
+
+[[figure]]
+name = "watertable_depth_map"
+path = "docs/source/_static/figures/staircase/step1/watertable_depth_map.webp"
+kind = "staircase"
+theme = "light"
+step = 1
+key = true
+run = "nancon_step1_minimal"
+config = "step1_minimal.toml"
+command = "hmp run step1_minimal.toml"
+redraw = "hmp viz show nancon_step1_minimal watertable_depth_map --opt show_run_name=false"
+pages = ["get-started/staircase/step1.md", "get-started/staircase/index.md"]
+width = 1066
+height = 842
+bytes = 87614
+
+[[figure]]
+name = "downslope_distance_map"
+path = "docs/source/_static/figures/staircase/step2/downslope_distance_map.webp"
+kind = "staircase"
+theme = "light"
+step = 2
+key = false
+run = "nancon_step2_local"
+config = "step2_local_data.toml"
+command = "hmp run step2_local_data.toml"
+redraw = "hmp viz show nancon_step2_local downslope_distance_map --opt show_run_name=false"
+pages = ["get-started/staircase/step2.md"]
+width = 1032
+height = 1004
+bytes = 32954
+
+[[figure]]
+name = "hydrographic_network_reference"
+path = "docs/source/_static/figures/staircase/step2/hydrographic_network_reference.webp"
+kind = "staircase"
+theme = "light"
+step = 2
+key = false
+run = "nancon_step2_local"
+config = "step2_local_data.toml"
+command = "hmp run step2_local_data.toml"
+redraw = "hmp viz show nancon_step2_local hydrographic_network_reference --opt show_run_name=false"
+pages = ["get-started/staircase/step2.md"]
+width = 1187
+height = 887
+bytes = 30746
+
+[[figure]]
+name = "seepage_network_confusion_map"
+path = "docs/source/_static/figures/staircase/step2/seepage_network_confusion_map-dark.webp"
+kind = "staircase"
+theme = "dark"
+step = 2
+key = true
+run = "nancon_step2_local"
+config = "step2_local_data.toml"
+command = "hmp run step2_local_data.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_step2_local seepage_network_confusion_map --opt show_run_name=false"
+pages = ["get-started/staircase/step2.md", "get-started/staircase/index.md"]
+width = 904
+height = 944
+bytes = 22382
+
+[[figure]]
+name = "seepage_network_confusion_map"
+path = "docs/source/_static/figures/staircase/step2/seepage_network_confusion_map.webp"
+kind = "staircase"
+theme = "light"
+step = 2
+key = true
+run = "nancon_step2_local"
+config = "step2_local_data.toml"
+command = "hmp run step2_local_data.toml"
+redraw = "hmp viz show nancon_step2_local seepage_network_confusion_map --opt show_run_name=false"
+pages = ["get-started/staircase/step2.md", "get-started/staircase/index.md"]
+width = 904
+height = 944
+bytes = 24114
+
+[[figure]]
+name = "watershed_id_card"
+path = "docs/source/_static/figures/staircase/step2/watershed_id_card.webp"
+kind = "staircase"
+theme = "light"
+step = 2
+key = false
+run = "nancon_step2_local"
+config = "step2_local_data.toml"
+command = "hmp run step2_local_data.toml"
+redraw = "hmp viz show nancon_step2_local watershed_id_card --opt show_run_name=false"
+pages = ["get-started/staircase/step2.md"]
+width = 1742
+height = 1142
+bytes = 50748
+
+[[figure]]
+name = "downslope_distance_map"
+path = "docs/source/_static/figures/staircase/step3/downslope_distance_map.webp"
+kind = "staircase"
+theme = "light"
+step = 3
+key = false
+run = "nancon_step3_api"
+config = "step3_api_data.toml"
+command = "hmp run step3_api_data.toml"
+redraw = "hmp viz show nancon_step3_api downslope_distance_map --opt show_run_name=false"
+pages = ["get-started/staircase/step3.md"]
+width = 1032
+height = 1004
+bytes = 32260
+
+[[figure]]
+name = "hydrographic_network_permanence"
+path = "docs/source/_static/figures/staircase/step3/hydrographic_network_permanence-dark.webp"
+kind = "staircase"
+theme = "dark"
+step = 3
+key = true
+run = "nancon_step3_api"
+config = "step3_api_data.toml"
+command = "hmp run step3_api_data.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_step3_api hydrographic_network_permanence --opt show_run_name=false"
+pages = ["get-started/staircase/step3.md", "get-started/staircase/index.md"]
+width = 1187
+height = 887
+bytes = 65134
+
+[[figure]]
+name = "hydrographic_network_permanence"
+path = "docs/source/_static/figures/staircase/step3/hydrographic_network_permanence.webp"
+kind = "staircase"
+theme = "light"
+step = 3
+key = true
+run = "nancon_step3_api"
+config = "step3_api_data.toml"
+command = "hmp run step3_api_data.toml"
+redraw = "hmp viz show nancon_step3_api hydrographic_network_permanence --opt show_run_name=false"
+pages = ["get-started/staircase/step3.md", "get-started/staircase/index.md"]
+width = 1187
+height = 887
+bytes = 73212
+
+[[figure]]
+name = "hydrographic_network_reference"
+path = "docs/source/_static/figures/staircase/step3/hydrographic_network_reference.webp"
+kind = "staircase"
+theme = "light"
+step = 3
+key = false
+run = "nancon_step3_api"
+config = "step3_api_data.toml"
+command = "hmp run step3_api_data.toml"
+redraw = "hmp viz show nancon_step3_api hydrographic_network_reference --opt show_run_name=false"
+pages = ["get-started/staircase/step3.md"]
+width = 1187
+height = 887
+bytes = 55852
+
+[[figure]]
+name = "seepage_network_confusion_map"
+path = "docs/source/_static/figures/staircase/step3/seepage_network_confusion_map.webp"
+kind = "staircase"
+theme = "light"
+step = 3
+key = false
+run = "nancon_step3_api"
+config = "step3_api_data.toml"
+command = "hmp run step3_api_data.toml"
+redraw = "hmp viz show nancon_step3_api seepage_network_confusion_map --opt show_run_name=false"
+pages = ["get-started/staircase/step3.md"]
+width = 910
+height = 944
+bytes = 29448
+
+[[figure]]
+name = "watershed_id_card"
+path = "docs/source/_static/figures/staircase/step3/watershed_id_card.webp"
+kind = "staircase"
+theme = "light"
+step = 3
+key = false
+run = "nancon_step3_api"
+config = "step3_api_data.toml"
+command = "hmp run step3_api_data.toml"
+redraw = "hmp viz show nancon_step3_api watershed_id_card --opt show_run_name=false"
+pages = ["get-started/staircase/step3.md"]
+width = 1742
+height = 1142
+bytes = 50748
+
+[[figure]]
+name = "flow_intermittence_map"
+path = "docs/source/_static/figures/staircase/step4/flow_intermittence_map-dark.webp"
+kind = "staircase"
+theme = "dark"
+step = 4
+key = true
+run = "nancon_step4_transient"
+config = "step4_transient.toml"
+command = "hmp run step4_transient.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_step4_transient flow_intermittence_map --opt show_run_name=false"
+pages = ["get-started/staircase/step4.md", "get-started/staircase/index.md"]
+options = { cycle = "2002" }
+width = 1020
+height = 974
+bytes = 22266
+
+[[figure]]
+name = "flow_intermittence_map"
+path = "docs/source/_static/figures/staircase/step4/flow_intermittence_map.webp"
+kind = "staircase"
+theme = "light"
+step = 4
+key = true
+run = "nancon_step4_transient"
+config = "step4_transient.toml"
+command = "hmp run step4_transient.toml"
+redraw = "hmp viz show nancon_step4_transient flow_intermittence_map --opt show_run_name=false"
+pages = ["get-started/staircase/step4.md", "get-started/staircase/index.md"]
+options = { cycle = "2002" }
+width = 1020
+height = 974
+bytes = 22968
+
+[[figure]]
+name = "flow_persistence_map"
+path = "docs/source/_static/figures/staircase/step4/flow_persistence_map.webp"
+kind = "staircase"
+theme = "light"
+step = 4
+key = false
+run = "nancon_step4_transient"
+config = "step4_transient.toml"
+command = "hmp run step4_transient.toml"
+redraw = "hmp viz show nancon_step4_transient flow_persistence_map --opt show_run_name=false"
+pages = ["get-started/staircase/step4.md"]
+width = 1048
+height = 974
+bytes = 29576
+
+[[figure]]
+name = "flux_timeseries"
+path = "docs/source/_static/figures/staircase/step4/flux_timeseries.webp"
+kind = "staircase"
+theme = "light"
+step = 4
+key = false
+run = "nancon_step4_transient"
+config = "step4_transient.toml"
+command = "hmp run step4_transient.toml"
+redraw = "hmp viz show nancon_step4_transient flux_timeseries --opt show_run_name=false"
+pages = ["get-started/staircase/step4.md"]
+width = 1292
+height = 692
+bytes = 13938
+
+[[figure]]
+name = "hydrograph_sim_obs"
+path = "docs/source/_static/figures/staircase/step4/hydrograph_sim_obs.webp"
+kind = "staircase"
+theme = "light"
+step = 4
+key = false
+run = "nancon_step4_transient"
+config = "step4_transient.toml"
+command = "hmp run step4_transient.toml"
+redraw = "hmp viz show nancon_step4_transient hydrograph_sim_obs --opt show_run_name=false"
+pages = ["get-started/staircase/step4.md"]
+width = 1292
+height = 692
+bytes = 34248
+
+[[figure]]
+name = "seepage_map"
+path = "docs/source/_static/figures/staircase/step4/seepage_map.webp"
+kind = "staircase"
+theme = "light"
+step = 4
+key = false
+run = "nancon_step4_transient"
+config = "step4_transient.toml"
+command = "hmp run step4_transient.toml"
+redraw = "hmp viz show nancon_step4_transient seepage_map --time 2002-10-15 --opt show_run_name=false"
+pages = ["get-started/staircase/step4.md"]
+options = { time = "2002-10-15" }
+width = 850
+height = 944
+bytes = 20834
+
+[[figure]]
+name = "downslope_distance_map"
+path = "docs/source/_static/figures/staircase/step5/downslope_distance_map.webp"
+kind = "staircase"
+theme = "light"
+step = 5
+key = false
+run = "nancon_step5_export"
+config = "step5_export.toml"
+command = "hmp run step5_export.toml"
+redraw = "hmp viz show nancon_step5_export downslope_distance_map --time 2002-10-15 --opt show_run_name=false"
+pages = ["get-started/staircase/step5.md"]
+options = { time = "2002-10-15" }
+width = 1032
+height = 1004
+bytes = 31008
+
+[[figure]]
+name = "flow_persistence_map"
+path = "docs/source/_static/figures/staircase/step5/flow_persistence_map.webp"
+kind = "staircase"
+theme = "light"
+step = 5
+key = false
+run = "nancon_step5_export"
+config = "step5_export.toml"
+command = "hmp run step5_export.toml"
+redraw = "hmp viz show nancon_step5_export flow_persistence_map --opt show_run_name=false"
+pages = ["get-started/staircase/step5.md"]
+width = 1048
+height = 974
+bytes = 29576
+
+[[figure]]
+name = "flux_timeseries"
+path = "docs/source/_static/figures/staircase/step5/flux_timeseries.webp"
+kind = "staircase"
+theme = "light"
+step = 5
+key = false
+run = "nancon_step5_export"
+config = "step5_export.toml"
+command = "hmp run step5_export.toml"
+redraw = "hmp viz show nancon_step5_export flux_timeseries --opt show_run_name=false"
+pages = ["get-started/staircase/step5.md"]
+width = 1292
+height = 692
+bytes = 13938
+
+[[figure]]
+name = "hydrograph_sim_obs"
+path = "docs/source/_static/figures/staircase/step5/hydrograph_sim_obs.webp"
+kind = "staircase"
+theme = "light"
+step = 5
+key = false
+run = "nancon_step5_export"
+config = "step5_export.toml"
+command = "hmp run step5_export.toml"
+redraw = "hmp viz show nancon_step5_export hydrograph_sim_obs --opt show_run_name=false"
+pages = ["get-started/staircase/step5.md"]
+width = 1292
+height = 692
+bytes = 34248
+
+[[figure]]
+name = "seepage_map"
+path = "docs/source/_static/figures/staircase/step5/seepage_map.webp"
+kind = "staircase"
+theme = "light"
+step = 5
+key = false
+run = "nancon_step5_export"
+config = "step5_export.toml"
+command = "hmp run step5_export.toml"
+redraw = "hmp viz show nancon_step5_export seepage_map --time 2002-10-15 --opt show_run_name=false"
+pages = ["get-started/staircase/step5.md"]
+options = { time = "2002-10-15" }
+width = 850
+height = 944
+bytes = 20834
+
+[[figure]]
+name = "seepage_network_confusion_map"
+path = "docs/source/_static/figures/staircase/step5/seepage_network_confusion_map.webp"
+kind = "staircase"
+theme = "light"
+step = 5
+key = false
+run = "nancon_step5_export"
+config = "step5_export.toml"
+command = "hmp run step5_export.toml"
+redraw = "hmp viz show nancon_step5_export seepage_network_confusion_map --time 2002-10-15 --opt show_run_name=false"
+pages = ["get-started/staircase/step5.md"]
+options = { time = "2002-10-15" }
+width = 895
+height = 944
+bytes = 24394
+
+[[figure]]
+name = "watershed_id_card"
+path = "docs/source/_static/figures/staircase/step5/watershed_id_card.webp"
+kind = "staircase"
+theme = "light"
+step = 5
+key = false
+run = "nancon_step5_export"
+config = "step5_export.toml"
+command = "hmp run step5_export.toml"
+redraw = "hmp viz show nancon_step5_export watershed_id_card --opt show_run_name=false"
+pages = ["get-started/staircase/step5.md"]
+width = 1742
+height = 1142
+bytes = 53248
+
+[[figure]]
+name = "watertable_depth_map"
+path = "docs/source/_static/figures/staircase/step5/watertable_depth_map-dark.webp"
+kind = "staircase"
+theme = "dark"
+step = 5
+key = true
+run = "nancon_step5_export"
+config = "step5_export.toml"
+command = "hmp run step5_export.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_step5_export watertable_depth_map --time 2002-10-15 --opt show_run_name=false"
+pages = ["get-started/staircase/step5.md", "get-started/staircase/index.md"]
+options = { time = "2002-10-15" }
+width = 1066
+height = 842
+bytes = 86180
+
+[[figure]]
+name = "watertable_depth_map"
+path = "docs/source/_static/figures/staircase/step5/watertable_depth_map.webp"
+kind = "staircase"
+theme = "light"
+step = 5
+key = true
+run = "nancon_step5_export"
+config = "step5_export.toml"
+command = "hmp run step5_export.toml"
+redraw = "hmp viz show nancon_step5_export watertable_depth_map --time 2002-10-15 --opt show_run_name=false"
+pages = ["get-started/staircase/step5.md", "get-started/staircase/index.md"]
+options = { time = "2002-10-15" }
+width = 1066
+height = 842
+bytes = 86382
+
+[[figure]]
+name = "cross_section"
+path = "docs/source/_static/figures/staircase/step6/cross_section.webp"
+kind = "staircase"
+theme = "light"
+step = 6
+key = false
+run = "nancon_soil_reservoir_daily"
+config = "step6_soil_reservoir.toml"
+command = "hmp run step6_soil_reservoir.toml"
+redraw = "hmp viz show nancon_soil_reservoir_daily cross_section --time 2019-09-15 --opt show_run_name=false"
+pages = ["get-started/staircase/step6.md"]
+options = { time = "2019-09-15", orientation = "sn" }
+width = 1217
+height = 692
+bytes = 50950
+
+[[figure]]
+name = "duration_curve"
+path = "docs/source/_static/figures/staircase/step6/duration_curve.webp"
+kind = "staircase"
+theme = "light"
+step = 6
+key = false
+run = "nancon_soil_reservoir_daily"
+config = "step6_soil_reservoir.toml"
+command = "hmp run step6_soil_reservoir.toml"
+redraw = "hmp viz show nancon_soil_reservoir_daily duration_curve --opt show_run_name=false"
+pages = ["get-started/staircase/step6.md"]
+width = 1067
+height = 692
+bytes = 18408
+
+[[figure]]
+name = "flow_intermittence_map"
+path = "docs/source/_static/figures/staircase/step6/flow_intermittence_map.webp"
+kind = "staircase"
+theme = "light"
+step = 6
+key = false
+run = "nancon_soil_reservoir_daily"
+config = "step6_soil_reservoir.toml"
+command = "hmp run step6_soil_reservoir.toml"
+redraw = "hmp viz show nancon_soil_reservoir_daily flow_intermittence_map --opt show_run_name=false"
+pages = ["get-started/staircase/step6.md"]
+options = { cycle = "2019" }
+width = 1020
+height = 974
+bytes = 24762
+
+[[figure]]
+name = "flow_persistence_map"
+path = "docs/source/_static/figures/staircase/step6/flow_persistence_map.webp"
+kind = "staircase"
+theme = "light"
+step = 6
+key = false
+run = "nancon_soil_reservoir_daily"
+config = "step6_soil_reservoir.toml"
+command = "hmp run step6_soil_reservoir.toml"
+redraw = "hmp viz show nancon_soil_reservoir_daily flow_persistence_map --opt show_run_name=false"
+pages = ["get-started/staircase/step6.md"]
+width = 1048
+height = 974
+bytes = 31330
+
+[[figure]]
+name = "flux_timeseries"
+path = "docs/source/_static/figures/staircase/step6/flux_timeseries-dark.webp"
+kind = "staircase"
+theme = "dark"
+step = 6
+key = true
+run = "nancon_soil_reservoir_daily"
+config = "step6_soil_reservoir.toml"
+command = "hmp run step6_soil_reservoir.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_soil_reservoir_daily flux_timeseries --opt show_run_name=false"
+pages = ["get-started/staircase/step6.md", "get-started/staircase/index.md"]
+width = 1292
+height = 692
+bytes = 28212
+
+[[figure]]
+name = "flux_timeseries"
+path = "docs/source/_static/figures/staircase/step6/flux_timeseries.webp"
+kind = "staircase"
+theme = "light"
+step = 6
+key = true
+run = "nancon_soil_reservoir_daily"
+config = "step6_soil_reservoir.toml"
+command = "hmp run step6_soil_reservoir.toml"
+redraw = "hmp viz show nancon_soil_reservoir_daily flux_timeseries --opt show_run_name=false"
+pages = ["get-started/staircase/step6.md", "get-started/staircase/index.md"]
+width = 1292
+height = 692
+bytes = 29012
+
+[[figure]]
+name = "hydrograph_log_nse"
+path = "docs/source/_static/figures/staircase/step6/hydrograph_log_nse.webp"
+kind = "staircase"
+theme = "light"
+step = 6
+key = false
+run = "nancon_soil_reservoir_daily"
+config = "step6_soil_reservoir.toml"
+command = "hmp run step6_soil_reservoir.toml"
+redraw = "hmp viz show nancon_soil_reservoir_daily hydrograph_log_nse --opt show_run_name=false"
+pages = ["get-started/staircase/step6.md"]
+options = { scoring_window = ["2016-01-01", "2020-12-31"] }
+width = 1337
+height = 767
+bytes = 78104
+
+[[figure]]
+name = "hydrograph_sim_obs"
+path = "docs/source/_static/figures/staircase/step6/hydrograph_sim_obs.webp"
+kind = "staircase"
+theme = "light"
+step = 6
+key = false
+run = "nancon_soil_reservoir_daily"
+config = "step6_soil_reservoir.toml"
+command = "hmp run step6_soil_reservoir.toml"
+redraw = "hmp viz show nancon_soil_reservoir_daily hydrograph_sim_obs --opt show_run_name=false"
+pages = ["get-started/staircase/step6.md"]
+width = 1292
+height = 692
+bytes = 83798
+
+[[figure]]
+name = "recession"
+path = "docs/source/_static/figures/staircase/step6/recession.webp"
+kind = "staircase"
+theme = "light"
+step = 6
+key = false
+run = "nancon_soil_reservoir_daily"
+config = "step6_soil_reservoir.toml"
+command = "hmp run step6_soil_reservoir.toml"
+redraw = "hmp viz show nancon_soil_reservoir_daily recession --opt show_run_name=false"
+pages = ["get-started/staircase/step6.md"]
+width = 1217
+height = 692
+bytes = 49072
+
+[[figure]]
+name = "seepage_map"
+path = "docs/source/_static/figures/staircase/step6/seepage_map.webp"
+kind = "staircase"
+theme = "light"
+step = 6
+key = false
+run = "nancon_soil_reservoir_daily"
+config = "step6_soil_reservoir.toml"
+command = "hmp run step6_soil_reservoir.toml"
+redraw = "hmp viz show nancon_soil_reservoir_daily seepage_map --time 2020-02-15 --opt show_run_name=false"
+pages = ["get-started/staircase/step6.md"]
+options = { time = "2020-02-15" }
+width = 850
+height = 944
+bytes = 28384
+
+[[figure]]
+name = "watershed_id_card"
+path = "docs/source/_static/figures/staircase/step6/watershed_id_card.webp"
+kind = "staircase"
+theme = "light"
+step = 6
+key = false
+run = "nancon_soil_reservoir_daily"
+config = "step6_soil_reservoir.toml"
+command = "hmp run step6_soil_reservoir.toml"
+redraw = "hmp viz show nancon_soil_reservoir_daily watershed_id_card --opt show_run_name=false"
+pages = ["get-started/staircase/step6.md"]
+width = 1742
+height = 1142
+bytes = 53302
+
+[[figure]]
+name = "watertable_depth_map"
+path = "docs/source/_static/figures/staircase/step6/watertable_depth_map.webp"
+kind = "staircase"
+theme = "light"
+step = 6
+key = false
+run = "nancon_soil_reservoir_daily"
+config = "step6_soil_reservoir.toml"
+command = "hmp run step6_soil_reservoir.toml"
+redraw = "hmp viz show nancon_soil_reservoir_daily watertable_depth_map --time 2019-09-15 --opt show_run_name=false"
+pages = ["get-started/staircase/step6.md"]
+options = { time = "2019-09-15" }
+width = 1066
+height = 842
+bytes = 86744
+
+[[figure]]
+name = "cross_section"
+path = "docs/source/_static/figures/guides/add-wells/cross_section.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_wells"
+config = "guide_wells.toml"
+command = "hmp run guide_wells.toml"
+redraw = "hmp viz show nancon_guide_wells cross_section --opt show_run_name=false"
+pages = ["guides/add-wells.md"]
+options = { orientation = "we", through = [391460.0, 6821060.0] }
+width = 1217
+height = 692
+bytes = 54648
+
+[[figure]]
+name = "watertable_depth_map"
+path = "docs/source/_static/figures/guides/add-wells/watertable_depth_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_wells"
+config = "guide_wells.toml"
+command = "hmp run guide_wells.toml"
+redraw = "hmp viz show nancon_guide_wells watertable_depth_map --opt show_run_name=false"
+pages = ["guides/add-wells.md"]
+options = { overlays = ["watershed", "wells", "outlet"] }
+width = 1066
+height = 842
+bytes = 89052
+
+[[figure]]
+name = "bisection_bracket_trace"
+path = "docs/source/_static/figures/guides/bisection_bracket_trace.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_steady_conductivity"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_steady_conductivity bisection_bracket_trace --opt show_run_name=false"
+pages = ["guides/calibrate-on-the-stream-network.md", "guides/calibrate.md"]
+width = 1217
+height = 737
+bytes = 21592
+
+[[figure]]
+name = "boundary_package_map"
+path = "docs/source/_static/figures/guides/boundary-and-initial-conditions/boundary_package_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_boundaries"
+config = "guide_boundaries.toml"
+command = "hmp run guide_boundaries.toml"
+redraw = "hmp viz show nancon_guide_boundaries boundary_package_map --opt show_run_name=false"
+pages = ["guides/boundary-and-initial-conditions.md"]
+width = 1465
+height = 1142
+bytes = 24792
+
+[[figure]]
+name = "calibration_progress"
+path = "docs/source/_static/figures/guides/calibration_progress.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage calibration_progress --opt show_run_name=false"
+pages = ["guides/calibrate.md"]
+width = 2417
+height = 1372
+bytes = 102630
+
+[[figure]]
+name = "mesh_map"
+path = "docs/source/_static/figures/guides/choose-and-build-the-mesh/mesh_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_mesh"
+config = "guide_mesh.toml"
+command = "hmp run guide_mesh.toml"
+redraw = "hmp viz show nancon_guide_mesh mesh_map --opt show_run_name=false"
+pages = ["guides/choose-and-build-the-mesh.md"]
+width = 1066
+height = 842
+bytes = 145648
+
+[[figure]]
+name = "cross_section"
+path = "docs/source/_static/figures/guides/depth-and-substratum/cross_section.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_depth"
+config = "guide_depth.toml"
+command = "hmp run guide_depth.toml"
+redraw = "hmp viz show nancon_guide_depth cross_section --opt show_run_name=false"
+pages = ["guides/depth-and-substratum.md"]
+options = { orientation = "sn" }
+width = 1217
+height = 692
+bytes = 65878
+
+[[figure]]
+name = "parameter_section"
+path = "docs/source/_static/figures/guides/depth-and-substratum/parameter_section.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_depth"
+config = "guide_depth.toml"
+command = "hmp run guide_depth.toml"
+redraw = "hmp viz show nancon_guide_depth parameter_section --opt show_run_name=false"
+pages = ["guides/depth-and-substratum.md"]
+options = { orientation = "sn" }
+width = 1667
+height = 692
+bytes = 27732
+
+[[figure]]
+name = "map_dem"
+path = "docs/source/_static/figures/guides/describe-a-catchment/map_dem-dark.webp"
+kind = "guide"
+theme = "dark"
+run = ""
+config = "overview.toml"
+command = "hmp run overview.toml (drawn with the dark matplotlib theme applied first)"
+redraw = "hmp run overview.toml"
+pages = ["guides/describe-a-catchment.md"]
+width = 1208
+height = 1228
+bytes = 123108
+
+[[figure]]
+name = "map_dem"
+path = "docs/source/_static/figures/guides/describe-a-catchment/map_dem.webp"
+kind = "guide"
+theme = "light"
+run = ""
+config = "overview.toml"
+command = "hmp run overview.toml"
+redraw = "hmp run overview.toml"
+pages = ["guides/describe-a-catchment.md"]
+width = 1208
+height = 1228
+bytes = 128962
+
+[[figure]]
+name = "map_hydrography"
+path = "docs/source/_static/figures/guides/describe-a-catchment/map_hydrography-dark.webp"
+kind = "guide"
+theme = "dark"
+run = ""
+config = "overview.toml"
+command = "hmp run overview.toml (drawn with the dark matplotlib theme applied first)"
+redraw = "hmp run overview.toml"
+pages = ["guides/describe-a-catchment.md"]
+width = 1216
+height = 1227
+bytes = 131494
+
+[[figure]]
+name = "map_hydrography"
+path = "docs/source/_static/figures/guides/describe-a-catchment/map_hydrography.webp"
+kind = "guide"
+theme = "light"
+run = ""
+config = "overview.toml"
+command = "hmp run overview.toml"
+redraw = "hmp run overview.toml"
+pages = ["guides/describe-a-catchment.md"]
+width = 1216
+height = 1227
+bytes = 137596
+
+[[figure]]
+name = "station_inventory"
+path = "docs/source/_static/figures/guides/describe-a-catchment/station_inventory-dark.webp"
+kind = "guide"
+theme = "dark"
+run = ""
+config = "overview.toml"
+command = "hmp run overview.toml (drawn with the dark matplotlib theme applied first)"
+redraw = "hmp run overview.toml"
+pages = ["guides/describe-a-catchment.md"]
+width = 1975
+height = 408
+bytes = 7272
+
+[[figure]]
+name = "station_inventory"
+path = "docs/source/_static/figures/guides/describe-a-catchment/station_inventory.webp"
+kind = "guide"
+theme = "light"
+run = ""
+config = "overview.toml"
+command = "hmp run overview.toml"
+redraw = "hmp run overview.toml"
+pages = ["guides/describe-a-catchment.md"]
+width = 1975
+height = 408
+bytes = 7378
+
+[[figure]]
+name = "stats_card"
+path = "docs/source/_static/figures/guides/describe-a-catchment/stats_card-dark.webp"
+kind = "guide"
+theme = "dark"
+run = ""
+config = "overview.toml"
+command = "hmp run overview.toml (drawn with the dark matplotlib theme applied first)"
+redraw = "hmp run overview.toml"
+pages = ["guides/describe-a-catchment.md"]
+width = 1223
+height = 804
+bytes = 17048
+
+[[figure]]
+name = "stats_card"
+path = "docs/source/_static/figures/guides/describe-a-catchment/stats_card.webp"
+kind = "guide"
+theme = "light"
+run = ""
+config = "overview.toml"
+command = "hmp run overview.toml"
+redraw = "hmp run overview.toml"
+pages = ["guides/describe-a-catchment.md"]
+width = 1223
+height = 804
+bytes = 17526
+
+[[figure]]
+name = "downslope_distance_crossing"
+path = "docs/source/_static/figures/guides/downslope_distance_crossing.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_steady_conductivity"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_steady_conductivity downslope_distance_crossing --opt show_run_name=false"
+pages = ["guides/calibrate-on-the-stream-network.md"]
+width = 1157
+height = 767
+bytes = 66572
+
+[[figure]]
+name = "downslope_distance_map"
+path = "docs/source/_static/figures/guides/downslope_distance_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage downslope_distance_map --time 2002-10-15 --opt show_run_name=false"
+pages = ["guides/calibrate-on-the-stream-network.md"]
+options = { time = "2002-10-15" }
+width = 1032
+height = 1004
+bytes = 29506
+
+[[figure]]
+name = "flux_timeseries"
+path = "docs/source/_static/figures/guides/flux_timeseries.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flux_timeseries --opt show_run_name=false"
+pages = ["guides/recharge.md"]
+width = 1292
+height = 692
+bytes = 13956
+
+[[figure]]
+name = "hydrograph"
+path = "docs/source/_static/figures/guides/hydrograph.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrograph --opt show_run_name=false"
+pages = ["guides/calibrate.md", "guides/drive-from-python.md", "guides/read-the-results.md", "guides/report-on-a-catchment.md"]
+width = 1217
+height = 692
+bytes = 21644
+
+[[figure]]
+name = "hydrograph_log_nse"
+path = "docs/source/_static/figures/guides/hydrograph_log_nse.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrograph_log_nse --opt show_run_name=false"
+pages = ["guides/drive-from-python.md"]
+options = { scoring_window = ["2001-01-01", "2002-12-31"] }
+width = 1337
+height = 767
+bytes = 35656
+
+[[figure]]
+name = "hydrograph_sim_obs"
+path = "docs/source/_static/figures/guides/hydrograph_sim_obs.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrograph_sim_obs --opt show_run_name=false"
+pages = ["guides/time-and-initial-state.md", "guides/use-your-own-files.md"]
+width = 1292
+height = 692
+bytes = 34420
+
+[[figure]]
+name = "hydrographic_network_permanence"
+path = "docs/source/_static/figures/guides/hydrographic_network_permanence.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_step3_api"
+config = "step3_api_data.toml"
+command = "hmp run step3_api_data.toml"
+redraw = "hmp viz show nancon_step3_api hydrographic_network_permanence --opt show_run_name=false"
+pages = ["guides/get-the-data.md", "guides/score-two-maps.md"]
+width = 1187
+height = 887
+bytes = 73212
+
+[[figure]]
+name = "hydrographic_network_reference"
+path = "docs/source/_static/figures/guides/hydrographic_network_reference.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrographic_network_reference --opt show_run_name=false"
+pages = ["guides/export-results.md", "guides/get-the-data.md", "guides/hand-off-to-gis.md", "guides/outside-france.md", "guides/report-on-a-catchment.md", "guides/use-your-own-files.md"]
+width = 1187
+height = 887
+bytes = 30746
+
+[[figure]]
+name = "parameter_map"
+path = "docs/source/_static/figures/guides/k-per-zone/parameter_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_k_zones"
+config = "guide_k_zones.toml"
+command = "hmp run guide_k_zones.toml"
+redraw = "hmp viz show nancon_guide_k_zones parameter_map --opt show_run_name=false"
+pages = ["guides/k-per-zone.md"]
+width = 1066
+height = 842
+bytes = 19896
+
+[[figure]]
+name = "mass_balance_error"
+path = "docs/source/_static/figures/guides/mass_balance_error.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage mass_balance_error --opt show_run_name=false"
+pages = ["guides/non-convergence.md"]
+width = 1142
+height = 617
+bytes = 12860
+
+[[figure]]
+name = "matching_hydrographic_network_card"
+path = "docs/source/_static/figures/guides/matching_hydrographic_network_card.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage matching_hydrographic_network_card --opt show_run_name=false"
+pages = ["guides/calibrate-on-the-stream-network.md"]
+width = 1742
+height = 1142
+bytes = 56562
+
+[[figure]]
+name = "observed_network_heads_map"
+path = "docs/source/_static/figures/guides/observed_network_heads_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage observed_network_heads_map --opt show_run_name=false"
+pages = ["guides/calibrate-on-the-stream-network.md"]
+width = 1203
+height = 1034
+bytes = 31690
+
+[[figure]]
+name = "outside_france_watertable_depth_map"
+path = "docs/source/_static/figures/guides/outside_france_watertable_depth_map-dark.webp"
+kind = "guide"
+theme = "dark"
+run = "ardennes_steady"
+config = "outside_france.toml"
+command = "hmp run outside_france.toml (docs/source/guides/recipes/outside_france.toml, with data/dem/dem_ardennes_25831.tif supplied by the user)"
+redraw = "python tools/docs/figures/render_platform_figures.py ardennes --abroad <workspace>/projects/ardennes"
+pages = ["guides/outside-france.md"]
+width = 1000
+height = 790
+bytes = 55816
+
+[[figure]]
+name = "outside_france_watertable_depth_map"
+path = "docs/source/_static/figures/guides/outside_france_watertable_depth_map.webp"
+kind = "guide"
+theme = "light"
+run = "ardennes_steady"
+config = "outside_france.toml"
+command = "hmp run outside_france.toml (docs/source/guides/recipes/outside_france.toml, with data/dem/dem_ardennes_25831.tif supplied by the user)"
+redraw = "python tools/docs/figures/render_platform_figures.py ardennes --abroad <workspace>/projects/ardennes"
+pages = ["guides/outside-france.md"]
+width = 1000
+height = 790
+bytes = 57990
+
+[[figure]]
+name = "parameter_cost_profile"
+path = "docs/source/_static/figures/guides/parameter_cost_profile.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage parameter_cost_profile --opt show_run_name=false"
+pages = ["guides/calibrate.md", "guides/calibration-recipes.md", "guides/calibration-uncertainty.md"]
+width = 1157
+height = 767
+bytes = 31470
+
+[[figure]]
+name = "parameter_map"
+path = "docs/source/_static/figures/guides/parameter_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage parameter_map --opt show_run_name=false"
+pages = ["guides/k-per-zone.md"]
+width = 1066
+height = 842
+bytes = 19268
+
+[[figure]]
+name = "parameter_section"
+path = "docs/source/_static/figures/guides/parameter_section.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage parameter_section --opt show_run_name=false"
+pages = ["guides/k-per-zone.md"]
+width = 2492
+height = 692
+bytes = 27500
+
+[[figure]]
+name = "piezometric_map"
+path = "docs/source/_static/figures/guides/piezometric_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage piezometric_map --time 2002-10-15 --opt show_run_name=false"
+pages = ["guides/report-on-a-catchment.md"]
+options = { time = "2002-10-15" }
+width = 1066
+height = 842
+bytes = 46056
+
+[[figure]]
+name = "conditioning_impact_map"
+path = "docs/source/_static/figures/guides/prepare-the-terrain/conditioning_impact_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_terrain"
+reference_run = "nancon_step1_minimal"
+config = "guide_terrain.toml"
+command = "hmp run guide_terrain.toml"
+redraw = "hmp viz show nancon_guide_terrain conditioning_impact_map --opt show_run_name=false"
+pages = ["guides/prepare-the-terrain.md"]
+width = 1141
+height = 917
+bytes = 21502
+
+[[figure]]
+name = "depression_map"
+path = "docs/source/_static/figures/guides/prepare-the-terrain/depression_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_terrain"
+config = "guide_terrain.toml"
+command = "hmp run guide_terrain.toml"
+redraw = "hmp viz show nancon_guide_terrain depression_map --opt show_run_name=false"
+pages = ["guides/prepare-the-terrain.md"]
+width = 1141
+height = 1004
+bytes = 37870
+
+[[figure]]
+name = "read_piezometers"
+path = "docs/source/_static/figures/guides/read_piezometers-dark.webp"
+kind = "guide"
+theme = "dark"
+run = "nancon_step4_transient"
+config = "step4_transient.toml"
+command = "python read_piezometers.py nancon_step4_transient (docs/source/guides/recipes/read_piezometers.py)"
+redraw = "python tools/docs/figures/render_platform_figures.py piezometers --project <workspace>/projects/04_streamflow_intermittence_in_transient"
+pages = ["guides/read-piezometers.md"]
+width = 1000
+height = 482
+bytes = 21194
+
+[[figure]]
+name = "read_piezometers"
+path = "docs/source/_static/figures/guides/read_piezometers.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_step4_transient"
+config = "step4_transient.toml"
+command = "python read_piezometers.py nancon_step4_transient (docs/source/guides/recipes/read_piezometers.py)"
+redraw = "python tools/docs/figures/render_platform_figures.py piezometers --project <workspace>/projects/04_streamflow_intermittence_in_transient"
+pages = ["guides/read-piezometers.md"]
+width = 1000
+height = 482
+bytes = 22030
+
+[[figure]]
+name = "hydrograph_sim_obs"
+path = "docs/source/_static/figures/guides/route-streams-with-sfr/hydrograph_sim_obs.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_sfr"
+config = "guide_sfr.toml"
+command = "hmp run guide_sfr.toml"
+redraw = "hmp viz show nancon_guide_sfr hydrograph_sim_obs --opt show_run_name=false"
+pages = ["guides/route-streams-with-sfr.md"]
+width = 1292
+height = 692
+bytes = 33814
+
+[[figure]]
+name = "sfr_reach_network"
+path = "docs/source/_static/figures/guides/route-streams-with-sfr/sfr_reach_network.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_sfr"
+config = "guide_sfr.toml"
+command = "hmp run guide_sfr.toml"
+redraw = "hmp viz show nancon_guide_sfr sfr_reach_network --opt show_run_name=false"
+pages = ["guides/route-streams-with-sfr.md"]
+width = 1067
+height = 992
+bytes = 24928
+
+[[figure]]
+name = "seepage_map"
+path = "docs/source/_static/figures/guides/seepage_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_map --time 2002-10-15 --opt show_run_name=false"
+pages = ["guides/drive-from-python.md", "guides/report-on-a-catchment.md"]
+options = { time = "2002-10-15" }
+width = 850
+height = 944
+bytes = 19798
+
+[[figure]]
+name = "seepage_network_confusion_map"
+path = "docs/source/_static/figures/guides/seepage_network_confusion_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_network_confusion_map --time 2002-10-15 --opt show_run_name=false"
+pages = ["guides/calibrate-on-the-stream-network.md"]
+options = { time = "2002-10-15" }
+width = 895
+height = 944
+bytes = 23908
+
+[[figure]]
+name = "seepage_network_reference_overlay"
+path = "docs/source/_static/figures/guides/seepage_network_reference_overlay.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage seepage_network_reference_overlay --time 2002-10-15 --opt show_run_name=false"
+pages = ["guides/calibrate-on-the-stream-network.md"]
+options = { time = "2002-10-15" }
+width = 794
+height = 974
+bytes = 64072
+
+[[figure]]
+name = "site_selection_map"
+path = "docs/source/_static/figures/guides/select-catchments/site_selection_map-dark.webp"
+kind = "guide"
+theme = "dark"
+run = ""
+config = "site_selection_area.toml"
+command = "hmp run site_selection_area.toml (drawn with the dark matplotlib theme applied first)"
+redraw = "hmp run site_selection_area.toml"
+pages = ["guides/select-catchments.md"]
+width = 1705
+height = 1352
+bytes = 120070
+
+[[figure]]
+name = "site_selection_map"
+path = "docs/source/_static/figures/guides/select-catchments/site_selection_map.webp"
+kind = "guide"
+theme = "light"
+run = ""
+config = "site_selection_area.toml"
+command = "hmp run site_selection_area.toml"
+redraw = "hmp run site_selection_area.toml"
+pages = ["guides/select-catchments.md"]
+width = 1705
+height = 1352
+bytes = 138612
+
+[[figure]]
+name = "simulated_active_network"
+path = "docs/source/_static/figures/guides/simulated_active_network.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_ex04_active_network"
+config = "project.toml"
+command = "hmp run project.toml --set simulation.name=nancon_ex04_active_network --set simulation.results.derived.accumulation_flux=true"
+redraw = "hmp viz show nancon_ex04_active_network simulated_active_network --time 2002-10-15 --opt show_run_name=false"
+pages = ["guides/export-results.md", "guides/hand-off-to-gis.md"]
+options = { time = "2002-10-15" }
+width = 854
+height = 944
+bytes = 26830
+
+[[figure]]
+name = "simulated_active_network_reference_overlay"
+path = "docs/source/_static/figures/guides/simulated_active_network_reference_overlay.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_ex04_active_network"
+config = "project.toml"
+command = "hmp run project.toml --set simulation.name=nancon_ex04_active_network --set simulation.results.derived.accumulation_flux=true"
+redraw = "hmp viz show nancon_ex04_active_network simulated_active_network_reference_overlay --time 2002-10-15 --opt show_run_name=false"
+pages = ["guides/report-on-a-catchment.md"]
+options = { time = "2002-10-15" }
+width = 1186
+height = 887
+bytes = 39636
+
+[[figure]]
+name = "sweep_k"
+path = "docs/source/_static/figures/guides/sweep_k-dark.webp"
+kind = "guide"
+theme = "dark"
+run = "sweep_k_1e-05 .. sweep_k_2e-04"
+config = "step4_transient.toml"
+command = "python sweep_k.py (docs/source/guides/recipes/sweep_k.py, from the folder of example 04)"
+redraw = "python tools/docs/figures/render_platform_figures.py sweep --project <workspace>/projects/04_streamflow_intermittence_in_transient"
+pages = ["guides/sweep-a-parameter.md"]
+width = 1200
+height = 466
+bytes = 30094
+
+[[figure]]
+name = "sweep_k"
+path = "docs/source/_static/figures/guides/sweep_k.webp"
+kind = "guide"
+theme = "light"
+run = "sweep_k_1e-05 .. sweep_k_2e-04"
+config = "step4_transient.toml"
+command = "python sweep_k.py (docs/source/guides/recipes/sweep_k.py, from the folder of example 04)"
+redraw = "python tools/docs/figures/render_platform_figures.py sweep --project <workspace>/projects/04_streamflow_intermittence_in_transient"
+pages = ["guides/sweep-a-parameter.md"]
+width = 1200
+height = 466
+bytes = 31488
+
+[[figure]]
+name = "particle_tracks"
+path = "docs/source/_static/figures/guides/track-particles/particle_tracks.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_particles"
+config = "guide_particles.toml"
+command = "hmp run guide_particles.toml"
+redraw = "hmp viz show nancon_guide_particles particle_tracks --opt show_run_name=false"
+pages = ["guides/track-particles.md"]
+options = { max_tracks = 300 }
+width = 1066
+height = 842
+bytes = 98238
+
+[[figure]]
+name = "residence_time_distribution"
+path = "docs/source/_static/figures/guides/track-particles/residence_time_distribution.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_particles"
+config = "guide_particles.toml"
+command = "hmp run guide_particles.toml"
+redraw = "hmp viz show nancon_guide_particles residence_time_distribution --opt show_run_name=false"
+pages = ["guides/track-particles.md"]
+width = 1067
+height = 767
+bytes = 31582
+
+[[figure]]
+name = "concentration_map"
+path = "docs/source/_static/figures/guides/transport-and-particles/concentration_map.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_guide_solute"
+config = "guide_solute.toml"
+command = "hmp run guide_solute.toml"
+redraw = "hmp viz show nancon_guide_solute concentration_map --time 2002-10-15 --opt show_run_name=false"
+pages = ["guides/transport-and-particles.md"]
+options = { time = "2002-10-15" }
+width = 1066
+height = 842
+bytes = 70570
+
+[[figure]]
+name = "water_budget"
+path = "docs/source/_static/figures/guides/water_budget.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage water_budget --opt show_run_name=false"
+pages = ["guides/report-on-a-catchment.md"]
+width = 1067
+height = 692
+bytes = 12862
+
+[[figure]]
+name = "watershed_id_card"
+path = "docs/source/_static/figures/guides/watershed_id_card.webp"
+kind = "guide"
+theme = "light"
+run = "nancon_intermittence_mf6_calibrated_transient_storage"
+config = "run_calibration.toml"
+command = "hmp run run_calibration.toml"
+redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage watershed_id_card --opt show_run_name=false"
+pages = ["guides/choose-a-solver.md", "guides/share-a-run.md", "guides/use-your-own-files.md"]
+width = 1742
+height = 1142
+bytes = 53248
+
+[[figure]]
+name = "conditioning_impact_map"
+path = "docs/source/_static/figures/catalog/conditioning_impact_map-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+reference_run = "demo_k3"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo conditioning_impact_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 258
+bytes = 10194
+
+[[figure]]
+name = "conditioning_impact_map"
+path = "docs/source/_static/figures/catalog/conditioning_impact_map.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+reference_run = "demo_k3"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo conditioning_impact_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 258
+bytes = 9064
+
+[[figure]]
+name = "cross_section"
+path = "docs/source/_static/figures/catalog/cross_section-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo cross_section --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 182
+bytes = 12600
+
+[[figure]]
+name = "cross_section"
+path = "docs/source/_static/figures/catalog/cross_section.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo cross_section --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 182
+bytes = 11736
+
+[[figure]]
+name = "depression_map"
+path = "docs/source/_static/figures/catalog/depression_map-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo depression_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 281
+bytes = 9982
+
+[[figure]]
+name = "depression_map"
+path = "docs/source/_static/figures/catalog/depression_map.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo depression_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 281
+bytes = 8058
+
+[[figure]]
+name = "difference_map"
+path = "docs/source/_static/figures/catalog/difference_map-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+reference_run = "demo_k3"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo difference_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 253
+bytes = 12962
+
+[[figure]]
+name = "difference_map"
+path = "docs/source/_static/figures/catalog/difference_map.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+reference_run = "demo_k3"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo difference_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 253
+bytes = 11666
+
+[[figure]]
+name = "flow_direction_map"
+path = "docs/source/_static/figures/catalog/flow_direction_map-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo flow_direction_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 257
+bytes = 37116
+
+[[figure]]
+name = "flow_direction_map"
+path = "docs/source/_static/figures/catalog/flow_direction_map.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo flow_direction_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 257
+bytes = 37080
+
+[[figure]]
+name = "flux_timeseries"
+path = "docs/source/_static/figures/catalog/flux_timeseries-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo flux_timeseries --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 171
+bytes = 5944
+
+[[figure]]
+name = "flux_timeseries"
+path = "docs/source/_static/figures/catalog/flux_timeseries.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo flux_timeseries --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 171
+bytes = 4738
+
+[[figure]]
+name = "mass_balance_error"
+path = "docs/source/_static/figures/catalog/mass_balance_error-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo mass_balance_error --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 173
+bytes = 10320
+
+[[figure]]
+name = "mass_balance_error"
+path = "docs/source/_static/figures/catalog/mass_balance_error.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo mass_balance_error --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 173
+bytes = 8974
+
+[[figure]]
+name = "mesh_map"
+path = "docs/source/_static/figures/catalog/mesh_map-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo mesh_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 253
+bytes = 17742
+
+[[figure]]
+name = "mesh_map"
+path = "docs/source/_static/figures/catalog/mesh_map.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo mesh_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 253
+bytes = 18702
+
+[[figure]]
+name = "piezometric_map"
+path = "docs/source/_static/figures/catalog/piezometric_map-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo piezometric_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 253
+bytes = 11536
+
+[[figure]]
+name = "piezometric_map"
+path = "docs/source/_static/figures/catalog/piezometric_map.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo piezometric_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 253
+bytes = 10372
+
+[[figure]]
+name = "seepage_map"
+path = "docs/source/_static/figures/catalog/seepage_map-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo seepage_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 375
+bytes = 8208
+
+[[figure]]
+name = "seepage_map"
+path = "docs/source/_static/figures/catalog/seepage_map.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo seepage_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 375
+bytes = 6766
+
+[[figure]]
+name = "side_by_side"
+path = "docs/source/_static/figures/catalog/side_by_side-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+reference_run = "demo_k3"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo side_by_side --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 147
+bytes = 13030
+
+[[figure]]
+name = "side_by_side"
+path = "docs/source/_static/figures/catalog/side_by_side.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+reference_run = "demo_k3"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo side_by_side --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 147
+bytes = 11810
+
+[[figure]]
+name = "water_budget"
+path = "docs/source/_static/figures/catalog/water_budget-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo water_budget --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 208
+bytes = 5916
+
+[[figure]]
+name = "water_budget"
+path = "docs/source/_static/figures/catalog/water_budget.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo water_budget --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 208
+bytes = 4792
+
+[[figure]]
+name = "watershed_id_card"
+path = "docs/source/_static/figures/catalog/watershed_id_card-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo watershed_id_card --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 210
+bytes = 8346
+
+[[figure]]
+name = "watershed_id_card"
+path = "docs/source/_static/figures/catalog/watershed_id_card.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo watershed_id_card --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 210
+bytes = 7702
+
+[[figure]]
+name = "watertable_depth_map"
+path = "docs/source/_static/figures/catalog/watertable_depth_map-dark.webp"
+kind = "catalog"
+theme = "dark"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml --set display.preset=dark"
+redraw = "hmp viz show demo watertable_depth_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 253
+bytes = 9544
+
+[[figure]]
+name = "watertable_depth_map"
+path = "docs/source/_static/figures/catalog/watertable_depth_map.webp"
+kind = "catalog"
+theme = "light"
+run = "demo"
+config = "run_demo.toml"
+command = "hmp run run_demo.toml"
+redraw = "hmp viz show demo watertable_depth_map --opt show_run_name=false"
+pages = ["reference/figures.md"]
+width = 320
+height = 253
+bytes = 8800

@@ -43,7 +43,7 @@ class DerivedConfig(HydroModelBase):
             "Off by default: recomputed on the fly from head at render time."
         ),
     )
-    release_flux: Annotated[bool, Profile.DEV] = Field(
+    release_flux: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
             "Make available the positive per-cell groundwater release flux (m3/s): "
@@ -52,9 +52,12 @@ class DerivedConfig(HydroModelBase):
             "turns on and keeps in the store; no array of its own is written."
         ),
     )
-    accumulation_flux: Annotated[bool, Profile.DEV] = Field(
+    accumulation_flux: Annotated[bool, Profile.USER] = Field(
         default=False,
-        description="Drain flux routed on the drainage network.",
+        description=(
+            "Make available the positive drain outflow of each cell, routed downstream "
+            "and accumulated along the drainage paths (m3/s). It needs the per-cell budget."
+        ),
     )
     release_accumulation_flux: Annotated[bool, Profile.DEV] = Field(
         default=False,
@@ -108,9 +111,13 @@ class ResultsConfig(HydroModelBase):
             "(DuckDB rows, Zarr fields, Parquet tables)."
         ),
     )
-    keep_solver_files: Annotated[bool, Profile.DEV] = Field(
+    keep_solver_files: Annotated[bool, Profile.USER] = Field(
         default=False,
-        description="Keep raw solver output files (.hds, .cbc, .lst) after ingestion.",
+        description=(
+            "Keep the raw solver files (.hds, .cbc, .lst) once their results are stored. "
+            "Off, they are deleted; turn it on to read the listing file of a run that "
+            "did not converge."
+        ),
     )
     derived: Annotated[DerivedConfig, Profile.USER] = Field(
         default_factory=DerivedConfig,

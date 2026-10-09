@@ -27,6 +27,11 @@ def load_custom_nc(
 
     ds = xr.open_dataset(path)
     data_var = _resolve_data_var(ds, variable)
+    # xarray moves _FillValue and missing_value from the attributes to the
+    # encoding when it masks them. Read them before any conversion drops it.
+    declared_nodata = _extract_nodata_from_attrs(ds[data_var].attrs)
+    if declared_nodata is None:
+        declared_nodata = _encoded_fill_value(ds[data_var].encoding)
 
     source_unit_resolved = _resolve_source_unit(
         explicit_source_unit=source_unit,
@@ -41,11 +46,14 @@ def load_custom_nc(
     )
 
     bbox, crs = _extract_bbox_and_crs(ds, data_var=data_var, fallback_crs=crs)
-    nodata_resolved = _extract_nodata_from_attrs(ds[data_var].attrs)
+    nodata_resolved = declared_nodata
     if nodata_resolved is None:
         nodata_resolved = nodata
     if nodata_resolved is None:
-        raise ValueError(f"Custom grid dataset {path} must declare nodata metadata.")
+        raise ValueError(
+            f"Custom grid dataset {path} must declare a nodata value: an attribute "
+            "'nodata', '_FillValue' or 'missing_value' on the variable."
+        )
     ds[data_var].attrs["nodata"] = nodata_resolved
 
     time_dim = _find_time_dim(ds)
@@ -229,6 +237,28 @@ def _extract_nodata_from_attrs(attrs: object) -> float | int | str | None:
         raw_value = attrs.get(key)
         if raw_value is not None and str(raw_value).strip():
             return raw_value
+    return None
+
+
+def _encoded_fill_value(encoding: object) -> float | int | None:
+    """The finite fill value the file declares, read from the encoding.
+
+    A NaN fill value is what a NetCDF writer adds to every float variable by
+    default. It says nothing a NaN cell does not already say, so it is not
+    taken as a declared nodata value.
+    """
+    if not isinstance(encoding, dict):
+        return None
+    for key in ("_FillValue", "missing_value"):
+        raw_value = encoding.get(key)
+        if raw_value is None:
+            continue
+        try:
+            number = float(raw_value)
+        except (TypeError, ValueError):
+            continue
+        if number == number:  # not NaN
+            return raw_value.item() if hasattr(raw_value, "item") else raw_value
     return None
 
 

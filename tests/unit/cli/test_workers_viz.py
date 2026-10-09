@@ -624,3 +624,53 @@ def test_viz_list_run_maps_an_unknown_run_to_not_found(monkeypatch) -> None:
 
     assert result.exit_code == 10
     assert "Reference 'nope' not found." in result.stderr
+
+
+class TestFigureOptionsFromTheCommandLine:
+    """``hmp viz show --opt NAME=VALUE`` gives a figure its options, typed."""
+
+    def test_values_take_the_type_of_the_option(self) -> None:
+        options = viz_worker.parse_figure_options(
+            "watertable_depth_map",
+            ["show_run_name=false", "title=Depth to water", "figsize=[6, 5]", "vmax=30"],
+        )
+        assert options == {
+            "show_run_name": False,
+            "title": "Depth to water",
+            "figsize": (6.0, 5.0),
+            "vmax": 30.0,
+        }
+
+    def test_an_empty_title_removes_it(self) -> None:
+        assert viz_worker.parse_figure_options("watertable_depth_map", ["title="]) == {"title": ""}
+
+    def test_a_quoted_text_is_read_as_text(self) -> None:
+        options = viz_worker.parse_figure_options("watertable_depth_map", ['title="true"'])
+        assert options == {"title": "true"}
+
+    @pytest.mark.parametrize(
+        ("item", "message"),
+        [
+            ("show_run_name=maybe", "valid boolean"),
+            ("colour=red", "has no option 'colour'; it takes:"),
+            ("title", "write NAME=VALUE"),
+            ("reference=other_run", "takes a Python object"),
+        ],
+    )
+    def test_a_wrong_item_is_refused_by_name(self, item: str, message: str) -> None:
+        figure = "difference_map" if item.startswith("reference") else "watertable_depth_map"
+        with pytest.raises(ValueError, match=message):
+            viz_worker.parse_figure_options(figure, [item])
+
+    def test_the_options_reach_the_figure(self, monkeypatch, tmp_path) -> None:
+        figure = _Figure()
+        drawn: dict = {}
+        _one_run_workspace(monkeypatch, tmp_path, figure)
+        monkeypatch.setattr(
+            "hydromodpy.display.runs.render_figure",
+            lambda name, sim, save=None, **opts: drawn.update(opts),
+        )
+
+        viz_worker.render_figure("abc", "head_map", options={"show_run_name": False})
+
+        assert drawn == {"show_run_name": False}

@@ -12,9 +12,15 @@ HELP: str = "Restore a cache archive into the workspace"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[verbosity_parser()],
+        epilog="Example:\n  hmp data restore data-cache.tar.gz",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("input", help="Archive produced by 'hmp data archive'")
-    parser.add_argument("--workspace", default=None)
+    parser.add_argument("--workspace", default=None, help="Workspace holding the data cache")
     parser.set_defaults(_handler=run)
     return parser
 

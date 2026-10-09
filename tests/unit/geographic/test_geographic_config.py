@@ -64,7 +64,7 @@ def test_geographic_config_synthetic_mode_accepts_missing_standard_fields():
 def test_geographic_config_standard_mode_requires_catch_def():
     with pytest.raises(
         ValueError,
-        match="geographic.catch_def is required when geographic.source_mode='standard'",
+        match="geographic.catchment.catch_def is required when",
     ):
         GeographicConfig.model_validate({"source_mode": "standard"})
 

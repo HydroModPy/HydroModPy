@@ -1,43 +1,36 @@
-Comparison Workflow Architecture
+Comparison workflow architecture
 ================================
 
-This page documents the contract of the ``[workflow].mode = "comparison"``
-layer. The goal is to compare several HydroModPy simulations without
-adding logic to the ``simulation`` workflow itself.
-
-For the user-facing entry point, see
-Comparison Workflow. For the operational walkthrough, see
-Simulation Comparison Workflow.
+This page documents the contract of ``[workflow].mode = "comparison"``. The goal is
+to compare several HydroModPy simulations without adding logic to the simulation
+workflow itself. For the task, see the guide :doc:`/guides/compare-runs`.
 
 Positioning
 -----------
 
-- The comparison workflow is an external layer.
-- Each candidate is still a real HydroModPy simulation launched through
-  ``hmp run``.
-- The comparison layer generates child TOML files, runs the simulations,
-  reads the persisted results, then produces audit, metrics, exports,
-  and figures.
-- The ``simulation`` core never shares an in-memory cache, a Python
-  mesh, or forcing objects with the comparison layer.
+- The comparison workflow is an external layer. The code is in
+  ``hydromodpy/analysis/comparison/``.
+- Each candidate is a real HydroModPy simulation, launched through ``hmp run`` in a
+  subprocess.
+- The layer generates child TOML files, runs the simulations, reads the persisted
+  results, then produces the audit, the metrics, the exports and the figures.
+- The ``simulation`` core never shares an in-memory cache, a Python mesh or a forcing
+  object with the comparison layer.
 
-This split accepts a recompute or reload cost in exchange for a clean
-boundary: simulations remain self-contained and the comparison stays
-post-hoc.
+This split accepts a recompute or reload cost in exchange for a clean boundary:
+simulations stay self-contained and the comparison stays post hoc.
 
 Input files
 -----------
 
-The recommended setup uses two TOML levels:
-
-- a comparison TOML, with ``[workflow].mode = "comparison"``;
-- a base simulation TOML, referenced by
-  ``[comparison].base_simulation_config``.
-
-The comparison TOML declares the simulations to compare:
+The usual setup has two TOML levels: a comparison file with
+``[workflow].mode = "comparison"``, and a base simulation file named by
+``base_simulation_config``. The comparison file declares what to compare:
 
 .. code-block:: toml
 
+   # not checked: check_page loads a block on top of a simulation file, and a
+   # comparison file is read by the comparison launcher, not as a simulation
    [workflow]
    mode = "comparison"
 
@@ -62,266 +55,127 @@ The comparison TOML declares the simulations to compare:
    time = "last"
    unit = "m"
 
-The layer then writes one child TOML per simulation under:
+The section is ``[comparison]``, at the root of the file. The launcher reads it from
+the raw TOML, with its ``base_config`` chain: ``dispatch.py`` requires
+``[comparison]`` with ``[[comparison.simulation]]``. The same model is also declared
+as the optional ``[analysis.comparison]`` block of ``HydroModPyConfig``. The model is
+``ComparisonSection`` in ``hydromodpy/analysis/comparison/experiment_config.py``, and
+its keys are in the generated :doc:`TOML reference </reference/parameters/index>`.
+
+The launcher writes one child TOML per simulation:
 
 .. code-block:: text
 
    <output_root>/_generated_configs/<simulation_id>.toml
 
-These child TOMLs are self-contained: relative paths from the base TOML
-are resolved before writing, so changing the output folder cannot shift
-the meaning of a path.
+A child is self-contained: relative paths of the base file are resolved before it is
+written, so a change of output folder cannot shift the meaning of a path.
 
 Allowed overlays
 ----------------
 
-V1 intentionally limits overlays so that the physics of the case
-cannot drift by accident. Allowed sections:
+The physics of the case must not drift by accident, so a child may overlay only some
+sections of the base file. The lists are in
+``hydromodpy/analysis/comparison/child_materialization.py``:
 
-- ``simulation``: name, run id, collision policy, processes;
-- ``solver``: generic solver parameters;
-- ``modflow6``: MODFLOW 6 options;
-- ``modflownwt``: MODFLOW-NWT options;
-- ``flow``: ``runtime_backend`` and ``param`` for parameter sweeps;
-- ``display``: graphical output.
+- top-level sections: ``simulation``, ``workspace``, ``solver``, ``mesh_catchment``,
+  ``mesh_input``, ``modflow6``, ``modflownwt``, ``display``, ``flow``, ``calibration``
+  and ``workflow``;
+- under ``simulation``: ``name``, ``tags``, ``description``, ``if_exists``,
+  ``process`` and ``results``;
+- under ``flow``: ``bc``, ``ic``, ``param``, ``runtime_backend`` and the Boussinesq
+  surface-interaction and variational-inequality options.
 
-Physical sections such as domain, recharge, hydraulic properties, and
-boundary conditions cannot change between simulations in V1. If the
-physics must change, write a different base simulation TOML or extend
-the contract explicitly.
+Two keys put the shared case in one place. ``comparison.base_simulation_overlay`` is
+applied to the base file for every child, and is the place for what must be identical
+(outlet, recharge forcing, mesh settings, data paths). ``overlay`` on a
+``[[comparison.simulation]]`` entry is merged after it, for what differs between
+children. A section that is not in the lists is refused.
 
-``flow.param`` is allowed for explicit sensitivity comparisons (for
-example a hydraulic-conductivity sweep). All other physical sections
-remain forbidden by default.
+Guard rails
+-----------
 
-V1 guard rails
---------------
+``ComparisonSection`` and ``SimulationComparisonConfig.from_toml`` refuse an ambiguous
+setup before any simulation starts:
 
-The comparison TOML loader rejects ambiguous setups before launching
-any simulation:
+- ``base_simulation_config`` must exist, and is required when a child is generated;
+- ``comparison.simulation`` ids are unique identifiers, and at least one is enabled;
+- ``reference_simulation``, when present, is an enabled simulation;
+- ``observable`` names are unique, and ``observable.simulations`` names only enabled
+  simulations;
+- ``comparison.execution.max_parallel_runs`` is 1: children run one after the other.
 
-- ``base_simulation_config`` must exist;
-- ``comparison_id`` must not contain a path separator;
-- each ``comparison.simulation.id`` must be unique and filename-safe;
-- at least one simulation must be enabled;
-- ``reference_simulation``, when present, must point to an enabled
-  simulation;
-- ``observable.simulations``, when present, can only reference enabled
-  simulations.
-
-These checks live entirely in the comparison layer. They add no
-constraint on the ``simulation`` workflow.
+These checks live in the comparison layer. They add no constraint on the simulation
+workflow.
 
 Execution cycle
 ---------------
 
-1. Load the comparison TOML.
-2. Load the base simulation TOML.
-3. Generate child TOMLs with the solver overlays.
-4. Run each child via the public entry point:
-
-.. code-block:: bash
-
-   python -m hydromodpy run <child.toml>
-
-5. Resolve the resulting ``sim_id`` and read the result catalog.
-6. Extract the declared observables.
-7. Compare the observables against the reference simulation.
-8. Write exports and figures.
-9. Audit the persisted metadata after the fact.
+1. Load the comparison TOML and the base simulation TOML.
+2. Generate the child TOMLs with their overlays.
+3. Run each child through ``hmp run <child.toml>`` (``comparison.execution.backend =
+   "subprocess_hmp_run"``).
+4. Resolve the resulting ``sim_id`` and read the catalog.
+5. Extract the declared observables.
+6. Compare them with the reference simulation.
+7. Write the exports and the figures.
+8. Audit the persisted metadata after the fact (``comparison.audit``).
 
 Outputs
 -------
 
-A comparison run produces, among others:
+A comparison writes, among others:
 
-- ``comparison_manifest.json``: full output index;
-- ``comparison_report.md``: readable report;
-- ``comparison_audit.json`` and ``comparison_audit.md``: consistency
-  check;
-- ``observables.csv``: extracted values;
-- ``comparison_metrics.csv``: bias, MAE, RMSE, max error;
-- ``comparison_differences.csv``: element-wise differences;
-- ``hydrographic_network_metrics.csv``: geometric ``reference`` vs
-  ``generated`` comparison when both canonical hydrographic networks
-  are persisted;
-- ``hydrographic_network_metrics_skipped.json``: diagnostic for
-  simulations skipped because a required hydrographic role is missing;
-- ``simulated_active_network_metrics.csv``: occupancy metrics of the
-  simulated active network, computed from ``accumulation_flux`` when
-  the field exists;
-- ``simulated_active_network_metrics_skipped.json``: diagnostic for
-  simulations skipped because the simulated field is missing;
-- ``simulated_active_network_overlap_metrics.csv``: cell-by-cell
-  comparison between the simulated active network and the vector
-  ``reference`` role when both supports exist;
-- ``simulated_active_network_overlap_metrics_skipped.json``:
-  diagnostic for that observation-vs-simulation comparison;
-- ``simulated_active_network_distance_metrics.csv``: planar
-  bidirectional distances between simulated active cell centroids and
-  the ``reference`` vector role;
-- ``simulated_active_network_distance_metrics_skipped.json``:
-  diagnostic for that distance comparison;
-- ``comparison_figures/case_configuration.png``: orientation figure for
-  the compared case, with spatial support, detected boundary
-  conditions, observable points, and the recharge chronicle when
-  available;
-- ``comparison_figures/*.png``: maps, differences, triptychs, budgets,
-  computation time.
+- ``comparison_manifest.json``, the index of the outputs, and ``comparison_report.md``;
+- ``comparison_audit.json`` and ``comparison_audit.md``, the consistency check;
+- ``observables.csv``, ``comparison_metrics.csv`` (bias, MAE, RMSE, maximum error) and
+  ``comparison_differences.csv``;
+- ``hydrographic_network_metrics.csv``, the length-based comparison of the ``reference``
+  and ``generated`` networks (coverage, precision, F1, Hausdorff distance, with a
+  default tolerance), written when both are persisted;
+- ``simulated_active_network_metrics.csv``, ``..._overlap_metrics.csv`` and
+  ``..._distance_metrics.csv``, the occupancy, overlap and distance of the simulated
+  active network (:doc:`../spatial_support/hydrographic-network-simulated-active-inventory`);
+- for each of these, a ``..._skipped.json`` that says why a simulation was left out,
+  such as a missing network role or a missing ``accumulation_flux`` field;
+- ``comparison_figures/``: ``case_configuration.png`` (the case under test, with the
+  support, the boundary conditions, the observation points and the recharge chronicle),
+  then maps, differences, triptychs, budgets and computation time.
 
-Default ``hydrographic_network_metrics.csv`` uses a 50 m tolerance and
-exports:
+Read ``case_configuration.png`` first, then the ``*triptych*.png`` figures: reference
+field, candidate field, candidate minus reference.
 
-- total reference and candidate lengths;
-- missing and extra lengths;
-- coverage / precision / F1 ratios on length;
-- Hausdorff distance.
-
-Canonical names used by the code:
-
-- ``hydrographic_network_reference`` for the network loaded from
-  ``data.hydrography``;
-- ``hydrographic_network_generated`` for the network derived from the
-  DEM through ``geographic.river_network``.
-
-The feature-store contract uses those canonical names only. Historical
-filenames may still exist on disk, but they are not feature aliases:
-
-- ``river_network.shp`` for the generated network vector file;
-- ``river_network_summary.json`` for generated-network metrics;
-- ``streams.shp`` for the reference vector filename emitted by the
-  manager;
-- ``hydrography_streams`` for the reference forcing-raster name.
-
-If a run only exposes one of the two canonical networks:
-
-- ``hydrographic_network_metrics.csv`` is not produced for that run;
-- hydrographic comparison figures should not be requested;
-- the ``Run`` API exposes ``available_hydrographic_network_roles()``
-  and ``has_hydrographic_network(...)`` to detect the case.
-
-The canonical role ``simulated_active`` is not yet persisted as a
-vector feature. The ``Run`` API does expose
-``cell_field_active_mask()``,
-``cell_field_active_metrics()``,
-``cell_field_network_overlap_metrics()`` (cell-by-cell against
-``reference``), and ``cell_field_network_distance_metrics()``.
-The primary target is ``reference``, because the comparison is between
-simulation and observation. ``generated`` remains useful as a
-secondary diagnostic against the DEM-derived network, but it is not an
-observation. When the run carries a usable mesh, the
-``simulated_active_network`` figure renders that view, and
-``simulated_active_network_reference_overlay`` overlays it with the
-observed ``reference`` network.
-
-Terminology to respect for these views:
-
-- without an explicit ``mode``, ``flow_regime = "steady"`` uses the
-  steady-state active field, while ``flow_regime = "transient"`` uses
-  ``persistent`` for compatibility;
-- ``persistent`` means active during at least a declared fraction of
-  transient timesteps;
-- ``always_active`` means active at every timestep of the analysed
-  transient window;
-- ``steady`` is the concept to use for a permanent reference state in
-  the solver sense;
-- ``perennial`` remains a legacy alias of ``always_active`` in the
-  computed API;
-- a simulated steady network should ideally come from a representative
-  ``flow_regime = "steady"`` run, then be compared to ``reference``;
-- the contract leaves room for several named simulated networks
-  (``steady``, ``transient_persistent_50``, ``event_snapshot``).
-
-Read ``case_configuration.png`` first to understand the case under
-test, then the ``*triptych*.png`` figures to validate the fields:
-reference field, candidate field, then candidate-minus-reference
-difference.
+The canonical names of the hydrographic networks, and the historical file names that
+are not aliases, are in :doc:`../mental-model`. If a run holds only one of the two
+networks, ``hydrographic_network_metrics.csv`` is not written for it, and the ``Run``
+methods ``available_hydrographic_network_roles()`` and ``has_hydrographic_network()``
+tell which one is missing.
 
 Disk cleanup
 ------------
 
-Child simulations persist their own outputs like any HydroModPy run.
-The comparison layer can only clean up the generated TOMLs:
+Child simulations persist their own outputs like any run, and the comparison layer
+never deletes them. It can drop only the generated TOMLs:
 
 .. code-block:: toml
 
+   # not checked: comparison files are read by the comparison launcher
    [comparison.execution]
    keep_generated_configs = false
 
-By default they are kept to ease debugging and reproducibility. Heavy
-results stay in the simulations' own run folders; the comparison layer
-must not delete simulation outputs.
+They are kept by default, to ease debugging and reproduction.
 
-Available examples
-------------------
+Limits
+------
 
-The folder ``examples/projects/09_comparison_workflow/`` provides:
+- Children run one at a time.
+- The audit reads persisted metadata, not shared in-memory objects.
+- Comparisons across different meshes go through observables and fine rasters
+  (``comparison.fine_raster``), not a general cell-to-cell mapping.
 
-- ``compare_dupuit_mf6_bouss.toml``: synthetic case, MODFLOW 6 vs
-  Boussinesq, shared triangular mesh;
-- ``compare_vire_natural_mf6_nwt.toml``: natural Vire basin, MODFLOW 6
-  vs MODFLOW-NWT, structured 40 x 40 grid;
-- ``compare_10km2_natural_mesh_mf6_bouss.toml``: pre-computed natural
-  10 km2 mesh, simplified steady physics, MODFLOW 6 vs Boussinesq on
-  the same triangular mesh;
-- ``compare_10km2_natural_mesh_recharge_mf6_bouss.toml``: same natural
-  10 km2 mesh with uniform low synthetic recharge;
-- ``compare_10km2_natural_mesh_transient_pulse_mf6_bouss.toml``: same
-  natural 10 km2 mesh, daily impulse recharge with Sy/Ss storage;
-- ``compare_nancon_transient_seasonal_mf6_bouss.toml``: Nancon basin,
-  support regenerated from the same base TOML, weekly synthetic
-  recharge with seasonality and wet/dry episodes.
+Where to look
+-------------
 
-Run them through the helper script:
-
-.. code-block:: bash
-
-   python examples/projects/09_comparison_workflow/run_comparison_example.py --case synthetic --show
-   python examples/projects/09_comparison_workflow/run_comparison_example.py --case all --show
-
-Current limitations
--------------------
-
-- Sequential execution only: ``max_parallel_runs = 1``.
-- Strict audit based on persisted metadata, not on shared in-memory
-  objects.
-- Comparisons across different meshes go through observables and fine
-  rasters, not a general cell-to-cell mapping.
-- The reduced natural Boussinesq case keeps a natural mesh but uses an
-  analytical topography and lateral fixed heads. The recharge case
-  adds a synthetic diffuse forcing but not yet a complete basin
-  physics with drainage and hydrographic network. The transient case
-  adds Sy/Ss and a recharge pulse but stays short and controlled.
-- ``nancon-seasonal`` raises the difficulty: natural basin topography,
-  surface drainage, support regenerated per run, and non-trivial
-  transient recharge. It serves as a robustness test rather than an
-  analytical benchmark.
-
-Next development direction
---------------------------
-
-The natural reduced MODFLOW 6 vs Boussinesq case can be extended
-toward basin-scale physics:
-
-- compare boundary fluxes and budgets explicitly when both solvers
-  expose them in compatible form;
-- add a multi-month or multi-year seasonal simulation on the same
-  mesh;
-- test a full natural basin case with drainage and hydrographic
-  network;
-- document convergence criteria and expected differences per case
-  family.
-
-This work should stay in
-``examples/projects/09_comparison_workflow/`` or
-``validation_cases/`` and must not modify ``simulation``.
-
-See also
---------
-
-- Comparison Workflow for the user-facing hub.
-- Simulation Comparison Workflow for the
-  operational walkthrough.
-- Comparison Output Reading Order for
-  the output reading order.
-- :doc:`index` for the simulation architecture root.
+``examples/projects/09_comparison_workflow/`` holds working comparison files and a
+helper script, ``run_comparison_example.py``. The folder is not one of the maintained
+examples: use it to read a complete file, and expect to adapt it.

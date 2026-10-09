@@ -105,7 +105,7 @@ def test_a_refused_snap_names_the_configuration_keys_to_change(
     monkeypatch.setattr(backend.raster, "read_raster", lambda path: object())
     monkeypatch.setattr(backend.raster, "vector_record_count", lambda vector: 0)
 
-    with pytest.raises(TerrainProductError, match="geographic.snap_dist"):
+    with pytest.raises(TerrainProductError, match="geographic.catchment.snap_dist"):
         extract_catchment_from_point(
             x_outlet=10.0,
             y_outlet=20.0,

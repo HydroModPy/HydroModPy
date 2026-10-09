@@ -33,7 +33,6 @@ def make_config(tmp_path: Path) -> SiteSelectionConfig:
                 "principle": "observation_led",
                 "profile": "gauged_downstream_station",
                 "primary_observation_type": "flow_station",
-                "candidate_mode": "station_outlets",
             },
             "territory": {
                 "mode": "admin_regions",

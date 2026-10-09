@@ -80,6 +80,4 @@ def test_data_overview_example_declares_overview_workflow_and_report_section() -
     assert cfg.overview is not None
     assert cfg.overview.date_start == "2019-01-01"
     assert cfg.overview.date_end == "2025-12-31"
-    assert cfg.overview.panels.map_dem is True
-    assert cfg.overview.panels.timeseries_piezometry is False
-    assert cfg.overview.panels.climatic_summary is False
+    assert all(cfg.overview.panels.model_dump().values())

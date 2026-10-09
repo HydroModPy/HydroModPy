@@ -48,6 +48,8 @@ __all__ = [
     "axes_element_count",
     "get_cmap",
     "get_theme",
+    "is_dark",
+    "neutral",
     "place_legend",
 ]
 
@@ -163,9 +165,57 @@ def apply_theme(name: str) -> Theme:
             "text.color": theme.foreground,
             "xtick.color": theme.foreground,
             "ytick.color": theme.foreground,
+            # A legend frame keeps its distance from the background in both themes.
+            "legend.edgecolor": neutral(
+                "#cccccc", background=theme.background, foreground=theme.foreground
+            ),
         }
     )
     return theme
+
+
+def _rgb(color: Any) -> tuple[float, float, float]:
+    from matplotlib.colors import to_rgb
+
+    return to_rgb(color)
+
+
+def is_dark(background: Any = None) -> bool:
+    """Whether the figures are drawn on a dark background (the ``dark`` preset).
+
+    Read from ``axes.facecolor`` unless ``background`` is given.
+    """
+    if background is None:
+        import matplotlib as mpl
+
+        background = mpl.rcParams["axes.facecolor"]
+    red, green, blue = _rgb(background)
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue < 0.5
+
+
+def neutral(color: Any, *, background: Any = None, foreground: Any = None) -> str:
+    """Return a grey that keeps its distance from the background in the current theme.
+
+    The light greys of the figures (a cell with nothing to show, a table
+    column, a frame) are written for a white page. On a dark page the same
+    grey would be the brightest thing drawn. Here a grey is read as a
+    distance from white and laid at that distance from the dark background,
+    toward the foreground. A colour that is not a grey, and any colour on a
+    light background, comes back unchanged.
+    """
+    import matplotlib as mpl
+    from matplotlib.colors import to_hex
+
+    background = mpl.rcParams["axes.facecolor"] if background is None else background
+    foreground = mpl.rcParams["text.color"] if foreground is None else foreground
+    if not is_dark(background):
+        return to_hex(color)
+    red, green, blue = _rgb(color)
+    if max(red, green, blue) - min(red, green, blue) > 0.02:
+        return to_hex((red, green, blue))
+    back, fore = _rgb(background), _rgb(foreground)
+    distance = 1.0 - (red + green + blue) / 3.0
+    return to_hex(tuple(b + distance * (f - b) for b, f in zip(back, fore, strict=True)))
 
 
 # -- colormaps -----------------------------------------------------------------

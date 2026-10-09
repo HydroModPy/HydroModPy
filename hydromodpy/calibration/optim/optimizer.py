@@ -146,6 +146,13 @@ class EngineTraits:
     ``relative_value`` is already a relative width on the parameter's own value,
     so the number passes through."""
 
+    reads_cost_as: str | None = None
+    """The metric the engine assumes its cost is, when it builds on the number.
+
+    ``None`` for an engine that only compares costs. The sampler that turns the
+    cost into a likelihood declares the metric that likelihood is written for,
+    and a search scored on another one is warned before it runs."""
+
 
 DEFAULT_ENGINE_TRAITS = EngineTraits()
 

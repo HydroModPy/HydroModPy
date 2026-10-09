@@ -37,8 +37,6 @@ def evaluate_flow_station_criterion(
 
     detail = config.flow_station
     mode = detail.mode
-    if mode == "report_only" and config.flow_station_mode != "report_only":
-        mode = config.flow_station_mode
     record_years = _first_number(
         attributes,
         "record_years",
@@ -61,9 +59,7 @@ def evaluate_flow_station_criterion(
         "flow_station_inside_or_at_outlet",
         "station_inside_basin",
     )
-    max_distance_km = (
-        detail.max_station_to_outlet_distance_km or config.flow_station_max_distance_km
-    )
+    max_distance_km = detail.max_station_to_outlet_distance_km
     station_id = _first_text(
         attributes,
         "flow_station_id",

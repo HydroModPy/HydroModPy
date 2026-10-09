@@ -1,4 +1,7 @@
-"""Validate the lumped-reservoir calibration demo (one + two reservoirs)."""
+"""Calibration of one and two lumped reservoirs.
+
+Compared with: the reservoir parameters that generated the synthetic outflow record.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +10,7 @@ import math
 import pytest
 
 from tests._helpers.tolerances import tol
+from tests.validation.helpers import assert_metric_below
 from validation_cases.calibration.reservoir.experiment import (
     ONE_RESERVOIR_CASE,
     TWO_RESERVOIR_CASE,
@@ -37,8 +41,12 @@ def test_one_reservoir_nelder_mead_recovers_truth() -> None:
     truth = ONE_RESERVOIR_CASE.truth
     drift_tol = tol("reservoir_calibration_validation__recovered_log10_k_and_n_drift_from_truth")
     assert math.isfinite(session.best.objective_value)
-    assert abs(math.log10(best["k"]) - math.log10(truth["k"])) < drift_tol, best
-    assert abs(best["n"] - truth["n"]) < drift_tol, best
+    assert_metric_below(
+        "Distance of log10 k to the truth",
+        abs(math.log10(best["k"]) - math.log10(truth["k"])),
+        drift_tol,
+    )
+    assert_metric_below("Distance of n to the truth", abs(best["n"] - truth["n"]), drift_tol)
 
 
 @pytest.mark.validation
@@ -54,5 +62,13 @@ def test_two_reservoir_de_recovers_truth() -> None:
     best = _best_values(session)
     truth = TWO_RESERVOIR_CASE.truth
     assert math.isfinite(session.best.objective_value)
-    assert abs(math.log10(best["k1"]) - math.log10(truth["k1"])) < 0.5, best
-    assert abs(math.log10(best["k2"]) - math.log10(truth["k2"])) < 0.5, best
+    assert_metric_below(
+        "Distance of log10 k1 to the truth",
+        abs(math.log10(best["k1"]) - math.log10(truth["k1"])),
+        0.5,
+    )
+    assert_metric_below(
+        "Distance of log10 k2 to the truth",
+        abs(math.log10(best["k2"]) - math.log10(truth["k2"])),
+        0.5,
+    )

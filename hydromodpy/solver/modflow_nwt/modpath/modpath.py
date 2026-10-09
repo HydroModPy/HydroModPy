@@ -18,6 +18,7 @@ from contextlib import redirect_stdout
 
 import flopy
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
 from hydromodpy.solver.modflow_common import ensure_solver_binary
@@ -117,6 +118,13 @@ class Modpath:
         )
 
         self.track_dir = _pick("track_dir", track_dir, "forward")
+        if self.track_dir not in ("forward", "backward"):
+            # The starting locations are populated for these two only.
+            raise ConfigError(
+                f"MODPATH track_dir = {self.track_dir!r} gives no starting location, so "
+                "no particle would be released. Write 'forward' or 'backward', and mark "
+                "the release cells with zone_partic."
+            )
         self.bore_depth = _pick("bore_depth", bore_depth, None)
         self.cell_div = _pick("cell_div", cell_div, 1)
         self.zloc_div = _pick("zloc_div", zloc_div, False)

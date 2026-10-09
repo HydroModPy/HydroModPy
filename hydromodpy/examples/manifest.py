@@ -68,14 +68,23 @@ class ExampleEntry:
     """One catalogued example: what it is, and every file it needs."""
 
     id: str
+    """Short id of the example, the one ``hmp example add`` takes (``"04"``)."""
     directory: str
+    """Folder name of the example under ``<workspace>/projects/``."""
     title: str
+    """One-line title."""
     summary: str
+    """What the example models and shows, in a few sentences."""
     runtime: str
+    """How long its runs take, as text."""
     entry_config: str
+    """The TOML file to run first, relative to the project folder."""
     files: tuple[ExampleFile, ...]
+    """Authored files: the TOML configurations, scripts and README."""
     data: tuple[ExampleFile, ...]
+    """Input data files, installed under ``<workspace>/data/<variable>/``."""
     stations: tuple[ExampleStation, ...] = ()
+    """Rows the example adds to the station registries of the workspace."""
 
     @property
     def payload(self) -> tuple[ExampleFile, ...]:

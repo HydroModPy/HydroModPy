@@ -1,0 +1,38 @@
+# Guide "Route streams with SFR": the stream network of the DEM as MODFLOW 6
+# SFR reaches on step 4, with the drains of the hillslopes routed to them.
+# Save this file in the folder of example 04.
+#
+#   hmp run guide_sfr.toml
+
+base_config = "step4_transient.toml"
+
+[simulation]
+name = "nancon_guide_sfr"
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 0.5
+
+[flow]
+active_bc = ["drainage", "sfr"]
+
+# The streambed values complete the file; they belong to your site.
+[flow.sinks_sources.sfr.main]
+streambed_k = 1e-5
+streambed_k_unit = "m/s"
+streambed_thickness = "1 m"
+manning = 0.035
+route_drainage = true
+
+[flow.sinks_sources.sfr.main.width]
+kind = "constant"
+value = "2 m"
+
+[display]
+figures__append = ["sfr_reach_network", "sfr_reach_timeseries", "sfr_longitudinal_profile"]
+
+# A file of its own: step 4 already writes the discharge to the default CSV.
+[[export__append]]
+variables = ["downstream_flow", "gw_exchange"]
+file = "sfr_reaches.csv"

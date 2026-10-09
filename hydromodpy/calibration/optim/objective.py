@@ -18,6 +18,7 @@ from hydromodpy.calibration.criteria.series import (
     HIGHER_IS_BETTER,
     LOG_METRICS,
     METRICS,
+    SAMPLED_BY_DATE,
 )
 
 
@@ -553,7 +554,25 @@ class ConfigBlockObjective:
     def uses_outputs(self) -> tuple[str, ...]:
         return self._outputs
 
+    def _sample_days(self, sim: object) -> float | None:
+        """Sampling step of this block's outputs, in days, when the trial dated them.
+
+        Read from ``metadata["sample_days"]`` of a :class:`SimulationOutput`, one
+        step per output. The median of the block's outputs answers; ``None``
+        when no output of the block is dated.
+        """
+        metadata = getattr(sim, "metadata", None)
+        if not isinstance(metadata, Mapping):
+            return None
+        steps = metadata.get("sample_days")
+        if not isinstance(steps, Mapping):
+            return None
+        found = [float(steps[name]) for name in self._outputs if name in steps]
+        found = [step for step in found if np.isfinite(step) and step > 0.0]
+        return float(np.median(found)) if found else None
+
     def evaluate(self, sim: SimulationOutput | Mapping[str, Iterable[float]]) -> ObjectiveValue:
+        sample_days = self._sample_days(sim)
         if hasattr(sim, "values") and not isinstance(sim, Mapping):
             sim_values = sim.values
         else:
@@ -610,7 +629,10 @@ class ConfigBlockObjective:
                         f"{scored_part.size} does not match observed length "
                         f"{observed_part.size}{burn_in}"
                     )
-            scored = self._criterion.score(simulated, observed)
+            if self._metric in SAMPLED_BY_DATE:
+                scored = self._criterion.score(simulated, observed, sample_days=sample_days)
+            else:
+                scored = self._criterion.score(simulated, observed)
         cost = scored.cost
         n_clipped = int(scored.diagnostics.get("n_clipped", 0))
         if not np.isfinite(cost):

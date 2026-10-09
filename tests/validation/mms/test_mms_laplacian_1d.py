@@ -1,5 +1,7 @@
 """MMS benchmark: 1D Laplacian steady-state with manufactured ``sin(pi x)`` solution.
 
+Compared with: the manufactured solution `u(x) = sin(pi x)` and the expected convergence order 2 of the centred stencil.
+
 Manufactured solution on ``[0, 1]`` with Dirichlet 0/0 boundaries::
 
     u_exact(x) = sin(pi x)
@@ -35,7 +37,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from .conftest import l2_error, run_mms_convergence
+from .conftest import assert_order, l2_error, run_mms_convergence
 
 
 def _exact_solution(x: np.ndarray) -> np.ndarray:
@@ -89,7 +91,4 @@ def test_mms_laplacian_1d_converges_at_order_two() -> None:
     )
 
     # The empirical order must lie within the theoretical bracket [1.8, 2.2].
-    assert abs(result.order - 2.0) < 0.2, (
-        f"Expected second-order convergence, observed slope {result.order:.3f} "
-        f"(errors={errors.tolist()})"
-    )
+    assert_order(result, 2.0, 0.2, "grid spacing h")

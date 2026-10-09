@@ -121,10 +121,12 @@ def test_the_schema_carries_the_new_names_as_user_keys_and_not_the_old_ones() ->
     assert phase["method_options"]["x-hmp-profile"] == "user"
     assert protocol["steady_method_options"]["x-hmp-profile"] == "user"
     assert protocol["transient_method_options"]["x-hmp-profile"] == "user"
-    text = str(schema)
-    assert "optimizer_kwargs" not in text
-    assert "engine_options" not in text
-    assert "model_legacy_keys" not in text
+    for properties in (schema["properties"], phase, protocol):
+        assert not [key for key in properties if "optimizer_kwargs" in key]
+        assert not [key for key in properties if "engine_options" in key]
+    assert "model_legacy_keys" not in str(schema)
+    # The old names survive only as the renames the reference lists.
+    assert phase["method_options"]["renamed_from"] == ["calibration.phases.optimizer_kwargs"]
 
 
 def test_a_dump_writes_the_new_name_only() -> None:

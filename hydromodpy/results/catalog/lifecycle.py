@@ -334,6 +334,16 @@ class LifecycleMixin:
                 logger.warning("Could not close SimulationZarr handle", exc_info=True)
 
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
+        """Open the field store (``fields.zarr``) of a run.
+
+        An empty store is created when the run has none yet. The catalog
+        tracks the handle and closes it in :meth:`close`.
+
+        Returns
+        -------
+        SimulationZarr
+            The store holding the fields of the run, one array per variable.
+        """
         fields = self._paths.fields_path_for(sim_id)
         if not fields.exists():
             fields.parent.mkdir(parents=True, exist_ok=True)
@@ -415,6 +425,30 @@ class LifecycleMixin:
         status: str | None = None,
         older_than: str | None = None,
     ) -> int:
+        """Delete for good every run that matches, with its files.
+
+        Each run goes through :meth:`delete`: its row, its tables and its
+        ``runs/<name>`` folder are removed. Nothing goes to the trash, so
+        prefer ``trash`` for a run that may be needed again.
+
+        Parameters
+        ----------
+        status
+            Keep only the runs with this status, for example ``"failed"``.
+        older_than
+            Keep only the runs created before this date (``"2026-01-01"``).
+
+        Returns
+        -------
+        int
+            The number of runs deleted. With no argument, every run of the
+            catalog is deleted.
+
+        Examples
+        --------
+        >>> cat = hmp.open("~/ws/projects/my_project", read_only=False)  # doctest: +SKIP
+        >>> cat.cleanup(status="failed")  # doctest: +SKIP
+        """
         query = (
             "SELECT s.sim_id FROM simulations s JOIN statuses st ON s.status_id = st.id WHERE 1=1"
         )
@@ -881,13 +915,18 @@ class LifecycleMixin:
     def restore(self, sim_id: str | UUID) -> str:
         """Restore a trashed simulation, returning its (possibly versioned) name.
 
-        If the original name was taken since, the stem is version-bumped so the
-        restore never collides. The pre-trash status is restored from
+        The run gets its original name back when no other run holds that name
+        or its directory. If the name was taken since, the stem is
+        version-bumped so the restore never collides. The pre-trash status is restored from
         ``original_status_id`` (a ``failed`` or ``partial`` run comes back as
         such), falling back to inferring from ``ended_at`` for rows trashed
         before that column existed.
         """
-        from hydromodpy.results.catalog.registration import _resolve_registration_name
+        from hydromodpy.results.catalog.registration import (
+            _resolve_registration_name,
+            occupied_dirnames,
+            split_stem_version,
+        )
         from hydromodpy.results.catalog.storage_paths import run_dirname
         from hydromodpy.results.trash_marker import clear_trash_marker
 
@@ -908,10 +947,21 @@ class LifecycleMixin:
             restored_status = str(original_status_code)
         else:
             restored_status = "completed" if ended_at is not None else "failed"
+        requested = original_name or sid[:8]
         with self._backend.transaction():
-            final_name, name_stem, version_int, _ = _resolve_registration_name(
-                self._backend, project, original_name or sid[:8], "version", exclude_sid=sid
+            name_holder = self._backend.fetch_one(
+                "SELECT 1 FROM simulations WHERE project = ? AND name = ? AND sim_id <> ?",
+                [project, requested, sid],
             )
+            if name_holder is None and run_dirname(requested) not in occupied_dirnames(
+                self._backend, sid
+            ):
+                stem, requested_version = split_stem_version(requested)
+                final_name, name_stem, version_int = requested, stem, requested_version or 1
+            else:
+                final_name, name_stem, version_int, _ = _resolve_registration_name(
+                    self._backend, project, requested, "version", exclude_sid=sid
+                )
             dirname = run_dirname(final_name)
             self._paths.move(sid, dirname)
             self._backend.execute(
@@ -1103,9 +1153,38 @@ class LifecycleMixin:
             self._backend.execute("DELETE FROM calibration_sessions WHERE session_id = ?", [sess])
 
     def close(self) -> None:
+        """Close the open field stores and the database connection.
+
+        The handle answers nothing afterwards. ``with hmp.open(...) as cat:``
+        calls it at the end of the block.
+        """
         self._close_open_zarr_handles()
         self._backend.close()
         self._db.close()
+
+    @property
+    def closed(self) -> bool:
+        """True once :meth:`close` ran: the handle answers no statement."""
+        return bool(getattr(self._db, "closed", False))
+
+    def _reopen(self) -> Any:
+        """Return a new read-only handle on the same catalog files.
+
+        A :class:`~hydromodpy.results.run.Run` outlives the handle that made
+        it: a ``Project`` closes its catalog when its ``with`` block ends. The
+        run calls this to keep reading instead of failing on a closed
+        connection. The handle is read-only, like the one ``hmp.open`` and
+        ``hmp.run`` hand out: DuckDB refuses two handles of one file in two
+        modes inside one process, and a run mostly reads. A write on it is
+        refused with the message that says to open the catalog writable.
+        """
+        return type(self)(
+            self._workspace,
+            catalog_path=self._db_path,
+            runs_dir=self._runs_dir,
+            persistence=self._persistence,
+            read_only=True,
+        )
 
     def __enter__(self):
         return self

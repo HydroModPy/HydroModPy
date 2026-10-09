@@ -123,6 +123,14 @@ def _metadata_epsg(metadata: dict[str, object]) -> int | None:
     return value if value > 0 else None
 
 
+FIGURE_REQUEST = "figure"
+"""Value of a derived toggle that a requested figure turned on.
+
+A field the user asked for and the run cannot build stops the run. A field a
+figure asked for does not: the run goes on and the figure is skipped with the
+reason, as any figure whose requirements the run does not meet.
+"""
+
 # Configurable derived variables and their default state. Watertable
 # elevation/depth are written by the workflow ``DeriveStep`` registry
 # (single canonical writer); this module only handles solver-adjacent or
@@ -154,9 +162,27 @@ def compute_derived(
         Store containing the raw head field.
     config : dict
         Toggles per variable, e.g. ``{"watertable_depth": True}``.
-        Missing keys fall back to ``DERIVED_VARIABLES`` defaults.
+        Missing keys fall back to ``DERIVED_VARIABLES`` defaults. A toggle
+        set to :data:`FIGURE_REQUEST` was turned on by a requested figure,
+        not by the user: when the run cannot build that field, it is logged
+        and left out, and the figure is skipped with the reason.
     """
     flags = {k: config.get(k, v) for k, v in DERIVED_VARIABLES.items()}
+
+    def _derive(name: str, compute: Any, *args: Any) -> None:
+        try:
+            compute(*args)
+        except ExtractError as exc:
+            if flags.get(name) != FIGURE_REQUEST:
+                raise
+            cause = exc.__cause__ if exc.__cause__ is not None else exc
+            logger.info(
+                "Derived field '%s' not computed for sim %s: %s. The figures that need it "
+                "are skipped.",
+                name,
+                sim_id,
+                str(cause).strip("'\""),
+            )
 
     # Determine how many timesteps the head field has
     try:
@@ -175,16 +201,25 @@ def compute_derived(
         _compute_seepage_mask(sim_id, store, n_timesteps, n_cells)
 
     if flags.get("release_flux"):
-        _check_release_flux_budget(sim_id, store)
+        _derive("release_flux", _check_release_flux_budget, sim_id, store)
 
     if flags.get("accumulation_flux"):
-        _compute_accumulation_flux(sim_id, store, n_timesteps, n_cells)
+        _derive(
+            "accumulation_flux", _compute_accumulation_flux, sim_id, store, n_timesteps, n_cells
+        )
 
     if flags.get("release_accumulation_flux"):
-        _compute_release_accumulation_flux(sim_id, store, n_timesteps, n_cells)
+        _derive(
+            "release_accumulation_flux",
+            _compute_release_accumulation_flux,
+            sim_id,
+            store,
+            n_timesteps,
+            n_cells,
+        )
 
     if flags.get("outflow_drain"):
-        _compute_outflow_drain(sim_id, store, n_timesteps, n_cells)
+        _derive("outflow_drain", _compute_outflow_drain, sim_id, store, n_timesteps, n_cells)
 
     if flags.get("concentration_seepage"):
         _compute_concentration_seepage(sim_id, store, n_timesteps, n_cells)
@@ -356,7 +391,7 @@ def _check_release_flux_budget(sim_id: str, store: Any) -> None:
             )
         else:
             return
-    raise _budget_dependency_error("release_flux", sim_id, cause)
+    raise _budget_dependency_error("release_flux", sim_id, cause) from cause
 
 
 def _write_derived_stack(

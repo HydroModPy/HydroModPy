@@ -26,10 +26,19 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.core.version import __version__
 
 if TYPE_CHECKING:
+    import os
+    from collections.abc import Iterator, Mapping
+    from datetime import date
+
     import geopandas as gpd
+    import numpy as np
     import pandas as pd
     import xarray as xr
+    from matplotlib.figure import Figure
 
+    from hydromodpy.calibration import CalibrationReport
+    from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
+    from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.state.global_index import GlobalIndex
     from hydromodpy.examples.install import InstallReport
     from hydromodpy.examples.manifest import ExampleEntry
@@ -37,10 +46,14 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
 
-    Readable = xr.DataArray | pd.Series | pd.DataFrame | gpd.GeoDataFrame
+    # A file or folder path, as text or as a pathlib.Path.
+    PathLike = str | os.PathLike[str]
+    # A configuration: the path of its TOML file, or the validated object.
+    ConfigLike = str | os.PathLike[str] | HydroModPyConfig
+    Readable = xr.DataArray | np.ndarray | pd.Series | pd.DataFrame | gpd.GeoDataFrame
 
 
-def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Catalog:
+def open(workspace: PathLike, *, create: bool = False, read_only: bool = True) -> Catalog:
     """Open a HydroModPy project catalog.
 
     The single door to a workspace catalog: returns a
@@ -61,7 +74,7 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Cat
     ----------
     workspace
         Project directory holding ``.hmp/index.duckdb`` (or a direct path to
-        the ``.duckdb`` file).
+        the ``.duckdb`` file), as a ``str`` or a :class:`pathlib.Path`.
     create
         ``False`` (default) raises :class:`FileNotFoundError` when no catalog
         exists yet (no phantom catalog is created). ``True`` opens a writable
@@ -85,7 +98,7 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Cat
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> cat = hmp.open("~/ws/projects/naizin")  # doctest: +SKIP
+    >>> cat = hmp.open("~/ws/projects/my_project")  # doctest: +SKIP
     >>> cat.latest()  # doctest: +SKIP
 
     See Also
@@ -105,13 +118,32 @@ def open(workspace: Any, *, create: bool = False, read_only: bool = True) -> Cat
         raise FileNotFoundError(
             f"No catalog at {catalog_file.parent}. Run a workflow there first, "
             f"or pass create=True to initialise an empty catalog."
+            + _projects_hint(ws, catalog_file)
         )
     if create:
         return Catalog(ws)
     return Catalog(ws, read_only=read_only)
 
 
-def index(db_path: Any = None, *, read_only: bool = True) -> GlobalIndex:
+def _projects_hint(folder: Path, missing: Path) -> str:
+    """Name the projects with a catalog under ``folder``, when it holds some.
+
+    A workspace root holds no index of its own; the projects under it do.
+    """
+    from hydromodpy.results.catalog.discovery import iter_project_catalog_roots
+
+    try:
+        roots = [r for r in iter_project_catalog_roots(folder) if r != missing.parent.parent]
+    except Exception:
+        return ""
+    if not roots:
+        return ""
+    names = ", ".join(str(r) for r in roots[:5])
+    more = f" and {len(roots) - 5} more" if len(roots) > 5 else ""
+    return f" This folder holds projects with a catalog: {names}{more}. Open one of them."
+
+
+def index(db_path: PathLike | None = None, *, read_only: bool = True) -> GlobalIndex:
     """Open the machine-wide global index that federates registered projects.
 
     One row is one project root, since a project root is what owns an index
@@ -166,25 +198,76 @@ def index(db_path: Any = None, *, read_only: bool = True) -> GlobalIndex:
     return GlobalIndex(resolved, read_only=read_only)
 
 
-def _open_run(project_root: Any, sim_id: Any) -> Any:
+def _open_run(project_root: PathLike, sim_id: str | None) -> Run | None:
     """Return the :class:`Run` for ``sim_id`` bound to an open catalog.
 
     Both :func:`run` branches expose the ``simulation`` workflow as a ``Run``
-    (or ``None`` for a dry-run / no persisted result) so :func:`read` /
-    :func:`export` accept the result directly. The catalog is intentionally
-    **not** context-managed here: the Run reads through it, so it must stay
-    open after :func:`run` returns (matching ``cat = hmp.open(...); cat[ref]``).
-    Returns ``None`` on any resolution failure rather than raising.
+    so :func:`read` / :func:`export` accept the result directly. The catalog
+    is intentionally **not** context-managed here: the Run reads through it,
+    so it must stay open after :func:`run` returns (matching
+    ``cat = hmp.open(...); cat[ref]``). Returns ``None`` when there is no
+    ``sim_id`` (a dry run persists nothing). A finished run whose catalog
+    cannot be opened raises :class:`~hydromodpy.core.exceptions.CatalogError`
+    rather than passing for a dry run.
     """
     if not sim_id:
         return None
     try:
         return open(project_root)[sim_id]
-    except Exception:
-        return None
+    except Exception as exc:
+        from hydromodpy.core.exceptions import CatalogError
+
+        raise CatalogError(
+            f"The run [{str(sim_id)[:8]}] finished, but the catalog at {project_root} "
+            f"cannot be opened to hand it back: {exc}. Open it with "
+            f"hmp.open({str(project_root)!r}) and read the run by its id.",
+            sim_id=str(sim_id),
+        ) from exc
 
 
-def _write_lock_for_run(config_source: Any, *, no_lock: bool) -> None:
+def _report_identical_run(summary: Mapping[str, Any]) -> None:
+    """Say on the log that a run was skipped for an identical completed one."""
+    from hydromodpy.core.logging import get_logger
+    from hydromodpy.project.dispatch.workflow import identical_run_message
+
+    get_logger(__name__).warning(
+        "%s Pass force=True to run it again.",
+        identical_run_message(summary.get("name"), str(summary.get("sim_id") or "")),
+    )
+
+
+# Keywords of ``Project.simulate`` that steer the run without changing what it
+# computes. Any other keyword is a parameter override.
+_RUN_CONTROL_KEYS = frozenset({"name", "no_display", "parallel", "frozen"})
+_PARTIAL_RUN_KEYS = frozenset({"resume", "from_step", "until_step", "dry_run"})
+
+
+def _asks_a_partial_run(kwargs: dict[str, Any]) -> bool:
+    """Say whether ``kwargs`` ask for a resume, a step window or a dry run.
+
+    A step index of 0 and an empty resume token are requests too, so the step
+    keys count when they are set at all, like ``run_simulation`` reads them.
+    """
+    if kwargs.get("dry_run"):
+        return True
+    return any(kwargs.get(key) is not None for key in _PARTIAL_RUN_KEYS - {"dry_run"})
+
+
+def _refuse_overrides_on_a_path(config_path: Path, kwargs: dict[str, Any]) -> None:
+    """Refuse a parameter override on a TOML path, saying where it belongs."""
+    accepted = _RUN_CONTROL_KEYS | _PARTIAL_RUN_KEYS | {"force"}
+    unknown = sorted(set(kwargs) - accepted)
+    if unknown:
+        raise TypeError(
+            f"hmp.run({config_path.name!r}) takes no parameter override "
+            f"({', '.join(unknown)}). Write the value in the TOML file, or load it "
+            f"with hydromodpy.config.HydroModPyConfig.from_toml and pass the "
+            f"configuration object: hmp.run(cfg, {unknown[0]}=...). Accepted "
+            f"options: {', '.join(sorted(accepted))}."
+        )
+
+
+def _write_lock_for_run(config_source: ConfigLike, *, no_lock: bool) -> None:
     """Write ``hydromodpy.lock`` after a Python-driven simulation.
 
     Mirrors the CLI post-run lock write so ``hmp.run`` records the same
@@ -208,7 +291,7 @@ def _write_lock_for_run(config_source: Any, *, no_lock: bool) -> None:
 
 
 @contextmanager
-def _materialized_config(config: Any):
+def _materialized_config(config: HydroModPyConfig) -> Iterator[Path]:
     """Write a resolved config to a temp TOML in its project_root and yield it.
 
     Lets the config-object branch of :func:`run` reuse the same path-based
@@ -227,7 +310,7 @@ def _materialized_config(config: Any):
         materialized.unlink(missing_ok=True)
 
 
-def run(config: Any, **kwargs: Any) -> Run | dict | None:
+def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
     """Run a HydroModPy workflow from Python.
 
     Path and config-object inputs converge on the same dispatch. Simulation
@@ -235,24 +318,37 @@ def run(config: Any, **kwargs: Any) -> Run | dict | None:
     nothing was persisted, e.g. ``dry_run``). Overview, calibration,
     comparison and testbed workflows return their adapter ``dict`` summary.
 
+    A simulation is named ``name=`` when given, else ``[simulation] name``
+    of the configuration (a TOML file defaults it to its own stem). Like
+    ``hmp run``, a simulation identical to a completed run of the project (same
+    resolved configuration, same name, no parameter override) is not computed
+    again: the completed run is returned and a warning names it. Pass
+    ``force=True`` to compute it anyway. A run that is not identical follows
+    ``[simulation] if_exists``.
+
     Parameters
     ----------
     config
-        TOML path or validated configuration object.
+        Path of the TOML file (``str`` or :class:`pathlib.Path`), or a
+        validated :class:`~hydromodpy.config.HydroModPyConfig`.
     kwargs
-        Runtime options forwarded to the selected workflow. The ``headless``
-        keyword is honored on both branches (path and config object) and
-        controls the underlying ``Project`` interactive side effects. Set
-        ``no_lock=True`` to skip the post-run ``hydromodpy.lock`` write (a
-        successful simulation writes the reproducibility lock by default,
-        matching ``hmp run``).
+        Runtime options forwarded to the selected workflow: ``name``,
+        ``force``, ``resume``, ``from_step``, ``until_step``, ``dry_run``,
+        ``frozen``, ``no_display``, ``parallel`` for a simulation. With a
+        configuration object, any other keyword is a parameter override
+        (``K=1e-5``), as in :meth:`~hydromodpy.project.Project.simulate`. The
+        ``headless`` keyword is honored on both branches (path and config
+        object) and controls the underlying ``Project`` interactive side
+        effects. Set ``no_lock=True`` to skip the post-run
+        ``hydromodpy.lock`` write (a successful simulation writes the
+        reproducibility lock by default, matching ``hmp run``).
 
     Returns
     -------
     Run or None or dict
-        ``Run`` instance (or ``None``) for the ``simulation`` workflow.
-        ``dict`` summary for ``overview``, ``calibration``, ``comparison``
-        and ``testbed`` workflows.
+        ``Run`` instance for the ``simulation`` workflow, ``None`` for a dry
+        run. ``dict`` summary for ``overview``, ``calibration``,
+        ``comparison`` and ``testbed`` workflows.
 
     Raises
     ------
@@ -264,11 +360,20 @@ def run(config: Any, **kwargs: Any) -> Run | dict | None:
         If a workflow step raises during execution.
     hydromodpy.core.exceptions.SolverError
         If the configured solver fails to converge or crashes.
+    hydromodpy.core.exceptions.CatalogError
+        If a simulation finished but its catalog cannot be opened to return
+        the run.
 
     Examples
     --------
     >>> import hydromodpy as hmp
     >>> run = hmp.run("run_transient_nwt.toml", name="baseline")  # doctest: +SKIP
+    >>> again = hmp.run(
+    ...     "run_transient_nwt.toml", name="baseline"
+    ... )  # skipped  # doctest: +SKIP
+    >>> fresh = hmp.run(
+    ...     "run_transient_nwt.toml", name="baseline", force=True
+    ... )  # doctest: +SKIP
 
     See Also
     --------
@@ -288,13 +393,19 @@ def run(config: Any, **kwargs: Any) -> Run | dict | None:
             cli_workflow=None,
             require_toml_field=True,
         )
+        if workflow == "simulation":
+            _refuse_overrides_on_a_path(config_path, kwargs)
         summary = dispatch_workflow(workflow, config_path, **kwargs)
         # The simulation adapter returns a summary dict; expose it as the Run
         # so hmp.read / hmp.export accept the result on either branch.
         if workflow == "simulation":
-            sim_id = summary.get("sim_id") if isinstance(summary, dict) else None
-            run_obj = _open_run(config_path.parent, sim_id)
-            if run_obj is not None:
+            if not isinstance(summary, dict) or not summary.get("sim_id"):
+                return None
+            root = summary.get("project_root") or config_path.parent
+            run_obj = _open_run(root, summary["sim_id"])
+            if summary.get("skipped"):
+                _report_identical_run(summary)
+            else:
                 _write_lock_for_run(config_path, no_lock=no_lock)
             return run_obj
         return summary
@@ -304,15 +415,30 @@ def run(config: Any, **kwargs: Any) -> Run | dict | None:
     mode = getattr(getattr(config, "workflow", None), "mode", "simulation")
     if mode == "simulation":
         from hydromodpy.project import Project
+        from hydromodpy.project.dispatch.workflow import completed_identical_run
 
+        force = bool(kwargs.pop("force", False))
+        root = config.workspace.project_root
+        name = kwargs.get("name") or str(getattr(config.simulation, "name", "") or "").strip()
+        plain = (
+            not force
+            and bool(name)
+            and not _asks_a_partial_run(kwargs)
+            and set(kwargs) <= _RUN_CONTROL_KEYS | _PARTIAL_RUN_KEYS
+        )
         with Project(config, headless=headless) as project:
-            result = project.simulate(**kwargs)
+            existing = completed_identical_run(project.config, name=name) if plain else None
+            result = None if existing is not None else project.simulate(**kwargs)
+        if existing is not None:
+            run_obj = _open_run(root, existing[1])
+            _report_identical_run({"name": existing[0], "sim_id": existing[1]})
+            return run_obj
         if result is None:
             return None
         _write_lock_for_run(config, no_lock=no_lock)
         # Re-bind to a freshly opened catalog so hmp.read works after the
         # project context (and its catalog connection) has closed.
-        return _open_run(config.workspace.project_root, result.sim_id) or result
+        return _open_run(root, result.sim_id)
 
     from hydromodpy.project.dispatch.workflow import dispatch_workflow
 
@@ -321,13 +447,13 @@ def run(config: Any, **kwargs: Any) -> Run | dict | None:
 
 
 def calibrate(
-    config: Any,
+    config: ConfigLike,
     *,
     phase: str | None = None,
     list_phases: bool = False,
     expand: bool = False,
     **kwargs: Any,
-) -> Any:
+) -> CalibrationReport | StagedCalibrationReport | list[dict[str, Any]] | dict[str, Any]:
     """Run a calibration workflow from a TOML file or config object.
 
     Paths route directly to :func:`run_calibration_cli`; in-memory config
@@ -344,7 +470,8 @@ def calibrate(
     Parameters
     ----------
     config
-        Calibration TOML path or validated configuration object.
+        Path of the calibration TOML file (``str`` or :class:`pathlib.Path`),
+        or a validated :class:`~hydromodpy.config.HydroModPyConfig`.
     phase
         Run only the named phase. It still needs the parameters its dependency
         froze, so a phase whose dependency has not run is refused rather than
@@ -369,13 +496,20 @@ def calibrate(
         Options forwarded to the underlying calibration runner. The
         ``headless`` keyword controls the project initialization for the
         in-memory config branch and is ignored for the TOML branch (which
-        builds no project).
+        builds no project). ``return_report=False`` returns the
+        ``to_dict()`` payload of the report instead of the report.
 
     Returns
     -------
-    Any
-        Calibration report or workflow-specific result. A ``list`` of phase
-        descriptions when ``list_phases`` is set. A ``dict`` with
+    CalibrationReport or StagedCalibrationReport or list or dict
+        A run returns a report object, whatever the source of the
+        configuration: a :class:`~hydromodpy.calibration.CalibrationReport`
+        for a calibration without phases (``best_parameters``,
+        ``best_objective``, ``best_sim_id``, ``session_id``), a
+        :class:`~hydromodpy.calibration.runners.staged_runner.StagedCalibrationReport`
+        for one that declares ``[[calibration.phases]]`` (``phases``, each
+        with its own ``CalibrationReport``, and ``frozen``). A ``list`` of
+        phase descriptions when ``list_phases`` is set. A ``dict`` with
         ``"calibration"`` and ``"protocol"`` keys when ``expand`` is set:
         ``"protocol"`` is ``None`` for a file naming no protocol, else a
         ``dict`` with ``"name"``, ``"version"``, ``"citation"`` (the first
@@ -439,6 +573,9 @@ def calibrate(
         )
 
         kwargs.pop("headless", None)
+        # A report object in every branch: the plain runner returns its dict
+        # unless asked, the staged runner its report.
+        kwargs.setdefault("return_report", True)
         # Probe the file to decide staged or not. When that decision is all
         # that hangs on the read, a failure is left to the runner, which
         # reports it with its own context. When the answer itself is what the
@@ -546,7 +683,7 @@ def _expand_calibration_section(target: Path) -> dict[str, Any]:
     }
 
 
-def spinup(config: Any, **kwargs: Any) -> SpinupResult:
+def spinup(config: ConfigLike, **kwargs: Any) -> SpinupResult:
     """Run a cyclic spin-up from a TOML file or config object.
 
     Repeats the representative window (``[spinup] window_*``, else
@@ -557,7 +694,8 @@ def spinup(config: Any, **kwargs: Any) -> SpinupResult:
     Parameters
     ----------
     config
-        TOML path or validated configuration object.
+        Path of the TOML file (``str`` or :class:`pathlib.Path`), or a
+        validated :class:`~hydromodpy.config.HydroModPyConfig`.
     kwargs
         Forwarded to :func:`~hydromodpy.project.spinup.run_spinup` (``spinup``
         settings override, ``name_prefix``). ``headless`` controls the project.
@@ -615,25 +753,30 @@ def spinup(config: Any, **kwargs: Any) -> SpinupResult:
     return dataclasses.replace(result, production_sim_id=getattr(production, "sim_id", None))
 
 
-def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
-    """Compare two simulations by id or result object.
+def compare_pair(sim_a: str, sim_b: str, *, workspace: PathLike | None = None) -> pd.DataFrame:
+    """Compare the metrics of two runs side by side.
 
     Parameters
     ----------
     sim_a, sim_b
-        Simulation ids or objects accepted by the comparison runtime.
+        Run references, as ``hmp catalog ls`` prints them: an id, a unique id
+        prefix, a name or a selector such as ``@latest``.
     workspace
-        Optional workspace used to resolve simulation ids.
+        Project directory whose catalog resolves the references. Defaults to
+        the nearest folder above the working directory that holds one.
 
     Returns
     -------
     pandas.DataFrame
-        Side-by-side comparison table.
+        One row per metric and station, one column per run (``A`` for
+        ``sim_a``, ``B`` for ``sim_b``). Empty when neither run has a metric.
 
     Raises
     ------
-    hydromodpy.results.errors.RunNotFoundError
-        If either simulation id cannot be resolved in the workspace.
+    FileNotFoundError
+        If no catalog is found from ``workspace``.
+    hydromodpy.results.catalog.SimulationNotFoundError
+        If a reference matches no run of the catalog.
 
     Examples
     --------
@@ -652,7 +795,7 @@ def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
     return _compare_pair(sim_a, sim_b, workspace=workspace)
 
 
-def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
+def report(session_id_or_prefix: str | None = None, *, workspace: PathLike | None = None) -> Path:
     """Render the HTML report for a calibration session.
 
     ``session_id_or_prefix`` accepts a full UUID or a unique hex prefix
@@ -675,8 +818,8 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
 
     Returns
     -------
-    Any
-        Report rendering result.
+    pathlib.Path
+        The ``report.html`` written for the session.
 
     Raises
     ------
@@ -715,10 +858,10 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
 
 
 def read(
-    sim: Any,
+    sim: Run,
     var: str,
     *,
-    time: int | slice | None = None,
+    time: int | str | date | np.datetime64 | np.integer | slice | None = None,
     layer: int | None = None,
     sel: dict | None = None,
     bbox: tuple[float, float, float, float] | None = None,
@@ -728,10 +871,12 @@ def read(
     Single entry point for reads on a :class:`~hydromodpy.results.run.Run`.
     The return type follows one rule:
 
-    - Zarr field -> ``xr.DataArray`` (lazy); when ``time`` is an ``int``, the
-      eager ``np.ndarray`` of that single timestep instead.
+    - Zarr field -> ``xr.DataArray`` (lazy); when ``time`` names one period,
+      the eager ``np.ndarray`` of that period instead.
     - timeseries -> ``pd.Series``.
     - geographic feature -> ``gpd.GeoDataFrame``.
+    - ``"particles"`` -> ``pd.DataFrame`` of the particle paths, one row per
+      recorded position.
 
     Every field a run reports through ``has_field`` reads back here. Fields
     rebuilt on the fly (water-table elevation/depth, seepage mask, drain
@@ -750,8 +895,12 @@ def read(
         Variable name, resolved against the field registry, then the DuckDB
         ``timeseries`` table, then the geographic features.
     time
-        Timestep index (``int``) or ``slice`` for Zarr fields. ``None`` loads
-        every persisted timestep lazily.
+        The period of a field: an index (``int``, negative counts from the
+        end), a date (``"2002-10-15"``, ``datetime.date``) that resolves to
+        the stress period holding it, ``"first"`` or ``"last"``; or a
+        ``slice`` of indexes. ``None`` loads every persisted period lazily. A
+        series or a feature refuses ``time``; window a series with
+        ``sel={"period": (start, end)}``.
     layer
         Optional layer index for three-dimensional fields.
     sel
@@ -769,19 +918,25 @@ def read(
     Raises
     ------
     TypeError
-        If ``sim`` is not a :class:`Run` instance.
+        If ``sim`` is not a :class:`Run` instance, or ``time`` is of no
+        accepted kind.
+    ValueError
+        If ``time`` names a date outside the run, or is given for a series or
+        a feature.
     hydromodpy.results.errors.FieldNotFoundError
         If ``var`` could not be resolved by any backend.
 
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> cat = hmp.open("~/ws/projects/naizin")  # doctest: +SKIP
+    >>> cat = hmp.open("~/ws/projects/my_project")  # doctest: +SKIP
     >>> run = cat.latest()  # doctest: +SKIP
     >>> da = hmp.read(run, "head")  # lazy DataArray  # doctest: +SKIP
     >>> arr = hmp.read(run, "head", time=-1, layer=0)  # ndarray  # doctest: +SKIP
+    >>> oct02 = hmp.read(run, "head", time="2002-10-15")  # doctest: +SKIP
     >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})  # doctest: +SKIP
     >>> gdf = hmp.read(run, "watershed")  # doctest: +SKIP
+    >>> paths = hmp.read(run, "particles")  # doctest: +SKIP
     """
     from hydromodpy.results.derive.reading import read_variable
 
@@ -789,14 +944,14 @@ def read(
 
 
 def figure(
-    sim: Any,
+    sim: Run,
     name: str,
     *,
-    save: Any = None,
+    save: PathLike | None = None,
     dpi: int = 150,
-    time: Any = None,
+    time: str | date | None = None,
     **opts: Any,
-) -> Any:
+) -> Figure:
     """Render one registered figure for a simulation Run.
 
     The Python counterpart of ``[display].figures``: the same registry, the
@@ -843,7 +998,7 @@ def figure(
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> cat = hmp.open("~/ws/projects/aber")  # doctest: +SKIP
+    >>> cat = hmp.open("~/ws/projects/my_project")  # doctest: +SKIP
     >>> run = cat.latest()  # doctest: +SKIP
     >>> hmp.figure(run, "cross_section", orientation="sn")  # doctest: +SKIP
     >>> hmp.figure(run, "seepage_map", time="2002-10-15")  # doctest: +SKIP
@@ -856,14 +1011,14 @@ def figure(
 
 
 def export(
-    sim: Any,
+    sim: Run,
     variables: str | list[str],
     *,
-    time: Any = None,
-    period: tuple[Any, Any] | None = None,
+    time: str | int | list[str | int] | None = None,
+    period: tuple[str, str] | None = None,
     format: str | None = None,
-    folder: Any = None,
-    file: Any = None,
+    folder: PathLike | None = None,
+    file: PathLike | None = None,
     crs: str | None = None,
     resolution: float | None = None,
     layer: int | None = None,
@@ -1015,7 +1170,7 @@ def example_show(example_id: str) -> ExampleEntry:
 def example_add(
     example_id: str,
     *,
-    workspace: Any = None,
+    workspace: PathLike | None = None,
     ref: str | None = None,
     force: bool = False,
 ) -> InstallReport:

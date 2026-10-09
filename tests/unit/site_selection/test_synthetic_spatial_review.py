@@ -150,8 +150,8 @@ def test_synthetic_spatial_review_contains_basins_observations_map_and_html(tmp_
     }
     assert output_paths["site_selection_map_png"].stat().st_size > 20_000
     assert "site_selection_map.png" in html
-    assert "Carte de controle" in html
-    assert "fixture ou synthetiques" in html
+    assert "Control map" in html
+    assert "fixture or synthetic" in html
 
 
 @pytest.mark.fast

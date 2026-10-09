@@ -52,9 +52,10 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
     captured: dict[str, object] = {}
 
-    def fake_calibrate(path: Path, *, phase=None):
+    def fake_calibrate(path: Path, *, phase=None, **kwargs):
         captured["path"] = path
         captured["phase"] = phase
+        captured["kwargs"] = kwargs
         # The shape a CalibrationReport actually has. This fake used to invent a
         # `summary` attribute, which is the attribute the command read and which
         # no report class has ever defined: the test manufactured the very data
@@ -73,6 +74,8 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
     assert code == 0
     assert captured["path"] == config.resolve()
     assert captured["phase"] is None
+    # hmp.calibrate returns the report object by default, so the CLI asks nothing.
+    assert captured["kwargs"] == {}
     err = capsys.readouterr().err
     assert "Calibration finished: calib.toml" in err
     assert "K = 0.00021" in err
@@ -250,7 +253,7 @@ def test_calibrate_forwards_the_selected_phase(monkeypatch, tmp_path) -> None:
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
     captured: dict[str, object] = {}
 
-    def fake_calibrate(path: Path, *, phase=None):
+    def fake_calibrate(path: Path, *, phase=None, **kwargs):
         captured["phase"] = phase
         return SimpleNamespace(summary={})
 
@@ -269,7 +272,7 @@ def test_calibrate_lists_the_phases_without_running(monkeypatch, tmp_path, capsy
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
     calls: list[dict] = []
 
-    def fake_calibrate(path: Path, *, phase=None, list_phases=False):
+    def fake_calibrate(path: Path, *, phase=None, list_phases=False, **kwargs):
         calls.append({"phase": phase, "list_phases": list_phases})
         return [
             {
@@ -300,7 +303,7 @@ def test_calibrate_refusal_exits_with_the_calibration_code(monkeypatch, tmp_path
     config = tmp_path / "calib.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
 
-    def fake_calibrate(path: Path, *, phase=None):
+    def fake_calibrate(path: Path, *, phase=None, **kwargs):
         raise CalibrationError("residual keeps a constant sign over the bracket")
 
     monkeypatch.setattr(hmp, "calibrate", fake_calibrate)
@@ -319,7 +322,7 @@ def test_calibrate_list_phases_reports_an_unreadable_config(monkeypatch, tmp_pat
     config = tmp_path / "calib.toml"
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
 
-    def fake_calibrate(path: Path, *, phase=None, list_phases=False):
+    def fake_calibrate(path: Path, *, phase=None, list_phases=False, **kwargs):
         raise ConfigError("calib.toml: 1 validation error for CalibrationConfig")
 
     monkeypatch.setattr(hmp, "calibrate", fake_calibrate)

@@ -1,4 +1,4 @@
-Structured Grid Architecture
+Structured grid architecture
 ============================
 
 This page documents the FloPy ``StructuredGrid`` path used by the
@@ -112,6 +112,6 @@ See also
   here.
 - :doc:`../spatial_support/spatial-support-uml-diagrams` for the
   parameter support layer above.
-- :doc:`../mesh/mesh-pivot` for the cross-mesh pivot format.
-- :doc:`../solver/modflow-contracts` for the DIS / BAS contract that
-  consumes the structured grid.
+- :doc:`mesh-pivot` for the cross-mesh pivot format.
+- :doc:`../solver/backends` for the DIS and BAS contracts that consume the
+  structured grid.

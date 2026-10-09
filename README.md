@@ -138,10 +138,12 @@ advisory rather than a public issue.
 
 If HydroModPy supports your work, please cite the software and the companion
 paper. Full BibTeX, RIS and plain-text entries are on the
-[citation page](https://docs.hydromodpy.fr/main/about/how_to_cite.html);
+[citation page](https://docs.hydromodpy.fr/main/about/cite.html);
 GitHub renders the "Cite this repository" button from
 [`CITATION.cff`](https://github.com/HydroModPy/HydroModPy/blob/main/CITATION.cff).
 
+<!-- The dash belongs to the published title. -->
+<!-- vale off -->
 > Gauvain, A., Abhervé, R., Boivin, B., Roques, C., Le Mesnil, M., Coche, A.,
 > Babey, T., Marçais, J., Bouchez, C., Leray, S., Marti, E., Bresciani, E.,
 > Figueroa, R., Pélissier, M., Guillaumot, L., Touzeau, T., Issolah, I.,
@@ -150,6 +152,7 @@ GitHub renders the "Cite this repository" button from
 > (2026). Technical note: HydroModPy – a Python toolbox for deploying
 > catchment-scale shallow groundwater models. *EGUsphere* [preprint], 1–31.
 > <https://doi.org/10.5194/egusphere-2026-868>
+<!-- vale on -->
 
 ## Authors and contact
 

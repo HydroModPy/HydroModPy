@@ -184,7 +184,7 @@ def _bootstrap_bbox(cfg: Any, crs_project: Any) -> tuple[float, float, float, fl
     y_outlet = getattr(geo_cfg, "y_outlet", None)
     if x_outlet is None or y_outlet is None:
         raise ValueError(
-            "A crossings API source can only feed the notch when geographic.x_outlet / "
+            "A crossings API source can only feed the notch when geographic.catchment.x_outlet / "
             "y_outlet are declared, since the watershed that would otherwise give the "
             "download box is not delineated yet. Declare geographic.crossings.path "
             "explicitly instead."
@@ -231,6 +231,6 @@ def _intersect_with_dem(
     if clipped[0] >= clipped[2] or clipped[1] >= clipped[3]:
         raise ValueError(
             f"The outlet box {bounds} does not meet the DEM footprint {dem_bounds}. "
-            "Check geographic.x_outlet / y_outlet against the DEM extent."
+            "Check geographic.catchment.x_outlet / y_outlet against the DEM extent."
         )
     return clipped

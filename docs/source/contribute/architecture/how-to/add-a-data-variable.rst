@@ -1,4 +1,4 @@
-Add a Data Variable
+Add a data variable
 ===================
 
 A *data variable* is one ``[data.<name>]`` section of a project TOML, loaded
@@ -126,6 +126,7 @@ Check it
 
 .. code-block:: toml
 
+   # not checked: evaporation is the placeholder variable of this recipe
    [data]
    types = ["evaporation"]
 

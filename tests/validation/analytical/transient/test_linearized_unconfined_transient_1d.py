@@ -19,6 +19,7 @@ from tests.regression.golden_utils import assert_required_executables
 from tests.validation.helpers import (
     assert_profile_metrics,
     assert_space_time_metrics,
+    record_comparison,
 )
 from validation_cases.analytical.transient.linearized_unconfined_boundary_piecewise_1d.comparison import (
     run_linearized_unconfined_boundary_piecewise_comparison,
@@ -91,6 +92,7 @@ def test_linearized_unconfined_transient_1d_matches_reference_profiles(
     )
 
     comparison = SCENARIO_RUNNERS[scenario](caller_file=__file__, solver=solver)
+    record_comparison(comparison)
 
     assert_space_time_metrics(comparison)
     assert_profile_metrics(comparison)
@@ -119,6 +121,7 @@ def test_linearized_unconfined_transient_1d_petsc_obstacle_matches_reference_pro
     _require_linux_petsc4py()
 
     comparison = SCENARIO_RUNNERS[scenario](caller_file=__file__, solver=solver)
+    record_comparison(comparison)
 
     assert comparison.result.solver_name == solver
     assert_space_time_metrics(comparison)

@@ -184,7 +184,7 @@ def _compute_buffer_distance(
     """
     rule = buffer_rule_of(buff_area)
     if rule == "distance":
-        dist = _parse_length_meters(str(buff_area), label="geographic.buff_area")
+        dist = _parse_length_meters(str(buff_area), label="geographic.catchment.buff_area")
         if dist <= 0.0:
             raise ValueError("buff_area distance must be > 0")
         return dist

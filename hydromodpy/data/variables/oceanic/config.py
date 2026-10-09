@@ -51,6 +51,7 @@ class OceanicSourceConfig(
     value: Annotated[float | None, Profile.USER] = Field(
         default=None,
         description="Constant mean sea-level value in metres.",
+        json_schema_extra={"unit": "m"},
     )
 
     # --- SHOM API fields ---

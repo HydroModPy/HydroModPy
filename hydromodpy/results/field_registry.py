@@ -349,6 +349,20 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         cell_methods="time: mean area: mean",
         derived_by="solver",
     ),
+    "constant_head_stream": FieldDescriptor(
+        public_name="constant_head_stream",
+        zarr_path="budget/constant_head_stream",
+        standard_name="",
+        csdms_standard_name="subsurface_water__stream_constant_head_volume_flux",
+        long_name=(
+            "Flux across the constant-head cells that carry the stream role "
+            "(positive enters aquifer), zero elsewhere"
+        ),
+        units="m3 s-1",
+        shape=SHAPE_TIME_LAYER_FACE,
+        cell_methods="time: mean area: mean",
+        derived_by="solver",
+    ),
     "surface_excess": FieldDescriptor(
         public_name="surface_excess",
         zarr_path="budget/surface_excess",

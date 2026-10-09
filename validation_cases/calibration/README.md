@@ -26,6 +26,10 @@ The infrastructure also supports a first tier of `perturbed twin` experiments:
 - synthetic observations still come from the same solver family,
 - the perturbation is recorded explicitly in benchmark summaries.
 
+Reference used by the documentation:
+
+- reference: the parameter values that generated the synthetic observations of the twin experiment
+
 ## Layout
 
 - `shared/`: reusable inverse-validation contracts and runtime helpers.

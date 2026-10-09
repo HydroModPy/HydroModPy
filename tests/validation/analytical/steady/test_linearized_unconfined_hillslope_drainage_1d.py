@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
-from tests.validation.helpers import assert_metric_below
+from tests.validation.helpers import assert_metric_below, record_comparison
 from validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.comparison import (
     run_linearized_unconfined_hillslope_drainage_comparison,
 )
@@ -40,6 +40,7 @@ def test_linearized_unconfined_hillslope_drainage_1d_matches_reference_profile(
         caller_file=__file__,
         solver=solver,
     )
+    record_comparison(comparison)
     profile_tol = dict(comparison.tolerances.get("head_profile", {}))
 
     assert_metric_below(

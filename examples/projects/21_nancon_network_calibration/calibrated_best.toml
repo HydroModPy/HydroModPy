@@ -516,13 +516,6 @@ variables = ["head", "watertable_elevation", "watertable_depth", "seepage_mask"]
 time = "last" # Timestep selector for field/raster exports: 'first', 'last', 'all', a timestep index, or a list of indices. Time-series CSV always covers all steps.
 artifacts = [] # Explicit export artifacts: full control over variable, format, timestep and destination, beyond the format toggles above.
 
-[persistence]
-save_catalog = true
-save_zarr = true
-save_parquet = true
-compression = "zstd" # Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.
-compression_level = 3 # Compression level (codec-dependent). Ignored when compression='none'.
-
 [observation]
 points = [] # Observation points sampled once the run has produced its fields.
 variables = ["head"] # Variables sampled at every point that does not name its own. Virtual fields (watertable_depth, seepage_mask ...) are accepted.

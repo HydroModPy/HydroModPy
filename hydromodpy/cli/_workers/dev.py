@@ -27,25 +27,39 @@ def rank_simulations(
     *,
     workspace: Any = None,
     metric: str = "nse",
-    top: bool = True,
+    best: bool = True,
     n: int = 5,
 ) -> Any:
-    """Rank simulations of one project by a metric. Returns a DataFrame."""
+    """Rank the completed runs of one project by an outlet metric. Returns a DataFrame.
+
+    Same rows as :meth:`hydromodpy.results.catalog.Catalog.rank`. ``best=True`` puts the best values first, ``best=False`` the worst ones.
+    The direction of the metric comes from
+    :data:`hydromodpy.results.catalog.constants.METRIC_SENSE`: a metric missing
+    from it raises :class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`.
+    A missing or non-finite value never ranks.
+    """
     from hydromodpy.core.state.paths import resolve_project_root
     from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.constants import OUTLET_STATION, metric_rank_sql
 
+    order = metric_rank_sql(metric, best=best)
     workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
     with Catalog(workspace_root, read_only=True) as catalog:
-        order = "DESC" if top else "ASC"
         sql = (
-            "SELECT s.sim_id, s.name, s.solver, m.metric_name, m.value "
-            "FROM simulations s JOIN metrics m ON s.sim_id = m.sim_id "
-            "WHERE s.project = ? AND m.metric_name = ? "
-            f"ORDER BY m.value {order} LIMIT ?"
+            "SELECT s.sim_id, s.name, sv.code AS solver, m.metric_name, m.value "
+            "FROM simulations s "
+            "JOIN solvers sv ON s.solver_id = sv.id "
+            "JOIN statuses st ON s.status_id = st.id "
+            "JOIN metrics m ON s.sim_id = m.sim_id "
+            "WHERE s.project = ? AND st.code = 'completed' "
+            "AND m.metric_name = ? AND m.station_id = ? "
+            "AND m.value IS NOT NULL AND isfinite(m.value) "
+            f"ORDER BY {order} LIMIT ?"
         )
-        return catalog.connection.execute(sql, [project, metric, int(n)]).fetchdf()
+        params = [project, metric, OUTLET_STATION, int(n)]
+        return catalog.connection.execute(sql, params).fetchdf()
 
 
 def install_binaries(

@@ -1,4 +1,4 @@
-Spatial Support and Hydrography
+Spatial support and hydrography
 ===============================
 
 .. rst-class:: lead
@@ -29,7 +29,7 @@ Pages
       synthetic, and catchment-backed supports, with TOML examples
       and field-mapping consequences.
 
-   .. grid-item-card:: Spatial support UML diagrams
+   .. grid-item-card:: Spatial support diagrams
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: spatial-support-uml-diagrams
       :link-type: doc
@@ -37,7 +37,7 @@ Pages
       Class and sequence diagrams for the spatial domain, support
       registry, and runtime binding to ``Field``.
 
-   .. grid-item-card:: Hydrographic network UML diagrams
+   .. grid-item-card:: Hydrographic network diagrams
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: hydrographic-network-uml-diagrams
       :link-type: doc
@@ -46,7 +46,7 @@ Pages
       network builders, reference vs generated networks, and
       stream support resolution.
 
-   .. grid-item-card:: Simulated active-network inventory
+   .. grid-item-card:: Simulated active network
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: hydrographic-network-simulated-active-inventory
       :link-type: doc

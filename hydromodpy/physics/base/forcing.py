@@ -17,8 +17,9 @@ branch on ``kind`` for dispatch.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, ClassVar, Literal, TypeAlias
 
 from pydantic import Field
 
@@ -27,8 +28,6 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import FlowRate, Time
 
 ForcingKind: TypeAlias = Literal["constant", "csv", "synthetic"]
-ForcingFillMethod: TypeAlias = Literal["ffill", "bfill", "nearest", "none"]
-FlowTimeFillMethod: TypeAlias = Literal["ffill", "bfill"]
 FlowTimeAggregate: TypeAlias = Literal["mean", "last"]
 
 
@@ -49,6 +48,14 @@ class ConstantForcing(HydroModelBase):
 class CsvForcing(HydroModelBase):
     """Time-varying forcing backed by a CSV file on disk."""
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "fill_method": (
+            "no step reads it. A stress period with no sample takes the sample in force, "
+            "and simulation.time.coverage_policy decides what happens before or after the "
+            "record."
+        ),
+    }
+
     kind: Annotated[Literal["csv"], Profile.USER] = Field(
         default="csv", description="Discriminator value."
     )
@@ -66,13 +73,6 @@ class CsvForcing(HydroModelBase):
     unit: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Optional source unit; if omitted the canonical unit is assumed.",
-    )
-    fill_method: Annotated[
-        ForcingFillMethod,
-        Profile.DEV,
-    ] = Field(
-        default="none",
-        description="Strategy used when the series has gaps at query time.",
     )
 
 
@@ -112,9 +112,7 @@ __all__ = [
     "ConstantForcing",
     "CsvForcing",
     "FlowTimeAggregate",
-    "FlowTimeFillMethod",
     "Forcing",
-    "ForcingFillMethod",
     "ForcingKind",
     "SyntheticForcing",
 ]

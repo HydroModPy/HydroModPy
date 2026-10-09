@@ -81,4 +81,4 @@ operates is included in the package docs:
 	and how the runner writes the capture artifacts.
 
 Render the diagram with PlantUML or view the original in the main
-project docs at `docs/source/architecture/process/diagrams/validity_frame_runtime_sequence.puml`.
+project docs at `docs/source/contribute/architecture/process/diagrams/validity_frame_runtime_sequence.puml`.

@@ -1,4 +1,4 @@
-Conformal Gmsh Meshing
+Conformal Gmsh meshing
 ======================
 
 Architecture note: three concepts cooperate to produce a 2D mesh that
@@ -11,8 +11,8 @@ conforms to geological zones and the hydrographic network.
 For the data structures shared by every mesh type, see
 :doc:`mesh-pivot`.
 
-1. Hydrographic-network extraction
-----------------------------------
+Hydrographic network extraction
+-------------------------------
 
 Module: ``hydromodpy/spatial/geographic/core/river_network.py``.
 
@@ -48,24 +48,16 @@ Backend: ``WhiteboxWorkflowsBackend``
 (``hydromodpy/spatial/delineation/whitebox_workflows_backend/``).
 Other backends must register explicitly through ``register_backend()``.
 
-TOML parameters:
-
-.. code-block:: toml
-
-   [geographic.river_network]
-   enabled = true
-   threshold_mode = "area_km2"      # or "cells"
-   threshold_area_km2 = 0.5
-   prune_short_streams = false
-   min_stream_length_m = 0.0
-   compute_strahler_order = true
-   compute_stream_links = true
+The switches are the keys of ``[geographic.river_network]``, among them
+:toml:`geographic.river_network.enabled`, :toml:`geographic.river_network.threshold_mode`
+and :toml:`geographic.river_network.prune_short_streams`. Their types, defaults and units
+are in the generated reference.
 
 Internal conversion:
 ``threshold_cells = threshold_area_km2 * 1e6 / dem_res_m**2``.
 
-2. In-memory river trace
-------------------------
+In-memory river trace
+---------------------
 
 Class: ``RiverMeshTrace``
 (``hydromodpy/spatial/geographic/core/river_mesh_trace.py``).
@@ -90,8 +82,8 @@ generation stays in ``zone_meshing``, the domain business logic stays
 in ``spatial/domain/``, and the central concept shared across layers
 remains ``HydrographicNetwork``.
 
-3. Conformal Gmsh generation
-----------------------------
+Conformal Gmsh generation
+-------------------------
 
 Module: ``hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/``.
 
@@ -117,55 +109,28 @@ Physical groups created:
 - ``interface::<zone_a>::<zone_b>`` on internal lines.
 - ``boundary::<name>`` on external contours.
 
-Available modes:
+Constraint modes, set by :toml:`mesh_catchment.constraints_mode`:
 
-- ``river_only``: hydrographic-network conformity, no lithology
-  constraint.
-- ``river_plus_lithology``: simultaneous conformity to lithology
-  interfaces and rivers.
+- ``rivers_only``: conformity to the river traces, no lithology constraint;
+- ``geology_only``: conformity to the geology interfaces only;
+- ``geology_rivers``: both sets of constraints in one mesh (the default).
 
-4. TOML mesh contract
----------------------
+The mesh contract
+-----------------
 
-.. code-block:: text
+The runtime mesh is configured by ``[mesh_catchment]`` (the model is
+``MeshCatchmentConfig`` in ``hydromodpy/spatial/mesh/config/main.py``). Its sub-tables
+cover the domain (:toml:`mesh_catchment.domain`), the river constraints
+(:toml:`mesh_catchment.rivers`), the geology (:toml:`mesh_catchment.geology`), the
+watershed boundary (:toml:`mesh_catchment.watershed_boundary`), the Gmsh settings
+(:toml:`mesh_catchment.zone_meshing`), lake and zone refinement
+(:toml:`mesh_catchment.lake_refinement`, :toml:`mesh_catchment.refinement_zone`) and the
+hydraulic properties carried by the mesh. A precomputed mesh is read through
+``[mesh_input]`` instead (:toml:`mesh_input.mesh_path`, :toml:`mesh_input.bundle_dir`).
+The generated reference lists every key with its type, default and unit.
 
-   [mesh]
-   enabled = true
-   backend = "gmsh"
-   mode = "river_conformal"          # or "river_lithology_conformal"
-
-   [mesh.domain]
-   kind = "vector"                    # "bbox" | "polygon" | "vector"
-   path = "..."
-   id_field = "domain_id"
-   selected_id = "main"
-
-   [mesh.river.source]
-   origin = "geographic_generated"    # "hydrography_loaded" | "file"
-   path = null                        # required if origin="file"
-
-   [mesh.gmsh]
-   algorithm = "delaunay"
-   global_size = 250.0
-   min_size = 80.0
-   max_size = 500.0
-
-   [mesh.gmsh.river_refinement]
-   enabled = true
-   river_size = 60.0
-   river_distance = 400.0
-   river_sampling = 96
-
-   [mesh.runtime]
-   use_in_memory_river_trace = true
-   persist_mesh_inputs = false
-
-   [mesh.lithology]
-   enabled = false
-   source_mode = "geology_data_manager"
-
-5. Reading and projection
--------------------------
+Reading and projection
+----------------------
 
 The produced mesh is read through ``GmshPlanarMesh2D.from_file(...)``.
 ``Field`` and ``FieldParam`` projection stays in the existing modules
@@ -173,8 +138,8 @@ The produced mesh is read through ``GmshPlanarMesh2D.from_file(...)``.
 the number of mixed cells drops sharply; the projection logic remains
 unchanged so it can also handle non-strictly-conformal supports.
 
-6. Quality criteria
--------------------
+Quality criteria
+----------------
 
 Output ``*_summary.json`` with:
 
@@ -187,8 +152,8 @@ Output ``*_summary.json`` with:
 - Lithology conformity, if enabled: drop in mixed-cell count.
 - Reproducibility: stable signature across identical runs.
 
-7. Validation and tests
------------------------
+Validation and tests
+--------------------
 
 Non-regression tests:
 
@@ -204,8 +169,8 @@ Deterministic helper:
 ``tests/_helpers/whitebox.py::configure_whitebox_single_thread`` to
 stabilise CI runs.
 
-8. Structuring decisions
-------------------------
+Structuring decisions
+---------------------
 
 - The hydrographic network is produced by ``geographic``, exposed by
   ``DomainGeographicContext``, and consumed by ``zone_meshing``.
@@ -213,8 +178,6 @@ stabilise CI runs.
   support for parameters (``FieldParam``).
 - The two paths (read an existing mesh, generate a conformal mesh)
   converge on ``GmshPlanarMesh2D`` plus a metadata sidecar.
-- Triangles are the target of the first iteration; quadrilateral
-  recombination will follow if needed.
 
 See also
 --------

@@ -1,4 +1,6 @@
-"""WP15 - PRT analytical validation on a uniform velocity field.
+"""MODFLOW 6 PRT particle paths in a uniform velocity field.
+
+Compared with: the straight particle path `x(t) = x0 + v t` in a uniform flow, `v = q / porosity`.
 
 For a constant-gradient (uniform) flow field, Pollock's method is exact, so a
 particle moves as ``x(t) = x0 + v*t`` with ``v = q / porosity`` (``q`` is the
@@ -19,6 +21,7 @@ import pytest
 
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from tests._helpers.tolerances import tol
+from tests.validation.helpers import assert_metric_below
 
 
 @pytest.mark.validation
@@ -98,12 +101,11 @@ def test_prt_uniform_velocity_streamline(tmp_path) -> None:
 
     track = pd.read_csv(tmp_path / "prt.trk.csv")
     time_col = "t" if "t" in track.columns else "time"
+    errors = []
     for t in track_times:
         rows = track[np.isclose(track[time_col], t)]
         assert not rows.empty, f"no track sample at t={t}"
         x_computed = float(rows["x"].iloc[0])
         x_expected = x0 + v * t
-        rel_error = abs(x_computed - x_expected) / abs(v * t)
-        assert rel_error < max_rel, (
-            f"t={t}: x={x_computed}, expected {x_expected} (v={v}); rel error {rel_error}"
-        )
+        errors.append(abs(x_computed - x_expected) / abs(v * t))
+    assert_metric_below("Largest relative position error along the track", max(errors), max_rel)

@@ -127,9 +127,9 @@ def _save_outflow_map_grid(
     path.parent.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(1, 2, figsize=(13.0, 6.0), dpi=150, sharex=True, sharey=True)
     panels = (
-        ("Objectif cible", d_ref, ref_mask),
+        ("Target", d_ref, ref_mask),
         (
-            f"Meilleur candidat: {candidate.get('candidate_id', 'candidat')}",
+            f"Best candidate: {candidate.get('candidate_id', 'candidate')}",
             d_sim,
             sim_mask,
         ),
@@ -180,11 +180,11 @@ def _save_outflow_map_grid(
             ax.autoscale_view()
         ax.set_aspect("equal", adjustable="box")
         ax.set_title(
-            f"{title}\ncellules actives={int(mask.sum())}",
+            f"{title}\nactive cells={int(mask.sum())}",
             fontsize=11,
         )
-        ax.set_xlabel("X relatif a l'exutoire (km)")
-        ax.set_ylabel("Y relatif a l'exutoire (km)")
+        ax.set_xlabel("X from the outlet (km)")
+        ax.set_ylabel("Y from the outlet (km)")
         ax.grid(True, ls=":", lw=0.35, color="#cfd8df")
     if mappable is not None:
         fig.colorbar(
@@ -192,15 +192,15 @@ def _save_outflow_map_grid(
             ax=axes.ravel().tolist(),
             fraction=0.035,
             pad=0.025,
-            label="outflow_drain actif (m3/s, log)",
+            label="active outflow_drain (m3/s, log)",
         )
     summary = (
-        f"commun={int(true_positive.sum())}, "
-        f"manques={int(false_negative.sum())}, exces={int(false_positive.sum())}"
+        f"shared={int(true_positive.sum())}, "
+        f"missing={int(false_negative.sum())}, excess={int(false_positive.sum())}"
     )
     source_label = _network_map_source_label(candidate)
     fig.suptitle(
-        f"Drainage utilise par l'objectif spatial ({source_label}), clippe au bassin ({summary})"
+        f"Drainage read by the spatial objective ({source_label}), clipped to the catchment ({summary})"
     )
     fig.subplots_adjust(left=0.07, right=0.88, bottom=0.12, top=0.84, wspace=0.08)
     fig.savefig(path)
@@ -223,7 +223,7 @@ def _save_dem_context_map(truth_dir: Path | None, reference_root: Path, path: Pa
     polygons = None if fallback_context is None else fallback_context["polygons"]
     cell_topography = None if fallback_context is None else fallback_context["cell_topography"]
     topo = None
-    source_label = "z_top_mean du maillage"
+    source_label = "z_top_mean of the mesh"
     watershed = None
     watershed_contour = None
     river_network = None
@@ -300,10 +300,10 @@ def _save_dem_context_map(truth_dir: Path | None, reference_root: Path, path: Pa
     else:
         ax.autoscale_view()
     ax.set_aspect("equal", adjustable="box")
-    ax.set_xlabel("X relatif a l'exutoire (km)")
-    ax.set_ylabel("Y relatif a l'exutoire (km)")
+    ax.set_xlabel("X from the outlet (km)")
+    ax.set_ylabel("Y from the outlet (km)")
     ax.grid(True, ls=":", lw=0.35, color="#cfd8df")
-    ax.set_title(f"Contexte topographique ({source_label})")
+    ax.set_title(f"Topographic context ({source_label})")
     if mappable is not None:
         fig.colorbar(mappable, ax=ax, fraction=0.035, pad=0.025, label="Elevation (m)")
     fig.tight_layout()
@@ -348,7 +348,7 @@ def _outflow_drain_from_npz(artifact: Path | None) -> np.ndarray | None:
 def _network_map_source_label(row: dict[str, str]) -> str:
     source = str(row.get("network_map_source", "steady")).strip().lower()
     if source == "transient_last":
-        return "dernier pas transitoire"
+        return "last transient step"
     if source == "transient_mean":
-        return "moyenne transitoire"
-    return "permanent"
+        return "transient mean"
+    return "steady state"

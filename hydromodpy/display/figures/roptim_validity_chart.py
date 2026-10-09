@@ -23,12 +23,13 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
 from hydromodpy.core.units.labels import axis_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 
@@ -118,10 +119,32 @@ class RoptimValidityChart(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        sites: Sequence[SiteAgreement],
-        bound: float = DEFAULT_VALIDITY_BOUND,
-        transmissivity_units: str | None = None,
-        highlight: str | None = None,
+        sites: Annotated[
+            Sequence[SiteAgreement],
+            Opt(
+                "One SiteAgreement record per catchment: its D_optim, r_optim and "
+                "calibrated transmissivity. Required.",
+                python_only=True,
+            ),
+        ],
+        bound: Annotated[
+            float,
+            Opt(
+                "Largest r_optim at which a calibration stays valid; the zone beyond it is shaded.",
+                unit="-",
+            ),
+        ] = DEFAULT_VALIDITY_BOUND,
+        transmissivity_units: Annotated[
+            str | None,
+            Opt("Unit written on the transmissivity axis. Left out, the registered one."),
+        ] = None,
+        highlight: Annotated[
+            str | None,
+            Opt(
+                "Label of the site circled on the chart. Left out, the site labelled "
+                "with this run's name."
+            ),
+        ] = None,
         **_,
     ) -> Axes:
         records = list(sites)

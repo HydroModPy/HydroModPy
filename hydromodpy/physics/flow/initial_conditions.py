@@ -38,6 +38,22 @@ from hydromodpy.physics.base import InitialCondition as BaseInitialCondition
 class _FlowICBase(BaseInitialCondition):
     """Shared metadata fields and validators for flow IC variants."""
 
+    value: Annotated[object | None, Profile.USER] = Field(
+        None,
+        description=(
+            "Number the starting state reads, in metres: the head for type 'custom', "
+            "the depth below the top for type 'top_offset'. The other types refuse it."
+        ),
+        json_schema_extra=field_metadata(unit="m"),
+    )
+    description: Annotated[str, Profile.USER] = Field(
+        "",
+        description=(
+            "Free text about the starting state, kept with the configuration. Unset, it "
+            "reads \"Initial condition 'h'\"."
+        ),
+    )
+
     # The flow process exposes a single IC variable always identified by "h";
     # users never set ``id`` themselves and the [flow.ic] normalizer actively
     # rejects it. Hide it from user-profile templates.
@@ -218,8 +234,9 @@ class FlowICSpinupCyclic(_FlowICBase):
         description=(
             "Most cycles the loop may run. A loop that runs out of cycles still hands "
             "back its last state and says so, rather than reporting a convergence that "
-            "did not happen."
+            "did not happen. A count."
         ),
+        json_schema_extra=field_metadata(unit="-"),
     )
     tol_head: Annotated[Length, Profile.USER] = Field(
         "0.01 m",

@@ -210,9 +210,9 @@ def apply_steady_state_initial_condition_strategy(
         sinks_sources["recharge"] = recharge.model_copy(update={"first_clim": "mean"})
         return
 
-    # A prescribed rate must reach the solve whatever shape the payload has:
-    # `first_clim` alone is ignored for a scalar payload and overridden by a
-    # per-cell field, so the whole payload is replaced by the stated rate.
+    # A prescribed rate must reach every period of the auxiliary solve, not
+    # only its steady periods, so the whole payload is replaced by the stated
+    # rate; `first_clim` repeats it for the steady periods.
     payload_units = str(getattr(recharge, "units", "m/s") or "m/s")
     rate_in_payload_units = strategy.rate_m_s / factor_to_m_per_s(payload_units)
     sinks_sources["recharge"] = recharge.model_copy(

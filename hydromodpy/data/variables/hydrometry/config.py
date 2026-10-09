@@ -62,6 +62,7 @@ class HydrometrySourceConfig(
             "observation in the window do not count against it, so a preview run over a "
             "larger territory gets this many stations carrying data, not this many tried."
         ),
+        json_schema_extra={"unit": "-"},
     )
 
     @model_validator(mode="after")

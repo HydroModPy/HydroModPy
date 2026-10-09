@@ -8,7 +8,7 @@ from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import NonEmptyStr, StripLower
+from hydromodpy.core.config_kit.types import NonEmptyPath, NonEmptyStr, StripLower
 
 
 def _validate_hydraulic_scalar(
@@ -46,7 +46,7 @@ class MeshCatchmentHydraulicPropertyMapping(HydroModelBase):
             "Keys must match the normalized `zone_key` values exported by the geology loader."
         ),
     )
-    values_csv_file: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
+    values_csv_file: Annotated[NonEmptyPath | None, Profile.DEV] = Field(
         default=None,
         description=(
             "CSV file used when values_source='csv'. "

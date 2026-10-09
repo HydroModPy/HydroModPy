@@ -111,13 +111,13 @@ def _depth_model_text(depth_model: Mapping[str, Any]) -> str:
     kind = depth_model.get("kind", "constant_thickness")
     if kind == "flat_substratum":
         elevation = _format_value(depth_model.get("substratum_elevation"), default="0 m")
-        return f"substratum plat a l'altitude {elevation}"
+        return f"flat substratum at elevation {elevation}"
     if kind in ("raster_substratum", "raster_thickness"):
-        read = "epaisseur" if kind == "raster_thickness" else "altitude"
+        read = "thickness" if kind == "raster_thickness" else "elevation"
         offset = _format_value(depth_model.get("offset"), default="0 m")
-        return f"substratum lu dans [data.substratum] ({read}), decalage {offset}"
+        return f"substratum read from [data.substratum] ({read}), offset {offset}"
     thickness = _format_value(depth_model.get("thickness"), default="80 m")
-    return f"substratum a epaisseur constante {thickness}"
+    return f"substratum of constant thickness {thickness}"
 
 
 def _synthetic_context_rows(payload: Mapping[str, Any]) -> list[tuple[str, str]]:
@@ -135,40 +135,40 @@ def _synthetic_context_rows(payload: Mapping[str, Any]) -> list[tuple[str, str]]
     sy_values = _mapping(_mapping(param.get("Sy")).get("field_heterogeneous")).get("values", {})
     ss_value = _mapping(_mapping(param.get("Ss")).get("field_homogeneous")).get("value")
     recharge_values = _recharge_values(payload)
-    recharge_text = "chronique mensuelle"
+    recharge_text = "monthly series"
     if recharge_values:
         mean_recharge = sum(recharge_values) / len(recharge_values)
         recharge_text = (
-            f"{len(recharge_values)} mois; moyenne {mean_recharge:.2g} mm/j; "
+            f"{len(recharge_values)} months; mean {mean_recharge:.2g} mm/d; "
             f"min {min(recharge_values):.2g}; max {max(recharge_values):.2g}"
         )
     length_x = _format_value(grid.get("length_x"), default="5025 m")
     length_y = _format_value(grid.get("length_y"), default="5025 m")
     rows = [
         (
-            "Geometrie",
-            f"domaine carre {length_x} x {length_y}, grille source "
+            "Geometry",
+            f"square domain {length_x} x {length_y}, source grid "
             f"{_format_value(grid.get('nx'), default='67')} x "
             f"{_format_value(grid.get('ny'), default='67')}, CRS "
             f"{_format_value(grid.get('crs'), default='EPSG:2154')}",
         ),
         (
-            "Topographie",
-            f"plan incline, altitude de base {_format_value(topography.get('base_elevation'), default='20')} m, denivele lateral {_format_value(topography.get('right_to_left_amplitude'), default='20')} m",
+            "Topography",
+            f"tilted plane, base elevation {_format_value(topography.get('base_elevation'), default='20')} m, lateral drop {_format_value(topography.get('right_to_left_amplitude'), default='20')} m",
         ),
-        ("Epaisseur", _depth_model_text(depth_model)),
+        ("Thickness", _depth_model_text(depth_model)),
         (
-            "Conductivite K",
+            "Hydraulic conductivity K",
             _format_mapping_values(
-                k_values, default="heterogene: ouest 1e-5, centre 8e-5, est 3e-5 m/s"
+                k_values, default="heterogeneous: west 1e-5, centre 8e-5, east 3e-5 m/s"
             ),
         ),
         (
-            "Stockage",
-            f"Sy {_format_mapping_values(sy_values, default='heterogene')}; Ss {_format_value(ss_value, default='1e-5 m-1')}",
+            "Storage",
+            f"Sy {_format_mapping_values(sy_values, default='heterogeneous')}; Ss {_format_value(ss_value, default='1e-5 m-1')}",
         ),
         ("Recharge", recharge_text),
-        ("Conditions limites", _boundary_condition_text(flow)),
+        ("Boundary conditions", _boundary_condition_text(flow)),
     ]
     return rows
 
@@ -179,11 +179,11 @@ _MM_PER_YEAR_PER_M_PER_S = 1000.0 * 365.25 * 86400.0
 def _steady_forcing_text(ic: Mapping[str, Any]) -> str:
     """Return what the auxiliary steady solve was held at."""
     if str(ic.get("source", "")).strip() != "prescribed":
-        return "la recharge moyenne de la chronique"
+        return "the mean recharge of the series"
     rate = ic.get("rate")
     if rate is None:
-        return "une recharge imposee"
-    return f"une recharge imposee de {float(rate) * _MM_PER_YEAR_PER_M_PER_S:.0f} mm/an"
+        return "a prescribed recharge"
+    return f"a prescribed recharge of {float(rate) * _MM_PER_YEAR_PER_M_PER_S:.0f} mm/yr"
 
 
 def _initial_condition_text(flow: Mapping[str, Any]) -> str:
@@ -195,23 +195,23 @@ def _initial_condition_text(flow: Mapping[str, Any]) -> str:
         surface = str(flow.get("surface_interaction_model", "")).strip().lower()
         if backend == "petsc" and surface == "vi_obstacle":
             return (
-                f"charge initiale issue d'un calcul permanent auxiliaire avec {forcing}; "
-                "pour Boussinesq, le permanent et le transitoire utilisent PETSc SNESVI "
-                "avec la fermeture vi_obstacle directe"
+                f"initial head from an auxiliary steady-state solve with {forcing}; "
+                "for Boussinesq, the steady and the transient solves use PETSc SNESVI "
+                "with the direct vi_obstacle closure"
             )
         if backend == "petsc" and surface == "ts_vi_obstacle":
             return (
-                f"charge initiale issue d'un calcul permanent auxiliaire avec {forcing}; "
-                "pour Boussinesq, ce permanent utilise PETSc SNESVI avec la fermeture "
-                "vi_obstacle avant le transitoire PETSc TS/SNESVI"
+                f"initial head from an auxiliary steady-state solve with {forcing}; "
+                "for Boussinesq, this steady solve uses PETSc SNESVI with the "
+                "vi_obstacle closure before the PETSc TS/SNESVI transient"
             )
         return (
-            f"charge initiale issue d'un calcul permanent auxiliaire avec {forcing}, "
-            "appliquee ensuite au transitoire"
+            f"initial head from an auxiliary steady-state solve with {forcing}, "
+            "then applied to the transient run"
         )
     if ic_type == "top_offset":
-        return f"charge initiale egale au toit moins {_format_value(ic.get('value'), default='un offset')}"
-    return f"type {_format_value(ic_type, default='non documente')}"
+        return f"initial head equal to the top minus {_format_value(ic.get('value'), default='an offset')}"
+    return f"type {_format_value(ic_type, default='not documented')}"
 
 
 def _recharge_text(flow: Mapping[str, Any]) -> str:
@@ -220,8 +220,8 @@ def _recharge_text(flow: Mapping[str, Any]) -> str:
     first_clim = _format_value(recharge.get("first_clim"), default="mean")
     negative_to_evt = _format_value(recharge.get("negative_to_evt"), default="false")
     return (
-        "chronique mensuelle lue depuis la configuration de donnees; "
-        f"premiere periode first_clim={first_clim}; "
+        "monthly series read from the data configuration; "
+        f"first period first_clim={first_clim}; "
         f"negative_to_evt={negative_to_evt}"
     )
 
@@ -230,7 +230,7 @@ def _boundary_condition_text(flow: Mapping[str, Any], *, solver: str = "") -> st
     active_bc = flow.get("active_bc")
     active = [str(item) for item in active_bc] if isinstance(active_bc, list) else []
     if "east_side" in active:
-        return "ancienne configuration avec charge imposee sur le bord est"
+        return "legacy configuration with a prescribed head on the east edge"
     if "drainage" in active:
         # A boundary is keyed by what it is; its kind is a field of it.
         drainage = _mapping(_mapping(flow.get("bc")).get("drainage"))
@@ -238,17 +238,17 @@ def _boundary_condition_text(flow: Mapping[str, Any], *, solver: str = "") -> st
         if _quantity_is_zero(drainage.get("value")):
             if solver.strip().lower() == "boussinesq":
                 return (
-                    "pas de charge laterale imposee; drainage Cauchy declare "
-                    "mais desactive par conductance nulle; obstacle libre "
-                    "strict h <= z_top conserve"
+                    "no lateral prescribed head; Cauchy drainage declared "
+                    "but disabled by zero conductance; strict free "
+                    "obstacle h <= z_top kept"
                 )
-            return "drainage declare mais desactive par conductance nulle"
+            return "drainage declared but disabled by zero conductance"
         suffix = f", conductance {value}" if value else ""
-        return f"pas de charge laterale imposee; drainage de surface actif sur le toit{suffix}"
+        return f"no lateral prescribed head; surface drainage active on the top{suffix}"
     if not active:
         if solver.strip().lower() == "boussinesq":
-            return "aucune condition limite active; obstacle libre strict h <= z_top"
-        return "aucune condition limite active, hors recharge"
+            return "no active boundary condition; strict free obstacle h <= z_top"
+        return "no active boundary condition, recharge aside"
     return ", ".join(active)
 
 
@@ -257,32 +257,32 @@ def _boussinesq_method_text(flow: Mapping[str, Any]) -> str:
     surface = str(flow.get("surface_interaction_model", "") or "").strip().lower()
     if backend == "petsc" and surface == "vi_obstacle":
         retry_text = (
-            "; retry adaptatif active"
+            "; adaptive retry enabled"
             if bool(flow.get("vi_substep_on_failure", False))
-            else "; retry adaptatif desactive"
+            else "; adaptive retry disabled"
         )
         return (
-            "modele 2D non lineaire en nappe libre sur le meme maillage; "
-            "backend PETSc complet; surface_interaction_model=vi_obstacle; "
-            "solveur PETSc SNESVI direct; "
-            f"{_format_value(flow.get('vi_substeps_per_period'), default='4')} sous-pas par periode"
+            "nonlinear 2D unconfined-aquifer model on the same mesh; "
+            "full PETSc backend; surface_interaction_model=vi_obstacle; "
+            "direct PETSc SNESVI solver; "
+            f"{_format_value(flow.get('vi_substeps_per_period'), default='4')} substeps per period"
             f"{retry_text}; "
-            f"tolerance residu={_format_value(flow.get('runtime_tol_residual_inf'), default='')}"
+            f"residual tolerance={_format_value(flow.get('runtime_tol_residual_inf'), default='')}"
         )
     if backend == "petsc" and surface == "ts_vi_obstacle":
         return (
-            "modele 2D non lineaire en nappe libre sur le meme maillage; "
-            "backend PETSc complet; surface_interaction_model=ts_vi_obstacle; "
+            "nonlinear 2D unconfined-aquifer model on the same mesh; "
+            "full PETSc backend; surface_interaction_model=ts_vi_obstacle; "
             f"PETSc TS {_format_value(flow.get('ts_vi_type'), default='beuler')}; "
             f"SNESVI {_format_value(flow.get('ts_vi_snes_type'), default='vinewtonrsls')}; "
-            f"{_format_value(flow.get('ts_vi_steps_per_period'), default='4')} sous-pas TS par periode; "
-            f"tolerance residu={_format_value(flow.get('runtime_tol_residual_inf'), default='')}"
+            f"{_format_value(flow.get('ts_vi_steps_per_period'), default='4')} TS substeps per period; "
+            f"residual tolerance={_format_value(flow.get('runtime_tol_residual_inf'), default='')}"
         )
     return (
-        "modele 2D non lineaire en nappe libre sur le meme maillage; "
+        "nonlinear 2D unconfined-aquifer model on the same mesh; "
         f"backend {_format_value(flow.get('runtime_backend'), default='scipy_sparse')}; "
-        f"iterations max={_format_value(flow.get('runtime_max_iterations'), default='')}; "
-        f"tolerance residu={_format_value(flow.get('runtime_tol_residual_inf'), default='')}"
+        f"max iterations={_format_value(flow.get('runtime_max_iterations'), default='')}; "
+        f"residual tolerance={_format_value(flow.get('runtime_tol_residual_inf'), default='')}"
     )
 
 

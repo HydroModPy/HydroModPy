@@ -10,6 +10,21 @@ if TYPE_CHECKING:
     from hydromodpy.analysis.testbed.regional_lab_types import RegionalLabPlannedCase
 
 
+def failed_cases_message(
+    *,
+    label: str,
+    failed_ids: Sequence[str],
+    executed_count: int,
+    report_path: str | Path | None,
+) -> str:
+    """The one line that names the failed cases and where to read why."""
+    shown = ", ".join(failed_ids[:10]) + (", ..." if len(failed_ids) > 10 else "")
+    message = f"{label}: {len(failed_ids)} of {executed_count} case(s) failed: {shown}."
+    if report_path:
+        message += f" Read {report_path}."
+    return message
+
+
 @runtime_checkable
 class TestbedRunnerProvider(Protocol):
     """Child workflow runner bundle consumed by testbed launchers."""
@@ -171,6 +186,7 @@ __all__ = [
     "TestbedRunnerProvider",
     "TestbedWorkflowAdapter",
     "available_testbed_runner_types",
+    "failed_cases_message",
     "get_testbed_runner_provider",
     "get_testbed_workflow_adapter",
     "register_testbed_runner_provider",

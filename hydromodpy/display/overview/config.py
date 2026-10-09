@@ -14,32 +14,61 @@ from hydromodpy.core.config_kit.types import IsoDateStr
 class OverviewPanelsConfig(HydroModelBase):
     """Toggle individual report panels on/off."""
 
-    map_dem: Annotated[bool, Profile.USER] = Field(True, description="DEM elevation map.")
-    map_geology: Annotated[bool, Profile.USER] = Field(True, description="Geology lithology map.")
-    map_hydrography: Annotated[bool, Profile.USER] = Field(True, description="River network map.")
-    stats_card: Annotated[bool, Profile.USER] = Field(True, description="Watershed metrics card.")
+    map_dem: Annotated[bool, Profile.USER] = Field(
+        True,
+        description="Draw the map of the DEM elevations with the watershed, streams and stations.",
+    )
+    map_geology: Annotated[bool, Profile.USER] = Field(
+        True,
+        description="Draw the map of the geology units over the watershed. It needs loaded geology.",
+    )
+    map_hydrography: Annotated[bool, Profile.USER] = Field(
+        True,
+        description="Draw the map of the mapped BD Topage stream network over the watershed.",
+    )
+    stats_card: Annotated[bool, Profile.USER] = Field(
+        True,
+        description=(
+            "Draw the identity card: name, area, period, number of stream reaches and "
+            "stations of each kind."
+        ),
+    )
     timeseries_discharge: Annotated[bool, Profile.USER] = Field(
-        True, description="Observed discharge."
+        True,
+        description="Draw the observed discharge series of the hydrometric stations, in m3/s.",
     )
     timeseries_piezometry: Annotated[bool, Profile.USER] = Field(
-        True, description="Observed piezometry."
+        True,
+        description="Draw the observed groundwater-level series of the piezometers, in metres.",
     )
-    climatic_summary: Annotated[bool, Profile.USER] = Field(True, description="P/ETP monthly bars.")
+    climatic_summary: Annotated[bool, Profile.USER] = Field(
+        True,
+        description="Draw the monthly means of precipitation and ETP as bars.",
+    )
     timeseries_intermittency: Annotated[bool, Profile.USER] = Field(
-        True, description="ONDE intermittency."
+        True,
+        description="Draw the flow states observed by the ONDE network at its stations.",
     )
     timeseries_water_quality: Annotated[bool, Profile.USER] = Field(
-        True, description="Water-quality series."
+        True,
+        description="Draw the water-quality series, one panel per measured parameter.",
     )
     station_inventory: Annotated[bool, Profile.USER] = Field(
-        True, description="Station inventory table."
+        True,
+        description="Draw the table of every station: type, id, coordinates and period.",
     )
 
 
 class OverviewConfig(HydroModelBase):
     """Overview report settings (watershed identity card)."""
 
-    name: Annotated[str, Profile.USER] = Field("", description="Watershed name.")
+    name: Annotated[str, Profile.USER] = Field(
+        "",
+        description=(
+            "Name of the watershed shown in the titles of the report. Unset, the "
+            "catchment name of the workspace is used."
+        ),
+    )
     date_start: Annotated[IsoDateStr, Profile.USER] = Field(
         None,
         description=(

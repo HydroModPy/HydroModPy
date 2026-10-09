@@ -1,8 +1,22 @@
 # Write a scenario by inheriting a file
 
-A TOML file can start from another one. The child writes only what changes: another
-recharge, another solver, another list of exports. This guide gives the exact merge rules,
-read from the code, and shows each one on example 04, from step 2 to step 6.
+```{hmp-task}
+Task
+: Write a variant of a TOML file that states only what changes: another recharge, another solver, another list of exports.
+
+Time
+: Minutes. The check is instant.
+
+Needs
+: A file that runs. The worked case is the staircase of example 04, from step 2 to step 6.
+
+Gives
+: A child file of a few lines, and the resolved file it makes, printed by `hmp config resolve`.
+```
+
+A TOML file can start from another one. The child writes only what changes. This guide shows
+the rules on example 04 and the two ways to see the merged result. The grammar, with the
+table of every rule, is in the {doc}`reference <../reference/parameters/grammar>`.
 
 ## The line that does it
 
@@ -23,55 +37,27 @@ file adds to what it inherits, and `~` what it changes.
 - **The merged result is what is validated.** A child alone is not a complete file.
   `hmp config check step2_local_data.toml` follows the chain and validates the whole.
 
-## The rules of the merge
+## What the merge does
 
 The same function merges every layer: the files of the chain, then `--overlay` files, then
-`--set` values. Inside one table, it works in three passes: first the `key__delete`
-entries, then the file's own values, then the `key__append` entries.
+`--set` values. In short:
 
-| What the child writes | What the result holds |
-|---|---|
-| A table the parent also has | The two are merged key by key, down to the leaves. |
-| A number, a string, a boolean | It replaces the parent's value. |
-| A list of plain values, `types = [...]` | It **replaces** the parent's list. |
-| A list of tables, `[[x]]`, of another length | It **replaces** the parent's list. |
-| A list of tables, `[[x]]`, of the **same length** | The two are merged **element by element**. See the trap below. |
-| `key__append = [...]` | The items are added after the parent's. |
-| `key__delete = true` | The inherited key, or table, is removed. |
-| A key neither file writes | The default of the model. |
+- a table that both files have is merged key by key, down to the leaves;
+- a number, a string, a boolean or a list replaces the inherited value;
+- a list of tables, `[[x]]`, replaces the inherited list too, whatever the lengths;
+- four spellings change that for one key: `key__append`, `key__delete` and `key__merge`.
 
-A value that is inherited is not undone by the default. Step 4 states `flow_regime =
-"transient"` again for that reason: step 1 wrote `"steady"`, and the default would not
+Inside one table, the merge works in three passes: the `key__delete` entries first, then
+the file's own values, then the `key__append` entries. A key that neither file writes takes
+the default of the model. An inherited value is not undone by that default: step 4 states
+`flow_regime = "transient"` again because step 1 wrote `"steady"`, and the default would not
 bring it back unless the file said so.
 
-## The trap: lists of tables of the same length
+## Lists: replace, append, delete, merge
 
-Two lists of tables of the same length look like one list that you rewrote. They are not.
-The code merges the first element with the first, the second with the second, and so on.
-Keys that the child does not repeat come back from the parent, without a message.
-
-Step 3 changes the source of the network, from a local file to the BD Topage API. Step 2
-declares one source, and step 3 declares one source. Here is the merged result of the real
-loader when the line `sources__delete = true` is removed from step 3:
-
-```toml
-# Computed with the loader, not written by hand.
-[[data.hydrography.sources]]
-source = "bdtopage"
-path = "nancon_stream_network.gpkg"   # leaked from step 2
-```
-
-The file is still valid: the schema accepts it, and nothing says that `path` came from
-another file. The same happens to the gauge: `path = "hydrometry"` comes back beside the
-Hub'Eau source. This is why step 3 writes `sources__delete = true` in `[data.hydrography]`
-and in `[data.hydrometry]`. With it, the inherited list is dropped first, and the new one
-stands alone.
-
-```{hmp-step} step3_api_data.toml
-```
-
-The same trap in a list you may write often, `[[export]]`. Take step 1, which declares
-three export blocks, and a child that rewrites three blocks:
+A list in the child replaces the list of the parent. This is the rule for lists of values,
+`types = [...]`, and for lists of tables, `[[export]]`, alike. A child that rewrites the
+three export blocks of step 1 gets exactly what it wrote:
 
 ```toml
 [[export]]
@@ -85,14 +71,32 @@ variables = "head"
 variables = "budget"
 ```
 
-The second block comes out as `{variables = "head", time = "last"}`: the `time = "last"` of
-step 1's water table block has leaked. Write the same child with one block more, or one
-block less, and nothing leaks, because the lengths differ. A rule that depends on a
-coincidence is a rule to avoid. Two safe ways:
+Merged onto step 1, the second block is `{variables = "head"}`. The `time = "last"` of
+step 1's water table block does not come back. To start from the inherited list instead,
+choose the form that says what you mean:
 
 ::::{tab-set}
-:::{tab-item} Start again: __delete
-The child drops the parent's blocks, then writes its own. This is what step 5 does.
+:::{tab-item} Replace
+Write the list again. The parent's list is gone, and the child's stands alone. This is what
+step 4 does for `types`, and what step 3 does for its sources.
+
+```toml
+[data.hydrography]
+sources = [{ source = "bdtopage" }]
+```
+:::
+:::{tab-item} Add: __append
+The child keeps the parent's items and adds its own. Steps 2, 3 and 4 do this with their
+exports.
+
+```toml
+[[export__append]]
+variables = "head"
+format = "vtu"
+```
+:::
+:::{tab-item} Drop: __delete
+The child drops the parent's list, then writes its own. Step 5 does this with its exports.
 
 ```toml
 export__delete = true
@@ -102,16 +106,28 @@ variables = "watershed"
 format = "shapefile"
 ```
 :::
-:::{tab-item} Add: __append
-The child keeps the parent's blocks and adds its own. This is what steps 2, 3 and 4 do.
+:::{tab-item} Pair: __merge
+The child changes some keys of each inherited table and keeps the others. One table per
+inherited table, in order. Another length is refused.
 
 ```toml
-[[export__append]]
-variables = "head"
-format = "vtu"
+[[export__merge]]
+format = "shapefile"
+
+[[export__merge]]
+variables = ["head", "watertable_depth"]
+
+[[export__merge]]
+format = "csv"
 ```
+
+Merged onto step 1, the second block keeps its `time = "last"` and takes the new variables.
 :::
 ::::
+
+`__merge` refuses what it cannot pair, with a message that says why: another length, no
+inherited list, items that are not tables, or the plain key written too (see the table at the
+end of this guide).
 
 ## Add to a list: `__append`
 
@@ -141,7 +157,7 @@ path = "runoff"
 station_ids = ["NANCON"]
 ```
 
-Merged onto step 2, this gives the same `{toml}`data.types` as step 4. Two limits, both
+Merged onto step 2, this gives the same {toml}`data.types` as step 4. Two limits, both
 raised as errors:
 
 - the value of `key__append` must be a list;
@@ -173,10 +189,9 @@ Three details that the code settles:
   nothing, and the parent's list stays.
 - After a delete, a key that the file does not write comes back as the default of the model.
 
-Step 5's `export__delete` changes nothing today, because step 4 holds 6 blocks and step 5
-writes 11, and a list of another length replaces the parent's anyway. Step 6 writes 4
-blocks over the 4 of `project.toml`, and the merge happens to give the same result. In both
-cases the delete makes the file safe whatever the lengths become.
+For a list, `sources__delete = true` followed by a new list and the new list alone give the
+same result, since a list replaces the parent's. Step 3 and step 5 write the delete anyway,
+so the file says what it means whatever the rule of the loader becomes.
 
 ## Change the shape of an inherited table
 
@@ -223,17 +238,37 @@ file and one line:
 :config: step4_transient.toml
 ```
 
-To check it yourself:
+On your own file, two commands show the result without running anything:
 
-- `hmp config check <file>` follows the chain and validates the merged result.
-- After a run, `runs/<name>/config.toml` is the exact resolved configuration, frozen.
+::::{tab-set}
+:::{tab-item} Resolve the chain
+```bash
+hmp config resolve step4_transient.toml
+```
+
+It prints the TOML that the chain makes, before validation: every table, with the lists as
+the merge left them. It prints only what the files say, without the defaults of the model.
+Redirect it to a file to keep a frozen copy, or to a pager to search a key.
+:::
+:::{tab-item} Check the result
+```bash
+hmp config check step4_transient.toml
+```
+
+It follows the chain, validates the merged result and prints `OK:` and the path. After a
+run, `runs/<name>/config.toml` is the exact resolved configuration, frozen.
+:::
+::::
+
+Example: `hmp config resolve step3_api_data.toml` prints `sources = [{ source = "bdtopage" }]`
+under `[data.hydrography]`. No key of step 2 survives in it.
 
 ## Overlays and `--set`
 
 `hmp run` has two more layers, applied after the chain, in this order: `--overlay FILE`
 (repeatable, later files win), then `--set PATH=VALUE`. An overlay file may have its own
-`base_config`, and it goes through the same merge function, so `__append` and `__delete`
-work in it.
+`base_config`, and it goes through the same merge function, so `__append`, `__delete` and
+`__merge` work in it. `hmp config resolve` prints the chain only, not the overlays.
 
 ## When to inherit
 
@@ -249,8 +284,37 @@ Example 04 uses inheritance in three ways:
 Copy a file instead when the two have grown apart so far that the child would delete more
 than it keeps.
 
+## How to check it worked
+
+- `hmp config resolve child.toml` shows the list you meant: the blocks you wrote, or the
+  inherited ones plus yours.
+- `hmp config check child.toml` prints `OK:` and the path.
+- Put the child next to its parent and run `hmp catalog diff` on the two runs: it names
+  only what you changed ({doc}`find-and-compare-runs`).
+
+## What can go wrong
+
+| What you see | Cause | Fix |
+|---|---|---|
+| `Detected circular base_config chain: <a.toml> -> <b.toml> -> <a.toml>` | A file reaches itself through its bases. | Remove one link. |
+| `base_config must be a TOML string path when provided` | The value is not a string. | Write a quoted path. |
+| `File not found` or `[Errno 2] No such file or directory` on a `base_config` | The path is read from the folder of the file that holds it, not from where you run. | Fix the path. |
+| `base_config` is ignored and its table fails | It came after a `[table]` header, so it is a key of that table. | Move it above the first table. |
+| `merge directive '<key>__merge' has <n> table(s) and the inherited list has <m>; write one table per inherited table, or replace the list with '<key>'` | `__merge` pairs tables in order and the lengths differ. | Write one table per inherited table, or replace the list. |
+| `merge directive '<key>__merge' has no inherited list to merge with` | The parent does not have the list. | Write the plain key. |
+| `merge directive '<key>__merge' needs an inherited list of tables (found <type>)` | The inherited value is not a list of tables. | Write the plain key, or `__append` for a list of values. |
+| `merge directive '<key>__merge' requires a list of tables` | The value is not a list of tables. | Write `[[<key>__merge]]` blocks. |
+| `'<key>' and '<key>__merge' are both set; write only one of them` | The file writes the plain key and the directive. | Keep one. |
+| `flow.param.K.field.heterogeneous.value: Extra inputs are not permitted` | The table changed shape and kept the key of the old shape. | Add `value__delete = true`, or drop the whole table. |
+| `flow.param contains ids not declared in flow.param_list: Ss` | A child added a parameter table and left the inherited `param_list`. | Write `param_list__append = ["Ss"]`, or leave `param_list` out of every file. |
+| A key you deleted is still there | A typo in `key__delete`. Deleting a key that does not exist is silent. | Check the spelling against `hmp config resolve`. |
+| `merge directive '<key>__delete' requires the literal boolean true` | Only the literal `true` is accepted. | Write `key__delete = true`. |
+| `merge directive '<key>__append' requires a list value, got <type>` | The value of `__append` is not a list. | Write a list. |
+
 ## See also
 
-- The grammar of the file: {doc}`../reference/parameters/grammar`.
+- The grammar of the file, with the table of every rule: {doc}`../reference/parameters/grammar`.
+- Check the file while you type it: {doc}`set-up-your-editor`.
 - The staircase, one page per step: {doc}`../get-started/staircase/index`.
-- Where `[[export]]` is described: {doc}`../reference/parameters/export`.
+- Where `[[export]]` is described: {doc}`../reference/parameters/export`, and the guide
+  {doc}`export-results`.

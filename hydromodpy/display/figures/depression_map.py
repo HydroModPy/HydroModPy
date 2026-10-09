@@ -26,7 +26,7 @@ under the name of the first concludes that the conditioning failed.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
@@ -36,7 +36,8 @@ from hydromodpy.core.topographic_distance import (
     build_downslope_metric,
     downslope_distance_to_mask,
 )
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import CmapOrOwn, Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._routing_surface import (
     RoutingSurface,
@@ -282,10 +283,30 @@ class DepressionMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        shows: str = DEPRESSIONS,
-        diagonal_neighbors: bool = STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
-        clip_percentile: float = DEFAULT_CLIP_PERCENTILE,
-        cmap: str | None = None,
+        shows: Annotated[
+            str,
+            Opt(
+                '"depressions" maps the cells that cannot get out of the domain and the '
+                'fill each needs; "unreachable" maps those that get out elsewhere but '
+                "never reach the catchment outlet."
+            ),
+        ] = DEPRESSIONS,
+        diagonal_neighbors: Annotated[
+            bool,
+            Opt(
+                "Let a descent step to the diagonal neighbours of a cell, as the "
+                "stream criterion does by default."
+            ),
+        ] = STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
+        clip_percentile: Annotated[
+            float,
+            Opt(
+                "Percentile of the fills at which the colour scale stops, so one deep "
+                "sink does not flatten it. In (0, 100].",
+                unit="%",
+            ),
+        ] = DEFAULT_CLIP_PERCENTILE,
+        cmap: CmapOrOwn = None,
         **_,
     ) -> Axes:
         from matplotlib.lines import Line2D
@@ -319,7 +340,7 @@ class DepressionMap(BaseFigure):
         ax.plot([outlet_x], [outlet_y], markersize=13, zorder=8, **outlet_marker)
         style_map_axes(ax)
         overlay_watershed_contour(ax, sim, color="#404040", linewidth=0.9, alpha=0.7)
-        ax.set_title(f"{reading.title} - {sim.name or sim.sim_id}")
+        ax.set_title(f"{reading.title}{run_suffix(sim)}")
 
         handles: list[Patch | Line2D] = []
         if flood.raised.any():

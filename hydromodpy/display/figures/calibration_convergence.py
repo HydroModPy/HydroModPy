@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._trial_diagnostics import trial_table
 
@@ -33,7 +34,13 @@ class CalibrationConvergenceFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        objective: str = "objective",
+        objective: Annotated[
+            str,
+            Opt(
+                "Name of the cost series the session recorded. When the run holds no "
+                "such series, the cost column of the trial table is read."
+            ),
+        ] = "objective",
         **_,
     ) -> Axes:
         try:
@@ -76,6 +83,6 @@ class CalibrationConvergenceFigure(BaseFigure):
         ax.set_xlabel("Iteration")
         ax.set_ylabel(label)
         ax.grid(True, ls=":", lw=0.4)
-        ax.set_title(f"Calibration convergence - {sim.name or sim.sim_id}")
+        ax.set_title(f"Calibration convergence{run_suffix(sim)}")
         ax.legend()
         return ax

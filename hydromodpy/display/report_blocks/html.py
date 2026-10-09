@@ -94,7 +94,7 @@ def render_report_page(
     )
     toc_html = _render_toc(block_list)
     return f"""<!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -106,7 +106,7 @@ def render_report_page(
 <body>
 <main>
   <header>
-    <p class="eyebrow">Fichier HTML de simulation</p>
+    <p class="eyebrow">Simulation HTML report</p>
     <h1>{_safe_text(title)}</h1>
     {subtitle_html}
     {nav_html}
@@ -150,7 +150,7 @@ def render_report_page_with_block_variants(
     )
     toc_html = _render_toc(visible_blocks)
     return f"""<!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -162,7 +162,7 @@ def render_report_page_with_block_variants(
 <body>
 <main>
   <header>
-    <p class="eyebrow">Fichier HTML de simulation</p>
+    <p class="eyebrow">Simulation HTML report</p>
     <h1>{_safe_text(title)}</h1>
     {subtitle_html}
     {nav_html}
@@ -257,8 +257,8 @@ def _render_block_variant_group(
             f'<div class="block-variant" data-block-level="{_safe(level)}"{hidden}>{rendered}</div>'
         )
     return f"""<div class="block-variant-group" id="{_safe(anchor)}" data-block-group="{_safe(anchor)}" data-default-level="{_safe(initial)}">
-  <div class="block-level-switch" role="group" aria-label="Niveau du bloc {_safe(variants[initial].title)}">
-    <span>Niveau du bloc</span>
+  <div class="block-level-switch" role="group" aria-label="Block level {_safe(variants[initial].title)}">
+    <span>Block level</span>
     <div class="block-level-buttons">{buttons}</div>
   </div>
   {"".join(rendered_variants)}
@@ -322,7 +322,7 @@ def _render_missing_figure(figure: ReportFigure) -> str:
     if figure.path is not None:
         path_hint = f"<small>{_safe(figure.path)}</small>"
     return f"""<figure class="missing-figure">
-  <div class="figure-placeholder">Figure requise manquante</div>
+  <div class="figure-placeholder">Required figure missing</div>
   {caption}
   {path_hint}
 </figure>"""
@@ -366,8 +366,8 @@ def _render_toc(blocks: tuple[ReportBlock, ...]) -> str:
     ]
     if len(items) < 2:
         return ""
-    return f"""<nav class="block-toc" aria-label="Sommaire du rapport">
-  <span>Sommaire</span>
+    return f"""<nav class="block-toc" aria-label="Report contents">
+  <span>Contents</span>
   <div>{"".join(items)}</div>
 </nav>"""
 
@@ -384,7 +384,7 @@ def _render_level_nav(
         "compact": "Compact",
         "standard": "Standard",
         "audit": "Audit",
-        "by_block": "Par bloc",
+        "by_block": "By block",
     }
     buttons = []
     ordered_levels = ("compact", "standard", "audit", "by_block")
@@ -401,8 +401,8 @@ def _render_level_nav(
         )
     if not buttons:
         return ""
-    return f"""<nav class="level-nav" id="report-level" aria-label="Niveau du rapport">
-  <span>Niveau</span>
+    return f"""<nav class="level-nav" id="report-level" aria-label="Report level">
+  <span>Level</span>
   <div class="level-buttons">{"".join(buttons)}</div>
 </nav>"""
 
@@ -410,9 +410,9 @@ def _render_level_nav(
 def _render_status(status: str) -> str:
     labels = {
         "available": "",
-        "partial": "Partiel",
-        "empty": "Vide",
-        "not_applicable": "Non applicable",
+        "partial": "Partial",
+        "empty": "Empty",
+        "not_applicable": "Not applicable",
     }
     label = labels.get(status, status.replace("_", " "))
     if not label:

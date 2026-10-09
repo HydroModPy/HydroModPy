@@ -9,11 +9,12 @@ anything. This is the figure to look at before any other.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.style import place_legend
 
@@ -40,8 +41,14 @@ class MassBalanceError(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        quantity: str = "water",
-        tolerance: float = 1.0,
+        quantity: Annotated[
+            str,
+            Opt('Balanced quantity: "water" for the flow budget, "solute" for a transport run.'),
+        ] = "water",
+        tolerance: Annotated[
+            float,
+            Opt("Half-width of the band drawn around zero error; 0 draws no band.", unit="%"),
+        ] = 1.0,
         **_,
     ) -> Axes:
         rows = sim.mass_balance
@@ -71,6 +78,6 @@ class MassBalanceError(BaseFigure):
         ax.set_xlabel("Timestep")
         ax.set_ylabel("Closure error (%)")
         ax.grid(True, ls=":", lw=0.4)
-        ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}\nworst |error| {worst:.3g}%")
+        ax.set_title(f"{self.spec.title}{run_suffix(sim)}\nworst |error| {worst:.3g}%")
         place_legend(ax, fontsize=8, framealpha=0.9)
         return ax

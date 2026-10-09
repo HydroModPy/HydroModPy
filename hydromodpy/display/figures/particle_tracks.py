@@ -7,11 +7,12 @@ same figure serves both backends and both tracking directions.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt, Overlays
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import (
     RELATIVE_MAP_COLORBAR_LABEL_SIZE,
@@ -61,11 +62,23 @@ class ParticleTracks(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        cmap: str = "magma_r",
-        lw: float = 0.7,
-        max_tracks: int = 500,
-        color_by: str = "travel_time",
-        overlays: tuple[str, ...] | list[str] | None = None,
+        cmap: Annotated[str, Opt("Matplotlib colormap of the travel time, by name.")] = "magma_r",
+        lw: Annotated[float, Opt("Width of each pathline.", unit="pt")] = 0.7,
+        max_tracks: Annotated[
+            int,
+            Opt(
+                "Pathlines drawn at most: above it, one track in every n is kept, "
+                "evenly through the release order."
+            ),
+        ] = 500,
+        color_by: Annotated[
+            str,
+            Opt(
+                '"travel_time" colours each pathline by its travel time; any other '
+                "value draws them all in one grey."
+            ),
+        ] = "travel_time",
+        overlays: Overlays = None,
         **_,
     ) -> Axes:
         from matplotlib.collections import LineCollection
@@ -102,7 +115,7 @@ class ParticleTracks(BaseFigure):
         apply_overlays(ax, sim, ("watershed", "seepage") if overlays is None else overlays)
         style_relative_km_axes(ax)
         shown = f"{len(selected)} of {len(tracks)}" if step > 1 else f"{len(tracks)}"
-        ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}\n{shown} pathlines")
+        ax.set_title(f"{self.spec.title}{run_suffix(sim)}\n{shown} pathlines")
         handles, _labels = ax.get_legend_handles_labels()
         if handles:
             place_legend(ax, fontsize=8, framealpha=0.9)

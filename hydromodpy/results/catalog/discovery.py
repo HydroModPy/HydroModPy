@@ -14,7 +14,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from hydromodpy.results.catalog.constants import OUTLET_STATION
+from hydromodpy.results.catalog.constants import (
+    OUTLET_STATION,
+    UnrankedMetricError,
+    metric_rank_sql,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -91,6 +95,8 @@ class DiscoveryMixin:
         ref: str | UUID,
         *,
         project: str | None = None,
+        in_trash: bool = False,
+        unambiguous: bool = False,
     ) -> str:
         """Resolve a user reference to a simulation UUID.
 
@@ -98,13 +104,24 @@ class DiscoveryMixin:
 
         1. ``@``-selectors: ``@last``, ``@last~N`` (N-th newest completed),
            ``@best:METRIC`` / ``@worst:METRIC`` (outlet first, any station as
-           fallback; add ``@STATION`` to scope explicitly), ``@running``.
+           fallback; add ``@STATION`` to scope explicitly), ``@running``. Best
+           follows the direction of the metric: highest ``nse``, lowest
+           ``rmse``, ``pbias`` closest to zero (see
+           :data:`~hydromodpy.results.catalog.constants.METRIC_SENSE`).
         2. Full UUID (36 chars with dashes).
         3. UUID prefix of >= 4 hex characters. Must match a single simulation;
            raises :class:`AmbiguousReferenceError` otherwise.
-        4. Exact ``name`` (globally, or within ``project``).
+        4. Exact ``name`` of a live run (globally, or within ``project``).
         5. ``name_stem``: a bare name resolves to the latest live version of
-           that stem (``cheze_baseline`` -> ``cheze_baseline.v3``).
+           that stem (``baseline`` -> ``baseline.v3``).
+        6. Exact ``name`` of a trashed run, when no live run answers to it.
+
+        With ``in_trash``, a name looks only at trashed runs, under the name
+        the trash listing shows (``original_name``): it is what ``restore``
+        means. With ``unambiguous``, a name that a live run answers to (rules
+        4 and 5) while a trashed run still carries it raises
+        :class:`AmbiguousReferenceError` listing both: a purge must not pick
+        one of two runs the user could mean.
 
         Raises :class:`SimulationNotFoundError` when nothing matches, with the
         closest known names and tags suggested.
@@ -151,30 +168,36 @@ class DiscoveryMixin:
             if len(name_rows) == 1:
                 return str(name_rows[0][0])
 
-        # Exact name match.
+        if in_trash:
+            return self._resolve_trashed_name(ref_s, project)
+
+        # Exact name match, live runs only. A run that ``if_exists = "replace"``
+        # sent to the trash keeps its name; answering with it would hand back
+        # the run the user just replaced instead of the one that replaced it.
+        exact_sql = (
+            "SELECT CAST(sim_id AS VARCHAR), project, "
+            "status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
+            "FROM simulations WHERE name = ?"
+        )
+        exact_params: list[str] = [ref_s]
         if project is not None:
-            row = self._backend.fetch_one(
-                "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE project = ? AND name = ?",
-                [project, ref_s],
+            exact_sql += " AND project = ?"
+            exact_params.append(project)
+        exact_rows = self._backend.fetch_all(exact_sql, exact_params)
+        live_exact = [r for r in exact_rows if not r[2]]
+        if len(live_exact) == 1:
+            if unambiguous:
+                self._refuse_a_name_the_trash_holds(ref_s, project, str(live_exact[0][0]), ref_s)
+            return str(live_exact[0][0])
+        if len(live_exact) > 1:
+            raise AmbiguousReferenceError(
+                ref_s,
+                [(str(r[0]), f"{ref_s} (project={r[1]})") for r in live_exact],
             )
-            if row:
-                return str(row[0])
-        else:
-            rows = self._backend.fetch_all(
-                "SELECT CAST(sim_id AS VARCHAR), project FROM simulations WHERE name = ?",
-                [ref_s],
-            )
-            if len(rows) == 1:
-                return str(rows[0][0])
-            if len(rows) > 1:
-                raise AmbiguousReferenceError(
-                    ref_s,
-                    [(str(r[0]), f"{ref_s} (project={r[1]})") for r in rows],
-                )
 
         # Bare stem -> latest live version of the stem.
         stem_sql = (
-            "SELECT CAST(sim_id AS VARCHAR), project FROM simulations "
+            "SELECT CAST(sim_id AS VARCHAR), project, name FROM simulations "
             "WHERE name_stem = ? "
             "AND status_id <> (SELECT id FROM statuses WHERE code = 'trashed') "
         )
@@ -187,13 +210,68 @@ class DiscoveryMixin:
         if stem_rows:
             projects = {r[1] for r in stem_rows}
             if len(projects) == 1:
+                if unambiguous:
+                    self._refuse_a_name_the_trash_holds(
+                        ref_s, project, str(stem_rows[0][0]), str(stem_rows[0][2])
+                    )
                 return str(stem_rows[0][0])
             raise AmbiguousReferenceError(
                 ref_s,
                 [(str(r[0]), f"{ref_s} (project={r[1]})") for r in stem_rows],
             )
 
+        # Nothing live answers to the name: a trashed run that still carries it
+        # is what the user means (to restore it, or to read it before it goes).
+        if len(exact_rows) == 1:
+            return str(exact_rows[0][0])
+        if len(exact_rows) > 1:
+            raise AmbiguousReferenceError(
+                ref_s,
+                [(str(r[0]), f"{ref_s} (project={r[1]}, trashed)") for r in exact_rows],
+            )
+
         raise SimulationNotFoundError(self._not_found_message(ref_s, project))
+
+    def _trashed_name_rows(self, ref: str, project: str | None) -> list[tuple]:
+        """Return ``(sim_id, project)`` of the trashed runs that carry ``ref``.
+
+        A run sent to the trash by ``if_exists = "replace"`` keeps ``name``; one
+        trashed by ``Catalog.trash`` keeps it only as ``original_name``, which
+        is what the trash listing shows. Both count.
+        """
+        sql = (
+            "SELECT CAST(sim_id AS VARCHAR), project FROM simulations "
+            "WHERE status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
+            "AND (name = ? OR original_name = ?)"
+        )
+        params: list[str] = [ref, ref]
+        if project is not None:
+            sql += " AND project = ?"
+            params.append(project)
+        return list(self._backend.fetch_all(sql + " ORDER BY trashed_at DESC", params))
+
+    def _resolve_trashed_name(self, ref: str, project: str | None) -> str:
+        """Resolve ``ref`` as the name of a trashed run, the way the trash lists it."""
+        rows = self._trashed_name_rows(ref, project)
+        if len(rows) == 1:
+            return str(rows[0][0])
+        if len(rows) > 1:
+            raise AmbiguousReferenceError(
+                ref, [(str(r[0]), f"{ref} (project={r[1]}, trashed)") for r in rows]
+            )
+        raise SimulationNotFoundError(f"No trashed simulation named '{ref}'.")
+
+    def _refuse_a_name_the_trash_holds(
+        self, ref: str, project: str | None, live_sid: str, live_name: str
+    ) -> None:
+        """Raise when ``ref`` names both the live run ``live_sid`` and a trashed one."""
+        trashed = [r for r in self._trashed_name_rows(ref, project) if str(r[0]) != live_sid]
+        if trashed:
+            raise AmbiguousReferenceError(
+                ref,
+                [(live_sid, f"{live_name} (live)")]
+                + [(str(r[0]), f"{ref} (trashed)") for r in trashed],
+            )
 
     def _resolve_selector(self, body: str, *, project: str | None) -> str:
         """Resolve an ``@``-selector body (the part after ``@``)."""
@@ -221,7 +299,10 @@ class DiscoveryMixin:
             metric, _, station = remainder.partition("@")
             metric = metric.strip()
             station = station.strip() or None
-            order = "DESC" if kind == "best" else "ASC"
+            try:
+                order = metric_rank_sql(metric, best=kind == "best")
+            except UnrankedMetricError as exc:
+                raise SimulationNotFoundError(f"'@{body}': {exc}") from exc
             row = self._rank_best_run(metric, order, station=station, project=project)
             if row is not None:
                 return str(row)
@@ -259,9 +340,11 @@ class DiscoveryMixin:
     ) -> str | None:
         """Return the best/worst run for ``metric``, honouring a station scope.
 
-        With an explicit ``station`` the rank is scoped to it. Without one, the
-        outlet station is tried first, then any station (lake-level metrics live
-        at lake/station scopes, not at the outlet).
+        ``order`` is the ``ORDER BY`` expression of :func:`metric_rank_sql`, so
+        best follows the direction of the metric. With an explicit ``station``
+        the rank is scoped to it. Without one, the outlet station is tried
+        first, then any station (lake-level metrics live at lake/station
+        scopes, not at the outlet). A missing or non-finite value never ranks.
         """
         stations = [station] if station is not None else [OUTLET_STATION, None]
         for scope in stations:
@@ -270,6 +353,7 @@ class DiscoveryMixin:
                 "JOIN statuses st ON s.status_id = st.id "
                 "JOIN metrics m ON s.sim_id = m.sim_id "
                 "WHERE st.code = 'completed' AND m.metric_name = ? "
+                "AND m.value IS NOT NULL AND isfinite(m.value) "
             )
             params: list = [metric]
             if scope is not None:
@@ -278,7 +362,7 @@ class DiscoveryMixin:
             if project:
                 sql += "AND s.project = ? "
                 params.append(project)
-            sql += f"ORDER BY m.value {order} LIMIT 1"
+            sql += f"ORDER BY {order} LIMIT 1"
             row = self._backend.fetch_one(sql, params)
             if row is not None:
                 return str(row[0])
@@ -310,6 +394,43 @@ class DiscoveryMixin:
         return Run(sid, self)
 
     def find(self, **filters) -> RunSet:
+        """Return the runs that match every filter, newest first.
+
+        Trashed runs are left out unless ``status`` asks for them.
+
+        Parameters
+        ----------
+        **filters
+            Each keyword narrows the set:
+
+            - ``project``, ``name``, ``name_stem``, ``config_hash``,
+              ``crs_wkt`` (or ``crs``), ``geographic_fingerprint``: exact value
+              of that run column.
+            - ``solver``, ``solver_category``, ``status``, ``flow_regime``,
+              ``mesh_topology``: their code, for example ``solver="modflow6"``
+              or ``status="completed"``.
+            - ``tags``: one tag the run carries.
+            - ``<metric>_gt``, ``<metric>_gte``, ``<metric>_lt``,
+              ``<metric>_lte``: bound on an outlet metric, for example
+              ``nse_gt=0.7``.
+
+        Returns
+        -------
+        RunSet
+            The matching runs. It is empty when nothing matches.
+
+        Raises
+        ------
+        ValueError
+            If a keyword is none of the above. The message lists them.
+
+        Examples
+        --------
+        >>> good = cat.find(
+        ...     project="my_project", status="completed", nse_gt=0.7
+        ... )  # doctest: +SKIP
+        >>> good.best("nse")  # doctest: +SKIP
+        """
         from hydromodpy.results.run.group import RunSet
 
         # v2 dim-table joins for filters that hit text codes (solver/status/etc.).
@@ -427,6 +548,28 @@ class DiscoveryMixin:
         return RunSet(sim_ids, self)
 
     def latest(self, project: str | None = None) -> Run:
+        """Return the most recently created completed run.
+
+        Parameters
+        ----------
+        project
+            Look only at the runs of this project. ``None`` looks at the
+            whole catalog.
+
+        Returns
+        -------
+        Run
+            The newest run whose status is ``completed``.
+
+        Raises
+        ------
+        KeyError
+            If no run is completed (in ``project``, when given).
+
+        Examples
+        --------
+        >>> run = hmp.open("~/ws/projects/my_project").latest()  # doctest: +SKIP
+        """
         from hydromodpy.results.run import Run
 
         if project is not None:
@@ -497,29 +640,48 @@ class DiscoveryMixin:
         }
 
     def best(self, project: str, metric: str = "nse") -> Run:
-        return self.rank(project, metric, ascending=False, n=1)[0]
+        """Return the completed run with the best outlet value of ``metric``.
+
+        Best follows the direction of the metric: the highest ``nse``, the
+        lowest ``rmse``, the ``pbias`` closest to zero. A metric with no
+        declared direction raises
+        :class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`.
+        """
+        return self.rank(project, metric, n=1)[0]
 
     def worst(self, project: str, metric: str = "nse") -> Run:
-        return self.rank(project, metric, ascending=True, n=1)[0]
+        """Return the completed run with the worst outlet value of ``metric``."""
+        return self.rank(project, metric, n=1, best_first=False)[0]
 
     def rank(
         self,
         project: str,
         metric: str = "nse",
         *,
-        ascending: bool = False,
+        ascending: bool | None = None,
         n: int = 1,
+        best_first: bool = True,
     ) -> RunSet:
+        """Return up to ``n`` completed runs ranked on the outlet ``metric``.
+
+        Without ``ascending`` the runs come best first (``best_first=True``)
+        or worst first, following the direction of the metric. ``ascending``
+        orders on the raw value instead, for a metric with no direction.
+        """
         from hydromodpy.results.run.group import RunSet
 
-        order = "ASC" if ascending else "DESC"
+        if ascending is None:
+            order = metric_rank_sql(metric, best=best_first)
+        else:
+            order = f"m.value {'ASC' if ascending else 'DESC'}"
         rows = self._backend.fetch_all(
             "SELECT s.sim_id FROM simulations s "
             "JOIN statuses st ON s.status_id = st.id "
             "JOIN metrics m ON s.sim_id = m.sim_id "
             "WHERE s.project = ? AND st.code = 'completed' "
             "AND m.metric_name = ? AND m.station_id = ? "
-            f"ORDER BY m.value {order} LIMIT ?",
+            "AND m.value IS NOT NULL AND isfinite(m.value) "
+            f"ORDER BY {order} LIMIT ?",
             [project, metric, OUTLET_STATION, n],
         )
         if not rows:

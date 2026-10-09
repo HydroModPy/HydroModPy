@@ -1022,17 +1022,36 @@ depends_on = "steady_k"
 
 
 class TestBackendName:
-    """The Methods paragraph names the solver that ran, read off ``[solver]``."""
+    """The Methods paragraph names the solver the trials run."""
 
-    def test_a_bare_tag_is_read(self) -> None:
-        assert staged_runner._backend_name({"solver": {"backend": "modflow6"}}) == "modflow6"
+    def test_the_flow_process_names_the_backend(self) -> None:
+        document = {
+            "simulation": {
+                "process": [
+                    {"id": "tr", "type": "transport", "solvers": ["modflow6"]},
+                    {"id": "flow_main", "type": "flow", "solvers": ["modflow_nwt"]},
+                ]
+            }
+        }
+        assert staged_runner._backend_name(document) == "modflow_nwt"
 
-    def test_the_table_form_is_unwrapped(self) -> None:
+    def test_the_flow_process_wins_over_a_solver_table(self) -> None:
+        document = {
+            "simulation": {"process": [{"type": "flow", "solvers": ["boussinesq"]}]},
+            "solver": {"backend": {"backend": "modflow6"}},
+        }
+        assert staged_runner._backend_name(document) == "boussinesq"
+
+    def test_the_solver_table_is_read_without_a_flow_process(self) -> None:
         document = {"solver": {"backend": {"backend": "modflow_nwt"}}}
         assert staged_runner._backend_name(document) == "modflow_nwt"
 
-    def test_no_solver_section_is_none(self) -> None:
-        assert staged_runner._backend_name({}) is None
+    def test_a_plugin_backend_gives_its_name(self) -> None:
+        document = {"solver": {"backend": {"backend": "custom", "name": "myflow"}}}
+        assert staged_runner._backend_name(document) == "myflow"
+
+    def test_a_document_that_names_none_runs_the_default(self) -> None:
+        assert staged_runner._backend_name({}) == "modflow6"
 
 
 def _steady_phase(**overrides):

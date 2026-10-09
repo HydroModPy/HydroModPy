@@ -1,61 +1,43 @@
 # Contribute
 
-This part is for people who change HydroModPy itself: add a field, a solver, a
-data source, a figure. If you write TOML files, the {doc}`Guides <../guides/index>`
-and the {doc}`Reference <../reference/index>` are for you.
+This part is for people who change HydroModPy itself. If you only write TOML
+files, the {doc}`Guides <../guides/index>` and the
+{doc}`Reference <../reference/index>` are for you.
 
-::::{grid} 1 1 2 2
-:gutter: 3
+## I want to
 
-:::{grid-item-card} Contributor handbook
-:link: handbook
-:link-type: doc
+| Task | Start here |
+|---|---|
+| Set up an environment and run my first test | {doc}`quick-start` |
+| Open an issue, branch, commit, open a pull request | {doc}`handbook` |
+| Add a config field | {doc}`architecture/how-to/add-a-config-field` |
+| Add a solver, a process or a data source | {doc}`architecture/how-to/add-a-solver`, {doc}`architecture/how-to/add-a-process`, {doc}`architecture/how-to/add-a-data-source` |
+| Add a figure, an exporter or a `hmp` command | {doc}`architecture/how-to/add-a-figure`, {doc}`architecture/how-to/add-an-exporter`, {doc}`architecture/how-to/add-a-cli-command` |
+| Add a test, or read a failing check | {doc}`architecture/how-to/add-a-test`, {doc}`project/ci-workflows` |
+| Fix an import the architecture gate refuses | {doc}`architecture/how-to/fix-an-architecture-gate` |
+| Cut a release | {doc}`architecture/how-to/cut-a-release` |
+| Change this documentation | {doc}`documentation/index` |
+| Understand how the code is organised | {doc}`architecture/mental-model` |
 
-Open an issue, set up a development environment, the coding style, the tests.
-:::
+## The four blocks
 
-:::{grid-item-card} Architecture
-:link: architecture/index
-:link-type: doc
-
-The layers and their allowed imports, the storage layout, the packages, and the
-recipes to add a field, a solver, a data source or a figure.
-:::
-
-:::{grid-item-card} Document a configuration field
-:link: document-a-field
-:link-type: doc
-
-What the generated reference reads from a `Field`, and how to write it.
-:::
-
-:::{grid-item-card} Write a theory page
-:link: write-a-theory-page
-:link-type: doc
-
-The parts of a page, the boxes the build generates, and what it checks.
-:::
-
-::::
-
-## Three rules for the documentation
-
-1. **The code is the only source of a parameter.** Name, type, default, unit,
-   range and conditions are read from the Pydantic models. No page types them.
-2. **A reference page is generated.** If a card is wrong, fix the model or its
-   metadata, never the page. The generated pages are not committed.
-3. **A guide embeds keys, it does not copy them.** It writes
-   {toml}`flow.param.K.field.value` in prose and lists rows with `hmp-params`.
-   A key that does not exist stops the build.
+- **Recipes** ({doc}`architecture/how-to/index`): one page per extension, with
+  the files to touch, the contract to honour and the test to add.
+- **Architecture** ({doc}`architecture/index`): the layers and their allowed
+  imports, the packages, the storage layout and the subsystems.
+- **Documentation** ({doc}`documentation/index`): how this site is built, and
+  how to write a field, a guide or a theory page.
+- **Project** ({doc}`project/index`): CI, tests, the V1 release contract, the
+  environment variables and the roadmap.
 
 ```{toctree}
 :maxdepth: 1
 :hidden:
 
 handbook
+quick-start
+architecture/how-to/index
 architecture/index
-document-a-field
-write-a-theory-page
-docstring-policy
-roadmap
+documentation/index
+project/index
 ```

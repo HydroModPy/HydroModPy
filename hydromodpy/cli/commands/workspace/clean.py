@@ -12,16 +12,34 @@ HELP: str = "Remove generated workspace artifacts"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        epilog="Examples:\n  hmp workspace clean --results --dry-run\n  hmp workspace clean --all -y",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--workspace", default=None, help="Workspace root")
-    parser.add_argument("--all", action="store_true", dest="all_groups")
-    parser.add_argument("--results", action="store_true")
-    parser.add_argument("--data-cache", action="store_true", dest="data_cache")
-    parser.add_argument("--runtime", action="store_true")
-    parser.add_argument("--share", action="store_true")
-    parser.add_argument("--scratch", action="store_true")
-    parser.add_argument("--figures", action="store_true")
-    parser.add_argument("--dry-run", action="store_true", dest="dry_run")
+    parser.add_argument(
+        "--all", action="store_true", dest="all_groups", help="Clean every group below"
+    )
+    parser.add_argument(
+        "--results", action="store_true", help="The index database and the runs/ tree"
+    )
+    parser.add_argument(
+        "--data-cache", action="store_true", dest="data_cache", help="The data cache"
+    )
+    parser.add_argument("--runtime", action="store_true", help="The .hmp/ runtime folder")
+    parser.add_argument("--share", action="store_true", help="The published share/ tree")
+    parser.add_argument("--scratch", action="store_true", help="The scratch folders (.hmp/scratch)")
+    parser.add_argument(
+        "--figures", action="store_true", help="The share/figures folders of the projects"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="List what would be removed and remove nothing (the default unless -y is given)",
+    )
     parser.add_argument("-y", "--yes", action="store_true", help="Delete without dry-run")
     parser.set_defaults(_handler=run)
     return parser

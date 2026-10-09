@@ -1,4 +1,4 @@
-Add a Calibration Method
+Add a calibration method
 ========================
 
 Calibration in HydroModPy runs an ask/tell loop: an optimizer
@@ -6,9 +6,10 @@ proposes a parameter point, the engine evaluates it, the optimizer
 ingests the result. Optimizers are plugged through *adapters* under
 ``hydromodpy/calibration/optim/adapters/``.
 
-Today ten adapters ship: ``Grid``, ``Lhs``, ``RandomSearch``,
-``ScipyNelderMead``, ``ScipyDE``, ``Optuna`` (TPE / CMA-ES samplers),
-``CmaEs``, ``GpMapping``, ``DaMhGp``, plus the prior-sampling helper.
+Each module of the folder registers one method under a name: ``grid``, ``lhs``,
+``random_search``, ``scipy_nelder_mead``, ``scipy_de``, ``optuna``, ``cma_es``,
+``bisection``, ``gp_mapping`` and ``da_mh_gp`` at the time of writing.
+``available_optimizers()`` in ``optim/optimizer.py`` prints the live list.
 
 Contract
 --------
@@ -271,7 +272,7 @@ takes care of the inverse transform.
 Distribution-valued methods
 ---------------------------
 
-Methods that produce a posterior (``DaMhGp``, ``GpMapping``) expose
+Methods that produce a posterior (``da_mh_gp``, ``gp_mapping``) expose
 the samples through the ``calibration_posterior`` figure. Make sure
 your adapter writes the per-iteration trace through ``tell`` so the
 post-loop figure registry can plot it.
@@ -296,16 +297,15 @@ Tests to add
 Pitfalls flagged by the layer matrix
 ------------------------------------
 
-- ``calibration`` may import ``physics``, ``data``, ``spatial``,
-  ``solver``, ``simulation``. The
-  ``calibration -> results`` and
-  ``calibration -> <root>`` edges are documented tolerances; do
-  not introduce new cross-edges into ``display`` or ``analysis``
-  from inside an adapter.
-- Adapters must remain stateless across runs. Persist ask/tell state
-  inside the adapter instance, never on disk: the engine handles
-  persistence and resume through ``CheckpointStore`` and the
-  DuckDB ``calibration_iterations`` table.
+- ``calibration`` imports only the layers that ``layer_matrix.yaml`` grants it,
+  and inside the package a part imports only what its row of
+  ``calibration_layout.yaml`` allows (``optim`` may import ``criteria`` and
+  nothing else). Do not add an edge into ``display`` or ``analysis`` from an
+  adapter. :doc:`fix-an-architecture-gate` says what to do when the gate
+  refuses an import.
+- Adapters keep their ask/tell state in the adapter instance and never write it
+  to disk. The engine owns persistence and resume: the session journal and the
+  ``calibration_iterations`` table (``calibration/persistence.py``).
 - Methods that read from ``simulation/results/`` must do it through
   the engine API, not by reaching into the Run store directly.
 
@@ -313,7 +313,6 @@ See also
 --------
 
 - :doc:`../packages/calibration` for the calibration package map.
-- Calibration Workflow for the user-facing hub.
 - :doc:`/contribute/architecture/calibration/calibration-guide` for the full
   operational reference (TOML, optimizer catalogue, storage rules,
   pitfalls, Python API).

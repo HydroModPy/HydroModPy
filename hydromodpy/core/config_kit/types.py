@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Literal, TypeAlias
 
 from pydantic import AfterValidator, BeforeValidator, Field
@@ -66,6 +67,12 @@ NonEmptyStr = Annotated[str, BeforeValidator(_strip_non_empty)]
 OptionalText = Annotated[str | None, BeforeValidator(_clean_optional_text)]
 """Optional free-form text. Empty / whitespace-only inputs collapse to ``None``."""
 
+NonEmptyPath = Annotated[Path, BeforeValidator(_strip_non_empty)]
+"""File or folder path, refused when empty. Typed ``Path`` so tools know it is one."""
+
+OptionalPath = Annotated[Path | None, BeforeValidator(_clean_optional_text)]
+"""Optional file or folder path. Empty / whitespace-only inputs collapse to ``None``."""
+
 IsoDateStr = Annotated[str | None, AfterValidator(_validate_iso_date)]
 """Optional ISO-8601 date (``YYYY-MM-DD``). Validated lazily, ``None`` allowed."""
 
@@ -117,11 +124,13 @@ __all__ = [
     "IdentifierStr",
     "InterpolationMethod",
     "IsoDateStr",
+    "NonEmptyPath",
     "NonEmptyStr",
     "NonNegativeFloat",
     "NonNegativeInt",
     "NormalizedLowerStr",
     "NormalizedStr",
+    "OptionalPath",
     "OptionalText",
     "PositiveFloat",
     "PositiveInt",

@@ -46,6 +46,20 @@ class Transport(ProcessSpatial[TransportInitialConditions]):
             self.set_config(config)
 
     def set_config(self, config: TransportConfig | Mapping[str, object]) -> None:
+        """Take the ``[transport]`` section and copy the parameters of each engine.
+
+        Parameters
+        ----------
+        config
+            A :class:`TransportConfig`, or a mapping validated into one.
+
+        Raises
+        ------
+        TypeError
+            If ``config`` is neither.
+        pydantic.ValidationError
+            If the mapping is not a valid ``[transport]`` section.
+        """
         if isinstance(config, TransportConfig):
             transport_cfg = config
         elif isinstance(config, Mapping):
@@ -65,6 +79,20 @@ class Transport(ProcessSpatial[TransportInitialConditions]):
         self.parameters["modflow6prt"] = self.modflow6prt.parameters
 
     def set_parameters(self, parameters: dict):
+        """Merge parameters into the engines they name.
+
+        Parameters
+        ----------
+        parameters
+            Mapping keyed by engine: ``modpath``, ``mt3dms``, ``modflow6gwt`` or
+            ``modflow6prt``. Each value is the engine's parameters, or a mapping
+            holding them under ``parameters``. Other keys are kept as they are.
+
+        Raises
+        ------
+        TypeError
+            If ``parameters`` is not a mapping.
+        """
         if not isinstance(parameters, Mapping):
             raise TypeError("Transport parameters must be provided as a mapping")
 

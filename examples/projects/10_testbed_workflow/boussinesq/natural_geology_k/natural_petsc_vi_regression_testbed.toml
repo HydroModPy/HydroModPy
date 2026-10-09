@@ -160,10 +160,10 @@ enabled = false
 # Raster resolution in metres, scaled with the larger natural supports.
 resolution = 160.0
 
-[[testbed.case_from_catalog.overlay.comparison.simulation]]
+[[testbed.case_from_catalog.overlay.comparison.simulation__merge]]
 mesh_label = "precomputed mesh-gallery geology-river bundle"
 mesh_mode = "mesh_input"
 
-[[testbed.case_from_catalog.overlay.comparison.simulation]]
+[[testbed.case_from_catalog.overlay.comparison.simulation__merge]]
 mesh_label = "precomputed mesh-gallery geology-river bundle"
 mesh_mode = "mesh_input"

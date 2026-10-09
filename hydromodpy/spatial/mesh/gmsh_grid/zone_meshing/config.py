@@ -46,6 +46,7 @@ class ZoneMeshingRefinementFamilySettings(HydroModelBase):
     priority: Annotated[int, Profile.USER] = Field(
         default=0,
         description="Application order between families. Higher values win when budgets compete.",
+        json_schema_extra={"unit": "-"},
     )
     interface_size: Annotated[NonNegativeFloat | None, Profile.DEV] = Field(
         default=None,
@@ -138,6 +139,7 @@ class ZoneMeshingRefinementGridSettings(HydroModelBase):
     cell_size: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
         description="Target cell size in projected metres. None lets the mesher derive a default from constraints.",
+        json_schema_extra={"unit": "m"},
     )
     neighborhood_rings: Annotated[PositiveInt, Profile.DEV] = Field(
         default=1,
@@ -269,6 +271,7 @@ class ZoneMeshingSettings(HydroModelBase):
             "Baseline target cell size in projected metres over the full support domain. "
             "Think of it as the coarse background resolution before local interface refinement is added."
         ),
+        json_schema_extra={"unit": "m"},
     )
     min_size: Annotated[NonNegativeFloat | None, Profile.USER] = Field(
         default=None,
@@ -276,6 +279,7 @@ class ZoneMeshingSettings(HydroModelBase):
             "Lower bound on local cell size in projected metres. "
             "Use it to prevent extreme refinement from generating very small cells in narrow features."
         ),
+        json_schema_extra={"unit": "m"},
     )
     max_size: Annotated[NonNegativeFloat | None, Profile.USER] = Field(
         default=None,
@@ -283,6 +287,7 @@ class ZoneMeshingSettings(HydroModelBase):
             "Upper bound on local cell size in projected metres. "
             "Use it when you want to cap the coarsening far from interfaces."
         ),
+        json_schema_extra={"unit": "m"},
     )
     simplify_tolerance: Annotated[NonNegativeFloat, Profile.DEV] = Field(
         default=0.0,

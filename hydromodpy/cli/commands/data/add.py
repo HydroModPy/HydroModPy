@@ -18,13 +18,24 @@ HELP: str = "Power-user command to ingest a single file with explicit metadata"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[verbosity_parser()],
+        epilog="Example:\n  hmp data add dem.tif --type dem --crs EPSG:2154 --unit m",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("file", help="Path to the source file to ingest")
     parser.add_argument("--type", dest="variable", default=None, help="Variable name")
     parser.add_argument("--provider", default="custom", help="Provider label")
     parser.add_argument("--crs", default=None, help="EPSG code (e.g. EPSG:2154)")
     parser.add_argument("--unit", default=None, help="Override unit")
-    parser.add_argument("--station-id", default=None, dest="station_id")
+    parser.add_argument(
+        "--station-id",
+        default=None,
+        dest="station_id",
+        help="Station the file belongs to (default: the file name without its extension)",
+    )
     parser.add_argument("--workspace", default=None, help="Workspace holding the data cache")
     parser.add_argument(
         "--project",

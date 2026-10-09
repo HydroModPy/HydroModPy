@@ -10,6 +10,7 @@ import numpy as np
 from hydromodpy.core.time import validate_recharge_coverage
 from hydromodpy.core.units import convert_payload_to_m_per_s
 from hydromodpy.physics.flow.regime import normalize_flow_regime
+from hydromodpy.physics.forcing.steady_periods import apply_first_clim, steady_flags
 from hydromodpy.physics.forcing.validation import (
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
@@ -145,31 +146,58 @@ def extract_negative_recharge_evt_payload(
     payload: object,
     nper: int,
     steady: object,
+    first_clim: object = "mean",
 ) -> tuple[object, dict[int, object] | None]:
     """Route negative recharge values to EVT and keep RCH non-negative.
 
-    Steady periods carry the time-mean deficit; transient periods keep their own
-    split (shared with MODFLOW 6 via ``route_negative_recharge_to_evt``).
+    ``payload`` holds the own rate of every period, before ``first_clim``. A
+    transient period keeps its own split; a steady period takes the
+    ``first_clim`` rate on each part (``route_negative_recharge_to_evt``, shared
+    with MODFLOW 6). Without a negative value, nothing is routed.
     """
     if not payload_has_negative_values(payload):
         return payload, None
 
     if isinstance(payload, Mapping):
         normalized = {int(k): np.asarray(v, dtype=float) for k, v in payload.items()}
-        return route_negative_recharge_to_evt(normalized, steady=steady)
+    else:
+        values = np.asarray(payload, dtype=float)
+        normalized = {
+            kper: (values if values.ndim == 0 else np.asarray(series_value(values, kper)))
+            for kper in range(int(nper))
+        }
+    clipped, deficit = route_negative_recharge_to_evt(
+        normalized, steady=steady, first_clim=first_clim
+    )
+    return _scalars_as_floats(clipped), _scalars_as_floats(deficit)
 
-    payload_for_rch = clip_negative_payload(payload)
-    negative = np.abs(np.minimum(np.asarray(payload, dtype=float), 0.0))
-    evt_spd: dict[int, object] = {}
-    for kper in range(int(nper)):
-        is_steady = bool(steady[kper]) if kper < len(steady) else False
-        if is_steady:
-            evt_spd[kper] = float(np.mean(negative)) if negative.ndim else float(negative)
-        elif negative.ndim == 0:
-            evt_spd[kper] = float(negative)
-        else:
-            evt_spd[kper] = series_value(negative, kper)
-    return payload_for_rch, evt_spd
+
+def _scalars_as_floats(by_period: Mapping[int, np.ndarray]) -> dict[int, object]:
+    """Return 0-d arrays as plain floats, the form the NWT packages take."""
+    return {
+        int(kper): (float(value) if np.ndim(value) == 0 else value)
+        for kper, value in by_period.items()
+    }
+
+
+def steady_period_flags(adapter: FlowToModflowAdapter) -> np.ndarray:
+    """Return which periods the NWT run solves steady.
+
+    The flags the DIS package receives when the solver passed them; otherwise
+    the same rule rebuilt from the flow regime and ``first_period_steady``.
+    """
+    steady = getattr(adapter, "steady", None)
+    if steady is not None:
+        return np.asarray(steady, dtype=bool).reshape(-1)
+    from hydromodpy.solver.modflow_grid.discretization_temporal import (
+        resolve_first_period_steady,
+    )
+
+    return steady_flags(
+        nper=int(adapter.nper),
+        flow_regime=resolve_flow_regime(adapter.flow),
+        first_period_steady=resolve_first_period_steady(flow=adapter.flow),
+    )
 
 
 def merge_evt_payloads(
@@ -191,85 +219,56 @@ def merge_evt_payloads(
     return merged
 
 
+def _own_rates_by_period(payload: object, *, nper: int) -> dict[int, np.ndarray]:
+    """Return the own rate of every period of a recharge or ETP payload."""
+    if isinstance(payload, Mapping):
+        return {int(k): np.asarray(v, dtype=float) for k, v in payload.items()}
+    if is_scalar_number(payload):
+        return {kper: np.asarray(float(payload)) for kper in range(int(nper))}
+    return {kper: np.asarray(series_value(payload, kper), dtype=float) for kper in range(int(nper))}
+
+
 def assemble_rch_data(
     *,
     payload: object,
     first_clim: object,
-    flow_regime: str,
+    steady: object,
     nper: int,
     allow_negative: bool = False,
-) -> object:
-    """Convert a recharge payload into the period-indexed structure."""
+) -> dict[int, object]:
+    """Convert a recharge payload into the period-indexed structure.
+
+    Every steady period takes the rate ``first_clim`` states, a transient
+    period keeps its own (:mod:`hydromodpy.physics.forcing.steady_periods`).
+    """
     if allow_negative:
         ensure_finite_numeric_payload(payload, label="flow.sinks_sources.recharge.values")
     else:
         ensure_non_negative_numeric_payload(payload, label="flow.sinks_sources.recharge.values")
-    if isinstance(payload, Mapping):
-        if flow_regime == "steady":
-            if len(payload) == 0:
-                raise ValueError(
-                    "flow.sinks_sources.recharge.values mapping cannot be empty in steady regime."
-                )
-            return sum(payload.values()) / len(payload)
-        return dict(payload)
-
-    rch_dict: dict[int, object] = {}
-    for kper in range(nper):
-        if is_scalar_number(payload):
-            rch_dict[kper] = float(payload)
-        elif kper == 0:
-            if first_clim == "mean":
-                rch_dict[kper] = np.mean(payload)
-            elif first_clim == "first":
-                rch_dict[kper] = series_value(payload, 0)
-            elif is_scalar_number(first_clim):
-                rch_dict[kper] = float(first_clim)
-            else:
-                raise ValueError(
-                    "flow.sinks_sources.recharge.first_clim must be "
-                    "'mean', 'first', or a numeric value."
-                )
-        else:
-            rch_dict[kper] = series_value(payload, kper)
-    return rch_dict
+    if isinstance(payload, Mapping) and len(payload) == 0:
+        raise ValueError("flow.sinks_sources.recharge.values mapping cannot be empty.")
+    rows = _own_rates_by_period(payload, nper=nper)
+    return _scalars_as_floats(apply_first_clim(rows, steady=steady, first_clim=first_clim))
 
 
 def apply_first_clim_2d(
     *,
     raw_arrays: dict[int, np.ndarray],
     first_clim: object,
-    flow_regime: str,
+    steady: object,
     nper: int,
     nrow: int,
     ncol: int,
     allow_negative: bool = False,
 ) -> dict[int, np.ndarray]:
-    """Apply ``first_clim`` policy to period 0 of 2-D recharge arrays."""
+    """Give every steady period the ``first_clim`` array, keep the transient ones."""
     if allow_negative:
         ensure_finite_numeric_payload(raw_arrays, label="flow.sinks_sources.recharge.values")
     else:
         ensure_non_negative_numeric_payload(raw_arrays, label="flow.sinks_sources.recharge.values")
-    if flow_regime == "steady" or nper <= 1:
-        if raw_arrays:
-            all_vals = np.stack(list(raw_arrays.values()), axis=0)
-            mean_arr = np.mean(all_vals, axis=0)
-        else:
-            mean_arr = np.zeros((nrow, ncol), dtype=float)
-        return {0: mean_arr}
-
-    result = dict(raw_arrays)
-    if 0 not in result:
-        return result
-
-    if first_clim == "mean" and len(raw_arrays) > 0:
-        all_vals = np.stack(list(raw_arrays.values()), axis=0)
-        result[0] = np.mean(all_vals, axis=0)
-    elif first_clim == "first":
-        pass
-    elif is_scalar_number(first_clim):
-        result[0] = np.full((nrow, ncol), float(first_clim), dtype=float)
-
-    return result
+    if not raw_arrays:
+        return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(int(nper))}
+    return apply_first_clim(raw_arrays, steady=steady, first_clim=first_clim)
 
 
 def build_heterogeneous_recharge_payload(
@@ -290,23 +289,28 @@ def build_heterogeneous_recharge_payload(
     )
 
     negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", False))
-    payload = apply_first_clim_2d(
+    first_clim = getattr(recharge_cfg, "first_clim", "mean")
+    steady = steady_period_flags(adapter)
+    if negative_to_evt:
+        ensure_finite_numeric_payload(raw_arrays, label="flow.sinks_sources.recharge.values")
+        payload, evt_payload = extract_negative_recharge_evt_payload(
+            payload=raw_arrays,
+            nper=adapter.nper,
+            steady=steady,
+            first_clim=first_clim,
+        )
+        adapter._negative_recharge_evt_spd = evt_payload
+        if evt_payload is not None:
+            return payload
+    return apply_first_clim_2d(
         raw_arrays=raw_arrays,
-        first_clim=getattr(recharge_cfg, "first_clim", "mean"),
-        flow_regime=resolve_flow_regime(adapter.flow),
+        first_clim=first_clim,
+        steady=steady,
         nper=adapter.nper,
         nrow=adapter.nrow,
         ncol=adapter.ncol,
-        allow_negative=negative_to_evt,
+        allow_negative=False,
     )
-    if negative_to_evt:
-        payload, evt_payload = extract_negative_recharge_evt_payload(
-            payload=payload,
-            nper=adapter.nper,
-            steady=[resolve_flow_regime(adapter.flow) == "steady"] * int(adapter.nper),
-        )
-        adapter._negative_recharge_evt_spd = evt_payload
-    return payload
 
 
 def build_heterogeneous_etp_payload(
@@ -327,7 +331,7 @@ def build_heterogeneous_etp_payload(
     rate_arrays = apply_first_clim_2d(
         raw_arrays=raw_arrays,
         first_clim=getattr(etp_cfg, "first_clim", "mean"),
-        flow_regime=resolve_flow_regime(adapter.flow),
+        steady=steady_period_flags(adapter),
         nper=adapter.nper,
         nrow=adapter.nrow,
         ncol=adapter.ncol,
@@ -363,21 +367,25 @@ def build_recharge_payload(adapter: FlowToModflowAdapter) -> object | None:
         label="flow.sinks_sources.recharge.values",
     )
     negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", False))
-    rch_data = assemble_rch_data(
-        payload=recharge_payload,
-        first_clim=recharge_cfg.first_clim,
-        flow_regime=resolve_flow_regime(adapter.flow),
-        nper=adapter.nper,
-        allow_negative=negative_to_evt,
-    )
+    steady = steady_period_flags(adapter)
     if negative_to_evt:
+        ensure_finite_numeric_payload(recharge_payload, label="flow.sinks_sources.recharge.values")
         rch_data, evt_payload = extract_negative_recharge_evt_payload(
-            payload=rch_data,
+            payload=_own_rates_by_period(recharge_payload, nper=adapter.nper),
             nper=adapter.nper,
-            steady=[resolve_flow_regime(adapter.flow) == "steady"] * int(adapter.nper),
+            steady=steady,
+            first_clim=recharge_cfg.first_clim,
         )
         adapter._negative_recharge_evt_spd = evt_payload
-    return rch_data
+        if evt_payload is not None:
+            return rch_data
+    return assemble_rch_data(
+        payload=recharge_payload,
+        first_clim=recharge_cfg.first_clim,
+        steady=steady,
+        nper=adapter.nper,
+        allow_negative=False,
+    )
 
 
 def build_etp_payload(
@@ -420,11 +428,9 @@ def build_etp_payload(
     evt_spd = assemble_rch_data(
         payload=etp_payload,
         first_clim=etp_cfg.first_clim,
-        flow_regime=resolve_flow_regime(adapter.flow),
+        steady=steady_period_flags(adapter),
         nper=adapter.nper,
     )
-    if not isinstance(evt_spd, Mapping):
-        evt_spd = {0: float(evt_spd)}
     return (
         merge_evt_payloads(dict(evt_spd), negative_evt_spd, nper=adapter.nper),
         surface_offset,
@@ -448,4 +454,5 @@ __all__ = [
     "payload_has_negative_values",
     "resolve_flow_regime",
     "series_value",
+    "steady_period_flags",
 ]

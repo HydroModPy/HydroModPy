@@ -338,6 +338,35 @@ def test_search_fts_finds_term(tmp_path: Path) -> None:
     assert _label_to_uuid("s1") in sim_ids
 
 
+def test_search_finds_a_run_that_two_projects_hold(tmp_path: Path) -> None:
+    """An imported run keeps its sim_id, so two projects can hold the same run."""
+    first = tmp_path / "lab"
+    second = tmp_path / "partner"
+    for project in (first, second):
+        _seed_project(project, rows=[("s1", "Bretagne hydrology baseline", "modflow6")])
+    with GlobalIndex(_index_db(tmp_path)) as index:
+        ids = {index.register(str(first))[0], index.register(str(second))[0]}
+        df = index.search("Bretagne")
+
+    assert set(df["project_id"]) == ids
+    assert len(df) == 2
+
+
+def test_search_falls_back_to_a_substring_without_the_fts_index(tmp_path: Path) -> None:
+    """Offline, or before the index is rebuilt, a term still finds a description."""
+    project = tmp_path / "cheze"
+    _seed_project(project, rows=[("s1", "Bretagne hydrology baseline", "modflow6")])
+    with GlobalIndex(_index_db(tmp_path)) as index:
+        index.register(str(project))
+        index.connection.execute("DROP TABLE IF EXISTS _fts_simulations_v2")
+        index.connection.execute("DROP SCHEMA IF EXISTS fts_main__fts_simulations_v2 CASCADE")
+        df = index.search("hydrology BASE")
+        none = index.search("Pyrenees")
+
+    assert len(df) == 1
+    assert none.empty
+
+
 def test_project_without_v_simulation_summary_is_skipped(tmp_path: Path) -> None:
     """A project without the V1 view must be skipped, not crash."""
     project = tmp_path / "cheze_empty"

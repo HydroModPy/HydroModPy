@@ -1,0 +1,46 @@
+# Affiliations of the authors listed in CITATION.cff.
+#
+# CITATION.cff holds the names, the order and the ORCID identifiers. It does not
+# hold the affiliations, so they live here, keyed by the family name used in the
+# file. The Cite page prints the authors with these numbers.
+institutions:
+  1: Geosciences Rennes - UMR 6118, CNRS, Université de Rennes, Rennes, France
+  2: Laboratoire de Météorologie Dynamique (LMD), CNRS, Sorbonne Université, Paris, France
+  3: Centre for Hydrogeology and Geothermics (CHYN), Université de Neuchâtel, Neuchâtel, Switzerland
+  4: UMR SAS 1069, INRAE, Centre Bretagne-Normandie, Rennes, France
+  5: UR RiverLy, INRAE, Centre Lyon-Grenoble Auvergne-Rhône-Alpes, Villeurbanne, France
+  6: Pontificia Universidad Católica de Chile, Santiago, Chile
+  7: Instituto de Ciencias de la Ingeniería, Universidad de O'Higgins, Rancagua, Chile
+  8: BRGM, F-45060 Orléans, France
+  9: INF, Wageningen University & Research, Wageningen, Netherlands
+  10: ISA/LIUPPA, Université de Pau et des Pays de l'Adour, Pau, France
+  11: Inria, IRISA, CNRS, Université de Rennes, Rennes, France
+
+authors:
+  Gauvain: [1, 2]
+  Abhervé: [1, 3, 4]
+  Boivin: [1]
+  Roques: [3]
+  Le Mesnil: [1]
+  Coche: [1]
+  Babey: [1]
+  Marçais: [5]
+  Bouchez: [1]
+  Leray: [6]
+  Marti: [6]
+  Bresciani: [7]
+  Figueroa: [3]
+  Pélissier: [3]
+  Guillaumot: [8]
+  Touzeau: [1]
+  Issolah: [11]
+  Maugan: [1]
+  Bagagnan: [1]
+  Vautier: [1]
+  Sallou: [9]
+  Bourcier: [10]
+  Combemale: [11]
+  Brunner: [3]
+  Longuevergne: [1]
+  Aquilina: [1]
+  de Dreuzy: [1]

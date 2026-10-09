@@ -72,7 +72,7 @@ def test_validate_recharge_coverage_raises_when_range_not_covered() -> None:
         index=pd.to_datetime(["2020-01-02 00:00:00", "2020-01-03 00:00:00"]),
     )
 
-    with pytest.raises(ValueError, match="does not fully cover"):
+    with pytest.raises(ValueError, match="does not cover stress period"):
         validate_recharge_coverage(recharge, window)
 
 

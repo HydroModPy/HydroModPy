@@ -29,11 +29,13 @@ class SyntheticGridConfig(HydroModelBase):
     )
     nx: Annotated[PositiveInt, Profile.USER] = Field(
         default=100,
-        description="Number of cells along x.",
+        description="Number of grid cells along x, over length_x.",
+        json_schema_extra={"unit": "-"},
     )
     ny: Annotated[PositiveInt, Profile.USER] = Field(
         default=1,
-        description="Number of cells along y.",
+        description="Number of grid cells along y, over length_y. 1 makes a cross-section.",
+        json_schema_extra={"unit": "-"},
     )
     xmin: Annotated[float, Profile.DEV] = Field(
         default=0.0,
@@ -113,7 +115,8 @@ class FlatTopography(HydroModelBase):
     )
     base_elevation: Annotated[float, Profile.USER] = Field(
         default=20.0,
-        description="Constant surface elevation (m).",
+        description="Elevation of the flat ground surface, in metres.",
+        json_schema_extra={"unit": "m"},
     )
 
 
@@ -127,6 +130,7 @@ class LinearTopography(HydroModelBase):
     base_elevation: Annotated[float, Profile.USER] = Field(
         default=20.0,
         description="Reference elevation (m) on the right boundary.",
+        json_schema_extra={"unit": "m"},
     )
     right_to_left_amplitude: Annotated[float, Profile.DEV] = Field(
         default=0.0,

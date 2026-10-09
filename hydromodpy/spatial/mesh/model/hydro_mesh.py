@@ -57,6 +57,7 @@ class CellBlock:
 
     @property
     def n_cells(self) -> int:
+        """Number of cells in this block."""
         if self.cell_type.is_ragged:
             return len(self.connectivity)
         return int(self.connectivity.shape[0])
@@ -87,6 +88,7 @@ class HydroMesh:
     cell_data: dict[str, np.ndarray] = field(default_factory=dict)
     point_data: dict[str, np.ndarray] = field(default_factory=dict)
     structured_shape: tuple[int, ...] | None = None
+    """``(nrow, ncol)`` or ``(nlay, nrow, ncol)`` of a structured grid, else ``None``."""
 
     def __post_init__(self) -> None:
         """Validate node coordinates and connectivity consistency."""
@@ -124,18 +126,25 @@ class HydroMesh:
 
     @property
     def n_nodes(self) -> int:
+        """Number of mesh nodes (cell corners)."""
         return int(self.vertices.shape[0])
 
     @property
     def n_cells(self) -> int:
+        """Number of cells, summed over every cell block."""
         return sum(b.n_cells for b in self.cell_blocks)
 
     @property
     def is_structured(self) -> bool:
+        """True for a regular grid, the one ``structured_shape`` describes."""
         return self.structured_shape is not None
 
     @property
     def cell_types(self) -> tuple[CellType, ...]:
+        """Cell type of each cell block, in block order.
+
+        A mesh of one block, the usual case, gives a one-element tuple.
+        """
         return tuple(b.cell_type for b in self.cell_blocks)
 
     @property

@@ -14,7 +14,13 @@ HELP: str = "List the examples this build ships, and what is missing from the ca
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[format_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[format_parser()],
+        epilog="Examples:\n  hmp example list\n  hmp example list --format json",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.set_defaults(_handler=run)
     return parser
 

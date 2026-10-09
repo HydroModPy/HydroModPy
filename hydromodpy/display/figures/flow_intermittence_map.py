@@ -21,7 +21,15 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import (
+    Cycle,
+    DiagonalNeighbors,
+    Extent,
+    FlowTauSpecificRatio,
+    Overlays,
+    VisibleFlow,
+)
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._flow_persistence import (
     FLOW_FIELD,
@@ -32,7 +40,6 @@ from hydromodpy.display.figures._flow_persistence import (
     span_label,
 )
 from hydromodpy.display.figures._stream_comparison import (
-    MapExtentName,
     catchment_cells,
     map_extent,
     map_legend,
@@ -42,6 +49,7 @@ from hydromodpy.display.maps.axes import style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import render_face_field
+from hydromodpy.display.style import neutral
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -64,24 +72,7 @@ DRY_EDGE = "#C8C8C8"
 
 @register
 class FlowIntermittenceMap(BaseFigure):
-    """Perennial, intermittent and dry cells over one hydrological cycle.
-
-    Options
-    -------
-    ``cycle``
-        Label of the cycle to draw, usually a calendar year. Defaults to the
-        last complete one.
-    ``visible_flow``
-        Routed discharge a cell of the seepage closure must carry to flow:
-        ``"1 L/s"`` by default, any discharge with its unit, a share of the
-        outlet discharge such as ``"1%"``, or ``"0 L/s"`` for the closure alone.
-    ``tau_specific_ratio``
-        Seepage threshold as a fraction of the recharge a cell receives; the
-        criterion's default when left out.
-    ``extent``
-        ``"catchment"`` (default) crops to the delineated watershed and counts
-        the cells inside it; ``"mesh"`` keeps the whole modelled domain.
-    """
+    """Perennial, intermittent and dry cells over one hydrological cycle."""
 
     spec = FigureSpec(
         name="flow_intermittence_map",
@@ -96,12 +87,12 @@ class FlowIntermittenceMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        cycle: str | None = None,
-        visible_flow: str | None = None,
-        tau_specific_ratio: float | None = None,
-        diagonal_neighbors: bool | None = None,
-        overlays: tuple[str, ...] | list[str] | None = None,
-        extent: MapExtentName = "catchment",
+        cycle: Cycle = None,
+        visible_flow: VisibleFlow = None,
+        tau_specific_ratio: FlowTauSpecificRatio = None,
+        diagonal_neighbors: DiagonalNeighbors = None,
+        overlays: Overlays = None,
+        extent: Extent = "catchment",
         **_,
     ) -> Axes:
         from matplotlib.colors import BoundaryNorm, ListedColormap
@@ -122,7 +113,7 @@ class FlowIntermittenceMap(BaseFigure):
         classes = np.where(perennial, 0.0, np.where(intermittent, 1.0, np.nan))
 
         palette = ListedColormap((PERENNIAL_COLOR, INTERMITTENT_COLOR), name="intermittence")
-        palette = palette.with_extremes(bad=DRY_COLOR)
+        palette = palette.with_extremes(bad=neutral(DRY_COLOR))
         collection = render_face_field(ax, sim, classes, cmap=palette, colorbar=False)
         collection.set_norm(BoundaryNorm([-0.5, 0.5, 1.5], palette.N))
 
@@ -140,7 +131,7 @@ class FlowIntermittenceMap(BaseFigure):
         )
         style_map_axes(ax)
         ax.set_title(
-            f"{self.spec.title} - {sim.name or sim.sim_id}\n"
+            f"{self.spec.title}{run_suffix(sim)}\n"
             f"{span_label(sim, steps) or label}, {steps.size} timesteps"
         )
 
@@ -155,8 +146,8 @@ class FlowIntermittenceMap(BaseFigure):
                 label=f"intermittent ({int((intermittent & scope).sum()):,} cells)",
             ),
             Patch(
-                facecolor=DRY_COLOR,
-                edgecolor=DRY_EDGE,
+                facecolor=neutral(DRY_COLOR),
+                edgecolor=neutral(DRY_EDGE),
                 label=f"dry ({int(((flowing_steps == 0) & scope).sum()):,} cells)",
             ),
         ]

@@ -58,7 +58,7 @@ Format
     {
       "journal_version": 2,
       "session_id": "3f2a1b7c9d0e4f118a2b5c6d7e8f9012",
-      "project": "cheze",
+      "project": "my_project",
       "method": "optuna",
       "objective_name": "rmse",
       "status": "completed",

@@ -240,7 +240,7 @@ def test_truth_and_candidate_helpers_prefer_completed_non_truth_rows(tmp_path: P
     assert report._first_non_truth_candidate(rows) == rows[2]
     assert (
         report._network_map_source_label({"network_map_source": "transient_mean"})
-        == "moyenne transitoire"
+        == "transient mean"
     )
 
 
@@ -268,7 +268,7 @@ def test_drain_series_prefers_transient_npz_and_reads_q_csv(
     assert drain is not None
     assert drain.tolist() == [3.0, 4.0]
     assert series == {
-        "reference synthetique": [9.0],
+        "synthetic reference": [9.0],
         "candidate": [1.5, 2.5],
     }
 

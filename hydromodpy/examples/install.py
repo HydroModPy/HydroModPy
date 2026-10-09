@@ -26,16 +26,32 @@ class InstallReport:
     """What one ``hmp example add`` actually did."""
 
     example_id: str
+    """Id of the installed example, as ``hmp.example_list()`` gives it."""
     workspace: Path
+    """Workspace root the example was installed into."""
     project_dir: Path
+    """Project folder of the example, ``<workspace>/projects/<directory>``."""
     source: str
+    """Root the missing files were fetched from: the release tag on GitHub by
+    default, or the value of ``HMP_EXAMPLES_SOURCE``.
+    """
     written: list[str] = field(default_factory=list)
+    """Files copied into the workspace, as paths relative to its root."""
     unchanged: list[str] = field(default_factory=list)
+    """Files already there with the expected content, left as they were."""
     kept: list[str] = field(default_factory=list)
+    """Files (and station rows) already there with another content, kept.
+
+    Somebody edited them. Install again with ``force=True`` to overwrite them.
+    """
     downloaded: list[str] = field(default_factory=list)
+    """Files the cache did not hold and that were downloaded."""
     downloaded_bytes: int = 0
+    """Size of the downloaded files, in bytes."""
     entry_config: str = ""
+    """The TOML file to run first, relative to ``project_dir``."""
     stations_written: list[str] = field(default_factory=list)
+    """Station rows added to or replaced in a workspace station registry."""
 
     @property
     def everything_was_cached(self) -> bool:

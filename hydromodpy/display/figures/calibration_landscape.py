@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import ObjectiveName, Opt, ParameterNames, TrialsSessionId
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._trial_diagnostics import trial_table
 
@@ -54,10 +55,10 @@ class CalibrationLandscapeFigure(BaseFigure):
         self,
         sim: Run,
         *,
-        parameters: list[str] | None = None,
-        objective: str | None = None,
-        session_id: str | None = None,
-        cmap: str = "viridis",
+        parameters: ParameterNames = None,
+        objective: ObjectiveName = None,
+        session_id: TrialsSessionId = None,
+        cmap: Annotated[str, Opt("Matplotlib colormap of the cost, by name.")] = "viridis",
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,
@@ -100,7 +101,7 @@ class CalibrationLandscapeFigure(BaseFigure):
             ax.grid(True, ls=":", lw=0.4)
             if obj is not None:
                 fig.colorbar(sc, ax=ax, label=objective_name)
-            fig.suptitle(f"Objective landscape - {sim.name or sim.sim_id}")
+            fig.suptitle(f"Objective landscape{run_suffix(sim)}")
             if save_path is not None:
                 from pathlib import Path
 
@@ -137,7 +138,7 @@ class CalibrationLandscapeFigure(BaseFigure):
                 ax.grid(True, ls=":", lw=0.3)
         if sc is not None and obj is not None:
             fig.colorbar(sc, ax=axes[:, -1], label=objective_name)
-        fig.suptitle(f"Objective landscape - {sim.name or sim.sim_id}")
+        fig.suptitle(f"Objective landscape{run_suffix(sim)}")
         if save_path is not None:
             from pathlib import Path
 

@@ -14,7 +14,13 @@ HELP: str = "Show one example file by file, each marked cached or missing"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[format_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[format_parser()],
+        epilog="Example:\n  hmp example show example_id",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("example_id", help="Example id, as listed by 'hmp example list'")
     parser.set_defaults(_handler=run)
     return parser

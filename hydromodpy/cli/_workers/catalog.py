@@ -464,7 +464,9 @@ def delete_simulation(
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
     with Catalog(workspace_root) as catalog:
-        sid = catalog.resolve(sim_ref)
+        # A purge cannot be undone: a name a live and a trashed run both hold
+        # is refused with both ids rather than resolved to the live one.
+        sid = catalog.resolve(sim_ref, unambiguous=True)
         return delete_simulation_artifacts(catalog, sid, remove_storage=not keep_storage)
 
 
@@ -559,7 +561,7 @@ def trash_simulation(sim_ref: str, *, workspace: Any, force: bool = False) -> di
 def restore_simulation(sim_ref: str, *, workspace: Any) -> dict:
     """Restore a trashed run, returning its (possibly versioned) name."""
     with _open_project_catalog(workspace) as catalog:
-        sid = catalog.resolve(sim_ref)
+        sid = catalog.resolve(sim_ref, in_trash=True)
         name = catalog.restore(sid)
         return {"sim_id": sid, "name": name}
 
@@ -570,7 +572,13 @@ def diff_simulations(ref_a: str, ref_b: str, *, workspace: Any) -> dict:
         return catalog.diff(ref_a, ref_b)
 
 
-def import_package_run(package_path: Any, *, workspace: Any, force: bool = False) -> dict:
+def import_package_run(
+    package_path: Any,
+    *,
+    workspace: Any,
+    force: bool = False,
+    as_project: str | None = None,
+) -> dict:
     """Import a single- or multi-run ``.hmp`` archive (catalog created if absent).
 
     Returns ``{"sim_ids": [...]}`` (one id for a single-run archive, one per run
@@ -583,7 +591,7 @@ def import_package_run(package_path: Any, *, workspace: Any, force: bool = False
     if not pkg.is_file():
         raise FileNotFoundError(f"No archive at {pkg}")
     with Catalog(root) as catalog:
-        return {"sim_ids": catalog.import_package_multi(pkg, force=force)}
+        return {"sim_ids": catalog.import_package_multi(pkg, force=force, as_project=as_project)}
 
 
 def _read_running_sidecars(project_root: Path, cutoff_s: float) -> dict[str, dict]:
@@ -912,7 +920,7 @@ def _gc_live_runs(project_root: Path) -> tuple[list[_RetentionRun], set[str]]:
 def _gc_superseded_runs(runs: list[_RetentionRun], keep: int) -> list[_RetentionRun]:
     """Return the runs beyond the ``keep`` newest versions of their lineage.
 
-    A lineage is a ``name_stem``: ``cheze`` and ``cheze.v2`` are two versions
+    A lineage is a ``name_stem``: ``my_run`` and ``my_run.v2`` are two versions
     of one run, and registration guarantees the version number orders them.
     """
     from collections import defaultdict

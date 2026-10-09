@@ -363,7 +363,7 @@ Two profiles are treated as the supported short-term contract:
 - `gauged_downstream_station`: select gauged basins from downstream flow
   stations. It requires `principle = "observation_led"`,
   `primary_observation_type = "flow_station"` and
-  `candidate_mode = "station_outlets"`. Optional influence layers can reject
+  `outlets.candidate_mode = "station_outlets"`. Optional influence layers can reject
   basins with major upstream dams or other configured major influences.
 
 Station-led hydrometry TOML files must declare
@@ -372,10 +372,6 @@ Station-led hydrometry TOML files must declare
 hydrometry configurations without a profile alive. DEM-light runs must likewise
 declare `profile = "area_only"` explicitly.
 
-The bounded short-term contract is documented in
-`docs/_dev_notes/site_selection_short_term_contract.md`.
-The matching business doctrine is documented in
-`docs/_dev_notes/site_selection_final_business_doctrine.md`.
 
 ## Closure Validation Examples
 

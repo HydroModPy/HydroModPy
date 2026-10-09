@@ -179,10 +179,10 @@ def test_compact_network_sections_escape_labels_and_render_missing_figures(tmp_p
     assert "field_figures/sim-a/release_flux_log_intensity.png" in html
     assert "data-lightbox-src" in html
     assert "&lt;MF6 &amp; ref&gt; - &lt;Release &amp; flux&gt;" in html
-    assert missing == '<div class="figure-missing">figure non disponible</div>'
+    assert missing == '<div class="figure-missing">figure not available</div>'
     assert "&lt;MF6 &amp; ref&gt;" in config
     assert "regular grid" in config
-    assert "1 234 cellules" in config
+    assert "1 234 computation cells" in config
     assert solver_summary(record) == "MODFLOW 6"
 
 

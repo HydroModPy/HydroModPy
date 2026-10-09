@@ -38,7 +38,7 @@ def build_selection_manifest(
             "effective_profile": config.effective_profile,
             "primary_axes": list(config.strategy.primary_axes),
             "primary_observation_type": config.strategy.primary_observation_type,
-            "candidate_mode": config.strategy.candidate_mode or config.outlets.candidate_mode,
+            "candidate_mode": config.outlets.candidate_mode,
         },
         "territory": {
             "mode": config.territory.mode,
@@ -63,8 +63,6 @@ def build_selection_manifest(
         "dem": {
             "source": config.dem.source,
             "path": _path_or_none(config.dem.path),
-            "resolution_m": config.dem.resolution_m,
-            "cache_policy": config.dem.cache_policy,
             "margin_km": config.dem.margin_km,
             "request_extent": config.dem.request_extent,
             "map_background_extent": config.dem.map_background_extent,
@@ -85,11 +83,6 @@ def build_selection_manifest(
             "reference_network_fetch_margin_m": config.outlets.reference_network_fetch_margin_m,
         },
         "criteria": {
-            "ruleset": config.criteria.ruleset,
-            "hard_reject": list(config.criteria.hard_reject),
-            "warning": list(config.criteria.warning),
-            "soft_score": list(config.criteria.soft_score),
-            "report_only": list(config.criteria.report_only),
             "area": config.criteria.area.model_dump(mode="json"),
             "observations": config.criteria.observations.model_dump(mode="json"),
             "influence": config.criteria.influence.model_dump(mode="json"),

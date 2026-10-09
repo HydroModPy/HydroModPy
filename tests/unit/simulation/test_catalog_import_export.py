@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.cli.helpers import EXIT_WRITE_CONFLICT, exit_code_for
+from hydromodpy.core.exceptions import ImportConflictError
 from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.exporters.hmp_package import ZARR_ARCHIVE_NAME
@@ -127,8 +129,33 @@ class TestImportSimulation:
         pkg = tmp_path / "dup.hmp"
         produced = catalog.export_package(sid, pkg)
 
-        with pytest.raises(ValueError, match="already exists"):
+        with pytest.raises(
+            ImportConflictError, match="already in this catalog.*--force.*force=True"
+        ) as caught:
             catalog.import_package(produced)
+        assert exit_code_for(caught.value) == EXIT_WRITE_CONFLICT
+
+    def test_a_second_run_of_one_project_needs_a_project_name(self, tmp_path):
+        """The refusal names ``--as``, and ``import_package_multi`` takes it."""
+        source = Catalog(tmp_path / "source")
+        first, second = _sid(), _sid()
+        _populate(source, first, project="origin")
+        _populate(source, second, project="origin")
+        pkg_first = source.export_package(first, tmp_path / "first.hmp")
+        pkg_second = source.export_package(second, tmp_path / "second.hmp")
+        source.close()
+
+        target = Catalog(tmp_path / "target")
+        assert target.import_package_multi(pkg_first) == [first]
+        with pytest.raises(ImportConflictError, match="--as") as caught:
+            target.import_package_multi(pkg_second)
+        assert exit_code_for(caught.value) == EXIT_WRITE_CONFLICT
+        assert target.import_package_multi(pkg_second, as_project="lab_copy") == [second]
+        projects = target.connection.execute(
+            "SELECT project FROM simulations WHERE sim_id = ?", [second]
+        ).fetchone()
+        assert projects == ("lab_copy",)
+        target.close()
 
     def test_import_rejects_tampered_archive(self, tmp_path):
         """Flip a byte in the archive - SHA-256 verification must fail."""

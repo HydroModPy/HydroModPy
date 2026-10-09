@@ -103,6 +103,29 @@ def test_config_schema_forwards_section_profile_and_output(monkeypatch, tmp_path
     assert f"Written to: {out}" in result.stderr
 
 
+def test_config_schema_editor_writes_the_published_editor_schema(monkeypatch, tmp_path) -> None:
+    out = tmp_path / "editor.json"
+    monkeypatch.setattr(
+        "hydromodpy.config.schema_export.editor_schema",
+        lambda: {"$comment": "editor", "properties": {"base_config": {}}},
+    )
+
+    result = CliRunner().invoke(["config", "schema", "--editor", "--out", str(out)])
+
+    assert result.exit_code == 0
+    assert f"Written to: {out}" in result.stderr
+    assert out.read_text(encoding="utf-8") == (
+        '{\n  "$comment": "editor",\n  "properties": {\n    "base_config": {}\n  }\n}\n'
+    )
+
+
+def test_config_schema_editor_refuses_a_section() -> None:
+    result = CliRunner().invoke(["config", "schema", "--editor", "--section", "flow"])
+
+    assert result.exit_code == 2
+    assert "--editor describes a whole TOML file" in result.stderr
+
+
 def test_config_template_list_modules_prints_modules_without_generating(
     monkeypatch,
 ) -> None:
@@ -123,3 +146,33 @@ def test_config_template_list_modules_prints_modules_without_generating(
     assert result.exit_code == 0
     assert result.stdout.splitlines() == ["workspace", "flow"]
     assert calls == {}
+
+
+def test_config_resolve_prints_the_merged_chain(tmp_path) -> None:
+    (tmp_path / "base.toml").write_text(
+        '[[export]]\nvariables = "head"\ntime = "last"\n\n[flow]\nactive_bc = ["drainage"]\n',
+        encoding="utf-8",
+    )
+    child = tmp_path / "child.toml"
+    child.write_text(
+        'base_config = "base.toml"\n\n[[export]]\nvariables = "budget"\n',
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(["config", "resolve", str(child)])
+
+    assert result.exit_code == 0
+    assert tomllib.loads(result.stdout) == {
+        "export": [{"variables": "budget"}],
+        "flow": {"active_bc": ["drainage"]},
+    }
+
+
+def test_config_resolve_names_a_broken_chain(tmp_path) -> None:
+    child = tmp_path / "child.toml"
+    child.write_text('base_config = "child.toml"\n', encoding="utf-8")
+
+    result = CliRunner().invoke(["config", "resolve", str(child)])
+
+    assert result.exit_code == 14
+    assert "Detected circular base_config chain" in result.stderr

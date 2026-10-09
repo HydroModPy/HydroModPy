@@ -16,11 +16,18 @@ the lowest point of either curve is not an estimate of anything.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import (
+    OneParameter,
+    Opt,
+    OutputName,
+    ParameterUnits,
+    SessionId,
+)
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
     chosen_session,
@@ -84,11 +91,18 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        parameter: str | None = None,
-        parameter_units: str | None = None,
-        session_id: str | None = None,
-        output: str | None = None,
-        band_m: float | None = None,
+        parameter: OneParameter = None,
+        parameter_units: ParameterUnits = None,
+        session_id: SessionId = None,
+        output: OutputName = None,
+        band_m: Annotated[
+            float | None,
+            Opt(
+                "Half-width of the band drawn around each curve. Left out, the median "
+                "reference length L_ref the trials published, else no band.",
+                unit="m",
+            ),
+        ] = None,
         **_,
     ) -> Axes:
         from matplotlib.patches import Patch
@@ -198,7 +212,7 @@ class DownslopeDistanceCrossingFigure(BaseFigure):
         ax.set_ylabel("Downslope distance (m)")
         ax.set_ylim(bottom=0.0)
         ax.grid(True, which="both", ls=":", lw=0.4)
-        ax.set_title(f"Downslope distance crossing - {sim.name or sim.sim_id}")
+        ax.set_title(f"Downslope distance crossing{run_suffix(sim)}")
         handles, _labels = ax.get_legend_handles_labels()
         if band is not None:
             handles.append(

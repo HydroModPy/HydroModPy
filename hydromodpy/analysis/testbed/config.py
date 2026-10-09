@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hydromodpy.analysis.catalog import SUPPORTED_CATALOG_FORMATS
 from hydromodpy.analysis.config_helpers import (
@@ -32,6 +32,7 @@ from hydromodpy.analysis.testbed.profiles import (
 from hydromodpy.analysis.testbed.site_selection_catalog import resolve_catalog_source
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.toml_io import load_toml_with_base_config
 
 SUPPORTED_RUNNERS = {"calibration", "comparison", "simulation"}
@@ -41,6 +42,44 @@ SUPPORTED_SUBJECT_RUNNERS = {
     "mesh": {"simulation"},
     "transport": {"comparison", "simulation"},
 }
+
+
+def _toml_keys(model: type[BaseModel]) -> frozenset[str]:
+    """The keys a TOML table of *model* may hold: its fields, under their alias.
+
+    A field marked ``exclude`` is derived by the parser and is not a key.
+    """
+    return frozenset(
+        field.alias or name for name, field in model.model_fields.items() if not field.exclude
+    )
+
+
+def _refuse_unknown_keys(
+    mapping: Mapping[str, Any],
+    allowed: frozenset[str],
+    *,
+    label: str,
+) -> None:
+    """Refuse a key the parser would not read: a typo is never ignored."""
+    unknown = sorted(str(key) for key in mapping if str(key) not in allowed)
+    if unknown:
+        raise ValueError(
+            f"[{label}] does not accept {', '.join(repr(key) for key in unknown)}. "
+            f"Accepted keys: {', '.join(sorted(allowed))}."
+        )
+
+
+def _without_retired(
+    section: Mapping[str, Any],
+    *,
+    key: str,
+    retired: str,
+    label: str,
+) -> Any:
+    """Read *key*; refuse its retired spelling *retired* with the key to write."""
+    if retired in section:
+        raise ValueError(f"{label}.{retired} is no longer supported; use {label}.{key}.")
+    return section.get(key)
 
 
 def _resolve_output_root(*, base_dir: Path, raw_value: object, testbed_id: str) -> Path:
@@ -54,7 +93,12 @@ class TestbedRunnerConfig(HydroModelBase):
     """Child-runner selection for one testbed."""
 
     type: Annotated[str, Profile.USER] = Field(
-        description="Runner identifier dispatched for every case (comparison, simulation)."
+        default="simulation",
+        description=(
+            "Workflow every case runs: 'simulation', 'comparison' or 'calibration'. "
+            "Which ones a subject accepts: mesh takes simulation; transport takes "
+            "simulation and comparison; flow takes all three."
+        ),
     )
     no_display: Annotated[bool, Profile.USER] = Field(
         default=True,
@@ -65,8 +109,14 @@ class TestbedRunnerConfig(HydroModelBase):
 class TestbedCaseConfig(HydroModelBase):
     """One concrete executable testbed case."""
 
-    id: Annotated[str, Profile.USER] = Field(description="Stable case identifier.")
-    label: Annotated[str, Profile.USER] = Field(description="Human-readable case label.")
+    id: Annotated[str, Profile.USER] = Field(
+        description="Name of the case, unique in the testbed and stable from run to run.",
+        examples=["k_1e-5"],
+    )
+    label: Annotated[str, Profile.USER] = Field(
+        description="Label of the case shown in the testbed tables and figures.",
+        examples=["K = 1e-5 m/s"],
+    )
     axis: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Optional axis tag used to group cases in reports.",
@@ -84,7 +134,10 @@ class TestbedCaseConfig(HydroModelBase):
 class TestbedMetricConfig(HydroModelBase):
     """One metric extracted from a child-runner summary."""
 
-    name: Annotated[str, Profile.USER] = Field(description="Metric column name.")
+    name: Annotated[str, Profile.USER] = Field(
+        description="Name of the metric column in the testbed results table.",
+        examples=["outlet_discharge_mean"],
+    )
     source: Annotated[str, Profile.USER] = Field(
         description="Dotted path into the child-runner summary."
     )
@@ -97,8 +150,11 @@ class TestbedMetricConfig(HydroModelBase):
 class TestbedCatalogConfig(HydroModelBase):
     """Catalog source used to generate testbed cases."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     path: Annotated[Path, Profile.USER] = Field(
-        description="Resolved path to the case catalog (CSV or JSONL)."
+        description="Resolved path to the case catalog (CSV or JSONL).",
+        examples=["cases.csv"],
     )
     format: Annotated[str, Profile.USER] = Field(
         default="auto",
@@ -106,7 +162,7 @@ class TestbedCatalogConfig(HydroModelBase):
     )
     id_field: Annotated[str, Profile.USER] = Field(
         default="case_id",
-        description="Column carrying the case identifier.",
+        description="Name of the catalog column that holds the case names.",
     )
     label_field: Annotated[str | None, Profile.USER] = Field(
         default="case_label",
@@ -154,15 +210,23 @@ class TestbedCatalogConfig(HydroModelBase):
     )
     limit: Annotated[int | None, Profile.USER] = Field(
         default=None,
-        description="Optional cap on the number of selected rows.",
+        description="Most catalog rows kept. Unset, every selected row is kept. A count.",
+        json_schema_extra={"unit": "-"},
     )
     source_manifest_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
-        description="Optional site-selection manifest used to resolve the catalog path.",
+        alias="from_site_selection_manifest",
+        description=(
+            "Optional site-selection manifest whose output names the catalog. Exclusive with path."
+        ),
     )
     source_manifest_output_key: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Output key read from the site-selection manifest.",
+        alias="output",
+        description=(
+            "Output of the site-selection manifest read as the catalog. "
+            "Defaults to regional_lab_sites_csv."
+        ),
     )
 
 
@@ -207,7 +271,8 @@ class TestbedCatalogCaseConfig(HydroModelBase):
     )
     limit: Annotated[int | None, Profile.USER] = Field(
         default=None,
-        description="Optional cap on the number of cases generated by the rule.",
+        description="Most cases the rule generates. Unset, there is no cap. A count.",
+        json_schema_extra={"unit": "-"},
     )
 
 
@@ -231,22 +296,45 @@ def _select_case_items(
 class TestbedConfig(HydroModelBase):
     """Validated configuration for one method testbed."""
 
-    config_path: Annotated[Path, Profile.USER] = Field(
-        description="Resolved path of the TOML file that produced this config."
+    model_config = ConfigDict(populate_by_name=True)
+
+    config_path: Annotated[Path | None, Profile.EXPERT] = Field(
+        default=None,
+        exclude=True,
+        description="Resolved path of the TOML file that produced this config. Set by the parser.",
     )
-    base_dir: Annotated[Path, Profile.USER] = Field(
-        description="Directory used to resolve relative paths."
+    base_dir: Annotated[Path | None, Profile.EXPERT] = Field(
+        default=None,
+        exclude=True,
+        description="Directory used to resolve relative paths. Set by the parser.",
     )
-    id: Annotated[str, Profile.USER] = Field(description="Stable testbed identifier.")
-    profile: Annotated[str, Profile.USER] = Field(description="Selected testbed profile.")
+    id: Annotated[str, Profile.USER] = Field(
+        description=(
+            "Stable testbed identifier. Left out, the TOML file name without its extension is used."
+        ),
+        examples=["k_sensitivity"],
+    )
+    profile: Annotated[str, Profile.USER] = Field(
+        default="generic",
+        description=(
+            "Testbed profile: 'generic' runs the declared cases, 'regional_lab' runs "
+            "them over every site of a site catalog."
+        ),
+    )
     subject: Annotated[str, Profile.USER] = Field(
-        description="High-level subject covered by the testbed (flow, mesh, transport)."
+        default="mesh",
+        description="What the cases vary: 'flow', 'mesh' or 'transport'.",
     )
     purpose: Annotated[str, Profile.USER] = Field(
-        description="Stated purpose of the testbed (robustness, sensitivity, ...)."
+        default="robustness",
+        description="Stated purpose of the testbed, written in its report (robustness, sensitivity...).",
     )
     output_root: Annotated[Path, Profile.USER] = Field(
-        description="Directory where testbed artifacts are written."
+        description=(
+            "Directory where testbed artifacts are written, relative to the TOML file. "
+            "Left out, testbed/<id> next to the TOML file."
+        ),
+        examples=["testbed_output"],
     )
     execute: Annotated[bool, Profile.USER] = Field(
         default=True,
@@ -256,12 +344,19 @@ class TestbedConfig(HydroModelBase):
         default=True,
         description="When false, the first failure aborts the testbed.",
     )
-    base_config_path: Annotated[Path | None, Profile.USER] = Field(
+    base_config_path: Annotated[
+        Path | None, Profile.USER, VisibleWhen("subject", ("flow", "transport"))
+    ] = Field(
         default=None,
-        description="Optional child workflow TOML used as the case base config.",
+        alias="base_config",
+        description=(
+            "Child workflow TOML every case starts from, relative to this file. "
+            "Required when subject is flow or transport."
+        ),
     )
     runner: Annotated[TestbedRunnerConfig, Profile.USER] = Field(
-        description="Child-runner selection for every case."
+        default_factory=TestbedRunnerConfig,
+        description="Child-runner selection for every case.",
     )
     case: Annotated[tuple[TestbedCaseConfig, ...], Profile.USER] = Field(
         default=(),
@@ -328,11 +423,17 @@ class TestbedConfig(HydroModelBase):
                 "dispatcher, not by the generic TestbedConfig parser."
             )
 
+        _refuse_unknown_keys(
+            section,
+            _toml_keys(cls) | {"testbed_id", "metric", "variant", "variant_from_catalog"},
+            label="testbed",
+        )
         resolved_config_path = Path(config_path).expanduser().resolve()
         base_dir = resolved_config_path.parent
         testbed_id = (
-            optional_text(section.get("id"))
-            or optional_text(section.get("testbed_id"))
+            optional_text(
+                _without_retired(section, key="id", retired="testbed_id", label="testbed")
+            )
             or resolved_config_path.stem
         )
         subject = (optional_text(section.get("subject")) or "mesh").lower()
@@ -343,6 +444,9 @@ class TestbedConfig(HydroModelBase):
             )
 
         runner_section = normalize_mapping(section.get("runner"), label="testbed.runner")
+        _refuse_unknown_keys(
+            runner_section, _toml_keys(TestbedRunnerConfig), label="testbed.runner"
+        )
         requested_runner_type = (optional_text(runner_section.get("type")) or "simulation").lower()
         available_runner_types = set(available_testbed_runner_types())
         if requested_runner_type not in available_runner_types:
@@ -368,6 +472,9 @@ class TestbedConfig(HydroModelBase):
         catalog: TestbedCatalogConfig | None = None
         if raw_catalog is not None:
             catalog_mapping = require_mapping(raw_catalog, label="testbed.catalog")
+            _refuse_unknown_keys(
+                catalog_mapping, _toml_keys(TestbedCatalogConfig), label="testbed.catalog"
+            )
             catalog_format = (optional_text(catalog_mapping.get("format")) or "auto").lower()
             if catalog_format not in SUPPORTED_CATALOG_FORMATS:
                 raise ValueError("testbed.catalog.format must be one of: auto, csv, jsonl")
@@ -452,6 +559,9 @@ class TestbedConfig(HydroModelBase):
                 raw_variant,
                 label=f"{variant_label}[{index}]",
             )
+            _refuse_unknown_keys(
+                variant_mapping, _toml_keys(TestbedCaseConfig), label=f"{variant_label}"
+            )
             variant_id = require_text(
                 variant_mapping.get("id"),
                 label=f"{variant_label}[{index}].id",
@@ -478,6 +588,11 @@ class TestbedConfig(HydroModelBase):
             catalog_variant_mapping = require_mapping(
                 raw_catalog_variant,
                 label=f"{catalog_variant_label}[{index}]",
+            )
+            _refuse_unknown_keys(
+                catalog_variant_mapping,
+                _toml_keys(TestbedCatalogCaseConfig),
+                label=catalog_variant_label,
             )
             catalog_variants.append(
                 TestbedCatalogCaseConfig(
@@ -512,22 +627,25 @@ class TestbedConfig(HydroModelBase):
                 )
             )
 
-        raw_metrics = section.get("metric", section.get("metrics", []))
+        raw_metrics = _without_retired(section, key="metrics", retired="metric", label="testbed")
         if raw_metrics is None:
             raw_metrics = []
         if not isinstance(raw_metrics, list):
-            raise ValueError("testbed.metric must be a list when provided")
+            raise ValueError("testbed.metrics must be a list when provided")
         metrics: list[TestbedMetricConfig] = []
         seen_metric_names: set[str] = set()
         for index, raw_metric in enumerate(raw_metrics):
-            metric_mapping = require_mapping(raw_metric, label=f"testbed.metric[{index}]")
+            metric_mapping = require_mapping(raw_metric, label=f"testbed.metrics[{index}]")
+            _refuse_unknown_keys(
+                metric_mapping, _toml_keys(TestbedMetricConfig), label="testbed.metrics"
+            )
             metric_name = require_text(
                 metric_mapping.get("name"),
-                label=f"testbed.metric[{index}].name",
+                label=f"testbed.metrics[{index}].name",
             )
             normalized_metric = metric_name.lower()
             if normalized_metric in seen_metric_names:
-                raise ValueError(f"Duplicate testbed.metric name '{metric_name}'")
+                raise ValueError(f"Duplicate testbed.metrics name '{metric_name}'")
             seen_metric_names.add(normalized_metric)
             metrics.append(
                 TestbedMetricConfig(

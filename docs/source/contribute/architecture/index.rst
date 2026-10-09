@@ -1,216 +1,152 @@
-:html_theme.sidebar_secondary.remove:
-
-Architecture and Developer Guide
-================================
+Architecture
+============
 
 .. rst-class:: lead
 
-The developer-facing reference for HydroModPy. Documents the package
-architecture, design patterns, storage layout, test layers, and the
-contributor recipes for extending the toolbox.
+How the code is organised: the layers and their allowed imports, the packages, the storage
+layout and the subsystems. For a task, start from the :doc:`recipes <how-to/index>`.
 
-For user-facing documentation, see :doc:`/guides/index`. For
-scientific notes and equations, see :doc:`/theory/index`.
-
-Get started as a contributor
-----------------------------
-
-.. grid:: 1 1 1 1
-   :gutter: 2 2 3 3
-
-   .. grid-item-card:: Contributor handbook
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4 hmp-cta-card
-      :link: ../handbook
-      :link-type: doc
-
-      Editable clone, pre-commit hooks, ``[dev,test,docs]`` extras,
-      WSL/PETSc helpers, ``ruff`` workflow, test ladder, Sphinx build
-      with ``-j auto`` and PlantUML setup, and the pull-request
-      conventions. Start here on day one.
-
-Foundations
------------
+The foundations
+---------------
 
 .. grid:: 1 2 2 2
    :gutter: 2 2 3 3
 
    .. grid-item-card:: Mental model
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: overview/mental-model-and-design-choices
+      :link: mental-model
       :link-type: doc
 
-      How a TOML becomes a persisted run. Read this once before
-      diving into any package.
-
-   .. grid-item-card:: Design patterns
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: overview/design-patterns
-      :link-type: doc
-
-      Canonical patterns reused across the codebase: SolverAdapter,
-      Step, Figure, DataManager, ProcessSpatial.
-
-   .. grid-item-card:: Package layout
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: package-layout
-      :link-type: doc
-
-      The top-level subpackages, the facade layers, and the public-symbol
-      contract.
+      How a TOML file becomes a stored run, why the boundaries are where they are, and the
+      files to open first.
 
    .. grid-item-card:: Layered architecture
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: layered-architecture
       :link-type: doc
 
-      The strict 18-layer dependency matrix and the one-way import
-      rule that every commit must respect.
+      The import matrix, the rules the gate holds, and the rules a reviewer holds. The graph
+      and the gate table are generated: :doc:`generated/layers`, :doc:`generated/guards`.
+
+   .. grid-item-card:: Packages
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: packages/index
+      :link-type: doc
+
+      One page per top-level subpackage: its parts, its import rules, and where to add what.
 
    .. grid-item-card:: Storage layout
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: storage-layout
       :link-type: doc
 
-      Disk is the truth and the database is an index: the three data
-      classes, run and session folders, Zarr and Parquet payloads.
+      Disk is the truth and the database is an index: the data classes, naming, atomic
+      writes, retention.
 
-   .. grid-item-card:: Code reading guide
+   .. grid-item-card:: Data scopes and schema evolution
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: overview/code-reading-guide
+      :link: data-scopes
       :link-type: doc
 
-      Recommended package-by-package reading paths through the
-      source tree.
+      The three databases, how their schemas move, and the canonical formats.
 
-   .. grid-item-card:: GitHub Actions
+   .. grid-item-card:: Contracts and design patterns
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: ci-workflows
+      :link: contracts
       :link-type: doc
 
-      Pull-request gate, specialized checks, scheduled suites, and
-      how to triage each failing GitHub check.
+      The public facade, the storage Protocols, the field registry, and the patterns the code
+      reuses.
 
-Per-package reference
----------------------
-
-.. grid:: 1 1 1 1
-   :gutter: 2 2 3 3
-
-   .. grid-item-card:: All top-level subpackages
+   .. grid-item-card:: Pipeline resume
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: packages/index
+      :link: pipeline_resume
       :link-type: doc
 
-      One focused page per top-level subpackage. Each page covers
-      the package role, its sub-modules, the key public symbols,
-      and the recommended reading path through the code.
+      How an interrupted run restarts from the artefacts on disk.
 
-Contributor recipes
--------------------
-
-.. grid:: 1 1 1 1
-   :gutter: 2 2 3 3
-
-   .. grid-item-card:: How-to index
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: how-to/index
-      :link-type: doc
-
-      Prescriptive recipes: add a solver, a config field, a data
-      source, a figure, a test, a CLI command, a calibration method,
-      an exporter, or build a frontend. Start here when extending
-      HydroModPy.
-
-Subsystem deep dives
---------------------
+Subsystems
+----------
 
 .. grid:: 1 2 3 3
    :gutter: 2 2 3 3
 
    .. grid-item-card:: Simulation
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: simulation/index
+      :link: simulation/toml-to-solver-walkthrough
       :link-type: doc
 
-      Orchestration walkthrough, class diagrams, time-cycle
-      diagrams, the comparison-workflow internals, and the testbed
-      workflow.
+      From TOML to solver outputs. The comparison workflow and the testbed workflow follow.
 
    .. grid-item-card:: Solver backends
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: solver/index
+      :link: solver/backends
       :link-type: doc
 
-      MODFLOW 6, MODFLOW-NWT, Boussinesq architecture notes, plus
-      the MODFLOW DIS and BAS contracts honoured by HydroModPy.
+      MODFLOW 6, MODFLOW-NWT and Boussinesq, and the contracts of the MODFLOW family. The
+      Boussinesq diagrams follow.
 
-   .. grid-item-card:: Mesh architecture
+   .. grid-item-card:: Mesh
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: mesh/index
       :link-type: doc
 
-      Catchment-conformal Gmsh meshing, structured-grid path, and
-      the cross-mesh pivot format used by every backend.
+      The catchment-conformal Gmsh pipeline, the structured grid, and the HydroMesh pivot.
 
-   .. grid-item-card:: Calibration internals
+   .. grid-item-card:: Calibration
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: calibration/index
       :link-type: doc
 
-      Code-oriented architecture map plus the full operational
-      calibration guide for adding methods and objectives.
+      The loop of a session and its classes, and the operational guide for adding methods.
 
-   .. grid-item-card:: Data and field
+   .. grid-item-card:: Data loading
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: data_loading/index
       :link-type: doc
 
-      Data planning and runtime loading, the field abstraction
-      shared by every solver, and the external data-source policy.
+      Planning and loading of input data, and the external provider constraints.
 
-   .. grid-item-card:: Spatial support and hydrography
+   .. grid-item-card:: Spatial support and field
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: spatial_support/index
       :link-type: doc
 
-      Support selection, hydrography UML, and the simulated active
-      network inventory for stream and seepage diagnostics.
+      Supports, zones, the field layer, hydrography, and the simulated active network.
+
+   .. grid-item-card:: Processes
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: process/process-architecture
+      :link-type: doc
+
+      The runtime objects ``Flow`` and ``Transport``, and the flow boundary conditions.
 
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Foundations
 
-   package-layout
+   mental-model
    layered-architecture
-   storage-layout
-   ci-workflows
-   artifact-policy
-   release-contract-v1
-   pipeline_resume
-   overview/index
-
-.. toctree::
-   :hidden:
-   :maxdepth: 1
-   :caption: How-to
-
-   how-to/index
-
-.. toctree::
-   :hidden:
-   :maxdepth: 1
-   :caption: Per-package reference
-
+   generated/layers
+   generated/guards
    packages/index
+   storage-layout
+   generated/storage-tree
+   data-scopes
+   contracts
+   pipeline_resume
 
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Subsystem deep dives
+   :caption: Subsystems
 
-   simulation/index
-   solver/index
+   simulation/toml-to-solver-walkthrough
+   simulation/comparison-workflow
+   simulation/testbed-workflow-architecture
+   solver/backends
+   solver/boussinesq-engines
+   solver/boussinesq-uml-diagrams
    mesh/index
    calibration/index
    data_loading/index
@@ -218,10 +154,3 @@ Subsystem deep dives
    field/index
    process/process-architecture
    process/flow-boundary-conditions
-
-.. toctree::
-   :hidden:
-   :maxdepth: 1
-   :caption: Contributing
-
-   Contributing handbook <../handbook>

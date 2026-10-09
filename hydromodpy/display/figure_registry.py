@@ -9,8 +9,15 @@ from __future__ import annotations
 import importlib
 import warnings
 from collections.abc import Iterable
+from typing import Any
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec, option_names_of
+from hydromodpy.display.figure import (
+    BaseFigure,
+    FigureSpec,
+    option_names_of,
+    option_types_of,
+    options_of,
+)
 
 _REGISTRY: dict[str, type[BaseFigure]] = {}
 _FORMER_NAMES: dict[str, str] = {}
@@ -89,3 +96,17 @@ def figure_option_names(name: str) -> frozenset[str]:
     ``[display]`` itself.
     """
     return option_names_of(_REGISTRY[resolve(name)])
+
+
+def figure_option_types(name: str) -> dict[str, Any]:
+    """Return the declared type of every option of the figure ``name``.
+
+    See :func:`hydromodpy.display.figure.option_types_of`.
+    """
+    return option_types_of(_REGISTRY[resolve(name)])
+
+
+def figure_python_only_options(name: str) -> frozenset[str]:
+    """Return the options of ``name`` that take a Python object, such as another run."""
+    figure_cls = _REGISTRY[resolve(name)]
+    return frozenset(option.name for option in options_of(figure_cls) if option.python_only)

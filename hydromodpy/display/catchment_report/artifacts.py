@@ -10,10 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.display.catchment_report.resources import (
-    GEOLOGY_DATA_ROOT,
-    REPO_ROOT,
-)
+from hydromodpy.core.state.paths import cache_dir
+from hydromodpy.display.catchment_report.resources import REPO_ROOT
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
 
 logger = get_logger(__name__)
@@ -183,9 +181,10 @@ def generate_generated_network_context_figure(
     config: dict[str, Any],
     generated_network_root: Path,
     geographic_scratch: Path,
+    config_dir: Path,
 ) -> None:
     network_path = latest_generated_network_parquet(generated_network_root)
-    dem_path = context_dem_path(config, geographic_scratch)
+    dem_path = context_dem_path(config, geographic_scratch, config_dir)
     watershed_path = geographic_scratch / "watershed.shp"
     missing = [
         label
@@ -244,8 +243,8 @@ def generate_generated_network_context_figure(
         streams_gdf=streams_gdf,
         outlet_xy=outlet_xy_from_config(config),
         relative_ticks=True,
-        stream_label="Reseau genere DEM",
-        title="Reseau genere DEM",
+        stream_label="DEM-generated network",
+        title="DEM-generated network",
     )
     fig.tight_layout()
     target = figures_dir / "hydrographic_network_generated_context.png"
@@ -267,7 +266,8 @@ def latest_generated_network_parquet(generated_network_root: Path) -> Path | Non
     return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
-def context_dem_path(config: dict[str, Any], geographic_scratch: Path) -> Path:
+def context_dem_path(config: dict[str, Any], geographic_scratch: Path, config_dir: Path) -> Path:
+    """Return the DEM of the catchment; a relative path is read from ``config_dir``."""
     scratch_dem = geographic_scratch / "watershed_box_buff_dem.tif"
     if scratch_dem.exists():
         return scratch_dem
@@ -275,7 +275,7 @@ def context_dem_path(config: dict[str, Any], geographic_scratch: Path) -> Path:
     if dem_value:
         dem_path = Path(str(dem_value))
         if not dem_path.is_absolute():
-            dem_path = REPO_ROOT / dem_path
+            dem_path = config_dir / dem_path
         return dem_path
     return scratch_dem
 
@@ -287,11 +287,39 @@ def outlet_xy_from_config(config: dict[str, Any]) -> tuple[float, float] | None:
         return None
 
 
-def geology_legend_rows(geographic_scratch: Path) -> tuple[Mapping[str, Any], ...]:
-    geology_path = latest_geology_gpkg()
+def geology_legend_rows(
+    geographic_scratch: Path,
+    geology_path: Path | None = None,
+) -> tuple[Mapping[str, Any], ...]:
+    """Return the geology legend of the catchment, one row per geological code.
+
+    ``geology_path`` is the vector file named by the report file. Without it the
+    GeoPackages the geology loader cached are tried, newest first, until one covers
+    the catchment.
+    """
     watershed_path = geographic_scratch / "watershed.shp"
-    if geology_path is None:
+    candidates = [geology_path] if geology_path is not None else geology_cache_candidates()
+    if not candidates:
+        logger.info(
+            "Catchment report: no geology file to build the legend from; "
+            "set [context.geology] path in the report file or load geology once."
+        )
         return ()
+    for candidate in candidates:
+        rows = _legend_rows_from(candidate, watershed_path)
+        if rows:
+            return rows
+    logger.info(
+        "Catchment report: no geology legend, %s do not cover the catchment.",
+        ", ".join(str(path) for path in candidates),
+    )
+    return ()
+
+
+def _legend_rows_from(
+    geology_path: Path,
+    watershed_path: Path,
+) -> tuple[Mapping[str, Any], ...]:
     try:
         import geopandas as gpd
         import pandas as pd
@@ -307,7 +335,8 @@ def geology_legend_rows(geographic_scratch: Path) -> tuple[Mapping[str, Any], ..
                 geom = watershed.geometry.union_all()
                 clipped = geology[geology.intersects(geom)].copy()
             geology = clipped
-    except Exception:
+    except Exception as exc:
+        logger.warning("Catchment report: geology file %s could not be read: %s", geology_path, exc)
         return ()
     if geology.empty:
         return ()
@@ -345,19 +374,28 @@ def geology_legend_rows(geographic_scratch: Path) -> tuple[Mapping[str, Any], ..
     return tuple(rows)
 
 
-def latest_geology_gpkg() -> Path | None:
-    candidates = [
-        path for path in GEOLOGY_DATA_ROOT.glob("geology_brgm_50k_*.gpkg") if path.is_file()
-    ]
-    if not candidates:
-        candidates = [
+def geology_cache_candidates() -> list[Path]:
+    """BRGM GeoPackages in the geology cache of the user, 1:50k first, newest first."""
+    root = cache_dir() / "geology"
+    detailed = sorted(
+        (path for path in root.glob("geology_brgm_50k_*.gpkg") if path.is_file()),
+        key=_modified,
+        reverse=True,
+    )
+    national = sorted(
+        (
             path
-            for path in GEOLOGY_DATA_ROOT.glob("geology_brgm_1m_*.gpkg")
+            for path in root.glob("geology_brgm_1m_*.gpkg")
             if path.is_file() and path.name != "geology_brgm_1m_france.gpkg"
-        ]
-    if not candidates:
-        return None
-    return max(candidates, key=lambda path: path.stat().st_mtime)
+        ),
+        key=_modified,
+        reverse=True,
+    )
+    return [*detailed, *national]
+
+
+def _modified(path: Path) -> float:
+    return path.stat().st_mtime
 
 
 def first_present(frame: Any, names: Iterable[str]) -> str | None:

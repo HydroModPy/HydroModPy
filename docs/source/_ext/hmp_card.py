@@ -78,49 +78,23 @@ def render_text(
     if canon is None:
         return f"unknown path: {target}"
     n = state["nodes"][canon]
-    fo = state.get("fo", {}).get(canon, {})
-    lines: list[str] = []
-    known = None
-    parts = target.split(".")
-    if (
-        canon
-        in (
-            "flow.param.<id>",
-            "flow.param.<id>.field",
-            "flow.param.<id>.field.value",
-            "flow.param.<id>.field.values",
-        )
-        and len(parts) > 2
-    ):
-        known = state["nodes"].get("flow.param.<id>", {}).get("known_keys", {}).get(parts[2])
-    title = target
-    label = fo.get("label")
-    ko = {}
-    for ov in state.get("overlays", {}).values():
-        ko.update(ov.get("known_keys", {}))
-    if known and parts[2] in ko:
-        label = f"{ko[parts[2]].get('label_en', '')} / {ko[parts[2]].get('label_fr', '')}"
-    sub = label or ""
-    if known:
-        phys = known.get("physical")
-        sub += f"   {known['unit']}" + (f"   physical {phys[0]:g} .. {phys[1]:g}" if phys else "")
-    elif n.get("unit") and not (n["unit"] == "-" and not n.get("numeric")):
-        sub += f"   {fo.get('unit_text') or n['unit']}"
-    lines.append(title)
+    lines: list[str] = [target]
+    sub = n.get("label", "").capitalize() if n.get("pseudo") else ""
+    if n.get("unit") and not (n["unit"] == "-" and not n.get("numeric")):
+        sub += f"   {n['unit']}"
+    rng = n.get("range") or {}
+    if n.get("pseudo") and "ge" in rng and "le" in rng:
+        sub += f"   valid {rng['ge']:g} .. {rng['le']:g}"
     if sub.strip():
         lines.append("  " + sub.strip())
-    summary = (
-        (fo.get("summary") or n.get("summary") or n.get("doc") or "")
-        .replace("`", "")
-        .replace("{toml}", "")
-    )
+    summary = (n.get("summary") or n.get("doc") or "").replace("`", "").replace("{toml}", "")
     lines += textwrap.wrap(summary, width - 2, initial_indent="  ", subsequent_indent="  ")
     if n.get("kind") == "leaf":
-        lines.append(f"  form       {fo.get('form') or n.get('form')}")
+        lines.append(f"  form       {n.get('form')}")
         lines.append(f"  default    {'required' if n.get('required') else n.get('default')}")
         if n.get("literal"):
             for v in n["literal"]:
-                doc = {**n.get("value_docs", {}), **fo.get("value_docs", {})}.get(str(v), "")
+                doc = n.get("value_docs", {}).get(str(v), "")
                 lines.append(f"  value      {json.dumps(v)}" + (f"  {doc}" if doc else ""))
         if n.get("calibrable"):
             c = n["calibrable"]

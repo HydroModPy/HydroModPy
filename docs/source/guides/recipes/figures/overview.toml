@@ -1,0 +1,33 @@
+# The overview of the Nançon catchment: delineate it, load the data it lists, draw the
+# maps and the tables. No solver runs. Save this file in the folder of example 04, next to
+# the step files, and start it with `hmp run overview.toml`.
+# The guide "Describe a catchment" builds it block by block.
+
+base_config = "step3_api_data.toml"
+
+[workflow]
+mode = "overview"
+
+[overview]
+name = "Nançon"
+date_start = "2000-01-01"
+date_end = "2002-12-31"
+regional_context_label = "Location in the Armorican Massif"
+
+# A list replaces the list of the parent file, so all four families are written out.
+[data]
+types = ["hydrography", "hydrometry", "precipitation", "etp"]
+
+# These two sections declare no window, so they read the [overview] window.
+[[data.precipitation.sources]]
+source = "sim2"
+
+[[data.etp.sources]]
+source = "sim2"
+
+# The panels of the families this file does not load are off.
+[overview.panels]
+map_geology = false
+timeseries_piezometry = false
+timeseries_intermittency = false
+timeseries_water_quality = false

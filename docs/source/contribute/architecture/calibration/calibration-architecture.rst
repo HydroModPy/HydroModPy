@@ -1,123 +1,72 @@
-Calibration Architecture
+Calibration architecture
 ========================
 
-This page is the code-oriented entry point for the calibration stack.
-It groups the package map, the runtime classes, the execution-flow
-diagrams, and the case-vs-core boundary in one place.
-
-For the full operational reference (TOML sections, optimizer
-catalogue, storage rules, pitfalls, Python API), see
+This page is the code-oriented entry point for the calibration stack: the package map, the
+reading path, the loop of one session and the core classes. For the operational reference
+(TOML sections, optimizer catalogue, storage rules, pitfalls, Python API), see
 :doc:`calibration-guide`.
 
 Architecture map
 ----------------
 
-The current calibration stack is split into four layers:
+The package is split into parts that import in one direction. The README of the package
+(:doc:`../packages/calibration`) lists them in dependency order, with the import rules and
+a "where to add what" table. The rules are held by
+``tests/unit/architecture/calibration_layout.yaml``.
 
-- ``hydromodpy/calibration/runners/cli_runner.py`` owns the
-  ``hmp run <calibration.toml>`` workflow entry point: validates the
-  config, builds the engine, runs the optimizer, writes the report.
-  ``runners/programmatic_runner.py`` exposes the same flow for
-  in-process use.
-- ``hydromodpy/calibration/runners/trial.py`` owns the prepare-once,
-  evaluate-many primitive used by every trial inside the ask/tell
-  loop.
-- ``hydromodpy/calibration/optim/`` (engine, parameters, objective,
-  optimizer, diagnostics) plus ``persistence.py`` own the reusable
-  engine, parameter sets, objective handling, method dispatch, and
-  canonical results.
-- ``hydromodpy/calibration/cases/`` owns runnable scientific cases
-  that exercise the full calibration loop end to end.
+- ``hydromodpy/calibration/runners/`` runs a calibration. ``cli_runner.py`` is the
+  ``hmp run <calibration.toml>`` entry point for one search, ``staged_runner.py`` runs
+  phases, ``programmatic_runner.py`` serves Python use. ``trial.py`` is the prepare-once,
+  evaluate-many primitive, and ``promotion.py`` replays the best trials through the full
+  pipeline.
+- ``hydromodpy/calibration/optim/`` holds the parameter space, the objective, the optimizer
+  Protocol and its registry, the engine, the stopping rules and the params-hash cache. The
+  search methods are the modules of ``optim/adapters/``.
+- ``hydromodpy/calibration/criteria/`` scores a simulated series against an observed one.
+- ``hydromodpy/calibration/evaluation/`` defines what one trial must answer: the
+  ``TrialEvaluator`` port, the forward-model port and their registries.
+- ``hydromodpy/calibration/metrics/`` and ``observations/`` extract the outputs of a trial and
+  pair them with the observations.
+- ``hydromodpy/calibration/persistence.py`` writes a session (the journal first, then the
+  DuckDB index), and ``report.py`` reads it back.
+- ``hydromodpy/calibration/cases/`` keeps two demonstrators as regression fixtures.
 
 Recommended reading path
 ------------------------
 
-When reading the code from the published docs:
-
-1. ``hydromodpy/cli/commands/run.py`` (``[workflow].mode =
-   "calibration"`` dispatch)
+1. ``hydromodpy/project/dispatch/workflow.py`` (``run_calibration``)
 2. ``hydromodpy/calibration/runners/cli_runner.py``
 3. ``hydromodpy/calibration/optim/engine.py``
 4. ``hydromodpy/calibration/runners/trial.py``
-5. one case under ``hydromodpy/calibration/cases/``
+5. ``hydromodpy/calibration/runners/pipeline_evaluator.py``
 
-Companion files:
+How a calibration flows
+-----------------------
 
-- :doc:`../packages/calibration` for the package map.
-- :doc:`calibration-guide` for the end-to-end reference.
-- Case-local docstrings under ``hydromodpy/calibration/cases/`` for
-  runnable examples.
-
-.. warning::
-
-   The PlantUML diagrams below were drawn against the pre-refactor
-   ``hydromodpy.analysis.calibration.core`` layout. The module paths and
-   several class names they show no longer exist; the current ones are the
-   four layers listed above. Read the diagrams for the shape of the flow,
-   not for import paths.
-
-Core classes (config)
----------------------
-
-This diagram focuses on validated configuration and method-selection
-objects.
-
-.. uml:: diagrams/core_classes_config.wsd
-
-Core classes (main runtime)
----------------------------
-
-This diagram focuses on the reusable runtime objects exchanged during
-one calibration session.
-
-.. uml:: diagrams/core_classes_main.wsd
-
-Calibration activity
---------------------
-
-The high-level activity view of one calibration session driven by
-``hmp run``.
-
-.. uml:: diagrams/calibration_activity.wsd
-
-Calibration sequence
---------------------
-
-The handoff between the CLI entry point and the generic calibration
-engine.
+The README of the package gives the nine steps, from loading the ``[calibration]`` table to
+the report. The sequence below shows the loop.
 
 .. uml:: diagrams/calibration_sequence.wsd
 
-Reservoir sequence (case example)
----------------------------------
+Core classes
+------------
 
-How one runnable calibration case plugs into the shared core.
-
-.. uml:: diagrams/reservoir_sequence.wsd
-
-Case / core structure
----------------------
-
-How runnable calibration cases are organized around the shared engine:
-where ``optim/`` ends and ``cases/`` begins.
-
-.. uml:: diagrams/case_core_structure.wsd
+.. uml:: diagrams/calibration_classes.wsd
 
 Notes:
 
-- Case packages under ``hydromodpy/calibration/cases`` are expected
-  to stay thin adapters around the shared engine.
-- CLI-specific concerns such as manifests, reruns, and report
-  persistence are owned by
-  ``hydromodpy/calibration/runners/cli_runner.py`` and
-  the reporting helpers in
-  ``hydromodpy/calibration/persistence.py`` and ``report.py``.
+- The engine decides when to stop and which results to forward to the optimizer. Running
+  the model, the catalog and the promotion all happen in the evaluator.
+- A trial lives in memory inside the loop. Every trial leaves one line in the session journal
+  and one row in ``calibration_iterations``, and only a promoted trial becomes a run on disk.
+- A search method is one module of ``optim/adapters/``, with no list to edit: see
+  :doc:`/contribute/architecture/how-to/add-a-calibration-method`.
 
 See also
 --------
 
 - :doc:`calibration-guide` for the full operational reference.
-- Calibration Workflow for the user-facing hub.
+- :doc:`/guides/calibrate` for the task.
 - :doc:`/theory/index` for inverse-problem
   formulation and methods.
 - :doc:`/theory/validation` for stable benchmark

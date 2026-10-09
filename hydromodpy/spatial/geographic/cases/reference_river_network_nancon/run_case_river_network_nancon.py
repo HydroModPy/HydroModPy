@@ -82,20 +82,20 @@ def _build_reference_figure(
     threshold_mode = str(summary["threshold_mode"])
     threshold_value = float(summary["threshold_value"])
     threshold_cells = float(summary["threshold_cells"])
-    title = "Nançon | Réseau hydrographique extrait du DEM"
+    title = "Nançon | River network extracted from the DEM"
     subtitle = (
-        f"segments={int(summary['segment_count'])} | longueur={length_km:.2f} km | "
-        f"densité={drainage_density:.3f} km/km2"
+        f"segments={int(summary['segment_count'])} | length={length_km:.2f} km | "
+        f"density={drainage_density:.3f} km/km2"
     )
     threshold_line = (
-        f"mode={threshold_mode} | seuil={threshold_value:.3f} km2 | "
+        f"mode={threshold_mode} | threshold={threshold_value:.3f} km2 | "
         f"equiv_cells={threshold_cells:.1f}"
     )
     ax.set_title(f"{title}\n{subtitle}\n{threshold_line}", fontsize=11)
 
     handles = [
-        Line2D([0], [0], color="black", linewidth=1.8, label="Bassin versant"),
-        Line2D([0], [0], color="#1f77b4", linewidth=1.4, label="Réseau hydrographique"),
+        Line2D([0], [0], color="black", linewidth=1.8, label="Catchment"),
+        Line2D([0], [0], color="#1f77b4", linewidth=1.4, label="River network"),
         Line2D(
             [0],
             [0],
@@ -104,7 +104,7 @@ def _build_reference_figure(
             markerfacecolor="#2ca02c",
             markeredgecolor="black",
             markersize=8.0,
-            label="Exutoire",
+            label="Outlet",
         ),
     ]
     ax.legend(handles=handles, loc="lower left", fontsize=9, framealpha=0.9)

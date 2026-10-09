@@ -1,23 +1,33 @@
 @startuml
-title Simulation Orchestration Class Diagram
+title Simulation orchestration classes
 
-package "hydromodpy" {
+package "hydromodpy.project" {
   class Project {
-    +cfg: HydroModPyConfig
-    +run()
-    +prepare(**overrides) : sim_id
-    +execute(sim_id) : runtime
-    +ingest(sim_id)
-    +render(sim_id)
+    +prepare()
+    +setup_workspace()
     +build_geographic()
     +load_data()
     +build_mesh()
+    +simulate(...) : Run
+    +calibrate(...)
+    +spinup(...)
   }
+}
+
+package "hydromodpy.workflow" {
+  class Pipeline
+  interface Step {
+    +name
+    +reads
+    +writes
+    +run(state) : PipelineState
+  }
+  class PipelineState
 }
 
 package "hydromodpy.simulation" {
   class SimulationPlanner {
-    +build(config)
+    +build(config) : SimulationPlan
   }
 
   class SimulationPlan {
@@ -35,52 +45,72 @@ package "hydromodpy.simulation" {
   }
 
   class SimulationRunner {
-    +execute(plan, runtime_state)
+    +execute(plan, ctx, callbacks, store)
+  }
+
+  class RunContext {
+    +plan
+    +run
+    +state: RunState
+    +dependency_models
+    +store
+    +model
+    +output_dir
   }
 }
 
 package "hydromodpy.physics" {
+  class ProcessSpatial
   class Flow
   class Transport
 }
 
 package "hydromodpy.solver" {
-  interface "Flow Solver Adapter" as FlowSolver
-  class ModflowNwt
-  class Modflow6
-  class Boussinesq
-
-  interface "Transport Solver Adapter" as TransportSolver
-  class Modpath
-  class Mt3dms
-  class Modflow6Transport
+  interface SolverAdapter {
+    +process_type
+    +solver_name
+    +requires
+    +validate(ctx)
+    +execute(ctx)
+    +cleanup(ctx)
+    +extract_observables(ctx, store, requests)
+  }
+  class ModflowNwtFlowAdapter
+  class Modflow6FlowAdapter
+  class BoussinesqFlowAdapter
+  class ModpathTransportAdapter
+  class Mt3dmsTransportAdapter
+  class Modflow6GwtTransportAdapter
+  class Modflow6PrtTransportAdapter
 }
 
-Project --> SimulationPlanner : builds
-Project --> SimulationRunner : delegates execution
+Project --> Pipeline : simulate() runs
+Pipeline o-- "12" Step
+Pipeline ..> PipelineState : threads
 
 SimulationPlanner ..> SimulationPlan : returns
-SimulationPlanner ..> ProcessRun : produces
-
 SimulationPlan *-- "0..*" ProcessRun : runs
 
-Project --> SimulationPlan : stores active plan
-Project --> ProcessRun : indexes runs by id
-Project --> Flow : prepares runtime process
-Project --> Transport : prepares runtime process
-
 SimulationRunner ..> SimulationPlan : consumes ordered runs
-SimulationRunner ..> ProcessRun : dispatches
-SimulationRunner ..> Flow : uses runtime process
-SimulationRunner ..> Transport : uses runtime process
-SimulationRunner ..> FlowSolver : instantiates from run.solver
-SimulationRunner ..> TransportSolver : instantiates from run.solver
+SimulationRunner ..> RunContext : builds one per run
+SimulationRunner ..> Flow : ensure_flow
+SimulationRunner ..> Transport : ensure_transport
+SimulationRunner ..> SolverAdapter : resolves from run.solver
 
-FlowSolver <|.. ModflowNwt
-FlowSolver <|.. Modflow6
-FlowSolver <|.. Boussinesq
+Flow --|> ProcessSpatial
+Transport --|> ProcessSpatial
 
-TransportSolver <|.. Modpath
-TransportSolver <|.. Mt3dms
-TransportSolver <|.. Modflow6Transport
+SolverAdapter <|.. ModflowNwtFlowAdapter
+SolverAdapter <|.. Modflow6FlowAdapter
+SolverAdapter <|.. BoussinesqFlowAdapter
+SolverAdapter <|.. ModpathTransportAdapter
+SolverAdapter <|.. Mt3dmsTransportAdapter
+SolverAdapter <|.. Modflow6GwtTransportAdapter
+SolverAdapter <|.. Modflow6PrtTransportAdapter
+
+note right of Pipeline
+  The planning step builds the plan
+  with SimulationPlanner. RunSolverStep
+  hands it to SimulationRunner.
+end note
 @enduml

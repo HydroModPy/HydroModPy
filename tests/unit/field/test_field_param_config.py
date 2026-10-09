@@ -218,7 +218,7 @@ def test_load_field_param_toml_accepts_csv_values_source(tmp_path: Path):
     payload = load_field_param_toml(path)
     hetero = payload["field"]
     assert hetero["values_source"] == "csv"
-    assert hetero["values_csv_file"] == "mapping.csv"
+    assert hetero["values_csv_file"] == Path("mapping.csv")
     assert hetero["field_spatial_id"] == "field_geology"
 
 

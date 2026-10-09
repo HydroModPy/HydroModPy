@@ -6,7 +6,7 @@ import platform
 
 import pytest
 
-from tests.validation.helpers import assert_metric_below
+from tests.validation.helpers import assert_metric_below, record_comparison
 from validation_cases.analytical.steady.dupuit_fixed_head_1d.comparison import (
     run_dupuit_fixed_head_comparison,
 )
@@ -40,6 +40,7 @@ def test_dupuit_fixed_head_petsc_variants_match_reference_profile(
         caller_file=__file__,
         solver=solver,
     )
+    record_comparison(comparison)
     tolerances = dict(comparison.tolerances)
 
     assert_metric_below(
@@ -75,6 +76,7 @@ def test_dupuit_fixed_head_petsc_vi_obstacle_reaches_reference_profile() -> None
         caller_file=__file__,
         solver="petsc_vi_obstacle",
     )
+    record_comparison(comparison)
     tolerances = dict(comparison.tolerances)
 
     assert comparison.solver == "petsc_vi_obstacle"

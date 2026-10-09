@@ -1,4 +1,4 @@
-Testbed Workflow Architecture
+Testbed workflow architecture
 =============================
 
 ``[workflow].mode = "testbed"`` is an orchestration workflow for method robustness
@@ -13,7 +13,10 @@ The key design rule is:
    child runners own domain execution
 
 This keeps method experiments reproducible without turning the testbed package
-into another simulation engine.
+into another simulation engine. ``[testbed].profile`` selects the launcher:
+``generic`` (the default) runs ``TestbedLauncher`` (``analysis/testbed/runtime.py``),
+and ``regional_lab`` runs ``RegionalLabProfileLauncher``
+(``analysis/testbed/regional_lab.py``). Any other value is refused.
 
 .. figure:: /_static/workflows/testbed/testbed_orchestration.svg
    :alt: Testbed orchestration model
@@ -22,7 +25,7 @@ into another simulation engine.
    The testbed layer expands cases into generated child configs, delegates
    execution, then collects evidence artifacts.
 
-Package Boundary
+Package boundary
 ----------------
 
 The implementation is intentionally narrow:
@@ -43,12 +46,13 @@ The implementation is intentionally narrow:
      - Expose ``run_testbed`` as the CLI adapter.
    * - Child runner packages
      - Keep ownership of mesh generation, simulation execution, solver
-       persistence, and future transport execution.
+       persistence, and transport execution.
 
-Supported Runtime Pairs
+Supported runtime pairs
 -----------------------
 
-The current contract accepts only explicit subject/runner pairs:
+The contract accepts only explicit subject and runner pairs
+(``SUPPORTED_SUBJECT_RUNNERS`` in ``hydromodpy/analysis/testbed/config.py``):
 
 .. list-table::
    :header-rows: 1
@@ -72,6 +76,10 @@ The current contract accepts only explicit subject/runner pairs:
      - ``comparison``
      - ``[workflow].mode = "comparison"``
      - Pairwise comparison campaigns and method-comparison subsets.
+   * - ``flow``
+     - ``calibration``
+     - ``[workflow].mode = "calibration"``
+     - Calibration campaigns over a case matrix.
    * - ``transport``
      - ``simulation``
      - ``[workflow].mode = "simulation"``
@@ -84,7 +92,7 @@ The current contract accepts only explicit subject/runner pairs:
 Generated children never contain ``[testbed]``. They are ordinary child
 workflow TOMLs that can be opened, inspected, and in many cases run directly.
 
-Data Flow
+Data flow
 ---------
 
 One testbed run follows this sequence:
@@ -103,7 +111,7 @@ This means ``execute = false`` is not a no-op. It is a planning mode that
 materializes the experiment and lets a user audit generated children before
 spending solver time.
 
-Evidence Model
+Evidence model
 --------------
 
 .. figure:: /_static/workflows/testbed/testbed_outputs.svg
@@ -121,72 +129,36 @@ The evidence files have stable roles:
 - ``testbed_manifest.json``: machine-readable whole-run contract;
 - ``testbed_report.md``: compact human summary.
 
-Flow Metric Extraction
+Flow metric extraction
 ----------------------
 
 For ``subject = "flow"``, the testbed does not parse solver files directly.
 It delegates to ``[workflow].mode = "simulation"``, then reopens the completed run
 through the result catalog. The catalog summary is flattened into
-``flow_metrics`` keys that can be referenced by ``[[testbed.metric]]``.
+``flow_metrics`` keys that can be referenced by ``[[testbed.metrics]]``.
 
-Confirmed metric examples from the repository starter are:
-
-- ``flow_metrics.duration_s``;
-- ``flow_metrics.n_cells``;
-- ``flow_metrics.param_K``;
-- ``flow_metrics.max_abs_mass_balance_percent_error``;
-- ``flow_metrics.head_range_m``;
-- ``flow_metrics.budget_chd_total_out`` for prescribed-head exchanges;
-- ``flow_metrics.budget_rcha_total_in`` for recharge.
-
-The full ``flow_k_sensitivity`` matrix was executed locally with three MODFLOW
-6 children. All three completed successfully with 547 cells and zero
-mass-balance percent error in the extracted catalog metrics. The observed
-``head_range_m`` decreased from the low-K case to the high-K case, which is
-the expected direction for this controlled hydraulic-conductivity sensitivity
-test.
+The keys are the flattened catalog summary of the child run, for example
+``flow_metrics.duration_s``, ``flow_metrics.n_cells``,
+``flow_metrics.max_abs_mass_balance_percent_error`` and
+``flow_metrics.head_range_m``, plus one key per parameter (``flow_metrics.param_K``)
+and per budget component (``flow_metrics.budget_chd_total_out`` for prescribed-head
+exchanges, ``flow_metrics.budget_rcha_total_in`` for recharge).
 
 Comparison children are deliberately thinner: the testbed consumes the summary
 returned by the comparison runner and can expose those fields through
-``[[testbed.metric]]``. The comparison workflow keeps ownership of its HTML,
+``[[testbed.metrics]]``. The comparison workflow keeps ownership of its HTML,
 metrics, figures, and child simulation details.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 18 18 18 22 24
-
-   * - Case
-     - ``param_K``
-     - ``n_cells``
-     - ``head_range_m``
-     - ``budget_chd_total_out``
-   * - ``low_k``
-     - ``5e-06``
-     - ``547``
-     - ``61.95``
-     - ``0.05158187``
-   * - ``reference_k``
-     - ``1e-05``
-     - ``547``
-     - ``47.55``
-     - ``0.05158152``
-   * - ``high_k``
-     - ``2e-05``
-     - ``547``
-     - ``40.91``
-     - ``0.05158121``
-
-Extension Point
+Extension point
 ---------------
 
-Adding a new subject such as transport should follow the existing contract
-instead of introducing a one-off runner convention.
-
+A new subject follows the existing contract, not a one-off runner convention.
 The minimum changes are:
 
-1. Add the subject name to ``SUPPORTED_SUBJECTS``.
-2. Add allowed runner pairs to ``SUPPORTED_SUBJECT_RUNNERS``.
-3. Add runner-to-child-workflow mapping in ``RUNNER_WORKFLOWS``.
+1. Add the subject name to ``SUPPORTED_SUBJECTS`` in ``analysis/testbed/config.py``.
+2. Add the allowed runner pairs to ``SUPPORTED_SUBJECT_RUNNERS``.
+3. Add the runner-to-child-workflow mapping in ``RUNNER_WORKFLOWS``
+   (``analysis/testbed/pipeline.py``).
 4. Add one launcher branch in ``TestbedLauncher._run_case``.
 5. Add metric extraction only through runner summaries or persisted result
    stores.
@@ -196,7 +168,7 @@ The minimum changes are:
 The main invariant should stay intact: testbed remains an evidence layer, not
 a physics layer.
 
-Failure Semantics
+Failure semantics
 -----------------
 
 Metric declarations can set ``required = true``. A missing required metric

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
-from tests.validation.helpers import assert_metric_below
+from tests.validation.helpers import assert_metric_below, record_comparison
 from validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.comparison import (
     run_boussinesq_hillslope_interception_comparison,
 )
@@ -28,6 +28,7 @@ def test_boussinesq_hillslope_interception_1d_matches_reference_position() -> No
         caller_file=__file__,
         solver="boussinesq",
     )
+    record_comparison(comparison)
     interception_tol = dict(comparison.tolerances.get("interception", {}))
     uniformity_tol = dict(comparison.tolerances.get("uniformity", {}))
     contact_tol = dict(comparison.tolerances.get("contact", {}))

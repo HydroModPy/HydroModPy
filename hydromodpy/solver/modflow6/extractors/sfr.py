@@ -100,6 +100,8 @@ class SfrReachGeometry:
 
     ``cell2d`` is ``None`` for a reach that carries flow without exchanging with
     the aquifer. The connection threshold MODFLOW switches on is ``rtp - rbth``.
+    ``downstream`` holds the ``ifno`` of every reach this one drains into (none
+    at an outlet).
     """
 
     ifno: int
@@ -114,6 +116,7 @@ class SfrReachGeometry:
     manning: float
     strahler: int
     ustrf: float
+    downstream: tuple[int, ...]
 
     _INTS = ("ifno", "strahler")
     _NULLABLE_INTS = ("layer", "cell2d")
@@ -124,7 +127,10 @@ class SfrReachGeometry:
         values: dict[str, Any] = {}
         for name in (f.name for f in fields(cls)):
             raw = item.get(name)
-            if name in cls._NULLABLE_INTS:
+            if name == "downstream":
+                # Required: an empty tuple would read as "this reach is an outlet".
+                values[name] = tuple(int(down) for down in item["downstream"])
+            elif name in cls._NULLABLE_INTS:
                 values[name] = None if raw is None else int(raw)
             elif name in cls._INTS:
                 values[name] = int(raw)

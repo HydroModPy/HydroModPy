@@ -26,7 +26,7 @@ thing: it stays NaN and breaks the line.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
 import pandas as pd
@@ -37,7 +37,8 @@ from hydromodpy.core.units.labels import (
     axis_label,
     station_label,
 )
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt, Station, Variable
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import style_date_axis
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
@@ -78,13 +79,7 @@ _WINDOW_COLOR = "0.82"
 
 @register
 class HydrographLogNseFigure(BaseFigure):
-    """Simulated and observed discharge on a log axis, split and scored.
-
-    ``drainage`` and ``runoff`` may be passed as series aligned on the
-    simulation index; otherwise they are read from the run under
-    ``drainage_variable`` / ``runoff_variable``. One of the two is enough:
-    the other follows by difference from the total, and says so in its label.
-    """
+    """Simulated and observed discharge on a log axis, split and scored."""
 
     spec = FigureSpec(
         name="hydrograph_log_nse",
@@ -116,15 +111,51 @@ class HydrographLogNseFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: str = CATCHMENT_OUTLET_STATION,
-        variable: str = _DEFAULT_VARIABLE,
-        drainage: pd.Series | np.ndarray | None = None,
-        runoff: pd.Series | np.ndarray | None = None,
-        drainage_variable: str = "drainage",
-        runoff_variable: str = "runoff",
-        scoring_window: tuple[Any, Any] | None = None,
-        nse_log: float | None = None,
-        floor: float | None = None,
+        station: Station = CATCHMENT_OUTLET_STATION,
+        variable: Variable = _DEFAULT_VARIABLE,
+        drainage: Annotated[
+            pd.Series | np.ndarray | None,
+            Opt(
+                "Drainage part of the discharge, aligned on the simulation dates. Left "
+                "out, read from the run under drainage_variable.",
+                python_only=True,
+            ),
+        ] = None,
+        runoff: Annotated[
+            pd.Series | np.ndarray | None,
+            Opt(
+                "Runoff part of the discharge, aligned on the simulation dates. Left "
+                "out, read from the run under runoff_variable.",
+                python_only=True,
+            ),
+        ] = None,
+        drainage_variable: Annotated[
+            str,
+            Opt(
+                "Stored series read as the drainage part. With one of the two parts, "
+                "the other follows by difference from the total."
+            ),
+        ] = "drainage",
+        runoff_variable: Annotated[str, Opt("Stored series read as the runoff part.")] = "runoff",
+        scoring_window: Annotated[
+            tuple[Any, Any] | None,
+            Opt(
+                "Start and end dates of the period the score read, shaded on the "
+                "figure. Left out, no shading."
+            ),
+        ] = None,
+        nse_log: Annotated[
+            float | None,
+            Opt("NSElog value written on the figure. Left out, no score is written.", unit="-"),
+        ] = None,
+        floor: Annotated[
+            float | None,
+            Opt(
+                "Flow below which the log axis does not look, in the unit of the "
+                "series. Left out, 1 % of the median positive observed flow, else of "
+                "the simulated one: the floor of the NSElog score."
+            ),
+        ] = None,
         **_,
     ) -> Axes:
         total = normalize_datetime_series(sim.timeseries(variable, station=station))
@@ -185,9 +216,7 @@ class HydrographLogNseFigure(BaseFigure):
         ax.set_xlabel("Date")
         ax.set_ylabel(axis_label(variable))
         ax.grid(True, which="both", ls=":", lw=0.4)
-        ax.set_title(
-            f"Hydrograph on a log axis - {sim.name or sim.sim_id} @ {station_label(station)}"
-        )
+        ax.set_title(f"Hydrograph on a log axis{run_suffix(sim)} @ {station_label(station)}")
         # The legend takes the upper right and the note the floor: the note
         # runs to whatever width its longest line needs and an upper corner is
         # not wide enough for both, while the band under the log floor is empty

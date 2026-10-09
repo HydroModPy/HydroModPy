@@ -41,7 +41,7 @@ from hydromodpy.calibration.metrics.observed_pairing import (
     pair_outputs_with_observations,
 )
 from hydromodpy.calibration.metrics.scalar import score as score_series
-from hydromodpy.calibration.optim.objective import build_objective_from_config
+from hydromodpy.calibration.optim.objective import SimulationOutput, build_objective_from_config
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.period_aggregation import period_edges
@@ -468,8 +468,17 @@ class ObservableScorer:
                     else None
                 ),
             )
+        # The sampling step of each dated output travels with the values: a
+        # seasonal criterion counts a year in the samples of the series.
+        trial = SimulationOutput(
+            sim_id="",
+            stations=(),
+            times=np.empty(0),
+            values=simulated,
+            metadata={"sample_days": _sample_days(series)},
+        )
         try:
-            value = objective.evaluate(simulated)
+            value = objective.evaluate(trial)
         except Exception as exc:
             logger.exception("Composite objective evaluation failed")
             raise RuntimeError(
@@ -488,6 +497,19 @@ class ObservableScorer:
             components[f"{name}.date_start"] = float(pd.Timestamp(start).toordinal())
             components[f"{name}.date_end"] = float(pd.Timestamp(end).toordinal())
         return float(value.total), components
+
+
+def _sample_days(series: Mapping[str, pd.Series]) -> dict[str, float]:
+    """Median spacing of each dated output, in days. Outputs with one stamp are left out."""
+    steps: dict[str, float] = {}
+    for name, dated in series.items():
+        if not isinstance(dated.index, pd.DatetimeIndex) or dated.index.size < 2:
+            continue
+        gaps = np.diff(dated.index.sort_values().asi8) / 86_400e9
+        gaps = gaps[gaps > 0.0]
+        if gaps.size:
+            steps[str(name)] = float(np.median(gaps))
+    return steps
 
 
 def selected_period_start(

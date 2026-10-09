@@ -20,7 +20,11 @@ from hydromodpy.calibration.metrics.downslope_network import (
     seepage_distance_cost,
 )
 from hydromodpy.calibration.observations.observed_network import water_body_mask
-from hydromodpy.core.stream_geometry import build_network_geometry, criterion_supports
+from hydromodpy.core.stream_geometry import (
+    build_network_geometry,
+    criterion_supports,
+    recharge_session,
+)
 from hydromodpy.core.stream_network import (
     SimulatedNetwork,
     build_simulated_network,
@@ -434,18 +438,20 @@ class TestRechargeProvenance:
     def test_a_recharge_that_moves_is_warned_about_and_names_both_values(
         self, bench, caplog
     ) -> None:
-        self._geometry(bench, 3.2e-8)
-        caplog.clear()
-        with caplog.at_level("WARNING"):
-            self._geometry(bench, 6.4e-8)
+        with recharge_session("one-search"):
+            self._geometry(bench, 3.2e-8)
+            caplog.clear()
+            with caplog.at_level("WARNING"):
+                self._geometry(bench, 6.4e-8)
         assert "3.2e-08" in caplog.text
         assert "6.4e-08" in caplog.text
 
     def test_a_frozen_recharge_stays_silent(self, bench, caplog) -> None:
-        self._geometry(bench, 3.2e-8)
-        caplog.clear()
-        with caplog.at_level("WARNING"):
+        with recharge_session("one-search"):
             self._geometry(bench, 3.2e-8)
+            caplog.clear()
+            with caplog.at_level("WARNING"):
+                self._geometry(bench, 3.2e-8)
         assert "recharge" not in caplog.text
 
 

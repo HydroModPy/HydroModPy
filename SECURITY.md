@@ -2,16 +2,15 @@
 
 ## Supported Versions
 
-HydroModPy follows a rolling "current minor + previous minor" policy.
-The current minor receives both bug fixes and security fixes; the
-previous minor receives security fixes only. Older minors (including
-pre-release tags) are not patched.
+Fixes land in the next release of the 2.0 line. Version 1 is frozen on the
+`v1.0` branch and gets no fix. The versions and their stages are described on
+the [Versions page](https://docs.hydromodpy.fr/main/about/versions.html).
 
-| Version | Supported              |
-| ------- | ---------------------- |
-| 1.0.x   | :white_check_mark:     |
-| 0.5.x   | security fixes only    |
-| < 0.5   | :x:                    |
+| Version                       | Supported                          |
+| ----------------------------- | ---------------------------------- |
+| 2.0 pre-releases (latest one) | :white_check_mark: fixed in the next pre-release |
+| 1.0.x                         | :x: frozen                         |
+| < 1.0                         | :x:                                |
 
 ## Threat Model
 

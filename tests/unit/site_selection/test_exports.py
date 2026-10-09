@@ -391,9 +391,6 @@ def test_selected_sites_schema_matches_csv_header(tmp_path):
 
 
 @pytest.mark.fast
-def test_criteria_config_rejects_duplicate_criterion_lists():
-    with pytest.raises(ValueError, match="area_preference"):
-        CriteriaConfig(
-            hard_reject=["area_preference"],
-            report_only=["area_preference"],
-        )
+def test_criteria_config_refuses_the_criterion_lists():
+    with pytest.raises(ValueError, match="'hard_reject' is not accepted any more"):
+        CriteriaConfig(hard_reject=["area_preference"])

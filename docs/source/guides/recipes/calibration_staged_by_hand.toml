@@ -1,93 +1,56 @@
-# Reference calibration 4 of 4: two stages, written out instead of named.
+# Recipe 4 of 4: the two stages of recipe 3, written out.
 #
-# The same method as the protocol recipe next door, K from the mapped network
-# then Sy from the gauge, but with no `protocol` line: every stage, criterion
-# and regime is spelled out here. Read this file to see what the protocol does
-# on your behalf, or start from it when the site needs a stage the protocol
-# does not offer, such as scoring the second stage on more than the
-# hydrograph.
+# No protocol line: every stage, criterion and regime is spelled out. Start
+# from it when a stage needs to say more than the protocol does. Here stage
+# two scores the gauge and keeps an eye on the network, which the named
+# protocol does not offer.
 #
-# `hmp calibrate --list-phases <this file>` prints the assembly before running it.
+# Save this file beside project.toml in
+# examples/projects/04_streamflow_intermittence_in_transient/, then:
+#
+#   hmp calibrate calibration_staged_by_hand.toml --list-phases
+#   hmp calibrate calibration_staged_by_hand.toml
 
-# This file is an overlay: it carries the calibration and inherits the
-# catchment, the data and the solver from the project it points at. Every
-# calibration in the repository is written this way, so the same model is
-# run and calibrated from one description.
 base_config = "project.toml"
 
 [workflow]
 mode = "calibration"
 
-# The parent time grid: monthly transient, which is what stage two runs under.
-# Stage one overrides it wholesale, since a steady solve is not a slice of this
-# grid but a different one, collapsed to its own single period.
-[simulation.time]
-start_datetime = "2000-01-01"
-end_datetime = "2005-12-31"
-step_value = 1
-step_unit = "month"
+[simulation]
+name = "recipe_staged_by_hand"
 
 [calibration]
-seed = 42
-save_runs = "best_n"
-save_best_n = 1
 rerun_best_with_outputs = true
-# 'full' keeps the per-block raw and normalized costs of every trial, which is
-# what makes the weighting of stage two checkable after the fact.
 persist_iteration_detail = "full"
 
-# The two ranges the method searches, each on its own line: what belongs to
-# the site rather than to the method. `hmp config targets` lists the names.
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
 
 [calibration.parameters.Sy]
 bounds = [5e-3, 0.35]
 
-# --- What each stage scores --------------------------------------------------
-#
-# The network output feeds stage one alone and rides along in stage two as a
-# guard rail. The gauge output exists only for stage two.
+# --- What is compared -------------------------------------------------------
 
 [calibration.outputs.seepage_network]
 support = "network"
-stream_geometry_path = "streams.gpkg"
-# One cell one vote is the paper. Weight by area on a mesh refined along the
-# streams, where cell density is highest exactly where distances are smallest.
-weighting = "area"
-tau_specific_ratio = 1.0e-4
-# Eq. 4 is a length: valid when Doptim <= validity_length. "auto" is two
-# cells, the paper's bound, or a length such as "150 m" replaces it.
-validity_length = "auto"
-# The positional accuracy of the linework does not improve because the mesh
-# does. Without this floor, the validity length would follow the mesh.
-observed_position_accuracy = "50 m"
+stream_geometry_path = "nancon_stream_network.gpkg"
 
-# `support = "point"` with `observes` reads what a gauge measures: the record
-# is aligned on the simulated timestamps, so the block scores a real chronicle
-# rather than a vector transcribed into this file. The station's own record
-# places it, so no x or y: written beside `observes`, they are not read, and
-# loading warns so.
-[calibration.outputs.gauged_discharge]
-variable = "discharge"
+[calibration.outputs.hydrograph]
 support = "point"
-observes = "J7branch"
+variable = "discharge"
+observes = "NANCON"
 
-# --- How stage two adds the two criteria -------------------------------------
-#
-# Stage one is scored on one block, so it names it directly through
-# `objective_blocks` below rather than needing a second. Stage two needs two
-# blocks to add the hydrograph and the network, so both live here.
+# --- How it is scored ---------------------------------------------------------
 
+# Eq. 1 of the method, in metres: zero when the simulated network reaches as
+# far as the mapped one.
 [[calibration.objective_blocks]]
 name = "network_extension"
 metric = "distance_gap"
 uses_outputs = ["seepage_network"]
 
-# The same gap divided by the output's validity_length: a pure number, counted
-# in validity lengths, which adds to the efficiency below as a share and not
-# as an exchange rate between metres and an efficiency. Stage one keeps the
-# gap in metres above, where its interval is read in mesh cells.
+# The same gap divided by the validity length of the output: a pure number,
+# so it adds to the efficiency below as a share.
 [[calibration.objective_blocks]]
 name = "network_share"
 metric = "distance_gap"
@@ -97,67 +60,44 @@ normalize_cost = true
 [[calibration.objective_blocks]]
 name = "hydrograph"
 metric = "nse_log"
-uses_outputs = ["gauged_discharge"]
+uses_outputs = ["hydrograph"]
 
-# --- Stage one: K against the mapped network, in steady state ---------------
+# --- Stage one: K against the map, steady state ---------------------------------
 #
-# Steady is a property of the model, not of the search, so the phase declares
-# it. `regime = "steady"` collapses [simulation.time] to one period, here the
-# whole record, 2000-01-01 to 2005-12-31, 2192 days with two leap years in it.
-# A steady solve carries no storage, so this stage is blind to Sy: that is
-# what makes K identifiable here without any discharge record.
-
+# regime = "steady" collapses the time window to one period. A steady solve
+# carries no storage, so this stage is blind to Sy, which is what makes K
+# identifiable without a gauge.
 [[calibration.phases]]
 name = "steady_conductivity"
-description = "Match the simulated seepage network to the mapped one by moving K, steady state over the record."
-# A root search, not a minimiser: the criterion crosses zero once over the
-# bracket. Bisection refuses a parameter that is not searched in log space and
-# refuses more than one parameter. Written here because the sweep below is
-# one of its options; unwritten, one log parameter on a signed criterion
-# would choose it all the same.
-method = "bisection"
-max_iter = 20
-tolerance = 0.01
+description = "K from the mapped network, steady state over the record."
 parameters = ["K"]
-objective_blocks = ["network_extension"]
 regime = "steady"
-# What "then freeze the best K" means. Stage two inherits this value and the
-# validity indicator that qualifies it.
-freeze_on_success = true
+objective_blocks = ["network_extension"]
+# A root search on one log parameter. Unwritten, a signed criterion on one
+# log parameter would choose it all the same.
+method = "bisection"
+# The coarse log sweep run before the bisection checks that the gap changes
+# sign once. Zero gives the pure bisection of the paper.
+method_options = { sweep_points = 7 }
 
-# A coarse logarithmic sweep before the bisection. It checks the monotonicity
-# the method assumes instead of supposing it, and it sees every crossing
-# rather than the first. Set it to 0 for the pure bisection of the paper.
-[calibration.phases.method_options]
-sweep_points = 7
-
-# --- Stage two: Sy against the hydrograph and the network, transient --------
+# --- Stage two: Sy against the gauge and the map, transient -----------------------
 #
-# K is frozen, so the only thing left to move is what the steady stage could
-# not see. `regime = "transient"` restates only the regime; the time grid
-# stays the parent's, monthly over the whole record.
-
+# K is frozen at the value stage one found. The share table sets this stage's
+# own balance between two blocks: 0.8 * (1 - NSE_log) + 0.2 * gap / validity
+# length.
 [[calibration.phases]]
 name = "transient_storage"
-description = "Read Sy from the gauged hydrograph and the network extent, K frozen, monthly transient."
-# No method: the hydrograph block is not signed, so the stage has a cost to
-# minimise and gets scipy_nelder_mead. --list-phases prints it, and why.
-max_iter = 60
-# Five per cent on Sy. A storage coefficient is not known to one per cent, and
-# each evaluation here is a full multi-year run rather than one steady solve.
-tolerance = 0.05
+description = "Sy from the gauge and the network, K frozen, monthly transient."
 parameters = ["Sy"]
-# A share table, not a list: this stage sets its own balance between the two
-# blocks instead of taking their declared weight. Both are pure numbers, so the
-# shares mean what they say. Normalized to sum to one, so the trial cost is
-# 0.8 * (1 - NSElog) + 0.2 * |gap| / validity_length. Read `hydrograph.total`
-# and `network_share.total`, published per trial, to see what the shares bought.
+regime = "transient"
 objective_blocks = { hydrograph = 0.8, network_share = 0.2 }
 depends_on = "steady_conductivity"
-regime = "transient"
+# No method: the hydrograph block is not signed, so the stage gets the
+# simplex. --list-phases prints the choice and why.
+max_iter = 30
+tolerance = 0.05
 
-# 2000 is spin-up: simulated, not scored. The window holds every block of the
-# stage alike: the hydrograph keeps its months from 2001, and the network state
-# read, the last month, stamped 2006-01-01, lies inside it.
+# 2000 is spin-up. The window holds every block of the stage: the network
+# state read, the last month, is stamped at the end of 2002, inside it.
 [calibration.phases.scoring_window]
 start = "2001-01-01"

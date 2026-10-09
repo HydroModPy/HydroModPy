@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, PrivateAttr, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -16,13 +17,15 @@ BUILTIN_BACKENDS: tuple[str, ...] = ("modflow6", "modflow_nwt", "boussinesq")
 class _SolverBackendBase(HydroModelBase):
     """Shared base for discriminated solver backend selectors."""
 
+    _follows_the_flow_process: bool = PrivateAttr(default=False)
+
 
 class Modflow6Backend(_SolverBackendBase):
     """Select the MODFLOW 6 flow backend."""
 
     backend: Annotated[Literal["modflow6"], Profile.USER] = Field(
         default="modflow6",
-        description="Discriminator tag selecting the MODFLOW 6 flow backend.",
+        description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
     )
 
 
@@ -31,7 +34,7 @@ class ModflowNwtBackend(_SolverBackendBase):
 
     backend: Annotated[Literal["modflow_nwt"], Profile.USER] = Field(
         default="modflow_nwt",
-        description="Discriminator tag selecting the MODFLOW-NWT flow backend.",
+        description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
     )
 
 
@@ -40,7 +43,7 @@ class BoussinesqBackend(_SolverBackendBase):
 
     backend: Annotated[Literal["boussinesq"], Profile.USER] = Field(
         default="boussinesq",
-        description="Discriminator tag selecting the Boussinesq flow backend.",
+        description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
     )
 
 
@@ -55,11 +58,11 @@ class CustomBackend(_SolverBackendBase):
 
     backend: Annotated[Literal["custom"], Profile.USER] = Field(
         default="custom",
-        description="Discriminator tag indicating a plugin-provided flow backend.",
+        description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
     )
     name: Annotated[str, Profile.USER] = Field(
         ...,
-        description="Plugin-registered flow backend name (matches registry).",
+        description="Name under which a plugin registered its flow solver.",
     )
 
     @field_validator("name", mode="before")
@@ -78,6 +81,56 @@ SolverBackendConfig: TypeAlias = Annotated[
         description=("Discriminated union of flow solver backends tagged by the 'backend' key."),
     ),
 ]
+
+
+_BUILTIN_BACKEND_MODELS: dict[str, type[_SolverBackendBase]] = {
+    "modflow6": Modflow6Backend,
+    "modflow_nwt": ModflowNwtBackend,
+    "boussinesq": BoussinesqBackend,
+}
+
+
+def backend_for_solver(name: str) -> _SolverBackendBase:
+    """Return the ``solver.backend`` selector that names flow solver *name*.
+
+    A built-in name gives its own variant. Any other name gives the
+    ``custom`` variant carrying that name.
+    """
+    cleaned = str(name).strip()
+    model = _BUILTIN_BACKEND_MODELS.get(cleaned.lower())
+    if model is not None:
+        return model()
+    return CustomBackend(name=cleaned)
+
+
+def backend_following_the_process(name: str) -> _SolverBackendBase:
+    """Return the selector of flow solver *name*, derived from the flow process.
+
+    The mark keeps ``backend`` out of the fields a user set, so a later change
+    of the flow process moves the backend with it instead of being refused.
+    """
+    selector = backend_for_solver(name)
+    selector._follows_the_flow_process = True
+    return selector
+
+
+def solver_name_of_backend(backend: object) -> str | None:
+    """Return the flow solver a ``solver.backend`` value names, or None.
+
+    *backend* is a selector model or its TOML table. Anything else gives
+    None, so the model validation reports it.
+    """
+    if isinstance(backend, CustomBackend):
+        return backend.name
+    if isinstance(backend, _SolverBackendBase):
+        return str(getattr(backend, "backend", "")) or None
+    if isinstance(backend, Mapping):
+        tag = str(backend.get("backend", "")).strip().lower()
+        if tag == "custom":
+            name = str(backend.get("name", "")).strip().lower()
+            return name or None
+        return tag or None
+    return None
 
 
 class SolverConfig(HydroModelBase):
@@ -228,6 +281,17 @@ class SolverConfig(HydroModelBase):
             )
         return self
 
+    @model_validator(mode="after")
+    def _leave_a_derived_backend_unset(self) -> SolverConfig:
+        """Keep a backend derived from the flow process out of the fields set.
+
+        The root model reads ``backend`` in the fields set as written by the
+        user, and refuses a flow process that names another solver.
+        """
+        if self.backend._follows_the_flow_process:
+            self.__pydantic_fields_set__.discard("backend")
+        return self
+
     @property
     def backend_name(self) -> str:
         """Canonical backend name compatible with the solver registry."""
@@ -243,4 +307,7 @@ class SolverConfig(HydroModelBase):
         engine = self.backend_name
         if not registry.is_supported("flow", engine):
             known = ", ".join(name for _, name in registry.pairs_for_process("flow"))
-            raise ValueError(f"Unknown flow solver '{engine}'. Registered flow solvers: {known}.")
+            raise ValueError(
+                f"Unknown flow solver '{engine}': it is neither built in nor a registered "
+                f"plugin. Write one of: {known}."
+            )

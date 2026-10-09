@@ -32,9 +32,10 @@ class FlowEtpConfig(HydroModelBase):
     values: Annotated[Any, Profile.USER] = Field(
         default=0.0,
         description=(
-            "ETP payload: scalar, list (one per stress period), "
-            "mapping {kper: value}, or runtime series. Values must be "
-            "non-negative; the EVT package treats them as outflow rates."
+            "Evapotranspiration rate, in the unit that units names (mm/day by default): "
+            "one number, one number per stress period, a table {period: value}, or the "
+            "series loaded from [data.etp]. Values must not be negative: the EVT package "
+            "takes them as outflow rates."
         ),
     )
     heterogeneous_source: Annotated[Any, Profile.DEV] = Field(
@@ -49,9 +50,14 @@ class FlowEtpConfig(HydroModelBase):
     first_clim: Annotated[str | float, Profile.DEV] = Field(
         default="mean",
         description=(
-            "Period-0 policy when values is a sequence: "
-            "'mean' (series average), 'first' (first element), or a numeric scalar."
+            "ETP rate of every steady stress period, read by MODFLOW-NWT: every "
+            "period of a steady run, and the first period of a transient run when "
+            "flow.first_period_steady is true. 'mean' is the mean of the "
+            "per-period rates, one weight per period; 'first' is the rate of "
+            "period 0; a number is that rate. A transient period keeps its own "
+            "rate."
         ),
+        examples=["mean", "first", 2.0],
     )
     units: Annotated[str, Profile.DEV] = Field(
         default="mm/day",

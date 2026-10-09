@@ -1,88 +1,97 @@
-# Exemple 04 : intermittence des écoulements du Nançon
+# Example 04: flow intermittence in the Nançon catchment
 
-Le bassin du Nançon (Ille-et-Vilaine), simulé avec MODFLOW 6. L'exemple montre
-comment le réseau de suintements s'étend en hiver et se rétracte en été, et
-comment K et Sy se calent sur le réseau cartographié et sur le débit jaugé.
+The Nançon catchment (Ille-et-Vilaine), simulated with MODFLOW 6. The example shows how the
+seepage network grows in winter and shrinks in summer, and how K and Sy are calibrated on
+the mapped network and on the gauged discharge.
 
-## Les fichiers, dans l'ordre
+## The files, in order
 
-Chaque étape hérite d'une autre (`base_config`) et n'écrit que ce qui change. L'étape 3 est
-une variante de l'étape 2 sur données d'API ; l'étape 4 repart des données locales de
-l'étape 2 ; l'étape 6 repart de `project.toml`.
+Each step inherits another one (`base_config`) and writes only what changes. Step 3 is a
+variant of step 2 on API data. Step 4 starts again from the local data of step 2. Step 6
+starts again from `project.toml`.
 
-1. `step1_minimal.toml` : permanent, MNT local, un K, une recharge moyenne.
-2. `step2_local_data.toml` : ajoute le réseau cartographié et la station, en fichiers locaux.
-3. `step3_api_data.toml` : les mêmes données, prises aux API BD Topage et Hub'Eau.
-4. `step4_transient.toml` : transitoire mensuel 2000-2002, recharge et ruissellement observés.
-5. `step5_export.toml` : la vitrine des exports, un bloc `[[export]]` par format.
-6. `step6_soil_reservoir.toml` : journalier 2015-2020, la recharge calculée par un réservoir
-   sol à partir de la pluie et de l'ETP SIM2 ; l'ETP que le sol n'a pas satisfaite est prise
-   à la nappe.
+1. `step1_minimal.toml`: steady state, local DEM, one K, one mean recharge.
+2. `step2_local_data.toml`: adds the mapped network and the gauge, as local files.
+3. `step3_api_data.toml`: the same data, taken from the BD Topage and Hub'Eau APIs.
+4. `step4_transient.toml`: monthly transient run 2000-2002, observed recharge and runoff.
+5. `step5_export.toml`: every export format, one `[[export]]` block per format.
+6. `step6_soil_reservoir.toml`: daily run 2015-2020, with the recharge computed by a soil
+   reservoir from the SIM2 rain and ETP. The ETP the soil did not meet is taken from the
+   water table.
 
-Autour des étapes :
+Around the steps:
 
-- `project.toml` : le modèle de référence, figé, avec toutes les figures.
-- `run_daily.toml` : le même modèle au pas journalier.
-- `run_calibration.toml` : calage de K puis Sy par le protocole publié.
-- `run_calibration_by_hand.toml` : le même calage, écrit en deux phases.
-- `run_calibration_composite.toml` : K et Sy ensemble, réseau et hydrogramme pondérés.
-- `run_calibration_bdtopage.toml` : le calage en deux phases sur BD Topage. K sur les deux
-  bornes de l'extension, le réseau permanent et le réseau complet, puis Sy sur le débit.
-- `run_calibration_api_daily.toml` : tout par API sauf le MNT (BD Topage, Hub'Eau, SIM2),
-  journalier 2015-2020. K prend cinq valeurs fixées, chaque run est gardé avec ses figures.
+- `project.toml`: the frozen reference model, with all the figures.
+- `run_daily.toml`: the same model at a daily step.
+- `run_calibration.toml`: calibration of K, then Sy, by the published protocol.
+- `run_calibration_by_hand.toml`: the same calibration, written as two phases.
+- `run_calibration_composite.toml`: K and Sy together, with the network and the hydrograph
+  weighted.
+- `run_calibration_bdtopage.toml`: a two-phase calibration on BD Topage. K on the two bounds
+  of the extension, the permanent network and the full network, then Sy on the discharge.
+- `run_calibration_api_daily.toml`: everything from APIs except the DEM (BD Topage, Hub'Eau,
+  SIM2), daily 2015-2020. K takes five fixed values and each run is kept with its figures.
 
-## Commandes
+## Commands
 
-Depuis ce dossier, après `pip install hydromodpy` :
+From this folder, after `pip install --pre hydromodpy` (the `--pre` is needed while version 2
+is published as `2.0.0aN`; without it pip installs version 1, which cannot read these files):
 
 ```bash
-hmp run step1_minimal.toml          # puis step2 à step5
-hmp run step6_soil_reservoir.toml --until load_data   # le sol seul : bilan en mm/an, aucun run écrit
+hmp run step1_minimal.toml          # then step2 to step5
+hmp run step6_soil_reservoir.toml --until load_data   # the soil alone: budget in mm/year, no run written
 hmp calibrate run_calibration.toml --check
 hmp calibrate run_calibration.toml --list-phases
-hmp run run_calibration.toml        # idem pour les autres fichiers de calage
+hmp run run_calibration.toml        # same for the other calibration files
 hmp export nancon_step5_export --list
 ```
 
-L'étape 3 lit BD Topage et Hub'Eau : il faut un accès réseau au premier lancement, les
-réponses sont ensuite en cache ; de même pour `run_calibration_bdtopage.toml`,
-`run_calibration_api_daily.toml` et `step6_soil_reservoir.toml` (pluie et ETP SIM2). Le
-calage composite et le calage BD Topage durent chacun environ une heure.
+Run a file twice and nothing is computed the second time: the command names the first run
+and stops. Edit the file and the new run is `<name>.v2`, next to the first. `hmp run --force`
+computes an unchanged file again.
 
-## Depuis Python
+Step 3 reads BD Topage and Hub'Eau. It needs network access on the first launch, and the
+answers are cached after that. So do `run_calibration_bdtopage.toml`,
+`run_calibration_api_daily.toml` and `step6_soil_reservoir.toml` (SIM2 rain and ETP). The
+composite and the BD Topage calibrations take about an hour each.
 
-Les mêmes fichiers se pilotent depuis un script. Chaque script retrouve le projet à
-partir de son propre emplacement : il se lance depuis n'importe quel dossier, et se
-parcourt cellule par cellule (`# %%`) dans Spyder ou VS Code.
+## From Python
 
-1. `py1_run_and_plot.py` : lance `step4_transient.toml` avec `hmp.run`, puis trace une
-   figure maison, la surface suintante du bassin face au débit.
-2. `py2_edit_parameters.py` : charge `project.toml` en objet Python, change K et Sy,
-   lance la variante et la compare à la référence.
-3. `py3_read_exports.py` : refait une figure à partir des seuls fichiers de `share/`
-   (GeoPackage, GeoTIFF, CSV, NetCDF), sans importer HydroModPy. Il lui faut les exports
-   de `step5_export.toml`.
-4. `py4_sweep_k.py` : cinq valeurs de K sur un même `Project`, qui ne construit le
-   maillage qu'une fois. Le débit ne départage pas les K, la surface suintante si.
-5. `py5_catalog.py` : ouvre le catalogue du projet, compare les scores des runs,
-   redessine une figure du catalogue à d'autres dates et exporte un état que le TOML ne
-   demandait pas.
-6. `py6_monthly_maps.py` : les douze mois de 2002 sur une planche et les 36 mois en GIF,
-   la nappe affleurante dessinée cellule par cellule.
+The same files can be driven from a script. Each script finds the project from its own
+location, so it runs from any folder, and it can be stepped through cell by cell (`# %%`) in
+Spyder or VS Code.
 
-Les scripts 5 et 6 lisent le run de `project.toml` sans le relancer : `hmp run
-project.toml` d'abord, ou `py2_edit_parameters.py`, qui le lance.
+1. `py1_run_and_plot.py`: runs `step4_transient.toml` with `hmp.run`, then draws a figure of
+   its own, the seepage area of the catchment against the discharge.
+2. `py2_edit_parameters.py`: loads `project.toml` as a Python object, changes K and Sy, runs
+   the variant and compares it with the reference.
+3. `py3_read_exports.py`: redraws a figure from the files of `share/` alone (GeoPackage,
+   GeoTIFF, CSV, NetCDF), without importing HydroModPy. It needs the exports of
+   `step5_export.toml`.
+4. `py4_sweep_k.py`: five values of K on one `Project`, which builds the mesh once. The
+   discharge does not tell the K values apart, the seepage area does.
+5. `py5_catalog.py`: opens the catalog of the project, compares the scores of the runs,
+   redraws a figure of the catalog at other dates and exports a state the TOML did not ask
+   for.
+6. `py6_monthly_maps.py`: the twelve months of 2002 on one sheet and the 36 months as a GIF,
+   with the cells where the water table reaches the surface drawn one by one.
 
-## Où sont les sorties
+Scripts 5 and 6 read the run of `project.toml` without running it: run `hmp run project.toml`
+first, or `py2_edit_parameters.py`, which runs it.
 
-Chaque fichier dessine ses figures et écrit ses exports. L'étape 1 déclare trois exports,
-les étapes 2 à 4 en héritent et en ajoutent (`[[export__append]]`), l'étape 5 repart
-d'une liste vide (`export__delete`). Les fichiers de calage écrivent les exports de
-`project.toml` pour chaque run promu ; celui sur API a les siens, datés de 2019.
+## Where the outputs are
 
-- figures : `runs/<nom>/figures/`
-- exports : `share/<nom>/`
-- figures des scripts qui comparent plusieurs runs : `share/figures/`
+Each file draws its figures and writes its exports. Step 1 declares three export blocks,
+steps 2 to 4 inherit them and add more (`[[export__append]]`), and step 5 starts from an
+empty list (`export__delete`). The calibration files write the exports of `project.toml` for
+each promoted run. The API calibration has its own, dated 2019.
 
-`<nom>` est le nom du run : le `[simulation] name` du fichier lancé, par exemple
-`nancon_step5_export`, suivi du nom de la phase pour un calage en plusieurs phases.
+- figures: `runs/<name>/figures/`
+- exports: `share/<name>/`
+- figures of the scripts that compare several runs: `share/figures/`
+
+`<name>` is the name of the run: the `[simulation] name` of the file you ran, for example
+`nancon_step5_export`, followed by the name of the phase for a calibration in several phases.
+
+The documentation walks through the six steps: <https://docs.hydromodpy.fr/>, Get started,
+The staircase.

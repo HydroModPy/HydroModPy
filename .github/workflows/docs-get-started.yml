@@ -1,0 +1,73 @@
+# The Quick start of the Get started page is run as written.
+#
+# tools/docs/check_quickstart.py reads the commands and the last two lines of a
+# run from docs/source/get-started/index.md, runs the commands in a scratch HOME
+# and fails when a run does not end with the lines the page shows. The install is
+# from the checkout, not PyPI: the job checks the page against the code it ships
+# with. It needs the network: MODFLOW 6 and MODFLOW-NWT come from GitHub, and
+# example 04 (92 MiB) comes from the files of the checkout.
+
+name: Docs / Get started
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - ".github/workflows/docs-get-started.yml"
+      - "docs/source/get-started/**"
+      - "tools/docs/check_quickstart.py"
+      - "hydromodpy/**"
+      - "examples/projects/04_streamflow_intermittence_in_transient/**"
+      - "pyproject.toml"
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - ".github/workflows/docs-get-started.yml"
+      - "docs/source/get-started/**"
+      - "tools/docs/check_quickstart.py"
+      - "hydromodpy/**"
+      - "examples/projects/04_streamflow_intermittence_in_transient/**"
+      - "pyproject.toml"
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  quick-start:
+    name: Docs / Quick start py${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install the package
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+
+      # `hmp example add 04` reads the example from the checkout, as a release
+      # tag would serve it. The folder is the repository root.
+      - name: Run the Quick start of the page
+        env:
+          HMP_EXAMPLES_SOURCE: ${{ github.workspace }}
+        run: python -m tools.docs.check_quickstart

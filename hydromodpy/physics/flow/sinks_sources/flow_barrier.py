@@ -90,6 +90,7 @@ class FlowBarrierConfig(HydroModelBase):
             "built structure, not a fitted number; path = in [calibration.parameters] still "
             "reaches it for whoever wants to override this deliberately."
         ),
+        json_schema_extra={"unit": "m"},
     )
     base_elevation: Annotated[float | None, Profile.USER] = Field(
         default=None,
@@ -107,6 +108,7 @@ class FlowBarrierConfig(HydroModelBase):
             "which also yields a defensible sensitivity instead of a fitted number; "
             "path = in [calibration.parameters] still reaches it for an override."
         ),
+        json_schema_extra={"unit": "m"},
     )
     hydchr: Annotated[float | None, Profile.USER] = Field(
         default=None,
@@ -139,7 +141,11 @@ class FlowBarrierConfig(HydroModelBase):
     thickness: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
-        description="Barrier thickness [L]; used with k when hydchr is unset.",
+        description=(
+            "Thickness of the barrier, in the unit thickness_unit names (metres by "
+            "default). With k it gives hydchr = k / thickness when hydchr is unset."
+        ),
+        json_schema_extra={"unit": "m"},
     )
     thickness_unit: Annotated[str, Profile.USER] = Field(
         default="m",

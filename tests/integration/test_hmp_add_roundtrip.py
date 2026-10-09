@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 import hydromodpy as hmp
+from hydromodpy.core.exceptions import ImportConflictError
 from hydromodpy.results.importers import InputCollisionError
 
 
@@ -184,7 +185,7 @@ def test_add_project_name_conflict_requires_as(tmp_path: Path) -> None:
         )
 
     with hmp.open(dst_ws, create=True) as target:
-        with pytest.raises(ValueError, match="already exists"):
+        with pytest.raises(ImportConflictError, match="already exists"):
             target.import_package(archive)
         target.import_package(archive, as_project="alpha_imported")
         rows = target.connection.execute(

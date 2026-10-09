@@ -129,6 +129,11 @@ def reports_dir_for(project_root: Path) -> Path:
 #: A subprocess inherits it, so a child run launched by a run works in its folder.
 RUN_SCRATCH_ENV = "HMP_RUN_SCRATCH"
 
+#: Members of a resolved configuration that name the per-run scratch folder.
+#: They differ between two launches of one run (process id, run label) and never
+#: change what the run computes, so no run identity or checkpoint reads them.
+PER_RUN_CONFIG_KEYS: tuple[tuple[str, str], ...] = (("workspace", "solver_scratch_folder"),)
+
 #: Folder of the geographic, data and mesh preprocessing, inside a run's scratch.
 PREPROCESSING_DIRNAME = "_preprocessing"
 
@@ -505,6 +510,7 @@ __all__: Iterable[str] = (
     "INDEX_FILENAME",
     "INTERNAL_DIRNAME",
     "PROJECTS_DIRNAME",
+    "PER_RUN_CONFIG_KEYS",
     "PREPROCESSING_DIRNAME",
     "PROJECT_MARKER_FILENAME",
     "REPORTS_DIRNAME",

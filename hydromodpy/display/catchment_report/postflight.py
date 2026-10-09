@@ -6,12 +6,18 @@ import json
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.display.catchment_report.artifacts import rel
 from hydromodpy.display.catchment_report.resources import REPO_ROOT
 
 
-class CatchmentReportPostflightError(RuntimeError):
-    """Raised when strict figure postflight detects incomplete report figures."""
+class CatchmentReportPostflightError(DataContractViolation, RuntimeError):
+    """Raised when strict figure postflight detects incomplete report figures.
+
+    A :class:`DataContractViolation`, so the command exits with the code of a
+    refused input (16), not the generic 1. Still a ``RuntimeError``, for the
+    callers written when this was one.
+    """
 
     def __init__(self, postflight_path: Path, missing: tuple[str, ...]) -> None:
         self.postflight_path = postflight_path

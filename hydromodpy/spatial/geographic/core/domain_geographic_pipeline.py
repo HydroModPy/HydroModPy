@@ -256,7 +256,7 @@ def build_geographic_derived_features(
         return geographic.get_geographic_derived_features()
 
     if config.dem_init_path is None:
-        raise ValueError("geographic.dem_init_path is required")
+        raise ValueError("geographic.catchment.dem_init_path is required")
 
     setup = prepare_geographic_run(
         config=config,
@@ -288,7 +288,7 @@ def build_geographic_derived_features(
         )
 
     if config.buff_area is None:
-        raise ValueError("geographic.buff_area is required")
+        raise ValueError("geographic.catchment.buff_area is required")
 
     # The ground is the DEM plus the declared corrections: the dam carve here, the
     # crossing notch after the first delineation. The routing chain starts from it

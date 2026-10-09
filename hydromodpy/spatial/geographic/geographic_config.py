@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
@@ -34,11 +35,11 @@ def _normalize_buff_area(value):
     if isinstance(value, str):
         token = value.strip()
         if token == "":
-            raise ValueError("geographic.buff_area cannot be empty.")
+            raise ValueError("geographic.catchment.buff_area cannot be empty.")
         if token.endswith("%"):
             pct = float(token[:-1].strip())
             if pct <= 0.0:
-                raise ValueError("geographic.buff_area percent must be > 0.")
+                raise ValueError("geographic.catchment.buff_area percent must be > 0.")
             return f"{int(pct)}%" if pct.is_integer() else f"{pct!r}%"
         quantity = UREG(token)
         if not hasattr(quantity, "magnitude"):
@@ -48,11 +49,11 @@ def _normalize_buff_area(value):
         else:
             dist_m = float(quantity.to("m").magnitude)
         if dist_m <= 0.0:
-            raise ValueError("geographic.buff_area distance must be > 0.")
+            raise ValueError("geographic.catchment.buff_area distance must be > 0.")
         return f"{dist_m!r} m"
     pct = float(value)
     if pct <= 0.0:
-        raise ValueError("geographic.buff_area percent must be > 0.")
+        raise ValueError("geographic.catchment.buff_area percent must be > 0.")
     return pct
 
 
@@ -61,9 +62,16 @@ _BUFF_AREA_DESCRIPTION = (
     "catchment AREA by that share, the rule of Abherve et al. (2023): the "
     "distance is solved on the real polygon, then snapped to the DEM grid. A "
     "length ('500 m', '2 km') is an explicit distance. A bare number (10) keeps "
-    "the legacy v1 rule, 10 per cent of sqrt(area in km2) km, about 50 per cent "
+    "the rule of version 1, 10 per cent of sqrt(area in km2) km, about 50 per cent "
     "more area on a real catchment, and warns: it lets a sealed run replay its "
     "domain."
+)
+
+
+_MISSING_CATCHMENT = (
+    "geographic.catchment.catch_def is required when "
+    "geographic.source_mode='standard'. Add a [geographic.catchment] table "
+    'with catch_def = "dem", "txt", "from_outlet_coord" or "from_polyg_shp".'
 )
 
 
@@ -92,6 +100,19 @@ class DemCatchDef(_CatchDefBase):
         default="dem",
         description="Catchment defined by the DEM raster extent.",
     )
+    dem_init_path: Annotated[
+        Path | None,
+        Profile.USER,
+        InputFile(role="dem", category="data"),
+    ] = Field(
+        description=(
+            "Path to the DEM raster that is the model domain. A relative path is read "
+            "from the folder of the TOML file; a bare file name is also looked up in "
+            "the dem folder of the workspace data. May be left out only when "
+            "[[data.dem.sources]] declares the DEM."
+        ),
+        examples=["dem.tif"],
+    )
 
 
 class TxtCatchDef(_CatchDefBase):
@@ -107,6 +128,7 @@ class TxtCatchDef(_CatchDefBase):
             "Grid cell size in metres used to rasterise the XYZ point cloud. "
             "Accepts inline units (e.g. '25 m', '0.025 km')."
         ),
+        examples=["25 m"],
     )
 
 
@@ -118,10 +140,14 @@ class OutletCatchDef(_CatchDefBase):
         description="Watershed delineated from outlet coordinates on a regional DEM.",
     )
     x_outlet: Annotated[float, Profile.USER] = Field(
-        description="X coordinate of the watershed outlet in the projected CRS.",
+        description="Easting of the watershed outlet in the projected CRS of the project, in metres.",
+        examples=[352400.0],
+        json_schema_extra={"unit": "m"},
     )
     y_outlet: Annotated[float, Profile.USER] = Field(
-        description="Y coordinate of the watershed outlet in the projected CRS.",
+        description="Northing of the watershed outlet in the projected CRS of the project, in metres.",
+        examples=[6788300.0],
+        json_schema_extra={"unit": "m"},
     )
     snap_dist: Annotated[LengthMeters, Profile.USER] = Field(
         gt=0.0,
@@ -129,8 +155,11 @@ class OutletCatchDef(_CatchDefBase):
             "Maximum snapping distance (metres) to move the outlet to the nearest stream cell. "
             "Accepts inline units (e.g. 50, '50 m', '0.05 km')."
         ),
+        examples=["150 m"],
     )
-    buff_area: Annotated[str | float, Profile.USER] = Field(description=_BUFF_AREA_DESCRIPTION)
+    buff_area: Annotated[str | float, Profile.USER] = Field(
+        description=_BUFF_AREA_DESCRIPTION, examples=["10%"]
+    )
 
     @field_validator("buff_area", mode="before")
     @classmethod
@@ -151,8 +180,11 @@ class PolygonCatchDef(_CatchDefBase):
         InputFile(role="watershed_polygon", category="geometry"),
     ] = Field(
         description="Path to the watershed polygon shapefile.",
+        examples=["watershed.shp"],
     )
-    buff_area: Annotated[str | float, Profile.USER] = Field(description=_BUFF_AREA_DESCRIPTION)
+    buff_area: Annotated[str | float, Profile.USER] = Field(
+        description=_BUFF_AREA_DESCRIPTION, examples=["10%"]
+    )
 
     @field_validator("buff_area", mode="before")
     @classmethod
@@ -207,7 +239,10 @@ class RiverNetworkConfig(HydroModelBase):
         VisibleWhen("threshold_mode", "cells"),
     ] = Field(
         default=None,
-        description=("Contributing-cell threshold, required when threshold_mode='cells'."),
+        description=(
+            "Number of upstream cells a cell must drain to start a stream. A count of DEM cells."
+        ),
+        json_schema_extra={"unit": "-"},
     )
     prune_short_streams: Annotated[bool, Profile.USER] = Field(
         default=False,
@@ -271,6 +306,29 @@ class RiverNetworkConfig(HydroModelBase):
             )
         return self
 
+    def missing_threshold_refusal(self, *, needed_by: str) -> str | None:
+        """Return why a network that *needed_by* switches on has no threshold, or None.
+
+        A mesh that follows the rivers switches the extraction on by itself.
+        The threshold check of an enabled network then never ran, and the
+        extraction stopped later on a bare ``threshold_area_km2 must be > 0``.
+        """
+        mode = str(self.threshold_mode)
+        key = "threshold_area_km2" if mode == "area_km2" else "threshold_cells"
+        value = getattr(self, key)
+        if value is not None and float(value) > 0.0:
+            return None
+        return (
+            f"{needed_by} needs the river network drawn from the DEM, and "
+            f"[geographic.river_network] gives no {key} for threshold_mode = {mode!r}. "
+            f"Set {key} under [geographic.river_network], for example "
+            + (
+                "threshold_area_km2 = 0.5."
+                if key == "threshold_area_km2"
+                else "threshold_cells = 500."
+            )
+        )
+
 
 class LakeEnforcementConfig(HydroModelBase):
     """Hydro-enforce lakes into the ROUTING DEM before D8 flow routing.
@@ -295,6 +353,7 @@ class LakeEnforcementConfig(HydroModelBase):
         Path | None,
         Profile.USER,
         InputFile(role="lake_enforcement_geometry", category="geometry"),
+        VisibleWhen("enabled", True),
     ] = Field(
         default=None,
         description=(
@@ -306,10 +365,11 @@ class LakeEnforcementConfig(HydroModelBase):
         default=0.003,
         gt=0.0,
         description=(
-            "Ramp gradient (m per m of distance to the outlet). Small and positive "
+            "Ramp gradient, in metres per metre of distance to the outlet. Small and positive "
             "so each lake slopes gently toward the outlet with no flat depression "
             "(a flat sink would make the breach crawl)."
         ),
+        json_schema_extra={"unit": "-"},
     )
     buffer_m: Annotated[LengthMeters, Profile.USER] = Field(
         default=15.0,
@@ -375,6 +435,7 @@ class DamCarveConfig(HydroModelBase):
         Path | None,
         Profile.USER,
         InputFile(role="dam_carve_line", category="geometry"),
+        VisibleWhen("enabled", True),
     ] = Field(
         default=None,
         description=(
@@ -434,6 +495,7 @@ class CrossingNotchConfig(HydroModelBase):
         Path | None,
         Profile.USER,
         InputFile(role="crossings_notch", category="geometry"),
+        VisibleWhen("enabled", True),
     ] = Field(
         default=None,
         description=(
@@ -573,6 +635,7 @@ class BedRegularizationConfig(HydroModelBase):
             "Minimum drop of the fitted bed per metre along the channel (m/m), "
             "given to the flats the fit pools. The SFR default slope."
         ),
+        json_schema_extra={"unit": "-"},
     )
 
 
@@ -599,8 +662,8 @@ class GeographicConfig(HydroModelBase):
     source_mode: Annotated[Literal["standard", "synthetic"], Profile.USER] = Field(
         default="standard",
         description=(
-            "Geographic runtime mode. "
-            "'standard' keeps the historical DEM/outlet/polygon workflow. "
+            "Where the model domain comes from. "
+            "'standard' delineates it from a DEM, an outlet or a polygon ([geographic.catchment]). "
             "'synthetic' builds one analytical support from [geographic.synthetic]."
         ),
     )
@@ -609,11 +672,10 @@ class GeographicConfig(HydroModelBase):
         Profile.USER,
         VisibleWhen("source_mode", "standard"),
     ] = Field(
-        default=None,
         description=(
-            "Catchment definition payload used when source_mode='standard'. "
-            "Discriminated by 'catch_def' on the nested table: "
-            "'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'."
+            "How the model domain is defined. Required when source_mode='standard', "
+            "left out when it is 'synthetic'. The shape is chosen by 'catch_def' on the "
+            "nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'."
         ),
     )
     crs_project: Annotated[str | None, Profile.USER] = Field(
@@ -964,15 +1026,34 @@ class GeographicConfig(HydroModelBase):
             )
         return self
 
+    @model_validator(mode="before")
+    @classmethod
+    def _catchment_follows_source_mode(cls, data: Any) -> Any:
+        """Let a document leave the catchment, or its DEM, out.
+
+        Neither field has a default, so the reference shows both as required. A
+        synthetic support carries no catchment, and a [data.dem] source may give
+        the DEM. What is still missing is refused by ``_check_source_mode_payload``
+        after the other keys are checked, with a message that names the key.
+        """
+        if not isinstance(data, Mapping):
+            return data
+        catchment = data.get("catchment")
+        if "catchment" not in data:
+            return {**data, "catchment": None}
+        if isinstance(catchment, Mapping) and "dem_init_path" not in catchment:
+            # Same rule one level down: the dem shape shows its DEM as required,
+            # and a [data.dem] source may still supply it.
+            return {**data, "catchment": {**catchment, "dem_init_path": None}}
+        return data
+
     @model_validator(mode="after")
     def _check_source_mode_payload(self, info: ValidationInfo) -> GeographicConfig:
         """Enforce mode-level invariants between source_mode and catchment."""
         if self.uses_synthetic_geographic():
             return self
         if self.catchment is None:
-            raise ValueError(
-                "geographic.catch_def is required when geographic.source_mode='standard'."
-            )
+            raise ValueError(_MISSING_CATCHMENT)
         context = info.context or {}
         allow_dem_bootstrap = bool(context.get("allow_dem_bootstrap"))
         if self.catchment.dem_init_path is None and not allow_dem_bootstrap:

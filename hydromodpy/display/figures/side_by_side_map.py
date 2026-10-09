@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureNotApplicable, FigureSpec, run_label
+from hydromodpy.display.figure_options import Cmap, FieldName, ReferenceRun, Timestep
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.ugrid import last_timestep, render_face_field
 
@@ -33,14 +34,16 @@ class SideBySideMapFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        reference: Run | None = None,
-        field: str = "head",
-        timestep: int | None = None,
-        cmap: str = "viridis",
+        reference: ReferenceRun = None,
+        field: FieldName = "head",
+        timestep: Timestep = None,
+        cmap: Cmap = "viridis",
         **_,
     ) -> Axes:
         if reference is None:
-            raise ValueError("side_by_side: 'reference' simulation required")
+            raise FigureNotApplicable(
+                "this figure compares two runs on one mesh: pass reference=<run>."
+            )
         ts = last_timestep(sim) if timestep is None else timestep
         cbar_label = self.axis_label_for(field)
         a = np.asarray(sim.field(field, timestep=ts)).ravel()
@@ -56,17 +59,17 @@ class SideBySideMapFigure(BaseFigure):
             vmax=vmax,
             cbar_label=cbar_label,
         )
-        ax.set_title(sim.name or sim.sim_id)
+        ax.set_title(run_label(sim) or "Run")
         return ax
 
     def plot(
         self,
         sim: Run,
         *,
-        reference: Run | None = None,
-        field: str = "head",
-        timestep: int | None = None,
-        cmap: str = "viridis",
+        reference: ReferenceRun = None,
+        field: FieldName = "head",
+        timestep: Timestep = None,
+        cmap: Cmap = "viridis",
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,
@@ -75,7 +78,9 @@ class SideBySideMapFigure(BaseFigure):
         import matplotlib.pyplot as plt
 
         if reference is None:
-            raise ValueError("side_by_side: 'reference' simulation required")
+            raise FigureNotApplicable(
+                "this figure compares two runs on one mesh: pass reference=<run>."
+            )
 
         fig, axes = plt.subplots(
             1,
@@ -100,7 +105,7 @@ class SideBySideMapFigure(BaseFigure):
             vmax=vmax,
             cbar_label=cbar_label,
         )
-        axes[0].set_title(sim.name or sim.sim_id)
+        axes[0].set_title(run_label(sim) or "Run")
         render_face_field(
             axes[1],
             reference,
@@ -110,7 +115,7 @@ class SideBySideMapFigure(BaseFigure):
             vmax=vmax,
             cbar_label=cbar_label,
         )
-        axes[1].set_title(reference.name or reference.id)
+        axes[1].set_title(run_label(reference) or "Reference")
         fig.suptitle(f"Side-by-side {descriptor.long_name}")
         if save_path is not None:
             from pathlib import Path

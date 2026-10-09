@@ -28,7 +28,12 @@ if TYPE_CHECKING:
 # the ``metrics`` table directly.
 _KNOWN_METRIC_NAMES: tuple[str, ...] = (
     "nse",
+    "nse_log",
     "kge",
+    "kge_r",
+    "kge_alpha",
+    "kge_beta",
+    "correlation",
     "rmse",
     "r2",
     "bias",
@@ -52,6 +57,29 @@ def _wide_metric_columns() -> str:
         safe = name.replace("'", "''")
         lines.append(f"    MAX(CASE WHEN metric_name = '{safe}' THEN value END) AS {name}")
     return ",\n".join(lines)
+
+
+_SUMMARY_METRIC_NAMES: tuple[str, ...] = ("nse", "kge", "rmse", "r2")
+"""Metrics the summary view carries as columns, one value per run."""
+
+
+def _summary_metric_column(name: str) -> str:
+    """One metric of a run, from whatever station and variable the run scored.
+
+    The outlet row wins when the run recorded one. Otherwise the run's only
+    scored series answers: a run scored against one gauge on discharge stores
+    its metrics under that gauge, not under the outlet. A run scored on several
+    series and none at the outlet gets NULL, since no one value stands for it.
+    """
+    return (
+        f"    COALESCE(\n"
+        f"        MAX(CASE WHEN m.metric_name = '{name}'\n"
+        f"                 AND m.station_id = '__outlet__' THEN m.value END),\n"
+        f"        CASE WHEN COUNT(DISTINCT CASE WHEN m.metric_name = '{name}'\n"
+        f"                 THEN m.station_id || '/' || m.variable END) = 1\n"
+        f"             THEN MAX(CASE WHEN m.metric_name = '{name}' THEN m.value END) END\n"
+        f"    ) AS {name}"
+    )
 
 
 _V_SIMULATION_SUMMARY_DDL = """
@@ -79,18 +107,7 @@ SELECT
     s.created_at,
     s.updated_at,
     s.duration_s,
-    MAX(CASE WHEN m.metric_name = 'nse'
-             AND m.station_id = '__outlet__'
-             AND m.variable = 'head' THEN m.value END)  AS nse,
-    MAX(CASE WHEN m.metric_name = 'kge'
-             AND m.station_id = '__outlet__'
-             AND m.variable = 'head' THEN m.value END)  AS kge,
-    MAX(CASE WHEN m.metric_name = 'rmse'
-             AND m.station_id = '__outlet__'
-             AND m.variable = 'head' THEN m.value END)  AS rmse,
-    MAX(CASE WHEN m.metric_name = 'r2'
-             AND m.station_id = '__outlet__'
-             AND m.variable = 'head' THEN m.value END)  AS r2
+{summary_metric_columns}
 FROM simulations s
 JOIN solvers sv ON s.solver_id = sv.id
 JOIN statuses st ON s.status_id = st.id
@@ -120,7 +137,10 @@ GROUP BY
     s.created_at,
     s.updated_at,
     s.duration_s
-"""
+""".replace(
+    "{summary_metric_columns}",
+    ",\n".join(_summary_metric_column(name) for name in _SUMMARY_METRIC_NAMES),
+)
 
 _V_BEST_PER_PROJECT_DDL = """
 CREATE OR REPLACE VIEW v_best_per_project AS

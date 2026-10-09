@@ -6,6 +6,8 @@ against a simulation time window.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -19,17 +21,18 @@ def _align_series_to_simulation_window(
     *,
     simulation_window: ResolvedSimulationTimeWindow,
     label: str,
+    checked_periods: Sequence[bool] | None = None,
 ) -> pd.Series:
     """Aggregate one datetime-indexed series to simulation stress periods.
 
-    Aggregation policy
-    ------------------
-    - One output value per stress period.
-    - Value = arithmetic mean over values in [period_start, period_end).
-    - If no value falls in a period, reuse the last available value before
-      period_end (forward carry).
+    A period takes the mean of the samples stamped in ``[start, end)``. A period
+    with none takes the sample in force, and a period the record does not cover
+    follows ``simulation.time.coverage_policy``
+    (:mod:`hydromodpy.core.time.coverage`). ``checked_periods`` limits that
+    check to the periods flagged True, the ones a caller keeps; None checks all.
     """
     from hydromodpy.core.time import build_simulation_time_boundaries
+    from hydromodpy.core.time.coverage import enforce_coverage, samples_by_period
 
     if series.empty:
         raise ValueError(f"{label} series is empty and cannot be aligned to simulation.time.")
@@ -41,22 +44,26 @@ def _align_series_to_simulation_window(
 
     boundaries = build_simulation_time_boundaries(simulation_window)
     starts = pd.DatetimeIndex(boundaries[:-1])
-    values: list[float] = []
-    for left, right in zip(boundaries[:-1], boundaries[1:], strict=False):
-        chunk = data.loc[(data.index >= left) & (data.index < right)]
-        if not chunk.empty:
-            values.append(float(chunk.mean()))
-            continue
-
-        # No value inside this period: carry the latest known value before the
-        # period end so solver forcing remains continuous.
-        history = data.loc[data.index < right]
-        if history.empty:
+    periods = samples_by_period(data.index, boundaries)
+    checked = periods
+    if checked_periods is not None:
+        flags = [bool(flag) for flag in checked_periods]
+        if len(flags) != len(starts):
             raise ValueError(
-                f"{label} has no value available before simulation period ending at {right}."
+                f"{label}: checked_periods has {len(flags)} flags for {len(starts)} periods."
             )
-        values.append(float(history.iloc[-1]))
-
+        checked = replace(periods, uncovered=tuple(i for i in periods.uncovered if flags[i]))
+    enforce_coverage(
+        checked,
+        boundaries,
+        policy=str(getattr(simulation_window, "coverage_policy", "error")),
+        label=label,
+    )
+    samples = data.to_numpy(dtype=float)
+    values = [
+        float(samples[inside].mean()) if inside.size else float(samples[int(fill)])
+        for inside, fill in zip(periods.inside, periods.fill, strict=True)
+    ]
     return pd.Series(values, index=starts, dtype=float)
 
 
@@ -65,10 +72,12 @@ def align_forcing_series_to_simulation_window(
     *,
     simulation_window: ResolvedSimulationTimeWindow,
     label: str = "forcing",
+    checked_periods: Sequence[bool] | None = None,
 ) -> pd.Series:
     """Public wrapper for period aggregation on simulation-time boundaries."""
     return _align_series_to_simulation_window(
         series,
         simulation_window=simulation_window,
         label=label,
+        checked_periods=checked_periods,
     )

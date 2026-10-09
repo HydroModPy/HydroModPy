@@ -182,6 +182,26 @@ class Modflow6:
         mesh_support: object | None = None,
         flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
+        """Build the MODFLOW 6 simulation in memory, before it is written and run.
+
+        Binds the flow process and the domain, applies the options, checks the
+        inputs, then assembles the discretization and the flopy packages.
+
+        Parameters
+        ----------
+        flow
+            The flow process: parameters, boundaries, sinks and sources.
+        domain
+            The domain the grid is built on.
+        options
+            Pre-processing options. None keeps the ones the model holds.
+        mesh_planar, mesh_support
+            The planar mesh and its support when the run built one; None on a
+            structured grid built from the domain.
+        flow_runtime_overrides
+            Flow values that replace the configured ones for this build only,
+            as a calibration trial sets them.
+        """
         run_pre_processing(
             self,
             flow,

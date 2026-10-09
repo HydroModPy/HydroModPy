@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Sequence
-from contextlib import nullcontext
+from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -404,15 +404,17 @@ class Pipeline:
 
         chained_hashes: list[str] = list(previous_hashes)
         config_sha256 = _config_sha256_from_manifest(manifest)
-        heartbeat_ctx = self._heartbeat_for(state, heartbeat_cls, events=events)
-
         executor = (
             ThreadPoolCohortExecutor() if getattr(self, "_parallel", True) else SequentialExecutor()
         )
         cohort_layout = self._cohort_layout()
 
-        with heartbeat_ctx as pulse:
-            _ = pulse  # context only, lifecycle is automatic
+        # The run gets its sim_id inside the pipeline (the solver preparation
+        # step mints it), so the pulse starts as soon as a state carries one:
+        # before the first step on a resume, after the step that mints it
+        # otherwise. Without it a live run never beats and reads as stale.
+        with ExitStack() as heartbeats:
+            started = self._start_heartbeat(heartbeats, state, heartbeat_cls, events)
             for cohort_indices in cohort_layout:
                 pending = [idx for idx in cohort_indices if idx >= restart_index]
                 if not pending:
@@ -427,6 +429,8 @@ class Pipeline:
                     previous_hashes=chained_hashes,
                     events=events,
                 )
+                if not started:
+                    started = self._start_heartbeat(heartbeats, state, heartbeat_cls, events)
                 if self.workspace is not None:
                     manifest = (
                         ResolvedRunManifest.from_state(state, self.steps, self.workspace)
@@ -689,25 +693,33 @@ class Pipeline:
                 exc,
             )
 
-    def _heartbeat_for(
+    def _start_heartbeat(
         self,
+        stack: ExitStack,
         state: PipelineState,
         heartbeat_cls: type,
-        *,
-        events: object | None = None,
-    ):
+        events: object | None,
+    ) -> bool:
+        """Enter a heartbeat pulse on ``stack`` once the state carries a sim_id.
+
+        Returns True when the pulse runs. It stays False while there is no event
+        stream or no sim_id yet, and the caller asks again after the next step.
+        """
         if events is None:
-            return nullcontext()
+            return False
         sim_id = _state_sim_id(state)
         if not sim_id:
-            return nullcontext()
-        return heartbeat_cls(
-            sim_id,
-            events=events,
-            run_id=sim_id,
-            step_name="pipeline",
-            sidecar_workspace=self.workspace,
+            return False
+        stack.enter_context(
+            heartbeat_cls(
+                sim_id,
+                events=events,
+                run_id=sim_id,
+                step_name="pipeline",
+                sidecar_workspace=self.workspace,
+            )
         )
+        return True
 
 
 def _collect_artifacts(

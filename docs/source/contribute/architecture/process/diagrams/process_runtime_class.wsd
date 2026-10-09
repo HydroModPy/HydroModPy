@@ -44,8 +44,10 @@ package "hydromodpy.physics.flow" {
 package "hydromodpy.physics.transport" {
   class Transport {
     +config: TransportConfig | None
-    +particle: _TransportComponent
-    +conc: _TransportComponent
+    +modpath: _TransportComponent
+    +mt3dms: _TransportComponent
+    +modflow6gwt: _TransportComponent
+    +modflow6prt: _TransportComponent
     +set_config(config)
     +set_parameters(parameters)
     +build_initial_conditions(initial_conditions)

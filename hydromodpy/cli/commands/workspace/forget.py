@@ -12,7 +12,12 @@ HELP: str = "Unregister a project from the global index (files stay untouched)"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        epilog="Example:\n  hmp workspace forget 3f2a9c1e",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("project_id", help="project_id returned by 'hmp workspace list'")
     parser.set_defaults(_handler=run)
     return parser

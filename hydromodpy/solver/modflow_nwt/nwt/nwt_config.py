@@ -43,7 +43,13 @@ class NwtSolverConfig(HydroModelBase):
     )
     thickfact: Annotated[float, Profile.EXPERT] = Field(
         default=1e-5,
-        description="NWT wetting/thickness factor controlling nonlinear updates.",
+        ge=0,
+        lt=0.5,
+        description=(
+            "Fraction of the cell thickness over which MODFLOW-NWT smooths the saturated "
+            "thickness, and so the conductance and the storage, to zero near the bottom and "
+            "the top of a cell (THICKFACT of the NWT package). Dimensionless."
+        ),
     )
     linmeth: Annotated[int, Profile.EXPERT] = Field(
         default=1,

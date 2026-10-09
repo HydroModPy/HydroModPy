@@ -57,18 +57,18 @@ def _save_steady_balance_didactic(
 
     ax = axes[0]
     ax.barh(
-        ["entree recharge moyenne", "sortie Q_total_release"],
+        ["in: mean recharge", "out: Q_total_release"],
         [q_ref, q_ref],
         color=["#2f8f46", "#c45a2a"],
         alpha=0.82,
     )
-    ax.set_xlabel("Flux steady (m3/s)")
-    ax.set_title("Fermeture du permanent cible")
+    ax.set_xlabel("Steady flux (m3/s)")
+    ax.set_title("Closure of the target steady state")
     ax.grid(True, axis="x", ls=":", lw=0.45, color="#cfd8df")
     ax.text(
         0.02,
         -0.34,
-        "Le bilan steady fixe surtout le total. Le signal de calibration reseau vient de la repartition spatiale.",
+        "The steady budget mostly fixes the total. The network calibration signal comes from where the water leaves.",
         transform=ax.transAxes,
         fontsize=9,
         color="#5d6875",
@@ -86,22 +86,22 @@ def _save_steady_balance_didactic(
             marker="o",
             color="#17202a",
             lw=1.6,
-            label="ecart Q_total",
+            label="Q_total gap",
         )
         ax2 = ax.twinx()
-        ax2.plot(x, active, marker="s", color="#b5413c", lw=1.6, label="cellules actives")
+        ax2.plot(x, active, marker="s", color="#b5413c", lw=1.6, label="active cells")
         ax.axhline(0.0, color="#7a8694", ls=":", lw=1.0)
-        ax.axvline(0.65, color="#2662a5", ls="--", lw=1.1, label="mK cible")
+        ax.axvline(0.65, color="#2662a5", ls="--", lw=1.1, label="target mK")
         ax.set_xlabel("mK")
-        ax.set_ylabel("Ecart Q_total (%)")
-        ax2.set_ylabel("Cellules actives (%)")
-        ax.set_title("Flux total peu discriminant")
+        ax.set_ylabel("Q_total gap (%)")
+        ax2.set_ylabel("Active cells (%)")
+        ax.set_title("The total flux barely tells candidates apart")
         ax.grid(True, ls=":", lw=0.45, color="#cfd8df")
         handles, labels = ax.get_legend_handles_labels()
         handles2, labels2 = ax2.get_legend_handles_labels()
         ax.legend(handles + handles2, labels + labels2, loc="best", fontsize=9)
     else:
-        ax.text(0.5, 0.5, "balayage K absent", ha="center", va="center", transform=ax.transAxes)
+        ax.text(0.5, 0.5, "no K sweep", ha="center", va="center", transform=ax.transAxes)
 
     fig.tight_layout()
     fig.savefig(path)
@@ -122,11 +122,11 @@ def _save_recharge_chronicle_figure(path: Path) -> None:
     mean_value = float(np.nanmean(values))
     path.parent.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(9.0, 3.8), dpi=150)
-    ax.bar(x, values, color="#2f8f46", alpha=0.78, width=0.74, label="recharge mensuelle")
-    ax.axhline(mean_value, color="#17202a", lw=1.4, ls="--", label=f"moyenne {mean_value:.3g} mm/j")
-    ax.set_title("Chronique de recharge synthetique imposee")
-    ax.set_xlabel("Mois de simulation")
-    ax.set_ylabel("Recharge (mm/j)")
+    ax.bar(x, values, color="#2f8f46", alpha=0.78, width=0.74, label="monthly recharge")
+    ax.axhline(mean_value, color="#17202a", lw=1.4, ls="--", label=f"mean {mean_value:.3g} mm/day")
+    ax.set_title("Imposed synthetic recharge series")
+    ax.set_xlabel("Simulated month")
+    ax.set_ylabel("Recharge (mm/day)")
     ax.grid(True, axis="y", ls=":", lw=0.45, color="#cfd8df")
     ax.legend(loc="best", fontsize=10)
     fig.tight_layout()
@@ -161,7 +161,7 @@ def _save_q_timeseries_figure(
     fig, ax = plt.subplots(figsize=(9.0, 4.6), dpi=150)
     best_name = _best_completed_candidate_id(score_rows)
     for name, values in series.items():
-        if name in ("reference synthetique", best_name):
+        if name in ("synthetic reference", best_name):
             continue
         arr = np.asarray(values, dtype=float)
         if arr.size:
@@ -175,10 +175,10 @@ def _save_q_timeseries_figure(
             color="#c43b2f",
             alpha=0.95,
             zorder=3,
-            label=f"optimum calcule: {best_name}",
+            label=f"computed optimum: {best_name}",
         )
-    if "reference synthetique" in series:
-        arr = np.asarray(series["reference synthetique"], dtype=float)
+    if "synthetic reference" in series:
+        arr = np.asarray(series["synthetic reference"], dtype=float)
         ax.plot(
             np.arange(arr.size),
             arr,
@@ -187,10 +187,10 @@ def _save_q_timeseries_figure(
             lw=2.5,
             color="#17202a",
             zorder=4,
-            label="reference synthetique",
+            label="synthetic reference",
         )
-    ax.set_title("Chronique mensuelle Q_total_release")
-    ax.set_xlabel("Periode mensuelle")
+    ax.set_title("Monthly Q_total_release series")
+    ax.set_xlabel("Monthly period")
     ax.set_ylabel("Q_total_release (m3/s)")
     ax.grid(True, ls=":", lw=0.45, color="#cfd8df")
     ax.legend(loc="best", fontsize=10)
@@ -204,7 +204,7 @@ def _q_total_release_series(
 ) -> dict[str, list[float]]:
     series: dict[str, list[float]] = {}
     if truth_q:
-        series["reference synthetique"] = truth_q
+        series["synthetic reference"] = truth_q
     for row in score_rows:
         cid = row.get("candidate_id", "")
         q_path = _score_file_path(row.get("transient_q_csv", ""))

@@ -1,4 +1,4 @@
-Add a Data Source
+Add a data source
 =================
 
 A *source* is one value a user may write in ``source =`` for an existing
@@ -23,8 +23,8 @@ patch to this repository.
 An in-tree provider
 -------------------
 
-Three edits, all inside the variable's package, plus one line of the source
-table:
+Four edits: three inside the variable's package, and one entry in the source table
+of ``hydromodpy/schema/sources.py``:
 
 1. the provider module, ``variables/<variable>/apis/<provider>.py`` (or
    ``common/clients/`` when several variables share it, as SIM2 does);
@@ -174,7 +174,8 @@ Name it from a document
 
 .. code-block:: toml
 
-   # a project TOML. The section names a source whose payload kind is
+   # not checked: acme-linework is the placeholder source of this recipe
+   # A project TOML. The section names a source whose payload kind is
    # "features"; a source of another kind is refused by the document.
    [[data.hydrography.sources]]
    source = "acme-linework"
@@ -221,6 +222,6 @@ See also
 - :doc:`../packages/data` for the variable inventory and the manager template.
 - :doc:`add-a-data-variable` for a new variable family.
 - :doc:`add-a-config-field` for a new field on an existing source.
-- Data Loading And Retrieval for the user-facing provider matrix.
+- :doc:`/reference/data-sources` for the generated catalog of providers.
 - :doc:`add-a-process` for exposing work as a capability an orchestrator runs,
   which is what ``data-request`` is.

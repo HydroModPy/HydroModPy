@@ -1,4 +1,4 @@
-Process Architecture
+Process architecture
 ====================
 
 This page is the code-oriented entry point for ``hydromodpy.physics``,
@@ -14,8 +14,8 @@ Package map
 
 The current ``hydromodpy.physics`` stack is split into six concerns:
 
-- ``hydromodpy.physics``: public compatibility facade that re-exports
-  the main process symbols.
+- ``hydromodpy.physics``: the public facade, which exports the main
+  process symbols.
 - ``hydromodpy.physics.contracts``: explicit import path for generic
   process-layer contracts reused internally.
 - ``hydromodpy.physics.base``: process-agnostic building blocks
@@ -61,14 +61,14 @@ the adapter?"):
 1. ``hydromodpy/physics/transport/transport.py``
 2. ``hydromodpy/physics/transport/transport_config.py``
 
-**Forcing bridge** ("how do loaded data become solver-ready time
-series?"):
+**Forcing** ("how do loaded data become solver-ready time series?"):
 
-1. ``hydromodpy/physics/forcing/forcing_bridge.py``
+1. ``hydromodpy/physics/forcing/forcing_bridge.py`` (``resolve_forcing``)
 2. ``hydromodpy/physics/forcing/time_alignment.py``
+3. ``hydromodpy/physics/flow/structure_binders.py`` (the ``apply_*_to_flow``
+   functions)
 
-**Adding a new process** (extension workflow): see the activity
-diagram below.
+**Adding a new process**: see :doc:`../how-to/add-a-process`.
 
 Layer separation (component diagram)
 ------------------------------------
@@ -83,8 +83,7 @@ Notes:
 
 - Config parsing and validation are isolated from solver-specific
   code.
-- Conceptual hydrology forcing remains outside ``hydromodpy.physics``
-  and is exposed through the simulation forcing adapter layer.
+- The forcing helpers and the binders fill the process objects from the loaded data.
 - Runtime process classes are solver-agnostic containers.
 - Adapter components are the only layer allowed to translate runtime
   data to solver input formats.
@@ -108,8 +107,9 @@ Notes:
 - ``FlowBoundaryConditionConfig`` and ``FlowSinksSourcesConfig`` are
   dedicated flow models (not subclasses of prototype
   ``BoundaryCondition`` / ``SinkSource``).
-- ``TransportConfig`` currently keeps boundary and sink/source
-  payloads as generic mappings.
+- ``TransportConfig`` holds one block per transport solver (``modpath``, ``mt3dms``,
+  ``modflow6gwt``, ``modflow6prt``). Its inherited generic containers are excluded from
+  serialization.
 
 Runtime class diagram
 ---------------------
@@ -130,9 +130,8 @@ Notes:
   prototype ``BoundaryCondition``.
 - Runtime sink/source storage is generic (``dict[str, object]``),
   with process-specific payloads injected by child classes.
-- Recharge chronicle preparation stays outside this inheritance tree
-  and is handled by simulation forcing services before solver
-  assembly.
+- Recharge and ETP are bound to the ``Flow`` by the binders, outside this inheritance
+  tree.
 
 Lifecycle state machine
 -----------------------
@@ -144,58 +143,34 @@ from creation to solver execution and post-processing.
 
 Notes:
 
-- ``RuntimeHydrated`` means parameters, IC, BC, and sinks/sources are
-  set.
-- ``PreparedForSolver`` represents adapter-resolved arrays /
-  dictionaries.
-- Failures can route back to hydration after config or data
-  corrections.
+- The states are a reading aid, not classes of the code. "Hydrated" means that
+  parameters, initial conditions, boundary conditions and sinks and sources are set, and
+  "prepared for solver" means that the adapter resolved its arrays and dictionaries.
+- Failures can route back to hydration after config or data corrections.
 
 Runtime-to-solver sequence
 --------------------------
 
-The main runtime handoff from process objects to solver backends:
-runtime construction of ``Flow`` from validated config, recharge
-chronicle preparation before solver assembly, adapter-level
-transformation into solver payloads, and backend-specific execution.
+The main runtime handoff from process objects to solver backends: construction of
+``Flow`` from the validated config, the binders that fill it from the loaded data,
+adapter-level translation into solver payloads, and backend-specific execution.
 
 .. uml:: diagrams/runtime_to_solver_sequence.wsd
 
 Notes:
 
 - The sequence is logical and backend-agnostic at the high level.
-- Payload conversion is explicitly separated from process runtime
-  state.
-- Recharge forcing is prepared before solver assembly and injected as
-  already-aligned series.
-- Solver wrappers remain consumers of already-normalised process
-  data.
-- For detailed DIS payload semantics, see
-  :doc:`../solver/modflow-contracts`.
-
-Extending with a new process
-----------------------------
-
-Practical workflow to add a new ``ProcessSpatial`` specialisation:
-config model first, then runtime class, then adapters. Testing and
-documentation updates are mandatory completion steps; iteration is
-expected before final integration.
-
-Reading path before extending:
-
-1. ``hydromodpy/physics/base/process_spatial_config.py``
-2. ``hydromodpy/physics/base/process_spatial.py``
-3. ``hydromodpy/physics/flow/`` as the main concrete example
-4. ``hydromodpy/solver/base/registry.py``
-5. ``hydromodpy/solver/base/adapter_protocol.py``
-
-.. uml:: diagrams/process_extension_activity.wsd
+- Payload conversion is separated from the process runtime state.
+- Forcing is resolved to one value per stress period before the adapter runs.
+- Solver backends consume already-normalised process data.
+- For the DIS payload semantics, see :doc:`../solver/backends`.
 
 See also
 --------
 
 - :doc:`../simulation/toml-to-solver-walkthrough` for the
   configuration-to-solver path that consumes process objects.
-- :doc:`../solver/index` for the backend-side architecture.
-- :doc:`../overview/test-families-and-quality-roles` for the test
-  expectations on a new process / solver pair.
+- :doc:`../solver/backends` for the backend-side architecture.
+- :doc:`../how-to/add-a-process` to add a process.
+- :doc:`/contribute/project/tests` for the test expectations on a new process and
+  solver pair.

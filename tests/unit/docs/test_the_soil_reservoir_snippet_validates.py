@@ -63,7 +63,7 @@ solvers = ["modflow6"]
 # the recharge and the residual ETP sent to MODFLOW, a first period that is
 # not a one-day steady state.
 [data]
-types = ["dem", "hydrography", "hydrometry", "precipitation", "etp"]
+types = ["precipitation", "etp"]
 
 [[data.precipitation.sources]]
 source = "sim2"

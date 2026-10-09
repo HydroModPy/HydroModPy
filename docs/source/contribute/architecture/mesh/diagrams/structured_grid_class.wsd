@@ -1,5 +1,5 @@
 @startuml
-title StructuredGrid - Core Class Diagram
+title Structured grid - core classes
 left to right direction
 hide empty members
 hide circle
@@ -56,14 +56,14 @@ package "FloPy" {
 }
 
 package "Downstream adapters" {
-  class SGridMeshAdapter <<adapter>> {
+  class "sgrid_mesh_adapter.py" as SGridMeshAdapter <<module>> {
     +extract_structured_vertices(sgrid)
     +build_field_mesh_from_sgrid(sgrid)
   }
 
   class StructuredFieldMesh <<field mesh>>
 
-  class SGridFieldParamDiscretizer <<adapter>> {
+  class "sgrid_fieldparam_discretization.py" as SGridFieldParamDiscretizer <<module>> {
     +discretize_fieldparam_on_sgrid(..., sgrid, ...)
   }
 }

@@ -1,5 +1,7 @@
 """LAK grid-equivalence validation (regular quad vs irregular triangle DISV).
 
+Compared with: the same lake problem solved on a regular quad grid; only the mesh changes.
+
 The SAME transient multi-layer lake-aquifer problem (Plainfield Lakes abacus, one
 reservoir incised across the top two layers of a 4-layer aquifer) is solved twice
 through the production HMP LAK builders and MF6:

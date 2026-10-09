@@ -1,4 +1,7 @@
-"""Validate lower-obstacle drying behavior in the PETSc complementarity runtime."""
+"""Validate lower-obstacle drying behavior in the PETSc complementarity runtime.
+
+Compared with: the expected dry state at the substratum and the deficit rate the lower obstacle must carry; no reference solution over time.
+"""
 
 from __future__ import annotations
 

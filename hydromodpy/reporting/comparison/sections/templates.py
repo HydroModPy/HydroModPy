@@ -119,21 +119,21 @@ def _row_runtime_seconds_with_scope(row: Mapping[str, Any]) -> tuple[float | Non
 
 def _observable_label(name: str) -> str:
     labels = {
-        "head_map_initial": "champ de charge initial",
-        "head_map_first_computed": "champ de charge au premier pas calcule",
-        "head_map_wet_year1": "champ de charge apres la premiere saison humide",
-        "head_map_dry_late": "champ de charge en etat sec tardif",
-        "head_map_drought_year2": "champ de charge en fin de periode seche",
-        "head_map_extreme_recharge": "champ de charge pendant le pic de recharge",
-        "head_map_last": "champ de charge final",
-        "head_west_low_k_series": "chronique de charge dans la zone ouest peu conductrice",
-        "head_west_interface_series": "chronique de charge pres de l'interface ouest/centre",
-        "head_central_high_k_series": "chronique de charge dans le couloir central conducteur",
-        "head_east_interface_series": "chronique de charge pres de l'interface centre/est",
-        "head_east_medium_k_series": "chronique de charge dans la zone est intermediaire",
-        "head_domain_low_series": "chronique de charge dans la partie basse du domaine",
-        "head_domain_mid_series": "chronique de charge dans la partie mediane du domaine",
-        "head_domain_high_series": "chronique de charge dans la partie haute du domaine",
+        "head_map_initial": "initial head field",
+        "head_map_first_computed": "head field at the first computed step",
+        "head_map_wet_year1": "head field after the first wet season",
+        "head_map_dry_late": "head field in the late dry state",
+        "head_map_drought_year2": "head field at the end of the dry period",
+        "head_map_extreme_recharge": "head field during the recharge peak",
+        "head_map_last": "final head field",
+        "head_west_low_k_series": "head series in the poorly conductive west zone",
+        "head_west_interface_series": "head series near the west/centre interface",
+        "head_central_high_k_series": "head series in the conductive central corridor",
+        "head_east_interface_series": "head series near the centre/east interface",
+        "head_east_medium_k_series": "head series in the intermediate east zone",
+        "head_domain_low_series": "head series in the lower part of the domain",
+        "head_domain_mid_series": "head series in the middle part of the domain",
+        "head_domain_high_series": "head series in the upper part of the domain",
     }
     return labels.get(name, name.replace("_", " "))
 
@@ -142,21 +142,22 @@ def _figure_caption(item: Mapping[str, Any]) -> str:
     observable = str(item.get("observable", ""))
     kind = str(item.get("kind", ""))
     if observable == "case_configuration":
-        return "Contexte du cas: geometrie, zones K, recharge et points d'extraction."
+        return "Case context: geometry, K zones, recharge and extraction points."
     if kind == "fine_raster_map_comparison":
         return (
-            _observable_label(observable) + ": reference et candidat sur la meme grille interpolee."
+            _observable_label(observable)
+            + ": reference and candidate on the same interpolated grid."
         )
     if "triptych" in kind or "head_map" in observable:
-        return _observable_label(observable) + ": reference, candidat et ecart."
+        return _observable_label(observable) + ": reference, candidate and difference."
     if kind == "timeseries" or observable.endswith("_series"):
         point_label = str(item.get("point_label", "")).strip()
         prefix = f"Point {point_label} - " if point_label else ""
-        return prefix + _observable_label(observable) + ": comparaison temporelle MF6 / Boussinesq."
+        return prefix + _observable_label(observable) + ": MF6 / Boussinesq time comparison."
     if observable in {"storage_change_total_m3_s", "storage_comparison_dashboard"}:
-        return "Stockage global: variation instantanee du volume stocke dans l'aquifere."
+        return "Global storage: instantaneous change of the volume stored in the aquifer."
     if observable in {"total_inputs_outputs_m3_s", "total_inputs_outputs_dashboard"}:
-        return "Bilan externe: somme des entrees et somme des sorties, stockage exclu."
+        return "External budget: sum of inflows and sum of outflows, storage excluded."
     return _observable_label(observable)
 
 
@@ -164,9 +165,9 @@ def _format_mapping_values(value: Any, *, default: str) -> str:
     if not isinstance(value, Mapping) or not value:
         return default
     labels = {
-        "west_low_k": "ouest",
+        "west_low_k": "west",
         "central_high_k": "centre",
-        "east_medium_k": "est",
+        "east_medium_k": "east",
     }
     parts = [
         f"{labels.get(str(key), str(key))}: {_format_value(raw)}" for key, raw in value.items()
@@ -198,7 +199,7 @@ def _format_closure_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     for row in rows:
         item = dict(row)
         item["max_abs_closure_m3_s"] = _format_with_unit(row.get("max_abs_closure_m3_s"), "m3/s")
-        item["max_abs_closure_mm_d"] = _format_with_unit(row.get("max_abs_closure_mm_d"), "mm/j")
+        item["max_abs_closure_mm_d"] = _format_with_unit(row.get("max_abs_closure_mm_d"), "mm/d")
         item["relative_closure_error_p95"] = _format_number(row.get("relative_closure_error_p95"))
         formatted.append(item)
     return formatted
@@ -278,7 +279,7 @@ def _render_runtime_table(
 ) -> str:
     materialized = list(rows)
     if not materialized:
-        return '<p class="muted">Aucune simulation dans le manifeste.</p>'
+        return '<p class="muted">No simulation in the manifest.</p>'
     runtime_items = [_row_runtime_seconds_with_scope(row) for row in materialized]
     values = [item[0] for item in runtime_items]
     maximum = max([value for value in values if value is not None], default=None)
@@ -308,7 +309,7 @@ def _render_runtime_table(
         )
     return (
         '<table class="runtime-table"><thead><tr>'
-        "<th>id</th><th>solver</th><th>status</th><th>temps</th><th>portee</th><th>comparaison</th>"
+        "<th>id</th><th>solver</th><th>status</th><th>time</th><th>scope</th><th>comparison</th>"
         f"</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
     )
 
@@ -340,7 +341,7 @@ def _render_figures(
             + "</figcaption></figure>"
         )
     if not blocks:
-        return '<p class="muted">Aucune figure PNG disponible.</p>'
+        return '<p class="muted">No PNG figure available.</p>'
     return "\n".join(blocks)
 
 
@@ -363,7 +364,7 @@ def _audit_block(audit: Mapping[str, Any]) -> str:
 
 def _render_metric_snapshot(rows: list[dict[str, str]]) -> str:
     if not rows:
-        return '<p class="muted">Aucune metrique.</p>'
+        return '<p class="muted">No metric.</p>'
     numeric_rows = [_metric_snapshot_row(row) for row in rows]
     percentages = [
         item["rmse_percent_value"]
@@ -385,9 +386,9 @@ def _render_metric_snapshot(rows: list[dict[str, str]]) -> str:
     if best is not None and worst is not None:
         summary = (
             '<div class="metric-summary">'
-            f'<div><span class="kv-label">Plus proche</span><strong>{safe(best["observable_label"])}</strong><small>{safe(best["rmse_percent"])}</small></div>'
-            f'<div><span class="kv-label">Ecart max</span><strong>{safe(worst["observable_label"])}</strong><small>{safe(worst["rmse_percent"])}</small></div>'
-            f'<div><span class="kv-label">Reference</span><strong>MF6</strong><small>valeur ref en {safe(best["unit"] or "unite")}</small></div>'
+            f'<div><span class="kv-label">Closest</span><strong>{safe(best["observable_label"])}</strong><small>{safe(best["rmse_percent"])}</small></div>'
+            f'<div><span class="kv-label">Largest difference</span><strong>{safe(worst["observable_label"])}</strong><small>{safe(worst["rmse_percent"])}</small></div>'
+            f'<div><span class="kv-label">Reference</span><strong>MF6</strong><small>ref value in {safe(best["unit"] or "unit")}</small></div>'
             "</div>"
         )
     body_rows: list[str] = []
@@ -410,7 +411,7 @@ def _render_metric_snapshot(rows: list[dict[str, str]]) -> str:
         )
     table = (
         '<table class="metric-table"><thead><tr>'
-        "<th>observable</th><th>n</th><th>RMSE</th><th>valeur ref</th><th>RMSE / ref</th>"
+        "<th>observable</th><th>n</th><th>RMSE</th><th>ref value</th><th>RMSE / ref</th>"
         f"</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
     )
     return summary + table

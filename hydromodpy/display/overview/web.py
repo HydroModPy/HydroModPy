@@ -36,8 +36,8 @@ def write_overview_web_report(
         output_path = overview_web_report_path(state)
     blocks = build_overview_blocks(state, figure_paths=figure_paths, level=level)
     summary = compute_overview_summary(state)
-    title = summary.watershed_name or "Vue donnees bassin"
-    subtitle = f"Vue donnees du bassin - niveau {level}."
+    title = summary.watershed_name or "Catchment data view"
+    subtitle = f"Catchment data view, {level} level."
     return write_report_page(
         output_path=output_path,
         title=title,
@@ -98,14 +98,14 @@ def _workflow_header_block(state: DataOverviewState) -> ReportBlock:
 
     return ReportBlock(
         block_id="workflow_header",
-        title="Identite du workflow",
+        title="Workflow identity",
         level="compact",
-        lead="Synthese minimale du rapport et de l'espace de travail.",
+        lead="Minimal summary of the report and of the workspace.",
         metrics=(
             ReportMetric("Workflow", "overview"),
-            ReportMetric("Bassin", summary.watershed_name or "-"),
-            ReportMetric("Periode", _period_label(summary.date_start, summary.date_end)),
-            ReportMetric("Espace de travail", workspace_root),
+            ReportMetric("Catchment", summary.watershed_name or "-"),
+            ReportMetric("Period", _period_label(summary.date_start, summary.date_end)),
+            ReportMetric("Workspace", workspace_root),
         ),
     )
 
@@ -127,7 +127,7 @@ def _spatial_context_block(
     )
     metrics = [
         ReportMetric(
-            "Surface bassin",
+            "Catchment area",
             _format_float(summary.catchment_area_km2, digits=2),
             "km2" if summary.catchment_area_km2 is not None else "",
         ),
@@ -136,7 +136,7 @@ def _spatial_context_block(
     if level in ("standard", "audit"):
         metrics.append(
             ReportMetric(
-                "Definition du bassin",
+                "Catchment definition",
                 _catchment_definition_label(getattr(geo_cfg, "catch_def", "")),
             )
         )
@@ -149,7 +149,7 @@ def _spatial_context_block(
     )
     dem_context = ReportFigure(
         "map_dem",
-        "Domaine simule",
+        "Simulated domain",
         figure_by_id.get("map_dem"),
         "",
     )
@@ -161,7 +161,7 @@ def _spatial_context_block(
     warnings: tuple[str, ...] = ()
     return ReportBlock(
         block_id="spatial_context",
-        title="Localisation",
+        title="Location",
         level=level,
         lead=_spatial_context_lead(
             level=level,
@@ -173,7 +173,7 @@ def _spatial_context_block(
 
 
 def _spatial_context_lead(*, level: DetailLevel) -> str:
-    return "Situation regionale et emprise du bassin versant."
+    return "Regional setting and extent of the catchment."
 
 
 def _hydrographic_network_block(
@@ -187,9 +187,9 @@ def _hydrographic_network_block(
     requested = _requested_data_types(state)
     figure = ReportFigure(
         "map_hydrography",
-        "Reseau hydrographique observe",
+        "Observed hydrographic network",
         figure_by_id.get("map_hydrography"),
-        "Reseau observe disponible avant toute simulation.",
+        "Observed network available before any simulation.",
         required=False,
     )
     has_data = bool(hydrography)
@@ -197,7 +197,7 @@ def _hydrographic_network_block(
     if not has_data and not is_requested and not figure.available:
         return ReportBlock(
             block_id="hydrographic_network",
-            title="Reseau hydrographique",
+            title="Hydrographic network",
             level=level,
             status="not_applicable",
         )
@@ -205,33 +205,31 @@ def _hydrographic_network_block(
     section = getattr(data_cfg, "hydrography", None)
     warnings = []
     if is_requested and not has_data:
-        warnings.append("Hydrographie demandee mais non chargee.")
+        warnings.append("Hydrography requested but not loaded.")
     if has_data and not figure.available and level in ("standard", "audit"):
-        warnings.append("Carte du reseau hydrographique non produite.")
+        warnings.append("Hydrographic network map not produced.")
     metrics = (
-        ReportMetric("Objets", _record_count_label(hydrography)),
+        ReportMetric("Objects", _record_count_label(hydrography)),
         ReportMetric("Sources", ", ".join(_source_names(section)) or "-"),
-        ReportMetric(
-            "Periode", _section_period(section) or _load_result_period(hydrography) or "-"
-        ),
+        ReportMetric("Period", _section_period(section) or _load_result_period(hydrography) or "-"),
     )
     tables: tuple[ReportTable, ...] = ()
     if level == "audit":
         tables = (
             ReportTable(
                 "hydrography_sources",
-                "Sources hydrographie",
-                columns=(("source", "Source"), ("period", "Periode"), ("path", "Chemin")),
+                "Hydrography sources",
+                columns=(("source", "Source"), ("period", "Period"), ("path", "Path")),
                 rows=tuple(_source_rows(section)),
-                empty_message="Aucune source hydrographie declaree.",
+                empty_message="No hydrography source declared.",
             ),
         )
     return ReportBlock(
         block_id="hydrographic_network",
-        title="Reseau hydrographique",
+        title="Hydrographic network",
         level=level,
         status="partial" if warnings else "available",
-        lead="Reseau observe, sources hydrographiques et controle cartographique.",
+        lead="Observed network, hydrography sources and map check.",
         metrics=metrics,
         figures=_available_figures((figure,)),
         tables=tables,
@@ -245,9 +243,9 @@ def _available_figures(figures: tuple[ReportFigure, ...]) -> tuple[ReportFigure,
 
 def _catchment_definition_label(value: Any) -> str:
     labels = {
-        "from_outlet_coord": "Exutoire fourni",
-        "from_watershed_file": "Contour de bassin fourni",
-        "from_bbox": "Emprise fournie",
+        "from_outlet_coord": "Outlet provided",
+        "from_watershed_file": "Catchment outline provided",
+        "from_bbox": "Bounding box provided",
     }
     return labels.get(str(value), str(value).replace("_", " ") if value else "-")
 
@@ -265,44 +263,44 @@ def _regional_context_title(state: DataOverviewState) -> str:
             continue
         name = Path(candidate).stem.lower()
         if "armorican" in name or "armoricain" in name:
-            return "Situation dans le Massif Armoricain"
+            return "Setting in the Armorican Massif"
         if "bretagne" in name or "brittany" in name:
-            return "Situation en Bretagne"
-    return "Situation regionale"
+            return "Setting in Brittany"
+    return "Regional setting"
 
 
 def _data_inventory_block(state: DataOverviewState, *, level: DetailLevel) -> ReportBlock:
     if level == "compact":
         return ReportBlock(
             block_id="data_inventory",
-            title="Inventaire des donnees",
+            title="Data inventory",
             level=level,
             status="not_applicable",
         )
     rows = tuple(_data_family_rows(state))
     columns: tuple[tuple[str, str], ...]
     if level == "compact":
-        columns = (("family", "Famille"), ("status", "Statut"), ("records", "Objets"))
+        columns = (("family", "Family"), ("status", "Status"), ("records", "Objects"))
     else:
         columns = (
-            ("family", "Famille"),
-            ("status", "Statut"),
+            ("family", "Family"),
+            ("status", "Status"),
             ("sources", "Sources"),
-            ("records", "Objets"),
-            ("period", "Periode"),
+            ("records", "Objects"),
+            ("period", "Period"),
         )
     return ReportBlock(
         block_id="data_inventory",
-        title="Inventaire des donnees",
+        title="Data inventory",
         level=level,
-        lead="Familles de donnees demandees ou chargees par le workflow.",
+        lead="Data families requested or loaded by the workflow.",
         tables=(
             ReportTable(
                 "data_family_table",
-                "Familles de donnees",
+                "Data families",
                 columns=columns,
                 rows=rows,
-                empty_message="Aucune famille de donnees demandee ou chargee.",
+                empty_message="No data family requested or loaded.",
             ),
         ),
     )
@@ -323,9 +321,9 @@ def _observation_inventory_block(
             figures += (
                 ReportFigure(
                     "station_inventory",
-                    "Inventaire des stations",
+                    "Station inventory",
                     figure_by_id.get("station_inventory"),
-                    "Table image historique produite par le workflow overview.",
+                    "Legacy table image produced by the overview workflow.",
                     required=bool(rows),
                 ),
             )
@@ -333,9 +331,9 @@ def _observation_inventory_block(
             figures += (
                 ReportFigure(
                     "timeseries_discharge",
-                    "Debits observes",
+                    "Observed discharge",
                     figure_by_id.get("timeseries_discharge"),
-                    "Chroniques hydrometriques observees, sans comparaison simulation.",
+                    "Observed hydrometric series, without any simulation comparison.",
                     required=_point_count(ld.hydrometry) > 0,
                 ),
             )
@@ -343,9 +341,9 @@ def _observation_inventory_block(
             figures += (
                 ReportFigure(
                     "timeseries_piezometry",
-                    "Niveaux piezometriques observes",
+                    "Observed piezometric levels",
                     figure_by_id.get("timeseries_piezometry"),
-                    "Chroniques piezometriques observees, si chargees.",
+                    "Observed piezometric series, if loaded.",
                     required=_point_count(ld.piezometry) > 0,
                 ),
             )
@@ -353,9 +351,9 @@ def _observation_inventory_block(
             figures += (
                 ReportFigure(
                     "timeseries_intermittency",
-                    "Intermittence observee",
+                    "Observed intermittency",
                     figure_by_id.get("timeseries_intermittency"),
-                    "Chroniques ONDE ou intermittence, si chargees.",
+                    "ONDE or intermittency series, if loaded.",
                     required=_point_count(ld.intermittency) > 0,
                 ),
             )
@@ -363,26 +361,26 @@ def _observation_inventory_block(
             figures += (
                 ReportFigure(
                     "timeseries_water_quality",
-                    "Qualite d'eau observee",
+                    "Observed water quality",
                     figure_by_id.get("timeseries_water_quality"),
-                    "Chroniques qualite d'eau, si chargees.",
+                    "Water-quality series, if loaded.",
                     required=_point_count(ld.water_quality) > 0,
                 ),
             )
         tables += (
             ReportTable(
                 "station_inventory_table",
-                "Stations observees",
+                "Observed stations",
                 columns=(
                     ("type", "Type"),
                     ("id", "ID"),
                     ("x", "X"),
                     ("y", "Y"),
-                    ("start", "Debut"),
-                    ("end", "Fin"),
+                    ("start", "Start"),
+                    ("end", "End"),
                 ),
                 rows=rows,
-                empty_message="Aucune station observee chargee.",
+                empty_message="No observed station loaded.",
             ),
         )
     if not rows and not any(
@@ -399,12 +397,12 @@ def _observation_inventory_block(
         block_id="observation_inventory",
         title="Observations",
         level=level,
-        lead="Stations et chroniques observees disponibles avant toute simulation.",
+        lead="Observed stations and series available before any simulation.",
         metrics=(
-            ReportMetric("Hydrometrie", _point_count(ld.hydrometry), "stations"),
-            ReportMetric("Piezometrie", _point_count(ld.piezometry), "stations"),
-            ReportMetric("Intermittence", _point_count(ld.intermittency), "stations"),
-            ReportMetric("Qualite eau", _point_count(ld.water_quality), "stations"),
+            ReportMetric("Hydrometry", _point_count(ld.hydrometry), "stations"),
+            ReportMetric("Piezometry", _point_count(ld.piezometry), "stations"),
+            ReportMetric("Intermittency", _point_count(ld.intermittency), "stations"),
+            ReportMetric("Water quality", _point_count(ld.water_quality), "stations"),
         ),
         figures=figures,
         tables=tables,
@@ -420,48 +418,48 @@ def _forcing_context_block(state: DataOverviewState, *, level: DetailLevel) -> R
     if recharge is None and "recharge" not in requested and pumping["well_count"] == 0:
         return ReportBlock(
             block_id="forcing_context",
-            title="Recharge et pompages",
+            title="Recharge and pumping",
             level=level,
             status="not_applicable",
         )
     warnings = []
     if recharge is None:
-        warnings.append("Recharge non chargee.")
+        warnings.append("Recharge not loaded.")
     if pumping["well_count"] == 0:
-        warnings.append("Aucun pompage declare.")
+        warnings.append("No pumping declared.")
 
     tables: tuple[ReportTable, ...] = ()
     if level in ("standard", "audit"):
         tables += (
             ReportTable(
                 "recharge_source_table",
-                "Sources recharge",
-                columns=(("source", "Source"), ("period", "Periode"), ("path", "Chemin")),
+                "Recharge sources",
+                columns=(("source", "Source"), ("period", "Period"), ("path", "Path")),
                 rows=tuple(_source_rows(getattr(data_cfg, "recharge", None))),
-                empty_message="Aucune source recharge declaree.",
+                empty_message="No recharge source declared.",
             ),
             ReportTable(
                 "pumping_inventory_table",
-                "Pompages declares",
+                "Declared pumping",
                 columns=(
-                    ("well_id", "Ouvrage"),
-                    ("location", "Localisation"),
-                    ("mean_flux", "Flux moyen"),
-                    ("units", "Unites"),
+                    ("well_id", "Well"),
+                    ("location", "Location"),
+                    ("mean_flux", "Mean flux"),
+                    ("units", "Units"),
                 ),
                 rows=tuple(pumping["rows"]),
-                empty_message="Aucun pompage declare.",
+                empty_message="No pumping declared.",
             ),
         )
     return ReportBlock(
         block_id="forcing_context",
-        title="Recharge et pompages",
+        title="Recharge and pumping",
         level=level,
-        lead="Entrees hydrologiques principales, vues comme donnees d'entree.",
+        lead="Main hydrological inputs, seen as input data.",
         metrics=(
-            ReportMetric("Recharge moyenne", recharge_mean),
-            ReportMetric("Pompages", pumping["label"]),
-            ReportMetric("Ouvrages", pumping["well_count"], "ouvrages"),
+            ReportMetric("Mean recharge", recharge_mean),
+            ReportMetric("Pumping", pumping["label"]),
+            ReportMetric("Wells", pumping["well_count"], "wells"),
         ),
         tables=tables,
         warnings=tuple(warnings),
@@ -474,7 +472,7 @@ def _artifact_links_block(
     if level != "audit":
         return ReportBlock(
             block_id="artifact_links",
-            title="Artefacts",
+            title="Artifacts",
             level=level,
             status="not_applicable",
         )
@@ -486,16 +484,16 @@ def _artifact_links_block(
         rows.append({"kind": "config", "path": str(config_path)})
     return ReportBlock(
         block_id="artifact_links",
-        title="Artefacts",
+        title="Artifacts",
         level=level,
-        lead="Fichiers produits ou references par le rapport.",
+        lead="Files produced or referenced by the report.",
         tables=(
             ReportTable(
                 "artifact_table",
-                "Chemins",
-                columns=(("kind", "Type"), ("path", "Chemin")),
+                "Paths",
+                columns=(("kind", "Type"), ("path", "Path")),
                 rows=tuple(rows),
-                empty_message="Aucun artefact recense.",
+                empty_message="No artifact listed.",
             ),
         ),
     )
@@ -529,7 +527,7 @@ def _data_family_rows(state: DataOverviewState) -> list[dict[str, Any]]:
         rows.append(
             {
                 "family": family,
-                "status": "chargee" if is_loaded else "demandee",
+                "status": "loaded" if is_loaded else "requested",
                 "sources": ", ".join(_source_names(section)) or "-",
                 "records": _record_count_label(load_result),
                 "period": _section_period(section) or _load_result_period(load_result) or "-",
@@ -557,10 +555,10 @@ def _data_family_order(state: DataOverviewState) -> tuple[str, ...]:
 def _station_inventory_rows(state: DataOverviewState) -> list[dict[str, Any]]:
     rows_by_key: dict[tuple[str, str], dict[str, Any]] = {}
     for label, attr in (
-        ("Hydrometrie", "hydrometry"),
-        ("Piezometrie", "piezometry"),
-        ("Intermittence", "intermittency"),
-        ("Qualite eau", "water_quality"),
+        ("Hydrometry", "hydrometry"),
+        ("Piezometry", "piezometry"),
+        ("Intermittency", "intermittency"),
+        ("Water quality", "water_quality"),
     ):
         load_result = getattr(state.loaded_data, attr, None)
         for record in getattr(load_result, "points", ()) or ():
@@ -642,13 +640,13 @@ def _record_count_label(load_result: Any) -> str:
     if points:
         parts.append(f"{points} point(s)")
     if fields:
-        parts.append(f"{fields} champ(s)")
+        parts.append(f"{fields} field(s)")
     if parts:
         return ", ".join(parts)
     try:
         return str(len(load_result))
     except Exception:
-        return "1 objet"
+        return "1 object"
 
 
 def _point_count(load_result: Any) -> int:

@@ -37,7 +37,11 @@ from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import RUNS_DIRNAME, to_workspace_relative
+from hydromodpy.core.state.paths import (
+    PER_RUN_CONFIG_KEYS,
+    RUNS_DIRNAME,
+    to_workspace_relative,
+)
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import (
     solver_category as _resolve_solver_category,
@@ -55,11 +59,105 @@ logger = get_logger(__name__)
 
 IfExistsMode = Literal["replace", "fail", "version"]
 
+_RUN_OVERRIDES_KEY = "__run_overrides__"
+_RUN_INPUTS_KEY = "__run_inputs__"
+_RUN_VERSION_KEY = "__hydromodpy_version__"
+
+
+def run_identity_hash(
+    config: dict | None,
+    *,
+    overrides: dict | None = None,
+    inputs: dict[str, str] | None = None,
+) -> str | None:
+    """Return the hash that says two runs compute the same thing.
+
+    It is the ``config_hash`` the catalog records, and what ``hmp run`` and
+    ``hmp.run`` compare to skip an identical completed run. It covers the
+    resolved configuration, minus the members that vary between two runs of
+    one file (``PER_RUN_CONFIG_KEYS`` of ``hydromodpy.core.state.paths``) and
+    minus ``simulation.name``, plus the parameter overrides a
+    ``Project.simulate`` call applied on top of the configuration, the
+    digests of the input files the configuration names (``inputs``, from
+    :func:`input_file_digests`) and the HydroModPy version. A changed data
+    file or another release of the code is another computation.
+
+    The run name is not part of the hash: it lives in its own column, which a
+    rename and an index rebuild keep up to date. Overrides that do not
+    serialise to JSON get a random salt: such a run never matches another
+    one, which errs on the side of computing.
+    """
+    if not config:
+        return None
+    from hydromodpy.core.version import __version__
+
+    payload = json.loads(json.dumps(config, default=str))
+    for section, key in PER_RUN_CONFIG_KEYS:
+        block = payload.get(section)
+        if isinstance(block, dict):
+            block.pop(key, None)
+    simulation = payload.get("simulation")
+    if isinstance(simulation, dict):
+        simulation.pop("name", None)
+    if overrides:
+        try:
+            payload[_RUN_OVERRIDES_KEY] = json.loads(json.dumps(overrides, sort_keys=True))
+        except (TypeError, ValueError):
+            import uuid
+
+            payload[_RUN_OVERRIDES_KEY] = uuid.uuid4().hex
+    payload[_RUN_INPUTS_KEY] = dict(sorted((inputs or {}).items()))
+    payload[_RUN_VERSION_KEY] = __version__
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
+def input_file_digests(config: Any) -> dict[str, str]:
+    """Return ``{"<role>:<path as written>": sha256}`` for the inputs ``config`` names.
+
+    The files are the ``InputFile`` fields of the configuration
+    (:func:`hydromodpy.core.tracking.collect_input_files`), anchored on the
+    project root, and hashed the way ``tracked_files`` hashes them. A path
+    that does not exist hashes to ``"missing"``. A file that cannot be read,
+    or a configuration that cannot be walked, gets a random salt: the run
+    then matches no other run, which errs on the side of computing, and the
+    error never stops it.
+    """
+    import uuid
+
+    from hydromodpy.core.tracking import collect_input_files
+    from hydromodpy.results.catalog.writes_helpers import (
+        _sha256_directory,
+        _sha256_streaming,
+    )
+
+    root = getattr(getattr(config, "workspace", None), "project_root", None)
+    try:
+        entries = collect_input_files(config, base=root)
+    except Exception as exc:  # noqa: BLE001 - identity must never stop a run
+        logger.warning("Input files not hashed into the run identity: %s", exc)
+        return {"__unwalked__": uuid.uuid4().hex}
+    digests: dict[str, str] = {}
+    for entry in entries:
+        path = Path(entry.canonical_path)
+        try:
+            if path.is_file():
+                digest = _sha256_streaming(path)
+            elif path.is_dir():
+                digest = _sha256_directory(path)
+            else:
+                digest = "missing"
+        except OSError as exc:
+            logger.warning("Input file %s not hashed into the run identity: %s", path, exc)
+            digest = f"unreadable:{uuid.uuid4().hex}"
+        digests[f"{entry.role}:{entry.original_path}"] = digest
+    return digests
+
+
 _VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
 
 
 def split_stem_version(name: str) -> tuple[str, int | None]:
-    """Split ``cheze_baseline.v3`` into ``("cheze_baseline", 3)``.
+    """Split ``baseline.v3`` into ``("baseline", 3)``.
 
     A bare name returns ``(name, None)``.
     """
@@ -330,6 +428,7 @@ class RegistrationMixin:
         flow_regime: str | None = None,
         config: dict | None = None,
         config_snapshot: dict | None = None,
+        config_hash: str | None = None,
         n_cells: int | None = None,
         n_layers: int | None = None,
         n_timesteps: int | None = None,
@@ -356,6 +455,62 @@ class RegistrationMixin:
         outlet_x: float | None = None,
         outlet_y: float | None = None,
     ) -> RegistrationResult:
+        """Record a new run in the catalog, with status ``running``.
+
+        The first write of a run: a workflow calls it before the solver runs,
+        then writes the outputs, then :meth:`finalize`. It creates the row,
+        picks the final name and, when ``n_cells`` and ``n_layers`` are given,
+        the empty field store under ``runs/<name>/``. The keywords not listed
+        below (``flow_regime``, ``bbox``, ``crs``, ``period_start``,
+        ``period_end``, ``mesh_hash``, ``tags``, ``notes``, ``doi``, the
+        outlet...) are columns of the run row, stored as given.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the new run, a UUID.
+        project
+            Project the run belongs to.
+        solver
+            Solver code, for example ``"modflow6"``.
+        name
+            Run name. ``None`` gives a generated ``adjective_noun`` name.
+        if_exists
+            What happens when a run of the project already holds ``name``:
+            ``"version"`` (default) names the new run ``<name>.v2``,
+            ``.v3``...; ``"replace"`` trashes the old run, then versions the
+            new one; ``"fail"`` raises :class:`DuplicateSimulationNameError`.
+        config
+            The resolved configuration, stored with the run and hashed into
+            ``config_hash`` when no hash is given.
+        config_hash
+            Identity hash of the run (:func:`run_identity_hash`). Two runs with
+            the same hash computed the same thing; the name is not in it.
+        n_cells, n_layers
+            Grid size. Given together, they create the field store now.
+
+        Returns
+        -------
+        RegistrationResult
+            The id, the final name, the field store (or ``None``) and the id of
+            a run ``"replace"`` trashed.
+
+        Raises
+        ------
+        DuplicateSimulationNameError
+            With ``if_exists="fail"``, when the name is taken.
+        RunNameTooLongError
+            When the name cannot be a directory name.
+
+        Examples
+        --------
+        >>> import uuid  # doctest: +SKIP
+        >>> result = cat.register_simulation(
+        ...     str(uuid.uuid4()), project="my_project", solver="modflow6", name="baseline"
+        ... )  # doctest: +SKIP
+        >>> result.name  # doctest: +SKIP
+        'baseline'
+        """
         sid = str(sim_id)
         replaced_sid: str | None = None
         requested_name = name if name else _memorable_name(sid)
@@ -402,11 +557,8 @@ class RegistrationMixin:
                 config_json = json.dumps(config) if config else None
                 snapshot_source = config_snapshot if config_snapshot is not None else config
                 snapshot_json = json.dumps(snapshot_source) if snapshot_source is not None else None
-                config_hash = None
-                if config:
-                    config_hash = hashlib.sha256(
-                        json.dumps(config, sort_keys=True).encode()
-                    ).hexdigest()
+                if config_hash is None:
+                    config_hash = run_identity_hash(config)
 
                 bbox_xmin = bbox_ymin = bbox_xmax = bbox_ymax = None
                 if bbox is not None and len(bbox) == 4:

@@ -1,5 +1,7 @@
 """LAK ex-gwf-lak-p01 validation (Merritt & Konikow 2000, test 1).
 
+Compared with: the MODFLOW 6 example ex-gwf-lak-p01 (Merritt and Konikow 2000, test 1), built by its upstream scripts.
+
 End-to-end validation of HMP's home-grown DISV LAK build against the upstream
 MODFLOW 6 example. Both models share the SAME single surface-lake footprint on the
 same five-layer aquifer; the reference builds its LAK CONNECTIONDATA with the

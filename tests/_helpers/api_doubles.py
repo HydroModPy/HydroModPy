@@ -28,6 +28,7 @@ def make_capturing_project(
         def __init__(self, cfg: Any, *, headless: bool = True) -> None:
             captured["init_cfg"] = cfg
             captured["init_headless"] = headless
+            self.config = cfg
 
         def __enter__(self) -> CapturingProject:
             return self

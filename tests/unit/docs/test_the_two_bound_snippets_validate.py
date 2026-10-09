@@ -18,7 +18,7 @@ PAGE = (
     / "docs"
     / "source"
     / "guides"
-    / "calibrate-on-the-stream-network.md"
+    / "score-two-maps.md"
 )
 
 
@@ -37,12 +37,12 @@ def _first_toml_block_after(heading: str) -> dict:
 
 def _minimal_map_output() -> dict:
     """The ``[calibration.outputs.seepage_network]`` snippet with a minimal map."""
-    return _first_toml_block_after("### Declare the two maps")
+    return _first_toml_block_after("## 1. Declare the two maps")
 
 
 def _extent_table() -> dict:
     """The ``[calibration.outputs.seepage_network.extent]`` snippet."""
-    return _first_toml_block_after("### Declare the extent table")
+    return _first_toml_block_after("## 2. Declare the extent table")
 
 
 def test_the_minimal_map_snippet_names_the_two_files() -> None:

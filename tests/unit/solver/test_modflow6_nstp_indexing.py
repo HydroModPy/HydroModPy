@@ -180,7 +180,7 @@ def _run_transport(monkeypatch, tmp_path, name, ucn_data, outflow_drain, **kwarg
     (Path(flow_model.full_path) / "_postprocess").mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.UcnFile",
+        "hydromodpy.solver.modflow6.postprocess.pipeline._open_gwt_concentration",
         lambda path: _TwoSliceUcn(path, ucn_data),
     )
     monkeypatch.setattr(

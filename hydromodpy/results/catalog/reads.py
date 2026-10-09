@@ -139,6 +139,38 @@ class ReadsMixin:
         timestep: int,
         layer: int | None = None,
     ) -> np.ndarray:
+        """Read one stored period of a field as an array.
+
+        A field the run did not store but can rebuild (water-table depth,
+        seepage mask, drain outflow) is computed from the stored ones.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        variable
+            Field name, for example ``"head"``.
+        timestep
+            Index of the stored period, ``0`` for the first.
+        layer
+            Layer index of a three-dimensional field. ``None`` keeps every layer.
+
+        Returns
+        -------
+        numpy.ndarray
+            The values of that period, one per cell (and per layer).
+
+        Raises
+        ------
+        KeyError
+            If the run neither stores nor can rebuild ``variable``.
+
+        Examples
+        --------
+        >>> heads = cat.query_field(
+        ...     run.sim_id, "head", timestep=0, layer=0
+        ... )  # doctest: +SKIP
+        """
         from hydromodpy.results.derive.virtual_fields import read_field_or_virtual
 
         return read_field_or_virtual(self, str(sim_id), variable, timestep, layer=layer)
@@ -150,6 +182,36 @@ class ReadsMixin:
         variable: str,
         period: tuple | None = None,
     ) -> pd.Series:
+        """Read one series of a run at one station.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        station_id
+            Station the series belongs to, for example ``"outlet"``.
+        variable
+            Series name, for example ``"discharge"``.
+        period
+            ``(start, end)`` dates, both included, or a year as text
+            (``"2002"``). ``None`` reads the whole series.
+
+        Returns
+        -------
+        pandas.Series
+            Values indexed by time (naive UTC timestamps), named ``variable``.
+
+        Raises
+        ------
+        KeyError
+            If the run holds no such series.
+
+        Examples
+        --------
+        >>> q = cat.query_timeseries(
+        ...     run.sim_id, "outlet", "discharge", period="2002"
+        ... )  # doctest: +SKIP
+        """
         from hydromodpy.results.derive.time_alignment import normalize_period_bounds
 
         query = (
@@ -182,6 +244,23 @@ class ReadsMixin:
         zone_id: str | None = None,
         period: tuple[int, int] | None = None,
     ) -> pd.DataFrame:
+        """Return the water budget rows of a run.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        zone_id
+            Keep only this budget zone. ``None`` keeps every zone.
+        period
+            ``(first, last)`` timestep indexes, both included.
+
+        Returns
+        -------
+        pandas.DataFrame
+            One row per term, zone and timestep, as stored in the ``budgets``
+            table.
+        """
         query = "SELECT * FROM budgets WHERE sim_id = ?"
         params: list = [str(sim_id)]
         if zone_id is not None:
@@ -193,6 +272,7 @@ class ReadsMixin:
         return self._backend.query(query, params)
 
     def query_mass_balance(self, sim_id: str | UUID) -> pd.DataFrame:
+        """Return the mass-balance rows of a run, one per timestep, in time order."""
         return self._backend.query(
             "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
             [str(sim_id)],
@@ -203,6 +283,24 @@ class ReadsMixin:
         sim_id: str | UUID,
         variable: str | None = None,
     ) -> pd.DataFrame:
+        """Return where the input data of a run came from.
+
+        One row per input variable: the source type (an HTTP API, a user file,
+        a data manager, a derived product or the cache), the source reference,
+        the SHA-256 digests and the loader that read it.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        variable
+            Keep only this input variable, for example ``"dem"``.
+
+        Returns
+        -------
+        pandas.DataFrame
+            The rows of the ``provenance`` table for that run.
+        """
         query = "SELECT * FROM provenance WHERE sim_id = ?"
         params: list = [str(sim_id)]
         if variable is not None:
@@ -241,6 +339,15 @@ class ReadsMixin:
         return self._backend.query(query, params)
 
     def list_tracked_files(self, sim_id: str | UUID) -> pd.DataFrame:
+        """Return the files a run recorded with their digest.
+
+        Returns
+        -------
+        pandas.DataFrame
+            One row per file: ``role``, ``category``, ``original_path``,
+            ``canonical_path``, ``sha256``, ``size_bytes`` and ``portable``
+            (whether the file travels with an exported package).
+        """
         return self._backend.query(
             """SELECT role, category, original_path, canonical_path,
                       sha256, size_bytes, portable
@@ -289,6 +396,10 @@ class ReadsMixin:
         return {str(r[0]) for r in rows}
 
     def list_geographic_features(self, sim_id: str | UUID) -> list[str]:
+        """Return the names of the vector layers a run stored, in name order.
+
+        Each name reads back with :meth:`read_geographic_feature`.
+        """
         rows = self._backend.fetch_all(
             "SELECT feature_name FROM geographic_features WHERE sim_id = ? ORDER BY feature_name",
             [str(sim_id)],
@@ -296,6 +407,16 @@ class ReadsMixin:
         return [r[0] for r in rows]
 
     def read_geographic_metadata(self, sim_id: str | UUID) -> dict[str, str]:
+        """Return the catchment metadata of a run as a ``key -> value`` map.
+
+        What the run recorded about its catchment and grid: ``epsg``,
+        ``catch_area``, ``dem_res``, the outlet (``x_outlet``, ``y_outlet``
+        and their snapped values), ``nrow``, ``ncol``. Every value is text.
+
+        Examples
+        --------
+        >>> float(cat.read_geographic_metadata(run.sim_id)["catch_area"])  # doctest: +SKIP
+        """
         rows = self._backend.fetch_all(
             "SELECT key, value FROM geographic_metadata WHERE sim_id = ?",
             [str(sim_id)],
@@ -304,6 +425,10 @@ class ReadsMixin:
 
     @property
     def simulations(self) -> pd.DataFrame:
+        """Every run of the catalog, newest first, as a DataFrame.
+
+        The same columns as :meth:`list_simulations`, without a filter.
+        """
         return self._backend.query(f"{_SIMULATIONS_VIEW_SELECT} ORDER BY s.created_at DESC")
 
     @property

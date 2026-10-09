@@ -193,62 +193,62 @@ y_outlet = 6861154.300
 [testbed.case.overlay.display]
 output_dir = "outputs/nwt_small_catchment_flux/site_08_workspace/figures"
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "duration_s"
 source = "flow_metrics.duration_s"
 required = false
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "n_cells"
 source = "flow_metrics.n_cells"
 required = false
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "n_timesteps"
 source = "flow_metrics.n_timesteps"
 required = false
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "K_m_s"
 source = "flow_metrics.param_K"
 required = false
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "Sy"
 source = "flow_metrics.param_Sy"
 required = false
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "max_abs_balance_error_percent"
 source = "flow_metrics.max_abs_mass_balance_percent_error"
 required = false
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "head_range_m"
 source = "flow_metrics.head_range_m"
 required = false
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "watertable_depth_mean_last_m"
 source = "flow_metrics.watertable_depth_mean"
 required = false
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "drain_outflow_last_positive_sum_m3_s"
 source = "flow_metrics.outflow_drain_positive_sum"
 required = false
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "accumulation_flux_last_positive_sum"
 source = "flow_metrics.accumulation_flux_positive_sum"
 required = false
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "budget_recharge_total_in_m3_s"
 source = "flow_metrics.budget_recharge_total_in"
 required = false
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "budget_drains_total_out_m3_s"
 source = "flow_metrics.budget_drains_total_out"
 required = false

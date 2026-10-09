@@ -1,8 +1,10 @@
 """Output adapter for MODFLOW 6 GWT transport results.
 
-The concentration binary format (``.ucn``) is identical to what MT3DMS
-produces, so this adapter derives from ``Mt3dmsExtractorBase`` for the
-concentration fields and adds the GWT solute mass balance on top.
+The concentration fields are stored as ``Mt3dmsExtractorBase`` stores them.
+The file itself is the MODFLOW 6 head layout in double precision, not the
+MT3DMS one: read as MT3DMS, its header gives a grid of 538 976 334 columns
+(the text ``N   `` taken as an integer). The adapter adds the GWT solute
+mass balance on top.
 """
 
 from __future__ import annotations
@@ -36,6 +38,12 @@ class Modflow6GwtOutputAdapter(Mt3dmsExtractorBase):
         """Read concentration fields, then persist the GWT solute mass balance."""
         super().extract(sim_id, solver_output_dir, store, model_name=model_name)
         self._extract_solute_mass_balance(sim_id, solver_output_dir, store)
+
+    def _open_concentration_file(self, ucn_path: Path) -> Any:
+        """Open the GWT concentration file in the MODFLOW 6 double layout."""
+        import flopy.utils.binaryfile as bf
+
+        return bf.HeadFile(str(ucn_path), text="CONCENTRATION", precision="double")
 
     @staticmethod
     def _extract_solute_mass_balance(sim_id: str, solver_output_dir: Path, store: Any) -> None:

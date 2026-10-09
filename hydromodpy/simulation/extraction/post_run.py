@@ -280,8 +280,16 @@ def derive_run_outputs(
     sim_id: str,
     results_config: ResultsConfig,
     store: Any,
+    forced_flags: Sequence[str] = (),
 ) -> None:
-    """Compute solver-adapter derived outputs and catchment aggregates."""
+    """Compute solver-adapter derived outputs and catchment aggregates.
+
+    ``forced_flags`` are the dotted ``[simulation.results]`` paths the
+    planning turned on for a requested figure. Such a derived field is
+    computed when the run can build it; otherwise it is left out with a log
+    line and the figure is skipped with the reason, instead of the run
+    stopping on a field the user never asked for.
+    """
     if not ctx.run.is_solver_backed:
         return
     if not results_config.persistence.save_catalog:
@@ -304,7 +312,13 @@ def derive_run_outputs(
     finally:
         sim_zarr.close()
 
+    from hydromodpy.simulation.extraction.derivation.derived import FIGURE_REQUEST
+
     derived_flags = results_config.derived.model_dump()
+    for path in forced_flags:
+        section, _, flag = str(path).partition(".")
+        if section == "derived" and derived_flags.get(flag) is True:
+            derived_flags[flag] = FIGURE_REQUEST
     extractor.derive(sim_id, store, derived_flags)
 
     # Phase 3: aggregate catchment timeseries from spatial fields

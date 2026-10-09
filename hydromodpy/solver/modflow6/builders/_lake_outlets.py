@@ -13,6 +13,11 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.physics.flow.sinks_sources.lake import (
+    LAKE_FORCING_SIGN_CONVENTION,
+    lake_forcing_sign_refusal,
+)
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 from hydromodpy.solver.modflow6.builders._lake_definitions import _lake_attr, _scalar
 from hydromodpy.solver.modflow6.builders.period_forcing import (
@@ -329,6 +334,7 @@ def _emit_forcing_rows(
     use_ts6 = resolve_use_ts6(forcing, mode=mode, nper=nper, min_periods=min_periods)
     if value is not None and not use_ts6:
         si_value = float(forcing_to_si(value, forcing, location, volumetric))
+        _refuse_negative_lake_forcing(keyword, location, (si_value,))
         steady = _steady_period_flags(model)
         if keyword in _MANAGED_FORCINGS and steady and steady[0]:
             # Constant managed transfer: hold it at zero through the steady spin-up,
@@ -359,6 +365,7 @@ def _emit_forcing_rows(
         float(forcing_to_si(raw, forcing, f"{location}[{idx}]", volumetric, explicit_unit=unit))
         for idx, raw in enumerate(per_period)
     )
+    _refuse_negative_lake_forcing(keyword, location, per_period_si)
     per_period_si = _neutralize_managed_on_steady(model, keyword, per_period_si)
 
     if use_ts6:
@@ -383,6 +390,25 @@ def _emit_forcing_rows(
         if previous is None or si_value != previous:
             period_rows.setdefault(kper, []).append([int(lake_index), keyword, si_value])
             previous = si_value
+
+
+def _refuse_negative_lake_forcing(
+    keyword: str, location: str, per_period_si: tuple[float, ...]
+) -> None:
+    """Refuse a negative lake forcing before MODFLOW 6 stops on it.
+
+    The config check sees the values written in the file. This one also sees
+    the values read from a CSV or a data family.
+    """
+    if keyword not in LAKE_FORCING_SIGN_CONVENTION:
+        return
+    for kper, value in enumerate(per_period_si):
+        if value < 0.0:
+            raise SolverInputError(
+                lake_forcing_sign_refusal(
+                    keyword, value, where=f"{location}, period {kper + 1}, in SI units"
+                )
+            )
 
 
 def _ts6_series_name(lake_index: int, keyword: str) -> str:

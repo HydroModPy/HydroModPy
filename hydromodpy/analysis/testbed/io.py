@@ -11,9 +11,6 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.toml_io import is_declared_absolute_path
-
-PATH_KEY_HINTS = ("path", "root", "dir", "folder", "file", "mask")
 TomlDescriptionProvider = Callable[[tuple[str, ...]], str | None]
 
 
@@ -66,37 +63,6 @@ def _append_toml_description(
         return
     for line in textwrap.wrap(str(description), width=96):
         lines.append(f"# {line}")
-
-
-def _looks_like_path_key(key: str) -> bool:
-    token = str(key).strip().strip("'\"").split(".")[-1].lower()
-    if token in {"anchors_file", "base_config", "base_simulation_config"}:
-        return True
-    return any(hint in token for hint in PATH_KEY_HINTS)
-
-
-def _absolutize_relative_path_values(value: Any, *, source_dir: Path, key: str = "") -> Any:
-    if isinstance(value, Mapping):
-        return {
-            str(child_key): _absolutize_relative_path_values(
-                child_value,
-                source_dir=source_dir,
-                key=str(child_key),
-            )
-            for child_key, child_value in value.items()
-        }
-    if isinstance(value, list):
-        return [
-            _absolutize_relative_path_values(item, source_dir=source_dir, key=key) for item in value
-        ]
-    if not isinstance(value, str) or not _looks_like_path_key(key):
-        return value
-    if value.strip() in ("", "~") or "://" in value:
-        return value
-    declared_path = Path(value).expanduser()
-    if is_declared_absolute_path(declared_path):
-        return declared_path.as_posix()
-    return (source_dir / declared_path).resolve().as_posix()
 
 
 def _render_toml_mapping(

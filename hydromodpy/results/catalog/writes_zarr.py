@@ -39,6 +39,27 @@ class WritesMixinZarr:
         crs: str,
         nodata: float = -99999.0,
     ) -> None:
+        """Store a raster of a run under ``geographic/<name>`` in its field store.
+
+        The catchment rasters (the clipped DEM, the watershed mask) are kept
+        this way, so a run carries the frame it was computed on.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        name
+            Raster name, for example ``"watershed_dem"``.
+        data
+            The 2D grid of values.
+        transform
+            Affine coefficients that place the grid, as the raster file gives
+            them.
+        crs
+            CRS of the grid, as text (WKT or ``"EPSG:2154"``).
+        nodata
+            Value that marks a cell without data.
+        """
         if not self._persistence.save_zarr:
             return
         sz = self.open_zarr(sim_id)
@@ -48,6 +69,27 @@ class WritesMixinZarr:
             sz.close()
 
     def write_lake_abacus(self, sim_id: str | UUID, lake_id: str, **arrays) -> None:
+        """Store the stage-volume-area curves of one lake of a run.
+
+        The reference curves of the bathymetry next to the ones the solver
+        used, all sampled on one stage axis, under ``lake_abacus/<lake_id>``.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        lake_id
+            Lake the curves belong to.
+        **arrays
+            ``stage``, ``real_volume``, ``real_sarea``, ``sim_volume`` and
+            ``sim_sarea``, all of one length; optional ``stage_unit``,
+            ``volume_unit`` and ``area_unit``.
+
+        Raises
+        ------
+        ValueError
+            If the arrays differ in length.
+        """
         if not self._persistence.save_zarr:
             return
         sz = self.open_zarr(sim_id)
@@ -66,6 +108,29 @@ class WritesMixinZarr:
         n_timesteps: int | None = None,
         subgroup: str | None = None,
     ) -> None:
+        """Store one period of a field of a run.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        variable
+            Field name, for example ``"head"``.
+        timestep
+            Index of the period, ``0`` for the first.
+        values
+            One value per cell (and per layer).
+        n_timesteps
+            Number of periods of the field. Required on the first write of
+            ``variable``, which sizes the array.
+        subgroup
+            Group of the store to write under. ``None`` writes at the root.
+
+        Notes
+        -----
+        To write every period at once, :meth:`write_field_stack` is faster.
+        Nothing is written when the run keeps no field store.
+        """
         if not self._persistence.save_zarr:
             return
         sz = self.open_zarr(sim_id)
@@ -84,6 +149,26 @@ class WritesMixinZarr:
         timestep_offset: int = 0,
         subgroup: str | None = None,
     ) -> None:
+        """Store many periods of a field of a run in one write.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        variable
+            Field name, for example ``"head"``.
+        values
+            Array whose first axis is time: ``(periods, cells)`` or
+            ``(periods, layers, cells)``.
+        n_timesteps
+            Total number of periods of the field. Defaults to
+            ``timestep_offset`` plus the length of ``values``.
+        timestep_offset
+            Period index of ``values[0]``. With ``n_timesteps``, it writes a
+            long field slab by slab without holding it whole in memory.
+        subgroup
+            Group of the store to write under. ``None`` writes at the root.
+        """
         if not self._persistence.save_zarr:
             return
         sz = self.open_zarr(sim_id)
@@ -107,6 +192,23 @@ class WritesMixinZarr:
         calendar: str = "proleptic_gregorian",
         units: str = "seconds since 1970-01-01T00:00:00",
     ) -> None:
+        """Store the time axis of the fields of a run (CF convention).
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        values
+            One time per stored period, counted in ``units`` from the epoch.
+        epoch, calendar, units
+            CF description of the axis. Only the 1970-01-01 epoch is
+            accepted.
+
+        Raises
+        ------
+        ValueError
+            If ``epoch`` or ``units`` names another epoch.
+        """
         if not self._persistence.save_zarr:
             return
         sz = self.open_zarr(sim_id)
@@ -125,6 +227,20 @@ class WritesMixinZarr:
         semi_major_axis: float | None = None,
         inverse_flattening: float | None = None,
     ) -> None:
+        """Store the CRS of the fields of a run (CF grid mapping).
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        crs_wkt
+            The CRS as WKT.
+        grid_mapping_name
+            CF name of the projection, for example
+            ``"lambert_conformal_conic"``.
+        epsg_code, semi_major_axis, inverse_flattening
+            Optional CF attributes, stored when given.
+        """
         if not self._persistence.save_zarr:
             return
         sz = self.open_zarr(sim_id)
@@ -148,6 +264,27 @@ class WritesMixinZarr:
         layer_indices: np.ndarray | None = None,
         source_cell_indices: np.ndarray | None = None,
     ) -> None:
+        """Store the mesh of a run (UGRID 1.0) in its field store.
+
+        Every field of the run is laid out on these faces, so a reader can map
+        it without the solver files.
+
+        Parameters
+        ----------
+        sim_id
+            Id of the run.
+        vertices
+            Coordinates of the mesh nodes, one row per node (x, y and
+            optionally z).
+        face_node_connectivity
+            ``(n_faces, max_nodes)`` node indexes of each face.
+        z_interfaces
+            Elevations of the layer interfaces of one reference cell.
+        layer_indices
+            Layer of each face, when faces span several layers.
+        source_cell_indices
+            Index of each face in the solver grid.
+        """
         if not self._persistence.save_zarr:
             return
         sz = self.open_zarr(sim_id)

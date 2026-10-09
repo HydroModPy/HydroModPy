@@ -26,9 +26,9 @@ def test_overview_web_report_uses_canonical_blocks(tmp_path: Path) -> None:
 
     html = output.read_text(encoding="utf-8")
     assert output == tmp_path / "web" / "index.html"
-    assert "Localisation" in html
-    assert "Inventaire des donnees" in html
-    assert "Recharge et pompages" in html
+    assert "Location" in html
+    assert "Data inventory" in html
+    assert "Recharge and pumping" in html
     assert "map_dem.png" in html
     assert "report-level" not in html
     assert "workflow_header" not in html
@@ -65,7 +65,7 @@ def test_overview_has_explicit_hydrographic_network_block(tmp_path: Path) -> Non
     blocks = build_overview_blocks(state, figure_paths=[figure])
     by_id = {block.block_id: block for block in blocks}
 
-    assert by_id["hydrographic_network"].title == "Reseau hydrographique"
+    assert by_id["hydrographic_network"].title == "Hydrographic network"
     assert by_id["hydrographic_network"].figures[0].figure_id == "map_hydrography"
 
 
@@ -80,7 +80,7 @@ def test_overview_review_pages_write_three_levels(tmp_path: Path) -> None:
     ]
     for level, path in zip(("compact", "standard", "audit"), paths, strict=True):
         html = path.read_text(encoding="utf-8")
-        assert f"niveau {level}" in html
+        assert f"{level} level" in html
         assert "report-level" in html
 
 

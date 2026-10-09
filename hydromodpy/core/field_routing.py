@@ -129,18 +129,28 @@ def drain_budget_stack_to_positive_outflow(
 # solver.modflow_common.budget_components.canonical_budget_component).
 DRN_TO_MVR_KEYS = ("drain_to_mover",)
 
+#: Budget component holding the constant-head flux of the cells that carry the
+#: stream role, and only those. MODFLOW 6 places the ocean, the stream and the
+#: lateral boundaries in one CHD package, so the ``constant_head`` component
+#: alone cannot tell a stream from a model edge. The extractor writes this one
+#: from the role sidecar the build left beside the deck
+#: (``solver.modflow_common.boundary_roles``), the same mask the calibration
+#: criterion reads.
+STREAM_CONSTANT_HEAD_BUDGET = "constant_head_stream"
+
 #: Persisted budget components that carry groundwater OUT of the aquifer to the
 #: surface, beside the drain, each with the sign a value takes when it LEAVES.
 #:
 #: The two conventions really do meet here. MODFLOW signs a budget from the
-#: aquifer's point of view, so ``stream`` (SFR) and ``lake`` (LAK) are negative
-#: when the aquifer loses water. The Boussinesq ``surface_excess`` is already an
-#: outflow and is positive. Reading them all with one clamp silently dropped
-#: whichever half had the other sign, which is how a run with its streams in SFR
-#: reported the drain alone.
+#: aquifer's point of view, so ``stream`` (SFR), ``lake`` (LAK) and the
+#: stream-role constant head are negative when the aquifer loses water. The
+#: Boussinesq ``surface_excess`` is already an outflow and is positive. Reading
+#: them all with one clamp silently dropped whichever half had the other sign,
+#: which is how a run with its streams in SFR reported the drain alone.
 SURFACE_RELEASE_BUDGETS: dict[str, float] = {
     "stream": -1.0,
     "lake": -1.0,
+    STREAM_CONSTANT_HEAD_BUDGET: -1.0,
     "surface_excess": 1.0,
 }
 
@@ -214,17 +224,15 @@ def release_flux_stack(budget: Any, *, n_cells: int, start: int, stop: int) -> n
     ``release_flux`` holding the drain alone reported dry land over 63 per cent
     of the outgoing water, exactly where a stream-network criterion aims.
 
-    This union is not the calibration criterion's, and it differs in both
-    directions. Summed here: the drain and DRN-TO-MVR, plus ``stream`` (SFR),
-    ``lake`` (LAK) and the Boussinesq ``surface_excess``. Read off the binary
-    budget by the calibration extractor: DRN, DRN-TO-MVR, SFR and a CHD
-    restricted to its stream-role cells. So a lake enters this field and never
-    the criterion, and a stream-role constant head enters the criterion and
-    never this field. A persisted ``constant_head`` component carries no role,
-    so adding it here would count every constant head the run declares, an
-    ocean or a lateral boundary included, as groundwater released to the
-    surface. Scoring this field against a mapped network therefore measures a
-    neighbouring quantity, not the one the criterion balanced.
+    This union is the one the calibration criterion reads off the binary
+    budget (``solver.modflow_common.observable_extraction.release_packages_for_model``):
+    the drain and DRN-TO-MVR, ``stream`` (SFR), ``lake`` (LAK) and the
+    constant head of the stream-role cells (``constant_head_stream``), plus the
+    Boussinesq ``surface_excess``, the only path out of that solver. The plain
+    ``constant_head`` component carries no role, so it stays out: it would
+    count an ocean or a lateral boundary as groundwater released to the
+    surface. A run stored before ``constant_head_stream`` existed lacks its
+    stream-role constant head here, and only that.
 
     Every step is computed on its own rows only, so a slice of the result is
     the result over that slice. The stack is non-negative and finite, in the
@@ -582,6 +590,7 @@ __all__ = [
     "DRN_TO_MVR_KEYS",
     "DownhillGraph",
     "RELEASE_BUDGET_KEYS",
+    "STREAM_CONSTANT_HEAD_BUDGET",
     "SURFACE_RELEASE_BUDGETS",
     "accumulate_on_downhill_graph",
     "active_surface_mask",

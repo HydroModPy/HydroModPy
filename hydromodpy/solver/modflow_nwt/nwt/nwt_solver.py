@@ -408,6 +408,7 @@ class ModflowNwt:
             nper=int(self.nper),
             grid=None if self.grid_ctx is None else self.grid_ctx.grid,
             simulation_window=None if self.time_grid is None else self.time_grid.window,
+            steady=getattr(self, "steady", None),
             sink_fill=bool(self.sink_fill),
             sink=self.sink,
             drain_band_depth_m=float(self.drain_band_depth_m),

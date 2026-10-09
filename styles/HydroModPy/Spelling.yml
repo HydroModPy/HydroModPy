@@ -1,0 +1,30 @@
+extends: substitution
+message: "Use the British spelling '%s' (the site uses one variant), not '%s'."
+level: error
+ignorecase: true
+swap:
+  color: colour
+  colors: colours
+  colored: coloured
+  coloring: colouring
+  behavior: behaviour
+  behaviors: behaviours
+  neighbor: neighbour
+  neighbors: neighbours
+  neighboring: neighbouring
+  center: centre
+  centers: centres
+  centered: centred
+  meter: metre
+  meters: metres
+  gray: grey
+  labeled: labelled
+  labeling: labelling
+  modeled: modelled
+  modeling: modelling
+  traveled: travelled
+  canceled: cancelled
+  analyze: analyse
+  analyzed: analysed
+  analyzes: analyses
+  analyzing: analysing

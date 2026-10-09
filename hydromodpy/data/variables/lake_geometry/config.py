@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import IdentifierStr
 from hydromodpy.core.tracking import InputFile
 
 
@@ -36,7 +36,7 @@ class CustomLakeGeometrySource(HydroModelBase):
     default_crs: Annotated[str, Profile.USER] = Field(
         default="EPSG:2154",
         description=(
-            "Fallback CRS used only when the file carries none of its own. Defaults to "
+            "CRS assumed for a file that carries none of its own. Defaults to "
             "RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset."
         ),
     )
@@ -52,14 +52,17 @@ class LakeGeometryConfig(HydroModelBase):
         path = "data/lake_geometry/lake_geometry_custom_lac0.gpkg"
     """
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "id": (
+            "no step read the name of the lake-geometry field. Each lake is named by the "
+            "lake_id of its table under flow.sinks_sources.lakes."
+        ),
+    }
+
     sources: Annotated[list[CustomLakeGeometrySource], Profile.USER] = Field(
         ...,
         min_length=1,
         description="At least one lake-geometry data source.",
-    )
-    id: Annotated[IdentifierStr, Profile.USER] = Field(
-        default="lake_geometry",
-        description="Identifier of the lake-geometry spatial field.",
     )
 
     @classmethod

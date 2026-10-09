@@ -39,8 +39,7 @@ Important limitation:
 - the analytical target is an interception-position approximation inherited
   from the no-drain profile, not a full free-boundary seepage-face solution;
 - the PETSc VI obstacle result is numerically clean but shifts the interception
-  position relative to that no-drain diagnostic; see
-  `docs/developers/boussinesq_petsc_vi_hillslope_interception_analysis.md`;
+  position relative to that no-drain diagnostic;
 - dry-zone profile metrics are reported for diagnosis, but the asserted
   benchmark remains the emergence position itself.
 

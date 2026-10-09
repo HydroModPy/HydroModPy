@@ -32,6 +32,10 @@ Run manually:
 python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case
 ```
 
+Reference used by the documentation:
+
+- reference: Theis well function at late time with `T = K * href` and `S = Sy`, early delayed-yield effects left out
+
 ## Equations
 
 The equations of the reference solution the comparison uses.

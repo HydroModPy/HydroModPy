@@ -1,5 +1,7 @@
 """MMS benchmark: 1D diffusion transient with ``exp(-pi^2 D t) sin(pi x)``.
 
+Compared with: the manufactured solution `h(x, t) = exp(-pi^2 D t) sin(pi x)` and the expected orders: 2 in space, 1 in time for backward Euler.
+
 Governing PDE on ``[0, 1]`` with Dirichlet 0/0 and initial condition
 ``h(x, 0) = sin(pi x)``::
 
@@ -38,7 +40,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from .conftest import l2_error, run_mms_convergence
+from .conftest import assert_order, l2_error, run_mms_convergence
 
 D = 1.0  # diffusion coefficient (unit strength keeps numbers O(1))
 T_FINAL = 0.1  # final time - several e-folding times for D = 1
@@ -126,10 +128,7 @@ def test_mms_diffusion_transient_space_converges_at_order_two() -> None:
     assert np.all(np.diff(errors) < 0.0), (
         f"Spatial MMS errors should decrease, got {errors.tolist()}"
     )
-    assert abs(result.order - 2.0) < 0.2, (
-        f"Expected second-order spatial convergence, observed slope {result.order:.3f} "
-        f"(errors={errors.tolist()})"
-    )
+    assert_order(result, 2.0, 0.2, "grid spacing dx")
 
 
 @pytest.mark.validation
@@ -145,7 +144,4 @@ def test_mms_diffusion_transient_time_converges_at_order_one() -> None:
     assert np.all(np.diff(errors) < 0.0), (
         f"Temporal MMS errors should decrease, got {errors.tolist()}"
     )
-    assert abs(result.order - 1.0) < 0.2, (
-        f"Expected first-order temporal convergence (backward Euler), "
-        f"observed slope {result.order:.3f} (errors={errors.tolist()})"
-    )
+    assert_order(result, 1.0, 0.2, "time step dt")

@@ -53,8 +53,8 @@ def test_run_site_selection_workflow_plan_mode_writes_manifest(tmp_path):
     assert summary["site_selection_report_html"]
     assert (tmp_path / "out" / "review" / "index.html").is_file()
     html = (tmp_path / "out" / "review" / "index.html").read_text(encoding="utf-8")
-    assert "Rapport HTML de plan" in html
-    assert "Aucun site n'est retenu ou rejete" in html
+    assert "site selection plan" in html
+    assert "No site is selected or rejected" in html
 
 
 @pytest.mark.fast

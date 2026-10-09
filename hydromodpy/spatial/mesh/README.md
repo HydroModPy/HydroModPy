@@ -35,9 +35,9 @@ definit :
 
 ## Structure Du Package
 
-- [hydro_mesh.py](./hydro_mesh.py)
+- [model/hydro_mesh.py](./model/hydro_mesh.py)
   Contrat principal : `HydroMesh` et `CellBlock`.
-- [cell_types.py](./cell_types.py)
+- [model/cell_types.py](./model/cell_types.py)
   Enumeration canonique des types de cellules.
 - [plotting.py](./plotting.py)
   Affichage Matplotlib unifie pour maillages 2D.

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.units import convert_payload_to_m, normalize_length_unit
 from hydromodpy.physics.flow.boundary_condition_registry import (
     active_side_dirichlet_boundary_ids,
@@ -324,6 +325,78 @@ def merge_chd_payloads(
     return merged
 
 
+_MAX_CELLS_NAMED = 5
+
+
+def refuse_constant_heads_below_bottom(
+    adapter: FlowToModflowAdapter,
+    *,
+    ibound: np.ndarray,
+    strt: np.ndarray,
+    chd_spd: Mapping[int, list[list[float]]] | None,
+) -> None:
+    """Refuse a constant head below the bottom of its cell.
+
+    MODFLOW-NWT does not stop on such a head. The cell keeps a head below its
+    bottom and holds no saturated thickness, so the boundary does not act in
+    that layer as written, and the budget of the run drifts. Two kinds of cell
+    are checked: the static ones (``ibound = -1``, head in ``strt``) and the
+    rows of the CHD package (start and end head of each period).
+
+    Raises
+    ------
+    SolverInputError
+        One line per boundary with the cells, their bottom and the head.
+    """
+    botm = np.asarray(adapter.solver_mesh.botm, dtype=float).reshape(
+        (int(adapter.nlay), int(adapter.nrow), int(adapter.ncol))
+    )
+    owner: dict[tuple[int, int, int], str] = {}
+    for bc_id in active_side_dirichlet_boundary_ids(adapter.flow):
+        if adapter._boundary_conditions.get(bc_id) is None:
+            continue
+        for cell in iter_side_boundary_cells(adapter, bc_id):
+            owner[cell] = bc_id
+    # (owner, layer, row, col) -> (period, head, bottom) of the first period below.
+    below: dict[tuple[str, int, int, int], tuple[int, float, float]] = {}
+
+    def _check(lay: int, row: int, col: int, head: float, kper: int) -> None:
+        bottom = float(botm[lay, row, col])
+        label = owner.get((lay, row, col), "ocean")
+        key = (label, lay, row, col)
+        if head < bottom and key not in below:
+            below[key] = (kper, head, bottom)
+
+    for lay, row, col in zip(*np.nonzero(np.asarray(ibound) < 0), strict=True):
+        _check(int(lay), int(row), int(col), float(strt[lay, row, col]), 0)
+    for kper in sorted((chd_spd or {}).keys()):
+        for record in chd_spd[kper]:
+            lay, row, col = int(record[0]), int(record[1]), int(record[2])
+            _check(lay, row, col, min(float(record[3]), float(record[4])), int(kper))
+    if not below:
+        return
+
+    lines: list[str] = []
+    for label in sorted({key[0] for key in below}):
+        cells = sorted((key, value) for key, value in below.items() if key[0] == label)
+        named = ", ".join(
+            f"layer {lay + 1} row {row + 1} column {col + 1} "
+            f"(head {head:.2f} m, bottom {bottom:.2f} m, period {kper + 1})"
+            for (_, lay, row, col), (kper, head, bottom) in cells[:_MAX_CELLS_NAMED]
+        )
+        more = len(cells) - _MAX_CELLS_NAMED
+        tail = f", and {more} more" if more > 0 else ""
+        lines.append(f"flow.bc.{label}: {len(cells)} cell(s): {named}{tail}.")
+    raise SolverInputError(
+        "A constant head is below the bottom of its cell. MODFLOW-NWT runs on, but "
+        "the cell holds no saturated thickness, so the boundary does not act there "
+        "as written. "
+        + " ".join(lines)
+        + " Raise the head above the bottom of the aquifer there, give the boundary "
+        "a deeper aquifer (domain.depth_model), or remove it from flow.active_bc."
+    )
+
+
 def validate_ibound_strt_contract(
     *,
     nlay: int,
@@ -368,6 +441,7 @@ __all__ = [
     "iter_side_boundary_cells",
     "merge_chd_payloads",
     "normalize_boundary_series",
+    "refuse_constant_heads_below_bottom",
     "resolve_side_boundary_series",
     "side_boundary_is_static",
     "validate_ibound_strt_contract",

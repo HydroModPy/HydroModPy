@@ -15,7 +15,12 @@ HELP: str = "Run a Python prototype script outside the stable hmp run contract"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        epilog="Example:\n  hmp dev run-script prototype.py",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("script", type=Path, help="Path to a Python script")
     parser.add_argument(
         "script_args",

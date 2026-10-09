@@ -43,7 +43,7 @@ def test_modflow6_transport_post_processing_exports_native_unstructured_mesh_out
         return path_obj
 
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.UcnFile",
+        "hydromodpy.solver.modflow6.postprocess.pipeline._open_gwt_concentration",
         _DummyUcnFileUnstructured,
     )
     monkeypatch.setattr(
@@ -108,7 +108,7 @@ def test_modflow6_transport_post_processing_accumulates_unstructured_mass(
     save_dir.mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(
-        "hydromodpy.solver.modflow6.postprocess.pipeline.bf.UcnFile",
+        "hydromodpy.solver.modflow6.postprocess.pipeline._open_gwt_concentration",
         _DummyUcnFileUnstructured,
     )
     monkeypatch.setattr(

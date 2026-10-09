@@ -185,7 +185,7 @@ DOMAIN_BUILD = CapabilityDecl(
         FileNotFoundError,
         DataContractViolation,
     ),
-    env=("HMP_NO_PROGRESS", "HMP_LOG_LEVEL"),
+    env=("HMP_NO_PROGRESS", "HMP_VERBOSITY"),
     # Empty, and measured rather than assumed: the rasters are written straight
     # into ``outputs/`` and the vector is read in place, so nothing needs a
     # scratch root. The test that runs the capability with a controlled TMPDIR

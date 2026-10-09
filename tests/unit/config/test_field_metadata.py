@@ -86,3 +86,39 @@ def test_no_field_description_names_a_dead_results_folder() -> None:
     ]
 
     assert not offenders, "Dead 'results_stable/' path in: " + ", ".join(offenders)
+
+
+@pytest.mark.parametrize(
+    ("model_path", "field", "old_paths"),
+    [
+        (
+            "calibration.config:CalibrationConfig",
+            "method_options",
+            ["calibration.optimizer_kwargs"],
+        ),
+        (
+            "calibration.config:CalibPhaseDecl",
+            "method_options",
+            ["calibration.phases.optimizer_kwargs"],
+        ),
+        (
+            "calibration.config:MatchingHydrographicNetworkOptions",
+            "steady_method_options",
+            ["calibration.protocol.steady_engine_options"],
+        ),
+        (
+            "calibration.config:MatchingHydrographicNetworkOptions",
+            "transient_method_options",
+            ["calibration.protocol.transient_engine_options"],
+        ),
+        ("config.hydromodpy_config:HydroModPyConfig", "export", ["export.geotiff"]),
+    ],
+)
+def test_a_renamed_field_names_the_paths_it_replaces(
+    model_path: str, field: str, old_paths: list[str]
+) -> None:
+    module_name, class_name = model_path.split(":")
+    model = getattr(importlib.import_module(f"hydromodpy.{module_name}"), class_name)
+    extra = model.model_fields[field].json_schema_extra
+
+    assert set(old_paths) <= set(extra["renamed_from"])

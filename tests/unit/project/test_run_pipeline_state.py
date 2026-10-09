@@ -45,6 +45,9 @@ y_outlet = 6784182.776
 snap_dist = "50 m"
 buff_area = "20%"
 
+[geographic.river_network]
+threshold_area_km2 = 0.5
+
 [domain]
 
 [domain.depth_model]

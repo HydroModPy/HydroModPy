@@ -63,7 +63,8 @@ def _load(project: Path, declared: str, *, at: str = "configs") -> str | None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(TOML.format(declared=declared), encoding="utf-8")
     cfg, _raw = load_toml_calibration(path)
-    return cfg.outputs["net"].stream_geometry_path
+    resolved = cfg.outputs["net"].stream_geometry_path
+    return None if resolved is None else str(resolved)
 
 
 def test_a_bare_filename_falls_back_to_the_data_family(project: Path) -> None:

@@ -25,6 +25,9 @@ Fetched from {DEFAULT_BASE_URL}/<ref>/<path>, with <ref> defaulting to
 v<version> of the installed HydroModPy. Set {SOURCE_ENV} to replace that whole
 prefix with another URL or a local directory, for an offline install or a test
 against a checkout; when it is set, --ref no longer applies.
+
+Example:
+  hmp example add example_id --workspace ~/hydromodpy
 """
 
 

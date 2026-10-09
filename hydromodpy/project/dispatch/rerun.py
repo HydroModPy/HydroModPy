@@ -33,10 +33,12 @@ class ProjectRerunProvider:
         lineage is preserved.
         """
         from hydromodpy.calibration.optim.parameters import set_by_path
+        from hydromodpy.config.stored_config_migration import migrate_stored_config
         from hydromodpy.project import Project
         from hydromodpy.project.runner import _pin_parent_sim_id
 
-        project = Project(dict(snapshot))
+        source = f"config snapshot of run {source_sim_id[:8]}" if source_sim_id else None
+        project = Project(migrate_stored_config(snapshot, source=source))
         for dotted, value in overrides.items():
             set_by_path(project.config, dotted, value)
         with _pin_parent_sim_id(project._ctx, source_sim_id):

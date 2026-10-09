@@ -157,9 +157,12 @@ def test_the_delineation_survives_the_crash(crashed_at_build_mesh) -> None:
     that died inside the Pipeline never adopts one, so its preprocessing tree
     is still there for the resume.
     """
+    from hydromodpy.core.state.paths import kept_preprocessing_dir
+
     root, _rows = crashed_at_build_mesh
 
-    assert (root / ".hmp" / "scratch" / "_preprocessing").is_dir()
+    # The tree sits in the scratch folder of the run that crashed.
+    assert kept_preprocessing_dir(root) is not None
 
 
 def test_the_resume_restarts_at_the_step_that_failed(crashed_at_build_mesh) -> None:

@@ -96,6 +96,7 @@ from hydromodpy.core.state.paths import (
     runs_dir_for,
 )
 from hydromodpy.results.annotations import read_annotations
+from hydromodpy.results.catalog.constants import RETIRED_METRIC_NAMES
 from hydromodpy.results.catalog.facade import Catalog
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.catalog.writes_helpers import (
@@ -339,6 +340,7 @@ def _index_run(catalog: Catalog, run_dir: Path) -> dict[str, int]:
         tables_dir / f"metrics{PARQUET_FILE_SUFFIX}",
         sources=_METRICS_COLUMN_SOURCES,
     )
+    rename_retired_metrics(catalog.backend, sim_id)
     counts["provenance"] = _copy_payload(
         catalog.backend,
         "provenance",
@@ -426,6 +428,29 @@ def _trashed_overrides(marker: TrashMarker) -> dict[str, str]:
         ),
         "trashed_at": f"CAST({_sql_text(stamped)} AS TIMESTAMPTZ)" if stamped else "NULL",
     }
+
+
+def rename_retired_metrics(backend: Any, sim_id: str) -> None:
+    """Store the metrics of a run written under a retired name under the current one.
+
+    A run sealed before the rename carries the old name in its Parquet payload,
+    and an archive exported before it carries the old name in its snapshot.
+    The migration renamed the index rows; this does the same for a rebuilt
+    index and for an imported archive. ``backend`` is anything with an
+    ``execute(sql, params)``: a catalog backend or a DuckDB connection.
+    """
+    for old, new in RETIRED_METRIC_NAMES.items():
+        backend.execute(
+            "DELETE FROM metrics AS stale WHERE stale.sim_id = ? AND stale.metric_name = ? "
+            "AND EXISTS (SELECT 1 FROM metrics AS kept WHERE kept.sim_id = stale.sim_id "
+            "AND kept.station_id = stale.station_id AND kept.variable = stale.variable "
+            "AND kept.metric_name = ?)",
+            [sim_id, old, new],
+        )
+        backend.execute(
+            "UPDATE metrics SET metric_name = ? WHERE sim_id = ? AND metric_name = ?",
+            [new, sim_id, old],
+        )
 
 
 def _copy_payload(

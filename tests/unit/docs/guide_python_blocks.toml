@@ -1,0 +1,53 @@
+# Python blocks of the guides and of Get started, one entry per block.
+#
+# test_guide_python_blocks.py reads every ```python block of these pages with sybil.
+# Every block is parsed, and every `hydromodpy` import, every `hmp.<name>` and every
+# keyword of an `hmp.<name>(...)` call is checked against the package. A block marked
+# "run" is also executed, in an empty folder, with the files listed under [files].
+# Any other value names the reason the block is not executed (see [reasons]).
+# A new block has no entry and fails the test until it is classified here.
+
+[reasons]
+example-run = "starts a run of an example 04 file, which needs the example data (92 MiB) and a solver"
+recipe-run = "starts a run or a calibration from a TOML recipe of the guide, which needs the example 04 data and a solver"
+finished-runs = "opens a project folder that already holds finished runs"
+fragment = "continues an earlier block of the same page: it uses the names that block defines"
+reader-files = "reads files of the reader or files that a run wrote (a DEM, a table, a result folder)"
+session = "reads a calibration session folder that a calibration run wrote"
+
+[blocks]
+"get-started/install.md" = { "1" = "run" }
+"get-started/staircase/index.md" = { "1" = "example-run" }
+"get-started/staircase/step1.md" = { "1" = "example-run" }
+"get-started/staircase/step2.md" = { "1" = "example-run" }
+"get-started/staircase/step3.md" = { "1" = "example-run" }
+"get-started/staircase/step4.md" = { "1" = "example-run" }
+"get-started/staircase/step5.md" = { "1" = "example-run" }
+"get-started/staircase/step6.md" = { "1" = "example-run" }
+"guides/add-wells.md" = { "1" = "recipe-run" }
+"guides/boundary-and-initial-conditions.md" = { "1" = "recipe-run" }
+"guides/calibrate.md" = { "1" = "recipe-run", "2" = "session", "3" = "recipe-run" }
+"guides/choose-and-build-the-mesh.md" = { "1" = "recipe-run" }
+"guides/depth-and-substratum.md" = { "1" = "recipe-run" }
+"guides/drive-from-python.md" = { "1" = "example-run", "2" = "example-run", "3" = "example-run", "4" = "fragment", "5" = "recipe-run", "6" = "fragment", "7" = "finished-runs", "8" = "fragment", "9" = "fragment", "10" = "fragment" }
+"guides/export-results.md" = { "1" = "finished-runs" }
+"guides/find-and-compare-runs.md" = { "1" = "finished-runs", "2" = "fragment" }
+"guides/hand-off-to-gis.md" = { "1" = "reader-files" }
+"guides/lakes-and-reservoirs.md" = { "1" = "finished-runs" }
+"guides/outside-france.md" = { "1" = "reader-files" }
+"guides/prepare-the-terrain.md" = { "1" = "recipe-run" }
+"guides/read-a-value-at-a-point.md" = { "1" = "finished-runs", "2" = "fragment", "3" = "fragment" }
+"guides/read-piezometers.md" = { "1" = "fragment", "2" = "run", "3" = "fragment" }
+"guides/read-the-results.md" = { "1" = "reader-files", "2" = "finished-runs", "3" = "fragment" }
+"guides/route-streams-with-sfr.md" = { "1" = "recipe-run" }
+"guides/run-in-the-background.md" = { "1" = "reader-files" }
+"guides/several-projects.md" = { "1" = "finished-runs", "2" = "fragment" }
+"guides/share-a-run.md" = { "1" = "finished-runs", "2" = "finished-runs" }
+"guides/sweep-a-parameter.md" = { "1" = "run" }
+"guides/test-a-method.md" = { "1" = "reader-files" }
+"guides/track-particles.md" = { "1" = "recipe-run", "2" = "finished-runs" }
+"guides/transport-and-particles.md" = { "1" = "recipe-run" }
+
+# Files an executed block reads, written into its empty folder first.
+[files]
+"guides/read-piezometers.md" = { "2" = { "piezometers.csv" = "id,x,y\nPZ1,388352.0,6818548.0\nPZ2,388900.5,6819001.25\n" } }

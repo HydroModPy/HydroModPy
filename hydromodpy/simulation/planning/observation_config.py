@@ -31,14 +31,19 @@ class ObservationPointConfig(HydroModelBase):
         description="Station id of the point. Unique within the section.",
     )
     x: Annotated[float, Profile.USER] = Field(
-        description="Easting in the project CRS (same units as the mesh).",
+        description="Easting of the point in the project CRS, in metres like the mesh.",
+        json_schema_extra={"unit": "m"},
+        examples=[352400.0],
     )
     y: Annotated[float, Profile.USER] = Field(
-        description="Northing in the project CRS (same units as the mesh).",
+        description="Northing of the point in the project CRS, in metres like the mesh.",
+        json_schema_extra={"unit": "m"},
+        examples=[6788300.0],
     )
     layer: Annotated[int | None, Profile.USER] = Field(
         default=None,
         description="Zero-based layer index to read. Mutually exclusive with 'depth'.",
+        json_schema_extra={"unit": "-"},
     )
     depth: Annotated[float | None, Profile.USER] = Field(
         default=None,
@@ -47,6 +52,7 @@ class ObservationPointConfig(HydroModelBase):
             "Depth in metres below the local model top; picks the layer from the "
             "mesh layer thicknesses. Mutually exclusive with 'layer'."
         ),
+        json_schema_extra={"unit": "m"},
     )
     variables: Annotated[list[str] | None, Profile.USER] = Field(
         default=None,

@@ -38,11 +38,21 @@ class SpinupCycle:
     """One spin-up cycle's run and its change from the previous cycle."""
 
     index: int
+    """Position of the cycle in the loop, from 0."""
+
     sim_id: str
+    """Id of the run this cycle made."""
+
     zarr_path: str
-    d_head: float | None  # None on cycle 0 (no prior cycle to diff against)
+    """Path of the ``fields.zarr`` store of that run."""
+
+    d_head: float | None
+    """Largest absolute head change from the previous cycle over active cells, in m.
+    None on cycle 0, which has no previous cycle."""
+
     d_stage: float | None
-    """None on cycle 0, and also when the two cycles shared no lake to compare."""
+    """Largest absolute lake-stage change from the previous cycle, in m. None on
+    cycle 0, and also when the two cycles shared no lake to compare."""
 
 
 @dataclass(frozen=True)
@@ -54,12 +64,21 @@ class SpinupResult:
     """
 
     converged: bool
+    """True when a cycle changed the heads and the lake stages by less than the
+    tolerances. False when the loop ran out of cycles first."""
+
     cycles: list[SpinupCycle]
+    """Every cycle that ran, in order."""
+
     restart_from: str
-    production_sim_id: str | None = None  # set when --then-run chains a production run
+    """``fields.zarr`` path of the converged cycle, or of the last one."""
+
+    production_sim_id: str | None = None
+    """Id of the production run chained after the loop (``--then-run``), else None."""
 
     @property
     def n_cycles(self) -> int:
+        """Number of cycles that ran."""
         return len(self.cycles)
 
     def antecedent_warning(self) -> str | None:

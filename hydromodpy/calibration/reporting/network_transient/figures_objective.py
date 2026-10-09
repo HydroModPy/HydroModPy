@@ -37,9 +37,9 @@ def _save_objective_parameter_maps(
     from matplotlib.colors import LogNorm
 
     specs = (
-        ("C_debit_phys", "Objectif flux"),
-        ("C_reseau_phys", "Objectif affleurements"),
-        ("J", "Objectif combine"),
+        ("C_debit_phys", "Flux objective"),
+        ("C_reseau_phys", "Seepage network objective"),
+        ("J", "Combined objective"),
     )
     x = np.asarray([_float(row.get("mK")) for row in rows], dtype=float)
     y = np.asarray([_float(row.get("Sy")) for row in rows], dtype=float)
@@ -91,7 +91,7 @@ def _save_objective_parameter_maps(
                 color="#f2c94c",
                 edgecolors="#17202a",
                 linewidths=0.9,
-                label="valeur cible",
+                label="target value",
                 zorder=5,
             )
         ax.scatter(
@@ -102,7 +102,7 @@ def _save_objective_parameter_maps(
             facecolors="none",
             edgecolors="#c43b2f",
             linewidths=2.3,
-            label="meilleur candidat non cible",
+            label="best candidate other than the target",
             zorder=4,
         )
         ax.set_xlim(xmin, xmax)
@@ -114,7 +114,7 @@ def _save_objective_parameter_maps(
         fig.colorbar(mappable, ax=ax, fraction=0.046, pad=0.04, label=f"{column} (log)")
     axes[0].set_ylabel("Sy")
     axes[-1].legend(loc="best", fontsize=9)
-    fig.suptitle("Fonction objectif en fonction des parametres")
+    fig.suptitle("Objective function against the parameters")
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
@@ -161,7 +161,7 @@ def _save_objective_profile_cuts(
         mk_cut,
         x_key="Sy",
         target_value=sy_target,
-        title=f"Coupe en Sy a mK={mk_cut_value:.3g}",
+        title=f"Cut along Sy at mK={mk_cut_value:.3g}",
         xlabel="Sy",
     )
     _plot_objective_cut(
@@ -169,10 +169,10 @@ def _save_objective_profile_cuts(
         sy_cut,
         x_key="mK",
         target_value=mk_target,
-        title=f"Coupe en mK a Sy={sy_cut_value:.3g}",
+        title=f"Cut along mK at Sy={sy_cut_value:.3g}",
         xlabel="mK",
     )
-    fig.suptitle("Coupes de sensibilite de la fonction objectif")
+    fig.suptitle("Sensitivity cuts of the objective function")
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
@@ -195,14 +195,14 @@ def _plot_objective_cut(
     xlabel: str,
 ) -> None:
     if len(rows) < 2:
-        ax.text(0.5, 0.5, "coupe indisponible", ha="center", va="center", transform=ax.transAxes)
+        ax.text(0.5, 0.5, "cut unavailable", ha="center", va="center", transform=ax.transAxes)
         ax.set_axis_off()
         return
     x = np.asarray([_float(row.get(x_key)) for row in rows], dtype=float)
     curves = (
-        ("J", "objectif combine", "#17202a", 2.2),
+        ("J", "combined objective", "#17202a", 2.2),
         ("C_debit_phys", "flux", "#c43b2f", 1.7),
-        ("C_reseau_phys", "reseau", "#2662a5", 1.7),
+        ("C_reseau_phys", "network", "#2662a5", 1.7),
     )
     for column, label, color, width in curves:
         raw_values = np.asarray([_float(row.get(column)) for row in rows], dtype=float)
@@ -210,11 +210,11 @@ def _plot_objective_cut(
             continue
         values, _ = _log_objective_values(raw_values)
         ax.plot(x, values, marker="o", ms=3.0, lw=width, color=color, label=label)
-    ax.axvline(target_value, color="#f2c94c", lw=1.5, ls="--", label="cible")
+    ax.axvline(target_value, color="#f2c94c", lw=1.5, ls="--", label="target")
     ax.set_yscale("log")
     ax.set_title(title)
     ax.set_xlabel(xlabel)
-    ax.set_ylabel("Cout normalise (log)")
+    ax.set_ylabel("Normalised cost (log)")
     ax.grid(True, which="both", ls=":", lw=0.45, color="#cfd8df")
     ax.legend(loc="best", fontsize=9)
 

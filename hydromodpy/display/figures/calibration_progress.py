@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure_options import OutputName, SessionId
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
     EFFICIENCIES,
@@ -253,8 +254,8 @@ class CalibrationProgressFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        session_id: str | None = None,
-        output: str | None = None,
+        session_id: SessionId = None,
+        output: OutputName = None,
         **_,
     ) -> Axes:
         search = _read_search(sim, session_id=session_id, output=output)
@@ -266,8 +267,8 @@ class CalibrationProgressFigure(BaseFigure):
         self,
         sim: Run,
         *,
-        session_id: str | None = None,
-        output: str | None = None,
+        session_id: SessionId = None,
+        output: OutputName = None,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,

@@ -1,0 +1,34 @@
+extends: capitalization
+message: "Write the heading '%s' in sentence case."
+level: error
+scope: heading
+match: $sentence
+# Proper nouns, acronyms and symbols that keep their capitals in a heading.
+exceptions:
+  - API
+  - BibTeX
+  - Boussinesq
+  - CI
+  - CLI
+  - D
+  - DEM
+  - E
+  - France
+  - GWT
+  - HydroModPy
+  - K
+  - MODFLOW
+  - MODFLOW-NWT
+  - MODPATH
+  - MT3DMS
+  - N
+  - NWT
+  - PETSc
+  - Python
+  - RIS
+  - SFR
+  - SciPy
+  - Sy
+  - TOML
+  - Voronoi
+  - XT3D

@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 from hydromodpy.display.overview.summary import OverviewSummary
-from hydromodpy.display.style import place_legend
+from hydromodpy.display.style import neutral, place_legend
 
 _FONT_SCALE = 1.25
 
@@ -46,7 +46,7 @@ def render_dem_map(
     station_points: list[dict] | None = None,
     outlet_xy: tuple[float, float] | None = None,
     relative_ticks: bool = False,
-    stream_label: str = "Reseau",
+    stream_label: str = "Network",
     title: str = "",
 ) -> Axes:
     """Render a DEM raster with optional watershed outline, outlet and stations."""
@@ -77,7 +77,7 @@ def render_dem_map(
     handles = []
     if watershed_shp:
         _plot_watershed_outline(ax, watershed_shp)
-        handles.append(Line2D([0], [0], color="black", linewidth=1.2, label="Bassin versant"))
+        handles.append(Line2D([0], [0], color=_outline_color(), linewidth=1.2, label="Catchment"))
 
     if streams_gdf is not None and not streams_gdf.empty:
         # The 'terrain' colormap renders valley bottoms in blue, which would
@@ -110,7 +110,7 @@ def render_dem_map(
                 markeredgecolor="black",
                 linewidth=0,
                 markersize=12,
-                label="Exutoire",
+                label="Outlet",
             )
         )
 
@@ -179,15 +179,15 @@ def render_regional_context_map(
     cbar.ax.tick_params(labelsize=_MAP_COLORBAR_TICK_SIZE)
 
     handles = [
-        Line2D([0], [0], color="black", linewidth=1.6, label="Bassin versant"),
+        Line2D([0], [0], color=_outline_color(), linewidth=1.6, label="Catchment"),
     ]
     if watershed_gdf is not None and not watershed_gdf.empty:
-        watershed_gdf.boundary.plot(ax=ax, color="black", linewidth=1.6, zorder=6)
+        watershed_gdf.boundary.plot(ax=ax, color=_outline_color(), linewidth=1.6, zorder=6)
 
     if streams_gdf is not None and not streams_gdf.empty:
         streams_gdf = _to_crs_safely(streams_gdf, raster_crs)
         streams_gdf.plot(ax=ax, color="navy", linewidth=0.85, alpha=0.95, zorder=7)
-        handles.append(Line2D([0], [0], color="navy", linewidth=1.2, label="Reseau observe"))
+        handles.append(Line2D([0], [0], color="navy", linewidth=1.2, label="Observed network"))
 
     if outlet_xy is not None:
         ax.plot(
@@ -215,7 +215,7 @@ def render_regional_context_map(
     ax.set_xlim(extent[0], extent[1])
     ax.set_ylim(extent[2], extent[3])
     ax.set_aspect("equal", adjustable="box")
-    ax.set_title(title or "Situation regionale", fontsize=_MAP_TITLE_SIZE)
+    ax.set_title(title or "Regional setting", fontsize=_MAP_TITLE_SIZE)
     _apply_relative_ticks(ax, extent)
     if station_points:
         _plot_station_points(ax, station_points, target_crs=raster_crs, extent=extent)
@@ -232,7 +232,7 @@ def render_hydrography_map(
     streams_gdf=None,
     outlet_xy: tuple[float, float] | None = None,
     relative_ticks: bool = False,
-    stream_label: str = "Reseau hydrographique",
+    stream_label: str = "Hydrographic network",
     title: str = "",
 ) -> Axes:
     """Render a hydrography map - hillshade background, streams, outlet."""
@@ -245,7 +245,7 @@ def render_hydrography_map(
         outlet_xy=outlet_xy,
         relative_ticks=relative_ticks,
         stream_label=stream_label,
-        title=title or "Hydrographie",
+        title=title or "Hydrography",
     )
 
 
@@ -312,7 +312,7 @@ def render_geology_map(
     ax.set_xlim(extent[0], extent[1])
     ax.set_ylim(extent[2], extent[3])
     ax.set_aspect("equal", adjustable="box")
-    ax.set_title(title or "Geologie", fontsize=_MAP_TITLE_SIZE if relative_ticks else _font(10))
+    ax.set_title(title or "Geology", fontsize=_MAP_TITLE_SIZE if relative_ticks else _font(10))
     if relative_ticks:
         _apply_relative_ticks(ax, extent)
     else:
@@ -560,7 +560,7 @@ def _time_axis(ax: Axes, date_start, date_end, *, last: bool) -> None:
     ax.xaxis.set_major_locator(mdates.YearLocator(step))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=(1, 7)))
-    ax.grid(True, axis="x", which="major", color="0.75", lw=0.8)
+    ax.grid(True, axis="x", which="major", color=neutral("0.75"), lw=0.8)
     ax.tick_params(axis="x", labelsize=_font(7.5), labelbottom=last)
 
 
@@ -633,7 +633,7 @@ def render_climatic_summary(
     ax.set_xticks(months)
     ax.set_xticklabels(["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"])
     ax.set_title(title, fontsize=_font(10))
-    ax.set_ylabel("Moyenne (mm)", fontsize=_font(8))
+    ax.set_ylabel("Mean (mm)", fontsize=_font(8))
     ax.grid(True, ls=":", lw=0.4, axis="y", alpha=0.6)
     ax.tick_params(labelsize=_font(7))
     if plotted > 0:
@@ -642,7 +642,7 @@ def render_climatic_summary(
         ax.text(
             0.5,
             0.5,
-            "Aucune donnee climatique",
+            "No climate data",
             ha="center",
             va="center",
             transform=ax.transAxes,
@@ -662,19 +662,19 @@ def render_stats_card(ax: Axes, *, summary: OverviewSummary) -> Axes:
     ax.set_axis_off()
 
     rows: list[tuple[str, str]] = [
-        ("Nom", summary.watershed_name or "-"),
+        ("Name", summary.watershed_name or "-"),
         (
-            "Surface",
+            "Area",
             f"{summary.catchment_area_km2:.2f} km²"
             if summary.catchment_area_km2 is not None
             else "-",
         ),
-        ("Periode", f"{summary.date_start} -> {summary.date_end}"),
-        ("Troncons hydrographiques", str(summary.n_streams)),
-        ("Stations hydrometrie", str(summary.n_hydrometry)),
-        ("Stations piezometrie", str(summary.n_piezometry)),
-        ("Intermittence (ONDE)", str(summary.n_intermittency)),
-        ("Stations qualite eau", str(summary.n_water_quality)),
+        ("Period", f"{summary.date_start} -> {summary.date_end}"),
+        ("Stream reaches", str(summary.n_streams)),
+        ("Hydrometry stations", str(summary.n_hydrometry)),
+        ("Piezometry stations", str(summary.n_piezometry)),
+        ("Intermittency (ONDE)", str(summary.n_intermittency)),
+        ("Water-quality stations", str(summary.n_water_quality)),
     ]
 
     table = ax.table(
@@ -686,10 +686,11 @@ def render_stats_card(ax: Axes, *, summary: OverviewSummary) -> Axes:
     table.auto_set_font_size(False)
     table.set_fontsize(_font(9))
     table.scale(1.0, 1.5)
+    _theme_table(table)
     for i, _ in enumerate(rows):
         table[(i, 0)].set_text_props(fontweight="bold")
     ax.set_title(
-        f"Identite - {summary.watershed_name or 'Bassin'}",
+        f"Identity - {summary.watershed_name or 'Catchment'}",
         fontsize=_font(11),
         fontweight="bold",
     )
@@ -713,7 +714,7 @@ def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
         )
         return ax
 
-    headers = ["Type", "ID", "X", "Y", "Debut", "Fin"]
+    headers = ["Type", "ID", "X", "Y", "Start", "End"]
     rows = [
         [
             str(s["type"]),
@@ -736,9 +737,10 @@ def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
     table.auto_set_font_size(False)
     table.set_fontsize(_font(7))
     table.scale(1.0, 1.25)
+    _theme_table(table)
     for j in range(len(headers)):
         table[(0, j)].set_text_props(fontweight="bold")
-        table[(0, j)].set_facecolor("#e8e8e8")
+        table[(0, j)].set_facecolor(neutral("#e8e8e8"))
     ax.set_title(f"Station inventory - {len(inventory)} stations", fontsize=_font(10))
     return ax
 
@@ -746,6 +748,22 @@ def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _outline_color() -> str:
+    """The colour of the catchment outline: black on a light page, light on a dark one."""
+    return neutral("black")
+
+
+def _theme_table(table) -> None:
+    """Give the cells of a table the colours of the current theme.
+
+    A matplotlib table draws white cells with black edges, whatever the theme, so
+    the light text of the dark theme would sit on white.
+    """
+    for cell in table.get_celld().values():
+        cell.set_facecolor(neutral("#ffffff"))
+        cell.set_edgecolor(neutral("#c8c8c8"))
 
 
 def _map_legend(ax, handles: list, *, fontsize: float) -> None:
@@ -780,8 +798,8 @@ def _apply_relative_ticks(ax, extent: tuple[float, float, float, float]) -> None
     ax.yaxis.set_major_locator(MaxNLocator(**locator_kw))
     ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{(value - xmin) / 1000:.1f}"))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{(value - ymin) / 1000:.1f}"))
-    ax.set_xlabel("X relatif (km)", fontsize=_MAP_LABEL_SIZE)
-    ax.set_ylabel("Y relatif (km)", fontsize=_MAP_LABEL_SIZE)
+    ax.set_xlabel("Relative X (km)", fontsize=_MAP_LABEL_SIZE)
+    ax.set_ylabel("Relative Y (km)", fontsize=_MAP_LABEL_SIZE)
     ax.tick_params(labelsize=_MAP_TICK_SIZE)
 
 
@@ -790,7 +808,7 @@ def _plot_watershed_outline(ax, watershed_shp) -> None:
         import geopandas as gpd
 
         gdf = gpd.read_file(watershed_shp)
-        gdf.boundary.plot(ax=ax, color="black", linewidth=1.2)
+        gdf.boundary.plot(ax=ax, color=_outline_color(), linewidth=1.2)
     except Exception:
         pass
 

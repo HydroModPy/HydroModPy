@@ -43,6 +43,7 @@ from importlib import metadata as _importlib_metadata
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.exceptions import ImportConflictError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import RUNS_DIRNAME, decode_workspace_path
 from hydromodpy.results.geographic_cache import (
@@ -494,6 +495,11 @@ def _restore_catalog_snapshot(
     finally:
         snap.close()
 
+    # An archive exported before a metric rename carries the old name; the
+    # target catalog already ran the migration that renames it, so do it here.
+    from hydromodpy.results.catalog.reindex import rename_retired_metrics
+
+    rename_retired_metrics(conn, sid)
     return sid
 
 
@@ -744,7 +750,7 @@ def _check_project_conflict(
         [incoming_project],
     )
     if existing_sid is not None:
-        raise ValueError(
+        raise ImportConflictError(
             f"Project '{incoming_project}' already exists in this workspace. "
             "Use `--as <new_name>` to import under a different project name."
         )
@@ -949,7 +955,10 @@ def import_hmp_package(
         )
         if existing is not None:
             if not force:
-                raise ValueError(f"Simulation '{sid}' already exists. Use force=True to overwrite.")
+                raise ImportConflictError(
+                    f"Simulation '{sid}' is already in this catalog. Import with force to "
+                    "replace it: --force on the command line, force=True in Python."
+                )
         elif not allow_existing_project:
             _check_project_conflict(catalog, manifest, as_project)
 
@@ -1063,6 +1072,7 @@ def import_hmp_package_multi(
     package_path: Path | str,
     *,
     force: bool = False,
+    as_project: str | None = None,
     dematerialise_inputs: bool = True,
     dry_run: bool = False,
 ) -> list[str]:
@@ -1092,6 +1102,7 @@ def import_hmp_package_multi(
                     catalog,
                     pkg,
                     force=force,
+                    as_project=as_project,
                     dematerialise_inputs=dematerialise_inputs,
                     dry_run=dry_run,
                 )
@@ -1110,6 +1121,7 @@ def import_hmp_package_multi(
                     catalog,
                     inner,
                     force=force,
+                    as_project=as_project,
                     dematerialise_inputs=dematerialise_inputs,
                     dry_run=dry_run,
                     allow_existing_project=True,

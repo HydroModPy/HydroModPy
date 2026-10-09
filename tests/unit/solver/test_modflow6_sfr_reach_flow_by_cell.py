@@ -44,9 +44,10 @@ _PAYLOAD = {
 }
 
 
-def _reach(ifno: int, cell2d: int | None) -> dict:
+def _reach(ifno: int, cell2d: int | None, downstream: list[int] | None = None) -> dict:
     return {
         "ifno": ifno,
+        "downstream": downstream or [],
         "layer": 0,
         "cell2d": cell2d,
         "rlen": 100.0,

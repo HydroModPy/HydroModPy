@@ -69,7 +69,7 @@ def run_discretization_case(
     sgrid = build_sgrid_from_config(sgrid_cfg)
 
     result = discretize_fieldparam_on_sgrid(
-        geology_field=geology_field,
+        support_field=geology_field,
         field_param=field_param,
         sgrid=sgrid,
         cell_samples_per_axis=cfg.cell_samples_per_axis,

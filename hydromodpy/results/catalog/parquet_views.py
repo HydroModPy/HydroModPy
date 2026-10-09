@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 
 def _duckdb_type_for(arrow_type: pa.DataType) -> str:
     """Return the SQL type to declare for a pyarrow Arrow type."""
+    if pa.types.is_list(arrow_type):
+        return f"{_duckdb_type_for(arrow_type.value_type)}[]"
     if pa.types.is_string(arrow_type) or pa.types.is_large_string(arrow_type):
         return "VARCHAR"
     if pa.types.is_int64(arrow_type):

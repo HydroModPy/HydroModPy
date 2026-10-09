@@ -56,13 +56,15 @@ class PackageIOMixin:
         package_path: Path | str,
         *,
         force: bool = False,
+        as_project: str | None = None,
         dematerialise_inputs: bool = True,
         dry_run: bool = False,
     ) -> list[str]:
         """Import a ``.hmp`` archive (single- or multi-run); return the sim_ids.
 
         Auto-detects the archive type: a single-run archive yields a one-element
-        list, a multi-run container yields one id per nested run.
+        list, a multi-run container yields one id per nested run. ``as_project``
+        overrides the project column of every imported run.
         """
         from hydromodpy.results.exporters.hmp_package import (
             import_hmp_package_multi,
@@ -72,6 +74,7 @@ class PackageIOMixin:
             self,
             package_path,
             force=force,
+            as_project=as_project,
             dematerialise_inputs=dematerialise_inputs,
             dry_run=dry_run,
         )

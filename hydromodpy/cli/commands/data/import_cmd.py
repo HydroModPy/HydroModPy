@@ -6,14 +6,20 @@ import argparse
 import sys
 
 from hydromodpy.cli._conventions import verbosity_parser
-from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, apply_verbosity
+from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, apply_verbosity, exit_code_for
 
 NAME: str = "import"
 HELP: str = "Import a .hmp archive and dematerialise its bundled inputs"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[verbosity_parser()],
+        epilog="Example:\n  hmp data import paper.hmp --as imported_project --dry-run",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("package", help="Path to the .hmp archive")
     parser.add_argument("-w", "--workspace", default=None, help="Target project catalog root")
     parser.add_argument(
@@ -28,6 +34,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.cli._workers.data import import_package
+    from hydromodpy.core.exceptions import ImportConflictError
     from hydromodpy.results.importers import InputCollisionError
 
     try:
@@ -41,6 +48,9 @@ def run(args: argparse.Namespace) -> None:
     except InputCollisionError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_GENERIC)
+    except ImportConflictError as exc:
+        print(f"Import failed: {exc}", file=sys.stderr)
+        sys.exit(exit_code_for(exc))
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

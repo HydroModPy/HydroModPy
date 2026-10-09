@@ -1,4 +1,6 @@
-"""Audit P0 - MF6 GWT first-order decay analytical validation.
+"""MODFLOW 6 GWT first-order decay against its closed form.
+
+Compared with: the first-order decay `C(t) = C0 exp(-k t)` of a closed cell.
 
 With no advection and no dispersion, a uniform initial concentration decays as
 ``C(t) = C0 * exp(-k t)`` under the MF6 MST first-order decay term. The MF6 GWT
@@ -17,6 +19,7 @@ import pytest
 
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from tests._helpers.tolerances import tol
+from tests.validation.helpers import assert_metric_below
 
 
 @pytest.mark.validation
@@ -85,12 +88,11 @@ def test_gwt_first_order_decay_per_second(tmp_path) -> None:
 
     ucn = bf.HeadFile(str(tmp_path / "trans.ucn"), text="concentration")
     try:
+        errors = []
         for t in sample_times:
             conc = float(np.asarray(ucn.get_data(totim=t)).reshape(-1)[0])
             expected = c0 * float(np.exp(-k * t))
-            rel_error = abs(conc - expected) / abs(expected)
-            assert rel_error < max_rel, (
-                f"t={t}s: C={conc}, expected {expected} (k={k} 1/s); rel error {rel_error}"
-            )
+            errors.append(abs(conc - expected) / abs(expected))
     finally:
         ucn.close()
+    assert_metric_below("Largest relative concentration error at 3 times", max(errors), max_rel)

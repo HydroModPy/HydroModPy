@@ -4,6 +4,27 @@ Steady synthetic hillslope used to validate the seepage mask against its Dupuit
 closed form, and to prove that the mask and the head depend on `K` and `R` only
 through the ratio `K/R`.
 
+Reference used by the documentation:
+
+- reference: Dupuit seepage limit `x_e = L / (1 + slope**2 K/R)` and the free Dupuit water table above it
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+x_e=\frac{L}{1+s^2\,K/R}
+$$
+
+$$
+h(x)=s\,x \quad (x<x_e),\qquad
+h(x)^2=(s\,x_e)^2+\frac{2R}{K}\left(L\,(x-x_e)-\frac{x^2-x_e^2}{2}\right) \quad (x\ge x_e)
+$$
+
+$s$ is the slope of the surface, $L$ the length of the hillslope, $x$ the
+distance upslope from the toe, $K$ the hydraulic conductivity and $R$ the
+recharge.
+
 ## Physics
 
 A plane surface `z = slope * x` sits over a flat substratum, `x` measured

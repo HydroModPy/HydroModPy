@@ -1,18 +1,51 @@
-"""Assertion helpers for validation tests."""
+"""Assertion helpers for validation tests.
+
+Each helper records the value and the threshold before it asserts, so the
+documentation shows what the last run measured (see ``results.py``).
+"""
 
 from __future__ import annotations
 
 from typing import Any
 
+from .results import record_metric
+
 
 def assert_metric_below(
-    metric_name: str, actual: float, threshold: float, *, unit: str = ""
+    metric_name: str,
+    actual: float,
+    threshold: float,
+    *,
+    unit: str = "",
+    inclusive: bool = False,
 ) -> None:
     """Assert that one scalar metric is below the configured threshold."""
+    record_metric(metric_name, actual, threshold, op="<=" if inclusive else "<", unit=unit)
     unit_suffix = f" {unit}".rstrip() if unit else ""
-    assert actual < threshold, (
+    ok = actual <= threshold if inclusive else actual < threshold
+    assert ok, (
         f"{metric_name} too high: {actual:.6g}{unit_suffix} "
         f"(threshold {threshold:.6g}{unit_suffix})"
+    )
+
+
+def assert_metric_above(
+    metric_name: str,
+    actual: float,
+    threshold: float,
+    *,
+    unit: str = "",
+    ideal: float | None = None,
+) -> None:
+    """Assert that one scalar metric is above the configured threshold.
+
+    ``ideal`` is the value of a perfect result (1 for a Nash-Sutcliffe
+    efficiency). It is recorded, not checked.
+    """
+    record_metric(metric_name, actual, threshold, op=">", unit=unit, ideal=ideal)
+    unit_suffix = f" {unit}".rstrip() if unit else ""
+    assert actual > threshold, (
+        f"{metric_name} too low: {actual:.6g}{unit_suffix} (threshold {threshold:.6g}{unit_suffix})"
     )
 
 

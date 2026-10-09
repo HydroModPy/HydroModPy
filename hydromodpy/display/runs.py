@@ -220,6 +220,82 @@ def _resolve_time(sim: Run, options: dict[str, Any]) -> str | None:
     return None
 
 
+# Fields built from the water that leaves the aquifer at the surface, and the
+# per-cell budget terms that carry it. A model with none of these terms has no
+# such water: the field cannot exist, whatever the results options say.
+def _exit_terms() -> dict[str, tuple[str, ...]]:
+    from hydromodpy.core.field_routing import (
+        DRAIN_BUDGET_KEYS,
+        DRN_TO_MVR_KEYS,
+        RELEASE_BUDGET_KEYS,
+    )
+
+    drain = (*DRAIN_BUDGET_KEYS, *DRN_TO_MVR_KEYS)
+    return {
+        "release_flux": RELEASE_BUDGET_KEYS,
+        "release_accumulation_flux": RELEASE_BUDGET_KEYS,
+        "accumulation_flux": drain,
+        "outflow_drain": drain,
+    }
+
+
+def _no_surface_exit_reason(sim: Run, spec: FigureSpec) -> str | None:
+    """Say why a figure built on the surface outflow cannot be drawn, or None.
+
+    Only answers when the run holds a per-cell budget, the one place that
+    tells "no exit in this model" from "the budget was not kept". A model
+    without drain, stream, lake or surface excess releases no groundwater at
+    the surface, so ``release_flux`` and the fields routed from it do not
+    exist. No results option can change that, so the skip is not actionable.
+    """
+    from hydromodpy.results.field_registry import FIELD_REGISTRY
+
+    terms = _exit_terms()
+    fields = [name for name in spec.required_fields if name in terms]
+    if not fields:
+        return None
+    has_field = getattr(sim, "has_field", None)
+    if has_field is None:
+        return None
+    try:
+        missing = [name for name in fields if not has_field(name)]
+        if not missing:
+            return None
+        budget_terms = [
+            name
+            for name, descriptor in FIELD_REGISTRY.items()
+            if descriptor.zarr_path.startswith("budget/")
+        ]
+        if not any(has_field(name, subgroup="budget") for name in budget_terms):
+            return None
+        for name in missing:
+            if any(has_field(term, subgroup="budget") for term in terms[name]):
+                continue
+            exits = (
+                "drain, stream, lake or surface excess"
+                if terms[name] == terms["release_flux"]
+                else "drain"
+            )
+            return (
+                f"the model has no {exits}, so no groundwater leaves the aquifer "
+                f"that way and the run has no {name}"
+            )
+    except (TypeError, RuntimeError, KeyError, OSError):
+        return None
+    return None
+
+
+def unavailable_reason(fig: BaseFigure, sim: Run) -> str | None:
+    """Return why ``fig`` cannot draw ``sim``, or None when it can.
+
+    The figure's own answer, preceded by the one reason no figure can work
+    around: a field built on the surface outflow of a model that has none.
+    """
+    spec = getattr(fig, "spec", None)
+    exit_reason = None if spec is None else _no_surface_exit_reason(sim, spec)
+    return exit_reason or fig.unavailable_reason(sim)
+
+
 def _log_skipped_figure(name: str, fig: BaseFigure, sim: Run, reason: str) -> bool:
     """Log one skipped figure, loudly when a field it needs was not kept.
 
@@ -231,7 +307,7 @@ def _log_skipped_figure(name: str, fig: BaseFigure, sim: Run, reason: str) -> bo
     )
 
     options = missing_field_options(fig.spec.required_fields, sim)
-    if options:
+    if options and _no_surface_exit_reason(sim, fig.spec) is None:
         logger.warning(
             "Figure '%s' skipped: %s. %s",
             name,
@@ -292,7 +368,7 @@ def render_figure(
     fig = _get_figure(figure_name)
     if opts:
         _check_options(figure_name, fig, opts)
-    reason = fig.unavailable_reason(sim)
+    reason = unavailable_reason(fig, sim)
     if reason is None:
         opts = dict(opts)
         reason = _resolve_time(sim, opts)
@@ -359,7 +435,7 @@ def figure_availability(sim: Run) -> list[tuple[FigureSpec, str | None]]:
     ``render_figure`` apply before drawing, so the list says in advance what
     those would skip or refuse. Nothing is drawn.
     """
-    return [(spec, _get_figure(spec.name).unavailable_reason(sim)) for spec in _list_figures()]
+    return [(spec, unavailable_reason(_get_figure(spec.name), sim)) for spec in _list_figures()]
 
 
 def resolve_run_output_dir(
@@ -418,7 +494,7 @@ def render_figures_for_run(
         for name in wanted:
             fig = _get_figure(name)
             options = _figure_options(display_cfg, name)
-            reason = fig.unavailable_reason(sim) or _resolve_time(sim, options)
+            reason = unavailable_reason(fig, sim) or _resolve_time(sim, options)
             if reason is not None:
                 actionable = _log_skipped_figure(name, fig, sim, reason)
                 skipped.append(SkippedFigure(name=name, reason=reason, actionable=actionable))

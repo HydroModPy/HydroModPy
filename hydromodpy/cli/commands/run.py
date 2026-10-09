@@ -52,7 +52,13 @@ def _step_choices() -> list[str]:
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser(), verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[profile_parser(), verbosity_parser()],
+        epilog="Examples:\n  hmp run run.toml\n  hmp run run.toml --dry-run\n  hmp run run.toml --set simulation.name=my_run\n  hmp run run.toml --overlay daily.toml\n  hmp run run.toml --from setup_process --until run_solver\n  hmp run --resume ab12cd34",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     config_arg = parser.add_argument(
         "config",
         nargs="?",
@@ -112,10 +118,10 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Recompute even when a completed run with an identical resolved config "
-            "already exists. Without it such a run is not recomputed: the command "
-            "stops and names it. The comparison hashes the resolved config, so an "
-            "edit - or a hydromodpy version that resolves the same TOML differently "
-            "- makes it a new run. Simulation workflow only."
+            "and the same name already exists. Without it such a run is not "
+            "recomputed: the command stops and names it. The comparison hashes the "
+            "resolved config, so an edit, or a hydromodpy version that resolves the "
+            "same TOML differently, makes it a new run. Simulation workflow only."
         ),
     )
     parser.add_argument(
@@ -264,14 +270,14 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     effective_path: Path | None = None
     try:
         effective_path, raw_toml = _materialize_effective_toml(config_path, args=args)
-    except ValueError as exc:
-        print(f"Invalid override: {exc}", file=sys.stderr)
+    except _ConfigFileError as exc:
+        print(str(exc), file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     except FileNotFoundError as exc:
         print(f"Missing file: {exc}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
-    except Exception as exc:
-        print(f"Invalid TOML: {exc}", file=sys.stderr)
+    except ValueError as exc:
+        print(f"Invalid override: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     run_path = effective_path or config_path
 
@@ -411,12 +417,10 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         _cleanup_effective_toml(effective_path, source=config_path)
 
     if isinstance(summary, Mapping) and summary.get("skipped"):
+        from hydromodpy.project.dispatch.workflow import identical_run_message
+
         sid = str(summary.get("sim_id") or "")
-        label = summary.get("name") or sid[:8]
-        print(
-            f"Config identical to completed run '{label}' [{sid[:8]}]; nothing to do.",
-            file=sys.stderr,
-        )
+        print(identical_run_message(summary.get("name"), sid), file=sys.stderr)
         print("Re-run with --force to run it again.", file=sys.stderr)
         return
 
@@ -755,8 +759,8 @@ def _materialize_effective_toml(
     cli_overrides = _parse_cli_set_overrides(set_items)
     env_overrides = _parse_env_set_overrides(os.environ)
 
-    base_payload = load_toml_with_base_config(config_path)
-    overlay_payloads = [load_toml_with_base_config(path) for path in overlays]
+    base_payload = _load_config_file(config_path, load_toml_with_base_config)
+    overlay_payloads = [_load_config_file(path, load_toml_with_base_config) for path in overlays]
     raw_toml = merge_toml_payloads(
         {},
         base_chain=[base_payload],
@@ -778,6 +782,50 @@ def _materialize_effective_toml(
         handle.write(dumps(raw_toml))
         temp_path = Path(handle.name)
     return temp_path, raw_toml
+
+
+class _ConfigFileError(Exception):
+    """A configuration file, or a file of its base_config chain, cannot be read."""
+
+
+def _load_config_file(path: Path, loader: Any) -> dict[str, Any]:
+    """Load one file with its base_config chain, naming the file at fault."""
+    import tomllib
+
+    try:
+        return loader(path)
+    except tomllib.TOMLDecodeError as exc:
+        culprit = _first_unreadable_file(path) or path
+        raise _ConfigFileError(f"Invalid TOML in {culprit}: {exc}") from exc
+    except (TypeError, ValueError) as exc:
+        raise _ConfigFileError(f"Invalid configuration file {path}: {exc}") from exc
+
+
+def _first_unreadable_file(path: Path) -> Path | None:
+    """Follow the base_config chain from *path* and return the first file that fails to parse."""
+    import tomllib
+
+    from hydromodpy.core.toml_io.loader import _read_toml
+    from hydromodpy.core.toml_io.paths import is_declared_absolute_path
+
+    seen: set[Path] = set()
+    current: Path | None = path.resolve()
+    while current is not None and current not in seen:
+        seen.add(current)
+        try:
+            raw = _read_toml(current)
+        except tomllib.TOMLDecodeError:
+            return current
+        except OSError:
+            return None
+        base = raw.get("base_config")
+        if not isinstance(base, str) or not base:
+            return None
+        base_path = Path(base).expanduser()
+        if not is_declared_absolute_path(base_path):
+            base_path = current.parent / base_path
+        current = base_path.resolve()
+    return None
 
 
 def _cleanup_effective_toml(path: Path | None, *, source: Path) -> None:

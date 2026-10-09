@@ -1,6 +1,6 @@
 # Intentional duplication with the MF6 flow_to_modflow_adapter: MODFLOW-NWT is
 # scheduled for removal after the Lake (LAK) module lands on the MF6 side - not
-# worth factoring the payload builders out. See docs/_dev_notes/decisions/nwt_sunset_plan.md.
+# worth factoring the payload builders out.
 """Flow -> MODFLOW-NWT adaptation layer.
 
 Purpose
@@ -45,6 +45,7 @@ from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import (
     build_ocean_chd,
     build_side_chd,
     merge_chd_payloads,
+    refuse_constant_heads_below_bottom,
     validate_ibound_strt_contract,
 )
 from hydromodpy.solver.modflow_nwt.nwt.payloads.recharge_etp import (
@@ -123,6 +124,7 @@ class FlowToModflowAdapter:
         nper: int,
         grid: GridReference | None = None,
         simulation_window: ResolvedSimulationTimeWindow | None = None,
+        steady: np.ndarray | None = None,
         sink_fill: bool,
         sink: np.ndarray | None = None,
         drain_band_depth_m: float = 0.0,
@@ -150,6 +152,9 @@ class FlowToModflowAdapter:
         self.nper = int(nper)
         self.grid = grid
         self.simulation_window = simulation_window
+        # Per-period steady flags of the DIS package. None rebuilds them from the
+        # flow regime and first_period_steady (payloads.recharge_etp).
+        self.steady = None if steady is None else np.asarray(steady, dtype=bool).reshape(-1)
         if self.grid is None:
             self.cell_area = float(solver_mesh.characteristic_length) ** 2
             self.characteristic_length = float(solver_mesh.characteristic_length)
@@ -264,6 +269,7 @@ class FlowToModflowAdapter:
             strt=np.asarray(strt, dtype=float),
             drain_array=np.asarray(drain_array, dtype=float),
         )
+        refuse_constant_heads_below_bottom(self, ibound=ibound, strt=strt, chd_spd=chd_spd)
 
         required_properties = resolve_required_flow_properties(
             flow_regime=resolve_flow_regime(self.flow),

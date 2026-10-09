@@ -57,7 +57,7 @@ class HydrographicNetworkComparison {
   +to_metrics_record(...)
 }
 
-class StreamNetworkMetrics {
+class "results.derive.views" as StreamNetworkMetrics <<module>> {
   +cell_field_network_distance_metrics(...)
 }
 
@@ -95,8 +95,8 @@ Run --> StreamNetworkMetrics : delegates distance metrics
 HydrographicNetworkComparison --> HydrographicNetwork : compares two networks
 
 note bottom of RiverNetworkProducts
-Legacy-compatible technical output bundle
-from geographic.river_network preprocessing
+Technical output bundle of the
+geographic.river_network preprocessing
 end note
 
 note bottom of HydrographicNetwork

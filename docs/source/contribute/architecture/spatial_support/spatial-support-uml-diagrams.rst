@@ -1,5 +1,5 @@
-Spatial Support UML Diagrams
-============================
+Spatial support diagrams
+========================
 
 Scope
 -----
@@ -36,15 +36,15 @@ Recommended reading path
 4. ``hydromodpy/spatial/field/core/field_param.py``
 5. ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``
 
-Context Diagram
----------------
+Context
+-------
 
 Use this diagram to position the main modules and runtime responsibilities.
 
 .. uml:: diagrams/spatial_support_context.wsd
 
-Class Diagram
--------------
+Classes
+-------
 
 Use this diagram to document the supported zone-definition cases and the
 relationships between ``DomainConfig``, support configs, provider classes,
@@ -52,24 +52,24 @@ support-field implementations, ``Field``, and ``FieldParam``.
 
 .. uml:: diagrams/spatial_support_classes.wsd
 
-Support-Resolution Activity Diagram
------------------------------------
+Support resolution
+------------------
 
 Use this diagram to explain how explicit support declarations drive runtime
 behavior and data dependencies.
 
 .. uml:: diagrams/spatial_support_resolution_activity.wsd
 
-Support-Build Sequence Diagram
-------------------------------
+Support build
+-------------
 
 Use this diagram to describe how the project facade builds and
 registers support objects during setup and data phases.
 
 .. uml:: diagrams/spatial_support_build_sequence.wsd
 
-FieldParam-Mapping Sequence Diagram
------------------------------------
+FieldParam mapping
+------------------
 
 Use this diagram to describe how a support is consumed when a heterogeneous
 ``FieldParam`` is mapped to solver arrays.

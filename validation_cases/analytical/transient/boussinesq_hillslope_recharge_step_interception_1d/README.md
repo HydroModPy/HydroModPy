@@ -45,6 +45,10 @@ python -m validation_cases.analytical.transient.boussinesq_hillslope_recharge_st
 python -m validation_cases.analytical.transient.boussinesq_hillslope_recharge_step_interception_1d.run_case --solver boussinesq --show
 ```
 
+Reference used by the documentation:
+
+- reference: linearized unconfined response around `H0 = 5 m`, used for the onset time and the early trajectory of the interception front only
+
 ## Equations
 
 The equations of the reference solution the comparison uses.

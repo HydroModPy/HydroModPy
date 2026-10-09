@@ -11,7 +11,7 @@ class AuthBackend(Protocol):
 
     A backend resolves *who* is acting (``current_user``) and answers
     yes-or-no on access to a logical resource. Resources are identified
-    by opaque strings (e.g. ``"catalog:project:naizin"``); each backend
+    by opaque strings (e.g. ``"catalog:project:my_project"``); each backend
     decides how to map them onto its own access model.
     """
 

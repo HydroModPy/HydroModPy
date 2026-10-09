@@ -172,7 +172,7 @@ class TestTheMinimalMap:
 
         cfg, _raw = load_toml_calibration(path)
 
-        assert cfg.outputs["net"].minimal_stream_geometry_path == "nowhere.gpkg"
+        assert cfg.outputs["net"].minimal_stream_geometry_path == Path("nowhere.gpkg")
 
 
 class TestTheExtentTable:

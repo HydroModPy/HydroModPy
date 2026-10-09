@@ -1,56 +1,59 @@
-Add a Test
+Add a test
 ==========
 
-HydroModPy ships a five-tier test tree under ``tests/``: ``unit``,
-``integration``, ``e2e``, ``regression``, and ``validation``. This
-page tells you which tier to pick, which marker to use, and what
-fixture to reach for.
-
-For the full role-by-role inventory and how to interpret a failure,
-see :doc:`../overview/test-families-and-quality-roles`.
+The test tree under ``tests/`` has one folder per family. This page tells you
+which family to pick, which marker to use, which fixture to reach for, and how
+to run the tests. The families themselves, and how to read a failure of each,
+are in :doc:`/contribute/project/tests`.
 
 Pick the tier
 -------------
 
 .. list-table::
    :header-rows: 1
-   :widths: 18 28 54
+   :widths: 18 30 52
 
    * - Tier
      - When to pick it
-     - Hard limits
+     - Limits
    * - ``unit``
-     - One local function, class, or schema in isolation.
-     - Pure Python, no real I/O, <= 2 s per test, full tier <= 1 min.
+     - One local function, class or schema in isolation.
+     - Pure Python, no real I/O outside ``tmp_path``. Timeout 60 s.
    * - ``integration``
-     - Several layers compose without a golden file.
-     - Allowed to write to ``tmp_path``; <= 10 s per test.
+     - Several layers compose, without a golden file.
+     - May write to ``tmp_path``. Timeout 300 s.
    * - ``e2e``
-     - One full user scenario through ``hmp run`` /
-       ``hmp export`` / ``hmp data add``.
-     - Mid-size case; reads back persisted artefacts.
+     - One full user scenario through ``hmp run``, ``hmp export`` or
+       ``hmp data add``.
+     - Reads back what was persisted. Timeout 1800 s.
    * - ``regression``
      - Detect drift in a known workflow output.
-     - Two flavours: ``fast`` (<= 5 min total) and ``extensive``
-       (<= 30 min).
+     - ``fast`` (a few minutes in total) and ``extensive`` (heavier fixtures).
+       Timeout 300 s.
    * - ``validation``
-     - Compare the numerical result to a trusted reference
-       (analytical, MMS, calibration twin, solver sanity).
-     - Tolerances live in ``tolerances.toml`` next to the case.
+     - Compare a numerical result with a trusted reference (analytical, MMS,
+       calibration twin, solver sanity).
+     - Tolerances live next to the case. Timeout 900 s.
+   * - ``characterization``
+     - What one real run leaves on disk, read with the formats a stranger would
+       use.
+     - Five strict ``xfail`` cases record claims the code does not honour yet.
+   * - ``contract``
+     - Several implementations of one port behave the same.
+     - Parametrised over the implementations.
 
-Markers in ``pytest.ini``
--------------------------
+``tests/conftest.py`` tags a test with its tier marker and a default timeout
+from its folder, so you do not write ``@pytest.mark.unit``.
 
-Available markers:
+Markers
+-------
 
-``regression``, ``validation``, ``analytical``, ``steady``,
-``transient``, ``fast``, ``slow``, ``extensive``, ``nwt``, ``mf6``,
-``petsc``, ``boussinesq``, ``intercomparison``, ``integration``,
-``e2e``, ``unit``, ``coverage``, ``performance``, ``solver_sanity``,
-``network``, ``binary``, ``gpu``, ``allow_subprocess``, ``timeout``,
-``xdist_group``.
-
-Add the marker on the function:
+``pytest.ini`` declares every marker with its meaning and runs with
+``--strict-markers``: an undeclared marker is an error. The ones you will use
+most are ``regression``, ``validation``, ``analytical``, ``steady``,
+``transient``, ``fast``, ``slow``, ``extensive``, ``nwt``, ``mf6``, ``petsc``,
+``boussinesq``, ``solver_sanity``, ``network``, ``binary`` and
+``allow_subprocess``.
 
 .. code-block:: python
 
@@ -58,12 +61,11 @@ Add the marker on the function:
 
 
    @pytest.mark.regression
-   @pytest.mark.mf6
    @pytest.mark.fast
-   def test_my_workflow(tmp_path):
-       ...
+   @pytest.mark.mf6
+   def test_my_workflow(tmp_path): ...
 
-The CLI selects subsets:
+``hmp test`` selects subsets of three tiers:
 
 .. code-block:: bash
 
@@ -71,13 +73,10 @@ The CLI selects subsets:
    hmp test regression --fast --mf6
    hmp test regression --extensive
    hmp test validation --analytical --steady
-   pytest -m solver_sanity -q
-   pytest -m petsc -q
 
-``hmp test`` wraps only the ``unit``, ``regression``, and ``validation``
-tiers. Run the ``integration``, ``e2e``, and MMS suites with raw
-``pytest`` (for example ``pytest tests/integration/`` or
-``pytest tests/e2e/``).
+The other tiers go through ``pytest`` (for example
+``pytest tests/integration -q``, ``pytest -m solver_sanity -q``,
+``pytest -m petsc -q``).
 
 Where to put the file
 ---------------------
@@ -86,159 +85,168 @@ Mirror the package under test:
 
 .. code-block:: text
 
-   tests/unit/<package>/<module>/test_<feature>.py
-   tests/integration/<scenario>/test_*.py
-   tests/regression/fast/test_launcher_*.py
-   tests/regression/extensive/test_launcher_*.py
-   tests/validation/analytical/<case>/test_*.py
-   tests/validation/numerical/<case>/test_*.py
-   tests/validation/mms/<case>/test_*.py
-   tests/validation/calibration/<case>/test_*.py
+   tests/unit/<package>/test_<feature>.py
+   tests/integration/<area>/test_*.py
+   tests/regression/fast/test_*.py
+   tests/regression/extensive/test_*.py
+   tests/validation/analytical/{steady,transient}/...
+   tests/validation/numerical/{steady,transient}/...
+   tests/validation/mms/test_*.py
+   tests/validation/calibration/test_*.py
 
 Reusable fixtures
 -----------------
 
-Top-level ``conftest.py`` exposes:
+The top-level ``tests/conftest.py`` exposes:
 
-- ``tmp_workspace`` -- a fresh workspace directory (a ``Path`` rooted in
-  ``tmp_path`` with the standard ``data/`` / ``projects/`` layout).
-- ``minimal_config`` -- a ready-to-run ``HydroModPyConfig`` for the
-  smallest case (extend via ``model_copy(update=...)``).
+- ``tmp_workspace``: a fresh workspace directory, rooted in ``tmp_path`` with the
+  standard ``data/`` and ``projects/`` layout.
+- ``minimal_config``: a ready-to-run ``HydroModPyConfig`` for the smallest case.
+  Extend it with ``model_copy(update=...)``.
+- ``update_goldens``: true when pytest runs with ``--update-goldens``.
 
-For a DuckDB/Zarr catalog seeded on ``tmp_path``, use the
+For a DuckDB and Zarr catalog seeded under ``tmp_path``, use the
 ``tests._helpers.fixtures_catalog.simulation_catalog`` context manager.
+``tests/_helpers/`` also holds the doubles to use instead of a network call, a
+Whitebox run or a solver spawn.
 
-Use them to avoid re-implementing scaffolding in every test.
+Unit pattern
+------------
 
-Unit-test pattern
------------------
+``tests/unit/physics/test_transport_process.py`` builds a process from a mapping
+and checks what it holds:
 
 .. code-block:: python
 
-   # tests/unit/data/test_load_result.py
-   from hydromodpy.data.contracts.load_result import LoadResult
+   from hydromodpy.physics.transport.transport import Transport
 
 
-   def test_load_result_concat(tmp_path):
-       a = LoadResult(points=[...], fields=[], warnings=[])
-       b = LoadResult(points=[...], fields=[], warnings=["warn"])
-       merged = a.merge(b)
-       assert len(merged.points) == 2
-       assert merged.warnings == ["warn"]
+   def test_transport_mapping_config_populates_all_solver_parameter_blocks() -> None:
+       transport = Transport({"modpath": {"parameters": {"track_dir": "backward"}}})
+       assert transport.modpath.parameters["track_dir"] == "backward"
 
 Integration pattern
 -------------------
 
-.. code-block:: python
+``tests/integration/test_shared_fixtures.py`` shows the shared workspace fixture
+at work:
 
-   # tests/integration/test_overview_workflow.py
-   import pytest
+.. code-block:: python
 
    import hydromodpy as hmp
 
 
-   @pytest.mark.integration
-   def test_overview(tmp_workspace, minimal_overview_toml):
-       hmp.run(minimal_overview_toml)  # [workflow] mode = "overview"
-       assert (tmp_workspace / "data").exists()
+   def test_tmp_workspace_is_openable_as_a_catalog(tmp_workspace):
+       with hmp.open(tmp_workspace, create=True) as catalog:
+           assert catalog.list_simulations().empty
 
 Regression pattern
 ------------------
 
+A regression test runs a small workflow and compares its signature with a
+committed golden file. ``tests/regression/fast/test_simulation_regression_fast_mf6_regression.py``
+is one line of arguments to a shared helper:
+
 .. code-block:: python
 
-   # tests/regression/fast/test_simulation_regression_fast_mf6.py
-   import pytest
-
-   from tests.regression.golden_utils import (
-       load_golden_reference,
-       resolve_tiered_golden_file,
-       snapshot_signature,
-       write_golden_reference,
-   )
-
-
    @pytest.mark.regression
-   @pytest.mark.mf6
    @pytest.mark.fast
-   def test_simulation_regression_fast_mf6(tmp_path, update_goldens):
-       signature = snapshot_signature(run_workflow(tmp_path, ...))
-       golden = resolve_tiered_golden_file(
-           test_file=__file__, filename="simulation_regression_fast_mf6.json"
+   @pytest.mark.mf6
+   def test_simulation_regression_fast_mf6_regression(update_goldens) -> None:
+       run_simulation_regression(
+           test_file=__file__,
+           config_name="run_fast_mf6.toml",
+           golden_filename="simulation_regression_fast_mf6_npy_signatures.json",
+           update_goldens=update_goldens,
+           ...,
        )
-       if update_goldens:
-           write_golden_reference(golden, signature)
-       assert signature == load_golden_reference(golden)
 
-Refresh the golden with ``pytest tests/regression/ --update-goldens``;
-review the diff before committing.
+The helpers are in ``tests/regression/golden_utils.py``
+(``snapshot_signature``, ``load_golden_reference``, ``write_golden_reference``).
+Refresh a golden with ``pytest tests/regression/ --update-goldens`` and review
+the diff before you commit it. A golden that moved says the workflow changed, not
+that it became wrong.
 
 Validation pattern
 ------------------
 
-A validation case lives in *two* trees:
+A validation case lives in two trees:
 
-- the **benchmark logic** in
-  ``validation_cases/<case>/{run_case.py, comparison.py,
-  metadata.toml, tolerances.toml}``;
-- the **pytest entry** in ``tests/validation/<family>/test_*.py``
-  that imports the comparison function and asserts metrics.
+- the benchmark logic in ``validation_cases/<case>/`` (``run_case.py``,
+  ``comparison.py``, ``metadata.toml``, ``tolerances.toml``);
+- the pytest entry in ``tests/validation/<family>/test_*.py``, which imports the
+  comparison function and asserts the metrics.
 
-The split exists so the same case can be run as an automated test or
-launched manually for figure-first diagnosis (``python -m
-validation_cases.run_cases``).
+The split lets the same case run as an automated test or by hand, for a
+figure-first diagnosis (``python -m validation_cases.run_cases``).
 
-Tolerances are never inline magic numbers. A case envelope lives in the
-case's ``tolerances.toml`` and is read through ``comparison.tolerances``;
-a single documented scalar from ``tests/TOLERANCES.md`` is read through
-``tests/_helpers/tolerances.py::tol('<slug>')``. See ``tests/TOLERANCES.md``
-for the global policy and ``tests/unit/test_tolerances_single_source.py``
-for the drift guard.
+Tolerances are never inline magic numbers. A case envelope lives in the case's
+``tolerances.toml`` and is read through ``comparison.tolerances``. A single
+documented scalar from ``tests/TOLERANCES.md`` is read through
+``tests/_helpers/tolerances.py::tol('<slug>')``.
+``tests/unit/architecture/test_tolerances_single_source.py`` is the drift guard.
 
-Solver-sanity pattern
----------------------
+When the test should check the external solver and not the HydroModPy launcher,
+mark it ``solver_sanity``. That subset flags solver-binary drift independently of
+the orchestration.
 
-When the test should validate the **external solver** rather than
-the HydroModPy launcher, mark it ``solver_sanity``:
+.. _run-the-tests:
 
-.. code-block:: python
+Run the tests
+-------------
 
-   @pytest.mark.solver_sanity
-   def test_modflow6_against_theis(tmp_path):
-       ...
+Run the folder of the area you touched, and the architecture gate. CI runs the
+whole suite.
 
-That subset is meant to flag solver-binary drift independently of
-HydroModPy's orchestration.
+.. code-block:: bash
 
-Pitfalls flagged by the layer matrix
-------------------------------------
+   python -m pytest tests/unit/physics -q
+   python -m pytest tests/unit/architecture -q
 
-- The test layer must not import ``hydromodpy`` private modules with
-  a leading underscore (``_api``, ``_lazy``, ``_bootstrap``).
-- A unit test must not write to a network resource. Mock at the
-  ``HTTPClient`` level (``core/io/http_client.py``).
-- Validation tests must keep tolerances in their case-local
-  ``tolerances.toml`` (case envelopes) or in ``tests/TOLERANCES.md`` via
-  ``tol('<slug>')`` (documented scalars); do not hard-code numeric
-  thresholds in the pytest file.
+**Parallel runs.** ``pytest.ini`` already sets ``--dist=loadgroup``, which keeps
+the tests that share an ``xdist_group`` on one worker. Keep it: ``--dist
+loadscope`` ignores the groups. On a workstation use ``-n 8`` or fewer, never
+more workers than cores.
 
-Coverage expectation
---------------------
+.. code-block:: bash
 
-Coverage is gated by Codecov, not by ``pyproject``: the ``patch`` target
-is 80 % (your diff must be at least 80 % covered) and the ``project``
-target is ``auto`` (overall coverage must not drop). ``[tool.coverage]
-fail_under`` in ``pyproject.toml`` is not enforced by CI. Raise coverage
-by asserting real behavior or a physical/mathematical invariant, never by
-adding a test purely to hit a line.
+   python -m pytest tests/unit -q -n 8 --dist loadgroup
+
+CI uses ``-n 2``.
+
+**Whitebox tests run in series.** The native Whitebox binding dies, and takes
+the pytest worker with it, when several DEM workflows run in one long-lived
+process. ``tests/conftest.py`` puts the Whitebox-backed tests in one xdist group,
+and the CI steps that run a tier in parallel exclude them and run them in a
+serial step. Do the same when you run a tier locally: run the Whitebox files
+without ``-n``. ``tests/unit/architecture/test_whitebox_tests_run_serially.py``
+checks the workflows. Never run two pytest sessions on the same scratch root.
+
+**Scratch folder.** Tests write to ``HMP_TEST_SCRATCH_ROOT``, ``/tmp/hydromodpy_tests/``
+by default. When ``/tmp`` is a small memory-backed filesystem, or shared with other
+sessions, a full disk truncates raster files and the failure looks like a bug in
+your change. Point the variable at a disk before you suspect your diff:
+
+.. code-block:: bash
+
+   export HMP_TEST_SCRATCH_ROOT=$HOME/.cache/hmp-test-scratch
+
+Pitfalls
+--------
+
+- A unit test must not reach the network. Mock at the ``HTTPClient`` level
+  (``core/io/http_client.py``) or use a double from ``tests/_helpers/``.
+- A validation test keeps its tolerances in the case ``tolerances.toml`` or in
+  ``tests/TOLERANCES.md`` through ``tol('<slug>')``. It does not hard-code a
+  threshold.
+- Raise coverage by asserting a real behaviour or an invariant, never by adding a
+  test to hit a line. Codecov gates the patch at 80 % and the project at ``auto``;
+  ``fail_under`` in ``pyproject.toml`` is not a CI gate.
 
 See also
 --------
 
-- :doc:`../overview/test-families-and-quality-roles` for the full
-  ladder.
-- :doc:`../overview/test-inventory` for the current suite snapshot by
-  family and subsystem.
-- :doc:`/contribute/handbook` for the contributor workflow.
-- ``tests/README.md`` and ``validation_cases/README.md`` for the
-  in-repo conventions.
+- :doc:`/contribute/project/tests` for the families and how to read a failure.
+- :doc:`/contribute/architecture/generated/tests` for the inventory of the suite.
+- ``tests/README.md`` and ``validation_cases/README.md`` for the conventions kept
+  in the tree.

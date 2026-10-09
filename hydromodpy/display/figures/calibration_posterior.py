@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import ObjectiveName, Opt, ParameterNames, TrialsSessionId
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._trial_diagnostics import trial_table
 
@@ -49,11 +50,13 @@ class CalibrationPosteriorFigure(BaseFigure):
         self,
         sim: Run,
         *,
-        parameters: list[str] | None = None,
-        objective: str | None = None,
-        session_id: str | None = None,
-        bins: int = 20,
-        cmap: str = "viridis",
+        parameters: ParameterNames = None,
+        objective: ObjectiveName = None,
+        session_id: TrialsSessionId = None,
+        bins: Annotated[int, Opt("Number of bins of each histogram.")] = 20,
+        cmap: Annotated[
+            str, Opt("Matplotlib colormap of the mean cost shading the bars, by name.")
+        ] = "viridis",
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,
@@ -116,7 +119,7 @@ class CalibrationPosteriorFigure(BaseFigure):
                 label=f"mean {objective_name}",
                 shrink=0.7,
             )
-        fig.suptitle(f"Parameter posteriors - {sim.name or sim.sim_id}")
+        fig.suptitle(f"Parameter posteriors{run_suffix(sim)}")
         if save_path is not None:
             from pathlib import Path
 

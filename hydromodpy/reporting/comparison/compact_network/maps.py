@@ -206,11 +206,11 @@ def overlay_reference(
     if has_reference or watershed_context != "none":
         handles = []
         if has_reference:
-            handles.append(Line2D([0], [0], color="#9b1c1c", lw=1.6, label="reseau observe"))
+            handles.append(Line2D([0], [0], color="#9b1c1c", lw=1.6, label="observed network"))
         if watershed_context == "external":
-            handles.append(Line2D([0], [0], color="#111827", lw=1.4, label="limite bassin versant"))
+            handles.append(Line2D([0], [0], color="#111827", lw=1.4, label="catchment boundary"))
         elif watershed_context == "support":
-            handles.append(Line2D([0], [0], color="#111827", lw=1.4, label="limite bassin versant"))
+            handles.append(Line2D([0], [0], color="#111827", lw=1.4, label="catchment boundary"))
         ax.legend(
             handles=handles,
             loc="upper right",
@@ -265,7 +265,7 @@ def render_log_flux_figure(
         cmap="viridis",
         vmin=vmin,
         vmax=vmax,
-        cbar_label="log10(flux moyen positif)",
+        cbar_label="log10(mean positive flux)",
     )
     ticks = np.linspace(float(vmin), float(vmax), 5)
     tick_labels = [f"{tick:.1f}" for tick in ticks]
@@ -375,9 +375,9 @@ def recharge_month_labels(base_config: Path | None, n_values: int) -> list[str]:
 def recharge_summary_text(base_config: Path | None) -> str:
     values = recharge_values_from_config(base_config)
     if not values:
-        return "chronique de recharge non trouvee"
+        return "recharge series not found"
     return (
-        f"{len(values)} mois; moyenne {sum(values) / len(values):.2f} mm/j; "
+        f"{len(values)} months; mean {sum(values) / len(values):.2f} mm/d; "
         f"min {min(values):.2f}; max {max(values):.2f}"
     )
 
@@ -397,9 +397,9 @@ def generate_recharge_figure(base_config: Path | None, save_path: Path) -> bool:
     fig, ax = plt.subplots(figsize=(6.6, 1.9), dpi=180, constrained_layout=True)
     x_values = list(range(len(values)))
     ax.bar(x_values, values, color="#4c78a8", width=0.72)
-    ax.axhline(mean_value, color="#b23a48", linewidth=1.2, linestyle="--", label="moyenne")
-    ax.set_title("Recharge mensuelle imposee", fontsize=10)
-    ax.set_ylabel("mm/j")
+    ax.axhline(mean_value, color="#b23a48", linewidth=1.2, linestyle="--", label="mean")
+    ax.set_title("Prescribed monthly recharge", fontsize=10)
+    ax.set_ylabel("mm/d")
     ax.set_xticks(x_values)
     ax.set_xticklabels(labels, rotation=30, ha="right", fontsize=7)
     ax.grid(axis="y", color="#d8dee6", linewidth=0.7, alpha=0.8)
@@ -454,7 +454,7 @@ def render_topographic_context_figure(
     if image is None:
         return
     colorbar = fig.colorbar(image, ax=ax, fraction=0.042, pad=0.015)
-    colorbar.set_label("altitude (m)")
+    colorbar.set_label("elevation (m)")
     colorbar.ax.tick_params(labelsize=8)
 
     reference = reference_provider(run)
@@ -474,16 +474,16 @@ def render_topographic_context_figure(
     )
     handles = []
     if has_reference:
-        handles.append(Line2D([0], [0], color="#9b1c1c", lw=1.6, label="reseau observe"))
+        handles.append(Line2D([0], [0], color="#9b1c1c", lw=1.6, label="observed network"))
     if watershed_context == "external":
-        handles.append(Line2D([0], [0], color="#111827", lw=1.4, label="limite bassin versant"))
+        handles.append(Line2D([0], [0], color="#111827", lw=1.4, label="catchment boundary"))
     elif watershed_context == "support":
-        handles.append(Line2D([0], [0], color="#111827", lw=1.4, label="limite bassin versant"))
+        handles.append(Line2D([0], [0], color="#111827", lw=1.4, label="catchment boundary"))
     if handles:
         ax.legend(handles=handles, loc="upper right", frameon=True, framealpha=0.92, fontsize=8)
     style_map_axes(ax)
     remove_map_frame(ax)
-    ax.set_title("Contexte topographique")
+    ax.set_title("Topographic context")
     save_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(save_path, dpi=180, bbox_inches="tight")
     plt.close(fig)
@@ -545,15 +545,15 @@ def generate_metric_synthesis_figure(
         constrained_layout=True,
     )
     styles = (
-        ("Emergences avant routage", "#4c78a8", "o"),
-        ("Emergences accumulees vers l'aval", "#f58518", "s"),
+        ("Emergence before routing", "#4c78a8", "o"),
+        ("Emergence accumulated downstream", "#f58518", "s"),
     )
     for ax, title, xlabel, first, second in (
-        (axes[0], "Distance moyenne symetrique", "m", release_distances, routed_distances),
+        (axes[0], "Symmetric mean distance", "m", release_distances, routed_distances),
         (
             axes[1],
-            "Ratio des distances",
-            "calc -> obs / obs -> calc",
+            "Distance ratio",
+            "sim -> obs / obs -> sim",
             release_ratios,
             routed_ratios,
         ),

@@ -58,7 +58,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
     dem_path = getattr(dg, "watershed_box_buff_dem", None) if dg else None
     watershed_shp = getattr(dg, "watershed_shp", None) if dg else None
     streams_gdf = _load_streams_gdf(ld.hydrography)
-    title = summary.watershed_name or "Bassin"
+    title = summary.watershed_name or "Catchment"
     overview_cfg = state.cfg.overview
     regional_dem_path = _regional_dem_path(state, dg, fallback=dem_path)
     regional_title = _regional_context_title(
@@ -98,7 +98,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 station_points=station_points,
                 outlet_xy=_outlet_xy(dg),
                 relative_ticks=True,
-                title=f"{title} - MNT",
+                title=f"{title} - DEM",
             )
         )
 
@@ -113,7 +113,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 geology_gdf=geology_gdf,
                 relative_ticks=True,
-                title="Geologie du bassin",
+                title="Catchment geology",
             )
         )
 
@@ -132,7 +132,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 outlet_xy=outlet_xy,
                 relative_ticks=True,
                 stream_label="BD Topage",
-                title="Reseau hydrographique BD Topage",
+                title="BD Topage hydrographic network",
             )
         )
 
@@ -302,13 +302,13 @@ def _regional_context_title(regional_dem_path: Path | None, *, label: str | None
     if label:
         return label
     if regional_dem_path is None:
-        return "Situation regionale"
+        return "Regional setting"
     name = regional_dem_path.stem.lower()
     if "armorican" in name or "armoricain" in name:
-        return "Situation dans le Massif Armoricain"
+        return "Setting in the Armorican Massif"
     if "bretagne" in name or "brittany" in name:
-        return "Situation en Bretagne"
-    return "Situation regionale"
+        return "Setting in Brittany"
+    return "Regional setting"
 
 
 def _write_review_pages_enabled() -> bool:

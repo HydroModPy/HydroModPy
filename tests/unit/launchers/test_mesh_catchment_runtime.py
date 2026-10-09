@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.state.paths import preprocessing_dir
+from hydromodpy.spatial.geographic.geographic_config import RiverNetworkConfig
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 from hydromodpy.spatial.mesh.launcher import runtime as mesh_runtime
 
@@ -33,7 +34,7 @@ def test_mesh_runtime_require_mesh_section_returns_typed_model() -> None:
 def test_prepare_geographic_config_for_meshing_updates_simple_namespace_runtime() -> None:
     geographic_cfg = SimpleNamespace(
         uses_synthetic_geographic=lambda: False,
-        river_network=SimpleNamespace(enabled=False),
+        river_network=RiverNetworkConfig(threshold_area_km2=0.5),
     )
 
     updated = mesh_runtime.prepare_geographic_config_for_meshing(
@@ -44,6 +45,23 @@ def test_prepare_geographic_config_for_meshing_updates_simple_namespace_runtime(
     assert updated is not geographic_cfg
     assert updated.river_network.enabled is True
     assert geographic_cfg.river_network.enabled is False
+
+
+def test_a_river_mesh_without_a_network_threshold_names_the_key_to_set() -> None:
+    geographic_cfg = SimpleNamespace(
+        uses_synthetic_geographic=lambda: False,
+        river_network=RiverNetworkConfig(),
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        mesh_runtime.prepare_geographic_config_for_meshing(
+            geographic_cfg,
+            constraints_mode="rivers_only",
+        )
+
+    message = str(excinfo.value)
+    assert "mesh_catchment.constraints_mode = 'rivers_only'" in message
+    assert "Set threshold_area_km2 under [geographic.river_network]" in message
 
 
 def test_mesh_runtime_can_skip_exchange_bundle_export(

@@ -103,6 +103,7 @@ def test_an_unreadable_generated_network_is_logged_by_figure_name(
         config={},
         generated_network_root=runs,
         geographic_scratch=scratch,
+        config_dir=tmp_path,
     )
 
     assert copied == {}
@@ -123,6 +124,7 @@ def test_a_missing_generated_network_is_logged_as_information(tmp_path, hmp_log_
         config={},
         generated_network_root=tmp_path / "runs",
         geographic_scratch=tmp_path / "geographic",
+        config_dir=tmp_path,
     )
 
     messages = [(r.levelno, r.getMessage()) for r in hmp_log_records]

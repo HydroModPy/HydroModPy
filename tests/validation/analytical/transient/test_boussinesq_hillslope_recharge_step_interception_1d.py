@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
-from tests.validation.helpers import assert_metric_below
+from tests.validation.helpers import assert_metric_below, record_comparison
 from validation_cases.analytical.transient.boussinesq_hillslope_recharge_step_interception_1d.comparison import (
     run_boussinesq_hillslope_recharge_step_interception_comparison,
 )
@@ -28,6 +28,7 @@ def test_boussinesq_hillslope_recharge_step_interception_1d_matches_onset_approx
         caller_file=__file__,
         solver="boussinesq",
     )
+    record_comparison(comparison)
     onset_tol = dict(comparison.tolerances.get("onset", {}))
     trajectory_tol = dict(comparison.tolerances.get("trajectory", {}))
     uniformity_tol = dict(comparison.tolerances.get("uniformity", {}))

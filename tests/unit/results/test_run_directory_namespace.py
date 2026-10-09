@@ -151,13 +151,13 @@ def test_restoring_a_trashed_run_takes_its_own_directory_back(catalog):
     assert catalog.run_dir_for(sid).name == "recycled"
 
 
-def test_restoring_behind_a_successor_still_mints_a_version(catalog):
-    """When the name was taken meanwhile, the restored run gets the next one."""
+def test_restoring_behind_a_successor_keeps_the_free_name(catalog):
+    """The successor took the next version, so the original name is still free."""
     sid, _ = _register(catalog, project="alpha", name="recycled")
     catalog.trash(sid)
     _register(catalog, project="alpha", name="recycled")
 
-    assert catalog.restore(sid) == "recycled.v3"
+    assert catalog.restore(sid) == "recycled"
 
 
 def test_renaming_onto_a_directory_of_another_project_is_refused(catalog):

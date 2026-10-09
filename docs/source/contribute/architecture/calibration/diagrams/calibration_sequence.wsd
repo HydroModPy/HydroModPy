@@ -1,45 +1,42 @@
 @startuml
-title Calibration2 - Calibration Sequence (Core + Runner)
+title Calibration - one session from hmp run
 
 actor User
-participant "run_calibration.py" as Runner
-participant "engine_config" as EngineConfig
-participant "case_config" as CaseConfig
-participant "chronicle builder" as ChronicleBuilder
+participant "cli_runner.py" as Runner
+participant "CalibrationConfig" as Config
+participant "trial.py" as Trial
 participant "CalibrationEngine" as Engine
-participant "CalibrationMethod" as Dispatcher
-participant "Method Implementation" as MethodImpl
-participant "CalibrationResults" as Results
+participant "Optimizer\n(optim/adapters)" as Optimizer
+participant "ParamsHashCache" as Cache
+participant "Evaluator\n(pipeline_evaluator.py)" as Evaluator
+participant "CalibrationPersistence" as Persistence
+participant "promotion.py" as Promotion
 
-User -> Runner: execute calibration script
-Runner -> EngineConfig: load_calibration_toml(config_path)
-EngineConfig -> EngineConfig: validate_calibration_config_data(...)
-EngineConfig --> Runner: validated config
+User -> Runner: hmp run calibration.toml
+Runner -> Config: HydroModPyConfig validates [calibration]
+Config --> Runner: CalibrationConfig
+Runner -> Trial: prepare_trials()\n(geography, mesh, data built once)
+Runner -> Engine: build ParameterSpace, optimizer, evaluator
 
-Runner -> CaseConfig: validate_*_chronicle_config(config["chronicle"])
-CaseConfig --> Runner: normalized chronicle params
-Runner -> ChronicleBuilder: build synthetic chronicle
-ChronicleBuilder --> Runner: observed + forcing + true params
-
-Runner -> EngineConfig: resolve_calibration_settings(config, model_parameter_order)
-EngineConfig --> Runner: objective_metric, method, parameter_set, method_kwargs
-
-Runner -> Engine: __init__(observed, simulator, parameter_set, objective_metric)
-Runner -> Engine: calibrate(method, **method_kwargs)
-Engine -> Dispatcher: calibrate(objective_cost, bounds, method, **kwargs)
-Dispatcher -> MethodImpl: method(objective_cost, bounds, **kwargs)
-
-loop expensive evaluations
-  MethodImpl -> Engine: objective_cost(x)
-  Engine -> Engine: cost(x) -> score(x) -> simulate(x)
+loop until the stopping rule or the budget
+  Engine -> Optimizer: ask(n)
+  Optimizer --> Engine: ParamSuggestion
+  Engine -> Cache: params hash seen?
+  alt cache hit
+    Cache --> Engine: stored EvaluationResult
+  else new point
+    Engine -> Evaluator: evaluate(TrialRequest)
+    Evaluator -> Trial: run_trial_light(values)\nsteps from the first affected one,\nsolve, extract
+    Trial --> Evaluator: simulated series and metrics
+    Evaluator -> Evaluator: pair with observations,\nscore with the objective blocks
+    Evaluator --> Engine: TrialOutcome (cost)
+  end
+  Engine -> Optimizer: tell(EvaluationResult)
+  Engine -> Persistence: journal line, then index row
 end
 
-MethodImpl --> Dispatcher: raw method output (dict)
-Dispatcher --> Engine: raw result
-Engine -> Results: from_method_output(raw, default_method)
-Engine -> Results: attach_context(vector_to_params, score_best)
-Results --> Engine: structured result
-Engine --> Runner: CalibrationResults
-
-Runner --> User: summary + figures
+Engine --> Runner: CalibrationSession
+Runner -> Promotion: replay the best trials\nthrough the full pipeline
+Promotion --> Runner: run linked to its trial by sim_id
+Runner --> User: recap, report
 @enduml

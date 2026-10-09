@@ -26,14 +26,14 @@ def test_write_report_page_renders_metrics_tables_and_figures(tmp_path: Path) ->
         blocks=[
             ReportBlock(
                 block_id="spatial_context",
-                title="Localisation",
-                metrics=(ReportMetric("Surface", "12.3", "km2"),),
+                title="Location",
+                metrics=(ReportMetric("Area", "12.3", "km2"),),
                 figures=(
-                    ReportFigure("map", "Carte", figure_path, embed=True),
-                    ReportFigure("missing", "Figure manquante", tmp_path / "missing.png"),
+                    ReportFigure("map", "Map", figure_path, embed=True),
+                    ReportFigure("missing", "Missing figure", tmp_path / "missing.png"),
                     ReportFigure(
                         "optional_missing",
-                        "Figure optionnelle manquante",
+                        "Missing optional figure",
                         tmp_path / "optional.png",
                         required=False,
                     ),
@@ -41,13 +41,13 @@ def test_write_report_page_renders_metrics_tables_and_figures(tmp_path: Path) ->
                 tables=(
                     ReportTable(
                         "data",
-                        "Donnees",
+                        "Data",
                         columns=(("name", "Name"),),
                         rows=({"name": "hydrography"},),
                     ),
                     key_value_table(
                         "metadata",
-                        "Metadonnees",
+                        "Metadata",
                         (("Mode", "audit"),),
                     ),
                 ),
@@ -60,15 +60,15 @@ def test_write_report_page_renders_metrics_tables_and_figures(tmp_path: Path) ->
     html = output_path.read_text(encoding="utf-8")
     assert result == output_path
     assert 'id="spatial-context"' in html
-    assert "Partiel" in html
-    assert "Localisation" in html
+    assert "Partial" in html
+    assert "Location" in html
     assert "../figures/map.png" in html
     assert 'src="data:image/png;base64,' in html
-    assert "Figure requise manquante" in html
-    assert "Figure manquante" in html
-    assert "Figure optionnelle manquante" not in html
+    assert "Required figure missing" in html
+    assert "Missing figure" in html
+    assert "Missing optional figure" not in html
     assert "hydrography" in html
-    assert "Metadonnees" in html
+    assert "Metadata" in html
     assert "Source" in html
     assert "figure" in html
     assert all(line == line.rstrip() for line in html.splitlines())
@@ -82,15 +82,15 @@ def test_write_report_page_with_block_variants_renders_per_block_controls(
         block_id="flow_context",
         title="Flux",
         level="compact",
-        metrics=(ReportMetric("Debit observe", "1.2", "m3/s"),),
+        metrics=(ReportMetric("Observed discharge", "1.2", "m3/s"),),
     )
     standard = ReportBlock(
         block_id="flow_context",
         title="Flux",
         level="standard",
         metrics=(
-            ReportMetric("Debit observe", "1.2", "m3/s"),
-            ReportMetric("Debit simule", "1.1", "m3/s"),
+            ReportMetric("Observed discharge", "1.2", "m3/s"),
+            ReportMetric("Simulated discharge", "1.1", "m3/s"),
         ),
     )
 
@@ -108,6 +108,6 @@ def test_write_report_page_with_block_variants_renders_per_block_controls(
     assert 'id="flow-context-compact"' in html
     assert 'id="flow-context-standard"' in html
     assert "hydromodpy:block-level:" in html
-    assert "Debit observe" in html
-    assert "Debit simule" in html
+    assert "Observed discharge" in html
+    assert "Simulated discharge" in html
     assert all(line == line.rstrip() for line in html.splitlines())

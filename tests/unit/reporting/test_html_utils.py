@@ -147,11 +147,11 @@ def test_render_links_empty_when_no_existing_files(tmp_path) -> None:
     missing_a = tmp_path / "a.csv"
     missing_b = tmp_path / "b.csv"
     html = render_links(root=tmp_path, web_dir=tmp_path, links=[missing_a, missing_b])
-    assert html == '<p class="muted">Aucun fichier cle.</p>'
+    assert html == '<p class="muted">No key file.</p>'
 
     # And with no links at all.
     assert render_links(root=tmp_path, web_dir=tmp_path, links=[]) == (
-        '<p class="muted">Aucun fichier cle.</p>'
+        '<p class="muted">No key file.</p>'
     )
 
 

@@ -13,7 +13,13 @@ HELP: str = "List projects available in a workspace"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[verbosity_parser()],
+        epilog="Example:\n  hmp project list --workspace ~/hydromodpy",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--workspace",
         default=None,

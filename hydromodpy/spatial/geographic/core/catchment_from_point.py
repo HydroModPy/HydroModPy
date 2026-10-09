@@ -143,8 +143,8 @@ def extract_catchment_from_point(
             # the domain pipeline decides on EmptyCatchmentError, and widening
             # the type here would turn that retry off without a word.
             raise type(exc)(
-                f"{exc} Check geographic.x_outlet / geographic.y_outlet, increase "
-                "geographic.snap_dist, or verify that the corrected DEM and "
+                f"{exc} Check geographic.catchment.x_outlet / y_outlet, increase "
+                "geographic.catchment.snap_dist, or verify that the corrected DEM and "
                 "flow-accumulation rasters cover the outlet."
             ) from exc
 

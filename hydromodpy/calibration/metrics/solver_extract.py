@@ -273,11 +273,6 @@ def observable_request_for_output(
             times = "all"
         return ObservableRequest(id=name, name=str(output.variable), support="cells", times=times)
     if support == "cell":
-        if output.row is None or output.col is None:
-            raise NotImplementedError(
-                f"Cell calibration output {name!r} needs row and col: a flat cell_id "
-                "selector is not exposed by any solver."
-            )
         cell = (int(output.layer), int(output.row), int(output.col))
         if snap_m is not None:
             cell = snap_gauge_cell(

@@ -147,11 +147,11 @@ def test_network_transient_html_writes_reference_manifest(tmp_path: Path) -> Non
     # examples/**/outputs/, which .gitignore excludes, so they never ran in CI.
     text = out.read_text(encoding="utf-8")
     for marker in (
-        "Probleme de calibration",
-        "Configuration spatiale et temporelle",
-        "Fonction objectif dans l'espace des parametres",
-        "Cartes de drainage vis-a-vis de la cible",
-        "Chroniques de flux",
+        "Calibration problem",
+        "Spatial and temporal setup",
+        "Objective function over the parameter space",
+        "Drainage maps against the target",
+        "Flux series",
     ):
         assert marker in text, f"missing section: {marker}"
 

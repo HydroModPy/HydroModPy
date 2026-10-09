@@ -17,7 +17,12 @@ HELP = "Open a local browser UI to inspect DuckDB tables and manage simulations"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        epilog="Example:\n  hmp dev manage --port 8765 --no-browser",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--workspace",
         default=None,

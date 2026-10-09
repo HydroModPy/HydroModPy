@@ -49,7 +49,7 @@ extent = "watershed"
 [[data.etp.sources]]
 source = "sim2"
 extent = "watershed"
-
+{extra_sections}
 [flow]
 active_sinks_sources = ["recharge", "etp"]
 active_bc = ["drainage"]
@@ -64,9 +64,20 @@ ru = "150 mm"
 
 
 def _write(tmp_path: Path, data_types: list[str]) -> Path:
+    # A type listed in data.types needs its section, or the file is refused
+    # before the soil reservoir is looked at.
+    extra_sections = "".join(
+        f'\n[[data.{name}.sources]]\nsource = "sim2"\nextent = "watershed"\n'
+        for name in data_types
+        if name in ("recharge", "runoff")
+    )
     config_path = tmp_path / "project.toml"
     config_path.write_text(
-        SOIL_PROJECT_TOML.format(root=tmp_path.as_posix(), data_types=data_types),
+        SOIL_PROJECT_TOML.format(
+            root=tmp_path.as_posix(),
+            data_types=data_types,
+            extra_sections=extra_sections,
+        ),
         encoding="utf-8",
     )
     return config_path

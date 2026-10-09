@@ -10,11 +10,22 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pandas as pd
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
-__all__ = ["has_particle_tracks", "particle_time_to_days", "read_particle_tracks", "travel_time"]
+__all__ = [
+    "PARTICLE_COLUMNS",
+    "has_particle_tracks",
+    "particle_frame",
+    "particle_time_to_days",
+    "read_particle_tracks",
+    "travel_time",
+]
+
+PARTICLE_COLUMNS: tuple[str, ...] = ("particle", "step", "x", "y", "z", "time_days")
+"""Columns of :func:`particle_frame` every run gives; ``status`` and ``reason`` follow when stored."""
 
 _DAYS_PER_YEAR = 365.25
 # Tracking-time unit written by the extractors on the ``particles`` group,
@@ -108,6 +119,59 @@ def read_particle_tracks(run: Run) -> list[np.ndarray]:
         return tracks
     finally:
         sz.close()
+
+
+def particle_frame(run: Run) -> pd.DataFrame:
+    """Return every recorded position of every particle, one row per position.
+
+    Columns: ``particle`` (index of the particle, from 0), ``step`` (index of
+    the record along its path, from 0), ``x``, ``y`` (mesh coordinates, in
+    the CRS of the run), ``z`` (elevation, m) and ``time_days`` (absolute time
+    of the simulation, in days). ``status`` and ``reason`` follow when the
+    solver file carried them, as the solver codes. The padding the store adds
+    after the last record of a particle is left out. ``frame.attrs`` holds the
+    ``source_solver`` and the ``source_file`` the paths were read from. A run
+    with no particle process gives an empty frame with the same columns.
+    """
+    sz = run._catalog.open_zarr(run.sim_id)
+    try:
+        grp = sz.root.get("particles")
+        if grp is None or "x" not in grp or "y" not in grp:
+            return pd.DataFrame(
+                {
+                    name: pd.Series(dtype="int64" if name in ("particle", "step") else "float64")
+                    for name in PARTICLE_COLUMNS
+                }
+            )
+        attrs = dict(grp.attrs)
+        arrays = {
+            name: np.atleast_2d(np.asarray(grp[name], dtype="float64"))
+            for name in ("x", "y", "z", "time", "status", "reason")
+            if name in grp
+        }
+    finally:
+        sz.close()
+    unit = str(attrs.get("time_units", "days")).strip().lower()
+    to_days = _DAYS_PER_UNIT.get(unit, 1.0)
+    x = arrays["x"]
+    blank = np.full_like(x, np.nan)
+    kept = np.isfinite(x) & np.isfinite(arrays["y"])
+    particle, step = np.nonzero(kept)
+    columns: dict[str, np.ndarray] = {
+        "particle": particle.astype("int64"),
+        "step": step.astype("int64"),
+        "x": x[kept],
+        "y": arrays["y"][kept],
+        "z": arrays.get("z", blank)[kept],
+        "time_days": arrays.get("time", blank)[kept] * to_days,
+    }
+    for extra in ("status", "reason"):
+        if extra in arrays:
+            columns[extra] = arrays[extra][kept]
+    frame = pd.DataFrame(columns)
+    frame.attrs["source_solver"] = attrs.get("source_solver")
+    frame.attrs["source_file"] = attrs.get("source_file")
+    return frame
 
 
 def travel_time(track: np.ndarray) -> float:

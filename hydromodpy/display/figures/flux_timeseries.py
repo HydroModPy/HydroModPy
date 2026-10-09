@@ -15,14 +15,15 @@ overlapping zones into one another.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 import pandas as pd
 
 from hydromodpy.core.field_routing import select_budget_zone
 from hydromodpy.core.units.labels import AXIS_LABELS, axis_label
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import run_edges
 from hydromodpy.display.maps.axes import style_date_axis
@@ -58,17 +59,7 @@ _DEPTH_UNIT = "mm/period over the model domain"
 
 @register
 class FluxTimeseries(BaseFigure):
-    """Signed domain fluxes per stress period.
-
-    Options
-    -------
-    ``units``
-        ``"m3/s"`` (default) or ``"mm/period"``, the depth equivalent over
-        the model domain, which is how hydrologists compare a recharge to a
-        discharge.
-    ``include_storage``
-        Draw the storage change as well (default False: it is the residual).
-    """
+    """Signed domain fluxes per stress period."""
 
     spec = FigureSpec(
         name="flux_timeseries",
@@ -83,8 +74,16 @@ class FluxTimeseries(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        units: str = "m3/s",
-        include_storage: bool = False,
+        units: Annotated[
+            str,
+            Opt(
+                '"m3/s", or "mm/period" for the depth equivalent over the model domain, '
+                "which is how a recharge is compared to a discharge."
+            ),
+        ] = "m3/s",
+        include_storage: Annotated[
+            bool, Opt("Draw the storage change as well. Off by default: it is the residual.")
+        ] = False,
         **_,
     ) -> Axes:
         frame = sim.budget()
@@ -166,8 +165,7 @@ class FluxTimeseries(BaseFigure):
             labels += extra[1]
         ax.legend(handles, labels, fontsize=9, framealpha=0.9, ncols=min(len(labels), 4))
         ax.set_title(
-            f"{self.spec.title} - {sim.name or sim.sim_id}\n"
-            f"positive = into the aquifer, frame: {frame_label}"
+            f"{self.spec.title}{run_suffix(sim)}\npositive = into the aquifer, frame: {frame_label}"
         )
         if isinstance(index, pd.DatetimeIndex):
             style_date_axis(ax)

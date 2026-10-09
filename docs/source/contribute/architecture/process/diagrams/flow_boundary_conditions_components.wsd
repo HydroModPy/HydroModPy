@@ -3,7 +3,7 @@ title Flow Boundary Conditions - Component View
 
 package "physics.flow" {
   component "TOML [flow.bc]" as Toml
-  component "normalize_flow_boundary_conditions" as Normalizer
+  component "boundary_condition_registry\n(TOML shapes)" as Normalizer
   component "FlowBoundaryConditionConfig" as BoundaryConfig
   component "FLOW_BOUNDARY_DEFINITIONS" as Registry
   component "BoundaryConditionBundle" as Bundle

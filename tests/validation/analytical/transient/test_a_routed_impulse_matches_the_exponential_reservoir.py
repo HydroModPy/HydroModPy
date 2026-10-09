@@ -1,5 +1,7 @@
 """A 50 mm pulse through the soil reservoir, driven end to end by the orchestrator.
 
+Compared with: the closed form of a 50 mm pulse on a full soil routed through a linear reservoir, `Q(0) = 50 (1 - k a)`, `Q(t >= 1) = 50 k a^2 exp(-(t - 1) / k)`, `a = 1 - exp(-1 / k)`.
+
 Same closed form as the kernel-level unit test
 (``tests/unit/physics/test_an_impulse_through_the_transit_store_follows_the_exponential_reservoir.py``),
 but reached the way a run reaches it: through ``compute_soil_forcings``, with
@@ -28,6 +30,7 @@ from hydromodpy.data.contracts import FieldRecord, LoadResult
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
 from hydromodpy.simulation.soil_recharge import compute_soil_forcings
 from tests._helpers.tolerances import tol
+from tests.validation.helpers import assert_metric_below, record_scale, record_series
 
 _CRS = "EPSG:2154"
 _TRANSIT_TIMES_DAYS = (2.0, 5.0, 20.0)
@@ -107,8 +110,27 @@ def test_a_routed_impulse_matches_the_exponential_reservoir(transit_time_days: f
     volume_error = tol("soil_transit_store_impulse_volume")
     t95_tolerance_days = tol("routed_impulse_validation_case__t95_against_k_ln_0_05_days")
 
-    assert np.max(np.abs(recharge - expected)) < max_error
-    assert abs(recharge.sum() - 50.0) < volume_error
+    record_series(
+        "Daily recharge after a 50 mm pulse",
+        np.arange(n_days),
+        expected,
+        recharge,
+        x_label="day",
+        y_label="recharge (mm/d)",
+    )
+    record_scale(expected.max(), "peak recharge of the closed form", "mm/d")
+    assert_metric_below(
+        "Largest daily recharge error", np.max(np.abs(recharge - expected)), max_error, unit="mm"
+    )
+    assert_metric_below(
+        "Recharge volume error", abs(recharge.sum() - 50.0), volume_error, unit="mm"
+    )
 
     expected_t95 = -transit_time_days * np.log(0.05)
-    assert abs(_t95(recharge) - expected_t95) <= t95_tolerance_days
+    assert_metric_below(
+        "Error on the day 95 % of the pulse has drained",
+        abs(_t95(recharge) - expected_t95),
+        t95_tolerance_days,
+        unit="d",
+        inclusive=True,
+    )

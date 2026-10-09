@@ -40,12 +40,16 @@ Three rules hold for the whole file.
   `Unknown top-level TOML section(s): flows`.
 - A key that the table does not know is refused, and the message names the table:
   `Unknown TOML key(s) in [flow]: flow_regme`.
-- `[workspace]` with {toml}`workspace.project_root` is required in a TOML file.
-  `project_root = "."` means the folder of the file.
+- Three sections are required in every file: `[workflow]` with {toml}`workflow.mode`,
+  `[workspace]` with {toml}`workspace.project_root`, and `[geographic]`.
+  `project_root = "."` means the folder of the file. In its standard mode, `[geographic]`
+  needs `[geographic.catchment]` with {toml}`geographic.catchment.catch_def`, and
+  `catch_def = "dem"` needs {toml}`geographic.catchment.dem_init_path`. With these four
+  keys, `hmp config check` accepts the file.
 
 (base-config)=
 
-## base_config: start from another file
+## `base_config`: start from another file
 
 A file can inherit every table of another one. It writes only what changes.
 
@@ -83,7 +87,7 @@ for a dot.
 
 The full guide, with the traps, is {doc}`../../guides/inheritance`.
 
-## Merging: tables, lists, `__append`, `__delete`
+## Merging: tables, lists, `__append`, `__merge`, `__delete`
 
 The same merge applies to the files of the chain, to overlays and to `--set` values.
 
@@ -94,15 +98,17 @@ The same merge applies to the files of the chain, to overlays and to `--set` val
 | a list of values, `figures = [...]` | the child's list, which **replaces** the parent's |
 | `figures__append = [...]` | the parent's list, then the child's items |
 | `key__delete = true` | the parent's key or table removed, with all that is under it |
-| `[[x]]` blocks, as many as the parent's | the blocks merged **one by one, by position** |
-| `[[x]]` blocks, another number | the child's blocks, which replace the parent's |
+| `[[x]]` blocks | the child's blocks, which **replace** the parent's, whatever their number |
 | `[[x__append]]` | the parent's blocks, then the child's |
+| `[[x__merge]]` blocks, as many as the parent's | the blocks merged one by one, in order; another number is refused |
 
 Inside one table, the merge runs in three passes: the deletions, then the keys the file
 writes, then the appends. A key that is deleted and written again in the same table starts
 from nothing: this is why `sources__delete = true`, followed by a new list of sources,
-does not inherit the old keys. `key__delete` needs the literal `true`, and `key__append`
-needs a list.
+does not inherit the old keys. `key__delete` needs the literal `true`, `key__append`
+needs a list, and `key__merge` needs an inherited list of tables of the same length and
+is refused next to the plain `key`. To see the file a chain resolves to, before
+validation, run `hmp config resolve <file>`.
 
 ```{hmp-toml}
 :caption: five rules in one file

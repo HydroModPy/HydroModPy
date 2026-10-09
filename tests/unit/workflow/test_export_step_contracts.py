@@ -189,9 +189,14 @@ def test_a_run_that_asked_for_release_flux_keeps_the_terms_it_is_rebuilt_from() 
 
     assert handle.dropped == ["budget"]
     assert handle.kept == [RELEASE_BUDGET_KEYS]
-    assert {"drain", "drain_to_mover", "stream", "lake", "surface_excess"} == set(
-        RELEASE_BUDGET_KEYS
-    )
+    assert {
+        "drain",
+        "drain_to_mover",
+        "stream",
+        "lake",
+        "constant_head_stream",
+        "surface_excess",
+    } == set(RELEASE_BUDGET_KEYS)
 
 
 def test_step_drop_intermediate_budget_keeps_a_user_requested_budget() -> None:

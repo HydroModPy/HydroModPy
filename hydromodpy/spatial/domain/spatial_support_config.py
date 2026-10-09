@@ -41,9 +41,29 @@ class DomainSupportBaseConfig(HydroModelBase):
 class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
     """Analytical bands split along one cartesian axis."""
 
-    kind: Annotated[Literal["generated_bands"], Profile.USER]
-    axis: Annotated[Literal["x", "y"], Profile.USER] = "x"
-    coordinate_mode: Annotated[Literal["relative", "absolute"], Profile.DEV] = "relative"
+    kind: Annotated[Literal["generated_bands"], Profile.USER] = Field(
+        description=(
+            "What the zones of this support are: bands along an axis, concentric rings, "
+            "the catchment zones, or the geology units."
+        ),
+    )
+    axis: Annotated[Literal["x", "y"], Profile.USER] = Field(
+        default="x",
+        description="Axis the bands are cut along.",
+        json_schema_extra={
+            "value_docs": {
+                "x": "Cuts bands across the west-east axis: each band spans a range of x.",
+                "y": "Cuts bands across the south-north axis: each band spans a range of y.",
+            }
+        },
+    )
+    coordinate_mode: Annotated[Literal["relative", "absolute"], Profile.USER] = Field(
+        default="relative",
+        description=(
+            "How the coordinates of this support are read: as shares of the domain from "
+            "0 to 1 ('relative'), or as lengths converted to metres ('absolute')."
+        ),
+    )
     breaks: Annotated[list[float | str], Profile.USER] = Field(
         default_factory=list,
         description=(
@@ -111,8 +131,19 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
 class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
     """Analytical concentric rings centered on one cartesian point."""
 
-    kind: Annotated[Literal["generated_rings"], Profile.USER]
-    coordinate_mode: Annotated[Literal["relative", "absolute"], Profile.DEV] = "relative"
+    kind: Annotated[Literal["generated_rings"], Profile.USER] = Field(
+        description=(
+            "What the zones of this support are: bands along an axis, concentric rings, "
+            "the catchment zones, or the geology units."
+        ),
+    )
+    coordinate_mode: Annotated[Literal["relative", "absolute"], Profile.USER] = Field(
+        default="relative",
+        description=(
+            "How the coordinates of this support are read: as shares of the domain from "
+            "0 to 1 ('relative'), or as lengths converted to metres ('absolute')."
+        ),
+    )
     radii: Annotated[list[float | str], Profile.USER] = Field(
         default_factory=list,
         description=(
@@ -195,7 +226,12 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
 class CatchmentZonesSupportConfig(DomainSupportBaseConfig):
     """Support built from catchment/domain zonation already prepared in setup."""
 
-    kind: Annotated[Literal["catchment_zones"], Profile.USER]
+    kind: Annotated[Literal["catchment_zones"], Profile.USER] = Field(
+        description=(
+            "What the zones of this support are: bands along an axis, concentric rings, "
+            "the catchment zones, or the geology units."
+        ),
+    )
     source_zone_id: Annotated[NonEmptyStr, Profile.USER] = Field(
         default="catchment",
         description="Domain zone id providing the source catchment zonation.",
@@ -209,7 +245,12 @@ class CatchmentZonesSupportConfig(DomainSupportBaseConfig):
 class GeologySupportConfig(DomainSupportBaseConfig):
     """Support backed by the geology data manager."""
 
-    kind: Annotated[Literal["geology"], Profile.USER]
+    kind: Annotated[Literal["geology"], Profile.USER] = Field(
+        description=(
+            "What the zones of this support are: bands along an axis, concentric rings, "
+            "the catchment zones, or the geology units."
+        ),
+    )
 
 
 DomainSupportConfig = Annotated[

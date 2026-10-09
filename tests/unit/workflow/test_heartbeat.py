@@ -132,3 +132,39 @@ def test_pulse_writes_and_clears_sidecar(catalog: Catalog, tmp_path: Path) -> No
     with HeartbeatPulse(sim_id, interval_s=5.0, events=events, sidecar_workspace=tmp_path):
         assert sidecar.exists()
     assert not sidecar.exists()
+
+
+def test_pipeline_beats_once_a_step_has_minted_the_sim_id(catalog: Catalog, tmp_path: Path) -> None:
+    """The sim_id is minted inside the pipeline, so the pulse starts after that step."""
+    from hydromodpy.core.state.paths import running_sidecar_path
+    from hydromodpy.workflow.internals.state import PipelineState
+    from hydromodpy.workflow.runner import Pipeline
+
+    sim_id = "88888888-8888-8888-8888-888888888888"
+    _register_running_sim(catalog, sim_id)
+    sidecar = running_sidecar_path(tmp_path, sim_id)
+    seen: dict[str, bool] = {}
+
+    class _Mint:
+        name = "mint"
+
+        def run(self, state: PipelineState) -> PipelineState:
+            seen["before"] = sidecar.exists()
+            return state.advance(
+                step_index=state.step_index + 1, step_name=self.name, sim_id=sim_id
+            )
+
+    class _Solve:
+        name = "solve"
+
+        def run(self, state: PipelineState) -> PipelineState:
+            seen["during"] = sidecar.exists()
+            return state.advance(step_index=state.step_index + 1, step_name=self.name)
+
+    Pipeline([_Mint(), _Solve()], workspace=tmp_path, catalog=catalog).run(
+        PipelineState(run_id=sim_id, data={})
+    )
+
+    assert seen == {"before": False, "during": True}
+    assert _read_heartbeat(catalog, sim_id) is not None
+    assert not sidecar.exists()

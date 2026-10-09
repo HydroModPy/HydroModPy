@@ -216,6 +216,7 @@ class ExportRequest(HydroModelBase):
             "(watershed_dem...) and the table budget; 'hmp export <run> --list' prints what "
             "a run holds. A name no run can hold is refused before the solve."
         ),
+        examples=["head", ["head", "discharge"], "all"],
     )
     time: Annotated[str | int | list[str | int] | None, Profile.USER] = Field(
         default=None,
@@ -241,6 +242,20 @@ class ExportRequest(HydroModelBase):
             "of the run; 'stac', 'rocrate' and 'prov' write its metadata. Those four "
             'describe the whole run and take variables = "all" only.'
         ),
+        json_schema_extra={
+            "value_docs": {
+                "netcdf": "A NetCDF file (.nc): fields and series over time.",
+                "geotiff": "A GeoTIFF raster (.tif), one file per date.",
+                "csv": "A CSV table (.csv): series and tables.",
+                "geopackage": "A GeoPackage vector file (.gpkg), one file per date.",
+                "shapefile": "An ESRI Shapefile (.shp), one file per date.",
+                "vtu": "A VTK unstructured grid (.vtu) of the mesh, one file per date.",
+                "package": "The portable .hmp archive of the run.",
+                "stac": "The STAC metadata of the run.",
+                "rocrate": "The RO-Crate metadata of the run.",
+                "prov": "The PROV provenance record of the run.",
+            }
+        },
     )
     folder: Annotated[Path | None, Profile.USER] = Field(
         default=None,
@@ -273,6 +288,7 @@ class ExportRequest(HydroModelBase):
             "Pixel size of a GeoTIFF of a field, in units of the output CRS. Derived "
             "from the mesh when left out. Refused on a request that writes no raster."
         ),
+        json_schema_extra={"unit": "CRS unit"},
     )
     layer: Annotated[int | None, Profile.DEV] = Field(
         default=None,

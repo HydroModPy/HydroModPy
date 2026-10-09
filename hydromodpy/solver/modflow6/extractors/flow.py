@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core import progress
-from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
+from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE, STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import (
     CF_EPOCH,
@@ -26,6 +26,7 @@ from hydromodpy.solver.modflow6.extractors.sfr import (
     build_sfr_columns,
     read_sfr_meta,
 )
+from hydromodpy.solver.modflow_common.boundary_roles import read_constant_head_roles
 from hydromodpy.solver.modflow_common.budget_components import (
     canonical_budget_component,
     is_scalar_budget_component,
@@ -108,6 +109,20 @@ def _write_sfr_reach_geometry(sim_id: str, store: Any, spec: SfrObsSpec) -> None
 def _budget_field(row: Any, names: tuple[str, ...] | None, key: str) -> float:
     """Return one MF6 listing-budget field, or 0.0 when the field is absent."""
     return float(row[key]) if names is not None and key in names else 0.0
+
+
+def _stream_constant_head_mask(
+    solver_output_dir: Path, model_name: str, *, n_cells: int
+) -> np.ndarray | None:
+    """Cells whose constant head carries the stream role, from the build sidecar.
+
+    None when the run built no stream-role constant head, or when the sidecar
+    does not describe this grid.
+    """
+    roles = read_constant_head_roles(solver_output_dir, model_name)
+    if roles is None or not roles.has_role("stream") or int(roles.n_cells) != int(n_cells):
+        return None
+    return roles.mask_for("stream")
 
 
 def _read_time_units(tdis_path: Path) -> str:
@@ -267,6 +282,9 @@ class Modflow6OutputAdapter:
                     catchment_mask=self._catchment_cell_mask(
                         sim_id, store, solver_output_dir, n_cells=n_cells
                     ),
+                    stream_constant_head_mask=_stream_constant_head_mask(
+                        solver_output_dir, model_name, n_cells=n_cells
+                    ),
                 )
 
             lst_path = _listing_path(solver_output_dir, model_name)
@@ -326,11 +344,18 @@ class Modflow6OutputAdapter:
         n_cells: int = 0,
         seconds_per_time_unit: float = 1.0,
         catchment_mask: np.ndarray | None = None,
+        stream_constant_head_mask: np.ndarray | None = None,
     ) -> None:
         """Extract cell budget data from MF6 .cbc file.
 
         Fluxes are divided by ``seconds_per_time_unit`` so the stored values are
         m3/s regardless of the TDIS time unit (m3/s = flux / seconds_per_time_unit).
+
+        With ``stream_constant_head_mask``, the per-cell constant-head flux is
+        also written restricted to the stream-role cells, as
+        ``budget/constant_head_stream``. That spatial field is the stream-role
+        CHD term of ``release_flux``; it gets no budget table row, since the
+        ``constant_head`` row already counts that water.
         """
         from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
 
@@ -367,35 +392,44 @@ class Modflow6OutputAdapter:
             slab_stacks: dict[str, np.ndarray] = {}
             window_t0 = 0
 
-            def _flush_window(t0: int) -> None:
-                for comp, stack in slab_stacks.items():
-                    comp_key = canonical_budget_component(comp)
-                    try:
-                        if comp not in created_fields and t0 != 0:
-                            # First write of a variable must start at offset 0;
-                            # prime the full array for a component that only
-                            # appears past the first slab (rare for per-step terms).
-                            primer = np.full((1, *stack.shape[1:]), np.nan, dtype="float64")
-                            store.write_field_stack(
-                                sim_id,
-                                comp_key,
-                                primer,
-                                n_timesteps=n_timesteps,
-                                timestep_offset=0,
-                                subgroup="budget",
-                            )
+            def _write_budget_stack(comp_key: str, stack: np.ndarray, t0: int) -> None:
+                try:
+                    if comp_key not in created_fields and t0 != 0:
+                        # First write of a variable must start at offset 0;
+                        # prime the full array for a component that only
+                        # appears past the first slab (rare for per-step terms).
+                        primer = np.full((1, *stack.shape[1:]), np.nan, dtype="float64")
                         store.write_field_stack(
                             sim_id,
                             comp_key,
-                            stack,
+                            primer,
                             n_timesteps=n_timesteps,
-                            timestep_offset=t0,
+                            timestep_offset=0,
                             subgroup="budget",
                         )
-                        created_fields.add(comp)
-                    except Exception:
-                        logger.debug(
-                            "Skipped write_field_stack for MF6 budget '%s'", comp, exc_info=True
+                    store.write_field_stack(
+                        sim_id,
+                        comp_key,
+                        stack,
+                        n_timesteps=n_timesteps,
+                        timestep_offset=t0,
+                        subgroup="budget",
+                    )
+                    created_fields.add(comp_key)
+                except Exception:
+                    logger.debug(
+                        "Skipped write_field_stack for MF6 budget '%s'", comp_key, exc_info=True
+                    )
+
+            def _flush_window(t0: int) -> None:
+                for comp, stack in slab_stacks.items():
+                    comp_key = canonical_budget_component(comp)
+                    _write_budget_stack(comp_key, stack, t0)
+                    if comp_key == "constant_head" and stream_constant_head_mask is not None:
+                        _write_budget_stack(
+                            STREAM_CONSTANT_HEAD_BUDGET,
+                            np.where(stream_constant_head_mask, stack, 0.0),
+                            t0,
                         )
                 slab_stacks.clear()
 

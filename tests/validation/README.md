@@ -109,11 +109,21 @@ every solver backend is available on every operating system.
 - A Windows run that reports many `passed` tests plus a few PETSc-related
   `skipped` tests is therefore a valid outcome, not a degraded run.
 
-Today, the Linux-only PETSc coverage is concentrated in:
+The tests marked `petsc` are:
 
-- `tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py`
-- `tests/validation/numerical/transient/test_boussinesq_drying_petsc.py`
-- `tests/validation/numerical/transient/test_boussinesq_hillslope_recharge_pulse_overflow_petsc.py`
+- the `boussinesq` variant of every analytical case (`tests/conftest.py` adds
+  the mark);
+- the PETSc obstacle variants of
+  `tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py`;
+- `tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py`;
+- `tests/validation/numerical/transient/test_boussinesq_drying_petsc.py`;
+- `tests/validation/numerical/transient/test_boussinesq_hillslope_recharge_pulse_overflow_petsc.py`.
+
+In CI, `ci-nightly-petsc.yml` runs all of them every night on `main` and
+`dev` in a conda-forge environment with `petsc4py`. The other nightly and
+weekly jobs install with pip and deselect them with `-m "not petsc"`.
+`petsc-smoke.yml` runs the last three files on pushes that touch the
+Boussinesq solver.
 
 In practice:
 
@@ -128,6 +138,12 @@ During pytest execution, validation runs are launched with
 `MPLBACKEND=Agg`. Display behaviour is otherwise driven by the
 ``[display]`` TOML section (defaults are non-interactive and
 save-enabled), which keeps the tests deterministic.
+
+Validation runs store their fields at full precision
+(`[simulation.results.persistence] field_precision = "exact"`, set by
+`validation_cases/shared/runtime.py`). The default `compact` storage keeps 16
+mantissa bits: between 4 m and 8 m, two nearly equal heads can end one step of
+6.1e-5 m apart, more than the cross-row spread thresholds of the steady cases.
 
 ## Running the Suite
 

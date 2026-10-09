@@ -1,4 +1,4 @@
-Add a Figure
+Add a figure
 ============
 
 Figures live in ``hydromodpy.display`` and are auto-discovered through
@@ -193,6 +193,7 @@ And from TOML:
 
 .. code-block:: toml
 
+   # not checked: my_figure is the placeholder figure of this recipe
    [display]
    figures = ["piezometric_map", "water_budget", "my_figure"]
 

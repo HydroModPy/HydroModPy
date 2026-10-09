@@ -49,6 +49,7 @@ POINT_COLUMNS: tuple[str, ...] = (
     "run",
     "sim_id",
     "variable",
+    "point",
     "timestep",
     "time",
     "value",
@@ -101,7 +102,7 @@ class PointRequest:
             return self.label
         if self.cell is not None:
             return f"cell{self.cell}"
-        return f"{self.x:g}_{self.y:g}"
+        return f"{self.x:.10g}_{self.y:.10g}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -391,6 +392,7 @@ def _read_one(
             "run": run.name or run.sim_id[:8],
             "sim_id": run.sim_id,
             "variable": variable,
+            "point": point.label,
             "timestep": steps,
             "time": times,
             "value": values.astype("float64"),

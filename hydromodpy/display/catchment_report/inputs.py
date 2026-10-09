@@ -40,6 +40,7 @@ class CatchmentReportInputs:
     title: str = ""
     observed_discharge_path: Path | None = None
     observed_discharge_station_id: str | None = None
+    geology_path: Path | None = None
     preset_name: str | None = None
     pipeline_run_overview: bool = False
     pipeline_run_simulation: bool = False
@@ -76,7 +77,7 @@ class CatchmentReportInputs:
             site_label=settings.report.site_label,
             station_label=settings.report.station_label,
             title=settings.report.title,
-            preset_name=settings.report.preset_name,
+            preset_name=settings.report.preset,
             watershed_project_dir=settings.layout.watershed_project_dir,
             context_outputs_dir=settings.layout.context_outputs_dir,
             data_overview_project_dir=settings.layout.data_overview_project_dir,
@@ -87,6 +88,7 @@ class CatchmentReportInputs:
             overview_config_name=settings.layout.overview_config_name,
             observed_discharge_path=observed.path if observed else None,
             observed_discharge_station_id=observed.station_id if observed else None,
+            geology_path=settings.geology.path if settings.geology else None,
             pipeline_run_overview=settings.pipeline.run_overview,
             pipeline_run_simulation=settings.pipeline.run_simulation,
             pipeline_build_context_artifacts=settings.pipeline.build_context_artifacts,
@@ -114,6 +116,7 @@ class CatchmentReportInputs:
         overview_config_name: str | None = None,
         observed_discharge_path: Path | None = None,
         observed_discharge_station_id: str | None = None,
+        geology_path: Path | None = None,
         preset_name: str | None = None,
         pipeline_run_overview: bool = False,
         pipeline_run_simulation: bool = False,
@@ -162,6 +165,7 @@ class CatchmentReportInputs:
             title=title,
             observed_discharge_path=observed_discharge_path,
             observed_discharge_station_id=observed_discharge_station_id,
+            geology_path=geology_path,
             preset_name=preset_name,
             pipeline_run_overview=pipeline_run_overview,
             pipeline_run_simulation=pipeline_run_simulation,

@@ -8,11 +8,11 @@ unified as the discriminated union :data:`FlowWellForcingConfig`.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from math import isfinite
 from numbers import Real
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAlias
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, TypeAlias
 
 import pandas as pd
 from pydantic import Field, field_validator, model_validator
@@ -25,14 +25,28 @@ from hydromodpy.core.config_kit.types import NonEmptyStr
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.core.units import FlowRate
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
-from hydromodpy.physics.base.forcing import FlowTimeAggregate, FlowTimeFillMethod
+from hydromodpy.physics.base.forcing import FlowTimeAggregate
 
 if TYPE_CHECKING:
     from hydromodpy.core.grid_reference import GridReference
 
 
+def _carries_a_unit(value: object) -> bool:
+    """Return True for a text value with a unit, such as '2 mm/day'."""
+    if not isinstance(value, str):
+        return False
+    try:
+        float(value)
+    except ValueError:
+        return True
+    return False
+
+
 class FlowWellForcingConstantConfig(HydroModelBase):
     """One constant well-rate forcing applied to every stress period."""
+
+    forcing_si_unit: ClassVar[str] = "m3/s"
+    """Unit the value is stored in once it is validated."""
 
     kind: Annotated[Literal["constant"], Profile.USER] = Field(
         default="constant",
@@ -40,16 +54,51 @@ class FlowWellForcingConstantConfig(HydroModelBase):
     )
     value: Annotated[FlowRate, Profile.USER] = Field(
         ...,
-        description="Constant well rate in the same units as the parent well.",
+        description=(
+            "Value applied to every stress period, in the unit that units names. For a "
+            "well, a negative rate pumps and a positive one injects."
+        ),
     )
-    units: Annotated[str | None, Profile.DEV] = Field(
+    units: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Source units of the constant value before runtime conversion.",
+        description=(
+            "Unit of the forcing values: a volume per time such as 'm3/day', or a rate "
+            "such as 'mm/day' for a lake rainfall. Values are converted to SI when the run "
+            "starts. Unset, a well forcing takes the well's units, other forcings read SI."
+        ),
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _take_the_unit_of_the_value(cls, data: Any) -> Any:
+        """Store a value written with its unit in SI, and say so in units.
+
+        The value is converted when it is read, so units must then name the SI
+        unit: a run applies units to the stored number. A units key beside a
+        value that carries its own unit is refused, since one of the two would
+        be applied twice.
+        """
+        if not isinstance(data, Mapping) or not _carries_a_unit(data.get("value")):
+            return data
+        if data.get("units") is not None:
+            raise ValueError(
+                f"value = {data['value']!r} carries its own unit and units = "
+                f"{data['units']!r} names another. Write the unit once: in value, or "
+                "as a bare number in value with the unit in units."
+            )
+        return {**data, "units": cls.forcing_si_unit}
 
 
 class FlowWellForcingCsvConfig(HydroModelBase):
     """CSV-backed well forcing resolved at runtime against simulation.time."""
+
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "fill_method": (
+            "no step reads it. A stress period with no sample takes the sample in force, "
+            "and simulation.time.coverage_policy decides what happens before or after the "
+            "record."
+        ),
+    }
 
     kind: Annotated[Literal["csv"], Profile.USER] = Field(
         default="csv",
@@ -57,31 +106,38 @@ class FlowWellForcingCsvConfig(HydroModelBase):
     )
     path_file: Annotated[
         Path,
-        Profile.DEV,
+        Profile.USER,
         InputFile(role="wells", category="data"),
-    ] = Field(..., description="Path to the CSV chronicle file.")
+    ] = Field(
+        ...,
+        description=(
+            "CSV file of the dated values. Each stress period takes the aggregate of the "
+            "samples that fall inside it."
+        ),
+        examples=["forcing.csv"],
+    )
     sep: Annotated[NonEmptyStr, Profile.DEV] = Field(default=",", description="CSV delimiter.")
-    date_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
-        default="date", description="CSV column containing timestamps."
+    date_column: Annotated[NonEmptyStr, Profile.USER] = Field(
+        default="date", description="Name of the CSV column that holds the dates."
     )
     date_format: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional datetime format passed to pandas.to_datetime.",
     )
-    value_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
-        default="value", description="CSV column containing well rates."
-    )
-    fill_method: Annotated[FlowTimeFillMethod, Profile.DEV] = Field(
-        default="ffill",
-        description="Gap-filling policy used when a stress period has no direct sample.",
+    value_column: Annotated[NonEmptyStr, Profile.USER] = Field(
+        default="value", description="Name of the CSV column that holds the values."
     )
     aggregate: Annotated[FlowTimeAggregate, Profile.DEV] = Field(
         default="mean",
         description="Stress-period aggregation method.",
     )
-    units: Annotated[str | None, Profile.DEV] = Field(
+    units: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Source units of CSV values before runtime conversion.",
+        description=(
+            "Unit of the forcing values: a volume per time such as 'm3/day', or a rate "
+            "such as 'mm/day' for a lake rainfall. Values are converted to SI when the run "
+            "starts. Unset, a well forcing takes the well's units, other forcings read SI."
+        ),
     )
 
 
@@ -101,6 +157,7 @@ class FlowWellForcingSegment(HydroModelBase):
     start: Annotated[str, Profile.USER] = Field(
         ...,
         description="Inclusive segment start date (ISO date or datetime string).",
+        examples=["2020-01-01"],
     )
     end: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -137,10 +194,53 @@ class FlowWellForcingPiecewiseConfig(HydroModelBase):
         min_length=1,
         description="Date-ordered segments covering the simulation window.",
     )
-    units: Annotated[str | None, Profile.DEV] = Field(
+    units: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Source units of segment values before runtime conversion.",
+        description=(
+            "Unit of the forcing values: a volume per time such as 'm3/day', or a rate "
+            "such as 'mm/day' for a lake rainfall. Values are converted to SI when the run "
+            "starts. Unset, a well forcing takes the well's units, other forcings read SI."
+        ),
     )
+
+    forcing_unit_normalizer: ClassVar[Callable[[str], str]] = staticmethod(normalize_m3_per_s_unit)
+    """Canonical form of a unit of this forcing family."""
+
+    @model_validator(mode="after")
+    def _one_unit_for_every_segment(self) -> FlowWellForcingPiecewiseConfig:
+        """Refuse segments whose unit differs from the one of the forcing.
+
+        A run converts every segment with the units of the piecewise forcing,
+        so a unit written on a segment would otherwise be ignored. When only
+        the segments name a unit, and they agree, it becomes the unit of the
+        forcing.
+        """
+        normalize = type(self).forcing_unit_normalizer
+        declared = {
+            normalize(str(segment.forcing.units))
+            for segment in self.segments
+            if "units" in segment.forcing.model_fields_set and segment.forcing.units is not None
+        }
+        if not declared:
+            return self
+        if self.units is not None:
+            own = normalize(str(self.units))
+            other = sorted(unit for unit in declared if unit != own)
+            if other:
+                raise ValueError(
+                    f"piecewise segments name the unit {other[0]!r} and the forcing names "
+                    f"units = {self.units!r}. Write units once, on the piecewise forcing."
+                )
+            return self
+        if len(declared) > 1:
+            raise ValueError(
+                f"piecewise segments name several units ({', '.join(sorted(declared))}). "
+                "Write units once, on the piecewise forcing."
+            )
+        # Assigned through __dict__: validate_assignment would run this validator again.
+        self.__dict__["units"] = declared.pop()
+        self.__pydantic_fields_set__.add("units")
+        return self
 
     @model_validator(mode="after")
     def _validate_segment_order(self) -> FlowWellForcingPiecewiseConfig:
@@ -180,9 +280,13 @@ class FlowWellForcingSeasonalConfig(HydroModelBase):
         default=None,
         description="Mapping of meteorological season (DJF/MAM/JJA/SON) to a forcing value.",
     )
-    units: Annotated[str | None, Profile.DEV] = Field(
+    units: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Source units of seasonal values before runtime conversion.",
+        description=(
+            "Unit of the forcing values: a volume per time such as 'm3/day', or a rate "
+            "such as 'mm/day' for a lake rainfall. Values are converted to SI when the run "
+            "starts. Unset, a well forcing takes the well's units, other forcings read SI."
+        ),
     )
 
     @model_validator(mode="after")
@@ -297,7 +401,11 @@ class FlowWellLocationCell(HydroModelBase):
     )
     cell: Annotated[tuple[int, int, int], Profile.USER] = Field(
         ...,
-        description="Direct cell indices as [lay, row, col] (0-based, FLOPY convention).",
+        description=(
+            "Cell indices as [layer, row, column], counted from 0. Only a structured grid "
+            "has rows and columns."
+        ),
+        examples=[[0, 10, 12]],
     )
 
     @field_validator("cell", mode="before")
@@ -307,21 +415,28 @@ class FlowWellLocationCell(HydroModelBase):
 
 
 class FlowWellLocationAbsoluteXY(HydroModelBase):
-    """Projected ``(x, y)`` coordinates in solver units."""
+    """Projected ``(x, y)`` coordinates in the project CRS."""
 
     kind: Annotated[Literal["absolute_xy"], Profile.USER] = Field(
         default="absolute_xy",
         description="Discriminator tag for the absolute-xy well location.",
     )
-    layer: Annotated[int, Profile.DEV] = Field(
+    layer: Annotated[int, Profile.USER] = Field(
         default=0,
-        description="Layer index (0-based) targeted by the well.",
+        description="Model layer the point lies in, counted from 0 at the top.",
+        json_schema_extra={"unit": "-"},
     )
     x: Annotated[float, Profile.USER] = Field(
-        ..., description="Projected X coordinate in solver units."
+        ...,
+        description="Easting of the point in the projected CRS of the project, in metres.",
+        examples=[352400.0],
+        json_schema_extra={"unit": "m"},
     )
     y: Annotated[float, Profile.USER] = Field(
-        ..., description="Projected Y coordinate in solver units."
+        ...,
+        description="Northing of the point in the projected CRS of the project, in metres.",
+        examples=[6788300.0],
+        json_schema_extra={"unit": "m"},
     )
 
     @field_validator("layer", mode="before")
@@ -342,17 +457,28 @@ class FlowWellLocationRelativeXY(HydroModelBase):
         default="relative_xy",
         description="Discriminator tag for the relative-xy well location.",
     )
-    layer: Annotated[int, Profile.DEV] = Field(
+    layer: Annotated[int, Profile.USER] = Field(
         default=0,
-        description="Layer index (0-based) targeted by the well.",
+        description="Model layer the point lies in, counted from 0 at the top.",
+        json_schema_extra={"unit": "-"},
     )
     x_rel: Annotated[float, Profile.USER] = Field(
         ...,
-        description="Relative X position in [0, 1] from west to east.",
+        description=(
+            "Position across the model extent from west (0) to east (1). A share of the "
+            "extent, so it has no unit."
+        ),
+        examples=[0.5],
+        json_schema_extra={"unit": "-"},
     )
     y_rel: Annotated[float, Profile.USER] = Field(
         ...,
-        description="Relative Y position in [0, 1] from south to north.",
+        description=(
+            "Position across the model extent from south (0) to north (1). A share of the "
+            "extent, so it has no unit."
+        ),
+        examples=[0.5],
+        json_schema_extra={"unit": "-"},
     )
 
     @field_validator("layer", mode="before")
@@ -407,17 +533,25 @@ class FlowWellConfig(HydroModelBase):
         # A pumping rate is negative, so a log transform is not available to it.
         json_schema_extra=field_metadata(calibrable=Calibrable(units="m3/s")),
     )
-    forcing: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
+    forcing: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Optional runtime forcing declaration. Supported modes: "
-            "'constant', 'csv', 'piecewise', and 'seasonal'. The launcher "
-            "resolves this payload to well.flux using [simulation.time]."
+            "Rate schedule that replaces flux: 'constant', 'csv', 'piecewise' or "
+            "'seasonal'. It is turned into one rate per stress period of "
+            "[simulation.time]. A well takes flux or forcing, never both."
         ),
     )
-    units: Annotated[str, Profile.DEV] = Field(default="m3/s", description="Units of flux values.")
+    units: Annotated[str, Profile.USER] = Field(
+        default="m3/s",
+        description=(
+            "Unit of flux, or of the forcing values: a volume per time such as "
+            "'m3/day', 'm3/h' or 'l/s'. The rates are converted to m3/s when the run starts."
+        ),
+        examples=["m3/day"],
+    )
     description: Annotated[str, Profile.USER] = Field(
-        default="", description="Optional well description."
+        default="",
+        description="Free text about the well, kept with the configuration and not read by the model.",
     )
 
     @field_validator("flux", mode="before")
@@ -468,7 +602,12 @@ class FlowWellConfig(HydroModelBase):
                         normalized_parent_units != "m3/s"
                         and normalized_parent_units != normalized_forcing_units
                     ):
-                        raise ValueError("well.units conflicts with well.forcing.units")
+                        raise ValueError(
+                            f"well units = {parent_units!r} and its forcing names the unit "
+                            f"{normalized_forcing_units!r}. Write the unit once: on the well, "
+                            "or on the forcing. A value written with its unit, such as "
+                            "'100 m**3/day', names the unit of the forcing."
+                        )
             else:
                 normalized_forcing_units = normalize_m3_per_s_unit(parent_units)
             if forcing_units != normalized_forcing_units:

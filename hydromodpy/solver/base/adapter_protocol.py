@@ -43,8 +43,8 @@ class SolverAdapter(Protocol):
     """One adapter binds one ``(process_type, solver_name)`` pair.
 
     ``ctx.state`` is a :class:`~hydromodpy.core.state.run_state.RunState`: the
-    setup scope, the configuration, the execution registry and the run
-    identity, and nothing else of the pipeline the run belongs to. An adapter
+    setup scope, the configuration and the run identity (``sim_id``), and
+    nothing else of the pipeline the run belongs to. An adapter
     that needs something the view does not carry is asking for something a run
     invoked from outside would not have.
     """

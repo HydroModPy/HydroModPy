@@ -27,11 +27,12 @@ from __future__ import annotations
 import textwrap
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import OneParameter, Opt, ParameterUnits, SessionId
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
     Interval,
@@ -119,13 +120,7 @@ class _Ends:
 
 @register
 class ParameterCostProfileFigure(BaseFigure):
-    """Cost versus one calibrated parameter, with its asymmetry measured.
-
-    ``parameter_units`` and ``objective_units`` default to what the session
-    declared: the unit of the parameter, and the unit of the metric the cost
-    is. ``log_scale`` defaults to reading the sweep: strictly positive samples
-    spanning more than a decade were searched in log space.
-    """
+    """Cost versus one calibrated parameter, with its asymmetry measured."""
 
     spec = FigureSpec(
         name="parameter_cost_profile",
@@ -140,12 +135,31 @@ class ParameterCostProfileFigure(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        parameter: str | None = None,
-        parameter_units: str | None = None,
-        objective: str = "objective_value",
-        objective_units: str | None = None,
-        session_id: str | None = None,
-        log_scale: bool | None = None,
+        parameter: OneParameter = None,
+        parameter_units: ParameterUnits = None,
+        objective: Annotated[
+            str,
+            Opt(
+                'Trial column drawn as the cost. "objective_value" is the cost the '
+                "calibration minimised; another diagnostic is drawn without the "
+                "tolerance interval."
+            ),
+        ] = "objective_value",
+        objective_units: Annotated[
+            str | None,
+            Opt(
+                "Unit written on the cost axis. Left out, the unit of the metric the "
+                'cost is, else "-".'
+            ),
+        ] = None,
+        session_id: SessionId = None,
+        log_scale: Annotated[
+            bool | None,
+            Opt(
+                "Draw the parameter on a log axis. Left out, a log axis when the "
+                "samples are strictly positive and span more than a decade."
+            ),
+        ] = None,
         **_,
     ) -> Axes:
         chosen = chosen_session(sim, session_id)
@@ -206,7 +220,7 @@ class ParameterCostProfileFigure(BaseFigure):
             label = f"{objective} ({objective_units or '-'})"
         ax.set_ylabel(label)
         ax.grid(True, which="both", ls=":", lw=0.4)
-        ax.set_title(f"Parameter cost profile - {sim.name or sim.sim_id}")
+        ax.set_title(f"Parameter cost profile{run_suffix(sim)}")
 
         # The note sits in a band kept free of trials at the top, and the
         # legend is placed underneath, so neither covers a trial or the other.

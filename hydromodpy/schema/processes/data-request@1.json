@@ -55,7 +55,7 @@
     },
     "env": [
       "HMP_NO_PROGRESS",
-      "HMP_LOG_LEVEL",
+      "HMP_VERBOSITY",
       "TMPDIR"
     ]
   },
@@ -86,13 +86,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Bypass the cache and download again.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "source": {
                 "const": "bdtopo",
@@ -124,7 +124,7 @@
                   }
                 ],
                 "default": null,
-                "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+                "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
                 "title": "Mask Path",
                 "x-hmp-profile": "user"
               },
@@ -148,13 +148,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore cache and re-download from API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "source": {
                 "const": "brgm_1m",
@@ -186,7 +186,7 @@
                   }
                 ],
                 "default": null,
-                "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+                "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
                 "title": "Mask Path",
                 "x-hmp-profile": "user"
               },
@@ -210,13 +210,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore cache and re-download from API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "source": {
                 "const": "brgm_50k",
@@ -345,7 +345,7 @@
                   }
                 ],
                 "default": null,
-                "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+                "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
                 "title": "Mask Path",
                 "x-hmp-profile": "user"
               },
@@ -369,13 +369,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore cache and re-download from API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "source": {
                 "const": "custom",
@@ -391,7 +391,7 @@
               "path": {
                 "description": "Path to custom DEM file or directory (TIF, ASC, NC).",
                 "examples": [
-                  "data/input.csv"
+                  "dem.tif"
                 ],
                 "format": "path",
                 "title": "Path",
@@ -420,7 +420,7 @@
                   }
                 ],
                 "default": null,
-                "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+                "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
                 "title": "Mask Path",
                 "x-hmp-profile": "user"
               },
@@ -444,13 +444,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore cache and re-download from API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "source": {
                 "const": "custom",
@@ -622,7 +622,7 @@
               },
               "default_crs": {
                 "default": "EPSG:2154",
-                "description": "Fallback CRS used only when the raster carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+                "description": "CRS assumed for a raster that carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
                 "examples": [
                   "EPSG:2154"
                 ],
@@ -664,7 +664,7 @@
               },
               "default_crs": {
                 "default": "EPSG:2154",
-                "description": "Fallback CRS used only when the file carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+                "description": "CRS assumed for a file that carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
                 "examples": [
                   "EPSG:2154"
                 ],
@@ -706,7 +706,7 @@
               },
               "default_crs": {
                 "default": "EPSG:2154",
-                "description": "Fallback CRS used only when the raster carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+                "description": "CRS assumed for a raster that carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
                 "examples": [
                   "EPSG:2154"
                 ],
@@ -748,7 +748,7 @@
               },
               "default_crs": {
                 "default": "EPSG:2154",
-                "description": "Fallback CRS used only when the raster carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+                "description": "CRS assumed for a raster that carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
                 "examples": [
                   "EPSG:2154"
                 ],
@@ -788,7 +788,7 @@
                 ],
                 "title": "Inference Mode",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "crossings": {
                 "anyOf": [
@@ -1277,13 +1277,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -1356,23 +1356,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -1609,13 +1609,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -1688,23 +1688,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -1823,7 +1823,7 @@
               },
               "rasterize_field": {
                 "default": "FID",
-                "description": "Attribute field used when rasterising the vector layer.",
+                "description": "Attribute column whose values are written into the stream raster. A column the layer lacks, or a column of text, is replaced by a sequential number per feature.",
                 "examples": [
                   "FID"
                 ],
@@ -1863,13 +1863,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Bypass API cache and re-download data.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "waterway_types": {
                 "description": "OSM waterway tag values to fetch.",
@@ -1998,13 +1998,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -2077,23 +2077,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -2174,6 +2174,7 @@
                 "default": null,
                 "description": "Maximum number of Hub'Eau stations to KEEP. Stations that return no observation in the window do not count against it, so a preview run over a larger territory gets this many stations carrying data, not this many tried.",
                 "title": "Max Stations",
+                "unit": "-",
                 "x-hmp-profile": "user"
               }
             },
@@ -2195,7 +2196,7 @@
                   }
                 ],
                 "default": null,
-                "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+                "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
                 "title": "Mask Path",
                 "x-hmp-profile": "user"
               },
@@ -2219,13 +2220,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore cache and re-download from API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "departments": {
                 "description": "Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox.",
@@ -2296,7 +2297,7 @@
               },
               "file_format": {
                 "default": "ASC",
-                "description": "Requested archive payload format when exposed by Geoplateforme. Not used by 'rge-alti', which is a GeoTIFF.",
+                "description": "Format of the archive requested from the IGN Geoplateforme, such as 'ASC'. Not used by 'rge-alti', which is a GeoTIFF.",
                 "examples": [
                   "ASC"
                 ],
@@ -2433,13 +2434,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -2512,23 +2513,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -2615,17 +2616,6 @@
                 "title": "Sources",
                 "type": "array",
                 "x-hmp-profile": "user"
-              },
-              "id": {
-                "default": "lake_abacus",
-                "description": "Identifier of the lake-abacus table.",
-                "examples": [
-                  "lake_abacus"
-                ],
-                "pattern": "^[a-z][a-z0-9_]*$",
-                "title": "Id",
-                "type": "string",
-                "x-hmp-profile": "user"
               }
             },
             "required": [
@@ -2647,17 +2637,6 @@
                 "title": "Sources",
                 "type": "array",
                 "x-hmp-profile": "user"
-              },
-              "id": {
-                "default": "lake_bathymetry",
-                "description": "Identifier of the lake-bathymetry spatial field.",
-                "examples": [
-                  "lake_bathymetry"
-                ],
-                "pattern": "^[a-z][a-z0-9_]*$",
-                "title": "Id",
-                "type": "string",
-                "x-hmp-profile": "user"
               }
             },
             "required": [
@@ -2678,17 +2657,6 @@
                 "minItems": 1,
                 "title": "Sources",
                 "type": "array",
-                "x-hmp-profile": "user"
-              },
-              "id": {
-                "default": "lake_geometry",
-                "description": "Identifier of the lake-geometry spatial field.",
-                "examples": [
-                  "lake_geometry"
-                ],
-                "pattern": "^[a-z][a-z0-9_]*$",
-                "title": "Id",
-                "type": "string",
                 "x-hmp-profile": "user"
               }
             },
@@ -2794,13 +2762,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -2873,23 +2841,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -3029,13 +2997,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -3108,23 +3076,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -3264,13 +3232,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -3343,23 +3311,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -3499,13 +3467,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -3578,23 +3546,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -3749,13 +3717,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -3828,23 +3796,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -3897,6 +3865,7 @@
                 "default": null,
                 "description": "Constant mean sea-level value in metres.",
                 "title": "Value",
+                "unit": "m",
                 "x-hmp-profile": "user"
               },
               "require_observations": {
@@ -4027,13 +3996,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -4106,23 +4075,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -4135,7 +4104,7 @@
                 "x-hmp-profile": "dev"
               },
               "source": {
-                "description": "Data provider.",
+                "description": "Where the groundwater-level records come from: your own files or the Hub'Eau API.",
                 "enum": [
                   "custom",
                   "hubeau"
@@ -4307,13 +4276,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -4386,23 +4355,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -4569,13 +4538,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -4648,23 +4617,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -4831,13 +4800,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -4910,23 +4879,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -5106,13 +5075,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Bypass the cache and download again.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "source": {
                 "const": "roe",
@@ -5225,13 +5194,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -5304,23 +5273,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -5485,13 +5454,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -5564,23 +5533,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -5745,13 +5714,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -5824,23 +5793,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -5998,13 +5967,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -6077,23 +6046,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",
@@ -6277,13 +6246,13 @@
               },
               "force_refresh": {
                 "default": false,
-                "description": "Ignore the cache and force a fresh download from the API.",
+                "description": "Download this source again instead of reading the cache.",
                 "examples": [
                   false
                 ],
                 "title": "Force Refresh",
                 "type": "boolean",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "mask_path": {
                 "anyOf": [
@@ -6356,23 +6325,23 @@
               },
               "col_datetime": {
                 "default": "datetime",
-                "description": "Column name for timestamps in chronicle CSVs.",
+                "description": "Name of the column that holds the dates in your chronicle CSV files.",
                 "examples": [
                   "datetime"
                 ],
                 "title": "Col Datetime",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "col_value": {
                 "default": "value",
-                "description": "Column name for numeric values in chronicle CSVs.",
+                "description": "Name of the column that holds the values in your chronicle CSV files.",
                 "examples": [
                   "value"
                 ],
                 "title": "Col Value",
                 "type": "string",
-                "x-hmp-profile": "dev"
+                "x-hmp-profile": "user"
               },
               "default_crs": {
                 "default": "EPSG:4326",

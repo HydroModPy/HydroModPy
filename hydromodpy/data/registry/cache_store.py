@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 
+from hydromodpy.core.exceptions import FrozenDataError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import decode_workspace_path, encode_workspace_path
 from hydromodpy.data.provenance.sidecars import (
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 logger = get_logger(__name__)
+
 
 _RETRY = 8
 _BACKOFF = 0.05
@@ -129,14 +131,14 @@ def locked_artifacts() -> list[LockedArtifact]:
 
     project_root = frozen_project_root()
     if project_root is None:
-        raise RuntimeError(
+        raise FrozenDataError(
             "Frozen data mode has no project bound: enable it with "
             "set_frozen_mode(True, project_root=<project root>) before reading "
             "hydromodpy.lock."
         )
     lockfile = project_lockfile_path(project_root)
     if not lockfile.is_file():
-        raise RuntimeError(f"Frozen data mode requires an existing lockfile at {lockfile}.")
+        raise FrozenDataError(f"Frozen data mode requires an existing lockfile at {lockfile}.")
     return read_lockfile(lockfile)
 
 
@@ -176,10 +178,31 @@ def reject_frozen_cache_miss(
     if not frozen_enabled():
         return
     locked_artifacts()
-    raise RuntimeError(
+    raise FrozenDataError(
         "Frozen data mode forbids cache misses: "
         f"{variable}/{source}/{station_id or '-'} is absent from the catalog at "
         f"{catalog._db_path or ':memory:'}."
+    )
+
+
+def reject_frozen_download(
+    *,
+    variable: str,
+    source: str,
+    station_id: str | None,
+    detail: str,
+) -> None:
+    """Refuse a request that would reach the network, before it is made.
+
+    A cached entry that covers only part of the request passes the lookup. Without
+    this guard the missing days were downloaded, merged into the entry, and the
+    file the lockfile pins was replaced before anything refused the new one.
+    """
+    if not frozen_enabled():
+        return
+    locked_artifacts()
+    raise FrozenDataError(
+        f"Frozen data mode forbids a download: {variable}/{source}/{station_id or '-'} {detail}."
     )
 
 
@@ -194,7 +217,7 @@ def reject_frozen_entry_mismatch(catalog: DataCatalogDuckDB, entry) -> None:
         file_path=entry.file_path,
     )
     if artifact is None:
-        raise RuntimeError(
+        raise FrozenDataError(
             "Frozen data mode forbids catalog entries absent from hydromodpy.lock: "
             f"{entry.variable}/{entry.source}/{entry.station_id or '-'}."
         )
@@ -202,7 +225,7 @@ def reject_frozen_entry_mismatch(catalog: DataCatalogDuckDB, entry) -> None:
         resolve_entry_path(catalog, entry.file_path, variable=entry.variable)
     )
     if observed != artifact.sha256:
-        raise RuntimeError(
+        raise FrozenDataError(
             "Frozen data mode detected a SHA-256 mismatch for "
             f"{entry.variable}/{entry.source}/{entry.station_id or '-'}."
         )
@@ -229,12 +252,12 @@ def reject_frozen_register(
     )
     if artifact is None:
         kind = "custom file" if is_custom else "downloaded artefact"
-        raise RuntimeError(
+        raise FrozenDataError(
             f"Frozen data mode forbids registering a {kind} absent from hydromodpy.lock: "
             f"{variable}/{source}/{station_id or '-'}."
         )
     if file_sha256 != artifact.sha256:
-        raise RuntimeError(
+        raise FrozenDataError(
             "Frozen data mode forbids registering an artefact whose SHA-256 does not match "
             f"hydromodpy.lock: {variable}/{source}/{station_id or '-'}."
         )

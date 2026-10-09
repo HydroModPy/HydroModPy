@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,7 +10,11 @@ import pytest
 
 import validation_cases.shared.runtime as runtime
 from hydromodpy.core.state.paths import preprocessing_dir
-from validation_cases.shared.loaders import load_case_tolerances, load_time_series_fields
+from validation_cases.shared.loaders import (
+    load_case_tolerances,
+    load_field,
+    load_time_series_fields,
+)
 from validation_cases.shared.runtime import (
     resolve_validation_results_dir,
     run_launcher_validation_case,
@@ -274,6 +279,34 @@ def test_validation_launcher_config_requires_explicit_workflow(tmp_path: Path) -
         )
 
 
+def test_validation_launcher_config_stores_fields_at_full_precision(tmp_path: Path) -> None:
+    case_dir = tmp_path / "case"
+    case_dir.mkdir()
+    config_path = case_dir / "config_modflownwt.toml"
+    config_path.write_text(
+        '[workflow]\nmode = "simulation"\n\n[simulation.results]\nkeep_solver_files = true\n',
+        encoding="utf-8",
+    )
+    (case_dir / "metadata.toml").write_text(
+        'case_id = "case_demo"\nconfig_file = "config_modflownwt.toml"\n',
+        encoding="utf-8",
+    )
+
+    run_config = runtime._build_validation_launcher_config(
+        case_dir=case_dir,
+        config_path=config_path,
+        solver_name="modflow_nwt",
+    )
+    try:
+        payload = tomllib.loads(run_config.read_text(encoding="utf-8"))
+    finally:
+        run_config.unlink()
+
+    results = payload["simulation"]["results"]
+    assert results["keep_solver_files"] is True
+    assert results["persistence"]["field_precision"] == "exact"
+
+
 def test_run_launcher_validation_case_reports_failure_even_when_outputs_exist(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -361,6 +394,27 @@ def test_run_launcher_validation_case_reports_subprocess_failure_when_outputs_mi
 
     with pytest.raises(AssertionError, match="hydromodpy.__main__ failed"):
         run_launcher_validation_case(case_dir=case_dir, test_file=__file__)
+
+
+def test_write_validation_fields_to_store_keeps_full_precision(tmp_path: Path) -> None:
+    head = np.asarray([[7.123456789012, 7.123456789013]], dtype=float)
+    store, sim_id = write_validation_fields_to_store(
+        out_path=tmp_path,
+        fields={"watertable_elevation": {0: head}},
+        solver_name="boussinesq",
+    )
+    try:
+        assert sim_id is not None
+        _, values = load_field(
+            store=store,
+            sim_id=sim_id,
+            observable_name="watertable_elevation",
+            expected_shape=(1, 2),
+        )
+        np.testing.assert_array_equal(values, head)
+    finally:
+        if store is not None:
+            store.close()
 
 
 def test_write_validation_fields_to_store_writes_gridded_series(tmp_path: Path) -> None:

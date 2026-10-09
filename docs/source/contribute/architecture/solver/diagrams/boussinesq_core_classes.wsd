@@ -58,8 +58,8 @@ RuntimeSolveResult --> BoussinesqAssembly
 note bottom of BoussinesqState
 Canonical accepted state for
 diagnostics and exports.
-Legacy imposed_head_* fields
-still exist here for compatibility.
+Prescribed heads are stored by cell
+(prescribed_head_m_by_cell).
 end note
 
 note right of BoussinesqSolverContract

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import warnings
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
 from hydromodpy.core.config_kit.types import InterpolationMethod
+from hydromodpy.core.time.coverage import enforce_coverage, samples_by_period
 
 
 def extract_located_points(load_result: Any) -> list[Any]:
@@ -21,36 +21,33 @@ def extract_located_points(load_result: Any) -> list[Any]:
     return result
 
 
-def period_mean(
+def period_means(
     series: pd.Series,
-    t_start: pd.Timestamp,
-    t_end: pd.Timestamp,
+    period_bounds: list[tuple[pd.Timestamp, pd.Timestamp]],
     *,
     coverage_policy: str,
     label: str,
-) -> float:
-    """Mean value of a series within [t_start, t_end)."""
-    mask = (series.index >= t_start) & (series.index < t_end)
-    subset = series[mask]
-    if subset.empty:
-        message = (
-            "Recharge coverage check failed: no point forcing values inside "
-            f"{label} period [{t_start}, {t_end})."
-        )
-        if coverage_policy == "error":
-            raise ValueError(message)
-        if coverage_policy == "warn":
-            warnings.warn(message, stacklevel=2)
-        diffs = np.abs((series.index - t_start).total_seconds())
-        value = float(series.iloc[int(np.argmin(diffs))])
-    else:
-        values = np.asarray(subset.to_numpy(), dtype=float)
-        if not np.all(np.isfinite(values)):
-            raise ValueError(f"Recharge coverage check failed: {label} contains non-finite values.")
-        value = float(subset.mean())
-    if not np.isfinite(value):
+) -> np.ndarray:
+    """Mean value of a station series in each period, under the coverage rule.
+
+    :mod:`hydromodpy.core.time.coverage` says which samples a period takes and
+    what a period the record does not cover becomes.
+    """
+    data = series.sort_index()
+    boundaries = [period_bounds[0][0], *(end for _, end in period_bounds)]
+    periods = samples_by_period(data.index, boundaries)
+    enforce_coverage(periods, boundaries, policy=coverage_policy, label=label)
+    samples = np.asarray(data.to_numpy(), dtype=float)
+    values = np.asarray(
+        [
+            float(samples[inside].mean()) if inside.size else float(samples[int(fill)])
+            for inside, fill in zip(periods.inside, periods.fill, strict=True)
+        ],
+        dtype=float,
+    )
+    if not np.all(np.isfinite(values)):
         raise ValueError(f"Recharge coverage check failed: {label} contains non-finite values.")
-    return value
+    return values
 
 
 def discretize_located_points(
@@ -83,23 +80,23 @@ def discretize_located_points(
         s = rec.data.set_index("datetime")["value"].sort_index().astype(float)
         station_series.append(s)
 
+    station_periods: list[np.ndarray] | None = None
+    if period_bounds is not None:
+        station_periods = [
+            period_means(
+                s,
+                list(period_bounds),
+                coverage_policy=coverage_policy,
+                label=f"The point forcing record of station {getattr(rec, 'station_id', '?')}",
+            )
+            for s, rec in zip(station_series, located_points, strict=True)
+        ]
+
     rch_arrays: dict[int, np.ndarray] = {}
     for kper in range(nper):
         # Get the value of each station for this period.
-        if period_bounds is not None and kper < len(period_bounds):
-            t_start, t_end = period_bounds[kper]
-            values = np.array(
-                [
-                    period_mean(
-                        s,
-                        t_start,
-                        t_end,
-                        coverage_policy=coverage_policy,
-                        label=f"stress period {kper}",
-                    )
-                    for s in station_series
-                ]
-            )
+        if station_periods is not None and kper < len(period_bounds):
+            values = np.array([periods[kper] for periods in station_periods])
         else:
             # No temporal alignment: use full-series mean.
             period_values: list[float] = []

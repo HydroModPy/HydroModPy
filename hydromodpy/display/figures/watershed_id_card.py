@@ -18,14 +18,14 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_label, run_suffix
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import run_edges
 from hydromodpy.display.maps.axes import (
     overlay_watershed_contour,
     style_map_axes,
 )
-from hydromodpy.display.style import place_legend
+from hydromodpy.display.style import neutral, place_legend
 from hydromodpy.results.run.geographic import geographic_metadata
 
 if TYPE_CHECKING:
@@ -122,7 +122,7 @@ class WatershedIdCardFigure(BaseFigure):
         self._draw_metadata(ax_meta, sim)
 
         fig.suptitle(
-            f"Watershed ID card - {sim.name or sim.sim_id[:8]}",
+            f"Watershed ID card{run_suffix(sim)}",
             fontweight="bold",
             fontsize=14,
         )
@@ -249,10 +249,11 @@ class WatershedIdCardFigure(BaseFigure):
             cell.set_height(base * (1.0 + 0.75 * (lines - 1)))
             # Lightly tint the label column so the two-column table reads as
             # key/value rather than a raw grid.
+            # The colours follow the theme, so the card stays readable on a dark page.
+            cell.set_facecolor(neutral("#f2f2f2" if col_idx == 0 else "#ffffff"))
             if col_idx == 0:
-                cell.set_facecolor("#f2f2f2")
                 cell.set_text_props(fontweight="bold")
-            cell.set_edgecolor("#c8c8c8")
+            cell.set_edgecolor(neutral("#c8c8c8"))
         ax.set_title("Identity")
 
 
@@ -268,7 +269,7 @@ def identity_rows(sim: Run) -> list[tuple[str, str]]:
     as a dash.
     """
     rows: list[tuple[str, str | None]] = [
-        ("Run", _text(sim.name)),
+        ("Run", _text(run_label(sim))),
         ("Project", _text(sim.project)),
         ("Solver", _solver_name(sim.solver)),
         ("Regime", _text(sim.flow_regime)),

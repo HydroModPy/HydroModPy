@@ -136,3 +136,213 @@ def test_a_block_marked_not_checked_is_skipped(page_env: Path) -> None:
         "# Skip\n\n```toml\n# not checked: a mistake on purpose\n[workflow]\nmode = 3\n```\n"
     )
     assert check_page.check(page, check_page.Registry(), check_page.docnames()) == []
+
+
+def test_k_ss_sy_and_porosity_are_named_nodes_with_unit_and_range(registry: dict) -> None:
+    nodes = registry["nodes"]
+    for key, unit in (("K", "m/s"), ("Ss", "1/m"), ("Sy", "-"), ("porosity", "-")):
+        value = nodes[f"flow.param.{key}.field.value"]
+        assert value["pseudo"] and value["unit"] == unit
+        assert value["range"]["ge"] < value["range"]["le"]
+        assert value["label"]
+        assert nodes[f"flow.param.{key}"]["kind"] == "table"
+    assert "conductivity" in nodes["flow.param.K.field.value"]["label"]
+    # The tree of the file keeps the free name: a pseudo-node is no child.
+    assert nodes["flow.param"]["children"] == ["flow.param.<id>"]
+    # n is the same bound as porosity: an alias, not a second node.
+    assert "flow.param.n" not in nodes
+    assert nodes["flow.param.<id>"]["known_keys"]["porosity"]["aliases"] == ["n"]
+
+
+def test_pseudo_nodes_are_not_fields_for_the_gates_or_the_changelog(registry: dict) -> None:
+    payload, gates = field_registry.build_payload("test")
+    flat = [p for keys in gates["keys"].values() for paths in keys.values() for p in paths]
+    assert not any(p.startswith("flow.param.K.") for p in flat)
+    snap = toml_changelog.snapshot(payload)
+    assert "flow.param.K.field.value" not in snap["nodes"]
+    assert toml_changelog.diff(snap, payload)["added"] == []
+
+
+def test_a_discriminator_value_is_explained_by_the_docstring_of_its_shape(registry: dict) -> None:
+    kinds = [
+        n
+        for p, n in registry["nodes"].items()
+        if p.startswith("flow.sinks_sources.wells.")
+        and p.endswith(".kind")
+        and n.get("is_tag")
+        and "constant" in n["literal"]
+    ]
+    assert kinds
+    docs = kinds[0]["value_docs"]
+    assert set(kinds[0]["literal"]) <= set(docs)
+    assert docs["constant"].startswith("One constant")
+
+
+def test_a_value_quoted_in_the_description_counts_as_explained() -> None:
+    node = {
+        "literal": ["replace", "scale", "other"],
+        "value_docs": {},
+        "description": "'replace' writes the value; ``scale`` multiplies it.",
+    }
+    assert field_registry.unexplained_values(node) == ["other"]
+
+
+def test_connections_read_only_raised_errors_and_warnings(tmp_path: Path) -> None:
+    import ast
+
+    source = '''
+def rule(cfg):
+    """Docstring naming [simulation.time] and [data.recharge]: not a rule."""
+    if cfg:
+        raise ValueError(f"[simulation.time] needs {cfg} or [data.recharge].")
+    log.warning("set [flow.param] first")
+
+
+def fold_legacy(cfg):
+    raise ValueError("[simulation.time] and [calibration.protocol]")
+'''
+    tree = ast.parse(source)
+    funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
+    texts = [t for _, t in field_registry._messages(funcs[0])]
+    assert texts == ["[simulation.time] needs ... or [data.recharge].", "set [flow.param] first"]
+    pkg = tmp_path / "hydromodpy"
+    pkg.mkdir()
+    (pkg / "mod.py").write_text(source)
+    field_registry.build()
+    found = field_registry.scan_mentions(pkg, {"simulation", "data", "flow", "calibration"})
+    assert [m["other"] for m in found["simulation.time"]] == ["data.recharge"]
+    assert found["simulation.time"][0]["text"].startswith("[simulation.time] needs")
+    assert "calibration.protocol" not in str(found)
+
+
+def test_a_declared_rename_is_listed_as_renamed_not_removed() -> None:
+    old = {
+        "meta": {"label": "a"},
+        "nodes": {
+            "": {},
+            "cal": {"kind": "table"},
+            "cal.optimizer_kwargs": {"kind": "leaf"},
+            "export": {"kind": "table"},
+            "export.geotiff": {"kind": "table"},
+            "export.geotiff.enabled": {"kind": "leaf"},
+            "gone": {"kind": "leaf"},
+        },
+    }
+    new = {
+        "meta": {"label": "b"},
+        "nodes": {
+            "": {},
+            "cal": {"kind": "table"},
+            "cal.method_options": {"kind": "leaf", "renamed_from": ["cal.optimizer_kwargs"]},
+            "export": {"kind": "array", "renamed_from": ["export.geotiff"]},
+            "flow.param.K": {"kind": "table", "pseudo": True},
+        },
+    }
+    out = toml_changelog.diff(old, new)
+    assert out["renamed"] == [
+        {"from": "cal.optimizer_kwargs", "to": "cal.method_options"},
+        {"from": "export.geotiff", "to": "export"},
+    ]
+    assert out["removed"] == ["gone"]
+    assert out["added"] == ["cal.method_options"]
+
+
+def test_the_history_compares_every_older_version_with_every_newer_one() -> None:
+    docs = [{"meta": {"label": v}, "nodes": {"": {}}} for v in ("a", "b", "c")]
+    out = toml_changelog.history(docs)
+    assert out["versions"] == ["a", "b", "c"]
+    assert [(p["from"], p["to"]) for p in out["pairs"]] == [("a", "b"), ("a", "c"), ("b", "c")]
+
+
+def test_every_snapshot_names_its_version_and_holds_the_root_sections() -> None:
+    snaps = sorted((ROOT / "tools" / "docs" / "snapshots").glob("fields-*.json"))
+    assert len(snaps) >= 4
+    for snap in snaps:
+        data = json.loads(snap.read_text())
+        assert snap.stem == f"fields-{data['meta']['label']}"
+        assert {"workflow", "workspace", "geographic", "flow"} <= set(data["nodes"])
+
+
+def test_the_report_file_has_its_own_tables_outside_the_project_file(registry: dict) -> None:
+    nodes = registry["nodes"]
+    info = registry["meta"]["files"]["report-file"]
+    assert set(info["roots"]) == {"report", "layout", "context", "pipeline"}
+    assert info["page"] == "reference/parameters/report-file"
+    assert not set(info["roots"]) & set(registry["meta"]["roots"])
+    assert not set(info["roots"]) & set(nodes[""]["children"])
+    assert nodes["report.site_label"]["file"] == "report-file"
+    assert nodes["context.observed_discharge.path"]["file"] == "report-file"
+    assert nodes["pipeline.strict_figure_postflight"]["default"] == "false"
+    assert nodes["layout.simulation_name"]["description"]
+    assert "file" not in nodes["flow.param.<id>"]
+
+
+def test_a_key_of_the_report_file_is_not_a_change_of_the_project_file(registry: dict) -> None:
+    snap = toml_changelog.snapshot(registry)
+    assert "report.site_label" not in snap["nodes"]
+    assert "pipeline" not in snap["nodes"]
+    old = {"meta": {"label": "a"}, "nodes": {"": {}}}
+    assert "report.site_label" not in toml_changelog.diff(old, registry)["added"]
+
+
+def test_every_key_of_the_report_file_is_described(registry: dict) -> None:
+    leaves = [
+        n
+        for n in registry["nodes"].values()
+        if n.get("file") == "report-file" and n.get("kind") == "leaf"
+    ]
+    assert len(leaves) >= 20
+    assert all(len(n["description"].split()) >= 4 for n in leaves)
+
+
+def test_the_page_check_validates_a_whole_report_file_block(page_env: Path) -> None:
+    good = (
+        "[report]\nsite_label = 'A'\nstation_label = 'B'\noutput_dir = 'out'\n"
+        "[layout]\nwatershed_project_dir = '.'\ncontext_outputs_dir = 'ctx'\n"
+    )
+    bad = good.replace("[layout]", "[layout]\nsimulation_nam = 'x'")
+    page = page_env / "guides" / "report.md"
+    page.write_text(f"# Report\n\n```toml\n{good}```\n")
+    assert check_page.check(page, check_page.Registry(), check_page.docnames()) == []
+    page.write_text(f"# Report\n\n```toml\n{bad}```\n")
+    problems = check_page.check(page, check_page.Registry(), check_page.docnames())
+    assert any("refused by ReportConfig" in p and "simulation_nam" in p for p in problems)
+    page.write_text(f"# Report\n\n```toml\n# not checked: a fragment\n{bad}```\n")
+    assert check_page.check(page, check_page.Registry(), check_page.docnames()) == []
+
+
+def test_the_page_check_reads_a_testbed_file_by_its_own_schema(page_env: Path) -> None:
+    good = (
+        '[workflow]\nmode = "testbed"\n\n'
+        '[testbed]\nid = "t"\nsubject = "flow"\nbase_config = "step1_minimal.toml"\n'
+        'output_root = "out"\nexecute = false\n\n'
+        '[testbed.runner]\ntype = "simulation"\n\n'
+        '[[testbed.case]]\nid = "a"\n'
+    )
+    page = page_env / "guides" / "tb.md"
+    page.write_text(f"# Tb\n\n```toml\n{good}```\n")
+    assert check_page.check(page, check_page.Registry(), check_page.docnames()) == []
+
+    bad = good.replace("execute = false", "exceute = false")
+    page.write_text(f"# Tb\n\n```toml\n{bad}```\n")
+    problems = check_page.check(page, check_page.Registry(), check_page.docnames())
+    assert any("refused by hmp config check" in p and "exceute" in p for p in problems)
+
+
+def test_the_page_check_reads_a_comparison_file_by_its_own_schema(page_env: Path) -> None:
+    good = (
+        '[workflow]\nmode = "comparison"\n\n'
+        '[comparison]\ncomparison_id = "c"\nbase_simulation_config = "step1_minimal.toml"\n'
+        'reference_simulation = "a"\n\n'
+        '[[comparison.simulation]]\nid = "a"\nsolver = "modflow6"\n\n'
+        '[[comparison.observable]]\nname = "h"\nvariable = "watertable_elevation"\n'
+        'support = "map"\ntime = "last"\n'
+    )
+    page = page_env / "guides" / "cmp.md"
+    page.write_text(f"# Cmp\n\n```toml\n{good}```\n")
+    assert check_page.check(page, check_page.Registry(), check_page.docnames()) == []
+
+    bad = good.replace('support = "map"', 'support = "blob"')
+    page.write_text(f"# Cmp\n\n```toml\n{bad}```\n")
+    problems = check_page.check(page, check_page.Registry(), check_page.docnames())
+    assert any("refused by hmp config check" in p for p in problems)

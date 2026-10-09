@@ -35,7 +35,13 @@ _MODEL_CONFIG = ConfigDict(extra="forbid")
 
 
 class GridMethodConfig(BaseModel):
-    """Configuration for the deterministic ``grid`` sampler."""
+    """Every point of a regular grid, in the space each parameter is sampled in.
+
+    A log parameter gets a log axis. The grid is the same whatever the seed, so
+    the search is a deterministic map of the cost. Use it on one or two
+    parameters, for a first look at the cost or a reference to judge another
+    method against.
+    """
 
     model_config = _MODEL_CONFIG
 
@@ -49,7 +55,11 @@ class GridMethodConfig(BaseModel):
 
 
 class RandomSearchMethodConfig(BaseModel):
-    """Configuration for the ``random_search`` optimizer."""
+    """Independent draws from the prior of each parameter.
+
+    It never decides it has converged, so it runs to its budget. Use it as a
+    cheap baseline to judge another method against.
+    """
 
     model_config = _MODEL_CONFIG
 
@@ -57,7 +67,11 @@ class RandomSearchMethodConfig(BaseModel):
 
 
 class LhsMethodConfig(BaseModel):
-    """Configuration for the stratified Latin hypercube sampler."""
+    """One Latin hypercube design, drawn before any solve and evaluated whole.
+
+    Each stratum of each parameter is hit once. Use it for an even scan with a
+    fixed budget on more parameters than a grid affords.
+    """
 
     model_config = _MODEL_CONFIG
 
@@ -75,43 +89,107 @@ class LhsMethodConfig(BaseModel):
 
 
 class ScipyDEMethodConfig(BaseModel):
-    """Configuration for ``scipy.optimize.differential_evolution``."""
+    """Differential evolution, ``scipy.optimize.differential_evolution``.
+
+    A population search over the whole box. It runs one trial at a time, so
+    ``parallel`` buys nothing. Use it for a robust global search when trials
+    cannot run side by side anyway.
+    """
 
     model_config = _MODEL_CONFIG
 
     method: Literal["scipy_de"] = "scipy_de"
-    maxiter: int = 100
-    popsize: int = 15
-    tol: float = 0.01
+    maxiter: int = Field(
+        default=100,
+        description="Generations of the population, SciPy's maxiter. A generation "
+        "costs popsize times the number of parameters evaluations.",
+    )
+    popsize: int = Field(
+        default=15,
+        description="Population size, as a multiple of the number of parameters, SciPy's popsize.",
+    )
+    tol: float = Field(
+        default=0.01,
+        description="Relative spread of the population costs at which SciPy stops, its tol.",
+    )
 
 
 class ScipyNelderMeadMethodConfig(BaseModel):
-    """Configuration for ``scipy.optimize.minimize(method='Nelder-Mead')``."""
+    """A local simplex, ``scipy.optimize.minimize(method='Nelder-Mead')``.
+
+    It starts from the centre of the priors, or from the value an earlier
+    phase passed on. It is the method a search that names none gets when its cost has
+    no sign to bracket. Use it when the range is already narrow, or to refine
+    the result of a coarse search.
+    """
 
     model_config = _MODEL_CONFIG
 
     method: Literal["scipy_nelder_mead"] = "scipy_nelder_mead"
-    maxiter: int | None = None
-    maxfev: int | None = None
-    xatol: float | None = None
-    fatol: float | None = None
+    maxiter: int | None = Field(
+        default=None,
+        description="Simplex iterations, SciPy's maxiter. None leaves SciPy's own "
+        "limit; the search budget is max_iter.",
+    )
+    maxfev: int | None = Field(
+        default=None,
+        description="Evaluations, SciPy's maxfev. None leaves SciPy's own limit; the "
+        "search budget is max_iter.",
+    )
+    xatol: float | None = Field(
+        default=None,
+        description="Width of the simplex at which it stops, in the space the search "
+        "walks (log10 units for a log parameter). Written from calibration.tolerance; "
+        "set one or the other.",
+    )
+    fatol: float | None = Field(
+        default=None,
+        description="Spread of the costs over the simplex at which it stops, SciPy's "
+        "fatol. None leaves SciPy's default.",
+    )
 
 
 class CmaEsMethodConfig(BaseModel):
-    """Configuration for the CMA-ES adapter."""
+    """Covariance matrix adaptation evolution strategy, from the ``cma`` package.
+
+    It needs the ``calibration`` extra. It can start from the value an earlier
+    phase passed on. Use it on several parameters with a broad box and a cost
+    with plateaus.
+    """
 
     model_config = _MODEL_CONFIG
 
     method: Literal["cma_es"] = "cma_es"
-    sigma0: float = 0.25
-    popsize: int = 6
-    max_evaluations: int = 30
-    normalize: bool = True
-    restarts: int = 0
+    sigma0: float = Field(
+        default=0.25,
+        description="Initial step size, in the unit cube when normalize is true, "
+        "else in the space the search walks.",
+    )
+    popsize: int = Field(default=6, description="Points evaluated per generation.")
+    max_evaluations: int = Field(
+        default=30,
+        description="Evaluations the strategy may spend, restarts included.",
+    )
+    normalize: bool = Field(
+        default=True,
+        description="Rescale the box to the unit cube before the strategy runs.",
+    )
+    restarts: int = Field(
+        default=0,
+        description="Fresh strategies started from a perturbed point when one stops "
+        "before the budget is spent. Zero keeps one strategy.",
+    )
 
 
 class BisectionMethodConfig(BaseModel):
-    """Configuration for the one-dimensional root search."""
+    """A root search on one parameter: a coarse log sweep, then the bracket is halved.
+
+    It reads a signed residual, so every block it scores must use
+    ``distance_gap``, and the parameter must be searched in log space. It stops
+    on the width of the bracket, never on the size of the residual. It is the
+    method a search that names none gets when those conditions hold. Use it for
+    the stream-network stage: one conductivity against a mapped network.
+    """
 
     model_config = _MODEL_CONFIG
 
@@ -148,52 +226,148 @@ class BisectionMethodConfig(BaseModel):
 
 
 class OptunaMethodConfig(BaseModel):
-    """Configuration for the Optuna adapter."""
+    """An Optuna study driven trial by trial, with the TPE sampler by default.
+
+    Use it for a first adaptive search on a few parameters. Set
+    ``calibration.seed`` so a re-run proposes the same trials.
+    """
 
     model_config = _MODEL_CONFIG
 
     method: Literal["optuna"] = "optuna"
-    sampler: Literal["tpe", "random", "cmaes", "nsga"] = "tpe"
-    direction: Literal["minimize", "maximize"] = "minimize"
+    sampler: Literal["tpe", "random", "cmaes", "nsga"] = Field(
+        default="tpe",
+        description="Optuna sampler. 'tpe', 'random' and 'nsga' come with the base "
+        "install; 'cmaes' needs the calibration extra.",
+    )
+    direction: Literal["minimize", "maximize"] = Field(
+        default="minimize",
+        description="Direction of the study. The calibration cost is always "
+        "minimised, so leave it.",
+    )
 
 
 class GPMappingMethodConfig(BaseModel):
-    """Configuration for the GP-mapping (Expected Improvement) optimizer."""
+    """A Gaussian-process surrogate of the cost, refined where the expected improvement is highest.
+
+    Every candidate it returns was run through the real model. It needs
+    scikit-learn, which the base install carries. Use it when each run is
+    expensive and the parameters are few.
+    """
 
     model_config = _MODEL_CONFIG
 
     method: Literal["gp_mapping"] = "gp_mapping"
-    max_iter: int = 30
-    n_init: int = 10
-    ei_tol: float = 1e-6
-    ei_patience: int = 3
-    xi: float = 0.0
-    n_restarts: int = 5
-    n_refine: int | None = None
-    batch_size: int = 1
-    kappa: float = 0.0
-    alpha: float = 1e-6
-    jitter: float = 0.0
+    max_iter: int = Field(
+        default=30,
+        description="Evaluations of the real model, the initial design included.",
+    )
+    n_init: int = Field(
+        default=10,
+        description="Random points of the initial design, drawn from the priors.",
+    )
+    ei_tol: float = Field(
+        default=1e-6,
+        description="Expected improvement under which an iteration counts as converged.",
+    )
+    ei_patience: int = Field(
+        default=3,
+        description="Iterations in a row under ei_tol before the search stops.",
+    )
+    xi: float = Field(
+        default=0.0,
+        description="Exploration margin of the expected improvement.",
+    )
+    n_restarts: int = Field(
+        default=5,
+        description="Starts of the optimiser that maximises the acquisition.",
+    )
+    n_refine: int | None = Field(
+        default=None,
+        description="Refinement rounds after the initial design. When set, the "
+        "budget becomes at least n_init + n_refine * batch_size.",
+    )
+    batch_size: int = Field(
+        default=1,
+        description="Candidates proposed per refinement round.",
+    )
+    kappa: float = Field(
+        default=0.0,
+        description="When not zero, the acquisition is the lower confidence bound "
+        "mu - kappa * sigma instead of the expected improvement.",
+    )
+    alpha: float = Field(
+        default=1e-6,
+        description="Noise floor of the Gaussian-process regressor.",
+    )
+    jitter: float = Field(
+        default=0.0,
+        description="Added to alpha: the nugget of the regressor is alpha + jitter.",
+    )
 
 
 class DaMhGpMethodConfig(BaseModel):
-    """Configuration for the Delayed-Acceptance MH-GP MCMC optimizer."""
+    """A delayed-acceptance Metropolis-Hastings chain with a Gaussian-process surrogate.
+
+    The surrogate screens each proposal and one run of the real model corrects
+    the acceptance. It reads the cost as an RMSE, with the log-likelihood
+    ``-0.5 * (cost / sigma_noise)**2``, so score it on ``rmse``. The best
+    candidate is the mode of the chain. It needs scikit-learn, which the base
+    install carries. Use it when you want a sample of plausible values rather
+    than one optimum.
+    """
 
     model_config = _MODEL_CONFIG
 
     method: Literal["da_mh_gp"] = "da_mh_gp"
-    max_iter: int = 200
-    burn_in: int = 20
-    proposal_sigma: float | list[float] = 0.1
-    n_init: int = 20
-    retrain_interval: int = 10
-    sigma_noise: float = 0.2
-    full_mh_prob: float = 0.0
-    prior_mean: float | list[float] | None = None
-    prior_std: float | list[float] | None = None
-    thin: int = 1
-    gp_alpha: float = 1e-8
-    cache_decimals: int | None = None
+    max_iter: int = Field(default=200, description="Length of the chain.")
+    burn_in: int = Field(
+        default=20,
+        description="First states of the chain left out of the sample.",
+    )
+    proposal_sigma: float | list[float] = Field(
+        default=0.1,
+        description="Standard deviation of the random-walk proposal, in the space "
+        "the search walks. One number, or one per parameter.",
+    )
+    n_init: int = Field(
+        default=20,
+        description="Points of the Sobol design that trains the first surrogate.",
+    )
+    retrain_interval: int = Field(
+        default=10,
+        description="New evaluations between two fits of the surrogate.",
+    )
+    sigma_noise: float = Field(
+        default=0.2,
+        description="Scale of the likelihood, in the unit of the RMSE. Must be positive.",
+    )
+    full_mh_prob: float = Field(
+        default=0.0,
+        description="Probability, between 0 and 1, of skipping the surrogate stage for a proposal.",
+    )
+    prior_mean: float | list[float] | None = Field(
+        default=None,
+        description="Mean of a normal prior in the space the search walks. None "
+        "gives a flat prior on the box.",
+    )
+    prior_std: float | list[float] | None = Field(
+        default=None,
+        description="Standard deviation of that normal prior.",
+    )
+    thin: int = Field(
+        default=1,
+        description="Keep every thin-th state of the chain after the burn-in.",
+    )
+    gp_alpha: float = Field(
+        default=1e-8,
+        description="Noise floor of the Gaussian-process regressor.",
+    )
+    cache_decimals: int | None = Field(
+        default=None,
+        description="Decimals a proposal is rounded to before it is looked up among "
+        "the runs already done. None turns the lookup off.",
+    )
 
 
 CalibrationMethodConfig = Annotated[

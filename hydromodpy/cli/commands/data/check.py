@@ -13,7 +13,13 @@ HELP: str = "Validate the custom files in data/<variable>/ without ingesting"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[verbosity_parser()],
+        epilog="Examples:\n  hmp data check\n  hmp data check --variable dem --fix",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--workspace", default=None, help="Workspace root")
     parser.add_argument(
         "--variable", default=None, help="Restrict to one variable (e.g. piezometry)"

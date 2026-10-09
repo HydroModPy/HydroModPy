@@ -93,7 +93,7 @@ def key_value_table(
     return ReportTable(
         table_id=table_id,
         title=title,
-        columns=(("label", "Element"), ("value", "Valeur")),
+        columns=(("label", "Item"), ("value", "Value")),
         rows=rows,
         empty_message=empty_message,
     )

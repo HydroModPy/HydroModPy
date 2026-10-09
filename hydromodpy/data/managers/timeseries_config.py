@@ -51,13 +51,13 @@ class TimeseriesColumnsMixin(HydroModelBase):
         default="crs",
         description="Column name for the CRS in location files.",
     )
-    col_datetime: Annotated[str, Profile.DEV] = Field(
+    col_datetime: Annotated[str, Profile.USER] = Field(
         default="datetime",
-        description="Column name for timestamps in chronicle CSVs.",
+        description="Name of the column that holds the dates in your chronicle CSV files.",
     )
-    col_value: Annotated[str, Profile.DEV] = Field(
+    col_value: Annotated[str, Profile.USER] = Field(
         default="value",
-        description="Column name for numeric values in chronicle CSVs.",
+        description="Name of the column that holds the values in your chronicle CSV files.",
     )
     default_crs: Annotated[str, Profile.DEV] = Field(
         default="EPSG:4326",
@@ -84,9 +84,9 @@ class TimeseriesSelectionMixin(HydroModelBase):
             "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it."
         ),
     )
-    force_refresh: Annotated[bool, Profile.DEV] = Field(
+    force_refresh: Annotated[bool, Profile.USER] = Field(
         default=False,
-        description="Ignore the cache and force a fresh download from the API.",
+        description="Download this source again instead of reading the cache.",
     )
     mask_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,

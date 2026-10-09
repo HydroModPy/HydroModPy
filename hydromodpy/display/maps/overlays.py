@@ -26,6 +26,7 @@ import numpy as np
 from hydromodpy.core.logging import get_logger
 from hydromodpy.display.maps.axes import overlay_watershed_contour
 from hydromodpy.display.maps.mesh_geometry import face_centroids, face_polygons
+from hydromodpy.results.derive.config_flags import enable_options_hint, missing_field_options
 from hydromodpy.results.run.particles import read_particle_tracks
 
 if TYPE_CHECKING:
@@ -37,7 +38,16 @@ logger = get_logger(__name__)
 
 
 class OverlayUnavailable(RuntimeError):
-    """Raised when a requested overlay has no data in this run."""
+    """Raised when a requested overlay has no data in this run.
+
+    ``actionable`` is true when the user asked the run for the data (it declares
+    wells) and a config option would have kept it: the skip is then logged as a
+    warning that names the option, not as a quiet INFO line.
+    """
+
+    def __init__(self, message: str, *, actionable: bool = False) -> None:
+        super().__init__(message)
+        self.actionable = actionable
 
 
 def _resolve_timestep(sim: Run, timestep: int | None) -> int:
@@ -134,10 +144,12 @@ def draw_wells(ax: Axes, sim: Run, *, timestep: int | None = None, **_) -> None:
 
     Reading the budget rather than the config keeps the overlay solver- and
     config-agnostic: any run whose solver wrote a well package shows its
-    wells, wherever they were declared from.
+    wells, wherever they were declared from. The field is kept only when
+    ``[simulation.results.budget] spatial_fields`` is true. A run that declares
+    wells and did not keep it is skipped with a warning that names the key.
     """
     if not sim.has_field("well"):
-        raise OverlayUnavailable("run has no well budget field")
+        raise _well_field_missing(sim)
     step = _resolve_timestep(sim, timestep)
     flux = _flatten_cells(np.asarray(sim.field("well", timestep=step), dtype="float64"))
     active = np.flatnonzero(np.isfinite(flux) & (np.abs(flux) > 0.0))
@@ -168,6 +180,25 @@ def draw_wells(ax: Axes, sim: Run, *, timestep: int | None = None, **_) -> None:
             zorder=6,
             label=label,
         )
+
+
+def _declared_wells(sim: Run) -> bool:
+    """Whether the stored configuration of the run declares at least one well."""
+    snapshot = sim.config_snapshot or {}
+    sinks_sources = (snapshot.get("flow") or {}).get("sinks_sources") or {}
+    return bool(sinks_sources.get("wells"))
+
+
+def _well_field_missing(sim: Run) -> OverlayUnavailable:
+    """Build the skip for a run without the well budget field."""
+    reason = "run has no well budget field"
+    options = missing_field_options(["well"], sim)
+    if not (options and _declared_wells(sim)):
+        return OverlayUnavailable(reason)
+    hint = enable_options_hint(options).rstrip(".")
+    return OverlayUnavailable(
+        f"{reason}, but its configuration declares wells. {hint}", actionable=True
+    )
 
 
 def _flatten_cells(values: np.ndarray) -> np.ndarray:
@@ -246,7 +277,8 @@ def apply_overlays(
         try:
             painter(ax, sim, timestep=timestep)
         except OverlayUnavailable as exc:
-            logger.info("Overlay '%s' skipped: %s.", name, exc)
+            level = logger.warning if exc.actionable else logger.info
+            level("Overlay '%s' skipped: %s.", name, exc)
             continue
         drawn.append(name)
     return drawn

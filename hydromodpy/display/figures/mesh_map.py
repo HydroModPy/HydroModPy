@@ -8,11 +8,12 @@ serialize to the same UGRID face/vertex arrays.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt, Overlays
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import (
     RELATIVE_MAP_COLORBAR_LABEL_SIZE,
@@ -20,7 +21,7 @@ from hydromodpy.display.maps.axes import (
     style_relative_km_axes,
 )
 from hydromodpy.display.maps.overlays import apply_overlays
-from hydromodpy.display.style import place_legend
+from hydromodpy.display.style import neutral, place_legend
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -45,10 +46,24 @@ class MeshMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        cmap: str = "terrain",
-        edge_color: str = "0.25",
-        edge_width: float | None = None,
-        overlays: tuple[str, ...] | list[str] | None = None,
+        cmap: Annotated[
+            str, Opt("Matplotlib colormap of the land-surface elevation, by name.")
+        ] = "terrain",
+        edge_color: Annotated[
+            str,
+            Opt(
+                "Colour of the cell edges, any Matplotlib colour. A grey is moved toward "
+                "the text colour on the dark preset."
+            ),
+        ] = "0.25",
+        edge_width: Annotated[
+            float | None,
+            Opt(
+                "Width of the cell edges. Left out, 0.35 below 5,000 cells and 0.1 above.",
+                unit="pt",
+            ),
+        ] = None,
+        overlays: Overlays = None,
         **_,
     ) -> Axes:
         from matplotlib.collections import PolyCollection
@@ -64,7 +79,7 @@ class MeshMap(BaseFigure):
             polygons,
             array=topography,
             cmap=cmap,
-            edgecolors=edge_color,
+            edgecolors=neutral(edge_color),
             linewidths=width,
         )
         ax.add_collection(collection)
@@ -76,9 +91,7 @@ class MeshMap(BaseFigure):
 
         apply_overlays(ax, sim, ("watershed", "outlet") if overlays is None else overlays)
         style_relative_km_axes(ax)
-        ax.set_title(
-            f"{self.spec.title} - {sim.name or sim.sim_id}\n{n_faces} cells, {_layer_label(sim)}"
-        )
+        ax.set_title(f"{self.spec.title}{run_suffix(sim)}\n{n_faces} cells, {_layer_label(sim)}")
         handles, _labels = ax.get_legend_handles_labels()
         if handles:
             place_legend(ax, fontsize=8, framealpha=0.9)

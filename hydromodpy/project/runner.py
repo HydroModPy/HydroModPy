@@ -192,6 +192,24 @@ def _rebind_run_history_catalog(project: Project) -> None:
         run._catalog = store
 
 
+def _identity_overrides(
+    overrides: dict[str, Any],
+    *,
+    first_clim: str | None,
+    properties: Any,
+) -> dict[str, Any] | None:
+    """Return the overrides of one run as the identity hash reads them, or None.
+
+    ``thickness`` is not here: it is folded into the run configuration itself.
+    """
+    payload: dict[str, Any] = dict(overrides or {})
+    if first_clim is not None:
+        payload["first_clim"] = first_clim
+    if properties is not None:
+        payload["properties"] = properties
+    return payload or None
+
+
 class ProjectRunner:
     """Run-phase methods bound to a :class:`Project` instance.
 
@@ -239,6 +257,11 @@ class ProjectRunner:
         first_clim = overrides.pop("first_clim", None)
         properties = overrides.pop("properties", None)
 
+        if name is None:
+            # The configuration names its run: ``[simulation] name``, which a
+            # TOML file defaults to its own stem. The counter only names a run
+            # whose configuration carries no name at all.
+            name = str(getattr(project._cfg.simulation, "name", "") or "").strip() or None
         if name is None:
             project._run_counter += 1
             name = DEFAULT_RUN_NAME_TEMPLATE.format(counter=project._run_counter)
@@ -377,6 +400,12 @@ class ProjectRunner:
                 # the config when nobody gives it one, which would rename a run
                 # the caller named differently.
                 "run_name": name,
+                # What this run changes on top of its configuration. It enters
+                # the identity hash the catalog records, so a run with an
+                # override never passes for the run of the bare configuration.
+                "run_overrides": _identity_overrides(
+                    overrides, first_clim=first_clim, properties=properties
+                ),
             },
         )
 
@@ -398,7 +427,10 @@ class ProjectRunner:
                 parallel=parallel,
                 model_phase_ready=model_phase_ready,
             )
-        except Exception:
+        except BaseException:
+            # BaseException on purpose: Ctrl+C and SIGTERM (a scheduler stop, a
+            # plain kill) unwind as KeyboardInterrupt and must not leave the
+            # run "running" in the index.
             from hydromodpy.project import phases as project_phases
 
             project_phases.open_catalog(project)

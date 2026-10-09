@@ -14,17 +14,18 @@ the drainage network itself.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, Annotated, ClassVar, Literal
 
 import numpy as np
 
 from hydromodpy.display.figure import FigureSpec
+from hydromodpy.display.figure_options import CmapOrOwn, Opt, Overlays, Timestep
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
 from hydromodpy.display.maps.axes import style_relative_km_axes
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import last_timestep, render_face_field
-from hydromodpy.display.style import get_cmap, place_legend
+from hydromodpy.display.style import get_cmap, neutral, place_legend
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -78,13 +79,36 @@ class AccumulationMap(ScalarFaceMap):
         sim: Run,
         ax: Axes,
         *,
-        timestep: int | None = None,
-        scale: Literal["log", "linear"] = "log",
-        cmap: str | None = None,
-        palette_floor: float = PALETTE_FLOOR,
-        vmin: float | None = None,
-        vmax: float | None = None,
-        overlays: tuple[str, ...] | list[str] | None = None,
+        timestep: Timestep = None,
+        scale: Annotated[
+            Literal["log", "linear"],
+            Opt(
+                'Colour ramp: "log" (the default) spreads the small flows of the '
+                'headwaters, "linear" keeps the raw proportions.'
+            ),
+        ] = "log",
+        cmap: CmapOrOwn = None,
+        palette_floor: Annotated[
+            float,
+            Opt(
+                "Share of the palette cut at its light end, in [0, 1), so no drawn "
+                "cell is lighter than the cells without flux.",
+                unit="-",
+            ),
+        ] = PALETTE_FLOOR,
+        vmin: Annotated[
+            float | None,
+            Opt(
+                "Lower end of the ramp. Left out, the smallest positive flux. Set it "
+                "with vmax to compare two runs on one scale.",
+                unit="m3/s",
+            ),
+        ] = None,
+        vmax: Annotated[
+            float | None,
+            Opt("Upper end of the ramp. Left out, the largest flux.", unit="m3/s"),
+        ] = None,
+        overlays: Overlays = None,
         **_,
     ) -> Axes:
         from matplotlib.colors import LogNorm
@@ -134,8 +158,8 @@ class AccumulationMap(ScalarFaceMap):
         if empty:
             handles.append(
                 Patch(
-                    facecolor=GROUND_COLOR,
-                    edgecolor=GROUND_EDGE,
+                    facecolor=neutral(GROUND_COLOR),
+                    edgecolor=neutral(GROUND_EDGE),
                     label=f"no accumulated flux ({_cell_count(empty)})",
                 )
             )
@@ -164,7 +188,7 @@ def truncated_palette(name: str, floor: float) -> Colormap:
     light_at_bottom = _relative_luminance(base(0.0)) > _relative_luminance(base(1.0))
     low, high = (floor, 1.0) if light_at_bottom else (0.0, 1.0 - floor)
     palette = ListedColormap(base(np.linspace(low, high, base.N)), name=f"{name}_floor")
-    return palette.with_extremes(bad=GROUND_COLOR)
+    return palette.with_extremes(bad=neutral(GROUND_COLOR))
 
 
 def _relative_luminance(color: str | tuple[float, ...]) -> float:

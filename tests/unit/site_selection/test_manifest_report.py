@@ -84,9 +84,9 @@ def test_selection_outputs_manifest_and_html_report(tmp_path):
     assert "report_demo" in html
     assert "site_ok" in html
     assert "site_bad" in html
-    assert "Carte de controle" in html
+    assert "Control map" in html
     assert 'src="data:image/png;base64,' in html
-    assert "Sites rejetes" in html
+    assert "Rejected sites" in html
     assert 'data-block-group="selection-map"' in html
     assert 'data-target-level="compact"' in html
     assert 'data-target-level="standard"' in html
@@ -191,7 +191,7 @@ def test_site_selection_report_blocks_show_station_influence(tmp_path):
     assert block.status == "available"
     assert block.tables[0].rows[0]["station_id"] == "J123456701"
     assert block.tables[0].rows[0]["decision"] == "general_influence"
-    assert "absence d'obstacle amont" in block.warnings[0]
+    assert "no obstacle stands upstream" in block.warnings[0]
 
 
 @pytest.mark.fast

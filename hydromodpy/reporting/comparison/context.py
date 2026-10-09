@@ -237,9 +237,9 @@ def _domain_head_profile_indices(
         ),
     )
     picks = [
-        ("low", "domaine bas", ordered[max(0, round((len(ordered) - 1) * 0.2))]),
-        ("mid", "domaine median", ordered[max(0, round((len(ordered) - 1) * 0.5))]),
-        ("high", "domaine haut", ordered[max(0, round((len(ordered) - 1) * 0.8))]),
+        ("low", "lower domain", ordered[max(0, round((len(ordered) - 1) * 0.2))]),
+        ("mid", "middle domain", ordered[max(0, round((len(ordered) - 1) * 0.5))]),
+        ("high", "upper domain", ordered[max(0, round((len(ordered) - 1) * 0.8))]),
     ]
     profiles: list[tuple[str, str, int, float | None, float | None]] = []
     used_indices: set[str] = set()

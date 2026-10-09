@@ -12,10 +12,11 @@ observed variable can be named when it differs from the simulated field.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 from hydromodpy.core.units.labels import axis_label
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.maps.axes import style_date_axis
 from hydromodpy.results.derive.time_alignment import (
@@ -59,10 +60,25 @@ class PiezoTimeseriesSimObs(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        station: str | None = None,
-        variable: str = "head",
-        observed_station: str | None = None,
-        observed_variable: str | None = None,
+        station: Annotated[
+            str | None,
+            Opt(
+                "Station of the simulated head series, required: a piezometer id, or "
+                '"obs:<id>" for a declared observation point.'
+            ),
+        ] = None,
+        variable: Annotated[str, Opt("Simulated series to draw, by name.")] = "head",
+        observed_station: Annotated[
+            str | None,
+            Opt(
+                "Station of the observed series. Left out, the simulated station "
+                'without its "obs:" prefix.'
+            ),
+        ] = None,
+        observed_variable: Annotated[
+            str | None,
+            Opt("Observed series to compare, by name. Left out, the simulated one."),
+        ] = None,
         **_,
     ) -> Axes:
         if station is None:
@@ -111,7 +127,7 @@ class PiezoTimeseriesSimObs(BaseFigure):
 
         ax.set_xlabel("Date")
         ax.set_ylabel(axis_label(variable))
-        ax.set_title(f"Piezo sim vs obs - {sim.name or sim.sim_id} @ {station}")
+        ax.set_title(f"Piezo sim vs obs{run_suffix(sim)} @ {station}")
         ax.grid(True, ls=":", lw=0.4)
         ax.legend()
         style_date_axis(ax)

@@ -579,7 +579,7 @@ def validate_recharge_coverage(
 
     Validation modes:
     - if recharge index exactly matches period starts, use values as-is,
-    - otherwise enforce continuous coverage over the inclusive window bounds.
+    - otherwise apply the coverage rule of :mod:`hydromodpy.core.time.coverage`.
     """
     if window is None:
         return
@@ -632,7 +632,9 @@ def validate_recharge_coverage(
         )
         return
 
-    # Exact period-start alignment is the strongest/cleanest contract.
+    # A series already on the period starts holds one value per period. Any
+    # other record goes through the coverage rule every forcing reader uses
+    # (hydromodpy.core.time.coverage).
     boundaries = build_simulation_time_boundaries(window)
     period_starts = pd.DatetimeIndex(boundaries[:-1])
     index = pd.DatetimeIndex(series.index)
@@ -640,27 +642,15 @@ def validate_recharge_coverage(
     if is_period_aligned:
         window_values = series
     else:
-        # Fallback path: accept denser/sparser chronologies if they still fully
-        # cover window bounds and contain values inside the target interval.
-        series_start = pd.Timestamp(series.index.min())
-        series_end = pd.Timestamp(series.index.max())
-        if series_start > start or series_end < end:
-            _handle_recharge_coverage_violation(
-                policy,
-                "Recharge coverage check failed: recharge range "
-                f"[{series_start}, {series_end}] does not fully cover "
-                f"simulation window [{start}, {end}].",
-            )
-            return
+        from hydromodpy.core.time.coverage import enforce_coverage, samples_by_period
 
+        enforce_coverage(
+            samples_by_period(index, boundaries),
+            boundaries,
+            policy=policy,
+            label="Recharge coverage check failed: the recharge record",
+        )
         window_values = series.loc[(series.index >= start) & (series.index <= end)]
-        if window_values.empty:
-            _handle_recharge_coverage_violation(
-                policy,
-                "Recharge coverage check failed: no recharge values inside simulation window "
-                f"[{start}, {end}].",
-            )
-            return
 
     if window_values.isna().any():
         _handle_recharge_coverage_violation(

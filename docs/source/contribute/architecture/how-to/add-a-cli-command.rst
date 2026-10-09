@@ -1,4 +1,4 @@
-Add a CLI Command
+Add a CLI command
 =================
 
 The ``hmp`` and ``hydromodpy`` CLIs share the same dispatcher in
@@ -176,6 +176,5 @@ See also
 --------
 
 - :doc:`../packages/cli` for the existing verb inventory.
-- :doc:`../overview/mental-model-and-design-choices` for the
-  ``hmp run`` dispatch model.
+- :doc:`../mental-model` for the ``hmp run`` dispatch model.
 - :doc:`/reference/cli/index` for the user-facing CLI page.

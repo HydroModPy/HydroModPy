@@ -18,7 +18,14 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import (
+    SectionLine,
+    SectionOrientation,
+    SectionSamples,
+    SectionThrough,
+    Timestep,
+)
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import instant_label
 from hydromodpy.display.maps.transect import build_transect, layer_interfaces
@@ -32,19 +39,7 @@ if TYPE_CHECKING:
 
 @register
 class CrossSection(BaseFigure):
-    """Topography, water table and layering along one transect.
-
-    Options
-    -------
-    ``line``
-        ``[x0, y0, x1, y1]`` in the project CRS. Overrides ``orientation``.
-    ``orientation``
-        ``"we"`` (west to east, default) or ``"sn"`` (south to north).
-    ``through``
-        ``[x, y]`` the section must pass through. Defaults to the outlet.
-    ``timestep``
-        Index of the stress period to draw; defaults to the last one.
-    """
+    """Topography, water table and layering along one transect."""
 
     spec = FigureSpec(
         name="cross_section",
@@ -60,11 +55,11 @@ class CrossSection(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        timestep: int | None = None,
-        line: tuple[float, float, float, float] | list[float] | None = None,
-        orientation: str = "we",
-        through: tuple[float, float] | list[float] | None = None,
-        n_samples: int | None = None,
+        timestep: Timestep = None,
+        line: SectionLine = None,
+        orientation: SectionOrientation = "we",
+        through: SectionThrough = None,
+        n_samples: SectionSamples = None,
         **_,
     ) -> Axes:
         from hydromodpy.display.maps.ugrid import last_timestep
@@ -140,7 +135,7 @@ class CrossSection(BaseFigure):
             for part in (instant_label(sim, step), section_words(transect, anchor=anchor))
             if part
         )
-        ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}\n{subtitle}")
+        ax.set_title(f"{self.spec.title}{run_suffix(sim)}\n{subtitle}")
         ax.annotate(
             _line_label(transect),
             xy=(0.995, 0.015),

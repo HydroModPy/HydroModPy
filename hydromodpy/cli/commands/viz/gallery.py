@@ -14,14 +14,50 @@ HELP: str = "Render the [display] figure gallery for one or several runs"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[verbosity_parser()],
+        epilog="Examples:\n  hmp viz gallery run.toml --latest 1\n  hmp viz gallery run.toml --run my_run --only flux_timeseries,water_budget",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("config", help="Path to a project TOML file")
-    parser.add_argument("--run", dest="run_name", default=None, metavar="NAME")
-    parser.add_argument("--sim", dest="sim_ref", default=None, metavar="UUID")
-    parser.add_argument("--all", action="store_true", dest="all_runs")
-    parser.add_argument("--latest", type=int, default=None, metavar="N")
-    parser.add_argument("--only", default=None, metavar="FIG1,FIG2")
-    parser.add_argument("--no-show", action="store_true", dest="no_show")
+    parser.add_argument(
+        "--run",
+        dest="run_name",
+        default=None,
+        metavar="NAME",
+        help="Render every run of this name (default: the newest run of the config)",
+    )
+    parser.add_argument(
+        "--sim",
+        dest="sim_ref",
+        default=None,
+        metavar="UUID",
+        help="Render one run, by id, unique prefix, name or @-selector",
+    )
+    parser.add_argument(
+        "--all", action="store_true", dest="all_runs", help="Render every run of the config"
+    )
+    parser.add_argument(
+        "--latest",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Render the N newest runs of the config",
+    )
+    parser.add_argument(
+        "--only",
+        default=None,
+        metavar="FIG1,FIG2",
+        help="Render only these figures, by name (default: those of [display].figures)",
+    )
+    parser.add_argument(
+        "--no-show",
+        action="store_true",
+        dest="no_show",
+        help="Do not open the figures in a window",
+    )
     parser.set_defaults(_handler=run)
     return parser
 

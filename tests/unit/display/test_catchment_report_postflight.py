@@ -71,6 +71,17 @@ def test_strict_postflight_fails_on_missing_figures(tmp_path) -> None:
     assert (tmp_path / "report" / "block_report_postflight.json").exists()
 
 
+def test_a_strict_postflight_failure_exits_as_a_refused_input(tmp_path) -> None:
+    from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
+
+    _write_manifest(tmp_path / "report", {})
+
+    with pytest.raises(CatchmentReportPostflightError) as exc_info:
+        write_figure_postflight_report(_config(tmp_path / "report"), strict=True)
+
+    assert exit_code_for(exc_info.value) == EXIT_VALIDATION
+
+
 def test_postflight_reports_dangling_copied_paths(tmp_path) -> None:
     missing_path = tmp_path / "missing.png"
     _write_manifest(tmp_path / "report", {"alpha": missing_path, "beta": missing_path})

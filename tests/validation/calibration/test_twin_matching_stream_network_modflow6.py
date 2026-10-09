@@ -1,5 +1,7 @@
 """Twin experiment for the stream-network criterion of Abherve et al. (2023).
 
+Compared with: the hydraulic conductivity of the run that produced the mapped network.
+
 A model run with a known conductivity produces a seepage network. That network,
 written as the mapped one, must bring a network-only bisection back to the
 conductivity that produced it. Nothing else in the suite runs the criterion end
@@ -44,6 +46,7 @@ import pytest
 
 from tests._helpers.tolerances import tol
 from tests.regression.golden_utils import assert_required_executables
+from tests.validation.helpers import assert_metric_below
 
 gpd = pytest.importorskip("geopandas")
 shapely_geometry = pytest.importorskip("shapely.geometry")
@@ -458,7 +461,12 @@ def test_a_network_only_bisection_recovers_the_conductivity_that_made_the_networ
     assert bracket["relative_width"] <= REL_TOL, bracket
 
     k_hat = float(report.best_parameters["K"])
-    assert abs(k_hat / K_TRUE_M_S - 1.0) <= K_RECOVERY_REL, k_hat
+    assert_metric_below(
+        "Relative error of the recovered K",
+        abs(k_hat / K_TRUE_M_S - 1.0),
+        K_RECOVERY_REL,
+        inclusive=True,
+    )
 
     best = _metrics_of(report, k_hat)
     # The criterion scored the network the GPKG holds, projected by its own
@@ -468,7 +476,13 @@ def test_a_network_only_bisection_recovers_the_conductivity_that_made_the_networ
     # TOLERANCES.md row 77: a stream cannot move by less than one cell.
     cell_spacing = _metric(best, "cell_spacing_m")
     assert math.isclose(cell_spacing, CELL_M, rel_tol=1e-9)
-    assert abs(_metric(best, "J_signed")) <= cell_spacing, best
+    assert_metric_below(
+        "Signed distance gap at the best K",
+        abs(_metric(best, "J_signed")),
+        cell_spacing,
+        unit="m",
+        inclusive=True,
+    )
     assert report.best_objective <= cell_spacing
 
     # The sweep sees the sign structure the root search rests on: an excess of
@@ -489,6 +503,11 @@ def test_a_network_only_bisection_recovers_the_conductivity_that_made_the_networ
     d_sat = extra["d_sat_m"]
     assert math.isclose(d_sat, _metric(best, "d_sat_m"), rel_tol=IDENTITY_REL)
     assert 0.0 < d_sat <= THICKNESS_M
-    assert abs(d_sat / truth.d_sat_m - 1.0) <= D_SAT_REL, (d_sat, truth.d_sat_m)
+    assert_metric_below(
+        "Relative error of the saturation length",
+        abs(d_sat / truth.d_sat_m - 1.0),
+        D_SAT_REL,
+        inclusive=True,
+    )
     assert math.isclose(extra["t_over_r_m"], extra["k_over_r"] * d_sat, rel_tol=IDENTITY_REL)
     assert math.isclose(extra["t_optim_m2_s"], k_hat * d_sat, rel_tol=IDENTITY_REL)

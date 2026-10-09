@@ -326,7 +326,7 @@ def _serve_section(
 ) -> list[RequestedFile]:
     if variable == "hydrography":
         return _serve_hydrography(
-            section, selector=selector, target_dir=target_dir, failures=failures
+            section, store=store, selector=selector, target_dir=target_dir, failures=failures
         )
     if variable == "dem":
         result = store.load_dem(section, project_extent=project_extent)
@@ -466,11 +466,16 @@ def _write_kind(
 def _serve_hydrography(
     section: Any,
     *,
+    store: Any,
     selector: _Selector,
     target_dir: Path,
     failures: list[RequestFailure],
 ) -> list[RequestedFile]:
-    """Ask each source for the network over the extent, without the Whitebox manager."""
+    """Ask each source for the network over the extent, without the Whitebox manager.
+
+    A listed source goes through the store's cache, as in a run: a workspace
+    store keeps the answer and serves it again.
+    """
     if selector.extent is None:
         raise DataRequestError(
             "hydrography is asked over an extent; a list of stations bounds nothing"
@@ -483,20 +488,16 @@ def _serve_hydrography(
                 src.source,
                 failures,
                 target_dir,
-                lambda entries, src=src: _write_network(src, selector, target_dir, entries),
+                lambda entries, src=src: _write_network(src, store, selector, target_dir, entries),
             )
         )
     return files
 
 
 def _write_network(
-    src: Any, selector: _Selector, target_dir: Path, entries: list[RequestedFile]
+    src: Any, store: Any, selector: _Selector, target_dir: Path, entries: list[RequestedFile]
 ) -> None:
     from hydromodpy.data.variables.hydrography import custom
-    from hydromodpy.data.variables.hydrography.api_source import (
-        fetch_network,
-        source_from_section,
-    )
 
     stem = f"hydrography_{src.source}"
     if src.source == CUSTOM_SOURCE:
@@ -509,7 +510,7 @@ def _write_network(
             return
         frame = loaded
     else:
-        frame = fetch_network(source_from_section(src), selector.extent)
+        frame = store.fetch_network(src, selector.mask_path)
     written = write_features(frame, target_dir / f"{stem}.gpkg", extent=selector.extent)
     entries.append(_entry("hydrography", src.source, "vector", written, target_dir, None, ()))
 

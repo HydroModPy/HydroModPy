@@ -18,9 +18,15 @@ from datetime import datetime as dt
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from hydromodpy.core import progress
+from hydromodpy.core.exceptions import (
+    ConfigError,
+    ConfigMissingError,
+    DataError,
+    HydroModPyError,
+)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.time import resolve_simulation_time_window_dates
@@ -95,6 +101,11 @@ class DataManagersRuntimeLoader:
         order, then the remaining independent types (observation + climatic).
         Everything runs sequentially: the shared DuckDB catalog connection is
         not thread-safe, so a thread pool would corrupt result sets.
+
+        A variable that cannot be loaded stops the run with a typed error,
+        whatever its family. Only a type the planner inferred, under
+        ``data.inference_mode = "warn"``, is dropped, with a warning that
+        names it.
         """
         workspace_paths = self._workspace_paths(result)
         self._init_catalog(workspace_paths)
@@ -120,12 +131,11 @@ class DataManagersRuntimeLoader:
             # series mid-fetch with "Invalid Input Error: No open result set".
             # Loading the rest sequentially is the simplest correct fix and
             # the speed cost is negligible (only a handful of data managers
-            # per project, each < 1 s).
+            # per project, each < 1 s). A failure here stops the run as it
+            # does for the first phase: a run that goes on without its gauge
+            # or its forcing, and exits 0, is a wrong result nobody sees.
             for type_name in independent:
-                try:
-                    self._load_single(result, type_name)
-                except Exception as exc:
-                    logger.error("Load of '%s' failed: %s", type_name, exc)
+                self._load_single(result, type_name)
                 bar.advance()
 
     def _load_single(self, result: WorkflowContext, type_name: str) -> None:
@@ -394,8 +404,8 @@ class DataManagersRuntimeLoader:
     ) -> None:
         message = f"Data manager '{type_name}' is active but {detail}."
         if self._is_required_data_type(result, type_name):
-            raise ValueError(message)
-        logger.warning("%s", message)
+            raise ConfigMissingError(message)
+        logger.warning("%s The run goes on without '%s'.", message, type_name)
 
     def _handle_data_loading_error(
         self,
@@ -405,8 +415,8 @@ class DataManagersRuntimeLoader:
     ) -> None:
         message = f"Failed to load data manager '{type_name}': {exc}"
         if self._is_required_data_type(result, type_name):
-            raise ValueError(message) from exc
-        logger.warning("%s", message)
+            raise _typed_load_failure(message, exc) from exc
+        logger.warning("%s The run goes on without '%s'.", message, type_name)
         existing = getattr(result.loaded_data, type_name, None)
         if existing is not None and hasattr(existing, "warnings"):
             existing.warnings.append(message)
@@ -503,3 +513,23 @@ class DataManagersRuntimeLoader:
                     out.append(text)
             return out
         return []
+
+
+def _typed_load_failure(message: str, exc: Exception) -> Exception:
+    """Return the error that stops a run whose variable could not be loaded.
+
+    The class keeps the category of the cause, so the exit code says what went
+    wrong: a missing file, a refused config, a source or cache failure. A cause
+    with no category of its own becomes a :class:`DataError`.
+    """
+    if isinstance(exc, FileNotFoundError):
+        return FileNotFoundError(message)
+    if isinstance(exc, ValidationError):
+        return ConfigError(message)
+    if isinstance(exc, HydroModPyError):
+        try:
+            return type(exc)(message)
+        except TypeError:
+            # A class whose constructor needs more than a message.
+            return ConfigError(message) if isinstance(exc, ConfigError) else DataError(message)
+    return DataError(message)

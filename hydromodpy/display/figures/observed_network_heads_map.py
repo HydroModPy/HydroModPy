@@ -21,15 +21,15 @@ distances belong to a calibration trial.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
+from hydromodpy.display.figure_options import Extent, Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
     CELL_WEIGHT_PT,
-    MapExtentName,
     cell_count,
     checked_cells,
     draw_cells,
@@ -121,8 +121,15 @@ class ObservedNetworkHeadsMap(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        output: str | None = None,
-        extent: MapExtentName = "catchment",
+        output: Annotated[
+            str | None,
+            Opt(
+                "Calibration output whose seepage threshold, neighbour graph and "
+                "positional accuracy are read, when the run sealed several network "
+                "outputs. Left out, the first one."
+            ),
+        ] = None,
+        extent: Extent = "catchment",
         **_,
     ) -> Axes:
         view = network_heads_view_from_run(sim, output=output)
@@ -163,7 +170,7 @@ class ObservedNetworkHeadsMap(BaseFigure):
 
         overlay_watershed_contour(ax, sim, color="#404040", linewidth=0.9, alpha=0.7)
         style_map_axes(ax)
-        ax.set_title(f"{self.spec.title} - {sim.name or sim.sim_id}\n{_title_counts(view)}")
+        ax.set_title(f"{self.spec.title}{run_suffix(sim)}\n{_title_counts(view)}")
 
         window = map_extent(sim, polygons, extent=extent)
         notes = [*_redraw_note(view), view.settings_note, f"frame: {window.name}"]

@@ -16,10 +16,29 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="schema_command")
 
-    export_p = sub.add_parser("export", help="Write config.json + config_meta.json")
+    export_p = sub.add_parser(
+        "export",
+        help="Write config.json, config_meta.json and field_validators.json",
+        description=(
+            "Write three files into the output directory: config.json (the JSON "
+            "Schema of HydroModPyConfig), config_meta.json (the root sections in "
+            "order, their titles and UI groups) and field_validators.json (the "
+            "validator type of each field path, for a frontend)."
+        ),
+        epilog=(
+            "Example:\n  hmp dev schema export --output schema_dir\n\n"
+            "The editor schema of one TOML file is `hmp config schema --editor`."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     export_p.add_argument("--output", default="schema", help="Destination directory")
 
-    validate_p = sub.add_parser("validate-field", help="Validate one field value")
+    validate_p = sub.add_parser(
+        "validate-field",
+        help="Validate one field value",
+        epilog="Example:\n  hmp dev schema validate-field solver.backend.backend modflow6",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     validate_p.add_argument("path", help="Dotted field path")
     validate_p.add_argument("value", help="Candidate value")
     validate_p.add_argument("--context", default=None, help="TOML providing form state")

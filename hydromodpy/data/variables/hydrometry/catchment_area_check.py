@@ -115,7 +115,7 @@ def compare_catchment_area(
         logger.warning(
             "Catchment area disagrees with the gauge: %s. An outlet on the wrong branch of a "
             "confluence looks like this, and a distance to the station cannot show it. Check "
-            "geographic.x_outlet / y_outlet and snap_dist against the station position.",
+            "geographic.catchment.x_outlet / y_outlet and snap_dist against the station position.",
             comparison,
         )
     else:

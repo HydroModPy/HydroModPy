@@ -1,4 +1,4 @@
-Calibration Architecture
+Calibration architecture
 ========================
 
 .. rst-class:: lead
@@ -8,7 +8,7 @@ Software architecture of the calibration stack in
 the full operational guide for adding methods, observables, and
 objectives.
 
-For the user-facing hub, see Calibration Workflow.
+For the task, see :doc:`/guides/calibrate`.
 For the scientific side (inverse problem, methods), see
 :doc:`/theory/index`.
 
@@ -27,14 +27,13 @@ Pages
       (config, runtime, execution flows, case structure) in one
       place.
 
-   .. grid-item-card:: Operational calibration guide
+   .. grid-item-card:: How the calibration engine runs
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: calibration-guide
       :link-type: doc
 
-      TOML sections, optimizer catalogue, storage rules, common
-      pitfalls, and the Python API for custom observables and
-      objectives.
+      How a calibration file becomes trials: the steps a trial replays,
+      what is stored, the cache, and what a search reports about itself.
 
 .. toctree::
    :hidden:

@@ -19,13 +19,16 @@ from validation_cases.shared.runtime import (
 )
 
 from .assertions import (
+    assert_metric_above,
     assert_metric_below,
     assert_profile_metrics,
     assert_space_time_metrics,
 )
+from .results import record_comparison, record_metric, record_scale, record_series
 
 __all__ = [
     "ValidationRunResult",
+    "assert_metric_above",
     "assert_metric_below",
     "assert_profile_metrics",
     "assert_space_time_metrics",
@@ -36,6 +39,10 @@ __all__ = [
     "max_abs_error",
     "max_std_along_axis",
     "mean_along_axis",
+    "record_comparison",
+    "record_metric",
+    "record_scale",
+    "record_series",
     "resolve_validation_results_dir",
     "rmse",
     "run_launcher_validation_case",

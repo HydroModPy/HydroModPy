@@ -38,7 +38,13 @@ def _parse_bbox(value: str) -> tuple[float, float, float, float]:
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[verbosity_parser()],
+        epilog="Examples:\n  hmp data get dem --out data/dem --bbox 340000,6780000,350000,6790000 --crs EPSG:2154\n  hmp data get precipitation --out data/precipitation --mask catchment.gpkg --start 2015-01-01 --end 2020-12-31 --source sim2",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "target",
         metavar="REQUEST_OR_VARIABLE",

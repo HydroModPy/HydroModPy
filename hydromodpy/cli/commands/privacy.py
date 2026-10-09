@@ -15,7 +15,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="privacy_command", metavar="<action>", required=True)
 
-    purge = sub.add_parser("purge", help="Hard-delete a simulation + emit a JSON purge certificate")
+    purge = sub.add_parser(
+        "purge",
+        help="Hard-delete a simulation + emit a JSON purge certificate",
+        epilog='Example:\n  hmp privacy purge ab12cd34 --reason "data withdrawn" -y',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     purge.add_argument("sim_ref", help="Full sim_id, unique prefix, or simulation name")
     purge.add_argument("--workspace", default=None, help="Project catalog root")
     purge.add_argument(
@@ -28,7 +33,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Also write the snapshot to a sibling 0o600 archive",
     )
 
-    verify = sub.add_parser("verify", help="Verify a purge certificate JSON")
+    verify = sub.add_parser(
+        "verify",
+        help="Verify a purge certificate JSON",
+        epilog="Example:\n  hmp privacy verify purge-certificate.json --strict",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     verify.add_argument("certificate", help="Path to a purge certificate JSON file")
     verify.add_argument("--strict", action="store_true", help="Require POSIX 0o600 permissions")
 

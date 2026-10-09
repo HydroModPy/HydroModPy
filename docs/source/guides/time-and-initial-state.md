@@ -1,16 +1,23 @@
 # Set the time window and the starting state
 
+```{hmp-task}
+Task
+: Set the window and the step of a transient run, choose how the first period is solved and what the aquifer holds before it, spin the model up, and keep the start out of the score.
+
+Time
+: Minutes to write. A spin-up costs one extra solve per cycle, for every run.
+
+Needs
+: A transient flow model on MODFLOW 6. The blocks below are merged onto `step4_transient.toml` of example 04 (monthly, 2000 to 2002) and validated. A forcing that covers the window ({doc}`recharge`). For the last step, a calibration file: example 04 has `run_calibration.toml`.
+
+Gives
+: A time grid you can count, a starting state you can name, and a first stamp you can read.
+```
+
 A transient run needs three answers. Which dates does it cover, and how long is one
 period? What did the aquifer hold before the first period? And what does a time stamp in
 the output mean? This guide sets all three, and shows how to spin the model up so that the
 start does not leak into the numbers you report.
-
-## What you need first
-
-- A transient flow model on MODFLOW 6. The blocks below are merged onto
-  `step4_transient.toml` of example 04 (monthly, 2000 to 2002) and validated.
-- A forcing that covers the window. For recharge, see {doc}`recharge`.
-- For the last step, a calibration file. Example 04 has `run_calibration.toml`.
 
 ## 1. Write the window and the step
 
@@ -77,11 +84,12 @@ Three consequences follow.
 
 - **The first period is not a month of the calendar.** With a steady first period, the
   first stamp of a monthly run holds an equilibrium, not the state at the end of January.
-- **The forcing of that period may be the mean of the record.** For a recharge series with one
-  value per period, {toml}`first_clim|flow.sinks_sources.recharge.first_clim` says which
-  value period 0 takes. The key acts on a steady first period only. A gridded recharge is
-  read period by period: its steady first period keeps its own grid, unless negative
-  values are routed to evapotranspiration, in which case it takes the per-cell mean.
+- **The forcing of that period may be the mean of the record.** For a recharge with one
+  value per period, {toml}`first_clim|flow.sinks_sources.recharge.first_clim` says which rate
+  a steady period takes: `"mean"` of the per-period rates, `"first"` for the rate of period 0,
+  or a number. It sets the rate of every steady stress period and of no other. A transient
+  period keeps its own rate, whatever its index. The rule is the same under every solver, and
+  for one value per period and one grid per period alike.
 - **The starting heads of {toml}`flow.ic.h.type` are only a guess.** A steady period does
   not depend on where the solver starts. The initial condition changes convergence, not the
   state reached. To make the run start from a state you choose, write
@@ -221,9 +229,9 @@ The measure is the largest change, not the mean: a basin that is settled on aver
 one corner still drifts has not settled. A loop that runs out of cycles hands back its last
 state and warns. Pass `-v` to see the line that reports a loop that settled.
 
-MODFLOW 6 is the only backend that does this. A file whose {toml}`solver.backend` names
-MODFLOW-NWT is refused by `hmp config check` (see the end of this guide, and
-{doc}`choose-a-solver` for why the solver name goes in two places).
+MODFLOW 6 is the only backend that does this. A file whose flow process selects
+MODFLOW-NWT is refused by `hmp config check`: {toml}`solver.backend` follows the solver of
+the process, and the message names it (see the end of this guide).
 
 ### Outside the run
 
@@ -333,36 +341,20 @@ this one. The calibration guides give the rest: {doc}`calibrate` and
 
 ## Reading the time stamps
 
-A run stores one record per stress period, and it stamps the record with the **end** of the
-period. A time stamp closes its period:
+A run stores one record per stress period and stamps it with the **end** of the period.
+A flux is the mean over the period, and a state is the value at the stamp. In a monthly run
+starting on 2000-01-01, period 0 is stamped 2000-02-01: the discharge stamped there is the
+mean of January, and the head stamped there is the water table on the day January ends. The
+convention, with the stamps of a steady run, of the budget tables and of the observations, is
+written once in {doc}`/theory/time-alignment`.
 
-- A **flux** is the mean over the period, from its start (included) to the stamp
-  (excluded). This covers discharge, drain and seepage flux, runoff, lake inflow and
-  outflow.
-- A **state** is the value at the stamp itself. This covers the head, the water table, the
-  lake stage and the lake volume.
-
-In a monthly run starting on 2000-01-01, period 0 is stamped 2000-02-01. The discharge
-stamped 2000-02-01 is the mean of January. The head stamped 2000-02-01 is the water table
-on that day, the instant January ends. A steady run over 2000 to 2002 has one period,
-stamped 2003-01-01.
-
-What this means when you read outputs:
+Two consequences belong to this guide.
 
 - **A date picks the period that holds it.** {toml}`display.time` and {toml}`export.time`
-  take a date. `"2002-10-15"` selects the period from 2002-10-01 to 2002-11-01. The map of
-  heads then shows the state at 2002-11-01, and the discharge of that period is the mean
-  of October. `"first"` and `"last"` also work.
-- **A budget row names both ends.** The budget CSV has `period_start` and `period_end`
-  columns.
-- **Observations follow the same rule.** The calibration averages a gauged flux over each
-  period, and it reads a gauged level at the stamp. It never averages a level over the
-  period that ends there.
+  take a date, `"first"` or `"last"`. `"2002-10-15"` selects the period from 2002-10-01 to
+  2002-11-01.
 - **The first stamp may not be a month.** With a steady first period, the first record is
   the equilibrium, not January (step 2).
-- **Substeps do not add records.** With {toml}`simulation.time.substeps_per_period` above
-  one, the solver still writes one head field and one budget per period, taken at the last
-  step.
 
 ```{hmp-params}
 display.time
@@ -380,8 +372,17 @@ its period. They are not comparable with scores made now.
 2. **Look at the first stamps.** Step 4 of example 04 already exports the discharge: run it
    and open the CSV. For a monthly run from 2000-01-01, the first `datetime` is 2000-02-01.
    In a file of your own, add an `[[export]]` block with `variables = ["discharge"]`
-   ({doc}`results-and-exports`). The figure `hydrograph_sim_obs` shows the same series against the gauge. A hydrograph
-   that starts high and recedes for months says the aquifer started too full.
+   ({doc}`export-results`). The figure `hydrograph_sim_obs` shows the same series against the
+   gauge. A hydrograph that starts high and recedes for months says the aquifer started too
+   full.
+
+   ```{figure} /_static/figures/guides/hydrograph_sim_obs.webp
+   :alt: Simulated and observed monthly discharge of the Nançon catchment, 2000 to 2002.
+   :width: 100%
+
+   `hydrograph_sim_obs` of the calibrated run of example 04. The first simulated point is
+   stamped 2000-02-01, the end of the first period.
+   ```
 3. **Read the spin-up.** `hmp spinup` prints each cycle. For `spinup_cyclic`, run with `-v`
    and look for the line `Cyclic spin-up settled after <n> cycle(s).` Without it, look for
    the warning.
@@ -392,7 +393,9 @@ its period. They are not comparable with scores made now.
 ## What can go wrong
 
 The messages below are the ones the code prints. `hmp config check` starts a refusal with
-`Config invalid:` or `Config check failed:`, then the file, then the key.
+`Config invalid:` or `Config check failed:`, then the file, then the key. The messages name
+the initial condition as `flow.ic.type`, which is the flat form `[flow.ic] type = ...` that
+this guide writes. The reference card is {toml}`flow.ic.h.type`.
 
 | You see | Cause | What to do |
 |---|---|---|
@@ -405,17 +408,19 @@ The messages below are the ones the code prints. `hmp config check` starts a ref
 | `flow.ic.value is required when type='top_offset'` | No `value`. | Write `value = "2 m"`. |
 | `flow.ic.type must be one of: 'bottom', 'custom', 'spinup_cyclic', 'steady_state', 'top', 'top_offset'` | A misspelled type. | Use one of them. |
 | `flow.ic.type='steady_state' is only supported when flow.flow_regime='transient'` | A steady run. | Write `flow_regime = "transient"`, or another type. |
-| `solver.backend='modflow_nwt' does not read flow.restart_from; it would be silently ignored and the run would start from flow.ic instead.` | A restart on MODFLOW-NWT. | Use MODFLOW 6, or drop the key. |
-| `flow.ic.type='spinup_cyclic' repeats the simulated period until the state settles, and solver.backend='modflow_nwt' cannot` | A cyclic spin-up on MODFLOW-NWT. | Use MODFLOW 6, or run `hmp spinup` and set `flow.restart_from`. |
+| `solver.backend='modflow_nwt' does not read flow.restart_from; it would be silently ignored and the run would start from flow.ic instead.` | A restart with the flow process on MODFLOW-NWT. `solver.backend` follows the solver of the process. | Use MODFLOW 6, or drop the key. |
+| `flow.ic.type='spinup_cyclic' repeats the simulated period until the state settles, and solver.backend='modflow_nwt' cannot` | A cyclic spin-up with the flow process on MODFLOW-NWT. | Use MODFLOW 6, or run `hmp spinup` and set `flow.restart_from`. |
 | `restart_from: prior head shape (...) does not match this run (...). Enable [mesh_catchment] cache = true so the mesh, and the cell count, is identical between the two runs.` | The two meshes differ. | Enable {toml}`mesh_catchment.cache` and redo both runs. |
 | `MODFLOW 6 steady-state initial-condition solve failed.` | The auxiliary solve did not converge and its budget does not close. | See {doc}`non-convergence`. A solve that fails with a budget error within 0.1 in magnitude continues with a warning. |
 | `[flow.sinks_sources.recharge.soil] sends each day's recharge to MODFLOW, and flow.first_period_steady = true solves the first stress period ...` | A soil reservoir with a steady first period. | Write `first_period_steady = false` and `type = "steady_state"` under `[flow.ic]`. |
+| `<forcing> does not cover stress period(s) 0 [2000-01-01, 2000-02-01): no sample of the record is in force there. Extend the record, shorten [simulation.time], or set simulation.time.coverage_policy to 'warn' or 'ignore' to fill these periods with the nearest sample.` | A forcing record ends before the window, or starts after it. A gap inside the record is covered by the last sample before it. | Extend the record, or shorten the window. `'warn'` fills the period with the nearest sample and says so. |
+| `flow.sinks_sources.recharge.first_clim = <x> is a negative rate, and negative_to_evt is false: a steady period cannot take it.` | A negative number for `first_clim`. | Set `negative_to_evt = true` to route it to EVT, or give a rate of zero or more. |
 | `the cyclic spin-up ran its <n> allowed cycle(s) without the head field settling, and the run starts from the last one anyway.` | The loop ran out of cycles. | Raise {toml}`flow.ic.h.max_cycles`, or loosen {toml}`flow.ic.h.tol_head`, and say in the write-up that the start did not settle. |
 
 ## Next
 
 - Where the recharge of period 0 comes from: {doc}`recharge`, and
-  {doc}`/theory/forcing`.
+  {doc}`/theory/forcing`. What a time stamp means: {doc}`/theory/time-alignment`.
 - The soil reservoir has a starting state of its own, {toml}`flow.sinks_sources.recharge.soil.spinup`:
   {doc}`../theory/soil-reservoir`.
 - A run that does not converge: {doc}`non-convergence`.

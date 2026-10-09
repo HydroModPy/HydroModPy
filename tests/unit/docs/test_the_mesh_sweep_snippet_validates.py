@@ -13,16 +13,13 @@ from pathlib import Path
 
 import pytest
 
-PAGE = (
-    Path(__file__).resolve().parents[3] / "docs" / "source" / "guides" / "calibration-recipes.rst"
-)
+PAGE = Path(__file__).resolve().parents[3] / "docs" / "source" / "guides" / "compare-runs.md"
 
 
 def _snippet() -> dict:
     text = PAGE.read_text(encoding="utf-8")
-    block = text.split("# mesh_sweep.toml")[1].split(".. code-block:: bash")[0]
-    body = "\n".join(line[3:] if line.startswith("   ") else line for line in block.splitlines())
-    return tomllib.loads(body)
+    block = text.split("# mesh_sweep.toml")[1].split("```")[0]
+    return tomllib.loads(block)
 
 
 def test_the_page_still_ships_the_snippet() -> None:

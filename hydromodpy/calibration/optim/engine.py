@@ -57,6 +57,7 @@ from hydromodpy.calibration.optim.stopping import (
 )
 from hydromodpy.core.exceptions import OptimizerError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.stream_geometry import recharge_session
 
 logger = get_logger(__name__)
 
@@ -164,35 +165,38 @@ class CalibrationEngine:
             max_iter=budget,
         )
         judged = session.stopping_rule != BUDGET_RULE
-        try:
-            if judged:
-                self._judge_the_budget(budget)
-            ran_dry, n_done = self._run_until(budget, 0, session, reporter)
-            if judged and not ran_dry and not self.optimizer.converged():
-                session.extension = self._extension(budget, session)
-                if session.extension:
-                    _, n_done = self._run_until(
-                        budget + session.extension, n_done, session, reporter
+        # The trials of this session compare their mean recharge with each
+        # other only, never with a build of another session or of a figure.
+        with recharge_session(sid):
+            try:
+                if judged:
+                    self._judge_the_budget(budget)
+                ran_dry, n_done = self._run_until(budget, 0, session, reporter)
+                if judged and not ran_dry and not self.optimizer.converged():
+                    session.extension = self._extension(budget, session)
+                    if session.extension:
+                        _, n_done = self._run_until(
+                            budget + session.extension, n_done, session, reporter
+                        )
+                session.converged = (not judged) or bool(self.optimizer.converged())
+                if not session.converged:
+                    logger.warning(
+                        "The search did NOT converge: %d evaluations (%d budget + %d "
+                        "extension) did not meet its stopping rule (%s). Its best trial is "
+                        "where the budget ended, not an answer. Raise max_iter or loosen "
+                        "the tolerance; a re-run replays the trials already solved from "
+                        "the cache.",
+                        n_done,
+                        budget,
+                        session.extension,
+                        session.stopping_rule,
                     )
-            session.converged = (not judged) or bool(self.optimizer.converged())
-            if not session.converged:
-                logger.warning(
-                    "The search did NOT converge: %d evaluations (%d budget + %d "
-                    "extension) did not meet its stopping rule (%s). Its best trial is "
-                    "where the budget ended, not an answer. Raise max_iter or loosen "
-                    "the tolerance; a re-run replays the trials already solved from "
-                    "the cache.",
-                    n_done,
-                    budget,
-                    session.extension,
-                    session.stopping_rule,
-                )
-        finally:
-            session.finished_at = time.time()
-            reporter.close()
-            close_optimizer = getattr(self.optimizer, "close", None)
-            if callable(close_optimizer):
-                close_optimizer()
+            finally:
+                session.finished_at = time.time()
+                reporter.close()
+                close_optimizer = getattr(self.optimizer, "close", None)
+                if callable(close_optimizer):
+                    close_optimizer()
         return session
 
     def _extension(self, budget: int, session: CalibrationSession) -> int:

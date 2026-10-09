@@ -14,6 +14,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
 from hydromodpy.display.catchment_report.resources import REPO_ROOT
 from hydromodpy.display.catchment_report.simulation_source import (
@@ -21,6 +22,8 @@ from hydromodpy.display.catchment_report.simulation_source import (
     read_simulated_discharge,
     simulation_parquet_dir,
 )
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -66,28 +69,24 @@ def build_context(inputs: CatchmentReportInputs) -> Path:
         simulated = read_simulated_discharge(run)
         parquet_dir = simulation_parquet_dir(catalog, run)
         n_cells = run.n_cells
-    observed = (
-        _read_series(inputs.observed_discharge_path)
-        if inputs.observed_discharge_path is not None and inputs.observed_discharge_path.exists()
-        else None
-    )
+    observed = _observed_series(inputs.observed_discharge_path)
     _write_timeseries(context_dir, simulated, observed)
     _plot_single_series(
         observed if observed is not None else simulated,
         assets_dir / "observed_discharge_full.png",
-        title=f"{inputs.site_label} - chronique de debit observe",
+        title=f"{inputs.site_label} - observed discharge series",
     )
     _plot_window_series(
         observed,
         simulated,
         assets_dir / "forcing_window.png",
-        title=f"{inputs.site_label} - fenetre de simulation",
+        title=f"{inputs.site_label} - simulation window",
     )
     _plot_window_series(
         observed,
         simulated,
         assets_dir / "baseline_discharge_comparison.png",
-        title=f"{inputs.site_label} - debit simule de reference",
+        title=f"{inputs.site_label} - reference simulated discharge",
     )
     network_assets = _copy_network_assets(inputs.simulation_figures, assets_dir)
 
@@ -131,6 +130,20 @@ def build_context(inputs: CatchmentReportInputs) -> Path:
     )
     _write_context_html(web_dir, inputs, summary)
     return inputs.context_summary
+
+
+def _observed_series(path: Path | None) -> pd.DataFrame | None:
+    """Read the observed discharge, or say why the report goes without it."""
+    if path is None:
+        return None
+    if not path.exists():
+        logger.warning(
+            "Catchment report: observed discharge file %s not found; "
+            "the report shows the simulation alone.",
+            path,
+        )
+        return None
+    return _read_series(path)
 
 
 def _load_resolved_toml(path: Path) -> dict[str, Any]:
@@ -255,14 +268,14 @@ def _plot_window_series(
             observed["value"],
             color="#0f766e",
             linewidth=1.0,
-            label="Observe",
+            label="Observed",
         )
     ax.plot(
         simulated["datetime"],
         simulated["value"],
         color="#2563eb",
         linewidth=1.4,
-        label="Simule",
+        label="Simulated",
     )
     ax.set_title(title)
     ax.set_ylabel("Q (m3/s)")
@@ -369,13 +382,13 @@ def _write_context_html(
     web_dir.mkdir(parents=True, exist_ok=True)
     baseline = _mapping(summary.get("baseline_run"))
     html = f"""<!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>{inputs.site_label} - contexte</title>
+  <title>{inputs.site_label} - context</title>
 </head>
 <body>
-  <h1>{inputs.site_label} - contexte</h1>
+  <h1>{inputs.site_label} - context</h1>
   <p>Simulation: <code>{baseline.get("simulation_name", "")}</code></p>
   <p>Export: <code>{baseline.get("source_export", "")}</code></p>
   <p>Figures: <code>{baseline.get("figure_dir", "")}</code></p>
