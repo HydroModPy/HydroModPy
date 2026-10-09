@@ -23,6 +23,7 @@ from collections import Counter
 from pathlib import Path
 
 import hmp_params as H
+import hmp_validation_figures as FIG
 from docutils import nodes
 from docutils.statemachine import StringList
 from sphinx.util import logging
@@ -49,13 +50,22 @@ GROUPS = {
 }
 # A marker that names a solver, for tests that do not parametrize one.
 MARK_SOLVER = {"mf6": "modflow6", "petsc": "petsc"}
-SOLVER_ORDER = ["modflow_nwt", "modflow6", "modflow6_irregular_tri", "boussinesq"]
+SOLVER_ORDER = [
+    "modflow_nwt",
+    "modflow6",
+    "modflow6_irregular_tri",
+    "modflow6_voronoi",
+    "boussinesq",
+    "boussinesq_local",
+]
 MATRIX_COLUMNS = [*SOLVER_ORDER, "other"]
 COLUMN_LABELS = {
     "modflow_nwt": "NWT",
     "modflow6": "MF6",
     "modflow6_irregular_tri": "MF6 triangles",
+    "modflow6_voronoi": "MF6 Voronoi",
     "boussinesq": "Boussinesq",
+    "boussinesq_local": "Boussinesq default",
     "other": "other",
 }
 TIER_ORDER = ["validation", "integration", "regression", "e2e", "contract", "unit", "other"]
@@ -631,6 +641,16 @@ def figures_html(records: list[dict]) -> str:
     return f'<div class="hmp-val-figs">{"".join(svg_overlay(s, m) for s, m in groups)}</div>'
 
 
+def plot_figures_html(records: list[dict], docname: str) -> str:
+    """Maps, space-time errors and calibration landscapes, drawn with matplotlib."""
+    return FIG.figures_html(
+        records,
+        label=lambda r: COLUMN_LABELS.get(r.get("solver") or "", member_label(r)),
+        order=lambda r: solver_key(r.get("solver") or ""),
+        docname=docname,
+    )
+
+
 def criteria_html(entry: dict, case: dict) -> str:
     """One row per checked metric, one column per solver, values from the tolerance files."""
     crits = [c for c in entry["criteria"] if c["key"]]
@@ -960,9 +980,10 @@ class ValidationDirective(SphinxDirective):
             "between its ideal value and the threshold. <em>skipped</em> and <em>not measured</em> "
             "prove nothing. A cross marks a failure. <em>gap</em> marks a known discrepancy that "
             "the threshold lets through; the section of the case explains it. <em>other</em> "
-            "gathers the solvers outside the four columns and the tests that name none. The columns "
-            "are <code>modflow_nwt</code>, <code>modflow6</code>, <code>modflow6_irregular_tri</code> "
-            "and <code>boussinesq</code>.</p>"
+            "gathers the solvers outside these columns and the tests that name none. The columns "
+            "are "
+            + ", ".join(f"<code>{esc(c)}</code>" for c in SOLVER_ORDER[:-1])
+            + f" and <code>{esc(SOLVER_ORDER[-1])}</code>.</p>"
             f'<p class="hmp-val-legend">{legend}</p>'
             '<div class="hmp-val-scroll" tabindex="0" role="region" aria-label="Cases and what they check"><table class="hmp-val-matrix"><thead><tr><th>Case</th>'
             f"{head}</tr></thead><tbody>{''.join(rows)}</tbody></table></div>"
@@ -1039,6 +1060,7 @@ class ValidationDirective(SphinxDirective):
             '<p class="hmp-val-h">Last measurement</p>'
             + results_table(entry, records, builder, doc)
             + figures_html(records)
+            + plot_figures_html(records, doc)
         )
         notes = []
         for who, reason in reason_notes(entry):
@@ -1138,6 +1160,7 @@ def _page_css(app, pagename, templatename, context, doctree) -> None:
 
 def setup_validation(app) -> None:
     app.connect("builder-inited", lambda a: load(Path(a.srcdir)))
+    app.connect("builder-inited", lambda a: FIG.set_output(Path(a.outdir)))
     app.add_directive("hmp-validation", ValidationDirective)
     app.add_directive("hmp-tested-by", TestedByDirective)
     app.connect("html-page-context", _page_css)

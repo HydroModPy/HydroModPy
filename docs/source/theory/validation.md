@@ -26,15 +26,23 @@ that no job runs.
 The cases above compare each solver with an exact solution. A catchment has
 none, so the reference model of example 04 is run twice from the same file:
 once with MODFLOW 6, once with MODFLOW-NWT. Only the solver of the flow process
-changes. `tools/docs/figures/render_ex04_figures.py` (group `solvers`) makes both
-runs and draws the figures below; `tools/docs/figures/figures.toml` keeps the
-command behind each one.
+changes. Both runs store their fields at full precision: the default compact
+storage rounds these heads to steps of 1 to 2 mm, more than the gap between the
+two solvers. `tools/docs/figures/render_ex04_figures.py` (group `solvers`) makes
+both runs and draws the figures below; `tools/docs/figures/figures.toml` keeps
+the command behind each one.
+
+The aquifer of example 04 has the same thickness in every cell. Where the
+thickness changes from one cell to the next, MODFLOW 6 under Newton computes
+another horizontal conductance than MODFLOW-NWT, smaller where water flows from
+a thicker cell to a thinner one, and the two solvers part: the circular-island
+cases above show it.
 
 ::::{grid} 1 1 2 2
 :gutter: 2
 
 :::{grid-item}
-```{figure} /_static/figures/solvers/nancon_intermittence_mf6_hydrograph_sim_obs.webp
+```{figure} /_static/figures/solvers/nancon_mf6_hydrograph_sim_obs.webp
 :alt: Simulated and observed monthly discharge at the outlet of the Nançon catchment, 2000 to 2002, run with MODFLOW 6.
 
 Discharge at the outlet, MODFLOW 6.
@@ -42,7 +50,7 @@ Discharge at the outlet, MODFLOW 6.
 :::
 
 :::{grid-item}
-```{figure} /_static/figures/solvers/nancon_intermittence_nwt_hydrograph_sim_obs.webp
+```{figure} /_static/figures/solvers/nancon_nwt_hydrograph_sim_obs.webp
 :alt: Simulated and observed monthly discharge at the outlet of the Nançon catchment, 2000 to 2002, run with MODFLOW-NWT.
 
 Discharge at the outlet, MODFLOW-NWT.

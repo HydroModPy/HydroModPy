@@ -10,20 +10,23 @@ Stages (``--stage``), each one idempotent:
 
 ``runs``
     Bootstrap the workspace (``hmp workspace init``, ``hmp example add 04``),
-    then run the staircase steps, the frozen reference, the reference with
-    the flow solved by MODFLOW-NWT, the two-stage calibration and the two
-    synthetic demo runs. A run that already exists in the project catalog is
+    then run the staircase steps, the frozen reference, the two solver copies
+    of the reference, the two-stage calibration and the two synthetic demo
+    runs. A run that already exists in the project catalog is
     not run again.
     Steps 3 and 6 and the calibration need the network on their first run.
 ``figures``
     Redraw the figures from the stored runs (Understand, staircase, solvers,
     catalog) and write the manifest.
 
-The ``solvers`` group compares the two solvers on the same file: the reference
-run (MODFLOW 6) and its copy solved by MODFLOW-NWT. The script writes that copy
-into the scratch project (``run_nwt.toml``); the example ships no such file.
-Its figures keep the run names in their titles, since the names tell the solvers
-apart.
+The ``solvers`` group compares the two solvers on the same file: two copies of
+the reference, one solved by MODFLOW 6 and one by MODFLOW-NWT, both storing
+their fields at full precision. The default compact storage keeps 16 mantissa
+bits, a step of 1 to 2 mm at the heads of this catchment, larger than the gap
+between the solvers. The script writes both copies into the scratch project
+(``run_mf6_exact.toml``, ``run_nwt_exact.toml``); the example ships no such
+file. Their figures keep the run names in their titles, since the names tell
+the solvers apart.
 
 Run it from anywhere, never with the workspace inside the repository::
 
@@ -90,13 +93,20 @@ STEPS: tuple[RunSpec, ...] = (
     RunSpec("step6", "step6_soil_reservoir.toml", "nancon_soil_reservoir_daily", 6, True),
 )
 REFERENCE = RunSpec("reference", "project.toml", "nancon_intermittence_mf6")
-# The reference with the flow solved by MODFLOW-NWT, written by nwt_variant.
-NWT = RunSpec(
-    "nwt",
-    "run_nwt.toml",
-    "nancon_intermittence_nwt",
-    note="project.toml with the flow solved by MODFLOW-NWT",
+# The two copies of the reference the solvers group compares, written by solver_variant.
+SOLVER_MF6 = RunSpec(
+    "solver_mf6",
+    "run_mf6_exact.toml",
+    "nancon_mf6",
+    note="project.toml with the fields stored at full precision",
 )
+SOLVER_NWT = RunSpec(
+    "solver_nwt",
+    "run_nwt_exact.toml",
+    "nancon_nwt",
+    note="project.toml solved by MODFLOW-NWT, fields stored at full precision",
+)
+SOLVER_RUNS = (SOLVER_MF6, SOLVER_NWT)
 CALIBRATION = RunSpec(
     "calibrated",
     "run_calibration.toml",
@@ -134,7 +144,7 @@ STEP_KEY_FIGURE = {
     6: "flux_timeseries",
 }
 
-# The solvers group: each run on its own, then the NWT run against the MF6 one.
+# The solvers group: each solver copy on its own, then the NWT copy against the MF6 one.
 SOLVER_PAGE = "theory/validation.md"
 SOLVER_EACH = ("hydrograph_sim_obs",)
 SOLVER_PAIR = ("side_by_side", "difference_map")
@@ -249,14 +259,22 @@ def demo_variant(demo: Path) -> Path:
     return target
 
 
-def nwt_variant(project: Path) -> Path:
-    """Write the reference with the flow solved by MODFLOW-NWT, nothing else changed."""
-    target = project / NWT.toml
+def solver_variant(project: Path, spec: RunSpec) -> Path:
+    """Write a copy of the reference that stores its fields at full precision.
+
+    The NWT copy also solves the flow with MODFLOW-NWT. Nothing else changes.
+    """
+    nwt = spec is SOLVER_NWT
+    solver = "modflow_nwt" if nwt else "modflow6"
+    what = "solved by MODFLOW-NWT" if nwt else "solved by MODFLOW 6"
+    target = project / spec.toml
     target.write_text(
         'base_config = "project.toml"\n\n[simulation]\n'
-        f'name = "{NWT.run}"\n'
-        'description = "The reference with the flow solved by MODFLOW-NWT."\n\n'
-        '[[simulation.process]]\nid = "flow_main"\ntype = "flow"\nsolvers = ["modflow_nwt"]\n',
+        f'name = "{spec.run}"\n'
+        f'description = "The reference {what}, fields stored at full precision."\n\n'
+        '[[simulation.process]]\nid = "flow_main"\ntype = "flow"\n'
+        f'solvers = ["{solver}"]\n\n'
+        '[simulation.results.persistence]\nfield_precision = "exact"\n',
         encoding="utf-8",
     )
     return target
@@ -266,11 +284,11 @@ def stage_runs(workspace: Path, cores: int, only: set[str]) -> None:
     bootstrap_workspace(workspace, cores)
     project = workspace / "projects" / EXAMPLE_DIR
     done = _existing_runs(project)
-    for spec in (*STEPS, REFERENCE, NWT, CALIBRATION):
+    for spec in (*STEPS, REFERENCE, *SOLVER_RUNS, CALIBRATION):
         if only and spec.key not in only:
             continue
-        if spec is NWT:
-            nwt_variant(project)
+        if spec in SOLVER_RUNS:
+            solver_variant(project, spec)
         # A calibration writes several runs; its first stage name is enough to tell.
         probe = (
             "nancon_intermittence_mf6_calibrated_transient_storage"
@@ -455,7 +473,7 @@ def stage_figures(workspace: Path, only: set[str]) -> list[Entry]:
     project = workspace / "projects" / EXAMPLE_DIR
     entries: list[Entry] = []
     drawer = Drawer(project)
-    run_spec = {spec.run: spec for spec in (*STEPS, REFERENCE, NWT)}
+    run_spec = {spec.run: spec for spec in (*STEPS, REFERENCE, *SOLVER_RUNS)}
     run_spec.update({name: CALIBRATION for name in CALIBRATED_RUNS})
 
     def emit(
@@ -562,8 +580,8 @@ def stage_figures(workspace: Path, only: set[str]) -> list[Entry]:
 
     if wanted("solvers"):
         print("solvers", flush=True)
-        jobs = [(figure, run, None) for run in (REFERENCE.run, NWT.run) for figure in SOLVER_EACH]
-        jobs += [(figure, NWT.run, REFERENCE.run) for figure in SOLVER_PAIR]
+        jobs = [(figure, spec.run, None) for spec in SOLVER_RUNS for figure in SOLVER_EACH]
+        jobs += [(figure, SOLVER_NWT.run, SOLVER_MF6.run) for figure in SOLVER_PAIR]
         for figure, run, reference in jobs:
             if drawer.run(run) is None or (reference and drawer.run(reference) is None):
                 print(f"  {figure}: run {run} or {reference} missing, skipped", flush=True)
@@ -729,7 +747,7 @@ def main(argv: list[str] | None = None) -> int:
         "--only",
         default="",
         help=(
-            "comma list: runs (step1..step6, reference, nwt, calibrated, demo); "
+            "comma list: runs (step1..step6, reference, solver_mf6, solver_nwt, calibrated, demo); "
             "figures (understand, staircase, solvers, catalog)"
         ),
     )

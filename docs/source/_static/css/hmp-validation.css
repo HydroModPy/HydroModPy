@@ -100,3 +100,8 @@ details.hmp-val-more[open] > summary { border-bottom: 1px solid var(--pst-color-
   table.hmp-val-res { min-width: 36rem; }
   table.hmp-val-matrix { min-width: 34rem; }
 }
+
+/* Figures drawn at build time: one wide image per case and kind, a variant per theme. */
+.hmp-val-figs-wide { display: block; }
+figure.hmp-val-wide { max-width: 52rem; margin: .6rem 0 .8rem; }
+figure.hmp-val-wide > img { width: 100%; height: auto; display: block; border-radius: .3rem; }

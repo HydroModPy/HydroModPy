@@ -262,6 +262,7 @@ MATRIX_SOLVERS = {
     "modflow6": ("MODFLOW 6", "tolerances_modflow6.toml"),
     "modflow6_irregular_tri": ("MODFLOW 6, triangles", "tolerances_modflow6_irregular_tri.toml"),
     "boussinesq": ("Boussinesq", "tolerances_boussinesq.toml"),
+    "boussinesq_local": ("Boussinesq, default engine", "tolerances_boussinesq_local.toml"),
 }
 
 
