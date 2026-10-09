@@ -10,13 +10,20 @@ Stages (``--stage``), each one idempotent:
 
 ``runs``
     Bootstrap the workspace (``hmp workspace init``, ``hmp example add 04``),
-    then run the staircase steps, the frozen reference, the two-stage
-    calibration and the two synthetic demo runs. A run that already exists in
-    the project catalog is not run again.
+    then run the staircase steps, the frozen reference, the reference with
+    the flow solved by MODFLOW-NWT, the two-stage calibration and the two
+    synthetic demo runs. A run that already exists in the project catalog is
+    not run again.
     Steps 3 and 6 and the calibration need the network on their first run.
 ``figures``
     Redraw the figures from the stored runs (hero, Understand, staircase,
-    catalog) and write the manifest.
+    solvers, catalog) and write the manifest.
+
+The ``solvers`` group compares the two solvers on the same file: the reference
+run (MODFLOW 6) and its copy solved by MODFLOW-NWT. The script writes that copy
+into the scratch project (``run_nwt.toml``); the example ships no such file.
+Its figures keep the run names in their titles, since the names tell the solvers
+apart.
 
 Run it from anywhere, never with the workspace inside the repository::
 
@@ -83,6 +90,13 @@ STEPS: tuple[RunSpec, ...] = (
     RunSpec("step6", "step6_soil_reservoir.toml", "nancon_soil_reservoir_daily", 6, True),
 )
 REFERENCE = RunSpec("reference", "project.toml", "nancon_intermittence_mf6")
+# The reference with the flow solved by MODFLOW-NWT, written by nwt_variant.
+NWT = RunSpec(
+    "nwt",
+    "run_nwt.toml",
+    "nancon_intermittence_nwt",
+    note="project.toml with the flow solved by MODFLOW-NWT",
+)
 CALIBRATION = RunSpec(
     "calibrated",
     "run_calibration.toml",
@@ -121,6 +135,11 @@ STEP_KEY_FIGURE = {
 }
 
 HERO_FIGURE = "flow_intermittence_map"
+
+# The solvers group: each run on its own, then the NWT run against the MF6 one.
+SOLVER_PAGE = "theory/validation.md"
+SOLVER_EACH = ("hydrograph_sim_obs",)
+SOLVER_PAIR = ("side_by_side", "difference_map")
 
 # Demo figures that compare two runs: the second run is the reference.
 DEMO_COMPARISON_FIGURES = ("difference_map", "side_by_side", "conditioning_impact_map")
@@ -232,13 +251,28 @@ def demo_variant(demo: Path) -> Path:
     return target
 
 
+def nwt_variant(project: Path) -> Path:
+    """Write the reference with the flow solved by MODFLOW-NWT, nothing else changed."""
+    target = project / NWT.toml
+    target.write_text(
+        'base_config = "project.toml"\n\n[simulation]\n'
+        f'name = "{NWT.run}"\n'
+        'description = "The reference with the flow solved by MODFLOW-NWT."\n\n'
+        '[[simulation.process]]\nid = "flow_main"\ntype = "flow"\nsolvers = ["modflow_nwt"]\n',
+        encoding="utf-8",
+    )
+    return target
+
+
 def stage_runs(workspace: Path, cores: int, only: set[str]) -> None:
     bootstrap_workspace(workspace, cores)
     project = workspace / "projects" / EXAMPLE_DIR
     done = _existing_runs(project)
-    for spec in (*STEPS, REFERENCE, CALIBRATION):
+    for spec in (*STEPS, REFERENCE, NWT, CALIBRATION):
         if only and spec.key not in only:
             continue
+        if spec is NWT:
+            nwt_variant(project)
         # A calibration writes several runs; its first stage name is enough to tell.
         probe = (
             "nancon_intermittence_mf6_calibrated_transient_storage"
@@ -347,6 +381,7 @@ class Drawer:
         dark: bool,
         reference: str | None = None,
         width: int | None = None,
+        show_run_name: bool = False,
     ) -> tuple[bytes, tuple[int, int], dict[str, Any]]:
         import matplotlib.pyplot as plt
 
@@ -364,11 +399,12 @@ class Drawer:
             options["reference"] = self.run(reference)
         with matplotlib_backend(dpi=DPI):
             apply_theme("dark" if dark else "default")
-            fig = render_figure(figure, sim, show_run_name=False, **options)
-            runs = [sim] + ([options["reference"]] if "reference" in options else [])
-            known = [t for r in runs for t in (r.name, str(r.sim_id), str(r.sim_id)[:8])]
-            left = run_names_left(fig, known)
-            self.leftovers += [(f"{name}/{figure}", text) for text in left]
+            fig = render_figure(figure, sim, show_run_name=show_run_name, **options)
+            if not show_run_name:
+                runs = [sim] + ([options["reference"]] if "reference" in options else [])
+                known = [t for r in runs for t in (r.name, str(r.sim_id), str(r.sim_id)[:8])]
+                left = run_names_left(fig, known)
+                self.leftovers += [(f"{name}/{figure}", text) for text in left]
             buffer = io.BytesIO()
             fig.savefig(buffer, format="png", dpi=DPI, bbox_inches="tight")
             plt.close(fig)
@@ -389,11 +425,24 @@ def suffix(dark: bool) -> str:
     return "-dark" if dark else ""
 
 
-def viz_command(run: str, figure: str, options: dict[str, Any]) -> str:
-    """The command that redraws a figure as this script draws it, without the run name."""
+def viz_command(
+    run: str,
+    figure: str,
+    options: dict[str, Any],
+    *,
+    reference: str | None = None,
+    show_run_name: bool = False,
+) -> str:
+    """The command that redraws a figure as this script draws it.
+
+    ``hmp viz show`` takes one run: a figure that compares two is redrawn in Python.
+    """
+    if reference:
+        return f'hmp.figure(<run {run}>, "{figure}", reference=<run {reference}>)'
     when = options.get("time")
     tail = f" --time {when}" if when else ""
-    return f"hmp viz show {run} {figure}{tail} --opt show_run_name=false"
+    hide = "" if show_run_name else " --opt show_run_name=false"
+    return f"hmp viz show {run} {figure}{tail}{hide}"
 
 
 def pages_citing(directory: str, needle: str) -> list[str]:
@@ -408,7 +457,7 @@ def stage_figures(workspace: Path, only: set[str]) -> list[Entry]:
     project = workspace / "projects" / EXAMPLE_DIR
     entries: list[Entry] = []
     drawer = Drawer(project)
-    run_spec = {spec.run: spec for spec in (*STEPS, REFERENCE)}
+    run_spec = {spec.run: spec for spec in (*STEPS, REFERENCE, NWT)}
     run_spec.update({name: CALIBRATION for name in CALIBRATED_RUNS})
 
     def emit(
@@ -423,8 +472,16 @@ def stage_figures(workspace: Path, only: set[str]) -> list[Entry]:
         pages: list[str] | None = None,
         width: int | None = None,
         reference: str | None = None,
+        show_run_name: bool = False,
     ) -> None:
-        data, size, options = drawer.draw(run, figure, dark=dark, reference=reference, width=width)
+        data, size, options = drawer.draw(
+            run,
+            figure,
+            dark=dark,
+            reference=reference,
+            width=width,
+            show_run_name=show_run_name,
+        )
         path = OUT_ROOT / f"{rel}{suffix(dark)}.webp"
         write(path, data)
         spec = run_spec.get(run)
@@ -445,7 +502,9 @@ def stage_figures(workspace: Path, only: set[str]) -> list[Entry]:
                 pages=pages or [],
                 options={k: v for k, v in options.items() if k != "reference"},
                 command=command,
-                redraw=viz_command(run, figure, options),
+                redraw=viz_command(
+                    run, figure, options, reference=reference, show_run_name=show_run_name
+                ),
                 width=size[0],
                 height=size[1],
                 bytes=len(data),
@@ -515,6 +574,27 @@ def stage_figures(workspace: Path, only: set[str]) -> list[Entry]:
                         key=is_key,
                         pages=[page, "get-started/staircase/index.md"] if is_key else [page],
                     )
+
+    if wanted("solvers"):
+        print("solvers", flush=True)
+        jobs = [(figure, run, None) for run in (REFERENCE.run, NWT.run) for figure in SOLVER_EACH]
+        jobs += [(figure, NWT.run, REFERENCE.run) for figure in SOLVER_PAIR]
+        for figure, run, reference in jobs:
+            if drawer.run(run) is None or (reference and drawer.run(reference) is None):
+                print(f"  {figure}: run {run} or {reference} missing, skipped", flush=True)
+                continue
+            rel = f"solvers/{figure}" if reference else f"solvers/{run}_{figure}"
+            for dark in (False, True):
+                emit(
+                    "solvers",
+                    figure,
+                    run,
+                    rel,
+                    dark=dark,
+                    pages=[SOLVER_PAGE],
+                    reference=reference,
+                    show_run_name=True,
+                )
 
     drawer.close()
     if drawer.leftovers:
@@ -640,7 +720,7 @@ def write_manifest(entries: list[Entry]) -> None:
         f"thumbnail_width = {THUMB_WIDTH}",
         "",
     ]
-    order = {"hero": 0, "understand": 1, "staircase": 2, "catalog": 3}
+    order = {"hero": 0, "understand": 1, "staircase": 2, "solvers": 3, "catalog": 4}
     for row in sorted(rows.values(), key=lambda r: (order[r["kind"]], r.get("step", 0), r["path"])):
         lines.append("[[figure]]")
         lines += [f"{key} = {_toml_value(value)}" for key, value in row.items()]
@@ -664,8 +744,8 @@ def main(argv: list[str] | None = None) -> int:
         "--only",
         default="",
         help=(
-            "comma list: runs (step1..step6, reference, calibrated, demo); "
-            "figures (hero, understand, staircase, catalog)"
+            "comma list: runs (step1..step6, reference, nwt, calibrated, demo); "
+            "figures (hero, understand, staircase, solvers, catalog)"
         ),
     )
     args = parser.parse_args(argv)

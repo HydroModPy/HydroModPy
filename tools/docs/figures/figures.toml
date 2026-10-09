@@ -996,6 +996,126 @@ height = 842
 bytes = 86744
 
 [[figure]]
+name = "difference_map"
+path = "docs/source/_static/figures/solvers/difference_map-dark.webp"
+kind = "solvers"
+theme = "dark"
+run = "nancon_intermittence_nwt"
+reference_run = "nancon_intermittence_mf6"
+config = "run_nwt.toml"
+command = "hmp run run_nwt.toml --set display.preset=dark"
+redraw = "hmp.figure(<run nancon_intermittence_nwt>, \"difference_map\", reference=<run nancon_intermittence_mf6>)"
+pages = ["theory/validation.md"]
+options = { time = "2002-10-15" }
+width = 1594
+height = 842
+bytes = 25572
+
+[[figure]]
+name = "difference_map"
+path = "docs/source/_static/figures/solvers/difference_map.webp"
+kind = "solvers"
+theme = "light"
+run = "nancon_intermittence_nwt"
+reference_run = "nancon_intermittence_mf6"
+config = "run_nwt.toml"
+command = "hmp run run_nwt.toml"
+redraw = "hmp.figure(<run nancon_intermittence_nwt>, \"difference_map\", reference=<run nancon_intermittence_mf6>)"
+pages = ["theory/validation.md"]
+options = { time = "2002-10-15" }
+width = 1594
+height = 842
+bytes = 26028
+
+[[figure]]
+name = "hydrograph_sim_obs"
+path = "docs/source/_static/figures/solvers/nancon_intermittence_mf6_hydrograph_sim_obs-dark.webp"
+kind = "solvers"
+theme = "dark"
+run = "nancon_intermittence_mf6"
+config = "project.toml"
+command = "hmp run project.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_intermittence_mf6 hydrograph_sim_obs"
+pages = ["theory/validation.md"]
+width = 1292
+height = 692
+bytes = 32452
+
+[[figure]]
+name = "hydrograph_sim_obs"
+path = "docs/source/_static/figures/solvers/nancon_intermittence_mf6_hydrograph_sim_obs.webp"
+kind = "solvers"
+theme = "light"
+run = "nancon_intermittence_mf6"
+config = "project.toml"
+command = "hmp run project.toml"
+redraw = "hmp viz show nancon_intermittence_mf6 hydrograph_sim_obs"
+pages = ["theory/validation.md"]
+width = 1292
+height = 692
+bytes = 34958
+
+[[figure]]
+name = "hydrograph_sim_obs"
+path = "docs/source/_static/figures/solvers/nancon_intermittence_nwt_hydrograph_sim_obs-dark.webp"
+kind = "solvers"
+theme = "dark"
+run = "nancon_intermittence_nwt"
+config = "run_nwt.toml"
+command = "hmp run run_nwt.toml --set display.preset=dark"
+redraw = "hmp viz show nancon_intermittence_nwt hydrograph_sim_obs"
+pages = ["theory/validation.md"]
+width = 1292
+height = 692
+bytes = 32458
+
+[[figure]]
+name = "hydrograph_sim_obs"
+path = "docs/source/_static/figures/solvers/nancon_intermittence_nwt_hydrograph_sim_obs.webp"
+kind = "solvers"
+theme = "light"
+run = "nancon_intermittence_nwt"
+config = "run_nwt.toml"
+command = "hmp run run_nwt.toml"
+redraw = "hmp viz show nancon_intermittence_nwt hydrograph_sim_obs"
+pages = ["theory/validation.md"]
+width = 1292
+height = 692
+bytes = 34980
+
+[[figure]]
+name = "side_by_side"
+path = "docs/source/_static/figures/solvers/side_by_side-dark.webp"
+kind = "solvers"
+theme = "dark"
+run = "nancon_intermittence_nwt"
+reference_run = "nancon_intermittence_mf6"
+config = "run_nwt.toml"
+command = "hmp run run_nwt.toml --set display.preset=dark"
+redraw = "hmp.figure(<run nancon_intermittence_nwt>, \"side_by_side\", reference=<run nancon_intermittence_mf6>)"
+pages = ["theory/validation.md"]
+options = { time = "2002-10-15" }
+width = 1665
+height = 767
+bytes = 60802
+
+[[figure]]
+name = "side_by_side"
+path = "docs/source/_static/figures/solvers/side_by_side.webp"
+kind = "solvers"
+theme = "light"
+run = "nancon_intermittence_nwt"
+reference_run = "nancon_intermittence_mf6"
+config = "run_nwt.toml"
+command = "hmp run run_nwt.toml"
+redraw = "hmp.figure(<run nancon_intermittence_nwt>, \"side_by_side\", reference=<run nancon_intermittence_mf6>)"
+pages = ["theory/validation.md"]
+options = { time = "2002-10-15" }
+width = 1665
+height = 767
+bytes = 62608
+
+[[figure]]
 name = "conditioning_impact_map"
 path = "docs/source/_static/figures/catalog/conditioning_impact_map-dark.webp"
 kind = "catalog"

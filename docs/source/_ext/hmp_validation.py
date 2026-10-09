@@ -382,13 +382,109 @@ def _axis(values: list, log: bool) -> tuple[float, float]:
     return lo, hi
 
 
-def svg_series(series: dict, title: str) -> str:
-    """A small figure: the reference as a line, the simulation as dots."""
-    w, h, ml, mr, mt, mb = 300, 190, 46, 8, 8, 34
-    log = series.get("log", False)
-    xs, ref, sim = series["x"], series["reference"], series["simulated"]
+# One shape per solver, so the curves read without colour too. The colours
+# (Okabe-Ito) are the classes hmp-val-s0 to hmp-val-s5 of hmp-validation.css.
+MARKERS = ("circle", "square", "triangle", "diamond", "triangle-down", "hexagon")
+
+
+def _marker(shape: str, x: float, y: float, r: float = 2.6) -> str:
+    if shape == "circle":
+        return f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}"/>'
+    if shape == "square":
+        d = 0.9 * r
+        return f'<rect x="{x - d:.1f}" y="{y - d:.1f}" width="{2 * d:.1f}" height="{2 * d:.1f}"/>'
+    if shape == "triangle":
+        pts = [(x, y - 1.2 * r), (x + 1.1 * r, y + 0.8 * r), (x - 1.1 * r, y + 0.8 * r)]
+    elif shape == "triangle-down":
+        pts = [(x, y + 1.2 * r), (x + 1.1 * r, y - 0.8 * r), (x - 1.1 * r, y - 0.8 * r)]
+    elif shape == "diamond":
+        pts = [(x, y - 1.3 * r), (x + 1.3 * r, y), (x, y + 1.3 * r), (x - 1.3 * r, y)]
+    else:
+        pts = [
+            (x + r * math.cos(a), y + r * math.sin(a))
+            for a in (math.pi / 3 * k + math.pi / 6 for k in range(6))
+        ]
+    return '<polygon points="' + " ".join(f"{a:.1f},{b:.1f}" for a, b in pts) + '"/>'
+
+
+def _close(a: list, b: list) -> bool:
+    """Two recorded arrays hold the same values, missing points included."""
+    if len(a) != len(b):
+        return False
+    for u, v in zip(a, b, strict=True):
+        if u is None or v is None:
+            if not (u is None and v is None):
+                return False
+        elif abs(u - v) > 1e-9 * max(1.0, abs(u), abs(v)):
+            return False
+    return True
+
+
+def ref_gap(a: list, b: list) -> float:
+    """The largest gap between two references, as a share of the range of the first."""
+    vals = [v for v in a if v is not None]
+    if not vals or len(a) != len(b):
+        return math.inf
+    span = (max(vals) - min(vals)) or max(abs(v) for v in vals) or 1.0
+    pairs = [(u, v) for u, v in zip(a, b, strict=True) if u is not None and v is not None]
+    return max((abs(u - v) for u, v in pairs), default=0.0) / span
+
+
+# Runs whose references differ by less than this share of their range go on one
+# figure: the discretisation of each solver moves a reference a little (the
+# recession cases, about 2 %), a variant of the case moves it a lot (18 % and more).
+SAME_REFERENCE = 0.05
+
+
+def same_curve(a: dict, b: dict) -> bool:
+    """Two series can share a figure: same quantity, same points, nearly the same reference."""
+    keys = ("name", "x_label", "y_label")
+    return (
+        all(a.get(k) == b.get(k) for k in keys)
+        and bool(a.get("log")) == bool(b.get("log"))
+        and _close(a["x"], b["x"])
+        and ref_gap(a["reference"], b["reference"]) <= SAME_REFERENCE
+    )
+
+
+def member_label(record: dict) -> str:
+    """The legend name of a run: the solver, or the parameter of the variant."""
+    key = record.get("params") or record.get("solver") or "run"
+    return COLUMN_LABELS.get(key, key)
+
+
+def style_index(solver: str, taken: set[int]) -> int:
+    """A solver keeps its colour and shape on every figure; other runs take what is left."""
+    if solver in SOLVER_ORDER and SOLVER_ORDER.index(solver) not in taken:
+        return SOLVER_ORDER.index(solver)
+    order = [*range(len(SOLVER_ORDER), len(MARKERS)), *range(len(SOLVER_ORDER))]
+    return next((i for i in order if i not in taken), len(taken) % len(MARKERS))
+
+
+def svg_overlay(series: dict, members: list[tuple[str, int, dict]]) -> str:
+    """One figure for one quantity of a case: the reference as a line, every run as markers.
+
+    When the runs do not share one reference to the last digit, each run draws its
+    own as a thin dashed line of its colour. Under a linear scale a second panel
+    draws each run minus its reference, where runs that agree within millimetres
+    still part.
+    """
+    log = bool(series.get("log", False))
+    w, ml, mr, mt, mb = 320, 50, 8, 8, 34
+    top_h = 130 if not log else 160
+    gap, res_h = (16, 52) if not log else (0, 0)
+    h = mt + top_h + gap + res_h + mb
+    xs = series["x"]
+    shared = all(ref_gap(series["reference"], s["reference"]) <= 1e-9 for _, _, s in members)
+
+    def good(v) -> bool:
+        return v is not None and (not log or v > 0)
+
     x0, x1 = _axis(xs, log)
-    y0, y1 = _axis([*ref, *sim], log)
+    y0, y1 = _axis(
+        [v for _, _, s in members for v in (*s["reference"], *s["simulated"])],
+        log,
+    )
 
     def px(v: float) -> float:
         v = math.log10(v) if log else v
@@ -396,18 +492,31 @@ def svg_series(series: dict, title: str) -> str:
 
     def py(v: float) -> float:
         v = math.log10(v) if log else v
-        return h - mb - (v - y0) / (y1 - y0) * (h - mt - mb)
+        return mt + top_h - (v - y0) / (y1 - y0) * top_h
 
-    def good(v) -> bool:
-        return v is not None and (not log or v > 0)
+    def path(values: list) -> str:
+        return " ".join(
+            f"{px(xs[i]):.1f},{py(values[i]):.1f}"
+            for i in range(len(xs))
+            if good(xs[i]) and good(values[i])
+        )
 
-    line = " ".join(
-        f"{px(xs[i]):.1f},{py(ref[i]):.1f}" for i in range(len(xs)) if good(xs[i]) and good(ref[i])
-    )
-    dots = "".join(
-        f'<circle cx="{px(xs[i]):.1f}" cy="{py(sim[i]):.1f}" r="2.2"/>'
-        for i in range(len(xs))
-        if good(xs[i]) and good(sim[i])
+    if shared:
+        refs = f'<polyline class="hmp-val-ref" points="{path(series["reference"])}"/>'
+    else:
+        refs = "".join(
+            f'<polyline class="hmp-val-ref-own hmp-val-s{k}" points="{path(s["reference"])}"/>'
+            for _, k, s in members
+        )
+    marks = "".join(
+        f'<g class="hmp-val-mk hmp-val-s{k}">'
+        + "".join(
+            _marker(MARKERS[k], px(xs[i]), py(s["simulated"][i]))
+            for i in range(len(xs))
+            if good(xs[i]) and good(s["simulated"][i])
+        )
+        + "</g>"
+        for _, k, s in members
     )
 
     def tick(v: float) -> str:
@@ -415,43 +524,96 @@ def svg_series(series: dict, title: str) -> str:
 
     y_name = series["y_label"].split(" (")[0]
     y_unit = series["y_label"][len(y_name) :].strip(" ()")
+    base = mt + top_h + gap + res_h
     labels = (
-        f'<text x="{ml}" y="{h - mb + 13}" text-anchor="start">{tick(x0)}</text>'
-        f'<text x="{w - mr}" y="{h - mb + 13}" text-anchor="end">{tick(x1)}</text>'
+        f'<text x="{ml}" y="{base + 13}" text-anchor="start">{tick(x0)}</text>'
+        f'<text x="{w - mr}" y="{base + 13}" text-anchor="end">{tick(x1)}</text>'
         f'<text x="{(ml + w - mr) / 2}" y="{h - 4}" text-anchor="middle">{esc(series["x_label"])}</text>'
-        f'<text x="{ml - 4}" y="{h - mb}" text-anchor="end">{tick(y0)}</text>'
+        f'<text x="{ml - 4}" y="{mt + top_h}" text-anchor="end">{tick(y0)}</text>'
         f'<text x="{ml - 4}" y="{mt + 8}" text-anchor="end">{tick(y1)}</text>'
-        f'<text x="{ml - 4}" y="{(mt + h - mb) / 2}" text-anchor="end">{esc(y_unit)}</text>'
+        f'<text x="{ml - 4}" y="{mt + top_h / 2}" text-anchor="end">{esc(y_unit)}</text>'
     )
-    desc = f"{series['name']}, {title}: reference as a line, simulation as dots"
+    axes = (
+        f'<line x1="{ml}" y1="{mt + top_h}" x2="{w - mr}" y2="{mt + top_h}"/>'
+        f'<line x1="{ml}" y1="{mt}" x2="{ml}" y2="{mt + top_h}"/>'
+    )
+    residuals = ""
+    if res_h:
+        diffs = [
+            [
+                (xs[i], s["simulated"][i] - s["reference"][i])
+                if good(xs[i]) and good(s["reference"][i]) and good(s["simulated"][i])
+                else None
+                for i in range(len(xs))
+            ]
+            for _, _, s in members
+        ]
+        top = max((abs(p[1]) for row in diffs for p in row if p), default=0.0) or 1.0
+        r0 = mt + top_h + gap
+
+        def pr(v: float) -> float:
+            return r0 + res_h / 2 - v / top * (res_h / 2)
+
+        for (_, k, _), row in zip(members, diffs, strict=True):
+            pts = [(px(x), pr(d)) for x, d in (p for p in row if p)]
+            residuals += (
+                f'<g class="hmp-val-res hmp-val-s{k}"><polyline points="'
+                + " ".join(f"{a:.1f},{b:.1f}" for a, b in pts)
+                + '"/>'
+                + "".join(_marker(MARKERS[k], a, b, 1.8) for a, b in pts)
+                + "</g>"
+            )
+        axes += (
+            f'<line x1="{ml}" y1="{r0 + res_h}" x2="{w - mr}" y2="{r0 + res_h}"/>'
+            f'<line x1="{ml}" y1="{r0}" x2="{ml}" y2="{r0 + res_h}"/>'
+            f'<line class="hmp-val-zero" x1="{ml}" y1="{pr(0):.1f}" x2="{w - mr}" y2="{pr(0):.1f}"/>'
+        )
+        labels += (
+            f'<text x="{ml - 4}" y="{r0 + 8}" text-anchor="end">+{top:.2g}</text>'
+            f'<text x="{ml - 4}" y="{r0 + res_h}" text-anchor="end">-{top:.2g}</text>'
+            f'<text x="{ml + 4}" y="{r0 + 8}" text-anchor="start">minus the reference</text>'
+        )
+    names = [name for name, _, _ in members]
+    desc = (
+        f"{series['name']}: "
+        + ("the reference as a line" if shared else "the reference of each run as a dashed line")
+        + f", {', '.join(names)} as markers"
+        + ("; below, each run minus its reference" if res_h else "")
+    )
+    ref_key = (
+        '<span class="hmp-val-key"><span class="hmp-val-key-ref"></span>reference</span>'
+        if shared
+        else '<span class="hmp-val-key"><span class="hmp-val-key-own"></span>'
+        "reference of each run</span>"
+    )
+    keys = ref_key + "".join(
+        f'<span class="hmp-val-key"><svg class="hmp-val-mk hmp-val-s{k}" viewBox="0 0 10 10" '
+        f'aria-hidden="true">{_marker(MARKERS[k], 5, 5, 3.4)}</svg>{esc(name)}</span>'
+        for name, k, _ in members
+    )
     return (
         f'<figure class="hmp-val-fig"><svg viewBox="0 0 {w} {h}" role="img" aria-label="{esc(desc)}">'
-        f'<g class="hmp-val-axes"><line x1="{ml}" y1="{h - mb}" x2="{w - mr}" y2="{h - mb}"/>'
-        f'<line x1="{ml}" y1="{mt}" x2="{ml}" y2="{h - mb}"/></g><g class="hmp-val-lab">{labels}</g>'
-        f'<polyline class="hmp-val-ref" points="{line}"/><g class="hmp-val-sim">{dots}</g></svg>'
-        f"<figcaption><code>{esc(title)}</code>: {esc(series['name'].lower())}, {esc(y_name)}"
-        f"{', log scales' if log else ''}</figcaption></figure>"
+        f'<g class="hmp-val-axes">{axes}</g><g class="hmp-val-lab">{labels}</g>'
+        f"{refs}{marks}{residuals}</svg>"
+        f"<figcaption>{esc(series['name'])}, {esc(y_name.lower())}"
+        f"{', log scales' if log else ''}<br>{keys}</figcaption></figure>"
     )
 
 
 def figures_html(records: list[dict]) -> str:
-    figs = [
-        svg_series(s, r.get("params") or r.get("solver") or "run")
-        for r in sorted(records, key=lambda r: solver_key(r.get("solver") or ""))
-        for s in r.get("series", [])
-    ]
-    if not figs:
+    """The recorded curves of a case, the runs that share a reference on one figure."""
+    groups: list[tuple[dict, list[tuple[str, int, dict]]]] = []
+    for r in sorted(records, key=lambda r: solver_key(r.get("solver") or "")):
+        for s in r.get("series", []):
+            group = next((g for g in groups if same_curve(g[0], s)), None)
+            if group is None:
+                group = (s, [])
+                groups.append(group)
+            taken = {k for _, k, _ in group[1]}
+            group[1].append((member_label(r), style_index(r.get("solver") or "", taken), s))
+    if not groups:
         return ""
-    more = (
-        f'<p class="hmp-muted">{len(figs) - 8} more curves are in the results snapshot.</p>'
-        if len(figs) > 8
-        else ""
-    )
-    legend = (
-        '<p class="hmp-muted hmp-val-legend"><span class="hmp-val-key-ref"></span> reference '
-        '<span class="hmp-val-key-sim"></span> simulated, in the run above</p>'
-    )
-    return f'<div class="hmp-val-figs">{"".join(figs[:8])}</div>{legend}{more}'
+    return f'<div class="hmp-val-figs">{"".join(svg_overlay(s, m) for s, m in groups)}</div>'
 
 
 def criteria_html(entry: dict, case: dict) -> str:

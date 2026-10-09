@@ -269,6 +269,10 @@ Each release section includes the following standard categories:
 - `HydroModelBase.model_refused_keys` refuses a removed key with the key to write; rate
   forcings in length per time (`hydromodpy.physics.flow.sinks_sources.rate_forcing`).
 - Docs: the root of the site serves the `llms.txt` of main.
+- Docs: the Validation page draws the solvers of a case on one figure, each with its colour
+  and shape, with a panel of each run minus its reference, from the recorded curves. It also
+  compares MODFLOW 6 with MODFLOW-NWT on example 04: `render_ex04_figures.py` writes the NWT
+  copy of the reference into its scratch project and draws the group `solvers`.
 
 ### Changed
 - `[modflownwt.sgrid.top_sampling] mode = "zonal"` needs `channel_source = "none"`: MODFLOW-NWT
