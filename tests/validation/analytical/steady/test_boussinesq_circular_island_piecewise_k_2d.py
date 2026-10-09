@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
-from tests.validation.helpers import assert_metric_below
+from tests.validation.helpers import assert_metric_below, record_comparison
 from validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.comparison import (
     run_boussinesq_circular_island_piecewise_k_comparison,
 )
@@ -38,6 +38,7 @@ def test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile(
     comparison = run_boussinesq_circular_island_piecewise_k_comparison(
         caller_file=__file__, solver=solver
     )
+    record_comparison(comparison)
     profile_tol = dict(comparison.tolerances.get("radial_profile", {}))
 
     assert_metric_below(

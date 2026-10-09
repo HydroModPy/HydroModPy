@@ -22,14 +22,13 @@ def _align_series_to_simulation_window(
 ) -> pd.Series:
     """Aggregate one datetime-indexed series to simulation stress periods.
 
-    Aggregation policy
-    ------------------
-    - One output value per stress period.
-    - Value = arithmetic mean over values in [period_start, period_end).
-    - If no value falls in a period, reuse the last available value before
-      period_end (forward carry).
+    A period takes the mean of the samples stamped in ``[start, end)``. A period
+    with none takes the sample in force, and a period the record does not cover
+    follows ``simulation.time.coverage_policy``
+    (:mod:`hydromodpy.core.time.coverage`).
     """
     from hydromodpy.core.time import build_simulation_time_boundaries
+    from hydromodpy.core.time.coverage import enforce_coverage, samples_by_period
 
     if series.empty:
         raise ValueError(f"{label} series is empty and cannot be aligned to simulation.time.")
@@ -41,22 +40,18 @@ def _align_series_to_simulation_window(
 
     boundaries = build_simulation_time_boundaries(simulation_window)
     starts = pd.DatetimeIndex(boundaries[:-1])
-    values: list[float] = []
-    for left, right in zip(boundaries[:-1], boundaries[1:], strict=False):
-        chunk = data.loc[(data.index >= left) & (data.index < right)]
-        if not chunk.empty:
-            values.append(float(chunk.mean()))
-            continue
-
-        # No value inside this period: carry the latest known value before the
-        # period end so solver forcing remains continuous.
-        history = data.loc[data.index < right]
-        if history.empty:
-            raise ValueError(
-                f"{label} has no value available before simulation period ending at {right}."
-            )
-        values.append(float(history.iloc[-1]))
-
+    periods = samples_by_period(data.index, boundaries)
+    enforce_coverage(
+        periods,
+        boundaries,
+        policy=str(getattr(simulation_window, "coverage_policy", "error")),
+        label=label,
+    )
+    samples = data.to_numpy(dtype=float)
+    values = [
+        float(samples[inside].mean()) if inside.size else float(samples[int(fill)])
+        for inside, fill in zip(periods.inside, periods.fill, strict=True)
+    ]
     return pd.Series(values, index=starts, dtype=float)
 
 

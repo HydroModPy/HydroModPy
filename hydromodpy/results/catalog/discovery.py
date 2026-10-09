@@ -14,7 +14,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from hydromodpy.results.catalog.constants import OUTLET_STATION
+from hydromodpy.results.catalog.constants import (
+    OUTLET_STATION,
+    UnrankedMetricError,
+    metric_rank_sql,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -98,13 +102,17 @@ class DiscoveryMixin:
 
         1. ``@``-selectors: ``@last``, ``@last~N`` (N-th newest completed),
            ``@best:METRIC`` / ``@worst:METRIC`` (outlet first, any station as
-           fallback; add ``@STATION`` to scope explicitly), ``@running``.
+           fallback; add ``@STATION`` to scope explicitly), ``@running``. Best
+           follows the direction of the metric: highest ``nse``, lowest
+           ``rmse``, ``pbias`` closest to zero (see
+           :data:`~hydromodpy.results.catalog.constants.METRIC_SENSE`).
         2. Full UUID (36 chars with dashes).
         3. UUID prefix of >= 4 hex characters. Must match a single simulation;
            raises :class:`AmbiguousReferenceError` otherwise.
-        4. Exact ``name`` (globally, or within ``project``).
+        4. Exact ``name`` of a live run (globally, or within ``project``).
         5. ``name_stem``: a bare name resolves to the latest live version of
            that stem (``cheze_baseline`` -> ``cheze_baseline.v3``).
+        6. Exact ``name`` of a trashed run, when no live run answers to it.
 
         Raises :class:`SimulationNotFoundError` when nothing matches, with the
         closest known names and tags suggested.
@@ -151,26 +159,27 @@ class DiscoveryMixin:
             if len(name_rows) == 1:
                 return str(name_rows[0][0])
 
-        # Exact name match.
+        # Exact name match, live runs only. A run that ``if_exists = "replace"``
+        # sent to the trash keeps its name; answering with it would hand back
+        # the run the user just replaced instead of the one that replaced it.
+        exact_sql = (
+            "SELECT CAST(sim_id AS VARCHAR), project, "
+            "status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
+            "FROM simulations WHERE name = ?"
+        )
+        exact_params: list[str] = [ref_s]
         if project is not None:
-            row = self._backend.fetch_one(
-                "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE project = ? AND name = ?",
-                [project, ref_s],
+            exact_sql += " AND project = ?"
+            exact_params.append(project)
+        exact_rows = self._backend.fetch_all(exact_sql, exact_params)
+        live_exact = [r for r in exact_rows if not r[2]]
+        if len(live_exact) == 1:
+            return str(live_exact[0][0])
+        if len(live_exact) > 1:
+            raise AmbiguousReferenceError(
+                ref_s,
+                [(str(r[0]), f"{ref_s} (project={r[1]})") for r in live_exact],
             )
-            if row:
-                return str(row[0])
-        else:
-            rows = self._backend.fetch_all(
-                "SELECT CAST(sim_id AS VARCHAR), project FROM simulations WHERE name = ?",
-                [ref_s],
-            )
-            if len(rows) == 1:
-                return str(rows[0][0])
-            if len(rows) > 1:
-                raise AmbiguousReferenceError(
-                    ref_s,
-                    [(str(r[0]), f"{ref_s} (project={r[1]})") for r in rows],
-                )
 
         # Bare stem -> latest live version of the stem.
         stem_sql = (
@@ -191,6 +200,16 @@ class DiscoveryMixin:
             raise AmbiguousReferenceError(
                 ref_s,
                 [(str(r[0]), f"{ref_s} (project={r[1]})") for r in stem_rows],
+            )
+
+        # Nothing live answers to the name: a trashed run that still carries it
+        # is what the user means (to restore it, or to read it before it goes).
+        if len(exact_rows) == 1:
+            return str(exact_rows[0][0])
+        if len(exact_rows) > 1:
+            raise AmbiguousReferenceError(
+                ref_s,
+                [(str(r[0]), f"{ref_s} (project={r[1]}, trashed)") for r in exact_rows],
             )
 
         raise SimulationNotFoundError(self._not_found_message(ref_s, project))
@@ -221,7 +240,10 @@ class DiscoveryMixin:
             metric, _, station = remainder.partition("@")
             metric = metric.strip()
             station = station.strip() or None
-            order = "DESC" if kind == "best" else "ASC"
+            try:
+                order = metric_rank_sql(metric, best=kind == "best")
+            except UnrankedMetricError as exc:
+                raise SimulationNotFoundError(f"'@{body}': {exc}") from exc
             row = self._rank_best_run(metric, order, station=station, project=project)
             if row is not None:
                 return str(row)
@@ -259,9 +281,11 @@ class DiscoveryMixin:
     ) -> str | None:
         """Return the best/worst run for ``metric``, honouring a station scope.
 
-        With an explicit ``station`` the rank is scoped to it. Without one, the
-        outlet station is tried first, then any station (lake-level metrics live
-        at lake/station scopes, not at the outlet).
+        ``order`` is the ``ORDER BY`` expression of :func:`metric_rank_sql`, so
+        best follows the direction of the metric. With an explicit ``station``
+        the rank is scoped to it. Without one, the outlet station is tried
+        first, then any station (lake-level metrics live at lake/station
+        scopes, not at the outlet). A missing or non-finite value never ranks.
         """
         stations = [station] if station is not None else [OUTLET_STATION, None]
         for scope in stations:
@@ -270,6 +294,7 @@ class DiscoveryMixin:
                 "JOIN statuses st ON s.status_id = st.id "
                 "JOIN metrics m ON s.sim_id = m.sim_id "
                 "WHERE st.code = 'completed' AND m.metric_name = ? "
+                "AND m.value IS NOT NULL AND isfinite(m.value) "
             )
             params: list = [metric]
             if scope is not None:
@@ -278,7 +303,7 @@ class DiscoveryMixin:
             if project:
                 sql += "AND s.project = ? "
                 params.append(project)
-            sql += f"ORDER BY m.value {order} LIMIT 1"
+            sql += f"ORDER BY {order} LIMIT 1"
             row = self._backend.fetch_one(sql, params)
             if row is not None:
                 return str(row[0])
@@ -497,29 +522,48 @@ class DiscoveryMixin:
         }
 
     def best(self, project: str, metric: str = "nse") -> Run:
-        return self.rank(project, metric, ascending=False, n=1)[0]
+        """Return the completed run with the best outlet value of ``metric``.
+
+        Best follows the direction of the metric: the highest ``nse``, the
+        lowest ``rmse``, the ``pbias`` closest to zero. A metric with no
+        declared direction raises
+        :class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`.
+        """
+        return self.rank(project, metric, n=1)[0]
 
     def worst(self, project: str, metric: str = "nse") -> Run:
-        return self.rank(project, metric, ascending=True, n=1)[0]
+        """Return the completed run with the worst outlet value of ``metric``."""
+        return self.rank(project, metric, n=1, best_first=False)[0]
 
     def rank(
         self,
         project: str,
         metric: str = "nse",
         *,
-        ascending: bool = False,
+        ascending: bool | None = None,
         n: int = 1,
+        best_first: bool = True,
     ) -> RunSet:
+        """Return up to ``n`` completed runs ranked on the outlet ``metric``.
+
+        Without ``ascending`` the runs come best first (``best_first=True``)
+        or worst first, following the direction of the metric. ``ascending``
+        orders on the raw value instead, for a metric with no direction.
+        """
         from hydromodpy.results.run.group import RunSet
 
-        order = "ASC" if ascending else "DESC"
+        if ascending is None:
+            order = metric_rank_sql(metric, best=best_first)
+        else:
+            order = f"m.value {'ASC' if ascending else 'DESC'}"
         rows = self._backend.fetch_all(
             "SELECT s.sim_id FROM simulations s "
             "JOIN statuses st ON s.status_id = st.id "
             "JOIN metrics m ON s.sim_id = m.sim_id "
             "WHERE s.project = ? AND st.code = 'completed' "
             "AND m.metric_name = ? AND m.station_id = ? "
-            f"ORDER BY m.value {order} LIMIT ?",
+            "AND m.value IS NOT NULL AND isfinite(m.value) "
+            f"ORDER BY {order} LIMIT ?",
             [project, metric, OUTLET_STATION, n],
         )
         if not rows:

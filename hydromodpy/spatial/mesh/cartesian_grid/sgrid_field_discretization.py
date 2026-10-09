@@ -59,6 +59,10 @@ def discretize_fields_on_sgrid(
 ) -> dict[int, np.ndarray]:
     """Discretize gridded FieldRecords onto a structured MODFLOW grid.
 
+    Each record is averaged in time over every stress period, under the
+    coverage rule of :mod:`hydromodpy.core.time.coverage`. When several
+    records cover one period, the period takes their mean with equal weights.
+
     Parameters
     ----------
     load_result:
@@ -93,8 +97,10 @@ def discretize_fields_on_sgrid(
     period_bounds = stress_period_bounds(nper, simulation_window)
     coverage_policy = str(getattr(simulation_window, "coverage_policy", "ignore"))
 
-    # Aggregate all FieldRecords into one temporal-spatial stack.
-    rch_arrays: dict[int, np.ndarray] = {}
+    # Several records covering one period are averaged with equal weights:
+    # one weight per record, whatever their order or their number.
+    sums: dict[int, np.ndarray] = {}
+    counts: dict[int, int] = {}
     for field_rec in load_result.fields:
         field_arrays = discretize_one_field_record(
             field_rec,
@@ -108,11 +114,13 @@ def discretize_fields_on_sgrid(
             method=method,
         )
         for kper, arr in field_arrays.items():
-            if kper in rch_arrays:
-                # Average when multiple records cover the same period.
-                rch_arrays[kper] = 0.5 * (rch_arrays[kper] + arr)
+            if kper in sums:
+                sums[kper] = sums[kper] + arr
+                counts[kper] += 1
             else:
-                rch_arrays[kper] = arr
+                sums[kper] = np.asarray(arr, dtype=float)
+                counts[kper] = 1
+    rch_arrays = {kper: sums[kper] / counts[kper] for kper in sums}
 
     # Fill missing periods with zeros.
     for kper in range(nper):

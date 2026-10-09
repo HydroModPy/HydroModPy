@@ -11,6 +11,7 @@ from typing import Any, ClassVar
 
 import pandas as pd
 
+from hydromodpy.core.exceptions import MissingForcingError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.io_helpers import safe_file_token
 from hydromodpy.data.contracts.completeness import compute_completeness
@@ -212,7 +213,11 @@ class BaseVariableManager(BaseManagerCommon):
         Discovery by extent is never cached.
         """
         if self.project_period is None:
-            raise ValueError(f"project_period required to fetch {self.VARIABLE_NAME} stations.")
+            raise MissingForcingError(
+                f"project_period required to fetch {self.VARIABLE_NAME} stations: "
+                f"declare date_start and date_end in [data.{self.VARIABLE_NAME}], "
+                "or a window in [simulation.time]."
+            )
 
         station_ids = list(source_cfg.station_ids or [])
         max_stations = getattr(source_cfg, "max_stations", None)

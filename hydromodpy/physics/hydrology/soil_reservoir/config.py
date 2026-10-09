@@ -8,9 +8,10 @@ turns a :class:`SoilReservoirConfig` into the kernel's ``SoilParameters``.
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from collections.abc import Callable
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, ValidationError, ValidatorFunctionWrapHandler, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.calibrable import Calibrable
@@ -31,6 +32,29 @@ def _bare_number_string(value: object) -> str | None:
     return value
 
 
+_RANGE_ERRORS = frozenset({"greater_than", "greater_than_equal", "less_than", "less_than_equal"})
+
+
+def _within_range(
+    value: object,
+    handler: ValidatorFunctionWrapHandler,
+    check: Callable[[Any], Any],
+) -> Any:
+    """Validate *value*, then let *check* word a range refusal.
+
+    The bounds live on the field, so the reference shows them. A value outside
+    them would get the generic Pydantic message; *check* repeats the bound with
+    what the number means.
+    """
+    try:
+        return check(handler(value))
+    except ValidationError as exc:
+        errors = exc.errors()
+        if errors and all(error["type"] in _RANGE_ERRORS for error in errors):
+            check(errors[0]["input"])
+        raise
+
+
 class SoilReservoirConfig(HydroModelBase):
     """Daily soil reservoir that turns precipitation and ETP into recharge.
 
@@ -41,6 +65,8 @@ class SoilReservoirConfig(HydroModelBase):
 
     ru: Annotated[LengthMillimeters, Profile.USER] = Field(
         ...,
+        ge=0.0,
+        le=1000.0,
         description=(
             "Available water capacity of the soil (réserve utile), in mm of water: "
             "what the roots can draw between field capacity and wilting point. A bare "
@@ -56,6 +82,8 @@ class SoilReservoirConfig(HydroModelBase):
     )
     alpha: Annotated[float, Profile.USER] = Field(
         default=0.6,
+        gt=0.0,
+        le=1.0,
         description=(
             "Share of ru above which the soil evaporates at the full rate kc x ETP. "
             "Below alpha x ru, ETR falls linearly with the stored water. It is 1 - p "
@@ -66,6 +94,8 @@ class SoilReservoirConfig(HydroModelBase):
     )
     kc: Annotated[float, Profile.USER] = Field(
         default=1.0,
+        ge=0.0,
+        le=2.0,
         description=(
             "Crop coefficient applied to the loaded ETP: the soil evaporates at most "
             "kc x ETP a day. 1.0 takes the ETP as loaded, a reference grass. Between "
@@ -75,6 +105,8 @@ class SoilReservoirConfig(HydroModelBase):
     )
     impervious_fraction: Annotated[float, Profile.USER] = Field(
         default=0.0,
+        ge=0.0,
+        lt=1.0,
         description=(
             "Share of the area that is sealed (roofs, roads). The rain that falls on "
             "it runs off at once, with no infiltration and no evaporation, and "
@@ -87,6 +119,8 @@ class SoilReservoirConfig(HydroModelBase):
     )
     bypass_fraction: Annotated[float, Profile.USER] = Field(
         default=0.0,
+        ge=0.0,
+        lt=1.0,
         description=(
             "Share of the rain on the unsealed area that skips the soil through "
             "macropores and joins the recharge the same day, even when the soil is "
@@ -98,6 +132,8 @@ class SoilReservoirConfig(HydroModelBase):
     )
     transit_time: Annotated[DurationDays, Profile.USER] = Field(
         default=0.0,
+        ge=0.0,
+        le=30.0,
         description=(
             "Mean time the water leaving the soil takes to cross the unsaturated "
             "zone down to the water table, in days. A linear reservoir with this "
@@ -110,6 +146,8 @@ class SoilReservoirConfig(HydroModelBase):
     )
     curve_number: Annotated[float | None, Profile.USER] = Field(
         default=None,
+        ge=30.0,
+        le=98.0,
         description=(
             "SCS curve number (AMC II), dimensionless, of a HELP-style surface runoff "
             "(Schroeder et al. 1994): the unsealed share of the rain above a daily "
@@ -123,6 +161,8 @@ class SoilReservoirConfig(HydroModelBase):
     )
     runoff_time: Annotated[DurationDays, Profile.USER] = Field(
         default=1.0,
+        ge=0.0,
+        le=10.0,
         description=(
             "Time constant of the linear reservoir that routes the curve-number "
             "runoff to the outlet, in days. Read only when curve_number is set. 0 "
@@ -134,6 +174,8 @@ class SoilReservoirConfig(HydroModelBase):
     )
     runoff_lag: Annotated[DurationDays, Profile.USER] = Field(
         default=0.0,
+        ge=0.0,
+        le=5.0,
         description=(
             "Pure delay applied to the routed curve-number runoff, after runoff_time, "
             "before it reaches the gauged discharge: the travel time to the outlet plus "
@@ -174,9 +216,13 @@ class SoilReservoirConfig(HydroModelBase):
             f'or ru = "{bare} mm".'
         )
 
-    @field_validator("ru")
+    @field_validator("ru", mode="wrap")
     @classmethod
-    def _ru_is_a_plausible_soil_capacity(cls, value: float) -> float:
+    def _ru_in_range(cls, value: object, handler: ValidatorFunctionWrapHandler) -> float:
+        return _within_range(value, handler, cls._ru_is_a_plausible_soil_capacity)
+
+    @staticmethod
+    def _ru_is_a_plausible_soil_capacity(value: float) -> float:
         if not 0 <= value <= 1000:
             raise ValueError(
                 f"ru = {value:g} mm is outside 0 to 1000 mm, the range of a soil water "
@@ -184,9 +230,13 @@ class SoilReservoirConfig(HydroModelBase):
             )
         return value
 
-    @field_validator("alpha")
+    @field_validator("alpha", mode="wrap")
     @classmethod
-    def _alpha_is_a_share_of_ru(cls, value: float) -> float:
+    def _alpha_in_range(cls, value: object, handler: ValidatorFunctionWrapHandler) -> float:
+        return _within_range(value, handler, cls._alpha_is_a_share_of_ru)
+
+    @staticmethod
+    def _alpha_is_a_share_of_ru(value: float) -> float:
         if not 0 < value <= 1:
             raise ValueError(
                 f"alpha = {value:g}: alpha is the share of ru above which the soil "
@@ -195,9 +245,13 @@ class SoilReservoirConfig(HydroModelBase):
             )
         return value
 
-    @field_validator("kc")
+    @field_validator("kc", mode="wrap")
     @classmethod
-    def _kc_scales_the_loaded_etp(cls, value: float) -> float:
+    def _kc_in_range(cls, value: object, handler: ValidatorFunctionWrapHandler) -> float:
+        return _within_range(value, handler, cls._kc_scales_the_loaded_etp)
+
+    @staticmethod
+    def _kc_scales_the_loaded_etp(value: float) -> float:
         if not 0 <= value <= 2:
             raise ValueError(
                 f"kc = {value:g}: kc scales the loaded ETP, between 0 and 2. Write "
@@ -205,9 +259,15 @@ class SoilReservoirConfig(HydroModelBase):
             )
         return value
 
-    @field_validator("impervious_fraction")
+    @field_validator("impervious_fraction", mode="wrap")
     @classmethod
-    def _impervious_fraction_is_a_fraction(cls, value: float) -> float:
+    def _impervious_fraction_in_range(
+        cls, value: object, handler: ValidatorFunctionWrapHandler
+    ) -> float:
+        return _within_range(value, handler, cls._impervious_fraction_is_a_fraction)
+
+    @staticmethod
+    def _impervious_fraction_is_a_fraction(value: float) -> float:
         if not 0 <= value < 1:
             raise ValueError(
                 f"impervious_fraction = {value:g}: it is the sealed share of the area, "
@@ -216,9 +276,15 @@ class SoilReservoirConfig(HydroModelBase):
             )
         return value
 
-    @field_validator("bypass_fraction")
+    @field_validator("bypass_fraction", mode="wrap")
     @classmethod
-    def _bypass_fraction_is_a_fraction(cls, value: float) -> float:
+    def _bypass_fraction_in_range(
+        cls, value: object, handler: ValidatorFunctionWrapHandler
+    ) -> float:
+        return _within_range(value, handler, cls._bypass_fraction_is_a_fraction)
+
+    @staticmethod
+    def _bypass_fraction_is_a_fraction(value: float) -> float:
         if not 0 <= value < 1:
             raise ValueError(
                 f"bypass_fraction = {value:g}: it is the share of the rain that skips "
@@ -227,9 +293,15 @@ class SoilReservoirConfig(HydroModelBase):
             )
         return value
 
-    @field_validator("curve_number")
+    @field_validator("curve_number", mode="wrap")
     @classmethod
-    def _curve_number_is_a_plausible_cn(cls, value: float | None) -> float | None:
+    def _curve_number_in_range(
+        cls, value: object, handler: ValidatorFunctionWrapHandler
+    ) -> float | None:
+        return _within_range(value, handler, cls._curve_number_is_a_plausible_cn)
+
+    @staticmethod
+    def _curve_number_is_a_plausible_cn(value: float | None) -> float | None:
         if value is None:
             return None
         if not 30 <= value <= 98:
@@ -251,9 +323,13 @@ class SoilReservoirConfig(HydroModelBase):
             f'number is in days) or runoff_time = "{bare} days".'
         )
 
-    @field_validator("runoff_time")
+    @field_validator("runoff_time", mode="wrap")
     @classmethod
-    def _runoff_time_is_a_short_delay(cls, value: float) -> float:
+    def _runoff_time_in_range(cls, value: object, handler: ValidatorFunctionWrapHandler) -> float:
+        return _within_range(value, handler, cls._runoff_time_is_a_short_delay)
+
+    @staticmethod
+    def _runoff_time_is_a_short_delay(value: float) -> float:
         if not 0 <= value <= 10:
             raise ValueError(
                 f"runoff_time = {value:g} days is outside 0 to 10 days: it routes a "
@@ -273,9 +349,13 @@ class SoilReservoirConfig(HydroModelBase):
             f'number is in days) or runoff_lag = "{bare} days".'
         )
 
-    @field_validator("runoff_lag")
+    @field_validator("runoff_lag", mode="wrap")
     @classmethod
-    def _runoff_lag_is_a_short_travel_time(cls, value: float) -> float:
+    def _runoff_lag_in_range(cls, value: object, handler: ValidatorFunctionWrapHandler) -> float:
+        return _within_range(value, handler, cls._runoff_lag_is_a_short_travel_time)
+
+    @staticmethod
+    def _runoff_lag_is_a_short_travel_time(value: float) -> float:
         if not 0 <= value <= 5:
             raise ValueError(
                 f"runoff_lag = {value:g} days is outside 0 to 5 days: it is a fixed "
@@ -295,9 +375,13 @@ class SoilReservoirConfig(HydroModelBase):
             f'number is in days) or transit_time = "{bare} days".'
         )
 
-    @field_validator("transit_time")
+    @field_validator("transit_time", mode="wrap")
     @classmethod
-    def _transit_time_stays_under_the_groundwater_memory(cls, value: float) -> float:
+    def _transit_time_in_range(cls, value: object, handler: ValidatorFunctionWrapHandler) -> float:
+        return _within_range(value, handler, cls._transit_time_stays_under_the_groundwater_memory)
+
+    @staticmethod
+    def _transit_time_stays_under_the_groundwater_memory(value: float) -> float:
         if not 0 <= value <= 30:
             raise ValueError(
                 f"transit_time = {value:g} days is outside 0 to 30 days: a longer "

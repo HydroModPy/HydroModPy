@@ -13,7 +13,13 @@ HELP: str = "Import a .hmp archive and dematerialise its bundled inputs"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[verbosity_parser()],
+        epilog="Example:\n  hmp data import paper.hmp --as imported_project --dry-run",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("package", help="Path to the .hmp archive")
     parser.add_argument("-w", "--workspace", default=None, help="Target project catalog root")
     parser.add_argument(

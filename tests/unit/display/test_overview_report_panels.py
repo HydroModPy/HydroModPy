@@ -423,7 +423,7 @@ def test_regional_context_map_draws_the_stations_it_covers(tmp_path, mpl) -> Non
     try:
         assert ax.collections[-1].get_offsets().tolist() == [[15000.0, 18000.0]]
         labels = [text.get_text() for text in ax.get_legend().get_texts()]
-        assert labels == ["Bassin versant", "Piezometry"]
+        assert labels == ["Catchment", "Piezometry"]
     finally:
         mpl.close(fig)
 

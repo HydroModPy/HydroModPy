@@ -26,6 +26,10 @@ python -m validation_cases.analytical.transient.linearized_unconfined_boundary_s
 python -m validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.run_comparison
 ```
 
+Reference used by the documentation:
+
+- reference: linearized 1D unconfined response to a step of the west boundary head
+
 ## Equations
 
 The equations of the reference solution the comparison uses.

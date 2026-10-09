@@ -12,6 +12,8 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     boundary_conditions_mapping_from_flow,
     is_boundary_condition_active,
 )
+from hydromodpy.physics.flow.regime import normalize_flow_regime
+from hydromodpy.physics.forcing.steady_periods import apply_first_clim, steady_flags
 from hydromodpy.physics.forcing.validation import (
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
@@ -180,34 +182,45 @@ class ForcingCommonMixin:
                 if kper < 0 or kper >= int(nper):
                     raise ValueError(f"{label} mapping key {kper} is outside [0, {int(nper) - 1}].")
                 series[kper] = float(raw_value)
-            return series
+            return self.apply_first_clim_to_series(series, first_clim=first_clim)
         if self.is_scalar_number(payload):
-            return np.full(nper, float(payload), dtype=float)
+            return self.apply_first_clim_to_series(
+                np.full(nper, float(payload), dtype=float), first_clim=first_clim
+            )
 
         sequence = self.payload_to_sequence(payload, label=label)
         if sequence.size == 1:
-            return np.full(nper, float(sequence[0]), dtype=float)
-        if sequence.size != int(nper):
-            if int(nper) != 1:
-                raise ValueError(
-                    f"{label} length ({int(sequence.size)}) must be 1 or match nper ({int(nper)})."
-                )
-
-        series = np.zeros(nper, dtype=float)
-        if first_clim == "mean":
-            series[0] = float(np.mean(sequence))
-        elif first_clim == "first":
-            series[0] = float(sequence[0])
-        elif self.is_scalar_number(first_clim):
-            series[0] = float(first_clim)
+            own = np.full(nper, float(sequence[0]), dtype=float)
+        elif sequence.size == int(nper):
+            own = sequence.astype(float, copy=True)
+        elif int(nper) == 1:
+            # A record longer than a one-period run gives that period its mean.
+            own = np.asarray([float(np.mean(sequence))], dtype=float)
         else:
             raise ValueError(
-                "flow.sinks_sources.recharge.first_clim must be 'mean', 'first', "
-                "or a numeric value."
+                f"{label} length ({int(sequence.size)}) must be 1 or match nper ({int(nper)})."
             )
-        for kper in range(1, int(nper)):
-            series[kper] = float(sequence[kper])
-        return series
+        return self.apply_first_clim_to_series(own, first_clim=first_clim)
+
+    def boussinesq_steady_flags(self, nper: int) -> np.ndarray:
+        """Return which periods this run solves steady.
+
+        Every period of a steady run, none of a transient one: the Boussinesq
+        solver integrates every period of a transient run in time, its first
+        period included (it does not read ``flow.first_period_steady``).
+        """
+        regime = normalize_flow_regime(getattr(self.flow, "flow_regime", "transient"))
+        return steady_flags(nper=int(nper), flow_regime=regime, first_period_steady=False)
+
+    def apply_first_clim_to_series(self, own: np.ndarray, *, first_clim: object) -> np.ndarray:
+        """Give every steady period the ``first_clim`` rate, keep the transient ones."""
+        nper = int(own.size)
+        ruled = apply_first_clim(
+            {kper: own[kper] for kper in range(nper)},
+            steady=self.boussinesq_steady_flags(nper),
+            first_clim=first_clim,
+        )
+        return np.asarray([float(ruled[kper]) for kper in range(nper)], dtype=float)
 
     @staticmethod
     def simple_period_series(

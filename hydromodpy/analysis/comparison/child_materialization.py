@@ -14,6 +14,7 @@ from hydromodpy.analysis.comparison.experiment_config import (
 from hydromodpy.analysis.comparison.runtime.config import (
     _build_solver_process_overlay,
     _deepcopy_jsonlike,
+    _let_solver_backend_follow_the_process,
     _overlay_defines_process,
     write_toml_payload,
 )
@@ -21,6 +22,7 @@ from hydromodpy.core.toml_io.loader import (
     load_toml_with_base_config,
     merge_toml_payloads,
 )
+from hydromodpy.core.toml_io.merge import DIRECTIVE_SUFFIXES
 from hydromodpy.core.toml_io.paths import is_declared_absolute_path
 
 ALLOWED_TOP_LEVEL_OVERLAY_KEYS = {
@@ -43,7 +45,7 @@ ALLOWED_TOP_LEVEL_OVERLAY_KEYS = {
     "calibration",
     "workflow",
 }
-OVERLAY_DIRECTIVE_SUFFIXES = ("__append", "__delete")
+OVERLAY_DIRECTIVE_SUFFIXES = DIRECTIVE_SUFFIXES
 
 ALLOWED_SIMULATION_OVERLAY_KEYS = {
     "name",
@@ -247,6 +249,7 @@ def build_child_payload(
                 "must declare exactly one flow process."
             )
         simulation_overlay["process"] = process_overlay
+        _let_solver_backend_follow_the_process(overlay)
 
     if cfg.base_simulation_config_path is None:
         raise ValueError("comparison.base_simulation_config is required")

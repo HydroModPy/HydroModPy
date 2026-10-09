@@ -1,0 +1,120 @@
+@startuml
+title Calibration - core classes
+left to right direction
+hide empty members
+
+package "hydromodpy.calibration.config" {
+  class CalibrationConfig
+}
+
+package "hydromodpy.calibration.optim" {
+  class ParameterSpace
+  class CalibParameter {
+    +name
+    +bounds
+    +transform
+  }
+
+  interface Optimizer {
+    +name
+    +ask(n) : list[ParamSuggestion]
+    +tell(results)
+    +suggest_next()
+    +best()
+    +converged()
+  }
+
+  class ParamSuggestion {
+    +trial_id
+    +values
+  }
+
+  class EvaluationResult {
+    +trial_id
+    +sim_id
+    +objective_value
+    +status
+    +from_cache
+  }
+
+  class CalibrationEngine {
+    +space
+    +optimizer
+    +evaluator
+    +max_iter
+    +cache
+    +run() : CalibrationSession
+  }
+
+  class CalibrationSession {
+    +history
+    +best
+    +converged
+  }
+
+  class ParamsHashCache
+
+  interface Objective {
+    +name
+    +evaluate(sim)
+  }
+}
+
+package "hydromodpy.calibration.evaluation" {
+  interface TrialEvaluator {
+    +needs_prepared_model
+    +evaluate(request) : TrialOutcome
+  }
+  class TrialRequest
+  class TrialOutcome
+}
+
+package "hydromodpy.calibration.criteria" {
+  interface Criterion {
+    +name
+    +requirements()
+    +score(simulated, observed)
+  }
+}
+
+package "hydromodpy.calibration.runners" {
+  class "pipeline_evaluator.py" as PipelineEvaluator <<module>>
+  class "trial.py" as TrialModule <<module>> {
+    +prepare_trials()
+    +run_trial_light()
+    +promote_prepared_trial()
+  }
+  class "cli_runner.py" as CliRunner <<module>>
+  class "promotion.py" as Promotion <<module>>
+}
+
+package "hydromodpy.calibration" {
+  class CalibrationPersistence
+}
+
+CalibrationConfig ..> ParameterSpace : parameters
+ParameterSpace *-- "1..*" CalibParameter
+CliRunner ..> CalibrationConfig : loads
+CliRunner --> CalibrationEngine : builds
+CalibrationEngine --> ParameterSpace
+CalibrationEngine --> Optimizer : ask / tell
+CalibrationEngine --> TrialEvaluator : evaluates each suggestion
+CalibrationEngine ..> ParamsHashCache : skips cached points
+CalibrationEngine ..> CalibrationPersistence : journal, then index
+CalibrationEngine ..> CalibrationSession : returns
+Optimizer ..> ParamSuggestion : proposes
+TrialEvaluator ..> TrialRequest : receives
+TrialEvaluator ..> TrialOutcome : returns
+PipelineEvaluator ..|> TrialEvaluator
+PipelineEvaluator --> TrialModule : run_trial_light
+PipelineEvaluator ..> Objective : scores the paired series
+Objective ..> Criterion : block by block
+CliRunner ..> Promotion : replays the best trials
+Promotion ..> TrialModule : promote_prepared_trial
+
+note bottom of Optimizer
+One module per search method in
+optim/adapters/, registered with
+@register_optimizer("name").
+end note
+@enduml

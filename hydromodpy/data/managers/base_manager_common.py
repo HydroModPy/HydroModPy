@@ -19,7 +19,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
 
+from hydromodpy.core.exceptions import DataSourceError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.data.contracts.timeseries import PointRecord
+
+logger = get_logger(__name__)
 
 CUSTOM_SOURCE = "custom"
 """The ``source =`` value that names the user's own files."""
@@ -127,7 +131,13 @@ class BaseManagerCommon(SourceTable, ABC):
         records: list[PointRecord],
         source_cfg,
     ) -> list[PointRecord]:
-        """Filter records by spatial mask (WGS84)."""
+        """Filter records by spatial mask (WGS84).
+
+        Dropping a station outside the mask is the intended behaviour, never a
+        silent one: the warning names each station dropped. A source whose
+        every station lies outside is a variable that cannot be obtained, and
+        is refused.
+        """
         if not source_cfg.mask_path:
             return records
         from hydromodpy.data.common.geo_helpers import filter_locations_by_geometry
@@ -137,4 +147,30 @@ class BaseManagerCommon(SourceTable, ABC):
         locs_to_check = [r.location for r in records if r.location is not None]
         inside = filter_locations_by_geometry(locs_to_check, geom)
         valid_ids = {loc.id for loc in inside}
-        return [r for r in records if r.location is None or r.station_id in valid_ids]
+        kept = [r for r in records if r.location is None or r.station_id in valid_ids]
+        dropped = sorted(
+            {
+                r.station_id
+                for r in records
+                if r.location is not None and r.station_id not in valid_ids
+            }
+        )
+        if not dropped:
+            return kept
+        named = set(getattr(source_cfg, "station_ids", None) or ())
+        named_dropped = [sid for sid in dropped if sid in named]
+        mask = Path(str(source_cfg.mask_path)).name
+        if not kept:
+            raise DataSourceError(
+                f"{self.VARIABLE_NAME}: every station of source "
+                f"'{source_cfg.source}' lies outside the mask {mask}: {dropped}. "
+                "No station is left to load."
+            )
+        message = (
+            f"{self.VARIABLE_NAME}: {len(dropped)} station(s) of source "
+            f"'{source_cfg.source}' outside the mask {mask} dropped: {dropped}."
+        )
+        if named_dropped:
+            message += f" Named in station_ids and dropped all the same: {named_dropped}."
+        logger.warning("%s", message)
+        return kept

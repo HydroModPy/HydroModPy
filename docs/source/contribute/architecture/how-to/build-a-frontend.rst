@@ -1,122 +1,68 @@
-Build a Frontend
+Build a frontend
 ================
 
-HydroModPy stays a pure Python library: it does not ship an HTTP
-server, FastAPI bindings, or websockets. Instead it exposes two
-stable contracts that any frontend (Angular, React,
-Jupyter widget, electron app) can consume.
+HydroModPy is a Python library. It ships no HTTP server, no FastAPI binding and
+no websocket. It exposes two stable hooks that any frontend (Angular, React, a
+Jupyter widget, a desktop app) can use without importing the package:
 
-Two integration points
-----------------------
+1. a JSON Schema export of the whole configuration;
+2. a partial validator that checks one field at a time.
 
-1. **JSON Schema export** -- ``hmp dev schema export --output ./schema/``
-   writes three JSON files:
+The code is in ``hydromodpy/schema/export.py`` and
+``hydromodpy/schema/partial_validator.py``. The pattern behind it is a Pydantic
+model plus an exported schema: the structure is declared once, in Python, and
+the UI never copies it.
 
-   .. code-block:: text
+The schema export
+-----------------
 
-      schema/
-      |-- config.json              # full JSON Schema of HydroModPyConfig
-      |-- config_meta.json         # ordered TOML sections, UI groups, titles
-      `-- field_validators.json    # flat field_path -> validator_type
+``hmp dev schema export --output ./schema/`` writes three files:
 
-2. **Partial-field validator** --
-   ``hmp dev schema validate-field <path> <value>`` runs the same
-   validator your form should call on each keystroke (under 50 ms per
-   call, no I/O).
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
 
-Both are also available from Python:
+   * - File
+     - Role
+   * - ``config.json``
+     - Full JSON Schema of ``HydroModPyConfig``.
+   * - ``config_meta.json``
+     - Ordered TOML sections, UI groups and titles. A section with
+       ``repeated: true`` (``[[export]]``) is an array of tables, one block per
+       entry, and its ``ref`` names the model of one entry.
+   * - ``field_validators.json``
+     - Flat mapping from a field path to its validator type.
+
+From Python:
 
 .. code-block:: python
 
    from hydromodpy.schema import export_full_schema, validate_field
 
    export_full_schema("./schema/")
-   result = validate_field("flow.flow_regime", "steady")
-   assert result.valid is True
 
-Modules: ``hydromodpy/schema/export.py`` and
-``hydromodpy/schema/partial_validator.py``.
+Each field in ``config.json`` keeps what the models declare in
+``json_schema_extra`` (the keys of ``FieldMetadata`` in
+``hydromodpy/core/config_kit/field_metadata.py``: ``widget_type``, ``unit``,
+``display_min``, ``display_max``, ``group``, ``stability``, ``value_docs``) and
+carries its visibility in ``x-hmp-profile`` (``user``, ``dev`` or ``expert``), so
+a form can hide the developer and expert fields. These annotations are the
+contract between the models and the UI. Honour them and you need no mapping
+layer. They are added to a field as described in :doc:`add-a-config-field`.
 
-Annotations carried by the schema
----------------------------------
+A second schema file is committed under ``docs/source/_static/`` and published
+with the site: ``hydromodpy-schema.json``, a raw JSON Schema 2020-12 export of
+``HydroModPyConfig`` for Ajv, an IDE schema store or any external validator.
+``python -m tools.docs.schema_export`` writes it, and
+``tests/unit/docs/test_docs_config_consistency.py`` keeps it equal to what the
+code exports. ``hmp dev schema export`` stays the canonical export for a
+frontend.
 
-Each field in ``config.json`` keeps the ``json_schema_extra``
-annotations declared by the Pydantic models:
+The partial validator
+---------------------
 
-- ``widget_type`` -- ``slider``, ``text``, ``select``, ``date``,
-  ``file``, ``map``, etc.
-- ``unit`` -- canonical SI unit (``m``, ``m/s``, ``1/m``, ...).
-- ``display_name_fr`` / ``display_name_en`` -- human label.
-- ``help_text_fr`` / ``help_text_en`` -- tooltip.
-- ``display_min`` / ``display_max`` -- bounds for sliders.
-- ``profile`` -- one of ``user`` / ``dev`` / ``expert`` (filterable
-  in the UI).
-
-These annotations form the contract between the Pydantic models and
-your frontend. Honour them and you avoid a custom mapping layer.
-
-Angular (external repository)
------------------------------
-
-Pair JSON Schema with ``ngx-formly`` or ``@rjsf/core``. Two steps:
-
-.. code-block:: bash
-
-   # 1. Export the schema during the HydroModPy CI step.
-   hmp dev schema export --output ./src/app/api/schema/
-
-.. code-block:: ts
-
-   // src/app/api/schema.service.ts
-   import { HttpClient } from '@angular/common/http';
-   import { Injectable } from '@angular/core';
-   import { Observable, shareReplay } from 'rxjs';
-
-   @Injectable({ providedIn: 'root' })
-   export class SchemaService {
-     private schema$ = this.http
-       .get<object>('/assets/schema/config.json')
-       .pipe(shareReplay(1));
-
-     constructor(private http: HttpClient) {}
-
-     get schema(): Observable<object> {
-       return this.schema$;
-     }
-   }
-
-A custom widget can switch on the ``widget_type`` annotation to pick
-between sliders, dropdowns, and text inputs.
-
-React (external repository)
----------------------------
-
-.. code-block:: tsx
-
-   import Form from '@rjsf/core';
-   import validator from '@rjsf/validator-ajv8';
-   import schema from './schema/config.json';
-
-   export function SchemaForm() {
-     return (
-       <Form
-         schema={schema}
-         validator={validator}
-         uiSchema={{
-           flow: {
-             k_aquifer: { 'ui:widget': 'updown' },
-           },
-         }}
-       />
-     );
-   }
-
-Field-by-field validation on the Python side is reachable through
-the CLI (subprocess) or any transport you choose; HydroModPy does
-not impose one.
-
-Calling ``validate_field`` from Python
---------------------------------------
+``hmp dev schema validate-field <path> <value>`` runs the validator your form
+should call on each change, in well under 50 ms and without I/O. From Python:
 
 .. code-block:: python
 
@@ -128,52 +74,74 @@ Calling ``validate_field`` from Python
        if not result.valid:
            show_error(path, result.error)
 
-The validator resolves the dotted path on ``HydroModPyConfig``,
-picks the matching ``pydantic.TypeAdapter``, and returns a
-lightweight ``ValidationResult``. Lookups are memoised so repeated
-calls on the same path are free.
+It resolves the dotted path on ``HydroModPyConfig``, picks the matching
+``pydantic.TypeAdapter`` and returns a ``ValidationResult`` with ``valid``,
+``error``, ``warnings`` and ``dependent_fields_affected``. Lookups are memoised,
+so a repeated call on the same path is free. A frontend that is not written in
+Python reaches it through the CLI in a subprocess, or through any transport the
+integrator chooses.
+
+A form on the schema
+--------------------
+
+Angular applications usually pair the schema with ``ngx-formly`` or
+``@rjsf/core``. Export the schema at each HydroModPy release and serve
+``config.json`` as a static asset:
+
+.. code-block:: bash
+
+   hmp dev schema export --output ./src/app/api/schema/
+
+React, with ``@rjsf/core``:
+
+.. code-block:: tsx
+
+   import Form from '@rjsf/core';
+   import validator from '@rjsf/validator-ajv8';
+   import schema from './schema/config.json';
+
+   export function SchemaForm() {
+     return <Form schema={schema} validator={validator} />;
+   }
+
+A custom widget can switch on the ``widget_type`` annotation to choose between
+an input, a select and a checkbox.
 
 Submission flow
 ---------------
 
-1. The frontend builds a TOML payload from the form values (keep
-   the section structure: ``[flow]``, ``[geographic]``, etc.).
-2. POST the payload (or a ``HydroModPyConfig`` JSON dump) to a thin
-   service that calls ``hmp.run`` or
-   ``hmp.Project(payload).simulate()``.
-3. The service returns a ``sim_id`` that the frontend polls or
-   subscribes to.
+1. The frontend builds a TOML payload from the form values, keeping the section
+   structure (``[flow]``, ``[geographic]``, ...).
+2. A thin service you write receives it, writes it to a file and calls
+   ``hmp.run`` on that file.
+3. The service returns the simulation id to the frontend, which polls it.
 4. Results come back through the catalog: open the workspace with
-   ``hmp.open(workspace)`` and read the ``Run`` rows; expose
-   metrics, figures, and exports as the UI needs them.
+   ``hmp.open(workspace)`` and read the ``Run`` rows. Expose the metrics,
+   figures and exports the UI needs.
 
-What HydroModPy intentionally does **not** ship
------------------------------------------------
+What HydroModPy does not ship
+-----------------------------
 
-- No FastAPI / uvicorn / websockets dependency.
-- No OpenAPI endpoint generation: the exported JSON Schema is the
-  contract.
-- No server-sent events; wire one yourself when a stream is needed.
+- No FastAPI, uvicorn or websocket dependency.
+- No OpenAPI endpoint: the exported JSON Schema is the contract.
+- No server-sent events. Wire one yourself when a stream is needed.
 
-Any HTTP layer written downstream relies on these hooks without
-touching the core package.
+Any HTTP layer written downstream can rely on these hooks without touching the
+core package.
 
 Tests to add
 ------------
 
-- **Unit** for any custom Python service that wraps the schema
-  exports.
-- **Schema diff CI**: re-run ``hmp dev schema export`` in CI and fail
-  on diffs that the contributor did not commit.
-- **Smoke** call against ``validate_field`` for a few known good /
-  bad pairs per release.
+- A unit test for any Python service that wraps the exports.
+- A schema diff in your CI: export again and fail on a difference you did not
+  commit.
+- A smoke call of ``validate_field`` on a few valid and invalid pairs at each
+  release.
 
 See also
 --------
 
-- :doc:`../overview/frontend-hooks` for the architectural rationale.
 - :doc:`../packages/schema` for the schema package map.
-- :doc:`add-a-config-field` for the annotations the frontend
-  consumes.
-- :doc:`/reference/parameters/explorer` for the user-facing browser of
-  every TOML key.
+- :doc:`add-a-config-field` for the annotations the frontend reads.
+- :doc:`/reference/parameters/explorer` for the interactive browser of the same
+  models.

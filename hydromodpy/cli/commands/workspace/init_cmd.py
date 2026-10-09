@@ -13,13 +13,26 @@ HELP: str = "Scaffold a HydroModPy workspace (data + projects). Default: ~/hydro
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        epilog="Examples:\n  hmp workspace init ~/hydromodpy\n  hmp workspace init --path ./ws --project-name my_project",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("path", nargs="?", default=None, help="Workspace path")
     parser.add_argument("--path", dest="path_opt", default=None, help="Alternate flag-form")
     parser.add_argument("--force", action="store_true", help="Overwrite an existing workspace")
-    parser.add_argument("--project-name", default=None)
-    parser.add_argument("--creator-name", default=None)
-    parser.add_argument("--creator-email", default=None)
+    parser.add_argument(
+        "--project-name",
+        default=None,
+        help="Project name written to workspace.toml, and label of the registration (default: the workspace folder name)",
+    )
+    parser.add_argument(
+        "--creator-name", default=None, help="Creator name written to workspace.toml"
+    )
+    parser.add_argument(
+        "--creator-email", default=None, help="Creator e-mail written to workspace.toml"
+    )
     parser.set_defaults(_handler=run)
     return parser
 

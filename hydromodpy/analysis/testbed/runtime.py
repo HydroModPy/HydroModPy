@@ -8,16 +8,22 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.analysis.testbed.catalog_variants import expand_catalog_cases
+from hydromodpy.analysis.testbed.child_paths import (
+    absolutize_child_paths,
+    comparison_model,
+    root_simulation_model,
+)
 from hydromodpy.analysis.testbed.config import (
     TestbedCaseConfig,
     TestbedConfig,
 )
 from hydromodpy.analysis.testbed.contracts import (
+    FailedCasesError,
+    failed_cases_message,
     run_testbed_child_workflow,
     testbed_runner_workflow,
 )
 from hydromodpy.analysis.testbed.io import (
-    _absolutize_relative_path_values,
     _write_csv_rows,
     _write_json,
     _write_toml_payload,
@@ -64,15 +70,22 @@ class TestbedLauncher:
     def _child_workflow(self) -> str:
         return testbed_runner_workflow(self.cfg.runner.type)
 
+    def _child_model(self):
+        """The schema of a child TOML, which says which of its values are paths."""
+        if self.cfg.runner.type == "comparison":
+            return comparison_model()
+        return root_simulation_model()
+
     def _base_child_payload(self) -> dict[str, Any]:
         base_config_path = self._base_config_path()
         payload = load_toml_with_base_config(base_config_path)
-        payload = _absolutize_relative_path_values(
-            payload,
-            source_dir=base_config_path.parent,
-        )
         if not isinstance(payload, dict):
             raise ValueError("testbed base config must load to a TOML mapping")
+        payload = absolutize_child_paths(
+            payload,
+            model=self._child_model(),
+            source_dir=base_config_path.parent,
+        )
         payload.pop("testbed", None)
         payload["workflow"] = {"mode": self._child_workflow()}
         if self.cfg.runner.type == "simulation" and self.cfg.subject == "mesh":
@@ -80,8 +93,9 @@ class TestbedLauncher:
         return payload
 
     def _materialize_child_config(self, case_config: TestbedCaseConfig) -> Path:
-        overlay = _absolutize_relative_path_values(
+        overlay = absolutize_child_paths(
             case_config.overlay,
+            model=self._child_model(),
             source_dir=self.cfg.base_dir,
         )
         payload = merge_toml_payloads(self._base_child_payload(), overlay)
@@ -228,7 +242,13 @@ class TestbedLauncher:
         return paths
 
     def run(self) -> dict[str, Any]:
-        """Execute the testbed and return a compact summary."""
+        """Execute the testbed and return a compact summary.
+
+        Raises :class:`FailedCasesError`, carrying that summary, when a case
+        failed and ``continue_on_error`` let the others run. With
+        ``continue_on_error = false`` the error of the first failed case is
+        raised as it is.
+        """
         cases = self.build_plan()
         executions: list[TestbedExecution] = []
         paths = self._persist_outputs(cases=cases, executions=executions)
@@ -285,7 +305,7 @@ class TestbedLauncher:
 
         successful_count = len([item for item in executions if item.status == "ok"])
         failed_count = len([item for item in executions if item.status == "failed"])
-        return {
+        summary = {
             "testbed_id": self.cfg.id,
             "profile": self.cfg.profile,
             "subject": self.cfg.subject,
@@ -298,3 +318,16 @@ class TestbedLauncher:
             "failed_count": failed_count,
             **paths,
         }
+        if failed_count:
+            raise FailedCasesError(
+                failed_cases_message(
+                    label=f"testbed '{self.cfg.id}'",
+                    failed_ids=[
+                        item.case.variant.id for item in executions if item.status == "failed"
+                    ],
+                    executed_count=len(executions),
+                    report_path=paths.get("report_markdown"),
+                ),
+                summary=summary,
+            )
+        return summary

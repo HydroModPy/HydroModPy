@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
-from tests.validation.helpers import assert_metric_below
+from tests.validation.helpers import assert_metric_below, record_comparison
 from validation_cases.analytical.transient.late_time_unconfined_pumping_2d.comparison import (
     run_late_time_unconfined_pumping_comparison,
 )
@@ -26,6 +26,7 @@ def _assert_late_time_unconfined_pumping_case(
     )
 
     comparison = run_late_time_unconfined_pumping_comparison(caller_file=__file__, solver=solver)
+    record_comparison(comparison)
     space_time_tol = dict(comparison.tolerances.get("space_time", {}))
     final_time_tol = dict(comparison.tolerances.get("final_time", {}))
 

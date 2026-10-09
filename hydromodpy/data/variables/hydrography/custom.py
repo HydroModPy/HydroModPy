@@ -7,6 +7,7 @@ from pathlib import Path
 import geopandas as gpd
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.common.geo_helpers import require_declared_crs
 from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
 logger = get_logger(__name__)
@@ -38,7 +39,7 @@ def load_custom(config: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
         if raster:
             path = raster[0]
             logger.info("Auto-detected raster file: %s", path)
-            return path
+            return _checked_raster(path)
 
         vector = _scan(_VECTOR_EXTENSIONS)
         if not vector:
@@ -53,7 +54,18 @@ def load_custom(config: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
     # Single file - decide by extension
     if path.suffix.lower() in (".tif", ".tiff"):
         logger.info("Loading custom hydrography raster from %s", path)
-        return path
+        return _checked_raster(path)
 
     logger.info("Loading custom hydrography vector from %s", path)
-    return gpd.read_file(path)
+    frame = gpd.read_file(path)
+    require_declared_crs(frame.crs, path=path, variable="hydrography")
+    return frame
+
+
+def _checked_raster(path: Path) -> Path:
+    """*path*, once it is known to declare a CRS."""
+    import rasterio
+
+    with rasterio.open(str(path)) as src:
+        require_declared_crs(src.crs, path=path, variable="hydrography")
+    return path

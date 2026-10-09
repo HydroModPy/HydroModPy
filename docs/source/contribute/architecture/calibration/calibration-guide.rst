@@ -11,9 +11,9 @@ This guide is the single source of truth for the calibration
 sub-system. Code: ``hydromodpy/calibration/``.
 
 For complementary reading, see :doc:`index` (calibration architecture
-root), :doc:`../overview/design-patterns` (item 7 covers the calibration
-adapters), :doc:`../overview/two-databases`, and
-Calibration Workflow.
+root), the section "Calibration adapters, objectives and criteria" of
+:doc:`../contracts`, :doc:`../data-scopes`, and the user guide
+:doc:`/guides/calibrate`.
 
 Overview
 --------

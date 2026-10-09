@@ -16,7 +16,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="examples_command")
 
-    manifest_p = sub.add_parser("manifest", help="Rewrite the example catalog")
+    manifest_p = sub.add_parser(
+        "manifest",
+        help="Rewrite the example catalog",
+        epilog="Example:\n  hmp dev examples manifest --root examples --output manifest.json",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     manifest_p.add_argument("--root", default=None, help="Checkout root (default: auto-detect)")
     manifest_p.add_argument("--output", default=None, help="Destination (default: the wheel copy)")
 

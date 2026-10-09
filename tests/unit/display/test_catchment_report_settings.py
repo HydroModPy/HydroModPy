@@ -1,11 +1,24 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.display.catchment_report import CatchmentReportInputs
-from hydromodpy.display.catchment_report.settings import CatchmentReportSettings
+from hydromodpy.display.catchment_report.presets import PRESETS_BY_NAME
+from hydromodpy.display.catchment_report.settings import (
+    CatchmentReportSettings,
+    ContextSection,
+    GeologySection,
+    LayoutSection,
+    ObservedDischargeSection,
+    PipelineSection,
+    PresetName,
+    ReportConfig,
+    ReportSection,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SELUNE_CONFIG = (
@@ -83,5 +96,121 @@ run_simulation = "yes"
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="run_simulation"):
+    with pytest.raises(ConfigValidationError, match="run_simulation"):
         CatchmentReportSettings.from_toml(config_path)
+
+
+def _write_report_file(tmp_path: Path, extra: str = "") -> Path:
+    config_path = tmp_path / "catchment_report.toml"
+    config_path.write_text(
+        """
+[report]
+site_label = "Test"
+station_label = "Test outlet"
+output_dir = "report"
+
+[layout]
+watershed_project_dir = "."
+context_outputs_dir = "context"
+""".lstrip()
+        + extra,
+        encoding="utf-8",
+    )
+    return config_path
+
+
+def test_a_misspelled_key_is_refused_with_its_location(tmp_path) -> None:
+    config_path = _write_report_file(tmp_path, "\n[pipeline]\nrun_simulaton = true\n")
+
+    with pytest.raises(ConfigValidationError, match="run_simulaton") as raised:
+        CatchmentReportSettings.from_toml(config_path)
+
+    assert "pipeline.run_simulaton" in str(raised.value)
+    assert raised.value.details[0]["pointer"] == "/pipeline/run_simulaton"
+
+
+def test_a_misspelled_table_is_refused(tmp_path) -> None:
+    config_path = _write_report_file(tmp_path, "\n[pipline]\nrun_simulation = true\n")
+
+    with pytest.raises(ConfigValidationError, match="pipline"):
+        CatchmentReportSettings.from_toml(config_path)
+
+
+def test_a_missing_table_or_key_is_named(tmp_path) -> None:
+    no_layout = tmp_path / "no_layout.toml"
+    no_layout.write_text(
+        '[report]\nsite_label = "T"\nstation_label = "S"\noutput_dir = "r"\n', encoding="utf-8"
+    )
+    with pytest.raises(ConfigValidationError, match="layout"):
+        CatchmentReportSettings.from_toml(no_layout)
+
+    no_output = tmp_path / "no_output.toml"
+    no_output.write_text(
+        '[report]\nsite_label = "T"\nstation_label = "S"\n'
+        '[layout]\nwatershed_project_dir = "."\ncontext_outputs_dir = "c"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigValidationError, match="output_dir"):
+        CatchmentReportSettings.from_toml(no_output)
+
+
+def test_an_unknown_preset_is_refused_at_load(tmp_path) -> None:
+    config_path = _write_report_file(tmp_path)
+    text = config_path.read_text(encoding="utf-8").replace(
+        'output_dir = "report"', 'output_dir = "report"\npreset = "made_up"'
+    )
+    config_path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigValidationError, match="report.preset"):
+        CatchmentReportSettings.from_toml(config_path)
+
+
+def test_an_observed_discharge_table_needs_its_path(tmp_path) -> None:
+    config_path = _write_report_file(
+        tmp_path, '\n[context.observed_discharge]\nstation_id = "X1"\n'
+    )
+
+    with pytest.raises(ConfigValidationError, match="context.observed_discharge.path"):
+        CatchmentReportSettings.from_toml(config_path)
+
+
+def test_relative_paths_resolve_from_the_report_file(tmp_path) -> None:
+    config_path = _write_report_file(
+        tmp_path,
+        '\n[context.observed_discharge]\npath = "obs/q.csv"\nstation_id = "X1"\n',
+    )
+
+    settings = CatchmentReportSettings.from_toml(config_path)
+
+    assert settings.observed_discharge is not None
+    assert settings.observed_discharge.path == tmp_path / "obs" / "q.csv"
+    assert settings.layout.data_overview_project_dir == tmp_path
+    assert settings.layout.simulation_workspace_dir == tmp_path
+
+
+def test_the_geology_table_is_read_and_resolved(tmp_path) -> None:
+    config_path = _write_report_file(tmp_path, '\n[context.geology]\npath = "geo/map.gpkg"\n')
+
+    settings = CatchmentReportSettings.from_toml(config_path)
+
+    assert settings.geology is not None
+    assert settings.geology.path == tmp_path / "geo" / "map.gpkg"
+    assert CatchmentReportInputs.from_settings(settings).geology_path == tmp_path / "geo/map.gpkg"
+
+
+def test_every_field_of_the_report_file_is_described() -> None:
+    for model in (
+        ReportConfig,
+        ReportSection,
+        LayoutSection,
+        ContextSection,
+        GeologySection,
+        ObservedDischargeSection,
+        PipelineSection,
+    ):
+        for name, info in model.model_fields.items():
+            assert info.description, f"{model.__name__}.{name} has no description"
+
+
+def test_the_preset_names_match_the_presets() -> None:
+    assert set(get_args(PresetName)) == set(PRESETS_BY_NAME)

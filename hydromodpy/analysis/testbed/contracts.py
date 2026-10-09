@@ -6,8 +6,44 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from hydromodpy.core.exceptions import PipelineError
+
 if TYPE_CHECKING:
     from hydromodpy.analysis.testbed.regional_lab_types import RegionalLabPlannedCase
+
+
+class FailedCasesError(PipelineError):
+    """One or more cases of a testbed failed; the evidence of every case is written.
+
+    Raised once all the cases ran, so a testbed whose cases fail never ends as
+    a success. ``summary`` is the summary the launcher would have returned: the
+    counts and the paths of the plan, the manifest, the tables and the report.
+    """
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        summary: Mapping[str, Any] | None = None,
+        **context: Any,
+    ) -> None:
+        super().__init__(message, **context)
+        self.summary: dict[str, Any] = dict(summary or {})
+
+
+def failed_cases_message(
+    *,
+    label: str,
+    failed_ids: Sequence[str],
+    executed_count: int,
+    report_path: str | Path | None,
+) -> str:
+    """The one line that names the failed cases and where to read why."""
+    shown = ", ".join(failed_ids[:10]) + (", ..." if len(failed_ids) > 10 else "")
+    message = f"{label}: {len(failed_ids)} of {executed_count} case(s) failed: {shown}."
+    if report_path:
+        message += f" Read {report_path}."
+    return message
 
 
 @runtime_checkable
@@ -166,11 +202,13 @@ def run_testbed_child_workflow(
 __all__ = [
     "CalibrationTestbedWorkflowAdapter",
     "ComparisonTestbedWorkflowAdapter",
+    "FailedCasesError",
     "RegionalLabFlowMaterializer",
     "SimulationTestbedWorkflowAdapter",
     "TestbedRunnerProvider",
     "TestbedWorkflowAdapter",
     "available_testbed_runner_types",
+    "failed_cases_message",
     "get_testbed_runner_provider",
     "get_testbed_workflow_adapter",
     "register_testbed_runner_provider",

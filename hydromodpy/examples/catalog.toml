@@ -99,8 +99,8 @@ sha256 = "111df22e10a24e07ab0def837f62e81deea18384885577969988bce8b015014d"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_daily.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_daily.toml"
-size = 1589
-sha256 = "70e0bf50ddc0b8202e51bd1c1ecfe13b507eeab2115b56a11f8173b843f3088a"
+size = 1700
+sha256 = "ce8aaf2aa732321edc4df48265edce2530083e95a3f26024c3810d253f831f72"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step1_minimal.toml"

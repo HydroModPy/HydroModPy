@@ -126,10 +126,18 @@ class SimulationTimeConfig(HydroModelBase):
     coverage_policy: Annotated[CoveragePolicy, Profile.DEV] = Field(
         default="error",
         description=(
-            "Behavior when recharge does not fully cover the declared simulation "
-            "window bounds [start_datetime, end_datetime]: "
-            "'error' raises, 'warn' emits a warning, 'ignore' skips checks."
+            "What happens to a stress period that a forcing record does not "
+            "cover. A sample is the rate of the interval up to the next sample, "
+            "and the last sample stands for one step of the record (the median "
+            "spacing of its dates). A period that no sample reaches, before the "
+            "first date or after the end of the last step, is not covered. "
+            "'error' stops the run, 'warn' warns once per record, 'ignore' says "
+            "nothing; under 'warn' and 'ignore' the period takes the nearest "
+            "sample in time. The rule is the same for a series, a station and a "
+            "grid: rain, ETP, recharge, runoff and the declared CSV forcings read "
+            "as rates (aggregate = 'mean')."
         ),
+        examples=["error", "warn"],
     )
 
     @model_validator(mode="after")

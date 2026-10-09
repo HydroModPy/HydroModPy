@@ -89,7 +89,8 @@ def _bootstrap_api_source(
     y_out = getattr(geo_cfg, "y_outlet", None)
     if x_out is None or y_out is None:
         raise ValueError(
-            "DEM API source requires geographic.x_outlet / y_outlet to build the download bbox."
+            "DEM API source requires geographic.catchment.x_outlet / y_outlet to build the "
+            "download bbox."
         )
 
     bbox = (

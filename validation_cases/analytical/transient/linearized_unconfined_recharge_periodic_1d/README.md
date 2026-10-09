@@ -18,6 +18,10 @@ Run manually:
 python -m validation_cases.analytical.transient.linearized_unconfined_recharge_periodic_1d.run_case
 ```
 
+Reference used by the documentation:
+
+- reference: linearized 1D unconfined response to a sinusoidal recharge
+
 ## Equations
 
 The equations of the reference solution the comparison uses.

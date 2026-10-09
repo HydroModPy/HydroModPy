@@ -1,4 +1,4 @@
-Calibration Architecture
+Calibration architecture
 ========================
 
 .. rst-class:: lead
@@ -8,7 +8,7 @@ Software architecture of the calibration stack in
 the full operational guide for adding methods, observables, and
 objectives.
 
-For the user-facing hub, see Calibration Workflow.
+For the task, see :doc:`/guides/calibrate`.
 For the scientific side (inverse problem, methods), see
 :doc:`/theory/index`.
 

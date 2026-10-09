@@ -31,6 +31,7 @@ def _make_adapter(
     active_sinks_sources=None,
     *,
     simulation_window=None,
+    first_period_steady=True,
 ):
     """Build a minimal FlowToModflowAdapter focused on the recharge path."""
     if active_sinks_sources is None:
@@ -39,6 +40,7 @@ def _make_adapter(
         sinks_sources={"recharge": recharge_cfg},
         flow_regime=flow_regime,
         active_sinks_sources=active_sinks_sources,
+        first_period_steady=first_period_steady,
         config=None,
     )
     return FlowToModflowAdapter(
@@ -76,28 +78,48 @@ def _make_point_recharge_record(
     )
 
 
-def test_recharge_steady_mapping_returns_mean_scalar():
+def test_every_steady_period_of_a_steady_run_takes_the_mean():
     cfg = FlowRechargeConfig(values={0: 0.2, 1: 0.4}, units="m/s")
     adapter = _make_adapter(cfg, "steady", nper=2)
 
     rch_data = adapter._build_recharge_payload()
 
-    assert rch_data == pytest.approx(0.3)
+    assert rch_data == {0: pytest.approx(0.3), 1: pytest.approx(0.3)}
 
 
 def test_recharge_transient_mapping_returned_as_dict():
     cfg = FlowRechargeConfig(values={0: 0.1, 1: 0.2}, units="m/s")
-    adapter = _make_adapter(cfg, "transient", nper=2)
+    adapter = _make_adapter(cfg, "transient", nper=2, first_period_steady=False)
 
     rch_data = adapter._build_recharge_payload()
 
     assert rch_data == {0: 0.1, 1: 0.2}
 
 
+def test_a_steady_first_period_of_a_mapping_takes_first_clim():
+    cfg = FlowRechargeConfig(values={0: 0.1, 1: 0.2}, units="m/s")
+    adapter = _make_adapter(cfg, "transient", nper=2, first_period_steady=True)
+
+    rch_data = adapter._build_recharge_payload()
+
+    assert rch_data == {0: pytest.approx(0.15), 1: pytest.approx(0.2)}
+
+
+def test_a_transient_first_period_keeps_its_own_rate_whatever_first_clim():
+    recharge = pd.Series([0.5, 0.3, 0.1], dtype=float)
+    for first_clim in ("mean", "first", 0.0):
+        cfg = FlowRechargeConfig(values=recharge, first_clim=first_clim, units="m/s")
+        adapter = _make_adapter(cfg, "transient", nper=3, first_period_steady=False)
+
+        rch_data = adapter._build_recharge_payload()
+
+        assert rch_data[0] == pytest.approx(0.5), first_clim
+
+
 def test_recharge_series_coverage_error_rejects_missing_window_data():
     recharge = pd.Series(
-        [0.1],
-        index=pd.DatetimeIndex([pd.Timestamp("2003-01-01")]),
+        [0.1, 0.1],
+        index=pd.DatetimeIndex([pd.Timestamp("2003-01-01"), pd.Timestamp("2003-01-02")]),
         dtype=float,
     )
     cfg = FlowRechargeConfig(values=recharge, units="m/s")
@@ -114,7 +136,7 @@ def test_recharge_series_coverage_error_rejects_missing_window_data():
         ),
     )
 
-    with pytest.raises(ValueError, match="does not fully cover simulation window"):
+    with pytest.raises(ValueError, match="does not cover stress period"):
         adapter._build_recharge_payload()
 
 

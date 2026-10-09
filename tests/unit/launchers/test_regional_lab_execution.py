@@ -3,7 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from hydromodpy.analysis.testbed.contracts import register_testbed_runner_provider
+import pytest
+
+from hydromodpy.analysis.testbed.contracts import (
+    FailedCasesError,
+    register_testbed_runner_provider,
+)
 from hydromodpy.analysis.testbed.regional_lab import RegionalLabProfileLauncher
 from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabConfig
 
@@ -38,7 +43,9 @@ def test_regional_lab_execution_stops_on_first_failure(tmp_path: Path) -> None:
 
     register_testbed_runner_provider(_FakeProvider())
 
-    summary = RegionalLabProfileLauncher(config_path).run()
+    with pytest.raises(FailedCasesError, match="1 of 2 case") as info:
+        RegionalLabProfileLauncher(config_path).run()
+    summary = info.value.summary
 
     assert summary["planned_case_count"] == 3
     assert summary["skipped_case_count"] == 1

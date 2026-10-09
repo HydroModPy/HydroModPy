@@ -20,7 +20,13 @@ HELP: str = "Render one figure for a simulation"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[verbosity_parser()],
+        epilog="Example:\n  hmp viz show @last flux_timeseries --output flux.png",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     add_sim_ref(parser)
     parser.add_argument(
         "figure", help="Figure name from 'hmp viz list' (e.g. watertable_depth_map)"

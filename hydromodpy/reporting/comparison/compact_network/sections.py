@@ -28,15 +28,12 @@ def solver_summary(record: SimulationRecord) -> str:
         return "MODFLOW 6"
     if record.solver == "boussinesq":
         return "Boussinesq"
-    return record.solver or "solveur non renseigne"
+    return record.solver or "solver not specified"
 
 
 def mesh_summary(record: SimulationRecord) -> str:
     title = (
-        record.meta.mesh_summary
-        or record.mesh_label
-        or record.mesh_mode
-        or "maillage non renseigne"
+        record.meta.mesh_summary or record.mesh_label or record.mesh_mode or "mesh not specified"
     )
     cell_count = (
         _row_value(record.release_distance, "catchment_cell_count")
@@ -44,9 +41,9 @@ def mesh_summary(record: SimulationRecord) -> str:
         or _row_value(record.accumulation_distance, "catchment_cell_count")
     )
     detail = (
-        f"{safe_html(_fmt_m(cell_count))} cellules de calcul"
+        f"{safe_html(_fmt_m(cell_count))} computation cells"
         if cell_count
-        else "nombre de cellules non disponible"
+        else "cell count not available"
     )
     return f"{safe_html(title.replace('_', ' '))}; {detail}"
 
@@ -89,10 +86,10 @@ def metric_grid(row: dict[str, str], max_distance: float) -> str:
 <div class="metric-box">
   {metric_bar(row, max_distance)}
   <div class="metric-grid">
-    <div><span>calc &rarr; obs moy.</span><strong>{safe_html(_fmt_m(row.get("sim_to_network_distance_mean_m", "")))} m</strong></div>
-    <div><span>obs &rarr; calc moy.</span><strong>{safe_html(_fmt_m(row.get("network_to_sim_distance_mean_m", "")))} m</strong></div>
+    <div><span>sim &rarr; obs mean</span><strong>{safe_html(_fmt_m(row.get("sim_to_network_distance_mean_m", "")))} m</strong></div>
+    <div><span>obs &rarr; sim mean</span><strong>{safe_html(_fmt_m(row.get("network_to_sim_distance_mean_m", "")))} m</strong></div>
     <div><span>ratio</span><strong>{safe_html(_fmt_ratio(row.get("planar_distance_ratio", "")))}</strong></div>
-    <div><span>moyenne sym.</span><strong>{safe_html(_fmt_m(row.get("bidirectional_distance_mean_m", "")))} m</strong></div>
+    <div><span>sym. mean</span><strong>{safe_html(_fmt_m(row.get("bidirectional_distance_mean_m", "")))} m</strong></div>
   </div>
 </div>
 """
@@ -115,12 +112,12 @@ def figure_preview(
 ) -> str:
     path = figure_path(figure_root, record, variable)
     if not path.exists():
-        return '<div class="figure-missing">figure non disponible</div>'
+        return '<div class="figure-missing">figure not available</div>'
     rel = relative_path(page_path, path)
     title = f"{record.meta.label} - {label}"
     return f"""
 <figure class="method-figure">
-  <a href="{safe_html(rel)}" class="figure-link" data-lightbox-src="{safe_html(rel)}" data-lightbox-title="{safe_html(title)}" title="Cliquer pour agrandir">
+  <a href="{safe_html(rel)}" class="figure-link" data-lightbox-src="{safe_html(rel)}" data-lightbox-title="{safe_html(title)}" title="Click to enlarge">
     <img src="{safe_html(rel)}" alt="{safe_html(title)}" loading="lazy">
   </a>
   <figcaption>{safe_html(label)}</figcaption>
@@ -181,12 +178,12 @@ def comparison_table(
                 record,
                 row=record.release_distance,
                 variable="release_flux",
-                label="Emergences calculees avant routage",
+                label="Computed emergence before routing",
                 description=(
-                    "Mailles ou le modele calcule une sortie d'eau vers la surface: "
-                    "drain + surface excess, avant accumulation aval."
+                    "Cells where the model computes water leaving to the surface: "
+                    "drain + surface excess, before downstream accumulation."
                 ),
-                missing="metrique non disponible",
+                missing="metric not available",
                 max_distance=max_distance,
             )
             + method_cell(
@@ -195,27 +192,25 @@ def comparison_table(
                 record,
                 row=routed_distance_for(record),
                 variable="release_accumulation_flux",
-                label="Emergences accumulees vers l'aval",
+                label="Emergence accumulated downstream",
                 description=(
-                    "Les emergences sont routees vers l'aval sur le support numerique, "
-                    "puis comparees au reseau observe."
+                    "Emergence is routed downstream on the numerical support, "
+                    "then compared with the observed network."
                 ),
-                missing="non calcule pour cette configuration",
+                missing="not computed for this configuration",
                 max_distance=max_distance,
             )
             + "</tr>"
         )
     if not rows:
-        rows.append(
-            '<tr><td colspan="3" class="missing">Aucune simulation dans ce groupe.</td></tr>'
-        )
+        rows.append('<tr><td colspan="3" class="missing">No simulation in this group.</td></tr>')
     return f"""
 <table class="comparison-table">
   <thead>
     <tr>
-      <th>configuration calculee</th>
-      <th>emergences calculees avant routage</th>
-      <th>emergences accumulees vers l'aval</th>
+      <th>computed configuration</th>
+      <th>computed emergence before routing</th>
+      <th>emergence accumulated downstream</th>
     </tr>
   </thead>
   <tbody>{"".join(rows)}</tbody>
@@ -232,7 +227,7 @@ def contract_section(config: CompactNetworkSynthesisConfig) -> str:
     )
     return f"""
 <section>
-  <h2>Contrat physique commun</h2>
+  <h2>Common physical contract</h2>
   <div class="cards">{cards}</div>
 </section>
 """
@@ -242,13 +237,13 @@ def context_section(page_path: Path, context_figure_path: Path) -> str:
     if not context_figure_path.exists():
         return ""
     rel = relative_path(page_path, context_figure_path)
-    title = "Contexte topographique"
+    title = "Topographic context"
     return f"""
 <section>
-  <h2>Contexte spatial</h2>
-  <p>Carte topographique du support de calcul, avec le reseau hydrographique observe en rouge et la limite du bassin versant.</p>
+  <h2>Spatial context</h2>
+  <p>Topographic map of the computation support, with the observed hydrographic network in red and the catchment boundary.</p>
   <figure class="wide-figure context-figure">
-    <a href="{safe_html(rel)}" class="figure-link" data-lightbox-src="{safe_html(rel)}" data-lightbox-title="{safe_html(title)}" title="Cliquer pour agrandir">
+    <a href="{safe_html(rel)}" class="figure-link" data-lightbox-src="{safe_html(rel)}" data-lightbox-title="{safe_html(title)}" title="Click to enlarge">
       <img src="{safe_html(rel)}" alt="{safe_html(title)}" loading="lazy">
     </a>
     <figcaption>{safe_html(title)}</figcaption>
@@ -265,13 +260,13 @@ def recharge_section(
     if not recharge_figure_path.exists():
         return ""
     rel = relative_path(page_path, recharge_figure_path)
-    title = "Recharge mensuelle imposee"
+    title = "Prescribed monthly recharge"
     return f"""
 <section>
-  <h2>Recharge imposee</h2>
-  <p>{safe_html(summary_text)}. Cette chronique est commune aux configurations de ce benchmark.</p>
+  <h2>Prescribed recharge</h2>
+  <p>{safe_html(summary_text)}. This series is shared by the configurations of this benchmark.</p>
   <figure class="wide-figure">
-    <a href="{safe_html(rel)}" class="figure-link" data-lightbox-src="{safe_html(rel)}" data-lightbox-title="{safe_html(title)}" title="Cliquer pour agrandir">
+    <a href="{safe_html(rel)}" class="figure-link" data-lightbox-src="{safe_html(rel)}" data-lightbox-title="{safe_html(title)}" title="Click to enlarge">
       <img src="{safe_html(rel)}" alt="{safe_html(title)}" loading="lazy">
     </a>
     <figcaption>{safe_html(title)}</figcaption>
@@ -315,8 +310,8 @@ def interpretation_section(config: CompactNetworkSynthesisConfig) -> str:
     )
     return f"""
 <section>
-  <h2>Lecture des ecarts regulier / irregulier</h2>
-  <p>Les fortes differences viennent surtout du support geometrique utilise pour porter les sorties de nappe et pour mesurer les distances.</p>
+  <h2>Reading the regular / irregular differences</h2>
+  <p>The large differences come mostly from the geometric support used to carry the water-table outflow and to measure distances.</p>
   <div class="cards">{cards}</div>
 </section>
 """
@@ -329,13 +324,13 @@ def metric_synthesis_section(
     if not metric_synthesis_figure_path.exists():
         return ""
     rel = relative_path(page_path, metric_synthesis_figure_path)
-    title = "Synthese des distances au reseau observe"
+    title = "Summary of distances to the observed network"
     return f"""
 <section>
-  <h2>Synthese des metriques</h2>
-  <p>La figure compare, pour chaque configuration, les deux diagnostics de reseau avec la distance moyenne symetrique et le ratio directionnel.</p>
+  <h2>Metric summary</h2>
+  <p>The figure compares, for each configuration, the two network diagnostics with the symmetric mean distance and the directional ratio.</p>
   <figure class="wide-figure synthesis-figure">
-    <a href="{safe_html(rel)}" class="figure-link" data-lightbox-src="{safe_html(rel)}" data-lightbox-title="{safe_html(title)}" title="Cliquer pour agrandir">
+    <a href="{safe_html(rel)}" class="figure-link" data-lightbox-src="{safe_html(rel)}" data-lightbox-title="{safe_html(title)}" title="Click to enlarge">
       <img src="{safe_html(rel)}" alt="{safe_html(title)}" loading="lazy">
     </a>
     <figcaption>{safe_html(title)}</figcaption>
@@ -349,24 +344,24 @@ def links_section(page_path: Path, comparison_root: Path) -> str:
     report = comparison_root / "web" / "index.html"
     audit = comparison_root / "comparison_audit.md"
     report_item = (
-        f'<a href="{safe_html(relative_path(page_path, report))}">Rapport HTML complet</a>'
+        f'<a href="{safe_html(relative_path(page_path, report))}">Full HTML report</a>'
         if report.exists()
-        else "Rapport HTML complet non encore produit"
+        else "Full HTML report not produced yet"
     )
     audit_item = (
-        f'<a href="{safe_html(relative_path(page_path, audit))}">Audit de comparaison</a>'
+        f'<a href="{safe_html(relative_path(page_path, audit))}">Comparison audit</a>'
         if audit.exists()
-        else "Audit de comparaison non encore produit"
+        else "Comparison audit not produced yet"
     )
     return f"""
 <section>
-  <h2>Sorties completes</h2>
-  <p>Cette page est volontairement compacte. Les artefacts complets restent disponibles dans le dossier de comparaison.</p>
+  <h2>Full outputs</h2>
+  <p>This page is deliberately compact. The full artifacts remain available in the comparison folder.</p>
   <ul>
     <li>{report_item}</li>
     <li>{audit_item}</li>
     <li><code>{safe_html(str(comparison_root))}</code></li>
-    <li>statut audit: <strong>{safe_html(manifest.get("audit_status", "non lance"))}</strong></li>
+    <li>audit status: <strong>{safe_html(manifest.get("audit_status", "not run"))}</strong></li>
   </ul>
 </section>
 """
@@ -375,7 +370,7 @@ def links_section(page_path: Path, comparison_root: Path) -> str:
 def lightbox_markup() -> str:
     return """
 <div class="lightbox" id="figure-lightbox" hidden>
-  <button type="button" class="lightbox-close">Fermer</button>
+  <button type="button" class="lightbox-close">Close</button>
   <img alt="">
   <p></p>
 </div>
@@ -622,8 +617,8 @@ def render_page(
     if not any(record.release_distance or record.accumulation_distance for record in records):
         not_run = """
 <section>
-  <h2>Pas encore de sorties</h2>
-  <p>Le benchmark n'a pas encore ete execute, ou les CSV de comparaison ne sont pas presents.</p>
+  <h2>No outputs yet</h2>
+  <p>The benchmark has not been run yet, or the comparison CSV files are missing.</p>
 </section>
 """
     else:
@@ -640,7 +635,7 @@ def render_page(
         for section in config.group_sections
     )
     return f"""<!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

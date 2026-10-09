@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import math
 import numbers
@@ -16,7 +17,6 @@ from hydromodpy.analysis.comparison.config import (
 )
 from hydromodpy.core.toml_io.loader import (
     load_toml_with_base_config,
-    merge_toml_payloads,
 )
 
 TomlDescriptionProvider = Callable[[tuple[str, ...]], str | None]
@@ -158,7 +158,11 @@ def _build_solver_process_overlay(
     base_config_path: Path,
     solver: str,
 ) -> list[dict[str, Any]] | None:
-    """Build a process-list overlay changing the unique flow solver."""
+    """Build the process list of the base with its unique flow solver changed.
+
+    The list is returned whole. A list in an overlay replaces the inherited
+    list, so a partial list would drop the other processes.
+    """
     base_payload = load_toml_with_base_config(base_config_path)
     simulation = base_payload.get("simulation")
     if not isinstance(simulation, Mapping):
@@ -175,9 +179,20 @@ def _build_solver_process_overlay(
     if len(flow_indices) != 1:
         return None
 
-    overlays = [{} for _ in processes]
-    overlays[flow_indices[0]] = {"solvers": [solver]}
+    overlays = [copy.deepcopy(dict(process)) for process in processes]
+    overlays[flow_indices[0]]["solvers"] = [solver]
     return overlays
+
+
+def _let_solver_backend_follow_the_process(overlay: dict[str, Any]) -> None:
+    """Drop the inherited ``solver.backend`` so it follows the new flow solver.
+
+    The root config derives ``solver.backend`` from the flow process when the
+    file does not set it, and refuses two different names.
+    """
+    solver_overlay = overlay.setdefault("solver", {})
+    if isinstance(solver_overlay, dict):
+        solver_overlay["backend__delete"] = True
 
 
 def materialize_simulation_config(
@@ -205,11 +220,11 @@ def materialize_simulation_config(
             )
             if process_overlay is not None:
                 simulation_overlay["process"] = process_overlay
+                _let_solver_backend_follow_the_process(overlay)
 
-    payload = merge_toml_payloads(
-        {"base_config": base_config_path.as_posix()},
-        overlay,
-    )
+    # The overlay is written as is: the loader applies its directives against
+    # the real base when it reads the generated file.
+    payload = {"base_config": base_config_path.as_posix(), **overlay}
     generated_path = cfg.comparison_root / "_generated_configs" / f"{simulation.id}.toml"
     write_toml_payload(generated_path, payload)
     return generated_path

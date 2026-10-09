@@ -123,3 +123,33 @@ def test_config_template_list_modules_prints_modules_without_generating(
     assert result.exit_code == 0
     assert result.stdout.splitlines() == ["workspace", "flow"]
     assert calls == {}
+
+
+def test_config_resolve_prints_the_merged_chain(tmp_path) -> None:
+    (tmp_path / "base.toml").write_text(
+        '[[export]]\nvariables = "head"\ntime = "last"\n\n[flow]\nactive_bc = ["drainage"]\n',
+        encoding="utf-8",
+    )
+    child = tmp_path / "child.toml"
+    child.write_text(
+        'base_config = "base.toml"\n\n[[export]]\nvariables = "budget"\n',
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(["config", "resolve", str(child)])
+
+    assert result.exit_code == 0
+    assert tomllib.loads(result.stdout) == {
+        "export": [{"variables": "budget"}],
+        "flow": {"active_bc": ["drainage"]},
+    }
+
+
+def test_config_resolve_names_a_broken_chain(tmp_path) -> None:
+    child = tmp_path / "child.toml"
+    child.write_text('base_config = "child.toml"\n', encoding="utf-8")
+
+    result = CliRunner().invoke(["config", "resolve", str(child)])
+
+    assert result.exit_code == 14
+    assert "Detected circular base_config chain" in result.stderr

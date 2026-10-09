@@ -406,7 +406,9 @@ class Project:
         Parameters
         ----------
         name
-            Optional run name persisted in the catalog.
+            Run name persisted in the catalog. Defaults to ``[simulation]
+            name`` of the configuration, and to ``run_0001``, ``run_0002``...
+            only when the configuration names no run.
         resume
             Existing run identifier to resume from the workflow journal.
         from_step, until_step

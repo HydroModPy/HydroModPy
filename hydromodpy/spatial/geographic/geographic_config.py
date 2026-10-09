@@ -34,11 +34,11 @@ def _normalize_buff_area(value):
     if isinstance(value, str):
         token = value.strip()
         if token == "":
-            raise ValueError("geographic.buff_area cannot be empty.")
+            raise ValueError("geographic.catchment.buff_area cannot be empty.")
         if token.endswith("%"):
             pct = float(token[:-1].strip())
             if pct <= 0.0:
-                raise ValueError("geographic.buff_area percent must be > 0.")
+                raise ValueError("geographic.catchment.buff_area percent must be > 0.")
             return f"{int(pct)}%" if pct.is_integer() else f"{pct!r}%"
         quantity = UREG(token)
         if not hasattr(quantity, "magnitude"):
@@ -48,11 +48,11 @@ def _normalize_buff_area(value):
         else:
             dist_m = float(quantity.to("m").magnitude)
         if dist_m <= 0.0:
-            raise ValueError("geographic.buff_area distance must be > 0.")
+            raise ValueError("geographic.catchment.buff_area distance must be > 0.")
         return f"{dist_m!r} m"
     pct = float(value)
     if pct <= 0.0:
-        raise ValueError("geographic.buff_area percent must be > 0.")
+        raise ValueError("geographic.catchment.buff_area percent must be > 0.")
     return pct
 
 
@@ -971,7 +971,10 @@ class GeographicConfig(HydroModelBase):
             return self
         if self.catchment is None:
             raise ValueError(
-                "geographic.catch_def is required when geographic.source_mode='standard'."
+                "geographic.catchment.catch_def is required when "
+                "geographic.source_mode='standard'. Add a [geographic.catchment] table "
+                'with catch_def = "dem", "txt", "from_outlet_coord" or '
+                '"from_polyg_shp".'
             )
         context = info.context or {}
         allow_dem_bootstrap = bool(context.get("allow_dem_bootstrap"))

@@ -39,7 +39,7 @@ def test_testbed_config_parses_mesh_cases(tmp_path: Path) -> None:
                 "[testbed.case.overlay.mesh_catchment.zone_meshing]",
                 "global_size = 400.0",
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "n_cells"',
             ]
         )
@@ -86,7 +86,7 @@ def test_testbed_config_parses_flow_cases(tmp_path: Path) -> None:
                 "[testbed.case.overlay.flow.param.K.field]",
                 'value = "5e-6 m/s"',
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "sim_id"',
             ]
         )
@@ -207,7 +207,7 @@ _REJECTS_LEGACY_CASES = {
             "[[testbed.variants]]",
             'id = "coarse"',
         ],
-        "match": "testbed.case or testbed.case_from_catalog must contain at least one item",
+        "match": r"\[testbed\] does not accept 'variants'",
     },
     "test_testbed_config_rejects_mixed_case_and_variant_spellings": {
         "extra_files": {},
@@ -282,7 +282,7 @@ _REJECTS_LEGACY_CASES = {
             "[[testbed.catalog_variant]]",
             'id_template = "{case_id}"',
         ],
-        "match": "testbed.case or testbed.case_from_catalog must contain at least one item",
+        "match": r"\[testbed\] does not accept 'catalog_variant'",
     },
     "test_testbed_config_rejects_legacy_variant_from_catalog_spelling": {
         "extra_files": {"case_catalog.csv": _CASE_CATALOG_CSV},
@@ -474,4 +474,66 @@ def test_testbed_catalog_manifest_source_requires_requested_output(tmp_path: Pat
     )
 
     with pytest.raises(ValueError, match="does not contain output 'regional_lab_sites_csv'"):
+        MethodTestbedConfig.from_file(config_path)
+
+
+def _generic_testbed(tmp_path: Path, extra_lines: list[str]) -> Path:
+    base_config = tmp_path / "mesh_base.toml"
+    _write_mesh_base(base_config)
+    config_path = tmp_path / "testbed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "testbed"',
+                "",
+                "[testbed]",
+                'id = "mesh_resolution"',
+                'base_config = "mesh_base.toml"',
+                *extra_lines,
+                "",
+                "[[testbed.case]]",
+                'id = "coarse"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return config_path
+
+
+def test_a_misspelt_testbed_key_is_refused(tmp_path: Path) -> None:
+    """``exceute = false`` used to be ignored, and every case was solved."""
+    config_path = _generic_testbed(tmp_path, ["exceute = false"])
+
+    with pytest.raises(ValueError, match=r"\[testbed\] does not accept 'exceute'"):
+        MethodTestbedConfig.from_file(config_path)
+
+
+def test_a_misspelt_case_key_is_refused(tmp_path: Path) -> None:
+    config_path = _generic_testbed(tmp_path, [])
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8") + 'lable = "Coarse"\n', encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="does not accept 'lable'"):
+        MethodTestbedConfig.from_file(config_path)
+
+
+def test_the_toml_key_and_the_reference_name_agree() -> None:
+    """The parameter reference names a field by its alias: it must be the TOML key."""
+    field = MethodTestbedConfig.model_fields["base_config_path"]
+    derived = [name for name, info in MethodTestbedConfig.model_fields.items() if info.exclude]
+
+    assert field.alias == "base_config"
+    assert sorted(derived) == ["base_dir", "config_path"]
+
+
+def test_the_retired_metric_spelling_is_refused(tmp_path: Path) -> None:
+    config_path = _generic_testbed(
+        tmp_path, ["", "[[testbed.metric]]", 'name = "cells"', 'source = "n_cells"']
+    )
+
+    with pytest.raises(
+        ValueError, match="testbed.metric is no longer supported; use testbed.metrics"
+    ):
         MethodTestbedConfig.from_file(config_path)

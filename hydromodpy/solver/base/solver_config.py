@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from typing import Annotated, Literal, TypeAlias
 
 from pydantic import Field, field_validator, model_validator
@@ -78,6 +79,45 @@ SolverBackendConfig: TypeAlias = Annotated[
         description=("Discriminated union of flow solver backends tagged by the 'backend' key."),
     ),
 ]
+
+
+_BUILTIN_BACKEND_MODELS: dict[str, type[_SolverBackendBase]] = {
+    "modflow6": Modflow6Backend,
+    "modflow_nwt": ModflowNwtBackend,
+    "boussinesq": BoussinesqBackend,
+}
+
+
+def backend_for_solver(name: str) -> _SolverBackendBase:
+    """Return the ``solver.backend`` selector that names flow solver *name*.
+
+    A built-in name gives its own variant. Any other name gives the
+    ``custom`` variant carrying that name.
+    """
+    cleaned = str(name).strip()
+    model = _BUILTIN_BACKEND_MODELS.get(cleaned.lower())
+    if model is not None:
+        return model()
+    return CustomBackend(name=cleaned)
+
+
+def solver_name_of_backend(backend: object) -> str | None:
+    """Return the flow solver a ``solver.backend`` value names, or None.
+
+    *backend* is a selector model or its TOML table. Anything else gives
+    None, so the model validation reports it.
+    """
+    if isinstance(backend, CustomBackend):
+        return backend.name
+    if isinstance(backend, _SolverBackendBase):
+        return str(getattr(backend, "backend", "")) or None
+    if isinstance(backend, Mapping):
+        tag = str(backend.get("backend", "")).strip().lower()
+        if tag == "custom":
+            name = str(backend.get("name", "")).strip().lower()
+            return name or None
+        return tag or None
+    return None
 
 
 class SolverConfig(HydroModelBase):

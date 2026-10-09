@@ -1,5 +1,7 @@
 """SFR + LAK + MVR validation against ex-gwf-lak-p02 (Merritt & Konikow 2000).
 
+Compared with: the final lake stages published for the MODFLOW 6 example ex-gwf-lak-p02 (Merritt and Konikow 2000), 116.98 and 111.93 ft.
+
 The HMP package-agnostic MVR seam (MoverRecord -> build_mvr_period_records ->
 mover_package_count -> packages list, the exact assembly ``build.py`` performs)
 drives the upstream example's four transfers: two SFR -> LAK feeds and two

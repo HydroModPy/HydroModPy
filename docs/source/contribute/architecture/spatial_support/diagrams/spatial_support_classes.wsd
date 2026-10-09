@@ -70,7 +70,7 @@ package "hydromodpy.spatial.domain.domain" {
   }
 }
 
-package "hydromodpy.spatial.domain.catchment_zones_field" {
+package "hydromodpy.spatial.catchment_zones_field" {
   class CatchmentZonesField {
     +identifier: str
     +encoded_codes: np.ndarray

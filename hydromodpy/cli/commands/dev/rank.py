@@ -12,7 +12,12 @@ HELP: str = "Rank simulations of a project by a metric (top or bottom N)"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        epilog="Example:\n  hmp dev rank my_project --metric nse --top 5",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("project", help="Project label")
     parser.add_argument("--metric", default="nse", help="Metric name (default: nse)")
     parser.add_argument("--workspace", default=None, help="Project catalog root")

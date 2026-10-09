@@ -1,6 +1,6 @@
 .. _flow-boundary-conditions-runtime-contract:
 
-Flow Boundary Conditions
+Flow boundary conditions
 ========================
 
 Scope
@@ -18,10 +18,10 @@ The runtime architecture now adds one explicit middle layer:
 - ``BoundaryConditionBundle`` groups configured and active boundaries for
   solver adapters.
 
-This keeps the user-facing contract stable while making backend support and
-future extensions easier to inspect.
+This keeps the user-facing contract stable while making backend support easier to
+inspect.
 
-Quick Access
+Quick access
 ------------
 
 .. list-table::
@@ -53,67 +53,36 @@ Quick Access
      - ``tests/unit/physics/test_flow_boundary_condition_registry.py``
      - Registry ids, backend support, bundle behavior, and Flow integration.
 
-Code Map
+Code map
 --------
 
 - ``hydromodpy.physics.flow.boundary_conditions``:
-  normalized boundary-condition payload model.
+  normalized boundary-condition payload models.
 - ``hydromodpy.physics.flow.boundary_condition_registry``:
-  TOML shape normalization.
-- ``hydromodpy.physics.flow.boundary_condition_registry``:
-  canonical boundary registry and runtime bundle helpers.
+  the canonical boundary registry (``FLOW_BOUNDARY_DEFINITIONS``) and the runtime
+  bundle helpers.
 - ``hydromodpy.physics.flow.flow``:
   runtime ``Flow`` object storing the boundary bundle.
 - ``hydromodpy.solver.modflow6.builders.boundary_conditions``:
   MF6 ``CHD`` / ``DRN`` translation.
-- ``hydromodpy.solver.modflow_nwt.nwt.payloads.chd`` and
-  ``_well_drainage_payloads``:
+- ``hydromodpy.solver.modflow_nwt.nwt.payloads.chd`` and ``well_drainage``:
   MODFLOW-NWT ``BAS`` / ``CHD`` / ``DRN`` translation.
 - ``hydromodpy.solver.boussinesq.forcing``:
   prescribed-head and drainage operator resolution.
 
-Current Boundary Ids
---------------------
+Boundary ids
+------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 18 24 22 36
+The registry is the table: ``FLOW_BOUNDARY_DEFINITIONS`` gives, for each id, the family, the
+default type and units, the support kind, the backends that implement it and the package or
+operator each one uses. It holds the four side Dirichlet ids (``west_side``, ``east_side``,
+``north_side``, ``south_side``), ``stream``, ``ocean``, ``drainage``, and the advanced
+packages ``lake``, ``reservoir`` and ``sfr``. The advanced packages are MODFLOW 6 only
+(``LAK`` and ``SFR``). ``stream`` is not implemented for MODFLOW-NWT. Read the registry
+for the current list instead of a copy of it.
 
-   * - Id
-     - Family
-     - Support kind
-     - Backend package/operator
-   * - ``west_side``
-     - ``dirichlet``
-     - ``side``
-     - MF6 ``CHD``; NWT ``BAS/CHD``; Boussinesq ``prescribed_head``.
-   * - ``east_side``
-     - ``dirichlet``
-     - ``side``
-     - MF6 ``CHD``; NWT ``BAS/CHD``; Boussinesq ``prescribed_head``.
-   * - ``north_side``
-     - ``dirichlet``
-     - ``side``
-     - MF6 ``CHD``; NWT ``BAS/CHD``; Boussinesq ``prescribed_head``.
-   * - ``south_side``
-     - ``dirichlet``
-     - ``side``
-     - MF6 ``CHD``; NWT ``BAS/CHD``; Boussinesq ``prescribed_head``.
-   * - ``stream``
-     - ``dirichlet``
-     - ``stream``
-     - MF6 ``CHD``; Boussinesq ``prescribed_head``. Not implemented for NWT.
-   * - ``ocean``
-     - ``dirichlet``
-     - ``ocean_stage``
-     - MF6 ``CHD``; NWT ``BAS/CHD``; Boussinesq ``prescribed_head``.
-   * - ``drainage``
-     - ``head_dependent_exchange``
-     - ``top``
-     - MF6 ``DRN``; NWT ``DRN``; Boussinesq ``top_drainage``.
-
-Diagram 1: Component View
--------------------------
+Component view
+--------------
 
 .. uml:: diagrams/flow_boundary_conditions_components.wsd
 
@@ -121,8 +90,8 @@ Diagram 1: Component View
    :language: text
    :caption: PlantUML (.wsd) source - flow boundary-condition component view
 
-Diagram 2: Runtime Sequence
----------------------------
+Runtime sequence
+----------------
 
 .. uml:: diagrams/flow_boundary_conditions_sequence.wsd
 
@@ -140,7 +109,8 @@ Notes
 - Adding a new canonical boundary should start in the registry, then each
   backend should either implement it or explicitly leave it unsupported.
 
-Related Diagrams
-----------------
+Related pages
+-------------
 
-See :doc:`process-architecture` for the process config class, runtime class, and runtime-to-solver sequence diagrams.
+See :doc:`process-architecture` for the process config class, runtime class, and
+runtime-to-solver sequence diagrams.

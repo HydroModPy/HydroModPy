@@ -1,11 +1,7 @@
 % HydroModPy theory bibliography.
 %
-% Entries cover: foundational hydrogeology (Boussinesq, Dupuit, Theis,
-% Hantush, Brutsaert), MODFLOW family documentation (Harbaugh, Niswonger,
-% Langevin), HydroModPy seepage-calibration paper (Abherve), and the
-% optimization libraries wrapped by the calibration backend (Bergstra,
-% Hansen, Nelder-Mead, Virtanen/SciPy, Pedregosa/scikit-learn,
-% Rasmussen-Williams, Christen-Fox).
+% Only the entries a page cites appear on the bibliography page. A new DOI is
+% resolved against Crossref before the entry is added.
 
 % --- Foundational hydrogeology ---
 
@@ -97,6 +93,39 @@
   number      = {6-A55},
   year        = {2017},
   doi         = {10.3133/tm6A55}
+}
+
+@techreport{provost2017,
+  author      = {Provost, A. M. and Langevin, C. D. and Hughes, J. D.},
+  title       = {Documentation for the {``XT3D''} option in the {Node Property Flow (NPF)} Package of {MODFLOW} 6},
+  institution = {U.S. Geological Survey},
+  type        = {Techniques and Methods},
+  number      = {6-A56},
+  year        = {2017},
+  doi         = {10.3133/tm6A56}
+}
+
+% --- Numerical closures and upscaling ---
+
+@article{marcais2017,
+  author  = {Mar\c{c}ais, J. and de Dreuzy, J.-R. and Erhel, J.},
+  title   = {Dynamic coupling of subsurface and seepage flows solved within a regularized partition formulation},
+  journal = {Advances in Water Resources},
+  volume  = {109},
+  pages   = {94--105},
+  year    = {2017},
+  doi     = {10.1016/j.advwatres.2017.09.008}
+}
+
+@article{renard1997,
+  author  = {Renard, Ph. and de Marsily, G.},
+  title   = {Calculating equivalent permeability: a review},
+  journal = {Advances in Water Resources},
+  volume  = {20},
+  number  = {5-6},
+  pages   = {253--278},
+  year    = {1997},
+  doi     = {10.1016/S0309-1708(96)00050-4}
 }
 
 % --- HydroModPy stream-network calibration ---

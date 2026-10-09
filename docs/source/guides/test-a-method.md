@@ -112,7 +112,7 @@ until step 5 is done.
 ```{hmp-params}
 testbed.id
 testbed.subject
-testbed.base_config_path
+testbed.base_config
 testbed.output_root
 testbed.execute
 testbed.runner.type
@@ -123,8 +123,6 @@ testbed.catalog.tags
 testbed.catalog.required_fields
 ```
 
-- The key you write for the base file is `base_config`. The reference card above is named
-  `base_config_path`.
 - The path of the base file is read from the folder of the testbed file. The flow and
   transport subjects require it.
 - {toml}`runner.type|testbed.runner.type` says what runs a case. `simulation` runs one
@@ -135,10 +133,10 @@ testbed.catalog.required_fields
 - Without {toml}`output_root|testbed.output_root` the files go to `testbed/<id>` next to the
   testbed file.
 
-```{warning}
-The `[testbed]` table does not refuse a key it does not know. `exceute = false` is read as
-no key at all, `execute` keeps its default, and `hmp run` solves every case. Compare the
-spelling with the cards, and keep `execute = false` until the plan looks right.
+```{note}
+The `[testbed]` table refuses a key it does not know: `exceute = false` stops the file with
+`[testbed] does not accept 'exceute'. Accepted keys: ...`. Keep `execute = false` until the
+plan looks right.
 ```
 
 ## 3. Write one rule per variant
@@ -263,8 +261,7 @@ solver result, for example `chd` or `rcha` for MODFLOW 6.
 - A metric that is not found is an empty cell. With `required = true` it fails the case.
 - With no metric at all, `testbed_metrics.csv` holds every numeric value of the summary, as
   flat columns.
-- `[[testbed.metric]]` is read too, and wins over `[[testbed.metrics]]` when a file has
-  both. Use one of them.
+- The older spelling `[[testbed.metric]]` is refused: write `[[testbed.metrics]]`.
 
 The whole file, ready to check:
 
@@ -382,8 +379,9 @@ testbed.runner.no_display
 - A child whose resolved configuration equals a completed run of the project is not solved
   again, and the testbed still reads its results. After a failure, run the file again: the
   children that completed are read, the others are solved.
-- The exit code of `hmp run` is 0 even when cases failed. Read `failed_count` in the
-  summary, or the `status` column of `testbed_cases.csv`.
+- When a case failed, `hmp run` writes every file of the evidence, then stops with exit
+  code 23 (`FailedCasesError`). Read `failed_count` in the summary, or the `status` column
+  of `testbed_cases.csv`, to see which cases failed.
 
 ## 7. Read the evidence
 

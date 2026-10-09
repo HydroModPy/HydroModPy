@@ -49,7 +49,7 @@ class CompactNetworkSynthesisBuilder:
     ) -> SimulationRecord:
         meta = self.meta_by_id.get(
             simulation_id,
-            SimulationMeta(simulation_id, simulation_id, "autres"),
+            SimulationMeta(simulation_id, simulation_id, "other"),
         )
         return records.setdefault(simulation_id, SimulationRecord(meta=meta))
 
@@ -402,10 +402,10 @@ class CompactNetworkSynthesisBuilder:
                 catalog = Catalog(resolve_recorded_path(run_folder), read_only=True)
                 run = catalog[str(sim_id)]
                 for variable, title in (
-                    ("release_flux", "Emergences avant routage - intensite moyenne positive"),
+                    ("release_flux", "Emergence before routing, mean positive intensity"),
                     (
                         "release_accumulation_flux",
-                        "Emergences accumulees vers l'aval - intensite moyenne positive",
+                        "Emergence accumulated downstream, mean positive intensity",
                     ),
                 ):
                     if not run.has_field(variable):

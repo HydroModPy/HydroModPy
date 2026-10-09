@@ -21,7 +21,7 @@ def read_variable(
     run: Any,
     var: str,
     *,
-    time: int | slice | None = None,
+    time: Any = None,
     layer: int | None = None,
     sel: dict | None = None,
     bbox: tuple[float, float, float, float] | None = None,
@@ -30,9 +30,16 @@ def read_variable(
 
     Resolves ``var`` against the field registry (Zarr fields), then the
     DuckDB ``timeseries`` table, then the geographic features. Returns a
-    lazy ``xr.DataArray`` for fields (an ``np.ndarray`` when ``time`` is an
-    ``int``), a ``pd.Series`` for timeseries, a ``gpd.GeoDataFrame`` for
+    lazy ``xr.DataArray`` for fields (an ``np.ndarray`` when ``time`` names
+    one period), a ``pd.Series`` for timeseries, a ``gpd.GeoDataFrame`` for
     features.
+
+    ``time`` names one period of a field: an ``int`` index (negative counts
+    from the end), a date (``"2002-10-15"``, ``datetime.date``,
+    ``pandas.Timestamp``) that resolves to the stress period holding it, or
+    ``"first"`` / ``"last"``. A ``slice`` of indexes keeps several periods.
+    A series or a feature takes no ``time``: a series is windowed by
+    ``sel={"period": (start, end)}``.
     """
     from hydromodpy.results import field_registry
     from hydromodpy.results.errors import FieldNotFoundError
@@ -44,14 +51,16 @@ def read_variable(
     sel_kw: dict = dict(sel or {})
 
     if field_registry.has(var):
-        return _read_field(run, var, time=time, layer=layer, bbox=bbox)
+        return _read_field(run, var, time=_period_index(run, time), layer=layer, bbox=bbox)
 
     if _has_timeseries_var(run, var):
+        _refuse_time(var, time, "a series", 'sel={"period": (start, end)}')
         station = sel_kw.pop("station", None)
         period = sel_kw.pop("period", None)
         return run.timeseries(var, station=station, period=period)
 
     if _has_geographic_feature(run, var):
+        _refuse_time(var, time, "a geographic feature", "no time selector")
         return run.geographic(var)
 
     available = ", ".join(sorted(field_registry.all_names()))
@@ -61,6 +70,48 @@ def read_variable(
         sim_id=run.sim_id,
         variable=var,
     )
+
+
+def _period_index(run: Any, time: Any) -> int | slice | None:
+    """Turn the ``time`` of a field read into a period index or a slice.
+
+    A date used to be ignored without a word, and every period came back.
+    """
+    import datetime
+
+    import numpy as np
+    import pandas as pd
+
+    if time is None or isinstance(time, slice):
+        if isinstance(time, slice) and not all(
+            bound is None or isinstance(bound, int) for bound in (time.start, time.stop, time.step)
+        ):
+            raise TypeError(
+                "A time slice takes period indexes (time=slice(0, 12)). For a "
+                "window of dates, take the indexes from run.periods.steps_for("
+                "period=(start, end))."
+            )
+        return time
+    if isinstance(time, bool):
+        raise TypeError("time must be a period index, a date, 'first' or 'last', not a bool.")
+    if isinstance(time, (int, np.integer)):
+        return int(time)
+    if isinstance(time, (str, datetime.date, pd.Timestamp, np.datetime64)):
+        return int(
+            run.periods.step_at(pd.Timestamp(time) if isinstance(time, np.datetime64) else time)
+        )
+    raise TypeError(
+        f"time must be a period index, a slice of indexes, a date, 'first' or "
+        f"'last'; got {type(time).__name__}."
+    )
+
+
+def _refuse_time(var: str, time: Any, kind: str, instead: str) -> None:
+    """Refuse a ``time`` selector the variable cannot honour."""
+    if time is not None:
+        raise ValueError(
+            f"'{var}' is {kind}, and time= selects a period of a field. Use {instead}."
+        )
 
 
 def _read_field(

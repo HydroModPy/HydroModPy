@@ -48,3 +48,27 @@ def test_a_discovered_station_outside_the_mask_is_dropped(tmp_path):
     kept = manager._apply_mask([_record("IN", -1.2, 48.35), _record("FAR", -1.2, 48.5)], source)
 
     assert [r.station_id for r in kept] == ["IN"]
+
+
+@pytest.mark.fast
+def test_a_dropped_station_is_named_in_a_warning(tmp_path, caplog):
+    import logging
+
+    manager = PiezometryManager(config=None, catalog=None)
+    source = PiezometrySourceConfig(source="hubeau", product="level", mask_path=_mask(tmp_path))
+
+    with caplog.at_level(logging.WARNING):
+        manager._apply_mask([_record("IN", -1.2, 48.35), _record("FAR", -1.2, 48.5)], source)
+
+    assert "outside the mask watershed.geojson dropped: ['FAR']" in caplog.text
+
+
+@pytest.mark.fast
+def test_a_source_whose_every_station_is_outside_is_refused(tmp_path):
+    from hydromodpy.core.exceptions import DataSourceError
+
+    manager = PiezometryManager(config=None, catalog=None)
+    source = PiezometrySourceConfig(source="hubeau", product="level", mask_path=_mask(tmp_path))
+
+    with pytest.raises(DataSourceError, match=r"every station .* outside the mask.*\['FAR'\]"):
+        manager._apply_mask([_record("FAR", -1.2, 48.5)], source)

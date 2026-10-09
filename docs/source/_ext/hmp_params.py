@@ -23,6 +23,8 @@ from sphinx.util.docutils import SphinxDirective
 
 logger = logging.getLogger(__name__)
 
+SNAPSHOTS = Path(__file__).resolve().parents[3] / "tools" / "docs" / "snapshots"
+
 # BuildEnvironment.app is deprecated since Sphinx 9 (removed in 11): the
 # application is kept here by setup() and every directive asks for the builder.
 _APP: Sphinx | None = None
@@ -59,8 +61,7 @@ def load_state(app: Sphinx) -> None:
     reg = json.loads((data / "registry.json").read_text())
     S["meta"] = reg["meta"]
     S["nodes"] = reg["nodes"]
-    S["fo"] = {}
-    for name in ("gates", "changelog"):
+    for name in ("gates",):
         p = data / f"{name}.json"
         S[name] = json.loads(p.read_text()) if p.exists() else {}
     S["example_dir"] = Path(app.config.hmp_example_dir)
@@ -153,6 +154,13 @@ def uri(builder, fromdoc: str, path: str, *, prefer_a: bool = False) -> str:
     return f"{rel}#{anchor_of(path)}"
 
 
+def static_uri(builder, fromdoc: str, name: str) -> str:
+    """Relative link from a page to a file of ``_static``."""
+    to_root = builder.get_relative_uri(fromdoc, "index")
+    prefix = to_root.rsplit("/", 1)[0] + "/" if "/" in to_root else ""
+    return f"{prefix}_static/{name}"
+
+
 def doc_uri(builder, fromdoc: str, todoc: str) -> str:
     return "" if todoc == fromdoc else builder.get_relative_uri(fromdoc, todoc)
 
@@ -179,11 +187,14 @@ def range_text(rng: dict[str, Any]) -> str:
         return f"{lo_op} {fmt_num(lo)}"
     if hi is not None:
         return f"{hi_op} {fmt_num(hi)}"
+    lo_n, hi_n = rng.get("min_length"), rng.get("max_length")
+    if lo_n is not None and lo_n == hi_n:
+        return f"exactly {lo_n} item{'s' if lo_n != 1 else ''}"
     parts = []
-    if "min_length" in rng:
-        parts.append(f"at least {rng['min_length']} item(s)")
-    if "max_length" in rng:
-        parts.append(f"at most {rng['max_length']} item(s)")
+    if lo_n is not None:
+        parts.append(f"at least {lo_n} item{'s' if lo_n != 1 else ''}")
+    if hi_n is not None:
+        parts.append(f"at most {hi_n} item{'s' if hi_n != 1 else ''}")
     return ", ".join(parts)
 
 
@@ -198,13 +209,8 @@ def table_form(n: dict[str, Any]) -> str:
     return "[table]"
 
 
-def origin(text: str, written: bool) -> str:
-    return f'<span data-origin="{"written" if written else "auto"}">{text}</span>'
-
-
-def when_text(n: dict[str, Any], fo: dict[str, Any]) -> tuple[str, bool]:
-    if fo.get("when"):
-        return esc(fo["when"]), True
+def when_text(n: dict[str, Any]) -> str:
+    """The condition under which a key is read: its shape, or a declared VisibleWhen."""
     parts = []
     host = node(n.get("path", "").rsplit(".", 1)[0]) if n.get("path") else {}
     all_shapes = {str(v["value"]) for v in host.get("variants_detail", [])}
@@ -215,87 +221,29 @@ def when_text(n: dict[str, Any], fo: dict[str, Any]) -> tuple[str, bool]:
     for w in n.get("when", []):
         vals = " | ".join(json.dumps(v) for v in w["values"])
         parts.append(f"{esc(w['field'])} = {esc(vals)}")
-    return " and ".join(parts), False
+    return " and ".join(parts)
 
 
-# ---------------------------------------------------------------- rows
+# ---------------------------------------------------------------- copy buttons
+
+ICON_COPY = (
+    '<svg class="hmp-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+    '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'
+)
+ICON_LINK = (
+    '<svg class="hmp-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+    '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/>'
+    '<path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>'
+)
 
 
-def render_row(builder, fromdoc: str, path: str, *, overlay: bool, show_path: bool = False) -> str:
-    n = node(path)
-    fo = S["fo"].get(path, {}) if overlay else {}
-    is_leaf = n.get("kind") == "leaf"
-    name = n.get("name", path.rsplit(".", 1)[-1])
-    label = fo.get("label")
-    label_fr = fo.get("label_fr") or (n.get("label_fr") if overlay else None)
-    form = n.get("form", "") if is_leaf else table_form(n)
-    if fo.get("form"):
-        form_html = origin(esc(fo["form"]), True)
-    else:
-        form_html = origin(esc(form), False)
-    if n.get("required"):
-        default_html = '<span class="hmp-req" data-origin="auto">required</span>'
-    else:
-        default = n.get("default")
-        default_html = (
-            origin(f"<code>{esc(default)}</code>", False)
-            if default not in (None, "not set")
-            else origin('<span class="hmp-muted">not set</span>', False)
-        )
-    if fo.get("unit_text"):
-        unit_html = origin(inline_md(fo["unit_text"], builder, fromdoc), True)
-    elif n.get("unit") and not (n["unit"] == "-" and not n.get("numeric")):
-        unit_html = origin(esc(n["unit"]), False)
-    else:
-        unit_html = ""
-    badges = []
-    wt, wt_written = when_text(n, fo)
-    if wt:
-        badges.append(
-            f'<span class="hmp-b hmp-b-when" data-origin="{"written" if wt_written else "auto"}">only if {wt}</span>'
-        )
-    if n.get("calibrable"):
-        tr = n["calibrable"].get("transform")
-        badges.append(
-            f'<span class="hmp-b hmp-b-cal" data-origin="auto">calibrable{" · " + esc(tr) if tr and tr != "identity" else ""}</span>'
-        )
-    if n.get("profile") in ("dev", "expert"):
-        badges.append(
-            f'<span class="hmp-b hmp-b-prof" data-origin="auto">{esc(n["profile"])}</span>'
-        )
-    if n.get("stability") == "experimental":
-        badges.append('<span class="hmp-b hmp-b-exp" data-origin="auto">experimental</span>')
-    if n.get("deprecated"):
-        badges.append('<span class="hmp-b hmp-b-dep" data-origin="auto">deprecated</span>')
-    if fo.get("flag"):
-        badges.append(
-            f'<span class="hmp-b hmp-b-flag" data-origin="written">{esc(fo["flag"])}</span>'
-        )
-    rng = range_text(n.get("range", {}))
-    if rng:
-        badges.append(f'<span class="hmp-b hmp-b-range" data-origin="auto">{esc(rng)}</span>')
-    summary = fo.get("summary") or n.get("summary") or n.get("doc") or ""
-    summary_html = origin(inline_md(summary, builder, fromdoc), bool(fo.get("summary")))
-    title = f"<code>{esc(name)}</code>"
-    if label or label_fr:
-        bits = []
-        if label:
-            bits.append(f'<span class="hmp-label" data-origin="written">{esc(label)}</span>')
-        if label_fr:
-            bits.append(f'<span class="hmp-label-fr" data-origin="written">{esc(label_fr)}</span>')
-        title += f'<span class="hmp-labels">{" · ".join(bits)}</span>'
-    if show_path:
-        title += f'<span class="hmp-labels hmp-rowpath">{esc(path.rsplit(".", 1)[0])}</span>'
-    card = render_card(builder, fromdoc, path, n, fo)
-    cls = "hmp-row" + ("" if is_leaf else " hmp-row-table")
+def copy_button(label: str, *, text: str | None = None, anchor: str | None = None) -> str:
+    """One icon button. It copies ``text``, or the URL of the page with ``#anchor``."""
+    data = f' data-copy="{esc(text)}"' if text is not None else f' data-anchor="{esc(anchor)}"'
+    icon = ICON_COPY if text is not None else ICON_LINK
     return (
-        f'<details class="{cls}" id="{anchor_of(path)}" data-profile="{esc(n.get("profile", "user"))}" data-path="{esc(path)}">'
-        f'<summary><span class="hmp-name">{title}</span>'
-        f'<span class="hmp-form">{form_html}</span>'
-        f'<span class="hmp-default">{default_html}</span>'
-        f'<span class="hmp-unit">{unit_html}</span>'
-        f'<span class="hmp-sumtext">{summary_html} {" ".join(badges)}</span>'
-        f"</summary>{card}</details>"
+        f'<button class="hmp-copy" type="button"{data} aria-label="{esc(label)}" '
+        f'title="{esc(label)}">{icon}</button>'
     )
 
 
@@ -381,40 +329,70 @@ def autolink_paths(html_text: str, builder, fromdoc: str) -> str:
     return "".join(parts)
 
 
-def render_card(builder, fromdoc: str, path: str, n: dict, fo: dict) -> str:
+def rest_of_description(n: dict[str, Any]) -> str:
+    """What the description says beyond the summary line shown above the card."""
+    desc = (n.get("description") or "").strip()
+    summary = (n.get("summary") or "").strip()
+    if not summary:
+        return desc
+    i = j = 0
+    while j < len(summary):
+        if i >= len(desc):
+            return desc
+        if desc[i] == summary[j]:
+            i, j = i + 1, j + 1
+        elif desc[i].isspace():
+            i += 1
+        elif summary[j].isspace():
+            j += 1
+        else:
+            return desc
+    return desc[i:].strip()
+
+
+def unexplained(n: dict[str, Any]) -> set[str]:
+    """Values of a choice that neither value_docs nor the description explains."""
+    docs = n.get("value_docs") or {}
+    text = n.get("description") or ""
+    out = set()
+    for v in n.get("literal") or []:
+        if str(v) in docs or re.search(rf"[`'\"]{re.escape(str(v))}[`'\"]", text):
+            continue
+        out.add(str(v))
+    return out
+
+
+def render_card(builder, fromdoc: str, path: str, n: dict) -> str:
+    """The card under a key line: what the line itself cannot say."""
     rows = []
 
     def add(label: str, value: str) -> None:
         if value:
             rows.append(f"<dt>{label}</dt><dd>{value}</dd>")
 
+    anchor = anchor_of(path)
     add(
         "Path",
-        f'<code class="hmp-path">{esc(path)}</code> <button class="hmp-copy" data-copy="{esc(path)}" title="Copy">copy</button>',
+        f'<code class="hmp-path">{esc(path)}</code> '
+        + copy_button("Copy the path", text=path)
+        + copy_button("Copy a link to this key", anchor=anchor),
     )
-    if fo.get("detail"):
-        add("What it does", origin(inline_md(fo["detail"], builder, fromdoc), True))
-    desc = n.get("description") or n.get("doc") or ""
-    if desc:
-        label = "Docstring" if fo.get("summary") or fo.get("detail") else "Description"
-        add(label, f'<div data-origin="auto">{block_md(desc, builder, fromdoc)}</div>')
+    rest = rest_of_description(n)
+    if rest:
+        add("More", block_md(rest, builder, fromdoc))
     lits = n.get("literal", [])
-    vdocs = dict(n.get("value_docs", {}))
-    vdocs.update(fo.get("value_docs", {}))
+    vdocs = n.get("value_docs", {})
     if lits:
+        missing = unexplained(n)
         items = []
         for v in lits:
             doc = vdocs.get(str(v))
-            written = str(v) in fo.get("value_docs", {})
-            items.append(
-                f"<li><code>{esc(json.dumps(v))}</code>"
-                + (
-                    f" : {origin(inline_md(doc, builder, fromdoc), written)}"
-                    if doc
-                    else ' <span class="hmp-gap" data-origin="auto">no explanation</span>'
-                )
-                + "</li>"
+            note = (
+                f" : {inline_md(doc, builder, fromdoc)}"
+                if doc
+                else (' <span class="hmp-muted">no explanation</span>' if str(v) in missing else "")
             )
+            items.append(f"<li><code>{esc(json.dumps(v))}</code>{note}</li>")
         add("Values", f'<ul class="hmp-values">{"".join(items)}</ul>')
     if n.get("kind") == "leaf":
         accepted = esc(n.get("form", ""))
@@ -422,124 +400,50 @@ def render_card(builder, fromdoc: str, path: str, n: dict, fo: dict) -> str:
             accepted += (
                 ' <span class="hmp-muted">(a bare number is read in the canonical unit)</span>'
             )
-        add("Accepted", origin(accepted, False))
+        add("Accepted", accepted)
     rng = range_text(n.get("range", {}))
     if rng:
-        add(
-            "Valid range",
-            origin(f'{esc(rng)} <span class="hmp-muted">(refused outside)</span>', False),
-        )
-    if (n.get("unit") and not (n["unit"] == "-" and not n.get("numeric"))) or fo.get("unit_text"):
-        src = {
-            "type": "from the quantity type",
-            "metadata": "declared unit",
-            "calibrable": "from the calibration metadata",
-            "name": "from the name suffix",
-        }.get(n.get("unit_source"), "")
-        txt = (
-            inline_md(fo["unit_text"], builder, fromdoc)
-            if fo.get("unit_text")
-            else esc(n.get("unit"))
-        )
-        add(
-            "Unit",
-            origin(txt, bool(fo.get("unit_text")))
-            + (
-                f' <span class="hmp-muted">({src})</span>'
-                if src and not fo.get("unit_text")
-                else ""
-            ),
-        )
-    if fo.get("typical"):
-        typ = fo["typical"]
-        refs = "; ".join(typ.get("refs", []))
-        add(
-            "Typical",
-            origin(
-                inline_md(typ.get("text", ""), builder, fromdoc)
-                + (f' <span class="hmp-ref">({esc(refs)})</span>' if refs else ""),
-                True,
-            ),
-        )
+        add("Valid range", f'{esc(rng)} <span class="hmp-muted">(refused outside)</span>')
+    if n.get("unit") and not (n["unit"] == "-" and not n.get("numeric")):
+        add("Unit", esc(n.get("unit")))
+    examples = n.get("examples") or []
+    if examples:
+        add("Example", ", ".join(f"<code>{esc(e)}</code>" for e in examples[:3]))
     cal = n.get("calibrable")
     if cal:
+        bounds_link = uri(builder, fromdoc, "calibration.parameters.<name>.bounds")
         txt = f"yes, search space {esc(cal.get('transform'))}, prior {esc(cal.get('prior'))}"
         if cal.get("bounds"):
             txt += f", default bounds {esc(cal['bounds'])}"
         else:
-            txt += ", bounds belong to the site: write them in the calibration section"
-        add("Calibration", origin(txt, False))
-    wt, wt_written = when_text(n, fo)
-    if wt:
-        add("Only if", origin(wt, wt_written))
+            txt += (
+                f', bounds belong to the site: write them in <a class="hmp-toml-ref" '
+                f'href="{esc(bounds_link)}"><code>calibration.parameters.&lt;name&gt;.bounds</code></a>'
+            )
+        if n.get("pseudo") and rng:
+            txt += f"; the valid range {esc(rng)} caps them"
+        add("Calibration", txt)
+    add("Only if", when_text(n))
     if n.get("kind") != "leaf" and n.get("variants_detail"):
         add(
             "Shapes",
-            origin(
-                ", ".join(
-                    f"<code>{esc(json.dumps(v['value']))}</code>" for v in n["variants_detail"]
-                ),
-                False,
-            ),
+            ", ".join(f"<code>{esc(json.dumps(v['value']))}</code>" for v in n["variants_detail"]),
         )
-    if fo.get("see_also"):
-        links = []
-        for target in fo["see_also"]:
-            canon = resolve(target)
-            if canon is None:
-                logger.warning(f"[hmp] unknown see_also path: {target}")
-                continue
-            links.append(
-                f'<a class="hmp-toml-ref" href="{esc(uri(builder, fromdoc, canon))}"><code>{esc(target)}</code></a>'
-            )
-        add("See also", origin(" ".join(links), True))
-    if fo.get("note"):
-        add("Note", origin(inline_md(fo["note"], builder, fromdoc), True))
-    add("Profile", origin(esc(n.get("profile", "user")), False))
-    if n.get("source"):
+    if n.get("instance_of"):
         add(
-            "Declared in",
-            origin(
-                f'<code>{esc(n["source"])}</code> <span class="hmp-muted">({esc(n.get("model", ""))})</span>',
-                False,
-            ),
+            "Same as",
+            f'<a class="hmp-toml-ref" href="{esc(uri(builder, fromdoc, n["instance_of"]))}">'
+            f"<code>{esc(n['instance_of'])}</code></a>, with the unit and range of "
+            f"<code>{esc(path.split('.')[2])}</code>",
         )
+    if n.get("renamed_from"):
+        add("Was", ", ".join(f"<code>{esc(p)}</code>" for p in n["renamed_from"]))
     return f'<div class="hmp-card"><dl>{"".join(rows)}</dl></div>'
 
 
 def sort_key(path: str) -> tuple:
     n = node(path)
     return (0 if n.get("required") else 1, PROFILE_RANK.get(n.get("profile", "user"), 0))
-
-
-def render_rows(
-    builder,
-    fromdoc: str,
-    paths: list[str],
-    *,
-    overlay: bool,
-    collapse_advanced: bool = True,
-    advanced_title: str = "Advanced settings",
-    show_path: bool = False,
-) -> str:
-    basic = [p for p in paths if node(p).get("profile", "user") == "user"]
-    adv = [p for p in paths if node(p).get("profile", "user") != "user"]
-    if not collapse_advanced:
-        basic, adv = paths, []
-    out = ['<div class="hmp-rows">']
-    out += [render_row(builder, fromdoc, p, overlay=overlay, show_path=show_path) for p in basic]
-    out.append("</div>")
-    if adv:
-        counts = {}
-        for p in adv:
-            counts[node(p)["profile"]] = counts.get(node(p)["profile"], 0) + 1
-        label = " · ".join(f"{k} {v}" for k, v in sorted(counts.items()))
-        out.append(
-            f'<details class="hmp-advanced"><summary>{esc(advanced_title)} <span class="hmp-muted">({esc(label)})</span></summary><div class="hmp-rows">'
-        )
-        out += [render_row(builder, fromdoc, p, overlay=overlay, show_path=show_path) for p in adv]
-        out.append("</div></details>")
-    return "\n".join(out)
 
 
 def raw(text: str) -> nodes.raw:
@@ -597,101 +501,106 @@ class IndexDirective(SphinxDirective):
 
 
 class IntroDirective(SphinxDirective):
-    """Automatic intro of a table: docstring, counts, files that write it."""
+    """Intro of a table: its docstring, then what to write, in a few lines."""
 
     required_arguments = 1
 
     def run(self):
         path = self.arguments[0]
         n = node(path)
+        builder = current_builder()
+        doc = self.env.docname
         sub = [p for p in subtree(path) if node(p).get("kind") == "leaf"]
-        counts = {
-            k: sum(1 for p in sub if node(p).get("profile") == k) for k in ("user", "dev", "expert")
-        }
+        user = sum(1 for p in sub if node(p).get("profile") == "user")
         text = n.get("doc") or n.get("description") or ""
-        intro = block_md(text, current_builder(), self.env.docname)
-        parts = [
-            f'<div class="hmp-intro" data-origin="auto">{intro or "<p><span class=hmp-gap>no docstring</span></p>"}'
-        ]
+        intro = block_md(text, builder, doc)
         facts = [
-            f"<li><b>Path</b> <code>{esc(path)}</code> <span class='hmp-muted'>({esc(table_form(n))})</span></li>",
-            f"<li><b>Required</b> {'yes' if n.get('required') else 'no'}</li>",
-            f"<li><b>Fields</b> {len(sub)}: user {counts['user']}, dev {counts['dev']}, expert {counts['expert']}</li>",
+            f"<li><code>{esc(path)}</code> <span class='hmp-muted'>{esc(table_form(n))}</span>"
+            f" · {'required in every file' if n.get('required') else 'optional'}"
+            f" · {user} user key{'s' if user != 1 else ''}"
+            + (f", {len(sub) - user} dev or expert" if len(sub) > user else "")
+            + "</li>"
+        ]
+        if "." not in path:
+            minimal = doc_uri(builder, doc, "reference/parameters/minimal-files")
+            template = static_uri(builder, doc, f"templates/{path}.toml")
+            facts.append(
+                f"<li>Start a file: <code>hmp config template --modules {esc(path)}</code> "
+                f'(<a href="{esc(template)}" download>download it</a>), '
+                f"then <code>hmp config check file.toml</code>. "
+                f'<a href="{esc(minimal)}#min-{esc(path)}">Minimal file</a></li>'
+            )
+        adv = len(sub) > user
+        switch = ADV_SWITCH if adv else ""
+        return [
+            raw(
+                f'<div class="hmp-intro">{intro}<ul class="hmp-facts">{"".join(facts)}</ul>'
+                f"{switch}</div>"
+            )
         ]
 
-        if n.get("source"):
-            facts.append(
-                f"<li><b>Model</b> <code>{esc(', '.join(n.get('models', [])))}</code> in <code>{esc(n['source'])}</code></li>"
-            )
-        user = [node(p) for p in sub if node(p).get("profile") == "user"]
-        empty = sum(1 for x in user if not x.get("description"))
-        short = sum(1 for x in user if 0 < len(x.get("description", "").split()) < 6)
-        no_unit = sum(
-            1
-            for x in user
-            if x.get("numeric")
-            and not (x.get("unit") and x.get("unit_source") in ("type", "metadata", "name"))
-        )
-        no_vals = sum(1 for x in user if len(x.get("literal", [])) >= 2 and not x.get("value_docs"))
-        gaps = [
-            f"{n_} {one if n_ == 1 else many}"
-            for n_, one, many in (
-                (empty, "key without description", "keys without description"),
-                (short, "description under six words", "descriptions under six words"),
-                (no_unit, "number without a declared unit", "numbers without a declared unit"),
-                (no_vals, "choice without explained values", "choices without explained values"),
-            )
-            if n_
-        ]
-        if gaps:
-            facts.append(
-                f"<li class='hmp-gaps'><b>Gaps in the models</b> {esc(', '.join(gaps))} <span class='hmp-muted'>(user keys; fixed in the Pydantic fields)</span></li>"
-            )
-        parts.append(f'<ul class="hmp-facts">{"".join(facts)}</ul></div>')
-        return [raw("".join(parts))]
+
+ADV_SWITCH = (
+    '<button class="hmp-adv-switch" type="button" aria-pressed="false">'
+    '<span class="hmp-adv-off">Show dev and expert keys</span>'
+    '<span class="hmp-adv-on">Hide dev and expert keys</span></button>'
+)
 
 
 class KnownKeysDirective(SphinxDirective):
-    """Named entries of a free-key table (flow.param.<id>), from the code."""
+    """The names of a free-key table the code knows (flow.param.<id>), with unit and range."""
 
     required_arguments = 1
     option_spec = {"variant": directives.unchanged}
 
     def run(self):
+        builder = current_builder()
+        doc = self.env.docname
         path = self.arguments[0]
-        n = node(path)
-        known = n.get("known_keys", {})
-        ko: dict = {}
+        known = node(path).get("known_keys", {})
         rows = []
+        unit_only = []
         for key, info in known.items():
-            o = ko.get(key, {})
-            label = o.get("label_en") or (info.get("label_en") or "").capitalize()
-            label_html = origin(esc(label), bool(o.get("label_en")))
-            fr = o.get("label_fr")
-            phys = info.get("physical")
-            phys_txt = (
-                f"{fmt_num(phys[0])} .. {fmt_num(phys[1])}"
-                if phys
-                else '<span class="hmp-gap">no bound</span>'
-            )
-            note = o.get("note", "")
+            if info.get("alias_of"):
+                continue
+            if not info.get("paths"):
+                unit_only.append(f"<code>{esc(key)}</code> ({esc(info.get('unit'))})")
+                continue
+            table_path, value_path = info["paths"]
+            vn = node(value_path)
+            phys = info["physical"]
+            aliases = info.get("aliases") or []
+            label = (info.get("label") or "").capitalize()
             rows.append(
-                f"<tr><td><code>{esc(key)}</code></td><td>{label_html}"
+                f'<tr id="{anchor_of(table_path)}"><td><a class="hmp-toml-ref" '
+                f'href="{esc(uri(builder, doc, value_path))}"><code>[flow.param.{esc(key)}]</code></a>'
                 + (
-                    f'<br><span class="hmp-label-fr" data-origin="written">{esc(fr)}</span>'
-                    if fr
+                    f' <span class="hmp-muted">or {", ".join(f"<code>{esc(a)}</code>" for a in aliases)}</span>'
+                    if aliases
                     else ""
                 )
-                + f"</td><td data-origin='auto'>{esc(info.get('unit'))}</td><td data-origin='auto'>{phys_txt}</td>"
-                f"<td>{origin(inline_md(note, current_builder(), self.env.docname), True) if note else ''}</td></tr>"
+                + f"</td><td>{esc(label)}</td><td>{esc(info.get('unit'))}</td>"
+                f"<td>{fmt_num(phys[0])} .. {fmt_num(phys[1])} {esc((info.get('physical_unit') or '').strip('-'))}</td></tr>"
+            )
+            rows.append(
+                f'<tr class="hmp-known-card"><td colspan="4">'
+                f'<details class="tl" id="{anchor_of(value_path)}"><summary><span class="tl-code">'
+                f'<span class="k">value</span><span class="eq"> = </span>'
+                f'<span class="ph">‹{esc(vn.get("form", ""))}›</span></span>'
+                f'<span class="tl-note"><span class="tl-sum">{inline_md(vn.get("summary", ""), builder, doc)}</span></span>'
+                f"</summary>{render_card(builder, doc, value_path, vn)}</details></td></tr>"
             )
         table = (
-            '<table class="hmp-known"><thead><tr><th>Name</th><th>Quantity</th><th>Unit</th>'
-            "<th>Physical range (refused outside)</th><th></th></tr></thead><tbody>"
+            '<div class="hmp-matrix-wrap"><table class="hmp-known"><thead><tr><th>Table</th>'
+            "<th>Quantity</th><th>Unit</th><th>Valid range (refused outside)</th></tr></thead><tbody>"
             + "".join(rows)
-            + "</tbody></table>"
-            + f'<p class="hmp-muted hmp-small">Units and ranges come from <code>{esc(n.get("known_keys_source", ""))}</code>.</p>'
+            + "</tbody></table></div>"
         )
+        if unit_only:
+            table += (
+                f"<p>The code also gives a default unit to {', '.join(unit_only)}, "
+                "with no range check.</p>"
+            )
         return [raw(table)]
 
 
@@ -933,57 +842,150 @@ class StepDirective(SphinxDirective):
 # ---------------------------------------------------------------- catalog, concepts, matrix, gates, changelog
 
 
+CURRENT = "current"
+
+
+def version_history() -> dict[str, Any]:
+    """Diffs between every released snapshot and the fields of this tree."""
+    if "history" not in S:
+        from packaging.version import Version
+
+        from tools.docs import toml_changelog
+
+        snaps = sorted(
+            SNAPSHOTS.glob("fields-*.json"),
+            key=lambda p: Version(p.stem.removeprefix("fields-")),
+        )
+        docs = [json.loads(p.read_text()) for p in snaps]
+        current = toml_changelog.snapshot({"meta": {"label": CURRENT}, "nodes": S["nodes"]})
+        S["history"] = toml_changelog.history([*docs, current])
+    return S["history"]
+
+
+def version_name(label: str) -> str:
+    return "this documentation" if label == CURRENT else label
+
+
 class ChangelogDirective(SphinxDirective):
+    """Keys added, renamed, removed and changed between two versions, both chosen by the reader.
+
+    Every pair is rendered; the page shows the newest release against this tree,
+    and a script swaps the pair when the reader picks two other versions.
+    """
+
     def run(self):
         builder = current_builder()
-        c = S["changelog"]
-        if not c:
-            return [raw("<p>No changelog data.</p>")]
-        parts = [f'<p class="hmp-muted">{esc(c.get("from"))} → {esc(c.get("to"))}</p>']
+        doc = self.env.docname
+        hist = version_history()
+        versions = hist["versions"]
+        if len(versions) < 2:
+            return [raw("<p>No released version to compare with.</p>")]
 
         def shown(path: str, value: Any) -> str:
             if value not in (None, ""):
                 return str(value)
             return "required" if S["nodes"].get(path, {}).get("required") else "not set"
 
-        moved = [it for it in c.get("changed", []) if "default" in it["changes"]]
-        if moved:
-            items = "".join(
-                f'<li><a class="hmp-toml-ref" href="{esc(uri(builder, self.env.docname, it["path"]))}"><code>{esc(it["path"])}</code></a> '
-                f"<code>{esc(shown(it['path'], it['changes']['default'][0]))}</code> → "
-                f"<code>{esc(shown(it['path'], it['changes']['default'][1]))}</code></li>"
-                for it in moved
-            )
-            parts.append(
-                '<div class="admonition important"><p class="admonition-title">Defaults that changed</p>'
-                f"<p>{len(moved)} default value(s) changed. A file that does not write these keys gets a different run.</p>"
-                f"<ul>{items}</ul></div>"
-            )
-
         def link(p: str) -> str:
             if p in S["nodes"]:
-                return f'<a class="hmp-toml-ref" href="{esc(uri(builder, self.env.docname, p))}"><code>{esc(p)}</code></a>'
+                return f'<a class="hmp-toml-ref" href="{esc(uri(builder, doc, p))}"><code>{esc(p)}</code></a>'
             return f"<code>{esc(p)}</code>"
 
-        for key, title in (("added", "Added"), ("removed", "Removed"), ("changed", "Changed")):
-            items = c.get(key, [])
-            if not items:
-                continue
-            parts.append(
-                f"<h3>{title} <span class='hmp-muted'>({len(items)})</span></h3><ul class='hmp-changes'>"
+        def by_section(items: list, key) -> str:
+            groups: dict[str, list[str]] = {}
+            for it in items:
+                groups.setdefault(key(it).split(".")[0], []).append(it)
+            out = []
+            for sec in sorted(groups):
+                out.append(f'<li class="hmp-ch-sec"><code>[{esc(sec)}]</code><ul>')
+                out.extend(render(it) for it in groups[sec])
+                out.append("</ul></li>")
+            return "".join(out)
+
+        def render_pair(c: dict) -> str:
+            parts = []
+            moved = [it for it in c["changed"] if "default" in it["changes"]]
+            if moved:
+                items = "".join(
+                    f"<li>{link(it['path'])} "
+                    f"<code>{esc(shown(it['path'], it['changes']['default'][0]))}</code> to "
+                    f"<code>{esc(shown(it['path'], it['changes']['default'][1]))}</code></li>"
+                    for it in moved
+                )
+                parts.append(
+                    '<div class="admonition important"><p class="admonition-title">Defaults that changed</p>'
+                    f"<p>A file that does not write these keys gets a different run.</p><ul>{items}</ul></div>"
+                )
+            blocks = (
+                ("renamed", "Renamed", "a file that writes the old name is refused"),
+                ("removed", "Removed", "a file that writes them is refused"),
+                ("added", "Added", ""),
+                ("changed", "Changed", ""),
             )
-            for it in items[:400]:
-                if isinstance(it, dict):
-                    detail = "; ".join(
-                        f"{esc(k)}: <code>{esc(shown(it['path'], v[0]) if k == 'default' else v[0])}</code>"
-                        f" → <code>{esc(shown(it['path'], v[1]) if k == 'default' else v[1])}</code>"
-                        for k, v in it["changes"].items()
-                    )
-                    parts.append(f"<li>{link(it['path'])} {detail}</li>")
-                else:
-                    parts.append(f"<li>{link(it)}</li>")
-            parts.append("</ul>")
-        return [raw("".join(parts))]
+            for key, title, note in blocks:
+                items = c.get(key, [])
+                if not items:
+                    continue
+                breaking = key in ("renamed", "removed")
+                parts.append(
+                    f'<h2 class="hmp-ch-h">{title} <span class="hmp-muted">({len(items)})</span>'
+                    + (' <span class="tc tc-req">breaking</span>' if breaking else "")
+                    + "</h2>"
+                    + (f'<p class="hmp-muted">{esc(note.capitalize())}.</p>' if note else "")
+                    + '<ul class="hmp-changes">'
+                )
+                parts.append(by_section(items, change_path))
+                parts.append("</ul>")
+            if not parts:
+                parts.append("<p>No key changed between these two versions.</p>")
+            return "".join(parts)
+
+        def change_path(it) -> str:
+            if isinstance(it, dict):
+                return it.get("from") or it["path"]
+            return it
+
+        def render(it) -> str:
+            if isinstance(it, dict) and "from" in it:
+                return f"<li><code>{esc(it['from'])}</code> is now {link(it['to'])}</li>"
+            if isinstance(it, dict):
+                detail = "; ".join(
+                    f"{esc(k)}: <code>{esc(shown(it['path'], v[0]) if k == 'default' else v[0])}</code>"
+                    f" to <code>{esc(shown(it['path'], v[1]) if k == 'default' else v[1])}</code>"
+                    for k, v in it["changes"].items()
+                )
+                return f"<li>{link(it['path'])} {detail}</li>"
+            return f"<li>{link(it)}</li>"
+
+        default = (versions[-2], versions[-1])
+        sections = []
+        for c in hist["pairs"]:
+            pair = (c["from"], c["to"])
+            hidden = "" if pair == default else " hidden"
+            sections.append(
+                f'<section class="hmp-ch-pair" data-from="{esc(c["from"])}" data-to="{esc(c["to"])}"{hidden}>'
+                f"{render_pair(c)}</section>"
+            )
+
+        def select(name: str, choices: list[str], chosen: str) -> str:
+            opts = "".join(
+                f'<option value="{esc(v)}"{" selected" if v == chosen else ""}>{esc(version_name(v))}</option>'
+                for v in choices
+            )
+            return f'<label>{name} <select class="hmp-ch-{name.lower()}">{opts}</select></label>'
+
+        form = (
+            '<form class="hmp-ch-form" hidden>'
+            + select("From", versions[:-1], default[0])
+            + select("To", versions[1:], default[1])
+            + '<span class="hmp-ch-same hmp-muted" hidden>Pick a newer version on the right.</span>'
+            + "</form>"
+        )
+        lead = (
+            f'<p class="hmp-ch-lead">From <b>{esc(version_name(default[0]))}</b> to '
+            f"<b>{esc(version_name(default[1]))}</b>.</p>"
+        )
+        return [raw(f'<div class="hmp-changelog">{form}{lead}{"".join(sections)}</div>')]
 
 
 class ResolvedDirective(SphinxDirective):
@@ -1055,6 +1057,84 @@ def toml_role(name, rawtext, text, lineno, inliner, options=None, content=None):
 # ---------------------------------------------------------------- setup
 
 
+RELIABLE_UNITS = {"type", "metadata", "name", "known"}
+
+
+def shown_unit(n: dict[str, Any]) -> str | None:
+    """The unit a page shows: declared by the code, and not "-" on a non-number."""
+    unit = n.get("unit")
+    if not unit or n.get("unit_source", "known") not in RELIABLE_UNITS:
+        return None
+    if unit == "-" and not n.get("numeric"):
+        return None
+    return unit
+
+
+def keys_payload(builder) -> list[dict[str, Any]]:
+    """One entry per path, for the explorer search and the hover cards of {toml} links.
+
+    Short keys keep the file small: p path, n name, t kind, s summary, u unit,
+    f form, d default, r required, a profile when not user, l label of a named
+    instance, w where its card is, x the rest of the text a search may match.
+    """
+    out = []
+    for path, n in S["nodes"].items():
+        doc = S["home"].get(path)
+        if not path or not doc:
+            continue
+        leaf = n.get("kind") == "leaf"
+        item: dict[str, Any] = {
+            "p": path,
+            "n": n.get("name", ""),
+            "t": "l" if leaf else n.get("kind", "table")[0],
+            "s": clean_rst(n.get("summary") or n.get("doc") or ""),
+            "w": f"{builder.get_target_uri(doc)}#{anchor_of(path)}",
+        }
+        unit = shown_unit(n)
+        if unit:
+            item["u"] = unit
+        item["f"] = n.get("form", "") if leaf else table_form(n)
+        if n.get("required"):
+            item["r"] = 1
+        elif leaf and n.get("default") not in (None, "not set", "(computed)"):
+            item["d"] = n["default"]
+        if n.get("profile", "user") != "user":
+            item["a"] = n["profile"]
+        if n.get("label"):
+            item["l"] = n["label"]
+        extra = [
+            rest_of_description(n),
+            " ".join(str(v) for v in n.get("literal", [])),
+            " ".join(f"{k} {v}" for k, v in (n.get("value_docs") or {}).items()),
+            " ".join(n.get("examples") or []),
+        ]
+        text = clean_rst(" ".join(" ".join(e.split()) for e in extra if e))
+        if text:
+            item["x"] = text
+        out.append(item)
+    return out
+
+
+def on_build_finished(app: Sphinx, exception: Exception | None) -> None:
+    """Write the keys file next to the static files of the HTML site."""
+    if exception is not None or getattr(app.builder, "format", "") != "html" or "nodes" not in S:
+        return
+    out = Path(app.outdir) / "_static" / "hmp-keys.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(keys_payload(app.builder), ensure_ascii=False, separators=(",", ":")))
+    write_templates(Path(app.outdir) / "_static" / "templates")
+
+
+def write_templates(folder: Path) -> None:
+    """The file ``hmp config template --modules <section>`` writes, one per section."""
+    from hydromodpy.core.toml_io.generator import available_modules, generate_toml
+
+    folder.mkdir(parents=True, exist_ok=True)
+    for module in available_modules():
+        text = generate_toml(output_path=None, modules=[module], profile="user")
+        (folder / f"{module}.toml").write_text(text)
+
+
 def on_builder_inited(app: Sphinx) -> None:
     """Write the data files from the code, then the generated pages.
 
@@ -1080,6 +1160,7 @@ def setup(app: Sphinx) -> dict[str, Any]:
     _APP = app
     app.add_config_value("hmp_example_dir", "", "env")
     app.connect("builder-inited", on_builder_inited)
+    app.connect("build-finished", on_build_finished)
     app.add_role("toml", toml_role)
     app.add_directive("hmp-anchor", AnchorDirective)
     app.add_directive("hmp-intro", IntroDirective)
@@ -1099,5 +1180,5 @@ def setup(app: Sphinx) -> dict[str, Any]:
     hmp_validation.setup_validation(app)
     hmp_catalogs.setup_catalogs(app)
     app.add_css_file("hmp.css")
-    app.add_js_file("hmp.js")
-    return {"version": "0.1", "parallel_read_safe": True, "parallel_write_safe": True}
+    app.add_js_file("hmp.js", defer="defer")
+    return {"version": "0.2", "parallel_read_safe": True, "parallel_write_safe": True}

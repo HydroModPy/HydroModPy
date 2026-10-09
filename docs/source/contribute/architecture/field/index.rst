@@ -1,11 +1,11 @@
-Field Architecture
-==================
+Field layer
+===========
 
 This section documents the ``hydromodpy.spatial.field`` layer.
 
 Open it when you want:
 
-- the reusable field abstractions behind ``FieldSpatial`` and
+- the reusable field abstractions behind ``Field`` and
   ``FieldParam``;
 - the concrete mesh implementations reused by geology and solver
   adapters;
@@ -36,29 +36,29 @@ Recommended reading path
 5. ``hydromodpy/spatial/field/cases/square/`` for a concrete runnable
    example
 
-Core class diagram
-------------------
+Core classes
+------------
 
 This view is intentionally limited to the reusable ``field.core``
 abstractions.
 
 .. uml:: diagrams/field_classes.wsd
 
-Square case relation diagram
-----------------------------
+Square case
+-----------
 
 This view shows how the square example specialises the core
 abstractions and which concrete mesh implementations it reuses.
 
 .. uml:: diagrams/field_spatial_cases_classes.wsd
 
-Activity diagram
-----------------
+Activity
+--------
 
 .. uml:: diagrams/field_activity.wsd
 
-Sequence diagram
-----------------
+Sequence
+--------
 
 .. uml:: diagrams/field_sequence.wsd
 

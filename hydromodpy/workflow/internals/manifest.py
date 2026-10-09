@@ -25,6 +25,7 @@ from pydantic import BaseModel
 from hydromodpy.core.exceptions import ResumeError
 from hydromodpy.core.io.canonical_json import dumps as canonical_dumps
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import PER_RUN_CONFIG_KEYS
 from hydromodpy.workflow.internals.state import PipelineState
 
 logger = get_logger(__name__)
@@ -252,17 +253,22 @@ def _step_name(step: object) -> str:
 
 
 def _strip_observability_keys(payload: Any) -> Any:
-    """Drop config keys that toggle observability only (``workflow.profile``).
+    """Drop config keys that never change what the run computes.
 
-    Profiling does not change results; flipping it must not invalidate an
-    existing checkpoint.
+    ``workflow.profile`` only observes the run. The per-run scratch folder
+    (``PER_RUN_CONFIG_KEYS``) carries the process id and the run label, so a
+    resume in another process, or under another label, names another folder.
+    Neither may invalidate an existing checkpoint.
     """
     if not isinstance(payload, Mapping):
         return payload
-    workflow = payload.get("workflow")
-    if isinstance(workflow, Mapping) and "profile" in workflow:
-        return {**payload, "workflow": {k: v for k, v in workflow.items() if k != "profile"}}
-    return payload
+    dropped = {("workflow", "profile"), *PER_RUN_CONFIG_KEYS}
+    out = dict(payload)
+    for section, key in dropped:
+        block = out.get(section)
+        if isinstance(block, Mapping) and key in block:
+            out[section] = {k: v for k, v in block.items() if k != key}
+    return out
 
 
 def _state_config_payload(state: PipelineState) -> Any:

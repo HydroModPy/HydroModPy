@@ -37,7 +37,11 @@ from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import RUNS_DIRNAME, to_workspace_relative
+from hydromodpy.core.state.paths import (
+    PER_RUN_CONFIG_KEYS,
+    RUNS_DIRNAME,
+    to_workspace_relative,
+)
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import (
     solver_category as _resolve_solver_category,
@@ -54,6 +58,47 @@ from hydromodpy.results.zarr_store import SimulationZarr, _windows_long_path
 logger = get_logger(__name__)
 
 IfExistsMode = Literal["replace", "fail", "version"]
+
+_RUN_OVERRIDES_KEY = "__run_overrides__"
+
+
+def run_identity_hash(
+    config: dict | None,
+    *,
+    name: str | None = None,
+    overrides: dict | None = None,
+) -> str | None:
+    """Return the hash that says two runs compute the same thing.
+
+    It is the ``config_hash`` the catalog records, and what ``hmp run`` and
+    ``hmp.run`` compare to skip an identical completed run. It covers the
+    resolved configuration, minus the members that vary between two runs of
+    one file (``PER_RUN_CONFIG_KEYS`` of ``hydromodpy.core.state.paths``), with the run name the caller
+    asked for in place of ``simulation.name``, plus the parameter overrides a
+    ``Project.simulate`` call applied on top of the configuration. Overrides
+    that do not serialise to JSON get a random salt: such a run never matches
+    another one, which errs on the side of computing.
+    """
+    if not config:
+        return None
+    payload = json.loads(json.dumps(config, default=str))
+    for section, key in PER_RUN_CONFIG_KEYS:
+        block = payload.get(section)
+        if isinstance(block, dict):
+            block.pop(key, None)
+    if name:
+        simulation = payload.get("simulation")
+        if isinstance(simulation, dict):
+            simulation["name"] = name
+    if overrides:
+        try:
+            payload[_RUN_OVERRIDES_KEY] = json.loads(json.dumps(overrides, sort_keys=True))
+        except (TypeError, ValueError):
+            import uuid
+
+            payload[_RUN_OVERRIDES_KEY] = uuid.uuid4().hex
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
 
 _VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
 
@@ -330,6 +375,7 @@ class RegistrationMixin:
         flow_regime: str | None = None,
         config: dict | None = None,
         config_snapshot: dict | None = None,
+        config_hash: str | None = None,
         n_cells: int | None = None,
         n_layers: int | None = None,
         n_timesteps: int | None = None,
@@ -402,11 +448,8 @@ class RegistrationMixin:
                 config_json = json.dumps(config) if config else None
                 snapshot_source = config_snapshot if config_snapshot is not None else config
                 snapshot_json = json.dumps(snapshot_source) if snapshot_source is not None else None
-                config_hash = None
-                if config:
-                    config_hash = hashlib.sha256(
-                        json.dumps(config, sort_keys=True).encode()
-                    ).hexdigest()
+                if config_hash is None:
+                    config_hash = run_identity_hash(config, name=requested_name)
 
                 bbox_xmin = bbox_ymin = bbox_xmax = bbox_ymax = None
                 if bbox is not None and len(bbox) == 4:

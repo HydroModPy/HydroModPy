@@ -25,7 +25,7 @@ def register(subparsers) -> argparse.ArgumentParser:
             "name must be free: a collision with a live run is refused.\n"
             "\n"
             "Example:\n"
-            "  hmp catalog rename ab12cd34 cheze_final"
+            "  hmp catalog rename ab12cd34 final_run"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

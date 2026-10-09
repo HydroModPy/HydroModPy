@@ -92,7 +92,11 @@ from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.observation_config import ObservationConfig
 from hydromodpy.simulation.spinup_config import SpinupConfig
-from hydromodpy.solver.base.solver_config import SolverConfig
+from hydromodpy.solver.base.solver_config import (
+    SolverConfig,
+    backend_for_solver,
+    solver_name_of_backend,
+)
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from hydromodpy.spatial.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
@@ -204,6 +208,31 @@ def _declared_flow_engine(cfg: HydroModPyConfig) -> str | None:
     solver_cfg = getattr(cfg, "solver", None)
     engine = getattr(solver_cfg, "backend_name", None) if solver_cfg is not None else None
     return str(engine) if engine else None
+
+
+def _raw_flow_process_solver(simulation: Any) -> tuple[str, str] | None:
+    """Return the id and first solver of the first flow process, before validation."""
+    if isinstance(simulation, Mapping):
+        processes = simulation.get("process")
+    else:
+        processes = getattr(simulation, "process", None)
+    if not isinstance(processes, list | tuple):
+        return None
+    for process in processes:
+        if isinstance(process, Mapping):
+            kind = str(process.get("type", "")).strip().lower()
+            solvers = process.get("solvers")
+            process_id = process.get("id")
+        else:
+            kind = str(getattr(process, "type", "")).strip().lower()
+            solvers = getattr(process, "solvers", None)
+            process_id = getattr(process, "id", None)
+        if kind != "flow" or not isinstance(solvers, list | tuple):
+            continue
+        names = [str(name).strip() for name in solvers if name and str(name).strip()]
+        if names:
+            return str(process_id or "flow"), names[0]
+    return None
 
 
 def _section_refusal(
@@ -504,6 +533,53 @@ class HydroModPyConfig(HydroModelBase):
             workspace_payload = dict(workspace)
             workspace_payload["project_root"] = "."
             payload["workspace"] = workspace_payload
+        return payload
+
+    @model_validator(mode="before")
+    @classmethod
+    def _align_solver_keys(cls, data: Any) -> Any:
+        """Make ``solver.backend`` and the flow process name one solver.
+
+        The run builds the solver the flow process names, and the checks
+        below read ``solver.backend``. When the file writes only the process,
+        the backend follows it. When it writes both with two names, it is
+        refused.
+        """
+        if not isinstance(data, Mapping):
+            return data
+        flow = _raw_flow_process_solver(data.get("simulation"))
+        if flow is None:
+            return data
+        process_id, process_solver = flow
+        solver = data.get("solver")
+        if isinstance(solver, SolverConfig):
+            declared = "backend" in solver.model_fields_set
+            backend = solver.backend if declared else None
+        elif isinstance(solver, Mapping):
+            declared = "backend" in solver
+            backend = solver.get("backend")
+        elif solver is None:
+            declared, backend = False, None
+        else:
+            return data
+        if declared:
+            backend_solver = solver_name_of_backend(backend)
+            if backend_solver is not None and backend_solver.lower() != process_solver.lower():
+                raise ValueError(
+                    f"solver.backend names {backend_solver!r} and the flow process "
+                    f"{process_id!r} of [[simulation.process]] names {process_solver!r} in "
+                    "solvers. The run builds the solver of the process and the checks "
+                    "read solver.backend, so both must name the same solver. Write the "
+                    "same name in both, or remove solver.backend: it then follows the "
+                    "flow process."
+                )
+            return data
+        payload = dict(data)
+        selector = backend_for_solver(process_solver)
+        if isinstance(solver, SolverConfig):
+            payload["solver"] = solver.model_copy(update={"backend": selector})
+        else:
+            payload["solver"] = {**(solver or {}), "backend": selector.model_dump()}
         return payload
 
     @model_validator(mode="after")

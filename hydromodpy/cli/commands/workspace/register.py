@@ -12,7 +12,12 @@ HELP: str = "Register a project in the global index (a workspace registers its p
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        epilog="Example:\n  hmp workspace register ~/hydromodpy/projects/my_project --label my_project",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "root_uri",
         help=(

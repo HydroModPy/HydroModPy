@@ -384,5 +384,5 @@ def test_mesh_catchment_launcher_batch_rejects_outlets_outside_dem_extent(
         },
     )
 
-    with pytest.raises(ValueError, match="geographic.dem_init_path does not cover"):
+    with pytest.raises(ValueError, match="geographic.catchment.dem_init_path does not cover"):
         _ = MeshCatchmentLauncher(config_path)

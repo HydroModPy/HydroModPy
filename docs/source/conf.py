@@ -22,6 +22,7 @@ from importlib.util import find_spec
 from pathlib import Path
 from unittest.mock import MagicMock
 
+from cycler import cycler
 from docutils import nodes
 from sphinx.builders.html import StandaloneHTMLBuilder
 from sphinx.util import logging as sphinx_logging
@@ -330,7 +331,35 @@ extensions = [
     "hmp_directives",
     "hmp_site",
     "hmp_params",
+    "hmp_notation",
+    "hmp_contribute",
+    "hmp_about",
 ]
+
+# Theory figures are drawn at build time from the functions of the code, with
+# matplotlib's plot directive. Scripts run from the repository root, so they
+# import hydromodpy as installed in the build environment. One colour cycle
+# for every figure: the Okabe-Ito palette, readable by colour-blind readers.
+extensions.append("matplotlib.sphinxext.plot_directive")
+plot_working_directory = str(package_path)
+plot_include_source = False
+plot_html_show_source_link = False
+plot_html_show_formats = False
+plot_formats = [("png", 150)]
+plot_apply_rcparams = True
+plot_rcparams = {
+    "figure.figsize": (6.4, 3.6),
+    "figure.dpi": 150,
+    "font.size": 10,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "axes.grid": True,
+    "grid.alpha": 0.3,
+    "axes.prop_cycle": cycler(
+        color=["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#000000"]
+    ),
+    "savefig.bbox": "tight",
+}
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),

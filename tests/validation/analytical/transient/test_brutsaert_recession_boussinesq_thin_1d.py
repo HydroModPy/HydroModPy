@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
-from tests.validation.helpers import assert_metric_below
+from tests.validation.helpers import assert_metric_below, record_comparison
 from validation_cases.analytical.transient.brutsaert_recession_boussinesq_thin_1d.comparison import (
     run_brutsaert_recession_boussinesq_thin_comparison,
 )
@@ -41,6 +41,7 @@ def test_brutsaert_recession_boussinesq_thin_1d_matches_reference_recession(
         caller_file=__file__,
         solver=solver,
     )
+    record_comparison(comparison)
     discharge_tol = dict(comparison.tolerances.get("discharge", {}))
     uniformity_tol = dict(comparison.tolerances.get("uniformity", {}))
     monotonicity_tol = dict(comparison.tolerances.get("monotonicity", {}))

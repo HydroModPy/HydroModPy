@@ -264,6 +264,12 @@ def _resolve_station_unit(loc, *, default_unit: str | None = None) -> str:
     if unit is not None and str(unit).strip():
         return str(unit).strip()
     if default_unit is not None:
+        logger.warning(
+            "Station %s has no unit in its LOC file; its values are taken as %s and "
+            "not converted. Add a 'unit' column to say otherwise.",
+            loc.id,
+            default_unit,
+        )
         return default_unit
     raise ValueError(f"No unit for station {loc.id!r}. Add a 'unit' column in the LOC file.")
 

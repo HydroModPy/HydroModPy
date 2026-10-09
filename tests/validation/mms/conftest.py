@@ -16,6 +16,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from tests.validation.helpers import assert_metric_below, record_series
+
 
 @dataclass(frozen=True)
 class ConvergenceResult:
@@ -74,8 +76,34 @@ def run_mms_convergence(
     )
 
 
+def assert_order(result: ConvergenceResult, expected: float, half_width: float, label: str) -> None:
+    """Assert ``|p - expected| < half_width`` and record the refinement curve.
+
+    The recorded reference is the line of slope ``expected`` through the
+    coarsest point, so a figure shows the observed errors against it.
+    """
+    hs = np.asarray(result.refinements, dtype=float)
+    errs = np.asarray(result.errors, dtype=float)
+    ideal = errs[0] * (hs / hs[0]) ** expected
+    record_series(
+        f"L2 error against {label}",
+        hs,
+        ideal,
+        errs,
+        x_label=label,
+        y_label="L2 error",
+        log=True,
+    )
+    assert_metric_below(
+        f"Distance of the observed order from {expected:g}",
+        abs(result.order - expected),
+        half_width,
+    )
+
+
 __all__ = [
     "ConvergenceResult",
+    "assert_order",
     "estimate_convergence_order",
     "l2_error",
     "run_mms_convergence",

@@ -1,4 +1,4 @@
-Add an Exporter
+Add an exporter
 ===============
 
 Exporters convert simulation results into external file formats. They live

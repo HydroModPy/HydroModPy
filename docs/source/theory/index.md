@@ -3,7 +3,8 @@
 The equations HydroModPy solves, in the order the water meets them, with what
 each one assumes and where it stops being true. Read this part to review a
 result, to cite the model, or to know exactly what a parameter does inside an
-equation. It says nothing about setting up a run.
+equation. Each page names the keys that set its terms; the steps of a run are in
+the {doc}`guides <../guides/index>`.
 
 ## Same subject, four doors
 
@@ -18,15 +19,11 @@ Take the soil reservoir. Each door says something different about it.
 
 ## Follow the water
 
-```{raw} html
-<div class="hmp-chain">
-<a href="#step-forcing">1 Rain and ETP</a><span>&rarr;</span>
-<a href="#step-soil">2 Soil</a><span>&rarr;</span>
-<a href="#step-aquifer">3 Aquifer</a><span>&rarr;</span>
-<a href="#step-exits">4 Exits</a><span>&rarr;</span>
-<a href="#step-observations">5 Observations</a>
-</div>
-```
+1. {ref}`Rain and evaporation reach the ground <step-forcing>`
+2. {ref}`The soil decides what reaches the water table <step-soil>`
+3. {ref}`The aquifer moves the water <step-aquifer>`
+4. {ref}`The water leaves the aquifer <step-exits>`
+5. {ref}`The model meets the observations <step-observations>`
 
 (step-forcing)=
 ### 1. Rain and evaporation reach the ground
@@ -34,7 +31,12 @@ Take the soil reservoir. Each door says something different about it.
 What arrives at the surface each day, how daily data become the forcing of a
 stress period, and how outputs align on the periods.
 
-- {doc}`forcing`
+```{toctree}
+:caption: 1. Rain and evaporation
+:maxdepth: 1
+
+forcing
+```
 
 (step-soil)=
 ### 2. The soil decides what reaches the water table
@@ -42,21 +44,43 @@ stress period, and how outputs align on the periods.
 The share of the rain that recharges the aquifer, the share that runs off, the
 share that evaporates.
 
-- {doc}`soil-reservoir`
+```{toctree}
+:caption: 2. Soil
+:maxdepth: 1
+
+soil-reservoir
+```
 
 (step-aquifer)=
 ### 3. The aquifer moves the water
 
-The groundwater flow equation, its discrete form on the grid, and the solvers
-that integrate it.
+The problem, the grid it is solved on, and the solvers that integrate it.
 
-- {doc}`groundwater-flow`
-- {doc}`solvers/modflow-governing-equation-and-cvfd-formulation`
-- {doc}`solvers/vertical-representation-and-storage-assumptions`
-- {doc}`solvers/field-to-cell-parameter-transfer`
-- {doc}`solvers`
-- {doc}`boussinesq`
-- {doc}`mf6-vs-nwt`
+```{toctree}
+:caption: 3. Aquifer, the problem
+:maxdepth: 1
+
+groundwater-flow
+dupuit-limits
+solvers/field-to-cell-parameter-transfer
+```
+
+```{toctree}
+:caption: 3. Aquifer, the grid
+:maxdepth: 1
+
+mesh
+solvers/xt3d-on-irregular-disv-meshes
+```
+
+```{toctree}
+:caption: 3. Aquifer, the solvers
+:maxdepth: 1
+
+solvers
+mf6-vs-nwt
+boussinesq
+```
 
 (step-exits)=
 ### 4. The water leaves the aquifer
@@ -64,22 +88,36 @@ that integrate it.
 Drains at the ground surface, streams, lakes, the sea, and the network of cells
 where the water table reaches the surface.
 
-- {doc}`exits`
+```{toctree}
+:caption: 4. Exits
+:maxdepth: 1
+
+exits
+```
 
 (step-observations)=
 ### 5. The model meets the observations
 
 How a run is scored against measured flow or a mapped network.
 
-- {doc}`calibration/inverse-problem-formulation`
-- {doc}`downslope-distance`
+```{toctree}
+:caption: 5. Observations
+:maxdepth: 1
 
-### Across all steps: the grid and the notation
+calibration/inverse-problem-formulation
+downslope-distance
+```
 
-- {doc}`mesh`
-- {doc}`solvers/xt3d-on-irregular-disv-meshes`
-- {doc}`notation`
-- {doc}`bibliography`
+### For every step
+
+```{toctree}
+:caption: For every step
+:maxdepth: 1
+
+notation
+bibliography
+validation
+```
 
 ## How we know the code solves them
 
@@ -91,26 +129,3 @@ so it cannot announce a check that does not run.
 
 How a theory page is written, and what its build checks, is in
 {doc}`../contribute/write-a-theory-page`.
-
-```{toctree}
-:maxdepth: 1
-:hidden:
-
-forcing
-soil-reservoir
-groundwater-flow
-solvers/modflow-governing-equation-and-cvfd-formulation
-solvers/vertical-representation-and-storage-assumptions
-solvers/field-to-cell-parameter-transfer
-solvers
-boussinesq
-mf6-vs-nwt
-exits
-calibration/inverse-problem-formulation
-downslope-distance
-mesh
-solvers/xt3d-on-irregular-disv-meshes
-notation
-bibliography
-validation
-```

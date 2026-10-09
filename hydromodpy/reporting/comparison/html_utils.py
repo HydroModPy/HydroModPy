@@ -70,7 +70,7 @@ def render_links(*, root: Path, web_dir: Path, links: Iterable[Path]) -> str:
             f'<p><a href="{safe(link_relative(web_dir, path))}">'
             f"{safe(relative(root, path))}</a></p>"
         )
-    return "\n".join(blocks) if blocks else '<p class="muted">Aucun fichier cle.</p>'
+    return "\n".join(blocks) if blocks else '<p class="muted">No key file.</p>'
 
 
 __all__ = (

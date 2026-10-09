@@ -434,7 +434,14 @@ class DataManagersConfig(HydroModelBase):
                 continue
 
             if section_payload is None:
-                continue
+                # Every other loader needs its section to know where the data
+                # comes from. Refused here, so `hmp config check` says it,
+                # rather than at the data step of a run.
+                raise ValueError(
+                    f"data.types lists '{type_name}' but the file has no "
+                    f"[data.{type_name}] section. Add the section with its sources, "
+                    f"or remove '{type_name}' from data.types."
+                )
             if not isinstance(section_payload, Mapping):
                 raise ValueError(f"TOML section 'data.{type_name}' must be a mapping")
 

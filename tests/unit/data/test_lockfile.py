@@ -850,3 +850,24 @@ def test_atomic_write_uses_a_short_temporary_suffix(
     assert len(swapped) == 1
     assert swapped[0].startswith(prefix)
     assert len(swapped[0]) - len(prefix) == 8
+
+
+def test_a_frozen_refusal_is_a_typed_data_failure(
+    tmp_path: Path,
+    frozen_mode_reset: None,
+) -> None:
+    """A frozen run that meets a refusal exits as a data failure, code 16."""
+    from hydromodpy.cli.helpers import EXIT_VALIDATION, exit_code_for
+    from hydromodpy.core.exceptions import DataCacheError
+    from hydromodpy.data.provenance.lockfile import set_frozen_mode
+    from hydromodpy.data.registry import cache_store
+
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    set_frozen_mode(True, project_root=project_root)
+
+    with pytest.raises(DataCacheError) as info:
+        cache_store.locked_artifacts()
+
+    assert isinstance(info.value, cache_store.FrozenDataError)
+    assert exit_code_for(info.value) == EXIT_VALIDATION

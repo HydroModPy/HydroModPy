@@ -15,14 +15,38 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="audit_command", metavar="<action>", required=True)
 
-    list_p = sub.add_parser("list", help="Print recent audit log entries")
-    list_p.add_argument("--workspace", default=None)
+    list_p = sub.add_parser(
+        "list",
+        help="Print recent audit log entries",
+        epilog="Example:\n  hmp audit list --since 2026-01-01 --limit 20",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    list_p.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root or project directory (default: auto-detect from cwd)",
+    )
     list_p.add_argument("--since", default=None, help="ISO date / timestamp lower bound")
-    list_p.add_argument("--limit", type=int, default=50)
+    list_p.add_argument(
+        "--limit", type=int, default=50, help="Maximum number of entries to print (default: 50)"
+    )
 
-    verify = sub.add_parser("verify", help="Verify the audit log hash chain")
-    verify.add_argument("--workspace", default=None)
-    verify.add_argument("--strict", action="store_true")
+    verify = sub.add_parser(
+        "verify",
+        help="Verify the audit log hash chain",
+        epilog="Example:\n  hmp audit verify --strict",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    verify.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root or project directory (default: auto-detect from cwd)",
+    )
+    verify.add_argument(
+        "--strict",
+        action="store_true",
+        help="Raise on a broken chain instead of returning a failed status",
+    )
 
     parser.set_defaults(_handler=run)
     return parser

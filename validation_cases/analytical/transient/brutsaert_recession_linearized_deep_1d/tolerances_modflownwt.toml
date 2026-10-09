@@ -9,3 +9,12 @@ row_spread = 1e-4
 
 [monotonicity]
 max_positive_increment_m3_s = 1e-6
+
+[doc]
+gap = """
+Smoke test, not a validation. For MODFLOW-NWT the thresholds on the relative
+discharge RMSE and on the relative maximum error are 1.0, that is 100 %: no
+recession that decays can fail them. They were relaxed for a known MODFLOW-NWT
+discrepancy on this transient case, not yet fixed. The other solvers keep
+0.03 on the relative RMSE.
+"""

@@ -7,6 +7,7 @@ import pytest
 from tests.regression.golden_utils import assert_required_executables
 from tests.validation.helpers import (
     assert_metric_below,
+    record_comparison,
 )
 from validation_cases.analytical.steady.dupuit_fixed_head_1d.comparison import (
     run_dupuit_fixed_head_comparison,
@@ -40,6 +41,7 @@ def test_dupuit_fixed_head_1d_matches_reference_profile(
     )
 
     comparison = run_dupuit_fixed_head_comparison(caller_file=__file__, solver=solver)
+    record_comparison(comparison)
     profile_tol = dict(comparison.tolerances.get("head_profile", {}))
 
     assert_metric_below(

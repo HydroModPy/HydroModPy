@@ -36,13 +36,13 @@ FORMAT_CHOICES: tuple[str, ...] = (
 
 _EPILOG = """\
 Examples:
-  hmp export nancon_step5_export --list
-  hmp export nancon_step5_export all
-  hmp export nancon_step5_export head watertable_depth --time 2002-10-15
-  hmp export nancon_step5_export discharge discharge_obs --period 2001-01-01 2002-12-31
-  hmp export nancon_step5_export watershed hydrographic_network_reference
-  hmp export nancon_step5_export watertable_depth --time last --file nappe.tif --crs EPSG:4326
-  hmp export nancon_step5_export all --format package
+  hmp export my_run --list
+  hmp export my_run all
+  hmp export my_run head watertable_depth --time 2002-10-15
+  hmp export my_run discharge discharge_obs --period 2001-01-01 2002-12-31
+  hmp export my_run watershed hydrographic_network_reference
+  hmp export my_run watertable_depth --time last --file watertable.tif --crs EPSG:4326
+  hmp export my_run all --format package
 """
 
 

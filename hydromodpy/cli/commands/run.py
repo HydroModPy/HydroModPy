@@ -52,7 +52,13 @@ def _step_choices() -> list[str]:
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser(), verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[profile_parser(), verbosity_parser()],
+        epilog="Examples:\n  hmp run run.toml\n  hmp run run.toml --dry-run\n  hmp run run.toml --set simulation.name=my_run\n  hmp run run.toml --overlay daily.toml\n  hmp run run.toml --from setup_process --until run_solver\n  hmp run --resume ab12cd34",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     config_arg = parser.add_argument(
         "config",
         nargs="?",
@@ -112,10 +118,10 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Recompute even when a completed run with an identical resolved config "
-            "already exists. Without it such a run is not recomputed: the command "
-            "stops and names it. The comparison hashes the resolved config, so an "
-            "edit - or a hydromodpy version that resolves the same TOML differently "
-            "- makes it a new run. Simulation workflow only."
+            "and the same name already exists. Without it such a run is not "
+            "recomputed: the command stops and names it. The comparison hashes the "
+            "resolved config, so an edit, or a hydromodpy version that resolves the "
+            "same TOML differently, makes it a new run. Simulation workflow only."
         ),
     )
     parser.add_argument(
@@ -411,12 +417,10 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         _cleanup_effective_toml(effective_path, source=config_path)
 
     if isinstance(summary, Mapping) and summary.get("skipped"):
+        from hydromodpy.project.dispatch.workflow import identical_run_message
+
         sid = str(summary.get("sim_id") or "")
-        label = summary.get("name") or sid[:8]
-        print(
-            f"Config identical to completed run '{label}' [{sid[:8]}]; nothing to do.",
-            file=sys.stderr,
-        )
+        print(identical_run_message(summary.get("name"), sid), file=sys.stderr)
         print("Re-run with --force to run it again.", file=sys.stderr)
         return
 

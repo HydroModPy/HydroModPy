@@ -234,6 +234,7 @@ def walk_parser(
             {
                 "flags": list(action.option_strings)
                 or [metavar if isinstance(metavar, str) else action.dest],
+                "dest": action.dest,
                 "positional": not action.option_strings,
                 "metavar": shown if action.option_strings else None,
                 "help": action.help or "",
@@ -246,10 +247,12 @@ def walk_parser(
         )
     usage = " ".join(parser.format_usage().split())
     usage = re.sub(r"^usage:\s*", "", usage)
+    handler = parser.get_default("_handler")
     out.insert(
         0,
         {
             "path": path,
+            "handler": f"{handler.__module__}:{handler.__qualname__}" if handler else "",
             "usage": usage,
             "description": parser.description or parent_help or "",
             "epilog": parser.epilog or "",
@@ -360,6 +363,500 @@ def verbs_called(command_module: types.ModuleType, verbs: set[str]) -> list[str]
     return found
 
 
+# ---------------------------------------------------------------- docstring sections
+
+
+def section_body(doc: str | None, title: str) -> str:
+    """The text of one numpydoc section of ``doc``, or an empty string."""
+    text = doc or ""
+    marks = list(SECTION.finditer(text))
+    for i, m in enumerate(marks):
+        if m.group(1).strip() == title:
+            end = marks[i + 1].start() if i + 1 < len(marks) else len(text)
+            return text[m.end() : end].strip("\n")
+    return ""
+
+
+def returns_doc(doc: str | None) -> str:
+    """The type line of the Returns section, as the docstring writes it."""
+    for line in section_body(doc, "Returns").splitlines():
+        if line.strip() and not line.startswith((" ", "\t")):
+            return " ".join(line.split())
+    return ""
+
+
+def raises_doc(doc: str | None) -> list[str]:
+    """The exception names of the Raises section."""
+    return [
+        line.strip()
+        for line in section_body(doc, "Raises").splitlines()
+        if line.strip() and not line.startswith((" ", "\t"))
+    ]
+
+
+def params_of(fn: Any) -> list[dict[str, Any]]:
+    """Named parameters of a callable: name, kind, default text."""
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return []
+    out = []
+    for p in sig.parameters.values():
+        out.append(
+            {
+                "name": p.name,
+                "kind": p.kind.name.lower(),
+                "default": None if p.default is inspect.Parameter.empty else repr(p.default),
+            }
+        )
+    return out
+
+
+def popped_keywords(fn: Any) -> list[str]:
+    """Keyword names a function takes out of its ``**kwargs`` with ``kwargs.pop("name")``."""
+    try:
+        tree = ast.parse(inspect.getsource(fn).lstrip())
+    except (OSError, TypeError, SyntaxError):
+        return []
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "pop"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+            and node.args[0].value not in found
+        ):
+            found.append(node.args[0].value)
+    return found
+
+
+# ---------------------------------------------------------------- exceptions
+
+
+# Where the exception classes are defined: the code table, then the two
+# modules whose classes the exit-code mapping names.
+EXCEPTION_MODULES = (
+    "hydromodpy.core.exceptions",
+    "hydromodpy.results.errors",
+    "hydromodpy.results.catalog.discovery",
+)
+
+
+def raise_sites(names: set[str]) -> dict[str, dict[str, int]]:
+    """For each exception name, the top-level packages that raise it and how often."""
+    counts: dict[str, dict[str, int]] = {n: {} for n in names}
+    root = Path(hmp.__path__[0])
+    for path in sorted(root.rglob("*.py")):
+        try:
+            tree = ast.parse(path.read_text())
+        except (OSError, SyntaxError, UnicodeDecodeError):
+            continue
+        rel = path.relative_to(root).parts
+        package = rel[0].removesuffix(".py") if rel else ""
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Raise) or node.exc is None:
+                continue
+            target = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
+            name = (
+                target.id
+                if isinstance(target, ast.Name)
+                else target.attr
+                if isinstance(target, ast.Attribute)
+                else None
+            )
+            if name in counts:
+                counts[name][package] = counts[name].get(package, 0) + 1
+    return counts
+
+
+def exceptions(codes: list[dict[str, Any]], verbs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every exception of the package with its code, parent, exit code and raise sites."""
+    import importlib
+
+    from hydromodpy.core.exceptions import HydroModPyError
+
+    helpers = importlib.import_module("hydromodpy.cli.helpers")
+    exit_names = {e["code"]: e["name"] for e in codes}
+    classes: list[type[BaseException]] = []
+    for module_name in EXCEPTION_MODULES:
+        module = importlib.import_module(module_name)
+        for obj in vars(module).values():
+            if (
+                inspect.isclass(obj)
+                and issubclass(obj, Exception)
+                and obj.__module__ == module_name
+                and obj not in classes
+                and (
+                    module_name != "hydromodpy.core.exceptions" or issubclass(obj, HydroModPyError)
+                )
+            ):
+                classes.append(obj)
+    names = {c.__name__ for c in classes}
+    sites = raise_sites(names)
+    documented: dict[str, list[str]] = {n: [] for n in names}
+    for v in verbs:
+        for dotted in v.get("raises", []):
+            short = dotted.rsplit(".", 1)[-1]
+            if short in documented and v["name"] not in documented[short]:
+                documented[short].append(v["name"])
+    out = []
+    for cls in classes:
+        try:
+            exit_code = helpers.exit_code_for(cls.__new__(cls))
+        except Exception:
+            exit_code = None
+        parents = [b for b in cls.__bases__ if b in classes or b is HydroModPyError]
+        by_package = sorted(sites[cls.__name__].items(), key=lambda kv: (-kv[1], kv[0]))
+        out.append(
+            {
+                "name": cls.__name__,
+                "module": cls.__module__,
+                "code": getattr(cls, "code", None),
+                "own_code": "code" in vars(cls),
+                "parent": parents[0].__name__ if parents else None,
+                "bases": [b.__name__ for b in cls.__bases__],
+                "title": " ".join((inspect.getdoc(cls) or "").split("\n\n")[0].split()),
+                "exit_code": exit_code,
+                "exit_name": exit_names.get(exit_code, ""),
+                "raised_in": [{"package": p, "count": n} for p, n in by_package],
+                "documented_by": sorted(documented[cls.__name__]),
+                "source": source_of(cls),
+            }
+        )
+    return out
+
+
+# ---------------------------------------------------------------- keywords against flags
+
+
+def keyword_table(verb: str, commands: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The keyword arguments of ``hmp.<verb>`` set against the flags of ``hmp <verb>``."""
+    fn = getattr(hmp, verb, None)
+    command = next((c for c in commands if c["path"] == ["hmp", verb.replace("_", "-")]), None)
+    if fn is None or command is None or command["subcommands"]:
+        return None
+    params = params_of(fn)
+    named = [p for p in params[1:] if p["kind"] == "keyword_only"]
+    has_var_kw = any(p["kind"] == "var_keyword" for p in params)
+    forwarded = popped_keywords(fn)
+    workflows: dict[str, list[dict[str, Any]]] = {}
+    object_form: list[dict[str, Any]] = []
+    if verb == "run":
+        from hydromodpy.project.dispatch.workflow import DISPATCH
+        from hydromodpy.project.facade import Project
+
+        for name, runner in DISPATCH.items():
+            workflows[name] = [p for p in params_of(runner)[1:] if p["kind"] == "keyword_only"]
+        object_form = [p for p in params_of(Project.simulate) if p["kind"] == "keyword_only"]
+    keywords: dict[str, dict[str, Any]] = {}
+
+    def add(name: str, default: str | None, where: str) -> None:
+        row = keywords.setdefault(name, {"keyword": name, "default": default, "where": []})
+        if row["default"] is None:
+            row["default"] = default
+        row["where"].append(where)
+
+    for p in named:
+        add(p["name"], p["default"], "signature")
+    for name in forwarded:
+        add(name, None, "consumed")
+    for workflow, plist in workflows.items():
+        for p in plist:
+            add(p["name"], p["default"], f"workflow:{workflow}")
+    for p in object_form:
+        add(p["name"], p["default"], "object")
+    flags = [a for a in command["arguments"] if not a["positional"]]
+    rows = []
+    used: set[str] = set()
+    for kw, row in keywords.items():
+        flag = next((a for a in flags if a["dest"] == kw), None)
+        invert = False
+        if flag is None:
+            flag = next((a for a in flags if a["dest"] == f"no_{kw}"), None)
+            invert = flag is not None
+        if flag is not None:
+            used.add(flag["dest"])
+        rows.append(
+            {
+                "keyword": kw,
+                "default": row["default"],
+                "where": row["where"],
+                "flag": flag["flags"] if flag else [],
+                "inverse": invert,
+            }
+        )
+    return {
+        "verb": verb,
+        "command": " ".join(command["path"]),
+        "rows": rows,
+        "cli_only": [a["flags"] for a in flags if a["dest"] not in used],
+        "workflows": {k: [p["name"] for p in v] for k, v in workflows.items()},
+        "object_form_var_keyword": verb == "run",
+        "has_var_keyword": has_var_kw,
+    }
+
+
+# ---------------------------------------------------------------- exit codes of each command
+
+
+def command_exit_codes(
+    commands: list[dict[str, Any]], codes: list[dict[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    """Exit codes each command sets itself, read from the code its handler runs.
+
+    The handler and the functions of its own module it calls are scanned for
+    ``sys.exit(...)`` and ``raise SystemExit(...)``, and so are the functions of
+    ``cli/helpers.py`` it calls. A ``sys.exit(exit_code_for(exc))`` is reported
+    as the mapped exit, whose code is the one of the exception class.
+    """
+    import importlib
+
+    by_name = {e["name"]: e["code"] for e in codes}
+    helpers = importlib.import_module("hydromodpy.cli.helpers")
+    helper_funcs = {
+        n.name: n
+        for n in ast.parse(Path(helpers.__file__).read_text()).body
+        if isinstance(n, ast.FunctionDef)
+    }
+
+    def value_of(arg: ast.AST) -> tuple[int | None, bool]:
+        if isinstance(arg, ast.Constant) and isinstance(arg.value, int):
+            return arg.value, False
+        name = arg.id if isinstance(arg, ast.Name) else getattr(arg, "attr", None)
+        if name in by_name:
+            return by_name[name], False
+        if isinstance(arg, ast.Call):
+            fname = getattr(arg.func, "id", getattr(arg.func, "attr", ""))
+            if fname == "exit_code_for":
+                return None, True
+        return None, False
+
+    result: dict[str, dict[str, Any]] = {}
+    for c in commands:
+        if not c["handler"]:
+            continue
+        module_name, _, func_name = c["handler"].partition(":")
+        module = importlib.import_module(module_name)
+        try:
+            tree = ast.parse(Path(module.__file__).read_text())
+        except (OSError, TypeError, SyntaxError):
+            continue
+        funcs = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+        seen: set[str] = set()
+        queue = [funcs[func_name]] if func_name in funcs else []
+        direct: set[int] = set()
+        mapped = False
+        while queue:
+            fn = queue.pop()
+            if id(fn) in seen:
+                continue
+            seen.add(id(fn))
+            for node in ast.walk(fn):
+                call = node if isinstance(node, ast.Call) else None
+                if call is not None:
+                    target = call.func
+                    is_exit = (
+                        isinstance(target, ast.Attribute)
+                        and target.attr == "exit"
+                        and getattr(target.value, "id", "") == "sys"
+                    ) or (isinstance(target, ast.Name) and target.id in ("SystemExit", "exit"))
+                    if is_exit and call.args:
+                        code, is_mapped = value_of(call.args[0])
+                        if code is not None:
+                            direct.add(code)
+                        mapped = mapped or is_mapped
+                    elif isinstance(target, ast.Name):
+                        callee = funcs.get(target.id) or helper_funcs.get(target.id)
+                        if callee is not None and id(callee) not in seen:
+                            queue.append(callee)
+                elif isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call):
+                    if getattr(node.exc.func, "id", "") == "SystemExit" and node.exc.args:
+                        code, is_mapped = value_of(node.exc.args[0])
+                        if code is not None:
+                            direct.add(code)
+                        mapped = mapped or is_mapped
+        result[" ".join(c["path"])] = {"codes": sorted(direct), "mapped": mapped}
+    return result
+
+
+# ---------------------------------------------------------------- how the objects relate
+
+
+def produced_by(
+    classes: list[dict[str, Any]], verbs: list[dict[str, Any]]
+) -> dict[str, list[dict[str, str]]]:
+    """For each result class, the functions and methods whose return annotation names it."""
+    names = {c["name"] for c in classes if c["kind"] == "result"}
+    found: dict[str, list[dict[str, str]]] = {n: [] for n in names}
+    for v in verbs:
+        for r in v.get("returns", []):
+            if r["name"] in found:
+                found[r["name"]].append({"call": f"hmp.{v['name']}()", "owner": ""})
+    for c in classes:
+        if c["kind"] != "result" or "qualname" not in c:
+            continue
+        module_name, _, qual = c["qualname"].rpartition(".")
+        cls = getattr(sys.modules.get(module_name), qual, None)
+        if cls is None:
+            continue
+        for member in c.get("members", []):
+            if member["kind"] != "method":
+                continue
+            fn = inspect.getattr_static(cls, member["name"], None)
+            fn = getattr(fn, "__func__", fn)
+            ann = return_annotation(fn) if callable(fn) else ""
+            for target in names:
+                if target != c["name"] and re.search(rf"\b{target}\b", ann):
+                    found[target].append(
+                        {"call": f"{c['name']}.{member['name']}()", "owner": c["name"]}
+                    )
+    return found
+
+
+def session_figure() -> str:
+    """A registered figure to show in the minimal session."""
+    from hydromodpy.display import list_figures
+
+    names = [spec.name for spec in list_figures()]
+    return "flux_timeseries" if "flux_timeseries" in names else names[0]
+
+
+def read_rules() -> list[str]:
+    """The bullet lines of the ``hmp.read`` docstring that say what comes back per kind."""
+    doc = inspect.getdoc(hmp.read) or ""
+    lines: list[str] = []
+    for line in doc.splitlines():
+        if line.startswith("- "):
+            lines.append(line[2:].strip())
+        elif lines and line.startswith("  ") and line.strip():
+            lines[-1] += " " + line.strip()
+        elif lines and not line.strip():
+            break
+    return lines
+
+
+# ---------------------------------------------------------------- members by task
+
+
+# A class page lists its members by what a reader does with them. The group of
+# a member comes from the mixin that defines it, so a new method lands in a
+# sensible group on its own; ``BY_NAME`` moves the few that read better elsewhere.
+TASKS: dict[str, dict[str, Any]] = {
+    "Catalog": {
+        "order": [
+            "Open a catalog",
+            "Find runs",
+            "Read results",
+            "Tags and notes",
+            "Trash and delete",
+            "Export and import",
+            "Calibration sessions",
+            "Inspect the index",
+            "Record a run",
+        ],
+        "by_owner": {
+            "Catalog": "Open a catalog",
+            "DiscoveryMixin": "Find runs",
+            "ReadsMixin": "Read results",
+            "LifecycleMixin": "Trash and delete",
+            "PackageIOMixin": "Export and import",
+            "SchemaDiscoveryMixin": "Inspect the index",
+            "RegistrationMixin": "Record a run",
+            "WritesMixinDuckDB": "Record a run",
+            "WritesMixinParquet": "Record a run",
+            "WritesMixinZarr": "Record a run",
+        },
+        "by_name": {
+            "read": "Read results",
+            "load_dataset": "Read results",
+            "sql": "Inspect the index",
+            "list_simulations": "Find runs",
+            "simulations": "Find runs",
+            "frame": "Find runs",
+            "sims_with_tag": "Tags and notes",
+            "add_tag": "Tags and notes",
+            "remove_tag": "Tags and notes",
+            "write_tags": "Tags and notes",
+            "add_note": "Tags and notes",
+            "rename_simulation": "Tags and notes",
+            "export": "Export and import",
+            "list_exports": "Export and import",
+            "record_export": "Export and import",
+            "calibration_iterations": "Calibration sessions",
+            "calibration_sessions": "Calibration sessions",
+            "delete_calibration_session": "Calibration sessions",
+            "list_orphan_calibration_sessions": "Calibration sessions",
+            "sessions": "Calibration sessions",
+            "list_running": "Find runs",
+            "list_stale_running": "Find runs",
+            "close": "Open a catalog",
+            "cleanup": "Open a catalog",
+            "finalize": "Record a run",
+            "open_zarr": "Read results",
+            "get_provenance": "Read results",
+            "list_geographic_features": "Read results",
+            "list_tracked_files": "Read results",
+        },
+        "intro": {
+            "Open a catalog": "Constructors, the paths a catalog owns, and the handle itself.",
+            "Find runs": "Resolve a reference, list runs, and pick the best, worst or latest.",
+            "Read results": "Fields, time series, budgets, features and provenance of a run.",
+            "Tags and notes": "Label a run, annotate it, rename it.",
+            "Trash and delete": "Move a run to the trash, restore it, purge it for good.",
+            "Export and import": "Write the files of a run, or move runs between workspaces as archives.",
+            "Calibration sessions": "The sessions a calibration leaves in the catalog and their iterations.",
+            "Inspect the index": "Tables, columns, metrics and stations of the index, and plain SQL.",
+            "Record a run": "What the pipeline calls to write a run into the catalog. A script that only reads results does not need these.",
+        },
+    },
+    "Run": {
+        "order": [
+            "The run itself",
+            "Fields, rasters and mesh",
+            "Tables and time series",
+            "Hydrographic network",
+        ],
+        "by_owner": {
+            "Run": "The run itself",
+            "RunGeographicMixin": "Fields, rasters and mesh",
+            "RunTimeseriesMixin": "Tables and time series",
+            "RunHydrographicMixin": "Hydrographic network",
+        },
+        "by_name": {},
+        "intro": {},
+    },
+}
+
+
+def group_members(entry: dict[str, Any]) -> list[dict[str, Any]]:
+    """Order the members of a class page by task; empty when the class has no task plan."""
+    plan = TASKS.get(entry["name"])
+    if plan is None:
+        return []
+    groups: dict[str, list[dict[str, Any]]] = {t: [] for t in plan["order"]}
+    for m in entry.get("members", []):
+        owner = m["owner"].rsplit(".", 1)[-1]
+        title = plan["by_name"].get(m["name"]) or plan["by_owner"].get(owner)
+        if title is None or title not in groups:
+            raise ValueError(
+                f"{entry['name']}.{m['name']} (defined in {owner}) belongs to no task group: "
+                "update TASKS in tools/docs/api_registry.py"
+            )
+        groups[title].append(m)
+    return [
+        {
+            "title": t,
+            "intro": plan["intro"].get(t, ""),
+            "members": sorted(ms, key=lambda m: m["name"]),
+        }
+        for t, ms in groups.items()
+        if ms
+    ]
+
+
 def build(nodes: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """Return the API and CLI payload; ``nodes`` is the field registry."""
     model_paths: dict[str, list[str]] = {}
@@ -399,6 +896,9 @@ def build(nodes: dict[str, dict[str, Any]]) -> dict[str, Any]:
                 "source": source_of(obj),
                 "returns": [],
                 "annotation": return_annotation(obj),
+                "returns_doc": returns_doc(doc),
+                "raises": raises_doc(doc),
+                "params": params_of(obj),
             }
             _, aliases = type_checking_names(sys.modules[obj.__module__])
             for rname in return_names(obj):
@@ -442,15 +942,35 @@ def build(nodes: dict[str, dict[str, Any]]) -> dict[str, Any]:
         if called:
             twins[getattr(mod, "NAME", mod.__name__.rsplit(".", 1)[-1])] = called
 
+    for c in classes:
+        if c["kind"] in ("result", "engine"):
+            c["groups"] = group_members(c)
+
+    codes = exit_codes()
+    command_names = {c["path"][1] for c in commands if len(c["path"]) == 2}
+    keyword_tables = {
+        v["name"]: t
+        for v in verbs
+        if v["name"].replace("_", "-") in command_names
+        for t in [keyword_table(v["name"], commands)]
+        if t is not None
+    }
     payload = {
         "version": getattr(hmp, "__version__", ""),
+        "all_names": list(public),
         "verbs": verbs,
         "helpers": helpers,
         "classes": classes,
         "modules": modules,
         "commands": commands,
         "cli_to_verbs": twins,
-        "exit_codes": exit_codes(),
+        "exit_codes": codes,
+        "command_exit_codes": command_exit_codes(commands, codes),
+        "exceptions": exceptions(codes, verbs),
+        "keyword_tables": keyword_tables,
+        "produced_by": produced_by(classes, verbs),
+        "read_rules": read_rules(),
+        "session_figure": session_figure(),
         "toml_kinds": {p: n.get("kind") for p, n in nodes.items() if p},
     }
     return payload

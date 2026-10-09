@@ -19,7 +19,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser(), verbosity_parser()],
-        epilog="Example:\n  hmp catalog rerun cheze_baseline --set flow.hydraulic_conductivity=2e-4",
+        epilog="Example:\n  hmp catalog rerun my_run --set flow.hydraulic_conductivity=2e-4",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     add_sim_ref(parser)

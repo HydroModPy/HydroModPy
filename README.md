@@ -138,7 +138,7 @@ advisory rather than a public issue.
 
 If HydroModPy supports your work, please cite the software and the companion
 paper. Full BibTeX, RIS and plain-text entries are on the
-[citation page](https://docs.hydromodpy.fr/main/about/how_to_cite.html);
+[citation page](https://docs.hydromodpy.fr/main/about/cite.html);
 GitHub renders the "Cite this repository" button from
 [`CITATION.cff`](https://github.com/HydroModPy/HydroModPy/blob/main/CITATION.cff).
 

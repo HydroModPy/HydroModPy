@@ -140,13 +140,13 @@ def _site_context_content(context: BlockBuildContext) -> BlockContent:
         (
             ("compact", ReportMetric("Site", context.station_label)),
             ("standard", ReportMetric("CRS", config.get("crs", "unknown"))),
-            ("standard", ReportMetric("Exutoire X", _fmt(config.get("x_outlet")), "m")),
-            ("standard", ReportMetric("Exutoire Y", _fmt(config.get("y_outlet")), "m")),
-            ("standard", ReportMetric("Fenetre", _window(config))),
+            ("standard", ReportMetric("Outlet X", _fmt(config.get("x_outlet")), "m")),
+            ("standard", ReportMetric("Outlet Y", _fmt(config.get("y_outlet")), "m")),
+            ("standard", ReportMetric("Window", _window(config))),
             (
                 "standard",
                 ReportMetric(
-                    "Cellules du run de preparation",
+                    "Run cells",
                     baseline.get("n_cells", "unknown"),
                 ),
             ),
@@ -154,11 +154,11 @@ def _site_context_content(context: BlockBuildContext) -> BlockContent:
     )
     table = key_value_table(
         "configuration",
-        "Configuration de reference",
+        "Reference configuration",
         (
-            ("Config base", config.get("base_config", "")),
+            ("Base config", config.get("base_config", "")),
             ("DEM", config.get("dem", "")),
-            ("Epaisseur", config.get("thickness", "")),
+            ("Thickness", config.get("thickness", "")),
             ("Drainage", config.get("drainage", "")),
         ),
     )
@@ -180,11 +180,11 @@ def _hydraulic_properties_content(context: BlockBuildContext) -> BlockContent:
     )
     table = key_value_table(
         "hydraulic_properties",
-        "Valeurs de reference",
+        "Reference values",
         (
-            ("Conductivité hydraulique K", _unit_value(config.get("K", ""), "m/s")),
-            ("Rendement spécifique Sᵧ", _unit_value(config.get("Sy", ""), "-")),
-            ("Emmagasinement spécifique Ss", _unit_value(config.get("Ss", ""), "1/m")),
+            ("Hydraulic conductivity K", _unit_value(config.get("K", ""), "m/s")),
+            ("Specific yield Sy", _unit_value(config.get("Sy", ""), "-")),
+            ("Specific storage Ss", _unit_value(config.get("Ss", ""), "1/m")),
         ),
     )
     return BlockContent(
@@ -196,15 +196,15 @@ def _hydraulic_properties_content(context: BlockBuildContext) -> BlockContent:
 def _spatial_context_content(context: BlockBuildContext) -> BlockContent:
     geology_table = ReportTable(
         "geology_units",
-        "Codes geologiques presents",
+        "Geological codes present",
         columns=(
             ("code", "Code"),
             ("notation", "Notation"),
             ("description", "Nature / description"),
-            ("area_km2", "Surface approx. (km2)"),
+            ("area_km2", "Approx. area (km2)"),
         ),
         rows=context.geology_rows,
-        empty_message="Aucun code geologique disponible.",
+        empty_message="No geological code available.",
     )
     return BlockContent(
         tables=(
@@ -224,21 +224,21 @@ def _hydrographic_network_content(context: BlockBuildContext) -> BlockContent:
                 (
                     "compact",
                     ReportMetric(
-                        "Segments BD Topage",
+                        "BD Topage segments",
                         network.get("reference_segments", "unknown"),
                     ),
                 ),
                 (
                     "standard",
                     ReportMetric(
-                        "Seuil extraction DEM",
+                        "DEM extraction threshold",
                         _fmt(context.config.get("network_threshold_area_km2", "0.5")),
                         "km2",
                     ),
                 ),
                 (
                     "audit",
-                    ReportMetric("Dossier figures source", network.get("figure_dir", "unknown")),
+                    ReportMetric("Source figures folder", network.get("figure_dir", "unknown")),
                 ),
             ),
         ),
@@ -256,22 +256,22 @@ def _forcing_flux_content(context: BlockBuildContext) -> BlockContent:
     simulated = mapping(stats.get("baseline_simulated_discharge"))
     rows = _stats_rows(
         (
-            ("Debit observe", observed, "m3/s"),
-            ("Debit simule", simulated, "m3/s"),
+            ("Observed discharge", observed, "m3/s"),
+            ("Simulated discharge", simulated, "m3/s"),
         )
     )
     table = ReportTable(
         table_id="flux_stats",
-        title="Chroniques et forcages",
+        title="Series and forcings",
         columns=(
-            ("label", "Serie"),
+            ("label", "Series"),
             ("rows", "Points"),
-            ("start", "Debut"),
-            ("end", "Fin"),
-            ("mean", "Moyenne"),
+            ("start", "Start"),
+            ("end", "End"),
+            ("mean", "Mean"),
             ("minimum", "Min"),
             ("maximum", "Max"),
-            ("unit", "Unite"),
+            ("unit", "Unit"),
         ),
         rows=tuple(rows),
     )
@@ -279,15 +279,15 @@ def _forcing_flux_content(context: BlockBuildContext) -> BlockContent:
         metrics=_for_level(
             context.detail_level,
             (
-                ("compact", ReportMetric("Origine forcages", _forcing_origin_label(config))),
+                ("compact", ReportMetric("Forcing origin", _forcing_origin_label(config))),
                 (
                     "compact",
-                    ReportMetric("Debit observe moyen", _fmt(observed.get("mean")), "m3/s"),
+                    ReportMetric("Mean observed discharge", _fmt(observed.get("mean")), "m3/s"),
                 ),
                 (
                     "audit",
                     ReportMetric(
-                        "Nombre de points debit observe",
+                        "Observed discharge points",
                         observed.get("rows", "unknown"),
                     ),
                 ),
@@ -308,15 +308,15 @@ def _simulation_outputs_content(context: BlockBuildContext) -> BlockContent:
                     "audit",
                     ReportMetric("Simulation", baseline.get("simulation_name", "unknown")),
                 ),
-                ("audit", ReportMetric("Pas temporels", baseline.get("n_timesteps", "unknown"))),
+                ("audit", ReportMetric("Timesteps", baseline.get("n_timesteps", "unknown"))),
                 (
                     "audit",
-                    ReportMetric("Temps solveur", _fmt(baseline.get("runtime_seconds")), "s"),
+                    ReportMetric("Solver time", _fmt(baseline.get("runtime_seconds")), "s"),
                 ),
                 (
                     "audit",
                     ReportMetric(
-                        "Debit simule moyen du run de reference",
+                        "Mean simulated discharge of the reference run",
                         _fmt(baseline_q.get("mean")),
                         "m3/s",
                     ),
@@ -329,25 +329,25 @@ def _simulation_outputs_content(context: BlockBuildContext) -> BlockContent:
 def _artifacts_content(context: BlockBuildContext) -> BlockContent:
     artifact_paths = context.artifact_paths
     links = (
-        ReportLink("Manifest du rapport blocs", context.manifest, kind="json"),
+        ReportLink("Report block manifest", context.manifest, kind="json"),
         ReportLink(
-            f"Contexte {context.site_label} HTML",
+            f"{context.site_label} context HTML",
             artifact_paths["context_html"],
             kind="html",
         ),
         ReportLink(
-            f"Rapport {context.site_label} overview standard",
+            f"{context.site_label} standard overview report",
             artifact_paths["overview_standard_html"],
             kind="html",
         ),
-        ReportLink("Resume contexte bassin", artifact_paths["context_summary"], kind="json"),
+        ReportLink("Catchment context summary", artifact_paths["context_summary"], kind="json"),
         ReportLink(
-            "Config run transitoire",
+            "Transient run config",
             artifact_paths["transient_config"],
             kind="toml",
         ),
         ReportLink(
-            f"Config overview {context.site_label}",
+            f"{context.site_label} overview config",
             artifact_paths["overview_config"],
             kind="toml",
         ),
@@ -402,7 +402,7 @@ def block_variants_by_id(
                     title=first_block.title,
                     level=level,
                     status="empty",
-                    lead=f"Bloc disponible a partir du niveau {first_block.level}.",
+                    lead=f"Block available from the {first_block.level} level.",
                 )
         groups.append((block_id, complete_variants))
     return tuple(groups)
@@ -502,11 +502,11 @@ def _forcing_origin_label(config: dict[str, Any]) -> str:
     )
     parts = []
     if recharge_ids:
-        parts.append(f"recharge custom ({recharge_ids})")
+        parts.append(f"custom recharge ({recharge_ids})")
     if runoff_ids:
-        parts.append(f"runoff custom ({runoff_ids})")
-    detail = "; ".join(parts) if parts else "forcages custom"
-    return f"{detail}; fichiers exemples HydroModPy, pas une base nationale directe"
+        parts.append(f"custom runoff ({runoff_ids})")
+    detail = "; ".join(parts) if parts else "custom forcings"
+    return detail
 
 
 def _fmt(value: Any) -> str:

@@ -1,0 +1,88 @@
+/* Validation page (loaded by _ext/hmp_validation.py). Theme tokens only. */
+
+.hmp-val-count { font-size: 1.05em; }
+.hmp-val-h { font-weight: 600; margin: .9rem 0 .25rem; }
+.hmp-val-warn { color: var(--pst-color-danger); }
+.hmp-val-jobs { font-size: .95em; }
+.hmp-val-chips .tc { margin-right: .25rem; }
+.hmp-val-scope { color: var(--pst-color-success); }
+
+/* Wide tables scroll inside the column, never the page. */
+.hmp-val-scroll { overflow-x: auto; max-width: 100%; margin: .3rem 0 .4rem; }
+.hmp-val-scroll table { margin: 0; font-size: .9em; }
+.hmp-val-scroll th, .hmp-val-scroll td { padding: .25rem .5rem; vertical-align: top; }
+td.hmp-val-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+td.hmp-val-out { color: var(--pst-color-danger); font-weight: 600; }
+
+/* Outcome chips. Skipped and not measured are never green. */
+.hmp-vs {
+  display: inline-block; font-size: max(.75em, .8rem); line-height: 1.5; padding: 0 .45rem;
+  border-radius: .6rem; border: 1px solid currentColor; white-space: nowrap;
+}
+.hmp-vs-passed { color: var(--pst-color-success); }
+.hmp-vs-failed, .hmp-vs-error { color: var(--pst-color-danger); }
+.hmp-vs-skipped, .hmp-vs-not-measured { color: var(--pst-color-text-muted); border-style: dashed; }
+.hmp-vs-gap { color: var(--pst-color-warning); font-weight: 600; }
+
+/* Share of the threshold used: one hue per bin, mixed into the surface. */
+.hmp-val-share { display: inline-block; min-width: 3.2em; padding: 0 .3rem; border-radius: .25rem; text-align: center; }
+.hmp-val-r0 { background: var(--pst-color-surface); }
+.hmp-val-r1 { background: color-mix(in srgb, var(--pst-color-success) 22%, transparent); }
+.hmp-val-r2 { background: color-mix(in srgb, var(--pst-color-success) 12%, transparent); }
+.hmp-val-r3 { background: color-mix(in srgb, var(--pst-color-warning) 18%, transparent); }
+.hmp-val-r4 { background: color-mix(in srgb, var(--pst-color-warning) 34%, transparent); }
+.hmp-val-r5 { background: color-mix(in srgb, var(--pst-color-danger) 30%, transparent); }
+.hmp-val-legend .hmp-val-share { min-width: 0; margin: 0 .2rem .2rem 0; font-size: .85em; }
+
+/* Case by solver matrix. */
+table.hmp-val-matrix td.hmp-val-cell { text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.hmp-val-matrix td:first-child { min-width: 10rem; }
+table.hmp-val-matrix th { font-size: .9em; }
+table.hmp-val-sched td:first-child { min-width: 9rem; }
+code.hmp-val-wf { white-space: nowrap; font-size: .85em; }
+table.hmp-val-matrix tr.hmp-val-grow th { text-align: left; background: var(--pst-color-surface); font-weight: 600; }
+td.hmp-val-nm { color: var(--pst-color-text-muted); font-style: italic; font-size: .85em; }
+td.hmp-val-sk { color: var(--pst-color-text-muted); font-size: .85em; }
+td.hmp-val-na { background: transparent; }
+.hmp-val-gapmark {
+  font-size: .75em; font-weight: 700; color: var(--pst-color-warning);
+  border: 1px solid currentColor; border-radius: .3rem; padding: 0 .2rem;
+}
+
+/* Known gap: a warning box at the top of the case. */
+.admonition.hmp-val-gap { margin: .5rem 0 .8rem; }
+
+/* Equations of the case README. */
+.hmp-val-eq { margin: .2rem 0 .4rem; overflow-x: auto; }
+
+/* Figures: small multiples drawn from the recorded curves. */
+.hmp-val-figs { display: flex; flex-wrap: wrap; gap: .6rem; margin: .5rem 0 .2rem; }
+figure.hmp-val-fig { flex: 1 1 15rem; max-width: 20rem; margin: 0; }
+figure.hmp-val-fig svg { width: 100%; height: auto; display: block; }
+figure.hmp-val-fig figcaption { font-size: .82em; color: var(--pst-color-text-muted); }
+.hmp-val-axes line { stroke: var(--pst-color-border); stroke-width: 1; }
+.hmp-val-lab text { fill: var(--pst-color-text-muted); font-size: 10px; }
+polyline.hmp-val-ref { fill: none; stroke: var(--pst-color-primary); stroke-width: 1.6; }
+.hmp-val-sim circle { fill: var(--pst-color-secondary); }
+.hmp-val-key-ref, .hmp-val-key-sim { display: inline-block; vertical-align: middle; margin: 0 .2rem 0 .5rem; }
+.hmp-val-key-ref { width: 1.2rem; height: 0; border-top: 2px solid var(--pst-color-primary); }
+.hmp-val-key-sim { width: .5rem; height: .5rem; border-radius: 50%; background: var(--pst-color-secondary); }
+
+/* The folded details of a case. */
+details.hmp-val-more { border: 1px solid var(--pst-color-border); border-radius: .4rem; margin: .6rem 0 1.2rem; }
+details.hmp-val-more > summary { cursor: pointer; padding: .4rem .7rem; color: var(--pst-color-text-muted); }
+details.hmp-val-more[open] > summary { border-bottom: 1px solid var(--pst-color-border); }
+.hmp-val-body { padding: .5rem .9rem .3rem; font-size: .95em; }
+.hmp-val-pre { font-size: .85em; background: var(--pst-color-surface); padding: .4rem .6rem; border-radius: .3rem; overflow-x: auto; }
+.hmp-val-tol, .hmp-val-tests { font-size: .92em; margin: .2rem 0 .5rem; }
+
+/* Checked by boxes of the theory pages. */
+.hmp-tested-tier > summary { cursor: pointer; font-weight: 600; margin: .3rem 0; }
+.hmp-tested ul { font-size: .95em; margin-bottom: .4rem; }
+
+/* On a phone the wide tables keep readable columns and scroll sideways. */
+@media (max-width: 760px) {
+  table.hmp-val-sched { min-width: 40rem; }
+  table.hmp-val-res { min-width: 36rem; }
+  table.hmp-val-matrix { min-width: 34rem; }
+}

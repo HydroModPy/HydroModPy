@@ -37,13 +37,14 @@ class MeshCatchmentConfig(HydroModelBase):
         StripLower,
         Profile.USER,
     ] = Field(
-        "geology_rivers",
+        ...,
         description=(
-            "Meshing compliance target. "
+            "Meshing compliance target, required in every [mesh_catchment] table. "
             "'geology_only' conforms the mesh to geology interfaces only, "
             "'rivers_only' conforms the mesh to river traces only, and "
             "'geology_rivers' enforces both sets of constraints in one mesh."
         ),
+        examples=["geology_rivers"],
     )
     output_mesh: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,

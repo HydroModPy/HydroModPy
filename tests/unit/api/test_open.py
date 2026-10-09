@@ -46,3 +46,15 @@ def test_open_existing_catalog_without_create(tmp_path: Path) -> None:
         assert cat.frame.empty
     finally:
         cat.close()
+
+
+def test_open_on_a_workspace_root_names_its_projects(tmp_path: Path) -> None:
+    """A workspace root holds no index; the error names the projects that do."""
+    project = tmp_path / "projects" / "nancon"
+    project.mkdir(parents=True)
+    (project / "project.toml").write_text("", encoding="utf-8")
+    hmp.open(project, create=True).close()
+
+    with pytest.raises(FileNotFoundError, match="projects with a catalog") as info:
+        hmp.open(tmp_path)
+    assert str(project.resolve()) in str(info.value)

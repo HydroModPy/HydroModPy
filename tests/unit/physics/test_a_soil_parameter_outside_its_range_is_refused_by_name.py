@@ -124,3 +124,29 @@ def test_a_transit_time_string_with_no_unit_names_the_syntax_to_write() -> None:
     )
     with pytest.raises(ValidationError, match=re.escape(text)):
         SoilReservoirConfig(ru=100.0, transit_time="5")
+
+
+@pytest.mark.parametrize(
+    ("name", "bounds"),
+    [
+        ("ru", {"ge": 0.0, "le": 1000.0}),
+        ("alpha", {"gt": 0.0, "le": 1.0}),
+        ("kc", {"ge": 0.0, "le": 2.0}),
+        ("impervious_fraction", {"ge": 0.0, "lt": 1.0}),
+        ("bypass_fraction", {"ge": 0.0, "lt": 1.0}),
+        ("transit_time", {"ge": 0.0, "le": 30.0}),
+        ("curve_number", {"ge": 30.0, "le": 98.0}),
+        ("runoff_time", {"ge": 0.0, "le": 10.0}),
+        ("runoff_lag", {"ge": 0.0, "le": 5.0}),
+    ],
+)
+def test_the_range_is_declared_on_the_field(name: str, bounds: dict[str, float]) -> None:
+    from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
+
+    declared: dict[str, float] = {}
+    for item in SoilReservoirConfig.model_fields[name].metadata:
+        for attr in ("ge", "gt", "le", "lt"):
+            if getattr(item, attr, None) is not None:
+                declared[attr] = getattr(item, attr)
+
+    assert declared == bounds

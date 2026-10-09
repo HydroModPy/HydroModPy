@@ -52,8 +52,8 @@ global_size = 1600.0
 min_size = 700.0
 max_size = 2800.0
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "n_cells"
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "n_points"

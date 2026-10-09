@@ -21,47 +21,60 @@ Added, removed and changed fields between two versions, computed from the models
 :link: python/index
 :link-type: doc
 
-The functions of `import hydromodpy as hmp`, the objects they return, and their command-line twins.
+The functions of `import hydromodpy as hmp`, the objects they return, the exceptions and their codes.
 :::
 
 :::{grid-item-card} Command line
 :link: cli/index
 :link-type: doc
 
-Every `hmp` command and subcommand, with its arguments, read from the parser.
+Every `hmp` command and subcommand, with its arguments, examples and exit codes, read from the parser.
 :::
 
 :::{grid-item-card} Data sources
 :link: data-sources
 :link-type: doc
 
-Every data section and the sources it accepts, with publisher and licence.
+Every data section and the sources it accepts, by section or by provider, with publisher and licence.
 :::
 
 :::{grid-item-card} Figures
 :link: figures
 :link-type: doc
 
-Every figure a run can draw, what it reads and the options it takes.
+Every figure a run can draw, what it reads, when it can be drawn and the options it takes.
 :::
 
 :::{grid-item-card} Solvers
 :link: solvers
 :link-type: doc
 
-Every process and solver pair, what it computes and what it needs before it.
+Every process and solver pair, the TOML lines that select it, its executable and what it needs before it.
 :::
 
 ::::
 
 ```{toctree}
 :hidden:
+:caption: Configuration
 
 parameters/index
+changes
+```
+
+```{toctree}
+:hidden:
+:caption: Python and command line
+
 python/index
 cli/index
+```
+
+```{toctree}
+:hidden:
+:caption: Catalogs
+
 data-sources
 figures
 solvers
-changes
 ```

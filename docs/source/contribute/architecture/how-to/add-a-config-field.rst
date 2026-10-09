@@ -1,9 +1,11 @@
-Add a Config Field
+Add a config field
 ==================
 
-Every TOML knob in HydroModPy is backed by a Pydantic v2 model with
-``ConfigDict(extra="forbid")``. This page describes how to add a new
-field to an existing section, or how to add a brand-new section.
+Every TOML knob in HydroModPy is backed by a Pydantic v2 model that forbids
+extra keys. This page describes how to add a field to an existing section, how
+to add a section, and how to write the field so the generated parameter
+reference documents it. The reference is built from the models alone, so the
+declaration of the field is its documentation.
 
 Find the right model
 --------------------
@@ -74,12 +76,11 @@ Pydantic invariants
 
 Every model in HydroModPy must:
 
-- inherit from ``HydroModelBase`` (or a model that does);
-- declare ``model_config = ConfigDict(extra="forbid")``;
-- use ``Annotated`` for unit-bearing fields (see below);
+- inherit from ``HydroModelBase`` (or a model that does), which forbids extra
+  keys and validates on assignment;
+- use a unit type for unit-bearing fields (see below);
 - carry a ``Profile`` annotation on every field;
-- ship a ``Field(..., description="...")`` and at least one example
-  for documented fields.
+- ship a ``Field(..., description="...")``.
 
 Pick a unit type
 ----------------
@@ -129,7 +130,7 @@ Bare numbers are interpreted in the canonical SI unit; users can also
 pass strings such as ``"50 m"`` or ``"0.36 m/h"`` and Pydantic will
 auto-convert.
 
-Pick a Profile
+Pick a profile
 --------------
 
 ``hydromodpy/core/config_kit/profile.py`` declares three visibility
@@ -169,14 +170,20 @@ Add a field to an existing section
            examples=[1e-4, "0.36 m/h"],
        )
 
-In TOML, both forms work:
+In TOML, a bare number is read in the canonical unit and a string carries its
+own:
 
 .. code-block:: toml
 
+   # not checked: k_aquifer is the example of this page, not a key of the model
    [flow]
    k_aquifer = 1e-4         # interpreted as m/s
-   # or
-   k_aquifer = "0.36 m/h"   # auto-converted to m/s
+
+.. code-block:: toml
+
+   # not checked: k_aquifer is the example of this page, not a key of the model
+   [flow]
+   k_aquifer = "0.36 m/h"   # converted to m/s
 
 Tracked input files
 -------------------
@@ -205,13 +212,105 @@ Add a brand-new section
 
 1. Create the Pydantic model in the appropriate package.
 2. Add the field to ``HydroModPyConfig`` in
-   ``hydromodpy/config/hydromodpy_config.py`` (typically as
-   ``Annotated[NewConfig | None, Profile.USER] = None``).
+   ``hydromodpy/config/hydromodpy_config.py``, with a default factory or
+   ``None``, and its entry in the section loader table of the same file.
 3. If a launcher should dispatch on the new section, wire it through
    ``hydromodpy/project/dispatch/workflow.py`` (or the equivalent dispatcher).
-4. Refresh the JSON Schema export with
-   ``hmp dev schema export --output ./schema/`` and commit the diff if
-   the project pins generated artefacts.
+4. Regenerate the committed JSON Schema with
+   ``python -m tools.docs.schema_export`` and commit the diff.
+   ``tests/unit/docs/test_docs_config_consistency.py`` fails while the file in
+   ``docs/source/_static/`` differs from what the code exports. The frontend
+   export, ``hmp dev schema export``, is written on demand and is not committed.
+
+Describe the field
+------------------
+
+The parameter reference is generated from the models, so nothing is written on
+a page. Change the field, and the next build shows the change everywhere the
+key appears. This is what the reference reads from a declaration:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 38 62
+
+   * - The reader sees
+     - It comes from
+   * - The path of the key and its place in the file
+     - The model tree under ``HydroModPyConfig``.
+   * - The one-line summary
+     - The first sentence of ``description``.
+   * - The text of the card
+     - The whole ``description``.
+   * - The form of the value: number, text, list, table
+     - The annotation.
+   * - The unit
+     - A quantity type (``Length``, ``HydraulicConductivity``, ...), else
+       ``field_metadata(unit=...)``, else ``Calibrable(units=...)``, else a
+       suffix of the field name such as ``_m`` or ``_days``.
+   * - The default, or *required*
+     - ``default``, ``default_factory``, or no default.
+   * - The range
+     - ``ge``, ``gt``, ``le``, ``lt``.
+   * - The allowed values
+     - ``Literal[...]``.
+   * - What each value does
+     - ``field_metadata(value_docs={...})``.
+   * - The value written on a required line
+     - The first item of ``Field(examples=[...])``.
+   * - Shown by default, or behind the developer and expert button
+     - ``Profile.USER``, ``Profile.DEV``, ``Profile.EXPERT`` in the annotation.
+   * - When the key is read
+     - ``VisibleWhen("sibling", value)`` in the annotation.
+   * - The *calibrable* badge and its transform
+     - ``field_metadata(calibrable=Calibrable(...))``.
+   * - The *experimental* and *deprecated* badges
+     - ``field_metadata(stability="experimental")`` and ``Field(deprecated=...)``.
+   * - "Connections found in the code"
+     - Other sections named in the same function or string of ``hydromodpy/``.
+
+``field_metadata`` lives in ``hydromodpy/core/config_kit/field_metadata.py``. It
+refuses an unknown key when the module is imported, so a typo fails the tests
+and not the page.
+
+The first sentence of the description is the summary: it shows on the line of
+the key, in the tree of the whole file and in the search. Make it say what the
+key sets, in the words of the person who writes the file. The conditions where
+the key applies and its exceptions come after it.
+
+.. code-block:: python
+
+   grid_dual: Annotated[Literal["voronoi", "triangle"], Profile.USER] = Field(
+       default="voronoi",
+       description=(
+           "Cell shape of a runtime gmsh mesh: the Voronoi (PEBI) dual or the "
+           "triangles themselves. Applies only to a MODFLOW 6 run on a runtime "
+           "gmsh mesh; ignored for structured grids."
+       ),
+       json_schema_extra=field_metadata(
+           value_docs={
+               "voronoi": "Exact CVFD orthogonality, about half the cells. The default.",
+               "triangle": "Keeps the triangulation cells, for simplex comparison runs.",
+           }
+       ),
+   )
+
+Rules for the values:
+
+- A choice between values is a ``Literal``, and every value is explained in
+  ``value_docs``. The card lists the values with their explanation, and the
+  search finds a key by the name of one of its values.
+- A number has a unit. A quantity type also lets the file write ``"150 m"`` or
+  ``"3 days"``, and a bare number is read in the canonical unit.
+- A key read only in some cases says so with ``VisibleWhen``, not only in the
+  prose: the card then shows the condition on its own line.
+- A required key with no default has an example in ``Field(examples=[...])``. It
+  is the value the reference writes on the line of the key. Never take it from
+  an example project.
+
+Build the documentation and open the page of the section to check it
+(``make -C docs html-strict``). The build fails on a cited key that does not
+exist. The tree of the whole file, :doc:`/reference/parameters/explorer`, is the
+fastest way to see the key in context.
 
 Tests to add
 ------------
@@ -230,11 +329,11 @@ Pitfalls flagged by the layer matrix
 - The Pydantic model lives in the **same** layer as the package it
   configures. Do not move it to ``config/``: ``config/`` is the root
   composition only.
-- ``schema/`` and ``config/`` may both import any other layer; new
-  cross-edges should still be justified.
-- Generated TOML templates and JSON Schema exports must stay in sync
-  with the source models. Re-run the export after every field
-  addition.
+- ``config/`` is the one layer that composes the sections, so it imports the
+  layers that own them. Of the layers below it, only ``schema/``, ``results/``
+  and ``reporting/`` import ``config/``.
+- The committed JSON Schema must stay in sync with the models. Re-run the
+  export after every field addition.
 
 See also
 --------
@@ -243,5 +342,6 @@ See also
 - :doc:`../packages/core` for ``Profile``, units, and tracking
   helpers.
 - :doc:`build-a-frontend` if your field powers a UI widget.
+- :doc:`/contribute/documentation/index` for the rest of the documentation.
 - :doc:`/reference/parameters/index` for the user-facing TOML
   reference (auto-generated from these models).

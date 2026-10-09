@@ -26,6 +26,29 @@ which model was exported, and a profile-filtered document takes a scope of its
 own -- it is a different document, so it may not claim the identity of the full
 one.
 
+Editor schema
+-------------
+:func:`export_editor_schema` is the document an editor reads through a
+``#:schema`` header. ``HydroModPyConfig.model_json_schema()`` describes the
+model, and a file is not the model: the loader reads it first. The editor
+schema therefore accepts what the loader accepts and the model alone does not
+say:
+
+- ``base_config`` at the top level, and a file that omits any key (an overlay
+  states only what it changes, so no ``required`` survives);
+- the ``<key>__append`` and ``<key>__delete`` forms of a key (see
+  :mod:`hydromodpy.core.toml_io.merge`);
+- a quantity written as text with a unit (``'150 m'``, ``'0.36 m/h'``) wherever
+  the field is a quantity type;
+- a date written without a time (``2019-01-01``) where the model reads a datetime;
+- a list item that omits its discriminator in an overlay (``oneOf`` becomes
+  ``anyOf``);
+- the flat ``[flow.ic]`` form.
+
+What it cannot say stays with ``hmp config check``: the files a ``base_config``
+chain merges, the rules between two keys, the bounds of a quantity once its unit
+is converted, and every key that only exists after the merge.
+
 Usage
 -----
 Python API::
@@ -57,9 +80,12 @@ CLI::
 from __future__ import annotations
 
 import json
+import re
 from functools import cache
 from pathlib import Path
 from typing import Any
+
+from pydantic.json_schema import GenerateJsonSchema
 
 from hydromodpy.core.config_kit.introspect import iter_basemodels, read_profile_from_schema
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
@@ -275,6 +301,234 @@ def _cached_full_schema(model_cls: type) -> dict[str, Any]:
     return model_cls.model_json_schema()
 
 
+# ---------------------------------------------------------------------------
+# Editor schema: what the loader accepts
+# ---------------------------------------------------------------------------
+
+_QUANTITY_PATTERN = r"^\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s*(?:\S.*)?$"
+"""A number, then an optional unit: ``'150 m'``, ``'1e-4 m/s'``, ``'0.2'``."""
+
+_QUANTITY_TEXT: dict[str, Any] = {
+    "type": "string",
+    "pattern": _QUANTITY_PATTERN,
+    "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+}
+
+_QUANTITY_COERCERS = ("_coerce_bare_number.", "_coerce_to_canonical_float.")
+_UNITS_MODULE = "hydromodpy.core.units.types"
+
+_DATE_TEXT_PATTERN = (
+    r"^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$"
+)
+"""A date, or a date and a time: ``2019-01-01``, ``2019-01-01T06:00:00Z``."""
+
+_APPEND_SUFFIX = "__append"
+_DELETE_SUFFIX = "__delete"
+_ANY_KEY = ".+"
+
+_BASE_CONFIG_SCHEMA: dict[str, Any] = {
+    "type": "string",
+    "description": (
+        "Path of a TOML file this file extends, relative to this file. The keys written "
+        "here replace the ones the base file sets. Lists replace the base list unless the "
+        "key carries the suffix __append, and a key is removed with <key>__delete = true."
+    ),
+}
+
+_DELETE_DIRECTIVE: dict[str, Any] = {
+    "const": True,
+    "description": "Remove the inherited key. Only the literal true is accepted.",
+}
+
+
+def _accepts_number(node: dict[str, Any]) -> bool:
+    """Whether a property schema already admits a JSON number."""
+    if node.get("type") in ("number", "integer"):
+        return True
+    return any(
+        _accepts_number(member)
+        for key in ("anyOf", "oneOf")
+        for member in node.get(key, ())
+        if isinstance(member, dict)
+    )
+
+
+class _EditorSchemaGenerator(GenerateJsonSchema):
+    """Let a quantity type say that it also reads text with a unit.
+
+    A quantity field validates a number or a string such as ``'150 m'``. The
+    default generator only sees the number, so a file that writes the unit is
+    flagged in the editor although the loader reads it. The check is the origin
+    of the validator, never the name of the field.
+    """
+
+    def function_before_schema(self, schema: Any) -> Any:  # noqa: D102
+        result = super().function_before_schema(schema)
+        function = schema.get("function")
+        function = function.get("function") if isinstance(function, dict) else function
+        qualname = getattr(function, "__qualname__", "")
+        if getattr(function, "__module__", "") == _UNITS_MODULE and qualname.startswith(
+            _QUANTITY_COERCERS
+        ):
+            # A pint type describes its text and object forms and not the bare
+            # number the loader reads as the canonical unit.
+            number = [] if _accepts_number(result) else [{"type": "number"}]
+            return {"anyOf": [result, *number, dict(_QUANTITY_TEXT)]}
+        return result
+
+
+@cache
+def _cached_editor_schema(model_cls: type) -> dict[str, Any]:
+    return model_cls.model_json_schema(schema_generator=_EditorSchemaGenerator)
+
+
+_SUBSCHEMA_MAPS = ("properties", "patternProperties", "$defs")
+_SUBSCHEMA_LISTS = ("anyOf", "oneOf", "allOf", "prefixItems")
+_SUBSCHEMA_VALUES = ("items", "additionalProperties", "not", "contains", "propertyNames")
+
+
+def _subschemas(node: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the schema members of *node*, never its data (defaults, examples, enums)."""
+    found: list[dict[str, Any]] = []
+    for key in _SUBSCHEMA_MAPS:
+        value = node.get(key)
+        if isinstance(value, dict):
+            found.extend(v for v in value.values() if isinstance(v, dict))
+    for key in _SUBSCHEMA_LISTS:
+        value = node.get(key)
+        if isinstance(value, list):
+            found.extend(v for v in value if isinstance(v, dict))
+    for key in _SUBSCHEMA_VALUES:
+        value = node.get(key)
+        if isinstance(value, dict):
+            found.append(value)
+    return found
+
+
+def _array_branch(node: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the array member of a property schema, or ``None`` if it has none."""
+    if node.get("type") == "array":
+        return node
+    for key in ("anyOf", "oneOf"):
+        for member in node.get(key, ()):
+            if isinstance(member, dict) and (found := _array_branch(member)) is not None:
+                return found
+    return None
+
+
+def _model_directive_patterns(properties: dict[str, Any]) -> dict[str, Any]:
+    """Return the ``patternProperties`` that admit the merge directives of a model.
+
+    ``__delete`` may name any key: an overlay that switches a union to another
+    variant removes a key the new variant does not even declare. ``__append``
+    must name a key that holds a list, and carries that list's item schema.
+    """
+    patterns: dict[str, Any] = {f"^{_ANY_KEY}{_DELETE_SUFFIX}$": dict(_DELETE_DIRECTIVE)}
+    for name, member in sorted(properties.items()):
+        branch = _array_branch(member) if isinstance(member, dict) else None
+        if branch is not None:
+            items = {"items": branch["items"]} if "items" in branch else {}
+            patterns[f"^{re.escape(name)}{_APPEND_SUFFIX}$"] = {"type": "array", **items}
+    return patterns
+
+
+def _admit_directives(node: dict[str, Any]) -> None:
+    """Make an object schema accept ``<key>__append`` and ``<key>__delete`` (in place).
+
+    A schema that already accepts any key needs nothing. A model that refuses
+    unknown keys gets its directives named by key, and a map of free keys cannot
+    name them, so any key may carry a suffix there.
+    """
+    properties = node.get("properties")
+    patterns = node.get("patternProperties")
+    extra = node.get("additionalProperties")
+    if isinstance(properties, dict) and properties:
+        if extra is False:
+            node["patternProperties"] = {
+                **(patterns or {}),
+                **_model_directive_patterns(properties),
+            }
+    elif isinstance(patterns, dict) and patterns:
+        # The key pattern of the map (``domain.supports``) matches a suffixed key
+        # too, and every matching pattern applies: the value is widened instead.
+        for key, member in list(patterns.items()):
+            patterns[key] = {"anyOf": [member, dict(_DELETE_DIRECTIVE), {"type": "array"}]}
+    elif isinstance(extra, dict):
+        node["patternProperties"] = {
+            f"^{_ANY_KEY}{_DELETE_SUFFIX}$": dict(_DELETE_DIRECTIVE),
+            f"^{_ANY_KEY}{_APPEND_SUFFIX}$": {"type": "array"},
+        }
+
+
+def _relax_for_loader(node: dict[str, Any]) -> None:
+    """Rewrite a schema node for a file the loader merges before it validates (in place)."""
+    for member in _subschemas(node):
+        _relax_for_loader(member)
+
+    node.pop("required", None)
+    if node.get("type") == "string" and node.get("format") == "date-time":
+        # The model reads a bare date such as ``2019-01-01`` as midnight. A
+        # validator that asserts the RFC 3339 format would refuse it.
+        node.pop("format")
+        node["pattern"] = _DATE_TEXT_PATTERN
+    if "oneOf" in node:
+        # A discriminated list item may omit its tag in an overlay: the merge
+        # pairs the items by index, so exactly-one is no longer decidable.
+        alternatives = node.pop("oneOf")
+        if "anyOf" in node:
+            node.setdefault("allOf", []).append({"anyOf": alternatives})
+        else:
+            node["anyOf"] = alternatives
+    _admit_directives(node)
+
+
+def _admit_flat_flow_ic(schema: dict[str, Any]) -> None:
+    """Accept the flat ``[flow.ic]`` form next to the ``{h = ...}`` container.
+
+    ``FlowConfig`` normalises ``[flow.ic] type = "top"`` into the container
+    before validation, so the model schema only describes the container.
+    """
+    defs = schema.get("$defs", {})
+    flow = defs.get("FlowConfig", {}).get("properties", {})
+    container = defs.get("FlowInitialConditions", {}).get("properties", {}).get("h", {})
+    variants = container.get("anyOf") or container.get("oneOf")
+    if "ic" not in flow or not variants:
+        raise RuntimeError(
+            "the flat [flow.ic] form can no longer be derived from FlowConfig: "
+            "update hydromodpy.config.schema_export._admit_flat_flow_ic"
+        )
+    original = flow["ic"]
+    extras = {k: original[k] for k in ("description", "x-hmp-profile") if k in original}
+    flow["ic"] = {**extras, "anyOf": [{"$ref": "#/$defs/FlowInitialConditions"}, *variants]}
+
+
+def editor_schema(model_cls: type | None = None) -> dict[str, Any]:
+    """Return the JSON Schema a TOML file is checked against in an editor.
+
+    See the module docstring for what it accepts beyond the model schema. The
+    full model is exported by :func:`export_schema` and stays the contract for
+    frontends and for the lockfile fingerprint.
+    """
+    if model_cls is None:
+        from hydromodpy.config import HydroModPyConfig
+
+        model_cls = HydroModPyConfig
+    schema = json.loads(json.dumps(_cached_editor_schema(model_cls)))
+    if model_cls.__name__ == "HydroModPyConfig":
+        _admit_flat_flow_ic(schema)
+    _relax_for_loader(schema)
+    properties = schema.setdefault("properties", {})
+    properties["base_config"] = dict(_BASE_CONFIG_SCHEMA)
+
+    document = {"$schema": JSON_SCHEMA_DIALECT, **schema}
+    document["$comment"] = (
+        "Generated by hydromodpy.config.schema_export.editor_schema. "
+        "Checks the keys and the types of one TOML file. `hmp config check` checks "
+        "the merged configuration."
+    )
+    return document
+
+
 def schema_sha256(model_cls: type | None = None) -> str:
     """Return the SHA-256 of the canonical JSON Schema for *model_cls*.
 
@@ -381,6 +635,7 @@ __all__ = [
     "JSON_SCHEMA_DIALECT",
     "ROOT_SCOPE",
     "SCHEMA_URN_PREFIX",
+    "editor_schema",
     "export_schema",
     "extract_property_schema",
     "model_scope",

@@ -34,7 +34,13 @@ HELP: str = "Run a calibration workflow from a TOML config"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser(), verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[profile_parser(), verbosity_parser()],
+        epilog="Examples:\n  hmp calibrate calibration.toml\n  hmp calibrate calibration.toml --check\n  hmp calibrate calibration.toml --list-phases\n  hmp calibrate calibration.toml --phase phase_name\n  hmp calibrate calibration.toml --expand",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("config", type=Path, help="Path to a calibration TOML file")
     parser.add_argument(
         "--phase",

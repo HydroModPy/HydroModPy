@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.data.common.geo_helpers import require_declared_crs
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.provenance.derived import derived_path
 
@@ -80,7 +81,7 @@ def _load_raster(
 
     with rasterio.open(str(path)) as src:
         bounds = src.bounds
-        crs = str(src.crs) if src.crs else "EPSG:2154"
+        crs = require_declared_crs(src.crs, path=path, variable="dem")
         actual_bbox = (bounds.left, bounds.bottom, bounds.right, bounds.top)
 
     return [
@@ -101,7 +102,7 @@ def _load_asc(path: Path, *, derived_dir: Path | None = None) -> list[FieldRecor
 
     with rasterio.open(str(path)) as src:
         bounds = src.bounds
-        crs = str(src.crs) if src.crs else "EPSG:2154"
+        crs = require_declared_crs(src.crs, path=path, variable="dem")
         actual_bbox = (bounds.left, bounds.bottom, bounds.right, bounds.top)
 
         # Convert to GeoTIFF for faster future reads.
@@ -175,7 +176,7 @@ def _load_netcdf(
     else:
         actual_bbox = bbox or (0, 0, 0, 0)
 
-    crs = str(ds.attrs.get("crs", ds.attrs.get("proj4", "EPSG:2154")))
+    crs = require_declared_crs(_netcdf_crs(ds, elev_var), path=path, variable="dem")
 
     return [
         FieldRecord(
@@ -187,3 +188,20 @@ def _load_netcdf(
             crs=crs,
         )
     ]
+
+
+def _netcdf_crs(ds, data_var: str) -> str | None:
+    """The CRS a NetCDF DEM declares: on the variable, the file or its grid mapping."""
+    for attrs in (ds[data_var].attrs, ds.attrs):
+        for key in ("crs", "crs_wkt", "spatial_ref", "proj4"):
+            value = attrs.get(key)
+            if value is not None and str(value).strip():
+                return str(value).strip()
+    grid_mapping = ds[data_var].attrs.get("grid_mapping")
+    if grid_mapping and grid_mapping in ds:
+        attrs = ds[grid_mapping].attrs
+        for key in ("crs_wkt", "spatial_ref", "crs"):
+            value = attrs.get(key)
+            if value is not None and str(value).strip():
+                return str(value).strip()
+    return None

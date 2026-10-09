@@ -20,11 +20,16 @@ step_value = "1 day"
 
 # The monthly series carries one rate per month, so a daily run reading it sees
 # a staircase and no storm. `NANCON_REA` is the daily areal mean over the same
-# catchment, 1990-2020. `source` and `path` stay what the parent said.
+# catchment, 1990-2020. A list of tables replaces the parent's list whole, so
+# each source is written in full.
 [[data.recharge.sources]]
+source = "custom"
+path = "recharge"
 station_ids = ["NANCON_REA"]
 
 [[data.runoff.sources]]
+source = "custom"
+path = "runoff"
 station_ids = ["NANCON_REA"]
 
 # 36 monthly points were too few to read a duration curve or a recession off,

@@ -95,8 +95,16 @@ class RunSet:
         catalog: Catalog,
     ) -> None:
         self._sim_ids = sim_ids
-        self._catalog = catalog
+        self._catalog_handle = catalog
         self.probe = RunPointProvider(self)
+
+    @property
+    def _catalog(self) -> Catalog:
+        """The catalog the group reads through, reopened if its owner closed it."""
+        from hydromodpy.results.run.view import live_catalog
+
+        self._catalog_handle = live_catalog(self._catalog_handle)
+        return self._catalog_handle
 
     def _iter_runs(self):
         """Runs of the group, so ``probe`` serves a set exactly like one run."""
@@ -240,41 +248,38 @@ class RunSet:
         return self._catalog.backend.query(query, params)
 
     def best(self, metric: str, *, station: str | None = None) -> Run:
-        """Return the run with the highest value for ``metric``.
+        """Return the run with the best value for ``metric``.
 
-        ``station`` scopes the ranking; when omitted a single-station metric is
-        used silently and a multi-station metric raises ``KeyError``.
+        Best follows the direction of the metric: the highest ``nse``, the
+        lowest ``rmse``, the ``pbias`` closest to zero. ``station`` scopes the
+        ranking; when omitted a single-station metric is used silently and a
+        multi-station metric raises ``KeyError``.
 
         Raises
         ------
         ValueError
-            Raised when the group is empty.
+            Raised when the group is empty, or when the metric has no declared
+            direction (:class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`).
         KeyError
             Raised when the metric is absent, or ambiguous across stations.
         """
-        return self._extreme(metric, station=station, descending=True)
+        return self._extreme(metric, station=station, best=True)
 
     def worst(self, metric: str, *, station: str | None = None) -> Run:
-        """Return the run with the lowest value for ``metric``.
+        """Return the run with the worst value for ``metric``.
 
-        ``station`` scopes the ranking; when omitted a single-station metric is
-        used silently and a multi-station metric raises ``KeyError``.
-
-        Raises
-        ------
-        ValueError
-            Raised when the group is empty.
-        KeyError
-            Raised when the metric is absent, or ambiguous across stations.
+        The mirror of :meth:`best`, with the same direction rule and errors.
         """
-        return self._extreme(metric, station=station, descending=False)
+        return self._extreme(metric, station=station, best=False)
 
-    def _extreme(self, metric: str, *, station: str | None, descending: bool) -> Run:
-        """Return the run holding the extreme value of a station-scoped metric."""
+    def _extreme(self, metric: str, *, station: str | None, best: bool) -> Run:
+        """Return the run holding the best or worst value of a station-scoped metric."""
+        from hydromodpy.results.catalog.constants import metric_rank_sql
         from hydromodpy.results.run import Run
 
         if not self._sim_ids:
             raise ValueError("Empty group")
+        order = metric_rank_sql(metric, best=best)
         resolved = self._resolve_metric_station(metric, station)
         placeholders = ", ".join(["?"] * len(self._sim_ids))
         query = (
@@ -285,7 +290,7 @@ class RunSet:
         if resolved is not None:
             query += " AND m.station_id = ?"
             params.append(resolved)
-        query += f" ORDER BY m.value {'DESC' if descending else 'ASC'} LIMIT 1"
+        query += f" AND m.value IS NOT NULL AND isfinite(m.value) ORDER BY {order} LIMIT 1"
         row = self._catalog.backend.fetch_one(query, params)
         if row is None:
             raise KeyError(f"No metric '{metric}' found in group")

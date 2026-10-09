@@ -202,7 +202,7 @@ class TestTemporalFieldTransient:
             coverage_policy="error",
         )
 
-        with pytest.raises(ValueError, match="no gridded forcing values"):
+        with pytest.raises(ValueError, match="does not cover stress period"):
             discretize_fields_on_sgrid(
                 load_result=LoadResult(fields=[field_rec]),
                 sgrid=sgrid,

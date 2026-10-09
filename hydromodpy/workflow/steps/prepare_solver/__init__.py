@@ -85,6 +85,7 @@ class PrepareSolverStep:
     reads: ClassVar[tuple[str, ...]] = (
         "ctx",
         "skip_display",
+        "run_overrides",
     )
     writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = (
@@ -107,7 +108,7 @@ class PrepareSolverStep:
 
         if run_is_catalogued(ctx):
             with run_catalog(ctx) as store:
-                step_register_run(ctx, store=store)
+                step_register_run(ctx, store=store, run_overrides=state.get("run_overrides"))
                 step_write_provenance(ctx, store=store)
                 step_persist_forcings(ctx, store=store)
 

@@ -1,0 +1,33 @@
+# Studies that used HydroModPy, newest first on the page.
+#
+# bib: key of the paper in docs/source/theory/references.bib. The authors, the
+#      year, the title, the journal and the DOI come from that entry.
+# use: what HydroModPy did in the study, in one sentence. Say only what the
+#      paper or the code backs. A site is named only when the paper names it.
+#
+# To add a study: add its BibTeX entry to references.bib, then a row here.
+studies:
+  - bib: abherve2025climate
+    use: >-
+      Climate-change projections of groundwater and surface water connectivity in a
+      compartmentalized headwater bedrock aquifer.
+  - bib: abherve2024headwater
+    use: >-
+      Calibration of groundwater flow models against the intermittence of headwater
+      streams, with the stream network metric of HydroModPy.
+  - bib: floriancic2024knickpoint
+    use: >-
+      Groundwater seepage and mixing at the knickpoint of a mountain stream in
+      Switzerland, run with the Boussinesq solver.
+  - bib: lemesnil2024coastal
+    use: >-
+      Heterogeneity of a coastal aquifer read from the head series of a single
+      piezometer, with HydroModPy as the forward model of the inverse problem.
+  - bib: marti2024wetland
+    use: >-
+      Sensitivity of groundwater-dependent wetlands to changes in recharge,
+      from catchment-scale runs.
+  - bib: abherve2023
+    use: >-
+      The calibration of seepage against the spatial distribution of the stream
+      network, the method behind the network criterion of HydroModPy.

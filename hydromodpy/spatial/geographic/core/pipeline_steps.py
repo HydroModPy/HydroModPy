@@ -53,7 +53,7 @@ class PreparedGeographicRun:
 def _normalize_buff_area(buff_area: float | str | None) -> float | str:
     """Normalize buffer control while preserving support for explicit-distance strings."""
     if buff_area is None:
-        raise ValueError("geographic.buff_area is required")
+        raise ValueError("geographic.catchment.buff_area is required")
     if isinstance(buff_area, str):
         return buff_area
     return float(buff_area)
@@ -66,7 +66,7 @@ def prepare_geographic_run(
 ) -> PreparedGeographicRun:
     """Build canonical paths, ensure folders exist, and resolve DEM/CRS primitives."""
     if config.dem_init_path is None:
-        raise ValueError("geographic.dem_init_path is required")
+        raise ValueError("geographic.catchment.dem_init_path is required")
 
     paths = build_geographic_paths(out_dir_path)
     create_folder(paths.geographic_path)

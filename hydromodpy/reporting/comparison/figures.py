@@ -22,32 +22,32 @@ class FigureCategory:
 _CATEGORY_META: dict[str, tuple[str, str, int]] = {
     "configuration": (
         "Configuration",
-        "Support de calcul, topographie, limites, points et forcages.",
+        "Computation support, topography, boundaries, points and forcings.",
         10,
     ),
     "heads": (
-        "Charges hydrauliques",
-        "Un champ de charge representatif et les chroniques ponctuelles.",
+        "Hydraulic heads",
+        "One representative head field and the point time series.",
         20,
     ),
     "water_balance": (
-        "Stockage et bilan externe",
-        "Stockage global et sommes d'entrees/sorties externes.",
+        "Storage and external budget",
+        "Global storage and sums of external inflows and outflows.",
         30,
     ),
     "networks": (
-        "Reseaux et diagnostics spatiaux",
-        "Hydrographie, reseau actif simule et diagnostics geometriques.",
+        "Networks and spatial diagnostics",
+        "Hydrography, simulated active network and geometric diagnostics.",
         50,
     ),
     "performance": (
         "Performance",
-        "Temps de calcul et indicateurs de cout numerique.",
+        "Run time and numerical cost indicators.",
         60,
     ),
     "other": (
-        "Autres figures",
-        "Figures non classees par les regles standards.",
+        "Other figures",
+        "Figures not classified by the standard rules.",
         90,
     ),
 }

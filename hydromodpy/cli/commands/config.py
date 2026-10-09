@@ -3,6 +3,7 @@
 Subparsers:
   - ``hmp config template [OUTPUT]``  : generate a TOML template
   - ``hmp config check FILE.toml``    : validate a TOML against the Pydantic schema
+  - ``hmp config resolve FILE.toml``  : print the file its base_config chain resolves to
   - ``hmp config schema ...``         : export the JSON Schema (same as ``hmp dev schema``)
   - ``hmp config wizard``             : stdin-driven wizard
 """
@@ -35,7 +36,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="config_command", required=False)
 
-    tpl = sub.add_parser("template", help="Generate a TOML configuration template")
+    tpl = sub.add_parser(
+        "template",
+        help="Generate a TOML configuration template",
+        epilog="Examples:\n  hmp config template --list-modules\n  hmp config template run.toml --profile user --modules flow solver",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     tpl.add_argument(
         "output",
         nargs="?",
@@ -58,10 +64,28 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="List available module names and exit",
     )
 
-    chk = sub.add_parser("check", help="Validate a TOML against the Pydantic schema")
+    chk = sub.add_parser(
+        "check",
+        help="Validate a TOML against the Pydantic schema",
+        epilog="Example:\n  hmp config check run.toml",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     chk.add_argument("file", help="Path to the TOML configuration")
 
-    sch = sub.add_parser("schema", help="Export the JSON Schema")
+    res = sub.add_parser(
+        "resolve",
+        help="Print the TOML a base_config chain resolves to, before validation",
+        epilog="Example:\n  hmp config resolve run.toml",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    res.add_argument("file", help="Path to the TOML configuration")
+
+    sch = sub.add_parser(
+        "schema",
+        help="Export the JSON Schema",
+        epilog="Examples:\n  hmp config schema --list-sections\n  hmp config schema --section flow --out flow.schema.json",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     sch.add_argument(
         "--section", default=None, help="Export a single root TOML section (e.g. 'flow')"
     )
@@ -77,6 +101,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     tgt = sub.add_parser(
         "targets",
         help="List what this project exposes to a calibration",
+        epilog="Example:\n  hmp config targets calibration.toml --json",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     tgt.add_argument("file", help="Path to the TOML configuration")
     tgt.add_argument(
@@ -85,12 +111,18 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Emit the catalogue as JSON instead of a table",
     )
 
-    wiz = sub.add_parser("wizard", help="Interactive stdin-based TOML wizard")
-    wiz.add_argument("output", nargs="?")
+    wiz = sub.add_parser(
+        "wizard",
+        help="Interactive stdin-based TOML wizard",
+        epilog="Example:\n  hmp config wizard run.toml --profile user",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    wiz.add_argument("output", nargs="?", help="Output TOML file (default: <project label>.toml)")
     wiz.add_argument(
         "--profile",
         choices=profile_names,
         default="user",
+        help="Parameter visibility level (default: user)",
     )
 
     parser.set_defaults(_handler=run)
@@ -106,6 +138,9 @@ def run(args: argparse.Namespace) -> None:
     if sub == "template":
         _cmd_config_template(args)
         return
+    if sub == "resolve":
+        _cmd_config_resolve(args)
+        return
     if sub == "schema":
         _cmd_config_schema(args)
         return
@@ -117,7 +152,7 @@ def run(args: argparse.Namespace) -> None:
         return
 
     print(
-        "usage: hmp config {template,check,schema,targets,wizard} ...",
+        "usage: hmp config {template,check,resolve,schema,targets,wizard} ...",
         file=sys.stderr,
     )
     sys.exit(EXIT_CONFIG)
@@ -234,6 +269,33 @@ def _cmd_config_template(args: argparse.Namespace) -> None:
         print(f"Written to: {Path(output).resolve()}", file=sys.stderr)
     else:
         print(content)
+
+
+def _cmd_config_resolve(args: argparse.Namespace) -> None:
+    """Print the payload a ``base_config`` chain resolves to.
+
+    This is what ``hmp config check`` validates: every file of the chain
+    merged, the merge directives applied. Defaults of the model are not
+    added, so the output shows only what the files say.
+    """
+    import tomllib
+
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+    from hydromodpy.core.toml_io.writer import dumps
+
+    path = Path(args.file).expanduser().resolve()
+    if not path.is_file():
+        print(f"File not found: {path}", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+    try:
+        payload = load_toml_with_base_config(path)
+    except tomllib.TOMLDecodeError as exc:
+        print(f"Invalid TOML syntax: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+    except (TypeError, ValueError) as exc:
+        print(f"Invalid base_config chain: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+    sys.stdout.write(dumps(payload))
 
 
 def _cmd_config_check(args: argparse.Namespace) -> None:

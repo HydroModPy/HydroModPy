@@ -1,4 +1,4 @@
-Mesh Architecture
+Mesh architecture
 =================
 
 .. rst-class:: lead
@@ -10,7 +10,7 @@ consumed by plotting and I/O.
 
 For higher-level runtime handoffs from process objects to solver
 adapters, see :doc:`../process/process-architecture` and
-:doc:`../simulation/simulation-orchestration-class-diagram`. For the
+:doc:`../simulation/toml-to-solver-walkthrough`. For the
 scientific side of mesh choice, see :doc:`/theory/mesh`.
 
 Pages
@@ -46,7 +46,7 @@ Pages
       callbacks, mesh-quality checks, and the boundary recovery
       that keeps geology and rivers honoured.
 
-   .. grid-item-card:: Mesh pivot format
+   .. grid-item-card:: The HydroMesh pivot
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: mesh-pivot
       :link-type: doc

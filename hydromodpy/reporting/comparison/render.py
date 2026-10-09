@@ -35,7 +35,7 @@ def write_comparison_web_report(
 def _render_page(ctx: Any) -> str:
     title = report_title(ctx)
     return f"""<!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

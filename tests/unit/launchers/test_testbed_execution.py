@@ -55,10 +55,10 @@ def test_testbed_launcher_runs_comparison_cases_and_collects_metrics(
                 "[testbed.case.overlay.comparison]",
                 'comparison_id = "candidate_comparison"',
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "comparison_id"',
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "n_metric_rows"',
             ]
         )
@@ -119,10 +119,10 @@ def test_testbed_launcher_runs_calibration_cases_and_collects_metrics(
                 'campaign_id = "site_01_calibration"',
                 'output_root = "calibration_outputs/site_01"',
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "calibration_id"',
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "best_score"',
             ]
         )
@@ -331,7 +331,7 @@ def test_testbed_launcher_runs_mesh_cases_and_collects_metrics(
                 "[testbed.case.overlay.mesh_catchment.zone_meshing]",
                 "global_size = 100.0",
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "n_cells"',
             ]
         )
@@ -410,10 +410,10 @@ def test_testbed_launcher_runs_flow_cases_and_collects_metrics(
                 "[testbed.case.overlay.flow.param.K.field]",
                 'value = "2e-5 m/s"',
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "sim_id"',
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "k_value"',
             ]
         )
@@ -479,23 +479,23 @@ def test_flow_testbed_enriches_metrics_from_simulation_catalog(
                 "[testbed.case.overlay.simulation]",
                 'name = "flow_reference"',
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "duration_s"',
                 'source = "flow_metrics.duration_s"',
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "param_K"',
                 'source = "flow_metrics.param_K"',
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "max_abs_balance_error"',
                 'source = "flow_metrics.max_abs_mass_balance_percent_error"',
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "head_range_m"',
                 'source = "flow_metrics.head_range_m"',
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "prescribed_head_out"',
                 'source = "flow_metrics.budget_chd_total_out"',
             ]
@@ -634,7 +634,7 @@ def test_testbed_required_metric_failure_is_persisted(
                 "[testbed.case.overlay.simulation]",
                 'name = "flow_reference"',
                 "",
-                "[[testbed.metric]]",
+                "[[testbed.metrics]]",
                 'name = "missing_required_metric"',
                 'source = "flow_metrics.missing_required_metric"',
                 "required = true",
@@ -673,3 +673,59 @@ def test_testbed_required_metric_failure_is_persisted(
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["failed_count"] == 1
     assert "Required testbed metric" in manifest["cases"][0]["error"]
+
+
+def test_a_testbed_whose_case_fails_ends_with_a_typed_error(tmp_path: Path) -> None:
+    """The evidence of every case is written, then the run is not a success."""
+    from hydromodpy.analysis.testbed.contracts import FailedCasesError
+    from hydromodpy.cli.helpers import EXIT_CASES_FAILED, exit_code_for
+
+    flow_base = tmp_path / "flow_base.toml"
+    _write_flow_base(flow_base)
+    config_path = tmp_path / "flow_testbed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "testbed"',
+                "",
+                "[testbed]",
+                'id = "flow_failures"',
+                'subject = "flow"',
+                'base_config = "flow_base.toml"',
+                "",
+                "[testbed.runner]",
+                'type = "simulation"',
+                "",
+                "[[testbed.case]]",
+                'id = "good"',
+                "",
+                "[[testbed.case]]",
+                'id = "bad"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    class _FakeProvider:
+        def run_simulation(self, child_config: Path, *, no_display: bool) -> dict[str, object]:
+            if child_config.stem == "bad":
+                raise RuntimeError("solver diverged")
+            return {"name": child_config.stem}
+
+        def run_comparison(self, child_config: Path) -> dict[str, object]:
+            raise AssertionError("comparison runner should not be used")
+
+        def run_calibration(self, child_config: Path) -> dict[str, object]:
+            raise AssertionError("calibration runner should not be used")
+
+    register_testbed_runner_provider(_FakeProvider())
+
+    with pytest.raises(FailedCasesError, match=r"1 of 2 case\(s\) failed: bad") as info:
+        MethodTestbedLauncher(config_path).run()
+
+    summary = info.value.summary
+    assert summary["failed_count"] == 1
+    assert summary["successful_count"] == 1
+    assert Path(summary["report_markdown"]).is_file()
+    assert exit_code_for(info.value) == EXIT_CASES_FAILED

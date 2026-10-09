@@ -5,8 +5,28 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Sequence
+from pathlib import Path
 
+from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.contracts.location import StationLocation
+
+
+def require_declared_crs(crs: object, *, path: Path | str, variable: str) -> str:
+    """Return the CRS a user file declares, or refuse the file.
+
+    A file without a CRS used to be labelled EPSG:2154 or EPSG:4326 without a
+    word. Read in the wrong frame, it is cut by a box in another frame, or
+    placed kilometres away. No guess is made: the file names its CRS.
+    """
+    text = "" if crs is None else str(crs).strip()
+    if text:
+        return text
+    raise DataContractViolation(
+        f"{variable}: {path} declares no CRS, and HydroModPy does not guess one. "
+        "Write the CRS into the file: for a raster, "
+        "'gdal_edit.py -a_srs EPSG:<code> <file>'; for a vector, "
+        "'ogr2ogr -a_srs EPSG:<code> <new file> <file>', or a .prj file beside a shapefile."
+    )
 
 
 def bbox_hash(bbox: tuple) -> str:

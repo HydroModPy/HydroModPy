@@ -189,7 +189,7 @@ class MeshCatchmentBatchRunner:
         validate_outlets_within_raster(
             records=records,
             raster_path=dem_path,
-            label="geographic.dem_init_path",
+            label="geographic.catchment.dem_init_path",
         )
 
         geology_cfg = self.mesh_section_data.geology

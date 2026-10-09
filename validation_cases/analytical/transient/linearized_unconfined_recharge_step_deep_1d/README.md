@@ -24,6 +24,10 @@ python -m validation_cases.analytical.transient.linearized_unconfined_recharge_s
 python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_deep_1d.run_case --solver boussinesq --show
 ```
 
+Reference used by the documentation:
+
+- reference: linearized 1D unconfined response to a recharge step in a deep aquifer, where the linearization error is smaller
+
 ## Equations
 
 The equations of the reference solution the comparison uses.

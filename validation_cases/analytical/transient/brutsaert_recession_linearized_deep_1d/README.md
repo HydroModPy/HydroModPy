@@ -59,3 +59,20 @@ boundary, and the same warm-up/recession sequence, but runs the probes in both
 It is meant to answer a narrower question than the analytical validation:
 whether the observed mismatch comes from the boundary setup itself or from the
 solver-specific transient behavior of `modflownwt`.
+
+Reference used by the documentation:
+
+- reference: linearized Brutsaert recession law of a deep aquifer, `Q(t) = Q0 exp(-t / tau)`
+
+## Equations
+
+The equations of the reference solution the comparison uses.
+
+$$
+Q(t)=Q_0\,\exp\!\left(-\frac{t}{\tau}\right),\qquad
+\frac{1}{\tau}=\frac{\pi^2\,K\,p\,b\,L^2}{S_y\,(a_g A)^2}
+$$
+
+$b$ is the aquifer thickness and $p$ the linearization constant; the other
+symbols are those of the thin case
+(`validation_cases/analytical/transient/brutsaert_reference.py`).

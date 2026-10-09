@@ -30,7 +30,12 @@ _REGRESSION_TIERS = ("fast", "extensive")
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        epilog="Examples:\n  hmp test unit --list\n  hmp test validation --fast -j 4",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "suite",
         choices=["unit", "regression", "validation"],

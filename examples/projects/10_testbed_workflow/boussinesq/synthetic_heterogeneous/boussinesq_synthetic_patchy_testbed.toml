@@ -104,18 +104,18 @@ value = "0.0 m2/s"
 description = "Boussinesq case 1: Cauchy drainage disabled; the VI upper obstacle enforces h <= z_top."
 kind = "cauchy"
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "duration_s"
 source = "flow_metrics.duration_s"
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "n_cells"
 source = "flow_metrics.n_cells"
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "head_range_m"
 source = "flow_metrics.head_range_m"
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "max_abs_mass_balance_percent_error"
 source = "flow_metrics.max_abs_mass_balance_percent_error"

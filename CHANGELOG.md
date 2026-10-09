@@ -173,6 +173,60 @@ Each release section includes the following standard categories:
   and `keep_native` and `centroid` are unchanged. On the Flume at 75 m the channel cells sit
   0.90 m lower than the resampled top (median; 2.98 m at the 90th percentile of the absolute
   gap), the hillslope cells unchanged in median.
+- `hmp config resolve FILE` prints the TOML a `base_config` chain resolves to, before
+  validation.
+- Merge directive `key__merge = [...]`: merges a list of tables with the inherited one, table by
+  table, and refuses another length, a missing inherited list, items that are not tables, or the
+  plain key written beside it.
+- `hmp.run(path, name=...)` names a run from a TOML path. Any other keyword on a path raises a
+  TypeError that says to pass a configuration object.
+- `hmp.read(run, field, time=...)` and `Catalog.read` take a date, `"first"`, `"last"` or a numpy
+  integer; a date reads the stress period that holds it. Another kind of time raises TypeError, a
+  time on a series or a feature raises ValueError.
+- `hydromodpy.core.env` lists every `HMP_*` environment variable HydroModPy reads, with its
+  default, scope and description. `tests/unit/architecture/test_env_vars_are_registered.py`
+  fails on a variable without a row or a row nothing reads.
+- `hydromodpy.config.schema_export.editor_schema()`: the JSON Schema published at
+  `_static/hydromodpy-schema.json` is now an editor schema. It accepts `base_config`, the
+  `__append`, `__delete` and `__merge` forms, quantities written as text with a unit, bare dates,
+  and files that omit required keys. Every file of example 04 validates against it, with
+  jsonschema and with Taplo. The model schema of `hmp config schema` and the lockfile
+  `schema_sha256` are unchanged.
+- The data-source registry states the licence of Sandre (BD Topage, ROE), Hub'Eau, SIM2, SHOM
+  and Explore2 (`etalab-2.0`) and of EU-Hydro (`LicenseRef-Copernicus-1159-2013`), each with the
+  publisher pages that state it, checked on 2026-10-09. Every source also records its coverage,
+  resolution, period, update, authentication, limits and cache layout when a page or the adapter
+  says them. Only `custom`, `constant` and `synthetic` stay undetermined: their licence is the
+  user's to declare.
+- `[context.geology] path` in a catchment report file names the geological map the legend is
+  read from; without it, the BRGM GeoPackages of the user cache are tried, newest first.
+- Exit code 23: a testbed or a regional lab in which a case failed ends with
+  `FailedCasesError`, after writing every artifact. In Python the summary is on `.summary`.
+- Validation tests record their measured values, thresholds, curves and outcomes to JSON when
+  `HMP_VALIDATION_RESULTS` names a directory (`tests/validation/conftest.py`).
+  `assert_metric_above` is new and `assert_metric_below` takes `inclusive=`.
+  `tools/docs/validation_results.py` merges the parts and fetches the nightly artifact
+  `validation-results-<branch>`, which the nightly job now uploads.
+- `hydromodpy.results.catalog.constants.METRIC_SENSE` declares the direction of every ranked
+  metric. `register_simulation(..., config_hash=...)` takes a precomputed hash and
+  `Catalog.closed` tells a closed catalog.
+- Docs: Understand pages (in five minutes, how sure, what validated means, where the data come
+  from, can I check what was run) and a glossary of 75 terms; the guide Set up your editor; the
+  reference pages Calibrable parameters, Minimal files, Objects and how they relate, Exceptions
+  and error codes, and the exit codes of each command; the Validation page with the measured
+  value, threshold, outcome, date and commit of each check, a case-by-solver matrix and the real
+  CI schedule; generated contributor pages (layers, gates, CI, tests, packages, storage tree,
+  environment variables, optional dependencies); the theory page Where Dupuit stops being true;
+  one symbol registry (`docs/source/theory/symbols.yaml`) for every notation table, the build
+  failing on a symbol with two meanings; About pages built from `CITATION.cff` and data files
+  (Cite, Applications and papers, Changelog, Versions and stability, Work with us).
+- Docs: every `hmp` leaf command shows an example in `--help`, and 35 options gained a help
+  string. The parameter explorer ranks its results; one dev/expert switch serves the whole site;
+  each section page offers its template as a download; the changes page compares any two
+  released versions. Search runs on Pagefind, filtered by door.
+- Docs: the figures of the documentation are drawn by `tools/docs/figures/render_ex04_figures.py`
+  from runs of example 04; `tools/docs/figures/figures.toml` lists each image with the command
+  that produced it.
 
 ### Changed
 - `[modflownwt.sgrid.top_sampling] mode = "zonal"` needs `channel_source = "none"`: MODFLOW-NWT
@@ -244,6 +298,62 @@ Each release section includes the following standard categories:
   DEM now sees the carved dam as the model top does (one entry point carved the top only, the
   other ignored the section). `reg_fold` together with `dam_carve` or `[geographic.crossings]`
   is refused, the shared regional job being conditioned on the raw DEM.
+- A list of tables written in a child TOML replaces the inherited list, whatever the lengths.
+  Two lists of the same length used to merge table by table without a message. Write
+  `key__merge = [...]` to merge tables in order, or `key__append` to extend.
+- `solver.backend` follows the flow process of `[[simulation.process]]` when the file does not
+  set it, and two different names are refused. The capability checks (boundaries, hotstart,
+  cyclic spin-up, flow barriers) read the solver that runs; they used to read the default
+  `modflow6`, so an NWT file that wrote only the process was checked as MODFLOW 6.
+- `mesh_catchment.constraints_mode` is required by the model; the reference no longer shows a
+  default the loader refused.
+- The soil reservoir ranges (`ru`, `alpha`, `kc`, `impervious_fraction`, `bypass_fraction`,
+  `transit_time`, `curve_number`, `runoff_time`, `runoff_lag`) are declared as field bounds and
+  shown in the reference and the JSON schema. The refusal messages are unchanged.
+- `recharge.units` is in the user profile.
+- `[solver.modflownwt] thickfact` is described as the fraction of the cell thickness over which
+  the saturated thickness is smoothed, and refused outside [0, 0.5).
+- The run identity hash covers the resolved configuration without
+  `workspace.solver_scratch_folder`, with the requested run name as `simulation.name`, plus the
+  parameter overrides of `Project.simulate`. Two names, or one override, make two runs.
+- `hmp.run(cfg)` and `Project.simulate()` without `name=` use `[simulation] name`; `run_0001`
+  remains only for a configuration that names no run. `hmp.run(cfg)` skips an identical
+  completed run like `hmp run` does, and `force=True` computes it again; a run with an override,
+  or a resume, `from_step`, `until_step` or `dry_run` run, is never skipped.
+- `hmp.run` raises `CatalogError` when a simulation finished but its catalog cannot be opened;
+  None now means a dry run only. `hmp.open` on a workspace root names the projects under it, and
+  `run.hydromodpy_config` on a snapshot this version no longer validates raises a ValueError
+  that points to `run.config_snapshot`.
+- A pipeline step failure exits with the code of its cause (for example 16 for a data error, 15
+  for a solver error) instead of 1.
+- `hmp config check` refuses a type listed in `data.types` that has no `[data.<type>]` section
+  (geology excepted).
+- `[testbed]` and its tables refuse unknown keys; a typo such as `exceute = false` used to be
+  ignored. The reference names `testbed.base_config`, `testbed.catalog.from_site_selection_manifest`
+  and `testbed.catalog.output`. The retired spellings `testbed_id` and `[[testbed.metric]]` are
+  refused with the key to write.
+- The testbed makes absolute only the values its child schema declares as paths:
+  `track_dir = "forward"` or `profile = "x"` are no longer rewritten to a path, and a bare input
+  file name absent next to its source stays bare, so the child finds it in the workspace data
+  folders.
+- `hmp report catchment` validates the report file with Pydantic (`ReportConfig`). An unknown
+  key or table, an unknown preset, a quoted boolean or a missing required key is refused with
+  the file line and exit code 14. `[context.observed_discharge]` requires `path`.
+- The comparison web report, the compact network page, the overview web page and figures, and
+  the catchment report pages are written in English, with `<html lang="en">`.
+- A negative numeric `flow.sinks_sources.recharge.first_clim` is refused when `negative_to_evt`
+  is false.
+- Under `coverage_policy = "warn"` or `"ignore"`, a period before the first sample of a series
+  takes that sample instead of stopping the run, and a grid gap takes the slice in force instead
+  of the slice nearest the period start. A declared forcing with `aggregate = "last"` is a state
+  and is not subject to the coverage check.
+- Validation: the thin Brutsaert case is flagged as a documented gap (relative RMSE 0.217 to
+  0.221 against its raised threshold 0.23, where the base file asks 0.04) and the deep Brutsaert
+  MODFLOW-NWT variant as a smoke test (threshold 1.0). No threshold changed.
+- Docs: the site keeps only main, dev and the stable tags; each deploy replaces its version
+  folder and removes the folders the site no longer keeps. The About door has five pages, the
+  release ceremony moved to the Contribute recipe Cut a release, and the Contribute door went
+  from 87 to 78 pages, rewritten against the code.
 
 ### Fixed
 - The channel mask of the zonal top covered the whole catchment. The stream raster was
@@ -264,6 +374,59 @@ Each release section includes the following standard categories:
 - A run on an unstructured (gmsh) mesh keeps its K, Sy and Ss fields under `derived/` again.
   The builder wrote them before the model folder existed and dropped the error silently, so
   the conductivity and storage a Voronoi run was given could not be read back or drawn.
+- `hmp run` and `hmp.run` skip a run identical to a completed run of the project, as
+  documented: the identity hash no longer includes the per-run scratch folder, which carried the
+  process id. Runs registered before never match; their first rerun computes once.
+- `cat["x"]` and every CLI reference resolve a bare name to a live run before a trashed one;
+  after `if_exists = "replace"` the name reaches the run that replaced the old one.
+- A `Run` or `RunSet` keeps reading after the catalog that made it is closed (end of a
+  `with Project` block); it reopens the catalog read-only.
+- `@best:<metric>`, `@worst:<metric>`, `Catalog.best/worst/rank` and `RunSet.best/worst` follow
+  the metric direction: highest nse, kge, log_nse, r2, correlation; lowest rmse, mae, mse,
+  objective_best, closure_*; bias and pbias closest to zero; kge_alpha and kge_beta closest to
+  one. A metric with no declared direction is refused and NaN never ranks.
+- A data variable declared in `[data]` that cannot be loaded (missing file, missing period,
+  source error, frozen cache refusal) stops `hmp run` with a typed exit code (10, 14 or 16); it
+  used to be logged with exit code 0. Only a type inferred under `data.inference_mode = "warn"`
+  is still dropped, with a warning that names it.
+- A frozen run (`--frozen`) that meets an entry missing from `hydromodpy.lock`, a cache miss or
+  a digest mismatch stops with exit code 16 (`FrozenDataError`) for every variable, not only for
+  the DEM, the geology and the river network.
+- A custom DEM, geology file or river network without a CRS is refused (exit code 16) with the
+  command that writes one; it used to be labelled EPSG:2154 or EPSG:4326 silently.
+- Stations dropped outside the watershed mask are named in a warning; a source whose every
+  station lies outside is refused.
+- A NetCDF grid's finite `_FillValue` or `missing_value` is read as its nodata value.
+- A station whose LOC file has no unit logs a warning naming the unit it is taken in.
+- Messages that named `geographic.catch_def`, `geographic.x_outlet`/`y_outlet`, `snap_dist`,
+  `buff_area` and `dem_init_path` name `geographic.catchment.*`, the key the file takes.
+- A calibration of `flow.sinks_sources.recharge.values` reads its bounds in the unit of
+  `recharge.units` (mm/day by default), not in m/s.
+- Merge directives inside a table the parent file does not have are applied, instead of
+  reaching validation as unknown keys.
+- `first_clim` sets the rate of every steady stress period and of no other period, under
+  MODFLOW 6, MODFLOW-NWT and Boussinesq, and for series, mappings and grids alike. MODFLOW 6
+  grids honour it on a steady period; MODFLOW-NWT and Boussinesq no longer replace a transient
+  period 0. With `negative_to_evt`, a steady period takes `first_clim` on the recharge part and
+  on the deficit part, so its net rate is the one `first_clim` states. Example 04 and the frozen
+  projects 00, 02 and 05 are bit-identical.
+- `simulation.time.coverage_policy` applies to every forcing record (series, stations, grids)
+  before any value is carried: a record that ends early stops the run under the default
+  `"error"` instead of being extended in silence. Several gridded records covering one stress
+  period are averaged with equal weights; they were merged pairwise.
+- The `release_flux` field includes the constant head of the stream-role cells, stored as the
+  budget term `budget/constant_head_stream`, so it sums the same paths as the stream-network
+  calibration criterion. Runs stored before keep the old union.
+- In a catchment report, a relative `dem_init_path` of the simulation file is resolved from
+  that file's folder (it was resolved from the repository root), the geology legend no longer
+  reads `examples/data/geology`, and a missing observed-discharge CSV logs a warning with its
+  path.
+- Example 04 `run_daily.toml` writes each recharge and runoff source in full, and examples 09
+  and 10 use `__merge` and `[[testbed.metrics]]`, so they resolve to their former payloads.
+- A resume (`--resume`, `Project.simulate(resume=...)`) in another process, or without
+  `name=`, no longer stops on "Resolved configuration changed since the checkpoint was written
+  (workspace)": the per-run scratch folder, which carries the process id and the run label, is
+  left out of the checkpoint fingerprint as it is left out of the run identity.
 
 ### Removed
 - `[geographic.enforce_streams]`, the burn of the mapped network into the routing DEM, and what
@@ -299,6 +462,10 @@ Each release section includes the following standard categories:
   already reached the outlet. A TOML that still declares the section is refused.
 - `rectify_on_mesh` no longer requires `[modflow6.sgrid] condition_top = true`: the check that
   refused it is gone, and nothing else requires a conditioned top.
+- Docs: the About pages How to cite, Usage bibliography and Release policy, replaced by Cite,
+  Applications and papers, and Versions and stability; the theory pages Vertical representation
+  and storage assumptions and MODFLOW governing equation and CVFD formulation, merged into
+  Groundwater flow and Solvers.
 
 ---
 

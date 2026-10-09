@@ -11,6 +11,7 @@ import pandas as pd
 
 from hydromodpy.core.config_kit.types import InterpolationMethod
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.time.coverage import enforce_coverage, samples_by_period
 from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import (
     find_xy_dims,
     interp_2d,
@@ -152,29 +153,26 @@ def discretize_from_xarray(
     slices: list[np.ndarray] = []
 
     if period_bounds is not None:
-        for kper, (t_start, t_end) in enumerate(period_bounds):
-            mask = (time_coords >= t_start) & (time_coords < t_end)
-            if not mask.any():
-                message = (
-                    "Recharge coverage check failed: no gridded forcing values inside "
-                    f"stress period {kper} [{t_start}, {t_end})."
-                )
-                if coverage_policy == "error":
-                    raise ValueError(message)
-                if coverage_policy == "warn":
-                    warnings.warn(message, stacklevel=2)
-                idx = int(np.argmin(np.abs((time_coords - t_start).total_seconds())))
-                slice_2d = _ensure_finite_field_values(
-                    da.isel(time=idx).values,
-                    label=f"recharge gridded forcing values for stress period {kper}",
-                )
-            else:
-                selected = da.isel(time=mask)
-                _ensure_finite_field_values(
-                    selected.values,
-                    label=f"recharge gridded forcing values for stress period {kper}",
-                )
+        order = np.argsort(time_coords.asi8, kind="stable")
+        sorted_coords = time_coords[order]
+        boundaries = [period_bounds[0][0], *(end for _, end in period_bounds)]
+        periods = samples_by_period(sorted_coords, boundaries)
+        enforce_coverage(
+            periods,
+            boundaries,
+            policy=coverage_policy,
+            label="The gridded forcing record",
+        )
+        for kper, (inside, fill) in enumerate(zip(periods.inside, periods.fill, strict=True)):
+            label = f"recharge gridded forcing values for stress period {kper}"
+            if inside.size:
+                selected = da.isel(time=order[inside])
+                _ensure_finite_field_values(selected.values, label=label)
                 slice_2d = selected.mean(dim="time").values
+            else:
+                slice_2d = _ensure_finite_field_values(
+                    da.isel(time=int(order[int(fill)])).values, label=label
+                )
             slices.append(np.asarray(slice_2d, dtype=float))
     else:
         # No simulation window: one array per time step.

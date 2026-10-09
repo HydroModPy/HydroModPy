@@ -90,6 +90,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         "catchment",
         help="Build a catchment HTML report from one TOML configuration",
         parents=[verbosity_parser()],
+        epilog="Examples:\n  hmp report catchment report.toml\n  hmp report catchment report.toml --report-only",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     _add_catchment_arguments(catchment_p)
 
@@ -255,6 +257,7 @@ def _catchment_overrides(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _cmd_catchment(args: argparse.Namespace) -> None:
+    from hydromodpy.core.exceptions import ConfigError
     from hydromodpy.display.catchment_report import preset_from_name
     from hydromodpy.display.catchment_report.pipeline import run_catchment_report_pipeline
 
@@ -265,7 +268,7 @@ def _cmd_catchment(args: argparse.Namespace) -> None:
             preset=preset_from_name(args.preset) if args.preset else None,
             **overrides,
         )
-    except ValueError as exc:
+    except (ValueError, ConfigError) as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 

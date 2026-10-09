@@ -104,7 +104,7 @@ axis = "hydraulic_conductivity"
 [testbed.case.overlay.flow.param.K.field]
 value = "5e-6 m/s"
 
-[[testbed.metric]]
+[[testbed.metrics]]
 name = "head_range_m"
 source = "flow_metrics.head_range_m"
 required = true
@@ -126,16 +126,16 @@ With `runner.type = "comparison"`, the base config is a normal
 shared base overlay to every generated child simulation before applying each
 solver-specific `comparison.simulation.overlay`.
 
-When no `[[testbed.metric]]` block is declared for `runner.type = "comparison"`,
+When no `[[testbed.metrics]]` block is declared for `runner.type = "comparison"`,
 the testbed writes a small default comparison summary to `testbed_metrics.csv`:
 comparison id, audit status, row counts, and numerical-closure diagnostics when
-the comparison produced them. Use explicit `[[testbed.metric]]` blocks only when
+the comparison produced them. Use explicit `[[testbed.metrics]]` blocks only when
 a campaign needs a non-default metric set.
 
 With `runner.type = "calibration"`, the base config is a normal
 `[workflow].mode = "calibration"` TOML. The testbed materializes one
 calibration child per case and delegates execution through the registered
-workflow adapter. Declare explicit `[[testbed.metric]]` blocks for the
+workflow adapter. Declare explicit `[[testbed.metrics]]` blocks for the
 calibration summary fields that should be promoted to `testbed_metrics.csv`.
 
 For `subject = "mesh"`, `base_config` is optional. Without it, the testbed TOML
@@ -182,13 +182,23 @@ The resolved catalog path and source manifest provenance are written into
 1. Load and validate `TestbedConfig`.
 2. Load the base TOML with `load_toml_with_base_config`.
 3. Remove `[testbed]` from the child payload.
-4. Absolutize path-like values before writing generated children.
-5. Merge each case overlay.
+4. Make absolute the values the child schema declares as paths
+   (`child_paths.py`): fields typed `Path` or carrying `InputFile`, `str`
+   fields named `path` or ending in `_path`, `_file`, `_dir`, `_root`,
+   `_folder`, and `base_config`. Every other value is copied as written.
+5. Merge each case overlay, its paths resolved against the testbed file.
 6. Write one generated child TOML per enabled case.
 7. Persist `testbed_plan.json`, `testbed_cases.csv`, `testbed_metrics.csv`,
    `testbed_manifest.json`, and `testbed_report.md`.
 8. If `execute = true`, run children sequentially through the registered
    workflow adapter and rewrite evidence after each child completes or fails.
+9. If a case failed, raise `FailedCasesError` with the summary once every
+   case ran. `hmp run` then exits with code 23.
+
+`[testbed]` and its tables refuse a key the parser does not read. The keys
+are the field names of the models, under their alias: `base_config`,
+`metrics`, `catalog.from_site_selection_manifest`, `catalog.output`.
+`testbed_id` and `metric` are older spellings, read with a warning.
 
 ## Flow Catalog Metrics
 
@@ -201,7 +211,7 @@ adds these summary blocks:
 - `budget`: component totals for inflow, outflow, and net flow.
 - `mass_balance`: scalar mass-balance indicators.
 - `field_summary`: summary statistics for persisted fields.
-- `flow_metrics`: flat scalar keys suitable for `[[testbed.metric]]`.
+- `flow_metrics`: flat scalar keys suitable for `[[testbed.metrics]]`.
 
 Known metric examples from the smoke-tested flow starter:
 

@@ -1,4 +1,6 @@
-"""What actually governs transient accuracy inside a stress period.
+"""Time steps inside a stress period against a closed-form step response.
+
+Compared with: the response to a head step at a Dirichlet boundary, `h(x, t) = dh erfc(x / (2 sqrt(D t)))` with `D = K b / S`; the fourth test compares one step per period with a run of 30 steps.
 
 A stress period holds a constant forcing, and HydroModPy stores only its end
 state. Against the closed form of a step at a Dirichlet boundary,
@@ -42,6 +44,7 @@ import pytest
 from hydromodpy.solver.modflow6.build import build_ats_perioddata
 from tests._helpers.tolerances import tol
 from tests.regression.golden_utils import assert_required_executables
+from tests.validation.helpers import assert_metric_above, assert_metric_below, record_metric
 
 # A confined column: one row, one layer, uniform cells. Round SI numbers rather
 # than a field site, so the closed form holds exactly.
@@ -146,8 +149,10 @@ def test_substeps_are_what_buys_transient_accuracy(tmp_path: Path) -> None:
     thirty = _rmse_against_closed_form(_run_column(tmp_path / "n30", nstp=30))
 
     # The default of one step per period is an order of magnitude worse.
-    assert (
-        single > tol("stress_period_sub_stepping_mf6__rmse_ratio_between_nstp_1_and_nstp_10") * ten
+    assert_metric_above(
+        "RMSE with 1 step over RMSE with 10 steps",
+        single / ten,
+        tol("stress_period_sub_stepping_mf6__rmse_ratio_between_nstp_1_and_nstp_10"),
     )
     assert thirty < ten
 
@@ -173,8 +178,11 @@ def test_a_geometric_partition_cannot_beat_equal_steps(tmp_path: Path) -> None:
     # and the end state does not see that order. The identity is exact in exact
     # arithmetic; what is left is the iterative closure, which COMPLEXITY SIMPLE
     # declares at DVCLOSE = 1e-3 m. Measured here: 2e-8 m.
-    assert abs(growing - shrinking) < tol(
-        "stress_period_sub_stepping_mf6__rmse_difference_between_tsmult_r_and_1_r"
+    assert_metric_below(
+        "RMSE difference between TSMULT 2 and 1/2",
+        abs(growing - shrinking),
+        tol("stress_period_sub_stepping_mf6__rmse_difference_between_tsmult_r_and_1_r"),
+        unit="m",
     )
 
 
@@ -193,10 +201,11 @@ def test_adaptive_stepping_preserves_the_declared_substeps(tmp_path: Path) -> No
 
     # Nothing fails on this column, so ATS never cuts and must reproduce the
     # declared partition exactly. An unbounded dtmax would give the nstp=1 error.
-    assert adaptive == pytest.approx(
-        plain,
-        rel=tol("adaptive_time_stepping_mf6__rmse_relative_difference_ats_on_against_ats_off"),
+    rel = tol("adaptive_time_stepping_mf6__rmse_relative_difference_ats_on_against_ats_off")
+    record_metric(
+        "Relative RMSE difference, ATS on against off", abs(adaptive - plain) / plain, rel, op="<="
     )
+    assert adaptive == pytest.approx(plain, rel=rel)
 
 
 # A hillslope in HydroModPy's own configuration: seasonal recharge, a river at
@@ -304,6 +313,8 @@ def test_one_step_per_period_moves_the_discharge_a_calibration_scores(tmp_path: 
 
     drift = float(np.max(np.abs((single - refined) / refined)))
 
-    assert drift > tol(
-        "one_step_per_stress_period_mf6__monthly_discharge_drift_against_a_refined_run"
+    assert_metric_above(
+        "Largest monthly discharge drift of 1 step against 30",
+        drift,
+        tol("one_step_per_stress_period_mf6__monthly_discharge_drift_against_a_refined_run"),
     )

@@ -7,7 +7,7 @@ participant "Boussinesq" as Solver
 participant "BoussinesqSolverContract" as Contract
 participant "runtime_selection" as Selection
 participant "Resolved Backend" as Backend
-participant "assembly.py" as Assembly
+participant "assembly/" as Assembly
 participant "BoussinesqState" as State
 
 Project -> Solver : processing(run_model=True)

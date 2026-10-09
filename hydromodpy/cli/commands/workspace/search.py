@@ -12,7 +12,12 @@ HELP: str = "Full-text search across every project registered in the global inde
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        epilog="Example:\n  hmp workspace search nse --limit 10",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("term", help="Free-form search term")
     parser.add_argument("--limit", type=int, default=20, help="Maximum rows to print")
     parser.set_defaults(_handler=run)

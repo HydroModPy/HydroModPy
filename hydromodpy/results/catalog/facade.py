@@ -135,6 +135,11 @@ class CatalogConnection:
                 logger.debug("catalog.idle_release_failed path=%s", self._db_path, exc_info=True)
             return True
 
+    @property
+    def closed(self) -> bool:
+        """True once :meth:`close` ran."""
+        return self._closed
+
     def close(self) -> None:
         """Close for good: further statements raise like a closed connection."""
         with self._lock:
@@ -577,7 +582,7 @@ class Catalog(
         ref: str,
         var: str,
         *,
-        time: int | slice | None = None,
+        time: Any = None,
         layer: int | None = None,
         sel: dict | None = None,
         bbox: tuple[float, float, float, float] | None = None,
@@ -585,8 +590,10 @@ class Catalog(
         """Read ``var`` for the run referenced by ``ref`` (the by-id read path).
 
         ``ref`` is resolved through :meth:`resolve` (full UUID, unique prefix,
-        or name). For an already-resolved :class:`~hydromodpy.results.run.Run`,
-        use :func:`hydromodpy.read`.
+        or name). ``time`` takes what :func:`hydromodpy.read` takes: a period
+        index, a date, ``"first"`` / ``"last"``, or a slice of indexes. For an
+        already-resolved :class:`~hydromodpy.results.run.Run`, use
+        :func:`hydromodpy.read`.
         """
         from hydromodpy.results.derive.reading import read_variable
 

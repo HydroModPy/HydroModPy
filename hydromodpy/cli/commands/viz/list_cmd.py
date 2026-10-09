@@ -17,7 +17,13 @@ HELP: str = "List the figure names accepted by [display].figures"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[verbosity_parser()],
+        epilog="Examples:\n  hmp viz list\n  hmp viz list --kind balance",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--kind",
         default=None,

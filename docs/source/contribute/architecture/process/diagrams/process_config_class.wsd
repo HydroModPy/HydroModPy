@@ -53,8 +53,10 @@ package "hydromodpy.physics.flow" {
 
 package "hydromodpy.physics.transport" {
   class TransportConfig {
-    +particle: TransportParticleConfig
-    +conc: TransportConcConfig
+    +modpath: TransportModpathConfig
+    +mt3dms: TransportMt3dmsConfig
+    +modflow6gwt: TransportModflow6GwtConfig
+    +modflow6prt: TransportModflow6PrtConfig
     +param_list: list[str] (excluded)
     +param: dict[str, object] (excluded)
     +ic: object | None (excluded)
@@ -62,14 +64,13 @@ package "hydromodpy.physics.transport" {
     +sinks_sources: dict[str, object] (excluded)
   }
 
-  class ParticleParametersConfig
-  class TransportParticleConfig {
-    +parameters: ParticleParametersConfig
+  class TransportModpathConfig {
+    +parameters: ModpathParametersConfig
   }
-  class ConcParametersConfig
-  class TransportConcConfig {
-    +parameters: ConcParametersConfig
-  }
+  class ModpathParametersConfig
+  class TransportMt3dmsConfig
+  class TransportModflow6GwtConfig
+  class TransportModflow6PrtConfig
 }
 
 ProcessSpatialConfig <|-- FlowConfig
@@ -82,8 +83,9 @@ FlowConfig --> FlowBoundaryConditionConfig : bc values
 FlowConfig --> FlowSinksSourcesConfig : sinks_sources
 FlowSinksSourcesConfig *-- FlowWellConfig : wells
 
-TransportConfig *-- TransportParticleConfig : particle
-TransportConfig *-- TransportConcConfig : conc
-TransportParticleConfig *-- ParticleParametersConfig : parameters
-TransportConcConfig *-- ConcParametersConfig : parameters
+TransportConfig *-- TransportModpathConfig : modpath
+TransportConfig *-- TransportMt3dmsConfig : mt3dms
+TransportConfig *-- TransportModflow6GwtConfig : modflow6gwt
+TransportConfig *-- TransportModflow6PrtConfig : modflow6prt
+TransportModpathConfig *-- ModpathParametersConfig : parameters
 @enduml

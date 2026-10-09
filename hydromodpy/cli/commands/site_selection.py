@@ -32,7 +32,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="site_selection_command", required=True)
 
-    plan = sub.add_parser("plan", help="Validate a site-selection TOML and print its plan")
+    plan = sub.add_parser(
+        "plan",
+        help="Validate a site-selection TOML and print its plan",
+        epilog="Example:\n  hmp site-selection plan site.toml --write-manifest --write-report",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     plan.add_argument("config", type=Path, help="Path to a TOML config with [site_selection]")
     plan.add_argument(
         "--write-manifest",
@@ -49,6 +54,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     select = sub.add_parser(
         "select-catchments",
         help="Apply a site-selection config to a pre-delineated catchments CSV",
+        epilog="Example:\n  hmp site-selection select-catchments site.toml catchments.csv --output-root out --region-id region_1",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     select.add_argument("config", type=Path, help="Path to a TOML config with [site_selection]")
     select.add_argument(
@@ -72,6 +79,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     build_observed = sub.add_parser(
         "build-observed",
         help="Build observation-led site selection from [site_selection] and [hydrometry]",
+        epilog="Example:\n  hmp site-selection build-observed site.toml --output-root out",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     build_observed.add_argument(
         "config",
@@ -101,6 +110,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     build_generated = sub.add_parser(
         "build-generated",
         help="Build site selection from DEM/network-generated candidates",
+        epilog="Example:\n  hmp site-selection build-generated site.toml --output-root out",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     build_generated.add_argument(
         "config",
@@ -130,6 +141,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     report = sub.add_parser(
         "report",
         help="Render the static HTML report from a site_selection_manifest.json",
+        epilog="Example:\n  hmp site-selection report out/site_selection_manifest.json --output report.html",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     report.add_argument(
         "manifest",

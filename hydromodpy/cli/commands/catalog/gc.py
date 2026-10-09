@@ -87,7 +87,13 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help="Also quarantine the regenerable figures/ directory of each run",
     )
-    parser.epilog = f"A run tagged '{PROTECTED_TAG}' is exempt from every retention rule."
+    parser.epilog = (
+        f"A run tagged '{PROTECTED_TAG}' is exempt from every retention rule.\n\n"
+        "Examples:\n"
+        "  hmp catalog gc\n"
+        "  hmp catalog gc --keep-versions 3 --max-age-days 180 --apply"
+    )
+    parser.formatter_class = argparse.RawDescriptionHelpFormatter
     parser.set_defaults(_handler=run)
     return parser
 

@@ -1,5 +1,7 @@
 """Theis (1935) transient confined pumping benchmark against MODFLOW 6.
 
+Compared with: the Theis (1935) drawdown of a confined aquifer, `s = Q / (4 pi T) W(u)`.
+
 A fully penetrating well pumps at a constant rate ``Q`` in a homogeneous
 isotropic confined aquifer of transmissivity ``T`` and storativity ``S``.
 The drawdown field is radial::
@@ -41,6 +43,7 @@ from tests.regression.golden_utils import (
     assert_required_executables,
     resolve_bundled_executable,
 )
+from tests.validation.helpers import assert_metric_above, assert_metric_below, record_scale
 
 PUMPING_RATE_M3_PER_DAY = 100.0
 TRANSMISSIVITY_M2_PER_DAY = 100.0
@@ -238,8 +241,12 @@ def test_theis_confined_pumping_matches_analytical_reference(tmp_path: Path) -> 
     variance = float(np.sum((analytical_arr - analytical_arr.mean()) ** 2))
     residual = float(np.sum((numerical_arr - analytical_arr) ** 2))
     nse = 1.0 - residual / variance
-    assert nse > tol("theis_confined_pumping_2d__nse_vs_analytical_9_probes"), (
-        f"Theis NSE too low: {nse:.6f} (residual={residual:.3e}, variance={variance:.3e})"
+    record_scale(np.abs(analytical_arr).max(), "largest drawdown of the reference", "m")
+    assert_metric_above(
+        "Nash-Sutcliffe efficiency of the drawdown, 9 probes",
+        nse,
+        tol("theis_confined_pumping_2d__nse_vs_analytical_9_probes"),
+        ideal=1.0,
     )
 
     # Pointwise relative error below 1% at every (r, t) probe.
@@ -247,7 +254,8 @@ def test_theis_confined_pumping_matches_analytical_reference(tmp_path: Path) -> 
         np.abs(analytical_arr), 1e-12
     )
     max_rel = float(relative_errors.max())
-    assert max_rel < tol("theis_confined_pumping_2d__max_pointwise_relative_drawdown_error"), (
-        f"Theis drawdown max relative error {max_rel:.4%} > 1%: "
-        f"numerical={numerical_arr.tolist()}, analytical={analytical_arr.tolist()}"
+    assert_metric_below(
+        "Largest relative drawdown error at a probe",
+        max_rel,
+        tol("theis_confined_pumping_2d__max_pointwise_relative_drawdown_error"),
     )

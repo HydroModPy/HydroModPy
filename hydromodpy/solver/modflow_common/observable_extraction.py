@@ -128,6 +128,12 @@ def release_packages_for_model(model: Any) -> list[ReleasePackage]:
     record joins the union whenever the DRN package feeds the mover. A package
     the run never built is skipped; a package it built keeps its record
     mandatory downstream.
+
+    The stored ``release_flux`` field sums the same paths from the persisted
+    budget (``hydromodpy.core.field_routing.release_flux_stack``): ``drain``,
+    ``drain_to_mover``, ``stream``, ``lake`` and ``constant_head_stream``, the
+    constant head restricted to the same stream-role cells. A change here is a
+    change there.
     """
     packages: list[ReleasePackage] = []
     if getattr(model, "drn", None) is not None:

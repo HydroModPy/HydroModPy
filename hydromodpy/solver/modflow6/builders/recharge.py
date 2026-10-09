@@ -16,6 +16,7 @@ import numpy as np
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time import validate_recharge_coverage
 from hydromodpy.core.units import convert_payload_to_m_per_s
+from hydromodpy.physics.forcing.steady_periods import apply_first_clim, first_clim_on_part
 from hydromodpy.physics.forcing.validation import (
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
@@ -112,12 +113,15 @@ def extract_evt_payload_2d(
     negative_to_evt: bool,
     *,
     steady: object,
+    first_clim: object = "mean",
 ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray] | None]:
     """Route negative recharge arrays to EVT and clip RCH to non-negative values.
 
-    Steady periods carry the time-mean deficit; transient periods keep their own
-    split (see ``route_negative_recharge_to_evt``). ``steady`` is the per-period
-    steady flag (model.steady).
+    RCH keeps the clipped rate of every period: ``recharge_to_spd`` gives the
+    steady periods their ``first_clim`` rate. The deficit is final here: a
+    transient period keeps its own, a steady period takes the ``first_clim``
+    rate of the deficits (``route_negative_recharge_to_evt``). ``steady`` is
+    the per-period steady flag (model.steady).
     """
     normalized_rch = {int(kper): np.asarray(value, dtype=float) for kper, value in rch_data.items()}
     if not negative_to_evt:
@@ -127,7 +131,11 @@ def extract_evt_payload_2d(
     if not has_negative:
         return normalized_rch, None
 
-    return route_negative_recharge_to_evt(normalized_rch, steady=steady)
+    _, deficit = route_negative_recharge_to_evt(
+        normalized_rch, steady=steady, first_clim=first_clim
+    )
+    clipped = {kper: np.maximum(arr, 0.0) for kper, arr in normalized_rch.items()}
+    return clipped, deficit
 
 
 def series_payload_value(payload: object, kper: int, *, first_clim: object) -> float:
@@ -170,46 +178,30 @@ def extract_evt_payload(
     payload: object,
     negative_to_evt: bool,
 ) -> tuple[object, dict[int, object] | None]:
-    """Route negative recharge values to EVT and keep RCH non-negative."""
+    """Route negative recharge values to EVT and keep RCH non-negative.
+
+    Same rule as :func:`extract_evt_payload_2d`, for every payload form: RCH
+    keeps every period's clipped rate, the deficit of a steady period follows
+    ``first_clim``.
+    """
     if not negative_to_evt or not payload_has_negative_values(payload):
         return payload, None
 
-    if isinstance(payload, Mapping):
-        return extract_evt_payload_2d(payload, True, steady=model.steady)
-
-    payload_for_rch = copy_runtime_payload(payload)
-    evt_payload = copy_runtime_payload(payload)
-
-    if isinstance(payload_for_rch, list):
-        payload_for_rch = np.asarray(payload_for_rch, dtype=float)
-    if isinstance(evt_payload, list):
-        evt_payload = np.asarray(evt_payload, dtype=float)
-
-    if hasattr(evt_payload, "clip"):
-        try:
-            payload_for_rch = evt_payload.clip(lower=0.0)
-        except TypeError:
-            payload_for_rch = clip_negative_payload(payload_for_rch)
-    else:
-        payload_for_rch = clip_negative_payload(payload_for_rch)
-
-    evt_negative = np.asarray(evt_payload, dtype=float)
-    evt_negative[evt_negative >= 0.0] = 0.0
-    evt_negative = np.abs(evt_negative)
-
     first_clim = model.first_clim if model.first_clim is not None else "mean"
-    steady = model.steady
+    if isinstance(payload, Mapping):
+        return extract_evt_payload_2d(payload, True, steady=model.steady, first_clim=first_clim)
 
-    def _evt_value(kper: int) -> object:
-        if kper < len(steady) and bool(steady[kper]):
-            # Steady spin-up carries the time-mean deficit.
-            return series_payload_value(evt_negative, 0, first_clim="mean")
-        # Transient period keeps its own deficit (period 0 uses its own value).
-        policy = "first" if kper == 0 else first_clim
-        return series_payload_value(evt_negative, kper, first_clim=policy)
-
-    evt_spd: dict[int, object] = {kper: _evt_value(kper) for kper in range(int(model.nper))}
-    return payload_for_rch, evt_spd
+    deficit_payload = np.maximum(-_payload_sequence(payload), 0.0)
+    deficit = first_clim_on_part(
+        _period_rows(model, deficit_payload),
+        steady=model.steady,
+        first_clim=first_clim,
+        sign=-1.0,
+    )
+    evt_spd: dict[int, object] = {
+        kper: (float(value) if np.ndim(value) == 0 else value) for kper, value in deficit.items()
+    }
+    return clip_negative_payload(copy_runtime_payload(payload)), evt_spd
 
 
 def bind_recharge_from_flow(model) -> None:
@@ -390,6 +382,7 @@ def resolve_deferred_heterogeneous_recharge(model) -> None:
         raw_arrays,
         getattr(model, "_heterogeneous_negative_to_evt", False),
         steady=model.steady,
+        first_clim=model.first_clim if model.first_clim is not None else "mean",
     )
     validate_recharge_numeric_payload(
         raw_arrays,
@@ -554,79 +547,78 @@ def series_like_to_scalar(model, kper: int) -> float:
     return series_payload_value(model.recharge, kper, first_clim=model.first_clim)
 
 
-def _payload_sequence(model) -> np.ndarray:
-    payload = model.recharge
+def _payload_sequence(payload: object) -> np.ndarray:
     if hasattr(payload, "iloc"):
         values = [payload.iloc[idx] for idx in range(len(payload))]
         return np.asarray(values, dtype=float).reshape(-1)
     return np.asarray(payload, dtype=float)
 
 
-def recharge_to_spd(model) -> dict[int, np.ndarray]:
-    spd: dict[int, np.ndarray] = {}
-    if isinstance(model.recharge, Mapping):
-        for kper in range(model.nper):
-            arr = model.recharge.get(kper)
-            if arr is None:
-                raise ValueError(f"model.recharge mapping is missing stress period {kper}.")
-            spd[kper] = as_recharge_flat(model, arr, kper=kper)
-        return spd
+def _period_rows(model, payload: object) -> dict[int, np.ndarray]:
+    """Return the own rate of every period, before any ``first_clim`` rule.
 
-    if isinstance(model.recharge, Real) and not isinstance(model.recharge, bool):
-        scalar = float(model.recharge)
-        for kper in range(model.nper):
-            spd[kper] = scalar_to_flat(model, scalar)
-        return spd
+    Each entry is a scalar (0-d array) or one value per cell. A record longer
+    than a one-period run gives that period its time mean.
+    """
+    nper = int(model.nper)
+    if isinstance(payload, Real) and not isinstance(payload, bool):
+        return {kper: np.asarray(float(payload)) for kper in range(nper)}
 
-    arr = _payload_sequence(model)
+    arr = _payload_sequence(payload)
     if arr.ndim == 0:
-        scalar = float(arr)
-        for kper in range(model.nper):
-            spd[kper] = scalar_to_flat(model, scalar)
-        return spd
+        return {kper: np.asarray(float(arr)) for kper in range(nper)}
     if arr.ndim == 1:
         if arr.size == 1:
-            scalar = float(arr[0])
-            for kper in range(model.nper):
-                spd[kper] = scalar_to_flat(model, scalar)
-            return spd
+            return {kper: np.asarray(float(arr[0])) for kper in range(nper)}
         if arr.size == int(model.ncpl):
-            flat = as_recharge_flat(model, arr)
-            for kper in range(model.nper):
-                spd[kper] = flat.copy()
-            return spd
-        if arr.size == int(model.nper):
-            steady = model.steady
-            first_clim = model.first_clim if model.first_clim is not None else "mean"
-            for kper in range(model.nper):
-                if kper < len(steady) and bool(steady[kper]):
-                    # Steady spin-up uses the first_clim policy (mean by default).
-                    value = series_payload_value(arr, 0, first_clim=first_clim)
-                else:
-                    value = float(arr[kper])
-                spd[kper] = scalar_to_flat(model, float(value))
-            return spd
-        if int(model.nper) == 1:
-            scalar = series_payload_value(model.recharge, 0, first_clim=model.first_clim)
-            spd[0] = scalar_to_flat(model, float(scalar))
-            return spd
+            return {kper: arr.astype(float) for kper in range(nper)}
+        if arr.size == nper:
+            return {kper: np.asarray(float(arr[kper])) for kper in range(nper)}
+        if nper == 1:
+            return {0: np.asarray(float(np.mean(arr)))}
         raise ValueError(
             "model.recharge sequence length must be 1, nper "
-            f"({int(model.nper)}), or ncpl ({int(model.ncpl)}); got {int(arr.size)}."
+            f"({nper}), or ncpl ({int(model.ncpl)}); got {int(arr.size)}."
         )
     if arr.ndim == 2 and arr.size == int(model.ncpl):
-        flat = as_recharge_flat(model, arr)
-        for kper in range(model.nper):
-            spd[kper] = flat.copy()
-        return spd
-    if arr.ndim >= 2 and arr.shape[0] == int(model.nper):
-        for kper in range(model.nper):
-            spd[kper] = as_recharge_flat(model, arr[kper], kper=kper)
-        return spd
+        flat = arr.ravel().astype(float)
+        return {kper: flat.copy() for kper in range(nper)}
+    if arr.ndim >= 2 and arr.shape[0] == nper:
+        return {kper: np.asarray(arr[kper], dtype=float) for kper in range(nper)}
     raise ValueError(
         "model.recharge array must be scalar, length nper, length ncpl, "
         "one grid array, or one leading entry per stress period."
     )
+
+
+def recharge_to_spd(model) -> dict[int, np.ndarray]:
+    """Return the RCH rate of every period, one flat ``(ncpl,)`` array each.
+
+    Every steady period takes the rate ``first_clim`` states, clipped at zero;
+    a transient period keeps its own (:mod:`hydromodpy.physics.forcing.steady_periods`).
+    This is the only place MODFLOW 6 applies ``first_clim`` to the recharge.
+    """
+    first_clim = model.first_clim if model.first_clim is not None else "mean"
+    if isinstance(model.recharge, Mapping):
+        rows: dict[int, np.ndarray] = {}
+        for kper in range(model.nper):
+            arr = model.recharge.get(kper)
+            if arr is None:
+                raise ValueError(f"model.recharge mapping is missing stress period {kper}.")
+            rows[kper] = as_recharge_flat(model, arr, kper=kper)
+    else:
+        # The rule acts on the own rates before they are spread over the cells,
+        # so a series keeps the mean of its own values, to the last bit.
+        rows = _period_rows(model, model.recharge)
+
+    steady = getattr(model, "steady", None)
+    if steady is not None and np.any(np.asarray(steady, dtype=bool)):
+        rows = apply_first_clim(rows, steady=steady, first_clim=first_clim)
+        steady_flags = np.asarray(steady, dtype=bool).reshape(-1)
+        for kper in range(int(model.nper)):
+            if kper < steady_flags.size and steady_flags[kper]:
+                rows[kper] = np.maximum(rows[kper], 0.0)
+    return {kper: as_recharge_flat(model, rows[kper], kper=kper) for kper in range(model.nper)}
 
 
 def mask_recharge_on_lake_cells(

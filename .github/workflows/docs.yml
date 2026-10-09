@@ -80,7 +80,7 @@ jobs:
       # The build wrote the field registry; every written page is checked
       # against it: TOML keys, links, TOML blocks loaded by the real loader.
       - name: Check the written pages
-        run: python -m tools.docs.check_page $(git ls-files 'docs/source/*.md')
+        run: python -m tools.docs.check_page $(git ls-files 'docs/source/*.md' 'docs/source/*.rst')
 
       # Pages written by the extensions are raw HTML that Sphinx does not
       # check: links inside links, dead links and anchors, markup shown as text.

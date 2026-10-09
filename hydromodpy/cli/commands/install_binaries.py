@@ -18,7 +18,12 @@ HELP: str = "Download MODFLOW/MODPATH/MT3D-USGS binaries into the HydroModPy cac
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        epilog="Examples:\n  hmp install-binaries\n  hmp install-binaries --subset mf6,mfnwt\n  hmp install-binaries --mf6-prt",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--subset", default=None, help="Comma-separated solver names (default: all)"
     )

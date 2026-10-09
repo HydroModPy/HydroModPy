@@ -109,39 +109,51 @@ def run_comparison(config_path: str | Path) -> dict[str, Any]:
     return run_comparison_config(config_path)
 
 
-def _completed_run_with_same_config(project: Any) -> tuple[str | None, str] | None:
-    """Return ``(name, sim_id)`` of a completed run whose resolved config is
-    byte-identical to ``project``'s, or None.
+def completed_identical_run(config: Any, *, name: str) -> tuple[str | None, str] | None:
+    """Return ``(name, sim_id)`` of a completed run identical to this one, or None.
 
-    Mirrors the ``config_hash`` the catalog records at registration
-    (``sha256`` of the resolved config JSON). Read-only and fail-open: any
-    error returns None so the run proceeds normally.
+    Identical means the same run identity hash
+    (:func:`~hydromodpy.results.catalog.registration.run_identity_hash`): the
+    resolved configuration, without the per-run scratch folder, under the run
+    name ``name``. It is the ``config_hash`` the catalog records when a run
+    registers, so two runs of an unchanged file match. A trashed run never
+    matches. Read-only and fail-open: an error returns None and the run
+    proceeds.
     """
-    import hashlib
-    import json
-
     from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.registration import run_identity_hash
 
     try:
-        config_dict = project.config.model_dump(mode="json")
-        config_hash = hashlib.sha256(json.dumps(config_dict, sort_keys=True).encode()).hexdigest()
-        root = Path(project.config.workspace.project_root)
-        if not (catalog_path_for(root)).exists():
+        config_hash = run_identity_hash(config.model_dump(mode="json"), name=name)
+        root = Path(config.workspace.project_root)
+        if config_hash is None or not catalog_path_for(root).exists():
             return None
         with Catalog(root, read_only=True) as catalog:
-            matches = catalog.find(config_hash=config_hash, status="completed")
-            if len(matches) == 0:
-                return None
-            run = matches[0]
-            return (run.name, run.sim_id)
+            row = catalog.backend.fetch_one(
+                "SELECT s.name, CAST(s.sim_id AS VARCHAR) FROM simulations s "
+                "JOIN statuses st ON s.status_id = st.id "
+                "WHERE s.config_hash = ? AND st.code = 'completed' "
+                "ORDER BY s.created_at DESC LIMIT 1",
+                [config_hash],
+            )
     except Exception:
         return None
+    if row is None:
+        return None
+    return (None if row[0] is None else str(row[0]), str(row[1]))
+
+
+def identical_run_message(name: str | None, sim_id: str) -> str:
+    """The line that says an identical completed run made this one unnecessary."""
+    label = name or sim_id[:8]
+    return f"Config identical to completed run '{label}' [{sim_id[:8]}]; nothing to do."
 
 
 def run_simulation(
     config_path: str | Path,
     *,
+    name: str | None = None,
     resume: str | None = None,
     from_step: str | int | None = None,
     until_step: str | int | None = None,
@@ -153,17 +165,18 @@ def run_simulation(
 ) -> dict[str, Any]:
     """Execute a single simulation from a TOML file.
 
-    A plain run whose resolved config matches an already-completed run is
-    skipped (returns a ``{"skipped": True, ...}`` summary) unless ``force`` is
-    set; resume / partial / dry runs always proceed.
+    The run is named ``name``, else ``[simulation] name`` (which a TOML file
+    defaults to its own stem). A plain run identical to an already-completed
+    run (:func:`completed_identical_run`) is skipped and returns a
+    ``{"skipped": True, "name", "sim_id", "project_root"}`` summary, unless
+    ``force`` is set. Resume, partial and dry runs always proceed. A run that
+    is not identical follows ``[simulation] if_exists``.
     """
     from hydromodpy.project import Project
 
     with Project(config_path, no_display=no_display) as project:
-        # ``[simulation] name`` is the single identity entry (it defaults to the
-        # run_-stripped TOML stem at config load). Honour it so the CLI matches
-        # the Python API and the declared name is not silently dropped.
-        run_name = project.config.simulation.name or Path(config_path).stem
+        run_name = name or project.config.simulation.name or Path(config_path).stem
+        project_root = str(Path(project.config.workspace.project_root))
         plain_run = (
             not force
             and resume is None
@@ -172,10 +185,15 @@ def run_simulation(
             and not dry_run
         )
         if plain_run:
-            existing = _completed_run_with_same_config(project)
+            existing = completed_identical_run(project.config, name=run_name)
             if existing is not None:
                 exist_name, exist_sid = existing
-                return {"skipped": True, "name": exist_name, "sim_id": exist_sid}
+                return {
+                    "skipped": True,
+                    "name": exist_name,
+                    "sim_id": exist_sid,
+                    "project_root": project_root,
+                }
         result = project.simulate(
             name=run_name,
             resume=resume,
@@ -191,6 +209,7 @@ def run_simulation(
         summary: dict[str, Any] = {
             "name": result.name,
             "sim_id": result.sim_id,
+            "project_root": project_root,
         }
         project_ctx = getattr(project, "_ctx", None)
         project_setup = getattr(project_ctx, "setup", None)
@@ -278,8 +297,10 @@ __all__ = [
     "DISPATCH",
     "ProjectTestbedRunnerProvider",
     "calibration_phases_or_raise",
+    "completed_identical_run",
     "declared_calibration_phases",
     "dispatch_workflow",
+    "identical_run_message",
     "no_such_phase",
     "run_calibration",
     "run_comparison",

@@ -21,7 +21,6 @@ from sphinx.util.docutils import SphinxDirective
 logger = logging.getLogger(__name__)
 
 BASE = "reference/parameters"
-RELIABLE_UNITS = {"type", "metadata", "name"}
 
 
 def esc(text) -> str:
@@ -32,12 +31,7 @@ def esc(text) -> str:
 
 
 def unit_of(n: dict) -> str | None:
-    unit = n.get("unit")
-    if not unit or n.get("unit_source") not in RELIABLE_UNITS:
-        return None
-    if unit == "-" and not n.get("numeric"):
-        return None
-    return unit
+    return H.shown_unit(n)
 
 
 def value_for(n: dict) -> tuple[str, str, str | None]:
@@ -121,10 +115,9 @@ def tline(
         '<span class="cm"># </span>' if commented else ""
     ) + f'<span class="k">{esc(name)}</span><span class="eq"> = </span>{value_html}'
     summary = chosen_doc if chosen is not None else (n.get("summary") or "")
-    if summary:
-        note = f'<span class="tl-sum">{H.inline_md(summary, builder, fromdoc)}</span>'
-    else:
-        note = '<span class="tl-sum tl-gap">no description in the code</span>'
+    note = (
+        f'<span class="tl-sum">{H.inline_md(summary, builder, fromdoc)}</span>' if summary else ""
+    )
     bits = (
         chips(n, in_variant=in_variant)
         if chosen is None
@@ -140,7 +133,7 @@ def tline(
     if ids is not None and anchor not in ids:
         ids.add(anchor)
         id_attr = f' id="{anchor}"'
-    card = H.render_card(builder, fromdoc, path, n, {})
+    card = H.render_card(builder, fromdoc, path, n)
     cls = f"tl tl-{kind}" + (" tl-adv" if adv else "") + (" tl-cmt" if commented else "")
     line = (
         f'<details class="{cls}"{id_attr} data-path="{esc(path)}">'
@@ -209,16 +202,26 @@ def tblock(
         rendered.append(line)
         if p not in adv:
             plain.append(text)
-    head_target = H.uri(builder, fromdoc, table) if link_header else f"#{H.anchor_of(table)}"
+    head = table
+    while head and head not in H.S["nodes"]:
+        head = head.rsplit(".", 1)[0] if "." in head else ""
+    head_target = H.uri(builder, fromdoc, head) if link_header else f"#{H.anchor_of(table)}"
     adv_btn = (
-        f'<button class="tb-adv" type="button" data-n="{len(adv)}">show {len(adv)} dev/expert key{"s" if len(adv) > 1 else ""}</button>'
+        f'<button class="tb-adv" type="button" aria-pressed="false" data-n="{len(adv)}">'
+        f'<span class="hmp-adv-off">show {len(adv)} dev/expert key{"s" if len(adv) > 1 else ""}</span>'
+        f'<span class="hmp-adv-on">hide {len(adv)} dev/expert key{"s" if len(adv) > 1 else ""}</span></button>'
         if adv
         else ""
     )
+    all_adv = " tb-all-adv" if adv and not (req or opt or chosen_line) else ""
+    copy = (
+        '<button class="tb-copy hmp-copy" type="button" aria-label="Copy the block" '
+        f'title="Copy the block">{H.ICON_COPY}</button>'
+    )
     return (
-        f'<div class="tb">'
+        f'<div class="tb{all_adv}">'
         f'<div class="tb-bar"><a class="tb-h" href="{esc(head_target)}">{esc(header_of(table))}</a>'
-        f'<span class="tb-actions">{adv_btn}<button class="tb-copy" type="button">copy</button></span></div>'
+        f'<span class="tb-actions">{adv_btn}{copy}</span></div>'
         f'<div class="tb-lines">{"".join(rendered)}</div>'
         f'<pre class="tb-src" hidden>{esc(chr(10).join(plain))}</pre>'
         f"</div>"
@@ -420,20 +423,20 @@ class LinksDirective(SphinxDirective):
                     + " | ".join(f"<code>{esc(json.dumps(v))}</code>" for v in values)
                 )
             rows.append("<li>" + " ".join(bits) + "</li>")
-        mentions = list(H.node(path).get("co_mentions", []))
-        for m in mentions[:5]:
+        for m in list(H.node(path).get("co_mentions", []))[:5]:
             if m["other"] in same_name(path):
                 continue
-            title = esc(f"{m['func']}(): {m['text']}")
             rows.append(
-                f"<li><b>Named with it in the code</b> {ref(m['other'])} "
-                f'<span class="hmp-muted" title="{title}">{esc(m["file"])}:{m["line"]}</span></li>'
+                f"<li><b>The code says</b> {ref(m['other'])}: "
+                f'<q class="hmp-said">{H.autolink_paths(esc(m["text"]), builder, doc)}</q></li>'
             )
         if not rows:
             return []
         return [
             H.raw(
-                f'<div class="hmp-links"><div class="hmp-links-h">Connections found in the code</div><ul>{"".join(rows)}</ul></div>'
+                '<details class="hmp-links" open data-fold-narrow>'
+                f'<summary class="hmp-links-h">Connections found in the code <span class="hmp-muted">({len(rows)})</span></summary>'
+                f"<ul>{''.join(rows)}</ul></details>"
             )
         ]
 
@@ -442,20 +445,25 @@ class LinksDirective(SphinxDirective):
 
 
 class ExplorerDirective(SphinxDirective):
+    """The tree of the file, and a ranked search over every key.
+
+    The text a search reads is not in the page: the script loads
+    ``_static/hmp-keys.json`` on the first keystroke.
+    """
+
     def run(self):
         builder = H.current_builder()
         doc = self.env.docname
 
         def leaf_li(p: str) -> str:
             n = H.node(p)
-            value, kind, _ = value_for(n)
+            value, _kind, _ = value_for(n)
             val = esc(value) if value else f"‹{esc(n.get('form') or '')}›"
             req = '<span class="tc tc-req">required</span>' if n.get("required") else ""
             unit = unit_of(n)
             unit_html = f'<span class="tc tc-unit">{esc(unit)}</span>' if unit else ""
-            full = search_text(n)
             return (
-                f'<li class="ex-leaf" data-profile="{esc(n.get("profile", "user"))}" data-path="{esc(p)}" data-text="{esc(full.lower())}" data-full="{esc(full)}">'
+                f'<li class="ex-leaf" data-profile="{esc(n.get("profile", "user"))}">'
                 f'<a href="{esc(H.uri(builder, doc, p))}"><code>{esc(n["name"])}</code></a>'
                 f'<span class="ex-val"> = {val}</span> {req}{unit_html}'
                 f'<span class="ex-sum">{H.inline_md(n.get("summary", ""), builder, doc)}</span></li>'
@@ -470,7 +478,6 @@ class ExplorerDirective(SphinxDirective):
             leaves = sorted((c for c in kids_ if H.node(c).get("kind") == "leaf"), key=H.sort_key)
             tables = [c for c in kids_ if H.node(c).get("kind") != "leaf"]
             count = H.leaf_count(p)
-            text = esc(f"{p} {n.get('summary') or n.get('doc') or ''}".lower())
             inner = "".join(leaf_li(c) for c in leaves) + "".join(
                 table_li(c, depth + 1) for c in tables
             )
@@ -482,7 +489,7 @@ class ExplorerDirective(SphinxDirective):
                     + "</span>"
                 )
             return (
-                f'<li class="ex-table" data-profile="{esc(n.get("profile", "user"))}" data-text="{text}"><details>'
+                f'<li class="ex-table" data-profile="{esc(n.get("profile", "user"))}"><details>'
                 f'<summary><a href="{esc(H.uri(builder, doc, p))}"><code>{esc(header_of(p))}</code></a>'
                 f' <span class="ex-count">{count}</span> {shapes}<span class="ex-sum">{H.inline_md(n.get("summary") or n.get("doc") or "", builder, doc)}</span></summary>'
                 f"<ul>{inner}</ul></details></li>"
@@ -493,10 +500,15 @@ class ExplorerDirective(SphinxDirective):
         return [
             H.raw(
                 '<div class="hmp-explorer">'
-                '<div class="ex-bar"><input type="search" id="ex-q" placeholder="Filter by key, path or word: snap, conductivity, recharge, outlet...">'
-                '<label><input type="checkbox" id="ex-adv"> show dev/expert</label>'
-                '<button type="button" id="ex-open">open all</button><button type="button" id="ex-close">close all</button>'
-                '<span id="ex-count" class="hmp-muted"></span></div>'
+                '<div class="ex-bar" role="search">'
+                '<label class="ex-label" for="ex-q">Find a key</label>'
+                '<input type="search" id="ex-q" autocomplete="off" spellcheck="false" '
+                'placeholder="conductivity, recharge, time window..." aria-describedby="ex-count">'
+                f"{H.ADV_SWITCH}"
+                '<span class="ex-tree-btns"><button type="button" id="ex-open">open all</button>'
+                '<button type="button" id="ex-close">close all</button></span>'
+                '<span id="ex-count" class="hmp-muted" role="status" aria-live="polite"></span></div>'
+                '<ol class="ex-results" hidden></ol>'
                 f'<ul class="ex-root">{body}</ul></div>'
             )
         ]
@@ -512,18 +524,40 @@ QUANTITIES = [
     ("Areas", "m2, km2", lambda n, u: u in ("m2", "km2")),
     ("Fractions and ratios", "dimensionless", lambda n, u: u in ("-", "%") and n.get("numeric")),
     ("Dates", "", lambda n, u: str(n.get("form", "")).startswith("date")),
-    (
-        "Files and folders",
-        "",
-        lambda n, u: (
-            n.get("form") == "path" or n["name"].endswith(("_path", "_file", "_dir", "_folder"))
-        ),
-    ),
     ("Coordinate systems", "", lambda n, u: "crs" in n["name"]),
+    (
+        "Other numbers",
+        "the code declares no unit for these",
+        lambda n, u: n.get("numeric") and not u,
+    ),
 ]
+PATHS = (
+    "Files and folders",
+    "",
+    lambda n, u: (
+        n.get("form") == "path" or n["name"].endswith(("_path", "_file", "_dir", "_folder"))
+    ),
+)
+
+
+def what_it_is(builder, doc: str, path: str, n: dict) -> str:
+    """The summary of a key, or the summary of its table when the key has none."""
+    if n.get("summary"):
+        return H.inline_md(n["summary"], builder, doc)
+    table = path.rsplit(".", 1)[0]
+    tn = H.node(table)
+    text = tn.get("summary") or tn.get("doc")
+    if not text:
+        return ""
+    return (
+        f'<span class="hmp-muted">In <a class="hmp-toml-ref" href="{esc(H.uri(builder, doc, table))}">'
+        f"<code>{esc(header_of(table))}</code></a>:</span> {H.inline_md(text, builder, doc)}"
+    )
 
 
 class QuantitiesDirective(SphinxDirective):
+    """Every user key with a declared unit or form, grouped by what it measures."""
+
     def run(self):
         builder = H.current_builder()
         doc = self.env.docname
@@ -532,12 +566,15 @@ class QuantitiesDirective(SphinxDirective):
             for p, n in H.S["nodes"].items()
             if n.get("kind") == "leaf" and n.get("profile") == "user"
         ]
-        parts = ['<div class="hmp-quant">']
+        parts = []
         nav = []
-        for title, unit_label, test in QUANTITIES:
-            hits = [(p, n) for p, n in leaves if test(n, unit_of(n))]
+        taken: set[str] = set()
+        for title, unit_label, test in [*QUANTITIES, PATHS]:
+            hits = [(p, n) for p, n in leaves if p not in taken and test(n, unit_of(n))]
             if not hits:
                 continue
+            if title != PATHS[0]:
+                taken.update(p for p, _ in hits)
             slug = title.lower().replace(",", "").replace(" ", "-")
             nav.append(
                 f'<a href="#q-{slug}">{esc(title)} <span class="hmp-muted">({len(hits)})</span></a>'
@@ -545,16 +582,35 @@ class QuantitiesDirective(SphinxDirective):
             rows = "".join(
                 f'<tr><td><a href="{esc(H.uri(builder, doc, p))}"><code>{esc(p).replace(".", ".<wbr>")}</code></a></td>'
                 f"<td>{esc(unit_of(n) or '')}</td><td>{'required' if n.get('required') else esc(n.get('default') or '')}</td>"
-                f"<td>{H.inline_md(n.get('summary', ''), builder, doc)}</td></tr>"
+                f"<td>{what_it_is(builder, doc, p, n)}</td></tr>"
                 for p, n in sorted(hits)
             )
             parts.append(
-                f'<h2 id="q-{slug}">{esc(title)}</h2>'
-                + (f'<p class="hmp-muted">{esc(unit_label)}</p>' if unit_label else "")
-                + f'<div class="hmp-matrix-wrap"><table class="hmp-qt"><thead><tr><th>Path</th><th>Unit</th><th>Default</th><th>What it is</th></tr></thead><tbody>{rows}</tbody></table></div>'
+                f'<section class="hmp-qgroup"><h2 id="q-{slug}">{esc(title)}</h2>'
+                + (
+                    f'<p class="hmp-muted">{esc(unit_label.capitalize())}.</p>'
+                    if unit_label
+                    else ""
+                )
+                + f'<div class="hmp-matrix-wrap"><table class="hmp-qt"><thead><tr><th>Path</th><th>Unit</th><th>Default</th><th>What it is</th></tr></thead><tbody>{rows}</tbody></table></div></section>'
             )
-        parts.append("</div>")
-        return [H.raw('<p class="hmp-qnav">' + " · ".join(nav) + "</p>" + "".join(parts))]
+        bar = (
+            '<div class="hmp-filter-bar"><label for="q-filter">Filter</label>'
+            '<input type="search" id="q-filter" class="hmp-filter" data-target=".hmp-quant" '
+            'placeholder="conductivity, outlet, mm..." autocomplete="off">'
+            '<span class="hmp-filter-count hmp-muted" role="status" aria-live="polite"></span></div>'
+        )
+        return [
+            H.raw(
+                '<p class="hmp-qnav">'
+                + " · ".join(nav)
+                + "</p>"
+                + bar
+                + '<div class="hmp-quant">'
+                + "".join(parts)
+                + "</div>"
+            )
+        ]
 
 
 class SectionsDirective(SphinxDirective):
@@ -663,6 +719,10 @@ def gen_pages(srcdir: Path) -> None:
     for root, docname in pages.items():
         rel = docname[len(BASE) + 1 :]
         lines = [
+            *front_matter(
+                f"The {H.title_of(root).strip('`')} table of the HydroModPy TOML file: "
+                "every key with its default, unit, range and meaning."
+            ),
             "% AUTO-GENERATED by _ext/hmp_tview.py from the models. Do not edit.",
             "",
             H.heading(
@@ -705,26 +765,37 @@ def gen_pages(srcdir: Path) -> None:
         H.write_if_changed(base / (rel + ".md"), "\n".join(lines) + "\n")
     top_docs = [pages[r] for r in H.S["meta"]["roots"]]
     index = [
+        *front_matter(
+            "Every section of the HydroModPy TOML file, generated from the Pydantic models: "
+            "keys, defaults, units, ranges and calibrable parameters."
+        ),
         "% AUTO-GENERATED by _ext/hmp_tview.py. Do not edit.",
         "",
         "# TOML parameters",
         "",
         "Every section of the configuration file, generated from the models. Each page reads like "
         "the file you write: one block per table, the keys you must write first, optional keys "
-        "commented with their default, developer and expert keys behind a button, one tab per shape "
+        "commented with their default, developer and expert keys behind a switch, one tab per shape "
         "when a table has several. Click a line for its card.",
+        "",
+        "Two commands go from a block to a verdict:",
+        "",
+        "```bash",
+        "hmp config template --modules flow > flow.toml   # the keys of one section",
+        "hmp config check my_run.toml                     # validate a file",
+        "```",
         "",
         "```{hmp-legend}",
         "```",
         "",
-        "::::{grid} 1 1 3 3",
+        "::::{grid} 1 2 3 3",
         ":gutter: 2",
         "",
         ":::{grid-item-card} The whole file as a tree",
         ":link: explorer",
         ":link-type: doc",
         "",
-        "Every table and key, filterable. The fastest way to find a key.",
+        "Every table and key, with a ranked search. The fastest way to find a key.",
         ":::",
         "",
         ":::{grid-item-card} By what it measures",
@@ -732,6 +803,20 @@ def gen_pages(srcdir: Path) -> None:
         ":link-type: doc",
         "",
         "Lengths, durations, conductivities, dates, files: every user key grouped by its unit.",
+        ":::",
+        "",
+        ":::{grid-item-card} Calibrable parameters",
+        ":link: calibrable",
+        ":link-type: doc",
+        "",
+        "Every key a calibration can move, with its unit, search space and range.",
+        ":::",
+        "",
+        ":::{grid-item-card} Minimal files",
+        ":link: minimal-files",
+        ":link-type: doc",
+        "",
+        "The smallest file that holds one section, checked against the models.",
         ":::",
         "",
         ":::{grid-item-card} The grammar of the file",
@@ -755,19 +840,79 @@ def gen_pages(srcdir: Path) -> None:
         "",
         "explorer",
         "quantities",
+        "calibrable",
+        "minimal-files",
         "grammar",
         "",
     ]
     index += ["/" + d for d in top_docs] + ["```", ""]
     H.write_if_changed(base / "index.md", "\n".join(index) + "\n")
-    H.write_if_changed(
-        base / "explorer.md",
-        "% AUTO-GENERATED. Do not edit.\n\n# The whole file as a tree\n\n```{hmp-explorer}\n```\n",
-    )
-    H.write_if_changed(
-        base / "quantities.md",
-        "% AUTO-GENERATED. Do not edit.\n\n# Find a key by what it measures\n\nEvery user key whose unit or form the code declares, grouped by kind of quantity.\nA key with no declared unit does not appear here: the fix goes in its Pydantic field.\n\n```{hmp-quantities}\n```\n",
-    )
+    simple_pages = {
+        "explorer": (
+            "Search every key of the HydroModPy TOML file by name, path or word, "
+            "or browse the file as a tree.",
+            "The whole file as a tree",
+            "Type a few words: every word must match, and a key whose name matches comes first.",
+            "hmp-explorer",
+        ),
+        "quantities": (
+            "Every user key of the HydroModPy TOML file grouped by what it measures: "
+            "lengths, durations, conductivities, dates, files.",
+            "Find a key by what it measures",
+            "Every user key whose unit or form the code declares, grouped by kind of quantity. "
+            "Files and folders come last.",
+            "hmp-quantities",
+        ),
+        "calibrable": (
+            "Every key of the HydroModPy TOML file a calibration can move, "
+            "with its unit, search space, prior and valid range.",
+            "Calibrable parameters",
+            "A calibration moves the keys below. Name one in "
+            "{toml}`calibration.parameters.<name>.path` and give its range in "
+            "{toml}`calibration.parameters.<name>.bounds`, in the unit the key declares. "
+            "A range outside the valid range of the key is refused.",
+            "hmp-calibrable",
+        ),
+        "minimal-files": (
+            "The smallest valid HydroModPy TOML file for each section, "
+            "built from the models and checked against them.",
+            "Minimal files",
+            "For each section, the smallest file that holds it: the sections every file needs, "
+            "then the keys the section requires, each with its example value or its default. "
+            "Each file below passed `HydroModPyConfig` when this page was built. "
+            "`hmp config template --modules <section>` writes every key of a section, "
+            "commented, and `hmp config check file.toml` validates what you wrote.",
+            "hmp-minimal-files",
+        ),
+    }
+    for name, (meta, title, lead, directive) in simple_pages.items():
+        text = "\n".join(
+            [
+                *front_matter(meta),
+                "% AUTO-GENERATED by _ext/hmp_tview.py. Do not edit.",
+                "",
+                f"# {title}",
+                "",
+                lead,
+                "",
+                "```{" + directive + "}",
+                "```",
+                "",
+            ]
+        )
+        H.write_if_changed(base / f"{name}.md", text)
+
+
+def front_matter(description: str) -> list[str]:
+    """MyST front matter that gives a generated page its meta description."""
+    return [
+        "---",
+        "myst:",
+        "  html_meta:",
+        f'    "description lang=en": "{description}"',
+        "---",
+        "",
+    ]
 
 
 class SectionsOfDirective(SphinxDirective):
@@ -835,10 +980,192 @@ class LegendDirective(SphinxDirective):
             '<li><span class="tl-key-req">written line</span> a key you must write; the value shown is an example the field declares, if any</li>'
             '<li><span class="tl-key-cmt"># commented line</span> optional: the value shown is the default</li>'
             '<li><span class="tl-key-ph">‹form›</span> no default: the accepted form of the value</li>'
-            "<li>the button on the right shows the developer and expert keys, commented</li>"
+            "<li>the button on the right of a block shows the developer and expert keys; "
+            "it switches them on every page</li>"
             "</ul>"
         )
         return [H.raw(f'<div class="tl-legend-wrap">{block}{legend}</div>')]
+
+
+# ---------------------------------------------------------------- calibrable, minimal files, coverage
+
+
+def filter_bar(target: str, placeholder: str) -> str:
+    return (
+        '<div class="hmp-filter-bar"><label for="f-' + target.strip(".") + '">Filter</label>'
+        f'<input type="search" id="f-{target.strip(".")}" class="hmp-filter" data-target="{target}" '
+        f'placeholder="{esc(placeholder)}" autocomplete="off">'
+        '<span class="hmp-filter-count hmp-muted" role="status" aria-live="polite"></span></div>'
+    )
+
+
+class CalibrableDirective(SphinxDirective):
+    """Every key that carries a ``Calibrable`` declaration in the models."""
+
+    def run(self):
+        builder = H.current_builder()
+        doc = self.env.docname
+        rows = []
+        cal = [
+            (p, n)
+            for p, n in H.S["nodes"].items()
+            if n.get("kind") == "leaf" and n.get("calibrable")
+        ]
+        for p, n in sorted(cal, key=lambda pn: pn[0].replace(".<", ".~")):
+            c = n["calibrable"]
+            bounds = (
+                f"<code>{esc(c['bounds'])}</code>"
+                if c.get("bounds")
+                else '<span class="hmp-muted">written in the file</span>'
+            )
+            rng = H.range_text(n.get("range", {}))
+            label = f" <span class='hmp-muted'>{esc(n['label'])}</span>" if n.get("label") else ""
+            rows.append(
+                f'<tr><td><a href="{esc(H.uri(builder, doc, p))}"><code>{esc(p).replace(".", ".<wbr>")}</code></a>{label}</td>'
+                f"<td>{esc(unit_of(n) or '')}</td><td>{esc(c.get('transform') or '')}</td>"
+                f"<td>{esc(c.get('prior') or '')}</td><td>{bounds}</td><td>{esc(rng)}</td></tr>"
+            )
+        table = (
+            '<div class="hmp-matrix-wrap hmp-cal-list"><table class="hmp-qt hmp-cal">'
+            "<thead><tr><th>Key</th><th>Unit</th><th>Search space</th><th>Prior</th>"
+            "<th>Default bounds</th><th>Valid range</th></tr></thead><tbody>"
+            + "".join(rows)
+            + "</tbody></table></div>"
+        )
+        return [H.raw(filter_bar(".hmp-cal-list", "conductivity, soil, lake...") + table)]
+
+
+def minimal_files() -> dict:
+    if "minimal" not in H.S:
+        from tools.docs import minimal_files as mf
+
+        H.S["minimal"] = mf.build(H.S["nodes"])
+    return H.S["minimal"]
+
+
+class MinimalFilesDirective(SphinxDirective):
+    """The minimal file of each section that validates against the models."""
+
+    def run(self):
+        builder = H.current_builder()
+        doc = self.env.docname
+        parts = []
+        for section, item in minimal_files().items():
+            head = (
+                f'<h2 id="min-{esc(section)}"><a class="hmp-toml-ref" '
+                f'href="{esc(H.doc_uri(builder, doc, H.a_doc(section)))}"><code>{esc(header_of(section))}</code></a></h2>'
+            )
+            cmd = f"hmp config template --modules {section} > {section}.toml"
+            if item["error"] is None:
+                body = H.toml_html(item["toml"], builder, doc)
+                parts.append(
+                    f'{head}<div class="hmp-toml-wrap"><div class="hmp-toml-cap">'
+                    f'{esc(section)}.toml <span class="hmp-muted">· checked against the models</span>'
+                    f"</div>{body}</div>"
+                )
+            else:
+                template = H.static_uri(builder, doc, f"templates/{section}.toml")
+                parts.append(
+                    f"{head}<p>Start from the template of the section "
+                    f'(<a href="{esc(template)}" download>download it</a>):</p>'
+                    f'<pre class="hmp-term">{esc(cmd)}</pre>'
+                )
+        return [H.raw("".join(parts))]
+
+
+class CoverageDirective(SphinxDirective):
+    """What the models leave undocumented, section by section, for the maintainers."""
+
+    def run(self):
+        builder = H.current_builder()
+        doc = self.env.docname
+        gates = H.S.get("gates") or {}
+        titles = gates.get("titles", {})
+        per = gates.get("per_section", {})
+        order = list(titles)
+
+        def link(p: str) -> str:
+            return f'<a class="hmp-toml-ref" href="{esc(H.uri(builder, doc, p))}"><code>{esc(p)}</code></a>'
+
+        head = "".join(f"<th>{esc(titles[g])}</th>" for g in order)
+        body = []
+        for sec, c in sorted(per.items(), key=lambda kv: -sum(kv[1].get(g, 0) for g in order)):
+            cells = "".join(f"<td>{c.get(g, 0) or ''}</td>" for g in order)
+            body.append(
+                f"<tr><td><code>[{esc(sec)}]</code></td><td>{c.get('user', 0)}</td>{cells}</tr>"
+            )
+        total = gates.get("total", {})
+        body.append(
+            f"<tr class='hmp-total'><td>total</td><td>{total.get('user', 0)}</td>"
+            + "".join(f"<td>{total.get(g, 0)}</td>" for g in order)
+            + "</tr>"
+        )
+        out = [
+            "<h2 id='cov-gates'>Gaps in the models</h2>",
+            "<p>User keys only. A gap is fixed in the <code>Field(...)</code> of the model.</p>",
+            '<div class="hmp-matrix-wrap"><table class="hmp-gates"><thead><tr><th>Section</th>'
+            f"<th>user keys</th>{head}</tr></thead><tbody>{''.join(body)}</tbody></table></div>",
+        ]
+        for sec, gate_keys in sorted(gates.get("keys", {}).items()):
+            items = []
+            for g in order:
+                paths = gate_keys.get(g) or []
+                if paths:
+                    items.append(
+                        f"<li><b>{esc(titles[g])}</b> ({len(paths)}): "
+                        + ", ".join(link(p) for p in paths)
+                        + "</li>"
+                    )
+            if items:
+                out.append(
+                    f"<details class='hmp-cov'><summary><code>[{esc(sec)}]</code></summary><ul>{''.join(items)}</ul></details>"
+                )
+        out.append("<h2 id='cov-minimal'>Minimal files not generated</h2>")
+        failed = [(s, it) for s, it in minimal_files().items() if it["error"] is not None]
+        if failed:
+            out.append(
+                "<ul>"
+                + "".join(
+                    f"<li><code>[{esc(s)}]</code>: {esc(it['error'])}</li>" for s, it in failed
+                )
+                + "</ul>"
+            )
+        else:
+            out.append("<p>Every section has a minimal file.</p>")
+        known = H.node("flow.param.<id>").get("known_keys", {})
+        no_range = [k for k, v in known.items() if not v.get("paths") and not v.get("alias_of")]
+        if no_range:
+            out.append(
+                "<h2 id='cov-known'>Named parameters without a range</h2><p>"
+                + ", ".join(f"<code>{esc(k)}</code>" for k in no_range)
+                + " have a default unit in <code>FlowConfig._DEFAULT_PARAM_UNITS</code> and no entry in "
+                "<code>PHYSICAL_BOUNDS</code>, so no value is refused.</p>"
+            )
+        out.append("<h2 id='cov-links'>Where the connections come from</h2><ul>")
+        for p, n in H.S["nodes"].items():
+            for m in n.get("co_mentions", []):
+                out.append(
+                    f"<li>{link(p)} and {link(m['other'])}: <code>{esc(m['file'])}:{m['line']}</code> "
+                    f"<span class='hmp-muted'>{esc(m['func'])}(), weight {m['weight']}</span></li>"
+                )
+        out.append("</ul>")
+        out.append("<h2 id='cov-models'>Models of each table</h2>")
+        for root in H.S["meta"]["roots"]:
+            rows = []
+            for p in H.subtree(root):
+                n = H.node(p)
+                if n.get("kind") in ("leaf", None) or not n.get("source"):
+                    continue
+                rows.append(
+                    f"<li>{link(p)} <code>{esc(', '.join(n.get('models', [])))}</code> in "
+                    f"<code>{esc(n['source'])}</code></li>"
+                )
+            if rows:
+                out.append(
+                    f"<details class='hmp-cov'><summary><code>[{esc(root)}]</code> "
+                    f"<span class='hmp-muted'>({len(rows)} tables)</span></summary><ul>{''.join(rows)}</ul></details>"
+                )
+        return [H.raw("".join(out))]
 
 
 def setup_tview(app) -> None:
@@ -850,3 +1177,6 @@ def setup_tview(app) -> None:
     app.add_directive("hmp-sections-of", SectionsOfDirective)
     app.add_directive("hmp-legend", LegendDirective)
     app.add_directive("hmp-links", LinksDirective)
+    app.add_directive("hmp-calibrable", CalibrableDirective)
+    app.add_directive("hmp-minimal-files", MinimalFilesDirective)
+    app.add_directive("hmp-coverage", CoverageDirective)

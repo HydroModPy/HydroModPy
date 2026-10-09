@@ -24,21 +24,41 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="lock_command")
 
-    update = sub.add_parser("update", help="Scan the cache and write/update hydromodpy.lock")
+    update = sub.add_parser(
+        "update",
+        help="Scan the cache and write/update hydromodpy.lock",
+        epilog="Example:\n  hmp dev lock update --project path/to/project",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     update.add_argument("--project", default=None, help="Project root owning hydromodpy.lock")
     update.add_argument("--workspace", default=None, help="Workspace holding the data cache")
     update.add_argument("--output", default=None, help="Destination lockfile")
 
-    archive = sub.add_parser("archive", help="Create a portable archive")
+    archive = sub.add_parser(
+        "archive",
+        help="Create a portable archive",
+        epilog="Example:\n  hmp dev lock archive data-cache.tar.gz",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     archive.add_argument("output", help="Destination archive (.tar / .tar.gz / .tar.zst)")
-    archive.add_argument("--workspace", default=None)
+    archive.add_argument("--workspace", default=None, help="Workspace holding the data cache")
 
-    restore = sub.add_parser("restore", help="Restore an archive and verify SHA-256")
+    restore = sub.add_parser(
+        "restore",
+        help="Restore an archive and verify SHA-256",
+        epilog="Example:\n  hmp dev lock restore data-cache.tar.gz",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     restore.add_argument("input", help="Archive to restore")
-    restore.add_argument("--workspace", default=None)
+    restore.add_argument("--workspace", default=None, help="Workspace holding the data cache")
     restore.add_argument("--output", default=None, help="Target directory")
 
-    verify = sub.add_parser("verify", help="Verify the cache matches the lockfile")
+    verify = sub.add_parser(
+        "verify",
+        help="Verify the cache matches the lockfile",
+        epilog="Example:\n  hmp dev lock verify --project path/to/project --strict",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     verify.add_argument("--project", default=None, help="Project root owning hydromodpy.lock")
     verify.add_argument("--workspace", default=None, help="Workspace holding the data cache")
     verify.add_argument("--lockfile", default=None, help="Explicit lockfile path")

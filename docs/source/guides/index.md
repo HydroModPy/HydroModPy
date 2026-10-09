@@ -72,6 +72,7 @@ Once the first file runs, you will want variants of it: another recharge, anothe
 another list of exports. A file can inherit another one and write only the difference.
 
 - {doc}`Write a scenario by inheriting a file <inheritance>`
+- {doc}`Check a file while you type it <set-up-your-editor>`
 
 Looking for one parameter instead of a task? Go to the
 {doc}`reference <../reference/parameters/index>`. New to the project? Start with
@@ -107,4 +108,5 @@ test-a-method
 non-convergence
 troubleshooting
 inheritance
+set-up-your-editor
 ```

@@ -12,12 +12,18 @@ HELP: str = "Drop cache entries older than N days"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
-    parser.add_argument("--workspace", default=None)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[verbosity_parser()],
+        epilog="Example:\n  hmp data prune --older-than 90 --delete-files",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--workspace", default=None, help="Workspace holding the data cache")
     parser.add_argument(
         "--older-than", type=int, default=30, help="Age threshold in days (default: 30)"
     )
-    parser.add_argument("--delete-files", action="store_true")
+    parser.add_argument("--delete-files", action="store_true", help="Also delete the files on disk")
     parser.set_defaults(_handler=run)
     return parser
 

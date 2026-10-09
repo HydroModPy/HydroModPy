@@ -1,54 +1,45 @@
-:html_theme.sidebar_secondary.remove:
-
-Contribute
-==========
+Contributor handbook
+====================
 
 .. rst-class:: lead
 
-HydroModPy welcomes bug reports, new features, documentation work,
-and example notebooks. This page covers the contributor install,
-the coding style, the test ladder, the docs build, and the pull
-request flow.
+How to report a problem, set up a development environment, follow the coding
+style, run the tests and send a change. For a ten-minute path from a clone to
+a first commit, start with :doc:`quick-start`.
 
 .. admonition:: User install
    :class: tip
 
-   For the user install only (``pip``, ``uv``, ``conda``, ``docker``,
-   solver binaries), see :doc:`/get-started/install`.
+   For the user install only (``pip``, ``uv``, ``conda``, ``docker``, solver
+   binaries), see :doc:`/get-started/install`.
 
 Open an issue
 -------------
 
-The fastest way to help the project is to open an issue at
-https://github.com/HydroModPy/HydroModPy/issues, even without writing
-code. Useful issue types:
+The fastest way to help is an issue at
+https://github.com/HydroModPy/HydroModPy/issues, even without code.
 
-- **Bug report.** Describe what happened, what you expected, and the
-  steps to reproduce. Attach the TOML config (or a minimal version) and
-  the full traceback.
-- **Feature request.** Describe what you need and why. If the feature
-  is a new data source, attach the API endpoint, the response format,
-  the variable units, the spatial and temporal resolution, and any
-  rate limit.
-- **New variable or format.** Specify the variable name, the physical
-  unit, the temporal resolution, the spatial coverage (point or
-  gridded), and the file format or API.
-- **Question.** Open an issue if the documentation does not cover your
-  case. The thread also helps other users with the same question.
+- **Bug report.** What happened, what you expected, the steps to reproduce.
+  Attach the TOML file (or a minimal version), the full traceback, the output
+  of ``hmp --version``, the Python version and the operating system.
+- **Feature request.** What you need and why. For a new data source or
+  variable, attach the API endpoint, the response format, the units, the
+  spatial and temporal resolution and any rate limit.
+- **Question.** If the documentation does not cover your case, open an issue.
+  The thread helps the next reader.
 
 Set up a development environment
 --------------------------------
 
-The contributor install always uses an editable clone so edits to
-``.py`` files take effect on the next import without a reinstall. Pick
-the recipe that matches your platform.
+A contributor install is always an editable clone, so a change to a ``.py``
+file takes effect on the next import. Pick the recipe for your platform.
 
 .. tab-set::
 
-   .. tab-item:: pip + venv (Linux / macOS / Windows)
+   .. tab-item:: pip + venv (Linux, macOS, Windows)
       :sync: dev-pip
 
-      Lightweight setup, no conda required. Works on Python 3.11 or newer.
+      Lightweight, no conda. Python 3.11, 3.12 or 3.13.
 
       .. code-block:: bash
 
@@ -60,37 +51,36 @@ the recipe that matches your platform.
          pip install -e ".[dev,test,docs]"
          pre-commit install
 
-      On Windows PowerShell, replace the venv lines with
+      On Windows PowerShell, replace the two venv lines with
       ``py -3.12 -m venv .venv`` and ``.\.venv\Scripts\Activate.ps1``.
 
    .. tab-item:: conda YAML
       :sync: dev-conda
 
-      Recommended on Windows or for the curated geospatial stack.
-      Three env files live in the
-      `install/ folder on GitHub
-      <https://github.com/HydroModPy/HydroModPy/tree/main/install>`_;
-      pick the one you need.
+      Recommended on Windows or for the curated geospatial stack. The env files
+      live in the
+      `install/ folder <https://github.com/HydroModPy/HydroModPy/tree/main/install>`_.
 
       .. list-table::
          :header-rows: 1
-         :widths: 30 60
+         :widths: 34 66
 
          * - Env file
            - Purpose
          * - ``env_hydromodpy.yml``
-           - Runtime stack (Spyder included). Use it when you run
-             scripts and notebooks but do not edit the source tree.
-             Includes the default Optuna calibration sampler.
+           - Runtime stack (Spyder included), for running scripts and
+             notebooks without editing the source tree.
          * - ``env_hydromodpy_pkg.yml``
-           - Editable stack: same packages plus
-             ``pip install -e "..[docs,docs-uml,test]"`` for local doc builds
-             and test execution.
+           - Editable stack: the same packages plus
+             ``pip install -e "..[docs,test]"``.
          * - ``env_hydromodpy_light_pkg.yml``
-           - Smaller editable stack, recommended on Linux/WSL for
-             command-line development and test execution.
+           - Smaller editable stack, recommended on Linux and WSL for
+             command-line development and tests.
+         * - ``env_hydromodpy_light.yml``
+           - Smaller runtime stack.
 
-      Editable env (recommended for contributors):
+      Editable environment, from the repository root (the relative
+      ``..[docs,test]`` inside the YAML must reach the project source):
 
       .. code-block:: bash
 
@@ -100,120 +90,69 @@ the recipe that matches your platform.
          conda activate hmp-dev
          pre-commit install
 
-      Run the command from the repository root: the relative
-      ``pip install -e "..[docs,docs-uml,test]"`` inside the YAML must reach the
-      project source. The Python version is pinned by each YAML; no
-      need to set it on the command line. These editable YAMLs
-      preinstall ``graphviz`` and ``pygraphviz`` from ``conda-forge``
-      before the editable ``pip`` step. This avoids compiling
-      ``pygraphviz`` from source while installing the ``docs-uml``
-      extra (``erdantic`` regenerates the config ER diagrams).
-
-      Quick option without cloning, when you only need the runtime
-      env: download ``env_hydromodpy.yml`` from the install folder
-      above, then run
-
-      .. code-block:: bash
-
-         conda env create -n hmp -f env_hydromodpy.yml
-         conda activate hmp
-
-   .. tab-item:: Linux / WSL helper
+   .. tab-item:: Linux or WSL helper
       :sync: dev-wsl
 
-      Ubuntu and WSL users can bootstrap the editable environment with
-      the helper script shipped in ``install/``. It installs the
-      minimal system dependency, creates the conda env, and adds the
-      Linux runtime library needed by ``gmsh``.
+      Ubuntu and WSL users can bootstrap the editable environment with the
+      helper in ``install/``. It installs the system dependencies, creates the
+      conda environment and adds the Linux runtime library ``gmsh`` needs.
 
       .. code-block:: bash
 
          bash install/setup_wsl_dev.sh --env-name hydromodpy-wsl
          pre-commit install
 
-      Add ``--with-petsc`` to install PETSc, ``petsc4py``, ``mpi4py``,
-      and ``mpich`` inside the same env:
-
-      .. code-block:: bash
-
-         bash install/setup_wsl_dev.sh --env-name hydromodpy-wsl --with-petsc
-
-      For day-to-day work after the env exists, open one ready shell
-      with the companion helper:
+      Add ``--with-petsc`` to install PETSc, ``petsc4py``, ``mpi4py`` and
+      ``mpich`` in the same environment, and ``--full`` for the Spyder and
+      Jupyter stack. For day-to-day work, open a ready shell with:
 
       .. code-block:: bash
 
          bash install/enter_wsl_dev.sh
-         bash install/enter_wsl_dev.sh --headless          # non-interactive
+         bash install/enter_wsl_dev.sh --headless
          bash install/enter_wsl_dev.sh --output-root /mnt/c/Users/<user>/Documents/HydroModPyOutputs
 
-      The helper sources conda, activates the env, and moves to the
-      repository root. If conda is not yet inside WSL, Miniforge is the
-      recommended bootstrap:
+      If you create the conda environment yourself, add the ``gmsh`` runtime
+      shim: ``conda install -n <env> -c conda-forge xorg-libxft``.
 
-      .. code-block:: bash
+After the install, ``hmp`` and ``hydromodpy`` are the same command. Run
+``hmp --help`` to list the verbs and ``hmp doctor`` to check the environment.
 
-         sudo apt update && sudo apt install -y curl git libglu1-mesa
-         curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
-         bash Miniforge3-Linux-x86_64.sh
-         source ~/miniforge3/etc/profile.d/conda.sh
+Extras
+~~~~~~
 
-      If you create the conda env manually instead of using
-      ``setup_wsl_dev.sh``, add the Linux ``gmsh`` runtime shim
-      yourself:
-
-      .. code-block:: bash
-
-         conda install -n <env> -c conda-forge xorg-libxft
-
-The ``-e`` (editable) flag keeps the local source tree importable from
-anywhere. The ``pre-commit install`` step registers the Git hook that
-runs ``ruff`` before each commit.
-
-Available extras
-~~~~~~~~~~~~~~~~
-
-Add only what you need. They can be combined inside one ``pip install``
-command, for example ``pip install -e ".[dev,test,docs]"``.
+Extras combine in one command, for example ``pip install -e ".[dev,test,docs]"``.
+The three a contributor needs every day:
 
 .. list-table::
    :header-rows: 1
-   :widths: 18 60
+   :widths: 18 82
 
    * - Extra
      - Provides
-   * - ``[test]``
-     - ``pytest``, ``pytest-xdist``, ``pytest-timeout``,
-       ``pytest-cov``, ``coverage``, ``pyyaml``, and ``jsonschema``.
    * - ``[dev]``
-     - ``ruff`` and ``pre-commit`` for linting and Git hooks.
+     - ``ruff`` and ``pre-commit``.
+   * - ``[test]``
+     - ``pytest``, ``pytest-xdist``, ``pytest-timeout``, ``pytest-cov``,
+       ``coverage``, ``hypothesis``, ``pyinstrument``, ``pyyaml`` and
+       ``jsonschema``.
    * - ``[docs]``
-     - Sphinx, the PyData theme, ``myst-parser``, plus
-       all extensions used to build this documentation. Pure wheels,
-       no system Graphviz needed.
-   * - ``[docs-uml]``
-     - ``erdantic`` to regenerate the config ER diagrams. Needs a
-       system Graphviz install; ``pygraphviz`` has no wheels.
-   * - ``[ide]``
-     - ``ipykernel``, ``jupyterlab``, Spyder, and PySide6.
-   * - ``[viewer3d]``
-     - ``pyvista`` for 3D mesh visualization.
+     - Sphinx, the PyData theme, MyST and every extension this site uses,
+       plus ``doc8`` and ``sphinx-lint``. The PlantUML jar is not part of it
+       (see :doc:`documentation/how-the-docs-are-built`).
 
-After install, two CLI commands become available: ``hmp`` and
-``hydromodpy``. They are aliases. Run ``hmp --help`` to list the
-subcommands.
+Every extra, including ``calibration``, ``mesh``, ``duckdb``, ``mf6api``,
+``viz``, ``fair``, ``performance``, ``profiling``, ``metrics``, ``ide`` and
+``viewer3d``, is listed with what it installs in
+:doc:`architecture/generated/extras`.
 
-Windows + WSL split for PETSc
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Windows with WSL for PETSc
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The PETSc-backed Boussinesq backend is Linux only. On a Windows
-workstation with WSL configured, use two environments instead of
-forcing every dependency into one:
-
-- WSL ``hydromodpy-wsl`` for PETSc simulations and numerical
-  validation tests,
-- Windows ``hydromodpy-kpg`` (or another docs-capable env) for the
-  Sphinx build.
+The PETSc-backed Boussinesq backend is Linux only. On a Windows workstation
+with WSL, use two environments instead of forcing every dependency into one:
+a WSL environment (for example ``hydromodpy-wsl``) for PETSc simulations and
+numerical validation tests, and a Windows environment for the Sphinx build.
 
 Run the PETSc smoke suite from PowerShell through WSL:
 
@@ -221,184 +160,113 @@ Run the PETSc smoke suite from PowerShell through WSL:
 
    wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- bash tools/ci/run_boussinesq_petsc_smoke.sh"
 
-For the Boussinesq lower-obstacle drying case only, run the dedicated
-pytest target instead:
+For the lower-obstacle drying case only:
 
 .. code-block:: powershell
 
    wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- python -m pytest tests/validation/numerical/transient/test_boussinesq_drying_petsc.py -q"
 
-The corresponding Windows documentation build stays independent from
-PETSc and only needs the Sphinx stack plus the already materialized
-documentation assets:
-
-.. code-block:: powershell
-
-   conda run --no-capture-output -n hydromodpy-kpg python -m sphinx -E -a -W -j auto -b html docs/source docs/build/html
-
-PETSc, MPI, and Linux solver dependencies stay in the WSL environment,
-while the Windows documentation environment only needs the Sphinx stack.
-
 Coding style
 ------------
 
-- Target Python 3.11 or newer. Type hints are encouraged on public
-  signatures.
-- Format and lint with ``ruff``. The repository ships a pinned
-  configuration in ``pyproject.toml``:
+- Python 3.11 to 3.13. Type hints on every public signature.
+- Pydantic v2 only. Every model inherits ``HydroModelBase``, which forbids
+  extra keys.
+- ``ruff`` is the only linter and formatter. The configuration in
+  ``pyproject.toml`` sets a line length of 100.
+- A docstring on every public class and function, in the shape described in
+  :doc:`docstring-policy`.
+- Add a comment only when the reason is not obvious from the code.
+- File names are ``snake_case``, class names ``CamelCase``. Common suffixes:
+  ``Config``, ``Adapter``, ``Manager``, ``Builder``, ``Resolver``,
+  ``Optimizer``, ``Provider``, ``Backend``.
+- Reuse the helpers of ``hydromodpy/core/io/`` instead of repeating raster,
+  folder or path logic.
+- The import layers are a contract: see :doc:`architecture/layered-architecture`.
 
-  .. code-block:: bash
+Hooks
+~~~~~
 
-     ruff check .
-     ruff format .
+``pre-commit install`` registers the hooks of ``.pre-commit-config.yaml``. On
+the staged files they run:
 
-- The pre-commit hook runs ``ruff`` automatically on staged files. If
-  the hook reports issues, fix them and stage the files again before
-  retrying the commit.
-- Add a docstring on every public method and class. Keep parameter
-  names consistent with the existing modules.
-- Reuse helpers from ``hydromodpy/core/io/`` rather than
-  duplicating raster, folder, or path logic.
+- ``ruff check --fix`` and ``ruff format``;
+- ``trailing-whitespace``, ``end-of-file-fixer``, ``check-yaml``,
+  ``check-toml`` and ``check-added-large-files`` (1 MB);
+- ``gitleaks``, which scans the staged diff for secrets with the engine of
+  the CI job;
+- ``doc8`` on ``docs/source/**/*.rst``, with a line limit of 130 characters.
+
+If a hook changes a file or refuses a commit, fix the file, stage it again and
+commit again.
 
 Run the tests
 -------------
 
-The fastest local check is ``hmp test unit``. Before merging
-workflow-facing changes, also run ``hmp test regression --fast``.
-On GitHub, the main CI gate runs quality checks, architecture
-contracts, fast tests on Python 3.11 to 3.13, unit tests, integration
-tests, fast regression tests, a wheel smoke test, and an advisory mypy
-baseline. Specialized workflows cover docs, Docker,
-PETSc, performance, workflow linting, and dependency audit only when
-their inputs change.
-
-For the full ladder (unit, integration, e2e, regression, validation,
-MMS, solver-sanity, calibration twins) with the role of each family
-and how to read a failure, use
-:doc:`architecture/overview/test-families-and-quality-roles`.
-For the GitHub Actions map and check-name conventions, use
-:doc:`architecture/ci-workflows`.
-
-A typical Linux/WSL non-interactive test session is:
-
-.. code-block:: bash
-
-   export MPLBACKEND=Agg
-   python -m pytest tests/unit -q
-   hmp test regression --fast -j 2
-   hmp test validation --fast
+Run the tests of the area you touched, and the architecture gate
+(``python -m pytest tests/unit/architecture -q``). CI runs the whole suite on
+every push. The rules for parallel runs, for the Whitebox tests and for the
+scratch folder are in :ref:`run-the-tests`. The tier to pick for a new test is
+in :doc:`architecture/how-to/add-a-test`, and what each check of CI means is
+in :doc:`project/ci-workflows`.
 
 Build the documentation
 -----------------------
 
-The Sphinx project lives in ``docs/source``. The ``[docs]`` extra
-ships every required extension, plus PlantUML for UML diagrams.
-
 .. code-block:: bash
 
    pip install -e ".[docs]"
-   python tools/setup_plantuml.py
-   make -C docs html
+   make -C docs html-strict
 
-``make -C docs html`` honours the ``-j auto`` default in the Makefile.
-``make -C docs html-strict`` is the build the CI runs: warnings are errors.
+``html-strict`` is the build CI runs: a warning is an error. The reference
+pages are written by the build from the code, so there is nothing to edit for
+them. What the build runs and checks, and how to write a page, is in
+:doc:`documentation/index`.
 
-On the reference Windows setup, the same build can be run from the
-repository root with the documentation environment:
+Branches, commits and pull requests
+-----------------------------------
 
-.. code-block:: powershell
+1. Branch from ``dev`` for normal work, with a short name such as
+   ``feat/bdtopage-loader`` or ``docs/release-recipe``. ``main`` is the
+   current v2 line, and ``v1.0`` is the frozen v1 line: do not target it.
+   Use ``release/X.Y`` only for a stabilisation window and ``maint/1.x`` only
+   if v1 maintenance resumes. The tag and branch rules of a release are in
+   :doc:`architecture/how-to/cut-a-release`.
+2. Group related changes in one focused commit. The subject is a Conventional
+   Commits line in the imperative, at most 72 characters including the
+   prefix, and no body. A ``commit-msg`` hook can enforce the length and drop
+   a body. It lives in ``.git/hooks`` and the repository does not install it
+   for you.
 
-   conda run --no-capture-output -n hydromodpy-kpg python -m sphinx -E -a -W -j auto -b html docs/source docs/build/html
+   .. code-block:: text
 
-``tools/setup_plantuml.py`` downloads a pinned PlantUML jar with
-SHA256 verification and installs the local Graphviz bundle on Windows.
-Pass ``--skip-graphviz`` if the system already provides the ``dot``
-command.
+      feat(data): add bdtopage loader
+      fix(calibration): resolve structured cells
+      docs(contribute): add the release recipe
 
-The config ER diagrams are regenerated with ``erdantic``, which builds
-on ``pygraphviz``. ``pygraphviz`` ships no Linux or Windows wheels and
-compiles against the system Graphviz headers. Install the Graphviz
-stack from conda-forge first, then add the ``docs-uml`` extra:
+3. The allowed types are ``feat``, ``fix``, ``refactor``, ``cleanup``,
+   ``perf``, ``chore``, ``docs``, ``tests``, ``validation``, ``examples``,
+   ``pipeline``, ``config``, ``adapters``, ``data`` and ``style``. The scope
+   is the touched area, one lowercase word without underscore:
+   ``transport``, ``calibration``, ``boussinesq``, ``modflow6``, ``cli``,
+   ``data``, ``docs``. Older commits written as ``[tag] - sentence`` stay as
+   they are.
+4. The subject names the change and does not explain it. The reason goes in
+   the code, in a test, or in ``CHANGELOG.md``.
+5. Stage files by name. Do not use ``git add -A`` or ``git add .``.
+6. Open the pull request against ``dev``. Reference the issue
+   (``Closes #123``) when there is one, and mention a reviewer if the change
+   alters modelling outputs, the public API or a user-visible workflow.
 
-.. code-block:: bash
-
-   conda install -c conda-forge graphviz pygraphviz
-   python -m pip install -e ".[docs-uml]"
-
-The plain ``[docs]`` build does not need this step. The committed SVGs
-are reused when ``erdantic`` is absent.
-
-For live preview during edits:
-
-.. code-block:: bash
-
-   sphinx-autobuild -E -a -b html --open-browser --watch hydromodpy --watch examples --watch tools docs/source docs/build/html
-
-Or, when ``make`` is available:
-
-.. code-block:: bash
-
-   make -C docs livehtml
-
-Generated pages
-~~~~~~~~~~~~~~~
-
-The reference is written at every build, at ``builder-inited``:
-
-- ``tools/docs`` reads the code and the tests and writes the data under
-  ``docs/source/_data/``: the field registry, the Python API and the
-  command line, the index of the tests, the catalogs (solvers, figures,
-  data sources) and the TOML changes since the last release;
-- the extensions under ``docs/source/_ext/`` turn that data into the pages
-  of ``reference/parameters/``, ``reference/python/`` and
-  ``reference/cli/``;
-- ``tools.doc_contracts`` writes the layer matrix included by the
-  architecture pages.
-
-Git ignores the data and the generated pages. ``HMP_SKIP_DOC_DATA=1`` reuses
-the data of the previous build when you only edit written pages. Check a
-written page without building the site with
-``python -m tools.docs.check_page docs/source/<page>.md``; the CI runs it on
-every written page after the build.
-
-Submit a pull request
----------------------
-
-1. Branch from ``dev`` for normal work. Use a short descriptive name,
-   for example ``feat/bdtopage-loader``, ``fix/calib-cell-resolve``,
-   or ``docs/versioning-policy``.
-2. ``main`` is the current v2 line and future default branch.
-   ``archive-v1`` is the frozen v1.0.0 branch and should not receive
-   normal PRs. Use ``maint/1.x`` only if active maintenance of the
-   ``1.*`` line resumes. Use ``release/X.Y`` only for short stabilization
-   windows before a final ``vX.Y.0`` release.
-3. Group related changes in one focused commit. Follow Conventional
-   Commits: one line, no body. Examples:
-   ``feat(data): add bdtopage loader``,
-   ``fix(calibration): resolve structured cells``, or
-   ``docs(versioning): document maintenance branches``.
-4. Push the branch and open a pull request against ``dev``. Reference
-   the related issue (``Closes #123``) when applicable.
-5. Mention reviewers if the change affects modelling outputs, the
-   public API, or any user-visible workflow.
-
-Releases are identified by tags such as ``v1.1.0``, ``v2.0.0a1``,
-``v2.0.0b1``, or ``v2.0.0rc1``, not by branch names. The full branch,
-tag, pre-release, changelog, and GitHub Release policy is documented in
-:doc:`/about/release_policy`.
+By contributing you agree that your contribution is released under the
+Eclipse Public License 2.0.
 
 Where to look next
 ------------------
 
-- :doc:`/reference/parameters/index` is the deep reference for
-  every TOML section, with field types, defaults, validators, and the
-  ``ParamLevel`` / ``VisibleWhen`` rules used to declare new fields.
-- Data Loading And Retrieval covers the data managers (variables,
-  providers, cache, custom data format).
-- :doc:`/get-started/concepts` and
-  :doc:`/get-started/concepts` document the workspace
-  layout and the TOML inheritance contract.
-- :doc:`architecture/index` documents the package layout and the
-  runtime handoff between modules.
-- :doc:`/get-started/concepts` lists the supported user APIs
-  (CLI, TOML, Python, notebook) and the seven driving modes.
+- :doc:`architecture/mental-model`: how a TOML file becomes a stored run.
+- :doc:`architecture/how-to/index`: the recipes.
+- :doc:`/reference/parameters/index`: every TOML key, generated from the
+  Pydantic models.
+- :doc:`/get-started/concepts`: the workspace layout and the TOML inheritance
+  rules.

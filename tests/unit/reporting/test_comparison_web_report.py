@@ -2,7 +2,7 @@
 
 Structural coverage targets stable anchors (section ids, figure-category ids,
 table classes, asset filenames). The exact human-facing French labels are
-verified once, in ``test_human_facing_labels_render_in_french``.
+verified once, in ``test_human_facing_labels_render_in_english``.
 """
 
 from __future__ import annotations
@@ -245,28 +245,28 @@ def test_report_title_derives_from_comparison_id(tmp_path: Path) -> None:
     assert "<title>demo compare</title>" in text
 
 
-def test_human_facing_labels_render_in_french(tmp_path: Path) -> None:
+def test_human_facing_labels_render_in_english(tmp_path: Path) -> None:
     text = _render_full_report(tmp_path / "comparison")
 
     # Synthetic case title.
-    assert "Comparaison synthetique MF6 / Boussinesq - recharge heterogene" in text
+    assert "Synthetic MF6 / Boussinesq comparison, heterogeneous recharge" in text
     # Section and subsection headings.
-    assert "Contexte du cas" in text
-    assert "Methodes numeriques" in text
-    assert "Configuration hydraulique et conditions aux limites" in text
-    assert "Parametrage numerique" in text
-    assert "Comparaisons de resultats" in text
-    assert "Precision de resolution" in text
-    assert "Lecture physique des ecarts" in text
+    assert "Case context" in text
+    assert "Numerical methods" in text
+    assert "Hydraulic configuration and boundary conditions" in text
+    assert "Numerical settings" in text
+    assert "Result comparisons" in text
+    assert "Solution accuracy" in text
+    assert "Physical reading of the differences" in text
     # Figure-category title.
-    assert "Charges hydrauliques" in text
+    assert "Hydraulic heads" in text
     # Key-value row labels.
-    assert "Conditions aux limites MODFLOW 6" in text
-    assert "Conditions aux limites Boussinesq" in text
+    assert "MODFLOW 6 boundary conditions" in text
+    assert "Boussinesq boundary conditions" in text
     # Table column headers.
     assert "RMSE / ref" in text
-    assert "valeur ref" in text
-    assert "erreur rel. p95" in text
+    assert "ref value" in text
+    assert "rel. error p95" in text
     # Labels that must not reappear after renaming.
     assert "Flux agrege et chroniques" not in text
     assert "ecart moy m" not in text
@@ -295,7 +295,7 @@ def test_synthetic_web_report_splits_hydraulic_and_numerical_settings(
     assert text.count('class="info-grid"') >= 2
     assert "first_clim=first" in text
     assert "negative_to_evt=true" in text
-    assert "drainage de surface actif sur le toit, conductance 0.2 m2/s" in text
+    assert "surface drainage active on the top, conductance 0.2 m2/s" in text
 
 
 def test_web_report_includes_numerical_closure_section(tmp_path: Path) -> None:
@@ -415,9 +415,9 @@ value = "0.0 m2/s"
     )
 
     text = path.read_text(encoding="utf-8")
-    assert "drainage de surface actif sur le toit, conductance 0.2 m2/s" in text
-    assert "drainage Cauchy declare mais desactive par conductance nulle" in text
-    assert "obstacle libre strict h &lt;= z_top conserve" in text
+    assert "surface drainage active on the top, conductance 0.2 m2/s" in text
+    assert "Cauchy drainage declared but disabled by zero conductance" in text
+    assert "strict free obstacle h &lt;= z_top kept" in text
 
 
 def _write_csv(path: Path, rows: list[dict[str, str]]) -> None:

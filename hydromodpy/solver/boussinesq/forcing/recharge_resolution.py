@@ -6,7 +6,7 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from hydromodpy.physics.flow.regime import normalize_flow_regime
+from hydromodpy.physics.forcing.steady_periods import apply_first_clim
 from hydromodpy.physics.forcing.validation import ensure_non_negative_numeric_payload
 from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
     discretize_fields_on_planar_mesh,
@@ -99,7 +99,7 @@ class RechargeResolutionMixin:
         nper: int,
         first_clim: object,
     ) -> tuple[np.ndarray, ...]:
-        """Apply the historical `first_clim` convention to cellwise recharge."""
+        """Give every steady period the ``first_clim`` array, keep the transient ones."""
         if nper <= 0:
             return ()
 
@@ -118,29 +118,17 @@ class RechargeResolutionMixin:
         if not arrays:
             return tuple(np.zeros(self.mesh.n_cells, dtype=float) for _ in range(nper))
 
-        stacked = np.stack(tuple(arrays.values()), axis=0)
-        flow_regime = normalize_flow_regime(getattr(self.flow, "flow_regime", "transient"))
-        if flow_regime == "steady" or nper <= 1:
-            mean_array = np.mean(stacked, axis=0)
-            return (np.asarray(mean_array, dtype=float).reshape(-1),)
-
         result = {
             kper: arrays.get(kper, np.zeros(self.mesh.n_cells, dtype=float)).copy()
             for kper in range(nper)
         }
-        if first_clim == "mean":
-            result[0] = np.mean(stacked, axis=0)
-        elif first_clim == "first":
-            pass
-        elif self.is_scalar_number(first_clim):
-            result[0] = np.full(self.mesh.n_cells, float(first_clim), dtype=float)
-        else:
-            raise ValueError(
-                "flow.sinks_sources.recharge.first_clim must be 'mean', 'first', "
-                "or a numeric value."
-            )
+        ruled = apply_first_clim(
+            result,
+            steady=self.boussinesq_steady_flags(nper),
+            first_clim=first_clim,
+        )
         return tuple(
-            np.asarray(result[kper], dtype=float).reshape(-1).copy() for kper in range(nper)
+            np.asarray(ruled[kper], dtype=float).reshape(-1).copy() for kper in range(nper)
         )
 
 

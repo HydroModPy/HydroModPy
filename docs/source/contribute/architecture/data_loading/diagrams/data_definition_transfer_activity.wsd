@@ -1,37 +1,35 @@
 @startuml
-title Data Definition And Transfer - Activity
+title Data definition and transfer - activity
 
 start
 
-:Project.__init__();
-:Load validated cfg and raw TOML;
+:Project builds the workflow context\n(validated cfg, raw TOML);
 
-:DataPlanner.build(..., raw_toml, domain_zone_ids, flow_active_bc);
-if (domain.zone_ids contains geology?) then (yes)
-  :Activate geology (explicit or inferred);
-endif
-:Apply resolved data types into cfg.data;
-:Store data_plan in Project runtime state;
+:DataPlanner.build(config, domain_zone_ids,\nflow_active_bc, ...);
+note right
+  Explicit data.types win.
+  Other types are inferred, each with a reason.
+  In strict mode an inferred family needs
+  its own data section.
+end note
+:Store the DataLoadPlan in the context;
 
-:Project.run();
-:setup_workspace();
-:build_geographic();
-
-:load_data();
+:LoadDataStep runs run_data(config_path, data_plan, run_state);
 :DataManagersRuntimeLoader.load_all(run_state);
-:Transfer loaded_data.geology/hydrometry/oceanic/climatic;
+:Fill loaded_data, one field per variable;
 
-:_apply_structural_updates_from_data();
+:apply_structural_updates_from_data();
 if (geology loaded?) then (yes)
   :apply_geology_to_domain(domain, geology);
 endif
 if (oceanic loaded?) then (yes)
   :apply_oceanic_to_flow(flow, oceanic);
 endif
-if (climatic loaded?) then (yes)
-  :apply_climatic_to_flow_recharge(flow, climatic);
+if (recharge or ETP loaded?) then (yes)
+  :apply_recharge_load_result_to_flow()\napply_etp_load_result_to_flow();
 endif
+:Bind lakes, barriers, cutoff walls\nand SFR networks to the flow;
 
-:Continue with simulation plan execution;
+:Continue with the simulation plan;
 stop
 @enduml

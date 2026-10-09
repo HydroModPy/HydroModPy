@@ -10,6 +10,7 @@ import numpy as np
 from hydromodpy.core.time import SIMULATION_TIME_UNIT
 from hydromodpy.core.units import to_modflow_itmuni
 from hydromodpy.physics.flow.regime import normalize_flow_regime
+from hydromodpy.physics.forcing.steady_periods import steady_flags
 
 
 @dataclass(slots=True)
@@ -56,13 +57,11 @@ def _build_solver_steady_array(
     flow_regime: str,
     first_period_steady: bool,
 ) -> np.ndarray:
-    flow_regime_text = normalize_flow_regime(flow_regime)
-    if flow_regime_text == "steady":
-        return np.ones((nper,), dtype=bool)
-    steady = np.zeros((nper,), dtype=bool)
-    if first_period_steady and nper > 0:
-        steady[0] = True
-    return steady
+    return steady_flags(
+        nper=nper,
+        flow_regime=normalize_flow_regime(flow_regime),
+        first_period_steady=first_period_steady,
+    )
 
 
 def resolve_first_period_steady(

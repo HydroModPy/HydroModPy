@@ -12,7 +12,12 @@ HELP: str = "List the projects registered in the machine-wide global index"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        epilog="Example:\n  hmp workspace list --json",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--json", action="store_true", help="Emit JSON instead of a table")
     parser.set_defaults(_handler=run)
     return parser

@@ -416,12 +416,24 @@ def _add_child(parent: str, path: str) -> None:
         children[parent].append(path)
 
 
+def _renamed_from(extra: dict[str, Any]) -> list[str]:
+    """Old TOML paths a field replaces: ``json_schema_extra={"renamed_from": [...]}``."""
+    old = extra.get("renamed_from") or []
+    if isinstance(old, str):
+        old = [old]
+    return [str(p) for p in old]
+
+
+def _extra_of(field: FieldInfo) -> dict[str, Any]:
+    return field.json_schema_extra if isinstance(field.json_schema_extra, dict) else {}
+
+
 def _leaf_info(name: str, field: FieldInfo, path: str) -> dict[str, Any]:
     ann = field.annotation
     base, optional = _strip_none(ann)
     metas = list(field.metadata) + _deep_metas(ann)
     profile = next((m for m in metas if isinstance(m, Profile)), Profile.USER)
-    extra = field.json_schema_extra if isinstance(field.json_schema_extra, dict) else {}
+    extra = _extra_of(field)
     unit, unit_source, quantity, qty_type = None, None, False, None
     for m in metas:
         hit = QTY.get(id(m)) or QTY.get(id(getattr(m, "func", None)))
@@ -488,14 +500,32 @@ def _leaf_info(name: str, field: FieldInfo, path: str) -> dict[str, Any]:
         "examples": [_toml_lit(e) for e in (field.examples or [])],
         "calibrable": calib_info,
         "stability": extra.get("stability"),
-        "label_fr": extra.get("display_name_fr"),
         "group": extra.get("group"),
         "when": when,
         "description": desc,
         "summary": _first_sentence(desc),
         "deprecated": bool(getattr(field, "deprecated", None)),
+        "renamed_from": _renamed_from(extra),
         "numeric": _unannotate(base)[0] in (int, float) or quantity,
     }
+
+
+def _own_doc(model: type) -> str:
+    """The docstring a class writes itself, not the one it inherits."""
+    doc = vars(model).get("__doc__")
+    return inspect.cleandoc(doc) if isinstance(doc, str) else ""
+
+
+def _tag_doc(info: dict[str, Any], tag: Any, model: type[BaseModel]) -> None:
+    """Explain one value of a discriminator by the docstring of the shape it selects.
+
+    A value the field explains in ``value_docs`` keeps that text.
+    """
+    text = _first_sentence(_own_doc(model))
+    if not text or str(tag) in info["value_docs"]:
+        return
+    info["value_docs"] = {**info["value_docs"], str(tag): text}
+    info.setdefault("value_docs_from_shapes", []).append(str(tag))
 
 
 def walk(model: type[BaseModel], path: str, stack: tuple[type, ...], variant: dict | None) -> None:
@@ -520,11 +550,13 @@ def walk(model: type[BaseModel], path: str, stack: tuple[type, ...], variant: di
                             if v not in existing["literal"]:
                                 existing["literal"].append(v)
                         existing["form"] = " | ".join(json.dumps(v) for v in existing["literal"])
+                        _tag_doc(existing, variant["value"], model)
                     continue
                 info["variants"] = [variant["value"]]
                 info["variant_field"] = variant["field"]
                 if key == variant["field"]:
                     info["is_tag"] = True
+                    _tag_doc(info, variant["value"], model)
             nodes[child_path] = info
             _add_child(path, child_path)
             continue
@@ -543,6 +575,7 @@ def walk(model: type[BaseModel], path: str, stack: tuple[type, ...], variant: di
             "doc": _first_paragraph(inspect.getdoc(models[0])) if len(models) == 1 else "",
             "source": _source_of(models[0]),
             "model": model.__name__,
+            "renamed_from": _renamed_from(_extra_of(field)),
         }
         if variant and child_path not in nodes:
             table["variants"] = [variant["value"]]
@@ -621,27 +654,88 @@ def build() -> dict[str, Any]:
     return nodes
 
 
+KNOWN_HOST = "flow.param.<id>"
+
+
 def _known_keys() -> None:
-    """Named instances of flow.param.<id> from the code (units and physical bounds)."""
+    """Named instances of ``flow.param.<id>`` the code knows: K, Ss, Sy, porosity.
+
+    Units come from ``FlowConfig._DEFAULT_PARAM_UNITS`` and ranges from
+    ``PHYSICAL_BOUNDS``. Each id with a physical bound gets two pseudo-nodes, the
+    table ``flow.param.<key>`` and its value ``flow.param.<key>.field.value``, so a
+    search for "conductivity" finds K. They are not children of ``flow.param``: the
+    tree of the file keeps the free name ``<id>``.
+    """
     try:
         from hydromodpy.physics.flow.flow_config import FlowConfig
         from hydromodpy.spatial.field.core.physical_bounds import PHYSICAL_BOUNDS
     except Exception:
         return
+    host = nodes.get(KNOWN_HOST)
+    value = nodes.get(f"{KNOWN_HOST}.field.value")
+    if host is None or value is None:
+        return
     units = getattr(FlowConfig, "_DEFAULT_PARAM_UNITS", {})
-    known = {}
+    known: dict[str, dict[str, Any]] = {}
+    by_label: dict[str, str] = {}
     for key, unit in units.items():
         bound = PHYSICAL_BOUNDS.get(key.lower())
         known[key] = {
             "unit": unit,
             "physical": [bound.lo, bound.hi] if bound else None,
-            "physical_unit": bound.canonical_unit if bound else None,
-            "label_en": bound.label if bound else None,
+            "physical_unit": _clean_unit(bound.canonical_unit) if bound else None,
+            "label": bound.label if bound else None,
         }
-    host = nodes.get("flow.param.<id>")
-    if host is not None:
-        host["known_keys"] = known
-        host["known_keys_source"] = "FlowConfig._DEFAULT_PARAM_UNITS + PHYSICAL_BOUNDS"
+        if bound is None:
+            continue
+        if bound.label in by_label:
+            known[by_label[bound.label]].setdefault("aliases", []).append(key)
+            known[key]["alias_of"] = by_label[bound.label]
+            continue
+        by_label[bound.label] = key
+        label = bound.label[:1].upper() + bound.label[1:]
+        table_path = f"flow.param.{key}"
+        nodes[table_path] = {
+            **{k: v for k, v in host.items() if k not in ("known_keys", "co_mentions")},
+            "path": table_path,
+            "name": key,
+            "anchor": anchor_of(table_path),
+            "description": f"{label}: the `[flow.param.<id>]` table named `{key}`.",
+            "summary": f"{label}: the `[flow.param.<id>]` table named `{key}`.",
+            "doc": "",
+            "is_map_item": False,
+            "pseudo": True,
+            "instance_of": KNOWN_HOST,
+            "label": bound.label,
+            "unit": unit,
+        }
+        value_path = f"{table_path}.field.value"
+        rng = {"ge": bound.lo, "le": bound.hi}
+        unit_words = "dimensionless" if unit == "-" else f"in {unit}"
+        canonical = _clean_unit(bound.canonical_unit)
+        range_unit = "" if canonical == "-" else f" {canonical}"
+        nodes[value_path] = {
+            **value,
+            "path": value_path,
+            "anchor": anchor_of(value_path),
+            "form": f'number or "<n> {unit}"' if unit != "-" else "number",
+            "unit": unit,
+            "unit_source": "known",
+            "numeric": True,
+            "range": rng,
+            "description": (
+                f"{label} of the `{key}` table, {unit_words}. A value outside "
+                f"{bound.lo:g} .. {bound.hi:g}{range_unit} is refused."
+            ),
+            "summary": f"{label} of the `{key}` table, {unit_words}.",
+            "pseudo": True,
+            "instance_of": f"{KNOWN_HOST}.field.value",
+            "label": bound.label,
+            "renamed_from": [],
+        }
+        known[key]["paths"] = [table_path, value_path]
+    host["known_keys"] = known
+    host["known_keys_source"] = "FlowConfig._DEFAULT_PARAM_UNITS, PHYSICAL_BOUNDS"
 
 
 # ---------------------------------------------------------------- path resolution
@@ -681,12 +775,64 @@ def _table_of(canon: str) -> str:
     return canon.rsplit(".", 1)[0] if node.get("kind") == "leaf" and "." in canon else canon
 
 
-def scan_mentions(package_dir: Path, roots: set[str]) -> dict[str, list[dict[str, Any]]]:
-    """Tables named together in the code, weighted by how close the two names are.
+_WARN_CALLS = {"warn", "warning", "error", "exception", "critical"}
+_SKIP_SCOPE = re.compile(r"legacy|migrat|deprecat", re.IGNORECASE)
 
-    Two paths in one string weigh 1. Two paths in one function weigh 1 / (k - 1), k being
-    the number of tables that function names, so a function that lists every section
-    weighs little; a string that lists many sections too. A link is kept from 0.6.
+
+def _message_text(node: ast.AST) -> str:
+    """The text of a string or f-string, with "..." where a value is formatted in."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.JoinedStr):
+        return "".join(
+            v.value if isinstance(v, ast.Constant) and isinstance(v.value, str) else "..."
+            for v in node.values
+        )
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Mod)):
+        return _message_text(node.left) + _message_text(node.right)
+    return ""
+
+
+def _messages(scope: ast.AST) -> list[tuple[int, str]]:
+    """Error and warning messages a function raises or logs, with their line.
+
+    Only the arguments of ``raise X(...)``, ``warnings.warn(...)`` and
+    ``log.warning(...)`` (or ``error``) count: they state a rule the code enforces.
+    Docstrings and other strings do not.
+    """
+    calls: list[ast.Call] = []
+    for node in ast.walk(scope):
+        if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call):
+            calls.append(node.exc)
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in _WARN_CALLS
+        ):
+            calls.append(node)
+    out = []
+    for call in calls:
+        parts = []
+        for arg in call.args:
+            if isinstance(arg, (ast.Constant, ast.JoinedStr, ast.BinOp)):
+                parts.append(_message_text(arg))
+            elif isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute):
+                # "...".join(...) or "...".format(...): the template still says the rule.
+                parts.append(_message_text(arg.func.value))
+        text = " ".join(" ".join(p.split()) for p in parts if p)
+        if text:
+            out.append((call.lineno, text))
+    return out
+
+
+def scan_mentions(package_dir: Path, roots: set[str]) -> dict[str, list[dict[str, Any]]]:
+    """Tables an error or a warning of the code names together.
+
+    Two tables in one message weigh 1 / (k - 1), k being the number of tables the
+    message names, so a message that lists every section weighs little. Two
+    messages of one function weigh half that. A link is kept from 0.6. Functions
+    that read old files (legacy, migration, deprecation) are skipped: what they
+    name is not a rule of the current file.
     """
     weight: dict[tuple[str, str], float] = defaultdict(float)
     evidence: dict[tuple[str, str], tuple[float, dict[str, Any]]] = {}
@@ -699,28 +845,18 @@ def scan_mentions(package_dir: Path, roots: set[str]) -> dict[str, list[dict[str
         for scope in ast.walk(tree):
             if not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
+            if _SKIP_SCOPE.search(scope.name) or _SKIP_SCOPE.search(ast.get_docstring(scope) or ""):
+                continue
             hits = []
-            for sid, node in enumerate(
-                n
-                for n in ast.walk(scope)
-                if isinstance(n, ast.Constant) and isinstance(n.value, str)
-            ):
-                for m in PATH_TOKEN.finditer(node.value):
-                    token = m.group(1)
+            for sid, (lineno, text) in enumerate(_messages(scope)):
+                for m in PATH_TOKEN.finditer(text):
+                    token = m.group(1).rstrip(".")
                     if token.split(".")[0] not in roots:
                         continue
                     canon = resolve(token)
                     if canon is None:
                         continue
-                    hits.append(
-                        (
-                            canon,
-                            _table_of(canon),
-                            sid,
-                            getattr(node, "lineno", scope.lineno),
-                            " ".join(node.value.split())[:160],
-                        )
-                    )
+                    hits.append((canon, _table_of(canon), sid, lineno, text[:400]))
             tables = {h[1] for h in hits}
             if len(tables) < 2 or len(tables) > 8:
                 continue
@@ -728,7 +864,7 @@ def scan_mentions(package_dir: Path, roots: set[str]) -> dict[str, list[dict[str
             for h in hits:
                 per_string[h[2]].add(h[1])
             k = len(tables)
-            for a_canon, a_table, a_sid, _, _ in hits:
+            for _a_canon, a_table, a_sid, _, _ in hits:
                 for b_canon, b_table, b_sid, b_line, b_text in hits:
                     if (
                         a_table == b_table
@@ -739,7 +875,7 @@ def scan_mentions(package_dir: Path, roots: set[str]) -> dict[str, list[dict[str
                     if a_sid == b_sid:
                         w = 1.0 / (len(per_string[a_sid]) - 1)
                     else:
-                        w = 1.0 / (k - 1) if k <= 3 else 0.5 / (k - 1)
+                        w = 0.5 / (k - 1)
                     key = (a_table, b_canon)
                     weight[key] += w
                     if key not in evidence or w > evidence[key][0]:
@@ -777,37 +913,78 @@ CONDITION = re.compile(
 )
 
 
+def unexplained_values(node: dict[str, Any]) -> list[Any]:
+    """Values of a choice that nothing explains.
+
+    A value is explained by ``value_docs``, or by the description of the field
+    when it quotes the value ('x', "x" or `x`).
+    """
+    docs = node.get("value_docs") or {}
+    text = node.get("description") or ""
+    out = []
+    for v in node.get("literal") or []:
+        if str(v) in docs:
+            continue
+        if re.search(rf"[`'\"]{re.escape(str(v))}[`'\"]", text):
+            continue
+        out.append(v)
+    return out
+
+
+GATE_TITLES = {
+    "G2_no_description": "keys without description",
+    "G2_short_description": "descriptions under six words",
+    "G3_numeric_without_unit": "numbers without a declared unit",
+    "G4_literal_without_value_docs": "choices with values nothing explains",
+    "G5_condition_in_prose": "conditions written in prose, not declared",
+    "G6_jargon": "descriptions with code jargon",
+}
+
+
+def gate_hits(node: dict[str, Any]) -> list[str]:
+    """The documentation gates a user key fails."""
+    out = []
+    words = len(node["description"].split())
+    if words == 0:
+        out.append("G2_no_description")
+    elif words < 6:
+        out.append("G2_short_description")
+    if node["numeric"] and not node["unit"]:
+        out.append("G3_numeric_without_unit")
+    if len(node["literal"]) >= 2 and unexplained_values(node):
+        out.append("G4_literal_without_value_docs")
+    if CONDITION.search(node["description"]) and not node["when"] and not node.get("variants"):
+        out.append("G5_condition_in_prose")
+    if JARGON.search(node["description"]):
+        out.append("G6_jargon")
+    return out
+
+
 def gates(reg: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Counts of the documentation gates per section, and the keys that fail each one."""
     per: dict[str, Counter] = defaultdict(Counter)
+    keys: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
     for node in reg.values():
-        if node.get("kind") != "leaf":
+        if node.get("kind") != "leaf" or node.get("pseudo"):
             continue
         sec = node["section"]
-        user = node["profile"] == "user"
         c = per[sec]
         c["leaves"] += 1
-        if not user:
+        if node["profile"] != "user":
             continue
         c["user"] += 1
-        words = len(node["description"].split())
-        if words == 0:
-            c["G2_no_description"] += 1
-        elif words < 6:
-            c["G2_short_description"] += 1
-        if node["numeric"] and not node["unit"]:
-            c["G3_numeric_without_unit"] += 1
-        if len(node["literal"]) >= 2 and not node["value_docs"]:
-            c["G4_literal_without_value_docs"] += 1
-        if CONDITION.search(node["description"]) and not node["when"] and not node.get("variants"):
-            c["G5_condition_in_prose"] += 1
-        if JARGON.search(node["description"]):
-            c["G6_jargon"] += 1
-        if not node.get("group"):
-            c["G7_no_group"] += 1
+        for gate in gate_hits(node):
+            c[gate] += 1
+            keys[sec][gate].append(node["path"])
     total = Counter()
     for c in per.values():
         total.update(c)
-    return {"per_section": {k: dict(v) for k, v in sorted(per.items())}, "total": dict(total)}
+    return {
+        "per_section": {k: dict(v) for k, v in sorted(per.items())},
+        "total": dict(total),
+        "keys": {sec: dict(v) for sec, v in sorted(keys.items())},
+        "titles": GATE_TITLES,
+    }
 
 
 def build_payload(label: str = "") -> tuple[dict[str, Any], dict[str, Any]]:
@@ -817,7 +994,7 @@ def build_payload(label: str = "") -> tuple[dict[str, Any], dict[str, Any]]:
     for path, items in mentions.items():
         if path in reg:
             reg[path]["co_mentions"] = items
-    leaves = [n for n in reg.values() if n.get("kind") == "leaf"]
+    leaves = [n for n in reg.values() if n.get("kind") == "leaf" and not n.get("pseudo")]
     payload = {
         "meta": {
             "label": label,

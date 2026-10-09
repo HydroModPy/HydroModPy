@@ -18,7 +18,13 @@ HELP: str = "Show a project summary (TOMLs, catalog stats)"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[verbosity_parser()],
+        epilog="Example:\n  hmp project show my_project --workspace ~/hydromodpy",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("project", help="Project name (directory under projects/)")
     parser.add_argument("--workspace", default=None, help="Workspace root")
     parser.set_defaults(_handler=run)

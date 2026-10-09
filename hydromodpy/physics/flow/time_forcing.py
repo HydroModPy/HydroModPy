@@ -77,17 +77,26 @@ def aggregate_forcing_series(
     label: str,
     aggregate: str,
 ) -> list[float]:
-    """Aggregate one forcing chronicle to simulation stress periods."""
-    aligned = align_forcing_series_to_simulation_window(
-        series,
-        simulation_window=simulation_window,
-        label=label,
-    )
+    """Aggregate one forcing chronicle to simulation stress periods.
+
+    ``"mean"`` reads the record as rates (``align_forcing_series_to_simulation_window``,
+    under ``coverage_policy``). ``"last"`` reads it as a state that holds until
+    the next sample: period ``i`` takes the latest sample at or before its start,
+    and no coverage check applies.
+    """
     if aggregate == "mean":
+        aligned = align_forcing_series_to_simulation_window(
+            series,
+            simulation_window=simulation_window,
+            label=label,
+        )
         return [float(value) for value in aligned.to_list()]
     if aggregate == "last":
-        boundaries = pd.DatetimeIndex(aligned.index)
-        data = series.copy().sort_index()
+        boundaries = pd.DatetimeIndex(build_simulation_time_boundaries(simulation_window)[:-1])
+        data = series.copy()
+        if not isinstance(data.index, pd.DatetimeIndex):
+            data.index = pd.to_datetime(data.index)
+        data = data.sort_index()
         values: list[float] = []
         for left in boundaries:
             history = data.loc[data.index <= left]

@@ -13,7 +13,10 @@ every field it lists, and the tests that cover the code it describes.
 :::{grid-item-card} What it answers
 One question, in one or two sentences, then the notation: each symbol with its
 unit and the TOML field that sets it, through the `{toml}` role. A symbol that
-no field sets is a state variable, and the page says so.
+no field sets is a state variable, and the page says so. The table is not typed:
+list the symbols in `docs/source/theory/symbols.yaml` with the page name, and
+show them with the `hmp-notation` directive. The build stops on a symbol that
+carries two meanings.
 :::
 
 :::{grid-item-card} Equations, in code order

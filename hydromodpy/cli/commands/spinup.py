@@ -30,7 +30,13 @@ HELP: str = "Cyclic spin-up: restart each cycle until heads and lake stage conve
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[profile_parser(), verbosity_parser()])
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[profile_parser(), verbosity_parser()],
+        epilog="Examples:\n  hmp spinup run.toml\n  hmp spinup run.toml --then-run",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("config", type=Path, help="Path to a simulation TOML file")
     parser.add_argument(
         "--then-run",

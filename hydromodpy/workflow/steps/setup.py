@@ -62,10 +62,10 @@ def build_geographic_runtime(
 
 
 def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
-    """Populate ``geographic.dem_init_path`` from ``[[data.dem.sources]]`` when absent.
+    """Populate ``geographic.catchment.dem_init_path`` from ``[[data.dem.sources]]`` when absent.
 
     Keeps DEM declarations symmetrical with other data managers: a user
-    can either set ``geographic.dem_init_path`` directly (shortcut) or
+    can either set ``geographic.catchment.dem_init_path`` directly (shortcut) or
     declare ``[[data.dem.sources]] source = "custom" path = ...`` (same
     pattern as geology, hydrometry, etc.). The geographic pipeline only
     ever sees a resolved path.
@@ -88,7 +88,7 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
     config_path = run_state.config_path
     if config_path is None:
         raise ConfigError(
-            "geographic.dem_init_path is missing and no config path is available "
+            "geographic.catchment.dem_init_path is missing and no config path is available "
             "to resolve [[data.dem.sources]]."
         )
 
@@ -108,13 +108,13 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
         catchment = getattr(geographic_cfg, "catchment", None)
         if catchment is None:
             raise ConfigError(
-                "geographic.catch_def is required when [[data.dem.sources]] is the "
-                "DEM source. Set geographic.catchment.catch_def."
+                "geographic.catchment.catch_def is required when [[data.dem.sources]] is "
+                "the DEM source. Add a [geographic.catchment] table with catch_def."
             )
         catchment.dem_init_path = resolved
         return
     raise ConfigError(
-        "geographic.dem_init_path is missing and [[data.dem.sources]] did not resolve."
+        "geographic.catchment.dem_init_path is missing and [[data.dem.sources]] did not resolve."
     )
 
 

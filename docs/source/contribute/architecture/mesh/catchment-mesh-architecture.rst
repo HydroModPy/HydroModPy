@@ -1,4 +1,4 @@
-Catchment-Mesh Architecture
+Catchment mesh architecture
 ===========================
 
 This page documents the dedicated catchment-mesh workflow built around
@@ -30,7 +30,7 @@ Recommended reading path:
 2. ``hydromodpy/spatial/mesh/model/hydro_mesh.py``
 3. ``hydromodpy/spatial/mesh/gmsh_grid/runtime_support.py``
 4. ``hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/conformal.py``
-5. ``hydromodpy/spatial/mesh/launcher/batch.py`` and ``config.py``
+5. ``hydromodpy/spatial/mesh/launcher/batch.py`` and the ``config/`` folder
 
 Package components
 ------------------
@@ -84,7 +84,7 @@ Notes:
 - The diagrams stop at the planar catchment mesh plus exchange
   bundle. 3D extrusion and field-parameter discretization are
   documented in :doc:`structured-grid-architecture` and
-  :doc:`../mesh/mesh-pivot`.
+  :doc:`mesh-pivot`.
 
 Batch loop
 ----------
@@ -112,9 +112,8 @@ In-process simulation embedding
 How the simulation pipeline accepts, rejects, or reuses runtime
 meshes: the mutual exclusion between ``[mesh_catchment]`` and
 ``[mesh_input]``, the early rejection of ``[mesh_catchment_batch]``
-inside the simulation workflow, the solver-compatibility guard that
-rejects runtime Gmsh meshes with ``modflownwt``, and the handoff of
-loaded or generated mesh artifacts into the ``Project`` runtime
+inside the simulation workflow, the solver that reads the mesh, and the
+handoff of loaded or generated mesh artifacts into the ``Project`` runtime
 state before solver execution.
 
 .. uml:: diagrams/mesh_catchment_in_process_simulation_activity.wsd
@@ -123,9 +122,9 @@ Notes:
 
 - The simulation workflow can embed one mono-catchment mesh phase or
   reuse one precomputed mesh, but not both in the same run.
-- Runtime Gmsh meshes are currently intended for ``boussinesq`` and
-  ``modflow6``. ``modflownwt`` stays on the structured ``sgrid``
-  path.
+- Runtime Gmsh meshes feed ``boussinesq`` and ``modflow6``. ``modflow_nwt``
+  builds its own structured ``sgrid`` and raises when the grid it gets is not
+  structured (:doc:`../solver/backends`).
 
 Output layout
 -------------
@@ -155,7 +154,6 @@ See also
 
 - :doc:`structured-grid-architecture` for the SGrid path and the
   bridge to ``Field`` / ``FieldParam``.
-- :doc:`../mesh/mesh-pivot` for the cross-mesh pivot format.
-- :doc:`../mesh/gmsh-meshing` for the conformal Gmsh pipeline.
-- :doc:`../simulation/simulation-orchestration-class-diagram` for
-  the simulation-side consumer.
+- :doc:`mesh-pivot` for the cross-mesh pivot format.
+- :doc:`gmsh-meshing` for the conformal Gmsh pipeline.
+- :doc:`../simulation/toml-to-solver-walkthrough` for the simulation-side consumer.

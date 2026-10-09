@@ -21,7 +21,7 @@ from collections.abc import Iterator
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
-from tests.validation.helpers import assert_metric_below
+from tests.validation.helpers import assert_metric_below, record_comparison
 from validation_cases.analytical.steady.dupuit_seepage_limit_1d.comparison import (
     SeepageLimitComparison,
     drain_outflow_ratio,
@@ -78,6 +78,7 @@ def test_seepage_limit_matches_the_closed_form(
 ) -> None:
     """The mask starts at ``x_e = L / (1 + slope**2 * K/R)`` in every scenario."""
     scenario = scenarios[solver]
+    record_comparison(scenario)
     seepage_tol = dict(scenario.tolerances["seepage_limit"])
 
     assert scenario.mask_row_disagreement == 0, (

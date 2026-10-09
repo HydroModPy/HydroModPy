@@ -1,4 +1,7 @@
-"""Validate PETSc threshold activation on the transient hillslope overflow case."""
+"""Validate PETSc threshold activation on the transient hillslope overflow case.
+
+Compared with: no reference solution: the test checks that the surface threshold activates and that the complementarity conditions hold.
+"""
 
 from __future__ import annotations
 

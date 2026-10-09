@@ -16,10 +16,20 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="schema_command")
 
-    export_p = sub.add_parser("export", help="Write config.json + config_meta.json")
+    export_p = sub.add_parser(
+        "export",
+        help="Write config.json + config_meta.json",
+        epilog="Example:\n  hmp dev schema export --output schema_dir",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     export_p.add_argument("--output", default="schema", help="Destination directory")
 
-    validate_p = sub.add_parser("validate-field", help="Validate one field value")
+    validate_p = sub.add_parser(
+        "validate-field",
+        help="Validate one field value",
+        epilog="Example:\n  hmp dev schema validate-field solver.backend.backend modflow6",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     validate_p.add_argument("path", help="Dotted field path")
     validate_p.add_argument("value", help="Candidate value")
     validate_p.add_argument("--context", default=None, help="TOML providing form state")

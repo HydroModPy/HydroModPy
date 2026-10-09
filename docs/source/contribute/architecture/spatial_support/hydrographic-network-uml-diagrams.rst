@@ -1,5 +1,5 @@
-Hydrographic Network UML Diagrams
-=================================
+Hydrographic network diagrams
+=============================
 
 Scope
 -----
@@ -45,8 +45,8 @@ Recommended reading path
 6. ``hydromodpy/display/figures/hydrographic_network.py`` and
    ``hydromodpy/display/figures/hydrographic_network_comparison.py``
 
-Class Diagram
--------------
+Classes
+-------
 
 Use this diagram when the main question is:
 "which class is canonical, which one is technical, and which one is only a
@@ -54,32 +54,32 @@ comparison result?"
 
 .. uml:: diagrams/hydrographic_network_class_map.wsd
 
-Runtime Component Diagram
--------------------------
+Runtime components
+------------------
 
 Use this diagram when the main question is:
 "where does the network come from, how is it persisted, and who consumes it?"
 
 .. uml:: diagrams/hydrographic_network_runtime_components.wsd
 
-End-to-End Sequence Diagram
----------------------------
+End-to-end sequence
+-------------------
 
 Use this diagram when the main question is:
 "what is the order of operations from loading/generation to comparison?"
 
 .. uml:: diagrams/hydrographic_network_runtime_sequence.wsd
 
-Availability Activity Diagram
------------------------------
+Availability
+------------
 
 Use this diagram when the main question is:
 "what happens when only one role exists, or when neither role exists?"
 
 .. uml:: diagrams/hydrographic_network_availability_activity.wsd
 
-Persistence And Run API Sequence Diagram
-----------------------------------------
+Persistence and the Run API
+---------------------------
 
 Use this diagram when the main question is:
 "how do the persisted features reach the ``Run`` API, and what errors should a
@@ -87,13 +87,13 @@ developer expect when a role is missing?"
 
 .. uml:: diagrams/hydrographic_network_persistence_run_sequence.wsd
 
-Persistence And Run API Notes
+Persistence and Run API notes
 -----------------------------
 
 From a developer point of view, the most important operational split is:
 
-- ``prepare_solver.py`` persists the loaded reference role when
-  ``data.hydrography`` produced one usable vector network.
+- The ``prepare_solver`` step (``hydromodpy/workflow/steps/prepare_solver/``) persists
+  the loaded reference role when ``data.hydrography`` produced one usable vector network.
 - ``store_ingestion.py`` persists the generated role when the geographic
   preprocessing produced one usable DEM-derived network.
 - ``Catalog`` stores those features under canonical names only.
@@ -106,51 +106,11 @@ This means the runtime contract is intentionally asymmetric:
 - persistence is tolerant and simply skips missing roles,
 - reading one missing role raises a clear ``KeyError``,
 - comparing two roles when one is absent raises a clear ``ValueError``,
-- figure availability follows the same rule through ``run.display_capabilities``.
-
-Which UML Diagrams Are Worth Maintaining?
------------------------------------------
-
-For this topic, the highest-value diagrams are:
-
-1. A class diagram for the distinction between ``HydrographicNetwork``,
-   ``HydrographicNetworks``, ``HydrographicNetworkComparison``, and
-   ``RiverNetworkProducts``.
-2. A component diagram for the source -> canonical object -> persistence ->
-   consumer chain.
-3. A sequence diagram for the end-to-end runtime path, including the
-   "missing role" branch.
-4. An activity diagram for the availability branches and output gating.
-5. A developer-facing sequence diagram for persistence and ``Run`` behavior.
-
-These three diagrams answer the most common maintenance questions:
-
-- where should a new field live?
-- where should a conversion happen?
-- when should a role be present or absent?
-- who is allowed to compare or display the networks?
-
-Lower-value diagrams for this topic are:
-
-- state-machine diagrams, because these objects do not have a rich internal
-  lifecycle;
-- deployment diagrams, because there is no interesting multi-node deployment
-  question here;
-- exhaustive inheritance diagrams, because the hydrographic-network stack is
-  composition-oriented rather than inheritance-heavy.
-
-If more detail is needed later, the next useful addition would be one small
-package-level component diagram focused only on:
-
-- ``prepare_solver.py``
-- ``store_ingestion.py``
-- ``Run``
-- the display figure registry
-- the comparison export orchestrator
+- a figure that needs a role absent from the run says so through its
+  ``unavailable_reason``.
 
 Related reading
 ---------------
 
-- :doc:`../overview/mental-model-and-design-choices`
-- :doc:`../overview/code-reading-guide`
-- Simulation Comparison Workflow
+- :doc:`../mental-model`, which names the roles and the canonical file names.
+- :doc:`../simulation/comparison-workflow` for the metrics a comparison writes.

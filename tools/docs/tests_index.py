@@ -8,7 +8,17 @@ Reads only files, imports nothing from the repository. Two parts:
   docstring, its test functions and, when it imports a case of
   validation_cases/, the metadata, README and tolerances of that case;
 - imports: for every test file of tests/, the hydromodpy modules it imports,
-  so that a page can list the tests of the modules it describes.
+  so that a page can list the tests of the modules it describes;
+- schedule: the CI jobs that run tests/validation, read from
+  .github/workflows: when they run, on which branches, which paths and
+  markers they select, and whether the job installs petsc4py.
+
+A case README gives its reference solution (a "- reference:" bullet) and its
+equations (a "## Equations" section). A test without a case gives its
+reference in a "Compared with:" paragraph of its module docstring. A
+tolerance file explains itself in a [doc] table: "reason" says why a
+threshold has its value, "gap" names a known discrepancy the threshold
+lets through.
 """
 
 from __future__ import annotations
@@ -76,14 +86,54 @@ def match_row(rows: list[dict], name: str) -> dict | None:
     return hits[0] if len(hits) == 1 else None
 
 
-def decorator_info(tree: ast.AST) -> tuple[list[str], list[str]]:
-    """Markers and the solver ids of a solver parametrization."""
-    markers, solvers = set(), []
+def module_markers(tree: ast.Module) -> set[str]:
+    """The marks of a module-level ``pytestmark``."""
+    out: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "pytestmark" for t in node.targets
+        ):
+            for m in re.finditer(r"pytest\.mark\.(\w+)", ast.unparse(node.value)):
+                out.add(m.group(1))
+    out.discard("parametrize")
+    return out
+
+
+def _param_id(elt: ast.expr) -> tuple[str | None, set[str]]:
+    """The id of one ``solver`` parameter and the marks it carries."""
+    marks: set[str] = set()
+    if isinstance(elt, ast.Call) and ast.unparse(elt.func).endswith("param"):
+        ident = next(
+            (
+                k.value.value
+                for k in elt.keywords
+                if k.arg == "id" and isinstance(k.value, ast.Constant)
+            ),
+            None,
+        )
+        if ident is None and elt.args and isinstance(elt.args[0], ast.Constant):
+            ident = elt.args[0].value
+        for k in elt.keywords:
+            if k.arg == "marks":
+                marks |= set(re.findall(r"pytest\.mark\.(\w+)", ast.unparse(k.value)))
+        return (str(ident) if ident else None), marks
+    if isinstance(elt, ast.Constant):
+        return str(elt.value), marks
+    if isinstance(elt, ast.Tuple) and elt.elts and isinstance(elt.elts[0], ast.Constant):
+        return str(elt.elts[0].value), marks
+    return None, marks
+
+
+def function_info(tree: ast.Module) -> list[dict]:
+    """Per test function: its marks and the ``solver`` parameters it runs, with their marks."""
+    module = module_markers(tree)
+    out = []
     for node in ast.walk(tree):
         if not isinstance(
             node, (ast.FunctionDef, ast.AsyncFunctionDef)
         ) or not node.name.startswith("test_"):
             continue
+        marks, solvers = set(module), []
         for dec in node.decorator_list:
             call = dec if isinstance(dec, ast.Call) else None
             name = ast.unparse(call.func if call else dec)
@@ -91,7 +141,7 @@ def decorator_info(tree: ast.AST) -> tuple[list[str], list[str]]:
                 continue
             mark = name.split(".")[2]
             if mark != "parametrize":
-                markers.add(mark)
+                marks.add(mark)
                 continue
             if not call or len(call.args) < 2:
                 continue
@@ -104,36 +154,24 @@ def decorator_info(tree: ast.AST) -> tuple[list[str], list[str]]:
                 if isinstance(argnames, str)
                 else list(argnames)
             )
-            if (
-                not names
-                or names[0] != "solver"
-                or not isinstance(call.args[1], (ast.List, ast.Tuple))
-            ):
-                continue
-            for elt in call.args[1].elts:
-                if isinstance(elt, ast.Call) and ast.unparse(elt.func).endswith("param"):
-                    ident = next(
-                        (
-                            k.value.value
-                            for k in elt.keywords
-                            if k.arg == "id" and isinstance(k.value, ast.Constant)
-                        ),
-                        None,
-                    )
-                    if ident is None and elt.args and isinstance(elt.args[0], ast.Constant):
-                        ident = elt.args[0].value
-                elif isinstance(elt, ast.Constant):
-                    ident = elt.value
-                elif (
-                    isinstance(elt, ast.Tuple)
-                    and elt.elts
-                    and isinstance(elt.elts[0], ast.Constant)
-                ):
-                    ident = elt.elts[0].value
-                else:
-                    ident = None
-                if ident and ident not in solvers:
-                    solvers.append(str(ident))
+            if names and names[0] == "solver" and isinstance(call.args[1], (ast.List, ast.Tuple)):
+                for elt in call.args[1].elts:
+                    ident, param_marks = _param_id(elt)
+                    if ident:
+                        solvers.append({"id": ident, "marks": sorted(param_marks)})
+        out.append({"name": node.name, "markers": sorted(marks), "solvers": solvers})
+    return out
+
+
+def decorator_info(tree: ast.Module) -> tuple[list[str], list[str]]:
+    """Markers of all test functions and the solver ids of their solver parametrization."""
+    markers: set[str] = set(module_markers(tree))
+    solvers: list[str] = []
+    for fn in function_info(tree):
+        markers |= set(fn["markers"])
+        for s in fn["solvers"]:
+            if s["id"] not in solvers:
+                solvers.append(s["id"])
     return sorted(markers), solvers
 
 
@@ -153,7 +191,7 @@ def metric_criteria(tree: ast.AST) -> list[dict]:
     for node in ast.walk(tree):
         if not (
             isinstance(node, ast.Call)
-            and ast.unparse(node.func).endswith("assert_metric_below")
+            and ast.unparse(node.func).endswith(("assert_metric_below", "assert_metric_above"))
             and len(node.args) >= 3
         ):
             continue
@@ -181,7 +219,10 @@ def metric_criteria(tree: ast.AST) -> list[dict]:
             m = re.search(r"(\w+)\[\s*['\"]([\w-]+)['\"]\s*\]", expr)
             if m and m.group(1) in section_of:
                 section, key = section_of[m.group(1)], m.group(2)
-        out.append({"label": label, "unit": unit, "section": section, "key": key, "expr": expr})
+        op = ">" if ast.unparse(node.func).endswith("above") else "<"
+        out.append(
+            {"label": label, "unit": unit, "section": section, "key": key, "expr": expr, "op": op}
+        )
     return out
 
 
@@ -201,6 +242,41 @@ def readme_bullet(text: str, key: str) -> str:
     """Return the value of a '- key: value' bullet, joined over its indented lines."""
     m = re.search(rf"^- {re.escape(key)}:\s*(.+(?:\n  \S.*)*)", text, flags=re.M)
     return " ".join(m.group(1).split()) if m else ""
+
+
+BOILERPLATE = ("The equations of the reference solution the comparison uses.",)
+
+
+def readme_section(text: str, heading: str) -> str:
+    """Body of a level-2 section of a README, without its heading."""
+    m = re.search(rf"^## {re.escape(heading)}\s*\n(.*?)(?=^## |\Z)", text, flags=re.M | re.S)
+    if not m:
+        return ""
+    body = m.group(1)
+    for line in BOILERPLATE:
+        body = body.replace(line, "")
+    return body.strip()
+
+
+def docstring_paragraph(doc: str, key: str) -> str:
+    """The paragraph of a docstring that starts with ``key:``, without the key."""
+    for block in re.split(r"\n\s*\n", doc):
+        text = " ".join(block.split())
+        if text.lower().startswith(key.lower() + ":"):
+            return text[len(key) + 1 :].strip()
+    return ""
+
+
+def tolerance_notes(case_dir: Path) -> dict[str, dict[str, str]]:
+    """The [doc] table of each tolerance file: reason and gap, by file name."""
+    out = {}
+    for f in sorted(case_dir.glob("tolerances*.toml")):
+        doc = tomllib.loads(f.read_text()).get("doc", {})
+        if isinstance(doc, dict):
+            notes = {k: " ".join(str(v).split()) for k, v in doc.items() if k in ("reason", "gap")}
+            if notes:
+                out[f.name] = notes
+    return out
 
 
 def tolerances(case_dir: Path, default_solver: str) -> dict[str, dict[str, dict[str, float]]]:
@@ -231,7 +307,9 @@ def tolerance_file(case_dir: Path, solver: str) -> str | None:
 def tolerance_tables(case_dir: Path) -> dict[str, dict]:
     out = {}
     for f in sorted(case_dir.glob("tolerances*.toml")):
-        out[f.name] = tomllib.loads(f.read_text())
+        data = tomllib.loads(f.read_text())
+        data.pop("doc", None)
+        out[f.name] = data
     return out
 
 
@@ -258,6 +336,8 @@ def case_info(repo: Path, dotted: str) -> dict | None:
         "title": title,
         "summary": first_paragraph(readme),
         "reference": readme_bullet(readme, "reference"),
+        "equations": readme_section(readme, "Equations"),
+        "tolerance_notes": tolerance_notes(d),
         "observable": readme_bullet(readme, "simulated observable"),
         "regime": meta.get("regime", ""),
         "dimension": meta.get("dimension", ""),
@@ -324,6 +404,141 @@ def test_functions(tree: ast.AST) -> list[str]:
     ]
 
 
+DAYS = ("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+
+
+def cron_words(cron: str) -> str:
+    """Say a simple cron line in words: daily or weekly at a UTC time."""
+    parts = cron.split()
+    if len(parts) != 5 or not (parts[0].isdigit() and parts[1].isdigit()):
+        return f"cron {cron}"
+    at = f"{int(parts[1]):02d}:{int(parts[0]):02d} UTC"
+    if parts[2:] == ["*", "*", "*"]:
+        return f"every day at {at}"
+    if parts[2:4] == ["*", "*"] and parts[4].isdigit():
+        return f"every {DAYS[int(parts[4]) % 7]} at {at}"
+    return f"cron {cron}"
+
+
+def _pytest_commands(text: str) -> list[str]:
+    """Each ``python -m pytest`` command of a shell text, joined over its line breaks."""
+    joined = re.sub(r"\\\s*\n\s*", " ", text)
+    return [m.group(0) for m in re.finditer(r"python -m pytest[^\n]*", joined)]
+
+
+def _selection(command: str) -> tuple[list[str], str] | None:
+    """The paths and the -m expression of one pytest command, None when it runs no test."""
+    args = command.split("pytest", 1)[1]
+    if "--collect-only" in args or "--doctest-modules" in args:
+        return None
+    marks = re.search(r"(?:^|\s)-m\s+(\"[^\"]*\"|'[^']*'|\S+)", args)
+    paths = [t for t in args.split() if not t.startswith("-") and ("/" in t or t == "tests")]
+    return paths or ["tests"], (marks.group(1).strip("\"'") if marks else "")
+
+
+def job_name(name: str, workflow_name: str) -> str:
+    """A job name without its GitHub expressions."""
+    clean = re.sub(r"\s*(?:on|py)?\s*\$\{\{[^}]*\}\}", "", name).strip(" /")
+    return clean if len(clean) > 12 else workflow_name or clean
+
+
+def marks_match(expr: str, marks: set[str]) -> bool:
+    """Evaluate a pytest ``-m`` expression (and, or, not, parentheses) on a marker set."""
+    if not expr.strip():
+        return True
+    words = []
+    for tok in re.findall(r"\(|\)|[\w.]+", expr):
+        words.append(tok if tok in ("(", ")", "and", "or", "not") else str(tok in marks))
+    try:
+        return bool(eval(" ".join(words), {"__builtins__": {}}))  # noqa: S307
+    except SyntaxError:
+        return True
+
+
+def runs_in(file: str, functions: list[dict], jobs: list[dict]) -> dict:
+    """For each solver of a test file, the jobs that select one of its tests.
+
+    A job selects a test when one of its paths contains the file and its
+    marker expression accepts the marks of the test. The test suite marks the
+    Boussinesq variant of an analytical case ``petsc``; a job without petsc4py
+    skips a ``petsc`` test.
+    """
+    variants: dict[str, list[set[str]]] = {}
+    for fn in functions:
+        base = set(fn["markers"]) | {"validation"}
+        for s in fn["solvers"] or [{"id": "", "marks": []}]:
+            marks = base | set(s["marks"])
+            if s["id"] == "boussinesq" and "/analytical/" in file:
+                marks.add("petsc")
+            variants.setdefault(s["id"], []).append(marks)
+    out: dict[str, list[dict]] = {}
+    for solver, mark_sets in variants.items():
+        hits = []
+        for i, job in enumerate(jobs):
+            if not any(file == p or file.startswith(p.rstrip("/") + "/") for p in job["paths"]):
+                continue
+            chosen = [m for m in mark_sets if marks_match(job["markers"], m)]
+            if chosen:
+                skipped = all("petsc" in m for m in chosen) and not job["petsc4py"]
+                hits.append({"job": i, "skipped": skipped})
+        out[solver] = hits
+    return out
+
+
+def schedule(repo: Path) -> list[dict]:
+    """The CI jobs that run validation tests, read from the workflow files."""
+    import yaml
+
+    out = []
+    for wf in sorted((repo / ".github" / "workflows").glob("*.yml")):
+        text = wf.read_text()
+        data = yaml.safe_load(text) or {}
+        on = data.get("on", data.get(True, {})) or {}
+        if isinstance(on, (str, list)):
+            on = {k: {} for k in ([on] if isinstance(on, str) else on)}
+        when = [cron_words(c["cron"]) for c in on.get("schedule") or [] if "cron" in c]
+        push = on.get("push") or {}
+        if "push" in on:
+            target = ", ".join(push.get("branches", [])) or "any branch"
+            limited = " that touches listed paths" if push.get("paths") else ""
+            when.append(f"on every push to {target}{limited}")
+        if "pull_request" in on:
+            limited = (
+                " that touches listed paths" if (on["pull_request"] or {}).get("paths") else ""
+            )
+            when.append(f"on every pull request{limited}")
+        for job_id, job in (data.get("jobs") or {}).items():
+            branches = ((job.get("strategy") or {}).get("matrix") or {}).get("target_branch")
+            for step in job.get("steps") or []:
+                run = step.get("run") or ""
+                script = re.search(r"bash\s+(tools/\S+\.sh)", run)
+                if script and (repo / script.group(1)).exists():
+                    run = (repo / script.group(1)).read_text()
+                for command in _pytest_commands(run):
+                    selection = _selection(command)
+                    if selection is None:
+                        continue
+                    paths, marks = selection
+                    if not any(
+                        p.startswith("tests/validation")
+                        or "tests/validation".startswith(p.rstrip("/"))
+                        for p in paths
+                    ):
+                        continue
+                    out.append(
+                        {
+                            "workflow": wf.name,
+                            "job": job_name(str(job.get("name") or job_id), data.get("name", "")),
+                            "when": when,
+                            "branches": list(branches) if isinstance(branches, list) else [],
+                            "paths": paths,
+                            "markers": marks,
+                            "petsc4py": "petsc4py" in text,
+                        }
+                    )
+    return out
+
+
 def build(repo: Path) -> dict:
     """Return the validation entries and the imports of every test file under ``repo``."""
     validation, imports = [], {}
@@ -355,6 +570,7 @@ def build(repo: Path) -> dict:
                 if c["path"] not in seen:
                     seen.add(c["path"])
                     uniq.append(c)
+            functions = function_info(tree)
             markers, solvers = decorator_info(tree)
             for c in uniq:
                 case_dir = Path(c.pop("dir"))
@@ -372,15 +588,20 @@ def build(repo: Path) -> dict:
                     "tests": tests,
                     "markers": markers,
                     "solvers": solvers,
+                    "functions": functions,
                     "criteria": metric_criteria(tree),
                     "tolerance_rows": [r for r in (match_row(rows, t) for t in tol_names) if r],
+                    "reference": docstring_paragraph(doc, "Compared with"),
                     "launcher": calls_launcher(
                         [f] + [py for d in case_dirs(repo, text) for py in sorted(d.glob("*.py"))]
                     ),
                     "cases": uniq,
                 }
             )
-    return {"validation": validation, "imports": imports}
+    jobs = schedule(repo)
+    for entry in validation:
+        entry["runs_in"] = runs_in(entry["file"], entry["functions"], jobs)
+    return {"validation": validation, "imports": imports, "schedule": jobs}
 
 
 def main() -> int:

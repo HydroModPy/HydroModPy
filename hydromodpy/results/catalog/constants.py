@@ -150,8 +150,73 @@ def validate_solver_code(solver_name: str) -> str:
     return key
 
 
+# Which value of a metric is the good one. ``@best:<metric>``, ``Catalog.best``
+# and ``RunSet.best`` read it, so "best" means the best fit whatever the metric.
+# The seeded ``metric_definitions`` rows of the catalog agree with it
+# (``higher_is_better`` TRUE is "max", FALSE is "min", NULL is "zero").
+#
+# - ``max``: a higher value is better (efficiency scores).
+# - ``min``: a lower value is better (errors, costs).
+# - ``zero``: the value closest to zero is better (signed biases).
+# - ``one``: the value closest to one is better (KGE ratios).
+METRIC_SENSE: dict[str, str] = {
+    "nse": "max",
+    "log_nse": "max",
+    "nse_log": "max",
+    "nse_delta": "max",
+    "nse_seasonal": "max",
+    "kge": "max",
+    "kge_delta": "max",
+    "kge_r": "max",
+    "r2": "max",
+    "correlation": "max",
+    "reservoir": "max",
+    "rmse": "min",
+    "mae": "min",
+    "mse": "min",
+    "objective_best": "min",
+    "closure_max_abs_m3_s": "min",
+    "closure_mean_abs_m3_s": "min",
+    "closure_rmse_m3_s": "min",
+    "closure_max_abs_mm_d": "min",
+    "closure_relative_error_p95": "min",
+    "bias": "zero",
+    "pbias": "zero",
+    "kge_alpha": "one",
+    "kge_beta": "one",
+}
+"""Direction of every metric the catalog knows how to rank."""
+
+
+class UnrankedMetricError(ValueError):
+    """Raised when a metric has no declared direction, so best is undefined."""
+
+
+def metric_rank_sql(metric: str, *, best: bool, column: str = "m.value") -> str:
+    """Return the ``ORDER BY`` expression that puts the best (or worst) value first.
+
+    Raises :class:`UnrankedMetricError` for a metric missing from
+    :data:`METRIC_SENSE`: taking the highest value of an error would hand back
+    the worst run under the name of the best one.
+    """
+    sense = METRIC_SENSE.get(str(metric).strip().lower())
+    if sense is None:
+        known = ", ".join(sorted(METRIC_SENSE))
+        raise UnrankedMetricError(
+            f"Metric '{metric}' has no declared direction, so best and worst are "
+            f"undefined for it. Metrics with a direction: {known}."
+        )
+    if sense == "max":
+        return f"{column} {'DESC' if best else 'ASC'}"
+    if sense == "min":
+        return f"{column} {'ASC' if best else 'DESC'}"
+    target = "0" if sense == "zero" else "1"
+    return f"ABS({column} - {target}) {'ASC' if best else 'DESC'}"
+
+
 __all__ = [
     "GLOBAL_ZONE",
+    "METRIC_SENSE",
     "OUTLET_STATION",
     "PARQUET_VIEW_NAMES",
     "PER_SIM_TABLE_NAMES",
@@ -159,8 +224,10 @@ __all__ = [
     "STALE_HEARTBEAT_MINUTES",
     "TABLE_NAMES",
     "TRASH_RETENTION_DAYS",
+    "UnrankedMetricError",
     "VALID_SOLVER_CODES",
     "canonical_solver_code",
+    "metric_rank_sql",
     "solver_category",
     "validate_solver_code",
 ]

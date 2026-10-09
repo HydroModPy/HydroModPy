@@ -1,5 +1,7 @@
 """Transient multi-layer LAK validation (Plainfield Lakes abacus).
 
+Compared with: the water balance of each LAK period and the expected structure of the lake connections; there is no external reference solution.
+
 End-to-end validation of HMP's home-grown DISV LAK build on a multi-layer,
 transient reservoir. One lake is incised across the TOP 2 layers of a 4-layer
 aquifer on a structured-as-DISV grid; TDIS runs one initial steady period then

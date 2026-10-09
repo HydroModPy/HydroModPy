@@ -95,6 +95,19 @@ _WORKSPACE_OUTPUT_KEYS: tuple[str, ...] = (
 """``[workspace]`` members that derive from ``project_root`` and name outputs."""
 
 
+def live_catalog(catalog: Any) -> Any:
+    """Return ``catalog``, or a fresh handle on the same files once it is closed.
+
+    A ``Run`` taken from a ``Project`` used to die with the ``with`` block that
+    closed the project's catalog (``Connection already closed``). The run keeps
+    the paths, so it opens the catalog again on its next read, read-only, like
+    the handle ``hmp.open`` gives.
+    """
+    if not getattr(catalog, "closed", False):
+        return catalog
+    return catalog._reopen()  # noqa: SLF001 - same package, one caller
+
+
 def _reanchor_workspace(payload: dict, project_root: Path) -> dict:
     """Point the ``[workspace]`` output paths of a snapshot at ``project_root``.
 
@@ -157,12 +170,22 @@ class Run(
 
     def __init__(self, sim_id: str, catalog: Catalog) -> None:
         self._sim_id = sim_id
-        self._catalog = catalog
+        self._catalog_handle = catalog
         self._row: dict | None = None
         self.array = RunArrayProvider(self)
         self.probe = RunPointProvider(self)
         self.periods = RunPeriods(self)
         self.descent = RunDescent.of_run(self)
+
+    @property
+    def _catalog(self) -> Catalog:
+        """The catalog this run reads through, reopened if its owner closed it."""
+        self._catalog_handle = live_catalog(self._catalog_handle)
+        return self._catalog_handle
+
+    @_catalog.setter
+    def _catalog(self, catalog: Catalog) -> None:
+        self._catalog_handle = catalog
 
     def _iter_runs(self) -> tuple[Run, ...]:
         """Runs this object stands for, so ``probe`` serves one run and a set alike."""
@@ -351,7 +374,10 @@ class Run(
     def hydromodpy_config(self) -> BaseModel:
         """Validated :class:`HydroModPyConfig` rebuilt from the stored snapshot.
 
-        Raises ``ValueError`` when no snapshot was persisted for this run.
+        Raises ``ValueError`` when no snapshot was persisted for this run, or
+        when this version of HydroModPy no longer validates the snapshot (a
+        run made by an older version, whose keys were renamed or removed
+        since). :attr:`config_snapshot` still gives the raw mapping.
         """
         snapshot = self.config_snapshot
         if snapshot is None:
@@ -359,7 +385,15 @@ class Run(
                 f"Simulation '{self._sim_id}' has no config snapshot; "
                 "cannot rebuild HydroModPyConfig."
             )
-        return get_root_config_provider().from_dict(snapshot)
+        try:
+            return get_root_config_provider().from_dict(snapshot)
+        except Exception as exc:
+            raise ValueError(
+                f"The configuration of run '{self._sim_id[:8]}' no longer validates "
+                f"under this version of HydroModPy, which renamed or removed some "
+                f"of its keys since the run was made. Read the raw mapping with "
+                f"run.config_snapshot. Validation said: {exc}"
+            ) from exc
 
     @property
     def tags(self) -> list[str] | None:

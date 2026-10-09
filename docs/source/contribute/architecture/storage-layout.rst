@@ -1,86 +1,34 @@
-Storage Layout
+Storage layout
 ==============
 
 **Disk is the truth. The database is an index rebuilt from disk.**
 
-A project keeps its results as ordinary directories, one per run. The
-DuckDB file under ``.hmp/`` is a query index over those directories: it
-makes ``ls``, ``show``, metric ranking and cross-project federation fast,
-and it can be deleted and rebuilt with ``hmp catalog reindex``. Nothing a
-run needs in order to be read, replayed, resumed or compared may live
-only in SQL.
+A project keeps its results as ordinary directories, one per run. The DuckDB file under
+``.hmp/`` is a query index over those directories: it makes ``ls``, ``show``, metric ranking
+and cross-project federation fast, and it can be deleted and rebuilt with
+``hmp catalog reindex``. Nothing a run needs in order to be read, replayed, resumed or compared
+may live only in SQL.
 
-This page is the storage contract. It describes what the toolbox writes
-today. The last section lists what is *not* in place, so that nothing
-here is read as a promise.
-
-For the role of each database scope, see :doc:`overview/two-databases`.
-For the migration policy that applies to any change in this layout, see
-:doc:`overview/schema-evolution`.
-
-Delivery status
----------------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 18 82
-
-   * - State
-     - Items
-   * - In place
-     - Runs-first layout: ``runs/<name>/`` named after the run, with
-       ``manifest.json`` (written last, atomically), ``config.toml``,
-       ``provenance.json``, ``annotations.json``, ``trash.json``,
-       ``fields.zarr/``, ``tables.parquet/`` and ``figures/``.
-       ``sessions/<name>/`` with ``session.json`` and ``trials.jsonl``,
-       written live by every calibration. ``share/`` for exports and
-       reports. ``.hmp/`` for the index, logs, checkpoints, heartbeats,
-       solver scratch and the ``gc`` quarantine. ``project.toml`` as the
-       project-root marker. ``hmp catalog reindex``, which rebuilds the
-       whole index from ``runs/`` and ``sessions/``. Point interrogation
-       (``run.probe.series``, ``group.probe.series``,
-       ``hmp catalog point``). Observation points declared in
-       ``[observation]``, sampled by the run and persisted as
-       ``tables.parquet/observation_points.parquet``. Run retention
-       enforced by ``hmp catalog gc``.
-   * - Removed
-     - ``simulations/``, ``exports/``, ``figures/`` and ``reports/`` at
-       the project root; ``.solver_scratch/``; ``catalog.duckdb`` at the
-       project root; the ``.parquet.d`` and ``.zarr.zip`` container
-       suffixes; the opaque ``<project>__<id8>`` storage basename; the
-       adoption verb; the ``retention_policies`` table and the
-       ``hmp audit prune`` verb, dropped together by migration ``0002``.
-       ``tests/unit/results/test_run_layout_contract.py`` fails if any of
-       the layout entries reappears.
-   * - Not in place
-     - A chunk layout tuned for point reads: a series at one cell still
-       decompresses every chunk its time axis crosses. See
-       `What is not in place`_.
+This page is the storage contract: the rules, not the file lists. The tree of a project, a run
+and a session, the Zarr groups, the Parquet payloads and the index schema are generated from the
+code in :doc:`generated/storage-tree`. For the role of each database scope and the migration
+policy, see :doc:`data-scopes`.
 
 Project layout
 --------------
 
-Layout of a project root, as written today:
+A project root holds ``project.toml`` (the canonical config and the marker of the root),
+``configs/`` (config variants, user-managed, never created), ``hydromodpy.lock``, ``runs/``
+(one directory per run), ``sessions/`` (one per calibration session), ``share/`` (exports,
+reports and ``.hmp`` packages) and ``.hmp/``. The ``.hmp/`` folder is disposable: the index
+(``index.duckdb``), the logs, the resolved workflow manifests used for resume, the heartbeats of
+live runs, the solver scratch and the ``gc`` quarantine.
 
-.. code-block:: text
-
-   <project>/
-   |-- project.toml         canonical config, and the marker of the root
-   |-- configs/             config variants (user-managed, never created)
-   |-- hydromodpy.lock      reproducibility lockfile, best effort
-   |-- runs/
-   |   `-- <run_name>/      one directory per run (see below)
-   |-- sessions/
-   |   `-- <session_name>/  one directory per calibration session
-   |-- share/               exports, reports and .hmp packages
-   `-- .hmp/                disposable internals
-       |-- index.duckdb     the index rebuilt from runs/ and sessions/
-       |-- logs/            hydromodpy_debug.log
-       |-- checkpoints/     resolved workflow manifests, for resume
-       |-- identity_notice.json  what the creator and licence warning told
-       |-- running/         live-run heartbeat sidecars
-       |-- scratch/         solver working directory, one folder per run
-       `-- trash/           orphan stores and figures quarantined by gc
+These entries do not exist: ``simulations/``, ``exports/``, ``figures/`` and ``reports/`` at the
+project root, ``.solver_scratch/``, ``catalog.duckdb`` at the project root, the ``.parquet.d``
+and ``.zarr.zip`` container suffixes, and an id-based directory name. The ``retention_policies``
+table and the ``hmp audit prune`` verb are gone, dropped together by migration ``0002``.
+``tests/unit/results/test_run_layout_contract.py`` fails if a removed entry reappears.
 
 ``runs/``, ``sessions/``, ``share/`` and ``.hmp/`` are ignored by git.
 
@@ -121,19 +69,11 @@ with no project registers nothing.
 A run folder
 ------------
 
-All paths relative to ``runs/<run_name>/``:
-
-.. code-block:: text
-
-   runs/<run_name>/
-   |-- manifest.json        identity, geometry, artefacts. Written LAST
-   |-- config.toml          exact resolved configuration, frozen
-   |-- provenance.json      environment, git, solver, timing
-   |-- annotations.json     tags and notes, written after the seal
-   |-- trash.json           present only while the run sits in the trash
-   |-- fields.zarr/         array store
-   |-- tables.parquet/      tabular payloads
-   `-- figures/             figures rendered for this run
+A run folder holds ``manifest.json`` (identity, geometry, artefacts, written last),
+``config.toml`` (the exact resolved configuration, frozen), ``provenance.json`` (environment,
+git, solver, timing), ``annotations.json`` (tags and notes, written after the seal),
+``trash.json`` (only while the run sits in the trash), ``fields.zarr/``, ``tables.parquet/`` and
+``figures/``.
 
 Those names are the whole vocabulary: they are declared in
 ``hydromodpy/results/storage/contract.py`` and no other name is a run
@@ -163,16 +103,9 @@ A calibration session keeps its own directory under ``sessions/<name>/``,
 named after the instant it started, its method and the first eight
 characters of its identifier:
 
-.. code-block:: text
-
-   sessions/20260726-014233-optuna-3f2a1b7c/
-   |-- session.json         identity, project, frozen search space,
-   |                        objective, dates, status, best trial
-   |-- trials.jsonl         one JSON object per trial, appended live
-   `-- trial_series/        opt-in (persist_trial_series = true):
-       |-- trial-000001.parquet  simulated/observed series the trial
-       |                         scored, long format
-       `-- trial-000002.parquet
+It holds ``session.json`` (identity, project, frozen search space, objective, dates, status,
+best trial), ``trials.jsonl`` (one JSON object per trial, appended live) and, when
+``persist_trial_series = true``, one ``trial_series/trial-NNNNNN.parquet`` per trial.
 
 Both ``session.json`` and ``trials.jsonl`` are written **while the
 calibration runs**: the descriptor before the first trial, one line per
@@ -257,52 +190,11 @@ Class 1: reconstructible
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Written into the run or session directory, and restored identically by
-``hmp catalog reindex``.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 30 34 36
-
-   * - Index table
-     - Rebuilt from
-     - Read by
-   * - ``simulations``
-     - ``tables.parquet/simulation.parquet``, with the name taken from
-       the directory
-     - catalog reads, ``hmp catalog ls`` and ``show``, comparison
-   * - ``parameters``
-     - ``tables.parquet/parameters.parquet``
-     - ``results/catalog/discovery.py``, ``dataset_loader``, calibration
-   * - ``metrics``
-     - ``tables.parquet/metrics.parquet``
-     - ranking, comparison, calibration reporting
-   * - ``provenance``
-     - ``tables.parquet/provenance.parquet``
-     - input bridge (``run.input_entries()``), frozen replay
-   * - ``geographic_features``
-     - ``tables.parquet/geographic_*.parquet``
-     - watershed and river figures
-   * - ``geographic_metadata``
-     - ``manifest.json``, ``geometry.catchment``
-     - ``simulation/extraction/derivation/catchment_aggregation.py``
-   * - ``runs_environment``
-     - ``provenance.json``
-     - ``results/export/context.py``, ``dataset_loader``, rerun
-   * - ``tags``, ``sim_notes``
-     - ``annotations.json``
-     - tag search, ``gc`` pinning, spinup convergence gate
-   * - ``tracked_files``
-     - ``manifest.json``, ``inputs[]`` (path, ``sha256``, size, role)
-     - ``run.input_entries()``, cache-to-run linking
-   * - trash state
-     - ``trash.json``
-     - ``hmp catalog trash`` and ``restore``
-   * - ``calibration_sessions``
-     - ``sessions/<name>/session.json``
-     - calibration resume, best promotion, calibration report
-   * - ``calibration_iterations``
-     - ``sessions/<name>/trials.jsonl``
-     - calibration resume, calibration report
+``hmp catalog reindex``: the run identity and parameters, the metrics, the input provenance, the
+geographic features, the catchment metadata, the run environment, the tags and notes, the trash
+state, the tracked input files, and the calibration sessions and trials. The table of what is
+rebuilt from which file is in the module docstring of
+``hydromodpy/results/catalog/reindex.py``, which is the code that does it.
 
 The frozen ``config.toml`` is not a table: it stays in the run directory,
 and ``hmp run --resume <ref>`` replays it straight from there.
@@ -369,40 +261,10 @@ rebuild recreates them from the DDL.
 Contract coverage
 -----------------
 
-``hydromodpy/results/storage/contract.py`` is the machine-readable half.
-It declares the three physical layers (``catalog``, ``zarr``,
-``parquet``) with their path templates, and every file name a run or
-session directory may carry. Path builders, exporters and this page
-share that one vocabulary.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 26 30 44
-
-   * - Area
-     - Path
-     - Rule
-   * - Index
-     - ``.hmp/index.duckdb``
-     - one per project, rebuildable, never at the project root
-   * - Run folders
-     - ``runs/<name>/``
-     - one directory per run, named after the run, every file declared
-       in the manifest
-   * - Sessions
-     - ``sessions/<name>/``
-     - one directory per calibration session, descriptor plus trials
-       journal
-   * - Exchange
-     - ``share/<label>/``
-     - configured exports, reports and ``.hmp`` packages
-   * - Technical cache
-     - ``.hmp/``
-     - index, logs, checkpoints, heartbeats, scratch, quarantine.
-       Entirely regenerable, safe to delete
-   * - Project configuration
-     - ``project.toml`` plus ``configs/``
-     - the canonical config and its variants
+``hydromodpy/results/storage/contract.py`` is the machine-readable half. It declares the three
+physical layers (``catalog``, ``zarr``, ``parquet``) with their path templates, and every file name
+a run or session directory may carry. Path builders, exporters and this page share that one
+vocabulary.
 
 Tested invariants
 ~~~~~~~~~~~~~~~~~
@@ -437,22 +299,11 @@ lock. It is not staged again at the end, because live readers follow that
 path while the run is solving, and there is no packed form: a container
 suffix would break those readers.
 
-.. code-block:: text
-
-   runs/<name>/fields.zarr/
-   |-- zarr.json     root attributes (ACDD) and consolidated metadata
-   |-- meta/         schema and store-level metadata
-   |-- mesh/         topology, cell types, coordinates, thicknesses, routing descent
-   |-- state/        solver state fields
-   |-- forcing/      recharge and other forcings; forcing/soil/ in soil mode
-   |-- particles/    particle trajectories
-   |-- derived/      created only when a derived field is opted in
-   |-- budget/       created only when budget.spatial_fields is on
-   |-- geographic/   created on demand for the geographic rasters
-   |-- head          root array, (time, layer, cell)
-   |-- time          root array, the CF time axis
-   |-- crs           root array, the CF grid mapping
-   `-- quantization_info  root array, present when a field is rounded
+The groups are ``meta``, ``mesh`` (topology, cell types, coordinates, thicknesses, routing
+descent), ``state`` (solver state fields), ``forcing`` (recharge and other forcings, and
+``forcing/soil/`` in soil mode), ``particles``, ``derived``, ``budget`` and ``geographic``, and the
+root arrays ``head``, ``time`` and ``crs`` (plus ``quantization_info`` when a field is rounded).
+The generated :doc:`generated/storage-tree` lists them.
 
 ``meta``, ``mesh``, ``state``, ``particles`` and ``forcing`` are created
 at store init. ``derived``, ``budget`` and ``geographic`` are not
@@ -476,9 +327,7 @@ stored derived fields, concentrations). ``compact``, the default, stores
 float32 whose mantissa is rounded to nearest at 16 bits
 (:mod:`hydromodpy.core.field_precision`): a value moves by at most 2**-17
 of itself, 7.6e-6 relative, NaN stays NaN and no finite value becomes
-infinite. The zeroed low bits are what bitshuffle and zstd pack away: the
-daily six-year MODFLOW 6 run of example 04 (2192 steps, 21 406 cells)
-drops from 1.38 GB to 0.40 GB, its two derived arrays included. Such
+infinite. The zeroed low bits are what bitshuffle and zstd pack away. Such
 an array carries the CF-1.11 quantization attributes
 ``quantization = "quantization_info"`` and ``quantization_nsb = 16``, and
 the root holds the ``quantization_info`` container with
@@ -504,37 +353,17 @@ shapes and the meaning of every stored array are unchanged, the float width
 is declared by each array's own Zarr metadata, and both an old store and a
 new one read the same through every reader.
 
-**Routing descent.** A MODFLOW 6 or MODFLOW-NWT run stores the descent D it
-was built with under ``mesh/``, one value per face, none of them rounded:
-``descent_receiver`` (int64, the receiver cell, -1 at an outlet; a
-constant-head cell keeps its steepest descent),
-``descent_surface`` (float64, the filled copy of the model top, NaN off the
-graph), and the boolean masks ``descent_base_level`` (the seeds: domain rim and
-constant-head cells), ``descent_constant_head`` (the CHD cells, where a walk
-that follows water out of the model stops), ``descent_raised`` (the cells D
-raised on its copy, which the flow direction map draws), ``descent_channel``
-(cells of the channel tree) and ``descent_pinned`` (channel cells that drain to
-their pin), plus ``descent_dam_foot``, a list rather than a per-face array
-(int64 cell ids, possibly empty): the cell below the dam of each lake with a
-declared spillway, where the stream under a lake starts, which the heads rule of the network criterion traces as a
-forced head. The attributes of
-``descent_receiver`` name the neighbourhood (``adjacency`` is ``shared_nodes``
-for D8 on quads, ``shared_faces`` elsewhere), the flood step ``epsilon`` and the
-build report (``n_raised``, ``max_raise_m``, ``n_lake_flooded``,
-``max_lake_flood_m``, ``n_pinned_raised``, ``max_pinned_raise_m``,
-``n_channel``, ``n_pinned``). The solver build leaves D in the solver folder as
-``<model>.descent.npz`` and the extractor copies it into the store right after
-the mesh. ``run.descent`` reads it back, and the flow direction map and
-``accumulation_flux`` route on it. Boussinesq has no mesh connectivity and
-stores none.
-
-This addition does not bump ``zarr_schema_version``, for the reason of the
-previous paragraph: the arrays are new datasets under ``mesh/``, no existing
-array changes its shape, dtype or meaning, and a store without them stays valid.
-A run sealed before D was stored has no ``descent_*`` array: its readers rebuild
-D from the stored top, with no channel pin, no constant-head seed and no lake,
-and log one INFO line per run saying so. A run whose D has no
-``descent_dam_foot`` reads as having no dam foot, and its D is not rebuilt.
+**Routing descent.** A MODFLOW 6 or MODFLOW-NWT run stores the descent D it was built with under
+``mesh/``, one value per face and none rounded: ``descent_receiver``, ``descent_surface``, the
+masks ``descent_base_level``, ``descent_constant_head``, ``descent_raised``, ``descent_channel``
+and ``descent_pinned``, and the list ``descent_dam_foot``. The attributes of ``descent_receiver``
+name the neighbourhood and carry the build report. The solver build leaves D in the solver folder
+as ``<model>.descent.npz`` and the extractor copies it into the store right after the mesh.
+``run.descent`` reads it back, and the flow direction map and ``accumulation_flux`` route on it
+(the contract of D is in :doc:`solver/backends`). Boussinesq has no mesh connectivity and stores
+none. The arrays are new datasets, so ``zarr_schema_version`` does not change. A run sealed
+before D was stored has no ``descent_*`` array, and its readers rebuild D from the stored top,
+with no channel pin, no constant-head seed and no lake.
 
 **Soil reservoir.** A run whose recharge comes from
 ``[flow.sinks_sources.recharge.soil]`` writes its daily columns under
@@ -563,140 +392,21 @@ view named after the payload.
 The container directory is ``tables.parquet/`` and the payloads inside
 are plain ``.parquet`` files. No suffix marks a container.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 30 70
-
-   * - Payload
-     - Content
-   * - ``simulation.parquet``
-     - one-row snapshot of the run's index entry, read by ``reindex``
-   * - ``parameters.parquet``
-     - the run parameters, one row each
-   * - ``metrics.parquet``
-     - ``sim_id``, ``station_id``, ``variable``, ``metric``, ``value``,
-       ``n_samples``, validity window
-   * - ``timeseries.parquet``
-     - ``sim_id``, ``station_id``, ``variable``, ``datetime``,
-       ``value``, ``unit``, ``qflag``
-   * - ``budgets.parquet``
-     - ``sim_id``, ``timestep``, ``zone_id``, ``component``,
-       ``flux_in``, ``flux_out``, ``unit``
-   * - ``mass_balance.parquet``
-     - ``sim_id``, ``timestep``, ``total_in``, ``total_out``,
-       ``storage_in``, ``storage_out``, ``percent_error``
-   * - ``observation_points.parquet``
-     - ``sim_id``, ``station_id``, ``x``, ``y``, ``cell_id``, ``layer``,
-       ``crs_wkt``, ``crs_epsg``: the points declared in ``[observation]``
-   * - ``sfr_reaches.parquet``
-     - ``sim_id``, ``network_id``, ``ifno``, ``cell2d``, ``layer``, ``rtp``,
-       ``rbth``, ``rlen``, ``rwid``, ``rgrd``, ``rhk``, ``manning``,
-       ``strahler``, ``ustrf``: the resolved SFR reach geometry. The MODFLOW
-       input files are scratch, so this is the only record of which cell
-       carries which reach and where its connection threshold ``rtp - rbth``
-       sits. Absent when the run built no stream network.
-   * - ``soil_budget.parquet``
-     - ``sim_id``, ``column_id``, ``cell_index``, ``class_index``, ``x``,
-       ``y``, ``ru_mm``, ``basin_weight``, ``year``, ``days``,
-       ``precipitation_mm``, ``etp_mm``, ``etr_mm``, ``residual_etp_mm``,
-       ``recharge_mm``, ``runoff_mm``, ``soil_storage_change_mm``,
-       ``transit_storage_change_mm``, ``balance_residual_mm``: one row per
-       soil column and calendar year, plus a ``_watershed`` row per year.
-       Absent outside soil mode.
-   * - ``provenance.parquet``
-     - input provenance rows of the run
-   * - ``geographic_*.parquet``
-     - GeoParquet 1.1 vector layers (catchment outline, buffered box,
-       drainage network)
+The payloads are ``simulation``, ``parameters``, ``metrics``, ``timeseries``, ``budgets``,
+``mass_balance``, ``observation_points``, ``sfr_reaches`` (the resolved SFR reach geometry, the
+only record of which cell carries which reach, absent when the run built no stream network),
+``soil_budget`` (one row per soil column and calendar year, absent outside soil mode),
+``provenance`` and the GeoParquet 1.1 layers ``geographic_*``. Their columns are generated in
+:doc:`generated/storage-tree`.
 
 Project index DuckDB schema
 ---------------------------
 
-Tables of the project index. The authoritative DDL is
-``hydromodpy/results/catalog/migrations/0001_initial.sql``. The
-``Class`` column is the classification defined above.
+The authoritative DDL is ``hydromodpy/results/catalog/migrations/``, and the generated
+:doc:`generated/storage-tree` lists the tables with their class (reconstructible, losable, input
+or dimension) as defined above.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 24 18 58
-
-   * - Table
-     - Class
-     - Key columns
-   * - ``simulations``
-     - reconstructible
-     - ``sim_id`` (UUID), ``name``, ``name_stem``, ``version_int``,
-       ``original_name``, ``project``, ``solver_id``, ``status_id``,
-       ``mesh_hash``, ``n_cells``, ``n_layers``, ``n_timesteps``,
-       ``crs_wkt``, ``bbox_*``, ``period_start/end``,
-       ``config_snapshot``, ``config_hash``, ``zarr_path``,
-       ``storage_basename``, ``trashed_at``, ``duration_s``
-   * - ``parameters``
-     - reconstructible
-     - ``sim_id``, ``param_name``, ``zone_id``, ``value``, ``unit``,
-       ``parameterization``
-   * - ``metrics``
-     - reconstructible
-     - ``sim_id``, ``station_id``, ``metric_name``, ``value``,
-       ``n_samples``
-   * - ``provenance``
-     - reconstructible
-     - ``sim_id``, ``variable``, ``source_type``, ``source_ref``,
-       ``source_sha256``, ``payload_sha256``, ``fetched_at``,
-       ``n_records``
-   * - ``runs_environment``
-     - reconstructible
-     - ``sim_id``, ``python_version``, ``hydromodpy_version``,
-       ``platform``, ``git_commit``, ``solver_binary_sha256``,
-       ``env_packages``, ``rng_seed``
-   * - ``geographic_metadata``
-     - reconstructible
-     - ``sim_id``, ``key``, ``value``. Holds the catchment area and
-       outlet coordinates used by catchment aggregation
-   * - ``geographic_features``
-     - reconstructible
-     - ``sim_id``, ``feature_name``, ``geometry_kind``,
-       ``geoparquet_path``
-   * - ``tags``, ``sim_notes``
-     - reconstructible
-     - ``sim_id``, ``tag`` / ``note``. Mirrored in ``annotations.json``
-   * - ``calibration_sessions``
-     - reconstructible
-     - ``session_id``, ``project``, ``method``, ``objective_name``,
-       ``n_iterations``, ``best_sim_id``, ``status_id``,
-       ``parent_session_id``, ``root_session_id``, ``phase_name``,
-       ``phase_index``
-   * - ``calibration_iterations``
-     - reconstructible
-     - ``session_id``, ``iteration``, ``sim_id``, ``params_hash``,
-       ``parameters`` (JSON), ``objective_value``
-   * - ``tracked_files``
-     - reconstructible
-     - ``sim_id``, ``role``, ``category``, ``original_path``,
-       ``canonical_path``, ``sha256``, ``size_bytes``, from the
-       ``inputs[]`` block of ``manifest.json``
-   * - ``workflow_steps``, ``workflow_events``
-     - losable
-     - workflow journal: ``step_id``, ``run_id``, ``step_name``,
-       ``status_id``, ``started_at``, ``ended_at``, ``payload``
-   * - ``audit_log``, ``export_log``, ``deletions``, ``purge_journal``
-     - losable
-     - machine event history, export bookkeeping, tombstones, purge
-       resume state
-   * - ``stations``, ``observations``
-     - input
-     - station metadata and observation series, repopulated from the
-       input cache
-   * - ``solvers``, ``statuses``, ``flow_regimes``,
-       ``mesh_topologies``, ``dim_*``, ``metric_definitions``
-     - dimension
-     - static vocabularies seeded by the DDL
-   * - ``schema_migrations``
-     - dimension
-     - one row per applied migration: ``version``, ``component``,
-       ``slug``, ``checksum``, ``applied_at``
-
-``observation_points`` has no row here on purpose: the declaration lives
+``observation_points`` has no table on purpose: the declaration lives
 in the run directory and is exposed as a Parquet-backed view, which is
 what makes it survive a rebuild. ``retention_policies`` is gone;
 migration ``0002`` dropped it together with the ``hmp audit prune`` verb,
@@ -778,23 +488,6 @@ the lockfile was written; ``hmp run --no-lock`` skips the post-run write.
 When no input cache is available, a normal run may complete without a
 lockfile; that is a reproducibility warning, not a failed run.
 
-Direct DuckDB exceptions
-------------------------
-
-The normal application path uses index and cache adapters. Direct
-``duckdb.connect`` is accepted only for:
-
-- migration runners that bootstrap schema files;
-- concrete backend constructors and adapters;
-- read-only diagnostics and doctor output;
-- portable ``.hmp`` package snapshots;
-- tests and performance benchmarks;
-- developer-only CLI inspection commands.
-
-A new direct DuckDB call in a user-facing CLI command or in
-``hydromodpy._api`` is a contract regression unless this list is updated
-with a rationale.
-
 Portable ``.hmp`` packages
 --------------------------
 
@@ -809,7 +502,7 @@ ever stays zipped. The archive lands in ``share/<run>/<run>.hmp`` unless
 the end of the run, after the seal. ``Catalog.export_package_multi`` still
 writes a multi-run container from Python; no verb exposes it.
 ``hmp catalog import run.hmp`` verifies the magic and every checksum,
-then re-materialises the runs in the target project.
+then writes the runs into the project you import to.
 
 Reading one cell
 ----------------
@@ -919,33 +612,28 @@ DuckDB files and consolidates Zarr metadata (the absorbed ``vacuum``
 verb). Every applied sweep writes one ``gc`` row in the project audit
 log.
 
-What is not in place
---------------------
+Known limit
+-----------
 
-Stated here so that nothing above is read as a promise.
+**The Zarr chunk layout is tuned for map reads.** Chunks are about 1 MiB each, and a whole
+timestep sits in one chunk as long as it fits that budget
+(``hydromodpy/results/zarr_store/chunks.py``). Reading one cell across time is a single Zarr
+call, but it decompresses every chunk the time axis crosses, so a point series pays for the
+neighbouring cells it never uses. A cell-major layout, or a second copy laid out that way, would
+make it cheap, and neither exists.
 
-- **A chunk layout tuned for point reads.** Chunks are sized for map
-  reads: about 1 MiB each, and a whole timestep sits in one chunk as long
-  as it fits that budget
-  (``hydromodpy/results/zarr_store/chunks.py``). Reading one cell across
-  time is a single Zarr call, but it decompresses every chunk the time
-  axis crosses, so a point series pays for the neighbouring cells it
-  never uses. Making that read cheap needs a cell-major layout, or a
-  second copy laid out that way, and neither is written today.
-
-A per-run lockfile is not listed here: it is settled, not missing.
-``hydromodpy.lock`` pins the project's whole input cache before a run
-starts, and its only readers are ``hmp run --frozen``,
-``hmp data add --frozen`` and ``hmp dev lock verify``. The per-run input
-list lives in ``manifest.json`` (``inputs[]``), sealed when the run ends,
-so a replay never depends on the project-wide file.
+A per-run lockfile is settled, not missing. ``hydromodpy.lock`` pins the project's whole input
+cache before a run starts, and its only readers are ``hmp run --frozen``,
+``hmp data add --frozen`` and ``hmp dev lock verify``. The per-run input list lives in
+``manifest.json`` (``inputs[]``), sealed when the run ends, so a replay never depends on the
+project-wide file.
 
 See also
 --------
 
-- :doc:`overview/two-databases` for the role of each database scope.
-- :doc:`overview/schema-evolution` for the migration policy.
-- :doc:`artifact-policy` for non-canonical artefacts and sidecars.
+- :doc:`data-scopes` for the role of each database scope, the migration policy and the
+  non-canonical artefacts.
+- :doc:`generated/storage-tree` for the tree and the schema.
 - :doc:`/contribute/architecture/packages/results` for the Python API on top of
   this storage (``Catalog``, ``Run``, ``RunSet``, ``hmp.read``).
 - :doc:`/contribute/architecture/packages/data` for the input cache writer.

@@ -1,4 +1,4 @@
-Choosing A Spatial Support
+Choosing a spatial support
 ==========================
 
 Scope
@@ -29,14 +29,14 @@ Recommended reading path
 3. ``hydromodpy/spatial/field/core/field_param.py``
 4. ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``
 
-Core Rule
+Core rule
 ---------
 
 Use a spatial support only when a ``FieldParam`` is heterogeneous. In that
 case, ``field_spatial_id`` must reference a support known by the ``Domain``.
 
-When To Use Each Support
-------------------------
+When to use each support
+-------------------------
 
 If all parameters are homogeneous, no spatial support declaration is needed.
 
@@ -64,7 +64,7 @@ center:
 Choose ``catchment_zones`` when the zones already exist as catchment-side
 partitions and should be reused directly instead of redefined synthetically.
 
-Decision Heuristics
+Decision heuristics
 -------------------
 
 Prefer ``geology`` if the zoning is part of the domain data pipeline and should
@@ -83,7 +83,7 @@ It is valid to mix geology-backed and synthetic supports in the same
 ``domain.supports`` mapping. Each heterogeneous ``FieldParam`` simply points to
 the support it needs through ``field_spatial_id``.
 
-Minimal Configuration Patterns
+Minimal configuration patterns
 ------------------------------
 
 Homogeneous parameter, no support needed:
@@ -142,14 +142,19 @@ Heterogeneous parameter referencing a support:
 
 .. code-block:: toml
 
-   [flow.k.field]
+   [flow.param.K.field]
+   kind = "heterogeneous"
+   value__delete = true            # only when the file inherits a homogeneous K
+   unit = "m/s"
    field_spatial_id = "k_x"
    values = { left = 1.0e-4, middle = 5.0e-5, right = 1.0e-5 }
 
 The support identifier (``k_x`` above) must match the ``field_spatial_id``.
 The value keys must match the support labels.
+The guide :doc:`/guides/k-per-zone` explains ``value__delete`` and the other
+keys of a heterogeneous parameter.
 
-Common Mistakes
+Common mistakes
 ---------------
 
 Using ``field_spatial_id`` for a heterogeneous parameter without registering a

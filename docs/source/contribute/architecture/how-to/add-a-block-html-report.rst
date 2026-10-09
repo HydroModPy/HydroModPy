@@ -1,4 +1,4 @@
-Add a Block HTML Report
+Add a block HTML report
 =======================
 
 Use this recipe when a workflow must emit a static HTML report composed of
@@ -9,7 +9,7 @@ code owns the scientific content; the shared renderer owns the HTML shell,
 anchors, level navigation, per-block level switches, relative artifact links,
 and missing-figure placeholders.
 
-Where to Document It
+Where to document it
 --------------------
 
 There are three useful places for report documentation. Keep them separate:
@@ -77,7 +77,7 @@ The stable detail levels are ``compact``, ``standard``, and ``audit``.
 ``standard`` should explain the main scientific interpretation, and ``audit``
 should expose provenance, detailed tables, hashes, and artifact links.
 
-Files to Create or Edit
+Files to create or edit
 -----------------------
 
 A typical workflow report has two workflow-owned modules:
@@ -150,7 +150,7 @@ For global levels plus a per-block switch page:
            level_links=links,
        )
 
-Output Layout
+Output layout
 -------------
 
 Keep one stable user-facing entry point, then add optional level pages around
@@ -166,7 +166,7 @@ it. Existing reports use these patterns:
 Do not make generated HTML the source of truth. The source of truth is the
 manifest, TOML, run catalog, and regenerated figure artifacts.
 
-Updateable Documentation Illustrations
+Updateable documentation illustrations
 --------------------------------------
 
 Documentation illustrations for block reports should be generated from a
@@ -206,7 +206,7 @@ is needed, keep a script that rebuilds the report, opens the
 stable HTML entry point, captures the viewport, and writes the committed image.
 The committed image is then a build artifact, not a hand-maintained source.
 
-Tests to Add
+Tests to add
 ------------
 
 Add focused tests at two levels:
@@ -233,11 +233,9 @@ Pitfalls
 - Keep generated HTML and copied figures out of version control unless a test
   fixture deliberately needs a tiny frozen artifact.
 
-See Also
+See also
 --------
 
 - :doc:`../packages/display` for ownership of ``display/report_blocks``.
-- Catchment HTML Reports for the user-facing catchment report
-  contract.
-- Site Selection Workflow for the site-selection HTML
-  output contract.
+- :doc:`/guides/report-on-a-catchment` for the user-facing catchment report.
+- :doc:`/guides/select-catchments` for the site-selection report.

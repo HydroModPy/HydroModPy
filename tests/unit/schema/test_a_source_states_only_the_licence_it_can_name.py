@@ -9,6 +9,7 @@ its basis.
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -17,12 +18,15 @@ from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.data.provenance.sidecars import SIDECAR_SUFFIX as DATA_SIDECAR_SUFFIX
 from hydromodpy.schema.job.inputset import UNDETERMINED, Licence
 from hydromodpy.schema.sources import (
+    COPERNICUS_LICENCE_ID,
+    LICENCES_CHECKED,
     SIDECAR_SUFFIX,
     SOURCES,
     derived_licence,
     input_licence,
     licence_for_source,
     licence_from_sidecar,
+    sources_by_publisher,
 )
 
 ETALAB = Licence(spdx="etalab-2.0", confidence="assumed")
@@ -40,12 +44,26 @@ def test_the_claims_are_the_reviewed_ones() -> None:
         if entry.licence.spdx != UNDETERMINED_LICENSE
     }
     assert claims == {
+        "bdtopage": "etalab-2.0",
+        "bdtopo": "etalab-2.0",
         "brgm_1m": "etalab-2.0",
         "brgm_50k": "etalab-2.0",
-        "bdtopo": "etalab-2.0",
+        "euhydro": COPERNICUS_LICENCE_ID,
+        "explore2": "etalab-2.0",
+        "hubeau": "etalab-2.0",
         "ign_geoplateforme_dem": "etalab-2.0",
         "osm": "ODbL-1.0",
+        "roe": "etalab-2.0",
+        "shom": "etalab-2.0",
+        "sim2": "etalab-2.0",
     }
+
+
+def test_only_the_sources_the_user_owns_stay_undetermined() -> None:
+    undetermined = {
+        slug for slug, entry in SOURCES.items() if entry.licence.spdx == UNDETERMINED_LICENSE
+    }
+    assert undetermined == {"custom", "constant", "synthetic"}
 
 
 @pytest.mark.parametrize("slug", sorted(SOURCES))
@@ -54,9 +72,53 @@ def test_every_entry_says_why(slug: str) -> None:
     assert entry.basis.strip()
     if entry.licence.spdx == UNDETERMINED_LICENSE:
         assert entry.licence.confidence == "undetermined"
+        assert not entry.licence_pages
     else:
         assert entry.licence.confidence == "assumed"
         assert entry.licence.url
+
+
+@pytest.mark.parametrize(
+    "slug",
+    sorted(slug for slug, entry in SOURCES.items() if entry.licence.spdx != UNDETERMINED_LICENSE),
+)
+def test_a_claim_names_the_page_that_states_it_and_the_day_it_was_read(slug: str) -> None:
+    entry = SOURCES[slug]
+    assert entry.licence_pages
+    assert all(page.startswith("https://") for page in entry.licence_pages)
+    assert entry.licence_checked == LICENCES_CHECKED
+    assert date.fromisoformat(entry.licence_checked)
+    assert entry.licence.attribution
+
+
+def test_a_source_that_downloads_says_whether_it_asks_for_credentials() -> None:
+    for slug, entry in SOURCES.items():
+        if entry.hosts:
+            assert entry.authentication, slug
+
+
+def test_a_licence_ref_is_used_only_where_spdx_has_no_id() -> None:
+    refs = {
+        slug: entry.licence.spdx
+        for slug, entry in SOURCES.items()
+        if entry.licence.spdx.startswith("LicenseRef-")
+        and entry.licence.spdx != UNDETERMINED_LICENSE
+    }
+    assert refs == {"euhydro": COPERNICUS_LICENCE_ID}
+
+
+def test_an_entry_renders_as_a_plain_document() -> None:
+    document = SOURCES["sim2"].to_document()
+    json.dumps(document)
+    assert document["licence"]["spdx"] == "etalab-2.0"
+    assert document["cache"][0]["folder"] == "data/<variable>"
+
+
+def test_the_publishers_group_their_sources() -> None:
+    groups = sources_by_publisher()
+    assert [entry.slug for entry in groups["IGN"]] == ["ign_geoplateforme_dem", "bdtopo"]
+    assert [entry.slug for entry in groups["Sandre / OFB"]] == ["bdtopage", "roe"]
+    assert "custom" not in {entry.slug for entries in groups.values() for entry in entries}
 
 
 def test_the_code_slugs_are_all_known() -> None:

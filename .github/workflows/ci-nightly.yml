@@ -128,11 +128,31 @@ jobs:
       - name: Install solver binaries
         run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
 
+      # Each test records what it measured (tests/validation/conftest.py).
+      # The documentation reads the merged file: see tools/docs/validation_results.py.
       - name: Run validation tests
+        env:
+          HMP_VALIDATION_RESULTS: ${{ runner.temp }}/validation-results
         run: |
           python -m pytest tests/validation/ -m "not petsc" \
             -n auto --dist loadgroup \
             --cov=hydromodpy --cov-report= --cov-fail-under=0 -q
+
+      - name: Merge validation results
+        if: always()
+        run: |
+          python -m tools.docs.validation_results merge \
+            "${{ runner.temp }}/validation-results" \
+            --snapshot validation-results.json --replace || true
+
+      - name: Upload validation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-results-${{ matrix.target_branch }}
+          path: validation-results.json
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Report coverage
         if: always()

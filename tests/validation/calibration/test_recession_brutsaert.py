@@ -1,4 +1,7 @@
-"""Validate the Brutsaert-Nieber recession calibration demo."""
+"""Calibration of a Brutsaert-Nieber recession law.
+
+Compared with: the parameters `a` and `b` of the recession `dQ/dt = -a Q^b` that generated the synthetic discharge.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +9,7 @@ import math
 
 import pytest
 
+from tests.validation.helpers import assert_metric_below
 from validation_cases.calibration.recession_brutsaert.experiment import (
     BRUTSAERT_RECESSION_CASE,
     build_calibration,
@@ -35,5 +39,7 @@ def test_recession_brutsaert_nelder_mead_recovers_truth() -> None:
     truth = BRUTSAERT_RECESSION_CASE.truth
     assert math.isfinite(session.best.objective_value)
     # a is log-transformed, b is linear
-    assert abs(math.log10(best["a"]) - math.log10(truth["a"])) < 0.2, best
-    assert abs(best["b"] - truth["b"]) < 0.25, best
+    assert_metric_below(
+        "Distance of log10 a to the truth", abs(math.log10(best["a"]) - math.log10(truth["a"])), 0.2
+    )
+    assert_metric_below("Distance of b to the truth", abs(best["b"] - truth["b"]), 0.25)

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.catalog.registration import run_identity_hash
 from hydromodpy.workflow.steps.prepare_solver.validate import _primary_solver_for_simulation
 
 if TYPE_CHECKING:
@@ -123,9 +124,7 @@ def refresh_run_environment(ctx: WorkflowContext, *, store: SimulationStore) -> 
     if not sim_id or plan is None:
         return
     try:
-        _write_run_environment(
-            ctx, str(sim_id), _primary_solver_for_simulation(plan), store=store
-        )
+        _write_run_environment(ctx, str(sim_id), _primary_solver_for_simulation(plan), store=store)
     except Exception:
         logger.exception("Failed to refresh the run environment for sim %s", str(sim_id)[:8])
 
@@ -236,12 +235,21 @@ def _register_tracked_input_files(ctx: WorkflowContext, *, store: SimulationStor
     )
 
 
-def step_register_run(ctx: WorkflowContext, *, store: SimulationStore) -> None:
+def step_register_run(
+    ctx: WorkflowContext,
+    *,
+    store: SimulationStore,
+    run_overrides: dict | None = None,
+) -> None:
     """Register the current simulation and persist what it was built from.
 
     The run takes the id its caller reserved on ``ctx.reserved_sim_id``, and
     mints one when there is none. The reservation is consumed here, so a
     context replayed for a second run always gets a fresh id.
+
+    ``run_overrides`` are the parameter overrides a ``Project.simulate`` call
+    applied on top of the configuration. They enter the run identity hash, so
+    a run with ``K=1e-5`` never passes for the run of the bare configuration.
 
     Helpers are looked up on the :mod:`hydromodpy.workflow.steps.prepare_solver`
     package namespace so unit tests can monkeypatch them via
@@ -262,6 +270,11 @@ def step_register_run(ctx: WorkflowContext, *, store: SimulationStore) -> None:
     plan = ctx.execution.simulation_plan
 
     reg_kwargs = ps_module.collect_registration_kwargs(ctx)
+    reg_kwargs["config_hash"] = run_identity_hash(
+        reg_kwargs.get("config"),
+        name=ctx.setup.run_id,
+        overrides=run_overrides,
+    )
     if ctx.parent_sim_id is not None:
         reg_kwargs["parent_sim_id"] = ctx.parent_sim_id
     primary_solver = _primary_solver_for_simulation(plan)

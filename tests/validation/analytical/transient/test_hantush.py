@@ -1,5 +1,7 @@
 """Hantush-Jacob (1955) leaky-aquifer benchmark against MODFLOW 6.
 
+Compared with: the Hantush-Jacob (1955) drawdown of a leaky confined aquifer, `s = Q / (4 pi T) W(u, r / B)`.
+
 A fully penetrating well pumps at constant rate ``Q`` in a confined aquifer
 overlain by a leaky aquitard of thickness ``b'`` and vertical conductivity
 ``K'``. A source bed of constant head sits above the aquitard. Under these
@@ -48,6 +50,7 @@ from tests.regression.golden_utils import (
     assert_required_executables,
     resolve_bundled_executable,
 )
+from tests.validation.helpers import assert_metric_above, assert_metric_below, record_scale
 
 PUMPING_RATE_M3_PER_DAY = 100.0
 TRANSMISSIVITY_M2_PER_DAY = 100.0
@@ -285,15 +288,11 @@ def test_hantush_leaky_aquifer_matches_analytical_reference(tmp_path: Path) -> N
     variance = float(np.sum((analytical_arr - analytical_arr.mean()) ** 2))
     residual = float(np.sum((numerical_arr - analytical_arr) ** 2))
     nse = 1.0 - residual / variance
-    assert nse > 0.99, (
-        f"Hantush NSE too low: {nse:.6f} (residual={residual:.3e}, variance={variance:.3e})"
-    )
+    record_scale(np.abs(analytical_arr).max(), "largest drawdown of the reference", "m")
+    assert_metric_above("Nash-Sutcliffe efficiency of the drawdown, 9 probes", nse, 0.99, ideal=1.0)
 
     relative_errors = np.abs(numerical_arr - analytical_arr) / np.maximum(
         np.abs(analytical_arr), 1e-12
     )
     max_rel = float(relative_errors.max())
-    assert max_rel < 0.02, (
-        f"Hantush drawdown max relative error {max_rel:.4%} > 2%: "
-        f"numerical={numerical_arr.tolist()}, analytical={analytical_arr.tolist()}"
-    )
+    assert_metric_below("Largest relative drawdown error at a probe", max_rel, 0.02)

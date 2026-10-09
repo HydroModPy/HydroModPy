@@ -19,7 +19,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser(), format_parser(), verbosity_parser()],
-        epilog="Example:\n  hmp catalog diff cheze_baseline.v2 cheze_baseline.v3",
+        epilog="Example:\n  hmp catalog diff my_run.v2 my_run.v3",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("ref_a", help="First run reference")

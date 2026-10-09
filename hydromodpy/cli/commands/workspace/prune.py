@@ -12,7 +12,12 @@ HELP: str = "Drop registrations whose project index database is missing"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        epilog="Example:\n  hmp workspace prune",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.set_defaults(_handler=run)
     return parser
 

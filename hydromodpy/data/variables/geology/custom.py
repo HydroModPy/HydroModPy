@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.data.common.geo_helpers import require_declared_crs
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.provenance.derived import derived_path
 
@@ -116,7 +117,7 @@ def _load_custom_vector(
     if code_field not in gdf.columns:
         raise KeyError(f"Column '{code_field}' not found in {path}. Available: {list(gdf.columns)}")
 
-    crs = str(gdf.crs) if gdf.crs else "EPSG:2154"
+    crs = require_declared_crs(gdf.crs, path=path, variable="geology")
 
     if bbox is not None:
         from shapely.geometry import box
@@ -155,7 +156,7 @@ def _load_custom_raster(path: Path) -> list[FieldRecord]:
 
     with rasterio.open(str(path)) as src:
         bounds = src.bounds
-        crs = str(src.crs) if src.crs else "EPSG:2154"
+        crs = require_declared_crs(src.crs, path=path, variable="geology")
         actual_bbox = (bounds.left, bounds.bottom, bounds.right, bounds.top)
 
     return [

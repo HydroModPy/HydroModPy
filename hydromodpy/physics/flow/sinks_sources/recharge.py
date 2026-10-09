@@ -41,13 +41,14 @@ class FlowRechargeConfig(HydroModelBase):
           recharge is computed dynamically (e.g. from PyHELP output).
 
     first_clim : str | float
-        Policy for stress-period 0 when ``values`` is a sequence.
-        MODFLOW steady-state warm-up periods often need a representative rate
-        that differs from the first raw time step. Options:
+        Rate of every steady stress period, taken from the rates of all the
+        periods (``hydromodpy.physics.forcing.steady_periods``). A transient
+        period keeps its own rate. Options:
 
-        - ``"mean"``: arithmetic mean of the entire series (default),
-        - ``"first"``: first value of the series,
-        - *numeric*: explicit scalar.
+        - ``"mean"``: mean of the per-period rates, one weight per period
+          (default),
+        - ``"first"``: rate of period 0,
+        - *numeric*: that rate.
 
     units : str
         Physical units of ``values``. The flow runtime converts the payload
@@ -58,12 +59,16 @@ class FlowRechargeConfig(HydroModelBase):
         default=0.0,
         description=(
             "Recharge payload: scalar, list (one per stress period), "
-            "mapping {kper: value}, or runtime series. The "
+            "mapping {kper: value}, or runtime series, in the unit that "
+            "'units' names (mm/day by default). A calibration reads its bounds "
+            "in that unit too. The "
             "'matching_hydrographic_network' protocol calibrates conductivity "
             "against the ratio K/R in its steady stage and requires this value "
             "held frozen there."
         ),
-        json_schema_extra=field_metadata(calibrable=Calibrable(units="m/s")),
+        # No unit on the Calibrable: the search writes its sample as is into
+        # this field, so the unit is the one 'units' declares, whatever it is.
+        json_schema_extra=field_metadata(calibrable=Calibrable(), unit="mm/day"),
     )
     soil: Annotated[SoilReservoirConfig | None, Profile.USER] = Field(
         default=None,
@@ -87,18 +92,26 @@ class FlowRechargeConfig(HydroModelBase):
     first_clim: Annotated[str | float, Profile.DEV] = Field(
         default="mean",
         description=(
-            "Period-0 policy when values is a sequence: "
-            "'mean' (series average), 'first' (first element), or a numeric scalar."
+            "Recharge rate of every steady stress period: every period of a steady "
+            "run, and the first period of a transient run when "
+            "flow.first_period_steady is true. 'mean' is the mean of the "
+            "per-period rates, one weight per period; 'first' is the rate of "
+            "period 0; a number is that rate, in the units of values. A transient "
+            "period keeps its own rate. The same rule holds for one value per "
+            "period and for one grid per period, under every solver. With "
+            "negative_to_evt, the steady period takes the rule on the recharge "
+            "part and on the deficit part, so its net rate is the one stated here."
         ),
+        examples=["mean", "first", 2.0],
     )
-    units: Annotated[str, Profile.DEV] = Field(
+    units: Annotated[str, Profile.USER] = Field(
         default="mm/day",
         description=(
-            "Units of the recharge data source. Data-manager outputs use "
-            "mm/day by convention; override when providing values in another "
-            "unit (e.g. 'm/day'). Converted to m/s at runtime via "
-            "factor_to_m_per_s()."
+            "Unit of 'values' and of the recharge data source. Data-manager "
+            "outputs use mm/day by convention; set it when you write 'values' "
+            "in another unit. The run converts the rate to m/s."
         ),
+        examples=["mm/day", "m/day", "m/s"],
     )
     negative_to_evt: Annotated[bool, Profile.DEV] = Field(
         default=True,
@@ -142,6 +155,13 @@ class FlowRechargeConfig(HydroModelBase):
                 self.values,
                 label="flow.sinks_sources.recharge.values",
             )
+            if isinstance(self.first_clim, float) and self.first_clim < 0.0:
+                raise ValueError(
+                    f"flow.sinks_sources.recharge.first_clim = {self.first_clim} is a "
+                    "negative rate, and negative_to_evt is false: a steady period "
+                    "cannot take it. Set negative_to_evt = true to route it to EVT, "
+                    "or give a rate of zero or more."
+                )
         return self
 
     @model_validator(mode="after")

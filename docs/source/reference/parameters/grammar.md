@@ -40,8 +40,12 @@ Three rules hold for the whole file.
   `Unknown top-level TOML section(s): flows`.
 - A key that the table does not know is refused, and the message names the table:
   `Unknown TOML key(s) in [flow]: flow_regme`.
-- `[workspace]` with {toml}`workspace.project_root` is required in a TOML file.
-  `project_root = "."` means the folder of the file.
+- Three sections are required in every file: `[workflow]` with {toml}`workflow.mode`,
+  `[workspace]` with {toml}`workspace.project_root`, and `[geographic]`.
+  `project_root = "."` means the folder of the file. In its standard mode, `[geographic]`
+  needs `[geographic.catchment]` with {toml}`geographic.catchment.catch_def`, and
+  `catch_def = "dem"` needs {toml}`geographic.catchment.dem_init_path`. With these four
+  keys, `hmp config check` accepts the file.
 
 (base-config)=
 

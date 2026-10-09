@@ -1,5 +1,7 @@
 """Ogata-Banks (1961) 1D advection-dispersion benchmark against MODFLOW 6 GWT.
 
+Compared with: the Ogata-Banks (1961) concentration profile of 1D advection and dispersion from a constant-concentration inlet.
+
 A semi-infinite column is initially solute-free and subjected to a
 constant-concentration injection ``c0`` at ``x = 0`` under steady uniform
 flow of pore velocity ``v`` with longitudinal dispersion coefficient
@@ -39,6 +41,7 @@ from tests.regression.golden_utils import (
     assert_required_executables,
     resolve_bundled_executable,
 )
+from tests.validation.helpers import assert_metric_above, assert_metric_below
 
 COLUMN_LENGTH_M = 50.0
 N_CELLS = 500
@@ -278,16 +281,11 @@ def test_ogata_banks_1d_transport_matches_analytical_reference(tmp_path: Path) -
     variance = float(np.sum((analytical_flat - analytical_flat.mean()) ** 2))
     residual = float(np.sum((numerical_flat - analytical_flat) ** 2))
     nse = 1.0 - residual / variance
-    assert nse > 0.95, (
-        f"Ogata-Banks NSE too low: {nse:.6f} (residual={residual:.3e}, variance={variance:.3e})"
-    )
+    assert_metric_above("Nash-Sutcliffe efficiency of the concentration", nse, 0.95, ideal=1.0)
 
     if signal_mask.any():
         relative_errors = np.abs(
             numerical_flat[signal_mask] - analytical_flat[signal_mask]
         ) / np.abs(analytical_flat[signal_mask])
         max_rel = float(relative_errors.max())
-        assert max_rel < 0.03, (
-            f"Ogata-Banks max relative error {max_rel:.4%} > 3%: "
-            f"numerical={numerical_flat.tolist()}, analytical={analytical_flat.tolist()}"
-        )
+        assert_metric_below("Largest relative concentration error where c > 1e-3 c0", max_rel, 0.03)

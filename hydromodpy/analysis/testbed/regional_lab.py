@@ -8,7 +8,9 @@ from typing import Any
 
 from hydromodpy.analysis.testbed.child_artifacts import extract_child_artifacts
 from hydromodpy.analysis.testbed.contracts import (
+    FailedCasesError,
     RegionalLabFlowMaterializer,
+    failed_cases_message,
     get_testbed_runner_provider,
 )
 from hydromodpy.analysis.testbed.regional_lab_adapter import run_case_with_testbed_provider
@@ -36,7 +38,11 @@ class RegionalLabProfileLauncher:
         self.cfg = RegionalLabConfig.from_file(config_path)
 
     def run(self) -> dict[str, Any]:
-        """Build the plan, optionally execute it, and persist summary artifacts."""
+        """Build the plan, optionally execute it, and persist summary artifacts.
+
+        Raises :class:`FailedCasesError`, carrying the summary, when a case
+        failed: the artifacts are written first.
+        """
         cfg = self.cfg
         cfg.output_root.mkdir(parents=True, exist_ok=True)
         sites = load_site_catalog(cfg.catalog)
@@ -142,7 +148,7 @@ class RegionalLabProfileLauncher:
                     if executions[-1].status == "failed" and not cfg.continue_on_error:
                         break
 
-        return {
+        summary = {
             "lab_id": cfg.lab_id,
             "output_root": str(cfg.output_root),
             "selected_site_count": len(selected_sites),
@@ -158,6 +164,18 @@ class RegionalLabProfileLauncher:
             "regional_flow": regional_flow,
             **synthesis_paths,
         }
+        failed_ids = [item.case.case_id for item in executions if item.status == "failed"]
+        if failed_ids:
+            raise FailedCasesError(
+                failed_cases_message(
+                    label=f"regional lab '{cfg.lab_id}'",
+                    failed_ids=failed_ids,
+                    executed_count=len(executions),
+                    report_path=report_path,
+                ),
+                summary=summary,
+            )
+        return summary
 
 
 def _run_child_case(

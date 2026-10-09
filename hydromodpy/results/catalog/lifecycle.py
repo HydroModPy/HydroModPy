@@ -1107,6 +1107,30 @@ class LifecycleMixin:
         self._backend.close()
         self._db.close()
 
+    @property
+    def closed(self) -> bool:
+        """True once :meth:`close` ran: the handle answers no statement."""
+        return bool(getattr(self._db, "closed", False))
+
+    def _reopen(self) -> Any:
+        """Return a new read-only handle on the same catalog files.
+
+        A :class:`~hydromodpy.results.run.Run` outlives the handle that made
+        it: a ``Project`` closes its catalog when its ``with`` block ends. The
+        run calls this to keep reading instead of failing on a closed
+        connection. The handle is read-only, like the one ``hmp.open`` and
+        ``hmp.run`` hand out: DuckDB refuses two handles of one file in two
+        modes inside one process, and a run mostly reads. A write on it is
+        refused with the message that says to open the catalog writable.
+        """
+        return type(self)(
+            self._workspace,
+            catalog_path=self._db_path,
+            runs_dir=self._runs_dir,
+            persistence=self._persistence,
+            read_only=True,
+        )
+
     def __enter__(self):
         return self
 

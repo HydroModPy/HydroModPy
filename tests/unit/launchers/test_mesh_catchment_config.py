@@ -242,3 +242,11 @@ def test_generate_toml_exposes_mesh_catchment_sections() -> None:
     assert "[mesh_catchment]" in content
     assert "Meshing compliance target" in content
     assert "hydraulic_properties" in content
+
+
+def test_constraints_mode_is_required_by_the_model() -> None:
+    from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+
+    field = MeshCatchmentConfig.model_fields["constraints_mode"]
+
+    assert field.is_required()

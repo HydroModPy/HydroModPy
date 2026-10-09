@@ -54,6 +54,7 @@ class CatchmentReportConfig:
     overview_standard_html: Path
     transient_config: Path
     overview_config: Path
+    geology_path: Path | None = None
     preset: CatchmentReportPreset = field(default=GENERIC_REPORT_PRESET)
     artifact_specs: tuple[ReportArtifactSpec, ...] | None = None
     block_specs: tuple[ReportBlockSpec, ...] | None = None
@@ -90,6 +91,7 @@ class CatchmentReportConfig:
             overview_standard_html=inputs.overview_standard_html,
             transient_config=inputs.transient_config,
             overview_config=inputs.overview_config,
+            geology_path=inputs.geology_path,
             preset=effective_preset,
             artifact_specs=artifact_specs,
             block_specs=block_specs,
@@ -98,7 +100,7 @@ class CatchmentReportConfig:
 
 def build_catchment_report(config: CatchmentReportConfig) -> Path:
     output_dir = config.output_dir
-    title = config.title or f"{config.site_label} - rapport HTML par blocs avec figures reelles"
+    title = config.title or f"{config.site_label} - catchment report"
     web_dir = output_dir / "web"
     figures_dir = web_dir / "figures"
     if figures_dir.exists():
@@ -123,6 +125,7 @@ def build_catchment_report(config: CatchmentReportConfig) -> Path:
         config=resolved_config,
         generated_network_root=config.generated_network_root,
         geographic_scratch=config.geographic_scratch,
+        config_dir=config.transient_config.parent,
     )
     manifest = write_manifest(
         output_dir,
@@ -144,7 +147,7 @@ def build_catchment_report(config: CatchmentReportConfig) -> Path:
         transient_config=config.transient_config,
         overview_config=config.overview_config,
     )
-    geology_rows = geology_legend_rows(config.geographic_scratch)
+    geology_rows = geology_legend_rows(config.geographic_scratch, config.geology_path)
     level_links = {level: output_dir / "web_review" / level / "index.html" for level in PAGE_MODES}
     blocks_by_level = {
         level: build_blocks(
@@ -212,12 +215,12 @@ def _block_specs(config: CatchmentReportConfig) -> tuple[ReportBlockSpec, ...]:
 
 def _subtitle(level: str, *, site_label: str) -> str:
     labels = {
-        "compact": "vue compacte",
-        "standard": "vue standard",
-        "audit": "vue audit",
-        "by_block": "vue avec niveau choisi bloc par bloc",
+        "compact": "compact view",
+        "standard": "standard view",
+        "audit": "audit view",
+        "by_block": "view with the level chosen block by block",
     }
     return (
-        f"Aggregation des figures {site_label} existantes: contexte bassin, hydrographie, "
-        f"forcages, run transitoire de reference et artefacts associes - {labels.get(level, level)}."
+        f"Existing {site_label} figures gathered: catchment context, hydrography, "
+        f"forcings, reference transient run and related artifacts, {labels.get(level, level)}."
     )

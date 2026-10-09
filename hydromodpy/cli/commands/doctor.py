@@ -41,7 +41,12 @@ _PRT_MIN_MF6_VERSION = (6, 5, 0)
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        epilog="Examples:\n  hmp doctor\n  hmp doctor --json\n  hmp doctor --toml run.toml",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--workspace", default=None, help="Probe this workspace (default: ~/hydromodpy/)"
     )

@@ -41,6 +41,9 @@ EXIT_CALIBRATION = 21
 # 10..21 is now fully assigned too: this one goes one past the band CLAUDE.md
 # still documents as 10..21, same way 20/21 once did.
 EXIT_CATALOG_UNREADABLE = 22
+# A testbed or a regional lab that ran and wrote its evidence, with at least
+# one case failed. Apart from a crash (1), so a CI job can tell the two.
+EXIT_CASES_FAILED = 23
 EXIT_SIGINT = 130
 
 
@@ -50,6 +53,7 @@ def exit_code_for(exc: BaseException) -> int:
     Returns :data:`EXIT_GENERIC` when no specific mapping is registered.
     :class:`KeyboardInterrupt` is routed to :data:`EXIT_SIGINT` (POSIX 130).
     """
+    from hydromodpy.analysis.testbed.contracts import FailedCasesError
     from hydromodpy.core.exceptions import (
         BackupFailedError,
         CalibrationError,
@@ -63,6 +67,7 @@ def exit_code_for(exc: BaseException) -> int:
         MigrationFailedError,
         ReadOnlyError,
         SolverError,
+        StepError,
         TerrainError,
         WriteConflictError,
     )
@@ -74,6 +79,13 @@ def exit_code_for(exc: BaseException) -> int:
 
     if isinstance(exc, KeyboardInterrupt):
         return EXIT_SIGINT
+    if isinstance(exc, StepError):
+        # The pipeline wraps whatever a step raised. The category of the run
+        # is the one of that cause: a data step that could not load its gauge
+        # exits as a data failure, not as a generic error.
+        return exit_code_for(exc.cause)
+    if isinstance(exc, FailedCasesError):
+        return EXIT_CASES_FAILED
     if isinstance(exc, AmbiguousReferenceError):
         return EXIT_AMBIGUOUS_REFERENCE
     if isinstance(exc, SimulationNotFoundError):

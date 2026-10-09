@@ -12,8 +12,14 @@ HELP: str = "List artefacts indexed in the workspace cache"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[verbosity_parser()])
-    parser.add_argument("--workspace", default=None)
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[verbosity_parser()],
+        epilog="Examples:\n  hmp data ls\n  hmp data ls --variable dem --provider ign_geoplateforme_dem",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--workspace", default=None, help="Workspace holding the data cache")
     parser.add_argument("--variable", default=None, help="Filter by variable")
     parser.add_argument("--provider", default=None, help="Filter by provider")
     parser.set_defaults(_handler=run)
