@@ -23,6 +23,10 @@ from hydromodpy.solver.boussinesq.runtime_selection import (
 
 _SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
 
+AUTO_RUNTIME_BACKEND = "auto"
+# The dense engines build an n x n Jacobian: memory and time grow as n^2 and n^3.
+DENSE_ENGINE_MAX_CELLS = 400
+
 
 @dataclass(frozen=True)
 class BoussinesqSolverContract:
@@ -36,8 +40,24 @@ class BoussinesqSolverContract:
 
 
 def runtime_backend_name(flow: object) -> str:
-    """Return the selected nonlinear runtime backend name."""
-    return str(getattr(flow, "runtime_backend", "local") or "local").strip().lower() or "local"
+    """Return the requested runtime backend token, ``"auto"`` when unset."""
+    raw = getattr(flow, "runtime_backend", None)
+    return str(raw or AUTO_RUNTIME_BACKEND).strip().lower() or AUTO_RUNTIME_BACKEND
+
+
+def resolve_runtime_backend_name(requested: str, *, n_cells: int | None) -> str:
+    """Return the engine that runs one requested backend on a mesh of ``n_cells``.
+
+    ``"auto"`` runs the dense ``local`` engine up to ``DENSE_ENGINE_MAX_CELLS``
+    cells and the sparse ``scipy_sparse`` engine above. An explicit name is
+    returned as is. Without a mesh size, ``"auto"`` resolves to ``local``.
+    """
+    name = str(requested or AUTO_RUNTIME_BACKEND).strip().lower() or AUTO_RUNTIME_BACKEND
+    if name != AUTO_RUNTIME_BACKEND:
+        return name
+    if n_cells is not None and int(n_cells) > DENSE_ENGINE_MAX_CELLS:
+        return "scipy_sparse"
+    return "local"
 
 
 def resolve_flow_regime(flow: object) -> str:
@@ -48,10 +68,13 @@ def resolve_flow_regime(flow: object) -> str:
     return normalize_flow_regime(flow_regime)
 
 
-def resolve_surface_interaction_model(flow: object) -> str:
+def resolve_surface_interaction_model(flow: object, *, n_cells: int | None = None) -> str:
     """Return the selected groundwater/surface interaction closure."""
     return resolve_surface_interaction_model_token(
-        runtime_backend_name=runtime_backend_name(flow),
+        runtime_backend_name=resolve_runtime_backend_name(
+            runtime_backend_name(flow),
+            n_cells=n_cells,
+        ),
         surface_interaction_model=getattr(
             flow,
             "surface_interaction_model",
@@ -60,18 +83,29 @@ def resolve_surface_interaction_model(flow: object) -> str:
     )
 
 
-def resolve_solver_contract(flow: object) -> BoussinesqSolverContract:
-    """Return the explicit solver contract derived from the current `Flow`."""
+def resolve_solver_contract(
+    flow: object,
+    *,
+    n_cells: int | None = None,
+) -> BoussinesqSolverContract:
+    """Return the explicit solver contract derived from the current `Flow`.
+
+    ``n_cells`` is the size of the solver mesh. It resolves ``"auto"``.
+    """
     runtime_backend_requested = runtime_backend_name(flow)
+    runtime_backend_resolved = resolve_runtime_backend_name(
+        runtime_backend_requested,
+        n_cells=n_cells,
+    )
     surface_requested = (
         str(getattr(flow, "surface_interaction_model", "auto") or "auto").strip().lower() or "auto"
     )
     surface_resolved = resolve_surface_interaction_model_token(
-        runtime_backend_name=runtime_backend_requested,
+        runtime_backend_name=runtime_backend_resolved,
         surface_interaction_model=surface_requested,
     )
     runtime_backend = resolve_runtime_backend(
-        runtime_backend_requested,
+        runtime_backend_resolved,
         surface_interaction_model=surface_resolved,
     )
     return BoussinesqSolverContract(
@@ -87,11 +121,15 @@ def build_runtime_options(
     flow: object,
     *,
     regularization_radius: float,
+    n_cells: int | None = None,
 ) -> NonlinearRuntimeOptions:
     """Build backend-neutral nonlinear options for the selected runtime."""
-    runtime_backend_requested = resolve_solver_contract(flow).runtime_backend_requested
+    runtime_backend_resolved = resolve_runtime_backend_name(
+        runtime_backend_name(flow),
+        n_cells=n_cells,
+    )
     max_iterations = 20
-    if runtime_backend_requested == "scipy_sparse":
+    if runtime_backend_resolved == "scipy_sparse":
         # The sparse Newton backend converges reliably on the larger 2-D
         # validation meshes, but it can need a few extra nonlinear
         # iterations beyond the dense prototype defaults.
@@ -174,10 +212,13 @@ def assert_supported_runtime_subset(flow: object) -> None:
 
 
 __all__ = [
+    "AUTO_RUNTIME_BACKEND",
+    "DENSE_ENGINE_MAX_CELLS",
     "BoussinesqSolverContract",
     "assert_supported_runtime_subset",
     "build_runtime_options",
     "resolve_flow_regime",
+    "resolve_runtime_backend_name",
     "resolve_solver_contract",
     "resolve_surface_interaction_model",
     "runtime_backend_name",

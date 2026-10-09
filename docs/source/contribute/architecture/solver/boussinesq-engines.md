@@ -154,8 +154,10 @@ The `local` engine is a damped Newton loop (`_newton_loop_template` in
 1. stop when the largest residual entry is below the tolerance.
 
 The method is transparent and fit for small validation meshes. A dense engine assembles
-a dense Jacobian, so it refuses a mesh of more than 400 cells
-(`_assert_runtime_mesh_size_supported` in `boussinesq.py`).
+a dense Jacobian, so an explicit `local` or `scipy` refuses a mesh of more than 400
+cells (`_assert_runtime_mesh_size_supported` in `boussinesq.py`). The default `auto`
+runs `local` up to 400 cells and `scipy_sparse` above, and logs the engine once
+(`resolve_runtime_backend_name` in `solver_contract.py`).
 
 ### The SciPy engine
 
@@ -246,11 +248,11 @@ PETSc only, and both keep the head as the only unknown.
   The first expression is used on a cell at its upper bound and the second on a cell
   at its lower bound. The upper bound is relaxed when a positive drain conductance
   is declared, so that the drain carries the exchange at the surface
-  (`runtimes/vi_bounds.py`). The stress period can be cut into substeps, with
-  {toml}`flow.vi_substeps_per_period`, and a failed period can be retried with more
+  (`runtimes/vi_bounds.py`). Each time step can be cut into substeps, with
+  {toml}`flow.vi_substeps_per_period`, and a failed time step can be retried with more
   substeps.
 - `ts_vi_obstacle` hands the time stepping to PETSc TS with a backward Euler
-  scheme, inside each stress period, and keeps the same bounds. The storage term is
+  scheme, inside each time step, and keeps the same bounds. The storage term is
   $a_i S_{y,i}\,\dot h_i$, because the head is bounded. The number of steps and
   the adaptivity are set by the `ts_vi_*` keys listed below.
 

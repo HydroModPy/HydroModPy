@@ -469,6 +469,16 @@ Each release section includes the following standard categories:
   refused.
 
 ### Fixed
+- The Boussinesq solver honours `simulation.time.substeps_per_period` with every engine:
+  each stress period is solved in that many backward Euler steps of equal length. The
+  `local`, `scipy`, `scipy_sparse` and PETSc partition engines took one step per period
+  whatever the file asked; the PETSc VI keys `vi_substeps_per_period` and
+  `ts_vi_steps_per_period` now refine each time step.
+- `flow.runtime_backend` defaults to `"auto"`: the Boussinesq solver runs the dense `local`
+  engine up to 400 cells and `scipy_sparse` above, and logs the engine once.
+  `solvers = ["boussinesq"]` no longer fails on a catchment mesh; an explicit `local` or
+  `scipy` on a larger mesh stops with `IncompatibleCapabilitiesError` (HMPY.E407) and names
+  the key to change.
 - The water budget of a MODFLOW-NWT run is read. FloPy names the NWT listing `.list`, which
   the reader skipped: an NWT run had no `water_budget_percent_discrepancy`, and a calibration
   threshold on the budget never applied to it.

@@ -313,23 +313,27 @@ in both. Two points differ.
 **Comparing the two.** To compare the solvers, set the head test to the same value on both
 sides ({toml}`modflownwt.runtime.nwt.headtol` against the two `dvclose` keys): the residual
 tests do not measure the same thing. {doc}`validation` lists the cases that run both solvers
-against the same closed-form solution. Two Brutsaert recession cases relax their
-thresholds. The deep case, `brutsaert_recession_linearized_deep_1d`, relaxes MODFLOW-NWT
-alone, to a smoke test. The thin case, `brutsaert_recession_boussinesq_thin_1d`, relaxes
-every solver, to let through a gap to the reference that is not explained. {doc}`validation`
-gives the thresholds and the reason for each. A threshold is a bound a test accepts, not a
-measured error, so it ranks nothing. The repository has no run that compares the two
-solvers on a real catchment.
+against the same closed-form solution, and runs both on the catchment of example 04, where
+their heads differ by less than a millimetre. They part where the cell thickness changes
+from one cell to the next. Under Newton, MODFLOW 6 takes the conductance of the full cell
+thickness times the saturation of the upstream cell; MODFLOW-NWT takes the saturated
+thickness of the upstream cell. On the circular-island cases, whose top follows the ground
+over a flat bottom, that puts MODFLOW 6 several times further from the closed form.
+{doc}`validation` gives the thresholds and the reason for each. A threshold is a bound a
+test accepts, not a measured error, so it ranks nothing.
 
 ## The Boussinesq solver
 
 The in-house solver writes one residual per triangle of a Gmsh mesh. It solves each stress
-period in one backward Euler step and does not read
-{toml}`simulation.time.substeps_per_period`. {toml}`flow.runtime_backend` picks the
-nonlinear solver and {toml}`flow.surface_interaction_model` the closure for the water that
-reaches the surface; a runtime that assembles a dense Jacobian stops on a mesh of more than
-400 cells. It builds recharge, wells, the side, stream and ocean imposed heads, and top
-drainage, and refuses the rest. Its equations and closures are on {doc}`boussinesq`.
+period in {toml}`simulation.time.substeps_per_period` backward Euler steps.
+{toml}`flow.runtime_backend` picks the nonlinear solver, `auto` by default: the dense `local`
+engine up to 400 cells and the sparse `scipy_sparse` above; a dense engine asked by name
+stops on a larger mesh. {toml}`flow.surface_interaction_model` picks the closure for the
+water that reaches the surface. It builds recharge, wells, the side, stream and ocean
+imposed heads, and top drainage, and refuses the rest. Its flux between two cells uses the
+two cell centres only: on triangles far from equilateral it is not consistent, and the
+patch test of {doc}`validation` shows the error that refinement does not remove. Its
+equations and closures are on {doc}`boussinesq`.
 
 (solvers-transport-coupling)=
 ## Transport coupling
@@ -397,7 +401,7 @@ The capability matrix is generated on {doc}`../reference/solvers`. The refusals,
 messages, are these.
 
 - **Grid.** MODFLOW-NWT works on the structured grid only. The Boussinesq solver works on
-  Gmsh triangles only, and a dense runtime on a mesh of more than 400 cells.
+  Gmsh triangles only, and a dense runtime asked by name on a mesh of more than 400 cells.
 - **Boundaries.** Lakes, reservoirs, SFR and barriers need MODFLOW 6. The `stream` boundary
   needs MODFLOW 6 or Boussinesq. When {toml}`solver.backend` names `modflow_nwt`, the file
   is refused when it is read if it asks for {toml}`flow.active_bc` with `sfr`, `lake`,

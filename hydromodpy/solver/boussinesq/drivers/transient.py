@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -15,7 +16,10 @@ from hydromodpy.solver.boussinesq.drivers.state import (
     TransientRuntimeHistory,
     build_transient_activity_flags,
 )
-from hydromodpy.solver.boussinesq.runtime_contract import TransientStepInputs
+from hydromodpy.solver.boussinesq.runtime_contract import (
+    RuntimeSolveResult,
+    TransientStepInputs,
+)
 from hydromodpy.solver.boussinesq.runtime_summary import record_runtime_backend_summary
 
 if TYPE_CHECKING:
@@ -70,6 +74,99 @@ def _resolve_period_lengths_seconds(time_grid: object) -> tuple[float, ...]:
     return ()
 
 
+def _resolve_time_steps_per_period(time_grid: object) -> int:
+    """Return the backward-Euler steps per stress period of the time grid.
+
+    The grid carries ``[simulation.time].substeps_per_period`` as
+    ``nstp_per_period``. A grid without it takes one step per period.
+    """
+    raw = getattr(time_grid, "nstp_per_period", None)
+    if raw is None:
+        return 1
+    if isinstance(raw, bool) or int(raw) != raw or int(raw) < 1:
+        raise ValueError(
+            f"Boussinesq time grid nstp_per_period must be a positive integer, got {raw!r}."
+        )
+    return int(raw)
+
+
+@dataclass
+class _PeriodAdvance:
+    """Outcome of the time steps of one stress period."""
+
+    last_step: RuntimeSolveResult
+    iterations: int
+    converged: bool
+    substep_details: list[dict[str, object]] = field(default_factory=list)
+    ts_step_details: list[dict[str, object]] = field(default_factory=list)
+
+
+def _tagged_details(raw: object, *, time_step_index: int | None) -> list[dict[str, object]]:
+    """Copy one list of per-substep records, tagged with the time step index."""
+    if not isinstance(raw, list):
+        return []
+    records: list[dict[str, object]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        record = dict(item)
+        if time_step_index is not None:
+            record["time_step_index"] = int(time_step_index)
+        records.append(record)
+    return records
+
+
+def _advance_period(
+    runtime_backend: Any,
+    *,
+    head_start_m: np.ndarray,
+    period_seconds: float,
+    n_steps: int,
+    step_kwargs: dict[str, Any],
+) -> _PeriodAdvance:
+    """Advance one stress period in ``n_steps`` backward-Euler steps of equal length.
+
+    The forcing of the period holds on every step, as in MODFLOW with
+    ``tsmult = 1``. The advance stops at the first step that does not converge.
+    """
+    dt_seconds = float(period_seconds) / float(n_steps)
+    head_m = np.asarray(head_start_m, dtype=float)
+    iterations = 0
+    substep_details: list[dict[str, object]] = []
+    ts_step_details: list[dict[str, object]] = []
+    step: RuntimeSolveResult | None = None
+    for step_index in range(int(n_steps)):
+        step = runtime_backend.solve_transient_step(
+            TransientStepInputs(
+                head_prev_m=head_m,
+                dt_seconds=dt_seconds,
+                head_initial_guess_m=head_m,
+                **step_kwargs,
+            )
+        )
+        iterations += int(step.iterations)
+        tag = step_index if n_steps > 1 else None
+        if step.diagnostics:
+            substep_details.extend(
+                _tagged_details(step.diagnostics.get("vi_substep_details"), time_step_index=tag)
+            )
+            ts_step_details.extend(
+                _tagged_details(step.diagnostics.get("ts_vi_step_details"), time_step_index=tag)
+            )
+        head_m = np.asarray(step.head_m, dtype=float)
+        if not step.converged:
+            break
+    if step is None:
+        raise RuntimeError("Boussinesq period advance ran no time step.")
+    return _PeriodAdvance(
+        last_step=step,
+        iterations=iterations,
+        converged=bool(step.converged),
+        substep_details=substep_details,
+        ts_step_details=ts_step_details,
+    )
+
+
 def run_transient_runtime(solver: Boussinesq) -> bool:
     """Advance the head state over all launcher stress periods."""
     if solver.mesh is None:
@@ -84,6 +181,8 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
     period_lengths = _resolve_period_lengths_seconds(solver.time_grid)
     if not period_lengths:
         return True
+    n_steps = _resolve_time_steps_per_period(solver.time_grid)
+    solver.runtime_summary["time_steps_per_period"] = int(n_steps)
 
     nper = len(period_lengths)
     runtime_forcing = resolve_runtime_forcing_by_period(solver, nper=nper)
@@ -122,21 +221,23 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
             drainage_value_m2_s=float(drainage_conductance_series_m2_s[kper]),
             ocean_supported_cell_mask=ocean_supported_cell_mask,
         )
-        step = runtime_backend.solve_transient_step(
-            TransientStepInputs(
-                mesh=solver.mesh,
-                head_prev_m=head_prev,
-                dt_seconds=float(dt_seconds),
-                head_initial_guess_m=head_prev,
-                recharge_rate_m_s=recharge_series_m_s[kper],
-                well_flux_m3_s=well_flux_by_period_m3_s[kper],
-                prescribed_head_m_by_cell=prescribed_heads_by_period[kper],
-                drainage_conductance_m2_s=drainage_conductance,
-                options=solver._runtime_options(),
-            )
+        advance = _advance_period(
+            runtime_backend,
+            head_start_m=head_prev,
+            period_seconds=float(dt_seconds),
+            n_steps=n_steps,
+            step_kwargs={
+                "mesh": solver.mesh,
+                "recharge_rate_m_s": recharge_series_m_s[kper],
+                "well_flux_m3_s": well_flux_by_period_m3_s[kper],
+                "prescribed_head_m_by_cell": prescribed_heads_by_period[kper],
+                "drainage_conductance_m2_s": drainage_conductance,
+                "options": solver._runtime_options(),
+            },
         )
-        nonlinear_iterations.append(int(step.iterations))
-        converged_by_period.append(bool(step.converged))
+        step = advance.last_step
+        nonlinear_iterations.append(int(advance.iterations))
+        converged_by_period.append(bool(advance.converged))
         head_prev = np.asarray(step.head_m, dtype=float)
         last_residual_norm = float(step.residual_norm_inf)
         solver.runtime_summary["last_termination_reason"] = str(step.termination_reason)
@@ -144,22 +245,14 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
             period_diagnostics = dict(step.diagnostics)
             period_diagnostics["period_index"] = int(kper)
             runtime_period_diagnostics.append(period_diagnostics)
-            raw_substeps = step.diagnostics.get("vi_substep_details")
-            if isinstance(raw_substeps, list):
-                for item in raw_substeps:
-                    if isinstance(item, dict):
-                        substep_diagnostics = dict(item)
-                        substep_diagnostics["period_index"] = int(kper)
-                        runtime_substep_diagnostics.append(substep_diagnostics)
-            raw_ts_steps = step.diagnostics.get("ts_vi_step_details")
-            if isinstance(raw_ts_steps, list):
-                for item in raw_ts_steps:
-                    if isinstance(item, dict):
-                        ts_step_diagnostics = dict(item)
-                        ts_step_diagnostics["period_index"] = int(kper)
-                        runtime_ts_step_diagnostics.append(ts_step_diagnostics)
             for key, value in step.diagnostics.items():
                 solver.runtime_summary[f"last_{key}"] = value
+        for item in advance.substep_details:
+            item["period_index"] = int(kper)
+            runtime_substep_diagnostics.append(item)
+        for item in advance.ts_step_details:
+            item["period_index"] = int(kper)
+            runtime_ts_step_diagnostics.append(item)
         history.append_step(
             mesh=solver.mesh,
             head_m=head_prev,
@@ -173,7 +266,7 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
                 dtype=float,
             ),
         )
-        if not step.converged:
+        if not advance.converged:
             solver.state = history.build_runtime_state(
                 period_lengths_seconds=period_lengths,
                 nonlinear_iterations=tuple(nonlinear_iterations),

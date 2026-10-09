@@ -8,7 +8,7 @@ for backward-compatible TOML payloads. Extracting them keeps
 
 from __future__ import annotations
 
-_RUNTIME_BACKENDS = ("local", "scipy", "scipy_sparse", "petsc")
+_RUNTIME_BACKENDS = ("auto", "local", "scipy", "scipy_sparse", "petsc")
 _SURFACE_MODELS = (
     "auto",
     "regularized_partition",
@@ -22,10 +22,10 @@ _BOOL_FALSE = {"false", "0", "no", "off"}
 
 def normalize_runtime_backend(value: object) -> str:
     """Normalize the optional Boussinesq runtime backend selector."""
-    text = str(value or "local").strip().lower()
+    text = str(value or "auto").strip().lower()
     if text not in _RUNTIME_BACKENDS:
         raise ValueError(
-            "flow.runtime_backend must be 'local', 'scipy', 'scipy_sparse', or 'petsc'"
+            "flow.runtime_backend must be 'auto', 'local', 'scipy', 'scipy_sparse', or 'petsc'"
         )
     return text
 
