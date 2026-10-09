@@ -16,8 +16,8 @@ Stages (``--stage``), each one idempotent:
     not run again.
     Steps 3 and 6 and the calibration need the network on their first run.
 ``figures``
-    Redraw the figures from the stored runs (hero, Understand, staircase,
-    solvers, catalog) and write the manifest.
+    Redraw the figures from the stored runs (Understand, staircase, solvers,
+    catalog) and write the manifest.
 
 The ``solvers`` group compares the two solvers on the same file: the reference
 run (MODFLOW 6) and its copy solved by MODFLOW-NWT. The script writes that copy
@@ -133,8 +133,6 @@ STEP_KEY_FIGURE = {
     5: "watertable_depth_map",
     6: "flux_timeseries",
 }
-
-HERO_FIGURE = "flow_intermittence_map"
 
 # The solvers group: each run on its own, then the NWT run against the MF6 one.
 SOLVER_PAGE = "theory/validation.md"
@@ -521,19 +519,6 @@ def stage_figures(workspace: Path, only: set[str]) -> list[Entry]:
 
     calibrated = next((n for n in CALIBRATED_RUNS if drawer.run(n) is not None), None)
 
-    if wanted("hero"):
-        print("hero", flush=True)
-        source = calibrated or REFERENCE.run
-        for dark in (False, True):
-            emit(
-                "hero",
-                HERO_FIGURE,
-                source,
-                "hero/flow-intermittence-map",
-                dark=dark,
-                pages=["index.md"],
-            )
-
     if wanted("understand") and calibrated:
         print("understand", flush=True)
         for figure in UNDERSTAND_FIGURES:
@@ -720,7 +705,7 @@ def write_manifest(entries: list[Entry]) -> None:
         f"thumbnail_width = {THUMB_WIDTH}",
         "",
     ]
-    order = {"hero": 0, "understand": 1, "staircase": 2, "solvers": 3, "catalog": 4}
+    order = {"understand": 0, "staircase": 1, "solvers": 2, "catalog": 3}
     for row in sorted(rows.values(), key=lambda r: (order[r["kind"]], r.get("step", 0), r["path"])):
         lines.append("[[figure]]")
         lines += [f"{key} = {_toml_value(value)}" for key, value in row.items()]
@@ -745,7 +730,7 @@ def main(argv: list[str] | None = None) -> int:
         default="",
         help=(
             "comma list: runs (step1..step6, reference, nwt, calibrated, demo); "
-            "figures (hero, understand, staircase, solvers, catalog)"
+            "figures (understand, staircase, solvers, catalog)"
         ),
     )
     args = parser.parse_args(argv)

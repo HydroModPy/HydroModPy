@@ -472,14 +472,6 @@ smart_quotes = False
 
 # -- Options for HTML output -------------------------------------------------
 
-# A pre-release says so on every page.
-_ANNOUNCEMENT = (
-    f"Pre-release {release}: install it with <code>pip install --pre hydromodpy</code>. "
-    "Projects written for version 1 stay on v1.0.0."
-    if any(tag in release for tag in ("a", "b", "rc"))
-    else ""
-)
-
 html_theme = "pydata_sphinx_theme"
 html_title = f"HydroModPy {release}"
 html_favicon = "_static/logoHydroModPy.png"
@@ -501,7 +493,6 @@ html_theme_options = {
     },
     "check_switcher": False,
     "show_version_warning_banner": True,
-    "announcement": _ANNOUNCEMENT,
     "show_nav_level": 1,
     "navigation_depth": 3,
     "show_toc_level": 2,

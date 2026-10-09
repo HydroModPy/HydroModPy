@@ -12,36 +12,6 @@ budget_bytes = 153600
 thumbnail_width = 320
 
 [[figure]]
-name = "flow_intermittence_map"
-path = "docs/source/_static/figures/hero/flow-intermittence-map-dark.webp"
-kind = "hero"
-theme = "dark"
-run = "nancon_intermittence_mf6_calibrated_transient_storage"
-config = "run_calibration.toml"
-command = "hmp run run_calibration.toml --set display.preset=dark"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_intermittence_map --opt show_run_name=false"
-pages = ["index.md"]
-options = { cycle = "2002" }
-width = 1020
-height = 974
-bytes = 21688
-
-[[figure]]
-name = "flow_intermittence_map"
-path = "docs/source/_static/figures/hero/flow-intermittence-map.webp"
-kind = "hero"
-theme = "light"
-run = "nancon_intermittence_mf6_calibrated_transient_storage"
-config = "run_calibration.toml"
-command = "hmp run run_calibration.toml"
-redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage flow_intermittence_map --opt show_run_name=false"
-pages = ["index.md"]
-options = { cycle = "2002" }
-width = 1020
-height = 974
-bytes = 22398
-
-[[figure]]
 name = "downslope_distance_map"
 path = "docs/source/_static/figures/understand/ex04_downslope_distance_map-dark.webp"
 kind = "understand"
