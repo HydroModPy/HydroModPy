@@ -15,7 +15,7 @@ Gives
 ```
 
 You want the water that the aquifer gives back to travel down a river, not to leave the
-model at the cell where it surfaces. This guide turns the river network that HydroModPy
+model at the cell where it surfaces. This guide turns the stream network that HydroModPy
 draws on the DEM into a MODFLOW 6 SFR (streamflow routing) network. Each reach exchanges
 water with the aquifer through its streambed, passes its flow to the reach below, and the
 network ends at the model outlet or in a lake.
@@ -30,7 +30,7 @@ that reached the network and left it.
   lists `"sfr"` in {toml}`flow.active_bc` with another solver in its flow process is
   refused when it is read, with a message that contains `does not support the 'sfr'
   boundary`.
-- **A river network from the DEM.** The reaches are the stream links of the network that
+- **A stream network from the DEM.** The reaches are the stream links of the network that
   HydroModPy extracts from the DEM, cut by the model mesh. An observed network never
   becomes a reach.
 - **Drains at the ground surface.** Example 04 has `"drainage"` in
@@ -47,9 +47,9 @@ it. That file takes {toml}`flow.active_bc` from `step1_minimal.toml`:
 :config: step4_transient.toml
 ```
 
-## 1. Switch the river network on
+## 1. Switch the stream network on
 
-SFR traces its reaches on the generated river network, and the threshold of that network
+SFR traces its reaches on the generated stream network, and the threshold of that network
 is the only threshold. The SFR block has none of its own. A small threshold gives many
 short reaches and a large one gives a few long ones.
 
@@ -203,10 +203,10 @@ route_drainage = true
 Four rules apply.
 
 - The path downhill follows the descent D, a filled copy of the model top. D never
-  changes the model top. Each run builds it and stores it. Where the river network
+  changes the model top. Each run builds it and stores it. Where the stream network
   crosses a cell, D follows the network.
 - A drain cell whose path leaves the model first keeps a plain drain, and so does a
-  drain cell outside the drainage basin of D (the buffer around the catchment).
+  drain cell outside the catchment of D (the buffer around the catchment).
 - The drain cells that hold a reach are removed, so the baseflow goes into the stream.
 - It needs `"drainage"` in {toml}`flow.active_bc`. Without drains there is nothing to
   route, and neither the check nor the build says so.
@@ -215,7 +215,7 @@ It also needs a single drain stress period. A drain whose conductance changes fr
 period to the next stops the build with `route_drainage requires a static DRN`.
 
 **The runoff.** A runoff series loaded as data, {toml}`data.types` with `"runoff"`, is taken
-by the network automatically. The watershed mean rate times the catchment area becomes the
+by the network automatically. The catchment mean rate times the catchment area becomes the
 `runoff` of the network, shared over the reaches by length. `step4_transient.toml` loads
 one, so this block needs no change. With an active SFR network, a lake no longer receives
 the runoff directly: it gets it through the reaches, so the same water is not counted
@@ -332,7 +332,7 @@ one reach, with its cell, length, width, slope and bed top. The connections are 
 1-based numbers of the reaches above and below. The two lists must agree: a reach that
 feeds another must be listed in the upstream list of that one. The first reach cannot
 be the downstream of another, so number the most upstream reach first. A network with
-this table needs no river network. {toml}`diversions|flow.sinks_sources.sfr.<name>.diversions`
+this table needs no stream network. {toml}`diversions|flow.sinks_sources.sfr.<name>.diversions`
 split a flow between two reaches, and work on an explicit table only.
 
 ```{hmp-params}
@@ -376,8 +376,9 @@ file = "sfr_reaches.csv"
 - `sfr_reach_timeseries`: one quantity on one reach. By default the most downstream reach
   and `downstream_flow`. The options are `variable`, `reach` and `log_y`. Reach 3 above is
   an example: pick a reach of your network.
-- `sfr_longitudinal_profile`: one quantity along the reach numbers, at one date. The
-  options are `variable` and `time`.
+- `sfr_longitudinal_profile`: one quantity against the distance to the outlet, at one date.
+  The options are `variable` and `time`. A run made before the reaches stored their links
+  is skipped: run it again.
 
 ## Put it together
 
@@ -462,15 +463,16 @@ and Sy are assumed, not calibrated, so the low flows are not fitted:
 `hydrograph_sim_obs` of the file above.
 ```
 
-`sfr_longitudinal_profile` puts the reaches in their build order. On a branched network
-that order interleaves the tributaries, so the profile zigzags between branches; the
-envelope still grows to the outlet. Read one reach over time with `sfr_reach_timeseries`.
+`sfr_longitudinal_profile` plots each reach against its distance to the outlet, and draws
+each branch as its own line up to the reach it joins. Where a reach splits, the path follows
+the reach that takes the larger share of the flow. Read one reach over time with
+`sfr_reach_timeseries`.
 
 ## Check that it worked
 
 1. `hmp config check` loads the file and refuses the combinations the schema knows, such
    as `"sfr"` missing from {toml}`flow.active_bc`. It does not look at the DEM: a
-   network declared with the river network off passes.
+   network declared with the stream network off passes.
 2. `hmp run <file> --until load_data` runs the geographic step and the data step. The
    reaches are delineated and bound at the end of the data step, so a missing river
    network stops here, before the mesh.
@@ -478,7 +480,7 @@ envelope still grows to the outlet. Read one reach over time with `sfr_reach_tim
    `Drainage routing on the descent:` gives, for the drain cells of the basin, how many
    were routed, how many to a reach, how many to a lake, how many kept a plain drain, and
    how many reaches received no drainage. If almost no cell is routed, look at the mesh
-   and at the river network before you look at the solver.
+   and at the stream network before you look at the solver.
 4. Open `sfr_reach_network`, then `sfr_longitudinal_profile` of `downstream_flow`. The
    flow should grow toward the outlet. `hmp viz list` names every figure and
    `hmp viz show @last sfr_reach_network` draws one for the last run.
@@ -503,7 +505,7 @@ figures takes. The connection lists of an explicit table (section 7) count from 
 
 `gw_exchange` exists only for the reaches connected to a cell. The geometry of every
 reach as built (cell, layer, length, width, slope, bed top, bed thickness, conductivity,
-roughness, order) is kept in the table `sfr_reaches` of the run, in `tables.parquet/`.
+roughness, order, the reaches it drains into) is kept in the table `sfr_reaches` of the run, in `tables.parquet/`.
 The MODFLOW 6 files are scratch, so this table is the only record of which cell holds
 which reach.
 
@@ -517,7 +519,7 @@ series as a CSV with the columns `datetime`, `station_id`, `variable`, `value` a
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `flow.sinks_sources.sfr needs the river-network products; set [geographic.river_network] enabled = true.` | The network is declared, the river network is off. | Section 1. |
+| `flow.sinks_sources.sfr needs the river-network products; set [geographic.river_network] enabled = true.` | The network is declared, the stream network is off. | Section 1. |
 | `flow.sinks_sources.sfr needs the stream-link raster; set [geographic.river_network] compute_stream_links = true.` | The link raster is switched off. | Remove the key, or set it to `true`. |
 | `No stream cells (link_id > 0); cannot delineate an SFR network.` | No stream link falls inside the catchment. Most often the threshold is larger than the contributing areas. | Lower {toml}`threshold_area_km2\|geographic.river_network.threshold_area_km2`. |
 | `one SFR network per model is supported` | Two networks under {toml}`flow.sinks_sources.sfr`. | Keep one. |

@@ -56,7 +56,7 @@ for run in runs:
             "mean area (km²)": area.mean(),
             "min area (km²)": area.min(),
             "NSE": scores["nse"],
-            "log NSE": scores["log_nse"],
+            "log NSE": scores["nse_log"],
         }
     )
 table = pd.DataFrame(rows).set_index("K")

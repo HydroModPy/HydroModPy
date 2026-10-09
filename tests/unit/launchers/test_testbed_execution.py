@@ -278,7 +278,7 @@ def test_testbed_launcher_runs_catalog_backed_comparison_cases(
     generated_text = generated.read_text(encoding="utf-8")
     assert "# Stable identifier for this comparison run." in generated_text
     assert "# Shared TOML overlay applied to the base simulation config" in generated_text
-    assert "# X coordinate of the watershed outlet" in generated_text
+    assert "# Easting of the watershed outlet" in generated_text
     child_payload = load_toml_with_base_config(generated)
     assert child_payload["workflow"] == {"mode": "comparison"}
     assert child_payload["comparison"]["comparison_id"] == "site_01_mf6_bouss"

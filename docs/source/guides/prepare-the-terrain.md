@@ -250,7 +250,7 @@ Only the cells of the network move:
 | `[geographic.bed_regularization] enabled = true needs [geographic.river_network] enabled = true` | The bed has no channel to follow. | Switch the network on, as in step 3. |
 | `[geographic.crossings] enabled = true needs [geographic.river_network] enabled = true` | The same for the crossings. | Switch the network on. |
 | `[geographic.bed_regularization] fits the bed of a delineated catchment: it needs catch_def = 'from_outlet_coord' or 'from_polyg_shp', not catch_def = dem.` | The model is the whole DEM. The crossings refuse it the same way. | Delineate the catchment from an outlet or a polygon. |
-| `threshold_area_km2 must be > 0 when threshold_mode='area_km2'.` | The network is on without a threshold. | Write {toml}`geographic.river_network.threshold_area_km2`. |
+| `geographic.river_network.threshold_mode='area_km2' requires geographic.river_network.threshold_area_km2.` from `hmp config check` | The network is on without a threshold. | Write {toml}`geographic.river_network.threshold_area_km2`. |
 
 ## Where to go next
 

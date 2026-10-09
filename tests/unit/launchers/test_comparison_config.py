@@ -248,7 +248,7 @@ def test_materialize_simulation_config_applies_shared_base_overlay_and_default_w
     assert generated is not None
     generated_text = generated.read_text(encoding="utf-8")
     assert "# Human-readable simulation name and the run's identity." in generated_text
-    assert "# X coordinate of the watershed outlet" in generated_text
+    assert "# Easting of the watershed outlet" in generated_text
     raw = load_toml_with_base_config(generated)
     assert raw["simulation"]["name"] == "site_01_compare__mf6_demo"
     assert raw["geographic"]["catchment"]["x_outlet"] == 131189.1

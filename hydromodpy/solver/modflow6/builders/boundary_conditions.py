@@ -6,6 +6,7 @@ from collections.abc import Mapping
 
 import numpy as np
 
+from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.units import (
     convert_payload_to_m,
     factor_to_m2_per_s,
@@ -336,6 +337,99 @@ def build_side_boundary_chd_spd(model) -> dict[int, list[list[float]]]:
     return {kper: list(period_map.values()) for kper, period_map in spd.items()}
 
 
+def side_boundary_owner_by_cell(model) -> dict[int, str]:
+    """Return the side boundary id whose head each side CHD cell keeps.
+
+    It follows the order of ``build_side_boundary_chd_spd``: a cell two
+    sides claim keeps the head of the side written last.
+    """
+    bc = boundary_conditions_mapping(model)
+    dem_mask_flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
+    owner: dict[int, str] = {}
+    for bc_id in active_side_dirichlet_boundary_ids(model.flow):
+        if not is_bc_active(model, bc_id):
+            continue
+        boundary = bc.get(bc_id)
+        if boundary is None:
+            continue
+        for cid in boundary_support_cell_ids(model, boundary=boundary, bc_id=bc_id):
+            if not bool(dem_mask_flat[cid]):
+                owner[int(cid)] = str(bc_id)
+    return owner
+
+
+_MAX_CELLS_NAMED = 5
+
+
+def refuse_constant_heads_below_bottom(
+    model,
+    *,
+    botm: np.ndarray,
+    inactive_mask: np.ndarray,
+    ocean_spd: Mapping[int, list[list[float]]],
+    stream_spd: Mapping[int, list[list[float]]],
+    side_spd: Mapping[int, list[list[float]]],
+    structured_shape: tuple[int, int] | None = None,
+) -> None:
+    """Refuse a constant head below the bottom of its cell.
+
+    MODFLOW 6 stops on such a head with ``CHD BOUNDARY n HEAD (...) IS LESS
+    THAN CELL BOTTOM``, which names neither the boundary nor the cell in
+    model terms. The rows are merged in the order of
+    ``assemble_constant_head_stress_period_data`` (ocean, stream, sides), so
+    only the head MODFLOW 6 would receive is checked. Inactive cells are
+    skipped: MODFLOW 6 does not read a boundary there.
+
+    Raises
+    ------
+    SolverInputError
+        One line per boundary with the cells, their bottom and the head.
+    """
+    botm = np.asarray(botm, dtype=float)
+    inactive = np.asarray(inactive_mask, dtype=bool)
+    side_owner = side_boundary_owner_by_cell(model) if any(side_spd.values()) else {}
+    # (owner, layer, cell) -> (period, head, bottom) of the first period below.
+    below: dict[tuple[str, int, int], tuple[int, float, float]] = {}
+    for kper in range(int(model.nper)):
+        winners: dict[tuple[int, int], tuple[str, float]] = {}
+        for owner, rows in (("ocean", ocean_spd), ("stream", stream_spd), ("side", side_spd)):
+            for row in rows.get(kper, []):
+                lay, cid = int(row[0]), int(row[1])
+                label = side_owner.get(cid, "side") if owner == "side" else owner
+                winners[(lay, cid)] = (label, float(row[2]))
+        for (lay, cid), (label, head) in winners.items():
+            if inactive[lay, cid]:
+                continue
+            bottom = float(botm[lay, cid])
+            if head < bottom and (label, lay, cid) not in below:
+                below[(label, lay, cid)] = (kper, head, bottom)
+    if not below:
+        return
+
+    def _cell_name(lay: int, cid: int) -> str:
+        if structured_shape is not None:
+            ncol = int(structured_shape[1])
+            return f"layer {lay + 1} row {cid // ncol + 1} column {cid % ncol + 1}"
+        return f"layer {lay + 1} cell {cid + 1}"
+
+    lines: list[str] = []
+    for label in sorted({key[0] for key in below}):
+        cells = sorted((key, value) for key, value in below.items() if key[0] == label)
+        named = ", ".join(
+            f"{_cell_name(lay, cid)} (head {head:.2f} m, bottom {bottom:.2f} m, period {kper + 1})"
+            for (_, lay, cid), (kper, head, bottom) in cells[:_MAX_CELLS_NAMED]
+        )
+        more = len(cells) - _MAX_CELLS_NAMED
+        tail = f", and {more} more" if more > 0 else ""
+        lines.append(f"flow.bc.{label}: {len(cells)} cell(s): {named}{tail}.")
+    raise SolverInputError(
+        "A constant head is below the bottom of its cell, and MODFLOW 6 stops on it. "
+        + " ".join(lines)
+        + " Raise the head above the bottom of the aquifer there, give the boundary "
+        "a deeper aquifer (domain.depth_model), or remove it from flow.active_bc."
+    )
+
+
 def resolve_drainage_conductance_series(model) -> np.ndarray | None:
     if not is_bc_active(model, "drainage"):
         return None
@@ -546,6 +640,8 @@ __all__ = [
     "resolve_ocean_boundary_series",
     "resolve_side_boundary_series",
     "resolve_stream_boundary_series",
+    "refuse_constant_heads_below_bottom",
     "side_boundary_cell_ids",
+    "side_boundary_owner_by_cell",
     "stream_chd_support_mask",
 ]

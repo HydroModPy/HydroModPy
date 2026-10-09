@@ -231,13 +231,14 @@ class GeologyManager(SourceTable):
         """Load custom geology data (SHP, GPKG, TIF, CSV)."""
         from hydromodpy.data.variables.geology.custom import load_custom_geology
 
-        bbox = self._resolve_bbox(source_cfg)
+        extent = resolve_source_extent(source_cfg, project_extent=self.project_extent)
         code_field = getattr(source_cfg, "code_field", None)
 
         records = load_custom_geology(
             source_cfg,
             code_field=code_field,
-            bbox=bbox,
+            bbox=None if extent is None else extent.bbox,
+            bbox_crs=None if extent is None else extent.crs,
             derived_dir=custom_derived_dir(self.data_dir, self.VARIABLE_NAME),
         )
 

@@ -10,7 +10,7 @@ it reliable or only indicative. For a first look, {doc}`in-five-minutes` is shor
 1. **One map, one month.** Snapshot maps show a single month. In example 04, it is October 2002,
    the driest month of the series according to the comments in the configuration file: so the map
    shows the case where the network is at its smallest. A map of a wet month would show much more.
-2. **A cell is 75 m wide.** A stream fills one cell in width, and we count cells, not meters of
+2. **A cell is 75 m wide.** A stream fills one cell in width, and we count cells, not metres of
    stream. The maps are read at the hillslope scale (see {term}`resolution`).
 3. **Calibrating is not validating.** In a calibrated run, the simulated network and the discharge
    are what the {term}`calibration` tried to reproduce ({ref}`two-stage-calibration`). Their
@@ -51,7 +51,7 @@ one:
 ```
 
 **What the map shows.** The distance between the ground and the top of the {term}`water table`,
-in meters, for each cell. It is derived from the {term}`hydraulic head`: ground elevation minus
+in metres, for each cell. It is derived from the {term}`hydraulic head`: ground elevation minus
 water table elevation, set to zero when the water table reaches the ground. This is the
 {term}`depth to water table`.
 
@@ -62,8 +62,8 @@ two valleys), which the map shows clearly.
 
 **Pitfalls.**
 
-- *The scale stops at the model thickness.* The modeled aquifer is 30 m thick
-  (an assumption, see {doc}`what-it-computes`). A pale yellow color means "at the bottom of the
+- *The scale stops at the model thickness.* The modelled aquifer is 30 m thick
+  (an assumption, see {doc}`what-it-computes`). A pale yellow colour means "at the bottom of the
   model", not "at exactly 30 m". In this run, about 5.2% of the cells of the catchment (598 of
   11,488) have, in October 2002, the water table within 0.5 m of the bottom (computed from the
   stored data of the run).
@@ -129,7 +129,7 @@ which of the two networks is right, or the months other than October.
   this cell;
 - *{term}`excess`* (yellow): only the model puts a stream there;
 - *{term}`missing`* (red): only the map puts a stream there;
-- gray: no stream.
+- grey: no stream.
 
 The {term}`mapped network` is made of the permanent reaches of the {term}`BD TOPO`, placed on the
 model grid. The {term}`simulated network` is the downstream extension of the seepage cells,
@@ -191,7 +191,7 @@ only in the wettest months. **Does not show:** the discharge of a reach, or any 
 ```
 
 **What the map shows.** For each cell, the share of the 36 months during which it flows (the
-{term}`persistence`). Dark blue: almost always. Light blue: only in the wettest months. Gray:
+{term}`persistence`). Dark blue: almost always. Light blue: only in the wettest months. Grey:
 never.
 
 ```{figure} /_static/figures/understand/ex04_flow_intermittence_map.webp
@@ -225,7 +225,7 @@ the exit points.
 - *The year 2002 is the driest year of the series* according to the comment in the example. So the
   orange reaches are orange for a dry year.
 - *The two maps do not cover the same duration* (36 months against 12): a cell can be dark on one
-  and orange or gray on the other without any contradiction.
+  and orange or grey on the other without any contradiction.
 
 **Reliability.** Indicative. The only network compared with a map is the permanent network of
 October. The example uses no field observation of dry reaches: the distinction between perennial
@@ -247,13 +247,13 @@ gray window. **Does not show:** daily discharge, or a period the calibration has
 **What the curve shows.** The monthly discharge at the {term}`outlet`, simulated and measured at
 the {term}`NANCON station` (the daily measurement is averaged over each month). The simulated
 discharge is the total: what leaves the aquifer through the drains, plus the {term}`runoff` given
-as input data, since this model has no river network. The figure itself states: "total discharge
+as input data, since this model has no stream network. The figure itself states: "total discharge
 only: this run stores no groundwater / surface split". This curve is a {term}`hydrograph`.
 
 **How to read it.** The axis is logarithmic: low flows weigh as much as floods, and a gap of 0.1
 to 0.2 m³/s is as visible as a gap of 1 to 2. This is intended: the calibration of Sy uses a
 Nash-Sutcliffe efficiency computed on the logarithms, which gives weight to the recessions
-({ref}`two-stage-calibration`). The gray area is the
+({ref}`two-stage-calibration`). The grey area is the
 {term}`scoring window` (2001 and 2002); 2000, the spin-up year, is not scored.
 
 **The scores of this run.** The run metrics table covers the 36 months, spin-up included:
@@ -359,8 +359,8 @@ carry no run name, and the legends are in English. The repository keeps, for eve
 the command and the option that made it, in `tools/docs/figures/figures.toml`.
 
 Each figure exists in a light and a dark version, and the page shows the one that matches the
-theme. The dark version recolors the background and the texts. A few colors stay light, such as
-the dry cells of the intermittence map.
+theme. The dark version recolours the background, the texts and the light greys, such as the
+dry cells of the intermittence map and the ground of the seepage map.
 
 To draw a figure of an existing run again, at another date, see the
 {doc}`catalog of figures <../reference/figures>` and the guide

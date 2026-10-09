@@ -1,6 +1,6 @@
 # Use your own files
 
-You have a DEM, a geology map, a river network, a gauge record or a recharge grid of your
+You have a DEM, a geology map, a stream network, a gauge record or a recharge grid of your
 own, and you want the model to read them instead of a download. A source written with
 {toml}`source = "custom"|data.dem.sources.source` does that: the file you name replaces the
 provider. This guide takes each kind of file in turn, says what the loader accepts, and shows
@@ -161,7 +161,7 @@ data.geology.sources.path
 data.geology.sources.code_field
 ```
 
-## 4. Give your river network
+## 4. Give your stream network
 
 A network is a vector file of lines. Example 04 compares it with the simulated seepage.
 
@@ -184,7 +184,7 @@ folder, a raster found there wins over a vector, then the extensions
 Three details.
 
 - The CRS conversion and the clip are done for you. A vector is converted to the CRS of the
-  delineated watershed, then clipped to it. A raster is clipped by the watershed, converted to
+  delineated catchment, then clipped to it. A raster is clipped by the catchment, converted to
   the CRS of the raster.
 - {toml}`rasterize_field|data.hydrography.sources.rasterize_field` names the column burnt
   into the raster of the network. If the file has no such column, a sequential number is
@@ -259,7 +259,7 @@ already in the internal unit and nothing is converted. A warning says so for eac
 files, only to a NetCDF or a GeoTIFF.
 
 The stations are also filtered by position. A station on the boundary of the delineated
-watershed stays. A station outside it is kept for discharge and piezometry when you name it in
+catchment stays. A station outside it is kept for discharge and piezometry when you name it in
 {toml}`station_ids|data.hydrometry.sources.station_ids`, and dropped in every other case. For
 recharge, runoff and the other climate variables, it is dropped even when named. A dropped
 station is named in a warning, so a gauge that vanished from the run is easy to find:
@@ -341,11 +341,11 @@ beside a Shapefile.
 | Kind | Extensions | CRS | Also required |
 |---|---|---|---|
 | DEM | `.tif`, `.tiff`, `.asc`, `.nc` | The file. Refused if none, whether the DEM is named by `dem_init_path` or by `[[data.dem.sources]]`. | A NetCDF names its variable `elevation`, `dem`, `z`, `altitude`, `height` or `Band1`, or holds only one. |
-| Geology, vector | `.shp`, `.gpkg`, `.geojson`, `.json` | The file, and it must be the CRS of the project. Refused if none. | {toml}`code_field\|data.geology.sources.code_field`, a column of the file. |
+| Geology, vector | `.shp`, `.gpkg`, `.geojson`, `.json` | The file, in any CRS: the domain box is reprojected into it. Refused if none. | {toml}`code_field\|data.geology.sources.code_field`, a column of the file. |
 | Geology, raster | `.tif`, `.tiff` | The file. Refused if none. | One numeric class per cell. |
 | Geology, points | `.csv` | {toml}`default_crs\|data.geology.sources.default_crs`: a CSV has no CRS, and this key gives it. | The columns named by `col_x`, `col_y` and `col_code`. |
-| River network, vector | `.shp`, `.gpkg`, `.geojson`, any vector | The file. Converted to the CRS of the watershed. Refused if none. | Optional `rasterize_field` and `permanence` columns. |
-| River network, raster | `.tif`, `.tiff` | The file. Refused if none. | Burnt as is. |
+| Stream network, vector | `.shp`, `.gpkg`, `.geojson`, any vector | The file. Converted to the CRS of the catchment. Refused if none. | Optional `rasterize_field` and `permanence` columns. |
+| Stream network, raster | `.tif`, `.tiff` | The file. Refused if none. | Burnt as is. |
 | Stations | A folder: `<section>_custom_LOC.csv` (or `.shp`, `.gpkg`, `.geojson`) and one `<section>_custom_<id>_<start>_<end>_<freq>.csv` per station | The `crs` column of the location file, one value per station, or the geometry of a vector file. {toml}`default_crs\|data.hydrometry.sources.default_crs` for a CSV with no such column. | A `unit` column for discharge and piezometry. The columns `datetime` and `value`, or the names in `col_datetime` and `col_value`. |
 | NetCDF grid | `.nc` | The file, or an attribute `crs`, `crs_wkt`, `spatial_ref` or `proj4`. Only ETP can take it from the TOML. Refused if none. | A variable named after the section, a regular time axis, a nodata value (attribute or finite fill value). |
 | GeoTIFF grid | `.tif`, `.tiff` | The file. Refused if none. | A nodata value. |
@@ -445,18 +445,18 @@ path is written `<folder>`.
 | `Custom geology path not found: <path>` | The path does not exist. | Check the path. |
 | `'code_field' is required for custom vector geology source (<file>). Set it in [[data.geology.sources]] to the column containing geology codes.` | A vector geology map with no `code_field`. | Add {toml}`code_field\|data.geology.sources.code_field`. |
 | `Column '<name>' not found in <file>. Available: [...]` | `code_field`, or a CSV column name, is misspelled. The list shows the columns. | Copy a name from the list. |
-| `No geology feature intersects bbox after clipping` | The map does not cover the domain, or it is not in the CRS of the project. | Convert the file to the CRS of the project, and check its extent. |
+| `No geology feature of <file> intersects the requested box (...) (in <CRS>, the CRS of the file).` | The map does not cover the domain. The box is given in the CRS of the file. | Check the extent of the file against the box. |
 | `No vector or raster file (*.shp, *.gpkg, *.geojson, *.tif, *.tiff) found in <folder>. EXAMPLE templates are ignored: add your own file or point 'path' at it.` | The network folder holds no usable file. | Add your file. |
 | `<path>: No such file or directory` (exit 16) | The `path` of a network file does not exist. A warning `[data.hydrography] custom source path not found` comes first, at `build_geographic`, and says the diagnostic of the network is skipped. | Check the path. |
-| `Mask <file> declares no CRS, so the shape it describes means nothing on its own. Write the file with a CRS, or name the extent explicitly.` | A mask file, such as a watershed made from a DEM with no CRS, has none. | Write the CRS into the mask. |
+| `Mask <file> declares no CRS, so the shape it describes means nothing on its own. Write the file with a CRS, or name the extent explicitly.` | A mask file, such as a catchment made from a DEM with no CRS, has none. | Write the CRS into the mask. |
 | `Custom data directory not found: <folder>` (exit 10) | The `path` of a series is not a folder. | Check the path. |
 | `No <section>_custom_LOC.* in <folder>` (exit 10) | The location file is missing or badly named. | Name it `<section>_custom_LOC.csv`. |
 | `<section>: station_ids declares ['X'], absent from <section>_custom_LOC.csv. Known ids: ...` | The station is not in the location file. The list shows the known ones. | Copy an id from the list. |
 | `No unit for station 'X'. Add a 'unit' column in the LOC file.` | A discharge or piezometry station has no unit. | Add the column. |
 | `Unknown unit: '<unit>'` | The unit string is not one HydroModPy converts. | Use a common spelling such as `m3/s`, `L/s` or `mm/day`. |
 | `Chronicle CSV <file> missing datetime column. Expected 'datetime'. Columns: [...]` | The chronicle has other column names. The same message exists for `value`. | Set {toml}`col_datetime\|data.hydrometry.sources.col_datetime`, or rename the column. |
-| `<section>: N station(s) of source '<source>' outside the mask <file> dropped: [...]` (warning) | A station lies outside the watershed and is dropped. | Check the coordinates and the CRS of the station. For discharge or piezometry, name the station in `station_ids` to keep it. |
-| `<section>: every station of source '<source>' lies outside the mask <file>: [...]. No station is left to load.` (exit 16) | Every station of the source is outside the watershed. | Same, or the outlet is not where you think. |
+| `<section>: N station(s) of source '<source>' outside the mask <file> dropped: [...]` (warning) | A station lies outside the catchment and is dropped. | Check the coordinates and the CRS of the station. For discharge or piezometry, name the station in `station_ids` to keep it. |
+| `<section>: every station of source '<source>' lies outside the mask <file>: [...]. No station is left to load.` (exit 16) | Every station of the source is outside the catchment. | Same, or the outlet is not where you think. |
 | `Station <id> has no unit in its LOC file; its values are taken as <unit> and not converted.` (warning) | A climate station has no unit. | Add the `unit` column. |
 | `No chronicle for station <id>` (warning) | The location file lists a station and no chronicle file matches. | Name the file `<section>_custom_<id>_<start>_<end>_<freq>.csv`. |
 | `Unsupported custom format: <ext>. Use a directory (CSV), .nc, or .tif.` | A grid file has another extension, or its extension is in capitals. | Rename or convert it. |

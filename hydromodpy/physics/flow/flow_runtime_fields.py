@@ -22,12 +22,14 @@ from hydromodpy.physics.flow.flow_runtime_config import FlowRuntimeConfig
 class FlowRuntimeFields(HydroModelBase):
     """Flat runtime fields kept on :class:`FlowConfig` for TOML compat."""
 
-    runtime_backend: Annotated[Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.DEV] = (
+    runtime_backend: Annotated[Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.USER] = (
         Field(
             default="local",
             description=(
-                "Optional nonlinear runtime backend hint used by the Boussinesq "
-                "solver implementation. Other flow solvers may ignore this field."
+                "Engine the Boussinesq solver uses for its nonlinear solve. 'local' and "
+                "'scipy' build a dense matrix and suit small meshes; 'scipy_sparse' and "
+                "'petsc' (it needs petsc4py) suit large ones. The MODFLOW solvers do not "
+                "read it."
             ),
             examples=["local", "scipy_sparse"],
             json_schema_extra=field_metadata(stability="experimental"),

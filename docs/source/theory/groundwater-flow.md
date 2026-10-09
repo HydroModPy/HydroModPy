@@ -384,7 +384,7 @@ The run is cut into stress periods of length $\Delta t$, one per forcing value
 ({doc}`forcing`). Within a period the forcing is constant. Each period is cut into
 $n_\mathrm{sub}$ equal time steps $\delta t = \Delta t / n_\mathrm{sub}$, and the
 time integration is the backward Euler scheme: {eq}`eq-cell-balance` is written
-with the stress and the conductances at the end of the step. The time-step
+with the stress and the conductances at the end of the step. The time step
 multiplier is 1, so the steps of a period are equal. The one exception is
 {toml}`modflow6.runtime.mf6_ats`: with it, MODFLOW 6 may cut a transient step
 further where the solver does not converge, never above the step asked for. The

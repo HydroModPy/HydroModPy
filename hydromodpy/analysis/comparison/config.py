@@ -126,10 +126,12 @@ class ComparisonObservable(HydroModelBase):
     """One quantity of interest extracted from each simulation run folder."""
 
     name: Annotated[IdentifierStr, Profile.USER] = Field(
-        description="Unique identifier of this observable inside the comparison."
+        description="Unique identifier of this observable inside the comparison.",
+        examples=["outlet_q"],
     )
     variable: Annotated[NonEmptyStr, Profile.USER] = Field(
-        description="Name of the simulated variable to extract (e.g. head, discharge)."
+        description="Name of the simulated variable to extract (e.g. head, discharge).",
+        examples=["discharge"],
     )
     source: Annotated[Literal["disk"], Profile.USER] = Field(
         default="disk",
@@ -164,14 +166,17 @@ class ComparisonObservable(HydroModelBase):
     x: Annotated[float | None, Profile.USER] = Field(
         default=None,
         description="Easting in meters (EPSG:2154 / Lambert 93).",
+        json_schema_extra={"unit": "m"},
     )
     y: Annotated[float | None, Profile.USER] = Field(
         default=None,
         description="Northing in meters (EPSG:2154 / Lambert 93).",
+        json_schema_extra={"unit": "m"},
     )
     cell_index: Annotated[NonNegativeInt | None, Profile.USER] = Field(
         default=None,
         description="Zero-based mesh cell index for point or outlet support.",
+        json_schema_extra={"unit": "-"},
     )
     cell_indices: Annotated[list[NonNegativeInt] | None, Profile.USER] = Field(
         default=None,

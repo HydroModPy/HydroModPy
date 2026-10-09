@@ -155,6 +155,7 @@ class RasterThicknessDepthModel(RasterDepthModel):
         default=1.0,
         gt=0.0,
         description="Factor applied to the thickness raster (dimensionless).",
+        json_schema_extra={"unit": "-"},
     )
 
 

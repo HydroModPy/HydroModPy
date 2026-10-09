@@ -445,7 +445,7 @@ validates raises a `ValueError` that points to `run.config_snapshot`.
 | `ReadOnlyError: Catalog at <path> is open read-only; writes are refused.` from `run.tag(...)`, `run.note(...)`, `run.delete()` | `hmp.open` is read-only by default. | `hmp.open(folder, read_only=False)`. |
 | The log says `audit emission failed for export` after `hmp.export(...)` | The export ran on a catalog opened read-only, so the audit log could not record it. | `hmp.open(folder, read_only=False)` before you export, when the export must appear in `hmp audit`. |
 | `WriteConflictError: The index '<path>' is already open in this process in another mode.` | One process opened the same project read-only and then writable (or the reverse). | Close the first handle, or open both the same way. |
-| `SimulationNotFoundError: Reference 'nope' not found. Run `hmp catalog ls` to list known runs.` | The name is not in the catalog, or the run is in the trash. | `hmp catalog ls`, or `cat.find(name_stem="nope")`. |
+| ``SimulationNotFoundError: Reference 'nope' not found. Run `hmp catalog ls` to list known runs.`` | The name is not in the catalog, or the run is in the trash. | `hmp catalog ls`, or `cat.find(name_stem="nope")`. |
 | `KeyError: 'No completed simulation in the catalog'` from `cat.latest()` | The catalog holds no completed run. | Run something, or check `cat.frame["status"]`. |
 | `SimulationNotFoundError: '@best:<m>': Metric '<m>' has no declared direction ...` | The metric is not ranked. | Name a metric that has a direction ({doc}`find-and-compare-runs`). |
 | `TimeSelectionError: 1999-01-01 is outside the record: ...` from `hmp.read(time=...)` | The date is outside the run. | Use a date inside the record. |

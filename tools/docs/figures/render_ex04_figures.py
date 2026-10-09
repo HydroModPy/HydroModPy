@@ -16,12 +16,22 @@ Stages (``--stage``), each one idempotent:
     Steps 3 and 6 and the calibration need the network on their first run.
 ``figures``
     Redraw the figures from the stored runs (hero, Understand, staircase,
-    guides, model, catalog) and write the manifest.
+    guides, model, overview, catalog) and write the manifest.
 
 The modelling guides (wells, mesh, terrain, depth, boundaries, zones,
 particles, solute, SFR) each ship a file under ``docs/source/guides/recipes/model/``.
 The ``model`` group copies it into the example 04 project, runs it, and draws
 the figures its page shows from that run.
+
+The ``overview`` group runs the two files of ``docs/source/guides/recipes/figures/``:
+the overview of the Nançon catchment (guide "Describe a catchment": the DEM map, the
+hydrography map, the stats card and the station inventory) and a site selection by
+catchment area (guide "Select catchments in a region": its map). Neither workflow has a
+run in the catalog, so their PNG files are copied to ``overview-figures/`` of the workspace
+and drawn from there. The overview maps also get a dark twin: the same run, with the dark
+matplotlib theme applied first. The two tables are drawn on white by the workflow, so their
+dark twin is the light image with its lightness inverted. The site selection map saves its
+own white background, so it has no dark twin.
 
 Run it from anywhere, never with the workspace inside the repository::
 
@@ -205,6 +215,30 @@ GUIDE_RUN_ORDER = (
     "nancon_step1_minimal",
 )
 
+# The files whose runs have no catalog entry: the overview and a site selection.
+FIGURE_RECIPES = DOCS_SOURCE / "guides" / "recipes" / "figures"
+OVERVIEW_TOML = "overview.toml"
+SELECTION_TOML = "site_selection_area.toml"
+OVERVIEW_DIR = "overview-figures"
+OVERVIEW_PAGE = "guides/describe-a-catchment.md"
+SELECTION_PAGE = "guides/select-catchments.md"
+# panel -> is it a table the workflow draws on white
+OVERVIEW_PANELS = {
+    "map_dem": False,
+    "map_hydrography": False,
+    "stats_card": True,
+    "station_inventory": True,
+}
+SELECTION_MAP = "site_selection_map"
+# The workflow with the dark theme applied first: the same call as ``hmp run <file>``.
+DARK_RUN = (
+    "import runpy, sys\n"
+    "from hydromodpy.display.style import apply_theme\n"
+    "apply_theme('dark')\n"
+    "sys.argv = ['hmp', 'run', sys.argv[1]]\n"
+    "runpy.run_module('hydromodpy', run_name='__main__')\n"
+)
+
 # -- what is drawn -------------------------------------------------------------
 
 UNDERSTAND_FIGURES = (
@@ -372,6 +406,8 @@ def stage_runs(workspace: Path, cores: int, only: set[str]) -> None:
         for name in (spec.toml, *guide.extras):
             (project / name).write_bytes((RECIPES / name).read_bytes())
         hmp(["run", spec.toml], cwd=project, cores=cores)
+    if not only or "overview" in only:
+        stage_overview_runs(workspace, cores)
     demo = workspace / "projects" / "example"
     if only and "demo" not in only:
         return
@@ -380,6 +416,59 @@ def stage_runs(workspace: Path, cores: int, only: set[str]) -> None:
         hmp(["run", "run_demo.toml"], cwd=demo, cores=cores)
     if "demo_k3" not in done:
         hmp(["run", demo_variant(demo).name], cwd=demo, cores=cores)
+
+
+def overview_png(workspace: Path, name: str, dark: bool) -> Path:
+    """Where the stage keeps the PNG a workflow without a catalog entry wrote."""
+    return workspace / OVERVIEW_DIR / ("dark" if dark else "light") / f"{name}.png"
+
+
+def _keep(source: Path, target: Path) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(source.read_bytes())
+
+
+def _run_themed(toml: str, *, cwd: Path, cores: int, dark: bool) -> None:
+    """Run ``hmp run <toml>``, with the dark matplotlib theme applied first when asked."""
+    if not dark:
+        hmp(["run", toml], cwd=cwd, cores=cores)
+        return
+    print("$ hmp run", toml, "   (dark theme)", flush=True)
+    done = subprocess.run(
+        [sys.executable, "-c", DARK_RUN, toml], cwd=cwd, env=_env(cores), check=False
+    )
+    if done.returncode != 0:
+        raise SystemExit(f"hmp run {toml} (dark) exited with {done.returncode}")
+
+
+def stage_overview_runs(workspace: Path, cores: int) -> None:
+    """Run the overview and the site selection of ``recipes/figures`` and keep their PNG files."""
+    project = workspace / "projects" / EXAMPLE_DIR
+    wanted = [(panel, False) for panel in OVERVIEW_PANELS] + [
+        (panel, True) for panel, table in OVERVIEW_PANELS.items() if not table
+    ]
+    if all(overview_png(workspace, name, dark).is_file() for name, dark in wanted):
+        print(f"= {OVERVIEW_TOML}: figures exist", flush=True)
+    else:
+        (project / OVERVIEW_TOML).write_bytes((FIGURE_RECIPES / OVERVIEW_TOML).read_bytes())
+        for dark in (False, True):
+            _run_themed(OVERVIEW_TOML, cwd=project, cores=cores, dark=dark)
+            for panel, table in OVERVIEW_PANELS.items():
+                if dark and table:
+                    continue  # drawn on white by the workflow: inverted from the light one
+                _keep(
+                    project / "share" / "figures" / "overview" / f"{panel}.png",
+                    overview_png(workspace, panel, dark),
+                )
+    if overview_png(workspace, SELECTION_MAP, False).is_file():
+        print(f"= {SELECTION_TOML}: figure exists", flush=True)
+        return
+    (project / SELECTION_TOML).write_bytes((FIGURE_RECIPES / SELECTION_TOML).read_bytes())
+    hmp(["run", SELECTION_TOML], cwd=project, cores=cores)
+    _keep(
+        project / "nancon_area" / "review" / f"{SELECTION_MAP}.png",
+        overview_png(workspace, SELECTION_MAP, False),
+    )
 
 
 # -- stage 2: drawing ----------------------------------------------------------
@@ -425,6 +514,38 @@ def to_webp(png: bytes, *, width: int | None = None) -> tuple[bytes, tuple[int, 
             if buffer.tell() <= BUDGET_BYTES:
                 return buffer.getvalue(), current.size
         scale *= 0.85
+
+
+def autocrop(png: bytes, margin: int = 24) -> bytes:
+    """Cut the white border of a table the workflow draws on a large white page."""
+    from PIL import Image, ImageChops
+
+    image = Image.open(io.BytesIO(png)).convert("RGB")
+    box = ImageChops.difference(image, Image.new("RGB", image.size, (255, 255, 255))).getbbox()
+    if box is None:
+        return png
+    left, top, right, bottom = box
+    cropped = image.crop(
+        (
+            max(left - margin, 0),
+            max(top - margin, 0),
+            min(right + margin, image.width),
+            min(bottom + margin, image.height),
+        )
+    )
+    buffer = io.BytesIO()
+    cropped.save(buffer, "PNG")
+    return buffer.getvalue()
+
+
+def invert_lightness(png: bytes) -> bytes:
+    """The dark twin of a black-on-white table: white and black swap, greys follow."""
+    from PIL import Image, ImageOps
+
+    image = Image.open(io.BytesIO(png)).convert("RGB")
+    buffer = io.BytesIO()
+    ImageOps.invert(image).save(buffer, "PNG")
+    return buffer.getvalue()
 
 
 class Drawer:
@@ -509,9 +630,10 @@ def suffix(dark: bool) -> str:
 
 
 def viz_command(run: str, figure: str, options: dict[str, Any]) -> str:
+    """The command that redraws a figure as this script draws it, without the run name."""
     when = options.get("time")
     tail = f" --time {when}" if when else ""
-    return f"hmp viz show {run} {figure}{tail}"
+    return f"hmp viz show {run} {figure}{tail} --opt show_run_name=false"
 
 
 def guide_citations() -> dict[str, list[str]]:
@@ -684,6 +806,54 @@ def stage_figures(workspace: Path, only: set[str], dark_guides: bool) -> list[En
                     reference=item.reference,
                 )
 
+    if wanted("overview"):
+        print("overview", flush=True)
+        recipes = (
+            (OVERVIEW_TOML, "describe-a-catchment", OVERVIEW_PAGE, tuple(OVERVIEW_PANELS)),
+            (SELECTION_TOML, "select-catchments", SELECTION_PAGE, (SELECTION_MAP,)),
+        )
+        for toml, folder, page, names in recipes:
+            for name in names:
+                light = overview_png(workspace, name, False)
+                if not light.is_file():
+                    print(f"  {name}: no stored PNG, run the runs stage first", flush=True)
+                    continue
+                table = OVERVIEW_PANELS.get(name, False)
+                is_map = name == SELECTION_MAP
+                png = autocrop(light.read_bytes()) if table else light.read_bytes()
+                twins = (False,) if is_map else (False, True)
+                for dark in twins:
+                    if dark and table:
+                        png_dark = invert_lightness(png)
+                        note = " (the dark twin is the light table with its lightness inverted)"
+                    elif dark:
+                        png_dark = overview_png(workspace, name, True).read_bytes()
+                        note = " (drawn with the dark matplotlib theme applied first)"
+                    else:
+                        png_dark, note = png, ""
+                    data, size = to_webp(png_dark)
+                    path = OUT_ROOT / "guides" / folder / f"{name}{suffix(dark)}.webp"
+                    write(path, data)
+                    entries.append(
+                        Entry(
+                            kind="guide",
+                            figure=name,
+                            path=str(path.relative_to(ROOT)),
+                            theme=theme_name(dark),
+                            config=toml,
+                            pages=[page],
+                            command=f"hmp run {toml}{note}",
+                            redraw=f"hmp run {toml}",
+                            width=size[0],
+                            height=size[1],
+                            bytes=len(data),
+                        )
+                    )
+                    print(
+                        f"  {path.relative_to(ROOT)}  {size[0]}x{size[1]}  {len(data) / 1024:.0f} KB",
+                        flush=True,
+                    )
+
     drawer.close()
     if drawer.leftovers:
         print("run name still in a figure text:", drawer.leftovers, flush=True)
@@ -728,7 +898,7 @@ def stage_catalog(workspace: Path) -> list[Entry]:
                     options=options,
                     command="hmp run run_demo.toml"
                     + (" --set display.preset=dark" if dark else ""),
-                    redraw=f"hmp viz show demo {figure}",
+                    redraw=viz_command("demo", figure, {}),
                     width=size[0],
                     height=size[1],
                     bytes=len(data),
@@ -833,7 +1003,8 @@ def main(argv: list[str] | None = None) -> int:
         default="",
         help=(
             "comma list: runs (step1..step6, reference, calibrated, model or one guide_* key, "
-            "demo); figures (hero, understand, staircase, guides, model, catalog)"
+            "demo, overview); figures (hero, understand, staircase, guides, model, overview, "
+            "catalog)"
         ),
     )
     parser.add_argument(

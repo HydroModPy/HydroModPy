@@ -11,10 +11,19 @@ from hydromodpy.data.variables.intermittency.config import IntermittencySourceCo
 
 
 class IntermittencyManager(BaseVariableManager):
+    """Observed flow states of streams, from the user's files or Hub'Eau ONDE."""
+
     VARIABLE_NAME = "intermittency"
+    """Name of the data type, as ``[data.intermittency]`` writes it."""
+
     INTERNAL_UNIT = "code"
+    """Unit of the stored values: a flow-state code from 1 to 5, not a quantity."""
+
     RECORD_VARIABLE = "flow_state"
+    """Variable name the records are stored under."""
+
     SOURCES = {"hubeau": hubeau.fetch_for_config}
+    """Sources other than ``custom``: ``hubeau`` reads the ONDE campaigns of Hub'Eau."""
 
     def load_custom(self, source_cfg: IntermittencySourceConfig) -> list[PointRecord]:
         """Load observed flow states: codes 1 to 5, irregular dates, never expanded."""

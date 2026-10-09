@@ -586,6 +586,14 @@ SFR_REACHES_SCHEMA: Final[pa.Schema] = pa.schema(
             nullable=False,
             metadata=_field_meta(description="Fraction of upstream flow routed into the reach"),
         ),
+        pa.field(
+            "downstream",
+            pa.list_(pa.int32()),
+            nullable=False,
+            metadata=_field_meta(
+                description="Reach numbers this reach drains into; empty at an outlet"
+            ),
+        ),
     ],
     metadata=_schema_metadata(
         "sfr_reaches",

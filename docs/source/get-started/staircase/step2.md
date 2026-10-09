@@ -14,7 +14,7 @@ Gives
 : Four figures and five files, with the mapped network among them.
 ```
 
-Step 2 adds two pieces of data, read from local files: the mapped river network and the
+Step 2 adds two pieces of data, read from local files: the mapped stream network and the
 discharge gauge at the outlet. The run is still steady. The point is the comparison: the
 cells where the simulated water table reaches the surface should lie where the map draws a
 stream. The figures show where they agree and how far each simulated cell is from the map.
@@ -46,56 +46,7 @@ stream. The figures show where they agree and how far each simulated cell is fro
 The resolved file of step 2 against the resolved file of step 1: `-` is what step 1 has,
 `+` is what step 2 has. The name changes too.
 
-```diff
---- step1_minimal
-+++ step2_local_data
-@@ -7,3 +7,3 @@
- [simulation]
--name = "nancon_step1_minimal"
-+name = "nancon_step2_local"
- 
-@@ -15,2 +15,8 @@
- ]
-+
-+[simulation.results.derived]
-+release_flux = true
-+
-+[simulation.results.budget]
-+spatial_fields = true
- 
-@@ -61,6 +67,5 @@
-     "watershed_id_card",
--    "watertable_depth_map",
--    "seepage_map",
--    "cross_section",
--    "water_budget",
-+    "hydrographic_network_reference",
-+    "seepage_network_confusion_map",
-+    "downslope_distance_map",
- ]
-@@ -82 +87,22 @@
- variables = "budget"
-+
-+[[export]]
-+variables = "hydrographic_network_reference"
-+
-+[data]
-+types = [
-+    "hydrography",
-+    "hydrometry",
-+]
-+
-+[data.hydrography]
-+sources = [
-+    { source = "custom", path = "nancon_stream_network.gpkg" },
-+]
-+
-+[[data.hydrometry.sources]]
-+source = "custom"
-+path = "hydrometry"
-+station_ids = [
-+    "NANCON",
-+]
+```{hmp-toml-diff} step1_minimal.toml step2_local_data.toml
 ```
 :::
 

@@ -42,55 +42,40 @@ NO_OTHER_TRIAL = "no other trial within the tolerance"
 class CalibrationReport:
     """Structured summary of one calibration session.
 
-    Returned by ``Project.calibrate`` and by the ``run_calibration_cli`` helper (both keep a
-    ``to_dict`` shim so
-    existing callers keep working).
-
-    Attributes
-    ----------
-    session_id
-        UUID (hex) of the calibration session in the catalog.
-    method
-        Optimizer method name (e.g. ``"optuna"``).
-    n_iterations
-        Number of iterations actually run (could be < ``max_iter`` if
-        the optimizer converged).
-    best_objective
-        Best (minimum) objective value achieved.
-    best_sim_id
-        UUID of the promoted best run when ``save_runs != "none"``,
-        otherwise ``None``.
-    best_parameters
-        Physical values of the best candidate, keyed by calibrated parameter
-        name. ``None`` when no candidate was evaluated. A staged calibration
-        reads it to freeze what a phase calibrated.
-    duration_s
-        Wall-clock duration of the calibration loop in seconds.
-    save_runs
-        The ``save_runs`` mode used (``"none"``, ``"best_n"`` or ``"all"``).
-    promoted
-        Count of iterations promoted to full simulations after the loop.
-    workspace
-        Workspace root the session was written to.
-    best_run_name
-        Name the catalog registered the promoted best run under, the folder
-        ``runs/<best_run_name>``. ``None`` when nothing was promoted.
-    session_dir
-        Folder the session journalled its trials in,
-        ``sessions/<date>-<method>-<id8>``. ``None`` when no journal was written.
-    extra
-        Free-form metadata (callers may attach anything extra here).
+    Returned by ``hmp.calibrate`` and ``Project.calibrate`` for a calibration
+    without phases, and kept per phase by a staged one. ``to_dict`` gives the
+    same summary as a JSON-friendly mapping.
     """
 
     session_id: str
+    """UUID (hex) of the calibration session in the catalog."""
+
     method: str
+    """Optimizer method name (e.g. ``"optuna"``)."""
+
     n_iterations: int
+    """Number of iterations actually run (could be < ``max_iter`` if the optimizer converged)."""
+
     best_objective: float | None
+    """Best (minimum) objective value achieved."""
+
     best_sim_id: str | None
+    """UUID of the promoted best run when ``save_runs != "none"``, otherwise ``None``."""
+
     duration_s: float
+    """Wall-clock duration of the calibration loop in seconds."""
+
     save_runs: str
+    """The ``save_runs`` mode used (``"none"``, ``"best_n"`` or ``"all"``)."""
+
     promoted: int
+    """Count of iterations promoted to full simulations after the loop."""
+
     best_parameters: dict[str, float] | None = None
+    """Physical values of the best candidate, keyed by calibrated parameter name.
+
+    ``None`` when no candidate was evaluated. A staged calibration reads it to
+    freeze what a phase calibrated."""
     parameter_uncertainty: tuple[Any, ...] = ()
     """Width beside each calibrated value, when the file asked for one.
 
@@ -109,14 +94,25 @@ class CalibrationReport:
     from. See :func:`hydromodpy.calibration.optim.objective.objective_block_shares`
     for how a share is defined."""
     workspace: Path | None = None
+    """Workspace root the session was written to."""
+
     best_run_name: str | None = None
+    """Name the catalog registered the promoted best run under, the folder
+    ``runs/<best_run_name>``. ``None`` when nothing was promoted."""
+
     session_dir: Path | None = None
+    """Folder the session journalled its trials in, ``sessions/<date>-<method>-<id8>``.
+    ``None`` when no journal was written."""
+
     extra: dict[str, Any] = field(default_factory=dict)
+    """Free-form metadata (callers may attach anything extra here)."""
+
     store_factory: Callable[[Path], Any] | None = field(
         default=None,
         repr=False,
         compare=False,
     )
+    """Opens the catalog the lazy accessors read; ``None`` opens the workspace catalog."""
 
     # ------------------------------------------------------------------
     # Lazy accessors

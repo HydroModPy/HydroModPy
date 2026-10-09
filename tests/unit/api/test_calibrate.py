@@ -37,7 +37,7 @@ def test_calibrate_with_path_routes_to_run_calibration_cli(monkeypatch, tmp_path
     result = hmp.calibrate(config, project="my_label")
     assert result == {"report": "ok"}
     assert captured["config_path"] == config.resolve()
-    assert captured["kwargs"] == {"project": "my_label"}
+    assert captured["kwargs"] == {"project": "my_label", "return_report": True}
 
 
 def test_calibrate_with_path_drops_headless_kwarg(monkeypatch, tmp_path: Path) -> None:
@@ -273,6 +273,7 @@ def _patch_runners(monkeypatch, calls: dict) -> None:
 
     def fake_cli(config_path, **kwargs):
         calls["cli_path"] = Path(config_path)
+        calls["cli_kwargs"] = dict(kwargs)
         return {"staged": False}
 
     monkeypatch.setattr(
@@ -961,3 +962,22 @@ def test_calibrate_expand_refuses_a_config_object() -> None:
 
     with pytest.raises(ValueError, match="TOML path"):
         hmp.calibrate(config, expand=True)
+
+
+def test_a_file_without_phases_returns_the_report_object(monkeypatch, tmp_path: Path) -> None:
+    """Both entry points ask the plain runner for its report, not its dict."""
+    from hydromodpy.project import Project
+
+    config = _write_toml(tmp_path / "calib.toml", MONO_PHASE_TOML)
+    calls: dict = {}
+    _patch_runners(monkeypatch, calls)
+
+    hmp.calibrate(config)
+    assert calls["cli_kwargs"]["return_report"] is True
+
+    project = SimpleNamespace(config=None, _config_path=None)
+    Project.calibrate(project, config_path=config)
+    assert calls["cli_kwargs"]["return_report"] is True
+
+    hmp.calibrate(config, return_report=False)
+    assert calls["cli_kwargs"]["return_report"] is False

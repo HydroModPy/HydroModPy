@@ -485,6 +485,15 @@ def runs_in(file: str, functions: list[dict], jobs: list[dict]) -> dict:
     return out
 
 
+def installs_petsc4py(job: dict) -> bool:
+    """Whether a job installs or imports petsc4py in its own steps.
+
+    The job is read from the parsed YAML, so a comment never counts, and another
+    job of the same workflow file does not either.
+    """
+    return "petsc4py" in json.dumps(job.get("steps") or [], default=str)
+
+
 def schedule(repo: Path) -> list[dict]:
     """The CI jobs that run validation tests, read from the workflow files."""
     import yaml
@@ -533,7 +542,7 @@ def schedule(repo: Path) -> list[dict]:
                             "branches": list(branches) if isinstance(branches, list) else [],
                             "paths": paths,
                             "markers": marks,
-                            "petsc4py": "petsc4py" in text,
+                            "petsc4py": installs_petsc4py(job),
                         }
                     )
     return out

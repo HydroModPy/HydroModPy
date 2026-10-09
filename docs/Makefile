@@ -11,8 +11,18 @@ SHELL := /usr/bin/env bash
 # writing takes several minutes. Override with `make html SPHINXOPTS=` to disable.
 SPHINXOPTS    ?= -j auto
 SPHINXBUILD   ?= python -m sphinx
-# The search index of the built site (search.html loads it).
-PAGEFIND      = python -m pagefind --site $(BUILDDIR)/html --exclude-selectors ".headerlink" --quiet
+# The search index of the built site (search.html loads it). What the index
+# leaves out: the heading anchors, every button (copy, show dev keys), the TeX
+# source of the math (it would show as \(K\) in an excerpt), the labels of a
+# parameter card (Path, Accepted, Unit...), the facts line under a key table,
+# and the hidden copy of a TOML view (hmp-search-text), which repeats the
+# visible lines. Keep the same list in .github/workflows/docs-deploy-pages.yml.
+PAGEFIND      = python -m pagefind --site $(BUILDDIR)/html --quiet \
+                --exclude-selectors ".headerlink" --exclude-selectors "button" \
+                --exclude-selectors ".math" --exclude-selectors ".hmp-card dt" \
+                --exclude-selectors ".hmp-facts" --exclude-selectors ".hmp-search-text"
+# llms.txt and llms-full.txt, written from the built pages (tools/docs/llms_txt.py).
+LLMS          = PYTHONPATH=.. python -m tools.docs.llms_txt $(BUILDDIR)/html
 SPHINXPROJ    = HydroModPy
 SOURCEDIR     = source
 BUILDDIR      = build
@@ -74,6 +84,7 @@ clean:
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
 	$(PAGEFIND)
+	$(LLMS)
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
@@ -85,6 +96,7 @@ html:
 html-strict:
 	$(SPHINXBUILD) -b html -W --keep-going $(ALLSPHINXOPTS) $(BUILDDIR)/html 2>&1 | { grep -v $(NOISY_PATTERNS) || true; }; exit $${PIPESTATUS[0]}
 	$(PAGEFIND)
+	$(LLMS)
 	@echo
 	@echo "Strict build finished (warnings treated as errors)."
 

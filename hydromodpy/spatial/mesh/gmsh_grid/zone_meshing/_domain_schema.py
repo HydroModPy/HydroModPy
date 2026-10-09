@@ -20,10 +20,23 @@ from hydromodpy.core.config_kit.types import NonEmptyPath, NonEmptyStr
 
 
 class ZoneMeshingDomainBBox(HydroModelBase):
-    """Axis-aligned bounding box domain contract."""
+    """A rectangle given by bbox = [xmin, ymin, xmax, ymax]."""
 
-    kind: Annotated[Literal["bbox"], Profile.USER] = "bbox"
-    bbox: Annotated[list[float], Profile.USER]
+    kind: Annotated[Literal["bbox"], Profile.USER] = Field(
+        default="bbox",
+        description=(
+            "Where the outline of the meshed domain comes from. Unset, it follows from "
+            "the key given: bbox, coordinates or path."
+        ),
+    )
+    bbox: Annotated[list[float], Profile.USER] = Field(
+        description=(
+            "Rectangle of the domain as [xmin, ymin, xmax, ymax], in metres in the "
+            "projected CRS of the project."
+        ),
+        examples=[[350000.0, 6780000.0, 362000.0, 6792000.0]],
+        json_schema_extra={"unit": "m"},
+    )
 
     @field_validator("bbox", mode="before")
     @classmethod
@@ -40,10 +53,17 @@ class ZoneMeshingDomainBBox(HydroModelBase):
 
 
 class ZoneMeshingDomainPolygon(HydroModelBase):
-    """Inline polygon coordinates domain contract."""
+    """A polygon given inline by its vertices."""
 
     kind: Annotated[Literal["polygon"], Profile.USER] = "polygon"
-    coordinates: Annotated[list[list[float]], Profile.USER]
+    coordinates: Annotated[list[list[float]], Profile.USER] = Field(
+        description=(
+            "Vertices [[x, y], ...] of the domain polygon, at least three, in metres in "
+            "the projected CRS of the project."
+        ),
+        examples=[[[350000.0, 6780000.0], [362000.0, 6780000.0], [356000.0, 6792000.0]]],
+        json_schema_extra={"unit": "m"},
+    )
 
     @field_validator("coordinates")
     @classmethod
@@ -55,11 +75,12 @@ class ZoneMeshingDomainPolygon(HydroModelBase):
 
 
 class ZoneMeshingDomainVector(HydroModelBase):
-    """Vector file domain contract."""
+    """A polygon read from a vector file."""
 
     kind: Annotated[Literal["vector"], Profile.USER] = "vector"
     path: Annotated[NonEmptyPath, Profile.USER] = Field(
         description="Vector file (gpkg, shp, GeoJSON) holding the polygon of the meshed domain.",
+        examples=["domain.gpkg"],
     )
     id_field: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
@@ -78,19 +99,19 @@ class ZoneMeshingDomainVector(HydroModelBase):
 
 
 class ZoneMeshingDomainGeographicBoxBuffer(HydroModelBase):
-    """Domain resolved from ``domain_geographic.box_buff_shp``."""
+    """The buffered rectangle around the catchment that [geographic] builds."""
 
     kind: Annotated[Literal["geographic_box_buffer"], Profile.USER] = "geographic_box_buffer"
 
 
 class ZoneMeshingDomainGeographicWatershed(HydroModelBase):
-    """Domain resolved from ``domain_geographic.watershed_shp``."""
+    """The catchment polygon that [geographic] delineates."""
 
     kind: Annotated[Literal["geographic_watershed"], Profile.USER] = "geographic_watershed"
 
 
 class ZoneMeshingDomainGeographicWatershedBox(HydroModelBase):
-    """Domain resolved from ``domain_geographic.watershed_box_shp``."""
+    """The bounding rectangle of the catchment that [geographic] delineates."""
 
     kind: Annotated[Literal["geographic_watershed_box"], Profile.USER] = "geographic_watershed_box"
 

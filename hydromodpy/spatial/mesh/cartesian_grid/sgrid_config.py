@@ -22,6 +22,7 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr, PositiveInt
+from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.toml_io.paths import resolve_path
 
 
@@ -62,7 +63,10 @@ class VerticalGridConfig(HydroModelBase):
 
     genmtd_lay: Annotated[Literal["constant", "decay", "list"], Profile.USER] = Field(
         default="constant",
-        description="Vertical-layering strategy.",
+        description=(
+            "How the aquifer thickness is split into layers: equal layers, layers that "
+            "thicken with depth, or the fractions you list."
+        ),
         json_schema_extra={
             "value_docs": {
                 "constant": (
@@ -79,15 +83,30 @@ class VerticalGridConfig(HydroModelBase):
     )
     nlay: Annotated[int | None, Profile.USER] = Field(
         default=1,
-        description="Number of layers (required for constant/decay, ignored for list).",
+        description=(
+            "Number of layers for 'constant' and 'decay'. With 'list', the number of "
+            "fractions sets it."
+        ),
+        json_schema_extra={"unit": "-"},
     )
-    lay_decay: Annotated[float | None, Profile.DEV] = Field(
+    lay_decay: Annotated[float | None, Profile.USER, VisibleWhen("genmtd_lay", "decay")] = Field(
         default=None,
-        description="Decay exponent (>1) for decay layering.",
+        description=(
+            "Ratio of each layer's thickness to the thickness of the layer above it, "
+            "above 1. With 2, each layer is twice as thick as the one above."
+        ),
+        examples=[2.0],
+        json_schema_extra={"unit": "-"},
     )
-    lay_proportions: Annotated[list[float] | None, Profile.DEV] = Field(
+    lay_proportions: Annotated[
+        list[float] | None, Profile.USER, VisibleWhen("genmtd_lay", "list")
+    ] = Field(
         default=None,
-        description="Explicit layer fractions when genmtd_lay='list' (must sum to 1).",
+        description=(
+            "Share of the thickness each layer takes, from the top. The shares must sum to 1."
+        ),
+        examples=[[0.2, 0.3, 0.5]],
+        json_schema_extra={"unit": "-"},
     )
     nodata: Annotated[float, Profile.DEV] = Field(
         default=-9999.0,
@@ -174,10 +193,12 @@ class PlanarGridConfig(HydroModelBase):
     nx: Annotated[PositiveInt | None, Profile.USER] = Field(
         default=None,
         description="Target number of columns when planar mode is 'resample_to_shape'.",
+        json_schema_extra={"unit": "-"},
     )
     ny: Annotated[PositiveInt | None, Profile.USER] = Field(
         default=None,
         description="Target number of rows when planar mode is 'resample_to_shape'.",
+        json_schema_extra={"unit": "-"},
     )
     resampling: Annotated[Literal["bilinear", "average", "nearest"], Profile.DEV] = Field(
         default="bilinear",
@@ -332,7 +353,7 @@ class SolverSGridConfig(HydroModelBase):
     grid_dual: Annotated[Literal["voronoi", "triangle"], Profile.USER] = Field(
         default="voronoi",
         description=(
-            "Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for "
+            "Applies only to a MODFLOW 6 run on a Gmsh mesh built by the run; ignored for "
             "structured grids, MODFLOW-NWT and Boussinesq (which keeps its own "
             "triangulation). 'voronoi' uses the PEBI dual (exact CVFD "
             "orthogonality, ~half the cells) and is the default; 'triangle' keeps "
@@ -433,10 +454,15 @@ class LayeringDecay(HydroModelBase):
         ...,
         description="Number of model layers.",
     )
-    lay_decay: Annotated[float, Profile.DEV] = Field(
+    lay_decay: Annotated[float, Profile.USER] = Field(
         ...,
         gt=1.0,
-        description="Decay exponent (>1) for progressively thicker layers with depth.",
+        description=(
+            "Ratio of each layer's thickness to the thickness of the layer above it, "
+            "above 1. With 2, each layer is twice as thick as the one above."
+        ),
+        examples=[2.0],
+        json_schema_extra={"unit": "-"},
     )
 
 
@@ -444,9 +470,13 @@ class LayeringList(HydroModelBase):
     """Explicit per-layer thickness fractions."""
 
     kind: Annotated[Literal["list"], Profile.USER] = "list"
-    lay_proportions: Annotated[list[float], Profile.DEV] = Field(
+    lay_proportions: Annotated[list[float], Profile.USER] = Field(
         ...,
-        description="Per-layer thickness fractions (must sum to 1).",
+        description=(
+            "Share of the thickness each layer takes, from the top. The shares must sum to 1."
+        ),
+        examples=[[0.2, 0.3, 0.5]],
+        json_schema_extra={"unit": "-"},
     )
 
     @field_validator("lay_proportions")

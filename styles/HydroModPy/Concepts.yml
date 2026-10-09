@@ -1,0 +1,16 @@
+extends: substitution
+message: "Use '%s' (one word per concept), not '%s'."
+level: error
+ignorecase: true
+scope: text
+swap:
+  watersheds?: catchment
+  drainage basins?: catchment
+  river basins?: catchment
+  river networks?: stream network
+  drainage networks?: stream network
+  watertables?: water table
+  groundwater tables?: water table
+  phreatic surface: water table
+  timesteps?: time step
+  time-steps?: time step

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex">
+  <title>This page moved</title>
+  <noscript><meta http-equiv="refresh" content="0; url={{ rel_url }}"></noscript>
+</head>
+<body>
+  <script>
+    window.location.replace('{{ rel_url }}' + window.location.search + window.location.hash);
+  </script>
+  <p>This page moved. <a href="{{ rel_url }}">Continue to the new page</a>.</p>
+</body>
+</html>

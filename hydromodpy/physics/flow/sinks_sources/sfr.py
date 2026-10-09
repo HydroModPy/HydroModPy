@@ -53,7 +53,9 @@ class FlowReachWidthConstant(HydroModelBase):
         description="Discriminator tag for the constant reach-width law.",
     )
     value: Annotated[Length, Profile.USER] = Field(
-        ..., description="Uniform reach width rwid [L] for all reaches."
+        ...,
+        description="Uniform reach width rwid [L] for all reaches.",
+        examples=["2 m"],
     )
 
 
@@ -67,6 +69,7 @@ class FlowReachWidthByOrder(HydroModelBase):
     widths: Annotated[dict[int, Length], Profile.USER] = Field(
         ...,
         description="Reach width rwid [L] per Strahler order (e.g. {1: '1 m', 2: '3 m'}).",
+        examples=[{"1": "1 m", "2": "3 m"}],
     )
 
     @field_validator("widths")
@@ -88,11 +91,22 @@ class FlowReachWidthPowerLaw(HydroModelBase):
         description="Discriminator tag for the drainage-area power-law width.",
     )
     coef: Annotated[float, Profile.USER] = Field(
-        ..., gt=0.0, description="Coefficient [m] of the width power law (> 0)."
+        ...,
+        gt=0.0,
+        description=(
+            "Width, in metres, of a reach that drains 1 km2: the coefficient of "
+            "rwid = coef * area_km2 ** exp."
+        ),
+        examples=[2.0],
+        json_schema_extra={"unit": "m"},
     )
     exp: Annotated[float, Profile.USER] = Field(
         default=0.5,
-        description="Exponent of the drainage-area (km^2) power law. Typical ~0.5.",
+        description=(
+            "Exponent of the drained area (in km2) in the width law. About 0.5 for most "
+            "rivers. It has no unit."
+        ),
+        json_schema_extra={"unit": "-"},
     )
 
 
@@ -121,12 +135,30 @@ class FlowReachConfig(HydroModelBase):
             "aquifer connection (cellid 'none', pure routing)."
         ),
     )
-    length: Annotated[Length, Profile.USER] = Field(..., description="Reach length rlen [L].")
-    width: Annotated[Length, Profile.USER] = Field(..., description="Reach width rwid [L].")
-    slope: Annotated[float, Profile.USER] = Field(
-        ..., gt=0.0, description="Reach gradient rgrd [-] (> 0)."
+    length: Annotated[Length, Profile.USER] = Field(
+        ...,
+        description="Length of the reach along the channel, in metres (rlen of MODFLOW 6 SFR).",
+        examples=["250 m"],
     )
-    top: Annotated[Length, Profile.USER] = Field(..., description="Streambed top rtp [L].")
+    width: Annotated[Length, Profile.USER] = Field(
+        ...,
+        description="Width of the channel of the reach, in metres (rwid of MODFLOW 6 SFR).",
+        examples=["3 m"],
+    )
+    slope: Annotated[float, Profile.USER] = Field(
+        ...,
+        gt=0.0,
+        description=(
+            "Slope of the reach bed, in metres of drop per metre of length (rgrd of MODFLOW 6 SFR)."
+        ),
+        examples=[0.002],
+        json_schema_extra={"unit": "-"},
+    )
+    top: Annotated[Length, Profile.USER] = Field(
+        ...,
+        description="Elevation of the streambed top of the reach, in metres (rtp of MODFLOW 6 SFR).",
+        examples=["42 m"],
+    )
     upstream: Annotated[list[int], Profile.USER] = Field(
         default_factory=list,
         description="1-based ids of reaches whose downstream end feeds this reach.",
@@ -138,7 +170,11 @@ class FlowReachConfig(HydroModelBase):
     ustrf: Annotated[float, Profile.USER] = Field(
         default=1.0,
         ge=0.0,
-        description="Upstream fraction routed to this reach (siblings must sum to 1.0).",
+        description=(
+            "Share of the flow of the upstream reach that this reach receives, from 0 to "
+            "1. The shares of reaches fed by the same reach must sum to 1."
+        ),
+        json_schema_extra={"unit": "-"},
     )
 
 
@@ -146,16 +182,33 @@ class FlowReachDiversionConfig(HydroModelBase):
     """An SFR-to-SFR diversion: a controlled split from one reach to another."""
 
     reach: Annotated[int, Profile.USER] = Field(
-        ..., ge=1, description="Source reach (1-based) the diversion leaves from."
+        ...,
+        ge=1,
+        description="Number of the reach the diversion leaves from, counted from 1.",
+        examples=[12],
+        json_schema_extra={"unit": "-"},
     )
     to_reach: Annotated[int, Profile.USER] = Field(
         ...,
         ge=1,
-        description="Receiver reach (1-based); must be a downstream connection of reach.",
+        description=(
+            "Number of the reach that receives the diversion, counted from 1. It must be "
+            "a downstream connection of reach."
+        ),
+        examples=[13],
+        json_schema_extra={"unit": "-"},
     )
     cprior: Annotated[Literal["FRACTION", "EXCESS", "THRESHOLD", "UPTO"], Profile.USER] = Field(
         default="FRACTION",
-        description="Diversion priority rule (FRACTION / EXCESS / THRESHOLD / UPTO).",
+        description="How much of the flow leaving reach the diversion takes, given divflow.",
+        json_schema_extra={
+            "value_docs": {
+                "FRACTION": "Takes the share divflow (from 0 to 1) of the flow.",
+                "EXCESS": "Takes only the part of the flow above divflow.",
+                "THRESHOLD": "Takes divflow once the flow reaches it, and nothing below it.",
+                "UPTO": "Takes the flow, capped at divflow.",
+            }
+        },
     )
     divflow: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
         default=None,
@@ -220,9 +273,11 @@ class FlowReachNetworkConfig(HydroModelBase):
         default=1e-4,
         gt=0.0,
         description=(
-            "Floor for the reach gradient rgrd [-]. It also sets the drop the bed profile "
-            "solve keeps between neighbouring reaches."
+            "Smallest slope a reach bed may take, in metres of drop per metre (floor of "
+            "rgrd). It also sets the drop the bed profile solve keeps between "
+            "neighbouring reaches."
         ),
+        json_schema_extra={"unit": "-"},
     )
     bed_incision: Annotated[Length | None, Profile.USER] = Field(
         default=None,
@@ -280,21 +335,30 @@ class FlowReachNetworkConfig(HydroModelBase):
     )
 
     # --- Forcings (resolved at runtime) ------------------------------------ #
-    headwater_inflow: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
+    headwater_inflow: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
         default=None,
-        description="External inflow [L^3/T] injected at the headwater reach(es).",
+        description=(
+            "Inflow from outside the model at the headwater reaches, as a volume per time "
+            "(m3/s in SI)."
+        ),
     )
-    runoff: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
+    runoff: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
         default=None,
-        description="Diffuse overland inflow [L^3/T], distributed per reach by length.",
+        description=(
+            "Overland runoff that enters the network, as a volume per time (m3/s in SI), "
+            "shared over the reaches by length."
+        ),
     )
-    rainfall: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
+    rainfall: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
         default=None,
-        description="Rainfall rate [L/T] on the reach surface.",
+        description="Rainfall on the channel surface, as a rate (m/s in SI).",
     )
-    evaporation: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
+    evaporation: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
         default=None,
-        description="Open-channel evaporation rate [L/T] (positive, subtracted).",
+        description=(
+            "Evaporation from the channel surface, as a positive rate (m/s in SI) that "
+            "is subtracted."
+        ),
     )
 
     # --- Explicit network override ----------------------------------------- #
@@ -312,28 +376,43 @@ class FlowReachNetworkConfig(HydroModelBase):
         default=None,
         ge=1,
         description=(
-            "1-based lake number the terminal reach feeds via MVR (SFR -> LAK). "
-            "None = the network outflow leaves the model (EXT-OUTFLOW)."
+            "Number of the lake the last reach feeds through a mover (SFR -> LAK), "
+            "counted from 1 in the order the lakes are declared. Unset, the network "
+            "outflow leaves the model."
         ),
+        json_schema_extra={"unit": "-"},
     )
     outflow_mvrtype: Annotated[Literal["FACTOR", "UPTO", "EXCESS", "THRESHOLD"], Profile.USER] = (
         Field(
             default="FACTOR",
-            description="MVR transfer rule for the SFR -> LAK coupling.",
+            description=(
+                "How much of the network outflow the mover passes to the lake, given outflow_value."
+            ),
+            json_schema_extra={
+                "value_docs": {
+                    "FACTOR": "Moves the share outflow_value (from 0 to 1) of the outflow.",
+                    "UPTO": "Moves the outflow, capped at outflow_value.",
+                    "EXCESS": "Moves only the part of the outflow above outflow_value.",
+                    "THRESHOLD": (
+                        "Moves outflow_value once the outflow exceeds it, and nothing below it."
+                    ),
+                }
+            },
         )
     )
     outflow_value: Annotated[float, Profile.USER] = Field(
         default=1.0,
         ge=0.0,
         description=(
-            "MVR value: the fraction for FACTOR, or the flow rate [L^3/T] for "
-            "UPTO / EXCESS / THRESHOLD. Not calibratable: it is a coupling rule, not a "
+            "Amount of the transfer rule: a share from 0 to 1 for FACTOR, a flow rate in "
+            "m3/s for UPTO, EXCESS and THRESHOLD. Not calibratable: it is a coupling rule, not a "
             "hydraulic property of the reach or the lake, so letting a search move it would "
             "buy fit by reshaping how water is split between them rather than resolve "
             "streambed_k or the lake bathymetry, the actual unknowns. path = in "
             "[calibration.parameters] still reaches it for whoever wants to override this "
             "deliberately."
         ),
+        json_schema_extra={"unit": "- or m3/s"},
     )
     lake_feeder_snap: Annotated[Length, Profile.EXPERT] = Field(
         default="300 m",

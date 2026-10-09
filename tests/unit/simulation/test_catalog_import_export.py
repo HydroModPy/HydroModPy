@@ -127,7 +127,7 @@ class TestImportSimulation:
         pkg = tmp_path / "dup.hmp"
         produced = catalog.export_package(sid, pkg)
 
-        with pytest.raises(ValueError, match="already exists"):
+        with pytest.raises(ValueError, match="already in this catalog.*--force.*force=True"):
             catalog.import_package(produced)
 
     def test_a_second_run_of_one_project_needs_a_project_name(self, tmp_path):

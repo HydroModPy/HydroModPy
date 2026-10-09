@@ -241,6 +241,16 @@ def run_flow_post_processing(
     export_runtime_support_overview(model, options=options)
 
 
+def _open_gwt_concentration(path_ucn: str):
+    """Open a MODFLOW 6 GWT concentration file.
+
+    GWT writes the MODFLOW 6 head layout in double precision. Read as an
+    MT3DMS ``UcnFile``, the header gives a grid of 538 976 334 columns: the
+    text ``N   `` taken as an integer.
+    """
+    return bf.HeadFile(path_ucn, text="CONCENTRATION", precision="double")
+
+
 def run_transport_post_processing(
     transport_model: TransportPostprocessModel,
     model_mt3dms: object,
@@ -264,20 +274,8 @@ def run_transport_post_processing(
     filesystem.create_folder(transport_model.tifs_file)
 
     path_ucn = os.path.join(transport_model.full_path, f"{transport_model.model_name_mt}.ucn")
-    conc_reader = None
-    try:
-        ucnobj = bf.UcnFile(path_ucn)
-        conc_reader = ucnobj
-        concobj_1c = ucnobj.get_alldata(mflay=None)
-    except Exception:
-        try:
-            headobj = bf.HeadFile(path_ucn, text="CONCENTRATION", precision="double")
-            conc_reader = headobj
-            concobj_1c = headobj.get_alldata(mflay=None)
-        except Exception:
-            headobj = bf.HeadFile(path_ucn, text="CONCENTRATION", precision="single")
-            conc_reader = headobj
-            concobj_1c = headobj.get_alldata(mflay=None)
+    conc_reader = _open_gwt_concentration(path_ucn)
+    concobj_1c = conc_reader.get_alldata(mflay=None)
     concobj_1c[concobj_1c >= 1e30] = np.nan
     # Drive the loop from the real concentration output slices, not nper: with
     # nstp_per_period > 1 there are nper*nstp slices, one per output time.

@@ -68,7 +68,7 @@ class SoilReservoirConfig(HydroModelBase):
         ge=0.0,
         le=1000.0,
         description=(
-            "Available water capacity of the soil (réserve utile), in mm of water: "
+            "Available water capacity of the soil, in mm of water: "
             "what the roots can draw between field capacity and wilting point. A bare "
             'number is in mm; "120 mm" and "12 cm" also read. Between 0 and 1000 mm. '
             "Required, since it belongs to the site. In doubt, start from 150 mm and "
@@ -79,6 +79,7 @@ class SoilReservoirConfig(HydroModelBase):
             "[calibration.parameters.ru]."
         ),
         json_schema_extra=field_metadata(calibrable=Calibrable(units="mm")),
+        examples=["150 mm"],
     )
     alpha: Annotated[float, Profile.USER] = Field(
         default=0.6,

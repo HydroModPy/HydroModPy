@@ -68,9 +68,16 @@
     if (!window.PagefindComponents) {
       box.textContent =
         "The search index is missing: build it with python -m pagefind --site <html dir>.";
-    } else if (query) {
+    } else {
       await customElements.whenDefined("pagefind-input");
-      window.PagefindComponents.getInstanceManager().getInstance("default").triggerSearch(query);
+      const instance = window.PagefindComponents.getInstanceManager().getInstance("default");
+      // A page title counts less than its text. The key pages are titled
+      // [calibration.phases] and the like: at the default weight, "calibrate"
+      // lists them all before the guide that is called Calibrate.
+      instance.pagefindOptions.ranking = { metaWeights: { title: 0.25 } };
+      if (query) instance.triggerSearch(query);
+    }
+    if (query) {
       requestAnimationFrame(() => {
         const input = box.querySelector("pagefind-input input");
         if (input && !input.value) input.value = query;

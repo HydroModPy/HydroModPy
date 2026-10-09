@@ -164,7 +164,6 @@ def validate_solver_code(solver_name: str) -> str:
 # - ``one``: the value closest to one is better (KGE ratios).
 METRIC_SENSE: dict[str, str] = {
     "nse": "max",
-    "log_nse": "max",
     "nse_log": "max",
     "nse_delta": "max",
     "nse_seasonal": "max",
@@ -193,6 +192,14 @@ METRIC_SENSE: dict[str, str] = {
 """Direction of every metric the catalog knows how to rank."""
 
 
+RETIRED_METRIC_NAMES: dict[str, str] = {"log_nse": "nse_log"}
+"""Metric names the catalog no longer stores, each with the name to write.
+
+Rows stored under a retired name are renamed by the catalog migration and by
+``hmp catalog reindex``; a query naming one is refused with the new name.
+"""
+
+
 class UnrankedMetricError(ValueError):
     """Raised when a metric has no declared direction, so best is undefined."""
 
@@ -204,7 +211,12 @@ def metric_rank_sql(metric: str, *, best: bool, column: str = "m.value") -> str:
     :data:`METRIC_SENSE`: taking the highest value of an error would hand back
     the worst run under the name of the best one.
     """
-    sense = METRIC_SENSE.get(str(metric).strip().lower())
+    key = str(metric).strip().lower()
+    if key in RETIRED_METRIC_NAMES:
+        raise UnrankedMetricError(
+            f"Metric '{metric}' was renamed: write '{RETIRED_METRIC_NAMES[key]}'."
+        )
+    sense = METRIC_SENSE.get(key)
     if sense is None:
         known = ", ".join(sorted(METRIC_SENSE))
         raise UnrankedMetricError(
@@ -225,6 +237,7 @@ __all__ = [
     "OUTLET_STATION",
     "PARQUET_VIEW_NAMES",
     "PER_SIM_TABLE_NAMES",
+    "RETIRED_METRIC_NAMES",
     "SOLVER_ALIASES",
     "STALE_HEARTBEAT_MINUTES",
     "TABLE_NAMES",

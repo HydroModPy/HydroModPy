@@ -82,6 +82,13 @@ SaveRunsMode = Literal["none", "best_n", "all"]
 ParameterMode = Literal["replace", "scale"]
 OutputSupport = Literal["point", "boundary", "cell", "lake", "network"]
 OutputReducer = Literal["mean", "sum", "last", "none"]
+_OUTPUT_REDUCER_VALUE_DOCS: dict[str, str] = {
+    "mean": "Scores one value: the mean of the kept values.",
+    "sum": "Scores one value: the sum of the kept values.",
+    "last": "Scores one value: the last kept value.",
+    "none": "Scores every kept value against its observation.",
+}
+"""What each reducer of a calibration output does to the kept time steps."""
 ObjectiveTransform = Literal["identity", "log", "inverse"]
 PersistIterationDetail = Literal["none", "summary", "full"]
 MetricKind = Literal[
@@ -103,6 +110,31 @@ Kept equal to the keys of ``calibration.criteria.series.METRICS`` by
 computed metrics this list did not offer, so they ran in Python and were refused
 by validation.
 """
+
+_METRIC_VALUE_DOCS: dict[str, str] = {
+    "rmse": "Root-mean-square error, in the observed unit; penalizes large misfits most.",
+    "nse": "Nash-Sutcliffe efficiency against the observed mean; the "
+    "standard choice for a level or discharge series.",
+    "kge": "Kling-Gupta efficiency; separates correlation, variability "
+    "and bias when NSE alone is ambiguous.",
+    "mae": "Mean absolute error, in the observed unit; less sensitive to outliers than RMSE.",
+    "nse_log": "NSE on log-transformed series; weights low flows as "
+    "heavily as peaks, good for recessions.",
+    "nse_delta": "NSE on the increments of the series rather than its "
+    "level; a level is an integral and can hide flux errors that "
+    "compensate, which only its increments show.",
+    "nse_seasonal": "NSE against the seasonal cycle rather than the "
+    "overall mean; asks whether the model beats climatology.",
+    "reservoir": "Half nse_seasonal plus half nse_delta, built for an "
+    "impounded level: a plain NSE there is beaten by the seasonal cycle, "
+    "and the increments are what carry the flux errors.",
+    "distance_gap": "Balances the simulated stream network against the "
+    "mapped one; zero marks the crossing.",
+    "distance_mean": "Mean spatial offset between simulated and mapped "
+    "streams; a diagnostic, not a substitute for distance_gap.",
+}
+"""What each metric a TOML may select measures, shown beside every key that picks one."""
+
 CalibrationMethod = NonEmptyStr
 OutputTime = Literal["all", "last", "first"] | list[str]
 
@@ -154,7 +186,12 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
     }
 
     name: Annotated[Literal["matching_hydrographic_network"], Profile.USER] = Field(
-        description="Protocol identifier.",
+        description=(
+            "Name of the protocol to run. 'matching_hydrographic_network' is the only "
+            "one: a steady stage fits K on the stream network, then a transient stage "
+            "fits the storage on a gauge."
+        ),
+        examples=["matching_hydrographic_network"],
     )
     version: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -208,6 +245,7 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         "stops, as a relative precision on the conductivity: 0.01 is the paper's one "
         "per cent. Unset takes the engine's default, which for the bisection is that "
         "same one per cent.",
+        json_schema_extra={"unit": "-"},
     )
     steady_method_options: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
@@ -233,7 +271,10 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
     )
     transient_method: Annotated[str, Profile.USER] = Field(
         default="scipy_nelder_mead",
-        description="Engine of stage two.",
+        description=(
+            "Search method of stage two, named as calibration.method names one, such "
+            "as 'scipy_nelder_mead'."
+        ),
     )
     transient_max_iter: Annotated[int, Profile.USER] = Field(
         default=120,
@@ -242,11 +283,13 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         "needs, so it gets no extension: a stage two that spends this before its "
         "tolerance is reported as not converged, and a re-run with a larger budget "
         "replays the trials already solved from the cache.",
+        json_schema_extra={"unit": "-"},
     )
     transient_tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
         description="How precisely stage two has to pin the storage before it stops, "
         "as a relative precision on the storage coefficient.",
+        json_schema_extra={"unit": "-"},
     )
     transient_method_options: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
@@ -360,6 +403,19 @@ class CalibParameterDecl(HydroModelBase):
     )
     transform: Annotated[Literal["identity", "log", "logit"], Profile.USER] = Field(
         default="identity",
+        json_schema_extra={
+            "value_docs": {
+                "identity": "Searches the value as written.",
+                "log": (
+                    "Searches the logarithm of the value: for a positive quantity that "
+                    "spans orders of magnitude."
+                ),
+                "logit": (
+                    "Searches log(x / (1 - x)): for a share strictly between 0 and 1. "
+                    "Both bounds must lie inside (0, 1)."
+                ),
+            }
+        },
         description="Transform applied before sampling. 'log' for "
         "strictly-positive quantities spanning orders of magnitude. Unset, the "
         "target's own field decides: a hydraulic conductivity declares 'log' where "
@@ -367,11 +423,25 @@ class CalibParameterDecl(HydroModelBase):
     )
     prior: Annotated[Literal["uniform", "log_uniform", "normal"], Profile.USER] = Field(
         default="uniform",
-        description="Prior distribution used by Bayesian samplers.",
+        description=(
+            "Distribution, between the bounds, that starting points, random draws and "
+            "Bayesian samplers take values from."
+        ),
+        json_schema_extra={
+            "value_docs": {
+                "uniform": "Every value between the bounds is equally likely.",
+                "log_uniform": "Every decade between the bounds is equally likely.",
+                "normal": (
+                    "A normal law centred between the bounds, with a standard deviation "
+                    "of a sixth of their span, cut at the bounds."
+                ),
+            }
+        },
     )
     path: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Dotted path into HydroModPyConfig. Optional, and the way out "
+        description="Dotted TOML path of the value to move, such as "
+        "'flow.param.K.field.value'. Optional, and the way out "
         "rather than the way in: when omitted, the section name is resolved against "
         "the project catalogue ('hmp config targets' lists it). Write one to reach a "
         "value the catalogue does not carry, or to settle a name two targets answer "
@@ -388,7 +458,13 @@ class CalibParameterDecl(HydroModelBase):
         "the base TOML value at the target path by the sample.",
     )
     units: Annotated[str | None, Profile.USER] = Field(
-        default=None, description="Parameter units label."
+        default=None,
+        description=(
+            "Unit the bounds are written in, such as 'm/s'. The bounds are checked "
+            "against the physical range of the target in this unit. Unset, the unit the "
+            "target declares applies."
+        ),
+        examples=["m/s"],
     )
 
     def resolve_target(self) -> str | None:
@@ -456,6 +532,7 @@ class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
 
     variable: Annotated[str, Profile.USER] = Field(
         description="Simulated variable to extract (e.g. 'head', 'outlet_discharge').",
+        examples=["head"],
     )
     support: Annotated[Literal["point"], Profile.USER] = Field(
         default="point",
@@ -483,7 +560,8 @@ class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
     )
     reducer: Annotated[OutputReducer, Profile.USER] = Field(
         default="none",
-        description="Aggregation over the retained time slice.",
+        description="How the values kept by time are reduced before they are scored.",
+        json_schema_extra={"value_docs": _OUTPUT_REDUCER_VALUE_DOCS},
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
@@ -555,7 +633,11 @@ class CalibOutputBoundary(ScoresAnObservedRecord, HydroModelBase):
         description="Discriminator tag. 'boundary' sums flux at boundary_id.",
     )
     boundary_id: Annotated[str, Profile.USER] = Field(
-        description="Boundary package identifier.",
+        description=(
+            "Id of the boundary whose flux is summed, as flow.active_bc names it "
+            "(for example 'drainage')."
+        ),
+        examples=["drainage"],
     )
     time: Annotated[OutputTime, Profile.USER] = Field(
         default="all",
@@ -564,7 +646,8 @@ class CalibOutputBoundary(ScoresAnObservedRecord, HydroModelBase):
     )
     reducer: Annotated[OutputReducer, Profile.USER] = Field(
         default="none",
-        description="Aggregation over the retained time slice.",
+        description="How the values kept by time are reduced before they are scored.",
+        json_schema_extra={"value_docs": _OUTPUT_REDUCER_VALUE_DOCS},
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
@@ -590,19 +673,26 @@ class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
     )
     cell_id: Annotated[NonNegativeInt | None, Profile.USER] = Field(
         default=None,
-        description="Flat cell index when the backend exposes one.",
+        description=(
+            "Flat cell index. No solver reads it today: a run refuses a cell output "
+            "without row and col."
+        ),
+        json_schema_extra={"unit": "-"},
     )
     row: Annotated[NonNegativeInt | None, Profile.USER] = Field(
         default=None,
-        description="Structured row index.",
+        description="Row of the cell on the structured grid, counted from 0 at the north edge.",
+        json_schema_extra={"unit": "-"},
     )
     col: Annotated[NonNegativeInt | None, Profile.USER] = Field(
         default=None,
-        description="Structured column index.",
+        description="Column of the cell on the structured grid, counted from 0 at the west edge.",
+        json_schema_extra={"unit": "-"},
     )
     layer: Annotated[NonNegativeInt, Profile.USER] = Field(
         default=0,
-        description="Structured layer index.",
+        description="Layer of the cell, counted from 0 at the top.",
+        json_schema_extra={"unit": "-"},
     )
     time: Annotated[OutputTime, Profile.USER] = Field(
         default="all",
@@ -611,7 +701,8 @@ class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
     )
     reducer: Annotated[OutputReducer, Profile.USER] = Field(
         default="none",
-        description="Aggregation over the retained time slice.",
+        description="How the values kept by time are reduced before they are scored.",
+        json_schema_extra={"value_docs": _OUTPUT_REDUCER_VALUE_DOCS},
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
@@ -665,7 +756,10 @@ class CalibOutputLake(ScoresAnObservedRecord, HydroModelBase):
         description="Discriminator tag. 'lake' reads a LAK lake stage by lake_id.",
     )
     lake_id: Annotated[str, Profile.USER] = Field(
-        description="Lake identifier, matching flow.sinks_sources.lakes.<lake_id>.",
+        description=(
+            "Name of the lake to read, the <name> of its [flow.sinks_sources.lakes.<name>] table."
+        ),
+        examples=["lac0"],
     )
     time: Annotated[OutputTime, Profile.USER] = Field(
         default="all",
@@ -674,7 +768,8 @@ class CalibOutputLake(ScoresAnObservedRecord, HydroModelBase):
     )
     reducer: Annotated[OutputReducer, Profile.USER] = Field(
         default="none",
-        description="Aggregation over the retained time slice.",
+        description="How the values kept by time are reduced before they are scored.",
+        json_schema_extra={"value_docs": _OUTPUT_REDUCER_VALUE_DOCS},
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
@@ -699,12 +794,14 @@ class CalibNetworkBoundWeights(HydroModelBase):
         le=1.0,
         description="Weight of the minimal (permanent) bound. 1 with maximal = 0 "
         "calibrates on the permanent map alone, the practice of Abherve et al. (2025).",
+        json_schema_extra={"unit": "-"},
     )
     maximal: Annotated[float, Profile.USER] = Field(
         default=0.5,
         ge=0.0,
         le=1.0,
         description="Weight of the maximal (complete) bound.",
+        json_schema_extra={"unit": "-"},
     )
 
     @model_validator(mode="after")
@@ -738,6 +835,7 @@ class CalibNetworkExtent(HydroModelBase):
         ge=1,
         description="Timesteps a cell has to flow in a year to enter the maximal mask. "
         "At most the timestep count of the shortest complete year, checked on the run.",
+        json_schema_extra={"unit": "-"},
     )
     minimal_dry_steps: Annotated[int, Profile.USER] = Field(
         default=1,
@@ -746,6 +844,7 @@ class CalibNetworkExtent(HydroModelBase):
         "The year's timestep count minus this has to stay at least "
         "maximal_flowing_steps, checked on the run, so the minimal mask sits inside the "
         "maximal one.",
+        json_schema_extra={"unit": "-"},
     )
     year_quorum: Annotated[float, Profile.USER] = Field(
         default=0.5,
@@ -754,6 +853,7 @@ class CalibNetworkExtent(HydroModelBase):
         description="Share of the scored years in which a cell has to meet a bound's rule "
         "to enter it: ceil(year_quorum * n_years) years. Warned under three scored years, "
         "where one half is a union of two.",
+        json_schema_extra={"unit": "-"},
     )
     visible_flow: Annotated[str, Profile.USER] = Field(
         default=DEFAULT_VISIBLE_FLOW,
@@ -919,12 +1019,19 @@ class CalibOutputNetwork(HydroModelBase):
         "not a seepage face. Zero reproduces the purely geometric criterion of the "
         "paper. Frozen over the whole search: a threshold moving with the trial would "
         "cost the criterion its monotonicity.",
+        json_schema_extra={"unit": "-"},
     )
     weighting: Annotated[Literal["cell", "area"], Profile.USER] = Field(
         default="cell",
         description="Average one cell one vote (the paper) or weighted by cell area. "
         "Both values are always reported; use 'area' on a mesh refined along the "
         "streams, where cell density is highest exactly where distances are smallest.",
+        json_schema_extra={
+            "value_docs": {
+                "cell": "Every cell counts once in the average, as in the paper.",
+                "area": "Every cell counts in proportion to its area.",
+            }
+        },
     )
     diagonal_neighbors: Annotated[bool, Profile.USER] = Field(
         default=STREAM_CRITERION_DEFAULTS.diagonal_neighbors,
@@ -1035,6 +1142,7 @@ class CalibOutputNetwork(HydroModelBase):
         "and D_so would be a fiction. The reciprocal share, 'frac_unreachable_os', is "
         "reported and deliberately left unbounded: its target is the simulated network, "
         "which the search itself retracts.",
+        json_schema_extra={"unit": "-"},
     )
     alpha_warning_threshold: Annotated[float, Profile.EXPERT] = Field(
         default=STREAM_CRITERION_DEFAULTS.alpha_warning_threshold,
@@ -1255,37 +1363,16 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     )
     metric: Annotated[MetricKind, Profile.USER] = Field(
         default="rmse",
-        description="Metric key. One of rmse, nse, kge, mae, nse_log.",
-        json_schema_extra={
-            "value_docs": {
-                "rmse": "Root-mean-square error, in the observed unit; penalizes large "
-                "misfits most.",
-                "nse": "Nash-Sutcliffe efficiency against the observed mean; the "
-                "standard choice for a level or discharge series.",
-                "kge": "Kling-Gupta efficiency; separates correlation, variability "
-                "and bias when NSE alone is ambiguous.",
-                "mae": "Mean absolute error, in the observed unit; less sensitive to "
-                "outliers than RMSE.",
-                "nse_log": "NSE on log-transformed series; weights low flows as "
-                "heavily as peaks, good for recessions.",
-                "nse_delta": "NSE on the increments of the series rather than its "
-                "level; a level is an integral and can hide flux errors that "
-                "compensate, which only its increments show.",
-                "nse_seasonal": "NSE against the seasonal cycle rather than the "
-                "overall mean; asks whether the model beats climatology.",
-                "reservoir": "Half nse_seasonal plus half nse_delta, built for an "
-                "impounded level: a plain NSE there is beaten by the seasonal cycle, "
-                "and the increments are what carry the flux errors.",
-                "distance_gap": "Balances the simulated stream network against the "
-                "mapped one; zero marks the crossing.",
-                "distance_mean": "Mean spatial offset between simulated and mapped "
-                "streams; a diagnostic, not a substitute for distance_gap.",
-            }
-        },
+        description="Metric that scores this block against its observations.",
+        json_schema_extra={"value_docs": _METRIC_VALUE_DOCS},
     )
     weight: Annotated[PositiveFloat, Profile.USER] = Field(
         default=1.0,
-        description="Relative weight of this block in the composite sum.",
+        description=(
+            "Weight of this block in the sum of the block costs. Only the ratios between "
+            "weights matter."
+        ),
+        json_schema_extra={"unit": "-"},
     )
     uses_outputs: Annotated[list[str], Profile.USER] = Field(
         min_length=1,
@@ -1442,6 +1529,22 @@ def _check_the_method_takes_its_options(
 
 UncertaintyMethod = Literal["cost_profile", "multistart", "linearized"]
 
+_UNCERTAINTY_METHOD_VALUE_DOCS: dict[str, str] = {
+    "cost_profile": (
+        "Reads the range of sampled values whose cost stayed within tolerance of the "
+        "best, off the trace of the search. No extra model run."
+    ),
+    "multistart": (
+        "Repeats the whole search restarts times from different starting points and "
+        "reports the spread of the optima. It can see a second basin."
+    ),
+    "linearized": (
+        "Linearizes the model about the optimum: one extra run per parameter gives a "
+        "first-order covariance, and with it which parameters trade off."
+    ),
+}
+"""What each way of computing a calibration interval does."""
+
 
 def _refuse_a_posterior(data: Any, where: str) -> None:
     """Answer 'posterior' with the reason it is not offered, instead of an enum error."""
@@ -1477,16 +1580,19 @@ class CalibPhaseUncertaintyDecl(HydroModelBase):
         default=None,
         description="How this phase's interval is obtained: 'cost_profile', "
         "'multistart' or 'linearized', read as in [calibration.uncertainty] method.",
+        json_schema_extra={"value_docs": _UNCERTAINTY_METHOD_VALUE_DOCS},
     )
     restarts: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=2,
         description="How many times method='multistart' repeats this phase's search.",
+        json_schema_extra={"unit": "-"},
     )
     perturbation: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
         description="Relative step of method='linearized' for this phase, as a fraction "
         "of each calibrated value.",
+        json_schema_extra={"unit": "-"},
     )
     tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
@@ -1495,6 +1601,7 @@ class CalibPhaseUncertaintyDecl(HydroModelBase):
         "distance) when mode='absolute'. Unset here and in [calibration.uncertainty], "
         "one mesh cell for a phase scored only by network distances, five per cent of "
         "the best cost otherwise.",
+        json_schema_extra={"unit": "- or cost unit"},
     )
     mode: Annotated[Literal["relative", "absolute"] | None, Profile.USER] = Field(
         default=None,
@@ -1582,12 +1689,14 @@ class CalibPhaseDecl(HydroModelBase):
             "the engine's default applies. An engine that stops on its budget rather "
             "than on a precision refuses this rather than ignore it."
         ),
+        json_schema_extra={"unit": "-"},
     )
     batch_size: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=1,
         description="Suggestions drawn per ask, at least ``parallel``. Unset, the "
         "phase takes the ``batch_size`` of ``[calibration]``.",
+        json_schema_extra={"unit": "-"},
     )
     parallel: Annotated[int | None, Profile.USER] = Field(
         default=None,
@@ -1595,6 +1704,7 @@ class CalibPhaseDecl(HydroModelBase):
         description="Trials of this phase solved side by side, each in its own folder. "
         "Unset, the phase takes the ``parallel`` of ``[calibration]``, which also "
         "reaches the phases a protocol writes.",
+        json_schema_extra={"unit": "-"},
     )
     parameters: Annotated[list[str], Profile.USER] = Field(
         min_length=1,
@@ -1616,12 +1726,17 @@ class CalibPhaseDecl(HydroModelBase):
     )
     variable: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Single-metric variable, when this phase does not use blocks.",
+        description=(
+            "Name of the simulated variable, or of a [calibration.outputs] entry, that "
+            "objective scores when this phase uses no objective block. Unset, the "
+            "variable of [calibration] applies."
+        ),
     )
     objective: Annotated[MetricKind | None, Profile.USER] = Field(
         default=None,
         description="Metric scoring this phase's single simulated series, when the "
         "phase does not use objective blocks. Same vocabulary as a block's 'metric'.",
+        json_schema_extra={"value_docs": _METRIC_VALUE_DOCS},
     )
     observed_station_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -1650,7 +1765,9 @@ class CalibPhaseDecl(HydroModelBase):
             }
         },
     )
-    steady_window: Annotated[dict[str, str] | None, Profile.USER] = Field(
+    steady_window: Annotated[
+        dict[str, str] | None, Profile.USER, VisibleWhen("regime", "steady")
+    ] = Field(
         default=None,
         description="Dates the steady period spans, as {start, end}, when regime = "
         "'steady'. Unset takes the whole [simulation.time] window.",
@@ -1789,6 +1906,7 @@ class CalibAggregateDecl(HydroModelBase):
             "collapses to three days still returns a number, and a weight of 65 per "
             "cent resting on three days is not what the file says it is."
         ),
+        json_schema_extra={"unit": "-"},
     )
     on_member_failure: Annotated[Literal["veto", "drop"], Profile.USER] = Field(
         default="veto",
@@ -1813,6 +1931,7 @@ class CalibUncertaintyDecl(HydroModelBase):
 
     method: Annotated[UncertaintyMethod, Profile.USER] = Field(
         default="cost_profile",
+        json_schema_extra={"value_docs": _UNCERTAINTY_METHOD_VALUE_DOCS},
         description=(
             "How the interval around each calibrated value is obtained. "
             "'cost_profile' reads the range of sampled values whose cost stayed within "
@@ -1834,6 +1953,7 @@ class CalibUncertaintyDecl(HydroModelBase):
             "is a full search: eight restarts of a hundred-evaluation phase is eight "
             "hundred model runs."
         ),
+        json_schema_extra={"unit": "-"},
     )
     perturbation: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
@@ -1849,6 +1969,7 @@ class CalibUncertaintyDecl(HydroModelBase):
             "which. It is first-order: exact where the model is linear about the optimum, "
             "approximate in proportion to the curvature, and not a posterior."
         ),
+        json_schema_extra={"unit": "-"},
     )
 
     @model_validator(mode="before")
@@ -1903,6 +2024,7 @@ class CalibUncertaintyDecl(HydroModelBase):
             "between the centres of neighbouring cells, measured by the network "
             "criterion on the mesh it scores. A phase may write its own, which wins."
         ),
+        json_schema_extra={"unit": "- or cost unit"},
     )
     mode: Annotated[Literal["relative", "absolute"] | None, Profile.USER] = Field(
         default=None,
@@ -2029,11 +2151,13 @@ class CalibrationConfig(HydroModelBase):
             "the engine's default applies. An engine that stops on its budget rather "
             "than on a precision refuses this rather than ignore it."
         ),
+        json_schema_extra={"unit": "-"},
     )
     batch_size: Annotated[int, Profile.USER] = Field(
         default=1,
         ge=1,
         description="Number of suggestions drawn per ask, at least ``parallel``.",
+        json_schema_extra={"unit": "-"},
     )
     parallel: Annotated[int, Profile.USER] = Field(
         default=1,
@@ -2046,6 +2170,7 @@ class CalibrationConfig(HydroModelBase):
             "sequential answer. Each trial holds its own model in memory; 1 solves "
             "them one after the other."
         ),
+        json_schema_extra={"unit": "-"},
     )
     reject_water_budget_above: Annotated[float | None, Profile.USER] = Field(
         default=None,
@@ -2059,6 +2184,7 @@ class CalibrationConfig(HydroModelBase):
             "solve on a coarse mesh closes to a fraction of a per cent, a transient one "
             "with a lake and a routed network legitimately sits higher."
         ),
+        json_schema_extra={"unit": "%"},
     )
     warmup_periods: Annotated[int, Profile.EXPERT] = Field(
         default=0,
@@ -2108,7 +2234,11 @@ class CalibrationConfig(HydroModelBase):
     )
     seed: Annotated[int | None, Profile.USER] = Field(
         default=None,
-        description="Random seed for reproducibility.",
+        description=(
+            "Seed of the random draws of the search (starting points, samples). The "
+            "same seed with the same file gives the same trials."
+        ),
+        json_schema_extra={"unit": "-"},
     )
     save_runs: Annotated[SaveRunsMode, Profile.USER] = Field(
         default="none",
@@ -2123,6 +2253,7 @@ class CalibrationConfig(HydroModelBase):
         default=10,
         ge=0,
         description="Number of top iterations to promote when save_runs='best_n'.",
+        json_schema_extra={"unit": "-"},
     )
     use_cache: Annotated[bool, Profile.DEV] = Field(
         default=True,
@@ -2139,10 +2270,14 @@ class CalibrationConfig(HydroModelBase):
         description="Metric scoring the single simulated series, when no objective "
         "block is declared. Same vocabulary as a block's 'metric'; typed here so a "
         "bad value is reported against the key that was written.",
+        json_schema_extra={"value_docs": _METRIC_VALUE_DOCS},
     )
     variable: Annotated[str, Profile.USER] = Field(
         default="head",
-        description="Observed variable (for ObservationSet).",
+        description=(
+            "Name of the simulated variable, or of a [calibration.outputs] entry, that "
+            "objective scores when no objective block is declared."
+        ),
     )
     observed_station_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -2170,12 +2305,13 @@ class CalibrationConfig(HydroModelBase):
         description="Weighted blocks making up a composite objective. When empty, "
         "a single implicit block is built from 'objective' and 'variable'.",
     )
-    persist_iteration_detail: Annotated[PersistIterationDetail, Profile.DEV] = Field(
+    persist_iteration_detail: Annotated[PersistIterationDetail, Profile.USER] = Field(
         default="summary",
-        description="'none' skips component metrics; 'summary' keeps block totals; "
+        description="How much of each trial's cost the session keeps: 'none' skips "
+        "component metrics; 'summary' keeps block totals; "
         "'full' also stores per-block raw and normalized costs.",
     )
-    persist_trial_series: Annotated[bool, Profile.DEV] = Field(
+    persist_trial_series: Annotated[bool, Profile.USER] = Field(
         default=False,
         description="Write the simulated and observed series of every point/series "
         "output a completed trial scored (discharge at a gauge, head at a well...), "

@@ -99,7 +99,7 @@ It automates the steps that take the most time:
 1. **Catchment extraction** from a digital elevation model.
 2. **Forcing and observations**: recharge, climate series, groundwater heads, gauged
    discharge, mapped stream networks and intermittency.
-3. **Mesh and vertical discretization** suited to shallow basement aquifers, with
+3. **Mesh and vertical discretisation** suited to shallow basement aquifers, with
    parameters given per zone or per cell, in steady state or in transient.
 4. **Calibration** that combines heads, discharge and the extent of the stream network
    to constrain the hydraulic properties.

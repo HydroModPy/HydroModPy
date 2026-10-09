@@ -18,7 +18,7 @@ One map, five sentences. If you read nothing else, read this page.
 2. Where that level reaches the ground, water comes out: these points are the {term}`springs
    <spring>` of the model.
 3. The streams are what these springs feed downhill. On the map, a stream is blue when it flows
-   all year, orange when it flows part of the year, and gray when it never flows.
+   all year, orange when it flows part of the year, and grey when it never flows.
 4. This map is a demonstration, not a study of the catchment: it was not compared with
    observations of dry reaches, so it is labelled *indicative*. Other results carry the labels
    *calibrated* or *numerical check*, and the label says how far to trust them

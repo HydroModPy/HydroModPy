@@ -3,6 +3,8 @@
 # writes the parameter, API, CLI and validation pages from the code and the tests
 # (tools/docs). Uploads the rendered HTML tree as an artifact so PR reviewers can
 # inspect the produced site.
+# Beside the build, jobs run the gates of the written text (typos, Vale, the guard
+# tests of tests/unit/docs) and, on the built site, the browser probe.
 
 name: Docs / Sphinx
 
@@ -11,6 +13,9 @@ on:
     branches: [main, dev]
     paths:
       - ".github/workflows/docs.yml"
+      - "_typos.toml"
+      - ".vale.ini"
+      - "styles/**"
       - "docs/**"
       - "hydromodpy/**"
       - "tools/docs/**"
@@ -24,6 +29,9 @@ on:
     branches: [main, dev]
     paths:
       - ".github/workflows/docs.yml"
+      - "_typos.toml"
+      - ".vale.ini"
+      - "styles/**"
       - "docs/**"
       - "hydromodpy/**"
       - "tools/docs/**"
@@ -55,6 +63,7 @@ jobs:
     steps:
       # sphinx-last-updated-by-git needs the full history: on a shallow
       # clone it warns once per page, and -W turns that into 465 errors.
+      # The redirect check below also reads the base branch of a pull request.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -87,6 +96,23 @@ jobs:
       - name: Check the built site
         run: python -m tools.docs.check_site docs/build/html
 
+      # Every URL of the site published before the restructuring is still a page or
+      # a redirect to a page, and each redirect page points at a file that exists.
+      - name: Check the old URLs
+        run: python -m tools.docs.check_redirects docs/build/html
+
+      # A page moved or deleted since the base branch of the pull request needs a
+      # line in docs/source/redirects.txt, or its URL breaks. numfig=0: the checker
+      # reads no page, and Sphinx 9 numbers figures from pages that were not read.
+      - name: Moved pages must be redirected
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: >
+          python -m sphinx -b rediraffecheckdiff -D numfig=0
+          -D rediraffe_branch="origin/${BASE_REF}"
+          docs/source "${RUNNER_TEMP}/rediraffe"
+
       # The build regenerates the tables a declared contract owns
       # (tools/doc_contracts.py). A tracked file under docs/source that the
       # build rewrites was stale.
@@ -104,3 +130,118 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+
+  # The gates below read the written text, not the built site. They run beside
+  # html-strict, in parallel. The tools, the rules and the allow lists are in the
+  # repository: _typos.toml, .vale.ini with styles/HydroModPy, tests/unit/docs,
+  # tools/docs. Each one runs the same way on a laptop.
+  typos:
+    name: Docs / typos
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install typos
+        run: pip install typos==1.51.1
+
+      # _typos.toml holds the allow list: names, MODFLOW package names, the keys
+      # that pages misspell on purpose to show an error.
+      - name: Check the spelling of the written pages
+        run: typos docs/source README.md CONTRIBUTING.md SECURITY.md
+
+  vale:
+    name: Docs / Vale
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vale
+        run: |
+          curl -sSLo vale.tar.gz https://github.com/errata-ai/vale/releases/download/v3.24.0/vale_3.24.0_Linux_64-bit.tar.gz
+          echo "867534ddb678abca7f214bc4706ead0922bd5252ffe8035fc227013f66c8b214  vale.tar.gz" | sha256sum -c -
+          tar xzf vale.tar.gz vale
+
+      # The house style: British spelling, one word per concept, no em dash,
+      # sentence case headings. The rules are in styles/HydroModPy.
+      - name: Check the house style of the written pages
+        run: ./vale --minAlertLevel=warning $(git ls-files 'docs/source/*.md' README.md)
+
+  doc-tests:
+    name: Docs / guard tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install package, test extras and sybil
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]" sybil==10.1.0
+
+      # Python blocks of the guides (sybil), messages quoted in the "What can go
+      # wrong" tables, references to docs paths, the Quick start reader and the
+      # page list of the browser probe. HMP_REQUIRE_SYBIL turns a missing sybil
+      # into a failure instead of a skip.
+      - name: Run the guard tests of the documentation
+        env:
+          HMP_REQUIRE_SYBIL: "1"
+        run: >
+          python -m pytest -q -p no:cacheprovider
+          tests/unit/docs/test_guide_python_blocks.py
+          tests/unit/docs/test_quoted_messages_exist_in_code.py
+          tests/unit/docs/test_check_refs.py
+          tests/unit/docs/test_check_quickstart.py
+          tests/unit/docs/test_site_probe_pages.py
+
+      - name: Check the references to docs paths
+        run: python -m tools.docs.check_refs
+
+  browser:
+    name: Docs / browser probe
+    needs: html-strict
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: docs-html
+          path: docs/build/html
+
+      - name: Install the browser and axe-core
+        run: |
+          pip install playwright==1.63.0
+          python -m playwright install --with-deps chromium
+          npm install --no-save axe-core@4.11.4
+
+      # About 25 page types, in the light and the dark theme: axe-core finds
+      # nothing at WCAG 2.1 AA (what the probe accepts is in
+      # tools/docs/site_probe_allow.toml, with its reason), nothing scrolls
+      # sideways at 390 px, the header stays one row from 390 to 1440 px.
+      - name: Probe the built site
+        run: python -m tools.docs.site_probe docs/build/html --axe node_modules/axe-core/axe.min.js
+
+      # The links of READMEs and docstrings to published pages and to static
+      # files exist in the built site.
+      - name: Check the references against the built site
+        run: python -m tools.docs.check_refs --site docs/build/html

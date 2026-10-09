@@ -16,6 +16,9 @@ from __future__ import annotations
 
 from typing import Any
 
+#: The name ``read_variable`` gives to the particle paths of a run.
+PARTICLES = "particles"
+
 
 def read_variable(
     run: Any,
@@ -32,7 +35,9 @@ def read_variable(
     DuckDB ``timeseries`` table, then the geographic features. Returns a
     lazy ``xr.DataArray`` for fields (an ``np.ndarray`` when ``time`` names
     one period), a ``pd.Series`` for timeseries, a ``gpd.GeoDataFrame`` for
-    features.
+    features. ``"particles"`` returns the particle paths as a
+    ``pd.DataFrame``, one row per recorded position (see
+    :func:`hydromodpy.results.run.particles.particle_frame`).
 
     ``time`` names one period of a field: an ``int`` index (negative counts
     from the end), a date (``"2002-10-15"``, ``datetime.date``,
@@ -49,6 +54,12 @@ def read_variable(
         raise TypeError(f"read expects a Run object as first argument, got {type(run).__name__}")
 
     sel_kw: dict = dict(sel or {})
+
+    if var == PARTICLES:
+        from hydromodpy.results.run.particles import particle_frame
+
+        _refuse_time(var, time, "the particle paths", "no time selector")
+        return particle_frame(run)
 
     if field_registry.has(var):
         return _read_field(run, var, time=_period_index(run, time), layer=layer, bbox=bbox)

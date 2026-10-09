@@ -8,21 +8,28 @@ from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.physics.base import ProcessSpatialConfig
 
 
 class ModpathParametersConfig(HydroModelBase):
     """Configuration payload for the Modpath transport solver."""
 
-    zone_partic: Annotated[str, Profile.DEV] = Field(
+    zone_partic: Annotated[str, Profile.USER] = Field(
         default="domain",
         description=(
-            "Particle injection zone selector: 'domain', 'seepage_clip', or a raster path."
+            "Where particles are released: 'domain' (every active cell), "
+            "'seepage_clip' (the seepage areas of the flow run, clipped to the "
+            "watershed), or the path of a raster that marks the release cells."
         ),
     )
-    track_dir: Annotated[Literal["forward", "backward", "custom"], Profile.DEV] = Field(
+    track_dir: Annotated[Literal["forward", "backward", "custom"], Profile.USER] = Field(
         default="forward",
-        description="Particle tracking direction.",
+        description=(
+            "Direction particles are tracked in: with the flow ('forward') or against "
+            "it ('backward', from where water leaves back to where it entered). "
+            "'custom' fills in no release point of its own."
+        ),
     )
     bore_depth: Annotated[list[float] | None, Profile.DEV] = Field(
         default=None,
@@ -42,10 +49,14 @@ class ModpathParametersConfig(HydroModelBase):
         ge=1,
         description="Optional random downsampling count of injected particles.",
     )
-    sel_slice: Annotated[int | None, Profile.DEV] = Field(
+    sel_slice: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=1,
-        description="Optional slicing step for injected particles.",
+        description=(
+            "Keep one released particle out of this many, in release order. Unset, "
+            "every particle is kept. A count."
+        ),
+        json_schema_extra={"unit": "-"},
     )
 
 
@@ -61,17 +72,24 @@ class TransportModpathConfig(HydroModelBase):
 class ConcentrationTransportParametersConfig(HydroModelBase):
     """Configuration payload shared by concentration transport solvers."""
 
-    spc_name: Annotated[str, Profile.DEV] = Field(
+    spc_name: Annotated[str, Profile.USER] = Field(
         default="NO3",
-        description="Name of transported species.",
+        description="Name of the transported solute, used in the output names.",
     )
-    sconc_init: Annotated[float, Profile.DEV] = Field(
+    sconc_init: Annotated[float, Profile.USER] = Field(
         default=0.0,
-        description="Initial concentration value (can be overridden at runtime).",
+        description=(
+            "Concentration of the solute in the aquifer at the start of the run, in the "
+            "mass per volume unit you choose. The run keeps that unit."
+        ),
+        json_schema_extra={"unit": "mass/volume"},
     )
-    sconc_input: Annotated[float, Profile.DEV] = Field(
+    sconc_input: Annotated[float, Profile.USER] = Field(
         default=0.0,
-        description="Recharge concentration input value (can be overridden at runtime).",
+        description=(
+            "Concentration of the solute in the recharge water, in the same unit as sconc_init."
+        ),
+        json_schema_extra={"unit": "mass/volume"},
     )
     disp_long: Annotated[float, Profile.DEV] = Field(
         default=0.0,
@@ -119,10 +137,11 @@ class ConcentrationTransportParametersConfig(HydroModelBase):
             "annihilates the solute. Can be overridden at runtime."
         ),
     )
-    porosity: Annotated[float | None, Profile.DEV] = Field(
+    porosity: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
         le=1.0,
+        json_schema_extra={"unit": "-"},
         description=(
             "Effective (total) porosity [-], the dimensionless volume of interconnected "
             "pores per bulk volume. Drives MST pore volume and pore velocity. When omitted, "
@@ -157,14 +176,16 @@ class TransportModflow6GwtConfig(HydroModelBase):
 class Modflow6PrtParametersConfig(HydroModelBase):
     """Configuration payload for MODFLOW 6 PRT particle tracking."""
 
-    release_zone: Annotated[str, Profile.DEV] = Field(
+    release_zone: Annotated[str, Profile.USER] = Field(
         default="domain",
         description=(
-            "Particle release selector: 'domain', 'domain_nonriver', 'upstream', "
-            "'upstream_nonriver', 'river', 'outlet', or 'custom'."
+            "Cells particles are released from: 'domain' (every active cell), "
+            "'domain_nonriver' (the same without river cells), 'upstream' (the highest "
+            "cells), 'upstream_nonriver', 'river', 'outlet' (the lowest cells), or "
+            "'custom' (the cells particle_cell_ids lists)."
         ),
     )
-    upstream_top_quantile: Annotated[float, Profile.DEV] = Field(
+    upstream_top_quantile: Annotated[float, Profile.USER] = Field(
         default=0.90,
         ge=0.0,
         le=1.0,
@@ -172,8 +193,9 @@ class Modflow6PrtParametersConfig(HydroModelBase):
             "Top-elevation quantile used by upstream release zones. A value of 0.90 "
             "selects cells in the highest 10 percent of active cell-top elevations."
         ),
+        json_schema_extra={"unit": "-"},
     )
-    outlet_bottom_quantile: Annotated[float, Profile.DEV] = Field(
+    outlet_bottom_quantile: Annotated[float, Profile.USER] = Field(
         default=0.10,
         ge=0.0,
         le=1.0,
@@ -181,73 +203,101 @@ class Modflow6PrtParametersConfig(HydroModelBase):
             "Bottom-elevation quantile used by the 'outlet' release zone. A value of "
             "0.10 selects cells in the lowest 10 percent of active cell-top elevations."
         ),
+        json_schema_extra={"unit": "-"},
     )
-    track_dir: Annotated[Literal["forward"], Profile.DEV] = Field(
+    track_dir: Annotated[Literal["forward"], Profile.USER] = Field(
         default="forward",
-        description="Particle tracking direction. MF6 PRT support is currently forward only.",
+        description=(
+            "Direction particles are tracked in. MODFLOW 6 PRT tracks with the flow "
+            "only, so 'forward' is the one value."
+        ),
     )
-    porosity: Annotated[float | None, Profile.DEV] = Field(
+    porosity: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
         le=1.0,
+        json_schema_extra={"unit": "-"},
         description=(
             "Effective (total) porosity [-] for particle tracking (v = q / porosity). "
             "When omitted, the flow model specific yield is used where positive, with a "
             "warning, since specific yield underestimates pore volume."
         ),
     )
-    local_z: Annotated[float, Profile.DEV] = Field(
+    local_z: Annotated[float, Profile.USER] = Field(
         default=0.5,
         ge=0.0,
         le=1.0,
-        description="Local vertical release coordinate within the cell.",
-    )
-    particle_cell_ids: Annotated[list[int] | None, Profile.DEV] = Field(
-        default=None,
         description=(
-            "Optional zero-based DISV cell2d ids for explicit particle release. "
-            "Used when release_zone is 'custom'."
+            "Height of the release point inside its cell, from 0 at the bottom to 1 at the top."
         ),
+        json_schema_extra={"unit": "-"},
     )
-    max_particles: Annotated[int | None, Profile.DEV] = Field(
+    particle_cell_ids: Annotated[
+        list[int] | None, Profile.USER, VisibleWhen("release_zone", "custom")
+    ] = Field(
+        default=None,
+        description=("Cells to release particles from, by their index in the mesh counted from 0."),
+    )
+    max_particles: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=1,
-        description="Optional maximum number of release cells after zone selection.",
+        description=(
+            "Most release cells kept after the zone is selected; the kept cells are "
+            "spread over the zone. Unset, every cell of the zone releases. A count."
+        ),
+        json_schema_extra={"unit": "-"},
     )
-    sel_slice: Annotated[int | None, Profile.DEV] = Field(
+    sel_slice: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=1,
-        description="Optional deterministic slicing step for selected release cells.",
+        description=(
+            "Keep one release cell out of this many, in cell order, before max_particles "
+            "applies. A count."
+        ),
+        json_schema_extra={"unit": "-"},
     )
-    release_times_days: Annotated[list[float] | None, Profile.DEV] = Field(
+    release_times_days: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
-        description="Optional particle release times in days.",
+        description=(
+            "Times particles are released at, in days from the start of the run. Unset, "
+            "they are released once at the start."
+        ),
+        json_schema_extra={"unit": "day"},
     )
-    track_times_days: Annotated[list[float] | None, Profile.DEV] = Field(
+    track_times_days: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
-        description="Optional user tracking output times in days.",
+        description=(
+            "Times the particle positions are written at, in days from the start of the run."
+        ),
+        json_schema_extra={"unit": "day"},
     )
-    track_time_step_days: Annotated[float | None, Profile.DEV] = Field(
+    track_time_step_days: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
         description=(
-            "Optional regular spacing, in days, for generated PRT tracking output times. "
-            "Used only when track_times_days is omitted."
+            "Spacing, in days, of regular output times from 0 to stop_time_days. "
+            "track_times_days wins when it is given. It needs stop_time_days."
         ),
+        json_schema_extra={"unit": "day"},
     )
-    stop_time_days: Annotated[float | None, Profile.DEV] = Field(
+    stop_time_days: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
-        description="Optional absolute particle stop time in days.",
+        description="Time all particles stop at, in days from the start of the run.",
+        json_schema_extra={"unit": "day"},
     )
-    stop_travel_time_days: Annotated[float | None, Profile.DEV] = Field(
+    stop_travel_time_days: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
-        description="Optional maximum particle travel time in days.",
+        description="Longest time a particle may travel, in days from its release.",
+        json_schema_extra={"unit": "day"},
     )
-    extend_tracking: Annotated[bool, Profile.DEV] = Field(
+    extend_tracking: Annotated[bool, Profile.USER] = Field(
         default=True,
-        description="Track particles beyond the final flow time step when MF6 permits it.",
+        description=(
+            "Keep tracking particles after the last flow time step, with the last flow "
+            "field, when MODFLOW 6 allows it."
+        ),
     )
     dry_tracking_method: Annotated[Literal["drop", "stop", "stay"], Profile.DEV] = Field(
         default="drop",
@@ -261,13 +311,16 @@ class Modflow6PrtParametersConfig(HydroModelBase):
             "prt-prp.dfn default (1e-5), which works well for many problems."
         ),
     )
-    write_track_csv: Annotated[bool, Profile.DEV] = Field(
+    write_track_csv: Annotated[bool, Profile.USER] = Field(
         default=True,
-        description="Write the PRT track CSV file used by the HydroModPy extractor.",
+        description=(
+            "Write the particle track CSV file. HydroModPy reads the tracks from it, so "
+            "turning it off leaves the run with no particle result."
+        ),
     )
-    write_track_binary: Annotated[bool, Profile.DEV] = Field(
+    write_track_binary: Annotated[bool, Profile.USER] = Field(
         default=True,
-        description="Write the binary PRT track file.",
+        description="Write the binary particle track file of MODFLOW 6 as well.",
     )
 
 

@@ -95,6 +95,7 @@ from hydromodpy.calibration.runners.trial import TrialMetricFn, prepare_trials
 from hydromodpy.core.exceptions import CalibrationError, ConfigValidationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.path_registry import in_run_scratch, project_root_of_config
+from hydromodpy.solver.base.solver_config import SolverConfig, solver_name_of_backend
 
 if TYPE_CHECKING:
     import numpy as np
@@ -1465,23 +1466,30 @@ def _write_methods_beside_the_root(
     return write_methods(root_dir, methods) if root_dir is not None else None
 
 
-def _backend_name(document: Mapping[str, Any]) -> str | None:
-    """Return the flow backend's tag from the raw document, or ``None`` if unset.
+def _backend_name(document: Mapping[str, Any]) -> str:
+    """Return the flow solver the trials run, read from the raw document.
 
-    Read before validation, from ``[solver]``, so this module does not import the
-    solver layer. ``SolverConfig`` takes the table form only
-    (``backend = { backend = "modflow6" }``) and refuses a bare tag, so a
-    document that loaded holds the table. A file that leaves ``solver.backend`` out
-    gets its backend from the flow process at validation; this reader then
-    returns ``None`` and the Methods paragraph names no backend.
+    The run builds the solver of the flow process of ``[[simulation.process]]``,
+    and validation makes ``solver.backend`` follow it. So the first solver of
+    the first flow process wins; a document without one runs the backend of
+    ``[solver]``, or the default backend when that is left out too.
     """
+    simulation = document.get("simulation")
+    processes = simulation.get("process") if isinstance(simulation, Mapping) else None
+    for process in processes if isinstance(processes, list | tuple) else ():
+        if not isinstance(process, Mapping):
+            continue
+        if str(process.get("type", "")).strip().lower() != "flow":
+            continue
+        solvers = process.get("solvers")
+        names = [str(name).strip() for name in solvers or () if str(name).strip()]
+        if names:
+            return names[0]
     solver = document.get("solver")
-    if not isinstance(solver, Mapping):
-        return None
-    backend = solver.get("backend")
-    if isinstance(backend, Mapping):
-        backend = backend.get("backend")
-    return str(backend) if backend else None
+    declared = (
+        solver_name_of_backend(solver.get("backend")) if isinstance(solver, Mapping) else None
+    )
+    return declared or SolverConfig().backend_name
 
 
 _GEOGRAPHIC_DEVIATIONS = ("dem_correc_type",)

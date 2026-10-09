@@ -5,7 +5,10 @@
 - Previous and next links stay inside a door: the link from the last guide to
   the first reference page means nothing to a reader.
 - Pagefind indexes the article of each page only, with its door as a filter;
-  the parameter explorer and the general index stay out of the search.
+  the parameter explorer and the general index stay out of the search. Inside
+  a parameter page the name of a quantity counts more than the long text of a
+  card, so a search for "conductivity" lands on the key before the pages that
+  only quote it (the elements the index leaves out are named in docs/Makefile).
 - A UML diagram is described by its title, not by its whole PlantUML source,
   which sphinxcontrib-plantuml puts in the alt text (read aloud by screen
   readers and indexed by the search).
@@ -50,6 +53,12 @@ _DOORS = {
     "about": "About",
 }
 _NOT_SEARCHED = {"genindex", "search", "reference/parameters/explorer"}
+# The second cell of a row of the "known keys" table is the quantity the key
+# carries (Hydraulic conductivity, Porosity...). The card under a key holds
+# the long text, where a quantity is quoted by every other key.
+_QUANTITY_CELL = re.compile(r'(<tr id="p-[^"]*"><td>(?:(?!</td>).)*</td>)<td>')
+_QUANTITY_WEIGHT = 8
+_CARD_WEIGHT = 0.5
 _UML_ALT = re.compile(r'alt="(?:&#64;|@)startuml(.*?)"', re.S)
 _RASTER = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 _DARK = "-dark"
@@ -236,6 +245,14 @@ def write_glossary(app: Sphinx, exception: Exception | None) -> None:
     target.write_text(json.dumps(cards, ensure_ascii=False, separators=(",", ":")), "utf-8")
 
 
+def weigh_for_search(body: str) -> str:
+    """Pagefind weights of a parameter page: the quantity of a key over its card."""
+    body = _QUANTITY_CELL.sub(rf'\1<td data-pagefind-weight="{_QUANTITY_WEIGHT}">', body)
+    return body.replace(
+        '<div class="hmp-card">', f'<div class="hmp-card" data-pagefind-weight="{_CARD_WEIGHT}">'
+    )
+
+
 def on_page_context(
     app: Sphinx, pagename: str, templatename: str, context: dict[str, Any], doctree
 ) -> None:
@@ -258,7 +275,7 @@ def on_page_context(
         # Contributor pages weigh less in the ranking: a user query should land on
         # a guide or a reference page before an architecture note. Pagefind reads
         # the weight on an element inside the indexed body, not on the body itself.
-        body = context["body"]
+        body = weigh_for_search(context["body"])
         if door_title == "Contribute":
             body = f'<div data-pagefind-weight="0.3">{body}</div>'
         context["body"] = (

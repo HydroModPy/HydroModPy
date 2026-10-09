@@ -844,6 +844,64 @@ class StepDirective(SphinxDirective):
         return [raw(f'<div class="hmp-toml-wrap">{legend}{body}</div>')]
 
 
+def resolved_toml_diff(older: Path, newer: Path, context: int = 1) -> str:
+    """Unified diff of two example files, each resolved through the real loader.
+
+    Both files go through ``load_toml_with_base_config`` (the ``base_config`` chain
+    and the merge rules of the loader), then are written back as TOML with the keys
+    in the order the loader returns them, so the diff shows what a run would read.
+    There is no fallback loader: a file the loader refuses fails the build.
+    """
+    import difflib
+
+    import tomli_w
+
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    def dump(path: Path) -> list[str]:
+        return tomli_w.dumps(load_toml_with_base_config(path)).splitlines()
+
+    lines = difflib.unified_diff(
+        dump(older), dump(newer), older.stem, newer.stem, n=context, lineterm=""
+    )
+    return "\n".join(lines)
+
+
+def base_chain(path: Path) -> list[Path]:
+    """The file and every ``base_config`` it inherits, so a build rereads them when one changes."""
+    chain = [path]
+    base = tomllib.loads(path.read_text()).get("base_config")
+    if base:
+        chain += base_chain((path.parent / base).resolve())
+    return chain
+
+
+class TomlDiffDirective(SphinxDirective):
+    """What a file of the example changes against another, both resolved by the loader.
+
+    ``{hmp-toml-diff} older.toml newer.toml``. A line starting with ``-`` is what the
+    older file resolves to, ``+`` what the newer one resolves to. The diff is
+    computed at build time, so it follows the files and cannot drift from them.
+    """
+
+    required_arguments = 2
+    option_spec = {"context": directives.nonnegative_int}
+
+    def run(self):
+        older, newer = (S["example_dir"] / name for name in self.arguments)
+        for path in (*base_chain(older), *base_chain(newer)):
+            self.env.note_dependency(str(path))
+        diff = resolved_toml_diff(older, newer, self.options.get("context", 1))
+        if not diff:
+            return [
+                nodes.paragraph(text=f"{newer.name} resolves to the same file as {older.name}.")
+            ]
+        block = nodes.literal_block(diff, diff)
+        block["language"] = "diff"
+        block["force"] = True
+        return [block]
+
+
 # ---------------------------------------------------------------- catalog, concepts, matrix, gates, changelog
 
 
@@ -907,7 +965,33 @@ class ChangelogDirective(SphinxDirective):
                 out.append("</ul></li>")
             return "".join(out)
 
+        from tools.docs import legacy_keys
+
+        reads = legacy_keys.accepted_old_names(S["nodes"])
+        STILL = {
+            legacy_keys.WARNS: "still loads; ConfigKeyRenamedWarning names the new key",
+            legacy_keys.MIGRATES: "still loads; the loader rewrites it on load",
+        }
+
+        def rename_note(c: dict) -> str:
+            """What the loader does with an old name, read from the loader (legacy_keys)."""
+            if c["to"] != CURRENT:
+                return "Write the new name"
+            kinds = {reads.get(it["from"]) for it in c["renamed"]}
+            if kinds == {None}:
+                return "A file that writes the old name is refused"
+            if None in kinds:
+                return (
+                    "A file that writes an old name is refused, unless its line says it still loads"
+                )
+            return (
+                "A file that writes an old name still loads, as each line says. Write the new name"
+            )
+
+        loader = {"reads": {}}
+
         def render_pair(c: dict) -> str:
+            loader["reads"] = reads if c["to"] == CURRENT else {}
             parts = []
             moved = [it for it in c["changed"] if "default" in it["changes"]]
             if moved:
@@ -922,7 +1006,7 @@ class ChangelogDirective(SphinxDirective):
                     f"<p>A file that does not write these keys gets a different run.</p><ul>{items}</ul></div>"
                 )
             blocks = (
-                ("renamed", "Renamed", "a file that writes the old name is refused"),
+                ("renamed", "Renamed", rename_note(c)),
                 ("removed", "Removed", "a file that writes them is refused"),
                 ("added", "Added", ""),
                 ("changed", "Changed", ""),
@@ -931,12 +1015,18 @@ class ChangelogDirective(SphinxDirective):
                 items = c.get(key, [])
                 if not items:
                     continue
-                breaking = key in ("renamed", "removed")
+                breaking = key == "removed" or (
+                    key == "renamed" and any(it["from"] not in loader["reads"] for it in items)
+                )
                 parts.append(
                     f'<h2 class="hmp-ch-h">{title} <span class="hmp-muted">({len(items)})</span>'
                     + (' <span class="tc tc-req">breaking</span>' if breaking else "")
                     + "</h2>"
-                    + (f'<p class="hmp-muted">{esc(note.capitalize())}.</p>' if note else "")
+                    + (
+                        f'<p class="hmp-muted">{esc(note[:1].upper() + note[1:])}.</p>'
+                        if note
+                        else ""
+                    )
                     + '<ul class="hmp-changes">'
                 )
                 parts.append(by_section(items, change_path))
@@ -952,7 +1042,9 @@ class ChangelogDirective(SphinxDirective):
 
         def render(it) -> str:
             if isinstance(it, dict) and "from" in it:
-                return f"<li><code>{esc(it['from'])}</code> is now {link(it['to'])}</li>"
+                kind = loader["reads"].get(it["from"])
+                still = f' <span class="hmp-muted">({STILL[kind]})</span>' if kind in STILL else ""
+                return f"<li><code>{esc(it['from'])}</code> is now {link(it['to'])}{still}</li>"
             if isinstance(it, dict):
                 detail = "; ".join(
                     f"{esc(k)}: <code>{esc(shown(it['path'], v[0]) if k == 'default' else v[0])}</code>"
@@ -1173,6 +1265,7 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_directive("hmp-known-keys", KnownKeysDirective)
     app.add_directive("hmp-toml", TomlDirective)
     app.add_directive("hmp-step", StepDirective)
+    app.add_directive("hmp-toml-diff", TomlDiffDirective)
     app.add_directive("hmp-changelog", ChangelogDirective)
     app.add_directive("hmp-resolved", ResolvedDirective)
     import hmp_api

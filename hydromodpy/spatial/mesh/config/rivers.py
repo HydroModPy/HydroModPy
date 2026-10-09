@@ -9,6 +9,7 @@ from pydantic import Field, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyPath, StripLower
+from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.units import Length
 
 
@@ -23,10 +24,10 @@ class MeshCatchmentRiversConfig(HydroModelBase):
             "or 'file' to reload a vector river dataset from disk."
         ),
     )
-    path: Annotated[NonEmptyPath | None, Profile.USER] = Field(
+    path: Annotated[NonEmptyPath | None, Profile.USER, VisibleWhen("source", "file")] = Field(
         default=None,
         description=(
-            "Vector file path used only when source='file'. "
+            "Vector file of the river lines. "
             "The path may be absolute or relative to the TOML location and should point to a line dataset "
             "describing the river centerlines to honor during meshing."
         ),

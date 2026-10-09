@@ -21,10 +21,11 @@ from hydromodpy.display.figure_options import Extent, Layer, Overlays, Timestep
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
 from hydromodpy.display.figures._stream_comparison import (
-    GROUND_COLOR,
     catchment_cells,
     checked_cells,
     draw_cells,
+    ground_color,
+    ground_edge,
     map_extent,
     map_legend,
     select_cells,
@@ -43,9 +44,6 @@ if TYPE_CHECKING:
 
 SEEPAGE_COLOR = "#08519c"
 """Cells where the water table reaches the land surface."""
-
-GROUND_EDGE = "#c8c8c8"
-"""A border on the legend swatch of the ground, otherwise near-white on white."""
 
 
 @register
@@ -88,7 +86,7 @@ class SeepageMap(ScalarFaceMap):
         draw_cells(
             ax,
             select_cells(polygons, ~seeping),
-            color=GROUND_COLOR,
+            color=ground_color(),
             label="_no seepage",
             zorder=1,
             weight_pt=0.0,
@@ -135,7 +133,11 @@ def seepage_handles(seeping: np.ndarray, counted: np.ndarray | None) -> list[Pat
     dry = int((~seeping & scope).sum())
     return [
         Patch(facecolor=SEEPAGE_COLOR, label=f"seepage ({wet:,} cells)"),
-        Patch(facecolor=GROUND_COLOR, edgecolor=GROUND_EDGE, label=f"no seepage ({dry:,} cells)"),
+        Patch(
+            facecolor=ground_color(),
+            edgecolor=ground_edge(),
+            label=f"no seepage ({dry:,} cells)",
+        ),
     ]
 
 

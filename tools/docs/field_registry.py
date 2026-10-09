@@ -5,6 +5,11 @@ parameter reference; nothing about a field is written anywhere else.
 
 Usage:
     python -m tools.docs.field_registry OUT.json [--gates OUT.json] [--label TEXT]
+    python -m tools.docs.field_registry OUT.json --write-baseline
+
+The gate totals of the user keys are pinned in ``field_gates_baseline.json``.
+``tests/unit/tools/test_docs_gate_ratchet.py`` fails when a total goes up.
+After a fix brings a total down, ``--write-baseline`` lowers the pin.
 """
 
 from __future__ import annotations
@@ -1053,6 +1058,33 @@ def gates(reg: dict[str, dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+GATE_BASELINE = Path(__file__).with_name("field_gates_baseline.json")
+"""Committed gate totals of the user keys; a total may go down, never up."""
+
+
+def gate_totals(gate_counts: dict[str, Any]) -> dict[str, int]:
+    """The total of every gate over the user keys, zero for a gate nobody fails."""
+    total = gate_counts.get("total", {})
+    return {gate: int(total.get(gate, 0)) for gate in GATE_TITLES}
+
+
+def ratchet_failures(totals: dict[str, int], baseline: dict[str, int]) -> list[str]:
+    """One line per gate whose total is above the committed baseline."""
+    out = []
+    for gate, count in totals.items():
+        pinned = baseline.get(gate)
+        if pinned is None:
+            out.append(f"{gate}: {count}, and the baseline has no entry for this gate")
+        elif count > pinned:
+            out.append(f"{gate}: {count} > {pinned} ({GATE_TITLES[gate]})")
+    return out
+
+
+def write_baseline(totals: dict[str, int], path: Path = GATE_BASELINE) -> None:
+    """Write the gate totals as the new baseline."""
+    path.write_text(json.dumps(totals, indent=1, sort_keys=True) + "\n")
+
+
 def build_payload(label: str = "") -> tuple[dict[str, Any], dict[str, Any]]:
     """Return the registry payload and the documentation gates."""
     reg = build()
@@ -1084,6 +1116,11 @@ def main() -> None:
     ap.add_argument("out")
     ap.add_argument("--gates")
     ap.add_argument("--label", default="")
+    ap.add_argument(
+        "--write-baseline",
+        action="store_true",
+        help="write the gate totals of the user keys to field_gates_baseline.json",
+    )
     args = ap.parse_args()
     payload, gate_counts = build_payload(args.label)
     Path(args.out).write_text(json.dumps(payload, indent=1, ensure_ascii=False, default=str))
@@ -1092,6 +1129,9 @@ def main() -> None:
     )
     if args.gates:
         Path(args.gates).write_text(json.dumps(gate_counts, indent=1))
+    if args.write_baseline:
+        write_baseline(gate_totals(gate_counts))
+        print(f"gate baseline -> {GATE_BASELINE}")
 
 
 if __name__ == "__main__":

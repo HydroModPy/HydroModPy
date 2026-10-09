@@ -91,29 +91,29 @@ calibration.outputs.<name>.extent.weights.minimal
 calibration.outputs.<name>.extent.weights.maximal
 ```
 
-For each complete year, two masks are built from the number of timesteps each cell flowed. A
-timestep belongs to the year its midpoint falls in, and a year the run does not cover whole is
+For each complete year, two masks are built from the number of time steps each cell flowed. A
+time step belongs to the year its midpoint falls in, and a year the run does not cover whole is
 dropped.
 
-- The maximal mask holds the cells that flow at least `maximal_flowing_steps` timesteps of the
+- The maximal mask holds the cells that flow at least `maximal_flowing_steps` time steps of the
   year.
-- The minimal mask holds the cells that flow at every timestep but at most
+- The minimal mask holds the cells that flow at every time step but at most
   `minimal_dry_steps`.
 
-Both count timesteps, never days. With 12 monthly steps and `maximal_flowing_steps = 1`, a
+Both count time steps, never days. With 12 monthly steps and `maximal_flowing_steps = 1`, a
 cell flows one month out of twelve; the same value on a daily run asks one day out of 365. A
 cell enters the mask compared with the map when it meets the rule in
 `ceil(year_quorum * n_years)` scored years. Under three scored years the run warns, because
 with two years a quorum of one half is their union.
 
-A cell flows at a timestep when it lies downstream of the seepage cells and, unless
+A cell flows at a time step when it lies downstream of the seepage cells and, unless
 `visible_flow` is `"0 L/s"`, when the discharge routed to it reaches that threshold. Write it
 as a discharge with its unit (`"1 L/s"`, `"0.002 m3/s"`) or as a share of the outlet discharge
 (`"1%"`). A bare number is refused. No value is agreed in the literature.
 
 ## 3. Write the phase
 
-The two-bound mode reads the timesteps of a transient run, so the phase that moves $K$ is
+The two-bound mode reads the time steps of a transient run, so the phase that moves $K$ is
 transient. A scoring window keeps only the complete years it holds, which is how the spin-up
 year leaves the score. This is the $K$ stage of example 04's `run_calibration_bdtopage.toml`,
 with the two maps written as files:
@@ -195,7 +195,7 @@ maps, on any run that stored both.
 
 State the departures beside the value: a run with an `extent` table departs from the published
 method on five points. It scores transient masks over calendar years, counts duration in
-timesteps, uses a quorum across years, adds a visible-flow threshold to the geometric closure,
+time steps, uses a quorum across years, adds a visible-flow threshold to the geometric closure,
 and combines two bounds with declared weights. The equations are in
 {doc}`../theory/downslope-distance`.
 
@@ -203,10 +203,10 @@ and combines two bounds with declared weights. The equations are in
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `declares an extent table and is scored by a steady search` | The extent mode reads timesteps; a steady phase has one. | Score the output in one state without the table, or run the phase transient. |
+| `declares an extent table and is scored by a steady search` | The extent mode reads time steps; a steady phase has one. | Score the output in one state without the table, or run the phase transient. |
 | `the extent table weighs the bounds (minimal = 0.7, maximal = 0.3) and no minimal map is declared` | Weights other than the default without a minimal map. | Declare `minimal_stream_geometry_path` or `minimal_observed_network`, or drop the weights. |
 | `a network output reads exactly one state, 'last', 'first' or one date.` | `time` asks for several states. | Drop `time`: the extent table is the transient comparison. |
-| `the extent table cannot be read on this run:` followed by causes | `maximal_flowing_steps` above the timesteps of the shortest year, `minimal_dry_steps` too large, or no complete calendar year. Refused at the first trial, not by `--check`. | Lower the counts, or lengthen the run. |
+| `the extent table cannot be read on this run:` followed by causes | `maximal_flowing_steps` above the time steps of the shortest year, `minimal_dry_steps` too large, or no complete calendar year. Refused at the first trial, not by `--check`. | Lower the counts, or lengthen the run. |
 | `the residual of the minimal bound keeps the same sign over the whole bracket:` | One bound has no root inside the bounds. | Widen `bounds`, or set the weight of that bound to zero. |
 
 The single-map messages are in {doc}`calibrate-on-the-stream-network`.

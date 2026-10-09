@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.initial_conditions import FlowICCustom, FlowInitialConditions
 from hydromodpy.solver.modflow6.builders import (
@@ -12,6 +13,7 @@ from hydromodpy.solver.modflow6.builders import (
     build_side_boundary_chd_spd,
     build_start_heads,
     build_stream_boundary_chd_spd,
+    refuse_constant_heads_below_bottom,
 )
 
 from ._test_modflow6_boundary_conditions_builders import (
@@ -189,3 +191,82 @@ def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime
     assert stream_mask.tolist() == [True, False]
     assert chd_spd[0] == [[0, 0, pytest.approx(5.0)]]
     assert chd_spd[1] == [[0, 0, pytest.approx(5.0)]]
+
+
+def _side_model_with_heads(west: float, east: float):
+    model = _build_model()
+    model.flow = SimpleNamespace(
+        boundary_conditions={
+            "west_side": SimpleNamespace(value=west),
+            "east_side": SimpleNamespace(value=east),
+        },
+        active_bc=["west_side", "east_side"],
+    )
+    return model
+
+
+def test_a_side_head_below_the_cell_bottom_is_refused_by_boundary_and_cell() -> None:
+    model = _side_model_with_heads(west=-5.0, east=5.0)
+    side = build_side_boundary_chd_spd(model)
+    botm = np.zeros((1, 6), dtype=float)
+
+    with pytest.raises(SolverInputError) as excinfo:
+        refuse_constant_heads_below_bottom(
+            model,
+            botm=botm,
+            inactive_mask=np.zeros((1, 6), dtype=bool),
+            ocean_spd={},
+            stream_spd={},
+            side_spd=side,
+            structured_shape=(2, 3),
+        )
+
+    message = str(excinfo.value)
+    assert "flow.bc.west_side: 2 cell(s)" in message
+    assert "layer 1 row 1 column 1 (head -5.00 m, bottom 0.00 m, period 1)" in message
+    assert "layer 1 row 2 column 1" in message
+    assert "east_side" not in message
+
+
+def test_a_side_head_above_the_bottom_or_on_an_inactive_cell_passes() -> None:
+    model = _side_model_with_heads(west=-5.0, east=5.0)
+    side = build_side_boundary_chd_spd(model)
+    inactive = np.zeros((1, 6), dtype=bool)
+    inactive[0, [0, 3]] = True  # the two west cells
+
+    refuse_constant_heads_below_bottom(
+        model,
+        botm=np.zeros((1, 6), dtype=float),
+        inactive_mask=inactive,
+        ocean_spd={},
+        stream_spd={},
+        side_spd=side,
+    )
+
+
+def test_a_stream_head_overwritten_by_a_side_head_is_not_checked() -> None:
+    model = _side_model_with_heads(west=5.0, east=5.0)
+    side = build_side_boundary_chd_spd(model)
+    # The stream claims the west cell 0 with a head below the bottom, and the
+    # side writes over it: MODFLOW 6 receives the side head only.
+    stream = {0: [[0, 0, -1.0]], 1: [[0, 0, -1.0]]}
+
+    refuse_constant_heads_below_bottom(
+        model,
+        botm=np.zeros((1, 6), dtype=float),
+        inactive_mask=np.zeros((1, 6), dtype=bool),
+        ocean_spd={},
+        stream_spd=stream,
+        side_spd=side,
+    )
+
+    stream = {0: [[0, 1, -1.0]], 1: [[0, 1, -1.0]]}
+    with pytest.raises(SolverInputError, match=r"flow\.bc\.stream: 1 cell\(s\): layer 1 cell 2"):
+        refuse_constant_heads_below_bottom(
+            model,
+            botm=np.zeros((1, 6), dtype=float),
+            inactive_mask=np.zeros((1, 6), dtype=bool),
+            ocean_spd={},
+            stream_spd=stream,
+            side_spd=side,
+        )

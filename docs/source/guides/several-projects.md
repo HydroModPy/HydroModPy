@@ -128,10 +128,10 @@ dropped without a message, so check `df.columns`. The columns are `project_id`, 
 `period_start`, `period_end`, `created_at`, `updated_at`, `duration_s`, `nse`, `kge`, `rmse` and
 `r2`. Trashed runs are hidden unless `status="trashed"` is given.
 
-The four score columns hold the scores of the head series at the station `__outlet__`. A run
-scored on a gauged discharge, as the runs of example 04 are, leaves them empty, so `nse_gt=0.6`
-finds nothing there. Read such scores run by run, with `run.metrics`, or rank them inside one
-project with `@best:nse`.
+The four score columns hold the scores the run recorded at the station `__outlet__` when it has
+one, else the scores of its only scored series, such as the gauged discharge of example 04, so
+`nse_gt=0.6` finds those runs. A run scored on several series and none at the outlet leaves them
+empty: read its scores with `run.metrics`.
 
 To open a run you found, open its project and ask it for the run:
 
@@ -193,7 +193,7 @@ least one group. `--results` and `--runtime` delete the audit log with the index
 | `[WARNING] Skipping project <id>: catalog file missing at <path>/.hmp/index.duckdb` | The project is registered but never ran, or its folder moved | Run it once, or `hmp workspace prune` |
 | `No catalog at <workspace>/.hmp. Run a workflow there first, or pass create=True to initialise an empty catalog. This folder holds projects with a catalog: … Open one of them.` | `hmp.open` was given the workspace folder | Open one of the project folders it lists |
 | `No matches for 'x'.` | The term is not in any description | Give runs a `[simulation] description`, or use `hmp.index().find(name_like=...)` |
-| `Project '<name>' already exists in this workspace. Use \`--as <new_name>\` to import under a different project name.` | A run of the same origin project is already in the receiving project | Add `--as NAME` to `hmp catalog import` |
+| ``Project '<name>' already exists in this workspace. Use `--as <new_name>` to import under a different project name.`` | A run of the same origin project is already in the receiving project | Add `--as NAME` to `hmp catalog import` |
 | `Select at least one cleanup group, or pass groups={'all'}.`, exit 14 | `hmp workspace clean` without a group | Name a group, such as `--results`, or `--all` |
 | `Reference 'x' not found.`, exit 10 | The run is in another project | Run the command with `-w` on the project that holds it |
 | `The index '<path>' is already open in this process in another mode. …`, exit 12 | Two catalogs of one project open at once in a script, one read-only and one for writing | Close the first before opening the second. The file is not damaged |

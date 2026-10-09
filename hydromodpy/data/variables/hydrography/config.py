@@ -72,7 +72,10 @@ class HydrographySourceConfig(HydroModelBase):
     )
     rasterize_field: Annotated[str, Profile.USER] = Field(
         default="FID",
-        description="Attribute field used when rasterising the vector layer.",
+        description=(
+            "Attribute column whose values are written into the stream raster. A column "
+            "the layer lacks is replaced by a sequential number per feature."
+        ),
     )
 
     # --- BD Topage (Sandre WFS) ---
@@ -92,9 +95,9 @@ class HydrographySourceConfig(HydroModelBase):
     )
 
     # --- Cache ---
-    force_refresh: Annotated[bool, Profile.DEV] = Field(
+    force_refresh: Annotated[bool, Profile.USER] = Field(
         default=False,
-        description="Bypass API cache and re-download data.",
+        description="Download this source again instead of reading the cache.",
     )
 
     # --- OSM ---

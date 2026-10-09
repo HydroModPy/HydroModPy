@@ -537,9 +537,11 @@ class Project:
 
         Returns
         -------
-        CalibrationReport or StagedCalibrationReport or Any
-            Structured calibration report when ``return_report`` is true,
-            otherwise the runner-specific result.
+        CalibrationReport or StagedCalibrationReport or dict
+            A :class:`CalibrationReport` for a calibration without phases, a
+            :class:`StagedCalibrationReport` for one that declares phases, in
+            every mode. ``return_report=False`` returns the ``to_dict()``
+            payload of that report instead.
 
         Raises
         ------
@@ -578,6 +580,9 @@ class Project:
                 return run_staged_calibration(target, phase=phase, **kwargs)
             if phase is not None:
                 raise CalibrationError(no_such_phase(target.name, phase))
+            # The plain runner returns its dict unless asked; every other
+            # branch returns the report object by default.
+            kwargs.setdefault("return_report", True)
             return run_calibration_cli(target, **kwargs)
 
         from hydromodpy.calibration.config import CalibrationConfig

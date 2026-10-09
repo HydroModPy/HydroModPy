@@ -21,7 +21,8 @@ import pytest
 from hydromodpy.calibration.criteria.series import (
     HIGHER_IS_BETTER,
     METRICS,
-    RESERVOIR_INCREMENT_STEP,
+    RESERVOIR_INCREMENT_DAYS,
+    SeriesCriterion,
 )
 from hydromodpy.calibration.metrics.scalar import score
 from hydromodpy.calibration.optim.objective import (
@@ -96,7 +97,7 @@ class TestIncrementEfficiency:
         assert nse_delta(sim, obs, step=2) == pytest.approx(1.0 - 3.0 / 20.0)
 
     def test_a_longer_step_forgives_a_phase_shift(self) -> None:
-        """The rationale for ``RESERVOIR_INCREMENT_STEP``: 3 days must not flip signs."""
+        """The rationale for ``RESERVOIR_INCREMENT_DAYS``: 3 days must not flip signs."""
         days = np.arange(TWO_SEASONS, dtype=float)
         stage = (
             100.0
@@ -106,7 +107,7 @@ class TestIncrementEfficiency:
         lagged = np.concatenate([stage[:3], stage[:-3]])
 
         assert nse_delta(lagged, stage, step=1) < 0.0
-        assert nse_delta(lagged, stage, step=RESERVOIR_INCREMENT_STEP) > 0.9
+        assert nse_delta(lagged, stage, step=int(RESERVOIR_INCREMENT_DAYS)) > 0.9
 
     def test_step_below_one_is_coerced_to_one(self) -> None:
         obs = np.array([0.0, 1.0, 3.0, 6.0])
@@ -238,7 +239,7 @@ class TestReservoirComposite:
         assert numerator == pytest.approx(29.2)
 
         seasonal = nse_seasonal(simulated, observed)
-        increments = nse_delta(simulated, observed, step=RESERVOIR_INCREMENT_STEP)
+        increments = nse_delta(simulated, observed, step=int(RESERVOIR_INCREMENT_DAYS))
         # A constant offset leaves every increment untouched, so only the
         # seasonal half is degraded: 1 - 29.2 / 58.4 = 0.5.
         assert seasonal == pytest.approx(0.5)
@@ -250,7 +251,7 @@ class TestReservoirComposite:
 
     def test_it_differences_over_the_declared_step(self) -> None:
         """Scoring day-to-day increments instead would drop the composite by > 1."""
-        assert RESERVOIR_INCREMENT_STEP == 10
+        assert RESERVOIR_INCREMENT_DAYS == 10.0
         days = np.arange(TWO_SEASONS, dtype=float)
         observed = (
             100.0
@@ -261,7 +262,7 @@ class TestReservoirComposite:
 
         seasonal = nse_seasonal(simulated, observed)
         declared = 0.5 * seasonal + 0.5 * nse_delta(
-            simulated, observed, step=RESERVOIR_INCREMENT_STEP
+            simulated, observed, step=int(RESERVOIR_INCREMENT_DAYS)
         )
         daily = 0.5 * seasonal + 0.5 * nse_delta(simulated, observed, step=1)
         assert METRICS["reservoir"](simulated, observed) == pytest.approx(declared)
@@ -273,7 +274,7 @@ class TestReservoirComposite:
 
     def test_constant_increments_return_nan(self) -> None:
         ramp = np.arange(TWO_SEASONS, dtype=float) * 2.0
-        assert np.isnan(nse_delta(ramp, ramp, step=RESERVOIR_INCREMENT_STEP))
+        assert np.isnan(nse_delta(ramp, ramp, step=int(RESERVOIR_INCREMENT_DAYS)))
         assert np.isnan(METRICS["reservoir"](ramp, ramp))
 
     def test_all_nan_returns_nan(self) -> None:
@@ -361,3 +362,54 @@ class TestCalibrationWiring:
             observed_by_output={"lake": observed.tolist()},
         )
         assert block.evaluate({"lake": simulated.tolist()}).total == pytest.approx(0.25)
+
+
+class TestTheSeasonalCycleIsCountedInDays:
+    """A monthly series holds a year in twelve samples, not 365."""
+
+    @staticmethod
+    def _monthly(years: int) -> tuple[np.ndarray, np.ndarray]:
+        months = np.arange(12 * years, dtype=float)
+        obs = 10.0 + 3.0 * np.cos(2.0 * np.pi * months / 12.0) + 0.5 * np.sin(months)
+        sim = obs + 0.2 * np.cos(3.0 * months)
+        return sim, obs
+
+    @pytest.mark.parametrize("metric", ["nse_seasonal", "reservoir"])
+    def test_a_monthly_series_scores_a_number(self, metric: str) -> None:
+        sim, obs = self._monthly(4)
+        criterion = SeriesCriterion(metric, METRICS[metric])
+
+        undated = criterion.score(sim, obs)
+        dated = criterion.score(sim, obs, sample_days=30.44)
+
+        assert np.isnan(undated.diagnostics["score"])
+        assert np.isfinite(dated.diagnostics["score"])
+
+    def test_a_daily_step_keeps_the_daily_score(self) -> None:
+        days = np.arange(3 * SEASON, dtype=float)
+        obs = 5.0 + np.cos(2.0 * np.pi * days / SEASON) + 0.1 * np.sin(days / 7.0)
+        sim = obs + 0.05 * np.sin(days / 3.0)
+        criterion = SeriesCriterion("nse_seasonal", METRICS["nse_seasonal"])
+
+        assert criterion.score(sim, obs, sample_days=1.0).cost == pytest.approx(
+            criterion.score(sim, obs).cost, abs=1e-3
+        )
+
+    def test_the_block_reads_the_step_the_trial_dated(self) -> None:
+        sim, obs = self._monthly(4)
+        block = ConfigBlockObjective(
+            name="level",
+            metric="nse_seasonal",
+            uses_outputs=["stage"],
+            observed_by_output={"stage": obs},
+        )
+        trial = SimulationOutput(
+            sim_id="",
+            stations=(),
+            times=np.empty(0),
+            values={"stage": sim},
+            metadata={"sample_days": {"stage": 30.44}},
+        )
+
+        assert np.isfinite(block.evaluate(trial).total)
+        assert not np.isfinite(block.evaluate({"stage": sim}).total)

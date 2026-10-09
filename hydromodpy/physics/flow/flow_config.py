@@ -86,12 +86,19 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
     flow_regime: Annotated[FlowRegime, Profile.USER] = Field(
         default="transient",
         description=(
-            "Global flow simulation regime used by solvers consuming [flow] (steady or transient)."
+            "Whether the flow is solved as one equilibrium state or through time over "
+            "the stress periods of [simulation.time]."
         ),
         examples=["steady", "transient"],
         json_schema_extra=field_metadata(
             widget_type="select",
             unit="-",
+            value_docs={
+                "steady": "Solves one equilibrium state, with no storage term.",
+                "transient": (
+                    "Solves the heads through time; it starts from the state [flow.ic] gives."
+                ),
+            },
             display_name_fr="Régime d'écoulement",
             help_text_fr=(
                 "Régime stationnaire (steady) ou transitoire (transient). "
@@ -123,7 +130,7 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             "seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior "
             "run must share this run's mesh, so enable [mesh_catchment] cache = true; "
             "otherwise the cell count differs and restart is refused. None keeps [flow.ic]. "
-            "Read only by a backend that declares it can: elsewhere the run is refused "
+            "Read only by a solver that declares it can: elsewhere the run is refused "
             "rather than started from [flow.ic] without a word. This is one of the four "
             "ways to say where a transient starts, next to [flow.ic] type='steady_state' "
             "(equilibrium under the mean recharge, or under a rate you state with "
@@ -135,8 +142,8 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
     param_list: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(
-            "Ordered list of flow-parameter identifiers used to build runtime "
-            "parameters (for example ['K', 'Ss', 'Sy'])."
+            "Ordered list of the flow parameter ids the run builds, for example "
+            "['K', 'Ss', 'Sy']. Each id is described by its [flow.param.<id>] table."
         ),
         examples=[["K", "Sy", "Ss"]],
     )
@@ -207,13 +214,10 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
     active_bc: Annotated[list[IdentifierStr], Profile.USER] = Field(
         default_factory=list,
         description=(
-            "Explicitly activated boundary-condition ids for this flow run. "
-            "Allowed values are the canonical ids declared in the flow "
-            "boundary-condition registry: 'ocean', 'stream', 'north_side', "
-            "'south_side', 'east_side', 'west_side', 'drainage', 'lake', "
-            "'reservoir'. 'lake'/'reservoir' build a MODFLOW 6 LAK advanced "
-            "package and are only supported by the modflow6 backend. "
-            "An empty list means no boundary-condition package is assembled by the solver."
+            "Boundaries this run builds, by their canonical names: 'ocean', 'stream', "
+            "'north_side', 'south_side', 'east_side', 'west_side', 'drainage', 'lake', "
+            "'reservoir'. 'lake' and 'reservoir' build a MODFLOW 6 LAK package, so only "
+            "the modflow6 solver takes them. An empty list builds no boundary."
         ),
         examples=[["ocean"], ["west_side", "east_side", "drainage"]],
     )

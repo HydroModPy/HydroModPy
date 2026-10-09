@@ -253,6 +253,13 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "``tools/docs/validation_results.py`` merges them into the Validation page.",
     ),
     EnvVar(
+        "HMP_REQUIRE_SYBIL",
+        "unset, the guide blocks are skipped without sybil",
+        "test",
+        "Any non-empty value makes the test of the Python blocks of the guides fail when "
+        "sybil is not installed, instead of skipping.",
+    ),
+    EnvVar(
         "HMP_RUN_HUBEAU_NETWORK_TESTS",
         "unset, skipped",
         "test",
@@ -319,6 +326,12 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "docs",
         "Version folder the site is built for: canonical URL and version switcher. The "
         "deploy workflow sets it.",
+    ),
+    EnvVar(
+        "HMP_CHROMIUM",
+        "unset, ``--chromium`` or the browser found on the PATH",
+        "docs",
+        "Chromium executable of the browser probe of the built site (``tools/docs/site_probe.py``).",
     ),
     EnvVar(
         "HMP_DOCS_COMMIT",

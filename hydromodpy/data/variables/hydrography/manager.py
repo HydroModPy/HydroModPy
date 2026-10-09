@@ -76,6 +76,8 @@ class HydrographyManager(SourceTable):
     """Load, clip, and rasterise hydrography vector data."""
 
     VARIABLE_NAME = "hydrography"
+    """Name of the data type, as ``[data.hydrography]`` writes it."""
+
     SOURCES = {
         BdTopageSource.source_id: BdTopageSource,
         EuHydroSource.source_id: EuHydroSource,
@@ -294,20 +296,12 @@ class HydrographyManager(SourceTable):
     ) -> gpd.GeoDataFrame:
         """Ask the source the section names for the box, or reuse the cached network."""
         del source_cls
-        source = source_from_section(source_cfg)
-        extent = mask_extent_in(self._require_mask_path(), source.extent_crs)
-
-        question = _fetch_question(source)
-
-        if not source_cfg.force_refresh:
-            cached = self._try_load_cached(source_cfg.source, extent.bbox, question)
-            if cached is not None:
-                return cached
-
-        gdf = fetch_network(source, extent)
-        self._persist_and_register(gdf, source_cfg.source, extent.bbox, question)
-
-        return gdf
+        return fetch_network_through_cache(
+            source_cfg,
+            self._require_mask_path(),
+            catalog=self._catalog,
+            data_dir=self._data_dir,
+        )
 
     # ------------------------------------------------------------------
     # Catalog cache helpers
@@ -319,39 +313,8 @@ class HydrographyManager(SourceTable):
         bbox: tuple[float, float, float, float],
         question: dict[str, object] | None = None,
     ) -> gpd.GeoDataFrame | None:
-        """Return cached GeoDataFrame if the catalog has a superset entry.
-
-        *bbox* is the box in the CRS the source declares, and the catalogue
-        column carries no CRS of its own. The lookup is keyed on the source as
-        well, so one source's entries are all in one frame; two sources in two
-        frames never compare their boxes to each other.
-
-        *question* is what the source reports it was asked (the BD Topage
-        layer and vintage, the OSM waterway types). An entry recorded with
-        another answer is a miss: without it, a new BD Topage vintage over a
-        cached box would serve the old one. An entry recorded before the
-        question was is taken as before.
-        """
-        if self._catalog is None:
-            return None
-        entry = self._catalog.find_cached(
-            variable=self.VARIABLE_NAME,
-            source=source,
-            bbox=bbox,
-        )
-        if entry is None:
-            return None
-        if not _entry_answers(entry, question):
-            logger.debug("Cache entry for hydrography/%s answers another question", source)
-            return None
-        cached_path = self._catalog.resolve_path(entry.file_path, variable=self.VARIABLE_NAME)
-        if not cached_path.exists():
-            return None
-        logger.debug("Cache hit for hydrography/%s: %s", source, cached_path)
-        cached = gpd.read_file(cached_path)
-        # A download cached before the permanent copy existed gets it now.
-        _write_permanent_copy(cached, cached_path, overwrite=False)
-        return cached
+        """Return the cached network of *source* over *bbox*, or None (see ``NetworkCache``)."""
+        return NetworkCache(self._catalog, self._data_dir).load(source, bbox, question)
 
     def _persist_and_register(
         self,
@@ -360,43 +323,8 @@ class HydrographyManager(SourceTable):
         bbox: tuple[float, float, float, float],
         question: dict[str, object] | None = None,
     ) -> None:
-        """Save the answer as ``hydrography_<source>_<bbox hash>.gpkg`` and register it.
-
-        Named as every variable names what it fetched (``geology_brgm_1m_<hash>``,
-        ``dem_ign_geoplateforme_bdalti_25m_<hash>``), and kept in the CRS the
-        source answered in. When the answer says which reaches are permanent,
-        they go beside it as ``hydrography_<source>_permanent_<bbox hash>.gpkg``.
-        That copy is not registered: the catalogue serves the full answer, and a
-        permanent copy whose full answer was subsumed is removed with it.
-        """
-        if self._catalog is None or self._data_dir is None:
-            return
-        self._data_dir.mkdir(parents=True, exist_ok=True)
-        out_path = self._data_dir / _cache_file_name(source, bbox)
-        if gdf.crs is None:
-            gdf = gdf.set_crs("EPSG:4326")
-
-        gdf.to_file(out_path, driver="GPKG")
-        _write_permanent_copy(gdf, out_path, overwrite=True)
-
-        entry_id = self._catalog.register(
-            variable=self.VARIABLE_NAME,
-            source=source,
-            file_path=str(out_path),
-            bbox=bbox,
-            crs=str(gdf.crs),
-            is_custom=False,
-            fetch_metadata=question or None,
-        )
-        self._catalog.subsume_entries(
-            variable=self.VARIABLE_NAME,
-            source=source,
-            bbox=bbox,
-            date_start=None,
-            date_end=None,
-            exclude_id=entry_id,
-        )
-        _remove_orphan_permanent_copies(self._data_dir)
+        """Save and register the answer of *source* (see ``NetworkCache``)."""
+        NetworkCache(self._catalog, self._data_dir).store(gdf, source, bbox, question)
 
     # ------------------------------------------------------------------
     # Rasterise / read helpers
@@ -480,6 +408,131 @@ class HydrographyManager(SourceTable):
                 "same box; set data.hydrography.mask_path to a SHP/GPKG/GeoJSON/TIF."
             )
         return Path(mask_path)
+
+
+class NetworkCache:
+    """The workspace cache of the river networks a source answered with.
+
+    A run and ``hmp data get --workspace`` share it: both key an answer on the
+    source and on the mask's box in the CRS the source declares.
+    """
+
+    VARIABLE_NAME = "hydrography"
+
+    def __init__(self, catalog: DataCatalogDuckDB | None, data_dir: Path | None) -> None:
+        self._catalog = catalog
+        self._data_dir = data_dir
+
+    def load(
+        self,
+        source: str,
+        bbox: tuple[float, float, float, float],
+        question: dict[str, object] | None = None,
+    ) -> gpd.GeoDataFrame | None:
+        """Return cached GeoDataFrame if the catalog has a superset entry.
+
+        *bbox* is the box in the CRS the source declares, and the catalogue
+        column carries no CRS of its own. The lookup is keyed on the source as
+        well, so one source's entries are all in one frame; two sources in two
+        frames never compare their boxes to each other.
+
+        *question* is what the source reports it was asked (the BD Topage
+        layer and vintage, the OSM waterway types). An entry recorded with
+        another answer is a miss: without it, a new BD Topage vintage over a
+        cached box would serve the old one. An entry recorded before the
+        question was is taken as before.
+        """
+        if self._catalog is None:
+            return None
+        entry = self._catalog.find_cached(
+            variable=self.VARIABLE_NAME,
+            source=source,
+            bbox=bbox,
+        )
+        if entry is None:
+            return None
+        if not _entry_answers(entry, question):
+            logger.debug("Cache entry for hydrography/%s answers another question", source)
+            return None
+        cached_path = self._catalog.resolve_path(entry.file_path, variable=self.VARIABLE_NAME)
+        if not cached_path.exists():
+            return None
+        logger.debug("Cache hit for hydrography/%s: %s", source, cached_path)
+        cached = gpd.read_file(cached_path)
+        # A download cached before the permanent copy existed gets it now.
+        _write_permanent_copy(cached, cached_path, overwrite=False)
+        return cached
+
+    def store(
+        self,
+        gdf: gpd.GeoDataFrame,
+        source: str,
+        bbox: tuple[float, float, float, float],
+        question: dict[str, object] | None = None,
+    ) -> None:
+        """Save the answer as ``hydrography_<source>_<bbox hash>.gpkg`` and register it.
+
+        Named as every variable names what it fetched (``geology_brgm_1m_<hash>``,
+        ``dem_ign_geoplateforme_bdalti_25m_<hash>``), and kept in the CRS the
+        source answered in. When the answer says which reaches are permanent,
+        they go beside it as ``hydrography_<source>_permanent_<bbox hash>.gpkg``.
+        That copy is not registered: the catalogue serves the full answer, and a
+        permanent copy whose full answer was subsumed is removed with it.
+        """
+        if self._catalog is None or self._data_dir is None:
+            return
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+        out_path = self._data_dir / _cache_file_name(source, bbox)
+        if gdf.crs is None:
+            gdf = gdf.set_crs("EPSG:4326")
+
+        gdf.to_file(out_path, driver="GPKG")
+        _write_permanent_copy(gdf, out_path, overwrite=True)
+
+        entry_id = self._catalog.register(
+            variable=self.VARIABLE_NAME,
+            source=source,
+            file_path=str(out_path),
+            bbox=bbox,
+            crs=str(gdf.crs),
+            is_custom=False,
+            fetch_metadata=question or None,
+        )
+        self._catalog.subsume_entries(
+            variable=self.VARIABLE_NAME,
+            source=source,
+            bbox=bbox,
+            date_start=None,
+            date_end=None,
+            exclude_id=entry_id,
+        )
+        _remove_orphan_permanent_copies(self._data_dir)
+
+
+def fetch_network_through_cache(
+    source_cfg: HydrographySourceConfig,
+    mask_path: Path,
+    *,
+    catalog: DataCatalogDuckDB | None,
+    data_dir: Path | None,
+) -> gpd.GeoDataFrame:
+    """Return the network a listed source answers over the box of *mask_path*.
+
+    The cached answer is reused unless the source asks ``force_refresh``. A
+    new answer is stored and registered when a workspace *data_dir* is given;
+    an in-memory catalog with no folder writes nothing.
+    """
+    source = source_from_section(source_cfg)
+    extent = mask_extent_in(Path(mask_path), source.extent_crs)
+    question = _fetch_question(source)
+    cache = NetworkCache(catalog, data_dir)
+    if not source_cfg.force_refresh:
+        cached = cache.load(source_cfg.source, extent.bbox, question)
+        if cached is not None:
+            return cached
+    gdf = fetch_network(source, extent)
+    cache.store(gdf, source_cfg.source, extent.bbox, question)
+    return gdf
 
 
 _SHAPEFILE_SIDECARS = (".shp", ".shx", ".dbf", ".prj", ".cpg")

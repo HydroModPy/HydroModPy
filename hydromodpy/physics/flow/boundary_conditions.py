@@ -194,7 +194,12 @@ class FlowBoundaryForcingConstantConfig(HydroModelBase):
     )
     value: Annotated[float, Profile.USER] = Field(
         ...,
-        description="Constant boundary head value used when mode='constant'.",
+        description=(
+            "Head the boundary keeps in every stress period, in the unit units names "
+            "(metres by default)."
+        ),
+        json_schema_extra={"unit": "m"},
+        examples=[12.5],
     )
     units: Annotated[str | None, Profile.DEV] = Field(
         default=None,
@@ -266,7 +271,15 @@ class FlowBoundaryConditionConfig(HydroModelBase):
     - consumed by `Flow` runtime and solver adapter layers.
     """
 
-    id: Annotated[str, Profile.USER] = Field(..., description="Boundary-condition identifier.")
+    id: Annotated[str, Profile.USER] = Field(
+        ...,
+        description=(
+            "Canonical name of the boundary, the same one flow.active_bc lists: 'drainage', "
+            "'ocean', 'stream', 'north_side', 'south_side', 'east_side' or 'west_side'. It "
+            "fixes where the boundary applies."
+        ),
+        examples=["drainage"],
+    )
     value: Annotated[float | list[float] | None, Profile.USER] = Field(
         default=None,
         description=(
@@ -280,12 +293,19 @@ class FlowBoundaryConditionConfig(HydroModelBase):
         ),
     )
     description: Annotated[str, Profile.USER] = Field(
-        "", description="Boundary-condition description."
+        "",
+        description=(
+            "Free text about the boundary, kept with the configuration. Unset, a text "
+            "naming its kind and where it applies is written."
+        ),
     )
     units: Annotated[str, Profile.DEV] = Field("", description="Boundary-condition units.")
     kind: Annotated[BoundaryKind, Profile.USER] = Field(
         "dirichlet",
-        description="Boundary-condition kind discriminator.",
+        description=(
+            "Type of the boundary: an imposed head ('dirichlet') or a drain ('cauchy', "
+            "'robin'). Unset, the boundary's id decides."
+        ),
     )
     data_value: Annotated[bool, Profile.DEV] = Field(
         False,
@@ -309,8 +329,9 @@ class FlowBoundaryConditionConfig(HydroModelBase):
     support_label: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Optional explicit runtime support label used by unstructured backends "
-            "to select one target support independently from the canonical boundary id."
+            "Name of a labelled group of cells or edges of a Gmsh mesh. The boundary then "
+            "applies there instead of on the group its id selects. MODFLOW 6 and "
+            "Boussinesq read it."
         ),
     )
 
@@ -424,11 +445,14 @@ class FlowBoundaryConditionConfig(HydroModelBase):
 
 
 class DirichletBC(FlowBoundaryConditionConfig):
-    """Dirichlet flow boundary condition."""
+    """An imposed head: the boundary cells keep the head the boundary gives."""
 
     kind: Annotated[Literal["dirichlet"], Profile.USER] = Field(
         default="dirichlet",
-        description="Boundary-condition kind discriminator.",
+        description=(
+            "Type of the boundary: an imposed head ('dirichlet') or a drain ('cauchy', "
+            "'robin'). Unset, the boundary's id decides."
+        ),
     )
 
     @model_validator(mode="before")
@@ -633,11 +657,14 @@ class _DrainageBC(FlowBoundaryConditionConfig):
 
 
 class CauchyBC(_DrainageBC):
-    """Cauchy flow boundary condition."""
+    """A drain with the linear exchange q = C (h - h_ref); MODFLOW builds a DRN."""
 
     kind: Annotated[Literal["cauchy"], Profile.USER] = Field(
         default="cauchy",
-        description="Boundary-condition kind discriminator.",
+        description=(
+            "Type of the boundary: an imposed head ('dirichlet') or a drain ('cauchy', "
+            "'robin'). Unset, the boundary's id decides."
+        ),
     )
     forcing: Annotated[None, Profile.DEV] = Field(
         default=None,
@@ -652,11 +679,14 @@ class CauchyBC(_DrainageBC):
 
 
 class RobinBC(_DrainageBC):
-    """Robin flow boundary condition."""
+    """A drain with the regularized exchange Boussinesq selects; MODFLOW builds a DRN."""
 
     kind: Annotated[Literal["robin"], Profile.USER] = Field(
         default="robin",
-        description="Boundary-condition kind discriminator.",
+        description=(
+            "Type of the boundary: an imposed head ('dirichlet') or a drain ('cauchy', "
+            "'robin'). Unset, the boundary's id decides."
+        ),
     )
     forcing: Annotated[None, Profile.DEV] = Field(
         default=None,

@@ -21,7 +21,7 @@ from hydromodpy.display.maps.axes import (
     style_relative_km_axes,
 )
 from hydromodpy.display.maps.overlays import apply_overlays
-from hydromodpy.display.style import place_legend
+from hydromodpy.display.style import neutral, place_legend
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -50,7 +50,11 @@ class MeshMap(BaseFigure):
             str, Opt("Matplotlib colormap of the land-surface elevation, by name.")
         ] = "terrain",
         edge_color: Annotated[
-            str, Opt("Colour of the cell edges, any Matplotlib colour.")
+            str,
+            Opt(
+                "Colour of the cell edges, any Matplotlib colour. A grey is moved toward "
+                "the text colour on the dark preset."
+            ),
         ] = "0.25",
         edge_width: Annotated[
             float | None,
@@ -75,7 +79,7 @@ class MeshMap(BaseFigure):
             polygons,
             array=topography,
             cmap=cmap,
-            edgecolors=edge_color,
+            edgecolors=neutral(edge_color),
             linewidths=width,
         )
         ax.add_collection(collection)

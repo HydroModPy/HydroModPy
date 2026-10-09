@@ -55,7 +55,7 @@ scores = pd.concat(
     },
     axis=1,
 )
-print(scores.loc[["nse", "log_nse", "kge", "pbias"]].round(3))
+print(scores.loc[["nse", "nse_log", "kge", "pbias"]].round(3))
 
 months = reference.periods.edges[:-1]
 q_obs = hmp.read(reference, "discharge_obs").resample("MS").mean().reindex(months)

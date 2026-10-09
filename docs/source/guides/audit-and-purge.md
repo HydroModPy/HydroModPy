@@ -146,7 +146,7 @@ Copy `.hmp/index.duckdb` to a safe place when the log matters, before you reinde
 | Symptom | Cause | Fix |
 |---|---|---|
 | `No catalog at <folder>`, exit 10 | The folder is not a project, or it has no run yet | Give the project folder with `--workspace`, not the workspace root |
-| `Reference 'x' not found. Run \`hmp catalog ls\` to list known runs.`, exit 10 | The name matches no run | Check the name with `hmp catalog ls` |
+| ``Reference 'x' not found. Run `hmp catalog ls` to list known runs.``, exit 10 | The name matches no run | Check the name with `hmp catalog ls` |
 | `Refusing to purge without -y in non-interactive mode.`, exit 14 | No terminal, and no `-y` | Add `-y` once you are sure |
 | `audit_log hash chain verification FAILED`, exit 14 | A row was edited, or a row was removed from the middle of the log | Restore the saved copy of the index |
 | `audit_log hash chain verifies` but the old events are gone | The index was rebuilt: `hmp catalog reindex` starts a new chain | Keep a copy of `.hmp/index.duckdb` before a rebuild |

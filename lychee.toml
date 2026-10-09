@@ -1,0 +1,35 @@
+# External link check of the built documentation (workflow docs-links.yml, weekly).
+# Run it locally on a build:
+#   lychee --config lychee.toml docs/build/html
+
+# Only the web: the local links and anchors are checked by tools.docs.check_site.
+scheme = ["https", "http"]
+no_progress = true
+# One answer is kept for a week, so a weekly run asks each address once.
+cache = true
+max_cache_age = "7d"
+max_concurrency = 8
+max_retries = 3
+retry_wait_time = 5
+timeout = 30
+user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+# 403 and 429: publishers (Wiley, AGU, Taylor and Francis, the DOI resolvers) turn
+# bots away with a 403 on a link that works in a browser.
+accept = ["200..=299", "403", "429"]
+exclude_path = ["_sources", "_downloads", "genindex.html", "objects.inv", "searchindex.js"]
+exclude = [
+  # Local servers and the documents' own placeholders.
+  '^https?://(127\.0\.0\.1|localhost)',
+  '^https?://example\.(com|org)',
+  '^https?://[^/]*<',
+  # The site itself: its pages are checked on the build, not over the network.
+  '^https://docs\.hydromodpy\.fr/',
+  # Badges are images drawn on demand.
+  '^https://img\.shields\.io/',
+  # "Source" links of the API pages and links to a commit of this repository point at
+  # the tree that was just built: they exist once it is pushed, and there are
+  # thousands of them.
+  '^https://github\.com/HydroModPy/HydroModPy/(blob|tree|commit)/',
+  # Cambridge Core answers a bot with a 404 on a DOI that opens in a browser.
+  '^https://doi\.org/10\.1017/',
+]

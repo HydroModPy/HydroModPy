@@ -52,7 +52,7 @@ RECORD_MEAN_M_S = float(RATES_M_S.mean())
 @pytest.fixture(autouse=True)
 def _fresh_process(monkeypatch):
     """Each test starts as a new process: no recharge seen."""
-    monkeypatch.setattr(stream_geometry, "_last_mean_recharge", None)
+    monkeypatch.setattr(stream_geometry, "_last_mean_recharge", {})
 
 
 def _moves(caplog) -> list[str]:
@@ -126,7 +126,10 @@ def test_the_steady_and_transient_models_hold_the_record_mean() -> None:
 def test_the_redraw_reads_the_recharge_the_trials_scored(tmp_path, caplog) -> None:
     steady = SimpleNamespace(recharge=pd.Series([RECORD_MEAN_M_S]))
 
-    with caplog.at_level(logging.INFO, logger=stream_geometry.__name__):
+    with (
+        caplog.at_level(logging.INFO, logger=stream_geometry.__name__),
+        stream_geometry.recharge_session("session"),
+    ):
         _trial_build(steady)
         comparison = network_comparison_from_run(_promoted_run(tmp_path))
 
@@ -137,7 +140,10 @@ def test_the_redraw_reads_the_recharge_the_trials_scored(tmp_path, caplog) -> No
 def test_other_data_still_warns(tmp_path, caplog) -> None:
     steady = SimpleNamespace(recharge=pd.Series([RECORD_MEAN_M_S]))
 
-    with caplog.at_level(logging.INFO, logger=stream_geometry.__name__):
+    with (
+        caplog.at_level(logging.INFO, logger=stream_geometry.__name__),
+        stream_geometry.recharge_session("session"),
+    ):
         _trial_build(steady)
         network_comparison_from_run(_promoted_run(tmp_path, forcing_mm_d=FORCING_MM_D * 0.8))
 
@@ -147,7 +153,10 @@ def test_other_data_still_warns(tmp_path, caplog) -> None:
 def test_another_window_still_warns(tmp_path, caplog) -> None:
     steady = SimpleNamespace(recharge=pd.Series([RECORD_MEAN_M_S]))
 
-    with caplog.at_level(logging.INFO, logger=stream_geometry.__name__):
+    with (
+        caplog.at_level(logging.INFO, logger=stream_geometry.__name__),
+        stream_geometry.recharge_session("session"),
+    ):
         _trial_build(steady)
         network_comparison_from_run(_promoted_run(tmp_path, edges=EDGES[1:]))
 

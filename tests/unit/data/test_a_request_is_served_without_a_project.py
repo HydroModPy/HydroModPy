@@ -432,3 +432,36 @@ def test_a_mask_that_is_not_there_writes_nothing(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="absent.gpkg"):
         run_request(request, tmp_path / "out")
     assert not (tmp_path / "out").exists()
+
+
+class _CountedRivers(_AcmeRivers):
+    """The same network, counting the times it is asked."""
+
+    calls: ClassVar[list[int]] = []
+
+    def fetch(self, request):
+        type(self).calls.append(1)
+        return super().fetch(request)
+
+
+def test_a_workspace_request_keeps_the_network_in_the_workspace_cache(
+    tmp_path: Path, isolated_registry
+) -> None:
+    _CountedRivers.calls.clear()
+    isolated_registry.register(_CountedRivers)
+    workspace = tmp_path / "ws"
+    (workspace / "data").mkdir(parents=True)
+    request = DataRequest.model_validate(
+        {
+            "data": {"hydrography": {"sources": [{"source": "acme-rivers"}]}},
+            "extent": {"bbox": BOX_2154, "crs": "EPSG:2154"},
+        }
+    )
+
+    run_request(request, tmp_path / "out1", store=DataStore(workspace_root=workspace))
+    run_request(request, tmp_path / "out2", store=DataStore(workspace_root=workspace))
+
+    cached = sorted(p.name for p in (workspace / "data" / "hydrography").glob("*.gpkg"))
+    assert len(cached) == 1 and cached[0].startswith("hydrography_acme-rivers_")
+    assert len(_CountedRivers.calls) == 1
+    assert (tmp_path / "out2" / "hydrography_acme-rivers.gpkg").is_file()

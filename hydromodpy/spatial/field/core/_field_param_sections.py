@@ -16,6 +16,7 @@ from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyPath, NonEmptyStr, Probability
+from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.units import LengthMeters
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.spatial.field.core._field_param_units import UnitStr, normalize_unit_token
@@ -82,7 +83,10 @@ class FieldHomogeneousSection(HydroModelBase):
     )
     kind: Annotated[Literal["homogeneous"], Profile.USER] = Field(
         default="homogeneous",
-        description="Field type selector.",
+        description=(
+            "How the parameter varies in space: one value everywhere ('homogeneous') or "
+            "one value per zone ('heterogeneous')."
+        ),
     )
     unit: Annotated[UnitStr, Profile.USER] = Field(
         default=None,
@@ -92,7 +96,11 @@ class FieldHomogeneousSection(HydroModelBase):
     )
     value: Annotated[object | None, Profile.USER] = Field(
         default=None,
-        description="Scalar surface value used when kind='homogeneous'.",
+        description=(
+            "Value of the parameter over the whole domain: a number in the unit that "
+            "unit names, or a text with its unit such as '1e-5 m/s'."
+        ),
+        examples=["1e-5 m/s"],
         json_schema_extra=field_metadata(
             calibrable=Calibrable(
                 # No bounds: a conductivity range is a property of the catchment,
@@ -146,7 +154,10 @@ class FieldHeterogeneousSection(HydroModelBase):
     )
     kind: Annotated[Literal["heterogeneous"], Profile.USER] = Field(
         default="heterogeneous",
-        description="Field type selector.",
+        description=(
+            "How the parameter varies in space: one value everywhere ('homogeneous') or "
+            "one value per zone ('heterogeneous')."
+        ),
     )
     unit: Annotated[UnitStr, Profile.USER] = Field(
         default=None,
@@ -161,7 +172,9 @@ class FieldHeterogeneousSection(HydroModelBase):
             "Use 'inline' for TOML mapping or 'csv' for external table."
         ),
     )
-    values: Annotated[dict[str, float | str] | None, Profile.USER] = Field(
+    values: Annotated[
+        dict[str, float | str] | None, Profile.USER, VisibleWhen("values_source", "inline")
+    ] = Field(
         default=None,
         description=(
             "Inline key/value mapping used when values_source='inline'. "
@@ -175,20 +188,27 @@ class FieldHeterogeneousSection(HydroModelBase):
             )
         ),
     )
-    values_csv_file: Annotated[NonEmptyPath | None, Profile.DEV] = Field(
+    values_csv_file: Annotated[
+        NonEmptyPath | None, Profile.USER, VisibleWhen("values_source", "csv")
+    ] = Field(
         default=None,
         description=(
-            "Path to CSV mapping file used when values_source='csv'. "
-            "Relative paths are resolved from TOML directory."
+            "CSV file that maps each zone key to its value. A relative path is read "
+            "from the folder of the TOML file."
         ),
+        examples=["k_by_unit.csv"],
     )
-    csv_key_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
-        default="zone_key",
-        description="CSV column name containing zone/material keys.",
+    csv_key_column: Annotated[NonEmptyStr, Profile.USER, VisibleWhen("values_source", "csv")] = (
+        Field(
+            default="zone_key",
+            description="Name of the CSV column that holds the zone keys.",
+        )
     )
-    csv_value_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
-        default="value",
-        description="CSV column name containing numeric parameter values.",
+    csv_value_column: Annotated[NonEmptyStr, Profile.USER, VisibleWhen("values_source", "csv")] = (
+        Field(
+            default="value",
+            description="Name of the CSV column that holds the values.",
+        )
     )
     field_spatial_id: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,

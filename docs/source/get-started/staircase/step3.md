@@ -44,43 +44,7 @@ model. The answers are cached after the first launch, so a second run needs no n
 :::{tab-item} Changed vs step 2
 The resolved file of step 3 against the resolved file of step 2.
 
-```diff
---- step2_local_data
-+++ step3_api_data
-@@ -7,3 +7,3 @@
- [simulation]
--name = "nancon_step2_local"
-+name = "nancon_step3_api"
- 
-@@ -68,2 +68,3 @@
-     "hydrographic_network_reference",
-+    "hydrographic_network_permanence",
-     "seepage_network_confusion_map",
-@@ -91,2 +92,5 @@
- 
-+[[export]]
-+variables = "hydrographic_network_reference_permanent"
-+
- [data]
-@@ -99,10 +103,14 @@
- sources = [
--    { source = "custom", path = "nancon_stream_network.gpkg" },
-+    { source = "bdtopage" },
- ]
- 
-+[data.hydrometry]
-+date_start = "2000-01-01"
-+date_end = "2002-12-31"
-+
- [[data.hydrometry.sources]]
--source = "custom"
--path = "hydrometry"
-+source = "hubeau"
-+product = "QmnJ"
- station_ids = [
--    "NANCON",
-+    "J001401001",
- ]
+```{hmp-toml-diff} step2_local_data.toml step3_api_data.toml
 ```
 :::
 

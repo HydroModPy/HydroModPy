@@ -347,10 +347,17 @@
 
   // ------------------------------------------------------------ hover card of {toml} links
 
-  // Reusable: hoverCard(selector, lookup) shows a small card for each link the
+  // Reusable: hoverCard(selector, lookup, id) shows a small card for each link the
   // selector matches; lookup(link, data) returns the entry to show, or null.
-  function hoverCard(selector, lookup) {
+  // Each instance owns one card element with its own id, so two instances on a page
+  // (the {toml} links and the glossary terms) never share an id. Pass `id` to name it;
+  // without one the first instance is "hmp-hover" and the next ones "hmp-hover-2", ...
+  // The same id goes in aria-describedby of the link the card describes.
+  var cardCount = 0;
+  function hoverCard(selector, lookup, id) {
     var card = null, current = null, hideTimer = null;
+    cardCount += 1;
+    var cardId = id || (cardCount === 1 ? "hmp-hover" : "hmp-hover-" + cardCount);
     function hide() {
       if (card) card.hidden = true;
       current = null;
@@ -362,7 +369,7 @@
         if (!card) {
           card = el("div", "hmp-hover");
           card.setAttribute("role", "tooltip");
-          card.id = "hmp-hover";
+          card.id = cardId;
           card.addEventListener("mouseenter", function () { clearTimeout(hideTimer); });
           card.addEventListener("mouseleave", hide);
           document.body.appendChild(card);
@@ -378,7 +385,7 @@
         if (k.a) meta.appendChild(el("span", "tc tc-prof", k.a));
         card.appendChild(meta);
         if (k.s) card.appendChild(el("div", "hmp-hover-sum", k.s.replace(/`/g, "")));
-        link.setAttribute("aria-describedby", "hmp-hover");
+        link.setAttribute("aria-describedby", cardId);
         var r = link.getBoundingClientRect();
         card.hidden = false;
         var top = window.scrollY + r.bottom + 6;

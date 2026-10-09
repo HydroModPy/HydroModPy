@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
+from hydromodpy.solver.base import registry
 
 
 def _payload(**sections: Any) -> dict[str, Any]:
@@ -44,8 +45,27 @@ def test_backend_follows_the_process_and_keeps_the_other_solver_keys() -> None:
     assert cfg.solver.sink_fill is True
 
 
+class _PluginAdapter:
+    process_type = "flow"
+    solver_name = "my_plugin"
+    requires: tuple[tuple[str, str], ...] = ()
+
+    def validate(self, ctx): ...
+
+    def execute(self, ctx): ...
+
+    def cleanup(self, ctx): ...
+
+    def extract_observables(self, ctx, store, requests, **kwargs):
+        return {}
+
+
 def test_a_plugin_solver_name_gives_the_custom_backend() -> None:
-    cfg = HydroModPyConfig.model_validate(_payload(simulation=_flow("my_plugin")))
+    registry.register("flow", "my_plugin", _PluginAdapter)
+    try:
+        cfg = HydroModPyConfig.model_validate(_payload(simulation=_flow("my_plugin")))
+    finally:
+        registry.unregister("flow", "my_plugin")
 
     assert cfg.solver.backend.backend == "custom"
     assert cfg.solver.backend_name == "my_plugin"

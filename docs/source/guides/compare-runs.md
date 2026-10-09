@@ -196,10 +196,9 @@ analysis.comparison.observable.unit
 
 - A `point` needs `x` and `y`, an `anchor_id` or a `cell_index`. An `outlet` needs one of
   them too. A `map` keeps the whole field.
-- At this version a point found by `x` and `y` fails on a run stored in the current layout:
-  `Point observable '<name>' needs a mesh bundle cells.csv for x/y lookup, or a cell_index.`
-  The lookup found no cell centres for the run, even with `[geographic] write_intermediates =
-  true`, and no command prints a cell index. Use maps, as here, until the lookup reads the run store.
+- A point found by `x` and `y` reads the cell whose centre is nearest, on the mesh each child
+  stored. The `selected_cell_index` column of `observables.csv` names that cell. On a regular
+  grid it is the cell that `hmp catalog point <run> --var <field> --xy <x> <y>` reads.
 - A map needs the children to share a support. When the children use different meshes, add a
   common raster: {toml}`enabled|analysis.comparison.fine_raster.enabled` with a
   {toml}`resolution|analysis.comparison.fine_raster.resolution`.
@@ -495,7 +494,6 @@ Messages when the comparison runs:
 | `Comparison audit failed. See <path> for equivalence diagnostics.` | The outputs are already written. Open `comparison_audit.md`. Either the case differs between children, and you fix the overlay, or the difference is wanted, and you set {toml}`on_mismatch\|analysis.comparison.audit.on_mismatch` to `"warn"`. The value `"ignore"` does not hide the issue: the code records it as a warning like `"warn"`. |
 | `Could not find variable '<name>' in Catalog sim_id=<id>. Tried variables: ...` | The children ran, but a run did not store the variable of an observable. The comparison ends before any output. Fix the `variable`, then run again with `run_simulations = false` to skip the solves. |
 | `Time selector <value> not found for variable '<name>'` | The {toml}`time\|analysis.comparison.observable.time` of an observable does not exist in the series of a child. The same remedy applies. |
-| `Point observable '<name>' needs a mesh bundle cells.csv for x/y lookup, or a cell_index.` | A point or an outlet found by `x` and `y` cannot be located on a run of the current layout. The comparison ends before any output. | Use a `map` observable (step 3). |
 | `No completed reference simulation is available for audit.` | An issue in the audit. The reference child failed or was not run. |
 
 Two cases do not stop anything and are easy to miss:

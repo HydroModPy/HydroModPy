@@ -37,7 +37,7 @@ folder of example 04, next to `step1_minimal.toml`.
 
 ## 1. Switch the wells on
 
-A well table does nothing until `"wells"` is in {toml}`flow.active_sinks_sources`. A list in
+A well table is refused until `"wells"` is in {toml}`flow.active_sinks_sources`. A list in
 a file replaces the inherited one, so write `"recharge"` again:
 
 ```toml
@@ -200,8 +200,8 @@ it, a few metres deep for this rate:
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| The run has no `well` term in its budget, and no cone. Neither `hmp config check` nor the run says why. | `"wells"` is missing from {toml}`flow.active_sinks_sources`, so the well tables are not read. | Add `"wells"` to the list, as in step 1. |
-| The map has no well marker, and the run log at `-v` says `Overlay 'wells' skipped: run has no well budget field.` | The run did not store the per-cell budget. | Set {toml}`simulation.results.budget.spatial_fields` to `true`. |
+| `flow.sinks_sources.wells declares wells (W1) but flow.active_sinks_sources does not list 'wells', so no well would pump` | `"wells"` is missing from {toml}`flow.active_sinks_sources`. `hmp config check` refuses the file. | Add `"wells"` to the list, as in step 1. |
+| The map has no well marker, and the run log warns `Overlay 'wells' skipped: run has no well budget field, but its configuration declares wells.` | The run did not store the per-cell budget. | Set {toml}`simulation.results.budget.spatial_fields` to `true` and run again. |
 | `well requires either flux or forcing` | The well has neither a rate nor a schedule. | Write `flux` or a `forcing` table. |
 | `well.flux and well.forcing are mutually exclusive` | The well has both. | Keep one. |
 | `well relative coordinates must be within [0, 1]` | An `x_rel` or `y_rel` outside the model extent. | Use a fraction between 0 and 1. |

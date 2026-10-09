@@ -148,8 +148,8 @@ stage,volume,sarea
 108.0,200000.0,30000.0
 ```
 
-The stage is an elevation in meters, the volume is in cubic meters and the surface area
-in square meters. The values above are placeholders. The rules:
+The stage is an elevation in metres, the volume is in cubic metres and the surface area
+in square metres. The values above are placeholders. The rules:
 
 - `stage` increases strictly from one row to the next.
 - `volume` and `sarea` are not negative. The import accepts a volume that stays equal
@@ -294,7 +294,7 @@ stream that ends in a lake, is {toml}`flow.sinks_sources.sfr.<name>.outflow_to_l
 The lake receives rain, loses open-water evaporation, and can take runoff, an inflow and a
 withdrawal. Three of them have a source without any key from you.
 
-- If {toml}`data.precipitation` and {toml}`data.etp` are loaded, their watershed mean sets
+- If {toml}`data.precipitation` and {toml}`data.etp` are loaded, their catchment mean sets
   the rainfall and the evaporation of every lake.
 - If {toml}`data.runoff` is loaded, the catchment runoff rate times the catchment area
   enters each lake as a volume. Example 04 loads runoff, so a lake added to it receives

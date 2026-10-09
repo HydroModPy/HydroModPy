@@ -7,7 +7,7 @@ import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -27,6 +27,9 @@ try:
     import rasterio
 except Exception:  # pragma: no cover - optional dependency in lightweight envs
     rasterio = None
+
+if TYPE_CHECKING:
+    from hydromodpy.results.catalog import Catalog
 
 logger = get_logger(__name__)
 
@@ -383,14 +386,73 @@ def _bundle_cells_from_config(config_path: Path) -> CellCentroidTable | None:
     return _bundle_cells_from_dir(bundle_dir)
 
 
+def _polygon_areas(xy: np.ndarray, faces: np.ndarray) -> np.ndarray:
+    """Return the shoelace area of each face; padded node slots are negative."""
+    areas = np.empty(faces.shape[0], dtype=float)
+    for index, nodes in enumerate(faces):
+        ring = xy[nodes[nodes >= 0]]
+        if ring.shape[0] < 3:
+            areas[index] = math.nan
+            continue
+        x = ring[:, 0]
+        y = ring[:, 1]
+        areas[index] = 0.5 * abs(float(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
+    return areas
+
+
+def cells_from_run_mesh(store: Catalog, sim_id: str) -> CellCentroidTable | None:
+    """Build the cell table from the mesh the run stored in its own ``fields.zarr``.
+
+    Every run of the current layout writes ``mesh/vertices`` and
+    ``mesh/face_node_connectivity``. Face ``i`` is cell ``i`` of the field
+    arrays. Returns ``None`` when the run stored no mesh (a lumped run).
+    """
+    try:
+        sz = store.open_zarr(sim_id)
+    except Exception:
+        # A run without a fields store (lumped, or failed before writing) has
+        # no grid to read; the caller falls back to the other sources.
+        return None
+    try:
+        mesh = sz.root.get("mesh")
+        if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
+            return None
+        vertices = np.asarray(mesh["vertices"][:], dtype=float)
+        faces = np.asarray(mesh["face_node_connectivity"][:], dtype=np.int64)
+    finally:
+        sz.close()
+    if vertices.ndim != 2 or faces.ndim != 2 or faces.shape[0] == 0:
+        return None
+    xy = vertices[:, :2]
+    valid = faces >= 0
+    counts = valid.sum(axis=1)
+    safe = np.where(valid, faces, 0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        cx = np.where(valid, xy[safe, 0], 0.0).sum(axis=1) / counts
+        cy = np.where(valid, xy[safe, 1], 0.0).sum(axis=1) / counts
+    return CellCentroidTable(
+        cell_ids=np.arange(faces.shape[0], dtype=int),
+        x=cx,
+        y=cy,
+        area_m2=_polygon_areas(xy, faces),
+    )
+
+
 def resolve_bundle_cells(
     run_folder: Path,
     *,
     config_path: Path | None = None,
     expected_size: int | None = None,
     solver_name: str | None = None,
+    store: Catalog | None = None,
+    sim_id: str | None = None,
 ) -> CellCentroidTable | None:
-    """Load cell centroids from an exchange bundle or structured-grid support."""
+    """Load cell centroids for one run.
+
+    Sources, in order: a mesh exchange bundle the run recorded, the mesh the
+    run stored in ``fields.zarr`` (when ``store`` and ``sim_id`` are given),
+    then the structured-grid support declared by the config or the run folder.
+    """
     metrics = read_json_file(run_folder / "_metrics.json")
     bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir")
     if not bundle_dir_raw:
@@ -404,6 +466,12 @@ def resolve_bundle_cells(
     if (cells := _bundle_cells_from_dir(generated_bundle_dir)) is not None:
         if expected_size is None or cells.cell_ids.size == int(expected_size):
             return cells
+    if store is not None and sim_id is not None:
+        stored_cells = cells_from_run_mesh(store, sim_id)
+        if stored_cells is not None and (
+            expected_size is None or stored_cells.cell_ids.size == int(expected_size)
+        ):
+            return stored_cells
 
     if config_path is None:
         return _structured_cells_from_run_folder(
@@ -429,6 +497,7 @@ def resolve_bundle_cells(
 
 __all__ = (
     "CellCentroidTable",
+    "cells_from_run_mesh",
     "resolve_bundle_cells",
     "resolve_structured_shape_from_config",
     "resolve_structured_shape_from_run_folder",

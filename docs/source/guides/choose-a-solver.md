@@ -125,6 +125,11 @@ id = "flow_main"
 type = "flow"
 solvers = ["boussinesq"]
 
+# The rivers the mesh follows: every cell that drains more than 0.5 km2.
+[geographic.river_network]
+enabled = true
+threshold_area_km2 = 0.5
+
 [mesh_catchment]
 constraints_mode = "rivers_only"
 cache = true
@@ -154,7 +159,7 @@ For the checks the solvers pass against a reference, see {doc}`../theory/validat
 | Symptom | Cause | Fix |
 |---|---|---|
 | `solver.backend names 'modflow_nwt' and the flow process 'flow_main' of [[simulation.process]] names 'modflow6' in solvers.` | The file still sets {toml}`solver.backend.backend`, to another solver. | Remove the backend line: it follows the process. |
-| `solver.backend='modflow7' does not support the 'drainage' boundary (supported by: modflow6, modflow_nwt, boussinesq)` from `hmp config check` | A name in `solvers` that is not a solver. The check reads it as a plugin solver and refuses its first boundary, so the message does not say that the name is wrong. | Write `modflow6`, `modflow_nwt` or `boussinesq`. |
+| `Unknown flow solver 'modflow7': it is neither built in nor a registered plugin. Write one of: boussinesq, modflow6, modflow_nwt.` from `hmp config check` | A name in `solvers` that is neither a built-in solver nor a plugin installed in the environment. | Write one of the names the message lists. |
 | `solver.backend='modflow_nwt' does not support the 'sfr' boundary (supported by: modflow6)` | A boundary in {toml}`flow.active_bc` that the solver does not build. The same message exists for `lake` and `reservoir`. | Use MODFLOW 6, or remove the boundary. |
 | `does not read flow.restart_from` | A hotstart on a solver that cannot read one. | Use MODFLOW 6. |
 | `does not support flow barriers / dam cutoff walls (HFB); they require the 'modflow6' backend.` | A flow barrier or a dam cutoff wall on another solver. | Use MODFLOW 6. |

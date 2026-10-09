@@ -111,15 +111,9 @@ priority = 100
 active_sinks_sources = ["recharge"]
 active_bc = ["drainage"]
 
-[flow.sinks_sources.wells.W1.forcing]
-path_file = "../../../../../examples/data/wells/normal_wells_2003.csv"
-
-[flow.sinks_sources.wells.W2.location]
-x_rel = 0.33
-y_rel = 0.33
-
-[flow.sinks_sources.wells.W2.forcing]
-path_file = "../../../../../examples/data/wells/normal_wells_2003.csv"
+# This mesh run pumps nothing: drop the wells the base file declares.
+[flow.sinks_sources]
+wells__delete = true
 
 [display]
 enabled = true

@@ -1,0 +1,9 @@
+extends: existence
+message: "Do not use an em dash. Use a full stop, a comma or a colon."
+level: error
+nonword: true
+scope: text
+tokens:
+  - '—'
+  - ' – '
+  - ' -- '

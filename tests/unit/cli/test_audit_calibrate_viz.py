@@ -74,9 +74,8 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
     assert code == 0
     assert captured["path"] == config.resolve()
     assert captured["phase"] is None
-    # A file with no phases returns a dict unless the report is asked for, and
-    # the lines below read the report's attributes.
-    assert captured["kwargs"] == {"return_report": True}
+    # hmp.calibrate returns the report object by default, so the CLI asks nothing.
+    assert captured["kwargs"] == {}
     err = capsys.readouterr().err
     assert "Calibration finished: calib.toml" in err
     assert "K = 0.00021" in err

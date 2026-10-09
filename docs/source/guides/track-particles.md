@@ -343,23 +343,23 @@ When the run ends, check three things.
 - **The figures.** `hmp viz list` shows `particle_tracks` and `residence_time_distribution`.
   `hmp viz show` writes a figure to `runs/<run>/figures/<figure>.png` unless you give
   `--output`.
-- **The store.** The paths are in the `particles` group of `runs/<name>/fields.zarr/`. The
-  arrays `x`, `y`, `z` and `time` have the shape (particle, track step). `x`, `y` and `z` use the
-  coordinates of the mesh, `z` being an elevation. A particle with fewer records than the
-  longest one is padded with NaN. `time` is in days: it is the absolute time of the
-  simulation, so a travel time is the last time minus the first. The arrays `status` and
-  `reason` are there when the solver file carries those columns. The group records its
-  `time_units`, the file it was read from and the solver. `hmp export` does not list the
-  paths, so read them from the store:
+- **The paths.** `hmp.read(run, "particles")` returns them as a table, one row per recorded
+  position:
+  `particle` and `step` number the particle and its record from 0, `x` and `y` use the
+  coordinates of the mesh, `z` is an elevation in metres, and `time_days` is the absolute time
+  of the simulation in days, so a travel time is the last time minus the first. The columns
+  `status` and `reason` follow when the solver file carries them. Its `attrs` name the
+  solver and the file the paths were read from. The paths are stored in the `particles` group
+  of `runs/<name>/fields.zarr/`; `hmp export` does not list them.
 
   ```python
-  import numpy as np
-  import zarr
+  import hydromodpy as hmp
 
-  paths = zarr.open_group("runs/nancon_guide_particles/fields.zarr", mode="r")["particles"]
-  time = np.asarray(paths["time"])  # days, one row per particle, padded with NaN
-  travel = np.nanmax(time, axis=1) - np.nanmin(time, axis=1)
-  print(f"median travel time: {np.nanmedian(travel) / 365.25:.1f} years")
+  run = hmp.open(".")["nancon_guide_particles"]
+  paths = hmp.read(run, "particles")
+  span = paths.groupby("particle")["time_days"].agg(["min", "max"])
+  travel = (span["max"] - span["min"]) / 365.25
+  print(f"median travel time: {travel.median():.1f} years")
   ```
 
   On the run of this guide it prints 3.3 years.

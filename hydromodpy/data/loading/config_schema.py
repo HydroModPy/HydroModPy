@@ -121,7 +121,7 @@ class DataManagersConfig(HydroModelBase):
             "Allowed values: " + ", ".join(f"'{t}'" for t in SUPPORTED_DATA_MANAGER_TYPES) + "."
         ),
     )
-    inference_mode: Annotated[Literal["warn", "strict"], Profile.DEV] = Field(
+    inference_mode: Annotated[Literal["warn", "strict"], Profile.USER] = Field(
         default="warn",
         description=(
             "Policy applied when the planner infers types not explicitly listed "

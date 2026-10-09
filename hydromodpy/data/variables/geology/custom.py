@@ -21,6 +21,7 @@ def load_custom_geology(
     *,
     code_field: str | None = None,
     bbox: tuple[float, float, float, float] | None = None,
+    bbox_crs: str | None = None,
     derived_dir: Path | None = None,
 ) -> list[FieldRecord]:
     """Load custom geology data from a user-provided path.
@@ -30,6 +31,8 @@ def load_custom_geology(
     source_cfg : source config with ``path`` attribute
     code_field : attribute column for geology codes (required for vector sources)
     bbox : optional bounding box for cropping
+    bbox_crs : CRS of ``bbox``. A file in another CRS is cropped by the box
+        reprojected into its own CRS. ``None`` takes the box in the file CRS.
     derived_dir : directory for the copies derived from the user file (clip,
         Voronoi polygons). It is never the user's data folder: a derived copy
         named like a user file would be taken for one.
@@ -54,7 +57,9 @@ def load_custom_geology(
                 f"'code_field' is required for custom vector geology source ({path.name}). "
                 "Set it in [[data.geology.sources]] to the column containing geology codes."
             )
-        return _load_custom_vector(path, code_field=code_field, bbox=bbox, derived_dir=derived_dir)
+        return _load_custom_vector(
+            path, code_field=code_field, bbox=bbox, bbox_crs=bbox_crs, derived_dir=derived_dir
+        )
     elif ext in (".tif", ".tiff"):
         return _load_custom_raster(path)
     elif ext == ".csv":
@@ -65,6 +70,7 @@ def load_custom_geology(
             col_code=getattr(source_cfg, "col_code", "geology_code"),
             default_crs=getattr(source_cfg, "default_crs", "EPSG:2154"),
             bbox=bbox,
+            bbox_crs=bbox_crs,
             derived_dir=derived_dir,
         )
     else:
@@ -98,11 +104,31 @@ def _derived_path(derived_dir: Path, source: Path, bbox: tuple | None, *, kind: 
     return derived_path(derived_dir, source, kind=kind, suffix=".gpkg", inputs=(box_token,))
 
 
+def _bbox_in_crs(bbox: tuple, bbox_crs: str | None, target_crs: Any) -> tuple:
+    """Return *bbox* as a box in *target_crs*: the envelope of the reprojected box.
+
+    The envelope holds the whole requested box, so a crop by it never drops a
+    feature the project needs. ``None`` for *bbox_crs* keeps the box as given.
+    """
+    if bbox_crs is None or target_crs is None:
+        return tuple(bbox)
+    from pyproj import CRS
+
+    if CRS.from_user_input(bbox_crs) == CRS.from_user_input(target_crs):
+        return tuple(bbox)
+    import geopandas as gpd
+    from shapely.geometry import box
+
+    reprojected = gpd.GeoSeries([box(*bbox)], crs=bbox_crs).to_crs(target_crs)
+    return tuple(float(value) for value in reprojected.total_bounds)
+
+
 def _load_custom_vector(
     path: Path,
     *,
     code_field: str,
     bbox: tuple | None = None,
+    bbox_crs: str | None = None,
     derived_dir: Path | None = None,
 ) -> list[FieldRecord]:
     """Load a vector geology file, optionally crop, return as FieldRecord."""
@@ -122,11 +148,14 @@ def _load_custom_vector(
     if bbox is not None:
         from shapely.geometry import box
 
-        bbox_geom = box(*bbox)
-        bbox_gdf = gpd.GeoDataFrame(geometry=[bbox_geom], crs=gdf.crs)
+        bbox = _bbox_in_crs(bbox, bbox_crs, gdf.crs)
+        bbox_gdf = gpd.GeoDataFrame(geometry=[box(*bbox)], crs=gdf.crs)
         gdf = gpd.clip(gdf, bbox_gdf)
         if gdf.empty:
-            raise ValueError("No geology feature intersects bbox after clipping")
+            raise ValueError(
+                f"No geology feature of {path.name} intersects the requested box "
+                f"{tuple(round(value, 1) for value in bbox)} (in {crs}, the CRS of the file)."
+            )
 
     actual_bbox = tuple(gdf.total_bounds) if not gdf.empty else bbox
 
@@ -179,6 +208,7 @@ def _load_custom_csv(
     col_code: str = "geology_code",
     default_crs: str = "EPSG:2154",
     bbox: tuple | None = None,
+    bbox_crs: str | None = None,
     derived_dir: Path | None = None,
 ) -> list[FieldRecord]:
     """Load CSV point geology data and interpolate via Voronoi tessellation.
@@ -194,6 +224,7 @@ def _load_custom_csv(
     col_code : geology code column name
     default_crs : CRS for the point coordinates
     bbox : optional bounding box for the output
+    bbox_crs : CRS of ``bbox``; the box is reprojected into ``default_crs``
     derived_dir : directory for the derived Voronoi GeoPackage
     """
     import geopandas as gpd
@@ -202,6 +233,9 @@ def _load_custom_csv(
     from shapely import MultiPoint
     from shapely.geometry import box
     from shapely.ops import voronoi_diagram
+
+    if bbox is not None:
+        bbox = _bbox_in_crs(bbox, bbox_crs, default_crs)
 
     df = pd.read_csv(str(path))
     for col in (col_x, col_y, col_code):

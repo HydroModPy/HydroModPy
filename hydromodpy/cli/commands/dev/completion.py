@@ -110,11 +110,39 @@ complete -c hydromodpy -F
 """
 
 
+_EPILOG = """\
+Install the script once for your shell. It completes hmp and hydromodpy.
+Run it again after an upgrade: the script lists the commands of the
+installed version.
+
+bash: write it where bash-completion looks for it, once per command name. To
+load it in the current shell only, run eval "$(hmp dev completion bash)", or
+add that line to ~/.bashrc.
+Examples:
+  hmp dev completion bash > ~/.local/share/bash-completion/completions/hmp
+  hmp dev completion bash > ~/.local/share/bash-completion/completions/hydromodpy
+
+zsh: write it as _hmp in a folder of $fpath, such as ~/.zfunc (create it
+first). Then, in ~/.zshrc and before compinit, add fpath=(~/.zfunc $fpath)
+and autoload -Uz compinit && compinit, and open a new shell.
+Example:
+  hmp dev completion zsh > ~/.zfunc/_hmp
+
+fish: write it where fish looks for completions, once per command name.
+Examples:
+  hmp dev completion fish > ~/.config/fish/completions/hmp.fish
+  hmp dev completion fish > ~/.config/fish/completions/hydromodpy.fish
+
+--argcomplete prints the argcomplete line instead, which reads the commands
+each time you press TAB.
+"""
+
+
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        epilog="Example:\n  hmp dev completion bash",
+        epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(

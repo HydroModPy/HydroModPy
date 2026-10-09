@@ -115,4 +115,4 @@ flow.active_bc
 
 Sy is declared too, for step 4: a steady solve never reads it.
 
-Next: {doc}`step2`, which adds the mapped river network.
+Next: {doc}`step2`, which adds the mapped stream network.

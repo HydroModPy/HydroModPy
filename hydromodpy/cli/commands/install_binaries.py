@@ -10,8 +10,9 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_OK
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_OK, exit_code_for
 from hydromodpy.core import progress
+from hydromodpy.core.exceptions import NetworkError
 
 NAME: str = "install-binaries"
 HELP: str = "Download MODFLOW/MODPATH/MT3D-USGS binaries into the HydroModPy cache"
@@ -58,6 +59,9 @@ def run(args: argparse.Namespace) -> None:
                 quiet=args.quiet,
                 release=args.release,
             )
+    except NetworkError as exc:
+        print(f"[install-binaries] {exc}", file=sys.stderr)
+        sys.exit(exit_code_for(exc))
     except (RuntimeError, ValueError) as exc:
         print(f"[install-binaries] {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)

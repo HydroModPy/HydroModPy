@@ -61,9 +61,9 @@ class _ApiCrossingsSource(HydroModelBase):
         ge=1,
         description="WFS pagination page size, in features.",
     )
-    force_refresh: Annotated[bool, Profile.DEV] = Field(
+    force_refresh: Annotated[bool, Profile.USER] = Field(
         default=False,
-        description="Bypass the cache and download again.",
+        description="Download this source again instead of reading the cache.",
     )
 
 

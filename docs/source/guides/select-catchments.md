@@ -46,7 +46,7 @@ decision, and it sets {toml}`site_selection.input.mode`.
 | A region and its flow stations | `hydrometry` | Hub'Eau and a DEM |
 | A region and a target catchment size | `dem_area_light` | a DEM |
 | A table of outlets or of catchments | `delineated_catchments` | the CSV file |
-| A region and its DEM drainage network | `generated_candidates` | a DEM |
+| A region and its DEM stream network | `generated_candidates` | a DEM |
 | Only the wish to check a file | `plan_only` | nothing |
 
 Each route is a value of {toml}`site_selection.input.mode`. `plan_only`, the default, is step 1.
@@ -114,7 +114,7 @@ Each route is a complete file. Take one and replace the names.
 ### Gauged catchments in a region
 
 The run asks Hub'Eau for the flow stations of the territory, makes each station an outlet,
-snaps it onto the DEM drainage network, delineates the catchment, and applies your
+snaps it onto the DEM stream network, delineates the catchment, and applies your
 criteria. A station whose catchment cannot be delineated is rejected and says why.
 
 ```toml
@@ -227,7 +227,7 @@ DEM snap then runs.
 
 ### Catchments of a given size, with no stations
 
-The run scans the DEM drainage network for outlets whose upstream area falls in a window
+The run scans the DEM stream network for outlets whose upstream area falls in a window
 around a target. It delineates at most
 {toml}`site_selection.dem_area_light.max_candidates_before_delineation` of them, and
 selects at most {toml}`site_selection.dem_area_light.n_basins`.
@@ -297,13 +297,25 @@ fewer accepted basins after the spatial rules of step 4.
 On the box of 25 km by 25 km, the scan found 857 raw outlets in the window, thinned them to 20
 (`diagnostics.csv` lists these counts), delineated the 20 basins, and selected 5 of 19.7 to 20.3
 km2. It took 38 s, with 120 s of processor time and 1.3 GB of memory at the peak, and left
-7.9 MB. The delineated basins (1 MB), the DEM drainage network as GeoJSON (3 MB) and the HTML
+7.9 MB. The delineated basins (1 MB), the DEM stream network as GeoJSON (3 MB) and the HTML
 review (3 MB in all) are most of it. With `source = "ign_geoplateforme_dem"` in place of a
 `path`, add the time to download the DEM of the box.
 
-### Candidates sampled from the drainage network
+The review folder holds the map of the run. The selected basins are filled and their
+outlets are circles. The crosses are rejected outlets, and the pale outlines are the basins
+that were rejected.
 
-`generated_candidates` takes the cells of the DEM drainage network with the largest flow
+```{figure} /_static/figures/guides/select-catchments/site_selection_map.webp
+:alt: Map of the 25 km box over the DEM, with five filled catchments and their outlets, the outlets and the pale basins that were rejected, and the stream network generated from the DEM.
+:width: 80%
+:align: center
+
+`review/site_selection_map.png` of the run above. The five selected catchments, the 15 rejected outlets and the network generated from the DEM.
+```
+
+### Candidates sampled from the stream network
+
+`generated_candidates` takes the cells of the DEM stream network with the largest flow
 accumulation, keeps the ones at least
 {toml}`site_selection.outlets.min_distance_between_outlets_km` apart, up to
 {toml}`site_selection.outlets.max_generated_candidates`, and delineates each. The largest

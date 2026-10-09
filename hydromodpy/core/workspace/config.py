@@ -101,9 +101,12 @@ class WorkspaceConfig(HydroModelBase):
         ),
     )
 
-    data_dir: Annotated[Path | None, Profile.DEV] = Field(
+    data_dir: Annotated[Path | None, Profile.USER] = Field(
         default=None,
-        description=("Explicit path to the workspace data directory. Defaults to <root>/data."),
+        description=(
+            "Folder the input data are read from and downloads are cached in. "
+            "Unset, it is <root>/data."
+        ),
     )
 
     runs_dir: Annotated[Path | None, Profile.DEV] = Field(

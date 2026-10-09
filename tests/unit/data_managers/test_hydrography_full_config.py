@@ -131,7 +131,7 @@ class TestSourceConfigParamLevels:
             ("source", "user"),
             ("path", "user"),
             ("rasterize_field", "user"),
-            ("force_refresh", "dev"),
+            ("force_refresh", "user"),
             ("page_size", "dev"),
             ("group_name", "dev"),
             ("euhydro_page_size", "dev"),
@@ -464,13 +464,14 @@ class TestForceRefreshConfig:
         cfg = HydrographySourceConfig(source="osm", force_refresh=True)
         assert cfg.force_refresh is True
 
-    def test_force_refresh_param_level_dev(self):
+    def test_force_refresh_param_level_user(self):
+        # The work-offline guide tells the reader to set it to download again.
         info = HydrographySourceConfig.model_fields["force_refresh"]
         for meta in info.metadata:
             if isinstance(meta, Profile):
-                assert meta == Profile.DEV
+                assert meta == Profile.USER
                 return
-        pytest.fail("force_refresh should have Profile.DEV")
+        pytest.fail("force_refresh should have Profile.USER")
 
     def test_force_refresh_in_model_dump(self):
         cfg = HydrographySourceConfig(source="osm", force_refresh=True)

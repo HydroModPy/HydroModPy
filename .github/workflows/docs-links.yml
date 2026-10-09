@@ -1,0 +1,67 @@
+# External links of the built documentation, once a week.
+#
+# lychee (config in lychee.toml) asks each address once a week from a cache. A
+# 403 or a 429 is accepted: publishers and DOI resolvers turn bots away on links
+# that work in a browser. The links of the site to itself are not checked here:
+# tools.docs.check_site reads them on every build.
+
+name: Docs / External links
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  lychee:
+    name: Docs / lychee
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglu1-mesa graphviz libgraphviz-dev pkg-config plantuml
+
+      - name: Install package and docs extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      - name: Build the site
+        run: make -C docs html
+
+      - name: Restore the lychee cache
+        uses: actions/cache@v4
+        with:
+          path: .lycheecache
+          key: lychee-${{ github.run_id }}
+          restore-keys: lychee-
+
+      - name: Check the external links
+        uses: lycheeverse/lychee-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --config lychee.toml docs/build/html
+          fail: true

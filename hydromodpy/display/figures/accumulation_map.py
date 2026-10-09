@@ -25,7 +25,7 @@ from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
 from hydromodpy.display.maps.axes import style_relative_km_axes
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import last_timestep, render_face_field
-from hydromodpy.display.style import get_cmap, place_legend
+from hydromodpy.display.style import get_cmap, neutral, place_legend
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -158,8 +158,8 @@ class AccumulationMap(ScalarFaceMap):
         if empty:
             handles.append(
                 Patch(
-                    facecolor=GROUND_COLOR,
-                    edgecolor=GROUND_EDGE,
+                    facecolor=neutral(GROUND_COLOR),
+                    edgecolor=neutral(GROUND_EDGE),
                     label=f"no accumulated flux ({_cell_count(empty)})",
                 )
             )
@@ -188,7 +188,7 @@ def truncated_palette(name: str, floor: float) -> Colormap:
     light_at_bottom = _relative_luminance(base(0.0)) > _relative_luminance(base(1.0))
     low, high = (floor, 1.0) if light_at_bottom else (0.0, 1.0 - floor)
     palette = ListedColormap(base(np.linspace(low, high, base.N)), name=f"{name}_floor")
-    return palette.with_extremes(bad=GROUND_COLOR)
+    return palette.with_extremes(bad=neutral(GROUND_COLOR))
 
 
 def _relative_luminance(color: str | tuple[float, ...]) -> float:

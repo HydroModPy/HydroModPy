@@ -411,6 +411,8 @@ def _load_store_surface_excess_total_series(
         cells = resolve_bundle_cells(
             run_folder,
             expected_size=int(values.shape[1]),
+            store=store,
+            sim_id=sim_id,
         )
         if cells is None or cells.area_m2 is None:
             return None
@@ -503,6 +505,8 @@ def _load_store_dry_deficit_total_series(
         cells = resolve_bundle_cells(
             run_folder,
             expected_size=int(values.shape[1]),
+            store=store,
+            sim_id=sim_id,
         )
         if cells is None or cells.area_m2 is None:
             return None

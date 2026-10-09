@@ -57,7 +57,7 @@ for run in runs:
             "mean seepage area (km2)": area.mean(),
             "min seepage area (km2)": area.min(),
             "NSE": scores["nse"],
-            "log NSE": scores["log_nse"],
+            "log NSE": scores["nse_log"],
         }
     )
 table = pd.DataFrame(rows).set_index("K")

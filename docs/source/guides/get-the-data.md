@@ -1,11 +1,11 @@
 # Get the data of a catchment
 
-A model needs a DEM, a river network, gauge records and forcing. You list them in the
+A model needs a DEM, a stream network, gauge records and forcing. You list them in the
 `[data]` tables of the project file. HydroModPy reads each one from a public service or
 from your files, cuts it to your catchment, and keeps what it downloaded in a cache, so
 the next run makes no request.
 
-The worked case is example 04, the Nançon. Step 2 reads the river network and the gauge
+The worked case is example 04, the Nançon. Step 2 reads the stream network and the gauge
 from local files. Step 3 asks BD Topage and Hub'Eau for the same two. This guide takes you
 from the first to the second, then adds SIM2 rain and ETP.
 
@@ -34,7 +34,7 @@ Gives
 
 ## 1. List the variables
 
-A variable is one kind of input: a DEM, a river network, a discharge record, a rain grid.
+A variable is one kind of input: a DEM, a stream network, a discharge record, a rain grid.
 Each has its own table, `[data.<variable>]`. You list the ones to load in
 {toml}`data.types`. Step 2 loads two of them:
 
@@ -50,7 +50,7 @@ variable, in {doc}`the data reference <../reference/parameters/data/index>`:
 | Group | Variables |
 |---|---|
 | Terrain, subsurface and soil | {toml}`data.dem`, {toml}`data.geology`, {toml}`data.substratum`, {toml}`data.soil_capacity` |
-| River network and structures | {toml}`data.hydrography`, {toml}`data.crossings` |
+| Stream network and structures | {toml}`data.hydrography`, {toml}`data.crossings` |
 | Observations at stations | {toml}`data.hydrometry`, {toml}`data.piezometry`, {toml}`data.intermittency`, {toml}`data.water_quality`, {toml}`data.oceanic` |
 | Forcing | {toml}`data.recharge`, {toml}`data.runoff`, {toml}`data.precipitation`, {toml}`data.etp`, {toml}`data.temperature`, {toml}`data.wind`, {toml}`data.humidity`, {toml}`data.radiation`, {toml}`data.soil_moisture` |
 | Lakes and reservoirs | {toml}`data.lake_geometry`, {toml}`data.lake_bathymetry`, {toml}`data.lake_abacus`, {toml}`data.lake_levels`, {toml}`data.lake_inflow`, {toml}`data.lake_outflow`, {toml}`data.lake_withdrawal` |
@@ -353,7 +353,7 @@ keeps `LicenseRef-undetermined` until the file is downloaded again.
 Most public sources are French. Outside France:
 
 - The DEM is yours: `custom`. The IGN source covers France only.
-- The river network can come from EU-Hydro (`euhydro`, the 39 countries of the European
+- The stream network can come from EU-Hydro (`euhydro`, the 39 countries of the European
   Environment Agency, scale 1:50 000, reference period 2006 to 2012) or from OpenStreetMap
   (`osm`, anywhere, as mapped today). Otherwise it is yours.
 - Gauges, rain, ETP, geology and sea level have no source outside France in the code. Give
@@ -403,7 +403,7 @@ with `data.inference_mode = "warn"`, is dropped, and then with a warning.
 | `hmp config check` exits 14: `data.types lists 'hydrometry' but the file has no [data.hydrometry] section. Add the section with its sources, or remove 'hydrometry' from data.types.` | A variable is listed and has no table. Geology is the one exception: it has a default table. | Write the table with its sources, or take the name out of `data.types`. |
 | `[WARNING] Data manager 'hydrography' is active but missing [data.hydrography] section. The run goes on without 'hydrography'.` | The planner added the variable because of another key (for example `"stream"` in {toml}`flow.active_bc`), and the file has no table for it. `inference_mode` is `warn`. | Write the table, or set {toml}`data.inference_mode` to `strict` so that the plan stops before any download. |
 | `step 'load_data' failed: FileNotFoundError: Failed to load data manager 'hydrometry': Custom data directory not found: <path>`, exit 10 | The `path` of a custom source does not exist. A bare name is looked for next to the TOML file, then in `data/<variable>/` and `data/` of the workspace. | Fix the path. {doc}`use-your-own-files` lists the messages of each kind of file. |
-| `step 'load_data' failed: DataError: Failed to load data manager 'hydrography': <path>/nope.gpkg: No such file or directory`, exit 16 | The same fault on a river network. | Fix the path. |
+| `step 'load_data' failed: DataError: Failed to load data manager 'hydrography': <path>/nope.gpkg: No such file or directory`, exit 16 | The same fault on a stream network. | Fix the path. |
 | `step 'load_data' failed: MissingForcingError: Failed to load data manager 'hydrometry': project_period required to fetch hydrometry stations: declare date_start and date_end in [data.hydrometry], or a window in [simulation.time].`, exit 16 | A service that serves stations needs a window, and the file has neither a window on the table nor a {toml}`simulation.time`. `hmp config check` cannot know. | Write the window once under `[simulation.time]`, or write both dates on the table (section 3). |
 | `hmp config check` exits 14: `data.hydrometry: date_end is missing: declare date_start and date_end together, or declare neither and inherit the window from [simulation.time]` | Only one of the two dates is written. | Write both or neither. The mirror message names `date_start`. |
 | `[WARNING] Hub'Eau: 1 of 1 stations returned no QmnJ observation between 2000-01-01 and 2002-12-31 and were dropped: XXXX. Their declared service period overlaps the window, which is all require_observations can check before downloading.` then `Hub'Eau: 0 station records loaded`, exit 0 | The station code is wrong, or the gauge has no record in the window. The run goes on without it, and the observed series of its figures is empty. | Check the code and the window. The cache remembers the answer: `hmp data ls` shows the station with the file `empty`, and a later request over another period skips it too. Set `force_refresh = true` on the source to ask again. |

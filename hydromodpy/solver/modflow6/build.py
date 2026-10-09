@@ -52,6 +52,7 @@ from hydromodpy.solver.modflow6.builders import (
     mask_recharge_on_lake_cells,
     mover_package_count,
     recharge_to_spd,
+    refuse_constant_heads_below_bottom,
     remove_drain_cells,
     resolve_deferred_heterogeneous_recharge,
     resolve_deferred_soil_etp,
@@ -1048,6 +1049,15 @@ def run_pre_processing(  # noqa: PLR0915
     ocean_chd_spd, ocean_support_mask = build_ocean_boundary_chd_spd(model)
     stream_chd_spd, stream_support_mask = build_stream_boundary_chd_spd(model)
     side_chd_spd = build_side_boundary_chd_spd(model)
+    refuse_constant_heads_below_bottom(
+        model,
+        botm=solver_mesh.botm,
+        inactive_mask=solver_mesh.inactive_mask,
+        ocean_spd=ocean_chd_spd,
+        stream_spd=stream_chd_spd,
+        side_spd=side_chd_spd,
+        structured_shape=solver_mesh.structured_shape if solver_mesh.is_structured else None,
+    )
     model._ocean_support_mask = np.asarray(ocean_support_mask, dtype=bool).copy()
     model._stream_support_mask = np.asarray(stream_support_mask, dtype=bool).copy()
 

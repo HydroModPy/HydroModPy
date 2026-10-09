@@ -28,7 +28,16 @@ logger = get_logger(__name__)
 OBSERVED_SUFFIX = "_obs"
 """Suffix the ingestion appends to an observed variable (``discharge_obs``)."""
 
-_SCALAR_METRICS = ("nse", "log_nse", "rmse", "mae", "bias", "pbias", "correlation")
+_SCALAR_METRICS = {
+    "nse": core_metrics.nse,
+    "nse_log": core_metrics.log_nse,
+    "rmse": core_metrics.rmse,
+    "mae": core_metrics.mae,
+    "bias": core_metrics.bias,
+    "pbias": core_metrics.pbias,
+    "correlation": core_metrics.correlation,
+}
+"""Stored metric name, then its kernel. The names are the ones a calibration scores."""
 
 
 def write_fit_metrics(sim_id: str, store: Any) -> int:
@@ -101,9 +110,7 @@ def _score_one(
 
     sim = paired["sim"].to_numpy(dtype=float)
     obs = paired["obs"].to_numpy(dtype=float)
-    values: dict[str, float] = {
-        name: getattr(core_metrics, name)(sim, obs) for name in _SCALAR_METRICS
-    }
+    values: dict[str, float] = {name: kernel(sim, obs) for name, kernel in _SCALAR_METRICS.items()}
     # kge returns its decomposition too: r tells timing from amplitude (alpha)
     # and from volume (beta), which is what a bare score cannot separate.
     values.update(

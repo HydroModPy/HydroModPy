@@ -61,6 +61,7 @@ _DOC_REQUIRED_EXTENSIONS = [
     "sphinx_favicon",
     "sphinx_sitemap",
     "sphinxext.opengraph",
+    "sphinxext.rediraffe",
 ]
 _DOC_REQUIRED_EXTENSIONS.append("sphinx_last_updated_by_git")
 
@@ -327,6 +328,7 @@ extensions = [
     "sphinx_sitemap",
     "sphinxext.opengraph",
     "sphinx_last_updated_by_git",
+    "sphinxext.rediraffe",
     # Local extensions under _ext/. hmp_params registers the others.
     "hmp_directives",
     "hmp_site",
@@ -448,6 +450,15 @@ if _PLANTUML_COMMAND is not None:
 
 templates_path = ["_templates"]
 source_suffix = [".rst", ".md"]
+
+# Redirects from the URLs of the site published before the restructuring
+# (redirects.txt, one line per old page). The step `rediraffecheckdiff` of the
+# docs workflow compares the source tree with the base branch of a pull request
+# and fails when a page was moved or deleted without a line in redirects.txt:
+#   sphinx-build -b rediraffecheckdiff -D rediraffe_branch=origin/<base> docs/source <out>
+rediraffe_redirects = "redirects.txt"
+rediraffe_branch = "origin/main"
+rediraffe_template = "_templates/redirect.html"
 master_doc = "index"
 language = "en"
 
@@ -573,7 +584,40 @@ def _ensure_doctree_dir_for_late_extension_caches(app, exception) -> None:
         Path(doctreedir).mkdir(parents=True, exist_ok=True)
 
 
+def _checker_builder():
+    """The rediraffecheckdiff builder, told which deleted files are not removed pages.
+
+    The checker asks for a redirect line per deleted `.rst` or `.md` file under
+    this folder. Two kinds of file need no line, and cannot have one: a redirect
+    from a page that still exists makes the strict build fail. A page that
+    changed its suffix is still there, and an include, a template or a static
+    note was never a page. The entries are added here, to the checker only.
+    """
+    from sphinxext.rediraffe import CheckRedirectsDiffBuilder, create_graph
+
+    class HmpCheckRedirectsDiffBuilder(CheckRedirectsDiffBuilder):
+        def init(self) -> None:
+            srcdir = Path(self.app.srcdir)
+            entries = dict(create_graph(srcdir / "redirects.txt"))
+            for page in srcdir.rglob("*"):
+                if page.suffix not in source_suffix:
+                    continue
+                relative = page.relative_to(srcdir)
+                for other in source_suffix:
+                    if other != page.suffix:
+                        entries[relative.with_suffix(other).as_posix()] = relative.as_posix()
+            not_pages = (srcdir / "redirects-not-pages.txt").read_text(encoding="utf-8")
+            for line in not_pages.splitlines():
+                if line.strip() and not line.startswith("#"):
+                    entries[line.strip()] = "index"
+            self.app.config.rediraffe_redirects = entries
+            super().init()
+
+    return HmpCheckRedirectsDiffBuilder
+
+
 def setup(app):
+    app.add_builder(_checker_builder(), override=True)
     if _PLANTUML_COMMAND is None:
         app.add_directive("uml", _MissingPlantUMLDirective, override=True)
         app.add_directive("plantuml", _MissingPlantUMLDirective, override=True)

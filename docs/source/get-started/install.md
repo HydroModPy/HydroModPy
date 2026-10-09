@@ -145,7 +145,7 @@ other solvers do not need it. The workflows are in `.github/workflows/` and desc
 | `hmp: command not found` | The environment that holds the command is not active, or the folder of pip scripts is not on `PATH` (a `pip install --user`). | Activate the environment. Or call the module, which is the same program: `python -m hydromodpy --version`. On Windows the command is `.venv\Scripts\hmp.exe`. |
 | `hmp --version` prints `1.0.0` | `--pre` was left out, so pip took the stable release. | `pip install --pre --upgrade hydromodpy`. |
 | `ImportError: ... cannot open shared object file` when `gmsh`, `pyvista` or `rasterio` loads, on Linux | A system library is missing. The Dockerfile of the repository installs `libglu1-mesa` for gmsh and pyvista, and `libexpat1` for rasterio. | On Debian or Ubuntu: `sudo apt-get install libglu1-mesa libexpat1`. |
-| `<urlopen error [Errno 111] Connection refused>` from `hmp install-binaries`, or `step 'run_solver' failed: URLError: <urlopen error ...>` from the first run. Exit code 1 | The binaries are downloaded from GitHub and the machine has no direct route to it. | Behind a proxy, set `HTTPS_PROXY` (`urllib` reads it). Offline, download the executables elsewhere, copy them in one flat folder and set `HMP_BIN` to it. |
+| `Could not download the MODFLOW binaries of release <tag> from <address>: [Errno 111] Connection refused. ...` from `hmp install-binaries`, or `step 'run_solver' failed: NetworkError: Could not download ...` from the first run. Exit code 16 | The binaries are downloaded from GitHub and the machine has no direct route to it. | Behind a proxy, set `HTTPS_PROXY` (`urllib` reads it). Offline, download the executables elsewhere, copy them in one flat folder and set `HMP_BIN` to it. |
 | `use GITHUB_TOKEN env to bypass rate limit` | GitHub limits the unauthenticated requests that look up the release. | Set `GITHUB_TOKEN` to a token of your own and run the command again. |
 | `WARN solver:mf6 not cached, not on PATH` from `hmp doctor` | Nothing was downloaded yet. | Run `hmp install-binaries`, or run any simulation: the first one downloads. |
 | Pip builds a library for a long time, or fails on `rasterio` or `pyproj` | No wheel for your Python or platform. | Use the conda tab above and let conda-forge provide that library. |
@@ -173,14 +173,15 @@ and the version bounds, is on {doc}`../contribute/architecture/generated/extras`
 
 ## Shell completion
 
-Optional. `hmp dev completion bash` prints a completion script for the shell; `zsh` and
-`fish` work the same way. To load it in the current shell:
+Optional. `hmp dev completion bash` prints a completion script for the shell, and `zsh` and
+`fish` print one for theirs. To load it in the current bash:
 
 ```bash
 eval "$(hmp dev completion bash)"
 ```
 
-The command is described in {doc}`the command reference <../reference/cli/dev>`.
+{doc}`The command reference <../reference/cli/dev>` gives where to install the script for
+bash, zsh and fish, as `hmp dev completion --help` does.
 
 ## Next
 

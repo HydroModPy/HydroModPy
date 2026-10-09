@@ -21,7 +21,7 @@ the geological contacts or both, and takes a cell size that can change from plac
 
 The worked case is example 04. Its files run on the structured grid of 21 406 cells of
 75 m. The blocks below are merged onto `step1_minimal.toml`. The file of this guide meshes
-the Nançon catchment with Gmsh, along the river network, and refines the mesh around the
+the Nançon catchment with Gmsh, along the stream network, and refines the mesh around the
 pumping well of {doc}`add-wells`.
 
 {download}`Download the file of this guide <recipes/model/guide_mesh.toml>` and
@@ -32,7 +32,7 @@ example 04.
 
 - A model that runs on MODFLOW 6. MODFLOW-NWT builds its own structured grid and ignores
   a Gmsh mesh. The Boussinesq solver needs one: see {doc}`choose-a-solver`.
-- For a mesh that follows the rivers, the river network extracted from the DEM. Step 2
+- For a mesh that follows the rivers, the stream network extracted from the DEM. Step 2
   switches it on.
 - For a mesh that follows the geology, a geology polygon layer.
 - For local refinement, a vector file (GeoPackage, Shapefile or GeoJSON) of the points,
@@ -69,7 +69,7 @@ has no default. It says which lines the cell edges must follow:
 
 | `constraints_mode` | The edges follow | You also need |
 |---|---|---|
-| `rivers_only` | the river traces | the river network of `[geographic.river_network]` |
+| `rivers_only` | the river traces | the stream network of `[geographic.river_network]` |
 | `geology_only` | the geological contacts | a `[mesh_catchment.geology]` section |
 | `geology_rivers` | both | both |
 
@@ -266,7 +266,7 @@ The full list of mesh keys is in {doc}`../reference/parameters/mesh_catchment` a
 |---|---|---|
 | `constraints_mode is required.` | A `[mesh_catchment]` section without {toml}`mesh_catchment.constraints_mode`. | Write one of the three values of step 2. |
 | `geology section is required when constraints_mode includes geology.` | `geology_only` or `geology_rivers` without `[mesh_catchment.geology]`. | Declare the geology, or take `rivers_only`. |
-| `threshold_area_km2 must be > 0 when threshold_mode='area_km2'.` at the `build_geographic` step | A mesh along the rivers with no river network threshold. | Write `[geographic.river_network]` with a threshold, as in step 2. |
+| `mesh_catchment.constraints_mode = 'rivers_only' needs the river network drawn from the DEM, and [geographic.river_network] gives no threshold_area_km2 for threshold_mode = 'area_km2'.` from `hmp config check` | A mesh along the rivers with no stream network threshold. | Write `[geographic.river_network]` with a threshold, as in step 2. |
 | `buffer must be >= cell_size: a corridor thinner than one target cell slips between the size-field sampling nodes and silently meshes at the background size.` | A refinement zone whose corridor is thinner than one cell. | Raise `buffer`, or leave it out: it is then twice `cell_size`. |
 | `refinement zone '<path>' has no usable geometry.` | The zone file is empty, or holds only empty geometries. | Check the file. |
 | `refinement zone '<path>' has no CRS; assuming it is already in the project CRS.` (warning) | The zone file has no CRS. | Write the CRS in the file, or make sure the coordinates are in the project CRS. |

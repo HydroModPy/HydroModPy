@@ -30,7 +30,7 @@ coverage, the licence and the limits of each one. The table below sorts them.
 |---|---|---|
 | DEM | `custom`: a GeoTIFF, an ASC or a NetCDF in a projected CRS | `ign_geoplateforme_dem`: BD ALTI and RGE ALTI |
 | Geology | `custom`: a vector map, a GeoTIFF or a CSV of points | `brgm_1m`, `brgm_50k` |
-| River network | `custom`, `osm` (the waterways of OpenStreetMap in a box), `euhydro` (the 39 EEA countries, 27.4 to 71.4° N and 31.6° W to 44.8° E, and the French overseas departments) | `bdtopage` |
+| Stream network | `custom`, `osm` (the waterways of OpenStreetMap in a box), `euhydro` (the 39 EEA countries, 27.4 to 71.4° N and 31.6° W to 44.8° E, and the French overseas departments) | `bdtopage` |
 | Gauged discharge, groundwater levels, intermittency, water quality | `custom` | `hubeau` |
 | Precipitation, ETP | `custom` | `sim2`, `explore2` |
 | Recharge, runoff, temperature, wind, humidity, radiation, soil moisture | `custom`. For recharge also `synthetic`, a series you generate | `sim2` |
@@ -134,7 +134,7 @@ The map is a first run: one K, one recharge rate set at 0.9 mm/day without a sou
 constant thickness of 30 m. It shows that the chain works, not that the model is right. The
 steps that make it right are the ones of {doc}`../get-started/staircase/index`, with your own data.
 
-## 5. Add a river network
+## 5. Add a stream network
 
 `hmp data get` fetches a network over a box without a project. The box is in the CRS you name:
 

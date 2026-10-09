@@ -65,7 +65,7 @@ from hydromodpy.display.figures._stream_comparison import (
 )
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
-from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
+from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, neutral
 from hydromodpy.results.derive.stream_network import unavailable_reason_for_comparison
 
 if TYPE_CHECKING:
@@ -245,7 +245,7 @@ class DownslopeDistanceMap(BaseFigure):
         draw_cells(
             ax,
             select_cells(polygons, ~on_support),
-            color=_OFF_SUPPORT_COLOR,
+            color=neutral(_OFF_SUPPORT_COLOR),
             label=_OFF_SUPPORT_LABEL,
             zorder=1,
             weight_pt=0.0,
@@ -270,11 +270,11 @@ class DownslopeDistanceMap(BaseFigure):
         draw_cells(
             ax,
             select_cells(polygons, unreachable),
-            color=_UNREACHABLE_COLOR,
+            color=neutral(_UNREACHABLE_COLOR),
             label=_UNREACHABLE_LABEL,
             zorder=3 + len(labels),
             weight_pt=CELL_WEIGHT_PT,
-            edgecolor=_UNREACHABLE_EDGE,
+            edgecolor=neutral(_UNREACHABLE_EDGE),
             hatch=_UNREACHABLE_HATCH,
         )
 
@@ -300,8 +300,8 @@ class DownslopeDistanceMap(BaseFigure):
         if unreachable.any():
             handles.append(
                 Patch(
-                    facecolor=_UNREACHABLE_COLOR,
-                    edgecolor=_UNREACHABLE_EDGE,
+                    facecolor=neutral(_UNREACHABLE_COLOR),
+                    edgecolor=neutral(_UNREACHABLE_EDGE),
                     hatch=_UNREACHABLE_HATCH,
                     label=(
                         f"unreachable: the descent never reaches {reading.target} "
@@ -312,7 +312,7 @@ class DownslopeDistanceMap(BaseFigure):
         if not on_support.all():
             handles.append(
                 Patch(
-                    facecolor=_OFF_SUPPORT_COLOR,
+                    facecolor=neutral(_OFF_SUPPORT_COLOR),
                     edgecolor="none",
                     label=f"not on the measured support ({cell_count(~on_support)})",
                 )

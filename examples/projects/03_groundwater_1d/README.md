@@ -28,7 +28,7 @@ result = calibrate_groundwater(
 ```
 
 The draft's TOML sections document the keyword arguments both helpers accept.
-`docs/source/python_api/calibrate.rst` covers the calibration API.
+The calibration guide of the documentation covers the calibration API.
 
 ## Turning the draft into a project
 

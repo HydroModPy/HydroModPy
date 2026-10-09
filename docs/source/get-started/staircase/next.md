@@ -15,7 +15,7 @@ Keep the example open beside your project, and change one thing at a time.
    {doc}`../../guides/describe-a-catchment` draws the identity card of a catchment before
    any model exists, and costs seconds.
 3. Bring the data: {doc}`../../guides/get-the-data` fetches rain, evapotranspiration, the
-   river network and gauges from public services, and {doc}`../../guides/use-your-own-files`
+   stream network and gauges from public services, and {doc}`../../guides/use-your-own-files`
    reads your own files. The smallest valid file of each section is on
    {doc}`../../reference/parameters/minimal-files`.
 4. Grow the model one step at a time, as the staircase does: a steady run first, then

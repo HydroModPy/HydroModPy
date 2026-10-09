@@ -19,7 +19,7 @@ $w_j$, a gradient $S_j$, a bed top $z^{\mathrm{rtp}}_j$, a bed thickness $b_s$, 
 bed conductivity $K_b$ and a Manning roughness $n_M$. It exchanges water with
 the aquifer cell under it, and passes its flow to the reach below.
 
-The reaches are the cells that the generated river network crosses, cut by the
+The reaches are the cells that the generated stream network crosses, cut by the
 mesh, or the rows of an explicit table of reaches. An observed network never
 becomes a reach. With
 {toml}`rectify_on_mesh|flow.sinks_sources.sfr.<name>.rectify_on_mesh`, the cells
@@ -159,7 +159,7 @@ the basin.
 
 The basin is the set of cells whose chain passes through the catchment outlet.
 The outlet follows the rule of the stream criterion: the most drained cell near
-the outlet the catchment was closed on, else inside the watershed polygon, else
+the outlet the catchment was closed on, else inside the catchment polygon, else
 the largest basin of the domain.
 
 On a quad mesh $D$ steps along diagonals, and a chain can cross a reach between

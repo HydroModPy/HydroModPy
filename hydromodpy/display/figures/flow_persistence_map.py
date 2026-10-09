@@ -38,13 +38,13 @@ from hydromodpy.display.figures._flow_persistence import (
 )
 from hydromodpy.display.figures._stream_comparison import (
     catchment_cells,
+    ground_color,
+    ground_edge,
     map_extent,
     map_legend,
     veil_outside_catchment,
 )
 from hydromodpy.display.figures.accumulation_map import (
-    GROUND_COLOR,
-    GROUND_EDGE,
     truncated_palette,
 )
 from hydromodpy.display.maps.axes import style_map_axes
@@ -149,8 +149,8 @@ class FlowPersistenceMap(BaseFigure):
         if never:
             handles.append(
                 Patch(
-                    facecolor=GROUND_COLOR,
-                    edgecolor=GROUND_EDGE,
+                    facecolor=ground_color(),
+                    edgecolor=ground_edge(),
                     label=f"never flowing ({never:,} cells)",
                 )
             )

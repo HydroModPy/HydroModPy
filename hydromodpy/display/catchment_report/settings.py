@@ -178,11 +178,11 @@ class PipelineSection(HydroModelBase):
 
     run_overview: Annotated[StrictBool, Profile.USER] = Field(
         False,
-        description="Run the overview file first.",
+        description="Run the overview file of the report before building it.",
     )
     run_simulation: Annotated[StrictBool, Profile.USER] = Field(
         False,
-        description="Run the simulation file first.",
+        description="Run the simulation file of the report before building it.",
     )
     build_context_artifacts: Annotated[StrictBool, Profile.USER] = Field(
         True,
@@ -190,7 +190,7 @@ class PipelineSection(HydroModelBase):
     )
     build_report_html: Annotated[StrictBool, Profile.USER] = Field(
         True,
-        description="Build the report page.",
+        description="Build the HTML page of the catchment report.",
     )
     no_lock: Annotated[StrictBool, Profile.USER] = Field(
         True,

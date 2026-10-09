@@ -1,9 +1,11 @@
 """Shared base for MT3DMS / MF6-GWT concentration output adapters.
 
-The unformatted concentration file (``.ucn``) format is identical between
-MT3DMS (shipped with the NWT toolchain) and MODFLOW 6's GWT model. Both
-backends derive thin subclasses from ``Mt3dmsExtractorBase`` that only set
-their ``solver_name`` class attribute.
+Both backends write one concentration array per layer and time step, but not
+with the same record header. MT3DMS writes single precision with its own
+header (``ntrans`` first), which ``UcnFile`` reads. MODFLOW 6 GWT writes the
+MODFLOW 6 head layout in double precision with the text ``CONCENTRATION``,
+which ``HeadFile`` reads. Each subclass opens its own layout through
+``_open_concentration_file``.
 """
 
 from __future__ import annotations
@@ -39,7 +41,6 @@ class Mt3dmsExtractorBase:
         model_name: str | None = None,
     ) -> None:
         """Read .ucn file and write concentration fields into the store."""
-        import flopy.utils.binaryfile as bf
 
         solver_output_dir = Path(solver_output_dir)
         if model_name is None:
@@ -54,11 +55,7 @@ class Mt3dmsExtractorBase:
         if not ucn_path.exists():
             ucn_path = solver_output_dir / f"{model_name}.UCN"
 
-        # MT3DMS uses UcnFile; MF6-GWT uses the same binary format as HeadFile.
-        try:
-            ucn = bf.UcnFile(str(ucn_path))
-        except (EOFError, Exception):
-            ucn = bf.HeadFile(str(ucn_path), text="concentration")
+        ucn = self._open_concentration_file(ucn_path)
         times = ucn.get_times()
         n_timesteps = len(times)
 
@@ -74,7 +71,8 @@ class Mt3dmsExtractorBase:
             n_cells = conc0.size
 
         logger.info(
-            "Extracting MT3DMS concentration: %d timesteps, %d layers, %d cells",
+            "Extracting %s concentration: %d timesteps, %d layers, %d cells",
+            self.solver_name,
             n_timesteps,
             nlay,
             n_cells,
@@ -95,6 +93,12 @@ class Mt3dmsExtractorBase:
                 )
         finally:
             ucn.close()
+
+    def _open_concentration_file(self, ucn_path: Path) -> Any:
+        """Open the concentration file in the MT3DMS layout (single precision)."""
+        import flopy.utils.binaryfile as bf
+
+        return bf.UcnFile(str(ucn_path))
 
     def derive(
         self,

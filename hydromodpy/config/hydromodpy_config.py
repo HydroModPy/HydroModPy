@@ -62,7 +62,6 @@ from hydromodpy.core.config_kit.introspect import (
     resolve_profile,
 )
 from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
-from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
 from hydromodpy.core.exceptions import (
     ConfigValidationError,
@@ -94,6 +93,7 @@ from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.observation_config import ObservationConfig
 from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.solver.base.solver_config import (
+    CustomBackend,
     SolverConfig,
     backend_for_solver,
     solver_name_of_backend,
@@ -209,6 +209,13 @@ def _declared_flow_engine(cfg: HydroModPyConfig) -> str | None:
     solver_cfg = getattr(cfg, "solver", None)
     engine = getattr(solver_cfg, "backend_name", None) if solver_cfg is not None else None
     return str(engine) if engine else None
+
+
+_ROOT_PERSISTENCE_REFUSAL = (
+    "Section [persistence] is not read by any run. Write its keys under "
+    "[simulation.results.persistence], which a run reads, or under "
+    "[calibration.persistence] for the outputs of a calibration."
+)
 
 
 def _raw_flow_process_solver(simulation: Any) -> tuple[str, str] | None:
@@ -398,20 +405,21 @@ class HydroModPyConfig(HydroModelBase):
             "solver.drain_band_depth_m)."
         ),
     )
-    modflownwt: Annotated[ModflowConfig, Profile.EXPERT] = Field(
+    modflownwt: Annotated[ModflowConfig, Profile.USER] = Field(
         default_factory=ModflowConfig,
         description=(
-            "Expert MODFLOW-NWT package configuration loaded from "
-            "[modflownwt.runtime.<package>], [modflownwt.process_specific], "
-            "[modflownwt.sgrid.planar], and [modflownwt.sgrid.vertical]."
+            "MODFLOW-NWT settings: the structured grid ([modflownwt.sgrid.planar], "
+            "[modflownwt.sgrid.vertical]), the package options "
+            "([modflownwt.process_specific]) and the solver settings "
+            "([modflownwt.runtime.<package>], expert keys)."
         ),
     )
-    modflow6: Annotated[Modflow6Config, Profile.EXPERT] = Field(
+    modflow6: Annotated[Modflow6Config, Profile.USER] = Field(
         default_factory=Modflow6Config,
         description=(
-            "Expert MODFLOW 6 package configuration loaded from "
-            "[modflow6.runtime], [modflow6.process_specific], "
-            "[modflow6.sgrid.planar], and [modflow6.sgrid.vertical]."
+            "MODFLOW 6 settings: the structured grid ([modflow6.sgrid.planar], "
+            "[modflow6.sgrid.vertical]), the package options ([modflow6.process_specific]) "
+            "and the solver settings ([modflow6.runtime], expert keys)."
         ),
     )
     display: Annotated[DisplayConfig, Profile.USER] = Field(
@@ -439,14 +447,6 @@ class HydroModPyConfig(HydroModelBase):
             ]
         ),
     )
-    persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
-        default_factory=PersistenceConfig,
-        description=(
-            "Storage backend toggles loaded from [persistence]. Drives the "
-            "DuckDB catalog, Zarr field arrays, Parquet tables, and the "
-            "`hydromodpy.lock` reproducibility manifest."
-        ),
-    )
     observation: Annotated[ObservationConfig, Profile.USER] = Field(
         default_factory=ObservationConfig,
         description=(
@@ -457,7 +457,7 @@ class HydroModPyConfig(HydroModelBase):
             "known in advance."
         ),
     )
-    analysis: Annotated[AnalysisConfig | None, Profile.DEV] = Field(
+    analysis: Annotated[AnalysisConfig | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional analysis hub loaded from [analysis]. Aggregates "
@@ -551,6 +551,14 @@ class HydroModPyConfig(HydroModelBase):
 
     @model_validator(mode="before")
     @classmethod
+    def _refuse_root_persistence(cls, data: Any) -> Any:
+        """Refuse a root ``persistence`` table: no run reads it."""
+        if isinstance(data, Mapping) and "persistence" in data:
+            raise ValueError(_ROOT_PERSISTENCE_REFUSAL)
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
     def _align_solver_keys(cls, data: Any) -> Any:
         """Make ``solver.backend`` and the flow process name one solver.
 
@@ -595,6 +603,35 @@ class HydroModPyConfig(HydroModelBase):
         else:
             payload["solver"] = {**(solver or {}), "backend": selector.model_dump()}
         return payload
+
+    def _check_river_network_threshold_for_the_mesh(self) -> None:
+        """Refuse a mesh that needs the river network when no threshold is set.
+
+        The mesh switches ``[geographic.river_network]`` on by itself, so the
+        threshold check of that section never ran and the run stopped at
+        ``build_geographic`` on a message that named neither the section nor the
+        mesh.
+        """
+        geographic = getattr(self, "geographic", None)
+        if geographic is None or geographic.uses_synthetic_geographic():
+            return
+        river_network = geographic.river_network
+        if bool(river_network.enabled):
+            return
+        needed_by = None
+        mesh = getattr(self, "mesh_catchment", None)
+        mode = str(getattr(mesh, "constraints_mode", "") or "").strip().lower()
+        if mesh is not None and mode in {"rivers_only", "geology_rivers"}:
+            needed_by = f"mesh_catchment.constraints_mode = {mode!r}"
+        flow_cfg = getattr(self, "flow", None)
+        active_bc = {str(name).lower() for name in getattr(flow_cfg, "active_bc", []) or []}
+        if getattr(self, "mesh_input", None) is not None and "stream" in active_bc:
+            needed_by = "The 'stream' boundary on a [mesh_input] mesh"
+        if needed_by is None:
+            return
+        refusal = river_network.missing_threshold_refusal(needed_by=needed_by)
+        if refusal is not None:
+            raise ValueError(refusal)
 
     @model_validator(mode="after")
     def _check_cross_section_coherence(self) -> HydroModPyConfig:
@@ -661,6 +698,8 @@ class HydroModPyConfig(HydroModelBase):
                 "(median only) or run MODFLOW 6."
             )
 
+        self._check_river_network_threshold_for_the_mesh()
+
         calibration_cfg = getattr(self, "calibration", None)
         flow_cfg = getattr(self, "flow", None)
         if calibration_cfg is not None and flow_cfg is not None:
@@ -672,6 +711,13 @@ class HydroModPyConfig(HydroModelBase):
                 )
 
         solver_cfg = getattr(self, "solver", None)
+        if solver_cfg is not None and isinstance(
+            getattr(solver_cfg, "backend", None), CustomBackend
+        ):
+            # A name that is not built in becomes a custom backend. Check it
+            # resolves now, or the checks below would refuse a typo with a
+            # message about a boundary or a capability.
+            solver_cfg.validate_registry()
         if solver_cfg is not None:
             # A transport runs when [[simulation.process]] declares one; the
             # [transport] section is always there, filled with its defaults.
@@ -728,6 +774,20 @@ class HydroModPyConfig(HydroModelBase):
                     "flow.sinks_sources.sfr declares stream networks but flow.active_bc does "
                     "not list 'sfr'; add 'sfr' to activate the SFR package, or remove the "
                     "networks. As-is the streams would be silently ignored."
+                )
+            # Every backend builds its wells only when active_sinks_sources lists
+            # them, so declared wells would otherwise pump nothing, silently.
+            wells = getattr(sinks_sources, "wells", None) or {}
+            active_sinks_sources = {
+                str(name).lower() for name in getattr(flow_cfg, "active_sinks_sources", []) or []
+            }
+            if wells and "wells" not in active_sinks_sources:
+                names = ", ".join(sorted(str(name) for name in wells))
+                raise ValueError(
+                    f"flow.sinks_sources.wells declares wells ({names}) but "
+                    "flow.active_sinks_sources does not list 'wells', so no well "
+                    "would pump: add 'wells' to flow.active_sinks_sources, or remove "
+                    "the wells."
                 )
 
             # A hotstart is read by the backends that declare they can read one.
@@ -1058,6 +1118,12 @@ class HydroModPyConfig(HydroModelBase):
                 "with [testbed].profile = 'regional_lab' and [analysis.batch] instead.",
                 source_path=source_path,
             )
+        if "persistence" in raw:
+            raise _section_refusal(
+                "persistence",
+                _ROOT_PERSISTENCE_REFUSAL,
+                source_path=source_path,
+            )
         if "regional_lab" in raw:
             raise _section_refusal(
                 "regional_lab",
@@ -1185,7 +1251,6 @@ class HydroModPyConfig(HydroModelBase):
             "modflow6": ({}, _std(Modflow6Config)),
             "display": ({}, _std(DisplayConfig)),
             "export": ([], lambda data, _b: load_export_requests(data)),
-            "persistence": ({}, _std(PersistenceConfig)),
             "observation": ({}, _std(ObservationConfig)),
             "analysis": (None, _load_optional_analysis_section),
             "overview": (None, _load_optional_overview_section),

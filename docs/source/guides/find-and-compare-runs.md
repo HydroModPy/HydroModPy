@@ -173,7 +173,7 @@ act on one run for sure, write its `<id8>` or its `.vN` name.
 
 | The best value is | Metrics |
 |---|---|
-| the highest | `nse`, `log_nse`, `nse_log`, `nse_delta`, `nse_seasonal`, `kge`, `kge_delta`, `kge_r`, `r2`, `correlation`, `reservoir` |
+| the highest | `nse`, `nse_log`, `nse_delta`, `nse_seasonal`, `kge`, `kge_delta`, `kge_r`, `r2`, `correlation`, `reservoir` |
 | the lowest | `rmse`, `mae`, `mse`, `objective_best`, the `closure_*` metrics |
 | the closest to zero | `bias`, `pbias` |
 | the closest to one | `kge_alpha`, `kge_beta` |
@@ -201,7 +201,7 @@ hmp catalog show nancon_k_test.v2
 ```
 
 It prints the id, the project, the solver, the status, the duration, the number of cells and
-of timesteps, the exports, the version, the start of the config hash, the tags, the notes,
+of time steps, the exports, the version, the start of the config hash, the tags, the notes,
 the metrics and the parameters. `--detail` adds the path and the groups of the Zarr store.
 `--format json` prints the same facts for a script.
 
@@ -290,7 +290,7 @@ records the original as its parent. From Python, `hmp.Project.rerun` does the sa
 | `No indexed project found under <path>` from `ls` | No `.hmp/index.duckdb` below this folder. Move to the project, pass `-w`, or run `hmp catalog reindex` if the folder has runs ({doc}`clean-and-reindex-runs`). |
 | `No catalog at <path>` | Same cause for the other commands. |
 | `skipping <project>: schema behind (run 'hmp doctor --migrate')` | The index was written by an older version. Run the command it names. |
-| `Reference '<text>' not found. Run `hmp catalog ls` to list known runs.` (exit 10) | The name is misspelled, or the run is in the trash. The message lists the closest names. |
+| ``Reference '<text>' not found. Run `hmp catalog ls` to list known runs.`` (exit 10) | The name is misspelled, or the run is in the trash. The message lists the closest names. |
 | `Reference '<text>' is ambiguous; matches <n> simulations:` (exit 20) | An id prefix or a name matches several runs. Write more of the id. |
 | `'@best:<m>': Metric '<m>' has no declared direction, so best and worst are undefined for it.` (exit 10) | The metric is not in the table of step 3. Name one that is, or rank with `hmp catalog query`. |
 | `Run <id8> is pinned; pass force=True (CLI --force) to act on it.` | The run carries the `pinned` tag. Remove the tag, or add `--force`. |

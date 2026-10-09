@@ -189,6 +189,20 @@ def returns_html(v: dict, b, doc: str) -> str:
     return ", ".join(parts)
 
 
+def type_aliases_html(v: dict) -> str:
+    """The aliases a signature names (``ConfigLike``...) with what each one stands for.
+
+    An alias that the Returns row already spells out is not repeated.
+    """
+    shown = {r["name"] for r in v["returns"] if "alias" in r}
+    items = [a for a in v.get("type_aliases", []) if a["name"] not in shown]
+    return ", ".join(
+        f'<code title="{esc(a["alias"])}">{esc(a["name"])}</code> '
+        f'<span class="hmp-muted">({esc(a["alias"])})</span>'
+        for a in items
+    )
+
+
 def users_html(verb: str, b, doc: str) -> str:
     users = cli_users_of(verb)
     if not users:
@@ -327,7 +341,7 @@ class GapsDirective(SphinxDirective):
         )
         if undoc:
             items.append(
-                f"<li>{undoc} method(s) or propertie(s) of the returned objects without a docstring</li>"
+                f"<li>Methods or properties of the returned objects without a docstring: {undoc}</li>"
             )
         mods = [m["name"] for m in A.get("modules", []) if not m["summary"]]
         if mods:
@@ -445,6 +459,9 @@ class TwinDirective(SphinxDirective):
         rows = [f"<li><b>Command line</b> {users_html(v['name'], b, doc)}</li>"]
         if v["returns"]:
             rows.append(f"<li><b>Returns</b> {returns_html(v, b, doc)}</li>")
+        aliases = type_aliases_html(v)
+        if aliases:
+            rows.append(f"<li><b>Type aliases</b> {aliases}</li>")
         if v.get("source"):
             path, _, line = v["source"].rpartition(":")
             link = source_url(path, int(line)) if line.isdigit() else source_url(v["source"])
@@ -1151,12 +1168,18 @@ def gen_pages(srcdir: Path) -> None:
     if not A:
         return
     py, cli = srcdir / PY, srcdir / CLI
+    written: set[Path] = set()
+
+    def write(path: Path, text: str) -> None:
+        written.add(path)
+        H.write_if_changed(path, text)
+
     verbs = sorted(v["name"] for v in A["verbs"])
     results = classes("result")
     engines = classes("engine")
-    H.write_if_changed(py / "index.md", python_index(verbs, results, engines))
-    H.write_if_changed(py / "objects.md", OBJECTS_PAGE.replace("@@HEADER@@", HEADER))
-    H.write_if_changed(py / "exceptions.md", EXCEPTIONS_PAGE.replace("@@HEADER@@", HEADER))
+    write(py / "index.md", python_index(verbs, results, engines))
+    write(py / "objects.md", OBJECTS_PAGE.replace("@@HEADER@@", HEADER))
+    write(py / "exceptions.md", EXCEPTIONS_PAGE.replace("@@HEADER@@", HEADER))
     for v in A["verbs"]:
         lines = [
             HEADER,
@@ -1179,9 +1202,9 @@ def gen_pages(srcdir: Path) -> None:
                 "```",
                 "",
             ]
-        H.write_if_changed(py / f"hmp-{v['name']}.md", "\n".join(lines) + "\n")
+        write(py / f"hmp-{v['name']}.md", "\n".join(lines) + "\n")
     for c in results + engines:
-        H.write_if_changed(py / f"{c['name']}.md", class_page(c))
+        write(py / f"{c['name']}.md", class_page(c))
 
     tops = [c["path"][1] for c in A["commands"] if len(c["path"]) == 2]
     index = (
@@ -1211,8 +1234,8 @@ def gen_pages(srcdir: Path) -> None:
         + tops
         + ["exit-codes", "```", ""]
     )
-    H.write_if_changed(cli / "index.md", "\n".join(index) + "\n")
-    H.write_if_changed(
+    write(cli / "index.md", "\n".join(index) + "\n")
+    write(
         cli / "exit-codes.md",
         "\n".join(
             [
@@ -1283,7 +1306,24 @@ def gen_pages(srcdir: Path) -> None:
                         "```",
                         "",
                     ]
-        H.write_if_changed(cli / f"{top}.md", "\n".join(lines) + "\n")
+        write(cli / f"{top}.md", "\n".join(lines) + "\n")
+    prune_generated(written, py, cli)
+
+
+def prune_generated(written: set[Path], *folders: Path) -> None:
+    """Delete the generated pages that no class, verb or command produces any more.
+
+    A page left behind by an earlier build names a class that is gone, and Sphinx
+    then warns about it. Only a file that carries the generated header is removed.
+    """
+    for folder in folders:
+        for page in folder.glob("*.md"):
+            if page in written:
+                continue
+            with page.open(encoding="utf-8") as f:
+                first = f.readline().strip()
+            if first == HEADER:
+                page.unlink()
 
 
 def on_html_page_context(app, pagename, templatename, context, doctree) -> None:

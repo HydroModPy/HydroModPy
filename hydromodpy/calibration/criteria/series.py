@@ -58,11 +58,39 @@ def _kge_score(sim: np.ndarray, obs: np.ndarray) -> float:
     return float(kge(sim, obs)["kge"])
 
 
-# Window, in samples, over which the reservoir objective differences the level.
+# Window, in days, over which the reservoir objective differences the level.
 # A day-to-day increment is wrecked by a two or three day phase shift even when the
 # filling and emptying are right; ten days keeps the flux signal while making such a
-# shift a perturbation rather than a sign flip.
-RESERVOIR_INCREMENT_STEP: int = 10
+# shift a perturbation rather than a sign flip. A coarser series differences one
+# sample to the next.
+RESERVOIR_INCREMENT_DAYS: float = 10.0
+
+DAYS_PER_YEAR: float = 365.25
+"""Length of the seasonal cycle, in days."""
+
+# Kernels that read the sampling step of the series: the seasonal cycle and the
+# increment window are lengths of time, so a monthly series holds them in fewer
+# samples than a daily one.
+SAMPLED_BY_DATE: frozenset[str] = frozenset({"nse_seasonal", "reservoir"})
+
+
+def _cycle_samples(sample_days: float | None) -> float:
+    """Samples in one seasonal cycle. Without dates, the series is taken as daily."""
+    if sample_days is None:
+        return 365.0
+    return DAYS_PER_YEAR / float(sample_days)
+
+
+def _increment_samples(sample_days: float | None) -> int:
+    """Samples in the increment window of the reservoir score."""
+    if sample_days is None:
+        return int(RESERVOIR_INCREMENT_DAYS)
+    return max(1, round(RESERVOIR_INCREMENT_DAYS / float(sample_days)))
+
+
+def _seasonal_score(sim: np.ndarray, obs: np.ndarray, *, sample_days: float | None = None) -> float:
+    """``nse_seasonal`` with a cycle of one year of the series' own samples."""
+    return nse_seasonal(sim, obs, period=_cycle_samples(sample_days))
 
 
 # KGE is NOT offered on increments, on purpose. Its beta term is a ratio of means,
@@ -72,7 +100,9 @@ RESERVOIR_INCREMENT_STEP: int = 10
 # increment side of the objective uses it.
 
 
-def _reservoir_score(sim: np.ndarray, obs: np.ndarray) -> float:
+def _reservoir_score(
+    sim: np.ndarray, obs: np.ndarray, *, sample_days: float | None = None
+) -> float:
     """Half seasonal efficiency on the level, half efficiency on its increments.
 
     Built for an impounded level, where the two usual metrics mislead in opposite
@@ -87,12 +117,14 @@ def _reservoir_score(sim: np.ndarray, obs: np.ndarray) -> float:
     honest and demands more than climatology, the increment term makes the water
     balance count. Equal weights, no tuning knob, so the score stays readable.
 
-    The increments are taken over ``RESERVOIR_INCREMENT_STEP`` samples rather than
-    one, so a timing error of a few days is not punished as though the model had
-    filled when it should have emptied.
+    The increments are taken over ``RESERVOIR_INCREMENT_DAYS`` rather than one
+    sample, so a timing error of a few days is not punished as though the model had
+    filled when it should have emptied. ``sample_days`` is the sampling step of the
+    series: the cycle and the window are counted in its samples. Without it the
+    series is taken as daily.
     """
-    seasonal = nse_seasonal(sim, obs)
-    increments = nse_delta(sim, obs, step=RESERVOIR_INCREMENT_STEP)
+    seasonal = _seasonal_score(sim, obs, sample_days=sample_days)
+    increments = nse_delta(sim, obs, step=_increment_samples(sample_days))
     if not np.isfinite(seasonal) or not np.isfinite(increments):
         return float("nan")
     return 0.5 * float(seasonal) + 0.5 * float(increments)
@@ -104,7 +136,7 @@ METRICS: dict[str, Callable[..., float]] = {
     "mae": mae,
     "kge": _kge_score,
     "nse_delta": nse_delta,
-    "nse_seasonal": nse_seasonal,
+    "nse_seasonal": _seasonal_score,
     "nse_log": log_nse,
     "distance_gap": distance_gap,
     "distance_mean": distance_mean,
@@ -164,8 +196,15 @@ class SeriesCriterion:
         self,
         simulated: Sequence[float] | Any,
         observed: Sequence[float] | Any | None = None,
+        *,
+        sample_days: float | None = None,
     ) -> CriterionResult:
-        """Return the cost, minimised, with what the clipping had to touch."""
+        """Return the cost, minimised, with what the clipping had to touch.
+
+        ``sample_days`` is the sampling step of the series, in days. The kernels
+        of :data:`SAMPLED_BY_DATE` count their cycle and window in it; the
+        others ignore it. Unset, those kernels take the series as daily.
+        """
         if observed is None:
             raise ValueError(f"criterion {self.name!r} fits observations and none were supplied")
         sim = np.asarray(simulated, dtype=float).ravel()
@@ -178,7 +217,10 @@ class SeriesCriterion:
         n_clipped = 0
         if self._takes_log:
             sim, obs, n_clipped = clip_negatives_for_log_metric(sim, obs)
-        raw = float(self._kernel(sim, obs))
+        if self.name in SAMPLED_BY_DATE and sample_days is not None:
+            raw = float(self._kernel(sim, obs, sample_days=sample_days))
+        else:
+            raw = float(self._kernel(sim, obs))
         cost = (1.0 - raw) if self._higher_is_better else raw
         diagnostics = {"score": raw, "n_values": float(obs.size)}
         if self._takes_log:
@@ -191,7 +233,9 @@ __all__ = [
     "HIGHER_IS_BETTER",
     "LOG_METRICS",
     "METRICS",
-    "RESERVOIR_INCREMENT_STEP",
+    "DAYS_PER_YEAR",
+    "RESERVOIR_INCREMENT_DAYS",
+    "SAMPLED_BY_DATE",
     "SeriesCriterion",
     "clip_negatives_for_log_metric",
 ]

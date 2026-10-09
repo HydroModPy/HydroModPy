@@ -1,0 +1,14 @@
+# Source files that were never pages of the site: includes, autosummary templates and
+# raw notes under _static. They were deleted when the site was restructured. The step
+# `rediraffecheckdiff` asks for a redirect per deleted .rst or .md file, so they are
+# listed here and read only by that checker (see _redirect_check_entries in conf.py).
+# Nothing is published for them. The list can go once the old tree has left main.
+architecture/layer-matrix.partial.rst
+user_guide/figures_inventory.partial.rst
+_templates/autosummary/class.rst
+_templates/autosummary/function.rst
+_templates/autosummary/module.rst
+_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.md
+_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.md
+_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe_summary.md
+_static/capability_gallery/simulation/regional_lab_headwater_100km2_transient_backend_compare_recipe_summary.md

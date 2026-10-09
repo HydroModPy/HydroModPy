@@ -25,6 +25,7 @@ class SpinupConfig(HydroModelBase):
         default=10,
         ge=1,
         description="Maximum spin-up cycles before the loop stops without converging.",
+        json_schema_extra={"unit": "-"},
     )
     tol_head: Annotated[float, Profile.USER] = Field(
         default=0.01,
@@ -34,6 +35,7 @@ class SpinupConfig(HydroModelBase):
             "absolute head change between two cycles (L-inf over active cells) is "
             "below this."
         ),
+        json_schema_extra={"unit": "m"},
     )
     tol_stage: Annotated[float, Profile.USER] = Field(
         default=0.01,
@@ -41,8 +43,9 @@ class SpinupConfig(HydroModelBase):
         description=(
             "Lake-stage convergence tolerance [m]. The loop converges when the "
             "largest absolute stage change between two cycles, over every lake, is "
-            "below this. Ignored when the model has no lake."
+            "below this. A model without a lake does not read it."
         ),
+        json_schema_extra={"unit": "m"},
     )
     window_start: Annotated[str | None, Profile.USER] = Field(
         default=None,

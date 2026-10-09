@@ -36,6 +36,8 @@ if TYPE_CHECKING:
     import xarray as xr
     from matplotlib.figure import Figure
 
+    from hydromodpy.calibration import CalibrationReport
+    from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.core.state.global_index import GlobalIndex
     from hydromodpy.examples.install import InstallReport
@@ -440,7 +442,7 @@ def calibrate(
     list_phases: bool = False,
     expand: bool = False,
     **kwargs: Any,
-) -> Any:
+) -> CalibrationReport | StagedCalibrationReport | list[dict[str, Any]] | dict[str, Any]:
     """Run a calibration workflow from a TOML file or config object.
 
     Paths route directly to :func:`run_calibration_cli`; in-memory config
@@ -483,13 +485,20 @@ def calibrate(
         Options forwarded to the underlying calibration runner. The
         ``headless`` keyword controls the project initialization for the
         in-memory config branch and is ignored for the TOML branch (which
-        builds no project).
+        builds no project). ``return_report=False`` returns the
+        ``to_dict()`` payload of the report instead of the report.
 
     Returns
     -------
-    Any
-        Calibration report or workflow-specific result. A ``list`` of phase
-        descriptions when ``list_phases`` is set. A ``dict`` with
+    CalibrationReport or StagedCalibrationReport or list or dict
+        A run returns a report object, whatever the source of the
+        configuration: a :class:`~hydromodpy.calibration.CalibrationReport`
+        for a calibration without phases (``best_parameters``,
+        ``best_objective``, ``best_sim_id``, ``session_id``), a
+        :class:`~hydromodpy.calibration.runners.staged_runner.StagedCalibrationReport`
+        for one that declares ``[[calibration.phases]]`` (``phases``, each
+        with its own ``CalibrationReport``, and ``frozen``). A ``list`` of
+        phase descriptions when ``list_phases`` is set. A ``dict`` with
         ``"calibration"`` and ``"protocol"`` keys when ``expand`` is set:
         ``"protocol"`` is ``None`` for a file naming no protocol, else a
         ``dict`` with ``"name"``, ``"version"``, ``"citation"`` (the first
@@ -553,6 +562,9 @@ def calibrate(
         )
 
         kwargs.pop("headless", None)
+        # A report object in every branch: the plain runner returns its dict
+        # unless asked, the staged runner its report.
+        kwargs.setdefault("return_report", True)
         # Probe the file to decide staged or not. When that decision is all
         # that hangs on the read, a failure is left to the runner, which
         # reports it with its own context. When the answer itself is what the
@@ -852,6 +864,8 @@ def read(
       the eager ``np.ndarray`` of that period instead.
     - timeseries -> ``pd.Series``.
     - geographic feature -> ``gpd.GeoDataFrame``.
+    - ``"particles"`` -> ``pd.DataFrame`` of the particle paths, one row per
+      recorded position.
 
     Every field a run reports through ``has_field`` reads back here. Fields
     rebuilt on the fly (water-table elevation/depth, seepage mask, drain
@@ -911,6 +925,7 @@ def read(
     >>> oct02 = hmp.read(run, "head", time="2002-10-15")  # doctest: +SKIP
     >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})  # doctest: +SKIP
     >>> gdf = hmp.read(run, "watershed")  # doctest: +SKIP
+    >>> paths = hmp.read(run, "particles")  # doctest: +SKIP
     """
     from hydromodpy.results.derive.reading import read_variable
 

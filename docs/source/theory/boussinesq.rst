@@ -593,6 +593,11 @@ are on :doc:`/contribute/architecture/solver/boussinesq-engines`.
    type = "flow"
    solvers = ["boussinesq"]
 
+   # The rivers the mesh follows: every cell that drains more than 0.5 km2.
+   [geographic.river_network]
+   enabled = true
+   threshold_area_km2 = 0.5
+
    [mesh_catchment]
    constraints_mode = "rivers_only"
    cache = true
@@ -726,6 +731,11 @@ same solver:
    id = "flow_main"
    type = "flow"
    solvers = ["boussinesq"]
+
+   # The rivers the mesh follows: every cell that drains more than 0.5 km2.
+   [geographic.river_network]
+   enabled = true
+   threshold_area_km2 = 0.5
 
    [mesh_catchment]
    constraints_mode = "rivers_only"

@@ -253,6 +253,23 @@ Each release section includes the following standard categories:
   outside France and a GIS hand-off; a Get started quick start on the synthetic demo; the
   theory of the exits in six pages, a page on the time alignment of outputs, and the theory
   figures drawn at build time from the code.
+- `hmp viz show --opt NAME=VALUE`, repeatable, sets any option of the figure, typed as the
+  figure declares it, `title` and `show_run_name` included.
+- `hmp.read(run, "particles")` returns the particle paths as a table (particle, step, x, y, z, time_days,
+  and status and reason when stored).
+- The `sfr_reaches` table has a column `downstream`, the reaches each reach drains into, and
+  `hydromodpy.results.run.sfr.sfr_reach_links(run)` reads it.
+- `VisibleWhen` accepts a boolean value (`VisibleWhen("enabled", True)`).
+- Docs: the URLs of the site published before the restructuring redirect to the matching page
+  (`docs/source/redirects.txt`), and a pull request that moves or deletes a page without a
+  redirect fails. Gates in CI: typos, a Vale house style, sybil on the Python blocks of the
+  guides, a test that every message quoted in a guide exists in the code, dead references to
+  docs paths, a browser probe (axe, overflow at 390 px, header height), weekly external links
+  (lychee), and a job that runs the Get started quick start. A ratchet test fails when a gate
+  total of the parameter reference goes up (`tools/docs/field_gates_baseline.json`).
+- Docs: the `{hmp-toml-diff}` directive resolves the diff of two example files through the
+  loader at build time; the staircase uses it. `llms.txt` and `llms-full.txt` are written into
+  each built version.
 
 ### Changed
 - `[modflownwt.sgrid.top_sampling] mode = "zonal"` needs `channel_source = "none"`: MODFLOW-NWT
@@ -403,6 +420,25 @@ Each release section includes the following standard categories:
   fast cross-row failures were the steps of the 16-bit compact rounding, not solver error.
 - Comparison children make absolute only the values their schema types as paths, and find a
   bare input file name in the data folder of the base file's workspace.
+- `hmp.calibrate(path)` and `Project.calibrate(config_path=...)` return the report object
+  (`CalibrationReport`) for a file without phases, as they already did for a staged file; pass
+  `return_report=False` for the dict.
+- The NSE on log discharge has one name, `nse_log`, in calibration files, in the catalog and in
+  `@best:`. Catalog migration 0005 and `hmp catalog reindex` rename stored rows; `@best:log_nse`
+  is refused with the name to write.
+- Keys the guides teach are user keys and appear in `hmp config template --profile user`: wells
+  units and forcing, lake and SFR forcings, the PRT, MODPATH, GWT and MT3DMS parameters the
+  guides use, `simulation.results.keep_solver_files` and the derived fluxes, `lay_decay` and
+  `lay_proportions`, `mesh_catchment.zone_meshing`, `data.inference_mode`,
+  `simulation.time.coverage_policy` and others. The parameter reference gives every user key a
+  description, every number a unit or a dimensionless mark, and every choice its values.
+- The duplicate-import message names both spellings of the force flag, `hmp catalog rerun
+  --help` shows a valid `--set` path, and `hmp dev completion --help` gives the bash, zsh and
+  fish procedure.
+- Docs: the site ships its fonts (Inter and JetBrains Mono, self-hosted, metric-matched
+  fallbacks), so the header no longer shifts while a page loads; the header stays on one row
+  from 390 to 1440 px; text reaches the WCAG AA contrast; the search page uses the Pagefind
+  Component UI, and math source, buttons and card labels are out of its index.
 
 ### Fixed
 - The channel mask of the zonal top covered the whole catchment. The stream raster was
@@ -507,6 +543,41 @@ Each release section includes the following standard categories:
   while the full-text index is missing; the `label` of a probed point fills a new `point`
   column; opening one index read-only and read-write in one process raises
   `WriteConflictError` (exit 12) instead of advising to reindex a file that is not damaged.
+- Wells declared under `flow.sinks_sources.wells` without `"wells"` in
+  `flow.active_sinks_sources` are refused by `hmp config check`; the run built no WEL and said
+  nothing.
+- A flow solver name that is neither built in nor a registered plugin is refused with the valid
+  names, instead of a message about the drainage boundary.
+- A side, ocean or stream constant head below the bottom of its cell stops the run before
+  MODFLOW 6 starts, with `SolverInputError` naming `flow.bc.<id>` and the cells; MODFLOW 6 used
+  to abort.
+- A mesh along the rivers, or the stream boundary on a `[mesh_input]` mesh, without a
+  `[geographic.river_network]` threshold is refused by `hmp config check` with the key to set.
+- The Methods paragraph of a staged calibration names the flow solver the trials run.
+- The MODFLOW 6 GWT concentration file is read in its own layout; the flopy warning "Very large
+  grid" came from reading it as an MT3DMS file first.
+- A custom geology vector or CSV in another CRS than the request is clipped by the request box
+  reprojected into its CRS.
+- `hmp data get --workspace` keeps a downloaded river network in the workspace cache and reuses
+  it, as a run does.
+- A comparison point or outlet located by x and y works again on runs of the current layout: the
+  cell is the nearest centre on the mesh each child stored.
+- `hmp catalog restore` gives a trashed run its original name back when no other run holds it.
+- `hmp run` reports a TOML syntax error, or an error in its `base_config` chain, with the file at
+  fault; both used to be printed as "Invalid override:".
+- The calibration metrics `nse_seasonal` and `reservoir` read the sampling step of the scored
+  series from its dates; a monthly series scored NaN.
+- The summary columns nse, kge, rmse and r2 of `v_simulation_summary` and of the federated
+  `all_simulations` hold the outlet scores of a run, or of its only scored series; they were
+  empty for runs scored on discharge.
+- The warning "The mean recharge moved between two network criterion builds" compares only the
+  trials of one calibration session.
+- `hmp install-binaries` and the download of a missing solver raise a `NetworkError` (exit 16)
+  naming the address, the proxy and token variables and the folder for the binaries.
+- The dark preset also darkens the ground of the network and seepage maps, the cell edges of
+  `mesh_map` and the text boxes; `sfr_longitudinal_profile` plots each branch against its
+  distance to the outlet; the wells overlay warns with the key to set when the run kept no
+  well field.
 
 ### Removed
 - `[geographic.enforce_streams]`, the burn of the mapped network into the routing DEM, and what
@@ -548,6 +619,9 @@ Each release section includes the following standard categories:
   Groundwater flow and Solvers.
 - The `geology_field` keyword of `discretize_fieldparam_on_sgrid`: use `support_field`.
 - `_data/changelog.json`, which the docs build wrote and nothing read.
+- The top-level `[persistence]` table, which no run read. A file that writes it is refused
+  with the key to write: `[simulation.results.persistence]` for a run, `[calibration.persistence]`
+  for a calibration.
 
 ---
 

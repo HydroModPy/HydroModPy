@@ -115,7 +115,7 @@ regional_context_label = "Location in the Armorican Massif"
 ```
 
 {toml}`overview.regional_context_label` is the title of the location map. The map is
-always drawn when the DEM and the watershed exist, and no panel toggle controls it. Without a
+always drawn when the DEM and the catchment exist, and no panel toggle controls it. Without a
 label, the title comes from the DEM file name.
 
 ```{hmp-params}
@@ -174,9 +174,9 @@ Switch off the panels of the families you do not load.
 
 | Panel | Reads | What it shows |
 |---|---|---|
-| {toml}`overview.panels.map_dem` | the delineated catchment | The DEM clipped around the catchment, buffer included, with the watershed outline, the outlet, the loaded reaches and the stations. |
+| {toml}`overview.panels.map_dem` | the delineated catchment | The DEM clipped around the catchment, buffer included, with the catchment outline, the outlet, the loaded reaches and the stations. |
 | {toml}`overview.panels.map_geology` | `geology` | The DEM with the geology polygons over it. |
-| {toml}`overview.panels.map_hydrography` | `hydrography` | The DEM with the river network and the outlet. |
+| {toml}`overview.panels.map_hydrography` | `hydrography` | The DEM with the stream network and the outlet. |
 | {toml}`overview.panels.stats_card` | everything loaded | A table: name, area, period, number of reaches, number of stations by family. |
 | {toml}`overview.panels.timeseries_discharge` | `hydrometry` | One line per gauge, observed discharge. |
 | {toml}`overview.panels.timeseries_piezometry` | `piezometry` | One line per piezometer, with a dashed line at the ground level of each one that gives it. |
@@ -258,7 +258,7 @@ The files go under the `share/` folder of the project. The project is the folder
 
 | File | Content |
 |---|---|
-| `share/web/index.html` | The report page: identity, location, river network, inventory of the data families, observations, recharge and pumping. |
+| `share/web/index.html` | The report page: identity, location, stream network, inventory of the data families, observations, recharge and pumping. |
 | `share/figures/overview/map_regional_context.png` | The location of the catchment on the regional DEM. |
 | `share/figures/overview/<panel>.png` | One file per panel that is on, named after its key. |
 
@@ -271,9 +271,51 @@ Open the maps first, in this order:
 4. `station_inventory.png`: which stations are inside the box, and over which dates?
 5. The time series: do the dates cover the window of the card?
 
-The web page shows the DEM, the location and the river network, the inventory tables and the
+The web page shows the DEM, the location and the stream network, the inventory tables and the
 observation series. It does not carry the geology map, the stats card or the climate
 bars; open those as PNG files.
+
+On the Nançon, the first map shows the DEM with the outline of the 64.6 km2 catchment, the
+stream reaches that fall inside it, the outlet and the gauge. The outline closes on the
+outlet, and the network meets it there.
+
+```{figure} /_static/figures/guides/describe-a-catchment/map_dem.webp
+:alt: Map of the elevation around the Nançon catchment with its outline, its stream network, the outlet marked by a star and the gauge marked by a circle.
+:width: 70%
+:align: center
+
+`map_dem.png`. The elevation is in metres, the axes are in kilometres from the corner of the map.
+```
+
+The second map draws the network of `[data.hydrography]` over the same DEM. Check that
+the reaches follow the valleys and that the main stem reaches the outlet.
+
+```{figure} /_static/figures/guides/describe-a-catchment/map_hydrography.webp
+:alt: Map of the elevation around the Nançon catchment with its outline, the BD Topage river network and the outlet marked by a star.
+:width: 70%
+:align: center
+
+`map_hydrography.png`. The BD Topage network inside the outline.
+```
+
+The stats card and the station inventory are tables. The card counts 679 stream reaches and
+one hydrometry station, and no station of the other families, which this file does not load.
+
+```{figure} /_static/figures/guides/describe-a-catchment/stats_card.webp
+:alt: Table with the name, the area, the period, the number of stream reaches and the number of stations of each family for the Nançon.
+:width: 60%
+:align: center
+
+`stats_card.png`.
+```
+
+```{figure} /_static/figures/guides/describe-a-catchment/station_inventory.webp
+:alt: Table with one row, the hydrometry station J001401001, its coordinates and its first and last dates.
+:width: 90%
+:align: center
+
+`station_inventory.png`. One row per station, with the dates of its record in the window.
+```
 
 If a map is wrong, stop here. Fix the outlet, the DEM, the CRS or the window before you
 build a model on it.

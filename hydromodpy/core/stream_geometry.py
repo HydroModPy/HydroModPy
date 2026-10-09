@@ -22,6 +22,9 @@ partition is how a figure comes to disagree with the number it illustrates.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Literal
 
@@ -210,7 +213,30 @@ class NetworkGeometry:
         }
 
 
-_last_mean_recharge: float | None = None
+_recharge_session: ContextVar[str | None] = ContextVar("recharge_session", default=None)
+"""The calibration session whose criterion builds are compared, if any."""
+
+_last_mean_recharge: dict[str, float] = {}
+"""Mean recharge of the last build, per calibration session."""
+
+
+@contextmanager
+def recharge_session(session_id: str) -> Iterator[None]:
+    """Compare the mean recharge of the criterion builds made inside one session.
+
+    A calibration search opens it around its trials. Builds made outside any
+    session, such as the figures of finished runs, are never compared: two runs
+    of a project may hold two forcings, and that is no move of the calibrated
+    ratio. Worker threads of the search inherit the session; a build in another
+    process does not, and is only recorded in ``R_mean_m_s``.
+    """
+    token = _recharge_session.set(str(session_id))
+    try:
+        yield
+    finally:
+        _recharge_session.reset(token)
+        _last_mean_recharge.pop(str(session_id), None)
+
 
 RECHARGE_MOVE_TOLERANCE: float = 1e-6
 """Relative change of the mean recharge below which two builds read the same R.
@@ -224,23 +250,25 @@ _alpha_warned: bool = False
 
 
 def _warn_if_recharge_moved(recharge: float) -> None:
-    """Warn when the recharge changes between two geometries of one process.
+    """Warn when the recharge changes between two geometries of one calibration session.
 
     The criterion fits ``K/R``, so a recharge that moves between two trials
     changes the calibrated quantity while every declared parameter looks
-    unchanged. Warning rather than refusing: this module knows a mesh, not a
-    session, and two consecutive builds can legitimately belong to two
-    projects; a refusal would abort those, while the ``R_mean_m_s`` diagnostic
-    already records the value per trial and the warning only makes the move
-    visible while it happens. A relative change under
-    :data:`RECHARGE_MOVE_TOLERANCE` is float noise and stays silent.
+    unchanged. Only builds made inside :func:`recharge_session` are compared,
+    and only with the builds of the same session. Warning rather than refusing:
+    the ``R_mean_m_s`` diagnostic already records the value per trial and the
+    warning only makes the move visible while it happens. A relative change
+    under :data:`RECHARGE_MOVE_TOLERANCE` is float noise and stays silent.
 
     A trial and the redraw of a run read ``R`` by one rule
     (:mod:`hydromodpy.core.stream_recharge`), so a move is a move of the
     forcing, never of the way it was averaged.
     """
-    global _last_mean_recharge
-    previous, _last_mean_recharge = _last_mean_recharge, recharge
+    session = _recharge_session.get()
+    if session is None:
+        return
+    previous = _last_mean_recharge.get(session)
+    _last_mean_recharge[session] = recharge
     if previous is None or np.isclose(recharge, previous, rtol=RECHARGE_MOVE_TOLERANCE, atol=0.0):
         return
     logger.warning(

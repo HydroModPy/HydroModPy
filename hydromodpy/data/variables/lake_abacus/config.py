@@ -57,7 +57,10 @@ class LakeAbacusConfig(HydroModelBase):
     )
     id: Annotated[IdentifierStr, Profile.USER] = Field(
         default="lake_abacus",
-        description="Identifier of the lake-abacus table.",
+        description=(
+            "Name of the abacus variable, kept with the configuration. Each source says "
+            "which lake its table belongs to with lake_id."
+        ),
     )
 
     @classmethod

@@ -59,9 +59,10 @@ from hydromodpy.display.figures._calibration_session import (
     two_roots,
 )
 from hydromodpy.display.figures._stream_comparison import (
-    AGREEMENT_COLORS,
     CRITERION_NAMES,
+    agreement_color,
     class_label,
+    note_box,
 )
 from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
 from hydromodpy.display.figures.network_extent_bounds_map import (
@@ -125,7 +126,6 @@ _BREACH_COLOR = HIGH_CONTRAST_TRIPLET[2]
 _TRIAL_COLOR = HIGH_CONTRAST_TRIPLET[0]
 _BRACKET_COLOR = "0.55"
 _EVALUATION_COLOR = "0.35"
-_NOTE_BOX = {"facecolor": "white", "alpha": 0.9, "edgecolor": "#c8c8c8"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -807,7 +807,7 @@ class MatchingHydrographicNetworkCard(BaseFigure):
                     [where],
                     [count],
                     height=height * (0.95 if several else 1.0),
-                    color=AGREEMENT_COLORS[agreement],
+                    color=agreement_color(agreement),
                     hatch=hatch or None,
                     edgecolor="white" if hatch else None,
                     zorder=3,
@@ -1338,6 +1338,6 @@ def _say(
         ha="center",
         va=va,
         fontsize=fontsize,
-        bbox=_NOTE_BOX,
+        bbox=note_box(),
         zorder=6,
     )

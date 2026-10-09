@@ -80,7 +80,7 @@ the aquifer, the drain and the mover, and the exchange would recirculate.
 (lakes-forcing)=
 ## What falls on the lake
 
-The rain and the evaporation of a lake are the watershed means of the loaded
+The rain and the evaporation of a lake are the catchment means of the loaded
 precipitation and ETP, unless the lake declares its own. The runoff is the
 catchment runoff rate times the catchment area $A$. It reaches the lake directly
 only when no stream network routes the runoff; otherwise it arrives through the

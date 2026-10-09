@@ -25,6 +25,8 @@ from hydromodpy.display.figure_options import (
     FigureOption,
     ShowRunName,
     Title,
+    _declarations,
+    _evaluate,
     describe_options,
 )
 from hydromodpy.results import field_registry
@@ -422,6 +424,48 @@ def option_names_of(cls: type) -> frozenset[str]:
     # or through the wrapper a figure's own plot gets.
     found |= set(COMMON_OPTIONS)
     return frozenset(found)
+
+
+def option_types_of(cls: type) -> dict[str, Any]:
+    """Return the declared type of every option of the figure class ``cls``.
+
+    The type is the one its parameter declares, without the ``Annotated``
+    metadata, ready for a ``pydantic.TypeAdapter``. ``time`` is text: a date,
+    ``"first"`` or ``"last"``. An option whose type cannot be resolved, such as
+    a class imported only for typing, maps to ``None``.
+    """
+    import typing
+
+    from pydantic import TypeAdapter
+
+    own = _declarations(cls)
+    shared = _declarations(BaseFigure)
+    types: dict[str, Any] = {}
+    for option in option_names_of(cls):
+        if option == "time":
+            types[option] = str
+            continue
+        found = shared.get(option) if option in COMMON_OPTIONS else None
+        found = found or own.get(option)
+        if found is None:
+            types[option] = None
+            continue
+        param, module_globals = found
+        annotation = _evaluate(param.annotation, module_globals)
+        if typing.get_origin(annotation) is typing.Annotated:
+            annotation = typing.get_args(annotation)[0]
+        if isinstance(annotation, str) or annotation is param.empty:
+            types[option] = None
+            continue
+        try:
+            TypeAdapter(annotation)
+        except Exception:
+            # A class pydantic cannot validate (a run, a name imported only for
+            # typing): the caller keeps the value as it was written.
+            types[option] = None
+            continue
+        types[option] = annotation
+    return types
 
 
 def options_of(cls: type) -> tuple[FigureOption, ...]:

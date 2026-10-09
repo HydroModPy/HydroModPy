@@ -54,6 +54,7 @@ from hydromodpy.display.maps.axes import overlay_watershed_contour, style_relati
 from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import last_timestep
+from hydromodpy.display.style import neutral
 from hydromodpy.results.derive.config_flags import enable_options_hint, missing_field_options
 from hydromodpy.results.run.array import acting_faces, acting_faces_over_run
 
@@ -137,7 +138,11 @@ cells are already larger than it, it is invisible inside the one it covers.
 VIEW_MARGIN = 0.02
 """Padding around the cropped view, as a fraction of its longer side."""
 
-_NOTE_BOX = {"facecolor": "white", "alpha": 0.9, "edgecolor": GROUND_EDGE}
+
+def _note_box() -> dict[str, object]:
+    """Return the box of the note at the foot of the map, for the current theme."""
+    return {"facecolor": neutral("white"), "alpha": 0.9, "edgecolor": neutral(GROUND_EDGE)}
+
 
 _WATERSHED_FEATURE = "watershed"
 """The delineated catchment, under the name the geographic step persists it."""
@@ -227,7 +232,7 @@ class BoundaryPackageMap(BaseFigure):
         several = np.sum(list(acting.values()), axis=0) >= 2
         none = ~np.logical_or.reduce(list(acting.values()))
 
-        _add_class(ax, polygons, none, color=GROUND_COLOR, zorder=1)
+        _add_class(ax, polygons, none, color=neutral(GROUND_COLOR), zorder=1)
         for zorder, name in enumerate(acting, start=2):
             _add_marked_class(
                 ax,
@@ -263,7 +268,7 @@ class BoundaryPackageMap(BaseFigure):
             ha="center",
             va="bottom",
             fontsize=9,
-            bbox=_NOTE_BOX,
+            bbox=_note_box(),
             zorder=10,
         )
         return ax
@@ -334,8 +339,8 @@ def _legend_handles(
     if none.any():
         handles.append(
             Patch(
-                facecolor=GROUND_COLOR,
-                edgecolor=GROUND_EDGE,
+                facecolor=neutral(GROUND_COLOR),
+                edgecolor=neutral(GROUND_EDGE),
                 label=f"no water exchanged ({_cell_count(none)})",
             )
         )

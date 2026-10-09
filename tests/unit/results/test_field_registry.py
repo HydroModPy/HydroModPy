@@ -22,8 +22,7 @@ class TestRegistryContents:
         assert len(FIELD_REGISTRY) >= 18
 
     def test_registry_exposes_essential_public_names(self):
-        # Hard-required set from the G05 plan (see
-        # docs/developers/architecture_conformance_report.md).
+        # Hard-required set from the G05 plan.
         required = {
             "head",
             "concentration",

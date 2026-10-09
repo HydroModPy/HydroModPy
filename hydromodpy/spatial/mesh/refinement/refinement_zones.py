@@ -34,19 +34,23 @@ class RefinementZoneConfig(HydroModelBase):
             "<workspace>/data/refinement_zone/; relative paths resolve against "
             "that directory, the data directory, then the config directory."
         ),
+        examples=["refinement_zone.gpkg"],
     )
     cell_size: Annotated[float, Profile.USER] = Field(
         gt=0.0,
-        description="Target cell size [L] inside the zone.",
+        description="Target cell size, in metres, inside the zone.",
+        json_schema_extra={"unit": "m"},
+        examples=[20.0],
     )
     buffer: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
         description=(
-            "Corridor half-width [L] for point / line features, and transition "
+            "Corridor half-width, in metres, for point / line features, and transition "
             "distance back to the background size. When omitted, derives 2 * cell_size. "
             "Must be >= cell_size so the corridor holds at least one target cell."
         ),
+        json_schema_extra={"unit": "m"},
     )
 
     @model_validator(mode="after")

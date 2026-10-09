@@ -1,7 +1,7 @@
 # Report on a catchment
 
 You have run a model of one catchment and want one web page that shows it: the site, the
-hydraulic properties, the river network, the simulated and observed discharge, the
+hydraulic properties, the stream network, the simulated and observed discharge, the
 water budget. `hmp report catchment` builds that page, as blocks of figures and tables,
 from one report file. It also writes three more views of the same blocks, from a short
 read to a full audit. The page, its titles and its captions are in English.

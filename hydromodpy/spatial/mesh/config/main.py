@@ -10,6 +10,7 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr, PositiveInt, StripLower
+from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.spatial.mesh.config.hydraulic import (
     MeshCatchmentHydraulicPropertiesConfig,
 )
@@ -90,9 +91,9 @@ class MeshCatchmentConfig(HydroModelBase):
     export_exchange_bundle: Annotated[bool, Profile.USER] = Field(
         default=True,
         description=(
-            "If true, export the solver-exchange mesh bundle next to the generated mesh. "
-            "Set it to false for profiling or mesh-only runs that do not need bundle metadata. "
-            "Downstream solvers that require runtime mesh support may fail without this bundle."
+            "If true, write next to the mesh the bundle of files a solver reads the mesh "
+            "from. Set it to false for profiling or mesh-only runs. A solver that reads the "
+            "Gmsh mesh may fail without this bundle."
         ),
     )
     cache: Annotated[bool, Profile.USER] = Field(
@@ -109,24 +110,26 @@ class MeshCatchmentConfig(HydroModelBase):
     figure_dpi: Annotated[PositiveInt, Profile.USER] = Field(
         default=300,
         description=(
-            "Pixel density used when rendering the main mesh overview figure. "
+            "Pixel density of the main mesh overview figure. "
             "Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG."
         ),
+        json_schema_extra={"unit": "dpi"},
     )
     figure_regional_dpi: Annotated[PositiveInt, Profile.USER] = Field(
         default=220,
         description=(
-            "Pixel density used when rendering the regional overview figure. "
+            "Pixel density of the regional overview figure. "
             "Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy."
         ),
+        json_schema_extra={"unit": "dpi"},
     )
     output_layout: Annotated[Literal["standard", "flat"], StripLower, Profile.USER] = Field(
         default="standard",
         description=(
-            "Dedicated-launcher output layout. "
+            "Where a mesh-only launch writes its files. "
             "Use 'standard' to keep final mesh artifacts under `.hmp/scratch/<run>/_preprocessing/mesh/`, "
             "or 'flat' to write final mesh artifacts directly under `workspace.project_root` "
-            "while keeping intermediate runtime folders out of that final directory."
+            "while keeping intermediate folders out of that final directory."
         ),
     )
     show_plot: Annotated[bool, Profile.USER] = Field(
@@ -152,13 +155,16 @@ class MeshCatchmentConfig(HydroModelBase):
             "The default behavior is to reuse the in-memory river trace already built by the geographic pipeline."
         ),
     )
-    geology: Annotated[dict[str, Any] | None, Profile.USER] = Field(
+    geology: Annotated[
+        dict[str, Any] | None,
+        Profile.USER,
+        VisibleWhen("constraints_mode", ("geology_only", "geology_rivers")),
+    ] = Field(
         default=None,
         description=(
-            "Optional geology support used when constraints_mode includes geology. "
-            "This section defines which polygon source represents lithological zones and how those polygons "
-            "should be interpreted before conformal meshing. "
-            "Validated through the geology data-source Protocol; stored as a normalized mapping."
+            "Geology polygons the mesh follows. This section says which polygon source "
+            "holds the lithological zones and how its polygons are read before meshing. "
+            "It is checked against the geology data sources when the file loads."
         ),
     )
     watershed_boundary: Annotated[MeshCatchmentWatershedBoundaryConfig, Profile.USER] = Field(
@@ -187,12 +193,12 @@ class MeshCatchmentConfig(HydroModelBase):
             "prepared during delineation, which is usually the right support for mono-catchment meshing."
         ),
     )
-    zone_meshing: Annotated[ZoneMeshingSettings, Profile.DEV] = Field(
+    zone_meshing: Annotated[ZoneMeshingSettings, Profile.USER] = Field(
         default_factory=ZoneMeshingSettings,
         description=(
-            "Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, "
-            "and interface refinement. Defaults are valid, but project examples typically override them "
-            "to target a desired number of cells."
+            "Gmsh sizing and cleanup settings: cell sizes, simplification and interface "
+            "refinement. The defaults are valid; set the sizes to reach the number of "
+            "cells you want."
         ),
     )
     lake_refinement: Annotated[LakeRefinementConfig, Profile.USER] = Field(

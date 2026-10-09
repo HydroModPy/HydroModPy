@@ -159,7 +159,7 @@ To give the run itself, with its fields and its tables, instead of maps, see
 |---|---|---|
 | One `…_fields.nc` file instead of GeoTIFFs | Several dates and no `--format`, so the default is NetCDF | Add `--format geotiff` |
 | `Name what to export (see --list), or write 'all'. Example: hmp export <run> head --time 2002-10-15`, exit 2 | No variable after the run name | Name the variables, as above |
-| `Reference 'x' not found. Run \`hmp catalog ls\` to list known runs.`, exit 10 | The name matches no run of the project | Check the name, and the folder you run from |
+| ``Reference 'x' not found. Run `hmp catalog ls` to list known runs.``, exit 10 | The name matches no run of the project | Check the name, and the folder you run from |
 | The files are not in the folder you gave | A relative `--folder` is read from `share/`, and a relative `--file` from the folder | Give an absolute folder, or look in `share/<folder>/` |
 | The raster shows values outside the catchment outline | The grid covers the catchment and its buffer: 21 406 cells, of which 11 488 are inside the catchment | Clip it with `watershed.gpkg` |
 | The layers are on the wrong place in the GIS | The CRS of the project is not the one the colleague assumed | Pass `--crs EPSG:<code>` to the export, or tell them the CRS |

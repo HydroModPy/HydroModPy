@@ -252,7 +252,7 @@ $$
 Q^\mathrm{ro}_k = \bar q^\mathrm{ro}_k\,A ,
 $$ (eq-runoff)
 
-where $\bar q^\mathrm{ro}_k$ is the watershed mean of the runoff, in m/s, put on
+where $\bar q^\mathrm{ro}_k$ is the catchment mean of the runoff, in m/s, put on
 the periods by the rule of {ref}`forcing-coverage`, and $A$ the catchment area.
 
 - With an active stream network, $Q^\mathrm{ro}_k$ is shared among the reaches by
@@ -263,7 +263,7 @@ the periods by the rule of {ref}`forcing-coverage`, and $A$ the catchment area.
   ({doc}`exits/lakes`).
 - Without either, the runoff stays outside the flow.
 
-A lake also gets the watershed mean of the loaded rain and ETP as open-water
+A lake also gets the catchment mean of the loaded rain and ETP as open-water
 rates, unless it declares its own.
 
 When a calibration compares a simulated drain budget with a gauge, the runoff is

@@ -19,7 +19,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser(), verbosity_parser()],
-        epilog="Example:\n  hmp catalog rerun my_run --set flow.hydraulic_conductivity=2e-4",
+        epilog="Example:\n  hmp catalog rerun my_run --set flow.param.K.field.value=2e-4",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     add_sim_ref(parser)
@@ -29,7 +29,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         default=[],
         metavar="PATH=VALUE",
         dest="overrides",
-        help="Dotted config path override, repeatable (e.g. flow.hydraulic_conductivity=2e-4)",
+        help="Dotted config path override, repeatable (e.g. flow.param.K.field.value=2e-4)",
     )
     parser.add_argument("--name", default=None, help="Name for the new run")
     parser.set_defaults(_handler=run)

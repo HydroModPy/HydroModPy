@@ -7,7 +7,7 @@ changes, so the page of a step shows you only what that step adds.
 | Step | File | What it adds | Inherits | Needs | Time |
 |---|---|---|---|---|---|
 | {doc}`1 <step1>` | `step1_minimal.toml` | The shortest file that runs: steady state, local DEM, one K, one recharge rate | nothing | the example files | 15 to 25 s |
-| {doc}`2 <step2>` | `step2_local_data.toml` | The mapped river network and the gauge, from local files, compared with the simulated seepage | step 1 | the example files | 15 to 25 s |
+| {doc}`2 <step2>` | `step2_local_data.toml` | The mapped stream network and the gauge, from local files, compared with the simulated seepage | step 1 | the example files | 15 to 25 s |
 | {doc}`3 <step3>` | `step3_api_data.toml` | The same data, fetched from the BD Topage and Hub'Eau APIs | step 2 | **network**, first run | about 40 s |
 | {doc}`4 <step4>` | `step4_transient.toml` | Monthly transient run, 2000-2002, forced by observed recharge and runoff | step 2 | the example files | 1 to 2 min |
 | {doc}`5 <step5>` | `step5_export.toml` | The results written out in every format | step 4 | the example files | 1 to 2 min |

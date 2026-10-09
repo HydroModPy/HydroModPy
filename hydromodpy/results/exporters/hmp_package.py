@@ -949,7 +949,10 @@ def import_hmp_package(
         )
         if existing is not None:
             if not force:
-                raise ValueError(f"Simulation '{sid}' already exists. Use force=True to overwrite.")
+                raise ValueError(
+                    f"Simulation '{sid}' is already in this catalog. Import with force to "
+                    "replace it: --force on the command line, force=True in Python."
+                )
         elif not allow_existing_project:
             _check_project_conflict(catalog, manifest, as_project)
 

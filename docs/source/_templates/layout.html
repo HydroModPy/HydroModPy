@@ -7,6 +7,10 @@
     <meta name="robots" content="noindex"/>
   {%- endif %}
   <meta name="color-scheme" content="light dark"/>
+  {#- The body font is on every page: ask for it before the stylesheet has
+      been parsed. A font preload needs crossorigin, even from this origin. #}
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+        href="{{ pathto('_static/fonts/inter-latin-wght.woff2', 1) }}"/>
   <meta name="docsearch:language" content="{{ language }}"/>
   <meta name="docsearch:version" content="{{ version }}" />
   {%- if last_updated %}

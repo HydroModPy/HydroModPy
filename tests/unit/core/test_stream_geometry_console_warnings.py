@@ -18,7 +18,7 @@ from hydromodpy.core import stream_geometry
 @pytest.fixture(autouse=True)
 def _fresh_process(monkeypatch):
     """Each test starts as a new process: no recharge seen, no alpha warned."""
-    monkeypatch.setattr(stream_geometry, "_last_mean_recharge", None)
+    monkeypatch.setattr(stream_geometry, "_last_mean_recharge", {})
     monkeypatch.setattr(stream_geometry, "_alpha_warned", False)
 
 
@@ -27,7 +27,10 @@ def _warnings(caplog) -> list[str]:
 
 
 def test_float_noise_between_two_builds_is_not_a_move(caplog) -> None:
-    with caplog.at_level(logging.INFO, logger=stream_geometry.__name__):
+    with (
+        caplog.at_level(logging.INFO, logger=stream_geometry.__name__),
+        stream_geometry.recharge_session("s"),
+    ):
         stream_geometry._warn_if_recharge_moved(9.074855002572016e-09)
         stream_geometry._warn_if_recharge_moved(9.074854999999997e-09)
 
@@ -35,7 +38,10 @@ def test_float_noise_between_two_builds_is_not_a_move(caplog) -> None:
 
 
 def test_a_real_move_warns_with_four_significant_digits(caplog) -> None:
-    with caplog.at_level(logging.INFO, logger=stream_geometry.__name__):
+    with (
+        caplog.at_level(logging.INFO, logger=stream_geometry.__name__),
+        stream_geometry.recharge_session("s"),
+    ):
         stream_geometry._warn_if_recharge_moved(9.074854999999997e-09)
         stream_geometry._warn_if_recharge_moved(8.655624187444443e-09)
 
@@ -45,13 +51,36 @@ def test_a_real_move_warns_with_four_significant_digits(caplog) -> None:
 
 def test_a_move_just_above_the_tolerance_still_warns(caplog) -> None:
     base = 1.0e-8
-    with caplog.at_level(logging.INFO, logger=stream_geometry.__name__):
+    with (
+        caplog.at_level(logging.INFO, logger=stream_geometry.__name__),
+        stream_geometry.recharge_session("s"),
+    ):
         stream_geometry._warn_if_recharge_moved(base)
         stream_geometry._warn_if_recharge_moved(
             base * (1.0 + 10 * stream_geometry.RECHARGE_MOVE_TOLERANCE)
         )
 
     assert len(_warnings(caplog)) == 1
+
+
+def test_builds_outside_a_session_are_never_compared(caplog) -> None:
+    """Figures of two runs drawn in one process may hold two forcings."""
+    with caplog.at_level(logging.INFO, logger=stream_geometry.__name__):
+        stream_geometry._warn_if_recharge_moved(9.0e-09)
+        stream_geometry._warn_if_recharge_moved(6.0e-09)
+
+    assert _warnings(caplog) == []
+
+
+def test_two_sessions_are_not_compared_with_each_other(caplog) -> None:
+    with caplog.at_level(logging.INFO, logger=stream_geometry.__name__):
+        with stream_geometry.recharge_session("first"):
+            stream_geometry._warn_if_recharge_moved(9.0e-09)
+        with stream_geometry.recharge_session("second"):
+            stream_geometry._warn_if_recharge_moved(6.0e-09)
+            stream_geometry._warn_if_recharge_moved(6.0e-09)
+
+    assert _warnings(caplog) == []
 
 
 def test_the_alpha_warning_prints_once_then_goes_to_verbose(caplog) -> None:

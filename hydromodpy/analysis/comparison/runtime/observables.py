@@ -390,8 +390,8 @@ def _select_spatial_values(
             return (float(values[0]),), {"selection": "scalar"}
         else:
             raise ValueError(
-                f"Point observable '{observable.name}' needs a mesh bundle cells.csv "
-                "for x/y lookup, or a cell_index."
+                f"Point observable '{observable.name}' needs x and y, or a cell_index: "
+                "no grid of this run gives cell centroids."
             )
         selected = _select_cell_values(
             series=series,
@@ -552,6 +552,8 @@ def extract_observable_rows(
                     None if first_slice_size is None or first_slice_size <= 1 else first_slice_size
                 ),
                 solver_name=simulation.solver,
+                store=store,
+                sim_id=sim_id,
             )
         selected_slices = _select_time_slices(series, observable)
 

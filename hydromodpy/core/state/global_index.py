@@ -584,7 +584,7 @@ class GlobalIndex:
             Extra filters keyed by column name. A bare ``col=v`` is equality; a
             suffixed key applies a comparison: ``col_gt`` (>), ``col_gte`` (>=),
             ``col_lt`` (<), ``col_lte`` (<=), ``col_like`` (LIKE). So
-            ``find(nse_gt=0.8, status="completed", name_like="cheze%")`` is the
+            ``find(nse_gt=0.8, status="completed", name_like="baseline%")`` is the
             federated counterpart of the per-project ``find``. Unknown columns
             are silently skipped. Trashed runs are hidden unless ``status`` is
             given explicitly.

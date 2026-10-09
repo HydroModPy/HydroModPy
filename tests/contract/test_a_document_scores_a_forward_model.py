@@ -129,7 +129,7 @@ def _calibrate(workspace: Path, name: str, **document: object) -> tuple[dict, st
     workspace.mkdir(parents=True, exist_ok=True)
     path = workspace / f"{name}.toml"
     text = _document(path, workspace, **document)  # type: ignore[arg-type]
-    return hmp.calibrate(str(path)), text
+    return hmp.calibrate(str(path)).to_dict(), text
 
 
 def _model_digest() -> tuple[str, str]:

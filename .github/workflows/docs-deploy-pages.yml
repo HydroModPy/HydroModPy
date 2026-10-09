@@ -115,7 +115,13 @@ jobs:
           # The PR gate already runs the same policy via `make -C docs html-strict`.
           HMP_DOC_VERSION="${version}" python -m sphinx -j auto -W --keep-going -b html docs/source "site/${version}"
           # The search index of this version (search.html loads it).
-          python -m pagefind --site "site/${version}" --exclude-selectors ".headerlink" --quiet
+          # The same exclusions as the PAGEFIND variable of docs/Makefile.
+          python -m pagefind --site "site/${version}" --quiet \
+            --exclude-selectors ".headerlink" --exclude-selectors "button" \
+            --exclude-selectors ".math" --exclude-selectors ".hmp-card dt" \
+            --exclude-selectors ".hmp-facts" --exclude-selectors ".hmp-search-text"
+          # llms.txt and llms-full.txt of this version, from the built pages.
+          python -m tools.docs.llms_txt "site/${version}"
 
       - name: Prepare the root files and the versions to remove
         if: steps.build.outputs.skip != '1'

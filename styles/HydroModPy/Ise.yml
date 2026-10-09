@@ -1,0 +1,7 @@
+extends: existence
+message: "Use the British '-ise' spelling, not '%s'."
+level: error
+ignorecase: true
+scope: text
+tokens:
+  - '\b\w{3,}[a-z]iz(?:e|ed|es|ing|ation|ations)\b'

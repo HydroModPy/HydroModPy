@@ -23,7 +23,7 @@ class Modflow6Backend(_SolverBackendBase):
 
     backend: Annotated[Literal["modflow6"], Profile.USER] = Field(
         default="modflow6",
-        description="Discriminator tag selecting the MODFLOW 6 flow backend.",
+        description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
     )
 
 
@@ -32,7 +32,7 @@ class ModflowNwtBackend(_SolverBackendBase):
 
     backend: Annotated[Literal["modflow_nwt"], Profile.USER] = Field(
         default="modflow_nwt",
-        description="Discriminator tag selecting the MODFLOW-NWT flow backend.",
+        description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
     )
 
 
@@ -41,7 +41,7 @@ class BoussinesqBackend(_SolverBackendBase):
 
     backend: Annotated[Literal["boussinesq"], Profile.USER] = Field(
         default="boussinesq",
-        description="Discriminator tag selecting the Boussinesq flow backend.",
+        description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
     )
 
 
@@ -56,11 +56,11 @@ class CustomBackend(_SolverBackendBase):
 
     backend: Annotated[Literal["custom"], Profile.USER] = Field(
         default="custom",
-        description="Discriminator tag indicating a plugin-provided flow backend.",
+        description="Flow solver of the run: MODFLOW 6, MODFLOW-NWT, Boussinesq or a plugin.",
     )
     name: Annotated[str, Profile.USER] = Field(
         ...,
-        description="Plugin-registered flow backend name (matches registry).",
+        description="Name under which a plugin registered its flow solver.",
     )
 
     @field_validator("name", mode="before")
@@ -283,4 +283,7 @@ class SolverConfig(HydroModelBase):
         engine = self.backend_name
         if not registry.is_supported("flow", engine):
             known = ", ".join(name for _, name in registry.pairs_for_process("flow"))
-            raise ValueError(f"Unknown flow solver '{engine}'. Registered flow solvers: {known}.")
+            raise ValueError(
+                f"Unknown flow solver '{engine}': it is neither built in nor a registered "
+                f"plugin. Write one of: {known}."
+            )

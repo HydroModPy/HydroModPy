@@ -36,6 +36,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.units import FlowRate, Length
 from hydromodpy.core.units.leakance import normalize_per_s_unit
 from hydromodpy.physics.flow.sinks_sources.flow_barrier import FlowBarrierConfig
@@ -58,12 +59,20 @@ class FlowLakeOutletMover(HydroModelBase):
     lake: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=1,
-        description="Downstream receiving lake (1-based) for a LAK -> LAK transfer.",
+        description=(
+            "Number of the lake that receives the transfer, counted from 1 in the order "
+            "the lakes are declared."
+        ),
+        json_schema_extra={"unit": "-"},
     )
     reach: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=1,
-        description="Downstream receiving SFR reach (1-based) for a LAK -> SFR transfer.",
+        description=(
+            "Number of the SFR reach that receives the transfer, counted from 1. A reach "
+            "number changes when the mesh changes; to_downstream_reach does not."
+        ),
+        json_schema_extra={"unit": "-"},
     )
     to_downstream_reach: Annotated[bool, Profile.USER] = Field(
         default=False,
@@ -84,15 +93,24 @@ class FlowLakeOutletMover(HydroModelBase):
     )
     mvrtype: Annotated[Literal["FACTOR", "UPTO", "EXCESS", "THRESHOLD"], Profile.USER] = Field(
         default="FACTOR",
-        description="MVR transfer rule (FACTOR / UPTO / EXCESS / THRESHOLD).",
+        description="How much of the outlet flow the mover passes to the receiver, given value.",
+        json_schema_extra={
+            "value_docs": {
+                "FACTOR": "Moves the share value (from 0 to 1) of the flow.",
+                "UPTO": "Moves the flow, capped at value.",
+                "EXCESS": "Moves only the part of the flow above value.",
+                "THRESHOLD": "Moves value once the flow exceeds it, and nothing below it.",
+            }
+        },
     )
     value: Annotated[float, Profile.USER] = Field(
         default=1.0,
         ge=0.0,
         description=(
-            "MVR value: the fraction for FACTOR, or the flow rate [L^3/T] for "
-            "UPTO / EXCESS / THRESHOLD."
+            "Amount of the transfer rule: a share from 0 to 1 for FACTOR, a flow rate in "
+            "m3/s for UPTO, EXCESS and THRESHOLD."
         ),
+        json_schema_extra={"unit": "- or m3/s"},
     )
 
     @model_validator(mode="after")
@@ -129,17 +147,30 @@ class FlowLakeOutletWeir(HydroModelBase):
         default="WEIR",
         description="Discriminator tag for the weir outlet type.",
     )
-    invert: Annotated[Length, Profile.USER] = Field(..., description="Weir crest elevation [L].")
+    invert: Annotated[Length, Profile.USER] = Field(
+        ...,
+        description=(
+            "Elevation of the weir crest, in metres. No water leaves while the stage is "
+            "at or below it."
+        ),
+        examples=[45.0],
+    )
     width: Annotated[Length, Profile.USER] = Field(
-        ..., description="Effective weir crest length [L]."
+        ...,
+        description=(
+            "Effective length of the weir crest, in metres. The discharge grows in "
+            "proportion to it."
+        ),
+        examples=[10.0],
     )
     lakeout: Annotated[int, Profile.USER] = Field(
         default=0,
         ge=0,
         description=(
-            "Downstream destination lake (1-based). 0 = external boundary "
-            "(the discharge leaves the model)."
+            "Number of the lake that receives the discharge, counted from 1 in the order "
+            "the lakes are declared. 0 sends the discharge out of the model."
         ),
+        json_schema_extra={"unit": "-"},
     )
     mover: Annotated[FlowLakeOutletMover | None, Profile.USER] = Field(
         default=None,
@@ -158,22 +189,40 @@ class FlowLakeOutletManning(HydroModelBase):
         description="Discriminator tag for the Manning outlet type.",
     )
     invert: Annotated[Length, Profile.USER] = Field(
-        ..., description="Channel invert elevation [L]."
+        ...,
+        description="Elevation of the outlet channel bed, in metres. No water leaves below it.",
+        examples=[45.0],
     )
-    width: Annotated[Length, Profile.USER] = Field(..., description="Channel width [L].")
+    width: Annotated[Length, Profile.USER] = Field(
+        ...,
+        description="Width of the outlet channel, in metres.",
+        examples=[5.0],
+    )
     rough: Annotated[float, Profile.USER] = Field(
-        ..., gt=0.0, description="Manning roughness coefficient n (> 0)."
+        ...,
+        gt=0.0,
+        description=(
+            "Manning roughness coefficient n of the outlet channel. A higher value "
+            "slows the discharge."
+        ),
+        examples=[0.035],
+        json_schema_extra={"unit": "s/m^(1/3)"},
     )
     slope: Annotated[float, Profile.USER] = Field(
-        ..., gt=0.0, description="Channel bed slope (> 0)."
+        ...,
+        gt=0.0,
+        description="Slope of the outlet channel bed, in metres of drop per metre of length.",
+        examples=[0.001],
+        json_schema_extra={"unit": "-"},
     )
     lakeout: Annotated[int, Profile.USER] = Field(
         default=0,
         ge=0,
         description=(
-            "Downstream destination lake (1-based). 0 = external boundary "
-            "(the discharge leaves the model)."
+            "Number of the lake that receives the discharge, counted from 1 in the order "
+            "the lakes are declared. 0 sends the discharge out of the model."
         ),
+        json_schema_extra={"unit": "-"},
     )
     mover: Annotated[FlowLakeOutletMover | None, Profile.USER] = Field(
         default=None,
@@ -198,7 +247,10 @@ class FlowLakeOutletSpecified(HydroModelBase):
     )
     rate: Annotated[FlowRate | None, Profile.USER] = Field(
         default=None,
-        description="Constant specified outlet rate [L^3/T], signed (+in, -out).",
+        description=(
+            "Constant rate of the outlet, in m3/s. A positive rate enters the lake, a "
+            "negative one leaves it."
+        ),
     )
     forcing: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
         default=None,
@@ -208,9 +260,10 @@ class FlowLakeOutletSpecified(HydroModelBase):
         default=0,
         ge=0,
         description=(
-            "Downstream destination lake (1-based). 0 = external boundary "
-            "(the discharge leaves the model)."
+            "Number of the lake that receives the discharge, counted from 1 in the order "
+            "the lakes are declared. 0 sends the discharge out of the model."
         ),
+        json_schema_extra={"unit": "-"},
     )
     mover: Annotated[FlowLakeOutletMover | None, Profile.USER] = Field(
         default=None,
@@ -286,7 +339,7 @@ class BathymetryReconstructionConfig(HydroModelBase):
             "runoff already covers the footprint area in a lumped, stage-static way."
         ),
     )
-    bank_seepage: Annotated[bool, Profile.USER] = Field(
+    bank_seepage: Annotated[bool, Profile.USER, VisibleWhen("dynamic_area", True)] = Field(
         default=True,
         description=(
             "Also emit HORIZONTAL (bank) LAK connections on the active-littoral "
@@ -302,7 +355,7 @@ class BathymetryReconstructionConfig(HydroModelBase):
         default=0.5,
         gt=0.0,
         description=(
-            "Minimum layer thickness [L, model units] held by EVERY layer when "
+            "Minimum layer thickness, in metres, held by EVERY layer when "
             "re-grading a lake column around the carved bed, so no degenerate "
             "(near-zero) cell breaks the solver. The bed is clamped into the band "
             "the column can hold at that floor, i.e. [base + n_active * "
@@ -310,6 +363,7 @@ class BathymetryReconstructionConfig(HydroModelBase):
             "for it raises at build time. Raising this value moves the carved bed "
             "away from the bathymetry (the build logs the shift)."
         ),
+        json_schema_extra={"unit": "m"},
     )
     min_pixels: Annotated[int, Profile.USER] = Field(
         default=1,
@@ -317,8 +371,9 @@ class BathymetryReconstructionConfig(HydroModelBase):
         description=(
             "Minimum bathymetry pixels whose centre must fall inside a cell for the "
             "zonal mean to be used; below it a bilinear sample at the cell centroid "
-            "is taken instead."
+            "is taken instead. A count of pixels."
         ),
+        json_schema_extra={"unit": "-"},
     )
 
     @model_validator(mode="after")
@@ -358,6 +413,7 @@ class FlowLakeConfig(HydroModelBase):
         json_schema_extra=field_metadata(
             calibrable=Calibrable(transform="log", prior="log_uniform", units="1/s")
         ),
+        examples=[1.0e-6],
     )
     bedleak_unit: Annotated[str, Profile.USER] = Field(
         default="1/s",
@@ -367,7 +423,13 @@ class FlowLakeConfig(HydroModelBase):
             "so a 1/day leakance is not silently taken as 1/s."
         ),
     )
-    stageinit: Annotated[Length, Profile.USER] = Field(..., description="Initial lake stage [L].")
+    stageinit: Annotated[Length, Profile.USER] = Field(
+        ...,
+        description=(
+            "Lake stage at the start of the run: the elevation of the water surface, in metres."
+        ),
+        examples=[45.0],
+    )
     steady_stage_hold: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
@@ -385,8 +447,9 @@ class FlowLakeConfig(HydroModelBase):
             "Number of top grid layers the lake occupies in each of its columns. "
             "1 is a surface lake; a deeper reservoir embedded over several layers "
             "uses a higher count. Must leave at least one active layer below the "
-            "lake for the VERTICAL leakage connection."
+            "lake for the VERTICAL leakage connection. A count of layers."
         ),
+        json_schema_extra={"unit": "-"},
     )
     fill_enclosed_cells: Annotated[bool, Profile.USER] = Field(
         default=False,
@@ -429,25 +492,37 @@ class FlowLakeConfig(HydroModelBase):
             "of leaking through the top layers."
         ),
     )
-    rainfall: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
+    rainfall: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
         default=None,
-        description="Optional rainfall rate forcing [L/T] (per unit lake surface).",
+        description=(
+            "Rainfall on the lake over time, as a rate per unit of lake surface (m/s in SI). "
+            "It wins over the rainfall taken from [data.precipitation]."
+        ),
     )
-    evaporation: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
+    evaporation: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
         default=None,
-        description="Optional open-water evaporation rate forcing [L/T].",
+        description=(
+            "Open-water evaporation over time, as a rate per unit of lake surface "
+            "(m/s in SI). It wins over the evaporation taken from [data.etp]."
+        ),
     )
-    runoff: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
+    runoff: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
         default=None,
-        description="Optional runoff forcing, volumetric [L^3/T].",
+        description=(
+            "Runoff that enters the lake over time, as a volume per time (m3/s in SI). "
+            "It wins over the runoff taken from [data.runoff]."
+        ),
     )
-    inflow: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
+    inflow: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
         default=None,
-        description="Optional inflow forcing, volumetric [L^3/T].",
+        description="Other inflow to the lake over time, as a volume per time (m3/s in SI).",
     )
-    withdrawal: Annotated[FlowWellForcingConfig | None, Profile.DEV] = Field(
+    withdrawal: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
         default=None,
-        description="Optional withdrawal forcing, volumetric [L^3/T].",
+        description=(
+            "Rate of water taken from the lake over time, as a volume per time "
+            "(m3/s in SI). It is passed to the WITHDRAWAL setting of MODFLOW 6 LAK."
+        ),
     )
 
     @field_validator("bedleak_unit")

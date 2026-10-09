@@ -37,53 +37,60 @@ class LakeRefinementConfig(HydroModelBase):
     cell_size: Annotated[float, Profile.USER] = Field(
         default=40.0,
         gt=0.0,
-        description="Target cell size [L] in the lake shoreline band.",
+        description="Target cell size, in metres, in the lake shoreline band.",
+        json_schema_extra={"unit": "m"},
     )
     shoreline_band: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
         description=(
-            "Half-width [L] of the refined band around the lake shoreline. "
+            "Half-width, in metres, of the refined band around the lake shoreline. "
             "When omitted, derives 2 * cell_size. Must be >= cell_size so the "
             "band holds at least one target cell (a thinner band would slip "
             "between the size-field sampling nodes)."
         ),
+        json_schema_extra={"unit": "m"},
     )
     buffer: Annotated[float, Profile.USER] = Field(
         default=200.0,
         ge=0.0,
-        description="Transition distance [L] over which the lake sizes ramp back to global.",
+        description="Transition distance, in metres, over which the lake sizes ramp back to global.",
+        json_schema_extra={"unit": "m"},
     )
     interior_size: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
         description=(
-            "Optional target cell size [L] inside the whole lake footprint "
+            "Optional target cell size, in metres, inside the whole lake footprint "
             "(marnage / bathymetry resolution). When omitted, the interior "
             "keeps the background size."
         ),
+        json_schema_extra={"unit": "m"},
     )
     dam_cell_size: Annotated[float, Profile.USER] = Field(
         default=30.0,
         gt=0.0,
-        description="Target cell size [L] in the hydraulic-structure zones (cutoff wall, sill).",
+        description="Target cell size, in metres, in the hydraulic-structure zones (cutoff wall, sill).",
+        json_schema_extra={"unit": "m"},
     )
     dam_buffer: Annotated[float, Profile.USER] = Field(
         default=150.0,
         gt=0.0,
         description=(
-            "Base half-width [L] of the structure refinement corridors; also the "
+            "Base half-width, in metres, of the structure refinement corridors; also the "
             "radius of the optional dam-outlet disk."
         ),
+        json_schema_extra={"unit": "m"},
     )
     hfb_buffer: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0.0,
         description=(
-            "Half-width [L] of the refined zone around the dam cutoff wall (HFB). "
+            "Half-width, in metres, of the refined zone around the dam cutoff wall (HFB). "
             "The zone covers the lake outlet area. When omitted, derives 2 * dam_buffer. "
             "Must be >= dam_cell_size so the zone holds at least one target cell."
         ),
+        json_schema_extra={"unit": "m"},
     )
     dam_outlet_disk: Annotated[bool | None, Profile.USER] = Field(
         default=None,

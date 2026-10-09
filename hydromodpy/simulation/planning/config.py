@@ -83,8 +83,8 @@ class SimulationTimeConfig(HydroModelBase):
     step_unit: Annotated[TimePeriodUnit | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Optional forcing/stress-period base time unit used with step_value "
-            "when step_value is provided without an inline unit."
+            "Unit of a bare-number step_value: the length of the stress periods and "
+            "of the forcing steps."
         ),
         json_schema_extra={
             "value_docs": {
@@ -123,7 +123,7 @@ class SimulationTimeConfig(HydroModelBase):
             "own [flow].vi_substeps_per_period."
         ),
     )
-    coverage_policy: Annotated[CoveragePolicy, Profile.DEV] = Field(
+    coverage_policy: Annotated[CoveragePolicy, Profile.USER] = Field(
         default="error",
         description=(
             "What happens to a stress period that a forcing record does not "
@@ -284,8 +284,8 @@ class MeshProcessConfig(_ProcessBase):
     backend: Annotated[Literal["catchment"], Profile.USER] = Field(
         default="catchment",
         description=(
-            "Backend used by the mesh process. Currently only 'catchment' is "
-            "supported (delegates to the [mesh_catchment] runtime)."
+            "How the mesh process builds its mesh. 'catchment' is the one value: it "
+            "builds the mesh that [mesh_catchment] describes."
         ),
     )
     solvers: Annotated[list[str], Profile.USER] = Field(
@@ -423,15 +423,23 @@ class SimulationConfig(HydroModelBase):
     )
     study_area_name: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Human-readable study area name.",
+        description="Name of the study area, recorded in the run metadata and the catalog.",
     )
     outlet_x: Annotated[float | None, Profile.USER] = Field(
         default=None,
-        description="Outlet X coordinate in the project CRS units.",
+        description=(
+            "Easting of the declared study outlet, in metres in the project CRS. It is "
+            "recorded in the run manifest; the delineation reads [geographic.catchment]."
+        ),
+        json_schema_extra={"unit": "m"},
     )
     outlet_y: Annotated[float | None, Profile.USER] = Field(
         default=None,
-        description="Outlet Y coordinate in the project CRS units.",
+        description=(
+            "Northing of the declared study outlet, in metres in the project CRS. It is "
+            "recorded in the run manifest; the delineation reads [geographic.catchment]."
+        ),
+        json_schema_extra={"unit": "m"},
     )
     time: Annotated[SimulationTimeConfig | None, Profile.USER] = Field(
         default=None,
@@ -449,7 +457,7 @@ class SimulationConfig(HydroModelBase):
             "[[simulation.process]]. At most one process per type is supported."
         ),
     )
-    results: Annotated[ResultsConfig, Profile.DEV] = Field(
+    results: Annotated[ResultsConfig, Profile.USER] = Field(
         default_factory=ResultsConfig,
         description=(
             "Results storage and export configuration loaded from "
@@ -468,6 +476,7 @@ class SimulationConfig(HydroModelBase):
             "``runs_environment.rng_seed`` so the run can be re-executed "
             "from the catalog snapshot."
         ),
+        json_schema_extra={"unit": "-"},
     )
 
     @field_validator("process", mode="before")

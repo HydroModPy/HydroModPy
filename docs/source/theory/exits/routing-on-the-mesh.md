@@ -107,7 +107,7 @@ centre is below the flood level, so it takes $4 + 0.001$ m.
 (routing-channel)=
 ## The channel tree
 
-When the run generates a river network (see
+When the run generates a stream network (see
 {doc}`../../guides/route-streams-with-sfr`), $D$ follows it. That network was
 traced on the D8 pointer of the DEM routing. On the mesh, a cell that holds a
 pixel of it is a channel cell, and it is pinned to the next channel cell along

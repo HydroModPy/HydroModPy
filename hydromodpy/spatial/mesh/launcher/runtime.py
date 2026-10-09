@@ -77,6 +77,13 @@ def get_optional_mesh_section(
     return parse_mesh_catchment_config_data(section)
 
 
+def _river_network_user(section_name: str, constraints_mode: str) -> str:
+    """Name what switches the river network on, for a refusal message."""
+    if section_name == "mesh_input":
+        return "The 'stream' boundary on a [mesh_input] mesh"
+    return f"{section_name}.constraints_mode = {constraints_mode!r}"
+
+
 def prepare_geographic_config_for_meshing(
     geographic_cfg: GeographicConfig,
     *,
@@ -90,6 +97,11 @@ def prepare_geographic_config_for_meshing(
         return geographic_cfg
     if bool(getattr(geographic_cfg.river_network, "enabled", False)):
         return geographic_cfg
+    refusal = geographic_cfg.river_network.missing_threshold_refusal(
+        needed_by=_river_network_user(section_name, constraints_mode)
+    )
+    if refusal is not None:
+        raise ValueError(refusal)
 
     updated_river_network = clone_config_like(
         geographic_cfg.river_network,

@@ -58,8 +58,8 @@ class FlowRechargeConfig(HydroModelBase):
     values: Annotated[Any, Profile.USER] = Field(
         default=0.0,
         description=(
-            "Recharge payload: scalar, list (one per stress period), "
-            "mapping {kper: value}, or runtime series, in the unit that "
+            "Recharge rate: one number, one number per stress period, a table "
+            "{period: value}, or the series loaded from [data.recharge], in the unit that "
             "'units' names (mm/day by default). A calibration reads its bounds "
             "in that unit too. The "
             "'matching_hydrographic_network' protocol calibrates conductivity "

@@ -487,9 +487,9 @@ for parameter in report.frozen:
 The metrics `hmp catalog show` prints for a run cover the whole run, spin-up included: they
 are not the cost of the search, which reads the scoring window only. To pick among the runs of
 a project, `@best:<metric>` follows the direction of the metric: `hmp catalog show
-@best:log_nse` shows the completed run with the highest NSE on log discharge, calibrated or
-not, and `@best:rmse` the one with the lowest error. The catalog names that metric `log_nse`
-where a calibration file writes `nse_log`.
+@best:nse_log` shows the completed run with the highest NSE on log discharge, calibrated or
+not, and `@best:rmse` the one with the lowest error. The catalog and a calibration file give
+that metric the same name, `nse_log`.
 
 ## What can go wrong
 

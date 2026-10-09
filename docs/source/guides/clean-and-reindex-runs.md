@@ -49,9 +49,8 @@ hmp catalog trash --empty
 - `trash` lists the runs by name and `<id8>`. Name a trashed run by its `<id8>`: a bare name
   is looked up among the live runs first ({doc}`find-and-compare-runs`).
 - `restore` prints `restored as <name>  [<id8>]`. The run comes back under its old name when
-  that name is free, and under a version suffix otherwise. A versioned run can come back one
-  version higher than it had (a `.v2` run came back as `.v3` in a check), so read the name
-  the message gives.
+  that name is free, a `.v2` run as `.v2`. When another run took the name meanwhile, it comes
+  back under the next free version, so read the name the message gives.
 - `trash --empty` frees the disk for good. It skips pinned runs unless you add `--force`, and
   prints `purged <n> run(s) from trash.`
 - `hmp catalog delete --now` skips the trash and removes the folder `runs/<name>/` at once.

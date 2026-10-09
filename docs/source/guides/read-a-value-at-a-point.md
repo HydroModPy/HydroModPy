@@ -236,7 +236,7 @@ These messages come from the code. The first four stop `hmp catalog point`, whic
 the message on the error stream.
 
 - A reference that matches no run:
-  `Reference 'run_x' not found. Run `hmp catalog ls` to list known runs.` A name close
+  ``Reference 'run_x' not found. Run `hmp catalog ls` to list known runs.`` A name close
   to a known one is suggested after it. `@last` with no completed run gives
   `No completed run for '@last'`. The exit code is 10.
 - A point outside the mesh: `Point (X, Y) falls outside the mesh of run 'NAME'.` The

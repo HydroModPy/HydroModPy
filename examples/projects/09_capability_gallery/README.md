@@ -45,8 +45,6 @@ expensive part and are not timed here.
 
 ## What it shows
 
-`python -m tools.doc_gallery` is the only reader of this tree at doc-build
-time: it discovers every `case.json` and manifest here and renders the RST
-pages under `docs/source/capability_gallery/`. Nothing in that build touches
-a solver, which keeps the documentation reproducible without MODFLOW, PETSc
-or a WSL/Linux toolchain installed.
+No tool reads this tree now. The documentation build dropped the capability
+gallery, so the figures and manifests listed above are kept as they were
+committed, and nothing here needs a solver to be read.

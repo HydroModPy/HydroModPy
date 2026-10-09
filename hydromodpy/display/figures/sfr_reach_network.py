@@ -13,6 +13,7 @@ from hydromodpy.display.figures.sfr_reach_timeseries import (
 )
 from hydromodpy.display.maps.axes import overlay_watershed_contour, style_relative_km_axes
 from hydromodpy.display.maps.geo import GeoFigureMixin
+from hydromodpy.display.style import neutral
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -99,6 +100,6 @@ class SfrReachNetwork(GeoFigureMixin, BaseFigure):
             va="top",
             ha="left",
             fontsize=9,
-            bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
+            bbox={"boxstyle": "round", "facecolor": neutral("white"), "alpha": 0.8},
         )
         return ax

@@ -11,5 +11,11 @@ class OceanicManager(BaseFieldManager):
     """Sea level from the user's files, the nearest SHOM gauge, or a constant."""
 
     VARIABLE_NAME = "oceanic"
+    """Name of the data type, as ``[data.oceanic]`` writes it."""
+
     INTERNAL_UNIT = "m"
+    """Unit of the stored sea level: metres."""
+
     SOURCES = {"shom": shom.fetch_for_config, "constant": constant.fetch}
+    """Sources other than ``custom``: ``shom`` reads the nearest SHOM tide gauge,
+    ``constant`` writes one sea level for the whole period."""

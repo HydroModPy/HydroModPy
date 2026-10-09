@@ -38,6 +38,7 @@ import os
 import re
 import subprocess
 import sys
+import urllib.error
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -45,6 +46,7 @@ from pathlib import Path
 from typing import Literal
 
 from hydromodpy.core import progress
+from hydromodpy.core.exceptions import NetworkError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import cache_dir
 from hydromodpy.solver.modflow_common.executables import ensure_platform_executable
@@ -53,6 +55,9 @@ logger = get_logger(__name__)
 
 MANIFEST_FILENAME = ".manifest.json"
 DEFAULT_RELEASE = "23.0"
+
+BINARIES_REPOSITORY = "MODFLOW-ORG/executables"
+"""GitHub repository ``flopy.utils.get_modflow`` reads the solver binaries from."""
 
 SOLVER_EXECUTABLES: dict[str, str] = {"modflow6": "mf6", "modflow_nwt": "mfnwt"}
 """Catalog solver code -> canonical executable this module can fetch."""
@@ -183,9 +188,40 @@ def download_solver_binaries(
         ) from exc
 
     logger.info("Downloading solver binaries %s (release=%s) into %s", names, release, target)
-    get_modflow(str(target), subset=names, quiet=quiet, force=force, release_id=release)
+    try:
+        get_modflow(str(target), subset=names, quiet=quiet, force=force, release_id=release)
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+        raise _download_failed(release, target, exc) from exc
+    except RuntimeError as exc:
+        # flopy wraps an HTTP failure of the release query in a RuntimeError.
+        if isinstance(exc.__cause__, urllib.error.URLError):
+            raise _download_failed(release, target, exc.__cause__) from exc
+        raise
+    except ValueError as exc:
+        # flopy reports a GitHub rate limit or a refused token as a ValueError.
+        if "GITHUB_TOKEN" in str(exc):
+            raise _download_failed(release, target, exc) from exc
+        raise
     _write_manifest(target, release=release, solvers=names, replace=force)
     return target
+
+
+def release_url(release: str) -> str:
+    """Return the GitHub API address the binaries of ``release`` are read from."""
+    base = f"https://api.github.com/repos/{BINARIES_REPOSITORY}/releases"
+    return f"{base}/latest" if release == "latest" else f"{base}/tags/{release}"
+
+
+def _download_failed(release: str, target: Path, exc: BaseException) -> NetworkError:
+    """Name the address, the cause and what to set, for a download that did not reach GitHub."""
+    reason = getattr(exc, "reason", None) or exc
+    return NetworkError(
+        f"Could not download the MODFLOW binaries of release {release} from "
+        f"{release_url(release)}: {reason}. Behind a proxy, set HTTPS_PROXY (and HTTP_PROXY). "
+        "When GitHub limits the requests, set GITHUB_TOKEN to a personal access token. "
+        f"Without network, copy the executables into {target}, or into a folder named by "
+        "HMP_BIN."
+    )
 
 
 def ensure_solver_binary(solver: str, bin_path: str | os.PathLike[str] | None = None) -> Path:

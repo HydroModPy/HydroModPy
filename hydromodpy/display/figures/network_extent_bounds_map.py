@@ -30,15 +30,15 @@ from hydromodpy.display.figure_options import DiagonalNeighbors, Extent, Opt, Ta
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._memo import RunMemo
 from hydromodpy.display.figures._stream_comparison import (
-    AGREEMENT_COLORS,
     CASING_COLOR,
     CELL_WEIGHT_PT,
-    GROUND_COLOR,
+    agreement_color,
     cell_count,
     checked_cells,
     class_label,
     draw_cells,
     flowing_words,
+    ground_color,
     map_extent,
     map_legend,
     select_cells,
@@ -220,7 +220,7 @@ class NetworkExtentBoundsMap(BaseFigure):
         else:
             handles = _draw_one(ax, polygons, extents, bound, chosen_year)
 
-        ax.set_facecolor(GROUND_COLOR)
+        ax.set_facecolor(ground_color())
         style_map_axes(ax)
         overlay_watershed_contour(ax, sim, color="#404040", linewidth=0.9, alpha=0.7)
         what = "both bounds" if bound == "both" else f"{bound} bound"
@@ -460,14 +460,14 @@ def _draw_one(
         draw_cells(
             ax,
             select_cells(polygons, mask),
-            color=AGREEMENT_COLORS[value],
+            color=agreement_color(value),
             label=class_label(value),
             zorder=zorder,
             weight_pt=_FLAT_WEIGHT_PT,
         )
         handles.append(
             Patch(
-                facecolor=AGREEMENT_COLORS[value],
+                facecolor=agreement_color(value),
                 edgecolor=CASING_COLOR,
                 label=f"{class_label(value)} ({cell_count(mask)})",
             )

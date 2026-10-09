@@ -34,9 +34,9 @@ from hydromodpy.display.figure_options import (
 )
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._stream_comparison import (
-    AGREEMENT_COLORS,
     CASING_COLOR,
     CELL_WEIGHT_PT,
+    agreement_color,
     catchment_cells,
     cell_count,
     checked_cells,
@@ -44,6 +44,7 @@ from hydromodpy.display.figures._stream_comparison import (
     comparison_from_run,
     dated_title,
     draw_cells,
+    ground_edge,
     map_extent,
     map_legend,
     select_cells,
@@ -76,9 +77,6 @@ _LEGEND_ORDER: tuple[int, ...] = (
     AGREEMENT_NEITHER,
 )
 """The three classes first: they are what the figure is read for."""
-
-_NEITHER_EDGE = "#c8c8c8"
-"""A border on the legend swatch, which is otherwise white on white."""
 
 _FLAT_WEIGHT_PT = 0.0
 """What everything but the casing is drawn at, so no class widens over another.
@@ -140,7 +138,7 @@ class SeepageNetworkConfusionMap(BaseFigure):
         draw_cells(
             ax,
             select_cells(polygons, agreement == AGREEMENT_NEITHER),
-            color=AGREEMENT_COLORS[AGREEMENT_NEITHER],
+            color=agreement_color(AGREEMENT_NEITHER),
             label=agreement_label(AGREEMENT_NEITHER),
             zorder=1,
             weight_pt=_FLAT_WEIGHT_PT,
@@ -157,7 +155,7 @@ class SeepageNetworkConfusionMap(BaseFigure):
             draw_cells(
                 ax,
                 select_cells(polygons, agreement == value),
-                color=AGREEMENT_COLORS[value],
+                color=agreement_color(value),
                 label=agreement_label(value),
                 zorder=zorder,
                 weight_pt=_FLAT_WEIGHT_PT,
@@ -194,8 +192,8 @@ def _legend_handles(agreement: np.ndarray, scope: np.ndarray | None) -> list[Pat
             continue
         handles.append(
             Patch(
-                facecolor=AGREEMENT_COLORS[value],
-                edgecolor=_NEITHER_EDGE if value == AGREEMENT_NEITHER else CASING_COLOR,
+                facecolor=agreement_color(value),
+                edgecolor=ground_edge() if value == AGREEMENT_NEITHER else CASING_COLOR,
                 label=f"{class_label(value)} ({cell_count(selected)})",
             )
         )

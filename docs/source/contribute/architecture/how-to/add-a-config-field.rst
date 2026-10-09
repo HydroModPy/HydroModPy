@@ -55,9 +55,6 @@ Sections live close to the package they configure:
    * - ``[display]``
      - ``DisplayConfig``
      - ``hydromodpy/display/config.py``
-   * - ``[persistence]``
-     - ``PersistenceConfig``
-     - ``hydromodpy/core/config_kit/persistence.py``
    * - ``[analysis]``
      - ``AnalysisConfig``
      - ``hydromodpy/analysis/config.py``

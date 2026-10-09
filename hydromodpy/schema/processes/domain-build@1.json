@@ -297,6 +297,7 @@
                 "exclusiveMinimum": 0.0,
                 "title": "Scale",
                 "type": "number",
+                "unit": "-",
                 "x-hmp-profile": "user"
               }
             },

@@ -108,7 +108,7 @@ It is refused on an engine that returns the same answer every time, `bisection` 
 so the network stage of the published method cannot take restarts.
 :::
 
-:::{tab-item} linearized
+:::{tab-item} linearised
 It takes derivatives of the simulated values around the answer, one model run per
 parameter, and reports for each parameter a first-order width, `sigma`, and the parameter it
 trades off against. It needs an output that names a station to take residuals from.

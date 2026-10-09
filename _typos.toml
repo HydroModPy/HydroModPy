@@ -1,0 +1,42 @@
+# Spell gate for the documentation (CI job "typos" in .github/workflows/docs.yml).
+# Run it locally: typos docs/source README.md CONTRIBUTING.md SECURITY.md
+# The gate reads written text only. Generated data and bibliographic records
+# are excluded: the bibliography keeps the spelling of the cited work.
+
+[files]
+extend-exclude = [
+  "docs/source/_static/**",
+  "docs/source/_data/**",
+  "docs/source/theory/references.bib",
+  "docs/source/theory/validation_results.json",
+  "docs/source/about/affiliations.yaml",
+  "docs/build/**",
+]
+
+[default.extend-words]
+# Real names and abbreviations that look like a typo.
+Theis = "Theis"
+theis = "theis"
+# MODFLOW package name WEL, written in upper and lower case.
+WEL = "WEL"
+wel = "wel"
+# Optuna sampler.
+TPE = "TPE"
+
+[default.extend-identifiers]
+# Short names of the code, never prose.
+lits = "lits"
+anc = "anc"
+pn = "pn"
+# Identifier of the piezometer "amont" (upstream) in the examples.
+piezo_amont = "piezo_amont"
+
+[default]
+# Deliberately misspelled keys quoted in "What can go wrong" tables: the
+# page shows the error the loader prints for a key it does not know.
+extend-ignore-re = [
+  "simulation_nam\\b",
+  "exceute",
+  # Key of [geographic], spelled this way in the model.
+  "dem_correc_type",
+]

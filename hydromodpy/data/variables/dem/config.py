@@ -21,7 +21,10 @@ class _DemSourceBase(HydroModelBase):
 
     mask_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
-        description="SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+        description=(
+            "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is "
+            "requested over. A project run fills it with the delineated watershed."
+        ),
     )
     extent: Annotated[Literal["watershed", "study_area"] | None, Profile.DEV] = Field(
         default=None,
@@ -29,9 +32,9 @@ class _DemSourceBase(HydroModelBase):
             "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it."
         ),
     )
-    force_refresh: Annotated[bool, Profile.DEV] = Field(
+    force_refresh: Annotated[bool, Profile.USER] = Field(
         default=False,
-        description="Ignore cache and re-download from API.",
+        description="Download this source again instead of reading the cache.",
     )
 
 
@@ -49,6 +52,7 @@ class CustomDemSource(_DemSourceBase):
     ] = Field(
         ...,
         description="Path to custom DEM file or directory (TIF, ASC, NC).",
+        examples=["dem.tif"],
     )
 
 
@@ -108,7 +112,7 @@ class IgnGeoplateformeDemSource(_FrenchAdministrativeDemSource):
     file_format: Annotated[str, Profile.USER] = Field(
         default="ASC",
         description=(
-            "Requested archive payload format when exposed by Geoplateforme. "
+            "Format of the archive requested from the IGN Geoplateforme, such as 'ASC'. "
             "Not used by 'rge-alti', which is a GeoTIFF."
         ),
     )

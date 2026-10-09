@@ -563,6 +563,7 @@ def build_sfr_package_args(
                 "manning": float(manning),
                 "strahler": int(record.strahler),
                 "ustrf": float(record.ustrf),
+                "downstream": [int(down) for down in record.downstream],
             }
         )
         row: list[Any] = [int(record.ifno)]

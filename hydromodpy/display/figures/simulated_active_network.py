@@ -40,10 +40,11 @@ from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._memo import RunMemo
 from hydromodpy.display.figures._stream_comparison import (
     CELL_WEIGHT_PT,
-    GROUND_COLOR,
     cell_count,
     draw_cells,
     flowing_words,
+    ground_color,
+    ground_edge,
     map_extent,
     map_legend,
     select_cells,
@@ -326,7 +327,7 @@ def _draw_active(
     draw_cells(
         ax,
         select_cells(polygons, modelled & ~active),
-        color=GROUND_COLOR,
+        color=ground_color(),
         label=_MODELLED_LABEL,
         zorder=1,
         weight_pt=0.0,
@@ -346,8 +347,8 @@ def _draw_active(
             label=f"{_ACTIVE_LABEL} ({cell_count(active)})",
         ),
         Patch(
-            facecolor=GROUND_COLOR,
-            edgecolor="#c8c8c8",
+            facecolor=ground_color(),
+            edgecolor=ground_edge(),
             label=f"{_MODELLED_LABEL} ({cell_count(modelled & ~active)})",
         ),
     ]
@@ -379,7 +380,7 @@ def _draw_persistence(
     draw_cells(
         ax,
         select_cells(polygons, never),
-        color=GROUND_COLOR,
+        color=ground_color(),
         label=_NEVER_ACTIVE_LABEL,
         zorder=1,
         weight_pt=0.0,
@@ -398,8 +399,8 @@ def _draw_persistence(
     collection.set_zorder(2)
     return [
         Patch(
-            facecolor=GROUND_COLOR,
-            edgecolor="#c8c8c8",
+            facecolor=ground_color(),
+            edgecolor=ground_edge(),
             label=f"{_NEVER_ACTIVE_LABEL} ({cell_count(never)})",
         )
     ]

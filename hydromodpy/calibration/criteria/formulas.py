@@ -69,18 +69,21 @@ METRIC_FORMULAS: dict[str, MetricFormula] = {
         score=r"1 - \dfrac{\sum_t (s_t - o_t)^2}{\sum_t (o_t - c_t)^2}",
         reads="The fit beyond the seasonal cycle of the observations. Below zero, "
         "the model does worse than that cycle alone.",
-        where=r"c_t = a_0 + \textstyle\sum_{k=1}^{2} \big(a_k \cos\tfrac{2\pi k t}{365}"
-        r" + b_k \sin\tfrac{2\pi k t}{365}\big),\ \text{fitted to } o \text{ by least squares}",
-        note="The period is 365 samples and two periods are needed, so the series "
-        "has to be daily. A shorter series scores NaN.",
+        where=r"c_t = a_0 + \textstyle\sum_{k=1}^{2} \big(a_k \cos\tfrac{2\pi k t}{P}"
+        r" + b_k \sin\tfrac{2\pi k t}{P}\big),\ \text{fitted to } o \text{ by least squares},"
+        r"\ P = 365.25\,\text{days} / \Delta t",
+        note="P is one year counted in samples of the series, whose step Delta t is read "
+        "from its dates. Two years are needed: a shorter series scores NaN. A series "
+        "with no dates is taken as daily.",
     ),
     "reservoir": MetricFormula(
         score=r"\tfrac{1}{2}\,\mathrm{NSE}_{\mathrm{seasonal}}(s, o) + "
-        r"\tfrac{1}{2}\,\mathrm{NSE}(\Delta_{10} s,\ \Delta_{10} o)",
+        r"\tfrac{1}{2}\,\mathrm{NSE}(\Delta_{n} s,\ \Delta_{n} o)",
         reads="Built for an impounded level: the seasonal half keeps the level "
         "honest, the increment half makes the water balance count.",
-        where=r"\Delta_{10} x_t = x_{t+10} - x_t",
-        note="Daily series only, as for nse_seasonal.",
+        where=r"\Delta_{n} x_t = x_{t+n} - x_t,\ n = \max(1,\ \mathrm{round}(10\,\text{days} / \Delta t))",
+        note="The seasonal half reads the dates as nse_seasonal does. The increments "
+        "span ten days, or one sample on a coarser series.",
     ),
     "distance_gap": MetricFormula(
         score=r"\lvert D_{so} - D_{os} \rvert",

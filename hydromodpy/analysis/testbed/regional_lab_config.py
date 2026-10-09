@@ -148,7 +148,8 @@ class RegionalLabCatalogConfig(HydroModelBase):
     """Normalized catalog-loading contract."""
 
     path: Annotated[Path, Profile.USER] = Field(
-        description="Resolved path to the site catalog (CSV or JSONL)."
+        description="Resolved path to the site catalog (CSV or JSONL).",
+        examples=["sites.csv"],
     )
     format: Annotated[Literal["auto", "csv", "jsonl"], Profile.USER] = Field(
         default="auto",
@@ -360,7 +361,8 @@ class RegionalLabSelectionConfig(HydroModelBase):
     )
     limit: Annotated[int | None, Profile.USER] = Field(
         default=None,
-        description="Maximum number of sites to retain after filtering. None disables.",
+        description="Most sites kept after filtering. Unset, every site that passes is kept.",
+        json_schema_extra={"unit": "-"},
     )
     include_disabled: Annotated[bool, Profile.USER] = Field(
         default=False,
@@ -391,15 +393,25 @@ class RegionalLabSelectionConfig(HydroModelBase):
 class RegionalLabClusterRuleConfig(HydroModelBase):
     """One explicit cluster enrichment rule applied on top of the site catalog."""
 
-    id: Annotated[str, Profile.USER] = Field(description="Unique rule identifier.")
-    label: Annotated[str, Profile.USER] = Field(description="Human-readable rule label.")
+    id: Annotated[str, Profile.USER] = Field(
+        description="Name of the rule, unique among the cluster rules of the lab.",
+        examples=["granite_headwaters"],
+    )
+    label: Annotated[str, Profile.USER] = Field(
+        description="Label of the rule shown in the lab outputs.",
+        examples=["Granite headwaters"],
+    )
     enabled: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="If False, the rule is parsed but skipped during enrichment.",
     )
     priority: Annotated[int, Profile.USER] = Field(
         default=100,
-        description="Application order (lower runs first) when several rules match.",
+        description=(
+            "Order in which the rules apply when several match a site: the lower number "
+            "applies first."
+        ),
+        json_schema_extra={"unit": "-"},
     )
     selection: Annotated[RegionalLabSelectionConfig, Profile.USER] = Field(
         description="Site filters (ids, regions, families, tags) restricting which sites the rule applies to.",
@@ -485,10 +497,16 @@ class RegionalLabClusterRuleConfig(HydroModelBase):
 class RegionalLabRecipeConfig(HydroModelBase):
     """One recipe expanded across selected sites."""
 
-    id: Annotated[str, Profile.USER] = Field(description="Unique recipe identifier.")
-    label: Annotated[str, Profile.USER] = Field(description="Human-readable recipe label.")
+    id: Annotated[str, Profile.USER] = Field(
+        description="Name of the recipe, unique among the recipes of the lab.",
+        examples=["steady_baseline"],
+    )
+    label: Annotated[str, Profile.USER] = Field(
+        description="Label of the recipe shown in the lab outputs. Unset, the id is used.",
+    )
     launcher: Annotated[Literal["simulation", "comparison"], Profile.USER] = Field(
-        description="Child launcher dispatched per site.",
+        description="Workflow the recipe launches on each selected site.",
+        examples=["simulation"],
         json_schema_extra={
             "value_docs": {
                 "simulation": "Runs each site's generated config through the "
@@ -503,7 +521,7 @@ class RegionalLabRecipeConfig(HydroModelBase):
     )
     enabled: Annotated[bool, Profile.USER] = Field(
         default=True,
-        description="If False, the recipe is parsed but skipped during dispatch.",
+        description="If False, the recipe is read and checked but launches nothing.",
     )
     selection: Annotated[RegionalLabSelectionConfig, Profile.USER] = Field(
         description="Site filters restricting which sites this recipe expands over.",
@@ -605,7 +623,13 @@ class RegionalLabConfig(HydroModelBase):
     base_dir: Annotated[Path, Profile.USER] = Field(
         description="Directory used to resolve relative paths."
     )
-    lab_id: Annotated[str, Profile.USER] = Field(description="Regional-lab identifier.")
+    lab_id: Annotated[str, Profile.USER] = Field(
+        description=(
+            "Name of the regional lab, used in its output paths. Unset, the name of the "
+            "TOML file is used."
+        ),
+        examples=["brittany_lab"],
+    )
     output_root: Annotated[Path, Profile.USER] = Field(
         description="Directory where lab artifacts are written."
     )

@@ -36,7 +36,7 @@ transient = cat.find(status="completed", flow_regime="transient")
 scores = pd.DataFrame(
     {
         metric: transient.compare(metric, station="NANCON").set_index("name")["value"]
-        for metric in ["nse", "log_nse", "kge"]
+        for metric in ["nse", "nse_log", "kge"]
     }
 )
 print(scores.sort_values("nse", ascending=False).round(3))

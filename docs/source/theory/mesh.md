@@ -77,7 +77,7 @@ they are two sources for the same mesh. A mesh that already exists is declared w
 the steps below like a mesh the run built.
 
 The triangle sizes come from a size field. Around the interface curves (rivers,
-geology interfaces, the watershed boundary), when
+geology interfaces, the catchment boundary), when
 {toml}`mesh_catchment.zone_meshing.refine_interfaces` is on, the code gives Gmsh a
 Distance field to the curves and a Threshold field on it, with the lower distance set to
 zero. With $\xi$ the distance to the nearest interface, the wanted size is linear
@@ -101,7 +101,7 @@ $$
 $$ (eq-mesh-size-bounds)
 
 The size fields of the lakes, of the refinement zones and of the coarsening outside the
-watershed are combined with the interface fields by the minimum
+catchment are combined with the interface fields by the minimum
 (`set_background_mesh_from_fields`). The upper bound is raised to the largest size of such
 a regional field when the section declares one (`compute_effective_max_size`). The
 lower bound has a consequence that the keys do not announce: with no
@@ -429,6 +429,11 @@ summary says `overall_pass: false` still runs.
 base_config = "step4_transient.toml"
 
 # The lower bound of the size is set, so the refinement acts.
+# The rivers the mesh follows: every cell that drains more than 0.5 km2.
+[geographic.river_network]
+enabled = true
+threshold_area_km2 = 0.5
+
 [mesh_catchment]
 constraints_mode = "rivers_only"
 
@@ -484,6 +489,11 @@ A runtime mesh with the triangles kept as cells, for a run that compares the two
 
 ```toml
 base_config = "step4_transient.toml"
+
+# The rivers the mesh follows: every cell that drains more than 0.5 km2.
+[geographic.river_network]
+enabled = true
+threshold_area_km2 = 0.5
 
 [mesh_catchment]
 constraints_mode = "rivers_only"

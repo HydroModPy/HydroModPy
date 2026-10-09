@@ -84,9 +84,9 @@ A run writes the files it has data for. A run with no SFR network has no
 | `mass_balance.parquet` | `sim_id`, `timestep`, `quantity`, `total_in`, `total_out`, `storage_in`, `storage_out`, `percent_error`, `unit` |
 | `provenance.parquet` | One row per input the run used: `variable`, `source_type`, `source_ref`, `source_sha256`, `loader_name`, `fetched_at`, `n_records` and others |
 | `observation_points.parquet` | The points declared in the observation section: `station_id`, `x`, `y`, `cell_id`, `layer`, the CRS |
-| `sfr_reaches.parquet` | One row per SFR reach: geometry, bed and Manning values, Strahler order |
+| `sfr_reaches.parquet` | One row per SFR reach: geometry, bed and Manning values, Strahler order, the reaches each one drains into |
 | `soil_budget.parquet` | The soil reservoir balance, in mm, per column and per year |
-| `geographic_<name>.parquet` | GeoParquet features: watershed, contour, buffered box, networks. Read them with `geopandas.read_parquet`. |
+| `geographic_<name>.parquet` | GeoParquet features: catchment, contour, buffered box, networks. Read them with `geopandas.read_parquet`. |
 
 ## 2. Read the fields and the series
 

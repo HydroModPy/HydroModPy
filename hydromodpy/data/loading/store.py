@@ -162,6 +162,21 @@ class DataStore:
         )
         return manager.load()
 
+    def fetch_network(self, source_cfg: Any, mask_path: str | Path) -> Any:
+        """Return the network one listed source answers over the box of *mask_path*.
+
+        Read from this store's cache and stored in it, as a run stores it: a
+        workspace store keeps the answer under ``data/hydrography/``.
+        """
+        from hydromodpy.data.variables.hydrography.manager import fetch_network_through_cache
+
+        return fetch_network_through_cache(
+            source_cfg,
+            Path(mask_path),
+            catalog=self.catalog,
+            data_dir=self._data_dir("hydrography"),
+        )
+
     def load_hydrography(
         self,
         config: Any,

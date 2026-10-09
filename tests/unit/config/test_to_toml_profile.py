@@ -66,7 +66,7 @@ def test_to_toml_user_profile_omits_dev_fields(tmp_path: Path) -> None:
     assert "date_start" in payload
     assert "station_ids" in payload
     # Dev-level CSV columns must not leak into the user-profile dump.
-    for dev_field in ("col_id", "col_datetime", "default_crs", "force_refresh"):
+    for dev_field in ("col_id", "col_x", "default_crs", "extent"):
         assert dev_field not in payload, f"{dev_field!r} leaked into user profile"
 
 

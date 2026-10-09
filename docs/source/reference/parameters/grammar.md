@@ -49,7 +49,7 @@ Three rules hold for the whole file.
 
 (base-config)=
 
-## base_config: start from another file
+## `base_config`: start from another file
 
 A file can inherit every table of another one. It writes only what changes.
 

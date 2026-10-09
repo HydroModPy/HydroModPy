@@ -15,6 +15,7 @@ from pydantic import Field, field_validator, model_validator
 from hydromodpy.core.administrative_france import validate_french_regions
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.visible_when import VisibleWhen
 
 SelectionPrinciple = Literal["observation_led", "criteria_crossing"]
 StrategyProfile = Literal[
@@ -133,7 +134,10 @@ class StrategyConfig(HydroModelBase):
     )
     candidate_mode: Annotated[CandidateMode | None, Profile.USER] = Field(
         default=None,
-        description="Optional strategy-level candidate generation mode.",
+        description=(
+            "Candidate mode written to the manifest and the report in place of "
+            "outlets.candidate_mode. Candidate generation itself reads outlets.candidate_mode."
+        ),
         json_schema_extra={"value_docs": _CANDIDATE_MODE_VALUE_DOCS},
     )
 
@@ -190,7 +194,10 @@ class TerritoryConfig(HydroModelBase):
         Profile.USER,
     ] = Field(
         default="bbox",
-        description="Territory resolver mode.",
+        description=(
+            "How the search territory is given: by administrative regions, by departments, "
+            "by a polygon file or by a bounding box. Each mode reads its own key."
+        ),
         json_schema_extra={
             "value_docs": {
                 "admin_regions": (
@@ -210,17 +217,24 @@ class TerritoryConfig(HydroModelBase):
         default=None,
         description="Country code used by administrative territory modes.",
     )
-    regions: Annotated[list[str], Profile.USER] = Field(
+    regions: Annotated[list[str], Profile.USER, VisibleWhen("mode", "admin_regions")] = Field(
         default_factory=list,
-        description="Administrative regions used when mode='admin_regions'.",
+        description=(
+            "Names of the administrative regions that bound the territory. With "
+            "country = 'FR' the names are checked against the French regions."
+        ),
+        examples=[["Bretagne"]],
     )
-    departments: Annotated[list[str], Profile.USER] = Field(
-        default_factory=list,
-        description="Administrative departments used when mode='admin_departments'.",
+    departments: Annotated[list[str], Profile.USER, VisibleWhen("mode", "admin_departments")] = (
+        Field(
+            default_factory=list,
+            description="Codes of the administrative departments that bound the territory.",
+            examples=[["35", "56"]],
+        )
     )
-    polygon_file: Annotated[Path | None, Profile.USER] = Field(
+    polygon_file: Annotated[Path | None, Profile.USER, VisibleWhen("mode", "polygon_file")] = Field(
         default=None,
-        description="User polygon file used when mode='polygon_file'.",
+        description="Vector file of a polygon whose bounding box is the territory.",
     )
     bbox: Annotated[tuple[float, float, float, float] | None, Profile.USER] = Field(
         default=None,
@@ -251,20 +265,42 @@ class DemConfig(HydroModelBase):
 
     source: Annotated[Literal["custom", "data", "ign_geoplateforme_dem"], Profile.USER] = Field(
         default="custom",
-        description=("DEM source identifier: custom path, data section, or ign_geoplateforme_dem."),
+        description=(
+            "Where the selection takes its DEM when dem.path is empty and the file holds "
+            "no [data.dem] section. A dem.path or a [data.dem] section always wins."
+        ),
+        json_schema_extra={
+            "value_docs": {
+                "custom": "Takes no DEM of its own: dem.path or [data.dem] must give one.",
+                "data": "Takes no DEM of its own: the [data.dem] section of the file gives it.",
+                "ign_geoplateforme_dem": (
+                    "Requests the IGN Geoplateforme DEM over the territory when neither "
+                    "dem.path nor [data.dem] gives one."
+                ),
+            }
+        },
     )
     path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
-        description="Local DEM path when source='custom'.",
+        description=(
+            "Local DEM raster used to delineate the catchments. When set, it wins over "
+            "[data.dem] and over source."
+        ),
     )
     resolution_m: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0,
-        description="DEM resolution in metres.",
+        description=(
+            "Resolution of the DEM, in metres. It is written to the selection manifest "
+            "only: no step resamples the DEM to it."
+        ),
     )
     cache_policy: Annotated[str, Profile.USER] = Field(
         default="use_cache_else_download",
-        description="Data cache policy.",
+        description=(
+            "Cache policy label written to the selection manifest and report. No step "
+            "reads it: force_refresh is what bypasses the cache."
+        ),
     )
     margin_km: Annotated[float, Profile.USER] = Field(
         default=0.0,
@@ -274,7 +310,7 @@ class DemConfig(HydroModelBase):
     request_extent: Annotated[Literal["territory", "outlets"], Profile.USER] = Field(
         default="territory",
         description=(
-            "Spatial extent used when a DEM is loaded through [data.dem]. "
+            "Area the DEM is requested over through [data.dem]. "
             "'territory' requests the configured selection territory; 'outlets' "
             "requests the bounding box of imported outlets expanded by margin_km."
         ),
@@ -312,7 +348,10 @@ class HydrologyConfig(HydroModelBase):
 
     method: Annotated[Literal["dem_only"], Profile.USER] = Field(
         default="dem_only",
-        description="Hydrologic product generation method.",
+        description=(
+            "How the flow products (directions, accumulation, streams) are made. "
+            "'dem_only' derives them from the DEM alone and is the only value today."
+        ),
     )
     flow_algorithm: Annotated[Literal["d8"], Profile.USER] = Field(
         default="d8",
@@ -366,26 +405,31 @@ class DemAreaLightConfig(HydroModelBase):
     min_area_km2: Annotated[float, Profile.USER] = Field(
         default=75.0,
         gt=0,
-        description="Minimum accepted upstream basin area.",
+        description="Smallest upstream area, in km2, a DEM-only candidate basin may have.",
     )
     max_area_km2: Annotated[float, Profile.USER] = Field(
         default=125.0,
         gt=0,
-        description="Maximum accepted upstream basin area.",
+        description="Largest upstream area, in km2, a DEM-only candidate basin may have.",
     )
     n_basins: Annotated[int, Profile.USER] = Field(
         default=50,
         gt=0,
-        description="Target number of basins selected by the greedy light workflow.",
+        description=(
+            "Number of basins the DEM-only selection keeps. It replaces "
+            "spatial_selection.max_selected_sites in that selection. A count."
+        ),
+        json_schema_extra={"unit": "-"},
     )
     max_candidates_before_delineation: Annotated[int | None, Profile.USER] = Field(
         default=None,
         gt=0,
         description=(
-            "Optional cap on DEM-area outlet candidates delineated before final "
-            "selection. Lower values make examples faster but can leave fewer "
-            "accepted basins after spatial filtering."
+            "Most candidate outlets delineated before the final selection. A lower value "
+            "runs faster but can leave fewer accepted basins after spatial filtering. "
+            "Unset, it is 20 times n_basins. A count."
         ),
+        json_schema_extra={"unit": "-"},
     )
 
     @model_validator(mode="after")
@@ -402,13 +446,19 @@ class OutletsConfig(HydroModelBase):
 
     candidate_mode: Annotated[CandidateMode, Profile.USER] = Field(
         default="network_sampling",
-        description="How candidate outlets are generated.",
+        description=(
+            "How candidate outlets are generated: sampled on the DEM stream network, or "
+            "taken at the observation stations."
+        ),
         json_schema_extra={"value_docs": _CANDIDATE_MODE_VALUE_DOCS},
     )
     min_distance_between_outlets_km: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0,
-        description="Minimum distance between generated outlets.",
+        description=(
+            "Smallest distance, in km, between two generated candidate outlets. Unset, "
+            "outlets may sit as close as the network allows."
+        ),
     )
     allow_nested_basins: Annotated[bool, Profile.USER] = Field(
         default=False,
@@ -417,23 +467,29 @@ class OutletsConfig(HydroModelBase):
     max_generated_candidates: Annotated[int | None, Profile.USER] = Field(
         default=200,
         gt=0,
-        description="Maximum number of DEM/network-generated candidates to delineate.",
+        description=(
+            "Most candidate outlets generated from the DEM stream network and delineated. "
+            "Unset, there is no cap. A count."
+        ),
+        json_schema_extra={"unit": "-"},
     )
     max_rejected_candidate_audit_records: Annotated[int | None, Profile.USER] = Field(
         default=5000,
         gt=0,
         description=(
-            "Maximum number of rejected DEM/network candidate cells written to the "
-            "candidate-generation audit JSONL."
+            "Most rejected candidate cells written to the candidate-generation audit "
+            "file (JSON lines). Unset, every rejected cell is written. A count."
         ),
+        json_schema_extra={"unit": "-"},
     )
     max_generated_network_cells: Annotated[int | None, Profile.USER] = Field(
         default=50000,
         gt=0,
         description=(
-            "Maximum number of DEM-derived stream cells exported to the generated "
-            "network vector layer. Highest-accumulation cells are kept first."
+            "Most DEM stream cells written to the generated network vector layer. The "
+            "cells with the highest accumulation are kept first. A count."
         ),
+        json_schema_extra={"unit": "-"},
     )
     snap_to_generated_stream: Annotated[bool, Profile.USER] = Field(
         default=True,
@@ -466,9 +522,14 @@ class OutletsConfig(HydroModelBase):
             }
         },
     )
-    reference_network_path: Annotated[Path | None, Profile.USER] = Field(
+    reference_network_path: Annotated[
+        Path | None, Profile.USER, VisibleWhen("reference_network_source", "custom")
+    ] = Field(
         default=None,
-        description="Local vector network used when reference_network_source='custom'.",
+        description=(
+            "Local vector file of the reference stream network. Read by "
+            "snap_strategy = 'bdtopage_then_dem'."
+        ),
     )
     reference_network_max_distance_m: Annotated[float, Profile.USER] = Field(
         default=100.0,
@@ -510,7 +571,11 @@ class SpatialSelectionConfig(HydroModelBase):
     max_selected_sites: Annotated[int | None, Profile.USER] = Field(
         default=None,
         ge=1,
-        description="Maximum number of catchments kept after ranking and spatial thinning.",
+        description=(
+            "Most catchments kept after ranking and spatial thinning. Unset, every "
+            "accepted catchment is kept. A count."
+        ),
+        json_schema_extra={"unit": "-"},
     )
     allow_nested_basins: Annotated[bool, Profile.USER] = Field(
         default=False,
@@ -519,19 +584,29 @@ class SpatialSelectionConfig(HydroModelBase):
     min_outlet_distance_km: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0,
-        description="Minimum spacing between selected outlets.",
+        description=(
+            "Smallest distance, in km, between two selected outlets. Unset, no spacing is enforced."
+        ),
     )
     max_pairwise_basin_overlap_fraction: Annotated[float | None, Profile.USER] = Field(
         default=None,
         ge=0,
         le=1,
-        description="Maximum allowed overlap fraction between selected basins.",
+        description=(
+            "Largest share of a basin that may overlap an already selected basin, from 0 "
+            "to 1. The share is taken against the area overlap_reference names. Unset, "
+            "overlap is not checked."
+        ),
+        json_schema_extra={"unit": "-"},
     )
     overlap_reference: Annotated[
         Literal["smaller_basin", "candidate", "selected"], Profile.USER
     ] = Field(
         default="smaller_basin",
-        description="Denominator used for overlap fraction.",
+        description=(
+            "Which basin area divides the overlap area to give the overlap share "
+            "compared with max_pairwise_basin_overlap_fraction."
+        ),
         json_schema_extra={
             "value_docs": {
                 "smaller_basin": (
@@ -546,7 +621,10 @@ class SpatialSelectionConfig(HydroModelBase):
     )
     overlap_mode: Annotated[RouteOverlapMode, Profile.USER] = Field(
         default="hard_reject",
-        description="How overlap violations affect selection.",
+        description=(
+            "What happens to a candidate whose overlap share exceeds "
+            "max_pairwise_basin_overlap_fraction."
+        ),
         json_schema_extra={
             "value_docs": {
                 "hard_reject": (
@@ -574,15 +652,23 @@ class SpatialSelectionConfig(HydroModelBase):
             }
         },
     )
-    spatial_quota_cell_size_km: Annotated[float | None, Profile.USER] = Field(
+    spatial_quota_cell_size_km: Annotated[
+        float | None, Profile.USER, VisibleWhen("spatial_quota_mode", "grid")
+    ] = Field(
         default=None,
         gt=0,
-        description="Grid cell size used when spatial_quota_mode='grid'.",
+        description="Side of the square cells of the quota grid, in km.",
     )
-    spatial_quota_max_sites_per_cell: Annotated[int, Profile.USER] = Field(
+    spatial_quota_max_sites_per_cell: Annotated[
+        int, Profile.USER, VisibleWhen("spatial_quota_mode", "grid")
+    ] = Field(
         default=1,
         ge=1,
-        description="Maximum selected sites allowed in one spatial quota cell.",
+        description=(
+            "Most selected sites one quota grid cell may hold. Candidates past it are "
+            "rejected in ranking order. A count."
+        ),
+        json_schema_extra={"unit": "-"},
     )
 
     @model_validator(mode="after")
@@ -597,7 +683,11 @@ class SiteSelectionInputConfig(HydroModelBase):
 
     mode: Annotated[WorkflowInputMode, Profile.USER] = Field(
         default="plan_only",
-        description="Explicit workflow input mode.",
+        description=(
+            "Where the candidate catchments come from: no data (a plan only), flow "
+            "stations, a CSV of delineated catchments, outlets sampled on the DEM "
+            "network, or DEM-only outlets around a target area."
+        ),
         json_schema_extra={
             "value_docs": {
                 "plan_only": (
@@ -620,9 +710,11 @@ class SiteSelectionInputConfig(HydroModelBase):
             }
         },
     )
-    catchments_csv: Annotated[Path | None, Profile.USER] = Field(
+    catchments_csv: Annotated[
+        Path | None, Profile.USER, VisibleWhen("mode", "delineated_catchments")
+    ] = Field(
         default=None,
-        description=("Pre-delineated catchments CSV used when mode='delineated_catchments'."),
+        description="CSV file of catchments already delineated, one row per catchment.",
     )
     region_id: Annotated[str, Profile.USER] = Field(
         default="",
@@ -664,17 +756,19 @@ class AreaRangeConfig(HydroModelBase):
     )
     label: Annotated[str, Profile.USER] = Field(
         default="",
-        description="Human-readable area range label.",
+        description="Label of the area range shown in the report and the CSV outputs.",
     )
     min_area_km2: Annotated[float, Profile.USER] = Field(
         ...,
         gt=0,
-        description="Minimum basin area for this range.",
+        description="Smallest basin area of this range, in km2.",
+        examples=[10.0],
     )
     max_area_km2: Annotated[float, Profile.USER] = Field(
         ...,
         gt=0,
-        description="Maximum basin area for this range.",
+        description="Largest basin area of this range, in km2.",
+        examples=[50.0],
     )
 
     @model_validator(mode="after")
@@ -710,7 +804,12 @@ class AreaCriteriaConfig(HydroModelBase):
     score_half_width_fraction: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0,
-        description="Relative half-width of the area score around preferred_area_km2.",
+        description=(
+            "Half-width of the area score, as a share of preferred_area_km2. The score "
+            "is 1 at the preferred area and falls to 0 at that distance from it. "
+            "Required by mode = 'score'."
+        ),
+        json_schema_extra={"unit": "-"},
     )
     hard_min_area_km2: Annotated[float | None, Profile.USER] = Field(
         default=None,
@@ -760,6 +859,11 @@ class FlowStationCriteriaConfig(HydroModelBase):
 
     mode: Annotated[CriterionMode, Profile.USER] = Field(
         default="report_only",
+        description=(
+            "What the flow-station checks do to a candidate: reject it, warn, score it, "
+            "group it, or only report. Left at 'report_only', "
+            "observations.flow_station_mode decides instead."
+        ),
         json_schema_extra={
             "value_docs": _criterion_mode_value_docs(
                 "flow-station",
@@ -767,12 +871,29 @@ class FlowStationCriteriaConfig(HydroModelBase):
             )
         },
     )
-    min_record_years: Annotated[float | None, Profile.USER] = Field(default=None, gt=0)
+    min_record_years: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        gt=0,
+        description=(
+            "Shortest discharge record, in years, a station must hold. A record given as "
+            "a count of daily values is divided by 365.25. Unset, record length is not checked."
+        ),
+        json_schema_extra={"unit": "year"},
+    )
     max_station_to_outlet_distance_km: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0,
+        description=(
+            "Largest distance, in km, between the station and the candidate outlet. "
+            "Unset, observations.flow_station_max_distance_km applies."
+        ),
     )
-    require_station_inside_or_at_outlet: Annotated[bool, Profile.USER] = Field(default=False)
+    require_station_inside_or_at_outlet: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Fail the check when the station is flagged outside the basin and away from its outlet."
+        ),
+    )
 
 
 class StationInfluenceCriteriaConfig(HydroModelBase):
@@ -780,6 +901,10 @@ class StationInfluenceCriteriaConfig(HydroModelBase):
 
     mode: Annotated[CriterionMode, Profile.USER] = Field(
         default="report_only",
+        description=(
+            "What a station flagged as influenced (a dam, a withdrawal) does to its "
+            "candidate: reject it, warn, score it, group it, or only report."
+        ),
         json_schema_extra={
             "value_docs": _criterion_mode_value_docs(
                 "station-influence",
@@ -787,9 +912,27 @@ class StationInfluenceCriteriaConfig(HydroModelBase):
             )
         },
     )
-    source: Annotated[str, Profile.USER] = Field(default="hubeau_station_metadata")
-    warn_if_general_influence: Annotated[bool, Profile.USER] = Field(default=True)
-    warn_if_local_influence: Annotated[bool, Profile.USER] = Field(default=True)
+    source: Annotated[str, Profile.USER] = Field(
+        default="hubeau_station_metadata",
+        description=(
+            "Name of the metadata source written into the station-influence evidence. "
+            "It is a label and selects no provider."
+        ),
+    )
+    warn_if_general_influence: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Raise an issue when the station metadata reports a general hydrologic "
+            "influence. Under mode = 'hard_reject' the issue rejects the candidate."
+        ),
+    )
+    warn_if_local_influence: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Raise an issue when the station metadata reports a local hydrologic "
+            "influence. Under mode = 'hard_reject' the issue rejects the candidate."
+        ),
+    )
     warn_if_comment_keyword: Annotated[bool, Profile.USER] = Field(
         default=True,
         description=(
@@ -799,6 +942,7 @@ class StationInfluenceCriteriaConfig(HydroModelBase):
     )
     unknown_policy: Annotated[StationInfluenceUnknownPolicy, Profile.USER] = Field(
         default="neutral",
+        description="What a station with missing or unknown influence metadata raises.",
         json_schema_extra={
             "value_docs": {
                 "neutral": (
@@ -834,19 +978,24 @@ class PiezometerLayerConfig(HydroModelBase):
     name: Annotated[str, Profile.USER] = Field(
         ...,
         min_length=1,
-        description="Human-readable piezometer layer name.",
+        description="Name of the piezometer layer, written into the evidence of each match.",
+        examples=["ades_piezometers"],
     )
     path: Annotated[Path, Profile.USER] = Field(
         ...,
-        description="Vector file containing piezometer features.",
+        description="Vector file of the piezometer points matched against each basin.",
+        examples=["piezometers.gpkg"],
     )
     id_field: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Optional source-feature identifier field.",
+        description="Attribute column that names each piezometer. Unset, the row number is used.",
     )
     label_field: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Optional source-feature label field.",
+        description=(
+            "Attribute column that labels each piezometer in the evidence. Unset, the "
+            "identifier is used."
+        ),
     )
     record_years_field: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -863,6 +1012,10 @@ class ObservationsCriteriaConfig(HydroModelBase):
 
     flow_station_mode: Annotated[CriterionMode, Profile.USER] = Field(
         default="report_only",
+        description=(
+            "Mode of the flow-station checks, read only while flow_station.mode stays "
+            "'report_only'. flow_station.mode wins when it is set to another value."
+        ),
         json_schema_extra={
             "value_docs": _criterion_mode_value_docs(
                 "flow-station",
@@ -873,9 +1026,17 @@ class ObservationsCriteriaConfig(HydroModelBase):
     flow_station_max_distance_km: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0,
+        description=(
+            "Largest distance, in km, between the flow station and the candidate outlet. "
+            "flow_station.max_station_to_outlet_distance_km wins when it is set."
+        ),
     )
     piezometer_mode: Annotated[CriterionMode, Profile.USER] = Field(
         default="report_only",
+        description=(
+            "What the piezometer checks do to a candidate: reject it, warn, score it, "
+            "group it, or only report."
+        ),
         json_schema_extra={
             "value_docs": _criterion_mode_value_docs(
                 "piezometer",
@@ -886,6 +1047,10 @@ class ObservationsCriteriaConfig(HydroModelBase):
     piezometer_max_distance_km: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0,
+        description=(
+            "Largest distance, in km, from the basin to its nearest piezometer. Under "
+            "mode = 'score' the score falls from 1 at the basin to 0 at this distance."
+        ),
     )
     flow_station: Annotated[FlowStationCriteriaConfig, Profile.USER] = Field(
         default_factory=FlowStationCriteriaConfig,
@@ -905,15 +1070,21 @@ class InfluenceLayerConfig(HydroModelBase):
     name: Annotated[str, Profile.USER] = Field(
         ...,
         min_length=1,
-        description="Human-readable influence layer name.",
+        description="Name of the influence layer, written into the evidence of each match.",
+        examples=["dams"],
     )
     path: Annotated[Path, Profile.USER] = Field(
         ...,
-        description="Vector file containing influence features.",
+        description=(
+            "Vector file of the influence features (dams, withdrawals, regulated reaches) "
+            "matched against each basin."
+        ),
+        examples=["dams.gpkg"],
     )
     influence_type: Annotated[InfluenceType, Profile.USER] = Field(
         ...,
         description="Normalized influence flag filled when features match a basin.",
+        examples=["major_dam_upstream"],
         json_schema_extra={
             "value_docs": {
                 "major_dam_upstream": (
@@ -930,11 +1101,14 @@ class InfluenceLayerConfig(HydroModelBase):
     )
     id_field: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Optional source-feature identifier field.",
+        description="Attribute column that names each feature. Unset, the row number is used.",
     )
     label_field: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Optional source-feature label field.",
+        description=(
+            "Attribute column that labels each feature in the evidence. Unset, the "
+            "identifier is used."
+        ),
     )
     severity_field: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -954,6 +1128,10 @@ class InfluenceCriteriaConfig(HydroModelBase):
 
     mode: Annotated[CriterionMode, Profile.USER] = Field(
         default="report_only",
+        description=(
+            "What a basin carrying an influence flag selected by the reject_* keys does "
+            "to its candidate: reject it, warn, or only report."
+        ),
         json_schema_extra={
             "value_docs": {
                 "hard_reject": (
@@ -973,12 +1151,34 @@ class InfluenceCriteriaConfig(HydroModelBase):
             }
         },
     )
-    reject_major_dam_upstream: Annotated[bool, Profile.USER] = Field(default=False)
-    reject_major_withdrawal_upstream: Annotated[bool, Profile.USER] = Field(default=False)
-    reject_major_regulated_reach: Annotated[bool, Profile.USER] = Field(default=False)
+    reject_major_dam_upstream: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Count a major dam upstream of the outlet as a failure of the influence check. "
+            "What a failure does follows mode."
+        ),
+    )
+    reject_major_withdrawal_upstream: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Count a major water withdrawal upstream of the outlet as a failure of the "
+            "influence check. What a failure does follows mode."
+        ),
+    )
+    reject_major_regulated_reach: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Count a major regulated reach upstream of the outlet as a failure of the "
+            "influence check. What a failure does follows mode."
+        ),
+    )
     influence_search_radius_km: Annotated[float | None, Profile.USER] = Field(
         default=None,
         gt=0,
+        description=(
+            "Radius, in km, of the disk around the outlet searched for influence features "
+            "when a candidate has no basin polygon. Unset, such a candidate gets no evidence."
+        ),
     )
     layers: Annotated[list[InfluenceLayerConfig], Profile.USER] = Field(
         default_factory=list,
@@ -992,24 +1192,27 @@ class GeologyLayerConfig(HydroModelBase):
     name: Annotated[str, Profile.USER] = Field(
         ...,
         min_length=1,
-        description="Human-readable geology layer name.",
+        description="Name of the geology layer, written into the evidence of each match.",
+        examples=["brgm_1m"],
     )
     path: Annotated[Path, Profile.USER] = Field(
         ...,
         description="Vector polygon file containing geology units.",
+        examples=["geology.gpkg"],
     )
     class_field: Annotated[str, Profile.USER] = Field(
         ...,
         min_length=1,
         description="Feature field containing the geology class.",
+        examples=["lithology"],
     )
     id_field: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Optional source-feature identifier field.",
+        description="Attribute column that names each polygon. Unset, the row number is used.",
     )
     label_field: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Optional source-feature label field.",
+        description="Attribute column that labels each polygon in the evidence.",
     )
 
 
@@ -1018,6 +1221,10 @@ class GeologyCriteriaConfig(HydroModelBase):
 
     mode: Annotated[CriterionMode, Profile.USER] = Field(
         default="report_only",
+        description=(
+            "What the geology class of a basin does to its candidate: score it, group "
+            "it, or only report. Geology cannot reject or warn today."
+        ),
         json_schema_extra={
             "value_docs": {
                 "hard_reject": (
@@ -1034,7 +1241,13 @@ class GeologyCriteriaConfig(HydroModelBase):
             }
         },
     )
-    prefer_diversity: Annotated[bool, Profile.USER] = Field(default=False)
+    prefer_diversity: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Records a wish for geologically diverse sites in the evidence. No step "
+            "reads it yet, so the selection is the same either way."
+        ),
+    )
     layers: Annotated[list[GeologyLayerConfig], Profile.USER] = Field(
         default_factory=list,
         description="Optional polygon layers used to compute geology evidence.",
@@ -1044,11 +1257,39 @@ class GeologyCriteriaConfig(HydroModelBase):
 class CriteriaConfig(HydroModelBase):
     """Versioned criteria set and criterion-mode lists."""
 
-    ruleset: Annotated[str, Profile.USER] = Field(default="site_selection_v1")
-    hard_reject: Annotated[list[str], Profile.USER] = Field(default_factory=list)
-    warning: Annotated[list[str], Profile.USER] = Field(default_factory=list)
-    soft_score: Annotated[list[str], Profile.USER] = Field(default_factory=list)
-    report_only: Annotated[list[str], Profile.USER] = Field(default_factory=list)
+    ruleset: Annotated[str, Profile.USER] = Field(
+        default="site_selection_v1",
+        description="Name of the criteria set, written to the selection manifest and report.",
+    )
+    hard_reject: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description=(
+            "Criteria named as hard rejections in the manifest and report. The list is "
+            "recorded; each criterion's own mode makes the decision. A name may sit in "
+            "one list only."
+        ),
+    )
+    warning: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description=(
+            "Criteria named as warnings in the manifest and report. The list is recorded; "
+            "each criterion's own mode makes the decision."
+        ),
+    )
+    soft_score: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description=(
+            "Criteria named as scores in the manifest and report. The list is recorded; "
+            "each criterion's own mode makes the decision."
+        ),
+    )
+    report_only: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description=(
+            "Criteria named as reported only in the manifest and report. The list is "
+            "recorded; each criterion's own mode makes the decision."
+        ),
+    )
     area: Annotated[AreaCriteriaConfig, Profile.USER] = Field(default_factory=AreaCriteriaConfig)
     observations: Annotated[ObservationsCriteriaConfig, Profile.USER] = Field(
         default_factory=ObservationsCriteriaConfig,
@@ -1083,14 +1324,44 @@ class CriteriaConfig(HydroModelBase):
 class OutputConfig(HydroModelBase):
     """Output artifact switches."""
 
-    write_rejected: Annotated[bool, Profile.USER] = Field(default=True)
-    write_selected: Annotated[bool, Profile.USER] = Field(default=True)
-    write_geojson: Annotated[bool, Profile.USER] = Field(default=True)
-    write_geoparquet: Annotated[bool, Profile.USER] = Field(default=False)
-    write_geopackage: Annotated[bool, Profile.USER] = Field(default=False)
-    write_csv: Annotated[bool, Profile.USER] = Field(default=True)
-    write_regional_lab_csv: Annotated[bool, Profile.USER] = Field(default=True)
-    write_report_html: Annotated[bool, Profile.USER] = Field(default=False)
+    write_rejected: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Write rejected_sites.csv, the table of rejected sites.",
+    )
+    write_selected: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Write selected_sites.csv, the table of selected sites.",
+    )
+    write_geojson: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Write the outlets and basins of the selected and rejected sites as GeoJSON.",
+    )
+    write_geoparquet: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Write the outlets and basins of the selected and rejected sites as GeoParquet.",
+    )
+    write_geopackage: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Write the outlets and basins of the selected and rejected sites as one GeoPackage.",
+    )
+    write_csv: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Write the site tables as CSV. When false, write_selected and write_rejected "
+            "write nothing."
+        ),
+    )
+    write_regional_lab_csv: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Write regional_lab_sites.csv: the selected sites in the columns the "
+            "regional-lab catalog loader reads."
+        ),
+    )
+    write_report_html: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Write the HTML review report with its maps and tables.",
+    )
     keep_intermediate_rasters: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
@@ -1107,10 +1378,12 @@ class MapContextLayerConfig(HydroModelBase):
         ...,
         min_length=1,
         description="Human-readable layer name used in the map/report manifest.",
+        examples=["rivers"],
     )
     path: Annotated[Path, Profile.USER] = Field(
         ...,
         description="GeoJSON file used as static map context.",
+        examples=["rivers.geojson"],
     )
     role: Annotated[MapContextLayerRole, Profile.USER] = Field(
         default="other",
@@ -1157,7 +1430,11 @@ class SiteSelectionConfig(HydroModelBase):
     )
     random_seed: Annotated[int | None, Profile.USER] = Field(
         default=None,
-        description="Optional seed used by stochastic candidate thinning.",
+        description=(
+            "Seed for a random draw. No step of the selection draws a random number "
+            "today, so a run is the same with or without it."
+        ),
+        json_schema_extra={"unit": "-"},
     )
     terrain_engine: Annotated[str | None, Profile.USER] = Field(
         default=None,
