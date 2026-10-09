@@ -122,8 +122,9 @@ def _head_rmse(root: Path, *, solver: str, ncol: int, newton: bool | None, label
 @pytest.mark.parametrize(
     ("solver", "newton", "expected_order", "require_modflow", "require_modflow6"),
     [
-        pytest.param("modflow6", False, 2.0, False, True, id="modflow6_standard"),
-        pytest.param("modflow6", True, 1.0, False, True, id="modflow6_newton"),
+        # MODFLOW 6 runs Newton by default: that variant takes the solver's own name.
+        pytest.param("modflow6", False, 2.0, False, True, id="modflow6_no_newton"),
+        pytest.param("modflow6", True, 1.0, False, True, id="modflow6"),
         pytest.param("modflow_nwt", None, 1.0, True, False, id="modflow_nwt"),
     ],
 )

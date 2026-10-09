@@ -24,6 +24,18 @@
    "ci_run": "",
    "markers": "not petsc",
    "command": "pytest tests/validation -m not petsc -n 8 --dist loadgroup -q -p no:cacheprovider -rfE"
+  },
+  "2026-10-09T23:10:17+00:00-9cb79066e": {
+   "date": "2026-10-09T23:10:17+00:00",
+   "commit": "9cb79066e0255b9b99014cb541294f6a58f9bf5b",
+   "dirty": true,
+   "branch": "dev",
+   "version": "2.0.0a4",
+   "python": "3.13.15",
+   "platform": "Linux x86_64",
+   "ci_run": "",
+   "markers": "not petsc",
+   "command": "pytest tests/validation/analytical/steady/test_grid_convergence_dupuit_1d.py tests/validation/analytical/steady/test_boussinesq_hillslope_interception_1d.py tests/validation/analytical/transient/test_boussinesq_hillslope_recharge_step_interception_1d.py -m not petsc -n 4 --dist loadgroup -q -p no:cacheprovider"
   }
  },
  "tests": {
@@ -1059,7 +1071,7 @@
    "solver": "boussinesq",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 2.63,
+   "duration_s": 2.41,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -1122,7 +1134,7 @@
    "samples": [],
    "maps": [],
    "spacetime": [],
-   "run": "2026-10-09T22:58:43+00:00-66d2fdeb7"
+   "run": "2026-10-09T23:10:17+00:00-9cb79066e"
   },
   "tests/validation/analytical/steady/test_boussinesq_hillslope_interception_1d.py::test_boussinesq_hillslope_interception_1d_matches_reference_position[boussinesq_local]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_hillslope_interception_1d.py::test_boussinesq_hillslope_interception_1d_matches_reference_position[boussinesq_local]",
@@ -1132,7 +1144,7 @@
    "solver": "boussinesq_local",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 2.14,
+   "duration_s": 1.58,
    "metrics": [
     {
      "name": "Head-profile RMSE",
@@ -1160,7 +1172,7 @@
     },
     {
      "name": "Maximum positive clearance above topography",
-     "value": -9.4734880171643e-05,
+     "value": 0.0,
      "threshold": 1e-06,
      "op": "<",
      "unit": "m",
@@ -1195,7 +1207,7 @@
    "samples": [],
    "maps": [],
    "spacetime": [],
-   "run": "2026-10-09T23:02:27+00:00-66d2fdeb7"
+   "run": "2026-10-09T23:10:17+00:00-9cb79066e"
   },
   "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_constant_thickness_1d.py::test_boussinesq_sloping_substratum_constant_thickness_1d_matches_reference_profile[boussinesq]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_sloping_substratum_constant_thickness_1d.py::test_boussinesq_sloping_substratum_constant_thickness_1d_matches_reference_profile[boussinesq]",
@@ -4112,15 +4124,15 @@
    "spacetime": [],
    "run": "2026-10-09T23:02:27+00:00-66d2fdeb7"
   },
-  "tests/validation/analytical/steady/test_grid_convergence_dupuit_1d.py::test_grid_convergence_dupuit_fixed_head_1d[modflow6_newton]": {
-   "nodeid": "tests/validation/analytical/steady/test_grid_convergence_dupuit_1d.py::test_grid_convergence_dupuit_fixed_head_1d[modflow6_newton]",
+  "tests/validation/analytical/steady/test_grid_convergence_dupuit_1d.py::test_grid_convergence_dupuit_fixed_head_1d[modflow6]": {
+   "nodeid": "tests/validation/analytical/steady/test_grid_convergence_dupuit_1d.py::test_grid_convergence_dupuit_fixed_head_1d[modflow6]",
    "file": "tests/validation/analytical/steady/test_grid_convergence_dupuit_1d.py",
    "function": "test_grid_convergence_dupuit_fixed_head_1d",
-   "params": "modflow6_newton",
+   "params": "modflow6",
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 24.9,
+   "duration_s": 16.06,
    "metrics": [
     {
      "name": "Distance of the observed order from 1",
@@ -4147,17 +4159,17 @@
    "samples": [],
    "maps": [],
    "spacetime": [],
-   "run": "2026-10-09T23:02:27+00:00-66d2fdeb7"
+   "run": "2026-10-09T23:10:17+00:00-9cb79066e"
   },
-  "tests/validation/analytical/steady/test_grid_convergence_dupuit_1d.py::test_grid_convergence_dupuit_fixed_head_1d[modflow6_standard]": {
-   "nodeid": "tests/validation/analytical/steady/test_grid_convergence_dupuit_1d.py::test_grid_convergence_dupuit_fixed_head_1d[modflow6_standard]",
+  "tests/validation/analytical/steady/test_grid_convergence_dupuit_1d.py::test_grid_convergence_dupuit_fixed_head_1d[modflow6_no_newton]": {
+   "nodeid": "tests/validation/analytical/steady/test_grid_convergence_dupuit_1d.py::test_grid_convergence_dupuit_fixed_head_1d[modflow6_no_newton]",
    "file": "tests/validation/analytical/steady/test_grid_convergence_dupuit_1d.py",
    "function": "test_grid_convergence_dupuit_fixed_head_1d",
-   "params": "modflow6_standard",
+   "params": "modflow6_no_newton",
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 24.38,
+   "duration_s": 16.27,
    "metrics": [
     {
      "name": "Distance of the observed order from 2",
@@ -4184,7 +4196,7 @@
    "samples": [],
    "maps": [],
    "spacetime": [],
-   "run": "2026-10-09T23:02:27+00:00-66d2fdeb7"
+   "run": "2026-10-09T23:10:17+00:00-9cb79066e"
   },
   "tests/validation/analytical/steady/test_grid_convergence_dupuit_1d.py::test_grid_convergence_dupuit_fixed_head_1d[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_grid_convergence_dupuit_1d.py::test_grid_convergence_dupuit_fixed_head_1d[modflow_nwt]",
@@ -4194,7 +4206,7 @@
    "solver": "modflow_nwt",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 23.57,
+   "duration_s": 16.15,
    "metrics": [
     {
      "name": "Distance of the observed order from 1",
@@ -4221,7 +4233,7 @@
    "samples": [],
    "maps": [],
    "spacetime": [],
-   "run": "2026-10-09T23:02:27+00:00-66d2fdeb7"
+   "run": "2026-10-09T23:10:17+00:00-9cb79066e"
   },
   "tests/validation/analytical/steady/test_linearized_unconfined_drainage_1d.py::test_linearized_unconfined_drainage_1d_matches_reference_profile[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_linearized_unconfined_drainage_1d.py::test_linearized_unconfined_drainage_1d_matches_reference_profile[modflow6]",
@@ -4744,7 +4756,7 @@
    "solver": "boussinesq",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 1.78,
+   "duration_s": 2.88,
    "metrics": [
     {
      "name": "Onset-time error",
@@ -4780,7 +4792,7 @@
     },
     {
      "name": "Maximum positive clearance above topography",
-     "value": -0.041788262855514624,
+     "value": 0.0,
      "threshold": 1e-06,
      "op": "<",
      "unit": "m",
@@ -4815,7 +4827,7 @@
    "samples": [],
    "maps": [],
    "spacetime": [],
-   "run": "2026-10-09T22:58:43+00:00-66d2fdeb7"
+   "run": "2026-10-09T23:10:17+00:00-9cb79066e"
   },
   "tests/validation/analytical/transient/test_boussinesq_hillslope_recharge_step_interception_1d.py::test_boussinesq_hillslope_recharge_step_interception_1d_matches_onset_approximation[boussinesq_local]": {
    "nodeid": "tests/validation/analytical/transient/test_boussinesq_hillslope_recharge_step_interception_1d.py::test_boussinesq_hillslope_recharge_step_interception_1d_matches_onset_approximation[boussinesq_local]",
@@ -4825,7 +4837,7 @@
    "solver": "boussinesq_local",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 4.72,
+   "duration_s": 2.99,
    "metrics": [
     {
      "name": "Onset-time error",
@@ -4861,7 +4873,7 @@
     },
     {
      "name": "Maximum positive clearance above topography",
-     "value": -0.04309340171391973,
+     "value": 0.0,
      "threshold": 1e-06,
      "op": "<",
      "unit": "m",
@@ -4896,7 +4908,7 @@
    "samples": [],
    "maps": [],
    "spacetime": [],
-   "run": "2026-10-09T23:02:27+00:00-66d2fdeb7"
+   "run": "2026-10-09T23:10:17+00:00-9cb79066e"
   },
   "tests/validation/analytical/transient/test_brutsaert_recession_boussinesq_thin_1d.py::test_brutsaert_recession_boussinesq_thin_1d_matches_reference_recession[boussinesq]": {
    "nodeid": "tests/validation/analytical/transient/test_brutsaert_recession_boussinesq_thin_1d.py::test_brutsaert_recession_boussinesq_thin_1d_matches_reference_recession[boussinesq]",

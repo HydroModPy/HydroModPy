@@ -73,7 +73,8 @@ def test_boussinesq_hillslope_recharge_step_interception_1d_matches_onset_approx
     )
     assert_metric_below(
         "Maximum positive clearance above topography",
-        comparison.max_positive_clearance_m,
+        # The largest head above the ground, zero when the water table stays below it.
+        max(comparison.max_positive_clearance_m, 0.0),
         float(contact_tol["max_positive_clearance_m"]),
         unit="m",
     )
