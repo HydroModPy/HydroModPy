@@ -878,10 +878,14 @@ def run_pre_processing(  # noqa: PLR0915
         domain=model.domain,
         sgrid_config=getattr(model.modflow_config, "sgrid", None),
         runtime_planar_mesh=model.runtime_mesh_planar,
+        runtime_mesh_support=model.runtime_mesh_support,
         channel_mask=_resolve_channel_mask_for_zonal(model),
     )
     solver_mesh = model.grid_ctx.solver_mesh
     model.solver_mesh = solver_mesh
+    # Wells and boundaries are located on the solved cells. On the default
+    # Voronoi dual these are not the bundle triangles of runtime_mesh_support.
+    model.solver_mesh_support = model.grid_ctx.mesh_support
     model.top_elevation = solver_mesh.top  # (ncpl,)
     model.inactive_mask = solver_mesh.inactive_mask[0]  # (ncpl,)
     model.nlay = solver_mesh.nlay

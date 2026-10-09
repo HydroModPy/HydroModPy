@@ -168,7 +168,7 @@ def test_modflow6_post_processing_exports_runtime_support_overview(
 ) -> None:
     work_dir = _workspace_dir(tmp_path, "mf6_postprocess_support_overview")
     model = _build_unstructured_model(work_dir)
-    model.runtime_mesh_support = _build_unstructured_support_metadata()
+    model.solver_mesh_support = _build_unstructured_support_metadata()
     model.flow = SimpleNamespace(
         active_bc=["west_side", "stream"],
         active_sinks_sources=["wells"],

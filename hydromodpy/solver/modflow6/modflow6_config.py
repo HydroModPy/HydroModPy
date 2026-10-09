@@ -144,7 +144,10 @@ class Modflow6RuntimeConfig(HydroModelBase):
         description=(
             "Enable the MODFLOW 6 Newton-Raphson formulation. Catchment cells are "
             "always convertible (unconfined), so Newton with under-relaxation is the "
-            "robust default and matches the MODFLOW-NWT backend."
+            "robust default. Unlike MODFLOW-NWT, it builds the horizontal conductance "
+            "from the full cell thickness times the upstream saturation, so where the "
+            "cell top steps down from one cell to the next (a top that follows the "
+            "DEM) it gives a lower transmissivity than NWT."
         ),
     )
     mf6_newton_under_relaxation: Annotated[bool, Profile.EXPERT] = Field(

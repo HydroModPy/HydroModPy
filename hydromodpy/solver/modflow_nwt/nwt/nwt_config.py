@@ -34,8 +34,12 @@ class NwtSolverConfig(HydroModelBase):
         description="Head closure criterion for the NWT nonlinear solver.",
     )
     fluxtol: Annotated[float, Profile.EXPERT] = Field(
-        default=500.0,
-        description="Flux closure criterion for the NWT nonlinear solver.",
+        default=500.0 / 86400.0,
+        description=(
+            "Flux closure criterion of the NWT nonlinear solver, in m3/s: HydroModPy "
+            "writes MODFLOW-NWT in seconds. The default is the 500 m3/day of the NWT "
+            "manual. A value of 500 here would be 500 m3/s, a bound no model reaches."
+        ),
     )
     maxiterout: Annotated[int, Profile.EXPERT] = Field(
         default=5000,
@@ -52,8 +56,12 @@ class NwtSolverConfig(HydroModelBase):
         ),
     )
     linmeth: Annotated[int, Profile.EXPERT] = Field(
-        default=1,
-        description="Linear solver choice for NWT (see MODFLOW-NWT documentation).",
+        default=2,
+        description=(
+            "Linear solver of MODFLOW-NWT: 1 for GMRES, 2 for chi-MD. chi-MD is the "
+            "default: on a stiff recession GMRES stops reducing the residual and NWT "
+            "then accepts a frozen head as converged, with a budget off by 200 per cent."
+        ),
     )
     iprnwt: Annotated[int, Profile.EXPERT] = Field(
         default=1,

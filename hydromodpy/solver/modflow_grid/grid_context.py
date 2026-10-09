@@ -8,6 +8,7 @@ import numpy as np
 
 from hydromodpy.core.grid_reference import GridReference
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import GmshSupportMetadata
 from hydromodpy.spatial.surface import Surface
 
 
@@ -33,13 +34,19 @@ def grid_reference_from_solver_mesh(
 
 @dataclass(slots=True)
 class SolverGridContext:
-    """Runtime bundle for one solver grid (structured or unstructured)."""
+    """Runtime bundle for one solver grid (structured or unstructured).
+
+    ``mesh_support`` locates features on the cells of ``solver_mesh``: wells,
+    side and stream boundaries. It is ``None`` on a structured grid or without
+    a mesh bundle.
+    """
 
     grid: GridReference
     solver_mesh: SolverMesh
     top_surface: Surface
     bottom_surface: Surface
     template_raster_path: str | None = None
+    mesh_support: GmshSupportMetadata | None = None
 
     @property
     def top_elevation(self) -> np.ndarray:

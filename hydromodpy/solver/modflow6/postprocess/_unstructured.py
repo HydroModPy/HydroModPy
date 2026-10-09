@@ -21,7 +21,7 @@ def build_unstructured_cell_adjacency(model: FlowPostprocessModel) -> list[set[i
     """Return cell-to-cell adjacency for one unstructured planar mesh."""
     n_cells = int(getattr(model, "ncpl", 0) or getattr(model.solver_mesh, "n_cells", 0))
     planar_mesh = getattr(model.solver_mesh, "planar_mesh", None)
-    support = getattr(model, "runtime_mesh_support", None)
+    support = getattr(model, "solver_mesh_support", None)
     return build_planar_cell_adjacency(planar_mesh, n_cells, support)
 
 

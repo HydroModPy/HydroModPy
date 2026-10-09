@@ -169,11 +169,13 @@ def resolve_well_disv_cell(
         _validate_resolved_well_cell(model, well_id=well_id, lay=lay_cell[0], cell_id=lay_cell[1])
         return lay_cell
 
-    support = getattr(model, "runtime_mesh_support", None)
+    # The support of the solver cells: on a Voronoi dual the bundle triangles
+    # would name a triangle index, not the cell MODFLOW 6 solves.
+    support = getattr(model, "solver_mesh_support", None)
     if support is None:
         raise ValueError(
-            f"flow.sinks_sources.wells.{well_id} requires runtime gmsh support metadata "
-            "but mesh_support is unavailable."
+            f"flow.sinks_sources.wells.{well_id} requires gmsh support metadata on the "
+            "solver cells, but none is set."
         )
     layer = int(fields["layer"])
     if location_kind == "absolute_xy":

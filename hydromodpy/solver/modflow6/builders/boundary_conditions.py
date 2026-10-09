@@ -115,11 +115,12 @@ def resolve_side_boundary_series(model, *, boundary: object, bc_id: str) -> np.n
     )
 
 
-def _require_runtime_mesh_support(model, *, label: str) -> object:
-    support = getattr(model, "runtime_mesh_support", None)
+def _require_solver_mesh_support(model, *, label: str) -> object:
+    """Return the support that indexes the solver cells (not the bundle triangles)."""
+    support = getattr(model, "solver_mesh_support", None)
     if support is None:
         raise ValueError(
-            f"{label} requires runtime gmsh support metadata but mesh_support is unavailable."
+            f"{label} requires gmsh support metadata on the solver cells, but none is set."
         )
     return support
 
@@ -131,7 +132,7 @@ def boundary_support_cell_ids(model, *, boundary: object, bc_id: str) -> list[in
     if support_label is not None and not (
         solver_mesh is None or getattr(solver_mesh, "is_structured", False)
     ):
-        support = _require_runtime_mesh_support(model, label=f"flow.bc.{bc_id}")
+        support = _require_solver_mesh_support(model, label=f"flow.bc.{bc_id}")
         cell_ids = support.cell_indices_for_label(str(support_label))
         if cell_ids.size == 0:
             raise ValueError(
@@ -157,7 +158,7 @@ def side_boundary_cell_ids(model, bc_id: str) -> list[int]:
             return list(range((nrow - 1) * ncol, nrow * ncol))
         raise ValueError(f"Unsupported side boundary id: {bc_id}")
 
-    support = _require_runtime_mesh_support(model, label=f"flow.bc.{bc_id}")
+    support = _require_solver_mesh_support(model, label=f"flow.bc.{bc_id}")
     return [int(cell_id) for cell_id in support.boundary_cell_indices_for_side(bc_id).tolist()]
 
 
@@ -279,7 +280,7 @@ def stream_chd_support_mask(model, stream_series: np.ndarray | None) -> np.ndarr
     if stream_series is None or np.asarray(stream_series, dtype=float).size == 0:
         return np.zeros(int(model.ncpl), dtype=bool)
     boundary = boundary_conditions_mapping(model).get("stream")
-    support = _require_runtime_mesh_support(model, label="flow.bc.stream")
+    support = _require_solver_mesh_support(model, label="flow.bc.stream")
     support_label = None if boundary is None else boundary_attr(boundary, "support_label", None)
     if support_label is None:
         cell_ids = np.asarray(support.river_cell_indices(), dtype=int).reshape(-1)

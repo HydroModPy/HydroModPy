@@ -110,7 +110,7 @@ def _build_unstructured_model(
         boundary_labels_by_edge_id=boundary_labels_by_edge_id,
     )
     model.solver_mesh = solver_mesh
-    model.runtime_mesh_support = support
+    model.solver_mesh_support = support
     model.nlay = 1
     model.ncpl = 2
     model.dem_mask = np.zeros(2, dtype=bool)

@@ -20,7 +20,8 @@ def test_modflow_config_defaults_match_runtime_defaults():
 
     assert params.runtime.nwt.version == "mfnwt"
     assert params.runtime.nwt.headtol == 1e-4
-    assert params.runtime.nwt.fluxtol == 500.0
+    assert params.runtime.nwt.fluxtol == 500.0 / 86400.0
+    assert params.runtime.nwt.linmeth == 2
     assert params.process_specific.vka == 1.0
     assert params.process_specific.exdp == 1.0
     assert isinstance(params.sgrid, SolverSGridConfig)

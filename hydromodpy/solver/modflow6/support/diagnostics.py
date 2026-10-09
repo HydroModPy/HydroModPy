@@ -51,7 +51,7 @@ class RuntimeSupportOverviewModel(Protocol):
 
     flow: object | None
     save_file: str
-    runtime_mesh_support: RuntimeSupportLike | None
+    solver_mesh_support: RuntimeSupportLike | None
     grid_ctx: object | None
 
     def _boundary_conditions_mapping(self) -> Mapping[str, object]: ...
@@ -212,7 +212,7 @@ def build_well_overlay_specs(model: RuntimeSupportOverviewModel) -> list[dict[st
     if not isinstance(wells, Mapping):
         return []
 
-    support = getattr(model, "runtime_mesh_support", None)
+    support = getattr(model, "solver_mesh_support", None)
     grid = None if model.grid_ctx is None else model.grid_ctx.grid
     items: list[dict[str, object]] = []
     for well_id, well_cfg in wells.items():
@@ -254,7 +254,7 @@ def export_runtime_support_overview(
     """Write one diagnostic figure showing runtime gmsh supports used by the solver."""
     if not getattr(options, "native_mesh_png", False):
         return
-    support = getattr(model, "runtime_mesh_support", None)
+    support = getattr(model, "solver_mesh_support", None)
     if support is None:
         return
 

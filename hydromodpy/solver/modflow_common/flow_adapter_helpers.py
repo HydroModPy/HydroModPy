@@ -44,6 +44,7 @@ def percent_discrepancies(listing_dir: Path) -> list[float]:
     """Return every water-budget PERCENT DISCREPANCY a per-model listing prints.
 
     Best-effort and never raises: scans every ``*.lst`` except the simulation
+    listing, and every ``*.list``, the extension FloPy gives the MODFLOW-NWT
     listing, in name order, and returns the values in the order they appear.
 
     A MODFLOW budget block prints two of them on one line, the cumulative
@@ -52,7 +53,7 @@ def percent_discrepancies(listing_dir: Path) -> list[float]:
     """
     values: list[float] = []
     try:
-        listings = sorted(listing_dir.glob("*.lst"))
+        listings = sorted([*listing_dir.glob("*.lst"), *listing_dir.glob("*.list")])
     except OSError:
         return values
     for listing in listings:
