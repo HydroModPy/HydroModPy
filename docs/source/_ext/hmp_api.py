@@ -1151,16 +1151,18 @@ row.
 
 ## Defined beside the code that raises them
 
-These classes live in `hydromodpy.results`. Most derive from the catalog errors above.
+These classes are defined beside the code that raises them, one table per module.
 
-```{hmp-api-exceptions}
-:module: hydromodpy.results.errors
-```
+@@BESIDE@@"""
 
-```{hmp-api-exceptions}
-:module: hydromodpy.results.catalog.discovery
-```
-"""
+
+def beside_sections() -> str:
+    """One table per module that defines exceptions outside the code table."""
+    core = "hydromodpy.core.exceptions"
+    lines = []
+    for module in sorted({e["module"] for e in A.get("exceptions", [])} - {core}):
+        lines += [f"### `{module}`", "", "```{hmp-api-exceptions}", f":module: {module}", "```", ""]
+    return "\n".join(lines)
 
 
 def gen_pages(srcdir: Path) -> None:
@@ -1179,7 +1181,10 @@ def gen_pages(srcdir: Path) -> None:
     engines = classes("engine")
     write(py / "index.md", python_index(verbs, results, engines))
     write(py / "objects.md", OBJECTS_PAGE.replace("@@HEADER@@", HEADER))
-    write(py / "exceptions.md", EXCEPTIONS_PAGE.replace("@@HEADER@@", HEADER))
+    write(
+        py / "exceptions.md",
+        EXCEPTIONS_PAGE.replace("@@HEADER@@", HEADER).replace("@@BESIDE@@", beside_sections()),
+    )
     for v in A["verbs"]:
         lines = [
             HEADER,

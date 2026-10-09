@@ -1,8 +1,7 @@
 # Data sources
 
-Every data section of the file, and the sources its `source` key accepts: a file of the
-project, or a download from a public provider, with who publishes it and under which
-licence. Read from the configuration models and from the source registry of the code
+Every data section of the file, and the sources its `source` key accepts, with who publishes
+each one and under which licence. Read from the configuration models and from the source registry of the code
 (`hydromodpy.schema.sources`), which carries one entry per source. A field added to an
 entry shows up here on its own.
 

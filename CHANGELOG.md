@@ -459,6 +459,12 @@ Each release section includes the following standard categories:
   refused.
 
 ### Fixed
+- `hmp calibrate FILE --list-phases` on a file without phases printed only "declares no
+  phases". It now prints one line for the single search, with its method and why it was
+  chosen, and what each block compares.
+- The Exceptions page of the Python API listed the classes of three fixed modules. It now
+  finds every module that defines a `HydroModPyError` subclass, or a subclass of a class the
+  exit codes map; 13 classes in 10 modules were missing.
 - The channel mask of the zonal top covered the whole catchment. The stream raster was
   reprojected with nodata 0, and GDAL moves a valid 0 to the next float, so every background
   pixel counted as channel: on the Flume Voronoi mesh 146,384 pixels instead of 4,197, and the

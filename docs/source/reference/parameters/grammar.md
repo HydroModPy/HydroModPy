@@ -2,7 +2,8 @@
 
 One TOML file describes a run. Its sections are listed in {doc}`index`; this page gives the
 rules they all share: tables, inheritance, quantities, dates, paths, free keys and
-profiles. Each rule is read from the code.
+profiles. The rules are written by hand. Every key this page cites and every TOML block it
+shows is checked against the models of the code.
 
 ## Tables and arrays of tables
 
