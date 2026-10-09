@@ -130,8 +130,7 @@ own scored timestamps (``trial``, ``output``, ``station``, ``time``,
 not part of the index; ``hydromodpy.results.session_journal.
 read_trial_series`` reads it straight off disk. Network and spatial
 outputs are never written there, since their cost is already a scalar
-in ``trials.jsonl``. See
-:ref:`calibration-trial-series` in the calibration guide.
+in ``trials.jsonl``. The switch is :toml:`calibration.persist_trial_series`.
 
 Spin-up sessions do not write a descriptor. A directory under
 ``sessions/`` without ``session.json`` is simply not a calibration, and

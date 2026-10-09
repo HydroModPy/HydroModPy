@@ -154,6 +154,19 @@ def test_list_phases_names_the_reason(tmp_path, capsys) -> None:
     assert lines[5].split("\t")[:4] == ["5", "k_written", "grid", ""]
 
 
+def test_list_phases_names_the_method_of_a_file_without_phases(tmp_path, capsys) -> None:
+    """A file without phases still runs one search, so the listing names its method."""
+    from hydromodpy.cli.commands import calibrate as calibrate_cmd
+
+    path = _write(tmp_path, SINGLE_STAGE)
+    calibrate_cmd.run(
+        argparse.Namespace(config=path, check=False, list_phases=True, phase=None, profile=None)
+    )
+
+    out = capsys.readouterr().out.splitlines()
+    assert out[0].split("\t") == ["[calibration]", "scipy_nelder_mead (cost to minimise)"]
+
+
 def test_method_options_without_a_method_are_refused() -> None:
     with pytest.raises(ValidationError, match="method_options and no method"):
         CalibPhaseDecl.model_validate(

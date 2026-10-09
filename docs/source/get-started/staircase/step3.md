@@ -107,7 +107,7 @@ data.hydrometry.date_start
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `step 'load_data' failed: NetworkError: Failed to load data manager 'hydrography': HTTP GET https://services.sandre.eaufrance.fr/geo/sandre failed after 4 retries`, exit code 16 (after four `WARNING` lines with the same URL) | The first launch has to reach BD Topage and the machine has no route to it, or the service is down. The run stops: a source the file declares is never skipped. | Run again when the network is back. Behind a proxy, set `HTTPS_PROXY`. To run offline, run step 2, which reads local files, or fill the cache once and follow the {doc}`guide to working offline <../../guides/work-offline>`. |
+| `step 'load_data' failed: NetworkError: Failed to load data manager 'hydrography': HTTP GET https://services.sandre.eaufrance.fr/geo/sandre failed after 4 retries`, exit code 16 (after four `WARNING` lines with the same URL) | The first launch has to reach BD Topage and the machine has no route to it, or the service is down. The run stops: a source the file declares is never skipped. | Run again when the network is back. Behind a proxy, set `HTTPS_PROXY`. To run offline, run step 2, which reads local files, or run step 3 once online: the cache then holds its data, and {doc}`hmp run --frozen <../../reference/cli/run>` refuses any new download. |
 
 The exit codes are listed on {doc}`../../reference/cli/exit-codes`.
 

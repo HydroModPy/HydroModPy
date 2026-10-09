@@ -94,8 +94,7 @@ run it, what you get.
 When the staircase is done, {doc}`staircase/next` leads to your own catchment, to the
 calibration files of example 04 and to the Python API.
 
-Already know what you want to do? Go to the {doc}`guides <../guides/index>`. Looking for
-one parameter? Go to the {doc}`reference <../reference/parameters/index>`.
+Looking for one parameter? Go to the {doc}`reference <../reference/parameters/index>`.
 
 ```{toctree}
 :hidden:

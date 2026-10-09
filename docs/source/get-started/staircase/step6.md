@@ -149,5 +149,5 @@ meet is offered to the water table, which evaporates it where it is shallow: the
 full at the drain elevation and falls to zero {toml}`1 m below it|flow.sinks_sources.etp.extinction_depth`.
 
 Previous: {doc}`step5`. To see how the soil reservoir works, read {doc}`../../theory/soil-reservoir`.
-For K and Sy by zone and the recharge choice, see the {doc}`guides <../../guides/index>`.
+K and Sy by zone are keys of {doc}`[flow.param] <../../reference/parameters/flow/param>`.
 After the last step: {doc}`next`.

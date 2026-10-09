@@ -4,9 +4,8 @@ How the calibration engine runs
 This page is for a contributor who changes the calibration code in
 ``hydromodpy/calibration/``. It says how a calibration file becomes trials,
 which pipeline steps a trial replays, what is written where, how the cache
-recognises a trial, and what a bisection reports about itself. How to write a
-calibration file is a guide, :doc:`/guides/calibrate`; every method and metric
-is listed from the code in :doc:`/reference/calibration-methods`; the package
+recognises a trial, and what a bisection reports about itself. Every method and
+metric is listed from the code in :doc:`/reference/calibration-methods`; the package
 map and the diagrams are in :doc:`calibration-architecture`.
 
 The loop
@@ -153,7 +152,7 @@ memory and are dropped at the end of the trial. Only scalars reach disk:
      - ``sessions/<session>/session.json``
    * - Series of every trial, when ``persist_trial_series`` is set
      - ``sessions/<session>/trial_series/trial-NNNNNN.parquet``
-       (:ref:`calibration-trial-series`)
+       (:toml:`calibration.persist_trial_series`)
    * - Fields, tables, figures of a promoted trial
      - ``runs/<run>/``
    * - The index

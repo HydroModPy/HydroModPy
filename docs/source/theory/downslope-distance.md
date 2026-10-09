@@ -9,8 +9,8 @@ each direction, and at which value of the calibrated ratio do the two walks
 balance?
 
 How a model makes streams in plain words is on
-{doc}`../understand/stream-network`. How to set up and read a calibration on a
-network is on {doc}`../guides/calibrate-on-the-stream-network`.
+{doc}`../understand/stream-network`. The keys of a calibration on a network are
+in {doc}`../reference/parameters/calibration/outputs`.
 
 :::{note}
 **Scope.** The page covers the distances, the criterion, what it identifies, and
@@ -351,7 +351,7 @@ and the zero is a plateau whose width sets how precisely the parameter is known.
 A bisection therefore stops on the width of its bracket, on a logarithmic
 transform, never on the size of the residual. A coarse sweep runs first and sees
 every crossing; a bracket with no sign change is reported, not closed. The
-options are on {doc}`../guides/calibrate-on-the-stream-network`.
+options are on {doc}`../reference/calibration-methods`.
 
 ## Assumptions
 
@@ -428,45 +428,8 @@ geographic.dem_correc_type
 solver.drain_bed_thickness_m
 ```
 
-In example 04, the map the criterion scores is declared in
-`run_calibration.toml`:
-
-```{hmp-resolved} calibration.outputs.seepage_network.stream_geometry_path
-:config: run_calibration.toml
-```
-
-A network output that weights by area, with a declared accuracy of the map and a
-validity length given as a length:
-
-```toml
-base_config = "run_calibration_by_hand.toml"
-
-[calibration.outputs.seepage_network]
-weighting = "area"
-observed_position_accuracy = "50 m"
-validity_length = "150 m"
-on_roptim_violation = "error"
-```
-
-The heads rule with a wider landing radius and a larger drained area:
-
-```toml
-base_config = "run_calibration_by_hand.toml"
-
-[calibration.outputs.seepage_network]
-observed_rasterization = "heads"
-heads_snap_radius = "150 m"
-heads_min_drained_area_km2 = 0.05
-```
-
-The crossing rule, for a map that is not a tree:
-
-```toml
-base_config = "run_calibration_by_hand.toml"
-
-[calibration.outputs.seepage_network]
-observed_rasterization = "crossing"
-```
+The keys of a calibration on a network are in
+{doc}`[calibration.outputs] <../reference/parameters/calibration/outputs>`.
 
 ## Checked by
 
@@ -498,9 +461,8 @@ hydromodpy.calibration.criteria.hydrographic_network_distance
 
 ## See also
 
-- {doc}`../guides/calibrate-on-the-stream-network`: how to set up and read a
-  calibration on the network.
-- {doc}`../guides/score-two-maps`: the two-bound mode of a transient run.
+- {doc}`../reference/parameters/calibration/outputs`: the keys of a calibration on
+  the network, the two-bound mode of a transient run included.
 - {doc}`exits/simulated-network`: the sources, the closure and the diagnostics
   against a map.
 - {doc}`../understand/stream-network`: how the model makes streams, in plain

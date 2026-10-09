@@ -37,7 +37,7 @@ off the trials already run. It is not a probability distribution: a probability 
 model on each observation, and the scores used here do not provide one. Three methods exist: a free
 one that reads the trials already run, one that restarts the search from other starting points
 and can find a second optimum, and one that disturbs each parameter a little to see which ones
-trade off against each other. The {doc}`guide <../guides/calibration-uncertainty>` explains them.
+trade off against each other. {doc}`../reference/parameters/calibration/uncertainty` lists them.
 
 A narrow range has two possible causes. The parameter may be well constrained, or the search may
 never have tried far from the best value. The range alone does not tell which.
@@ -71,5 +71,5 @@ demonstration of how to read the outputs, and it does not claim the precision of
 ## Where to go next
 
 - {doc}`what-validated-means`: what has been checked, and how.
-- {doc}`../guides/calibration-uncertainty`: the ranges, method by method.
+- {doc}`../reference/parameters/calibration/uncertainty`: the ranges, method by method.
 - {doc}`glossary`: the terms of this page.

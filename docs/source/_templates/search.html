@@ -85,7 +85,7 @@
       const instance = window.PagefindComponents.getInstanceManager().getInstance("default");
       // A page title counts less than its text. The key pages are titled
       // [calibration.phases] and the like: at the default weight, "calibrate"
-      // lists them all before the guide that is called Calibrate.
+      // lists them all before the page that explains a calibration.
       instance.pagefindOptions.ranking = { metaWeights: { title: 0.25 } };
       if (query) instance.triggerSearch(query);
     }

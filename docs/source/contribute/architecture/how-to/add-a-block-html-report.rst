@@ -14,8 +14,10 @@ Where to document it
 
 There are three useful places for report documentation. Keep them separate:
 
-- **Guide**: describe when the report is produced, the stable output paths,
-  and how users should read it. Example: :doc:`/guides/select-catchments`.
+- **User reference**: the descriptions of the keys and the help of the
+  command that produce the report say when it is produced, its stable output
+  paths and how to read it. The reference pages are generated from them.
+  Example: :doc:`/reference/cli/report`.
 - **Developer recipe**: describe how to add or migrate a report producer. This
   page is the canonical contributor recipe.
 - **Package reference**: summarize ownership and reading paths in
@@ -237,5 +239,5 @@ See also
 --------
 
 - :doc:`../packages/display` for ownership of ``display/report_blocks``.
-- :doc:`/guides/report-on-a-catchment` for the user-facing catchment report.
-- :doc:`/guides/select-catchments` for the site-selection report.
+- :doc:`/reference/cli/report` for the user-facing catchment report.
+- :doc:`/reference/cli/site-selection` for the site-selection report.

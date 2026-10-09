@@ -12,19 +12,16 @@ head, and for the sides of the model.
 (heads-law)=
 ## The law
 
-In every layer of a fixed-head cell $n$ and in every period,
+A fixed head takes the cell out of the solution in every layer and every period:
+$h_n = h^\mathrm{bc}$, the value that the boundary, or its forcing, gives for the
+period. This is the CHD package of MODFLOW 6
+([input guide](https://modflow6.readthedocs.io/en/latest/_mf6io/gwf-chd.html),
+{cite:p}`langevin2017`) and of MODFLOW-2005 {cite:p}`harbaugh2005`.
 
-$$
-h_n = h^\mathrm{bc} .
-$$ (eq-fixed-head)
-
-The head of a period is the value that the boundary, or its forcing, gives for
-that period. The flux across the cell is stored in the budget as
-`constant_head`, and the share of it that crosses a river cell as
-`constant_head_stream` ({doc}`simulated-network` reads that share).
-
-A fixed head is a Dirichlet condition. It is not a conductance-limited exchange
-of the GHB or RIV kind, and HydroModPy builds neither of those packages. A river
+The flux across the cell is stored in the budget as `constant_head`, and the
+share of it that crosses a river cell as `constant_head_stream`
+({doc}`simulated-network` reads that share). HydroModPy builds neither the GHB nor
+the RIV package, so a fixed head is never a conductance-limited exchange. A river
 that must exchange through a streambed is a stream network
 ({doc}`streams-and-mover`).
 
@@ -39,17 +36,8 @@ $$
 $$ (eq-sea-cells)
 
 A cell below that level far inland is in the set: the code does not test the
-connection to the sea. The drains stay on the other cells. A sea level of 0 m:
-
-```toml
-base_config = "step4_transient.toml"
-
-[flow]
-active_bc = ["drainage", "ocean"]
-
-[flow.bc.ocean]
-value = 0.0
-```
+connection to the sea. The drains stay on the other cells. The level is set in
+{doc}`[flow.bc] <../../reference/parameters/flow/bc>`.
 
 MODFLOW-NWT selects its cells by the same DEM, with one difference: its
 constant-head rows take $z^\mathrm{dem}_n < h_\mathrm{sea}$, and its `ibound`
@@ -72,21 +60,16 @@ constant-head flux reaches the stored budget.
 
 In the code: `assemble_constant_head_stress_period_data`.
 
-## Assumptions
-
-- The sea is a fixed head with the level of its period. It does not move inside a
-  period.
-- A river head is a fixed head. A river that exchanges through a bed is a stream
-  network.
-
 ## Limits
 
 - **The sea is not a density model.** There is no interface between fresh and
-  salt water, and no tide inside a period.
+  salt water, and no tide inside a period. The sea is a fixed head with the level
+  of its period.
 - **The sea cells are selected by their DEM**, with the one difference between
   the two MODFLOW solvers given above.
-- **Stream heads need MODFLOW 6 or Boussinesq.** MODFLOW-NWT has the sea and the
-  sides.
+- **A river head is a fixed head.** A river that exchanges through a bed is a
+  stream network. Stream heads need MODFLOW 6 or Boussinesq: MODFLOW-NWT has the
+  sea and the sides.
 
 ## Parameters of this page
 

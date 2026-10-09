@@ -189,7 +189,7 @@ jobs:
           pip install --upgrade pip
           pip install -e ".[test]" sybil==10.1.0
 
-      # Python blocks of the guides (sybil), messages quoted in the "What can go
+      # Python blocks of Get started (sybil), messages quoted in the "What can go
       # wrong" tables, references to docs paths, the Quick start reader and the
       # page list of the browser probe. HMP_REQUIRE_SYBIL turns a missing sybil
       # into a failure instead of a skip.
@@ -198,7 +198,7 @@ jobs:
           HMP_REQUIRE_SYBIL: "1"
         run: >
           python -m pytest -q -p no:cacheprovider
-          tests/unit/docs/test_guide_python_blocks.py
+          tests/unit/docs/test_page_python_blocks.py
           tests/unit/docs/test_quoted_messages_exist_in_code.py
           tests/unit/docs/test_check_refs.py
           tests/unit/docs/test_check_quickstart.py

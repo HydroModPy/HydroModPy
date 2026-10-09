@@ -198,7 +198,7 @@ ul.navbar-icon-links i.fa-solid { font-size: var(--pst-font-size-icon); vertical
 #pst-search-dialog[open] form.bd-search i { font-size: var(--pst-font-size-icon); }
 form.bd-search i.fa-solid.fa-magnifying-glass { position: static; }
 
-/* The box that opens a guide (hmp-task): Task, Time, Needs, Gives. */
+/* The box that opens a step (hmp-task): Task, Time, Needs, Gives. */
 .bd-article .hmp-task {
   border: 1px solid var(--pst-color-border);
   border-left: 4px solid var(--pst-color-primary);

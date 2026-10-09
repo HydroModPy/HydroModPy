@@ -45,20 +45,18 @@ run without HydroModPy. Running an unchanged file again does nothing; an edited 
 **Catalog.** The index of the runs of one project, a DuckDB file at `.hmp/index.duckdb`.
 `hmp catalog ls` lists the runs. The disk is the truth and the catalog is derived from it:
 `hmp catalog reindex` rebuilds it from `runs/` and `sessions/`, and
-{ref}`the guide <catalog-reindex>` says what a rebuild cannot restore.
+{doc}`its reference <../reference/cli/catalog>` says what a rebuild cannot restore.
 
 ## Reading a TOML file
 
 - {toml}`workflow.mode` is required. It picks the operation that `hmp run` starts:
-  `simulation`, `calibration`, `overview`, `comparison`, `testbed` or `site_selection`. The
-  {doc}`guides <../guides/index>` take one task each.
+  `simulation`, `calibration`, `overview`, `comparison`, `testbed` or `site_selection`.
 - Each section is a request: what to model or produce, when, where. The
   {doc}`parameter reference <../reference/parameters/index>` groups the sections by the
   question they answer, and marks each key for the user, the developer or the expert (the
   [profiles](../reference/parameters/grammar.md#profiles)).
 - A file names a parent with `base_config` and writes only what changes. The staircase is
-  built this way. The merge rules are in the {doc}`grammar <../reference/parameters/grammar>`
-  and {doc}`../guides/inheritance` shows how to build a family of files.
+  built this way. The merge rules are in the {doc}`grammar <../reference/parameters/grammar>`.
 
 Next: the {doc}`quick start <index>`, or the {doc}`staircase <staircase/index>` if you have
 already run the demo.

@@ -10,8 +10,8 @@ from __future__ import annotations
 from tools.docs import check_refs, site_probe
 
 
-def test_there_are_about_twenty_five_page_types() -> None:
-    assert len(site_probe.PAGES) >= 25
+def test_there_are_about_twenty_page_types() -> None:
+    assert len(site_probe.PAGES) >= 20
 
 
 def test_every_page_type_has_a_source_or_a_generator() -> None:

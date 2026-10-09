@@ -82,7 +82,7 @@ def test_the_index_groups_by_door_and_the_full_text_skips_contribute(tmp_path: P
     _page(
         tmp_path, "index.html", "<h1>Home</h1><p>The home page has a long first sentence.</p>", base
     )
-    _page(tmp_path, "guides/a.html", "<h1>A guide</h1><p>Fit one parameter to a gauge today.</p>")
+    _page(tmp_path, "theory/a.html", "<h1>A theory</h1><p>Fit one parameter to a gauge today.</p>")
     _page(
         tmp_path, "contribute/x.html", "<h1>Internals</h1><p>How the engine is laid out inside.</p>"
     )
@@ -90,11 +90,11 @@ def test_the_index_groups_by_door_and_the_full_text_skips_contribute(tmp_path: P
     index, full = write(tmp_path)
     lines = index.read_text().splitlines()
     assert lines[0] == "# HydroModPy"
-    assert lines.index("## Guides") < lines.index("## Optional")
-    assert f"- [A guide]({base}guides/a.html): Fit one parameter to a gauge today." in lines
+    assert lines.index("## Theory") < lines.index("## Optional")
+    assert f"- [A theory]({base}theory/a.html): Fit one parameter to a gauge today." in lines
     assert "Search" not in index.read_text()
     text = full.read_text()
-    assert "# A guide" in text
+    assert "# A theory" in text
     assert "Internals" not in text
 
 
@@ -106,9 +106,9 @@ def test_a_version_links_its_own_folder(tmp_path: Path) -> None:
         '<body><article class="bd-article"><h1>Home</h1><p>The home page.</p></article>'
         "</body></html>"
     )
-    _page(tmp_path, "guides/new.html", "<h1>New</h1><p>A guide that only dev has today.</p>")
+    _page(tmp_path, "theory/new.html", "<h1>New</h1><p>A page that only dev has today.</p>")
     index, full = write(tmp_path)
     text = index.read_text()
-    assert "(https://example.org/dev/guides/new.html)" in text
+    assert "(https://example.org/dev/theory/new.html)" in text
     assert "example.org/main/" not in text
-    assert "<!-- https://example.org/dev/guides/new.html -->" in full.read_text()
+    assert "<!-- https://example.org/dev/theory/new.html -->" in full.read_text()

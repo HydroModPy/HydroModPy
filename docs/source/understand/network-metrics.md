@@ -7,8 +7,8 @@ which a calibration drives to a target.
 
 It has no equation and no name of a metric. The equations of the downslope method are in
 {doc}`../theory/downslope-distance`. The names of the metrics, and how to write them to a file,
-are in the guides {doc}`../guides/compare-runs` and
-{doc}`../guides/calibrate-on-the-stream-network`.
+are in {doc}`../reference/parameters/analysis/comparison` and
+{doc}`../reference/parameters/calibration/outputs`.
 
 ## The two networks
 
@@ -93,8 +93,8 @@ The average walk has a validity length. When it is longer than that length, the 
 further apart than the map can be trusted to place them, and the score says little about the
 hydrogeology. By default the length is two cells, widened by the positional accuracy you declare
 for the map. A violation is a warning
-unless you ask for an error, as the {doc}`guide <../guides/calibrate-on-the-stream-network>`
-explains.
+unless you ask for an error with
+{toml}`on_roptim_violation|calibration.outputs.<name>.on_roptim_violation`.
 
 ## Diagnostic or criterion
 
@@ -151,5 +151,5 @@ Before you compare two scores, check that they were computed the same way.
 - {doc}`stream-network`: how the model makes a network.
 - {doc}`../theory/downslope-distance`: the equations, the assumptions and the limits of the
   downslope method.
-- {doc}`../guides/calibrate-on-the-stream-network`: run a calibration on the network.
-- {doc}`../guides/compare-runs`: write the overlap and distance scores for several runs.
+- {doc}`../reference/parameters/calibration/outputs`: the network criterion of a calibration.
+- {doc}`../reference/parameters/analysis/comparison`: the overlap and distance scores of several runs.

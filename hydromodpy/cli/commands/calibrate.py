@@ -51,7 +51,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--list-phases",
         action="store_true",
-        help="List the declared phases and exit without running anything.",
+        help="List the declared phases and exit without running anything. A file "
+        "without phases gets one line for its single search.",
     )
     parser.add_argument(
         "--check",
@@ -448,6 +449,27 @@ def _phase_line(index: int, phase: dict[str, Any]) -> str:
     return f"{line}\tre-opens {moved}, {start}"
 
 
+def _print_single_search(target: Path) -> None:
+    """Print the ``--list-phases`` line of a file without phases, and what it compares.
+
+    The file still runs one search. Its line names the method, and why when the
+    file leaves it to be chosen, under ``[calibration]`` where a phase line has
+    its index and name.
+    """
+    from hydromodpy.calibration.runners.cli_runner import (
+        load_toml_calibration,
+        resolve_stream_geometry_paths,
+    )
+    from hydromodpy.calibration.runners.staged_runner import objective_comparison_table
+
+    calibration, _raw = load_toml_calibration(target)
+    method, reason = calibration.method_for()
+    print(f"[calibration]\t{method} ({reason})" if reason else f"[calibration]\t{method}")
+    resolve_stream_geometry_paths(calibration, target)
+    for row in objective_comparison_table(calibration, None):
+        print(f"    {_comparison_line(row)}")
+
+
 _WRITTEN_IN = {"phase": "written in the phase", "section": "written in [calibration.uncertainty]"}
 
 
@@ -762,7 +784,8 @@ def run(args: argparse.Namespace) -> None:
             print(f"Config invalid: {exc}", file=sys.stderr)
             sys.exit(EXIT_CONFIG)
         if not phases:
-            print(f"{target.name} declares no phases.", file=sys.stderr)
+            print(f"{target.name} declares no phases; it runs one search.", file=sys.stderr)
+            _print_single_search(target)
             return
         for index, phase in enumerate(phases):
             print(_phase_line(index, phase))

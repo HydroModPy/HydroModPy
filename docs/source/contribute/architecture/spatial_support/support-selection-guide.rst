@@ -151,8 +151,8 @@ Heterogeneous parameter referencing a support:
 
 The support identifier (``k_x`` above) must match the ``field_spatial_id``.
 The value keys must match the support labels.
-The guide :doc:`/guides/k-per-zone` explains ``value__delete`` and the other
-keys of a heterogeneous parameter.
+:doc:`/reference/parameters/flow/param` lists the keys of a heterogeneous
+parameter, and :doc:`/reference/parameters/grammar` explains ``value__delete``.
 
 Common mistakes
 ---------------

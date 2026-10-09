@@ -57,16 +57,30 @@ td.hmp-val-na { background: transparent; }
 
 /* Figures: small multiples drawn from the recorded curves. */
 .hmp-val-figs { display: flex; flex-wrap: wrap; gap: .6rem; margin: .5rem 0 .2rem; }
-figure.hmp-val-fig { flex: 1 1 15rem; max-width: 20rem; margin: 0; }
-figure.hmp-val-fig svg { width: 100%; height: auto; display: block; }
+figure.hmp-val-fig { flex: 1 1 18rem; max-width: 28rem; margin: 0; }
+figure.hmp-val-fig > svg { width: 100%; height: auto; display: block; }
 figure.hmp-val-fig figcaption { font-size: .82em; color: var(--pst-color-text-muted); }
 .hmp-val-axes line { stroke: var(--pst-color-border); stroke-width: 1; }
+.hmp-val-axes line.hmp-val-zero { stroke-dasharray: 3 3; }
 .hmp-val-lab text { fill: var(--pst-color-text-muted); font-size: 10px; }
 polyline.hmp-val-ref { fill: none; stroke: var(--pst-color-primary); stroke-width: 1.6; }
-.hmp-val-sim circle { fill: var(--pst-color-secondary); }
-.hmp-val-key-ref, .hmp-val-key-sim { display: inline-block; vertical-align: middle; margin: 0 .2rem 0 .5rem; }
-.hmp-val-key-ref { width: 1.2rem; height: 0; border-top: 2px solid var(--pst-color-primary); }
-.hmp-val-key-sim { width: .5rem; height: .5rem; border-radius: 50%; background: var(--pst-color-secondary); }
+polyline.hmp-val-ref-own { fill: none; stroke: var(--hmp-solver); stroke-width: 1.1; stroke-dasharray: 4 2; }
+/* One colour per solver (Okabe-Ito), the same on every figure; a shape goes with it. */
+.hmp-val-s0 { --hmp-solver: #e69f00; }
+.hmp-val-s1 { --hmp-solver: #0072b2; }
+.hmp-val-s2 { --hmp-solver: #009e73; }
+.hmp-val-s3 { --hmp-solver: #cc79a7; }
+.hmp-val-s4 { --hmp-solver: #d55e00; }
+.hmp-val-s5 { --hmp-solver: #56b4e9; }
+html[data-theme="dark"] .hmp-val-s1 { --hmp-solver: #56b4e9; }
+html[data-theme="dark"] .hmp-val-s5 { --hmp-solver: #f0e442; }
+.hmp-val-mk > * { fill: var(--hmp-solver); stroke: var(--pst-color-background); stroke-width: .6; }
+.hmp-val-res polyline { fill: none; stroke: var(--hmp-solver); stroke-width: 1; }
+.hmp-val-res > :not(polyline) { fill: var(--hmp-solver); }
+.hmp-val-key { display: inline-flex; align-items: center; gap: .25rem; margin-right: .7rem; white-space: nowrap; }
+figure.hmp-val-fig .hmp-val-key svg { width: .75rem; height: .75rem; flex: none; }
+.hmp-val-key-ref, .hmp-val-key-own { display: inline-block; width: 1.2rem; height: 0; border-top: 2px solid var(--pst-color-primary); }
+.hmp-val-key-own { border-top: 2px dashed var(--pst-color-text-muted); }
 
 /* The folded details of a case. */
 details.hmp-val-more { border: 1px solid var(--pst-color-border); border-radius: .4rem; margin: .6rem 0 1.2rem; }

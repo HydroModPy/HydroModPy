@@ -2,7 +2,8 @@
 
 One TOML file describes a run. Its sections are listed in {doc}`index`; this page gives the
 rules they all share: tables, inheritance, quantities, dates, paths, free keys and
-profiles. Each rule is read from the code.
+profiles. The rules are written by hand. Every key this page cites and every TOML block it
+shows is checked against the models of the code.
 
 ## Tables and arrays of tables
 
@@ -84,8 +85,6 @@ HMP_SET_SIMULATION__NAME=my_run hmp run run.toml
 A `--set` value is read as TOML when it can be, and as a plain string otherwise: `200` is
 a number and `my_run` is a string. In an environment variable name, two underscores stand
 for a dot.
-
-The full guide, with the traps, is {doc}`../../guides/inheritance`.
 
 ## Merging: tables, lists, `__append`, `__merge`, `__delete`
 

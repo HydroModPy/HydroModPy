@@ -10,27 +10,20 @@ Stages (``--stage``), each one idempotent:
 
 ``runs``
     Bootstrap the workspace (``hmp workspace init``, ``hmp example add 04``),
-    then run the staircase steps, the frozen reference, the two-stage
-    calibration, the files of the modelling guides and the two synthetic demo
-    runs. A run that already exists in the project catalog is not run again.
+    then run the staircase steps, the frozen reference, the reference with
+    the flow solved by MODFLOW-NWT, the two-stage calibration and the two
+    synthetic demo runs. A run that already exists in the project catalog is
+    not run again.
     Steps 3 and 6 and the calibration need the network on their first run.
 ``figures``
-    Redraw the figures from the stored runs (hero, Understand, staircase,
-    guides, model, overview, catalog) and write the manifest.
+    Redraw the figures from the stored runs (Understand, staircase, solvers,
+    catalog) and write the manifest.
 
-The modelling guides (wells, mesh, terrain, depth, boundaries, zones,
-particles, solute, SFR) each ship a file under ``docs/source/guides/recipes/model/``.
-The ``model`` group copies it into the example 04 project, runs it, and draws
-the figures its page shows from that run.
-
-The ``overview`` group runs the two files of ``docs/source/guides/recipes/figures/``:
-the overview of the Nançon catchment (guide "Describe a catchment": the DEM map, the
-hydrography map, the stats card and the station inventory) and a site selection by
-catchment area (guide "Select catchments in a region": its map). Neither workflow has a
-run in the catalog, so their PNG files are copied to ``overview-figures/`` of the workspace
-and drawn from there. Each of them also gets a dark twin: the same run, with the dark
-matplotlib theme applied first. The tables and the site selection map follow that theme
-(the figure code reads the rcParams), so no image is inverted by this script.
+The ``solvers`` group compares the two solvers on the same file: the reference
+run (MODFLOW 6) and its copy solved by MODFLOW-NWT. The script writes that copy
+into the scratch project (``run_nwt.toml``); the example ships no such file.
+Its figures keep the run names in their titles, since the names tell the solvers
+apart.
 
 Run it from anywhere, never with the workspace inside the repository::
 
@@ -48,7 +41,6 @@ from __future__ import annotations
 import argparse
 import io
 import os
-import re
 import subprocess
 import sys
 import tomllib
@@ -98,6 +90,13 @@ STEPS: tuple[RunSpec, ...] = (
     RunSpec("step6", "step6_soil_reservoir.toml", "nancon_soil_reservoir_daily", 6, True),
 )
 REFERENCE = RunSpec("reference", "project.toml", "nancon_intermittence_mf6")
+# The reference with the flow solved by MODFLOW-NWT, written by nwt_variant.
+NWT = RunSpec(
+    "nwt",
+    "run_nwt.toml",
+    "nancon_intermittence_nwt",
+    note="project.toml with the flow solved by MODFLOW-NWT",
+)
 CALIBRATION = RunSpec(
     "calibrated",
     "run_calibration.toml",
@@ -105,138 +104,12 @@ CALIBRATION = RunSpec(
     needs_network=False,
     note="two stages, K on the mapped network then Sy on the gauge",
 )
-# The reference again with the routed drain flux kept, which two guide figures read.
-ACTIVE_NETWORK = RunSpec(
-    "active_network",
-    "project.toml",
-    "nancon_ex04_active_network",
-    args=(
-        "--set simulation.name=nancon_ex04_active_network",
-        "--set simulation.results.derived.accumulation_flux=true",
-    ),
-    note="the reference with accumulation_flux kept",
-)
 # The promoted run of the second stage: the one the Understand pages describe.
 CALIBRATED_RUNS = (
     "nancon_intermittence_mf6_calibrated_transient_storage",
     "nancon_intermittence_mf6_calibrated_steady_conductivity",
 )
 
-
-@dataclass(frozen=True)
-class GuideFigure:
-    """One figure a modelling guide shows, drawn from the run of its own file."""
-
-    figure: str
-    reference: str | None = None
-
-
-@dataclass(frozen=True)
-class GuideRun:
-    """The file of a modelling guide, the run it writes and the figures its page shows."""
-
-    spec: RunSpec
-    page: str
-    figures: tuple[GuideFigure, ...]
-    extras: tuple[str, ...] = ()
-
-    @property
-    def folder(self) -> str:
-        return Path(self.page).stem
-
-
-RECIPES = DOCS_SOURCE / "guides" / "recipes" / "model"
-
-GUIDE_RUNS: tuple[GuideRun, ...] = (
-    GuideRun(
-        RunSpec("guide_wells", "guide_wells.toml", "nancon_guide_wells"),
-        "guides/add-wells.md",
-        (GuideFigure("watertable_depth_map"), GuideFigure("cross_section")),
-    ),
-    GuideRun(
-        RunSpec("guide_mesh", "guide_mesh.toml", "nancon_guide_mesh"),
-        "guides/choose-and-build-the-mesh.md",
-        (GuideFigure("mesh_map"),),
-        extras=("well_w1.geojson",),
-    ),
-    GuideRun(
-        RunSpec("guide_terrain", "guide_terrain.toml", "nancon_guide_terrain"),
-        "guides/prepare-the-terrain.md",
-        (
-            GuideFigure("depression_map"),
-            GuideFigure("conditioning_impact_map", reference="nancon_step1_minimal"),
-        ),
-    ),
-    GuideRun(
-        RunSpec("guide_depth", "guide_depth.toml", "nancon_guide_depth"),
-        "guides/depth-and-substratum.md",
-        (GuideFigure("cross_section"), GuideFigure("parameter_section")),
-    ),
-    GuideRun(
-        RunSpec("guide_boundaries", "guide_boundaries.toml", "nancon_guide_boundaries"),
-        "guides/boundary-and-initial-conditions.md",
-        (GuideFigure("boundary_package_map"),),
-    ),
-    GuideRun(
-        RunSpec("guide_k_zones", "guide_k_zones.toml", "nancon_guide_k_zones"),
-        "guides/k-per-zone.md",
-        (GuideFigure("parameter_map"),),
-    ),
-    GuideRun(
-        RunSpec("guide_particles", "guide_particles.toml", "nancon_guide_particles"),
-        "guides/track-particles.md",
-        (GuideFigure("particle_tracks"), GuideFigure("residence_time_distribution")),
-    ),
-    GuideRun(
-        RunSpec("guide_solute", "guide_solute.toml", "nancon_guide_solute"),
-        "guides/transport-and-particles.md",
-        (GuideFigure("concentration_map"),),
-    ),
-    GuideRun(
-        RunSpec("guide_sfr", "guide_sfr.toml", "nancon_guide_sfr"),
-        "guides/route-streams-with-sfr.md",
-        (GuideFigure("sfr_reach_network"), GuideFigure("hydrograph_sim_obs")),
-    ),
-)
-"""The modelling guides that show a run of their own file. Their pages are left
-out of the ``guides`` group, which draws cited figures from the example runs."""
-
-
-# Where a guide figure is looked for, first run that can draw it wins.
-GUIDE_RUN_ORDER = (
-    "nancon_intermittence_mf6_calibrated_transient_storage",
-    "nancon_intermittence_mf6_calibrated_steady_conductivity",
-    "nancon_intermittence_mf6",
-    "nancon_ex04_active_network",
-    "nancon_step4_transient",
-    "nancon_step3_api",
-    "nancon_step2_local",
-    "nancon_step1_minimal",
-)
-
-# The files whose runs have no catalog entry: the overview and a site selection.
-FIGURE_RECIPES = DOCS_SOURCE / "guides" / "recipes" / "figures"
-OVERVIEW_TOML = "overview.toml"
-SELECTION_TOML = "site_selection_area.toml"
-OVERVIEW_DIR = "overview-figures"
-OVERVIEW_PAGE = "guides/describe-a-catchment.md"
-SELECTION_PAGE = "guides/select-catchments.md"
-# panel -> is it a table the workflow draws on a large page, to be cropped
-OVERVIEW_PANELS = {
-    "map_dem": False,
-    "map_hydrography": False,
-    "stats_card": True,
-    "station_inventory": True,
-}
-SELECTION_MAP = "site_selection_map"
-# The workflow with the dark theme applied first: the same call as ``hmp run <file>``.
-DARK_RUN = (
-    "import runpy, sys\n"
-    "from hydromodpy.display.style import apply_theme\n"
-    "apply_theme('dark')\n"
-    "sys.argv = ['hmp', 'run', sys.argv[1]]\n"
-    "runpy.run_module('hydromodpy', run_name='__main__')\n"
-)
 
 # -- what is drawn -------------------------------------------------------------
 
@@ -261,7 +134,10 @@ STEP_KEY_FIGURE = {
     6: "flux_timeseries",
 }
 
-HERO_FIGURE = "flow_intermittence_map"
+# The solvers group: each run on its own, then the NWT run against the MF6 one.
+SOLVER_PAGE = "theory/validation.md"
+SOLVER_EACH = ("hydrograph_sim_obs",)
+SOLVER_PAIR = ("side_by_side", "difference_map")
 
 # Demo figures that compare two runs: the second run is the reference.
 DEMO_COMPARISON_FIGURES = ("difference_map", "side_by_side", "conditioning_impact_map")
@@ -373,13 +249,28 @@ def demo_variant(demo: Path) -> Path:
     return target
 
 
+def nwt_variant(project: Path) -> Path:
+    """Write the reference with the flow solved by MODFLOW-NWT, nothing else changed."""
+    target = project / NWT.toml
+    target.write_text(
+        'base_config = "project.toml"\n\n[simulation]\n'
+        f'name = "{NWT.run}"\n'
+        'description = "The reference with the flow solved by MODFLOW-NWT."\n\n'
+        '[[simulation.process]]\nid = "flow_main"\ntype = "flow"\nsolvers = ["modflow_nwt"]\n',
+        encoding="utf-8",
+    )
+    return target
+
+
 def stage_runs(workspace: Path, cores: int, only: set[str]) -> None:
     bootstrap_workspace(workspace, cores)
     project = workspace / "projects" / EXAMPLE_DIR
     done = _existing_runs(project)
-    for spec in (*STEPS, REFERENCE, ACTIVE_NETWORK, CALIBRATION):
+    for spec in (*STEPS, REFERENCE, NWT, CALIBRATION):
         if only and spec.key not in only:
             continue
+        if spec is NWT:
+            nwt_variant(project)
         # A calibration writes several runs; its first stage name is enough to tell.
         probe = (
             "nancon_intermittence_mf6_calibrated_transient_storage"
@@ -394,19 +285,6 @@ def stage_runs(workspace: Path, cores: int, only: set[str]) -> None:
             cwd=project,
             cores=cores,
         )
-    for guide in GUIDE_RUNS:
-        spec = guide.spec
-        if only and "model" not in only and spec.key not in only:
-            continue
-        if spec.run in done:
-            print(f"= {spec.toml}: run {spec.run} exists", flush=True)
-            continue
-        # The recipe inherits a step file of the example: it runs from the project.
-        for name in (spec.toml, *guide.extras):
-            (project / name).write_bytes((RECIPES / name).read_bytes())
-        hmp(["run", spec.toml], cwd=project, cores=cores)
-    if not only or "overview" in only:
-        stage_overview_runs(workspace, cores)
     demo = workspace / "projects" / "example"
     if only and "demo" not in only:
         return
@@ -415,60 +293,6 @@ def stage_runs(workspace: Path, cores: int, only: set[str]) -> None:
         hmp(["run", "run_demo.toml"], cwd=demo, cores=cores)
     if "demo_k3" not in done:
         hmp(["run", demo_variant(demo).name], cwd=demo, cores=cores)
-
-
-def overview_png(workspace: Path, name: str, dark: bool) -> Path:
-    """Where the stage keeps the PNG a workflow without a catalog entry wrote."""
-    return workspace / OVERVIEW_DIR / ("dark" if dark else "light") / f"{name}.png"
-
-
-def _keep(source: Path, target: Path) -> None:
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(source.read_bytes())
-
-
-def _run_themed(toml: str, *, cwd: Path, cores: int, dark: bool) -> None:
-    """Run ``hmp run <toml>``, with the dark matplotlib theme applied first when asked."""
-    if not dark:
-        hmp(["run", toml], cwd=cwd, cores=cores)
-        return
-    print("$ hmp run", toml, "   (dark theme)", flush=True)
-    done = subprocess.run(
-        [sys.executable, "-c", DARK_RUN, toml], cwd=cwd, env=_env(cores), check=False
-    )
-    if done.returncode != 0:
-        raise SystemExit(f"hmp run {toml} (dark) exited with {done.returncode}")
-
-
-def stage_overview_runs(workspace: Path, cores: int) -> None:
-    """Run the overview and the site selection of ``recipes/figures`` and keep their PNG files."""
-    project = workspace / "projects" / EXAMPLE_DIR
-    # The two workflows are independent: one that has its figures is not run again.
-    if all(
-        overview_png(workspace, panel, dark).is_file()
-        for panel in OVERVIEW_PANELS
-        for dark in (False, True)
-    ):
-        print(f"= {OVERVIEW_TOML}: figures exist", flush=True)
-    else:
-        (project / OVERVIEW_TOML).write_bytes((FIGURE_RECIPES / OVERVIEW_TOML).read_bytes())
-        for dark in (False, True):
-            _run_themed(OVERVIEW_TOML, cwd=project, cores=cores, dark=dark)
-            for panel in OVERVIEW_PANELS:
-                _keep(
-                    project / "share" / "figures" / "overview" / f"{panel}.png",
-                    overview_png(workspace, panel, dark),
-                )
-    if all(overview_png(workspace, SELECTION_MAP, dark).is_file() for dark in (False, True)):
-        print(f"= {SELECTION_TOML}: figures exist", flush=True)
-        return
-    (project / SELECTION_TOML).write_bytes((FIGURE_RECIPES / SELECTION_TOML).read_bytes())
-    for dark in (False, True):
-        _run_themed(SELECTION_TOML, cwd=project, cores=cores, dark=dark)
-        _keep(
-            project / "nancon_area" / "review" / f"{SELECTION_MAP}.png",
-            overview_png(workspace, SELECTION_MAP, dark),
-        )
 
 
 # -- stage 2: drawing ----------------------------------------------------------
@@ -516,32 +340,6 @@ def to_webp(png: bytes, *, width: int | None = None) -> tuple[bytes, tuple[int, 
         scale *= 0.85
 
 
-def autocrop(png: bytes, margin: int = 24) -> bytes:
-    """Cut the border of a table the workflow draws on a large page.
-
-    The page colour is the one of the top left pixel: white, or the dark background.
-    """
-    from PIL import Image, ImageChops
-
-    image = Image.open(io.BytesIO(png)).convert("RGB")
-    page = Image.new("RGB", image.size, image.getpixel((0, 0)))
-    box = ImageChops.difference(image, page).getbbox()
-    if box is None:
-        return png
-    left, top, right, bottom = box
-    cropped = image.crop(
-        (
-            max(left - margin, 0),
-            max(top - margin, 0),
-            min(right + margin, image.width),
-            min(bottom + margin, image.height),
-        )
-    )
-    buffer = io.BytesIO()
-    cropped.save(buffer, "PNG")
-    return buffer.getvalue()
-
-
 class Drawer:
     """Open the project catalog once and draw figures from its runs."""
 
@@ -581,6 +379,7 @@ class Drawer:
         dark: bool,
         reference: str | None = None,
         width: int | None = None,
+        show_run_name: bool = False,
     ) -> tuple[bytes, tuple[int, int], dict[str, Any]]:
         import matplotlib.pyplot as plt
 
@@ -598,11 +397,12 @@ class Drawer:
             options["reference"] = self.run(reference)
         with matplotlib_backend(dpi=DPI):
             apply_theme("dark" if dark else "default")
-            fig = render_figure(figure, sim, show_run_name=False, **options)
-            runs = [sim] + ([options["reference"]] if "reference" in options else [])
-            known = [t for r in runs for t in (r.name, str(r.sim_id), str(r.sim_id)[:8])]
-            left = run_names_left(fig, known)
-            self.leftovers += [(f"{name}/{figure}", text) for text in left]
+            fig = render_figure(figure, sim, show_run_name=show_run_name, **options)
+            if not show_run_name:
+                runs = [sim] + ([options["reference"]] if "reference" in options else [])
+                known = [t for r in runs for t in (r.name, str(r.sim_id), str(r.sim_id)[:8])]
+                left = run_names_left(fig, known)
+                self.leftovers += [(f"{name}/{figure}", text) for text in left]
             buffer = io.BytesIO()
             fig.savefig(buffer, format="png", dpi=DPI, bbox_inches="tight")
             plt.close(fig)
@@ -623,31 +423,24 @@ def suffix(dark: bool) -> str:
     return "-dark" if dark else ""
 
 
-def viz_command(run: str, figure: str, options: dict[str, Any]) -> str:
-    """The command that redraws a figure as this script draws it, without the run name."""
+def viz_command(
+    run: str,
+    figure: str,
+    options: dict[str, Any],
+    *,
+    reference: str | None = None,
+    show_run_name: bool = False,
+) -> str:
+    """The command that redraws a figure as this script draws it.
+
+    ``hmp viz show`` takes one run: a figure that compares two is redrawn in Python.
+    """
+    if reference:
+        return f'hmp.figure(<run {run}>, "{figure}", reference=<run {reference}>)'
     when = options.get("time")
     tail = f" --time {when}" if when else ""
-    return f"hmp viz show {run} {figure}{tail} --opt show_run_name=false"
-
-
-def guide_citations() -> dict[str, list[str]]:
-    """Return, for each registered figure, the guides that name it in code font or quotes."""
-    from hydromodpy.display.figure_registry import names
-
-    cited: dict[str, list[str]] = {}
-    guides = sorted((DOCS_SOURCE / "guides").glob("*.md")) + sorted(
-        (DOCS_SOURCE / "guides").glob("*.rst")
-    )
-    own_runs = {guide.page for guide in GUIDE_RUNS}
-    for page in guides:
-        if str(page.relative_to(DOCS_SOURCE)) in own_runs:
-            continue
-        text = page.read_text(encoding="utf-8")
-        for figure in names():
-            pattern = rf"[`\"']{re.escape(figure)}[`\"']|hmp viz show \S+ {re.escape(figure)}\b"
-            if re.search(pattern, text):
-                cited.setdefault(figure, []).append(str(page.relative_to(DOCS_SOURCE)))
-    return cited
+    hide = "" if show_run_name else " --opt show_run_name=false"
+    return f"hmp viz show {run} {figure}{tail}{hide}"
 
 
 def pages_citing(directory: str, needle: str) -> list[str]:
@@ -658,12 +451,11 @@ def pages_citing(directory: str, needle: str) -> list[str]:
     return pages
 
 
-def stage_figures(workspace: Path, only: set[str], dark_guides: bool) -> list[Entry]:
+def stage_figures(workspace: Path, only: set[str]) -> list[Entry]:
     project = workspace / "projects" / EXAMPLE_DIR
     entries: list[Entry] = []
     drawer = Drawer(project)
-    run_spec = {spec.run: spec for spec in (*STEPS, REFERENCE, ACTIVE_NETWORK)}
-    run_spec.update({guide.spec.run: guide.spec for guide in GUIDE_RUNS})
+    run_spec = {spec.run: spec for spec in (*STEPS, REFERENCE, NWT)}
     run_spec.update({name: CALIBRATION for name in CALIBRATED_RUNS})
 
     def emit(
@@ -678,8 +470,16 @@ def stage_figures(workspace: Path, only: set[str], dark_guides: bool) -> list[En
         pages: list[str] | None = None,
         width: int | None = None,
         reference: str | None = None,
+        show_run_name: bool = False,
     ) -> None:
-        data, size, options = drawer.draw(run, figure, dark=dark, reference=reference, width=width)
+        data, size, options = drawer.draw(
+            run,
+            figure,
+            dark=dark,
+            reference=reference,
+            width=width,
+            show_run_name=show_run_name,
+        )
         path = OUT_ROOT / f"{rel}{suffix(dark)}.webp"
         write(path, data)
         spec = run_spec.get(run)
@@ -700,7 +500,9 @@ def stage_figures(workspace: Path, only: set[str], dark_guides: bool) -> list[En
                 pages=pages or [],
                 options={k: v for k, v in options.items() if k != "reference"},
                 command=command,
-                redraw=viz_command(run, figure, options),
+                redraw=viz_command(
+                    run, figure, options, reference=reference, show_run_name=show_run_name
+                ),
                 width=size[0],
                 height=size[1],
                 bytes=len(data),
@@ -716,19 +518,6 @@ def stage_figures(workspace: Path, only: set[str], dark_guides: bool) -> list[En
         return not only or group in only
 
     calibrated = next((n for n in CALIBRATED_RUNS if drawer.run(n) is not None), None)
-
-    if wanted("hero"):
-        print("hero", flush=True)
-        source = calibrated or REFERENCE.run
-        for dark in (False, True):
-            emit(
-                "hero",
-                HERO_FIGURE,
-                source,
-                "hero/flow-intermittence-map",
-                dark=dark,
-                pages=["index.md"],
-            )
 
     if wanted("understand") and calibrated:
         print("understand", flush=True)
@@ -771,76 +560,26 @@ def stage_figures(workspace: Path, only: set[str], dark_guides: bool) -> list[En
                         pages=[page, "get-started/staircase/index.md"] if is_key else [page],
                     )
 
-    if wanted("guides"):
-        print("guides", flush=True)
-        cited = guide_citations()
-        for figure, pages in sorted(cited.items()):
-            source = next((n for n in GUIDE_RUN_ORDER if drawer.can_draw(n, figure) is None), None)
-            if source is None:
-                print(f"  {figure}: no example 04 run can draw it, skipped", flush=True)
+    if wanted("solvers"):
+        print("solvers", flush=True)
+        jobs = [(figure, run, None) for run in (REFERENCE.run, NWT.run) for figure in SOLVER_EACH]
+        jobs += [(figure, NWT.run, REFERENCE.run) for figure in SOLVER_PAIR]
+        for figure, run, reference in jobs:
+            if drawer.run(run) is None or (reference and drawer.run(reference) is None):
+                print(f"  {figure}: run {run} or {reference} missing, skipped", flush=True)
                 continue
-            for dark in (False, True) if dark_guides else (False,):
-                emit("guide", figure, source, f"guides/{figure}", dark=dark, pages=pages)
-
-    if wanted("model"):
-        print("model", flush=True)
-        for guide in GUIDE_RUNS:
-            for item in guide.figures:
-                reason = drawer.can_draw(guide.spec.run, item.figure)
-                if reason:
-                    print(f"  {guide.spec.run} {item.figure}: skipped, {reason}", flush=True)
-                    continue
+            rel = f"solvers/{figure}" if reference else f"solvers/{run}_{figure}"
+            for dark in (False, True):
                 emit(
-                    "guide",
-                    item.figure,
-                    guide.spec.run,
-                    f"guides/{guide.folder}/{item.figure}",
-                    dark=False,
-                    pages=[guide.page],
-                    reference=item.reference,
+                    "solvers",
+                    figure,
+                    run,
+                    rel,
+                    dark=dark,
+                    pages=[SOLVER_PAGE],
+                    reference=reference,
+                    show_run_name=True,
                 )
-
-    if wanted("overview"):
-        print("overview", flush=True)
-        recipes = (
-            (OVERVIEW_TOML, "describe-a-catchment", OVERVIEW_PAGE, tuple(OVERVIEW_PANELS)),
-            (SELECTION_TOML, "select-catchments", SELECTION_PAGE, (SELECTION_MAP,)),
-        )
-        for toml, folder, page, names in recipes:
-            for name in names:
-                table = OVERVIEW_PANELS.get(name, False)
-                for dark in (False, True):
-                    stored = overview_png(workspace, name, dark)
-                    if not stored.is_file():
-                        print(
-                            f"  {name}: no stored {theme_name(dark)} PNG, run the runs stage first",
-                            flush=True,
-                        )
-                        continue
-                    png_dark = autocrop(stored.read_bytes()) if table else stored.read_bytes()
-                    note = " (drawn with the dark matplotlib theme applied first)" if dark else ""
-                    data, size = to_webp(png_dark)
-                    path = OUT_ROOT / "guides" / folder / f"{name}{suffix(dark)}.webp"
-                    write(path, data)
-                    entries.append(
-                        Entry(
-                            kind="guide",
-                            figure=name,
-                            path=str(path.relative_to(ROOT)),
-                            theme=theme_name(dark),
-                            config=toml,
-                            pages=[page],
-                            command=f"hmp run {toml}{note}",
-                            redraw=f"hmp run {toml}",
-                            width=size[0],
-                            height=size[1],
-                            bytes=len(data),
-                        )
-                    )
-                    print(
-                        f"  {path.relative_to(ROOT)}  {size[0]}x{size[1]}  {len(data) / 1024:.0f} KB",
-                        flush=True,
-                    )
 
     drawer.close()
     if drawer.leftovers:
@@ -966,7 +705,7 @@ def write_manifest(entries: list[Entry]) -> None:
         f"thumbnail_width = {THUMB_WIDTH}",
         "",
     ]
-    order = {"hero": 0, "understand": 1, "staircase": 2, "guide": 3, "catalog": 4}
+    order = {"understand": 0, "staircase": 1, "solvers": 2, "catalog": 3}
     for row in sorted(rows.values(), key=lambda r: (order[r["kind"]], r.get("step", 0), r["path"])):
         lines.append("[[figure]]")
         lines += [f"{key} = {_toml_value(value)}" for key, value in row.items()]
@@ -990,13 +729,9 @@ def main(argv: list[str] | None = None) -> int:
         "--only",
         default="",
         help=(
-            "comma list: runs (step1..step6, reference, calibrated, model or one guide_* key, "
-            "demo, overview); figures (hero, understand, staircase, guides, model, overview, "
-            "catalog)"
+            "comma list: runs (step1..step6, reference, nwt, calibrated, demo); "
+            "figures (understand, staircase, solvers, catalog)"
         ),
-    )
-    parser.add_argument(
-        "--dark-guides", action="store_true", help="also draw the dark variant of the guide figures"
     )
     args = parser.parse_args(argv)
 
@@ -1008,7 +743,7 @@ def main(argv: list[str] | None = None) -> int:
         stage_runs(workspace, args.cores, only)
     if args.stage in ("figures", "all"):
         os.environ.setdefault("MPLBACKEND", "Agg")
-        entries = stage_figures(workspace, only, args.dark_guides)
+        entries = stage_figures(workspace, only)
         if not only or "catalog" in only:
             entries += stage_catalog(workspace)
         write_manifest(entries)

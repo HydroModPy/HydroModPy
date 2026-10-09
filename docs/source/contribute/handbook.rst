@@ -269,5 +269,4 @@ Where to look next
 - :doc:`/reference/parameters/index`: every TOML key, generated from the
   Pydantic models.
 - :doc:`/get-started/concepts`: the workspace layout;
-  :doc:`/guides/inheritance` and :doc:`/reference/parameters/grammar`: the TOML
-  inheritance rules.
+  :doc:`/reference/parameters/grammar`: the TOML inheritance rules.

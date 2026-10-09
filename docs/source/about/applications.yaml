@@ -11,6 +11,10 @@ studies:
     use: >-
       Climate-change projections of groundwater and surface water connectivity in a
       compartmentalized headwater bedrock aquifer.
+  - bib: marti2025wetland
+    use: >-
+      Sensitivity of groundwater-dependent wetlands to changes in recharge,
+      from catchment-scale runs.
   - bib: abherve2024headwater
     use: >-
       Calibration of groundwater flow models against the intermittence of headwater
@@ -23,10 +27,6 @@ studies:
     use: >-
       Heterogeneity of a coastal aquifer read from the head series of a single
       piezometer, with HydroModPy as the forward model of the inverse problem.
-  - bib: marti2024wetland
-    use: >-
-      Sensitivity of groundwater-dependent wetlands to changes in recharge,
-      from catchment-scale runs.
   - bib: abherve2023
     use: >-
       The calibration of seepage against the spatial distribution of the stream

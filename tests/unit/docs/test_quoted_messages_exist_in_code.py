@@ -1,4 +1,4 @@
-"""Every message a guide quotes in "What can go wrong" is printed by the code.
+"""Every message a page quotes in "What can go wrong" is printed by the code.
 
 A table that names a message the code no longer prints sends the reader after
 text that never appears. The scan reads the first column of the tables, keeps
@@ -18,9 +18,9 @@ import pytest
 from tools.docs import quoted_messages as qm
 
 EXTERNAL = Path(__file__).with_name("quoted_messages_external.toml")
-# The scan found about 410 quotes when this test was written. Far fewer means the
-# table reader stopped matching, not that the guides got cleaner.
-FLOOR = 300
+# The scan found one quote when the guides were removed. None means the table
+# reader stopped matching.
+FLOOR = 1
 
 
 def _external() -> list[dict[str, str]]:

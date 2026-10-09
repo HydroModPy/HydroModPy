@@ -13,7 +13,7 @@ DOI = CFF["preferred-citation"]["doi"]
 
 def test_every_format_names_the_version_the_doi_and_every_author() -> None:
     family_names = [a["family-names"] for a in CFF["authors"]]
-    assert len(family_names) == len(CFF["preferred-citation"]["authors"])
+    assert family_names == [a["family-names"] for a in CFF["preferred-citation"]["authors"]]
     for fmt in citation.FORMATS:
         out = citation.render(fmt, CFF, VERSION, "2026")
         assert VERSION in out, fmt
@@ -44,6 +44,7 @@ def test_ris_has_one_author_line_per_author_and_two_records() -> None:
     assert out.count("\nER  - ") + out.startswith("ER  - ") == 2
     assert out.count("AU  - ") == 2 * len(CFF["authors"])
     assert "AU  - Abhervé, Ronan" in out
+    assert f"IS  - {CFF['preferred-citation']['issue']}" in out
 
 
 def test_text_uses_initials_and_the_ampersand_before_the_last_author() -> None:

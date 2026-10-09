@@ -3,8 +3,8 @@
 A property such as $K$ is given per zone of a map: geology classes, bands, rings, or the
 zones of a raster. The solver needs one value per cell and per layer. This page gives
 the rule that turns the first into the second, what that rule means for the
-conductivity, and a worked example. How to give a value per zone is in
-{doc}`../../guides/k-per-zone`.
+conductivity, and a worked example. The keys of a value per zone are in
+{doc}`[flow.param] <../../reference/parameters/flow/param>`.
 
 ::::{dropdown} Notation of this page
 ```{hmp-notation}
@@ -46,13 +46,10 @@ $\sum_z F_{c,z} = 0$, so a value of zero, and a zero $K$ on an active cell is re
 (transfer-conductivity)=
 ## What the rule means for the conductivity
 
-{eq}`eq-cell-value` is an arithmetic mean weighted by area. For a cell cut by two
-zones, that mean is the right effective value for a flow parallel to the interface,
-where the two parts carry water side by side. For a flow across the interface, where the
-two parts are in series, the effective value is the harmonic mean, and for a random mix
-of zones it lies between the two {cite:p}`renard1997`. The arithmetic mean is the upper
-of these bounds. A cell that holds a thin layer of low $K$ across the flow therefore
-conducts more in the model than in the ground.
+{eq}`eq-cell-value` is an arithmetic mean weighted by area, the upper bound of the
+equivalent conductivity of a cell cut by several zones; the harmonic mean is the lower
+bound, and a random mix lies between {cite:p}`renard1997`. A cell that holds a thin layer
+of low $K$ across the flow therefore conducts more in the model than in the ground.
 
 Between two cells, the conductance {eq}`eq-conductance` joins the two cell values in
 series. A contrast that follows the cell faces is represented in series; a contrast
@@ -134,4 +131,4 @@ hydromodpy.solver.field_property_mapping
 
 - {doc}`../groundwater-flow`: the properties in the flow equation, and the depth factor.
 - {doc}`../mesh`: the cells the values land on.
-- {doc}`../../guides/k-per-zone`: give a value per zone.
+- {doc}`../../reference/parameters/flow/param`: give a value per zone.

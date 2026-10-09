@@ -105,8 +105,9 @@ water_table = hmp.read(run, "watertable_elevation", time=-1)  # numpy array
 ```
 
 The tables are plain Parquet, so `pandas.read_parquet` on
-`runs/demo/tables.parquet/metrics.parquet` works too. See the
-[results guide](https://docs.hydromodpy.fr/main/guides/index.html)
+`runs/demo/tables.parquet/metrics.parquet` works too. See
+[Reading the results](https://docs.hydromodpy.fr/main/understand/reading-results.html)
+and the [Python API](https://docs.hydromodpy.fr/main/reference/python/index.html)
 for the full reading and export path.
 
 ## Documentation
@@ -118,7 +119,6 @@ Full documentation lives at
 |---------|----------------|
 | [Understand](https://docs.hydromodpy.fr/main/understand/index.html) | What the model computes and how to read its maps, in plain words. |
 | [Get started](https://docs.hydromodpy.fr/main/get-started/index.html) | Install, then example 04 file by file. |
-| [Guides](https://docs.hydromodpy.fr/main/guides/index.html) | One task per page: K per zone, recharge, calibration, a run that does not converge. |
 | [Reference](https://docs.hydromodpy.fr/main/reference/index.html) | Every TOML parameter, every `hmp` command and the Python API, generated from the code. |
 | [Theory](https://docs.hydromodpy.fr/main/theory/index.html) | The equations, their assumptions and limits, and the validation against references. |
 | [Contribute](https://docs.hydromodpy.fr/main/contribute/index.html) | Contributor handbook, layer matrix, storage layout, package maps. |
@@ -136,31 +136,35 @@ advisory rather than a public issue.
 
 ## How to cite
 
-If HydroModPy supports your work, please cite the software and the companion
-paper. Full BibTeX, RIS and plain-text entries are on the
+If HydroModPy supports your work, please cite the technical note below. If you
+also cite the software, give the version you ran. Full BibTeX, RIS and
+plain-text entries are on the
 [citation page](https://docs.hydromodpy.fr/main/about/cite.html);
 GitHub renders the "Cite this repository" button from
 [`CITATION.cff`](https://github.com/HydroModPy/HydroModPy/blob/main/CITATION.cff).
 
 <!-- The dash belongs to the published title. -->
 <!-- vale off -->
-> Gauvain, A., Abhervé, R., Boivin, B., Roques, C., Le Mesnil, M., Coche, A.,
-> Babey, T., Marçais, J., Bouchez, C., Leray, S., Marti, E., Bresciani, E.,
-> Figueroa, R., Pélissier, M., Guillaumot, L., Touzeau, T., Issolah, I.,
-> Maugan, E., Bagagnan, R. S., Vautier, C., Sallou, J., Bourcier, J.,
-> Combemale, B., Brunner, P., Longuevergne, L., Aquilina, L., & de Dreuzy, J.-R.
-> (2026). Technical note: HydroModPy – a Python toolbox for deploying
-> catchment-scale shallow groundwater models. *EGUsphere* [preprint], 1–31.
-> <https://doi.org/10.5194/egusphere-2026-868>
+> Gauvain, A., Abhervé, R., Boivin, B., Coche, A., Le Mesnil, M., Babey, T.,
+> Maugan, E., Touzeau, T., Issolah, I., Roques, C., Bouchez, C., Marçais, J.,
+> Leray, S., Marti, E., Bresciani, E., Figueroa, R., Pélissier, M., Carlier, S.,
+> Guillaumot, L., Bagagnan, R. S., Vautier, C., Longuevergne, L., Sallou, J.,
+> Bourcier, J., Combemale, B., Brunner, P., Aquilina, L., & de Dreuzy, J.-R.
+> (2026). Technical note: HydroModPy (v1.0) – a Python toolbox for deploying
+> catchment-scale shallow groundwater models. *Hydrology and Earth System
+> Sciences*, 30(17), 5571–5592. <https://doi.org/10.5194/hess-30-5571-2026>
 <!-- vale on -->
 
 ## Authors and contact
 
 HydroModPy is developed by Geosciences Rennes (Université de Rennes, CNRS)
 together with collaborators at CHYN Neuchâtel, INRAE, Pontificia Universidad
-Católica de Chile, Universidad de O'Higgins, WUR, Inria/IRISA and CNRS-LMD.
-The complete author list with affiliations is maintained in
-[`CITATION.cff`](https://github.com/HydroModPy/HydroModPy/blob/main/CITATION.cff).
+Católica de Chile, Universidad de O'Higgins, BRGM, WUR, Université de Pau et
+des Pays de l'Adour, Inria/IRISA and CNRS-LMD. The complete author list is
+maintained in
+[`CITATION.cff`](https://github.com/HydroModPy/HydroModPy/blob/main/CITATION.cff);
+the affiliations are on the
+[citation page](https://docs.hydromodpy.fr/main/about/cite.html).
 
 For questions or collaboration: <alexandre.gauvain.ag@gmail.com> or
 <ronan.abherve@gmail.com>.

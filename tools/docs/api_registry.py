@@ -460,26 +460,58 @@ def popped_keywords(fn: Any) -> list[str]:
 # ---------------------------------------------------------------- exceptions
 
 
-# Where the exception classes are defined: the code table, then the two
-# modules whose classes the exit-code mapping names.
-EXCEPTION_MODULES = (
-    "hydromodpy.core.exceptions",
-    "hydromodpy.results.errors",
-    "hydromodpy.results.catalog.discovery",
-)
+CODE_TABLE_MODULE = "hydromodpy.core.exceptions"
 
 
-def raise_sites(names: set[str]) -> dict[str, dict[str, int]]:
-    """For each exception name, the top-level packages that raise it and how often."""
-    counts: dict[str, dict[str, int]] = {n: {} for n in names}
+@functools.cache
+def package_sources() -> tuple[tuple[str, str, ast.Module], ...]:
+    """Every module of the package: its dotted name, its top-level package and its tree."""
     root = Path(hmp.__path__[0])
+    out = []
     for path in sorted(root.rglob("*.py")):
         try:
             tree = ast.parse(path.read_text())
         except (OSError, SyntaxError, UnicodeDecodeError):
             continue
         rel = path.relative_to(root).parts
-        package = rel[0].removesuffix(".py") if rel else ""
+        dotted = path.relative_to(root.parent).with_suffix("").parts
+        if dotted[-1] == "__init__":
+            dotted = dotted[:-1]
+        out.append((".".join(dotted), rel[0].removesuffix(".py") if rel else "", tree))
+    return tuple(out)
+
+
+def exception_modules(codes: list[dict[str, Any]]) -> list[str]:
+    """The modules that define an exception of the package, the code table first.
+
+    A class counts when it derives from ``HydroModPyError`` or from a class that
+    ``exit_code_for`` maps, directly or through other classes of the package. The
+    source is read, so a module that adds one needs no edit here.
+    """
+    known = {"HydroModPyError"} | {
+        name for e in codes for expr in e["exceptions"] for name in re.findall(r"\w+", expr)
+    }
+    defs = [
+        (module, node.name, {ast.unparse(b).rsplit(".", 1)[-1] for b in node.bases})
+        for module, _package, tree in package_sources()
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ClassDef)
+    ]
+    grew = True
+    while grew:
+        grew = False
+        for _module, name, bases in defs:
+            if name not in known and bases & known:
+                known.add(name)
+                grew = True
+    found = {module for module, name, _bases in defs if name in known}
+    return [CODE_TABLE_MODULE, *sorted(found - {CODE_TABLE_MODULE})]
+
+
+def raise_sites(names: set[str]) -> dict[str, dict[str, int]]:
+    """For each exception name, the top-level packages that raise it and how often."""
+    counts: dict[str, dict[str, int]] = {n: {} for n in names}
+    for _module, package, tree in package_sources():
         for node in ast.walk(tree):
             if not isinstance(node, ast.Raise) or node.exc is None:
                 continue
@@ -505,17 +537,15 @@ def exceptions(codes: list[dict[str, Any]], verbs: list[dict[str, Any]]) -> list
     helpers = importlib.import_module("hydromodpy.cli.helpers")
     exit_names = {e["code"]: e["name"] for e in codes}
     classes: list[type[BaseException]] = []
-    for module_name in EXCEPTION_MODULES:
+    for module_name in exception_modules(codes):
         module = importlib.import_module(module_name)
         for obj in vars(module).values():
             if (
                 inspect.isclass(obj)
-                and issubclass(obj, Exception)
+                and issubclass(obj, BaseException)
                 and obj.__module__ == module_name
                 and obj not in classes
-                and (
-                    module_name != "hydromodpy.core.exceptions" or issubclass(obj, HydroModPyError)
-                )
+                and (module_name != CODE_TABLE_MODULE or issubclass(obj, HydroModPyError))
             ):
                 classes.append(obj)
     names = {c.__name__ for c in classes}

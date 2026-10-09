@@ -55,8 +55,8 @@ slightly different question: how much water leaves the cell. A cell counts as a 
 gives back more than a small share of the mean {term}`recharge` over its area
 (the {term}`seepage threshold`). The test is
 made on the flux because the water budget fixes the flux, while "the head touches the ground"
-is a geometric condition that changes a lot when the drain conductance moves. The
-{doc}`guide <../guides/calibrate-on-the-stream-network>` shows the setting.
+is a geometric condition that changes a lot when the drain conductance moves. The setting
+is {toml}`tau_specific_ratio|calibration.outputs.<name>.tau_specific_ratio`.
 
 ## Seepage cells draw the network
 
@@ -129,7 +129,7 @@ Two quantities compete: how fast the ground carries water away (K) and how much 
 deep, and the network retracts into the valley bottoms. If it is not, the water table reaches
 the ground on the hillsides, and the network reaches the upper slopes. The extent of the
 network is a function of the ratio of K to the recharge. This is what the {term}`calibration` on
-the stream network exploits ({doc}`../guides/calibrate-on-the-stream-network`). In example 04,
+the stream network exploits ({doc}`../theory/downslope-distance`). In example 04,
 the discharge at the outlet does not tell values of K apart, but the extent of the seepage
 does.
 
@@ -143,8 +143,8 @@ they answer other questions. They should not be confused with it.
 |---|---|---|---|
 | The model to decide where water emerges | A drain at the ground (the default) | Nothing, or a drain conductance ({toml}`flow.bc.<name>.value`) | Where the water table reaches the ground, and how much water leaves |
 | To impose the water level of a river on known cells | A fixed-head stream boundary (`stream` in {toml}`flow.active_bc`) | The head, on the cells tagged as river | The exchange with the aquifer, in either direction |
-| The water that leaves to travel down a river | A routed stream network ({doc}`../guides/route-streams-with-sfr`) | The reaches and their properties | The routing of the water along the reaches |
-| A lake whose level moves | A lake package ({doc}`../guides/lakes-and-reservoirs`) | A footprint and a stage-volume-area table | The stage and the exchange with the aquifer |
+| The water that leaves to travel down a river | A routed stream network ({doc}`../reference/parameters/flow/sinks_sources/sfr`) | The reaches and their properties | The routing of the water along the reaches |
+| A lake whose level moves | A lake package ({doc}`../reference/parameters/flow/sinks_sources/lakes`) | A footprint and a stage-volume-area table | The stage and the exchange with the aquifer |
 
 The stream boundary is not available with MODFLOW-NWT. It prescribes a level: it supposes you
 know where the river is and how high its water stands. A drain supposes neither. Choose the
@@ -172,12 +172,12 @@ the {term}`BD TOPO`. It is a reference. The model never receives it.
 - It does not set K.
 
 The model is built from the relief, the geology, the recharge and the thickness. The map is
-read afterwards, to score and to draw ({doc}`reading-results`). You declare it as a data source ({doc}`../guides/get-the-data`), and the code treats it as a {term}`diagnostic`, not as a model input.
+read afterwards, to score and to draw ({doc}`reading-results`). You declare it as a data source ({doc}`../reference/parameters/data/hydrography`), and the code treats it as a {term}`diagnostic`, not as a model input.
 
 To compare the two networks, the lines of the map are first placed on the model cells.
 By default HydroModPy keeps only the places where the map says a stream starts, and lets the
 slope of the model draw the path below them
-({doc}`../guides/calibrate-on-the-stream-network`). Field ditches and rectified
+({toml}`observed_rasterization|calibration.outputs.<name>.observed_rasterization`). Field ditches and rectified
 reaches follow paths that a model on a digital elevation model cannot reproduce, and drawn
 cell by cell they would count as errors of the model.
 
@@ -209,6 +209,6 @@ the map is what the calibration looked for.
 
 - {doc}`reading-results`: the maps of example 04, one by one.
 - {doc}`network-metrics`: how a simulated network is scored.
-- {doc}`../guides/calibrate-on-the-stream-network`: fit K on the mapped network.
+- {doc}`../reference/parameters/calibration/outputs`: the network criterion of a calibration.
 - {doc}`../theory/downslope-distance`: the distances and the criterion, with equations.
 - {doc}`../theory/exits`: how water leaves the aquifer.

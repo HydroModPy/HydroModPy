@@ -402,7 +402,7 @@ myst_substitutions = {
     ),
 }
 
-# The tutorial and the guides read the files of example 04.
+# The staircase of Get started reads the files of example 04.
 hmp_example_dir = str(
     package_path / "examples" / "projects" / "04_streamflow_intermittence_in_transient"
 )
@@ -472,14 +472,6 @@ smart_quotes = False
 
 # -- Options for HTML output -------------------------------------------------
 
-# A pre-release says so on every page.
-_ANNOUNCEMENT = (
-    f"Pre-release {release}: install it with <code>pip install --pre hydromodpy</code>. "
-    "Projects written for version 1 stay on v1.0.0."
-    if any(tag in release for tag in ("a", "b", "rc"))
-    else ""
-)
-
 html_theme = "pydata_sphinx_theme"
 html_title = f"HydroModPy {release}"
 html_favicon = "_static/logoHydroModPy.png"
@@ -501,7 +493,6 @@ html_theme_options = {
     },
     "check_switcher": False,
     "show_version_warning_banner": True,
-    "announcement": _ANNOUNCEMENT,
     "show_nav_level": 1,
     "navigation_depth": 3,
     "show_toc_level": 2,
@@ -515,7 +506,6 @@ html_theme_options = {
             "index",
             "understand/**",
             "get-started/**",
-            "guides/**",
             "theory/**",
             "contribute/**",
             "about/**",
