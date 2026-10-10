@@ -140,10 +140,14 @@ computed, and the row of the nonlinear system is replaced by the constraint itse
    \Phi^D_j = -R_j
 
 :math:`R_j` is the balance the cell would have had if it were free. The constraint
-supplies :math:`\Phi^D_j = -R_j`, which is positive when water enters the model
-through that cell. A constrained cell keeps its own storage, drain, recharge and
-wells in :math:`R_j`, so these terms end up in the flux it exchanges with the
-boundary.
+carries :math:`\Phi^D_j = -R_j`, which is positive when water leaves the model
+through that cell. A constrained cell is a boundary, as in MODFLOW: its recharge,
+wells and drain do not act (``on_free_cells`` in ``assembly/inputs.py``), and a well
+placed there pumps nothing (the run warns). Its flux is the water its free
+neighbours send in or draw out, plus the change of its own storage when
+:math:`H^D_j` changes between periods. The residual the run exports adds
+:math:`\Phi^D_j` back: it is zero on a constrained cell, and its sum is the closure
+error of the run (``_balance_residual_m3_s`` in ``drivers/state.py``).
 
 Because the head is pinned at the centroid of the cell and not on the edge, the
 solution at the boundary cell differs from the value on the edge by about the

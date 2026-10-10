@@ -322,7 +322,6 @@ def run_boussinesq_hillslope_overflow_case(
     dt_days: float | None = None,
     runtime_max_iterations: int | None = None,
     runtime_tol_residual_inf: float | None = None,
-    saturation_excess_regularization_radius: float | None = None,
 ) -> ValidationRunResult:
     """Run the transient hillslope pulse-overflow scenario for one solver flavor."""
     del timeout
@@ -415,10 +414,6 @@ def run_boussinesq_hillslope_overflow_case(
         flow_section["runtime_tol_residual_inf"] = float(resolved_runtime_tol_residual_inf)
 
     flow = Flow(build_flow_config(flow_section, case_dir=CASE_DIR))
-    if saturation_excess_regularization_radius is not None:
-        flow.saturation_excess_regularization_radius = float(
-            saturation_excess_regularization_radius
-        )
 
     state = RunState(
         setup=SetupContext(

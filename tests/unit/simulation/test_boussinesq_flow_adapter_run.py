@@ -324,7 +324,11 @@ def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
     assert model.has_numerical_solution is True
     assert model.state is not None
     assert model.state.recharge_rate_m_s is not None
-    assert np.allclose(model.state.recharge_rate_m_s, 1.0e-7)
+    # The cells held by the west side are a boundary: they take no recharge.
+    held = np.isfinite(np.asarray(model.state.prescribed_head_m_by_cell, dtype=float))
+    assert held.any() and not held.all()
+    assert np.allclose(model.state.recharge_rate_m_s[~held], 1.0e-7)
+    assert np.allclose(model.state.recharge_rate_m_s[held], 0.0)
     assert model.state.boundary_edge_flux_m3_s is not None
     assert model.state.boundary_edge_flux_m3_s[4] < 0.0
 

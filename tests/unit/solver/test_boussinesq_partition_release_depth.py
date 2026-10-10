@@ -118,18 +118,23 @@ def test_negative_recharge_reduces_the_supply_of_a_full_cell() -> None:
 
 
 def test_cell_with_a_prescribed_head_releases_nothing() -> None:
+    # The held cell sits 2 cm under the ground, where a free cell would release
+    # two thirds of what it receives. It takes no recharge, so what it receives
+    # is the inflow from its free neighbour, and all of it goes to the boundary.
     mesh = _strip(3, z_top_m=5.0)
-    prescribed = np.asarray([np.nan, np.nan, 5.0])
+    prescribed = np.asarray([np.nan, np.nan, 4.98])
     assembly = assemble_steady_residual(
         mesh,
-        head_m=np.asarray([5.0, 5.0, 5.0]),
+        head_m=np.asarray([5.0, 5.0, 4.98]),
         recharge_rate_m_s=1.0e-8,
         prescribed_head_m_by_cell=prescribed,
         regularization_radius=DEPTH_M,
     )
 
+    inflow_m3_s = assembly.internal_edge_flux_m3_s[1]
+    assert inflow_m3_s > 0.0
     assert assembly.saturation_excess_rate_m_s[2] == 0.0
-    assert assembly.prescribed_head_flux_m3_s[2] == pytest.approx(1.0e-6)
+    assert assembly.prescribed_head_flux_m3_s[2] == pytest.approx(inflow_m3_s)
 
 
 def test_partition_triplets_match_finite_differences_with_wells_and_negative_recharge() -> None:

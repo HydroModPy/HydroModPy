@@ -82,7 +82,6 @@ SNAPSHOT_DAYS = (10.0, 60.0, 120.0, 240.0, 330.0, 420.0)
 OUTPUT_ROOT_DEFAULT = REPO_ROOT / "out" / "linux_nwt_bouss_4m4m6m_r005_dt2_refined_20260414"
 BOUSS_RUNTIME_MAX_ITERATIONS = 400
 BOUSS_RUNTIME_TOL_RESIDUAL_INF = 5.0e-6
-PARTITION_REGULARIZATION_RADIUS = 0.005
 HYDRAULIC_CONDUCTIVITY_SCALE = 0.1
 DRAINAGE_CONDUCTANCE_M2_S = 2.0e-4
 BOUSS_NX = 80
@@ -277,7 +276,6 @@ def _write_summary(
         "- top drainage / surface response",
         "- recharge ramp up during 4 months, ramp down during 4 months, then 6 months with zero recharge",
         f"- time step: `{base.DT_DAYS:.1f} day`",
-        f"- regularized partition radius: `{PARTITION_REGULARIZATION_RADIUS}`",
         f"- recharge series [mm/day]: `{list(RECHARGE_SERIES_MM_DAY)}`",
         "",
         "| Solver | Onset day [d] | Peak total outflow [m3/day] | Max clearance [m] | Wall time [s] | Results dir |",
@@ -342,9 +340,6 @@ def main(argv: list[str] | None = None) -> int:
             context_preset=LINUX_NWT_BOUSS_RAMP_CONTEXT_PRESET,
             runtime_max_iterations=BOUSS_RUNTIME_MAX_ITERATIONS,
             runtime_tol_residual_inf=BOUSS_RUNTIME_TOL_RESIDUAL_INF,
-            saturation_excess_regularization_radius=(
-                PARTITION_REGULARIZATION_RADIUS if solver_name == "petsc_partition" else None
-            ),
         )
         wall_time_seconds = time.perf_counter() - t0
         diagnostics = build_hillslope_overflow_diagnostics(result=run_result)

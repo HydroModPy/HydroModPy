@@ -14,6 +14,19 @@ from hydromodpy.solver.boussinesq.core.state import BoussinesqState
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
 
+def _balance_residual_m3_s(assembly: BoussinesqAssembly) -> np.ndarray:
+    """Return the water-balance residual of each cell once its constant-head flux is counted.
+
+    On a cell with an imposed head the flow residual is not an error: it is the
+    water the boundary exchanges, and the constant-head flux carries it. The
+    balance residual is zero there and equals the flow residual elsewhere, so
+    its sum is the closure error of the run.
+    """
+    return np.asarray(assembly.residual_m3_s, dtype=float) + np.asarray(
+        assembly.prescribed_head_flux_m3_s, dtype=float
+    )
+
+
 @dataclass
 class TransientRuntimeHistory:
     """Accumulate one transient run history before exporting the accepted state."""
@@ -104,7 +117,7 @@ class TransientRuntimeHistory:
         self.drainage_flux_history.append(
             np.asarray(assembly.drainage_flux_m3_s, dtype=float).copy()
         )
-        self.residual_history.append(np.asarray(assembly.residual_m3_s, dtype=float).copy())
+        self.residual_history.append(_balance_residual_m3_s(assembly))
 
     def build_runtime_state(
         self,
@@ -260,7 +273,7 @@ def build_steady_runtime_state(
             [assembly.drainage_flux_m3_s],
             dtype=float,
         ),
-        residual_history_m3_s=np.asarray([assembly.residual_m3_s], dtype=float),
+        residual_history_m3_s=np.asarray([_balance_residual_m3_s(assembly)], dtype=float),
         period_lengths_seconds=(),
         nonlinear_iterations=(int(nonlinear_iterations),),
         converged_by_period=(bool(converged),),

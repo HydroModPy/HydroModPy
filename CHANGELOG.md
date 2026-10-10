@@ -496,6 +496,27 @@ Each release section includes the following standard categories:
   refused.
 
 ### Fixed
+- A well or a drain on a Boussinesq cell with an imposed head does nothing, as in
+  MODFLOW, and the run warns about such a well. It was counted in its own budget term
+  and fed by the boundary: on a test with a 1000 m3/day well on a fixed-head side, the
+  Boussinesq pumping read 2000 m3/day where MODFLOW 6 read 1000. Heads are unchanged.
+- A transient Boussinesq run stamps each stress period at its end, like the MODFLOW
+  backends. The store also held the initial state as its first time step: the lumped
+  budget gave each period the time step of the next one in MODFLOW 6, the catchment
+  discharge and well pumping started with a zero at the run start, Run.time_index fell
+  back to rebuilt stamps so a point read lost its dates, and a Boussinesq calibration
+  scored undated series. The initial state stays in the boussinesq_state group.
+- A Boussinesq cell with an imposed head takes no recharge, as in MODFLOW. The rain on
+  it was counted as recharge and left at once as constant-head outflow: on the natural
+  basin comparison, whose eight fixed-head cells cover 11.6 % of the mesh, the exported
+  recharge was 13.1 % above the forcing on the aquifer (1.260e6 against 1.114e6 m3) and
+  the constant-head outflow 6.5 times the flow the aquifer sent to the boundary. Heads
+  are unchanged; the recharge now matches MODFLOW 6 to 1e-8, and the constant-head flux
+  of such a cell is what its free neighbours send in or draw out.
+- The residual history of a Boussinesq run is zero on a cell with an imposed head, so
+  its sum is the closure error of the run. It carried the constant-head flux, and the
+  comparison budget reported a closure of 0.35 m3/s (CHECK) on the natural basin, now
+  2e-14 m3/s.
 - The default surface closure of the Boussinesq solver, the regularized partition of
   every engine but PETSc, released water far below the ground: a cell sent to the
   surface the share exp(-(1 - s) / 0.05) of the water it received, s being the

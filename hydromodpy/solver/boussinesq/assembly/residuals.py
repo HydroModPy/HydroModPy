@@ -17,6 +17,7 @@ from hydromodpy.solver.boussinesq.assembly.fluxes import (
 from hydromodpy.solver.boussinesq.assembly.inputs import (
     as_cell_vector,
     finalize_boundary_constrained_residual,
+    on_free_cells,
     resolve_boundary_head_inputs,
 )
 from hydromodpy.solver.boussinesq.assembly.surface import resolve_saturation_excess_rate
@@ -190,15 +191,22 @@ def assemble_spatial_terms(
     transmissivity = mesh.hydraulic_conductivity_m_s * saturated_thickness
     internal_edge_flux = internal_edge_flux_from_head(mesh, head)
     internal_flux_residual = accumulate_internal_flux_residual(mesh, internal_edge_flux)
-    recharge_rate = as_cell_vector(
-        recharge_rate_m_s,
-        n_cells=mesh.n_cells,
-        label="recharge_rate_m_s",
+    prescribed_mask = boundary_inputs.prescribed_mask
+    recharge_rate = on_free_cells(
+        as_cell_vector(
+            recharge_rate_m_s,
+            n_cells=mesh.n_cells,
+            label="recharge_rate_m_s",
+        ),
+        prescribed_mask=prescribed_mask,
     )
-    well_flux = as_cell_vector(
-        well_flux_m3_s,
-        n_cells=mesh.n_cells,
-        label="well_flux_m3_s",
+    well_flux = on_free_cells(
+        as_cell_vector(
+            well_flux_m3_s,
+            n_cells=mesh.n_cells,
+            label="well_flux_m3_s",
+        ),
+        prescribed_mask=prescribed_mask,
     )
     saturation_excess_rate = resolve_saturation_excess_rate(
         mesh,
@@ -206,14 +214,17 @@ def assemble_spatial_terms(
         lateral_flux_residual_m3_s=(internal_flux_residual + boundary_head_flux_residual),
         recharge_rate_m_s=recharge_rate,
         well_flux_m3_s=well_flux,
-        prescribed_mask=boundary_inputs.prescribed_mask,
+        prescribed_mask=prescribed_mask,
         regularization_radius=float(regularization_radius),
         saturation_excess_rate_m_s=saturation_excess_rate_m_s,
     )
-    drainage_flux = drainage_outflow_from_head(
-        mesh,
-        head,
-        drainage_conductance_m2_s=drainage_conductance_m2_s,
+    drainage_flux = on_free_cells(
+        drainage_outflow_from_head(
+            mesh,
+            head,
+            drainage_conductance_m2_s=drainage_conductance_m2_s,
+        ),
+        prescribed_mask=prescribed_mask,
     )
     return _BoussinesqSpatialTerms(
         head_m=head,

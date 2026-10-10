@@ -2,12 +2,35 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
 import numpy as np
 
 from hydromodpy.physics.flow.history_contract import (
     build_transient_time_axes,
 )
 from hydromodpy.solver.boussinesq.core.state import BoussinesqState
+
+
+def first_period_snapshot(payload: Mapping[str, Any], *, n_snapshots: int) -> int:
+    """Return the index of the first snapshot that closes a stress period.
+
+    A transient history starts with the initial state, 0 s after the run start.
+    That snapshot closes no period. A store or a series that stamps each period
+    at its end, as the MODFLOW extractors do, starts after it. A steady history
+    holds its solved state only.
+    """
+    if int(n_snapshots) <= 1:
+        return 0
+    elapsed = payload.get("snapshot_elapsed_seconds")
+    if elapsed is not None:
+        values = np.asarray(elapsed, dtype=float).reshape(-1)
+        return 1 if values.size > 0 and float(values[0]) <= 0.0 else 0
+    periods = payload.get("period_lengths_seconds")
+    if periods is None:
+        return 0
+    return 1 if np.asarray(periods).size == int(n_snapshots) - 1 else 0
 
 
 def as_export_array(values: np.ndarray | None) -> np.ndarray:
@@ -71,4 +94,5 @@ def build_state_history_export_payload(
 __all__ = [
     "as_export_array",
     "build_state_history_export_payload",
+    "first_period_snapshot",
 ]

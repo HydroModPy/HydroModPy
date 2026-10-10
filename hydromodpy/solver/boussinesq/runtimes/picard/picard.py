@@ -19,6 +19,7 @@ from hydromodpy.solver.boussinesq.assembly.fluxes import (
 from hydromodpy.solver.boussinesq.assembly.inputs import (
     as_cell_vector,
     finalize_boundary_constrained_residual,
+    on_free_cells,
 )
 from hydromodpy.solver.boussinesq.assembly.types import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
@@ -105,12 +106,21 @@ def assemble_strict_steady_residual(
     transmissivity = np.asarray(mesh.hydraulic_conductivity_m_s, dtype=float) * thickness
     internal_flux = internal_edge_flux_from_head(mesh, head)
     internal_residual = accumulate_internal_flux_residual(mesh, internal_flux)
-    recharge = as_cell_vector(recharge_rate_m_s, n_cells=n_cells, label="recharge_rate_m_s")
-    well_flux = as_cell_vector(well_flux_m3_s, n_cells=n_cells, label="well_flux_m3_s")
-    drainage = strict_drainage_flux(
-        mesh,
-        head,
-        drainage_conductance_m2_s=drainage_conductance_m2_s,
+    recharge = on_free_cells(
+        as_cell_vector(recharge_rate_m_s, n_cells=n_cells, label="recharge_rate_m_s"),
+        prescribed_mask=prescribed_mask,
+    )
+    well_flux = on_free_cells(
+        as_cell_vector(well_flux_m3_s, n_cells=n_cells, label="well_flux_m3_s"),
+        prescribed_mask=prescribed_mask,
+    )
+    drainage = on_free_cells(
+        strict_drainage_flux(
+            mesh,
+            head,
+            drainage_conductance_m2_s=drainage_conductance_m2_s,
+        ),
+        prescribed_mask=prescribed_mask,
     )
     zero_cells = np.zeros(n_cells, dtype=float)
     zero_edges = np.zeros(int(mesh.n_edges), dtype=float)

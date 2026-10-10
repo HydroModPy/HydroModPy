@@ -10,6 +10,7 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import CF_EPOCH, CF_TIME_UNITS, cf_time_axis_seconds
+from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
 
 logger = get_logger(__name__)
 
@@ -56,22 +57,27 @@ class BoussinesqOutputAdapter:
             if head_history.ndim == 1:
                 head_history = head_history.reshape(1, -1)
 
-            n_timesteps = head_history.shape[0]
+            # The store stamps each stress period at its end, as the MODFLOW
+            # extractors do: the initial state of a transient history closes no
+            # period, so it stays in the state group only.
+            first = first_period_snapshot(payload, n_snapshots=head_history.shape[0])
+            n_timesteps = head_history.shape[0] - first
             n_cells = head_history.shape[1]
             z_top_m = payload.get("z_top_m")
             z_bottom_m = payload.get("z_bottom_m")
             cell_area_m2 = payload.get("cell_area_m2")
             time_values = payload.get("snapshot_elapsed_seconds")
-            if time_values is None or len(time_values) < n_timesteps:
+            if time_values is None or len(time_values) < first + n_timesteps:
                 raise KeyError(f"No snapshot_elapsed_seconds time axis in {npz_path}")
-            # Write /time at snapshot resolution (one entry per head slice). The
+            # Write /time at period resolution (one entry per head slice). The
             # payload carries relative elapsed seconds, so anchor to the launcher
             # start_datetime for a real calendar axis instead of seconds since 1970.
             writer = getattr(store, "write_time", None)
             if writer is None:
                 raise TypeError("Simulation store must implement write_time().")
             values = cf_time_axis_seconds(
-                np.asarray(time_values[:n_timesteps], dtype=float), start_datetime
+                np.asarray(time_values[first : first + n_timesteps], dtype=float),
+                start_datetime,
             )
             writer(sim_id, values, epoch=CF_EPOCH, units=CF_TIME_UNITS)
 
@@ -81,9 +87,9 @@ class BoussinesqOutputAdapter:
                 n_cells,
             )
 
-            head_stack = np.asarray(head_history[:n_timesteps], dtype="float64").reshape(
-                n_timesteps, 1, n_cells
-            )
+            head_stack = np.asarray(
+                head_history[first : first + n_timesteps], dtype="float64"
+            ).reshape(n_timesteps, 1, n_cells)
             store.write_field_stack(sim_id, "head", head_stack)
 
             self._persist_state_history(sim_id, store, payload)
@@ -92,6 +98,7 @@ class BoussinesqOutputAdapter:
                 n_timesteps=n_timesteps,
                 n_cells=n_cells,
                 cell_area_m2=cell_area_m2,
+                first_snapshot=first,
             )
             # The lumped per-component budget is always persisted, like on the
             # MODFLOW backends: the catchment scalars (discharge, well pumping)
@@ -103,7 +110,9 @@ class BoussinesqOutputAdapter:
                     store,
                     components,
                     n_timesteps=n_timesteps,
-                    surface_excess_rate_m_s=self._saturation_excess_rate(payload, n_timesteps),
+                    surface_excess_rate_m_s=self._saturation_excess_rate(
+                        payload, n_timesteps, first_snapshot=first
+                    ),
                 )
 
         self._write_surface_elevation(
@@ -137,15 +146,17 @@ class BoussinesqOutputAdapter:
             sz.close()
 
     @staticmethod
-    def _saturation_excess_rate(payload, n_timesteps: int) -> np.ndarray | None:
-        """Return the saturation-excess rate history in m/s, or None when absent."""
+    def _saturation_excess_rate(
+        payload, n_timesteps: int, *, first_snapshot: int = 0
+    ) -> np.ndarray | None:
+        """Return the saturation-excess rate of each period in m/s, or None when absent."""
         values = payload.get("saturation_excess_history_m_s")
         if values is None:
             return None
         arr = np.asarray(values, dtype=float)
         if arr.ndim == 1:
             arr = arr.reshape(1, -1)
-        return arr[:n_timesteps]
+        return arr[first_snapshot : first_snapshot + n_timesteps]
 
     @staticmethod
     def _budget_components(
@@ -154,13 +165,15 @@ class BoussinesqOutputAdapter:
         n_timesteps: int,
         n_cells: int,
         cell_area_m2: np.ndarray | None,
+        first_snapshot: int = 0,
     ) -> dict[str, np.ndarray]:
         """Return the per-cell budget stacks in canonical solver orientation.
 
-        Each entry is ``(n_timesteps, n_cells)`` in m3/s and keeps the sign the
-        Boussinesq residual uses: ``recharge`` and ``well`` are positive when
-        water enters the aquifer, ``drain``, ``surface_excess`` and
-        ``constant_head`` are positive when water leaves it.
+        Each entry is ``(n_timesteps, n_cells)`` in m3/s, one row per stress
+        period from ``first_snapshot`` on, and keeps the sign the Boussinesq
+        residual uses: ``recharge`` and ``well`` are positive when water enters
+        the aquifer, ``drain``, ``surface_excess`` and ``constant_head`` are
+        positive when water leaves it.
         """
         area = None if cell_area_m2 is None else np.asarray(cell_area_m2, dtype=float).reshape(-1)
         if area is not None and area.size != int(n_cells):
@@ -179,12 +192,13 @@ class BoussinesqOutputAdapter:
                 raise ValueError(
                     f"Boussinesq array {name!r} has {arr.shape[1]} cells; expected {int(n_cells)}"
                 )
-            if arr.shape[0] < int(n_timesteps):
+            stop = int(first_snapshot) + int(n_timesteps)
+            if arr.shape[0] < stop:
                 raise ValueError(
                     f"Boussinesq array {name!r} has {arr.shape[0]} timesteps; "
-                    f"expected at least {int(n_timesteps)}"
+                    f"expected at least {stop}"
                 )
-            return arr[:n_timesteps]
+            return arr[int(first_snapshot) : stop]
 
         def _rate_to_flux(name: str, label: str) -> np.ndarray | None:
             rate = _history(name)

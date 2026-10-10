@@ -4,7 +4,9 @@ During a calibration trial the Boussinesq solver writes a single
 ``_boussinesq_state_history.npz`` file to the scratch folder at the end of
 ``processing()``. The optimizer needs the simulated series ASAP to score one
 trial - these helpers read the npz directly and return a ``pd.Series``
-aligned with the simulation time grid.
+aligned with the simulation time grid: one value per stress period, stamped
+at its end. The initial state a transient history starts with closes no
+period and is left out.
 
 Discharge is reconstructed from ``drainage_flux_history_m3_s`` summed over
 all cells per timestep (positive sign convention, matching the MODFLOW
@@ -21,6 +23,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
 
 _STATE_HISTORY_FILENAME = "_boussinesq_state_history.npz"
 
@@ -62,6 +66,7 @@ def extract_discharge_history(
             raise KeyError(
                 f"Boussinesq state history at {output_dir} has no drainage_flux_history_m3_s."
             )
+        history = history[first_period_snapshot(payload, n_snapshots=history.shape[0]) :]
         per_step = np.maximum(history, 0.0).sum(axis=1).astype(float)
 
     if time_index is not None and len(time_index) == per_step.size:
@@ -88,6 +93,9 @@ def extract_head_history_at_cells(
             if final is None:
                 raise KeyError(f"Boussinesq state history at {output_dir} has no head_history_m.")
             head_history = np.asarray(final, dtype=float).reshape(1, -1)
+        head_history = head_history[
+            first_period_snapshot(payload, n_snapshots=head_history.shape[0]) :
+        ]
 
     n_timesteps, n_cells = head_history.shape
     out: dict[str, pd.Series] = {}

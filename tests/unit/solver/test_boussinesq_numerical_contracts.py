@@ -68,19 +68,25 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
 ) -> None:
     output_dir = tmp_path / "solver"
     output_dir.mkdir()
+    # A transient history: the initial state at 0 s, then the end of two periods.
     state_payload = {
-        "head_history_m": np.asarray([[5.0, 6.0], [5.5, 6.5]], dtype=float),
-        "snapshot_elapsed_seconds": np.asarray([0.0, 86400.0], dtype=float),
+        "head_history_m": np.asarray([[5.0, 6.0], [5.5, 6.5], [5.7, 6.7]], dtype=float),
+        "snapshot_elapsed_seconds": np.asarray([0.0, 86400.0, 172800.0], dtype=float),
+        "period_lengths_seconds": np.asarray([86400.0, 86400.0], dtype=float),
         "recharge_rate_history_m_s": np.asarray(
-            [[1.0e-8, 2.0e-8], [3.0e-8, 4.0e-8]],
+            [[0.0, 0.0], [1.0e-8, 2.0e-8], [3.0e-8, 4.0e-8]],
             dtype=float,
         ),
-        "drainage_flux_history_m3_s": np.asarray([[0.1, 0.2], [0.3, 0.4]], dtype=float),
-        "well_flux_history_m3_s": np.asarray([[-0.01, 0.0], [-0.02, 0.01]], dtype=float),
+        "drainage_flux_history_m3_s": np.asarray([[0.0, 0.0], [0.1, 0.2], [0.3, 0.4]], dtype=float),
+        "well_flux_history_m3_s": np.asarray(
+            [[0.0, 0.0], [-0.01, 0.0], [-0.02, 0.01]], dtype=float
+        ),
         # The solver signs the prescribed-head flux positive out of the aquifer.
-        "prescribed_head_flux_history_m3_s": np.asarray([[0.05, 0.0], [-0.02, 0.0]], dtype=float),
+        "prescribed_head_flux_history_m3_s": np.asarray(
+            [[0.0, 0.0], [0.05, 0.0], [-0.02, 0.0]], dtype=float
+        ),
         "saturation_excess_history_m_s": np.asarray(
-            [[1.0e-9, 0.0], [0.0, 2.0e-9]],
+            [[0.0, 0.0], [1.0e-9, 0.0], [0.0, 2.0e-9]],
             dtype=float,
         ),
         "z_top_m": np.asarray([10.0, 12.0], dtype=float),
@@ -119,6 +125,13 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
         BoussinesqOutputAdapter().extract(sim_id, output_dir, catalog, budget_spatial_fields=True)
         zarr_store = catalog.open_zarr(sim_id)
         try:
+            # One slice per period, stamped at its end: the initial state closes
+            # no period and stays in the state group only.
+            np.testing.assert_allclose(
+                zarr_store.root["head"][:].reshape(2, 2), [[5.5, 6.5], [5.7, 6.7]]
+            )
+            assert len(zarr_store.read_time()) == 2
+            assert zarr_store.root["boussinesq_state"]["head_history_m"].shape == (3, 2)
             mesh = zarr_store.root["mesh"]
             np.testing.assert_allclose(mesh["topography"][:], np.asarray([10.0, 12.0]))
             np.testing.assert_allclose(
