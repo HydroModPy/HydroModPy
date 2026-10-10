@@ -16,11 +16,18 @@ from hydromodpy.solver.boussinesq.drivers.state import (
     TransientRuntimeHistory,
     build_transient_activity_flags,
 )
+from hydromodpy.solver.boussinesq.forcing.common import steady_period_flags
 from hydromodpy.solver.boussinesq.runtime_contract import (
     RuntimeSolveResult,
+    SteadySolveInputs,
     TransientStepInputs,
 )
+from hydromodpy.solver.boussinesq.runtime_selection import (
+    ResolvedBoussinesqRuntimeBackend,
+    resolve_runtime_backend,
+)
 from hydromodpy.solver.boussinesq.runtime_summary import record_runtime_backend_summary
+from hydromodpy.solver.boussinesq.solver_contract import BoussinesqSolverContract
 
 if TYPE_CHECKING:
     from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
@@ -167,6 +174,41 @@ def _advance_period(
     )
 
 
+def stationary_backend(contract: BoussinesqSolverContract) -> ResolvedBoussinesqRuntimeBackend:
+    """Return the backend that solves a steady period of this transient run.
+
+    The engine and its surface closure, solved without storage. The TS VI
+    obstacle closure integrates in time only: its stationary form is the VI
+    obstacle solve, on the same PETSc engine.
+    """
+    backend = contract.runtime_backend
+    if contract.surface_interaction_model_resolved != "ts_vi_obstacle":
+        return backend
+    return resolve_runtime_backend(backend.name, surface_interaction_model="vi_obstacle")
+
+
+def _solve_steady_period(
+    stationary: ResolvedBoussinesqRuntimeBackend,
+    *,
+    head_guess_m: np.ndarray,
+    step_kwargs: dict[str, Any],
+) -> _PeriodAdvance:
+    """Solve one stress period at steady state, as MODFLOW does a steady period.
+
+    The forcing of the period holds, with no storage term. The head the run
+    holds before the period is the initial guess only. The time steps of
+    the period would all solve the same balance, so one solve stands for them.
+    """
+    step = stationary.solve_steady_problem(
+        SteadySolveInputs(head_initial_guess_m=np.asarray(head_guess_m, dtype=float), **step_kwargs)
+    )
+    return _PeriodAdvance(
+        last_step=step,
+        iterations=int(step.iterations),
+        converged=bool(step.converged),
+    )
+
+
 def run_transient_runtime(solver: Boussinesq) -> bool:
     """Advance the head state over all launcher stress periods."""
     if solver.mesh is None:
@@ -185,6 +227,8 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
     solver.runtime_summary["time_steps_per_period"] = int(n_steps)
 
     nper = len(period_lengths)
+    steady_periods = steady_period_flags(solver.flow, nper)
+    solver.runtime_summary["first_period_steady"] = bool(steady_periods[0])
     runtime_forcing = resolve_runtime_forcing_by_period(solver, nper=nper)
     recharge_series_m_s = runtime_forcing.recharge_series_m_s
     well_flux_by_period_m3_s = runtime_forcing.well_flux_by_period_m3_s
@@ -221,20 +265,33 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
             drainage_value_m2_s=float(drainage_conductance_series_m2_s[kper]),
             ocean_supported_cell_mask=ocean_supported_cell_mask,
         )
-        advance = _advance_period(
-            runtime_backend,
-            head_start_m=head_prev,
-            period_seconds=float(dt_seconds),
-            n_steps=n_steps,
-            step_kwargs={
-                "mesh": solver.mesh,
-                "recharge_rate_m_s": recharge_series_m_s[kper],
-                "well_flux_m3_s": well_flux_by_period_m3_s[kper],
-                "prescribed_head_m_by_cell": prescribed_heads_by_period[kper],
-                "drainage_conductance_m2_s": drainage_conductance,
-                "options": solver._runtime_options(),
-            },
-        )
+        step_kwargs = {
+            "mesh": solver.mesh,
+            "recharge_rate_m_s": recharge_series_m_s[kper],
+            "well_flux_m3_s": well_flux_by_period_m3_s[kper],
+            "prescribed_head_m_by_cell": prescribed_heads_by_period[kper],
+            "drainage_conductance_m2_s": drainage_conductance,
+            "options": solver._runtime_options(),
+        }
+        if steady_periods[kper]:
+            advance = _solve_steady_period(
+                stationary_backend(contract),
+                head_guess_m=head_prev,
+                step_kwargs=step_kwargs,
+            )
+            if kper == 0:
+                history.start_from(
+                    head_m=advance.last_step.head_m,
+                    saturated_thickness_m=advance.last_step.assembly.saturated_thickness_m,
+                )
+        else:
+            advance = _advance_period(
+                runtime_backend,
+                head_start_m=head_prev,
+                period_seconds=float(dt_seconds),
+                n_steps=n_steps,
+                step_kwargs=step_kwargs,
+            )
         step = advance.last_step
         nonlinear_iterations.append(int(advance.iterations))
         converged_by_period.append(bool(advance.converged))

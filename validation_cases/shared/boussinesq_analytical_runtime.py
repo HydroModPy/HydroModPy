@@ -107,10 +107,19 @@ def boussinesq_variant_flow_section(
     The default-engine variant drops every runtime key, so the FlowConfig
     defaults apply as in a user run. Every other variant gets the analytical
     PETSc defaults.
+
+    A transient section that does not state ``first_period_steady`` gets
+    false: a transient case starts from its initial condition, as the
+    MODFLOW base config of each case states. A Brutsaert warm-up is a
+    separate steady run.
     """
+    section = dict(flow_section)
+    regime = str(flow_regime or section.get("flow_regime") or "steady").strip().lower()
+    if regime == "transient":
+        section.setdefault("first_period_steady", False)
     if is_default_engine_solver(solver):
-        return {key: value for key, value in flow_section.items() if key not in _RUNTIME_KEYS}
-    return apply_analytical_boussinesq_runtime_defaults(flow_section, flow_regime=flow_regime)
+        return {key: value for key, value in section.items() if key not in _RUNTIME_KEYS}
+    return apply_analytical_boussinesq_runtime_defaults(section, flow_regime=flow_regime)
 
 
 def analytical_boussinesq_solver_label(

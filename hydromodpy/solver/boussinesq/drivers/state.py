@@ -68,6 +68,15 @@ class TransientRuntimeHistory:
             residual_history=[np.zeros(mesh.n_cells, dtype=float)],
         )
 
+    def start_from(self, *, head_m: np.ndarray, saturated_thickness_m: np.ndarray) -> None:
+        """Replace the initial state by the state of a steady first period.
+
+        A steady period holds one state over its whole length, its start
+        included, so the storage change over that period is zero.
+        """
+        self.head_history[0] = np.asarray(head_m, dtype=float).copy()
+        self.thickness_history[0] = np.asarray(saturated_thickness_m, dtype=float).copy()
+
     def append_step(
         self,
         *,

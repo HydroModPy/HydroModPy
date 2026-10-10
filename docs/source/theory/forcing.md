@@ -164,10 +164,8 @@ $$ (eq-steady-rate)
 
 The mean has one weight per period, whatever the length of the period. The
 steady periods are every period of a steady run, and period 0 of a transient run
-when {toml}`flow.first_period_steady` is true. A transient period keeps its own
-rate, whatever its index. The Boussinesq solver integrates every period of a
-transient run in time, so a transient Boussinesq run has no steady period and
-`first_clim` does not act on it. Under MODFLOW-NWT the ETP follows the same rule
+when {toml}`flow.first_period_steady` is true, in the three solvers. A transient
+period keeps its own rate, whatever its index. Under MODFLOW-NWT the ETP follows the same rule
 with {toml}`first_clim|flow.sinks_sources.etp.first_clim`.
 
 Four periods with rates 2, 4, 9 and 1, from calls of `apply_first_clim`:

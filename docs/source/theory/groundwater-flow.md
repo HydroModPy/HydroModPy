@@ -291,8 +291,7 @@ difference on a test case.
 
 {toml}`flow.flow_regime` picks the regime. In a `steady` run, every period is
 steady. In a `transient` run, {toml}`flow.first_period_steady` marks the first
-period as steady in the two MODFLOW solvers; the Boussinesq solver does not read
-it and solves every period as a transient step. In a steady period the right side
+period as steady, in the three solvers. In a steady period the right side
 of the balance is zero, the storage plays no part, and the heads settle where the
 forcing of that period puts them. Example 04 states the regime:
 

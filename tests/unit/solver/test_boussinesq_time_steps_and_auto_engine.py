@@ -118,7 +118,9 @@ def _run_relaxation(
     nstp_per_period: int | None,
 ) -> Boussinesq:
     """Relax a sloping water table on a closed strip and return the solver."""
-    flow = SimpleNamespace(flow_regime="transient", surface_interaction_model="auto")
+    flow = SimpleNamespace(
+        flow_regime="transient", surface_interaction_model="auto", first_period_steady=False
+    )
     if runtime_backend is not None:
         flow.runtime_backend = runtime_backend
     time_grid = SimpleNamespace(period_lengths_seconds=period_lengths_seconds)

@@ -12,6 +12,7 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     boundary_conditions_mapping_from_flow,
     is_boundary_condition_active,
 )
+from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.physics.forcing.steady_periods import (
     apply_first_clim,
@@ -27,6 +28,35 @@ from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     GmshSupportMetadata,
     build_gmsh_support_metadata,
 )
+
+
+def first_period_is_steady(flow: object) -> bool:
+    """Return ``flow.first_period_steady``, read as the MODFLOW builders read it.
+
+    The validated config first, then the flow object. A flow that carries
+    neither takes the ``FlowConfig`` default.
+    """
+    config = getattr(flow, "config", None)
+    if config is not None and hasattr(config, "first_period_steady"):
+        return bool(config.first_period_steady)
+    if hasattr(flow, "first_period_steady"):
+        return bool(flow.first_period_steady)
+    return bool(FlowConfig.model_fields["first_period_steady"].default)
+
+
+def steady_period_flags(flow: object, nper: int) -> np.ndarray:
+    """Return which periods a Boussinesq run solves steady.
+
+    Every period of a steady run. Period 0 of a transient run when
+    ``flow.first_period_steady`` is true, as in MODFLOW. The rate rule
+    (``first_clim``) and the transient driver both read these flags.
+    """
+    regime = normalize_flow_regime(getattr(flow, "flow_regime", "transient"))
+    return steady_flags(
+        nper=int(nper),
+        flow_regime=regime,
+        first_period_steady=first_period_is_steady(flow),
+    )
 
 
 class ForcingCommonMixin:
@@ -211,14 +241,8 @@ class ForcingCommonMixin:
         return self.apply_first_clim_to_series(own, first_clim=first_clim)
 
     def boussinesq_steady_flags(self, nper: int) -> np.ndarray:
-        """Return which periods this run solves steady.
-
-        Every period of a steady run, none of a transient one: the Boussinesq
-        solver integrates every period of a transient run in time, its first
-        period included (it does not read ``flow.first_period_steady``).
-        """
-        regime = normalize_flow_regime(getattr(self.flow, "flow_regime", "transient"))
-        return steady_flags(nper=int(nper), flow_regime=regime, first_period_steady=False)
+        """Return which periods this run solves steady (see :func:`steady_period_flags`)."""
+        return steady_period_flags(self.flow, nper)
 
     def apply_first_clim_to_series(self, own: np.ndarray, *, first_clim: object) -> np.ndarray:
         """Give every steady period the ``first_clim`` rate, keep the transient ones."""
@@ -307,4 +331,4 @@ class ForcingCommonMixin:
         return is_boundary_condition_active(self.flow, bc_id)
 
 
-__all__ = ["ForcingCommonMixin"]
+__all__ = ["ForcingCommonMixin", "first_period_is_steady", "steady_period_flags"]

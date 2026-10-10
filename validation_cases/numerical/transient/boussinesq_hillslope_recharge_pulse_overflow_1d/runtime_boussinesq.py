@@ -381,6 +381,8 @@ def run_boussinesq_hillslope_overflow_case(
 
     flow_section: dict[str, object] = {
         "flow_regime": "transient",
+        # The pulse starts from the initial head, not from a steady state.
+        "first_period_steady": False,
         "ic": {"type": "custom", "value": float(geometry_cfg["initial_head_m"])},
         "active_sinks_sources": ["recharge"],
         "active_bc": ["east_side"],

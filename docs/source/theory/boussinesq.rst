@@ -163,9 +163,10 @@ The recharge :math:`N_i` is a rate per unit of area. It is constant over a stres
 period. It is either one number per period, the same on every cell, or one value
 per cell when the file loads a recharge field. The volume rate that enters the cell
 is :math:`a_i N_i`. A negative recharge is refused: the message says
-``must be non-negative.`` In a transient run every period keeps its own value; in
-a steady run the period takes :toml:`flow.sinks_sources.recharge.first_clim`
-(:doc:`forcing`).
+``must be non-negative.`` A transient period keeps its own value. A steady period
+takes :toml:`flow.sinks_sources.recharge.first_clim` (:doc:`forcing`): the period of a
+steady run, and the first period of a transient run when
+:toml:`flow.first_period_steady` is true, as in MODFLOW.
 
 A well is a volume rate :math:`\Phi^{\mathrm{well}}_i`, positive for injection and
 negative for pumping. It is placed on the triangle that contains its x and y
@@ -235,6 +236,12 @@ backward Euler steps of equal length :math:`\Delta t`, one by default. The forci
 constant over the period and is evaluated at the end of each step. The PETSc obstacle
 runtimes can refine each of these steps further (see
 :doc:`/contribute/architecture/solver/boussinesq-engines`).
+
+A period exports the heads at its end and the fluxes of its last step: recharge,
+wells, drain, release at the surface and imposed heads. MODFLOW 6 does the same, as
+it saves the budget of the last time step of a period. With one step a period, that
+flux is the flux over the period. With several, it is the flux at the end of the
+period, not its mean over the period.
 
 7. The residual of a free cell
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -464,8 +471,18 @@ The transient driver loops over the stress periods. At each period it takes the
 forcing of the period and solves :toml:`simulation.time.substeps_per_period`
 backward Euler steps of equal length, each from the heads of the step before, as the
 previous state and as the initial guess. The forcing holds over the period, as in
-MODFLOW. The first period is a transient step like the
-others: the solver does not read :toml:`flow.first_period_steady`.
+MODFLOW.
+
+When :toml:`flow.first_period_steady` is true, the default, the first period is
+solved at steady state, as in MODFLOW 6 and MODFLOW-NWT. It is one steady solve under
+the forcing of that period, with the recharge
+:toml:`flow.sinks_sources.recharge.first_clim` gives. The initial heads are its first
+guess only. The engine keeps its surface closure. The TS VI obstacle closure steps in
+time only, so that period takes the VI obstacle closure on the same PETSc engine. The
+next periods step in time from that state. A steady period holds one state from its
+start to its end, so the run reports no change of storage over it. When the key is
+false, the first period is a backward Euler step from the initial heads, like the
+others.
 
 The initial heads come from :toml:`flow.ic.h.type`. With ``steady_state``, the solver
 first runs one steady solve with the same method, under the time-mean recharge or
@@ -521,6 +538,7 @@ the engine. Open a row for its card.
 
    simulation.process.solvers
    flow.flow_regime
+   flow.first_period_steady
    simulation.time.substeps_per_period
    flow.runtime_backend
    flow.surface_interaction_model

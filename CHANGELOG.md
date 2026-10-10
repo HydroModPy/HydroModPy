@@ -496,6 +496,16 @@ Each release section includes the following standard categories:
   refused.
 
 ### Fixed
+- A transient Boussinesq run reads flow.first_period_steady, true by default, as MODFLOW 6
+  and MODFLOW-NWT do: it solves the first stress period at steady state under the forcing
+  of that period, its recharge set by first_clim, with the initial heads as a first guess
+  only, then steps in time from that state. It ignored the key and started from the
+  initial heads, so one file solved two problems. On the natural-mesh test started 5 m
+  above its steady state, the first-period heads were 2.6 m (RMSE) off MODFLOW 6 and the
+  constant-head outflow of that period 260 times larger. They now differ by the 0.23 m the
+  two solvers show at steady state on that mesh, and the outflow of that period is the
+  same. The TS VI obstacle closure solves that period with the VI obstacle closure. A run
+  that must start from its initial heads sets first_period_steady = false.
 - A well or a drain on a Boussinesq cell with an imposed head does nothing, as in
   MODFLOW, and the run warns about such a well. It was counted in its own budget term
   and fed by the boundary: on a test with a 1000 m3/day well on a fixed-head side, the
