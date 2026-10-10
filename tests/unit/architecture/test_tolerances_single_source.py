@@ -140,6 +140,9 @@ CASE_TOML_ROWS: frozenset[str] = frozenset(
         "brutsaert_deep_1d__relative_error_of_the_fitted_decay_rate_days_30_to_90",
         "brutsaert_deep_1d__b_1_fitted_exponent",
         "brutsaert_deep_1d__rmse_of_q_q_ref_1_days_30_to_90",
+        # Stream depletion, tolerances.toml bound on the well-cell drawdown over
+        # the saturated thickness, shared by every variant.
+        "stream_depletion_2d_all_variants__well_cell_drawdown_over_saturated_thickness",
         # Dupuit seepage limit, tolerances.toml blocks [seepage_limit], [invariance]
         # and [control]; asserted in
         # tests/validation/analytical/steady/test_dupuit_seepage_limit_1d.py.
@@ -223,7 +226,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 61, sorted(loadable)
+    assert len(loadable) == 62, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"
