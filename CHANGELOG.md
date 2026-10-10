@@ -34,6 +34,9 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- flow.partition_release_depth_m: the depth scale, in metres, over which the
+  regularized partition of the Boussinesq solver starts to release water at the
+  surface, 0.05 m by default.
 - Validation case `stream_depletion_glover_balmer_2d`: a well pumping 100 m from a stream
   held on the west side, against the Glover and Balmer (1954) stream depletion and the
   image-well Theis drawdown, on the six solver variants; the depletion is read from the
@@ -493,6 +496,23 @@ Each release section includes the following standard categories:
   refused.
 
 ### Fixed
+- The default surface closure of the Boussinesq solver, the regularized partition of
+  every engine but PETSc, released water far below the ground: a cell sent to the
+  surface the share exp(-(1 - s) / 0.05) of the water it received, s being the
+  saturated share of its thickness, so a water table 10 m under the top of a 60 m
+  aquifer lost 3.6 % of its recharge, and a pumped cell 11 m under the top sent 0.4 %
+  of the pumping to the surface (a quarter at 1.5 m, where the run stopped
+  converging). The share now follows the depth of the water table below the land
+  surface, exp(-d / flow.partition_release_depth_m), 2e-9 at 1 m with the default
+  0.05 m, and the water a cell receives counts its wells and its signed recharge. The
+  recharge mound now stores all its recharge and the stream depletion run matches
+  PETSc.
+- A Boussinesq cell with an imposed head no longer reports a surface release: the
+  water it receives goes to its constant-head flux. Heads are unchanged; the surface
+  outflow of a run stops counting the inflow of its Dirichlet cells (16.7 of the 20.9
+  m3/day reported on the steady interception hillslope).
+- The Boussinesq plan-view map of the late-time pumping validation case was flipped
+  north-south.
 - Boussinesq derives an undeclared drain conductance as `K * cell_area /
   solver.drain_bed_thickness_m`, like MODFLOW 6 and MODFLOW-NWT. It ignored the bed
   thickness, so any value other than 1 m gave a different drainage, and a different

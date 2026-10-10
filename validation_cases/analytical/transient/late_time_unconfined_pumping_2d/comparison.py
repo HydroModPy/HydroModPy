@@ -198,7 +198,11 @@ def _final_head_map(
         centers, _ = bundle_cell_centers(bundle_dir, simulated.size)
         polygons = load_cell_polygons(store=result.store, sim_id=result.sim_id)
     else:
-        simulated = np.asarray(final_heads, dtype=float).reshape(-1)
+        grid_heads = np.asarray(final_heads, dtype=float)
+        if solver_name in {"boussinesq", DEFAULT_ENGINE_SOLVER}:
+            # The Boussinesq runtime projects its rows from the south; the polygons start north.
+            grid_heads = grid_heads[::-1, :]
+        simulated = grid_heads.reshape(-1)
         polygons = structured_cell_polygons(
             x_min=float(reference_cfg["xmin"]),
             x_max=float(reference_cfg["xmax"]),

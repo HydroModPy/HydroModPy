@@ -82,6 +82,7 @@ def record_runtime_backend_summary(
     solver.runtime_summary["surface_interaction_model_resolved"] = (
         contract.surface_interaction_model_resolved
     )
+    solver.runtime_summary["partition_release_depth_m"] = float(options.regularization_radius)
     solver.runtime_summary["runtime_solver_kind"] = runtime_backend.nonlinear_solver_kind
     solver.runtime_summary["runtime_linear_system_layout"] = runtime_backend.linear_system_layout
     solver.runtime_summary["runtime_jacobian_strategy"] = runtime_backend.jacobian_strategy

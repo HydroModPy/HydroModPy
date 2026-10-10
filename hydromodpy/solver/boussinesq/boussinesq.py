@@ -96,7 +96,6 @@ from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
 )
 
 _SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
-_DEFAULT_SATURATION_EXCESS_REGULARIZATION = 0.05
 
 logger = get_logger(__name__)
 
@@ -135,7 +134,6 @@ class Boussinesq:
         self.last_flow_solve_time_seconds: float | None = None
         self.has_numerical_solution = False
         self.solve_stage = "created"
-        self.saturation_excess_regularization_radius = _DEFAULT_SATURATION_EXCESS_REGULARIZATION
         self._runtime_engine_logged = False
 
     def pre_processing(self):
@@ -152,9 +150,6 @@ class Boussinesq:
             "n_cells": self.mesh.n_cells,
             "n_edges": self.mesh.n_edges,
             "n_nodes": self.mesh.n_nodes,
-            "saturation_excess_regularization_radius": float(
-                self.saturation_excess_regularization_radius
-            ),
         }
         if self.mesh_bundle is not None:
             self.runtime_summary["bundle_dir"] = str(self.mesh.bundle_dir)
@@ -357,11 +352,7 @@ class Boussinesq:
 
     def _runtime_options(self) -> NonlinearRuntimeOptions:
         """Build backend-neutral nonlinear options for the selected runtime."""
-        return build_runtime_options(
-            self.flow,
-            regularization_radius=float(self.saturation_excess_regularization_radius),
-            n_cells=self._mesh_cell_count(),
-        )
+        return build_runtime_options(self.flow, n_cells=self._mesh_cell_count())
 
     def _resolve_solver_contract(self) -> BoussinesqSolverContract:
         """Resolve the explicit solver contract from the current ``Flow``."""

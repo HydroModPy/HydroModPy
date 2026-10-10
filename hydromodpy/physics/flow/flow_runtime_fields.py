@@ -1,6 +1,6 @@
 """Field declarations for the Boussinesq runtime knobs on FlowConfig.
 
-This mixin exposes the 13 flat ``runtime_*`` / ``vi_*`` / ``ts_vi_*``
+This mixin exposes the flat ``runtime_*`` / ``vi_*`` / ``ts_vi_*``
 fields kept on :class:`FlowConfig` for backward-compatible TOML
 payloads. The mixin keeps the field declarations isolated so
 ``flow_config.py`` focuses on the user-facing payload (``param_list``,
@@ -16,7 +16,10 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.physics.flow.flow_runtime_config import FlowRuntimeConfig
+from hydromodpy.physics.flow.flow_runtime_config import (
+    DEFAULT_PARTITION_RELEASE_DEPTH_M,
+    FlowRuntimeConfig,
+)
 
 
 class FlowRuntimeFields(HydroModelBase):
@@ -57,6 +60,25 @@ class FlowRuntimeFields(HydroModelBase):
         ),
         examples=["auto", "regularized_partition"],
         json_schema_extra=field_metadata(stability="experimental"),
+    )
+    partition_release_depth_m: Annotated[float, Profile.USER] = Field(
+        default=DEFAULT_PARTITION_RELEASE_DEPTH_M,
+        gt=0.0,
+        description=(
+            "Depth scale, in metres, of the regularized partition, the surface "
+            "closure the Boussinesq solver uses by default on every engine but "
+            "petsc. A cell whose water table lies d metres below "
+            "the land surface releases at the surface the share exp(-d / depth) "
+            "of the water it receives, its lateral inflow plus its recharge and "
+            "wells: all of it with the water table at the surface, 37 % at one "
+            "depth scale, 2e-9 at 1 m with the default 0.05 m. It stands for the "
+            "microtopography over which seepage starts, and smooths the onset of "
+            "seepage for the Newton solve. A smaller value comes closer to the "
+            "exact threshold of the complementarity closure and makes the solve "
+            "stiffer. The other closures and the MODFLOW solvers do not read it."
+        ),
+        examples=[0.05, 0.02],
+        json_schema_extra=field_metadata(unit="m"),
     )
     runtime_max_iterations: Annotated[int | None, Profile.DEV] = Field(
         default=None,
@@ -143,6 +165,7 @@ class FlowRuntimeFields(HydroModelBase):
         return FlowRuntimeConfig(
             backend=self.runtime_backend,
             surface_model=self.surface_interaction_model,
+            partition_release_depth_m=self.partition_release_depth_m,
             max_iterations=self.runtime_max_iterations,
             tol_residual_inf=self.runtime_tol_residual_inf,
             tol_state_update_inf=self.runtime_tol_state_update_inf,

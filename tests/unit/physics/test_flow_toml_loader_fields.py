@@ -24,6 +24,7 @@ _SCALAR_PROBES: dict[str, Any] = {
     "restart_from": "prior_run/fields.zarr",
     "runtime_backend": "petsc",
     "surface_interaction_model": "complementarity",
+    "partition_release_depth_m": 0.02,
     "runtime_max_iterations": 77,
     "runtime_tol_residual_inf": 1e-7,
     "runtime_tol_state_update_inf": 1e-9,

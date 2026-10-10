@@ -205,6 +205,8 @@ def assemble_spatial_terms(
         head_m=head,
         lateral_flux_residual_m3_s=(internal_flux_residual + boundary_head_flux_residual),
         recharge_rate_m_s=recharge_rate,
+        well_flux_m3_s=well_flux,
+        prescribed_mask=boundary_inputs.prescribed_mask,
         regularization_radius=float(regularization_radius),
         saturation_excess_rate_m_s=saturation_excess_rate_m_s,
     )

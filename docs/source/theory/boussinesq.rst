@@ -226,11 +226,11 @@ A head above the land surface, which the head-only closures allow, must keep the
 memory of the previous step: with a capped volume, the change of storage over the
 step would be lost.
 
-Each stress period is one backward Euler step of length :math:`\Delta t`. The
-forcing is constant over the period and is evaluated at the end of the step. The
-solver does not read :toml:`simulation.time.substeps_per_period`. To integrate a
-period in several steps, shorten the period, or use the substeps of the experimental
-obstacle runtimes (see :doc:`/contribute/architecture/solver/boussinesq-engines`).
+Each stress period is split into :toml:`simulation.time.substeps_per_period`
+backward Euler steps of equal length :math:`\Delta t`, one by default. The forcing is
+constant over the period and is evaluated at the end of each step. The PETSc obstacle
+runtimes can refine each of these steps further (see
+:doc:`/contribute/architecture/solver/boussinesq-engines`).
 
 7. The residual of a free cell
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -269,46 +269,54 @@ The regularized partition
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``regularized_partition`` closure keeps the head as the only unknown. It
-releases water at the surface by a smooth function of the saturation, so that there
-is no sharp on and off at the moment the cell is full
+releases water at the surface by a smooth function of the depth of the water table,
+so that there is no sharp on and off at the moment the cell is full
 (``regularized_partition_surface_rate_from_balance`` in ``assembly/surface.py``).
-The saturation ratio is
+The depth of the water table below the land surface is
 
 .. math::
 
-   \sigma_i(h) = \frac{B_i(h)}{H_i},
+   d_i(h) = H_i - B_i(h),
 
-and zero for a cell of zero thickness. The sum of the fluxes through the edges of the
-cell is :math:`R^{\mathrm{int}}_i` (step 2). The water that arrives at the cell, per
-unit of area, is the lateral inflow plus the recharge when this is positive:
+zero for a head at or above the top and the whole thickness for a dry cell. The sum
+of the fluxes through the edges of the cell is :math:`R^{\mathrm{int}}_i` (step 2).
+The water that arrives at the cell, per unit of area and besides its storage, is the
+lateral inflow, the recharge and the wells, each with its sign, a pumping well being
+negative:
 
 .. math::
 
-   \gamma_i = \max\!\left(-\frac{R^{\mathrm{int}}_i}{a_i} + \max(N_i, 0),\ 0\right)
+   \gamma_i = \max\!\left(-\frac{R^{\mathrm{int}}_i}{a_i} + N_i
+   + \frac{\Phi^{\mathrm{well}}_i}{a_i},\ 0\right)
 
 and the release is
 
 .. math::
    :label: eq-bq-partition
 
-   s_i(h) = \exp\!\left(-\frac{1 - \sigma_i(h)}{\varepsilon_r}\right)\gamma_i
+   s_i(h) = \exp\!\left(-\frac{d_i(h)}{\delta}\right)\gamma_i
 
-The radius :math:`\varepsilon_r` is a constant of the code, 0.05, set in
-``boussinesq.py``. No key changes it. The law follows the regularized partition of
-seepage and subsurface flow of :cite:t:`marcais2017`. The wells and the storage are
-not in :math:`\gamma_i`. The factor in front of :math:`\gamma_i`:
+The depth scale :math:`\delta` is :toml:`flow.partition_release_depth_m`, 0.05 m by
+default. A cell with an imposed head releases nothing: its constant-head flux
+carries the water it receives. The law follows the regularized partition of seepage
+and subsurface flow of :cite:t:`marcais2017`, smoothed over the depth of the water
+table in metres. The factor in front of :math:`\gamma_i`:
 
 .. plot:: theory/figures/bq_partition.py
-   :alt: The release factor against the saturation of the cell, on a linear and a log scale, for three radii.
+   :alt: The release factor against the depth of the water table below the land surface, on a linear and a log scale, for three depth scales.
    :caption: The factor of :eq:`eq-bq-partition`, from
-      ``regularized_partition_surface_rate_from_balance``. The dots are the saturations
-      1, 0.95, 0.9, 0.8 and 0.5. Look at the left panel: the factor is 0.37 at 0.95 and
-      0.14 at 0.9, so the release starts well before the cell is full. The right panel
-      shows that it never reaches zero. The dotted and dash-dotted curves are the radii
-      0.02 and 0.1, which no key sets.
+      ``regularized_partition_surface_rate_from_balance``. The dots are the depths 0,
+      0.05, 0.1, 0.2 and 1 m. Look at the left panel: with the default 0.05 m the
+      factor is 0.37 one depth scale below the surface and 0.018 at 0.2 m. The right
+      panel shows that at 1 m it is 2e-9, whatever the thickness of the aquifer. The
+      dotted and dash-dotted curves are the depth scales 0.02 and 0.1 m.
 
-A full cell releases the whole of what arrives, a cell nine tenths full about one
-seventh of it, and a half-full cell a tiny share. This is a pragmatic law and not a
+A cell full to the surface releases the whole of what arrives, a water table 5 cm
+under the surface about a third of it, and a water table 1 m under the surface
+nothing that matters. As :math:`\delta` goes to zero the law becomes the threshold of
+the complementarity closure below. A smaller :math:`\delta` comes closer to that
+threshold and makes the Newton solve stiffer: near the surface, the release switches
+on and off with the sign of the arriving water. This is a pragmatic law and not a
 model of overland flow. The four runtimes of this method use the same law.
 
 The complementarity closure
@@ -484,7 +492,8 @@ Limits
 - **Boundary bias.** Near a boundary with a strong gradient, the head of a pinned
   cell differs from the edge value (step 3). Refine the mesh there to reduce it.
 - **Fixed steps.** A time step that does not converge ends the run. The step length
-  is fixed; the experimental obstacle runtimes can cut each step into substeps.
+  is fixed by the period and its sub-steps; the PETSc obstacle runtimes can refine
+  each step further.
 - **What can be read back.** The solver serves the head at a cell, the discharge
   over the domain, and the release per cell. It has no lake stage and no routed
   discharge, because it has no lake package and no stream reaches.
@@ -511,6 +520,7 @@ the engine. Open a row for its card.
    simulation.time.substeps_per_period
    flow.runtime_backend
    flow.surface_interaction_model
+   flow.partition_release_depth_m
    flow.runtime_max_iterations
    flow.runtime_tol_residual_inf
    flow.runtime_tol_state_update_inf

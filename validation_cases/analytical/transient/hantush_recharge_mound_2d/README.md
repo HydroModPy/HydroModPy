@@ -27,14 +27,8 @@ area only when no cell straddles an edge, so the two meshes are built for it
 lines, and the nodes of `hantush_recharge_mound_voronoi_frames` face each
 other across each edge, which puts the Voronoi edges on it. Both are refined
 to 10 m under the rectangle, 80 m at the sides. With MODFLOW 6 on the three
-grids, MODFLOW-NWT and Boussinesq PETSc, the stored volume `Sy sum(dh A)`
-equals the recharged volume within 2e-4 at day 10.
-
-The default Boussinesq engine stores 96.2 % of it: its surface closure, the
-regularized partition, sends the share `exp(-(1 - s) / 0.05)` of the water a
-cell receives to the surface, `s` being the saturated share of the cell
-thickness, here 0.83 with the water table 10 m under the top. Its band is the
-documented gap of `tolerances_boussinesq_local.toml`.
+grids, MODFLOW-NWT and both Boussinesq engines, the stored volume
+`Sy sum(dh A)` equals the recharged volume within 2e-4 at day 10.
 
 Comparison:
 

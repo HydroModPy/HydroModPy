@@ -10,10 +10,10 @@ from hydromodpy.solver.boussinesq.assembly import (
     internal_edge_flux_from_head,
     resolve_boundary_head_inputs,
 )
+from hydromodpy.solver.boussinesq.assembly.surface import partition_release_share
 from hydromodpy.solver.boussinesq.jacobian.common import (
     as_cell_vector,
     concatenate_triplets,
-    saturated_thickness_derivative_from_head,
 )
 from hydromodpy.solver.boussinesq.jacobian.operator_triplets import (
     build_sparse_semianalytic_triplets,
@@ -30,10 +30,12 @@ def build_sparse_semianalytic_partition_saturation_triplets(
     boundary_head_m_by_edge: np.ndarray | None,
     prescribed_head_m_by_cell: np.ndarray | None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Differentiate the regularized-partition saturation contribution."""
-    if float(regularization_radius) <= 0.0:
-        raise ValueError("regularization_radius must be strictly positive.")
+    """Differentiate the regularized-partition saturation contribution.
 
+    ``surface_input_rate_m_s`` is the recharge plus the wells per unit area,
+    signed, as ``partition_vertical_supply_rate_m_s`` returns it.
+    ``regularization_radius`` is a depth in metres.
+    """
     head = np.asarray(head_m, dtype=float).reshape(-1)
     n_cells = int(mesh.n_cells)
     if head.size != n_cells:
@@ -76,10 +78,7 @@ def build_sparse_semianalytic_partition_saturation_triplets(
         include_prescribed_identity=False,
     )
 
-    surface_input = np.maximum(
-        as_cell_vector(surface_input_rate_m_s, n_cells=n_cells),
-        0.0,
-    )
+    surface_input = as_cell_vector(surface_input_rate_m_s, n_cells=n_cells)
     balance_rate = (
         np.divide(
             -lateral_flux_residual,
@@ -90,31 +89,16 @@ def build_sparse_semianalytic_partition_saturation_triplets(
         + surface_input
     )
     active_ramp = balance_rate > 0.0
+    if np.any(prescribed_mask):
+        active_ramp = active_ramp & ~prescribed_mask
     ramp_rate = np.where(active_ramp, balance_rate, 0.0)
 
-    max_thickness = np.maximum(mesh.z_top_m - mesh.z_bottom_m, 0.0)
-    db_dh = saturated_thickness_derivative_from_head(mesh, head)
-    thickness = np.clip(head - mesh.z_bottom_m, 0.0, max_thickness)
-    saturation_ratio = np.divide(
-        thickness,
-        max_thickness,
-        out=np.zeros(n_cells, dtype=float),
-        where=max_thickness > 0.0,
+    regularization, dregularization_dh = partition_release_share(
+        mesh,
+        head,
+        regularization_radius=float(regularization_radius),
     )
-    regularization = np.exp(
-        -(1.0 - np.clip(saturation_ratio, 0.0, 1.0)) / float(regularization_radius)
-    )
-    dtheta_dh = np.divide(
-        db_dh,
-        max_thickness,
-        out=np.zeros(n_cells, dtype=float),
-        where=max_thickness > 0.0,
-    )
-    dregularization_dh = regularization * dtheta_dh / float(regularization_radius)
     local_diagonal = mesh.cell_area_m2 * ramp_rate * dregularization_dh
-    if np.any(prescribed_mask):
-        local_diagonal = local_diagonal.copy()
-        local_diagonal[prescribed_mask] = 0.0
 
     row_scaling = -regularization * active_ramp.astype(float, copy=False)
     lateral_data, lateral_rows, lateral_cols = lateral_triplets

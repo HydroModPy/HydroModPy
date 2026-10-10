@@ -195,21 +195,22 @@ the residual with a positive sign.
 
 The current backend includes a regularized saturation-excess source term. Its
 goal is pragmatic: avoid a sharp on/off overflow law exactly at full saturation
-while still allowing near-surface water release when the cell is almost full.
+while still allowing near-surface water release when the water table is within a
+few centimetres of the land surface.
 
-Define the saturation ratio
+Define the depth of the water table below the land surface
 \[
-\sigma_i(h) =
-\frac{b_i(h)}{z^{\text{top}}_i - z^{\text{bot}}_i}.
+d_i(h) = \left(z^{\text{top}}_i - z^{\text{bot}}_i\right) - b_i(h).
 \]
 
 Let $R^{\text{lat}}_i$ be the lateral balance rate converted back to a surface
-flux by division through $A_i$. The code forms
+flux by division through $A_i$. The code forms the net supply of the cell, with
+the signed recharge $r_i$ and the signed well flux $W_i$ (pumping negative),
 \[
 \beta_i
 =
 \max\!\left(
-    -\frac{R^{\text{lat}}_i}{A_i} + \max(r_i, 0),
+    -\frac{R^{\text{lat}}_i}{A_i} + r_i + \frac{W_i}{A_i},
     0
 \right),
 \]
@@ -218,11 +219,13 @@ and then applies the regularization
 s_i(h)
 =
 \exp\!\left(
-    -\frac{1 - \sigma_i(h)}{\varepsilon}
+    -\frac{d_i(h)}{\delta}
 \right)
 \beta_i,
 \]
-where $\varepsilon > 0$ is the regularization radius.
+where $\delta > 0$ is the depth scale in metres,
+\texttt{flow.partition\_release\_depth\_m} (0.05~m by default). A cell with a
+prescribed head releases nothing.
 
 This term is not meant to be a final physically complete overland-flow model.
 It is a smooth release mechanism used by the current backend close to full

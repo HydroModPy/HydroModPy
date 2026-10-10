@@ -6,10 +6,11 @@
 # and scipy_sparse above.
 #
 # One key is set, the Newton closure. From the outlet head over the whole
-# hillslope the dense Newton of the regularized partition stalls at 3.5e-9
-# m3/s, its line search unable to reduce the residual near the seepage front;
-# the default 1e-9 m3/s is out of reach. 1e-8 m3/s is 1e-2 of the recharge of
-# one cell and moves the heads by less than 1e-4 m.
+# hillslope the dense Newton of the regularized partition stalls at 2.5e-9
+# m3/s, its line search unable to reduce the residual where cells within a few
+# centimetres of the surface switch between releasing and not; the default
+# 1e-9 m3/s is out of reach. 1e-8 m3/s is 1e-2 of the recharge of one cell and
+# moves the heads by less than 1e-4 m.
 
 [flow]
 runtime_tol_residual_inf = 1e-8

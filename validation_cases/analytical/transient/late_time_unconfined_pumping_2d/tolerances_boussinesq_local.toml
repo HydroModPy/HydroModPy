@@ -5,20 +5,21 @@ azimuthal_spread = 0.0027
 
 [final_time]
 rmse = 0.0077
-max_abs_error = 0.013
+max_abs_error = 0.009
 
 [doc]
 reason = """
-Twice the error measured with the default 'auto' engine, which runs
+About twice the error measured with the default 'auto' engine, which runs
 scipy_sparse on the 10082 triangles of 71 x 71 squares (397 m2, the cell area
 of the MODFLOW grid) with one backward-Euler step a period: space-time RMSE
-0.0043 m, max error 0.0127 m, final RMSE 0.0038 m, final max error 0.0064 m,
-azimuthal spread 0.0013 m. On 31 x 31 squares the space-time RMSE read
-0.0084 m; from 61 x 61 on it stays at 0.0042 to 0.0045 m, the value MODFLOW
-reads with the same single step a period: the rest is the time step and the
-fixed-transmissivity Theis reference, not the mesh. The reference is read at
-the centroid of the triangle each monitor point reads, with the well at the
+0.0048 m, max error 0.0140 m, final RMSE 0.0035 m, final max error 0.0045 m,
+azimuthal spread 0.0012 m. MODFLOW on its 101 x 101 grid, with the same single
+step a period, reads a space-time RMSE of 0.0044 m: the error is the time step
+and the fixed-transmissivity Theis reference. The reference is read at the
+centroid of the triangle each monitor point reads, with the well at the
 centroid of the triangle that holds it, 6.6 m off the well point. Read from
 the well point, that offset alone gave an azimuthal spread of 0.136 m on the
-former 31 x 31 mesh.
+former 31 x 31 mesh. Until 2026-10-10 the surface closure sent up to 3.4
+m3/day of the pumping out of the well cell, 10 m under the top: space-time
+RMSE 0.0043 m, final max error 0.0064 m.
 """

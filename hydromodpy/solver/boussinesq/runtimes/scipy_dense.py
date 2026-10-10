@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from hydromodpy.solver.boussinesq.assembly.surface import partition_vertical_supply_rate_m_s
 from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_dense_semianalytic_regularized_partition_jacobian,
 )
@@ -48,7 +49,11 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
         head_initial_guess_m=solve_setup.head_initial_guess_m,
         mesh=inputs.mesh,
         dt_seconds=float(inputs.dt_seconds),
-        surface_input_rate_m_s=inputs.recharge_rate_m_s,
+        surface_input_rate_m_s=partition_vertical_supply_rate_m_s(
+            inputs.mesh,
+            recharge_rate_m_s=inputs.recharge_rate_m_s,
+            well_flux_m3_s=inputs.well_flux_m3_s,
+        ),
         regularization_radius=float(solve_setup.options.regularization_radius),
         prescribed_head_m_by_cell=solve_setup.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
@@ -67,7 +72,11 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
         head_initial_guess_m=solve_setup.head_initial_guess_m,
         mesh=inputs.mesh,
         dt_seconds=None,
-        surface_input_rate_m_s=inputs.recharge_rate_m_s,
+        surface_input_rate_m_s=partition_vertical_supply_rate_m_s(
+            inputs.mesh,
+            recharge_rate_m_s=inputs.recharge_rate_m_s,
+            well_flux_m3_s=inputs.well_flux_m3_s,
+        ),
         regularization_radius=float(solve_setup.options.regularization_radius),
         prescribed_head_m_by_cell=solve_setup.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,

@@ -221,8 +221,10 @@ head is clipped between the bottom and the top. A free cell whose balance at the
 bottom still asks to lose water starts at the bottom. In a transient run, the first
 guess of $q^{\mathrm{ex}}$ is the release the regularised partition would
 give when the recharge is positive or a well flux is negative, and zero otherwise
-(`_initial_transient_q_ex_guess`). The choice changes the path to the solution,
-not the equations.
+(`_initial_transient_q_ex_guess`). That guess uses a depth scale of 5 % of the head
+scale $h_s$, not {toml}`flow.partition_release_depth_m`, so that it starts off the
+kink of the Fischer-Burmeister function. The choice changes the path to the
+solution, not the equations.
 
 The VI engines solve the bounded system of {ref}`bq-engines-obstacle`.
 

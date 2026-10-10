@@ -13,6 +13,26 @@ from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 _MIN_RATE_SCALE_M_S = 1.0e-12
 _MIN_HEAD_SCALE_M = 1.0
 _FB_JACOBIAN_EPS = 1.0e-12
+# The q_ex warm start releases over 5 % of the head scale of the NCP residual.
+_WARM_START_RELEASE_FRACTION = 0.05
+
+
+def _head_scale_m(mesh: BoussinesqMesh) -> float:
+    """Return the head scale of the NCP residual: the largest cell thickness."""
+    thickness = np.maximum(mesh.z_top_m - mesh.z_bottom_m, 0.0)
+    thickness_vector = np.asarray(thickness, dtype=float).reshape(-1)
+    largest = float(np.max(thickness_vector)) if thickness_vector.size else 0.0
+    return max(largest, _MIN_HEAD_SCALE_M)
+
+
+def _warm_start_release_depth_m(mesh: BoussinesqMesh) -> float:
+    """Return the depth scale of the regularized release used as the q_ex warm start.
+
+    The warm start sits off the kink of the Fischer-Burmeister residual by a
+    fixed share of its head scale. It does not follow
+    ``flow.partition_release_depth_m``, a physical depth for the head-only closure.
+    """
+    return _WARM_START_RELEASE_FRACTION * _head_scale_m(mesh)
 
 
 def _complementarity_scales(
@@ -23,12 +43,7 @@ def _complementarity_scales(
     dt_seconds: float | None,
 ) -> tuple[float, float]:
     """Return simple global scales used to nondimensionalize the NCP residual."""
-    aquifer_thickness_m = np.maximum(mesh.z_top_m - mesh.z_bottom_m, 0.0)
-    thickness_vector = np.asarray(aquifer_thickness_m, dtype=float).reshape(-1)
-    head_scale_m = max(
-        float(np.max(thickness_vector)) if thickness_vector.size else 0.0,
-        _MIN_HEAD_SCALE_M,
-    )
+    head_scale_m = _head_scale_m(mesh)
 
     recharge = np.asarray(
         recharge_rate_m_s if recharge_rate_m_s is not None else 0.0,
@@ -177,7 +192,6 @@ def _initial_steady_q_ex_guess(
     well_flux_m3_s: np.ndarray | float | None,
     prescribed_head_m_by_cell: np.ndarray | None = None,
     drainage_conductance_m2_s: np.ndarray | float | None = None,
-    regularization_radius: float = 0.05,
 ) -> np.ndarray:
     """Return one positive steady warm start for the algebraic overflow rate."""
     guess = np.maximum(
@@ -189,7 +203,7 @@ def _initial_steady_q_ex_guess(
                 well_flux_m3_s=well_flux_m3_s,
                 prescribed_head_m_by_cell=prescribed_head_m_by_cell,
                 drainage_conductance_m2_s=drainage_conductance_m2_s,
-                regularization_radius=float(regularization_radius),
+                regularization_radius=_warm_start_release_depth_m(mesh),
             ).saturation_excess_rate_m_s,
             dtype=float,
         ),
@@ -213,7 +227,6 @@ def _initial_transient_q_ex_guess(
     well_flux_m3_s: np.ndarray | float | None,
     prescribed_head_m_by_cell: np.ndarray | None = None,
     drainage_conductance_m2_s: np.ndarray | float | None = None,
-    regularization_radius: float = 0.05,
 ) -> np.ndarray:
     """Return a robust transient warm start for the algebraic overflow rate."""
     recharge = np.asarray(
@@ -238,7 +251,7 @@ def _initial_transient_q_ex_guess(
                 well_flux_m3_s=well_flux_m3_s,
                 prescribed_head_m_by_cell=prescribed_head_m_by_cell,
                 drainage_conductance_m2_s=drainage_conductance_m2_s,
-                regularization_radius=float(regularization_radius),
+                regularization_radius=_warm_start_release_depth_m(mesh),
             ).saturation_excess_rate_m_s,
             dtype=float,
         ),
