@@ -20,6 +20,11 @@ Reference model:
   `T = K * href` and `S = Sy`,
 - early delayed-yield effects are excluded from the comparison window.
 
+On a mesh, the reference is read where the model computes: at the centre of
+the cell each monitor point reads, with the well at the centre of the cell
+that holds it. The `boussinesq` and `boussinesq_local` variants run on 71 x 71
+squares split into 10082 triangles, the cell area of the MODFLOW grid.
+
 This is not a full Neuman solution. It is a lightweight validation of:
 
 - transient well forcing,

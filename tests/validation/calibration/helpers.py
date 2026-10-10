@@ -96,6 +96,12 @@ def check_twin_recovery(
     A distance is recorded with a threshold only when a check asserts it.
     Every other distance is information: it carries no threshold and no
     operator, so the page does not read it as a pass or a fail.
+
+    A count, and a yes or no read as a count of one, is recorded as above the
+    largest count that fails, with the number of runs as its ideal value. The
+    page then reads the share of the margin a result used: 0 when every run
+    succeeds, 1 at the failing count. Recorded as at least the smallest count
+    that passes, a single success would read as the whole margin used.
     """
     definition = benchmark.definition
     record_case(definition.case_id)
@@ -104,10 +110,29 @@ def check_twin_recovery(
     truth = {str(k): float(v) for k, v in definition.truth_params.items()}
     failures: list[str] = []
 
-    def judge(label: str, value: float | None, threshold: float | None, op: str, ok: bool) -> None:
-        record_metric(label, value, threshold, op=op if threshold is not None else "")
+    def judge(
+        label: str,
+        value: float | None,
+        threshold: float | None,
+        op: str,
+        ok: bool,
+        *,
+        ideal: float | None = None,
+    ) -> None:
+        record_metric(label, value, threshold, op=op if threshold is not None else "", ideal=ideal)
         if threshold is not None and not ok:
             failures.append(f"{label}: {value} not {op} {threshold}")
+
+    def judge_count(label: str, count: int, minimum: int, out_of: int) -> None:
+        """Judge ``count >= minimum``, recorded as above ``minimum - 1``."""
+        judge(
+            label,
+            float(count),
+            float(minimum - 1),
+            ">",
+            count >= minimum,
+            ideal=float(out_of),
+        )
 
     counts: dict[str, dict[str, list[bool]]] = {}
     for result in benchmark.method_results:
@@ -155,21 +180,18 @@ def check_twin_recovery(
         bucket["best"].append(within_tol)
         bucket["dist"].append(in_dist)
         if want_dist and not check.min_runs_in_distribution:
-            judge(
+            judge_count(
                 f"{who}: a sample within tolerance of the truth on every parameter",
-                1.0 if in_dist else 0.0,
-                1.0,
-                ">=",
-                in_dist,
+                int(in_dist),
+                1,
+                1,
             )
         if want_either:
-            ok = within_tol or in_dist
-            judge(
+            judge_count(
                 f"{who}: best fit or a sample within tolerance of the truth",
-                1.0 if ok else 0.0,
-                1.0,
-                ">=",
-                ok,
+                int(within_tol or in_dist),
+                1,
+                1,
             )
         if check.second_smallest_within is not None:
             ratios = sorted(best.get(n, math.inf) / t for n, t in tolerances.items())
@@ -191,33 +213,27 @@ def check_twin_recovery(
             failures.append(f"{method}: no result")
             continue
         if check.min_runs_best is not None:
-            n = float(sum(bucket["best"]))
-            judge(
+            judge_count(
                 f"{method}: runs within tolerance of the truth, out of {len(bucket['best'])}",
-                n,
-                float(check.min_runs_best),
-                ">=",
-                n >= check.min_runs_best,
+                sum(bucket["best"]),
+                check.min_runs_best,
+                len(bucket["best"]),
             )
         if check.min_runs_in_distribution is not None:
-            n = float(sum(bucket["dist"]))
-            judge(
+            judge_count(
                 f"{method}: runs with a sample within tolerance, out of {len(bucket['dist'])}",
-                n,
-                float(check.min_runs_in_distribution),
-                ">=",
-                n >= check.min_runs_in_distribution,
+                sum(bucket["dist"]),
+                check.min_runs_in_distribution,
+                len(bucket["dist"]),
             )
 
     if any_meets_target:
         group = [r for r in benchmark.method_results if r.method_name in set(any_meets_target)]
-        n = float(sum(1 for r in group if r.meets_success_target))
-        judge(
+        judge_count(
             "methods reaching their success target, among " + ", ".join(any_meets_target),
-            n,
-            1.0,
-            ">=",
-            n >= 1,
+            sum(1 for r in group if r.meets_success_target),
+            1,
+            len(group),
         )
 
     assert not failures, "; ".join(failures)

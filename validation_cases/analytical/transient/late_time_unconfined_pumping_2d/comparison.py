@@ -48,6 +48,18 @@ class LateTimeUnconfinedPumpingComparison(TransientRadialDrawdownComparison):
     monitor points are read: a triangle grid by nearest centroid, a Voronoi
     dual by the cell under each grid centre.
 
+    The reference is read where the model computes: at the centre of the cell
+    each monitor point reads, and with the well at the centre of the cell that
+    holds it. A solver puts a point well in the first cell whose outline holds
+    the point, and on a triangle mesh that centroid lies off the well: 6.6 m on
+    the squares of the Boussinesq runtime, 15.4 m on the refined triangle
+    bundle. At 60 m the drawdown then differs by up to Q / (2 pi T) * 15.4 / 60
+    = 0.16 m between azimuths, which is where the model puts the well and not
+    an error of the flow solution.
+
+    ``azimuthal_spread`` is the largest spread, over the four azimuths of one
+    monitor radius, of the drawdown error, each point against its own reference.
+
     Plan-view map at the final output time, one entry per solver cell, for figures:
 
     - ``map_cell_polygons``: the cell outline, a list of ``(x, y)`` vertices in
@@ -65,6 +77,68 @@ class LateTimeUnconfinedPumpingComparison(TransientRadialDrawdownComparison):
     map_overlay: dict
 
 
+def _bundle_triangles(bundle_dir: Path) -> np.ndarray:
+    """Return the ``(n, 3, 2)`` vertices of the triangles of one mesh bundle, in cell order."""
+    cells = np.genfromtxt(
+        Path(bundle_dir) / "cells.csv", delimiter=",", names=True, dtype=None, encoding="utf-8"
+    )
+    nodes = np.genfromtxt(
+        Path(bundle_dir) / "nodes.csv", delimiter=",", names=True, dtype=None, encoding="utf-8"
+    )
+    row_of_node = {int(node_id): row for row, node_id in enumerate(nodes["node_id"])}
+    xy = np.column_stack([nodes["x"], nodes["y"]]).astype(float)
+    corners = np.column_stack([cells["n0"], cells["n1"], cells["n2"]]).astype(int)
+    return xy[np.vectorize(row_of_node.__getitem__)(corners)]
+
+
+def _first_triangle_holding(point_xy: tuple[float, float], triangles: np.ndarray) -> int:
+    """Index of the first triangle whose outline holds the point, edges included.
+
+    This is the rule of ``locate_cell_index_for_point`` in both solvers.
+    """
+    a, b, c = triangles[:, 0], triangles[:, 1], triangles[:, 2]
+    px, py = float(point_xy[0]), float(point_xy[1])
+    det = (b[:, 1] - c[:, 1]) * (a[:, 0] - c[:, 0]) + (c[:, 0] - b[:, 0]) * (a[:, 1] - c[:, 1])
+    l1 = ((b[:, 1] - c[:, 1]) * (px - c[:, 0]) + (c[:, 0] - b[:, 0]) * (py - c[:, 1])) / det
+    l2 = ((c[:, 1] - a[:, 1]) * (px - c[:, 0]) + (a[:, 0] - c[:, 0]) * (py - c[:, 1])) / det
+    tol = 1.0e-12
+    holding = np.flatnonzero((l1 >= -tol) & (l2 >= -tol) & (1.0 - l1 - l2 >= -tol))
+    if holding.size == 0:
+        raise ValueError(f"No triangle holds the well at {point_xy}.")
+    return int(holding[0])
+
+
+def _held_well_xy(
+    *,
+    result,
+    solver: str | None,
+    metadata: dict,
+    observable_name: str,
+    well_xy: tuple[float, float],
+) -> tuple[float, float]:
+    """Centre of the solver cell that holds the well.
+
+    A triangle grid holds it in the first triangle whose outline holds the
+    point, centred on its centroid. A Voronoi dual holds it in the cell of the
+    nearest node. A structured grid of this case is centred on the well.
+    """
+    solver_name = str(getattr(result, "solver_name", "")).strip().lower() or solver
+    if solver_name in {"boussinesq", DEFAULT_ENGINE_SOLVER}:
+        triangles = _bundle_triangles(Path(result.out_path) / "mesh_bundle")
+        return tuple(triangles[_first_triangle_holding(well_xy, triangles)].mean(axis=0))
+    bundle_dir = resolve_case_mesh_bundle_dir(CASE_DIR, metadata, solver_name)
+    if bundle_dir is None:
+        return well_xy
+    n_cells = load_last_cell_values(
+        observable_name=observable_name, store=result.store, sim_id=result.sim_id
+    ).size
+    centers, grid_dual = bundle_cell_centers(bundle_dir, n_cells)
+    if grid_dual == "voronoi":
+        nearest = int(np.argmin(np.hypot(centers[:, 0] - well_xy[0], centers[:, 1] - well_xy[1])))
+        return tuple(centers[nearest])
+    return tuple(centers[_first_triangle_holding(well_xy, _bundle_triangles(bundle_dir))])
+
+
 def _sampled_cell_radii(
     *,
     result,
@@ -74,7 +148,7 @@ def _sampled_cell_radii(
     points_xy: np.ndarray,
     center_xy: tuple[float, float],
 ) -> np.ndarray | None:
-    """Radius of the solver cell each monitor point reads, on a mesh bundle.
+    """Distance from ``center_xy`` of the solver cell each monitor point reads.
 
     The projection gives a structured cell the value of the solver cell with the
     nearest centre. That centre lies off the monitor point, by 1 to 18 m on the
@@ -108,8 +182,12 @@ def _final_head_map(
     observable_name: str,
     final_heads: np.ndarray,
     final_day: float,
+    well_xy: tuple[float, float],
 ) -> tuple[list[list[tuple[float, float]]], np.ndarray, np.ndarray]:
-    """Return the cell polygons, the simulated head and the reference head at the final time."""
+    """Return the cell polygons, the simulated head and the reference head at the final time.
+
+    The reference is centred on ``well_xy``, the centre of the cell that holds the well.
+    """
     reference_cfg = dict(metadata.get("reference", {}))
     solver_name = str(getattr(result, "solver_name", "")).strip().lower() or solver
     bundle_dir = resolve_case_mesh_bundle_dir(CASE_DIR, metadata, solver_name)
@@ -132,7 +210,7 @@ def _final_head_map(
         centers = np.asarray([polygon.mean(axis=0) for polygon in polygons], dtype=float)
     center_x = float(reference_cfg["center_x_m"])
     center_y = float(reference_cfg["center_y_m"])
-    radius = np.round(np.hypot(centers[:, 0] - center_x, centers[:, 1] - center_y), 3)
+    radius = np.round(np.hypot(centers[:, 0] - well_xy[0], centers[:, 1] - well_xy[1]), 3)
     off_well = radius > 0.0
     reference = np.full(radius.shape, np.nan, dtype=float)
     reference[off_well] = (
@@ -225,13 +303,20 @@ def build_late_time_unconfined_pumping_comparison(
     numerical_drawdown_mean = numerical_drawdown_by_azimuth.mean(axis=2)
     center_xy = (float(reference_cfg["center_x_m"]), float(reference_cfg["center_y_m"]))
     points = sample_indices.reshape(-1, 2)
+    well_xy = _held_well_xy(
+        result=result,
+        solver=solver,
+        metadata=metadata,
+        observable_name=observable_name,
+        well_xy=center_xy,
+    )
     held_radii = _sampled_cell_radii(
         result=result,
         solver=solver,
         metadata=metadata,
         observable_name=observable_name,
         points_xy=np.column_stack([x_centers[points[:, 1]], y_centers[points[:, 0]]]),
-        center_xy=center_xy,
+        center_xy=well_xy,
     )
     reference_kwargs = dict(
         pumping_rate_m3_day=float(reference_cfg["pumping_rate_m3_day"]),
@@ -243,15 +328,15 @@ def build_late_time_unconfined_pumping_comparison(
         analytical_drawdown = expected_late_time_unconfined_pumping_drawdown(
             eval_times_days=elapsed_days, monitor_radii_m=monitor_radii_m, **reference_kwargs
         )
+        reference_by_azimuth = analytical_drawdown[:, :, None]
     else:
         # The mean over the four azimuths of the reference at each cell read,
         # the same mean the simulated drawdown takes.
         per_point = expected_late_time_unconfined_pumping_drawdown(
             eval_times_days=elapsed_days, monitor_radii_m=held_radii, **reference_kwargs
         )
-        analytical_drawdown = per_point.reshape(elapsed_days.size, *sample_indices.shape[:2]).mean(
-            axis=2
-        )
+        reference_by_azimuth = per_point.reshape(elapsed_days.size, *sample_indices.shape[:2])
+        analytical_drawdown = reference_by_azimuth.mean(axis=2)
     residual_drawdown = np.asarray(numerical_drawdown_mean - analytical_drawdown, dtype=float)
     map_cell_polygons, map_simulated, map_reference = _final_head_map(
         result=result,
@@ -260,6 +345,7 @@ def build_late_time_unconfined_pumping_comparison(
         observable_name=observable_name,
         final_heads=heads[-1],
         final_day=float(elapsed_days[-1]),
+        well_xy=well_xy,
     )
 
     return LateTimeUnconfinedPumpingComparison(
@@ -284,7 +370,9 @@ def build_late_time_unconfined_pumping_comparison(
         space_time_max_error=max_abs_error(numerical_drawdown_mean, analytical_drawdown),
         final_time_rmse=rmse(numerical_drawdown_mean[-1], analytical_drawdown[-1]),
         final_time_max_error=max_abs_error(numerical_drawdown_mean[-1], analytical_drawdown[-1]),
-        azimuthal_spread=float(np.max(np.std(numerical_drawdown_by_azimuth, axis=2))),
+        azimuthal_spread=float(
+            np.max(np.std(numerical_drawdown_by_azimuth - reference_by_azimuth, axis=2))
+        ),
         map_cell_polygons=map_cell_polygons,
         map_simulated=map_simulated,
         map_reference=map_reference,

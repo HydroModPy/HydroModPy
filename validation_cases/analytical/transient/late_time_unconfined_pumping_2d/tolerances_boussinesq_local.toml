@@ -1,20 +1,24 @@
 [space_time]
-rmse = 0.025
-max_abs_error = 0.066
-azimuthal_spread = 0.16
+rmse = 0.0086
+max_abs_error = 0.026
+azimuthal_spread = 0.0027
 
 [final_time]
-rmse = 0.033
-max_abs_error = 0.066
+rmse = 0.0077
+max_abs_error = 0.013
 
 [doc]
 reason = """
-Twice the error measured with the default 'auto' engine, which runs scipy_sparse
-on these 1922 cells with one backward-Euler step a period, the reference read
-at the centroid of the triangle each monitor point reads: space-time RMSE
-0.012 m, max error 0.033 m, final RMSE 0.016 m, within 15 % of PETSc and its 4
-steps a period. The error is the 64.5 m mesh: on 61 x 61 squares the same run
-reads 0.0045, 0.0098 and 0.0052 m. The azimuthal spread, 0.136 m, is the
-asymmetry of the mesh around the well and the offset of the centroids each
-monitor point reads (0.054 m on 61 x 61): its bound keeps a 15 % margin.
+Twice the error measured with the default 'auto' engine, which runs
+scipy_sparse on the 10082 triangles of 71 x 71 squares (397 m2, the cell area
+of the MODFLOW grid) with one backward-Euler step a period: space-time RMSE
+0.0043 m, max error 0.0127 m, final RMSE 0.0038 m, final max error 0.0064 m,
+azimuthal spread 0.0013 m. On 31 x 31 squares the space-time RMSE read
+0.0084 m; from 61 x 61 on it stays at 0.0042 to 0.0045 m, the value MODFLOW
+reads with the same single step a period: the rest is the time step and the
+fixed-transmissivity Theis reference, not the mesh. The reference is read at
+the centroid of the triangle each monitor point reads, with the well at the
+centroid of the triangle that holds it, 6.6 m off the well point. Read from
+the well point, that offset alone gave an azimuthal spread of 0.136 m on the
+former 31 x 31 mesh.
 """

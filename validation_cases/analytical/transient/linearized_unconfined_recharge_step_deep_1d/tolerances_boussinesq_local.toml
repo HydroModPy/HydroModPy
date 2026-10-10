@@ -4,15 +4,19 @@ max_abs_error = 0.005
 row_spread = 1e-07
 
 [final_profile]
-rmse = 2.1e-05
-max_abs_error = 3e-05
+rmse = 3.2e-06
+max_abs_error = 4e-06
 
 [doc]
 reason = """
-The band of tolerances.toml, shared with MODFLOW. The default local engine takes
-one backward-Euler step a period, as MODFLOW does, and on 40 x 4 square cells of
-2.5 m it reads space-time RMSE 0.00023 m, max error 0.0025 m, final RMSE 1.7e-05
-m, against 2.3e-4, 2.5e-3 and 1.0e-5 m for MODFLOW. The strip is uniform across
-rows, so a row spread is solver noise: the local engine reads below 1e-8 m (its
-head closure is 1e-9 m); the bound is 1e-7 m.
+Twice the error measured with the default local engine on 40 x 4 square cells
+of 2.5 m, split into triangles: space-time RMSE 2.3e-4 m, max error 2.5e-3 m,
+final RMSE 1.6e-6 m, final max error 2.0e-6 m. It takes one backward-Euler
+step a period, as MODFLOW does, and the space-time error is that step: it
+equals MODFLOW's, and PETSc with 4 steps a period reads 5.1e-5 m. The case sets
+the Newton closure to 1e-12 m3/s (config_boussinesq_local.toml): with the
+default 1e-9 m3/s per cell, absolute, Newton stopped 1.7e-5 m off the steady
+1.5 cm mound, worse than MODFLOW 6 (1.0e-5 m, its head closure). The strip is
+uniform across rows, so a row spread is solver noise: the local engine reads
+below 1e-11 m; the bound is 1e-7 m.
 """

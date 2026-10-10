@@ -37,8 +37,7 @@ def expected_linearized_unconfined_hillslope_drainage_profile_at_x(
     east_x: float,
     west_head_m: float,
     east_head_m: float,
-    drainage_conductance_m2_per_s: float,
-    cell_area_m2: float,
+    drainage_leakance_per_s: float,
     hydraulic_conductivity_m_per_s: float,
     reference_saturated_thickness_m: float,
     topography_base_elevation_m: float,
@@ -49,23 +48,22 @@ def expected_linearized_unconfined_hillslope_drainage_profile_at_x(
     The drains sit on the linear topography, which takes its west and east
     values at ``surface_west_x`` and ``surface_east_x``. The heads sit at
     ``west_x`` and ``east_x``, where the model holds them. A linear drain
-    elevation leaves ``u = h - z_d`` the solution of ``T u'' = (C / A) u``.
+    elevation leaves ``u = h - z_d`` the solution of ``T u'' = lambda u``, with
+    ``lambda = drainage_leakance_per_s`` the drain conductance per unit area,
+    K / b when each drain takes ``C = K * cell_area / b``.
     """
     length = float(east_x) - float(west_x)
     if length <= 0.0:
         raise ValueError("east_x must be strictly larger than west_x.")
-    if float(cell_area_m2) <= 0.0:
-        raise ValueError("cell_area_m2 must be > 0.")
-
     transmissivity = float(hydraulic_conductivity_m_per_s) * float(reference_saturated_thickness_m)
     if transmissivity <= 0.0:
         raise ValueError(
             "hydraulic_conductivity_m_per_s * reference_saturated_thickness_m must be > 0."
         )
 
-    drainage_rate_per_area = float(drainage_conductance_m2_per_s) / float(cell_area_m2)
+    drainage_rate_per_area = float(drainage_leakance_per_s)
     if drainage_rate_per_area < 0.0:
-        raise ValueError("drainage_conductance_m2_per_s must be >= 0.")
+        raise ValueError("drainage_leakance_per_s must be >= 0.")
 
     def topography(points: np.ndarray) -> np.ndarray:
         return build_linear_topography_values(

@@ -42,6 +42,13 @@ substratum_elevation_m = -5.0
 hydraulic_conductivity_m_per_s = 5e-6
 recharge_mm_day = 1.0
 
+[reference.topography_island_radius_m_by_solver]
+# The Voronoi run puts its DEM shoreline 1 m inside the coast node ring, so
+# that ring reads the sea floor (config_modflow6_voronoi.toml). The reference
+# keeps its coast at 200 m, where that run holds the sea level; the land
+# surface of the freeboard is the one the run was given.
+modflow6_voronoi = 199.0
+
 [reference.radial_bin_width_m_by_solver]
 # Voronoi cells are centred on the node rings of the mesh bundle (0, 20, 40, 60,
 # 70, 90, 120, 140, 160, 180 and 190 m). A 5 m bin holds one ring, so the profile

@@ -13,30 +13,28 @@ def expected_linearized_unconfined_drainage_profile(
     west_head_m: float,
     east_head_m: float,
     drainage_elevation_m: float,
-    drainage_conductance_m2_per_s: float,
-    cell_area_m2: float,
+    drainage_leakance_per_s: float,
     hydraulic_conductivity_m_per_s: float,
     reference_saturated_thickness_m: float,
 ) -> np.ndarray:
     """Return the steady linearized profile with distributed top drainage.
 
     The heads sit at ``west_x`` and ``east_x``, where the model holds them.
+    ``drainage_leakance_per_s`` is the drain conductance per unit area, K / b
+    when each drain takes ``C = K * cell_area / b``.
     """
     length = float(east_x) - float(west_x)
     if length <= 0.0:
         raise ValueError("east_x must be strictly larger than west_x.")
-    if float(cell_area_m2) <= 0.0:
-        raise ValueError("cell_area_m2 must be > 0.")
-
     transmissivity = float(hydraulic_conductivity_m_per_s) * float(reference_saturated_thickness_m)
     if transmissivity <= 0.0:
         raise ValueError(
             "hydraulic_conductivity_m_per_s * reference_saturated_thickness_m must be > 0."
         )
 
-    drainage_rate_per_area = float(drainage_conductance_m2_per_s) / float(cell_area_m2)
+    drainage_rate_per_area = float(drainage_leakance_per_s)
     if drainage_rate_per_area < 0.0:
-        raise ValueError("drainage_conductance_m2_per_s must be >= 0.")
+        raise ValueError("drainage_leakance_per_s must be >= 0.")
 
     x_local = np.asarray(x, dtype=float) - float(west_x)
     drainage_elevation = float(drainage_elevation_m)

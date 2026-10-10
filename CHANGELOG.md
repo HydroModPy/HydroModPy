@@ -285,6 +285,10 @@ Each release section includes the following standard categories:
   committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- MODFLOW 6 warns once per run when a declared drain conductance meets drained cells whose
+  areas differ more than twofold: the conductance is applied per cell, so the drained flux
+  per unit area, C / cell_area, then depends on the mesh. The warning names the area range
+  and the derived conductance, C = K * cell_area / solver.drain_bed_thickness_m.
 - The description of `mf6_newton` no longer says that MODFLOW 6 under Newton matches
   MODFLOW-NWT. Newton builds the horizontal conductance from the full cell thickness times
   the upstream saturation; where the cell thickness changes from one cell to the next, it
@@ -477,6 +481,25 @@ Each release section includes the following standard categories:
   refused.
 
 ### Fixed
+- Validation: the triangle variants of the two drainage cases solve the problem of their
+  reference. Each drain derives its conductance from K, so the leakance is the same on
+  every triangle, where one conductance per cell varied it forty-fold (head RMSE 7.3 and
+  4.3 mm down to 0.27 and 0.23 mm).
+- Validation: on the Voronoi dual, every cell of the coast node ring of the two island
+  cases holds the sea level. A node on the shoreline is a tie that the 10 m DEM broke at
+  random, and 36 of the 48 coast cells stayed land; the run now reads a 1 m DEM whose
+  shoreline sits 1 m inside the ring (radial RMSE 0.204 to 0.102 m and 0.088 to 0.056 m;
+  the rest is the documented MODFLOW 6 Newton bias).
+- Validation: the late-time pumping reference is centred on the cell that holds the well,
+  15 m from the well point on the MODFLOW 6 triangles and 6.6 m on the Boussinesq ones, and
+  the azimuthal spread is taken on the error (0.136 and 0.087 m down to 0.0013 and 0.020 m).
+  The Boussinesq variants run on 10082 triangles, the cell area of the MODFLOW grid.
+- Validation: the deep recharge-step case sets the Newton closure of the default Boussinesq
+  engine to 1e-12 m3/s; the absolute default of 1e-9 m3/s per cell left its steady profile
+  1.7e-5 m off, worse than MODFLOW (now 1.6e-6 m).
+- Validation: a twin calibration count is recorded with the number of runs as its ideal
+  value, so the page reads the share of the margin a run used instead of 100 % for any
+  success.
 - Validation references compare what the model computes. The 1D cases pose their heads at
   the centres of the boundary cells, where the model holds them (errors of 3 to 5 cm down
   to 3 to 7 mm). The late-time pumping case evaluates the Theis well function with SciPy,

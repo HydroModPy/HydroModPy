@@ -83,11 +83,10 @@ def build_linearized_unconfined_drainage_comparison(
         xmax=float(reference_cfg["xmax"]),
     )
     x = geometry.x
-    # The drain conductance is set per cell: the reference spreads the total
-    # conductance of the mesh over its area.
-    if geometry.mean_cell_area is None:
-        raise ValueError("The drainage reference needs the cell areas of a stored mesh.")
-    cell_area_m2 = geometry.mean_cell_area
+    # Each drain takes C = K * cell_area / b, so the leakance per unit area is
+    # K / b on every mesh, whatever the cell sizes.
+    hydraulic_conductivity = float(reference_cfg["hydraulic_conductivity_m_per_s"])
+    drainage_leakance = hydraulic_conductivity / float(reference_cfg["drain_bed_thickness_m"])
     analytical_profile = geometry.profile(
         lambda points: expected_linearized_unconfined_drainage_profile(
             x=points,
@@ -96,9 +95,8 @@ def build_linearized_unconfined_drainage_comparison(
             west_head_m=float(reference_cfg["west_head_m"]),
             east_head_m=float(reference_cfg["east_head_m"]),
             drainage_elevation_m=float(reference_cfg["drainage_elevation_m"]),
-            drainage_conductance_m2_per_s=float(reference_cfg["drainage_conductance_m2_per_s"]),
-            cell_area_m2=float(cell_area_m2),
-            hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
+            drainage_leakance_per_s=drainage_leakance,
+            hydraulic_conductivity_m_per_s=hydraulic_conductivity,
             reference_saturated_thickness_m=float(reference_cfg["reference_saturated_thickness_m"]),
         ),
         within=(geometry.west_x, geometry.east_x),

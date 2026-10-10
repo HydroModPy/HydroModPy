@@ -1,23 +1,30 @@
 [radial_profile]
-rmse = 0.097
-max_abs_error = 0.21
-azimuthal_spread = 0.038
-min_land_clearance = 1.9
+rmse = 0.063
+max_abs_error = 0.14
+azimuthal_spread = 1.7e-4
+min_land_clearance = 1.7
 
 [doc]
 gap = """
-Known gap. MODFLOW 6 on the Voronoi dual of the triangle mesh has two errors
-of opposite sign. The Newton conductance bias of the structured MODFLOW 6 run
-raises the heads: the cell top follows the DEM and the full-thickness
-conductance underestimates the transmissivity towards the coast. The K zone
-boundaries (70 m and 140 m) pass through node rings, so those cells straddle
-two zones and take an area-weighted K; the largest error, 0.19 m, sits on the
-140 m ring. Control runs on the same input files: flat 13 m top, radial RMSE
-0.088 m, with heads 0.06 to 0.12 m too low inside 120 m; no Newton, 0.062 m.
+Known gap. MODFLOW 6 on the Voronoi dual has two errors of opposite sign.
+The K zone boundaries (70 m and 140 m) pass through node rings, so those
+cells straddle two zones and take an area-weighted K: the heads are 0.08 to
+0.11 m too low inside 120 m and 0.05 m too high on the 140 m ring. Newton,
+the HydroModPy default, builds the conductance from the full cell thickness
+times the upstream saturation, and the cell top follows the DEM: that bias
+raises the heads. Control runs on the same input files: without Newton and
+with a flat 13 m top, radial RMSE 0.076 m, all of it the straddled zones,
+the heads exact from 160 m to the coast; without Newton, 0.070 m; with Newton and a
+flat top, 0.120 m.
 """
 reason = """
-Measured values with a 10 % margin: radial RMSE 0.088 m, max error 0.186 m,
-spread 0.034 m, freeboard 2.16 m. The profile is read on the node rings
-(5 m bins), so the spread is azimuthal only. The freeboard is read on land
-cells, whose last ring is at 196 m, where the land stands 2.4 m high.
+Measured values with a 10 % margin: radial RMSE 0.056 m, max error 0.126 m
+on the 140 m ring, freeboard 1.95 m. Twice the azimuthal spread of 8.4e-5 m:
+every cell of the coast ring holds the sea level, so the rings are
+symmetric. Until 2026-10-10 the DEM shoreline sat on that ring, a tie the
+10 m raster broke at random: 36 of the 48 coast cells stayed land (RMSE 0.088 m,
+spread 0.034 m). The run now reads a 1 m raster whose shoreline lies 1 m
+inside the ring (config_modflow6_voronoi.toml). The profile is read on the
+node rings (5 m bins). The freeboard is read on the land surface the run was
+given, at the 196 m ring.
 """

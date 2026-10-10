@@ -26,7 +26,9 @@ length_y_m = 10.0
 west_head_m = 6.2
 east_head_m = 5.8
 drainage_elevation_m = 0.0
-drainage_conductance_m2_per_s = 1e-7
+# The drains take C = K * cell_area / b, so the leakance per unit area is
+# K / b = 2.5e-8 1/s on every mesh.
+drain_bed_thickness_m = 4000.0
 hydraulic_conductivity_m_per_s = 1e-4
 # The heads sit above the cell top (0 m), so the cells are full: the
 # saturated thickness is the cell thickness, top 0 m to bottom -20 m.

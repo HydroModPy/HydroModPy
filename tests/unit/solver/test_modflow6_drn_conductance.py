@@ -7,6 +7,7 @@ produce the same number for the same inputs.
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 
 import numpy as np
@@ -197,3 +198,70 @@ def test_nwt_drn_fallback_uses_same_shared_helper() -> None:
         hk=1e-4, cell_area=100.0, bed_thickness=1.0, floor_m2_s=1e-12
     )
     assert mf6_value == pytest.approx(nwt_value) == pytest.approx(1.0e-2)
+
+
+def _unequal_area_mesh() -> SimpleNamespace:
+    """Six drained cells of 0.5 to 12 m2, like the triangles of a refined gmsh mesh."""
+    areas = np.array([0.5, 1.0, 2.0, 4.0, 8.0, 12.0])
+    return SimpleNamespace(top=np.full(6, 5.0), cell_areas=lambda: areas)
+
+
+def _build(model, mesh, series) -> dict:
+    return build_drain_stress_period_data(
+        model,
+        solver_mesh=mesh,
+        drainage_cond_series=np.asarray(series, dtype=float),
+        ocean_support_mask=np.zeros(6, dtype=bool),
+        stream_support_mask=np.zeros(6, dtype=bool),
+    )
+
+
+def test_a_per_cell_conductance_on_unequal_cells_is_reported_once(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """One conductance per cell drains C / A per unit area: 24-fold here.
+
+    The run says so once, with the area range, and names the derived route.
+    A second build of the same model, the runtime reuse of a calibration
+    trial, adds nothing.
+    """
+    model = _drn_model()
+    mesh = _unequal_area_mesh()
+    with caplog.at_level(logging.WARNING):
+        spd = _build(model, mesh, [1e-7])
+        _build(model, mesh, [1e-7])
+    assert [row[3] for row in spd[0]] == pytest.approx([1e-7] * 6)
+    reports = [r for r in caplog.records if "conductance per cell" in r.getMessage()]
+    assert len(reports) == 1
+    message = reports[0].getMessage()
+    assert "0.5 to 12 m2" in message and "24.0-fold" in message
+    assert "solver.drain_bed_thickness_m" in message
+
+
+def test_a_per_cell_conductance_on_equal_cells_is_not_reported(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        _build(_drn_model(), _drn_mesh(5.0), [1e-7])
+    assert "conductance per cell" not in caplog.text
+
+
+def test_the_derived_conductance_on_unequal_cells_is_not_reported(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """C = K * A / b follows the area, so the leakance K / b is the same everywhere."""
+    with caplog.at_level(logging.WARNING):
+        spd = _build(_drn_model(), _unequal_area_mesh(), [0.0])
+    assert "conductance per cell" not in caplog.text
+    leakance = [row[3] / area for row, area in zip(spd[0], _unequal_area_mesh().cell_areas())]
+    assert leakance == pytest.approx([1e-4] * 6)
+
+
+def test_an_auxiliary_model_does_not_repeat_the_report(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    model = _drn_model()
+    model.auxiliary = True
+    with caplog.at_level(logging.WARNING):
+        _build(model, _unequal_area_mesh(), [1e-7])
+    assert "conductance per cell" not in caplog.text

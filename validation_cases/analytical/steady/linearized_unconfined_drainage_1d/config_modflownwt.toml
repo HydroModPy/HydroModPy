@@ -62,7 +62,12 @@ value = "5.8 m"
 [flow.bc.drainage]
 application_domain = "top"
 kind = "cauchy"
-value = "1e-7 m2/s"
+# No conductance: each drain takes C = K * cell_area / solver.drain_bed_thickness_m,
+# a leakance K / b per unit area that is the same on every mesh.
+
+[solver]
+# Leakance K / b = 1e-4 / 4000 = 2.5e-8 1/s.
+drain_bed_thickness_m = 4000.0
 
 [modflownwt.sgrid.planar]
 mode = "resample_to_shape"

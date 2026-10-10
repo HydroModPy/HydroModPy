@@ -18,13 +18,15 @@ Numerical setup:
 - topography: linear, from `7.0 m` on the west side to `5.0 m` on the east side,
 - aquifer thickness: `30.0 m`,
 - west/east heads: `7.25 m` / `5.25 m`,
-- drainage conductance: `1e-5 m2/s`,
+- drainage: no conductance declared, each drain takes `C = K * cell_area / b`
+  with `b = solver.drain_bed_thickness_m = 40 m`, so the leakance
+  `K / b = 2.5e-6 1/s` is the same on every mesh,
 - simulated observable: `watertable_elevation`.
 
 Comparison:
 
 - compared quantity: row-averaged head profile along `x`,
-- reference: steady linearized solution of `T h'' - c_a (h - z_top) = 0`,
+- reference: steady linearized solution of `T h'' - (K / b) (h - z_top) = 0`,
 - boundary positions: each side head is posed where the model holds it, at the
   centre of the boundary column, or at the mean centroid of the boundary
   triangles on the triangle strip; a no-flow side stays on the domain face
@@ -56,7 +58,7 @@ python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_dra
 The equations of the reference solution the comparison uses.
 
 $$
-T_0\,\frac{\mathrm{d}^2u}{\mathrm{d}x^2}-\lambda_d\,u=0,\qquad u=h-z_{\mathrm{top}}(x)
+T_0\,\frac{\mathrm{d}^2u}{\mathrm{d}x^2}-\lambda_d\,u=0,\qquad u=h-z_{\mathrm{top}}(x),\qquad \lambda_d=\frac{K}{b}
 $$
 
 $$

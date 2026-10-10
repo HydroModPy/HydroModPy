@@ -1,17 +1,21 @@
 [space_time]
-rmse = 0.009
-max_abs_error = 0.022
-azimuthal_spread = 0.1
+rmse = 0.0089
+max_abs_error = 0.029
+azimuthal_spread = 0.04
 
 [final_time]
-rmse = 0.009
-max_abs_error = 0.014
+rmse = 0.0068
+max_abs_error = 0.0099
 
 [doc]
 reason = """
-Twice the error measured on the refined triangle mesh, the reference read at
-the centroid of the triangle each monitor point reads: space-time RMSE 4.5e-3 m,
-max error 1.07e-2 m, final RMSE 4.3e-3 m, final max error 6.7e-3 m. The
-azimuthal spread, 0.087 m, measures the asymmetry of the mesh around the well:
-its bound keeps a 15 % margin.
+Twice the error measured on the refined triangle mesh: space-time RMSE
+4.4e-3 m, max error 1.45e-2 m, final RMSE 3.4e-3 m, final max error 5.0e-3 m,
+azimuthal spread 0.020 m. The reference is read at the centroid of the
+triangle each monitor point reads, with the well at the centroid of the
+triangle that holds it. The well point is a mesh node, and MODFLOW 6 puts the
+well in the first triangle that holds it, whose centroid lies 15.4 m away:
+read from the well point, that offset gave an azimuthal spread of 0.087 m. The
+spread left, 0.020 m at 60 m where the drawdown is 0.85 m, is the asymmetry
+of the gmsh refinement (165 to 221 triangles per quadrant within 300 m).
 """

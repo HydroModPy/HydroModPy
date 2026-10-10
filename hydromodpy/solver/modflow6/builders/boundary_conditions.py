@@ -7,6 +7,7 @@ from collections.abc import Mapping
 import numpy as np
 
 from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import (
     convert_payload_to_m,
     factor_to_m2_per_s,
@@ -23,6 +24,13 @@ from hydromodpy.solver.modflow_common.drain_conductance import (
     drain_discharge_band,
     hk_fallback_drain_conductance,
 )
+
+logger = get_logger(__name__)
+
+# Largest to smallest area of the drained cells above which a per-cell drain
+# conductance is reported: the drained flux per unit area, C / cell_area, then
+# varies more than twofold over the mesh.
+DRAIN_AREA_SPREAD_REPORT_RATIO = 2.0
 
 
 def is_scalar_number(value: object) -> bool:
@@ -485,6 +493,9 @@ def build_drain_stress_period_data(
     band of depth D by ``drain_discharge_band``, the same rule the NWT backend
     applies.
 
+    A configured conductance is one value per cell, whatever its area: see
+    :func:`report_per_cell_conductance_spread`.
+
     The drain geometry and elevation are static, so the per-cell conductance is a
     pure function of the period's configured conductance value. A period is
     emitted only when that value changes (period 0 always); MF6 reuses the
@@ -501,6 +512,12 @@ def build_drain_stress_period_data(
     ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
     stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
     cell_areas = solver_mesh.cell_areas()
+    report_per_cell_conductance_spread(
+        model,
+        drainage_cond_series=drainage_cond_series,
+        cell_areas=cell_areas,
+        drained=~(dem_mask_flat | ocean_mask_flat | stream_mask_flat),
+    )
     previous_cond: float | None = None
     for kper in range(int(model.nper)):
         configured_cond_value = float(drainage_cond_series[kper])
@@ -531,6 +548,51 @@ def build_drain_stress_period_data(
             period_cells.append([0, cid, elevation, cond_value])
         drn_spd[kper] = period_cells
     return drn_spd
+
+
+def report_per_cell_conductance_spread(
+    model,
+    *,
+    drainage_cond_series: np.ndarray,
+    cell_areas: np.ndarray,
+    drained: np.ndarray,
+) -> None:
+    """Warn once per run when one drain conductance meets cells of unequal areas.
+
+    A positive ``flow.bc.drainage.value`` is a conductance per cell, in m2/s.
+    The drained flux per unit area is then ``C / cell_area``: on a mesh whose
+    drained cells range from ``A_min`` to ``A_max`` it varies ``A_max / A_min``
+    times, and the result changes with the mesh. On a regular grid every cell
+    has the same area and nothing is said. The derived conductance
+    ``C = K * cell_area / solver.drain_bed_thickness_m`` keeps the leakance
+    ``K / b`` the same on every cell. An auxiliary model (steady
+    initialization, spin-up) and a second build of the same model stay silent.
+    """
+    if getattr(model, "auxiliary", False) or getattr(model, "_drain_area_spread_reported", False):
+        return
+    series = np.asarray(drainage_cond_series, dtype=float).reshape(-1)
+    positive = series[series > 0.0]
+    if positive.size == 0:
+        return
+    areas = np.asarray(cell_areas, dtype=float).reshape(-1)[np.asarray(drained, dtype=bool)]
+    areas = areas[np.isfinite(areas) & (areas > 0.0)]
+    if areas.size < 2:
+        return
+    smallest, largest = float(areas.min()), float(areas.max())
+    if largest <= DRAIN_AREA_SPREAD_REPORT_RATIO * smallest:
+        return
+    model._drain_area_spread_reported = True
+    logger.warning(
+        "flow.bc.drainage.value sets one conductance per cell (%.3g m2/s), and the "
+        "drained cells range from %.3g to %.3g m2: the drained flux per unit area, "
+        "C / cell_area, varies %.1f-fold over the mesh, so the result depends on the "
+        "mesh. Leave the value out to derive C = K * cell_area / "
+        "solver.drain_bed_thickness_m, whose leakance K / b is the same on every cell.",
+        float(positive[0]),
+        smallest,
+        largest,
+        largest / smallest,
+    )
 
 
 def _sink_mask_flat(model, *, n_cells: int) -> np.ndarray:
@@ -618,6 +680,7 @@ def collapse_identical_periods(spd: dict[int, object]) -> dict[int, object]:
 
 
 __all__ = [
+    "DRAIN_AREA_SPREAD_REPORT_RATIO",
     "apply_side_boundary_start_heads",
     "assemble_constant_head_stress_period_data",
     "boundary_attr",
@@ -642,6 +705,7 @@ __all__ = [
     "resolve_side_boundary_series",
     "resolve_stream_boundary_series",
     "refuse_constant_heads_below_bottom",
+    "report_per_cell_conductance_spread",
     "side_boundary_cell_ids",
     "side_boundary_owner_by_cell",
     "stream_chd_support_mask",
