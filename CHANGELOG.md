@@ -34,6 +34,14 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- Validation case `hantush_recharge_mound_2d`: the growth of a groundwater mound under a
+  rectangle of recharge read from a raster, against Hantush (1967) linearized with the
+  mean saturated thickness, on the six solver variants, with a plan-view error map. Its
+  two Gmsh meshes keep every cell wholly inside or outside the rectangle, since a mesh
+  cell takes the recharge pixel under its centroid.
+- Validation case `linearized_unconfined_boundary_periodic_1d`: a daily tide read as
+  hourly means on a side head, against Ferris (1951), with the decay and lag lengths of
+  the Ferris method, on the six solver variants.
 - Validation variants `modflow6_voronoi` (the default dual of a Gmsh mesh) and
   `boussinesq_local` (the default Boussinesq engine, no PETSc), a patch test of uniform
   flow on skewed triangles, a grid-convergence test on the production path, and the

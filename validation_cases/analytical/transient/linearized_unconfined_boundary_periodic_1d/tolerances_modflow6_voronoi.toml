@@ -1,0 +1,25 @@
+[space_time]
+rmse = 0.013
+max_abs_error = 0.073
+row_spread = 1e-9
+
+[final_profile]
+rmse = 0.012
+max_abs_error = 0.037
+
+[tide]
+decay_length_relative_error = 0.12
+lag_length_relative_error = 0.143
+
+[doc]
+reason = """
+Twice the error measured on the Voronoi dual of the triangle strip, 763 cells
+centred on the nodes, the sea head held on the nodes of the west face and the
+reference read at the node of each cell: space-time RMSE 6.4e-3 m, max error
+3.6e-2 m, final RMSE 5.9e-3 m, final max 1.8e-2 m; decay and lag length
+errors 5.9 and 7.2 %. The decay and lag match the other grids, so the error is
+backward Euler with one step per hourly period (see tolerances.toml); the
+dual cells are twice as large as the triangles, which adds to the RMSE. The
+row spread is zero by construction: the comparison bins the cells into one
+profile.
+"""

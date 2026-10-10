@@ -1,0 +1,24 @@
+[space_time]
+rmse = 0.007
+max_abs_error = 0.058
+row_spread = 1e-8
+
+[final_profile]
+rmse = 0.0023
+max_abs_error = 0.0056
+
+[tide]
+decay_length_relative_error = 0.038
+lag_length_relative_error = 0.049
+
+[doc]
+reason = """
+Twice the error measured with PETSc on 50 x 5 square cells of 2 m split into
+triangles: space-time RMSE 3.5e-3 m, max error 2.9e-2 m, final RMSE 1.1e-3 m,
+final max 2.8e-3 m; decay and lag length errors 1.9 and 2.5 %. PETSc takes 4
+backward-Euler steps a period (TS VI), and MODFLOW 6 with 4 sub-steps a period
+reads 2.0 and 2.8 % on the same tide, so the error is first order in time. The
+max error sits in the sea column, which holds the mean tide of each hour. The
+strip is uniform across rows, so a row spread is solver noise: PETSc reads
+1e-15 m; the bound is 1e-8 m.
+"""

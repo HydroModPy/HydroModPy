@@ -1,0 +1,23 @@
+[space_time]
+rmse = 0.0099
+max_abs_error = 0.059
+row_spread = 1e-9
+
+[final_profile]
+rmse = 0.0071
+max_abs_error = 0.021
+
+[tide]
+decay_length_relative_error = 0.12
+lag_length_relative_error = 0.143
+
+[doc]
+reason = """
+Twice the error measured on the triangle strip of 1446 cells about 1.5 m
+across, the sea head posed at the mean centroid of the triangles on the west
+face: space-time RMSE 4.9e-3 m, max error 2.9e-2 m, final RMSE 3.5e-3 m, final
+max 1.0e-2 m; decay and lag length errors 6.0 and 7.1 %. As on the structured
+grid, the error is backward Euler with one step per hourly period (see
+tolerances.toml). The row spread is zero by construction: the loader collapses
+the strip to one profile.
+"""

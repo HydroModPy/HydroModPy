@@ -1,0 +1,9 @@
+{
+  "constraints_mode": "geology_only",
+  "generator": "hantush_recharge_mound_2d.build_inputs:voronoi_frames",
+  "seed": 20261010,
+  "cell_size_under_rectangle_m": 10.0,
+  "cell_size_far_m": 80.0,
+  "n_cells": 7006,
+  "n_nodes": 3556
+}

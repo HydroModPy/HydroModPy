@@ -1,0 +1,28 @@
+[space_time]
+rmse = 0.0075
+max_abs_error = 0.019
+centre_max_abs_error = 0.019
+
+[final_time]
+rmse = 0.0093
+map_max_abs_error = 0.024
+
+[doc]
+reason = """
+1.1 times the error measured with the default 'auto' engine, which runs
+scipy_sparse on these 6806 triangles with one backward-Euler step a period:
+transect space-time RMSE 6.8e-3 m, max error 1.7e-2 m, centre max 1.7e-2 m,
+final transect RMSE 8.4e-3 m, final map max 2.2e-2 m. The band is tight
+because the error is a documented gap, not the discretization.
+"""
+gap = """
+The default surface closure, the regularized partition, sends to the surface
+the share exp(-(1 - s) / 0.05) of the water a cell receives, s being the
+saturated share of the cell thickness. Here the water table lies 10 m under a
+60 m thick aquifer, s = 0.83: 3.6 % of the recharge leaves although the
+surface is far. The run stores 96.2 % of the recharged volume (MODFLOW and
+PETSc store all of it), its summary reports 42 m3/day of surface outflow over
+81 % of the cells, and the mound ends 1.7 cm low at the centre. With the cell
+tops raised to 200 m (s = 0.25) the same run stores all the recharge and reads
+RMSE 2.1e-3 m, the level of the MODFLOW 6 triangles.
+"""
