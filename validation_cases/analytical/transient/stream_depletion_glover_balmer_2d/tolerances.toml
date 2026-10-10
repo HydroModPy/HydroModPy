@@ -1,0 +1,30 @@
+# MODFLOW-NWT and MODFLOW 6 on the same 10 m grid share these bounds.
+[depletion]
+max_abs_error = 0.017
+final_abs_error = 0.0015
+
+[space_time]
+rmse = 0.0031
+max_abs_error = 0.013
+
+[final_time]
+rmse = 0.0034
+max_abs_error = 0.0071
+
+[linearization]
+well_drawdown_fraction = 0.05
+
+[doc]
+reason = """
+Twice the error measured, MODFLOW-NWT and MODFLOW 6 alike to 1e-5: stream
+depletion 0.0084 at most and 0.0007 at day 20; drawdown space-time RMSE
+1.6e-3 m, max 6.4e-3 m, final RMSE 1.7e-3 m, final max 3.6e-3 m. The depletion
+error is the backward-Euler step: on MODFLOW 6 it falls to 0.0045, 0.0025 and
+0.0017 with 8, 16 and 32 steps a period, and moves by 1e-4 on a 5 m grid. The
+drawdown error is the grid and the unconfined flow: on a 5 m grid the RMSE halves,
+and at a tenth of the pumping rate the final error near the well falls from
+3.6e-3 to 2.2e-4 m, the s^2 / (2 b) of the water table. The closed sides do not
+count: on a domain 1.5 times wider and longer the results move by 6e-6. The
+well-cell drawdown stays under 5 % of the saturated thickness, where the
+linearized theory holds: 2.8 % measured.
+"""

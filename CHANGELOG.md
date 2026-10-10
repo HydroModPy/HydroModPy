@@ -34,6 +34,10 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- Validation case `stream_depletion_glover_balmer_2d`: a well pumping 100 m from a stream
+  held on the west side, against the Glover and Balmer (1954) stream depletion and the
+  image-well Theis drawdown, on the six solver variants; the depletion is read from the
+  per-cell constant-head budget.
 - Validation case `hantush_recharge_mound_2d`: the growth of a groundwater mound under a
   rectangle of recharge read from a raster, against Hantush (1967) linearized with the
   mean saturated thickness, on the six solver variants, with a plan-view error map. Its

@@ -1,0 +1,9 @@
+# Default-engine `flow/boussinesq` variant: what a run with
+# solvers = ["boussinesq"] and no runtime key gets. The validation runtime reads
+# `[flow]` defaults from this file and drops every runtime key of the case, so
+# the FlowConfig defaults apply: runtime_backend = "auto" with the regularized
+# partition surface closure. "auto" runs the sparse engine on the 5783
+# triangles of the case mesh. Each stress period takes the
+# [simulation.time].substeps_per_period backward-Euler steps of the case.
+
+[flow]

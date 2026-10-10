@@ -1,0 +1,9 @@
+{
+  "constraints_mode": "geology_only",
+  "generator": "gmsh_frontal_delaunay_graded_from_well_and_stream",
+  "n_cells": 5783,
+  "n_nodes": 3011,
+  "size_at_well_m": 4.0,
+  "size_at_stream_m": 10.0,
+  "size_far_m": 60.0
+}

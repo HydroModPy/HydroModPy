@@ -1,0 +1,24 @@
+[depletion]
+max_abs_error = 0.017
+final_abs_error = 0.0019
+
+[space_time]
+rmse = 0.0056
+max_abs_error = 0.013
+
+[final_time]
+rmse = 0.0063
+max_abs_error = 0.013
+
+[linearization]
+well_drawdown_fraction = 0.05
+
+[doc]
+reason = """
+Twice the error measured with PETSc TS VI on the triangles of the MODFLOW 6
+triangle variant, one TS step in each of the 4 backward-Euler steps of a period:
+stream depletion 0.0084 at most and 0.0009 at day 20; drawdown space-time RMSE
+2.8e-3 m, max 6.5e-3 m, final RMSE 3.1e-3 m, final max 6.5e-3 m, next to the
+well. Within 25 % of MODFLOW 6 on the same triangles. The volume balance of each
+period closes to 1e-7 of the pumped volume.
+"""
