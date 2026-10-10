@@ -12,6 +12,11 @@ Two windows are used:
   recession coefficient against the analytical one, the fitted exponent ``b`` of
   ``-dQ/dt = a Q^b``, and the RMSE of ``Q / Q_ref - 1``. They weigh the last
   decade of the recession as much as the first.
+
+A run stores the mean discharge of each stress period, the mean of the time
+steps the period is cut into. The reference is the mean of the closed form
+over the same period, not its value at the period end: on the deep case,
+cut into 100 steps, the two differ by 7 % of the initial discharge.
 """
 
 from __future__ import annotations
@@ -42,10 +47,11 @@ from validation_cases.shared.loaders import resolve_case_mesh_bundle_dir
 
 from .brutsaert_reference import (
     SECONDS_PER_DAY,
-    linear_recession_discharge,
+    linear_recession_period_mean_discharge,
     linear_recession_rate,
     nonlinear_recession_coefficient,
-    nonlinear_recession_discharge,
+    nonlinear_recession_period_mean_discharge,
+    nonlinear_virtual_origin_from_period_means,
 )
 
 _SOLVER_DISPLAY_NAMES = {
@@ -366,22 +372,15 @@ def _load_modflownwt_budget_diagnostics(model_ws: Path) -> dict[str, np.ndarray]
     }
 
 
-def _period_end_rows(values: np.ndarray, n_periods: int, *, label: str) -> np.ndarray:
-    """Keep the last time step of each stress period.
-
-    MODFLOW 6 stores one output per stress period, MODFLOW-NWT one per time
-    step. Every period of these cases has the same number of steps.
-    """
+def _period_rows(values: np.ndarray, n_periods: int, *, label: str) -> np.ndarray:
+    """Check that a run stores one output per stress period, whatever its steps."""
     n_rows = int(values.shape[0])
-    if n_rows == n_periods:
-        return values
-    if n_periods <= 0 or n_rows % n_periods != 0:
+    if n_rows != n_periods:
         raise ValueError(
-            f"'{label}' has {n_rows} outputs, which is not a whole number of "
-            f"steps per period for {n_periods} stress periods."
+            f"'{label}' has {n_rows} outputs for {n_periods} stress periods; a run "
+            "stores one output per stress period."
         )
-    steps = n_rows // n_periods
-    return values[steps - 1 :: steps]
+    return values
 
 
 def _load_scalar_series(
@@ -479,7 +478,7 @@ def build_brutsaert_recession_comparison(
     expected_periods = int(output_cfg["expected_periods"])
     n_periods = warmup_periods + expected_periods
 
-    raw_numerical_discharge = _period_end_rows(
+    raw_numerical_discharge = _period_rows(
         _load_scalar_series(result=result, observable_name=observable_name),
         n_periods,
         label=observable_name,
@@ -500,6 +499,7 @@ def build_brutsaert_recession_comparison(
     period_indices_all = np.arange(numerical_discharge_all.shape[0], dtype=int)
     dt_seconds = float(time_cfg["dt_seconds"])
     elapsed_seconds_all = (period_indices_all.astype(float) + 1.0) * dt_seconds
+    period_start_seconds_all = elapsed_seconds_all - dt_seconds
     elapsed_days_all = elapsed_seconds_all / SECONDS_PER_DAY
 
     compare_start_day = float(reference_cfg.get("compare_start_day", 0.0))
@@ -531,9 +531,15 @@ def build_brutsaert_recession_comparison(
             outlet_width_m=outlet_width_m,
         )
         inverse_root = late_q**-0.5
-        virtual_origin = float(np.mean(inverse_root - 0.5 * coefficient * late_t))
-        analytical_discharge_all = nonlinear_recession_discharge(
-            elapsed_seconds=elapsed_seconds_all,
+        virtual_origin = nonlinear_virtual_origin_from_period_means(
+            period_start_seconds=period_start_seconds_all[late_mask],
+            period_length_seconds=dt_seconds,
+            mean_discharge_m3_s=late_q,
+            recession_coefficient=coefficient,
+        )
+        analytical_discharge_all = nonlinear_recession_period_mean_discharge(
+            period_start_seconds=period_start_seconds_all,
+            period_end_seconds=elapsed_seconds_all,
             recession_coefficient=coefficient,
             virtual_origin=virtual_origin,
         )
@@ -553,8 +559,9 @@ def build_brutsaert_recession_comparison(
             initial_discharge_m3_s / (params.steady_recharge_m_per_s * outlet_width_m),
             drainage_length_m,
         )
-        analytical_discharge_all = linear_recession_discharge(
-            elapsed_seconds=elapsed_seconds_all,
+        analytical_discharge_all = linear_recession_period_mean_discharge(
+            period_start_seconds=period_start_seconds_all,
+            period_end_seconds=elapsed_seconds_all,
             initial_discharge_m3_s=initial_discharge_m3_s,
             recession_rate_per_s=coefficient,
             drainage_length_m=drainage_length_m,
@@ -589,7 +596,7 @@ def build_brutsaert_recession_comparison(
             observable_name=head_observable_name,
             expected_spatial_shape=expected_head_shape,
         )
-        heads = _period_end_rows(
+        heads = _period_rows(
             np.asarray(heads_all, dtype=float), n_periods, label=head_observable_name
         )[warmup_periods:]
         if heads.shape[0] != period_indices_all.shape[0]:

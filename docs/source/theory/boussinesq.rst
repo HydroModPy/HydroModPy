@@ -237,11 +237,15 @@ constant over the period and is evaluated at the end of each step. The PETSc obs
 runtimes can refine each of these steps further (see
 :doc:`/contribute/architecture/solver/boussinesq-engines`).
 
-A period exports the heads at its end and the fluxes of its last step: recharge,
-wells, drain, release at the surface and imposed heads. MODFLOW 6 does the same, as
-it saves the budget of the last time step of a period. With one step a period, that
-flux is the flux over the period. With several, it is the flux at the end of the
-period, not its mean over the period.
+A stamp closes its period (:doc:`time-alignment`). A period exports the heads at
+its end, those of its last step, and the mean of the fluxes of its steps, weighted
+by their length: recharge, wells, drain, release at the surface, imposed heads and
+the edge fluxes. The internal steps of the PETSc obstacle runtimes (VI substeps,
+TS steps) are averaged the same way. MODFLOW 6 and MODFLOW-NWT store the same
+quantities. With one step a period, the mean is the flux of that step, unchanged.
+The change of storage over the period, recomputed from the heads at both ends, then
+closes the budget with these means. A seepage mask built from the release marks the
+cells that released water during the period.
 
 7. The residual of a free cell
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

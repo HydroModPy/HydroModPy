@@ -1,6 +1,6 @@
 [depletion]
-max_abs_error = 0.016
-final_abs_error = 0.0018
+max_abs_error = 0.025
+final_abs_error = 0.001
 
 [space_time]
 rmse = 0.0024
@@ -17,8 +17,9 @@ well_drawdown_fraction = 0.05
 reason = """
 Twice the error measured on the Voronoi dual of the refined mesh (3011 cells
 centred on the nodes), with the stream on the face, where the dual cells of the
-face nodes are centred, and the well on its node: stream depletion 0.0076 at
-most and 0.0009 at day 20, the backward-Euler step as on the grid; drawdown
+face nodes are centred, and the well on its node: stream depletion 0.0124 at
+most and 0.0005 at day 20, both means over the period, the backward-Euler step
+as on the grid; drawdown
 space-time RMSE 1.2e-3 m, max 8.0e-3 m at day 1 next to the well, final RMSE
 5.0e-4 m, final max 9.7e-4 m. The well-cell drawdown is 3.6 % of the saturated
 thickness.

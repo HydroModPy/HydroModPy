@@ -300,6 +300,13 @@ Each release section includes the following standard categories:
   committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- The deep Brutsaert recession and the Glover-Balmer stream depletion compare the
+  period-mean discharge and depletion with the mean of the closed form over each
+  period, not with its value at the period end. Their thresholds are re-derived from
+  a time-step refinement: deep discharge RMSE 2e-3 and maximum 5e-3 of Q0; depletion
+  maximum 0.025 to 0.029 and final error 6e-4 to 1.1e-3 of the pumping rate.
+- The time-alignment page states what a period cut into time steps stores; the
+  Boussinesq and solver pages follow.
 - MODFLOW 6 warns once per run when a declared drain conductance meets drained cells whose
   areas differ more than twofold: the conductance is applied per cell, so the drained flux
   per unit area, C / cell_area, then depends on the mesh. The warning names the area range
@@ -496,6 +503,19 @@ Each release section includes the following standard categories:
   refused.
 
 ### Fixed
+- A stress period cut into time steps (simulation.time.substeps_per_period, adaptive
+  time stepping, the internal steps of the Boussinesq PETSc closures) stores, on
+  MODFLOW 6, MODFLOW-NWT and Boussinesq alike, the head of its last step and every
+  flux as the mean of its steps weighted by their length, as the time convention
+  says: a stamp closes its period. MODFLOW 6 and Boussinesq stored the flux of the
+  last step; MODFLOW-NWT stored one slice per time step (1000 for the 10 periods of
+  the deep Brutsaert case) beside one mass-balance row per period. The budget table,
+  the per-cell budget fields, the listing water balance, the lake and stream series
+  and the calibration readers take the period mean. A run of one step per period
+  stores what it stored before, bit for bit.
+- A MODFLOW 6 run with a lake or a stream network and more than one step a period no
+  longer fails at extraction: its observation file holds a row per step, and the
+  extractor now puts the rows on the periods.
 - A transient Boussinesq run reads flow.first_period_steady, true by default, as MODFLOW 6
   and MODFLOW-NWT do: it solves the first stress period at steady state under the forcing
   of that period, its recharge set by first_clim, with the initial heads as a first guess

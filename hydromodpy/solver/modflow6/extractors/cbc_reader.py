@@ -24,12 +24,18 @@ _REAL_BYTES = 8
 
 @dataclass(frozen=True, slots=True)
 class CbcRecord:
-    """Header of one budget record; ``kstp``/``kper`` are 1-based as stored."""
+    """Header of one budget record; ``kstp``/``kper`` are 1-based as stored.
+
+    ``delt`` is the length of the time step the record closes and ``totim``
+    the simulated time at its end, both in the TDIS time unit.
+    """
 
     kstp: int
     kper: int
     text: str
     imeth: int
+    delt: float
+    totim: float
     ndim1: int
     ndim2: int
     ndim3: int
@@ -98,7 +104,7 @@ class Mf6CellBudgetReader:
             if len(head) < _HEADER1.size + _HEADER2.size:
                 raise ValueError(f"truncated budget record header in {f.name}")
             kstp, kper, raw_text, ndim1, ndim2, ndim3 = _HEADER1.unpack_from(head)
-            imeth, _delt, _pertim, _totim = _HEADER2.unpack_from(head, _HEADER1.size)
+            imeth, delt, _pertim, totim = _HEADER2.unpack_from(head, _HEADER1.size)
             if ndim3 >= 0 or not _is_printable_ascii(raw_text):
                 raise ValueError(
                     f"{f.name} is not a double-precision MODFLOW 6 compact budget file"
@@ -125,6 +131,8 @@ class Mf6CellBudgetReader:
                     kper=kper,
                     text=text,
                     imeth=imeth,
+                    delt=float(delt),
+                    totim=float(totim),
                     ndim1=ndim1,
                     ndim2=ndim2,
                     ndim3=ndim3,

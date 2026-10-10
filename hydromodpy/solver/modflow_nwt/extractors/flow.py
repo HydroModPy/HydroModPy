@@ -21,6 +21,14 @@ from hydromodpy.solver.modflow_common.budget_components import (
 from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
+from hydromodpy.solver.modflow_common.period_steps import (
+    budget_file_steps,
+    group_steps_by_stamp,
+    period_end_positions,
+    period_mean_balance,
+    weighted_period_mean,
+    weighted_period_scalar,
+)
 from hydromodpy.solver.modflow_common.time_units import (
     read_itmuni_from_dis,
     seconds_per_itmuni,
@@ -107,8 +115,14 @@ class ModflowNwtOutputAdapter:
         cbc_path = solver_output_dir / f"{model_name}.cbc"
 
         head_file = bf.HeadFile(str(hds_path))
-        times = head_file.get_times()
-        kstpkpers = head_file.get_kstpkper()
+        # The OC saves every time step of a period cut into several, which the
+        # particle tracking reads. The store keeps one slice per stress period:
+        # the head at the last step of each period, the stamp that closes it.
+        saved_times = head_file.get_times()
+        saved_kstpkpers = head_file.get_kstpkper()
+        period_ends = period_end_positions(saved_kstpkpers)
+        times = [saved_times[i] for i in period_ends]
+        kstpkpers = [saved_kstpkpers[i] for i in period_ends]
         n_timesteps = len(times)
         itmuni = read_itmuni_from_dis(solver_output_dir / f"{model_name}.dis") or 0
         flux_scale_to_m3_s = 1.0 / seconds_per_itmuni(itmuni)
@@ -165,7 +179,13 @@ class ModflowNwtOutputAdapter:
 
         lst_path = _listing_path(solver_output_dir, model_name)
         if lst_path.exists():
-            self._extract_mass_balance(sim_id, store, lst_path, flux_scale_to_m3_s)
+            self._extract_mass_balance(
+                sim_id,
+                store,
+                lst_path,
+                flux_scale_to_m3_s,
+                stamp_keys=[(int(kstp), int(kper)) for kstp, kper in kstpkpers],
+            )
 
         head_file.close()
 
@@ -189,6 +209,12 @@ class ModflowNwtOutputAdapter:
     ) -> None:
         """Extract the scalar stress and storage terms of the .cbc file.
 
+        ``times`` and ``kstpkpers`` are the stamps, one per stress period at
+        its last step. A stamp closes its period, so each flux is the mean of
+        the saved steps since the previous stamp, weighted by their length
+        (the ``delt`` of the compact record header). A stamp that closes one
+        step keeps that step unchanged.
+
         FLOW RIGHT/FRONT/LOWER FACE are dropped here, as they already are on
         the MODFLOW 6 path: they are antisymmetric intercell fluxes that net
         to zero, so neither the scalar budget table nor a per-cell budget
@@ -203,6 +229,12 @@ class ModflowNwtOutputAdapter:
             for name in (record.decode().strip() for record in cbb.get_unique_record_names())
             if is_scalar_budget_component(name)
         ]
+        steps = budget_file_steps(cbb)
+        groups = group_steps_by_stamp(
+            steps.keys,
+            steps.lengths,
+            [(int(kstp), int(kper)) for kstp, kper in kstpkpers],
+        )
 
         n_cells = nrow * ncol
         n_timesteps = len(times)
@@ -213,28 +245,35 @@ class ModflowNwtOutputAdapter:
             slab_stack: np.ndarray | None = None
             window_t0 = 0
             spatial_written = False
-            for t, (time, kstpkper) in enumerate(zip(times, kstpkpers, strict=False)):
-                try:
-                    data = cbb.get_data(
-                        text=component,
-                        kstpkper=kstpkper,
-                        totim=time,
-                        full3D=True,
-                    )
-                except Exception as exc:
-                    logger.debug(
-                        "Could not read budget component '%s' at t=%d: %s",
-                        component,
-                        t,
-                        exc,
-                    )
+            for group in groups:
+                t = group.stamp
+                arrays: list[np.ndarray] = []
+                weights: list[float] = []
+                for position, weight in zip(group.positions, group.weights, strict=True):
+                    idx = steps.record.get((component, steps.keys[position]))
+                    if idx is None:
+                        continue
+                    try:
+                        data = cbb.get_record(idx, full3D=True)
+                    except Exception as exc:
+                        logger.debug(
+                            "Could not read budget component '%s' at t=%d: %s",
+                            component,
+                            t,
+                            exc,
+                        )
+                        continue
+                    arrays.append(np.asarray(data, dtype="float64") * float(flux_scale_to_m3_s))
+                    weights.append(weight)
+                if not arrays:
                     continue
-                if not data:
-                    continue
-                arr = np.asarray(data[0], dtype="float64") * float(flux_scale_to_m3_s)
-                if arr.ndim >= 2:
-                    flux_in = float(np.maximum(arr, 0).sum())
-                    flux_out = float(np.minimum(arr, 0).sum())
+                if arrays[0].ndim >= 2:
+                    flux_in = weighted_period_scalar(
+                        [float(np.maximum(arr, 0).sum()) for arr in arrays], weights
+                    )
+                    flux_out = weighted_period_scalar(
+                        [float(np.minimum(arr, 0).sum()) for arr in arrays], weights
+                    )
                 else:
                     flux_in = 0.0
                     flux_out = 0.0
@@ -248,7 +287,8 @@ class ModflowNwtOutputAdapter:
                         "unit": "m3/s",
                     }
                 )
-                if spatial_fields and arr.ndim >= 2:
+                if spatial_fields and arrays[0].ndim >= 2:
+                    arr = weighted_period_mean(arrays, weights)
                     field = arr.reshape(nlay, n_cells) if arr.ndim == 3 else arr.reshape(1, n_cells)
                     if slab_stack is not None and t >= window_t0 + budget_slab:
                         store.write_field_stack(
@@ -299,11 +339,20 @@ class ModflowNwtOutputAdapter:
         store: Any,
         lst_path: Path,
         flux_scale_to_m3_s: float,
+        *,
+        stamp_keys: list[tuple[int, int]],
     ) -> None:
         """Parse the MODFLOW-NWT listing file for the mass balance summary.
 
         Volumetric rates scale to m3/s like the cell budget fluxes;
         PERCENT_DISCREPANCY is unitless and must not be scaled.
+
+        A period cut into several steps prints the budget of each of them.
+        ``stamp_keys`` are the 0-based ``(kstp, kper)`` of the stamps: each
+        stamp takes the mean of the steps it closes, weighted by their
+        length, and its discrepancy is recomputed from those means,
+        ``100 (in - out) / ((in + out) / 2)``. A stamp that closes one step
+        keeps that step's row.
         """
         from flopy.utils import MfListBudget
 
@@ -318,17 +367,28 @@ class ModflowNwtOutputAdapter:
 
         names = incremental.dtype.names
         scale = float(flux_scale_to_m3_s)
-        records = [
+        rows = [
             {
-                "timestep": t,
-                "total_in": _budget_field(incremental[t], names, "TOTAL_IN") * scale,
-                "total_out": _budget_field(incremental[t], names, "TOTAL_OUT") * scale,
-                "storage_in": _budget_field(incremental[t], names, "STORAGE_IN") * scale,
-                "storage_out": _budget_field(incremental[t], names, "STORAGE_OUT") * scale,
-                "percent_error": _budget_field(incremental[t], names, "PERCENT_DISCREPANCY"),
+                "total_in": _budget_field(row, names, "TOTAL_IN") * scale,
+                "total_out": _budget_field(row, names, "TOTAL_OUT") * scale,
+                "storage_in": _budget_field(row, names, "STORAGE_IN") * scale,
+                "storage_out": _budget_field(row, names, "STORAGE_OUT") * scale,
+                "in_minus_out": _budget_field(row, names, "IN-OUT") * scale,
+                "percent_error": _budget_field(row, names, "PERCENT_DISCREPANCY"),
             }
-            for t in range(len(incremental))
+            for row in incremental
         ]
+        groups = group_steps_by_stamp(
+            [(int(row["time_step"]), int(row["stress_period"])) for row in incremental],
+            [float(row["tslen"]) for row in incremental],
+            stamp_keys,
+        )
+        records = []
+        for group in groups:
+            if not group.positions:
+                continue
+            mean = period_mean_balance([rows[i] for i in group.positions], group.weights)
+            records.append({"timestep": group.stamp, **mean})
         store.write_mass_balances(sim_id, records)
 
     def _write_surface_elevation(

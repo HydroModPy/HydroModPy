@@ -121,7 +121,9 @@ class SimulationTimeConfig(HydroModelBase):
             "daily steps inside monthly periods. Consumed by the MODFLOW "
             "backends as DIS NSTP / TDIS nstp, and by the Boussinesq backend, "
             "which solves each period in as many backward-Euler steps of equal "
-            "length."
+            "length. Every solver stores one result per period: the head at the "
+            "end of the period and each flux as the mean of its steps, weighted "
+            "by their length."
         ),
     )
     coverage_policy: Annotated[CoveragePolicy, Profile.USER] = Field(

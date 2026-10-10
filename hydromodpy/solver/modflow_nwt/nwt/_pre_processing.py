@@ -138,17 +138,9 @@ def assemble_flopy_packages(
             stress_period_data=wel_spd_solver,
         )
 
-    stress_period_data: dict[tuple[int, int], list[str]] = {}
-    for kper in range(solver.nper):
-        kstp = int(solver.nstp[kper])
-        if kstp > 1:
-            for ts in range(kstp):
-                stress_period_data[(kper, ts)] = ["save head", "save budget"]
-        else:
-            stress_period_data[(kper, 0)] = ["save head", "save budget"]
     solver.oc = flopy.modflow.ModflowOc(
         solver.mf,
-        stress_period_data=stress_period_data,
+        stress_period_data=output_control_words(solver.nstp),
         extension=["oc", "hds", "cbc"],
         unitnumber=None,
         compact=solver._params.runtime.oc.compact,
@@ -169,4 +161,24 @@ def assemble_flopy_packages(
             solver.prob_cells = len(problematic_cells)
 
 
-__all__ = ["assemble_flopy_packages"]
+def output_control_words(nstp: object) -> dict[tuple[int, int], list[str]]:
+    """Return the OC words of every saved ``(kper, kstp)``.
+
+    A period cut into several steps saves every step: the particle tracking
+    reads them, and the extractor stores the head of the last step and the
+    mean of the step fluxes, weighted by their length. MODFLOW prints the
+    budget at the end of each period only, so each of those steps prints its
+    budget too, for the mass balance to average the same steps. A period of
+    one step keeps the words it always had.
+    """
+    words: dict[tuple[int, int], list[str]] = {}
+    for kper, count in enumerate(int(value) for value in nstp):
+        if count > 1:
+            for kstp in range(count):
+                words[(kper, kstp)] = ["save head", "save budget", "print budget"]
+        else:
+            words[(kper, 0)] = ["save head", "save budget"]
+    return words
+
+
+__all__ = ["assemble_flopy_packages", "output_control_words"]

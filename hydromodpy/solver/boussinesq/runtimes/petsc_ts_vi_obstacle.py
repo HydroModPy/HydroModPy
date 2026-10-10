@@ -23,6 +23,7 @@ from hydromodpy.solver.boussinesq.assembly import (
     BoussinesqAssembly,
     assemble_steady_residual_with_saturation_excess,
 )
+from hydromodpy.solver.boussinesq.assembly.period_mean import period_mean_assembly
 from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
     build_sparse_semianalytic_base_jacobian_triplets,
 )
@@ -135,6 +136,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
             matrix.assemble()
 
     step_records: list[dict[str, Any]] = []
+    step_assemblies: list[tuple[float, BoussinesqAssembly]] = []
     previous_head = head_start.copy()
     previous_time = 0.0
     last_raw_assembly: BoussinesqAssembly | None = None
@@ -166,6 +168,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
         last_raw_assembly = raw_assembly
         last_reacted_assembly = reacted_assembly
         last_reaction_diagnostics = reaction_diagnostics
+        step_assemblies.append((dt_step, reacted_assembly))
         step_records.append(
             _step_diagnostic_record(
                 ts=ts,
@@ -281,13 +284,35 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
     )
     return build_runtime_result(
         head_m=head,
-        assembly=last_reacted_assembly,
+        assembly=_period_assembly(step_assemblies, last_reacted_assembly),
         converged=bool(converged),
         iterations=total_snes_iterations,
         residual_norm_inf_value=residual_norm,
         backend_name="petsc",
         termination_reason=termination_reason,
         diagnostics=diagnostics,
+    )
+
+
+def _period_assembly(
+    step_assemblies: list[tuple[float, BoussinesqAssembly]],
+    last_assembly: BoussinesqAssembly,
+) -> BoussinesqAssembly:
+    """The assembly the period exports: its end state and its mean fluxes.
+
+    A stamp closes its period, so each flux is the mean of the TS steps,
+    weighted by their length. A solve that recorded no step, or whose last
+    recorded step is not the final assembly, keeps the final assembly.
+    """
+    if not step_assemblies or step_assemblies[-1][1] is not last_assembly:
+        return last_assembly
+    lengths = np.asarray([length for length, _ in step_assemblies], dtype=float)
+    total = float(lengths.sum())
+    if len(step_assemblies) == 1 or total <= 0.0:
+        return last_assembly
+    return period_mean_assembly(
+        [assembly for _, assembly in step_assemblies],
+        [float(length) / total for length in lengths],
     )
 
 

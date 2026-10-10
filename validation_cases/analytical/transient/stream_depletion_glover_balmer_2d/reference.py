@@ -84,9 +84,49 @@ def stream_depletion_fraction(
     return np.asarray(erfc(argument), dtype=float)
 
 
+def stream_depletion_period_mean_fraction(
+    *,
+    period_start_days,
+    period_end_days,
+    distance_m: float,
+    transmissivity_m2_day: float,
+    storage: float,
+) -> np.ndarray:
+    """Return the mean of :func:`stream_depletion_fraction` over each period.
+
+    A run stores the mean flux of each stress period. With
+    ``c^2 = S a^2 / (4 T)``, the integral of ``erfc(c / sqrt(s))`` from 0 to
+    ``t`` is ``(t + 2 c^2) erfc(c / sqrt(t)) - 2 c sqrt(t / pi) exp(-c^2 / t)``,
+    so the mean over ``[t0, t1)`` is the difference of that integral at both
+    ends over ``t1 - t0``.
+    """
+    from scipy.special import erfc
+
+    start = np.asarray(period_start_days, dtype=float).reshape(-1)
+    end = np.asarray(period_end_days, dtype=float).reshape(-1)
+    if np.any(start < 0.0) or np.any(end <= start):
+        raise ValueError("periods must start at or after 0 and have a positive length.")
+    if float(distance_m) <= 0.0:
+        raise ValueError("distance_m must be strictly positive.")
+    c_sq = float(storage) * float(distance_m) ** 2 / (4.0 * float(transmissivity_m2_day))
+    c = math.sqrt(c_sq)
+
+    def integral(t: np.ndarray) -> np.ndarray:
+        out = np.zeros_like(t)
+        positive = t > 0.0
+        tp = t[positive]
+        out[positive] = (tp + 2.0 * c_sq) * erfc(c / np.sqrt(tp)) - 2.0 * c * np.sqrt(
+            tp / math.pi
+        ) * np.exp(-c_sq / tp)
+        return out
+
+    return np.asarray((integral(end) - integral(start)) / (end - start), dtype=float)
+
+
 __all__ = [
     "SECONDS_PER_DAY",
     "image_well_drawdown",
     "stream_depletion_fraction",
+    "stream_depletion_period_mean_fraction",
     "transmissivity_m2_day",
 ]

@@ -14,7 +14,11 @@ where the model computes:
   evaluated at that centre.
 
 The stream depletion is the net flux the stream cells give the aquifer, read
-from the per-cell constant-head budget of the run, over the pumping rate.
+from the per-cell constant-head budget of the run, over the pumping rate. A run
+stores the mean flux of each stress period, the mean of its time steps, so the
+reference is the mean of the closed form over the same period, not its value
+at the period end: over the second half day they differ by 0.05 of the pumping
+rate. The drawdown is a state, compared with the closed form at the period end.
 """
 
 from __future__ import annotations
@@ -43,7 +47,7 @@ from validation_cases.shared.loaders import (
 from .reference import (
     SECONDS_PER_DAY,
     image_well_drawdown,
-    stream_depletion_fraction,
+    stream_depletion_period_mean_fraction,
     transmissivity_m2_day,
 )
 from .runtime_boussinesq import BUNDLE_SOLVER, run_boussinesq_stream_depletion_case
@@ -58,7 +62,8 @@ _FACE_ATOL_M = 1e-6
 class StreamDepletionComparison:
     """Stream depletion and drawdown of one run against the image-well solution.
 
-    Times are the ends of the stress periods. ``numerical_drawdown_mean`` and
+    Times are the ends of the stress periods. The depletion fractions are means
+    over the period that ends there. ``numerical_drawdown_mean`` and
     ``analytical_drawdown`` have one row per time and one column per monitor
     point; ``monitor_radii_m`` is the distance from each read cell centre to the
     well cell centre.
@@ -103,9 +108,10 @@ class StreamDepletionComparison:
 
 
 def _cell_history(store, sim_id: str, name: str, *, n_periods: int) -> np.ndarray:
-    """Return one stored per-cell history at the period ends, as ``(n_periods, n_cells)``.
+    """Return one stored per-cell history, as ``(n_periods, n_cells)``.
 
-    MODFLOW-NWT stores every time step: the last step of each period is kept.
+    Every solver stores one slice per stress period: a head at the period end,
+    a flux as the mean of the period.
     """
     sz = store.open_zarr(sim_id)
     try:
@@ -120,13 +126,12 @@ def _cell_history(store, sim_id: str, name: str, *, n_periods: int) -> np.ndarra
     finally:
         sz.close()
     values = values.reshape(values.shape[0], -1)
-    if values.shape[0] % n_periods != 0:
+    if values.shape[0] != n_periods:
         raise AssertionError(
-            f"'{name}' has {values.shape[0]} outputs, not a whole number of steps "
-            f"for {n_periods} periods."
+            f"'{name}' has {values.shape[0]} outputs for {n_periods} stress periods; "
+            "a run stores one output per stress period."
         )
-    steps = values.shape[0] // n_periods
-    return values[steps - 1 :: steps]
+    return values
 
 
 def _bundle_triangles(bundle_dir: Path) -> list[np.ndarray]:
@@ -246,8 +251,9 @@ def build_stream_depletion_comparison(
     }
 
     numerical_fraction = stream_flux[:, stream_cells].sum(axis=1) * SECONDS_PER_DAY / pumping_m3_day
-    analytical_fraction = stream_depletion_fraction(
-        times_days=elapsed_days,
+    analytical_fraction = stream_depletion_period_mean_fraction(
+        period_start_days=elapsed_days - dt_days,
+        period_end_days=elapsed_days,
         distance_m=distance,
         transmissivity_m2_day=closed_form["transmissivity_m2_day"],
         storage=closed_form["storage"],

@@ -20,6 +20,12 @@ import pandas as pd
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.physics.flow.history_contract import saturated_thickness_from_head_history
+from hydromodpy.solver.modflow_common.period_steps import (
+    budget_file_steps,
+    period_end_positions,
+    weighted_period_mean,
+    weighted_period_scalar,
+)
 from hydromodpy.solver.modflow_common.time_units import seconds_per_solver_time_unit
 
 logger = get_logger(__name__)
@@ -44,7 +50,10 @@ def extract_discharge_from_cbc(
     *,
     catchment_mask: np.ndarray,
 ) -> pd.Series:
-    """Sum the DRAIN budget of the CATCHMENT per timestep, as a m3/s series.
+    """Sum the DRAIN budget of the CATCHMENT per stress period, as a m3/s series.
+
+    A stamp closes its period: each value is the mean of the saved steps of
+    the period, weighted by their length. A period of one step keeps it.
 
     ``catchment_mask`` is required, not optional. A gauge closes a catchment,
     and a model domain is not one: on a buffered grid the same sum takes in the
@@ -78,28 +87,29 @@ def extract_discharge_from_cbc(
             )
         drain_key = _find_drain_component(cbb)
 
-        times = cbb.get_times()
-        n_timesteps = len(times)
-        values = np.zeros(n_timesteps, dtype=float)
         # Read by POSITION, and without `full3D`. Passing `text=` and
         # `kstpkper=` to `get_data` rebuilds a boolean mask over the whole
         # record index on every call, which is quadratic over a long chronicle;
-        # `get_indices` builds that index ONCE and `get_record` then seeks
-        # straight to a record. `full3D` compounds the cost by expanding a list
-        # package into a full (nlay, ncpl) grid per step, when the drain rows
-        # only ever cover the cells that carry a drain.
-        # `get_indices` hands back a numpy array, not a sequence: `or ()` on it
-        # raises "truth value of an array is ambiguous".
-        raw_indices = cbb.get_indices(text=drain_key)
-        indices = () if raw_indices is None else tuple(np.asarray(raw_indices).reshape(-1).tolist())
-        if len(indices) != n_timesteps:
-            raise ValueError(
-                f"the budget file holds {len(indices)} '{drain_key}' record(s) for "
-                f"{n_timesteps} timestep(s). The series is built by position, so an "
-                "uneven count would silently shift the hydrograph in time."
-            )
-        for t, idx in enumerate(indices):
-            values[t] = _drain_outflow_on_mask(cbb.get_record(int(idx)), mask)
+        # the step index is built ONCE and `get_record` then seeks straight to
+        # a record. `full3D` compounds the cost by expanding a list package
+        # into a full (nlay, ncpl) grid per step, when the drain rows only ever
+        # cover the cells that carry a drain.
+        steps = budget_file_steps(cbb)
+        stamps = steps.stamps()
+        n_timesteps = len(stamps)
+        values = np.zeros(n_timesteps, dtype=float)
+        for stamp in stamps:
+            per_step: list[float] = []
+            for position in stamp.positions:
+                idx = steps.record.get((drain_key.strip(), steps.keys[position]))
+                if idx is None:
+                    raise ValueError(
+                        f"the budget file holds no '{drain_key}' record at time step "
+                        f"{steps.keys[position]} (kstp, kper). A missing step would "
+                        "silently shift or bias the hydrograph."
+                    )
+                per_step.append(_drain_outflow_on_mask(cbb.get_record(int(idx)), mask))
+            values[stamp.stamp] = weighted_period_scalar(per_step, stamp.weights)
     finally:
         cbb.close()
 
@@ -378,14 +388,18 @@ def extract_release_flux_by_cell_from_cbc(
     time_index: pd.DatetimeIndex | None = None,
     n_cells: int | None = None,
 ) -> pd.DataFrame:
-    """Return positive per-cell release to the surface, by timestep, in m3/s.
+    """Return positive per-cell release to the surface, by stress period, in m3/s.
 
     The release is the union of the declared packages: DRN where the hillslope
     seeps, SFR where a reach drains the aquifer, CHD where a stream boundary
     holds the head. They are summed onto the same cell index, so a cell served
     by two packages carries their total once.
 
-    The returned frame has one row per CBC timestep and integer cell columns.
+    A stamp closes its period. Each package flux is the mean of the saved
+    steps of the period, weighted by their length, and is then clamped to
+    the release, as the stored budget field of that package is.
+
+    The returned frame has one row per stress period and integer cell columns.
     For single-layer runs ``n_cells`` can be omitted; pass it for multi-layer
     outputs so the layers are summed onto the cell index.
     """
@@ -402,23 +416,30 @@ def extract_release_flux_by_cell_from_cbc(
         _refuse_sibling_budgets_the_union_cannot_read(cbc_path, packages, record_names)
         _refuse_records_the_union_misses(packages, record_names, excluded_records=excluded_records)
         keyed = [(package, _resolve_release_record(package, record_names)) for package in packages]
-        times = cbb.get_times()
-        kstpkpers = cbb.get_kstpkper()
+        steps = budget_file_steps(cbb)
+        stamps = steps.stamps()
+        times = [steps.ends[stamp.positions[-1]] for stamp in stamps]
         width = int(n_cells) if n_cells is not None else None
         rows: list[np.ndarray | None] = []
 
-        for time, ksk in zip(times, kstpkpers, strict=False):
+        for stamp in stamps:
             total: np.ndarray | None = None
             for package, key in keyed:
                 # A package can hold no row at a given timestep; that step is a
                 # real zero for it, unlike a record missing from the whole file.
-                try:
-                    data = cbb.get_data(text=key, kstpkper=ksk, totim=time, full3D=True)
-                except Exception:
-                    data = None
-                if not data:
+                arrays: list[np.ndarray] = []
+                weights: list[float] = []
+                for position, weight in zip(stamp.positions, stamp.weights, strict=True):
+                    idx = steps.record.get((key.strip(), steps.keys[position]))
+                    if idx is None:
+                        continue
+                    arrays.append(np.asarray(cbb.get_record(int(idx), full3D=True)))
+                    weights.append(weight)
+                if not arrays:
                     continue
-                vec = _positive_release_by_cell(data[0], n_cells=width)
+                vec = _positive_release_by_cell(
+                    weighted_period_mean(arrays, weights), n_cells=width
+                )
                 if width is None:
                     width = int(vec.size)
                 elif vec.size != width:
@@ -454,6 +475,16 @@ def extract_release_flux_by_cell_from_cbc(
     return pd.DataFrame(filled_rows, index=index, columns=np.arange(width))
 
 
+def _period_end_times(head_file: object) -> list[float]:
+    """Simulated time of the head that closes each stress period.
+
+    A period cut into steps can save the head of every step (MODFLOW-NWT
+    does); the state of the period is the head of its last step.
+    """
+    times = head_file.get_times()
+    return [times[i] for i in period_end_positions(head_file.get_kstpkper())]
+
+
 def extract_head_from_hds(
     output_dir: Path,
     model_name: str,
@@ -461,7 +492,10 @@ def extract_head_from_hds(
     station_cells: Mapping[str, tuple[int, int, int]],
     time_index: pd.DatetimeIndex | None = None,
 ) -> dict[str, pd.Series]:
-    """Return head timeseries keyed by station at the given ``(k, i, j)`` cells."""
+    """Return head timeseries keyed by station at the given ``(k, i, j)`` cells.
+
+    One value per stress period: the head at its last saved step.
+    """
     import flopy.utils.binaryfile as bf
 
     hds_path = output_dir / f"{model_name}.hds"
@@ -472,7 +506,7 @@ def extract_head_from_hds(
 
     hf = bf.HeadFile(str(hds_path))
     try:
-        times = hf.get_times()
+        times = _period_end_times(hf)
         n_t = len(times)
         values_by_station = {
             station_id: np.full(n_t, np.nan, dtype=float) for station_id in station_cells
@@ -507,7 +541,9 @@ def extract_saturated_thickness_by_cell_from_hds(
     bottom: np.ndarray,
     time_index: pd.DatetimeIndex | None = None,
 ) -> pd.DataFrame:
-    """Return saturated thickness by timestep and cell, in metres.
+    """Return saturated thickness by stress period and cell, in metres.
+
+    One row per stress period: the thickness at its last saved step.
 
     The water table is the head of the uppermost layer, the definition
     ``results/derive/derived.py`` already applies; a MODFLOW head array is
@@ -537,7 +573,7 @@ def extract_saturated_thickness_by_cell_from_hds(
 
     hf = bf.HeadFile(str(hds_path))
     try:
-        times = hf.get_times()
+        times = _period_end_times(hf)
         heads = np.full((len(times), n_cells), np.nan, dtype="float64")
         for step, totim in enumerate(times):
             snapshot = np.asarray(hf.get_data(totim=totim), dtype=float).reshape(-1)

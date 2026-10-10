@@ -36,10 +36,15 @@ from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
 from hydromodpy.solver.modflow6.extractors.obs_common import (
+    obs_rows_on_stamps,
     ordered_unique,
     read_obs_csv,
     timeseries_record,
     verify_obs_time_alignment,
+)
+from hydromodpy.solver.modflow_common.period_steps import (
+    group_ends_by_stamp,
+    weighted_period_scalar,
 )
 
 logger = get_logger(__name__)
@@ -100,6 +105,22 @@ _UNIT_BY_QUANTITY: dict[str, str] = {
     "volume": "m3",
     "surface_area": "m2",
 }
+
+
+def _lake_rows_on_stamps(
+    spec: LakeObsSpec,
+    rows: list[list[float]],
+    times: Sequence[float],
+    col_index: Mapping[str, int],
+) -> list[list[float]]:
+    """One obs row per stamp: rates averaged over the period, states at its end."""
+    rate_positions = [
+        pos
+        for entry in spec.entries
+        if entry.quantity in _RATE_QUANTITIES
+        and (pos := col_index.get(entry.obsname.upper())) is not None
+    ]
+    return obs_rows_on_stamps(rows, times, col_index, mean_positions=rate_positions)
 
 
 def lake_station_id(lake_id: str) -> str:
@@ -233,6 +254,7 @@ def extract_lake_series(
     model_name: str,
     *,
     lake_id: str,
+    times: Sequence[float],
     quantity: str = "stage",
     time_index: pd.DatetimeIndex | None = None,
 ) -> pd.Series:
@@ -242,9 +264,11 @@ def extract_lake_series(
     ``(lake_id, quantity)`` and pulls that column out of ``{model_name}.lak.obs.csv``.
     ``quantity`` defaults to ``"stage"`` (water level, m); ``volume`` (m3) and
     ``surface_area`` (m2) are also accepted. States are returned in native units,
-    never time-scaled. The series carries ``time_index`` when its length matches
-    the obs rows, else a positional index. Used by the calibration extraction
-    path, where Parquet/Zarr writes are skipped.
+    never time-scaled, one per stress period at its end: the obs CSV holds a row
+    per time step, put on ``times``, the ``totim`` of the saved heads, one per
+    stress period at its end. The series carries
+    ``time_index`` when its length matches, else a positional index. Used by the
+    calibration extraction path, where Parquet/Zarr writes are skipped.
     """
     if quantity not in _STATE_QUANTITIES:
         raise NotImplementedError(
@@ -275,6 +299,7 @@ def extract_lake_series(
     obs_path = output_dir / spec.obs_csv
     header, rows = read_obs_csv(obs_path)
     col_index = {name: pos for pos, name in enumerate(header)}
+    rows = _lake_rows_on_stamps(spec, rows, times, col_index)
     pos = col_index.get(entry.obsname.upper())
     if pos is None:
         raise ObservableNotAvailableError(f"Column {entry.obsname!r} missing from {obs_path.name}.")
@@ -295,8 +320,11 @@ def build_lake_records(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Parse the LAK obs CSV into ``(timeseries_records, budget_records)``.
 
-    ``times`` are the solver output ``totim`` values (TDIS time unit); the obs CSV
-    must align with them by row order. RATE quantities are divided by
+    ``times`` are the solver output ``totim`` values (TDIS time unit), one per
+    stress period at its end. The obs CSV and the LAK binary budget hold one
+    entry per time step: each stamp takes the mean of the rates over the steps
+    it closes, weighted by their length, and the states at its end. RATE
+    quantities are divided by
     ``seconds_per_time_unit`` to reach m3/s; stage / volume / surface-area stay in
     their native units. The lake-aquifer exchange (``gwf_exchange``) and the
     under-dam leakage (``seepage_under_dam``) come from the applied flux in the LAK
@@ -312,6 +340,7 @@ def build_lake_records(
     if not rows:
         return [], []
     col_index = {name: pos for pos, name in enumerate(header)}
+    rows = _lake_rows_on_stamps(spec, rows, times, col_index)
 
     n_steps = min(len(rows), len(times))
     spt = float(seconds_per_time_unit) if seconds_per_time_unit else 1.0
@@ -320,7 +349,7 @@ def build_lake_records(
     # lake_id -> ordered set of stored quantities (excluding the per-connection
     # detail, which is aggregated rather than stored on its own).
     lake_ids = ordered_unique(entry.lake_id for entry in spec.entries)
-    exchange_by_lake = read_applied_exchange(spec, obs_path, n_steps=n_steps)
+    exchange_by_lake = read_applied_exchange(spec, obs_path, times=list(times[:n_steps]))
 
     timeseries: list[dict[str, Any]] = []
     budgets: list[dict[str, Any]] = []
@@ -435,7 +464,10 @@ def final_lake_stages(timeseries: Sequence[Mapping[str, Any]]) -> dict[str, floa
 
 @dataclass(frozen=True)
 class AppliedExchange:
-    """Lake-aquifer flux MF6 applied, per output step, in the TDIS time unit.
+    """Lake-aquifer flux MF6 applied, per stress period, in the TDIS time unit.
+
+    Each value is the mean over the time steps of the period, weighted by
+    their length.
 
     ``total`` is the whole lake, ``under_dam`` the VERTICAL subset (``None`` when
     the lake has no vertical connection). Positive = the lake gains water from the
@@ -447,7 +479,7 @@ class AppliedExchange:
 
 
 def read_applied_exchange(
-    spec: LakeObsSpec, obs_path: Path, *, n_steps: int
+    spec: LakeObsSpec, obs_path: Path, *, times: Sequence[float]
 ) -> dict[str, AppliedExchange]:
     """Read the applied lake-aquifer flux from the LAK binary budget.
 
@@ -462,8 +494,11 @@ def read_applied_exchange(
 
     The record lists one entry per connection in CONNECTIONDATA order, with the
     lake number in ``node``, so the per-lake and per-connection sums need no
-    further mapping. Returns ``{}`` when the budget is absent or unusable, and the
-    caller then publishes no exchange series rather than a wrong one.
+    further mapping. The file holds one record per time step; ``times`` are the
+    stamps, one per stress period at its end, and each takes the mean of the
+    steps it closes, weighted by their length. Returns ``{}`` when the budget is
+    absent or unusable, and the caller then publishes no exchange series rather
+    than a wrong one.
     """
     if not spec.budget_bin:
         logger.warning(
@@ -500,20 +535,33 @@ def read_applied_exchange(
             steps = [i for i, record in enumerate(budget.records) if record.text == "GWF"]
             if not steps:
                 raise ValueError("the budget carries no GWF record")
-            for position in steps[:n_steps]:
-                record = budget.read_record(position)
-                flux = np.asarray(record["q"], dtype=float)
-                lake_number = np.asarray(record["node"], dtype=int)
-                for index, lake_id in enumerate(lake_ids, start=1):
-                    own = flux[lake_number == index]
-                    mask = masks[lake_id]
-                    if mask.size != own.size:
-                        raise ValueError(
-                            f"lake {lake_id}: the budget holds {own.size} connections where "
-                            f"the obs sidecar declares {mask.size}"
-                        )
-                    totals[lake_id].append(float(own.sum()))
-                    vertical[lake_id].append(float(own[mask].sum()))
+            groups = group_ends_by_stamp([budget.records[i].totim for i in steps], times)
+            for group in groups:
+                if not group.positions:
+                    break
+                step_totals: dict[str, list[float]] = {lake: [] for lake in lake_ids}
+                step_vertical: dict[str, list[float]] = {lake: [] for lake in lake_ids}
+                for step in group.positions:
+                    record = budget.read_record(steps[step])
+                    flux = np.asarray(record["q"], dtype=float)
+                    lake_number = np.asarray(record["node"], dtype=int)
+                    for index, lake_id in enumerate(lake_ids, start=1):
+                        own = flux[lake_number == index]
+                        mask = masks[lake_id]
+                        if mask.size != own.size:
+                            raise ValueError(
+                                f"lake {lake_id}: the budget holds {own.size} connections "
+                                f"where the obs sidecar declares {mask.size}"
+                            )
+                        step_totals[lake_id].append(float(own.sum()))
+                        step_vertical[lake_id].append(float(own[mask].sum()))
+                for lake_id in lake_ids:
+                    totals[lake_id].append(
+                        weighted_period_scalar(step_totals[lake_id], group.weights)
+                    )
+                    vertical[lake_id].append(
+                        weighted_period_scalar(step_vertical[lake_id], group.weights)
+                    )
     except (OSError, ValueError, KeyError, IndexError) as exc:
         logger.warning(
             "Could not read the applied lake-aquifer flux from %s (%s); the exchange "

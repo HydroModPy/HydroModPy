@@ -139,7 +139,7 @@ CASE_TOML_ROWS: frozenset[str] = frozenset(
         "brutsaert_thin_1d__cross_row_head_spread",
         "brutsaert_deep_1d__relative_error_of_the_fitted_decay_rate_days_30_to_90",
         "brutsaert_deep_1d__b_1_fitted_exponent",
-        "brutsaert_deep_1d__rmse_of_q_q_ref_1_days_30_to_90",
+        "brutsaert_deep_1d__rmse_of_q_q_ref_1_days_30_to_90_both_period_means",
         # Stream depletion, tolerances.toml bound on the well-cell drawdown over
         # the saturated thickness, shared by every variant.
         "stream_depletion_2d_all_variants__well_cell_drawdown_over_saturated_thickness",

@@ -1,6 +1,6 @@
 [depletion]
-max_abs_error = 0.017
-final_abs_error = 0.0019
+max_abs_error = 0.028
+final_abs_error = 0.0011
 
 [space_time]
 rmse = 0.0056
@@ -16,8 +16,8 @@ well_drawdown_fraction = 0.05
 [doc]
 reason = """
 Twice the error measured with the default 'auto' engine, scipy_sparse on these
-5783 triangles, 4 backward-Euler steps a period: stream depletion 0.0083 at
-most and 0.0009 at day 20; drawdown space-time RMSE 2.8e-3 m, max 6.5e-3 m,
+5783 triangles, 4 backward-Euler steps a period: stream depletion 0.0136 at
+most and 0.00055 at day 20, both means over the period; drawdown space-time RMSE 2.8e-3 m, max 6.5e-3 m,
 final RMSE 3.1e-3 m, final max 6.5e-3 m, next to the well. PETSc on the same
 triangles reads the same to 1e-6. Until 2026-10-10 the surface closure sent
 0.4 % of the pumping out of the well cell, 11 m under the top, and the final

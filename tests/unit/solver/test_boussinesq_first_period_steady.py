@@ -6,8 +6,10 @@ same file started from the initial condition on Boussinesq and from a steady
 state on MODFLOW. Boussinesq now solves period 0 with the stationary solve of
 its engine, then integrates the next periods in time from that state.
 
-A period cut into time steps exports the fluxes of its last step, as MODFLOW 6
-does under ``SAVE BUDGET LAST``.
+A period cut into time steps exports the head of its last step and the mean
+of the step fluxes, weighted by their length: a stamp closes its period. The
+PETSc closures that cut a period into internal steps (VI substeps, TS steps)
+export the mean of those steps as well.
 """
 
 from __future__ import annotations
@@ -110,6 +112,7 @@ def _solver(
     nstp_per_period: int = 1,
     runtime_backend: str = "local",
     surface_interaction_model: str = "auto",
+    **flow_options: object,
 ) -> Boussinesq:
     """Return a solver on the row mesh, its state set to ``head_m``."""
     mesh = _row_mesh()
@@ -119,6 +122,7 @@ def _solver(
         runtime_backend=runtime_backend,
         surface_interaction_model=surface_interaction_model,
         runtime_tol_residual_inf=1.0e-12,
+        **flow_options,
     )
     solver = Boussinesq(
         mesh_bundle=None,
@@ -304,7 +308,9 @@ def test_ts_vi_obstacle_solves_its_steady_first_period_with_the_vi_obstacle_clos
     np.testing.assert_allclose(run.state.head_history_m[1], steady, rtol=0.0, atol=1.0e-10)
 
 
-def _relaxation(tmp_path: Path, monkeypatch, *, n_periods: int, n_steps: int) -> Boussinesq:
+def _relaxation(
+    tmp_path: Path, monkeypatch, *, n_periods: int, n_steps: int, **solver_options: object
+) -> Boussinesq:
     """Drain the start heads through the held cell over 4 days, without recharge."""
     monkeypatch.setattr(
         transient_driver, "resolve_runtime_forcing_by_period", _forcing((0.0,) * n_periods)
@@ -317,23 +323,79 @@ def _relaxation(tmp_path: Path, monkeypatch, *, n_periods: int, n_steps: int) ->
         head_m=_start_heads(),
         period_lengths_seconds=(4.0 * DAY_S / n_periods,) * n_periods,
         nstp_per_period=n_steps,
+        **solver_options,
     )
     assert transient_driver.run_transient_runtime(solver)
     return solver
 
 
-def test_a_period_cut_into_time_steps_exports_the_fluxes_of_its_last_step(
+_FLUX_HISTORIES = (
+    "recharge_rate_history_m_s",
+    "well_flux_history_m3_s",
+    "saturation_excess_history_m_s",
+    "dry_deficit_history_m_s",
+    "internal_edge_flux_history_m3_s",
+    "boundary_edge_flux_history_m3_s",
+    "prescribed_head_flux_history_m3_s",
+    "drainage_flux_history_m3_s",
+    "residual_history_m3_s",
+)
+
+
+def test_a_period_cut_into_time_steps_exports_the_mean_of_its_steps(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """A stamp closes its period: the head of the last step, the mean flux.
+
+    Four periods of one day solve the same four backward-Euler steps as one
+    period of four days cut into four steps, so their rows are the raw steps.
+    """
     sub_stepped = _relaxation(tmp_path, monkeypatch, n_periods=1, n_steps=4)
-    one_step_periods = _relaxation(tmp_path, monkeypatch, n_periods=4, n_steps=1)
+    by_step = _relaxation(tmp_path, monkeypatch, n_periods=4, n_steps=1)
+
+    np.testing.assert_allclose(
+        sub_stepped.state.head_history_m[1:], by_step.state.head_history_m[-1:], rtol=0, atol=0
+    )
+    for name in _FLUX_HISTORIES:
+        period = np.asarray(getattr(sub_stepped.state, name))[1:]
+        steps = np.asarray(getattr(by_step.state, name))[1:]
+        assert period.shape == (1, steps.shape[1]), name
+        np.testing.assert_allclose(period[0], steps.mean(axis=0), rtol=1e-12, atol=1e-18)
 
     outflow = np.asarray(sub_stepped.state.prescribed_head_flux_history_m3_s)[1:].sum(axis=1)
-    by_step = np.asarray(one_step_periods.state.prescribed_head_flux_history_m3_s)[1:].sum(axis=1)
+    by_day = np.asarray(by_step.state.prescribed_head_flux_history_m3_s)[1:].sum(axis=1)
+    # The outflow falls over the period: the mean is not the value of the last day.
+    assert np.mean(by_day) > 1.5 * by_day[-1]
+    assert outflow[0] == pytest.approx(np.mean(by_day), rel=1e-12)
 
-    assert outflow.shape == (1,)
-    # MODFLOW 6 saves the budget of the last time step of a period (SAVE BUDGET
-    # LAST): the period exports the outflow of its fourth day.
-    assert outflow[0] == pytest.approx(by_step[-1], rel=1.0e-6)
-    # The outflow falls over the period: its mean is far from its last value.
-    assert np.mean(by_step) > 1.5 * by_step[-1]
+    # The storage change of the period, from the heads at both ends, closes the
+    # budget with the mean outflow. The held cell keeps its head.
+    mesh = _row_mesh()
+    heads = np.asarray(sub_stepped.state.head_history_m)
+    stored = (heads[-1, 1:] - heads[0, 1:]) * mesh.storage_coefficient[1:] * mesh.cell_area_m2[1:]
+    assert -stored.sum() / (4.0 * DAY_S) == pytest.approx(outflow[0], rel=1e-9)
+
+
+@pytest.mark.petsc
+@pytest.mark.parametrize(
+    ("closure", "option"),
+    [("vi_obstacle", "vi_substeps_per_period"), ("ts_vi_obstacle", "ts_vi_steps_per_period")],
+)
+def test_a_petsc_closure_exports_the_mean_of_its_internal_steps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, closure: str, option: str
+) -> None:
+    """The internal steps of a PETSc closure are steps of the period too."""
+    petsc = {"runtime_backend": "petsc", "surface_interaction_model": closure}
+    internal = _relaxation(tmp_path, monkeypatch, n_periods=1, n_steps=1, **petsc, **{option: 4})
+    by_day = _relaxation(tmp_path, monkeypatch, n_periods=4, n_steps=1, **petsc, **{option: 1})
+
+    np.testing.assert_allclose(
+        internal.state.head_history_m[1:], by_day.state.head_history_m[-1:], rtol=0, atol=1e-9
+    )
+    for name in ("prescribed_head_flux_history_m3_s", "residual_history_m3_s"):
+        period = np.asarray(getattr(internal.state, name))[1:]
+        steps = np.asarray(getattr(by_day.state, name))[1:]
+        assert period.shape == (1, steps.shape[1]), name
+        np.testing.assert_allclose(period[0], steps.mean(axis=0), rtol=1e-7, atol=1e-12)
+    by_day_outflow = np.asarray(by_day.state.prescribed_head_flux_history_m3_s)[1:].sum(axis=1)
+    assert np.mean(by_day_outflow) > 1.5 * by_day_outflow[-1]

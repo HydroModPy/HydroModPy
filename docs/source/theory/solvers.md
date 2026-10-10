@@ -136,8 +136,10 @@ HydroModPy writes no UZF, GHB or RIV package. Three notes on the table.
   because LAK handles the rain on the lake. The package also carries a `CONCENTRATION`
   auxiliary variable, which transport uses ({ref}`solvers-transport-coupling`). In the
   code: `mask_recharge_on_lake_cells`.
-- **Output.** OC saves the head and the budget at the last step of every stress period, not
-  at every step. The catalog keeps one record per stress period.
+- **Output.** OC saves the head at the last step of every stress period and the budget at
+  every step, and prints the budget of every step. The catalog keeps one record per stress
+  period: the head at its end, each flux as the mean of its steps weighted by their length
+  ({ref}`alignment-steps`).
 
 ### The grid
 
@@ -289,7 +291,7 @@ This page ranks neither solver.
 | Newton | always | on by default, can be switched off |
 | Dry cells | no rewetting (`laywet = 0`) | rewetting off, refused with Newton |
 | Non-orthogonal flux | not available | `XT3D`, automatic on irregular meshes |
-| Output | head and budget at every step | head and budget at the last step of each period |
+| Output | head and budget at every step, stored per period | head at the last step, budget at every step, stored per period |
 | Loaded ETP | drives `EVT` | ignored outside soil mode |
 | Streams, lakes, barriers | refused | `SFR`, `LAK`, `HFB` |
 | Restart, cyclic spin-up | refused | supported |

@@ -27,6 +27,88 @@ def _balance_residual_m3_s(assembly: BoussinesqAssembly) -> np.ndarray:
     )
 
 
+@dataclass(frozen=True)
+class PeriodFluxes:
+    """The fluxes a stress period exports, one array per quantity.
+
+    One time step gives its own fluxes. A period cut into several takes their
+    mean, weighted by step length: a stamp closes its period, so a flux
+    stamped at the period end is its mean over the period. The rates are in
+    m/s, the other fluxes in m3/s.
+    """
+
+    saturation_excess_rate_m_s: np.ndarray
+    dry_deficit_rate_m_s: np.ndarray
+    recharge_rate_m_s: np.ndarray
+    well_flux_m3_s: np.ndarray
+    internal_edge_flux_m3_s: np.ndarray
+    boundary_edge_flux_m3_s: np.ndarray
+    prescribed_head_flux_m3_s: np.ndarray
+    drainage_flux_m3_s: np.ndarray
+    residual_m3_s: np.ndarray
+
+    @classmethod
+    def from_step(
+        cls,
+        *,
+        mesh: BoussinesqMesh,
+        head_m: np.ndarray,
+        assembly: BoussinesqAssembly,
+        prescribed_head_m_by_cell: np.ndarray,
+        boundary_head_m_by_edge: np.ndarray | None = None,
+    ) -> PeriodFluxes:
+        """Return the fluxes of one accepted time step."""
+        dry_deficit = assembly.dry_deficit_rate_m_s
+        return cls(
+            saturation_excess_rate_m_s=np.asarray(
+                assembly.saturation_excess_rate_m_s, dtype=float
+            ).copy(),
+            dry_deficit_rate_m_s=(
+                np.zeros(mesh.n_cells, dtype=float)
+                if dry_deficit is None
+                else np.asarray(dry_deficit, dtype=float).copy()
+            ),
+            recharge_rate_m_s=np.asarray(assembly.recharge_rate_m_s, dtype=float).copy(),
+            well_flux_m3_s=np.asarray(assembly.well_flux_m3_s, dtype=float).copy(),
+            internal_edge_flux_m3_s=np.asarray(
+                assembly.internal_edge_flux_m3_s, dtype=float
+            ).copy(),
+            boundary_edge_flux_m3_s=rebuild_boundary_edge_flux(
+                mesh=mesh,
+                head_m=head_m,
+                assembly_boundary_edge_flux_m3_s=assembly.boundary_edge_flux_m3_s,
+                internal_edge_flux_m3_s=assembly.internal_edge_flux_m3_s,
+                boundary_head_m_by_edge=boundary_head_m_by_edge,
+                prescribed_head_flux_m3_s=assembly.prescribed_head_flux_m3_s,
+                prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+            ),
+            prescribed_head_flux_m3_s=np.asarray(
+                assembly.prescribed_head_flux_m3_s, dtype=float
+            ).copy(),
+            drainage_flux_m3_s=np.asarray(assembly.drainage_flux_m3_s, dtype=float).copy(),
+            residual_m3_s=_balance_residual_m3_s(assembly),
+        )
+
+    @classmethod
+    def period_mean(cls, steps: list[PeriodFluxes], weights: list[float]) -> PeriodFluxes:
+        """Return the step-length-weighted mean of the fluxes of one period.
+
+        One step of weight 1.0 is returned unchanged, so a period of one
+        step exports exactly the fluxes of its solve.
+        """
+        if len(steps) != len(weights) or not steps:
+            raise ValueError(f"{len(steps)} steps for {len(weights)} weights.")
+        if len(steps) == 1 and float(weights[0]) == 1.0:
+            return steps[0]
+        means: dict[str, np.ndarray] = {}
+        for name in cls.__dataclass_fields__:
+            total = float(weights[0]) * np.asarray(getattr(steps[0], name), dtype=float)
+            for weight, step in zip(weights[1:], steps[1:], strict=True):
+                total = total + float(weight) * np.asarray(getattr(step, name), dtype=float)
+            means[name] = total
+        return cls(**means)
+
+
 @dataclass
 class TransientRuntimeHistory:
     """Accumulate one transient run history before exporting the accepted state."""
@@ -86,47 +168,43 @@ class TransientRuntimeHistory:
         prescribed_head_m_by_cell: np.ndarray,
         boundary_head_m_by_edge: np.ndarray | None = None,
     ) -> None:
-        """Append one accepted nonlinear step to the history."""
-        boundary_edge_flux = rebuild_boundary_edge_flux(
-            mesh=mesh,
+        """Append one period solved in one accepted nonlinear step."""
+        self.append_period(
             head_m=head_m,
-            assembly_boundary_edge_flux_m3_s=assembly.boundary_edge_flux_m3_s,
-            internal_edge_flux_m3_s=assembly.internal_edge_flux_m3_s,
-            boundary_head_m_by_edge=boundary_head_m_by_edge,
-            prescribed_head_flux_m3_s=assembly.prescribed_head_flux_m3_s,
+            saturated_thickness_m=assembly.saturated_thickness_m,
+            fluxes=PeriodFluxes.from_step(
+                mesh=mesh,
+                head_m=head_m,
+                assembly=assembly,
+                prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+                boundary_head_m_by_edge=boundary_head_m_by_edge,
+            ),
             prescribed_head_m_by_cell=prescribed_head_m_by_cell,
         )
+
+    def append_period(
+        self,
+        *,
+        head_m: np.ndarray,
+        saturated_thickness_m: np.ndarray,
+        fluxes: PeriodFluxes,
+        prescribed_head_m_by_cell: np.ndarray,
+    ) -> None:
+        """Append one stress period: its end state and the fluxes it exports."""
         self.head_history.append(np.asarray(head_m, dtype=float).copy())
-        self.thickness_history.append(
-            np.asarray(assembly.saturated_thickness_m, dtype=float).copy()
-        )
-        self.saturation_excess_history.append(
-            np.asarray(assembly.saturation_excess_rate_m_s, dtype=float).copy()
-        )
-        dry_deficit = assembly.dry_deficit_rate_m_s
-        self.dry_deficit_history.append(
-            np.zeros(mesh.n_cells, dtype=float)
-            if dry_deficit is None
-            else np.asarray(dry_deficit, dtype=float).copy()
-        )
-        self.recharge_rate_history.append(
-            np.asarray(assembly.recharge_rate_m_s, dtype=float).copy()
-        )
-        self.well_flux_history.append(np.asarray(assembly.well_flux_m3_s, dtype=float).copy())
-        self.internal_edge_flux_history.append(
-            np.asarray(assembly.internal_edge_flux_m3_s, dtype=float).copy()
-        )
-        self.boundary_edge_flux_history.append(boundary_edge_flux)
-        self.prescribed_head_flux_history.append(
-            np.asarray(assembly.prescribed_head_flux_m3_s, dtype=float).copy()
-        )
+        self.thickness_history.append(np.asarray(saturated_thickness_m, dtype=float).copy())
+        self.saturation_excess_history.append(fluxes.saturation_excess_rate_m_s)
+        self.dry_deficit_history.append(fluxes.dry_deficit_rate_m_s)
+        self.recharge_rate_history.append(fluxes.recharge_rate_m_s)
+        self.well_flux_history.append(fluxes.well_flux_m3_s)
+        self.internal_edge_flux_history.append(fluxes.internal_edge_flux_m3_s)
+        self.boundary_edge_flux_history.append(fluxes.boundary_edge_flux_m3_s)
+        self.prescribed_head_flux_history.append(fluxes.prescribed_head_flux_m3_s)
         self.prescribed_head_history.append(
             np.asarray(prescribed_head_m_by_cell, dtype=float).copy()
         )
-        self.drainage_flux_history.append(
-            np.asarray(assembly.drainage_flux_m3_s, dtype=float).copy()
-        )
-        self.residual_history.append(_balance_residual_m3_s(assembly))
+        self.drainage_flux_history.append(fluxes.drainage_flux_m3_s)
+        self.residual_history.append(fluxes.residual_m3_s)
 
     def build_runtime_state(
         self,
@@ -319,6 +397,7 @@ def build_transient_activity_flags(
 
 
 __all__ = [
+    "PeriodFluxes",
     "TransientRuntimeHistory",
     "build_steady_runtime_state",
     "build_transient_activity_flags",

@@ -1,6 +1,6 @@
 [depletion]
-max_abs_error = 0.016
-final_abs_error = 0.0013
+max_abs_error = 0.028
+final_abs_error = 0.0006
 
 [space_time]
 rmse = 0.0051
@@ -19,8 +19,8 @@ Twice the error measured on the triangles of the refined mesh (5783 cells,
 two-point flux: XT3D stays off, the 95th percentile of the non-orthogonality is
 9 degrees), with the stream at the centroids of the triangles on the face,
 2.9 m inside it, and the well at the centroid of the triangle that takes it:
-stream depletion 0.0078 at most and 0.0007 at day 20, the backward-Euler step as
-on the grid; drawdown space-time RMSE 2.5e-3 m, max 5.9e-3 m, final RMSE
+stream depletion 0.0137 at most and 0.00028 at day 20, both means over the
+period, the backward-Euler step as on the grid; drawdown space-time RMSE 2.5e-3 m, max 5.9e-3 m, final RMSE
 2.7e-3 m, final max 5.4e-3 m, next to the well, 3 m off the mesh node it sits on.
 The well-cell drawdown is 3.5 % of the saturated thickness.
 """

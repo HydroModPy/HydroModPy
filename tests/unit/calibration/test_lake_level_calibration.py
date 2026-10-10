@@ -93,46 +93,64 @@ def _write_lake_outputs(
     for step, stage in enumerate(stages, start=1):
         lines.append(f"{float(step)},{stage},{stage * 1000.0}")
     (output_dir / obs_csv).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _write_head_file(output_dir / f"{model_name}.hds", n_periods=len(stages))
+
+
+def _write_head_file(path: Path, *, n_periods: int) -> None:
+    """Write a one-cell MODFLOW 6 head file, one record per period of one day.
+
+    The adapter puts the LAK observations on the stamps the head file holds.
+    """
+    with path.open("wb") as handle:
+        for kper in range(n_periods):
+            np.array([1, kper + 1], dtype="<i4").tofile(handle)
+            np.array([1.0, float(kper + 1)], dtype="<f8").tofile(handle)
+            handle.write(b"HEAD".rjust(16))
+            np.array([1, 1, 1], dtype="<i4").tofile(handle)
+            np.array([0.0], dtype="<f8").tofile(handle)
+
+
+_DAYS = [1.0, 2.0, 3.0]
 
 
 class TestExtractor:
     def test_reads_stage_column_positional(self, tmp_path: Path):
         _write_lake_outputs(tmp_path, "m", stages=(86.97, 87.01, 87.05))
-        series = extract_lake_series(tmp_path, "m", lake_id="lac0")
+        series = extract_lake_series(tmp_path, "m", lake_id="lac0", times=_DAYS)
         assert list(series.values) == pytest.approx([86.97, 87.01, 87.05])
         assert series.name == "stage"
 
     def test_applies_time_index_when_length_matches(self, tmp_path: Path):
         _write_lake_outputs(tmp_path, "m", stages=(86.97, 87.01, 87.05))
         idx = pd.DatetimeIndex(["2007-01-01", "2007-01-02", "2007-01-03"])
-        series = extract_lake_series(tmp_path, "m", lake_id="lac0", time_index=idx)
+        series = extract_lake_series(tmp_path, "m", lake_id="lac0", times=_DAYS, time_index=idx)
         assert series.index.equals(idx)
         assert series.loc["2007-01-02"] == pytest.approx(87.01)
 
     def test_ignores_mismatched_time_index(self, tmp_path: Path):
         _write_lake_outputs(tmp_path, "m", stages=(86.97, 87.01, 87.05))
         idx = pd.DatetimeIndex(["2007-01-01"])
-        series = extract_lake_series(tmp_path, "m", lake_id="lac0", time_index=idx)
+        series = extract_lake_series(tmp_path, "m", lake_id="lac0", times=_DAYS, time_index=idx)
         assert not isinstance(series.index, pd.DatetimeIndex)
 
     def test_reads_volume_state_quantity(self, tmp_path: Path):
         _write_lake_outputs(tmp_path, "m", stages=(10.0,))
-        series = extract_lake_series(tmp_path, "m", lake_id="lac0", quantity="volume")
+        series = extract_lake_series(tmp_path, "m", lake_id="lac0", times=[1.0], quantity="volume")
         assert list(series.values) == pytest.approx([10000.0])
 
     def test_unknown_lake_raises_keyerror(self, tmp_path: Path):
         _write_lake_outputs(tmp_path, "m")
         with pytest.raises(ObservableNotAvailableError, match="other_lake"):
-            extract_lake_series(tmp_path, "m", lake_id="other_lake")
+            extract_lake_series(tmp_path, "m", lake_id="other_lake", times=_DAYS)
 
     def test_missing_sidecar_raises(self, tmp_path: Path):
         with pytest.raises(ObservableNotAvailableError, match="sidecar"):
-            extract_lake_series(tmp_path, "m", lake_id="lac0")
+            extract_lake_series(tmp_path, "m", lake_id="lac0", times=_DAYS)
 
     def test_unsupported_quantity_raises(self, tmp_path: Path):
         _write_lake_outputs(tmp_path, "m")
         with pytest.raises(NotImplementedError, match="Lake calibration supports"):
-            extract_lake_series(tmp_path, "m", lake_id="lac0", quantity="inflow")
+            extract_lake_series(tmp_path, "m", lake_id="lac0", times=_DAYS, quantity="inflow")
 
 
 # ---------------------------------------------------------------------------
