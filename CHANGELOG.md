@@ -493,6 +493,13 @@ Each release section includes the following standard categories:
   refused.
 
 ### Fixed
+- Boussinesq derives an undeclared drain conductance as `K * cell_area /
+  solver.drain_bed_thickness_m`, like MODFLOW 6 and MODFLOW-NWT. It ignored the bed
+  thickness, so any value other than 1 m gave a different drainage, and a different
+  calibrated K, than the MODFLOW backends.
+- The per-cell `budget/constant_head` field of a Boussinesq run is signed positive into the
+  aquifer, as the field registry and MODFLOW sign it. It was written positive out, so a
+  map or a sum of it read the opposite of the same field from MODFLOW.
 - Validation: the triangle variants of the two drainage cases solve the problem of their
   reference. Each drain derives its conductance from K, so the leakance is the same on
   every triangle, where one conductance per cell varied it forty-fold (head RMSE 7.3 and

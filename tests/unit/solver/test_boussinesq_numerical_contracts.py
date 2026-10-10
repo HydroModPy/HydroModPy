@@ -77,6 +77,8 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
         ),
         "drainage_flux_history_m3_s": np.asarray([[0.1, 0.2], [0.3, 0.4]], dtype=float),
         "well_flux_history_m3_s": np.asarray([[-0.01, 0.0], [-0.02, 0.01]], dtype=float),
+        # The solver signs the prescribed-head flux positive out of the aquifer.
+        "prescribed_head_flux_history_m3_s": np.asarray([[0.05, 0.0], [-0.02, 0.0]], dtype=float),
         "saturation_excess_history_m_s": np.asarray(
             [[1.0e-9, 0.0], [0.0, 2.0e-9]],
             dtype=float,
@@ -131,6 +133,11 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
             np.testing.assert_allclose(
                 budget["surface_excess"][1],
                 np.asarray([0.0, 4.0e-7], dtype=float),
+            )
+            # Positive into the aquifer, as the registry and MODFLOW sign it.
+            np.testing.assert_allclose(
+                budget["constant_head"][:],
+                np.asarray([[-0.05, 0.0], [0.02, 0.0]], dtype=float),
             )
             derived = zarr_store.root["derived"]
             np.testing.assert_allclose(

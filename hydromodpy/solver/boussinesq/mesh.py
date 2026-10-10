@@ -73,6 +73,15 @@ class BoussinesqMesh:
     node_index_by_id: dict[int, int]
     planar_mesh: GmshPlanarMesh2D | None = None
     support_metadata: GmshSupportMetadata | None = None
+    # solver.drain_bed_thickness_m, with the same default. The flow adapter sets it.
+    drain_bed_thickness_m: float = 1.0
+
+    def __post_init__(self) -> None:
+        bed_thickness = float(self.drain_bed_thickness_m)
+        if not np.isfinite(bed_thickness) or bed_thickness <= 0.0:
+            raise ValueError(
+                f"drain_bed_thickness_m must be finite and positive; got {bed_thickness}."
+            )
 
     @property
     def n_cells(self) -> int:

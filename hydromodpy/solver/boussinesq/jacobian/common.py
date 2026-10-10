@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from hydromodpy.solver.boussinesq.assembly.fluxes import derived_drain_conductance_m2_s
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
 
@@ -39,6 +40,7 @@ def drainage_diagonal_derivative(
 
     At the ``h == z_top`` kink, choose the active Cauchy branch. This gives
     Newton a non-singular drainage tangent when no lateral head boundary exists.
+    A conductance that is not positive takes the derived one, as the residual does.
     """
     if drainage_conductance_m2_s is None:
         return np.zeros(mesh.n_cells, dtype=float)
@@ -46,8 +48,8 @@ def drainage_diagonal_derivative(
         drainage_conductance_m2_s,
         n_cells=mesh.n_cells,
     )
-    auto_conductance = mesh.hydraulic_conductivity_m_s * mesh.cell_area_m2
-    effective_conductance = np.where(conductance > 0.0, conductance, auto_conductance)
+    derived_conductance = derived_drain_conductance_m2_s(mesh)
+    effective_conductance = np.where(conductance > 0.0, conductance, derived_conductance)
     head = np.asarray(head_m, dtype=float)
     active = head >= mesh.z_top_m
     return np.where(active, effective_conductance, 0.0).astype(float, copy=False)

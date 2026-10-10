@@ -181,20 +181,22 @@ The drain removes water only where the head is above the land surface
 
 It is an outflow, and enters the residual with a plus sign. The conductance
 :math:`C_i` is the value of :toml:`flow.bc.drainage.value`, the same for every cell
-in a given period. When that value is not positive, the code uses
-:math:`C_i = K_i\,a_i` instead, which is the derivation :math:`K\,a/b` with a drain
-bed of :math:`b = 1` m. The solver does not read
-:toml:`solver.drain_bed_thickness_m`.
+in a given period. When that value is not positive, the code derives
+:math:`C_i = K_i\,a_i/b` instead, with :math:`b` the drain bed thickness
+:toml:`solver.drain_bed_thickness_m` (``derived_drain_conductance_m2_s`` in
+``assembly/fluxes.py``). It is the derivation of both MODFLOW solvers
+(:doc:`exits/drains-and-et`), with the same :math:`b`, without their floor for a
+degenerate cell.
 
 Two consequences follow.
 
 - The drain is never off. A run with no drainage boundary passes a conductance of
   zero, which selects the derivation. A cell whose head rises above the land
-  surface always loses water through :math:`K_i a_i`.
+  surface always loses water through :math:`K_i a_i/b`.
 - On a cell supported by the ocean, the driver sets the conductance to zero to
   silence the drain (``apply_ocean_drainage_mask`` in ``drivers/forcing.py``).
-  Zero selects the derivation, so these cells drain with :math:`K_i a_i` instead of
-  with the configured value.
+  Zero selects the derivation, so these cells drain with :math:`K_i a_i/b` instead
+  of with the configured value.
 
 The discharge that a calibration reads from this solver is the sum over the cells
 of this drain flow (``extract_discharge_history`` in ``calibration_extractors.py``).
@@ -518,6 +520,7 @@ the engine. Open a row for its card.
    flow.sinks_sources.recharge.first_clim
    flow.sinks_sources.wells.<name>.flux
    flow.bc.drainage.value
+   solver.drain_bed_thickness_m
    flow.bc.stream.value
    flow.ic.h.type
    flow.ic.h.source

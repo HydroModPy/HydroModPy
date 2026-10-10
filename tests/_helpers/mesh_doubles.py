@@ -44,6 +44,7 @@ class _MiniMesh:
     edge_distance_m: np.ndarray = field(default_factory=_empty_float)
     edge_midpoint_distance_to_cell_a_m: np.ndarray = field(default_factory=_empty_float)
     edge_midpoint_distance_to_cell_b_m: np.ndarray = field(default_factory=_empty_float)
+    drain_bed_thickness_m: float = 1.0
 
     @property
     def n_cells(self) -> int:

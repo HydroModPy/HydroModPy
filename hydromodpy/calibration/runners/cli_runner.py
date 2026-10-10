@@ -373,12 +373,13 @@ def _assert_network_conductance_proportional(
 
     The criterion calibrates the ratio K/R, and that only holds, while a search
     moves K, if the drain conductance follows the conductivity:
-    ``C = K * cell_area / drain_bed_thickness_m`` on both MODFLOW backends (the
-    fallback in ``drain_conductance.hk_fallback_drain_conductance``),
-    ``C = K * cell_area`` on Boussinesq. All three apply it only when the
-    configured conductance is not strictly positive. A fixed value breaks the
-    invariance from a factor 1.05 onwards, and the run still completes and
-    returns a number, so a K-moving search is refused before the first solve.
+    ``C = K * cell_area / drain_bed_thickness_m`` on every backend (the
+    fallback in ``drain_conductance.hk_fallback_drain_conductance`` on both
+    MODFLOW backends, ``fluxes.derived_drain_conductance_m2_s`` on
+    Boussinesq). All three apply it only when the configured conductance is not
+    strictly positive. A fixed value breaks the invariance from a factor 1.05
+    onwards, and the run still completes and returns a number, so a K-moving
+    search is refused before the first solve.
 
     A search that drives some other parameter with the conductance fixed is a
     different question: the network criterion can be pointed at any parameter,

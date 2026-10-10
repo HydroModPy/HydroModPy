@@ -254,7 +254,10 @@ class BoussinesqOutputAdapter:
         like on the MODFLOW backends.
         """
         for name, stack in components.items():
-            values = stack.reshape(stack.shape[0], 1, -1) if name == "well" else stack
+            # The registry signs a constant-head flux positive into the aquifer,
+            # as MODFLOW writes it; the solver signs it positive out.
+            signed = -stack if name == "constant_head" else stack
+            values = signed.reshape(signed.shape[0], 1, -1) if name == "well" else signed
             store.write_field_stack(sim_id, name, values, subgroup="budget")
 
         if surface_excess_rate_m_s is not None:
