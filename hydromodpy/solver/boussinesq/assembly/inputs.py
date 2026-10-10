@@ -29,6 +29,25 @@ def as_cell_vector(
     return array.astype(float, copy=False)
 
 
+def on_free_cells(
+    values: np.ndarray,
+    *,
+    prescribed_mask: np.ndarray,
+) -> np.ndarray:
+    """Return one cell term with nothing on the cells with an imposed head.
+
+    A cell with an imposed head is a boundary, as in MODFLOW: its recharge,
+    wells and drain do not act on the aquifer. Kept in the cell balance, such
+    a term would be counted once on its own and once more in the constant-head
+    flux that cancels it.
+    """
+    array = np.asarray(values, dtype=float).reshape(-1)
+    mask = np.asarray(prescribed_mask, dtype=bool).reshape(-1)
+    if not np.any(mask):
+        return array
+    return np.where(mask, 0.0, array)
+
+
 def as_prescribed_head_cell_vector(
     values: np.ndarray | None,
     *,
@@ -146,5 +165,6 @@ __all__ = [
     "as_edge_vector",
     "as_prescribed_head_cell_vector",
     "finalize_boundary_constrained_residual",
+    "on_free_cells",
     "resolve_boundary_head_inputs",
 ]

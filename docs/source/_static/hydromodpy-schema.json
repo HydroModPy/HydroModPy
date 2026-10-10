@@ -8284,6 +8284,19 @@
           "type": "string",
           "x-hmp-profile": "dev"
         },
+        "partition_release_depth_m": {
+          "default": 0.05,
+          "description": "Depth scale, in metres, of the regularized partition, the surface closure the Boussinesq solver uses by default on every engine but petsc. A cell whose water table lies d metres below the land surface releases at the surface the share exp(-d / depth) of the water it receives, its lateral inflow plus its recharge and wells: all of it with the water table at the surface, 37 % at one depth scale, 2e-9 at 1 m with the default 0.05 m. It stands for the microtopography over which seepage starts, and smooths the onset of seepage for the Newton solve. A smaller value comes closer to the exact threshold of the complementarity closure and makes the solve stiffer. The other closures and the MODFLOW solvers do not read it.",
+          "examples": [
+            0.05,
+            0.02
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Partition Release Depth M",
+          "type": "number",
+          "unit": "m",
+          "x-hmp-profile": "user"
+        },
         "runtime_max_iterations": {
           "anyOf": [
             {
@@ -25070,7 +25083,7 @@
         },
         "substeps_per_period": {
           "default": 1,
-          "description": "Number of solver time steps within each stress period, the one knob that buys transient accuracy. The default of 1 integrates a whole period in a single backward-Euler step, which is not a neutral choice: on a seasonally recharged hillslope drained by DRN cells it moves the monthly discharge by 4 to 28 % against a refined run, across the whole plausible bedrock range, and a calibration scored on discharge absorbs that into the fitted parameters. The right count compares the aquifer response time `tau = L^2 S / (K b)` with the period length, and the solver cost is linear in it; 30 gives daily steps inside monthly periods. Consumed by the MODFLOW backends as DIS NSTP / TDIS nstp, and by the Boussinesq backend, which solves each period in as many backward-Euler steps of equal length.",
+          "description": "Number of solver time steps within each stress period, the one knob that buys transient accuracy. The default of 1 integrates a whole period in a single backward-Euler step, which is not a neutral choice: on a seasonally recharged hillslope drained by DRN cells it moves the monthly discharge by 4 to 28 % against a refined run, across the whole plausible bedrock range, and a calibration scored on discharge absorbs that into the fitted parameters. The right count compares the aquifer response time `tau = L^2 S / (K b)` with the period length, and the solver cost is linear in it; 30 gives daily steps inside monthly periods. Consumed by the MODFLOW backends as DIS NSTP / TDIS nstp, and by the Boussinesq backend, which solves each period in as many backward-Euler steps of equal length. Every solver stores one result per period: the head at the end of the period and each flux as the mean of its steps, weighted by their length.",
           "examples": [
             1
           ],

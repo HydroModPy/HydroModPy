@@ -218,8 +218,10 @@ def test_modflow_nwt_keeps_a_transient_first_period():
 
 
 class _BoussinesqForcing(ForcingCommonMixin):
-    def __init__(self, flow_regime: str) -> None:
-        self.flow = types.SimpleNamespace(flow_regime=flow_regime)
+    def __init__(self, flow_regime: str, *, first_period_steady: bool = False) -> None:
+        self.flow = types.SimpleNamespace(
+            flow_regime=flow_regime, first_period_steady=first_period_steady
+        )
         self.time_grid = None
 
 
@@ -229,6 +231,16 @@ def test_boussinesq_keeps_period_zero_of_a_transient_run():
     )
 
     np.testing.assert_allclose(series, [2.0, 4.0, 9.0])
+
+
+@pytest.mark.parametrize(("first_clim", "expected"), [("mean", 5.0), ("first", 2.0), (7.0, 7.0)])
+def test_boussinesq_steady_first_period_of_a_transient_run_takes_first_clim(first_clim, expected):
+    # flow.first_period_steady: period 0 is steady, as in MODFLOW, and takes the rule.
+    series = _BoussinesqForcing("transient", first_period_steady=True).recharge_period_series(
+        payload=[2.0, 4.0, 9.0], nper=3, first_clim=first_clim, label="recharge"
+    )
+
+    np.testing.assert_allclose(series, [expected, 4.0, 9.0])
 
 
 def test_boussinesq_steady_run_takes_first_clim():

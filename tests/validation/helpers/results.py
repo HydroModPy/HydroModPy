@@ -281,6 +281,43 @@ def _mesh_of(polygons: Any) -> tuple[np.ndarray, list[list[int]]] | None:
     return np.array(list(index)), faces
 
 
+# Share of the 99th percentile of the absolute error under which a cell is not
+# worth keeping on a map: the figure frames the cells above it.
+MAP_VISIBLE_SHARE = 0.02
+# Margin around the cells kept, as a share of the larger side of their box.
+MAP_MARGIN_SHARE = 0.15
+
+
+def _visible_window(centres: np.ndarray, error: np.ndarray) -> tuple[float, ...] | None:
+    """Box ``(x0, x1, y0, y1)`` around the cells whose error shows on the map.
+
+    The page draws the error on a symmetric scale set by the 99th percentile of
+    its magnitude; a cell under a small share of it reads as zero. A pumping or
+    recharge case has a wide domain and an error that lives around the well or
+    the recharge area, so only that window is kept. Returns None when every
+    cell shows.
+    """
+    finite = np.isfinite(error)
+    if not finite.any():
+        return None
+    magnitude = np.abs(error[finite])
+    # The figure falls back to the peak when the percentile is zero.
+    limit = float(np.percentile(magnitude, 99.0)) or float(magnitude.max())
+    if limit <= 0.0:
+        return None
+    shown = finite & (np.abs(error) >= MAP_VISIBLE_SHARE * limit)
+    if not shown.any() or shown.sum() == finite.sum():
+        return None
+    (x0, y0), (x1, y1) = centres[shown].min(axis=0), centres[shown].max(axis=0)
+    pad = MAP_MARGIN_SHARE * max(x1 - x0, y1 - y0)
+    return x0 - pad, x1 + pad, y0 - pad, y1 + pad
+
+
+def _inside(points: np.ndarray, window: tuple[float, ...]) -> np.ndarray:
+    x0, x1, y0, y1 = window
+    return (points[:, 0] >= x0) & (points[:, 0] <= x1) & (points[:, 1] >= y0) & (points[:, 1] <= y1)
+
+
 def record_map(
     name: str,
     polygons: Any,
@@ -296,8 +333,9 @@ def record_map(
     sea or inactive cells. A regular grid is kept as its edges and a row-major
     error array (key ``grid``). Any other mesh keeps shared vertices and one
     vertex index list per cell. The error keeps 2 significant digits: the page
-    draws a map, not the raw output. ``overlay`` may carry ``coast_circle``
-    ``[cx, cy, radius]`` or ``well`` ``[x, y]``, in metres.
+    draws a map, not the raw output. Only the cells around those whose error
+    shows on the map are kept (``_visible_window``). ``overlay`` may carry
+    ``coast_circle`` ``[cx, cy, radius]`` or ``well`` ``[x, y]``, in metres.
     """
     if _CURRENT is None:
         return
@@ -317,6 +355,14 @@ def record_map(
         xe, ye, where = grid
         full = np.full((ye.size - 1, xe.size - 1), np.nan)
         full[where[:, 0], where[:, 1]] = error
+        xc, yc = 0.5 * (xe[:-1] + xe[1:]), 0.5 * (ye[:-1] + ye[1:])
+        xx, yy = np.meshgrid(xc, yc)
+        window = _visible_window(np.column_stack([xx.ravel(), yy.ravel()]), full.ravel())
+        if window is not None:
+            cols = np.flatnonzero((xc >= window[0]) & (xc <= window[1]))
+            rows = np.flatnonzero((yc >= window[2]) & (yc <= window[3]))
+            full = full[rows[0] : rows[-1] + 1, cols[0] : cols[-1] + 1]
+            xe, ye = xe[cols[0] : cols[-1] + 2], ye[rows[0] : rows[-1] + 2]
         entry["grid"] = {"x_edges": _sig(xe, 8), "y_edges": _sig(ye, 8)}
         entry["error"] = _sig(full.ravel(), 2)
     else:
@@ -324,6 +370,14 @@ def record_map(
         if mesh is None or len(mesh[1]) != error.size:
             return
         vertices, faces = mesh
+        centres = np.asarray([vertices[face].mean(axis=0) for face in faces])
+        window = _visible_window(centres, error)
+        if window is not None:
+            kept = np.flatnonzero(_inside(centres, window))
+            used = np.unique(np.concatenate([np.asarray(faces[i]) for i in kept]))
+            renumber = {int(v): k for k, v in enumerate(used)}
+            faces = [[renumber[int(v)] for v in faces[i]] for i in kept]
+            vertices, error = vertices[used], error[kept]
         entry["vertices"] = [_sig(v, 8) for v in vertices]
         entry["faces"] = faces
         entry["error"] = _sig(error, 2)

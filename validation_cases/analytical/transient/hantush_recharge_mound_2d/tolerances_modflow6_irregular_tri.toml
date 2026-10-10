@@ -1,0 +1,20 @@
+[space_time]
+rmse = 0.0029
+max_abs_error = 0.0095
+centre_max_abs_error = 0.0092
+
+[final_time]
+rmse = 0.0024
+map_max_abs_error = 0.021
+
+[doc]
+reason = """
+Twice the error measured on the conforming triangles, 6806 cells of 10 m
+under the rectangle and up to 80 m at the sides, whose edges follow the
+rectangle so each triangle takes all or none of the recharge: transect
+space-time RMSE 1.4e-3 m, max error 4.7e-3 m, centre max 4.6e-3 m, final
+transect RMSE 1.2e-3 m. The final map max, 1.0e-2 m, sits 20 to 40 m outside
+the long sides, where triangles of 12 m meet the recharge edge: the two-point
+flux between centroids is not consistent on a general triangle, and the
+Boussinesq runtime on the same triangles reads the same cells.
+"""

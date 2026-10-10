@@ -1,0 +1,22 @@
+# MODFLOW-NWT and MODFLOW 6 on the same 101 x 101 grid share these bounds.
+[space_time]
+rmse = 0.0033
+max_abs_error = 0.0096
+centre_max_abs_error = 0.0096
+
+[final_time]
+rmse = 0.0027
+map_max_abs_error = 0.011
+
+[doc]
+reason = """
+Twice the error measured against the Hantush mound on the 101 x 101 grid of
+20 m with steps of 6 h, MODFLOW-NWT and MODFLOW 6 alike: transect space-time
+RMSE 1.6e-3 m, max error 4.8e-3 m (the centre at day 3), final transect RMSE
+1.3e-3 m, final map max 5.4e-3 m, for a mound of 0.75 m. Refined with MODFLOW
+6, steps of 3 and 1 h read RMSE 9.5e-4 and 9.1e-4 m on 20 m cells, the floor
+of the 20 m grid; cells of 6.7 m read 2.0e-3 m with 6 h steps and 4.2e-4 m
+with 1 h steps (max 1.2e-3 m). That limit is the linearization: a nonlinear
+finite-difference solution on 6.7 m cells and 45 min steps reads 3.5e-4 m and
+1.1e-3 m against the reference.
+"""

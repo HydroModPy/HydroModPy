@@ -27,6 +27,7 @@ from hydromodpy.solver.boussinesq.assembly import (
     BoussinesqAssembly,
     assemble_steady_residual_with_saturation_excess,
 )
+from hydromodpy.solver.boussinesq.assembly.period_mean import period_mean_assembly
 from hydromodpy.solver.boussinesq.runtime_contract import (
     RuntimeSolveResult,
     SteadySolveInputs,
@@ -186,8 +187,15 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
                 termination_reason = (
                     f"{termination_reason}; adaptive_vi_substeps_used={int(n_substeps)}"
                 )
+            # A stamp closes its period: the state is the last substep, each
+            # flux the mean of the substeps, which are of equal length.
+            weight = 1.0 / float(len(substep_results))
             return replace(
                 final_result,
+                assembly=period_mean_assembly(
+                    [result.assembly for result in substep_results],
+                    [weight] * len(substep_results),
+                ),
                 iterations=_sum_substep_iterations(substep_records),
                 termination_reason=termination_reason,
                 diagnostics=diagnostics,

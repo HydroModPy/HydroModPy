@@ -25,7 +25,10 @@ Comparison:
   triangles, the reference at each centroid
 - for `solver=modflow6_voronoi`, the profile is read on the solver cells, which
   are centred on the nodes of the mesh bundle, in 5 m bins that each hold one
-  node ring
+  node ring; a node ring lies on the coast, where the model must hold the sea
+  level, so this run reads a 1 m DEM whose shoreline sits 1 m inside that ring
+  and every coast cell takes the ocean head (a node on the shoreline itself is
+  a tie that the DEM sampling breaks at random)
 
 Direct execution:
 

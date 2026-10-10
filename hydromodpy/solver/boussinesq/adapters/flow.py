@@ -184,6 +184,12 @@ class BoussinesqFlowAdapter:
         runtime_mesh_support = getattr(state.setup, "mesh_support", None)
         if runtime_mesh_support is not None:
             solver_mesh = replace(solver_mesh, support_metadata=runtime_mesh_support)
+        solver_cfg = getattr(state.cfg, "solver", None)
+        if solver_cfg is not None:
+            solver_mesh = replace(
+                solver_mesh,
+                drain_bed_thickness_m=float(solver_cfg.drain_bed_thickness_m),
+            )
         workspace = getattr(state.setup, "workspace", None)
         model_folder = (
             Path(workspace.solver_scratch_folder) if workspace is not None else Path.cwd()

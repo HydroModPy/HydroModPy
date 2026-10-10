@@ -195,6 +195,24 @@ def test_resolve_recharge_series_mm_day_prefers_runtime_history() -> None:
     assert np.allclose(recharge_mm_day, expected_m_s * 86_400.0 * 1_000.0)
 
 
+def test_resolve_recharge_series_mm_day_skips_the_cells_with_an_imposed_head() -> None:
+    # The fixed-head cell takes no recharge: the mean is the forcing, not less.
+    state_history = {
+        "recharge_rate_history_m_s": np.asarray([[0.0, 0.0], [1.0e-7, 0.0]], dtype=float),
+        "prescribed_head_history_m_by_cell": np.asarray(
+            [[np.nan, 5.0], [np.nan, 5.0]], dtype=float
+        ),
+    }
+    recharge_mm_day = _resolve_recharge_series_mm_day(
+        state_history=state_history,
+        forcing_cfg={"recharge_mm_day": [9.0]},
+        cell_area_m2=np.asarray([1.0, 3.0], dtype=float),
+        n_periods=1,
+    )
+
+    assert np.allclose(recharge_mm_day, [1.0e-7 * 86_400.0 * 1_000.0])
+
+
 def test_align_step_series_trims_to_common_length() -> None:
     x, y = _align_step_series(
         np.asarray([0.0, 1.0, 2.0, 3.0], dtype=float),

@@ -173,6 +173,7 @@ class Modflow6FlowAdapter:
                 output_dir,
                 model_name,
                 lake_id=str(request.key),
+                times=_saved_head_times(output_dir, model_name),
                 quantity=request.name,
                 time_index=time_index,
             )
@@ -220,6 +221,23 @@ class Modflow6FlowAdapter:
             preprocess_options=preprocess_options,
         )
         return run_flow_model(ctx, model_modflow, preprocess_options)
+
+
+def _saved_head_times(output_dir: Path, model_name: str) -> list[float]:
+    """The stamps of the run: the times of its saved heads, one per stress period."""
+    import flopy
+
+    head_path = output_dir / f"{model_name}.hds"
+    if not head_path.is_file():
+        raise ObservableNotAvailableError(
+            f"HDS file not found for model {model_name!r} in {output_dir}: the lake "
+            "observations are put on the stress periods it stamps."
+        )
+    head_file = flopy.utils.HeadFile(str(head_path))
+    try:
+        return [float(value) for value in head_file.get_times()]
+    finally:
+        head_file.close()
 
 
 def _reach_flow_by_cell(output_dir: Path, model_name: str) -> dict[int, Any] | None:

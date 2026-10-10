@@ -110,7 +110,9 @@ the boundary. The conductance is static unless the value is a series. A period
 is written only when the declared value changes, and MODFLOW 6 reuses the last
 data for the periods left out.
 
-The bed thickness $b_d$ is {toml}`solver.drain_bed_thickness_m`.
+The bed thickness $b_d$ is {toml}`solver.drain_bed_thickness_m`. The
+Boussinesq solver derives its drain conductance with the same $b_d$, without the
+floor ({doc}`../boussinesq`).
 
 In the code: `hk_fallback_drain_conductance`.
 

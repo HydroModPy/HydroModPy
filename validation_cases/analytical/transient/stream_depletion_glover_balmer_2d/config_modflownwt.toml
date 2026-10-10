@@ -1,0 +1,140 @@
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "Stream depletion Glover-Balmer 2D validation"
+description = "Synthetic transient unconfined flow: one well pumping beside a stream held at a fixed head on the west side; the other sides are closed."
+
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-01-20 23:00:00"
+step_value = "12 hour"
+substeps_per_period = 4
+coverage_policy = "ignore"
+
+[simulation.results.budget]
+# Keeps the per-cell constant-head flux: the stream depletion is its sum.
+spatial_fields = true
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+[workspace]
+project_root = "."
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "val_stream_depletion_glover_balmer_2d"
+
+[geographic.synthetic.grid]
+length_x = "800.0 m"
+length_y = "1610.0 m"
+nx = 80
+ny = 161
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 40.0
+
+[domain]
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "40.0 m"
+
+[flow]
+first_period_steady = false
+flow_regime = "transient"
+active_sinks_sources = ["wells"]
+active_bc = ["west_side"]
+param_list = ["K", "Ss", "Sy"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+value = "1e-4 m/s"
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+value = "1e-7 m-1"
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "homogeneous"
+value = "0.1 -"
+
+[flow.ic]
+type = "custom"
+value = "30.0 m"
+
+# The stream: a straight line along the west side, held at the initial head.
+[flow.bc.west_side]
+kind = "dirichlet"
+value = "30.0 m"
+
+[flow.sinks_sources.wells.P1]
+units = "m3/day"
+description = "Pumping well 100 m from the stream"
+
+# Column 10 and row 80 of the 10 m grid: the cell centred on (105, 805) m.
+[flow.sinks_sources.wells.P1.location]
+kind = "cell"
+cell = [0, 80, 10]
+
+[flow.sinks_sources.wells.P1.forcing]
+value = -300.0
+kind = "constant"
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 80
+ny = 161
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+# The validation profile of the 1D cases: chi-MD with COMPLEX options, closures
+# three decades below the smallest head change and flux the case compares. The
+# run is in seconds.
+[modflownwt.runtime.nwt]
+version = "mfnwt"
+listunit = 2
+verbose = false
+headtol = 1e-9
+fluxtol = 1e-10
+maxiterout = 1000
+thickfact = 1e-5
+linmeth = 2
+iprnwt = 0
+ibotav = 1
+options = "COMPLEX"
+continue_run = false
+backflag = 0
+stoptol = 1e-10
+
+[modflownwt.runtime.dis]
+itmuni = 1
+
+[modflownwt.runtime.upw]
+iphdry = 1
+hdry = -100.0
+layvka = 1
+
+[modflownwt.runtime.oc]
+compact = true
+
+[modflownwt.runtime.wel]
+ipakcb = 1
+
+[modflownwt.process_specific]
+vka = 1.0
+
+[display]
+enabled = false

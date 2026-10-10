@@ -226,7 +226,8 @@ def _resolve_recharge_series_mm_day(
 
     The numerical scenario may override the metadata forcing through presets or
     CLI arguments. The plotting/diagnostic layer therefore prefers the exported
-    runtime recharge history over the static metadata payload.
+    runtime recharge history over the static metadata payload. A cell with an
+    imposed head takes no recharge, so the mean runs over the free cells.
     """
     recharge_history = np.asarray(
         state_history.get("recharge_rate_history_m_s", ()),
@@ -240,6 +241,13 @@ def _resolve_recharge_series_mm_day(
         )
         if period_rates_m_s.size != 0:
             weights = np.asarray(cell_area_m2, dtype=float).reshape(1, -1)
+            prescribed_history = np.asarray(
+                state_history.get("prescribed_head_history_m_by_cell", ()),
+                dtype=float,
+            )
+            if prescribed_history.ndim == 2 and prescribed_history.shape[1] == weights.shape[1]:
+                free_cells = ~np.isfinite(prescribed_history[-1])
+                weights = np.where(free_cells, weights, 0.0)
             total_area = float(np.sum(weights))
             if total_area > 0.0 and period_rates_m_s.shape[1] == weights.shape[1]:
                 weighted_mean_m_s = np.sum(period_rates_m_s * weights, axis=1) / total_area

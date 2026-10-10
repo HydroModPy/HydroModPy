@@ -1,0 +1,57 @@
+case_id = "stream_depletion_glover_balmer_2d"
+category = "analytical"
+regime = "transient"
+dimension = "2d"
+config_file = "config_modflownwt.toml"
+default_solver = "modflow_nwt"
+base_config = "config_modflownwt.toml"
+
+[config_files]
+modflow_nwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+modflow6_irregular_tri = "config_modflow6_irregular_tri.toml"
+modflow6_voronoi = "config_modflow6_voronoi.toml"
+boussinesq = "config_boussinesq.toml"
+boussinesq_local = "config_boussinesq_local.toml"
+
+[workspace]
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "watertable_elevation"
+expected_periods = 40
+
+[time]
+dt_seconds = 43200.0
+substeps_per_period = 4
+
+# Stream on the west face (x = 0), closed sides 8 a from the well. T = K b with
+# b the initial saturated thickness, S = Sy.
+[reference]
+xmin = 0.0
+xmax = 800.0
+ymin = 0.0
+ymax = 1610.0
+well_x_m = 105.0
+well_y_m = 805.0
+base_head_m = 30.0
+bottom_elevation_m = 0.0
+hydraulic_conductivity_m_per_s = 1e-4
+reference_saturated_thickness_m = 30.0
+specific_yield = 0.1
+pumping_rate_m3_day = 300.0
+
+# Three points between the well and the stream, two behind the well, one beside
+# it, parallel to the stream.
+[plot]
+monitor_points_m = [
+    [35.0, 805.0],
+    [55.0, 805.0],
+    [75.0, 805.0],
+    [155.0, 805.0],
+    [205.0, 805.0],
+    [105.0, 905.0],
+]
+# Plan-view map window, in metres from the stream face and the well row.
+map_window_x_m = [0.0, 400.0]
+map_window_y_m = [-400.0, 400.0]

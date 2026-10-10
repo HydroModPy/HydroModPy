@@ -7,7 +7,10 @@ from typing import Protocol
 
 import numpy as np
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
+
+logger = get_logger(__name__)
 
 
 class BoussinesqForcingSolver(Protocol):
@@ -79,6 +82,10 @@ def resolve_runtime_forcing_by_period(
         resolver.resolve_drainage_conductance_series(nper),
         dtype=float,
     )
+    _warn_wells_on_cells_with_an_imposed_head(
+        well_flux_by_period_m3_s,
+        prescribed_heads_by_period,
+    )
     return ResolvedRuntimeForcing(
         recharge_series_m_s=recharge_series_m_s,
         active_recharge=bool(active_recharge),
@@ -92,6 +99,26 @@ def resolve_runtime_forcing_by_period(
         ocean_supported_cell_masks=ocean_supported_cell_masks,
         drainage_conductance_series_m2_s=drainage_conductance_series_m2_s,
     )
+
+
+def _warn_wells_on_cells_with_an_imposed_head(
+    well_flux_by_period_m3_s: np.ndarray,
+    prescribed_heads_by_period: tuple[np.ndarray, ...],
+) -> None:
+    """Say that a well on a cell with an imposed head pumps nothing, as in MODFLOW."""
+    wells = np.asarray(well_flux_by_period_m3_s, dtype=float)
+    if wells.ndim != 2:
+        return
+    held_cells: set[int] = set()
+    for kper, prescribed in enumerate(prescribed_heads_by_period[: wells.shape[0]]):
+        held = np.isfinite(np.asarray(prescribed, dtype=float)) & (wells[kper] != 0.0)
+        held_cells.update(int(cell) for cell in np.flatnonzero(held))
+    if held_cells:
+        logger.warning(
+            "Boussinesq wells on cells %s sit on a cell with an imposed head: they pump "
+            "nothing, as in MODFLOW. Place them on a free cell to pump.",
+            sorted(held_cells),
+        )
 
 
 def apply_ocean_drainage_mask(

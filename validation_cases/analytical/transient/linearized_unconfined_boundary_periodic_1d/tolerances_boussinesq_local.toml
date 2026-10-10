@@ -1,0 +1,23 @@
+[space_time]
+rmse = 0.0103
+max_abs_error = 0.062
+row_spread = 1e-7
+
+[final_profile]
+rmse = 0.0069
+max_abs_error = 0.021
+
+[tide]
+decay_length_relative_error = 0.12
+lag_length_relative_error = 0.15
+
+[doc]
+reason = """
+Twice the error measured with the default 'auto' engine, which runs
+scipy_sparse on these 500 triangles with one backward-Euler step a period:
+space-time RMSE 5.1e-3 m, max error 3.1e-2 m, final RMSE 3.4e-3 m, final max
+1.0e-2 m; decay and lag length errors 5.9 and 7.5 %, the MODFLOW values of
+tolerances.toml, where the error is explained. The strip is uniform across
+rows, so a row spread is solver noise: the sparse engine reads 4e-11 m; the
+bound is 1e-7 m, as on the sibling strips.
+"""

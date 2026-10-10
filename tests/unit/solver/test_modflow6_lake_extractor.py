@@ -57,7 +57,7 @@ def _stub_applied_exchange(
 ) -> None:
     """Serve a known applied flux, standing in for the LAK binary budget."""
     monkeypatch.setattr(
-        lake_extractor, "read_applied_exchange", lambda spec, obs_path, *, n_steps: exchange
+        lake_extractor, "read_applied_exchange", lambda spec, obs_path, *, times: exchange
     )
 
 

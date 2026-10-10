@@ -9,6 +9,8 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 
+DEFAULT_PARTITION_RELEASE_DEPTH_M = 0.05
+
 
 class FlowRuntimeConfig(HydroModelBase):
     """Grouped view of the Boussinesq runtime fields on :class:`FlowConfig`.
@@ -46,6 +48,15 @@ class FlowRuntimeConfig(HydroModelBase):
             "q_ex-perp-(z_top-h) formulation; ``vi_obstacle`` uses the "
             "experimental PETSc head-only VI obstacle formulation; ``auto`` "
             "keeps the historical backend-dependent default."
+        ),
+    )
+    partition_release_depth_m: Annotated[float, Profile.DEV] = Field(
+        default=DEFAULT_PARTITION_RELEASE_DEPTH_M,
+        gt=0.0,
+        description=(
+            "Depth scale, in metres, of the regularized partition: the share "
+            "exp(-d / depth) of its supply that a cell releases with its water "
+            "table d metres below the land surface."
         ),
     )
     max_iterations: Annotated[int | None, Profile.DEV] = Field(
@@ -107,4 +118,4 @@ class FlowRuntimeConfig(HydroModelBase):
     )
 
 
-__all__ = ["FlowRuntimeConfig"]
+__all__ = ["DEFAULT_PARTITION_RELEASE_DEPTH_M", "FlowRuntimeConfig"]

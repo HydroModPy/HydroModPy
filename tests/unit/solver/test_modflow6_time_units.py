@@ -87,6 +87,8 @@ def _fake_cbc_factory(records: dict[str, np.ndarray]):
                     kper=1,
                     text=text,
                     imeth=1,
+                    delt=1.0,
+                    totim=1.0,
                     ndim1=2,
                     ndim2=1,
                     ndim3=-1,
@@ -174,8 +176,12 @@ def test_mf6_budget_flux_seconds_is_identity(tmp_path, monkeypatch) -> None:
 def test_mf6_mass_balance_extracts_storage_components(tmp_path, monkeypatch) -> None:
     dtype = np.dtype(
         [
+            ("time_step", "<i4"),
+            ("stress_period", "<i4"),
+            ("tslen", "<f8"),
             ("TOTAL_IN", "<f8"),
             ("TOTAL_OUT", "<f8"),
+            ("IN-OUT", "<f8"),
             ("PERCENT_DISCREPANCY", "<f8"),
             ("STO-SS_IN", "<f8"),
             ("STO-SY_IN", "<f8"),
@@ -183,7 +189,9 @@ def test_mf6_mass_balance_extracts_storage_components(tmp_path, monkeypatch) -> 
             ("STO-SY_OUT", "<f8"),
         ]
     )
-    inc = np.array([(174240.0, 174240.0, 0.01, 864.0, 86400.0, 0.0, 43200.0)], dtype=dtype)
+    inc = np.array(
+        [(0, 0, 1.0, 174240.0, 174240.0, 0.0, 0.01, 864.0, 86400.0, 0.0, 43200.0)], dtype=dtype
+    )
 
     class _FakeListBudget:
         def __init__(self, path, precision: str = "double") -> None:
@@ -195,7 +203,7 @@ def test_mf6_mass_balance_extracts_storage_components(tmp_path, monkeypatch) -> 
     monkeypatch.setattr("flopy.utils.Mf6ListBudget", _FakeListBudget, raising=True)
     store = _FakeStore()
     Modflow6OutputAdapter()._extract_mass_balance(
-        "sim", store, tmp_path / "flow.lst", seconds_per_time_unit=86400.0
+        "sim", store, tmp_path / "flow.lst", stamp_keys=[(0, 0)], seconds_per_time_unit=86400.0
     )
     rec = store.mass[0]
     assert rec["storage_in"] == pytest.approx(1.01)
@@ -218,6 +226,17 @@ def _write_drain_cbc_fixtures(tmp_path: Path, monkeypatch) -> None:
         def __init__(self, path, precision: str = "double") -> None:
             del path
             # kstp / kper are 1-based on a record, 0-based from get_kstpkper().
+            self.recordarray = np.array(
+                [(1, 1, b"             DRN", 6, 1.0, 1.0)],
+                dtype=[
+                    ("kstp", "<i4"),
+                    ("kper", "<i4"),
+                    ("text", "S16"),
+                    ("imeth", "<i4"),
+                    ("delt", "<f8"),
+                    ("totim", "<f8"),
+                ],
+            )
 
         def get_unique_record_names(self):
             return [b"DRN"]
@@ -277,6 +296,17 @@ def test_nwt_calibration_discharge_still_uses_dis_itmuni(tmp_path, monkeypatch) 
     class _FakeCBC:
         def __init__(self, path, precision: str = "double") -> None:
             del path
+            self.recordarray = np.array(
+                [(1, 1, b"             DRN", 6, 1.0, 1.0)],
+                dtype=[
+                    ("kstp", "<i4"),
+                    ("kper", "<i4"),
+                    ("text", "S16"),
+                    ("imeth", "<i4"),
+                    ("delt", "<f8"),
+                    ("totim", "<f8"),
+                ],
+            )
 
         def get_unique_record_names(self):
             return [b"DRN"]

@@ -121,6 +121,31 @@ _ATS_DTADJ = 1.0
 _ATS_DTFAILADJ = 5.0
 
 
+def output_control_records(*, print_head: bool) -> dict[str, list[tuple[str, str]]]:
+    """Return the ``saverecord`` and ``printrecord`` of the flow output control.
+
+    The store holds exactly one slice per stress period. That is the catalog
+    contract (n_timesteps == number of stress periods == len(run.time_index)).
+    A stamp closes its period: the head is the state at the period end, so it
+    is saved at the LAST step, and a flux is the mean over the period, so the
+    budget of EVERY step is saved and printed, and the extractor averages the
+    steps by their length. Sub-stepping (nstp > 1 through
+    simulation.time.substeps_per_period) and ATS refine the transient
+    solution, they do not add output slices. With one step per period, ALL
+    and LAST write the same records.
+    """
+    printrecord = [("BUDGET", "ALL")]
+    if print_head:
+        # Off by default: it re-formats the whole head field as text at every
+        # step. Measured on the Nancon at 25 m, 2.96 GB of listing for 1826
+        # steps, carrying numbers the binary head file already holds.
+        printrecord.insert(0, ("HEAD", "LAST"))
+    return {
+        "saverecord": [("HEAD", "LAST"), ("BUDGET", "ALL")],
+        "printrecord": printrecord,
+    }
+
+
 def build_ats_perioddata(
     *,
     perlen: np.ndarray,
@@ -1549,20 +1574,11 @@ def run_pre_processing(  # noqa: PLR0915
             perioddata={0: all_mover_rows},
         )
 
-    # Save per period end, so the store always holds exactly one record per
-    # stress period. That is the catalog contract (n_timesteps == number of
-    # stress periods == len(run.time_index)). Sub-stepping (nstp > 1 through
-    # simulation.time.substeps_per_period) and ATS refine the transient
-    # solution, they do not add output records.
     model.oc = flopy.mf6.ModflowGwfoc(
         model.gwf,
         head_filerecord=f"{model.model_output_name}.hds",
         budget_filerecord=f"{model.model_output_name}.cbc",
-        saverecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
-        # Off by default: it re-formats the whole head field as text at every
-        # step. Measured on the Nancon at 25 m, 2.96 GB of listing for 1826
-        # steps, carrying numbers the binary head file already holds.
-        printrecord=[("HEAD", "LAST")] if model.modflow_config.runtime.print_head else None,
+        **output_control_records(print_head=model.modflow_config.runtime.print_head),
     )
     model._runtime_dirty_packages = ()
     model._calibration_runtime_reuse_signature = reuse_signature

@@ -32,8 +32,13 @@ from validation_cases.shared.runtime import (
 
 CASE_DIR = Path(__file__).resolve().parent
 CASE_ID = "late_time_unconfined_pumping_2d"
-MESH_NX = 31
-MESH_NY = 31
+# 71 x 71 squares of 28.2 m, split into 10082 triangles of 397 m2: the cell
+# area of the 101 x 101 MODFLOW grid (400 m2). The default engine runs
+# scipy_sparse on it. On 31 x 31 squares of 64.5 m (1922 triangles)
+# the space-time RMSE read 0.0084 m; from 61 x 61 on it reads 0.0042 to
+# 0.0045 m, the value MODFLOW reads on its grid.
+MESH_NX = 71
+MESH_NY = 71
 
 
 def _write_csv(path: Path, header: str, rows: list[str]) -> None:

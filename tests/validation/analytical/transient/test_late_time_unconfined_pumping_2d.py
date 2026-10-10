@@ -112,7 +112,7 @@ def test_late_time_unconfined_pumping_2d_matches_late_time_reference_default_eng
 ) -> None:
     """Run the benchmark on the default Boussinesq engine, which needs no PETSc.
 
-    The mesh has 1922 cells, so 'auto' runs the sparse engine.
+    The mesh has 10082 cells, so 'auto' runs the sparse engine.
     """
     _assert_late_time_unconfined_pumping_case(
         solver=solver,

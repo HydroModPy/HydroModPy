@@ -1,0 +1,28 @@
+[space_time]
+rmse = 0.011
+max_abs_error = 0.066
+row_spread = 1e-5
+
+[final_profile]
+rmse = 0.0069
+max_abs_error = 0.021
+
+[tide]
+decay_length_relative_error = 0.12
+lag_length_relative_error = 0.155
+
+[doc]
+reason = """
+Twice the error measured on the 50-column grid of 2 m over the last four tides,
+MODFLOW-NWT and MODFLOW 6 alike: space-time RMSE 5.3e-3 m, max error 3.3e-2 m,
+final RMSE 3.4e-3 m, final max 1.0e-2 m; decay length 11.03 m and lag length
+12.63 m against 11.73 m, errors of 6.0 % and 7.7 %. The error is backward Euler
+with one step per hourly period, 24 a tide: theory shortens the decay length
+and stretches the lag length by about w dt / 4 = 6.5 %. Periods of 4, 2 and 1 h
+give a space-time RMSE of 2.0e-2, 1.0e-2 and 5.3e-3 m, and lag-length errors
+of 45, 17 and 7.7 %; 16 sub-steps a period bring the decay and lag errors to
+0.9 and 1.7 %, and 100 columns change the RMSE by 5 %. The max error sits in
+the sea column, which holds the mean tide of each hour while the reference
+holds the tide at the output time: A w dt / 2 = 3.3e-2 m. The row spread
+bound is 0.1 times the MODFLOW 6 head closure (1e-4 m).
+"""

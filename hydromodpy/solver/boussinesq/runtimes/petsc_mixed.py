@@ -74,7 +74,6 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
         well_flux_m3_s=inputs.well_flux_m3_s,
         prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-        regularization_radius=float(inputs.options.regularization_radius),
     )
 
     def _assembly_for(head_m: np.ndarray, q_ex_rate_m_s: np.ndarray) -> BoussinesqAssembly:
@@ -117,7 +116,6 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
         well_flux_m3_s=inputs.well_flux_m3_s,
         prescribed_head_m_by_cell=inputs.prescribed_head_m_by_cell,
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-        regularization_radius=float(inputs.options.regularization_radius),
     )
 
     def _assembly_for(head_m: np.ndarray, q_ex_rate_m_s: np.ndarray) -> BoussinesqAssembly:

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
+from collections.abc import Sequence
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,12 @@ from hydromodpy.solver.modflow_common.budget_components import (
 )
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
+from hydromodpy.solver.modflow_common.period_steps import (
+    group_steps_by_stamp,
+    period_mean_balance,
+    weighted_period_mean,
+    weighted_period_scalar,
+)
 
 logger = get_logger(__name__)
 
@@ -109,6 +116,73 @@ def _write_sfr_reach_geometry(sim_id: str, store: Any, spec: SfrObsSpec) -> None
 def _budget_field(row: Any, names: tuple[str, ...] | None, key: str) -> float:
     """Return one MF6 listing-budget field, or 0.0 when the field is absent."""
     return float(row[key]) if names is not None and key in names else 0.0
+
+
+@dataclass(frozen=True)
+class _PeriodBudget:
+    """One budget record averaged over the steps of one stamp, in m3/s.
+
+    ``field`` stays in the TDIS unit, as the cell budget file holds it.
+    """
+
+    flux_in: float
+    flux_out: float
+    basin_in: float | None
+    basin_out: float | None
+    field: np.ndarray | None
+
+
+def _records_by_stamp(
+    records: Sequence[Any],
+    component_rank: dict[str, int],
+    *,
+    stamp_keys: Sequence[tuple[int, int]],
+) -> list[dict[str, list[tuple[int, float]]]]:
+    """Index the budget records under the stamp that closes their step.
+
+    Returns, per stamp, the records of each scalar component as
+    ``(record index, step weight)``. ``stamp_keys`` are the 1-based
+    ``(kstp, kper)`` of the saved heads. The step weight is the step length
+    over the length of the steps the stamp closes.
+    """
+    step_position: dict[tuple[int, int], int] = {}
+    step_lengths: list[float] = []
+    for record in records:
+        key = (int(record.kstp), int(record.kper))
+        if key not in step_position:
+            step_position[key] = len(step_lengths)
+            step_lengths.append(float(record.delt))
+    groups = group_steps_by_stamp(list(step_position), step_lengths, stamp_keys)
+    placed: dict[int, tuple[int, float]] = {}
+    for group in groups:
+        for position, weight in zip(group.positions, group.weights, strict=True):
+            placed[position] = (group.stamp, weight)
+    by_stamp: list[dict[str, list[tuple[int, float]]]] = [{} for _ in stamp_keys]
+    seen: set[tuple[str, int]] = set()
+    warned_duplicate: set[str] = set()
+    for idx, record in enumerate(records):
+        component = record.text
+        if component not in component_rank:
+            continue
+        position = step_position[(int(record.kstp), int(record.kper))]
+        stamp_weight = placed.get(position)
+        if stamp_weight is None:
+            continue
+        if (component, position) in seen:
+            # Several packages of one type share the record name; keep
+            # the first record like the historical data[0] read did.
+            if component not in warned_duplicate:
+                logger.warning(
+                    "MF6 budget has multiple '%s' package records per timestep; "
+                    "keeping the first (aggregate views may undercount).",
+                    component,
+                )
+                warned_duplicate.add(component)
+            continue
+        seen.add((component, position))
+        stamp, weight = stamp_weight
+        by_stamp[stamp].setdefault(component, []).append((idx, weight))
+    return by_stamp
 
 
 def _stream_constant_head_mask(
@@ -290,7 +364,11 @@ class Modflow6OutputAdapter:
             lst_path = _listing_path(solver_output_dir, model_name)
             if lst_path.exists():
                 self._extract_mass_balance(
-                    sim_id, store, lst_path, seconds_per_time_unit=seconds_per_time_unit
+                    sim_id,
+                    store,
+                    lst_path,
+                    stamp_keys=[(int(kstp), int(kper)) for kstp, kper in kstpkpers],
+                    seconds_per_time_unit=seconds_per_time_unit,
                 )
 
             self._extract_lake_series(
@@ -348,6 +426,12 @@ class Modflow6OutputAdapter:
     ) -> None:
         """Extract cell budget data from MF6 .cbc file.
 
+        One budget slice per saved head, and the build saves the head at the
+        end of each stress period. A stamp closes its period, so each flux
+        is the mean of the time steps since the previous stamp, weighted by
+        their length (the ``delt`` of each record). A stamp that closes one
+        step keeps that step unchanged.
+
         Fluxes are divided by ``seconds_per_time_unit`` so the stored values are
         m3/s regardless of the TDIS time unit (m3/s = flux / seconds_per_time_unit).
 
@@ -365,6 +449,7 @@ class Modflow6OutputAdapter:
             # A row of zeros under a name that claims to be the catchment reads
             # as a dry basin instead of as a missing mask.
             catchment_cells = None
+        spt = seconds_per_time_unit
         try:
             # Intercell face flows and the specific-discharge velocity are not
             # scalar budget terms; skip them before reading or summing.
@@ -377,16 +462,16 @@ class Modflow6OutputAdapter:
             # One sequential pass over the file-order record index. Per-record
             # get_data(text, kstpkper, totim) calls rebuild a full boolean mask of
             # the index each time, which is quadratic over a long chronicle.
-            timestep_by_kstpkper = {
-                (int(kstp) + 1, int(kper) + 1): t for t, (kstp, kper) in enumerate(kstpkpers)
-            }
+            records_by_stamp = _records_by_stamp(
+                cbb.records,
+                component_rank,
+                stamp_keys=[(int(kstp) + 1, int(kper) + 1) for kstp, kper in kstpkpers],
+            )
             # The cbc file is time-major, so budget spatial fields are streamed in
             # time slabs shared across the components: the slab is sized so all
             # components together stay under one field-slab budget rather than
             # holding every component's full (nper, nlay, ncpl) stack in RAM.
             budget_slab = max(1, slab_steps(nlay, n_cells) // max(1, len(components)))
-            seen: set[tuple[str, int]] = set()
-            warned_duplicate: set[str] = set()
             created_fields: set[str] = set()
             ranked_records: list[tuple[int, int, dict]] = []
             slab_stacks: dict[str, np.ndarray] = {}
@@ -433,97 +518,72 @@ class Modflow6OutputAdapter:
                         )
                 slab_stacks.clear()
 
-            with progress.task("Extracting budget terms", total=len(cbb.records)) as handle:
-                for idx, record in enumerate(cbb.records):
-                    handle.advance()
-                    component = record.text
-                    rank = component_rank.get(component)
-                    if rank is None:
-                        continue
-                    t = timestep_by_kstpkper.get((record.kstp, record.kper))
-                    if t is None:
-                        continue
-                    key = (component, t)
-                    if key in seen:
-                        # Several packages of one type share the record name; keep
-                        # the first record like the historical data[0] read did.
-                        if component not in warned_duplicate:
-                            logger.warning(
-                                "MF6 budget has multiple '%s' package records per timestep; "
-                                "keeping the first (aggregate views may undercount).",
-                                component,
-                            )
-                            warned_duplicate.add(component)
-                        continue
+            n_reads = sum(len(steps) for by in records_by_stamp for steps in by.values())
+            with progress.task("Extracting budget terms", total=n_reads) as handle:
+                for t, by_component in enumerate(records_by_stamp):
                     if spatial_fields and t >= window_t0 + budget_slab:
                         _flush_window(window_t0)
                         window_t0 = (t // budget_slab) * budget_slab
-                    try:
-                        arr = cbb.read_record(idx)
-                    except Exception as exc:
-                        logger.debug(
-                            "Could not read MF6 budget '%s' at t=%d: %s", component, t, exc
+                    for component, steps in by_component.items():
+                        handle.advance(len(steps))
+                        mean = self._period_mean_record(
+                            cbb,
+                            steps,
+                            component=component,
+                            t=t,
+                            nlay=nlay,
+                            n_cells=n_cells,
+                            seconds_per_time_unit=spt,
+                            catchment_cells=catchment_cells,
                         )
-                        continue
-                    seen.add(key)
-                    if hasattr(arr, "dtype") and arr.dtype.names is not None:
-                        arr = self._recarray_to_grid(arr, nlay, n_cells)
-                    field = None
-                    if hasattr(arr, "shape") and arr.ndim >= 1:
-                        flux_in = float(np.maximum(arr, 0).sum()) / seconds_per_time_unit
-                        flux_out = float(np.minimum(arr, 0).sum()) / seconds_per_time_unit
-                        field = self._as_cell_grid(arr, nlay, n_cells)
-                    else:
-                        flux_in = 0.0
-                        flux_out = 0.0
-                    canonical = canonical_budget_component(component)
-                    ranked_records.append(
-                        (
-                            t,
-                            rank,
-                            {
-                                "timestep": t,
-                                "zone_id": "0",
-                                "component": canonical,
-                                "flux_in": flux_in,
-                                "flux_out": abs(flux_out),
-                                "unit": "m3/s",
-                            },
-                        )
-                    )
-                    if catchment_cells is not None and field is not None:
-                        # The row above spans the model domain. On a buffered
-                        # box that is not what a gauge at the outlet sees, and
-                        # the per-cell field is dropped right after unless
-                        # spatial_fields is on. Summing the basin here, where
-                        # the array is already in memory, is what lets a run
-                        # carry a catchment-supported budget for free.
-                        in_basin = field[:, catchment_cells]
+                        if mean is None:
+                            continue
+                        rank = component_rank[component]
+                        canonical = canonical_budget_component(component)
                         ranked_records.append(
                             (
                                 t,
                                 rank,
                                 {
                                     "timestep": t,
-                                    "zone_id": CATCHMENT_BUDGET_ZONE,
+                                    "zone_id": "0",
                                     "component": canonical,
-                                    "flux_in": float(np.maximum(in_basin, 0).sum())
-                                    / seconds_per_time_unit,
-                                    "flux_out": abs(float(np.minimum(in_basin, 0).sum()))
-                                    / seconds_per_time_unit,
+                                    "flux_in": mean.flux_in,
+                                    "flux_out": abs(mean.flux_out),
                                     "unit": "m3/s",
                                 },
                             )
                         )
-                    if spatial_fields:
-                        if field is not None:
+                        if mean.basin_in is not None:
+                            # The row above spans the model domain. On a buffered
+                            # box that is not what a gauge at the outlet sees, and
+                            # the per-cell field is dropped right after unless
+                            # spatial_fields is on. Summing the basin here, where
+                            # the array is already in memory, is what lets a run
+                            # carry a catchment-supported budget for free.
+                            ranked_records.append(
+                                (
+                                    t,
+                                    rank,
+                                    {
+                                        "timestep": t,
+                                        "zone_id": CATCHMENT_BUDGET_ZONE,
+                                        "component": canonical,
+                                        "flux_in": mean.basin_in,
+                                        "flux_out": abs(mean.basin_out),
+                                        "unit": "m3/s",
+                                    },
+                                )
+                            )
+                        if spatial_fields and mean.field is not None:
+                            field = mean.field
                             stack = slab_stacks.get(component)
                             if stack is None:
                                 slab_len = min(budget_slab, n_timesteps - window_t0)
                                 stack = np.full((slab_len, *field.shape), np.nan, dtype="float64")
                                 slab_stacks[component] = stack
                             if stack.shape[1:] == field.shape:
-                                stack[t - window_t0] = field / seconds_per_time_unit
+                                stack[t - window_t0] = field / spt
 
             _flush_window(window_t0)
 
@@ -534,6 +594,68 @@ class Modflow6OutputAdapter:
                 store.write_budgets(sim_id, budget_records)
         finally:
             cbb.close()
+
+    def _period_mean_record(
+        self,
+        cbb: Any,
+        steps: list[tuple[int, float]],
+        *,
+        component: str,
+        t: int,
+        nlay: int,
+        n_cells: int,
+        seconds_per_time_unit: float,
+        catchment_cells: np.ndarray | None,
+    ) -> _PeriodBudget | None:
+        """Weighted mean over the steps of one stamp of one budget record.
+
+        The in and out totals are the means of the step totals, so a cell that
+        changes sign within the period counts its inflow and its outflow, as
+        the volumes of the period do. The cell field is the mean of the step
+        fields, in the TDIS unit. None when no step could be read.
+        """
+        spt = seconds_per_time_unit
+        weights: list[float] = []
+        flux_in: list[float] = []
+        flux_out: list[float] = []
+        basin_in: list[float] = []
+        basin_out: list[float] = []
+        fields: list[np.ndarray] = []
+        field_weights: list[float] = []
+        for idx, weight in steps:
+            try:
+                arr = cbb.read_record(idx)
+            except Exception as exc:
+                logger.debug("Could not read MF6 budget '%s' at t=%d: %s", component, t, exc)
+                continue
+            if hasattr(arr, "dtype") and arr.dtype.names is not None:
+                arr = self._recarray_to_grid(arr, nlay, n_cells)
+            field = None
+            if hasattr(arr, "shape") and arr.ndim >= 1:
+                flux_in.append(float(np.maximum(arr, 0).sum()) / spt)
+                flux_out.append(float(np.minimum(arr, 0).sum()) / spt)
+                field = self._as_cell_grid(arr, nlay, n_cells)
+            else:
+                flux_in.append(0.0)
+                flux_out.append(0.0)
+            weights.append(weight)
+            if field is not None:
+                fields.append(field)
+                field_weights.append(weight)
+                if catchment_cells is not None:
+                    in_basin = field[:, catchment_cells]
+                    basin_in.append(float(np.maximum(in_basin, 0).sum()) / spt)
+                    basin_out.append(float(np.minimum(in_basin, 0).sum()) / spt)
+        if not weights:
+            return None
+        has_basin = catchment_cells is not None and bool(fields)
+        return _PeriodBudget(
+            flux_in=weighted_period_scalar(flux_in, weights),
+            flux_out=weighted_period_scalar(flux_out, weights),
+            basin_in=weighted_period_scalar(basin_in, field_weights) if has_basin else None,
+            basin_out=weighted_period_scalar(basin_out, field_weights) if has_basin else None,
+            field=weighted_period_mean(fields, field_weights) if fields else None,
+        )
 
     def _extract_lake_series(
         self,
@@ -728,6 +850,7 @@ class Modflow6OutputAdapter:
         store: Any,
         lst_path: Path,
         *,
+        stamp_keys: Sequence[tuple[int, int]],
         seconds_per_time_unit: float = 1.0,
     ) -> None:
         """Parse MODFLOW 6 listing file for mass balance summary.
@@ -736,6 +859,13 @@ class Modflow6OutputAdapter:
         yield (STO-SY, unconfined); total storage flux = STO-SS + STO-SY. Totals
         and storage scale to m3/s like the budget fluxes; PERCENT_DISCREPANCY is
         unitless and must not be scaled.
+
+        The build prints the budget of every time step. ``stamp_keys`` are the
+        0-based ``(kstp, kper)`` of the saved heads: each stamp takes the mean
+        of the steps it closes, weighted by their length, and its discrepancy
+        is recomputed from those means, as MF6 does,
+        ``100 (in - out) / ((in + out) / 2)``. A stamp that closes one step
+        keeps that step's row.
         """
         try:
             from flopy.utils import Mf6ListBudget
@@ -745,25 +875,37 @@ class Modflow6OutputAdapter:
             if inc is not None:
                 names = inc.dtype.names
                 spt = seconds_per_time_unit
+                rows = [
+                    {
+                        "total_in": _budget_field(row, names, "TOTAL_IN"),
+                        "total_out": _budget_field(row, names, "TOTAL_OUT"),
+                        "storage_in": _budget_field(row, names, "STO-SS_IN")
+                        + _budget_field(row, names, "STO-SY_IN"),
+                        "storage_out": _budget_field(row, names, "STO-SS_OUT")
+                        + _budget_field(row, names, "STO-SY_OUT"),
+                        "in_minus_out": _budget_field(row, names, "IN-OUT"),
+                        "percent_error": _budget_field(row, names, "PERCENT_DISCREPANCY"),
+                    }
+                    for row in inc
+                ]
+                groups = group_steps_by_stamp(
+                    [(int(row["time_step"]), int(row["stress_period"])) for row in inc],
+                    [float(row["tslen"]) for row in inc],
+                    stamp_keys,
+                )
                 records = []
-                for t in range(len(inc)):
-                    row = inc[t]
-                    storage_in = (
-                        _budget_field(row, names, "STO-SS_IN")
-                        + _budget_field(row, names, "STO-SY_IN")
-                    ) / spt
-                    storage_out = (
-                        _budget_field(row, names, "STO-SS_OUT")
-                        + _budget_field(row, names, "STO-SY_OUT")
-                    ) / spt
+                for group in groups:
+                    if not group.positions:
+                        continue
+                    mean = period_mean_balance([rows[i] for i in group.positions], group.weights)
                     records.append(
                         {
-                            "timestep": t,
-                            "total_in": _budget_field(row, names, "TOTAL_IN") / spt,
-                            "total_out": _budget_field(row, names, "TOTAL_OUT") / spt,
-                            "storage_in": storage_in,
-                            "storage_out": storage_out,
-                            "percent_error": _budget_field(row, names, "PERCENT_DISCREPANCY"),
+                            "timestep": group.stamp,
+                            "total_in": mean["total_in"] / spt,
+                            "total_out": mean["total_out"] / spt,
+                            "storage_in": mean["storage_in"] / spt,
+                            "storage_out": mean["storage_out"] / spt,
+                            "percent_error": mean["percent_error"],
                         }
                     )
                 store.write_mass_balances(sim_id, records)

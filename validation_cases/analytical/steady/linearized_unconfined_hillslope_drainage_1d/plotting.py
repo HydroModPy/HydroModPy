@@ -49,7 +49,7 @@ def plot_linearized_unconfined_hillslope_drainage_comparison(
         f"h_e={float(reference_cfg['east_head_m']):.2f} m   "
         f"z_e={float(reference_cfg['topography_base_elevation_m']):.2f} m   "
         f"dz={float(reference_cfg['topography_right_to_left_amplitude_m']):.2f} m   "
-        f"C={float(reference_cfg['drainage_conductance_m2_per_s']):.1e} m2/s"
+        f"b={float(reference_cfg['drain_bed_thickness_m']):.0f} m"
     )
 
     fig, (ax_profile, ax_residual) = plt.subplots(

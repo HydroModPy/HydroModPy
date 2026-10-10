@@ -164,6 +164,8 @@ class Flow(ProcessSpatial):
     surface_interaction_model : str
         Optional groundwater/surface interaction closure selector consumed by
         the Boussinesq solver implementation.
+    partition_release_depth_m : float
+        Depth scale in metres of the Boussinesq regularized partition closure.
     runtime_max_iterations : int | None
         Optional nonlinear iteration-budget override forwarded to Boussinesq.
     runtime_tol_residual_inf : float | None
@@ -223,6 +225,7 @@ class Flow(ProcessSpatial):
         self.first_period_steady: bool
         self.runtime_backend: str
         self.surface_interaction_model: str
+        self.partition_release_depth_m: float
         self.runtime_max_iterations: int | None
         self.runtime_tol_residual_inf: float | None
         self.runtime_tol_state_update_inf: float | None
@@ -275,6 +278,7 @@ class Flow(ProcessSpatial):
         self.first_period_steady = config.first_period_steady
         self.runtime_backend = config.runtime_backend
         self.surface_interaction_model = config.surface_interaction_model
+        self.partition_release_depth_m = config.partition_release_depth_m
         self.runtime_max_iterations = config.runtime_max_iterations
         self.runtime_tol_residual_inf = config.runtime_tol_residual_inf
         self.runtime_tol_state_update_inf = config.runtime_tol_state_update_inf

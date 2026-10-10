@@ -1,0 +1,44 @@
+case_id = "hantush_recharge_mound_2d"
+category = "analytical"
+regime = "transient"
+dimension = "2d"
+config_file = "config_modflownwt.toml"
+default_solver = "modflow_nwt"
+base_config = "config_modflownwt.toml"
+
+[config_files]
+modflow_nwt = "config_modflownwt.toml"
+modflow6 = "config_modflow6.toml"
+modflow6_irregular_tri = "config_modflow6_irregular_tri.toml"
+modflow6_voronoi = "config_modflow6_voronoi.toml"
+boussinesq = "config_boussinesq.toml"
+boussinesq_local = "config_boussinesq_local.toml"
+
+
+[workspace]
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "watertable_elevation"
+expected_periods = 40
+expected_spatial_shape = [101, 101]
+
+[time]
+dt_seconds = 21600.0
+
+[reference]
+xmin = 0.0
+xmax = 2020.0
+ymin = 0.0
+ymax = 2020.0
+center_x_m = 1010.0
+center_y_m = 1010.0
+half_length_x_m = 150.0
+half_width_y_m = 90.0
+recharge_mm_day = 20.0
+initial_head_m = 50.0
+aquifer_base_m = 0.0
+hydraulic_conductivity_m_per_s = 4e-5
+specific_yield = 0.15
+# Half length of the x transect through the centre, in metres.
+transect_half_length_m = 600.0

@@ -4,7 +4,9 @@ Steady synthetic groundwater-flow case used to validate HydroModPy's top
 drainage boundary condition against a closed-form linearized 1D reference with:
 
 - fixed heads on the west and east sides,
-- uniform top drainage conductance applied everywhere,
+- top drainage everywhere, with no conductance declared: each drain takes
+  `C = K * cell_area / b` with `b = solver.drain_bed_thickness_m = 4000 m`, so
+  the leakance `K / b = 2.5e-8 1/s` is the same on every mesh,
 - a flat drainage elevation below the simulated water table,
 - a homogeneous aquifer whose heads stay above the cell top, so the cells are
   full and the reference thickness is the cell thickness, `20 m`.
@@ -49,7 +51,7 @@ The runner saves a PNG figure with:
 The equations of the reference solution the comparison uses.
 
 $$
-T_0\,\frac{\mathrm{d}^2u}{\mathrm{d}x^2}-\lambda_d\,u=0,\qquad u=h-z_d,\qquad \lambda_d=\frac{C_d}{A}
+T_0\,\frac{\mathrm{d}^2u}{\mathrm{d}x^2}-\lambda_d\,u=0,\qquad u=h-z_d,\qquad \lambda_d=\frac{C_d}{A}=\frac{K}{b}
 $$
 
 $$

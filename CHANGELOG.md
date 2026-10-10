@@ -34,6 +34,21 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- flow.partition_release_depth_m: the depth scale, in metres, over which the
+  regularized partition of the Boussinesq solver starts to release water at the
+  surface, 0.05 m by default.
+- Validation case `stream_depletion_glover_balmer_2d`: a well pumping 100 m from a stream
+  held on the west side, against the Glover and Balmer (1954) stream depletion and the
+  image-well Theis drawdown, on the six solver variants; the depletion is read from the
+  per-cell constant-head budget.
+- Validation case `hantush_recharge_mound_2d`: the growth of a groundwater mound under a
+  rectangle of recharge read from a raster, against Hantush (1967) linearized with the
+  mean saturated thickness, on the six solver variants, with a plan-view error map. Its
+  two Gmsh meshes keep every cell wholly inside or outside the rectangle, since a mesh
+  cell takes the recharge pixel under its centroid.
+- Validation case `linearized_unconfined_boundary_periodic_1d`: a daily tide read as
+  hourly means on a side head, against Ferris (1951), with the decay and lag lengths of
+  the Ferris method, on the six solver variants.
 - Validation variants `modflow6_voronoi` (the default dual of a Gmsh mesh) and
   `boussinesq_local` (the default Boussinesq engine, no PETSc), a patch test of uniform
   flow on skewed triangles, a grid-convergence test on the production path, and the
@@ -285,6 +300,17 @@ Each release section includes the following standard categories:
   committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- The deep Brutsaert recession and the Glover-Balmer stream depletion compare the
+  period-mean discharge and depletion with the mean of the closed form over each
+  period, not with its value at the period end. Their thresholds are re-derived from
+  a time-step refinement: deep discharge RMSE 2e-3 and maximum 5e-3 of Q0; depletion
+  maximum 0.025 to 0.029 and final error 6e-4 to 1.1e-3 of the pumping rate.
+- The time-alignment page states what a period cut into time steps stores; the
+  Boussinesq and solver pages follow.
+- MODFLOW 6 warns once per run when a declared drain conductance meets drained cells whose
+  areas differ more than twofold: the conductance is applied per cell, so the drained flux
+  per unit area, C / cell_area, then depends on the mesh. The warning names the area range
+  and the derived conductance, C = K * cell_area / solver.drain_bed_thickness_m.
 - The description of `mf6_newton` no longer says that MODFLOW 6 under Newton matches
   MODFLOW-NWT. Newton builds the horizontal conductance from the full cell thickness times
   the upstream saturation; where the cell thickness changes from one cell to the next, it
@@ -477,6 +503,93 @@ Each release section includes the following standard categories:
   refused.
 
 ### Fixed
+- A stress period cut into time steps (simulation.time.substeps_per_period, adaptive
+  time stepping, the internal steps of the Boussinesq PETSc closures) stores, on
+  MODFLOW 6, MODFLOW-NWT and Boussinesq alike, the head of its last step and every
+  flux as the mean of its steps weighted by their length, as the time convention
+  says: a stamp closes its period. MODFLOW 6 and Boussinesq stored the flux of the
+  last step; MODFLOW-NWT stored one slice per time step (1000 for the 10 periods of
+  the deep Brutsaert case) beside one mass-balance row per period. The budget table,
+  the per-cell budget fields, the listing water balance, the lake and stream series
+  and the calibration readers take the period mean. A run of one step per period
+  stores what it stored before, bit for bit.
+- A MODFLOW 6 run with a lake or a stream network and more than one step a period no
+  longer fails at extraction: its observation file holds a row per step, and the
+  extractor now puts the rows on the periods.
+- A transient Boussinesq run reads flow.first_period_steady, true by default, as MODFLOW 6
+  and MODFLOW-NWT do: it solves the first stress period at steady state under the forcing
+  of that period, its recharge set by first_clim, with the initial heads as a first guess
+  only, then steps in time from that state. It ignored the key and started from the
+  initial heads, so one file solved two problems. On the natural-mesh test started 5 m
+  above its steady state, the first-period heads were 2.6 m (RMSE) off MODFLOW 6 and the
+  constant-head outflow of that period 260 times larger. They now differ by the 0.23 m the
+  two solvers show at steady state on that mesh, and the outflow of that period is the
+  same. The TS VI obstacle closure solves that period with the VI obstacle closure. A run
+  that must start from its initial heads sets first_period_steady = false.
+- A well or a drain on a Boussinesq cell with an imposed head does nothing, as in
+  MODFLOW, and the run warns about such a well. It was counted in its own budget term
+  and fed by the boundary: on a test with a 1000 m3/day well on a fixed-head side, the
+  Boussinesq pumping read 2000 m3/day where MODFLOW 6 read 1000. Heads are unchanged.
+- A transient Boussinesq run stamps each stress period at its end, like the MODFLOW
+  backends. The store also held the initial state as its first time step: the lumped
+  budget gave each period the time step of the next one in MODFLOW 6, the catchment
+  discharge and well pumping started with a zero at the run start, Run.time_index fell
+  back to rebuilt stamps so a point read lost its dates, and a Boussinesq calibration
+  scored undated series. The initial state stays in the boussinesq_state group.
+- A Boussinesq cell with an imposed head takes no recharge, as in MODFLOW. The rain on
+  it was counted as recharge and left at once as constant-head outflow: on the natural
+  basin comparison, whose eight fixed-head cells cover 11.6 % of the mesh, the exported
+  recharge was 13.1 % above the forcing on the aquifer (1.260e6 against 1.114e6 m3) and
+  the constant-head outflow 6.5 times the flow the aquifer sent to the boundary. Heads
+  are unchanged; the recharge now matches MODFLOW 6 to 1e-8, and the constant-head flux
+  of such a cell is what its free neighbours send in or draw out.
+- The residual history of a Boussinesq run is zero on a cell with an imposed head, so
+  its sum is the closure error of the run. It carried the constant-head flux, and the
+  comparison budget reported a closure of 0.35 m3/s (CHECK) on the natural basin, now
+  2e-14 m3/s.
+- The default surface closure of the Boussinesq solver, the regularized partition of
+  every engine but PETSc, released water far below the ground: a cell sent to the
+  surface the share exp(-(1 - s) / 0.05) of the water it received, s being the
+  saturated share of its thickness, so a water table 10 m under the top of a 60 m
+  aquifer lost 3.6 % of its recharge, and a pumped cell 11 m under the top sent 0.4 %
+  of the pumping to the surface (a quarter at 1.5 m, where the run stopped
+  converging). The share now follows the depth of the water table below the land
+  surface, exp(-d / flow.partition_release_depth_m), 2e-9 at 1 m with the default
+  0.05 m, and the water a cell receives counts its wells and its signed recharge. The
+  recharge mound now stores all its recharge and the stream depletion run matches
+  PETSc.
+- A Boussinesq cell with an imposed head no longer reports a surface release: the
+  water it receives goes to its constant-head flux. Heads are unchanged; the surface
+  outflow of a run stops counting the inflow of its Dirichlet cells (16.7 of the 20.9
+  m3/day reported on the steady interception hillslope).
+- The Boussinesq plan-view map of the late-time pumping validation case was flipped
+  north-south.
+- Boussinesq derives an undeclared drain conductance as `K * cell_area /
+  solver.drain_bed_thickness_m`, like MODFLOW 6 and MODFLOW-NWT. It ignored the bed
+  thickness, so any value other than 1 m gave a different drainage, and a different
+  calibrated K, than the MODFLOW backends.
+- The per-cell `budget/constant_head` field of a Boussinesq run is signed positive into the
+  aquifer, as the field registry and MODFLOW sign it. It was written positive out, so a
+  map or a sum of it read the opposite of the same field from MODFLOW.
+- Validation: the triangle variants of the two drainage cases solve the problem of their
+  reference. Each drain derives its conductance from K, so the leakance is the same on
+  every triangle, where one conductance per cell varied it forty-fold (head RMSE 7.3 and
+  4.3 mm down to 0.27 and 0.23 mm).
+- Validation: on the Voronoi dual, every cell of the coast node ring of the two island
+  cases holds the sea level. A node on the shoreline is a tie that the 10 m DEM broke at
+  random, and 36 of the 48 coast cells stayed land; the run now reads a 1 m DEM whose
+  shoreline sits 1 m inside the ring (radial RMSE 0.204 to 0.102 m and 0.088 to 0.056 m;
+  the rest is the documented MODFLOW 6 Newton bias).
+- Validation: the late-time pumping reference is centred on the cell that holds the well,
+  15 m from the well point on the MODFLOW 6 triangles and 6.6 m on the Boussinesq ones, and
+  the azimuthal spread is taken on the error (0.136 and 0.087 m down to 0.0013 and 0.020 m).
+  The Boussinesq variants run on 10082 triangles, the cell area of the MODFLOW grid.
+- Validation: the deep recharge-step case sets the Newton closure of the default Boussinesq
+  engine to 1e-12 m3/s; the absolute default of 1e-9 m3/s per cell left its steady profile
+  1.7e-5 m off, worse than MODFLOW (now 1.6e-6 m).
+- Validation: a twin calibration count is recorded with the number of runs as its ideal
+  value, so the page reads the share of the margin a run used instead of 100 % for any
+  success.
 - Validation references compare what the model computes. The 1D cases pose their heads at
   the centres of the boundary cells, where the model holds them (errors of 3 to 5 cm down
   to 3 to 7 mm). The late-time pumping case evaluates the Theis well function with SciPy,

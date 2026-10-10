@@ -1,0 +1,42 @@
+
+[workflow]
+mode = "simulation"
+
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 1e-9
+mf6_inner_dvclose = 1e-10
+mf6_inner_rclose = 1e-10
+
+[modflow6.process_specific]
+vka = 1.0
+
+[modflow6.sgrid]
+grid_dual = "triangle"
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+# The well is a node of the mesh: the triangle that holds it is the one the
+# run locates, and the comparison reads its centroid.
+[flow.sinks_sources.wells.P1]
+units = "m3/day"
+description = "Pumping well 100 m from the stream, on the refined triangle mesh"
+
+[flow.sinks_sources.wells.P1.location]
+kind = "absolute_xy"
+layer = 0
+x = 105.0
+y = 805.0
+
+[flow.sinks_sources.wells.P1.forcing]
+value = -300.0
+kind = "constant"
+
+[mesh_input]
+mesh_path = "../../../shared/mesh_bundles/stream_depletion_glover_balmer_tri_refined_well/mesh_2d.msh"
+bundle_dir = "../../../shared/mesh_bundles/stream_depletion_glover_balmer_tri_refined_well"

@@ -26,6 +26,8 @@ class _FakeCbb:
                 kper=kper,
                 text=text.decode().strip(),
                 imeth=1,
+                delt=1.0,
+                totim=1.0,
                 ndim1=4,
                 ndim2=1,
                 ndim3=-1,

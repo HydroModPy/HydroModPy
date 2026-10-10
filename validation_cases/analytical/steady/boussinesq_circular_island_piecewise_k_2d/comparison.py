@@ -132,9 +132,16 @@ def _build_reference_surfaces(
     return dem, radius, xx, yy
 
 
-def _island_dem_at_radius(radius: np.ndarray, reference_cfg: dict) -> np.ndarray:
-    """Return the land surface of the synthetic island at the given radii."""
-    island_radius = float(reference_cfg["island_radius_m"])
+def _island_dem_at_radius(
+    radius: np.ndarray, reference_cfg: dict, solver_name: str | None = None
+) -> np.ndarray:
+    """Return the land surface the run was given, at the given radii.
+
+    It is the synthetic island of radius ``island_radius_m``, or of the radius
+    a variant gives its own topography (``topography_island_radius_m_by_solver``).
+    """
+    by_solver = reference_cfg.get("topography_island_radius_m_by_solver", {})
+    island_radius = float(by_solver.get(solver_name, reference_cfg["island_radius_m"]))
     relief = np.sqrt(np.maximum(0.0, 1.0 - (np.asarray(radius) / island_radius) ** 2))
     return np.where(
         np.asarray(radius) <= island_radius,
@@ -292,7 +299,7 @@ def build_boussinesq_circular_island_piecewise_k_comparison(
     # Radii are rounded to the 1 mm precision of the mesh nodes, so a node on
     # the shoreline reads the sea-level DEM of the shoreline and is not land.
     cell_radius = np.round(np.hypot(centers[:, 0] - center_x, centers[:, 1] - center_y), 3)
-    cell_dem = _island_dem_at_radius(cell_radius, reference_cfg)
+    cell_dem = _island_dem_at_radius(cell_radius, reference_cfg, solver_name)
     cell_land = cell_dem > sea_level
 
     if grid_dual == "voronoi" or native_triangles:

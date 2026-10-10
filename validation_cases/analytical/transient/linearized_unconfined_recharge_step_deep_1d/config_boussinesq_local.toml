@@ -7,3 +7,9 @@
 # [simulation.time].substeps_per_period backward-Euler steps of the case.
 
 [flow]
+# One key is set, the Newton closure, for the reason the MODFLOW validation
+# profiles tighten theirs. The default 1e-9 m3/s per cell is absolute: here a
+# triangle receives 3.6e-7 m3/s of recharge and the 100 m aquifer lifts a
+# mound of 1.5 cm only, so Newton stopped 1.7e-5 m off the steady profile,
+# worse than MODFLOW. From 1e-12 m3/s the final RMSE reads 1.6e-6 m.
+runtime_tol_residual_inf = 1e-12

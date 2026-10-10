@@ -70,7 +70,9 @@ def test_mass_balance_reads_rates_and_scales_them(tmp_path: Path) -> None:
     listing.write_text(_LISTING, encoding="utf-8")
     store = _RecordingStore()
 
-    ModflowNwtOutputAdapter()._extract_mass_balance("sim", store, listing, 1.0 / 86400.0)
+    ModflowNwtOutputAdapter()._extract_mass_balance(
+        "sim", store, listing, 1.0 / 86400.0, stamp_keys=[(0, 0)]
+    )
 
     assert len(store.mass_balances) == 1
     record = store.mass_balances[0]
@@ -88,4 +90,6 @@ def test_unreadable_listing_fails_loudly(tmp_path: Path) -> None:
     listing.write_text("not a MODFLOW listing", encoding="utf-8")
 
     with pytest.raises(ExtractError, match="mass balance"):
-        ModflowNwtOutputAdapter()._extract_mass_balance("sim", _RecordingStore(), listing, 1.0)
+        ModflowNwtOutputAdapter()._extract_mass_balance(
+            "sim", _RecordingStore(), listing, 1.0, stamp_keys=[(0, 0)]
+        )

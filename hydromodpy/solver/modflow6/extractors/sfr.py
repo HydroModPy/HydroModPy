@@ -32,6 +32,7 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.extractors.obs_common import (
+    obs_rows_on_stamps,
     read_obs_csv,
     rows_matrix,
     verify_obs_time_alignment,
@@ -197,6 +198,22 @@ def read_sfr_meta(meta_path: Path) -> SfrObsSpec | None:
         return None
 
 
+def _sfr_rows_on_stamps(
+    spec: SfrObsSpec,
+    rows: list[list[float]],
+    times: Sequence[float],
+    col_index: Mapping[str, int],
+) -> list[list[float]]:
+    """One obs row per stamp: rates averaged over the period, stage and depth at its end."""
+    rate_positions = [
+        pos
+        for entry in spec.entries
+        if entry.quantity in _RATE_QUANTITIES
+        and (pos := col_index.get(entry.obsname.upper())) is not None
+    ]
+    return obs_rows_on_stamps(rows, times, col_index, mean_positions=rate_positions)
+
+
 def build_sfr_columns(
     spec: SfrObsSpec,
     obs_path: Path,
@@ -207,8 +224,10 @@ def build_sfr_columns(
 ) -> tuple[dict[str, np.ndarray], list[dict[str, Any]]]:
     """Parse the SFR obs CSV into ``(timeseries_columns, budget_records)``.
 
-    ``times`` are the solver output ``totim`` values (TDIS time unit); the obs CSV
-    must align with them by row order. RATE quantities are divided by
+    ``times`` are the solver output ``totim`` values (TDIS time unit), one per
+    stress period at its end. The obs CSV holds a row per time step: each
+    stamp takes the mean of the rates over the steps it closes, weighted by
+    their length, and the stage and depth at its end. RATE quantities are divided by
     ``seconds_per_time_unit`` to reach m3/s; stage / depth stay in meters. A
     budget row per network sums the reach-aquifer exchange (stream point of view)
     so the water-balance tables carry the stream-aquifer flux.
@@ -226,6 +245,7 @@ def build_sfr_columns(
     if not rows:
         return {}, []
     col_index = {name: pos for pos, name in enumerate(header)}
+    rows = _sfr_rows_on_stamps(spec, rows, times, col_index)
 
     n_steps = min(len(rows), len(times))
     spt = float(seconds_per_time_unit) if seconds_per_time_unit else 1.0
@@ -319,6 +339,8 @@ def reach_flow_by_cell(
 ) -> dict[int, np.ndarray] | None:
     """Streamflow leaving each reach, keyed by the mesh cell the reach sits in [m3/s].
 
+    One value per stress period: the mean over the steps of the period.
+
     Under SFR nothing has to be accumulated to know the discharge at a gauge:
     MODFLOW routed the water itself, movers included, so the reach under the
     station already carries the simulated flow to compare. That flow is also
@@ -344,6 +366,7 @@ def reach_flow_by_cell(
     if not rows:
         return None
     col_index = {name: pos for pos, name in enumerate(header)}
+    rows = _sfr_rows_on_stamps(spec, rows, times, col_index)
     n_steps = min(len(rows), len(times))
     if n_steps == 0:
         return None
@@ -382,7 +405,9 @@ def routed_outflow_series(
     times: Sequence[float],
     seconds_per_time_unit: float,
 ) -> np.ndarray | None:
-    """Surface water leaving the model through the SFR network, per timestep [m3/s].
+    """Surface water leaving the model through the SFR network, per stress period [m3/s].
+
+    Each value is the mean over the steps of the period, weighted by length.
 
     Summed over every reach's ``ext-outflow``, sign-corrected the same way
     :func:`build_sfr_columns` does, so the calibration scores the quantity the
@@ -406,6 +431,7 @@ def routed_outflow_series(
     if not rows:
         return None
     col_index = {name: pos for pos, name in enumerate(header)}
+    rows = _sfr_rows_on_stamps(spec, rows, times, col_index)
     n_steps = min(len(rows), len(times))
     if n_steps == 0:
         return None

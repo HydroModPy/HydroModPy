@@ -17,6 +17,9 @@ class _FakeHeadFile:
     def get_times(self):
         return [1.0, 2.0]
 
+    def get_kstpkper(self):
+        return [(0, 0), (0, 1)]
+
     def get_data(self, *, totim):
         if totim == 1.0:
             # layer 0: 12, 8, 1e30 (dry) - layer 1 must never be read

@@ -105,6 +105,8 @@ class _FakeCbb:
                 kper=kper,
                 text=text,
                 imeth=1,
+                delt=1.0,
+                totim=1.0,
                 ndim1=N_CELLS,
                 ndim2=1,
                 ndim3=-1,

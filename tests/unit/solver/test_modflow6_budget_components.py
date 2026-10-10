@@ -45,6 +45,8 @@ def _fake_cbc(record_data: dict, kstpkpers: list[tuple[int, int]]):
                     kper=kper,
                     text=text,
                     imeth=1,
+                    delt=1.0,
+                    totim=1.0,
                     ndim1=2,
                     ndim2=1,
                     ndim3=-1,

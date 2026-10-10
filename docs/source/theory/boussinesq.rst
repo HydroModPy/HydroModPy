@@ -140,10 +140,14 @@ computed, and the row of the nonlinear system is replaced by the constraint itse
    \Phi^D_j = -R_j
 
 :math:`R_j` is the balance the cell would have had if it were free. The constraint
-supplies :math:`\Phi^D_j = -R_j`, which is positive when water enters the model
-through that cell. A constrained cell keeps its own storage, drain, recharge and
-wells in :math:`R_j`, so these terms end up in the flux it exchanges with the
-boundary.
+carries :math:`\Phi^D_j = -R_j`, which is positive when water leaves the model
+through that cell. A constrained cell is a boundary, as in MODFLOW: its recharge,
+wells and drain do not act (``on_free_cells`` in ``assembly/inputs.py``), and a well
+placed there pumps nothing (the run warns). Its flux is the water its free
+neighbours send in or draw out, plus the change of its own storage when
+:math:`H^D_j` changes between periods. The residual the run exports adds
+:math:`\Phi^D_j` back: it is zero on a constrained cell, and its sum is the closure
+error of the run (``_balance_residual_m3_s`` in ``drivers/state.py``).
 
 Because the head is pinned at the centroid of the cell and not on the edge, the
 solution at the boundary cell differs from the value on the edge by about the
@@ -159,9 +163,10 @@ The recharge :math:`N_i` is a rate per unit of area. It is constant over a stres
 period. It is either one number per period, the same on every cell, or one value
 per cell when the file loads a recharge field. The volume rate that enters the cell
 is :math:`a_i N_i`. A negative recharge is refused: the message says
-``must be non-negative.`` In a transient run every period keeps its own value; in
-a steady run the period takes :toml:`flow.sinks_sources.recharge.first_clim`
-(:doc:`forcing`).
+``must be non-negative.`` A transient period keeps its own value. A steady period
+takes :toml:`flow.sinks_sources.recharge.first_clim` (:doc:`forcing`): the period of a
+steady run, and the first period of a transient run when
+:toml:`flow.first_period_steady` is true, as in MODFLOW.
 
 A well is a volume rate :math:`\Phi^{\mathrm{well}}_i`, positive for injection and
 negative for pumping. It is placed on the triangle that contains its x and y
@@ -181,20 +186,22 @@ The drain removes water only where the head is above the land surface
 
 It is an outflow, and enters the residual with a plus sign. The conductance
 :math:`C_i` is the value of :toml:`flow.bc.drainage.value`, the same for every cell
-in a given period. When that value is not positive, the code uses
-:math:`C_i = K_i\,a_i` instead, which is the derivation :math:`K\,a/b` with a drain
-bed of :math:`b = 1` m. The solver does not read
-:toml:`solver.drain_bed_thickness_m`.
+in a given period. When that value is not positive, the code derives
+:math:`C_i = K_i\,a_i/b` instead, with :math:`b` the drain bed thickness
+:toml:`solver.drain_bed_thickness_m` (``derived_drain_conductance_m2_s`` in
+``assembly/fluxes.py``). It is the derivation of both MODFLOW solvers
+(:doc:`exits/drains-and-et`), with the same :math:`b`, without their floor for a
+degenerate cell.
 
 Two consequences follow.
 
 - The drain is never off. A run with no drainage boundary passes a conductance of
   zero, which selects the derivation. A cell whose head rises above the land
-  surface always loses water through :math:`K_i a_i`.
+  surface always loses water through :math:`K_i a_i/b`.
 - On a cell supported by the ocean, the driver sets the conductance to zero to
   silence the drain (``apply_ocean_drainage_mask`` in ``drivers/forcing.py``).
-  Zero selects the derivation, so these cells drain with :math:`K_i a_i` instead of
-  with the configured value.
+  Zero selects the derivation, so these cells drain with :math:`K_i a_i/b` instead
+  of with the configured value.
 
 The discharge that a calibration reads from this solver is the sum over the cells
 of this drain flow (``extract_discharge_history`` in ``calibration_extractors.py``).
@@ -224,11 +231,21 @@ A head above the land surface, which the head-only closures allow, must keep the
 memory of the previous step: with a capped volume, the change of storage over the
 step would be lost.
 
-Each stress period is one backward Euler step of length :math:`\Delta t`. The
-forcing is constant over the period and is evaluated at the end of the step. The
-solver does not read :toml:`simulation.time.substeps_per_period`. To integrate a
-period in several steps, shorten the period, or use the substeps of the experimental
-obstacle runtimes (see :doc:`/contribute/architecture/solver/boussinesq-engines`).
+Each stress period is split into :toml:`simulation.time.substeps_per_period`
+backward Euler steps of equal length :math:`\Delta t`, one by default. The forcing is
+constant over the period and is evaluated at the end of each step. The PETSc obstacle
+runtimes can refine each of these steps further (see
+:doc:`/contribute/architecture/solver/boussinesq-engines`).
+
+A stamp closes its period (:doc:`time-alignment`). A period exports the heads at
+its end, those of its last step, and the mean of the fluxes of its steps, weighted
+by their length: recharge, wells, drain, release at the surface, imposed heads and
+the edge fluxes. The internal steps of the PETSc obstacle runtimes (VI substeps,
+TS steps) are averaged the same way. MODFLOW 6 and MODFLOW-NWT store the same
+quantities. With one step a period, the mean is the flux of that step, unchanged.
+The change of storage over the period, recomputed from the heads at both ends, then
+closes the budget with these means. A seepage mask built from the release marks the
+cells that released water during the period.
 
 7. The residual of a free cell
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -267,46 +284,54 @@ The regularized partition
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``regularized_partition`` closure keeps the head as the only unknown. It
-releases water at the surface by a smooth function of the saturation, so that there
-is no sharp on and off at the moment the cell is full
+releases water at the surface by a smooth function of the depth of the water table,
+so that there is no sharp on and off at the moment the cell is full
 (``regularized_partition_surface_rate_from_balance`` in ``assembly/surface.py``).
-The saturation ratio is
+The depth of the water table below the land surface is
 
 .. math::
 
-   \sigma_i(h) = \frac{B_i(h)}{H_i},
+   d_i(h) = H_i - B_i(h),
 
-and zero for a cell of zero thickness. The sum of the fluxes through the edges of the
-cell is :math:`R^{\mathrm{int}}_i` (step 2). The water that arrives at the cell, per
-unit of area, is the lateral inflow plus the recharge when this is positive:
+zero for a head at or above the top and the whole thickness for a dry cell. The sum
+of the fluxes through the edges of the cell is :math:`R^{\mathrm{int}}_i` (step 2).
+The water that arrives at the cell, per unit of area and besides its storage, is the
+lateral inflow, the recharge and the wells, each with its sign, a pumping well being
+negative:
 
 .. math::
 
-   \gamma_i = \max\!\left(-\frac{R^{\mathrm{int}}_i}{a_i} + \max(N_i, 0),\ 0\right)
+   \gamma_i = \max\!\left(-\frac{R^{\mathrm{int}}_i}{a_i} + N_i
+   + \frac{\Phi^{\mathrm{well}}_i}{a_i},\ 0\right)
 
 and the release is
 
 .. math::
    :label: eq-bq-partition
 
-   s_i(h) = \exp\!\left(-\frac{1 - \sigma_i(h)}{\varepsilon_r}\right)\gamma_i
+   s_i(h) = \exp\!\left(-\frac{d_i(h)}{\delta}\right)\gamma_i
 
-The radius :math:`\varepsilon_r` is a constant of the code, 0.05, set in
-``boussinesq.py``. No key changes it. The law follows the regularized partition of
-seepage and subsurface flow of :cite:t:`marcais2017`. The wells and the storage are
-not in :math:`\gamma_i`. The factor in front of :math:`\gamma_i`:
+The depth scale :math:`\delta` is :toml:`flow.partition_release_depth_m`, 0.05 m by
+default. A cell with an imposed head releases nothing: its constant-head flux
+carries the water it receives. The law follows the regularized partition of seepage
+and subsurface flow of :cite:t:`marcais2017`, smoothed over the depth of the water
+table in metres. The factor in front of :math:`\gamma_i`:
 
 .. plot:: theory/figures/bq_partition.py
-   :alt: The release factor against the saturation of the cell, on a linear and a log scale, for three radii.
+   :alt: The release factor against the depth of the water table below the land surface, on a linear and a log scale, for three depth scales.
    :caption: The factor of :eq:`eq-bq-partition`, from
-      ``regularized_partition_surface_rate_from_balance``. The dots are the saturations
-      1, 0.95, 0.9, 0.8 and 0.5. Look at the left panel: the factor is 0.37 at 0.95 and
-      0.14 at 0.9, so the release starts well before the cell is full. The right panel
-      shows that it never reaches zero. The dotted and dash-dotted curves are the radii
-      0.02 and 0.1, which no key sets.
+      ``regularized_partition_surface_rate_from_balance``. The dots are the depths 0,
+      0.05, 0.1, 0.2 and 1 m. Look at the left panel: with the default 0.05 m the
+      factor is 0.37 one depth scale below the surface and 0.018 at 0.2 m. The right
+      panel shows that at 1 m it is 2e-9, whatever the thickness of the aquifer. The
+      dotted and dash-dotted curves are the depth scales 0.02 and 0.1 m.
 
-A full cell releases the whole of what arrives, a cell nine tenths full about one
-seventh of it, and a half-full cell a tiny share. This is a pragmatic law and not a
+A cell full to the surface releases the whole of what arrives, a water table 5 cm
+under the surface about a third of it, and a water table 1 m under the surface
+nothing that matters. As :math:`\delta` goes to zero the law becomes the threshold of
+the complementarity closure below. A smaller :math:`\delta` comes closer to that
+threshold and makes the Newton solve stiffer: near the surface, the release switches
+on and off with the sign of the arriving water. This is a pragmatic law and not a
 model of overland flow. The four runtimes of this method use the same law.
 
 The complementarity closure
@@ -450,8 +475,18 @@ The transient driver loops over the stress periods. At each period it takes the
 forcing of the period and solves :toml:`simulation.time.substeps_per_period`
 backward Euler steps of equal length, each from the heads of the step before, as the
 previous state and as the initial guess. The forcing holds over the period, as in
-MODFLOW. The first period is a transient step like the
-others: the solver does not read :toml:`flow.first_period_steady`.
+MODFLOW.
+
+When :toml:`flow.first_period_steady` is true, the default, the first period is
+solved at steady state, as in MODFLOW 6 and MODFLOW-NWT. It is one steady solve under
+the forcing of that period, with the recharge
+:toml:`flow.sinks_sources.recharge.first_clim` gives. The initial heads are its first
+guess only. The engine keeps its surface closure. The TS VI obstacle closure steps in
+time only, so that period takes the VI obstacle closure on the same PETSc engine. The
+next periods step in time from that state. A steady period holds one state from its
+start to its end, so the run reports no change of storage over it. When the key is
+false, the first period is a backward Euler step from the initial heads, like the
+others.
 
 The initial heads come from :toml:`flow.ic.h.type`. With ``steady_state``, the solver
 first runs one steady solve with the same method, under the time-mean recharge or
@@ -482,7 +517,8 @@ Limits
 - **Boundary bias.** Near a boundary with a strong gradient, the head of a pinned
   cell differs from the edge value (step 3). Refine the mesh there to reduce it.
 - **Fixed steps.** A time step that does not converge ends the run. The step length
-  is fixed; the experimental obstacle runtimes can cut each step into substeps.
+  is fixed by the period and its sub-steps; the PETSc obstacle runtimes can refine
+  each step further.
 - **What can be read back.** The solver serves the head at a cell, the discharge
   over the domain, and the release per cell. It has no lake stage and no routed
   discharge, because it has no lake package and no stream reaches.
@@ -506,9 +542,11 @@ the engine. Open a row for its card.
 
    simulation.process.solvers
    flow.flow_regime
+   flow.first_period_steady
    simulation.time.substeps_per_period
    flow.runtime_backend
    flow.surface_interaction_model
+   flow.partition_release_depth_m
    flow.runtime_max_iterations
    flow.runtime_tol_residual_inf
    flow.runtime_tol_state_update_inf
@@ -518,6 +556,7 @@ the engine. Open a row for its card.
    flow.sinks_sources.recharge.first_clim
    flow.sinks_sources.wells.<name>.flux
    flow.bc.drainage.value
+   solver.drain_bed_thickness_m
    flow.bc.stream.value
    flow.ic.h.type
    flow.ic.h.source

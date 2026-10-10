@@ -35,6 +35,24 @@ code. A name that nothing declares is a mean.
 For a steady first period, the head is the equilibrium under the forcing of that
 period, stamped at its end.
 
+(alignment-steps)=
+### A period cut into time steps
+
+A solver can cut a period into time steps:
+{toml}`simulation.time.substeps_per_period`, adaptive time stepping on MODFLOW 6,
+or the internal steps of the Boussinesq PETSc closures. The run still stores one
+value per period, the same way on MODFLOW 6, MODFLOW-NWT and Boussinesq:
+
+- a state is the value at the last step, which ends at the stamp;
+- a flux is the mean of the fluxes of the steps, each weighted by its length:
+  recharge, wells, drains, fixed heads, river, stream and lake exchanges, storage
+  and the release at the surface, cell by cell and in the budget tables, and the
+  listing water balance of the period.
+
+With one step a period, that mean is the flux of the step, unchanged. Each step
+closes its water balance, so the change of storage between the two stamps closes
+the balance of the period with these means.
+
 ```{eval-rst}
 .. plot:: theory/figures/forcing_stamp.py
    :alt: Two panels over four monthly periods. Top, a daily flux and the mean of each period drawn over the period and marked at its end stamp. Bottom, a daily head and the value read at each end stamp.
@@ -95,7 +113,8 @@ In the code: `period_mean_on_index`.
 ## Assumptions
 
 - A stamp closes its period: a flux is a period mean, a state is a value at the
-  stamp.
+  stamp. A period cut into time steps stores the mean of its step fluxes and the
+  state of its last step.
 - An observation is stamped at the start of what it averages.
 - An observation of a mean quantity stands for one step of its chronicle.
 
@@ -115,6 +134,7 @@ appears here on the next build.
 hydromodpy.core.time.period_aggregation
 hydromodpy.core.time.time_method
 hydromodpy.results.derive.time_alignment
+hydromodpy.solver.modflow_common.period_steps
 ```
 
 ## In the code
@@ -123,6 +143,8 @@ hydromodpy.results.derive.time_alignment
 |---|---|
 | The stamp convention, mean and point rules | `hydromodpy/core/time/period_aggregation.py` |
 | The method of each quantity | `hydromodpy/core/time/time_method.py`, `hydromodpy/results/derive/time_alignment.py` |
+| The steps of a period put on its stamp, MODFLOW | `hydromodpy/solver/modflow_common/period_steps.py` |
+| The steps of a period put on its stamp, Boussinesq | `PeriodFluxes` in `hydromodpy/solver/boussinesq/drivers/state.py`, `hydromodpy/solver/boussinesq/assembly/period_mean.py` |
 | Runoff added to a drain budget | `hydromodpy/calibration/metrics/series.py` |
 
 ## See also

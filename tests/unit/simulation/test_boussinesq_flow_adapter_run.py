@@ -107,6 +107,7 @@ def test_boussinesq_flow_adapter_supports_runtime_mesh_with_heterogeneous_rechar
                     "Sy": _homogeneous_param(0.2),
                 },
                 "ic": {"type": "custom", "value": 7.0},
+                "first_period_steady": False,
                 "active_sinks_sources": ["recharge"],
                 "sinks_sources": {
                     "recharge": {
@@ -198,6 +199,7 @@ def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mes
                     "Sy": _homogeneous_param(0.2),
                 },
                 "ic": {"type": "custom", "value": 8.0},
+                "first_period_steady": False,
                 "active_bc": ["stream"],
                 "bc": {
                     "stream": {"kind": "dirichlet", "value": 7.0},
@@ -250,7 +252,9 @@ def test_boussinesq_flow_adapter_runs_transient_and_writes_outputs(tmp_path: Pat
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(FlowConfig.model_validate({"ic": {"type": "top"}})),
+            flow=Flow(
+                FlowConfig.model_validate({"ic": {"type": "top"}, "first_period_steady": False})
+            ),
             domain=None,
             time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
             workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
@@ -292,6 +296,7 @@ def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
                 _build_flow_config(
                     {
                         "ic": {"type": "custom", "value": 7.0},
+                        "first_period_steady": False,
                         "active_sinks_sources": ["recharge"],
                         "active_bc": ["west_side"],
                         "sinks_sources": {"recharge": {"values": 1.0e-7, "units": "m/s"}},
@@ -324,7 +329,11 @@ def test_boussinesq_flow_adapter_supports_recharge_and_side_dirichlet(
     assert model.has_numerical_solution is True
     assert model.state is not None
     assert model.state.recharge_rate_m_s is not None
-    assert np.allclose(model.state.recharge_rate_m_s, 1.0e-7)
+    # The cells held by the west side are a boundary: they take no recharge.
+    held = np.isfinite(np.asarray(model.state.prescribed_head_m_by_cell, dtype=float))
+    assert held.any() and not held.all()
+    assert np.allclose(model.state.recharge_rate_m_s[~held], 1.0e-7)
+    assert np.allclose(model.state.recharge_rate_m_s[held], 0.0)
     assert model.state.boundary_edge_flux_m3_s is not None
     assert model.state.boundary_edge_flux_m3_s[4] < 0.0
 
@@ -341,6 +350,7 @@ def test_boussinesq_flow_adapter_supports_absolute_xy_well(
                 _build_flow_config(
                     {
                         "ic": {"type": "custom", "value": 8.0},
+                        "first_period_steady": False,
                         "active_sinks_sources": ["wells"],
                         "sinks_sources": {
                             "wells": {
@@ -396,6 +406,7 @@ def test_boussinesq_flow_adapter_supports_stream_on_river_edges(
                 _build_flow_config(
                     {
                         "ic": {"type": "custom", "value": 8.0},
+                        "first_period_steady": False,
                         "active_bc": ["stream"],
                         "bc": {
                             "stream": {"kind": "dirichlet", "value": 7.0},
@@ -441,6 +452,7 @@ def test_boussinesq_flow_adapter_supports_ocean_on_coastal_edges(
                 _build_flow_config(
                     {
                         "ic": {"type": "custom", "value": 8.0},
+                        "first_period_steady": False,
                         "active_bc": ["ocean"],
                         "bc": {
                             "ocean": {"kind": "dirichlet", "value": 10.5},

@@ -47,19 +47,32 @@ class _RecordingStore:
 
 
 def _fake_cbc(records: dict[str, np.ndarray]):
-    """Return a CellBudgetFile stand-in serving ``records`` at every step."""
+    """Return a CellBudgetFile stand-in serving ``records`` at one step."""
+    names = list(records)
 
     class _FakeCellBudgetFile:
         def __init__(self, path: str, precision: str = "double") -> None:
             del path
             self.closed = False
+            # The record index FloPy builds: one compact record per name.
+            self.recordarray = np.array(
+                [(1, 1, name.rjust(16).encode(), 1, 1.0, 1.0) for name in names],
+                dtype=[
+                    ("kstp", "<i4"),
+                    ("kper", "<i4"),
+                    ("text", "S16"),
+                    ("imeth", "<i4"),
+                    ("delt", "<f4"),
+                    ("totim", "<f4"),
+                ],
+            )
 
         def get_unique_record_names(self) -> list[bytes]:
             return [name.encode() for name in records]
 
-        def get_data(self, *, text: str, kstpkper, totim, full3D: bool) -> list[np.ndarray]:
-            del kstpkper, totim, full3D
-            return [records[text].reshape(NLAY, NROW, NCOL)]
+        def get_record(self, idx: int, full3D: bool = False) -> np.ndarray:
+            assert full3D
+            return records[names[idx]].reshape(NLAY, NROW, NCOL)
 
         def close(self) -> None:
             self.closed = True

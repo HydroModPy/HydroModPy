@@ -165,13 +165,30 @@ def accumulate_boundary_flux_residual(
     return residual
 
 
+def derived_drain_conductance_m2_s(mesh: BoussinesqMesh) -> np.ndarray:
+    """Return the drain conductance of a cell whose value is not declared.
+
+    ``C = K * cell_area / drain_bed_thickness_m``, in m2/s: the derivation both
+    MODFLOW backends use (``hk_fallback_drain_conductance``), without their
+    floor for degenerate cells.
+    """
+    return (
+        np.asarray(mesh.hydraulic_conductivity_m_s, dtype=float)
+        * np.asarray(mesh.cell_area_m2, dtype=float)
+        / float(mesh.drain_bed_thickness_m)
+    )
+
+
 def drainage_outflow_from_head(
     mesh: BoussinesqMesh,
     head_m: np.ndarray,
     *,
     drainage_conductance_m2_s: np.ndarray | float | None,
 ) -> np.ndarray:
-    """Return one drainage outflow per cell."""
+    """Return one drainage outflow per cell.
+
+    A cell whose conductance is not positive takes the derived one.
+    """
     if drainage_conductance_m2_s is None:
         return np.zeros(mesh.n_cells, dtype=float)
     conductance = as_cell_vector(
@@ -179,8 +196,8 @@ def drainage_outflow_from_head(
         n_cells=mesh.n_cells,
         label="drainage_conductance_m2_s",
     )
-    auto_conductance = mesh.hydraulic_conductivity_m_s * mesh.cell_area_m2
-    effective_conductance = np.where(conductance > 0.0, conductance, auto_conductance)
+    derived_conductance = derived_drain_conductance_m2_s(mesh)
+    effective_conductance = np.where(conductance > 0.0, conductance, derived_conductance)
     head = np.asarray(head_m, dtype=float)
     return effective_conductance * np.maximum(head - mesh.z_top_m, 0.0)
 
@@ -189,6 +206,7 @@ __all__ = [
     "accumulate_boundary_flux_residual",
     "accumulate_internal_flux_residual",
     "boundary_head_edge_flux_from_head",
+    "derived_drain_conductance_m2_s",
     "drainage_outflow_from_head",
     "edge_to_stage_tau_from_head",
     "harmonic_conductivity",

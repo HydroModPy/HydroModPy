@@ -48,7 +48,7 @@ def plot_linearized_unconfined_drainage_comparison(
         f"h_w={float(reference_cfg['west_head_m']):.2f} m   "
         f"h_e={float(reference_cfg['east_head_m']):.2f} m   "
         f"z_d={float(reference_cfg['drainage_elevation_m']):.2f} m   "
-        f"C={float(reference_cfg['drainage_conductance_m2_per_s']):.1e} m2/s   "
+        f"b={float(reference_cfg['drain_bed_thickness_m']):.0f} m   "
         f"Href={float(reference_cfg['reference_saturated_thickness_m']):.2f} m"
     )
 

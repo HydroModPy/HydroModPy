@@ -9,6 +9,7 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     boundary_condition_bundle_from_flow,
     boundary_definition,
 )
+from hydromodpy.physics.flow.flow_runtime_config import DEFAULT_PARTITION_RELEASE_DEPTH_M
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.methods import (
     resolve_surface_interaction_model_token,
@@ -120,7 +121,6 @@ def resolve_solver_contract(
 def build_runtime_options(
     flow: object,
     *,
-    regularization_radius: float,
     n_cells: int | None = None,
 ) -> NonlinearRuntimeOptions:
     """Build backend-neutral nonlinear options for the selected runtime."""
@@ -152,8 +152,11 @@ def build_runtime_options(
     ts_vi_dt_max_fraction = float(getattr(flow, "ts_vi_dt_max_fraction", 1.0 / 4.0) or (1.0 / 4.0))
     ts_vi_type = str(getattr(flow, "ts_vi_type", "beuler") or "beuler")
     ts_vi_snes_type = str(getattr(flow, "ts_vi_snes_type", "vinewtonrsls") or "vinewtonrsls")
+    release_depth_m = float(
+        getattr(flow, "partition_release_depth_m", DEFAULT_PARTITION_RELEASE_DEPTH_M)
+    )
     return NonlinearRuntimeOptions(
-        regularization_radius=float(regularization_radius),
+        regularization_radius=release_depth_m,
         max_iterations=int(max_iterations),
         tol_residual_inf=tol_residual_inf,
         tol_state_update_inf=tol_state_update_inf,
