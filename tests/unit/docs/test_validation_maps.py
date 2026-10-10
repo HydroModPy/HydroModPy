@@ -239,3 +239,30 @@ def test_a_record_without_data_draws_nothing(F, tmp_path):
     )
     assert html == ""
     assert not (tmp_path / F.SUBDIR).exists()
+
+
+def test_record_map_keeps_the_window_where_the_error_shows():
+    """A local error on a wide grid keeps the cells around it, not the whole domain."""
+    n = 40
+    edges = np.arange(n + 1, dtype=float)
+    error = np.zeros((n, n))
+    error[18:22, 18:22] = 1.0
+    rec = _record_with(
+        results.record_map,
+        "map",
+        {"x_edges": edges, "y_edges": edges},
+        error.ravel(),
+        np.zeros(n * n),
+    )
+    (m,) = rec["maps"]
+    assert 4 <= len(m["grid"]["x_edges"]) - 1 < n
+    assert max(m["error"]) == 1.0
+
+    triangles = _triangles(n)
+    tri_error = np.zeros(len(triangles))
+    centres = np.asarray([t.mean(axis=0) for t in triangles])
+    tri_error[np.hypot(centres[:, 0] - 20, centres[:, 1] - 20) < 2] = 1.0
+    rec = _record_with(results.record_map, "map", triangles, tri_error, np.zeros(len(triangles)))
+    (m,) = rec["maps"]
+    assert 0 < len(m["faces"]) < len(triangles)
+    assert max(m["error"]) == 1.0
