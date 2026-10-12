@@ -13,6 +13,7 @@ from hydromodpy.core.time import SIMULATION_TIME_UNIT
 from hydromodpy.core.units.time import SECONDS_PER_DAY, factor_to_seconds
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
 from hydromodpy.solver.modflow6.build import mf6_safe_name
+from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
 from hydromodpy.solver.modflow_common.progress import (
     run_simulation_with_progress,
     write_listing_status,
@@ -332,28 +333,15 @@ class Modflow6Prt:
 
         sim = self.model_modflow.sim
         self.gwf = self.model_modflow.gwf
-        solver_mesh = self.model_modflow.solver_mesh
-        idomain = solver_mesh.idomain()
 
         self.prt = flopy.mf6.ModflowPrt(
             sim,
             modelname=self.model_name_prt_mf6,
             save_flows=True,
         )
-        disv_kwargs = solver_mesh.to_disv_kwargs()
-        # DISV vertices already hold absolute model coordinates (UTM/Lambert meters),
-        # so the package origin must be 0. Passing solver_mesh.xoffset here would shift
-        # the whole grid by one full origin (double offset). PRP release points use
-        # absolute centroids, so they only line up with an un-offset grid.
-        self.prtdis = flopy.mf6.ModflowPrtdisv(
-            self.prt,
-            nlay=self.model_modflow.nlay,
-            **disv_kwargs,
-            idomain=idomain,
-            xorigin=0.0,
-            yorigin=0.0,
-            length_units="METERS",
-        )
+        # The GWF grid, origin 0 included: PRP release points use absolute
+        # centroids, so they only line up with an un-offset grid.
+        self.prtdis = flopy.mf6.ModflowPrtdisv(self.prt, **disv_grid_kwargs(self.model_modflow))
         self.mip = flopy.mf6.ModflowPrtmip(self.prt, porosity=self._build_porosity())
         self.ems = flopy.mf6.ModflowEms(
             sim,

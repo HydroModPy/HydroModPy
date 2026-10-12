@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.solver.modflow6.support.computational_top import GROUND_SIDECAR_SUFFIX
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
 from hydromodpy.solver.modflow_common.mesh_descent import write_descent_sidecar
 from tests._helpers.ugrid_meshes import quad_mesh
@@ -154,6 +155,7 @@ def test_the_mf6_extractor_stores_the_descent_right_after_the_mesh(tmp_path, mon
 
     monkeypatch.setattr(flopy.mf6.utils, "MfGrdFile", _FakeGrid)
     (tmp_path / "m.dis.grb").write_bytes(b"")
+    np.savez(tmp_path / f"m{GROUND_SIDECAR_SUFFIX}", ground=TOP.ravel())
     descent = grid_descent(TOP)
     write_descent_sidecar(descent, tmp_path, "m")
     store = SimulationZarr.create(tmp_path / "run.zarr", n_cells=N_CELLS, n_layers=1)

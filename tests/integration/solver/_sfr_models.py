@@ -23,6 +23,7 @@ from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReachTrace
+from tests._helpers.mf6_ground import leave_ground_beside
 
 INFLOW_M3S = 0.05
 RUNOFF_M3S = 0.02
@@ -150,6 +151,7 @@ def run_standalone_sfr_model(ws: Path, *, connected: bool):
         saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
     )
     sim.write_simulation(silent=True)
+    leave_ground_beside(gwf)
     (ws / f"{MODEL_NAME}.sfr.meta.json").write_text(json.dumps(sfr_obs_meta, sort_keys=True))
     success, _buff = sim.run_simulation(silent=True)
     assert success, "standalone SFR MF6 run did not converge"
@@ -416,6 +418,7 @@ def run_coupled_sfr_lak_model(ws: Path, *, route_drainage: bool = False):
         saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
     )
     sim.write_simulation(silent=True)
+    leave_ground_beside(gwf)
     (ws / f"{COUPLED_MODEL_NAME}.sfr.meta.json").write_text(
         json.dumps(sfr_obs_meta, sort_keys=True)
     )

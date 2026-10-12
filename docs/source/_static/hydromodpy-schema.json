@@ -19358,7 +19358,7 @@
         },
         "mf6_newton": {
           "default": true,
-          "description": "Enable the MODFLOW 6 Newton-Raphson formulation. Catchment cells are always convertible (unconfined), so Newton with under-relaxation is the robust default. Unlike MODFLOW-NWT, it builds the horizontal conductance from the full cell thickness times the upstream saturation, so where the cell top steps down from one cell to the next (a top that follows the DEM) it gives a lower transmissivity than NWT.",
+          "description": "Enable the MODFLOW 6 Newton-Raphson formulation. Catchment cells are always convertible (unconfined), so Newton with under-relaxation is the robust default. Unlike MODFLOW-NWT, it builds the horizontal conductance from the full cell thickness times the upstream saturation. The grid MODFLOW 6 reads therefore has a computational top that gives every cell of the top layer the same thickness, so that this conductance is the one of NWT; the ground stays in every package and in the run store.",
           "examples": [
             true
           ],

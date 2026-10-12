@@ -31,6 +31,7 @@ from hydromodpy.solver.modflow_common.period_steps import (
 )
 from hydromodpy.solver.modflow_nwt.extractors.flow import ModflowNwtOutputAdapter
 from hydromodpy.solver.modflow_nwt.nwt._pre_processing import output_control_words
+from tests._helpers.mf6_ground import leave_ground_beside
 
 DAY_S = 86400.0
 NCOL = 6
@@ -175,6 +176,7 @@ def _run_mf6(workspace: Path, *, oc: dict, nstp: tuple[int, ...] = NSTP) -> Path
     flopy.mf6.ModflowGwfdrn(gwf, stress_period_data=[((0, 0, 5), 20.05, 5.0)])
     flopy.mf6.ModflowGwfoc(gwf, head_filerecord="flow.hds", budget_filerecord="flow.cbc", **oc)
     sim.write_simulation(silent=True)
+    leave_ground_beside(gwf)
     success, buff = sim.run_simulation(silent=True)
     assert success, buff
     return workspace
@@ -631,6 +633,7 @@ def _run_mf6_lake(workspace: Path) -> Path:
         **output_control_records(print_head=False),
     )
     sim.write_simulation(silent=True)
+    leave_ground_beside(gwf)
     meta["budget_bin"] = "lake.lak.cbc"
     (workspace / "lake.lak.meta.json").write_text(json.dumps(meta))
     success, buff = sim.run_simulation(silent=True)

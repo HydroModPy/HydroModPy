@@ -300,6 +300,22 @@ Each release section includes the following standard categories:
   committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- MODFLOW 6 reads a computational top. Under Newton it builds the horizontal conductance
+  from the full thickness of the two cells times the upstream saturation, so a thickness
+  that changes from one cell to the next gave too low a transmissivity (0.16 to 0.31 m of
+  head RMSE against MODFLOW-NWT on the Nançon over a flat or regionalised substratum). The
+  DISV of the GWF, GWT and PRT models now carries `z_top + max H_1 - H_1`, which gives every
+  cell of the top layer the same thickness; lake columns keep the ground. Every package
+  elevation, the initial heads and the run store keep the ground, which the build leaves
+  beside the model as `<model>.ground.npz`. A constant thickness writes the same files as
+  before (example 04 unchanged). MF6 heads change on every model whose thickness varies
+  (`flat_substratum`, `raster_substratum`, `raster_thickness`, a zonal top): MF6
+  calibrations made before on such geometries are no longer comparable.
+- Under Newton, the WEL `AUTO_FLOW_REDUCE` fraction keeps the reduction interval within a
+  tenth of the aquifer below the ground in every well cell, 0.1 when the top is the ground.
+- The MODFLOW 6 extractor stores `topography`, `z_interfaces` and `layer_thickness` from
+  the ground file and refuses a solver folder without it: the top of its grid file is a
+  computational top. A store that keeps no Zarr asks for no mesh.
 - The deep Brutsaert recession and the Glover-Balmer stream depletion compare the
   period-mean discharge and depletion with the mean of the closed form over each
   period, not with its value at the period end. Their thresholds are re-derived from
@@ -503,6 +519,8 @@ Each release section includes the following standard categories:
   refused.
 
 ### Fixed
+- The network maps draw their topography background under MODFLOW 6 and MODFLOW-NWT:
+  they read the per-cell `topography`, not the one-column `z_interfaces`.
 - A stress period cut into time steps (simulation.time.substeps_per_period, adaptive
   time stepping, the internal steps of the Boussinesq PETSc closures) stores, on
   MODFLOW 6, MODFLOW-NWT and Boussinesq alike, the head of its last step and every
