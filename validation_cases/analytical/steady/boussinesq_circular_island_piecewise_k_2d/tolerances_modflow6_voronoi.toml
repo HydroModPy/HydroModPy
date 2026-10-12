@@ -9,9 +9,9 @@ gap = """
 Known gap. MODFLOW 6 on the Voronoi dual sits 0.12 to 0.17 m below the
 reference inside 120 m (radial RMSE 0.12 m). Two errors add up there. The K zone
 boundaries (70 m and 140 m) pass through node rings, so those cells straddle two
-zones and take an area-weighted K: without Newton and with equal thicknesses the
-heads are 0.08 to 0.11 m too low inside 120 m and 0.05 m too high on the 140 m
-ring (RMSE 0.076 m). Under Newton, the saturation of the upstream cell lowers
+zones and take an area-weighted K: without Newton the same input files give
+0.076 m, the heads 0.08 to 0.11 m too low inside 120 m and 0.05 m too high on the
+140 m ring. Under Newton, the saturation of the upstream cell lowers
 them further, first order on rings 10 to 30 m apart. Until 2026-10-12 the top
 was the DEM, and the full-thickness weighting of the Newton conductance raised
 the heads, which offset the straddled zones: 0.056 m. MODFLOW 6 now reads a

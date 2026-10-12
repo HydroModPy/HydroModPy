@@ -11,8 +11,8 @@ inside 120 m (radial RMSE 0.067 m), where MODFLOW-NWT on the Cartesian grid sits
 0.050 m away. MODFLOW 6 reads a computational top that gives every cell the same
 thickness, so the full-thickness weighting of its Newton conductance is gone.
 What is left is the saturation of the upstream cell, first order on 625 cells
-whose node rings are 10 to 30 m apart: control runs on the same input files
-gave 0.019 m without Newton, 0.003 m without Newton and with equal thicknesses.
+whose node rings are 10 to 30 m apart: without Newton the same input files give
+0.003 m, the heads within 4 mm of the reference.
 """
 reason = """
 Measured values with a 10 % margin: radial RMSE 0.067 m, max error 0.080 m,
