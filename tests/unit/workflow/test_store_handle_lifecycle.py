@@ -150,7 +150,8 @@ class _Dumpable:
         return dict(self.payload)
 
 
-def test_effective_config_snapshot_uses_runtime_domain_and_results() -> None:
+def test_effective_config_snapshot_is_the_run_config_with_the_runtime_domain() -> None:
+    """Nothing is forced at planning: the results section is the one written."""
     declared = {
         "workflow": {"mode": "simulation"},
         "domain": {"depth_model": {"kind": "constant_thickness", "thickness": 10.0}},
@@ -159,20 +160,16 @@ def test_effective_config_snapshot_uses_runtime_domain_and_results() -> None:
     effective_domain = {
         "depth_model": {"kind": "constant_thickness", "thickness": 25.0},
     }
-    effective_results = {
-        "keep_solver_files": True,
-        "persistence": {"save_catalog": True},
-    }
     ctx = SimpleNamespace(
         cfg=_Dumpable(declared),
         setup=SimpleNamespace(domain=SimpleNamespace(config=_Dumpable(effective_domain))),
-        effective_results_config=_Dumpable(effective_results),
     )
 
     snapshot = prepare_solver_module.collect_effective_config_snapshot(ctx)
 
     assert snapshot["domain"] == effective_domain
-    assert snapshot["simulation"]["results"] == effective_results
+    assert snapshot["simulation"] == declared["simulation"]
+    assert snapshot["workflow"] == declared["workflow"]
 
 
 def _scratch_ctx(scratch: Path) -> SimpleNamespace:

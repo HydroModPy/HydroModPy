@@ -499,8 +499,8 @@ def run_trial_light(
 
         # Trials only run [earliest..8]. Derive/export/display are reserved
         # for promotion (steps 09-11). ``skip_display`` says so to results
-        # reconciliation: a trial draws nothing, so no figure gets to turn a
-        # derived flag on and force the per-cell budget no step would drop.
+        # planning: a trial draws nothing, so under ``keep_per_cell_budget =
+        # false`` no figure adds a term to the per-cell budget it keeps.
         downstream_slice = forked.downstream_steps[forked.earliest : 9]
         if recorder is not None:
             downstream_slice = provider.with_solver_launcher(downstream_slice, recorder)
@@ -776,10 +776,10 @@ def _finalize_failed_context(ctx: WorkflowContext) -> None:
     workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
     if sim_id is None or workspace is None or ctx.execution.lightweight:
         return
-    results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
-    if not results_cfg.persistence.save_catalog:
+    persistence = ctx.cfg.simulation.results.persistence
+    if not persistence.save_catalog:
         return
-    with Catalog.from_workspace(workspace, persistence=results_cfg.persistence) as catalog:
+    with Catalog.from_workspace(workspace, persistence=persistence) as catalog:
         catalog.finalize(sim_id, status="failed")
 
 

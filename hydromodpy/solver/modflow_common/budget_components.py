@@ -54,6 +54,10 @@ _CANONICAL_BUDGET_NAMES: dict[str, str] = {
     # river leakage
     "RIVER LEAKAGE": "river",
     "RIV": "river",
+    # MODFLOW-NWT stream (SFR2, STR) and lake (LAK3) exchanges: the same
+    # aquifer fluxes as the MODFLOW 6 SFR and LAK records, signed alike.
+    "STREAM LEAKAGE": "stream",
+    "LAKE SEEPAGE": "lake",
     # constant head
     "CONSTANT HEAD": "constant_head",
     "CHD": "constant_head",

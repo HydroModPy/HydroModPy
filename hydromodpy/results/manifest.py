@@ -40,6 +40,7 @@ simulations.crs_wkt / crs_epsg                   display.figure, exporters     M
 simulations.bbox_*                               display, exporters            M ``geometry.bbox``
 simulations.mesh_hash / mesh_topology            mesh reuse, comparison        M ``geometry``
 simulations.zarr_path                            field reads                   fields.zarr in the run directory
+(none: attributes of fields.zarr/budget)         missing-field messages        M ``budget``
 simulations.config_hash / config_source          comparison, audit             M ``config``
 simulations.config_toml / config_snapshot        audit, .hmp packaging         config.toml
 simulations.geographic_fingerprint               geographic cache reuse        M ``geometry``
@@ -73,6 +74,10 @@ neither the index nor the project lockfile to state it. The lockfile answers
 a wider question - the state of the whole data cache before a run - and is
 kept for that (see :mod:`hydromodpy.project.lockfile`).
 
+The ``budget`` block repeats what the ``budget/`` group of ``fields.zarr``
+says it kept of the per-cell budget: the policy (``all`` or ``consumers``) and
+the kept terms. It is absent for a store written before those attributes.
+
 Known gap: ``tags`` and ``sim_notes`` are annotations, mutable after the run
 ends; they are not part of the seal and belong to the annotation sidecar.
 """
@@ -88,7 +93,9 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import pyarrow as pa
+import zarr
 
+from hydromodpy.core.budget_terms import kept_budget
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.catalog.writes_helpers import kv_metadata_for_sim
 from hydromodpy.results.storage.contract import (
@@ -380,7 +387,7 @@ def build_manifest(catalog: Catalog, sim_id: str | UUID) -> dict[str, Any]:
     sid = str(sim_id)
     row = _simulation_row(catalog, sid)
     run_dir = catalog.run_dir_for(sid)
-    return {
+    payload: dict[str, Any] = {
         "manifest_version": MANIFEST_SCHEMA_VERSION,
         "sealed_at": datetime.now(UTC).isoformat(),
         "run": _identity_block(row),
@@ -401,6 +408,10 @@ def build_manifest(catalog: Catalog, sim_id: str | UUID) -> dict[str, Any]:
         "parameters": _manifest_parameters(catalog, sid),
         "metrics": _manifest_metrics(catalog, sid),
     }
+    budget = _budget_block(run_dir)
+    if budget is not None:
+        payload["budget"] = budget
+    return payload
 
 
 def write_manifest(catalog: Catalog, sim_id: str | UUID) -> Path:
@@ -641,6 +652,25 @@ def _geometry_block(catalog: Catalog, sid: str, row: dict[str, Any]) -> dict[str
         "declared_outlet": _outlet(row.get("outlet_x"), row.get("outlet_y")),
         "catchment": _catchment_metadata(catalog, sid),
     }
+
+
+def _budget_block(run_dir: Path) -> dict[str, Any] | None:
+    """Return what the field store says it kept of the per-cell budget.
+
+    None when the run has no field store or its ``budget/`` group carries no
+    policy, which is a store written before the attributes existed.
+    """
+    store_path = run_dir / FIELDS_STORE_NAME
+    if not store_path.is_dir():
+        return None
+    try:
+        root = zarr.open_group(str(store_path), mode="r", use_consolidated=False)
+    except (FileNotFoundError, KeyError, ValueError, zarr.errors.GroupNotFoundError):
+        return None
+    kept = kept_budget(root)
+    if kept is None:
+        return None
+    return {"policy": kept.policy, "kept_terms": list(kept.terms)}
 
 
 def _catchment_metadata(catalog: Catalog, sid: str) -> dict[str, Any]:

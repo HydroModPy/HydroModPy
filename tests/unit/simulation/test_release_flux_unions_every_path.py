@@ -1,4 +1,4 @@
-"""The derived release field must sum every path out of the aquifer.
+"""The release field rebuilt on read must sum every path out of the aquifer.
 
 Two code paths compute a quantity called ``release_flux``: the calibration
 extractor, which unions the packages as it reads the binary budget, and this
@@ -18,21 +18,15 @@ import pytest
 zarr = pytest.importorskip("zarr")
 
 from hydromodpy.core.field_routing import SURFACE_RELEASE_BUDGETS  # noqa: E402
-from hydromodpy.simulation.extraction.derivation.derived import _release_flux_stack  # noqa: E402
+from hydromodpy.results.derive.virtual_fields import release_flux_rows  # noqa: E402
 
 N_CELLS = 6
-
-
-class _Store:
-    """Minimal stand-in for the run store the derivation reads."""
-
-    def __init__(self, root) -> None:
-        self._root = root
 
 
 def _budget(tmp_path, components: dict[str, np.ndarray]):
     """Write a budget group holding one signed stack per component."""
     root = zarr.open_group(str(tmp_path / "fields.zarr"), mode="w")
+    root.create_array("head", shape=(1, 1, N_CELLS), dtype="float64")
     budget = root.create_group("budget")
     for name, values in components.items():
         arr = np.asarray(values, dtype="float64").reshape(1, 1, N_CELLS)
@@ -41,21 +35,11 @@ def _budget(tmp_path, components: dict[str, np.ndarray]):
 
 
 @pytest.fixture
-def stack(monkeypatch, tmp_path):
-    """Return a caller that builds the stack over a synthetic budget group."""
-    import contextlib
-
-    from hydromodpy.simulation.extraction.derivation import derived as module
+def stack(tmp_path):
+    """Return a caller that rebuilds the release flux over a synthetic budget group."""
 
     def build(components: dict[str, np.ndarray]) -> np.ndarray:
-        root = _budget(tmp_path, components)
-
-        @contextlib.contextmanager
-        def _fake_root(_store, _sim_id):
-            yield root
-
-        monkeypatch.setattr(module, "_zarr_root", _fake_root)
-        return _release_flux_stack("sim", _Store(root), 1, N_CELLS)
+        return release_flux_rows(_budget(tmp_path, components), 0, 1)
 
     return build
 

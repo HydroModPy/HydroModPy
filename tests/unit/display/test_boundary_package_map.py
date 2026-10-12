@@ -33,6 +33,12 @@ from hydromodpy.display.figures.boundary_package_map import (
 N_CELLS = 4
 
 
+class _BudgetGroup(dict):
+    """The ``budget/`` group of a store: its arrays, and the attributes it declares."""
+
+    attrs: dict
+
+
 class _Store:
     """The Zarr store of one run, reduced to what a figure reads off it.
 
@@ -41,8 +47,10 @@ class _Store:
     here exactly as it would be on disk.
     """
 
-    def __init__(self, stacks: dict[str, np.ndarray]) -> None:
-        self.root = {"budget": dict(stacks)}
+    def __init__(self, stacks: dict[str, np.ndarray], policy: str = "all") -> None:
+        group = _BudgetGroup(stacks)
+        group.attrs = {"policy": policy, "kept_terms": sorted(stacks) if policy == "all" else []}
+        self.root = {"budget": group}
         self.closed = False
 
     def close(self) -> None:
@@ -95,8 +103,12 @@ def _run(
     n_timesteps: int = 1,
     mesh: tuple[np.ndarray, np.ndarray] | None = None,
     catchment: tuple[float, float, float, float] | None = None,
+    policy: str = "all",
 ) -> SimpleNamespace:
     """Return a run whose ``budgets`` are ``(n_timesteps, ...)`` per component.
+
+    ``policy`` is what its ``budget/`` group declares it kept: ``"all"``, or
+    ``"consumers"`` with no term kept.
 
     ``catchment`` is the ``(x0, y0, x1, y1)`` of the delineation, under the
     only two members the figure reads off a geographic feature.
@@ -106,7 +118,7 @@ def _run(
     opened: list[_Store] = []
 
     def open_zarr(_sim_id):
-        opened.append(_Store(stacks))
+        opened.append(_Store(stacks, policy))
         return opened[-1]
 
     def geographic(feature: str):
@@ -410,11 +422,19 @@ def test_a_budget_that_does_not_fit_the_mesh_is_refused_by_name() -> None:
 
 
 def test_unavailable_reason_names_every_component_and_the_option() -> None:
-    reason = BoundaryPackageMap().unavailable_reason(_run({"head": np.zeros((1, N_CELLS))}))
+    sim = _run({"head": np.zeros((1, N_CELLS))}, policy="consumers")
+    reason = BoundaryPackageMap().unavailable_reason(sim)
     assert isinstance(reason, str)
     for name in BOUNDARY_PACKAGES:
         assert name in reason
-    assert "[simulation.results.budget] spatial_fields = true" in reason
+    assert "keep_per_cell_budget" in reason
+
+
+def test_a_run_that_kept_the_whole_budget_has_no_option_to_offer() -> None:
+    """The model produced no package: no setting would have stored one."""
+    reason = BoundaryPackageMap().unavailable_reason(_run({"head": np.zeros((1, N_CELLS))}))
+    assert isinstance(reason, str)
+    assert "keep_per_cell_budget" not in reason
 
 
 def test_one_stored_component_is_enough_to_serve_the_figure() -> None:
@@ -426,7 +446,7 @@ def test_render_refuses_with_the_sentence_it_reports() -> None:
     pytest.importorskip("matplotlib")
     import matplotlib.pyplot as plt
 
-    sim = _run({"head": np.zeros((1, N_CELLS))})
+    sim = _run({"head": np.zeros((1, N_CELLS))}, policy="consumers")
     figure = BoundaryPackageMap()
     fig, ax = _axes()
     try:
@@ -460,14 +480,14 @@ def test_the_packages_climb_in_lightness_in_the_order_declared() -> None:
 
 def test_every_package_is_a_registered_budget_field() -> None:
     """The figure reads its components by name, like any other field."""
-    from hydromodpy.results.derive.config_flags import BUDGET_SPATIAL_OPTION, config_option_for
+    from hydromodpy.results.derive.config_flags import KEEP_BUDGET_OPTION, config_option_for
     from hydromodpy.results.field_registry import get
 
     for name in BOUNDARY_PACKAGES:
         descriptor = get(name)
         assert descriptor.zarr_path == f"budget/{name}"
         assert descriptor.units == "m3 s-1"
-        assert config_option_for(name) == BUDGET_SPATIAL_OPTION
+        assert config_option_for(name) == KEEP_BUDGET_OPTION
 
 
 def test_the_whole_run_is_read_in_one_opening_of_the_store() -> None:
@@ -508,20 +528,29 @@ def test_reading_the_step_alone_never_opens_the_store() -> None:
 
 
 def test_the_planner_counts_this_figure_among_the_budget_consumers() -> None:
-    """Optional fields are still a request for the group the fields live in.
+    """Optional fields are still a request for the terms the fields read.
 
-    Without this the figure is invisible to the reconciliation: the run drops
-    the per-cell budget it was never told anyone wanted, and the map the user
-    asked for is reported unavailable on its own output.
+    Without this the figure is invisible to the planner: a run that keeps only
+    what its consumers read drops the per-cell budget it was never told anyone
+    wanted, and the map the user asked for is reported unavailable on its own
+    output.
     """
+    from hydromodpy.core.budget_terms import budget_terms_for_fields
     from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.workflow.steps.planning import _figure_budget_fields
+    from hydromodpy.simulation.planning.results_config import ResultsConfig
+    from hydromodpy.workflow.steps.planning import step_configure_results
 
-    fields = _figure_budget_fields(
-        DisplayConfig(figures=["boundary_package_map"]), display_active=True
+    keep = step_configure_results(
+        ResultsConfig(keep_per_cell_budget=False),
+        SimpleNamespace(runs=()),
+        DisplayConfig(figures=["boundary_package_map"]),
+        display_active=True,
+        export_requests=(),
+        calibration=None,
+        observation=None,
     )
 
-    assert set(fields) == set(BOUNDARY_PACKAGES)
+    assert keep.terms == frozenset(budget_terms_for_fields(BOUNDARY_PACKAGES))
 
 
 def test_no_component_is_required_so_one_package_is_enough() -> None:

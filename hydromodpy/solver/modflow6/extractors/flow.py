@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core import progress
+from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE, STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.core.logging import get_logger
@@ -34,6 +35,7 @@ from hydromodpy.solver.modflow_common.budget_components import (
     canonical_budget_component,
     is_scalar_budget_component,
 )
+from hydromodpy.solver.modflow_common.budget_policy import record_budget_policy
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
 from hydromodpy.solver.modflow_common.period_steps import (
@@ -275,10 +277,14 @@ class Modflow6OutputAdapter:
         store: Any,
         *,
         model_name: str | None = None,
-        budget_spatial_fields: bool = False,
+        budget_terms: BudgetKeep = BudgetKeep.everything(),
         start_datetime: object | None = None,
     ) -> None:
-        """Read MF6 .hds and .cbc files and write into the store."""
+        """Read MF6 .hds and .cbc files and write into the store.
+
+        ``budget_terms`` says which per-cell budget terms go under
+        ``budget/``. The lumped budget table holds every term whatever it says.
+        """
         import flopy.utils.binaryfile as bf
 
         solver_output_dir = Path(solver_output_dir)
@@ -351,7 +357,7 @@ class Modflow6OutputAdapter:
                     cbc_path,
                     times,
                     kstpkpers,
-                    spatial_fields=budget_spatial_fields,
+                    budget_terms=budget_terms,
                     nlay=nlay,
                     n_cells=n_cells,
                     seconds_per_time_unit=seconds_per_time_unit,
@@ -362,6 +368,8 @@ class Modflow6OutputAdapter:
                         solver_output_dir, model_name, n_cells=n_cells
                     ),
                 )
+            else:
+                record_budget_policy(store, sim_id, budget_terms, ())
 
             lst_path = _listing_path(solver_output_dir, model_name)
             if lst_path.exists():
@@ -419,7 +427,7 @@ class Modflow6OutputAdapter:
         times: list,
         kstpkpers: list,
         *,
-        spatial_fields: bool = False,
+        budget_terms: BudgetKeep = BudgetKeep.everything(),
         nlay: int = 1,
         n_cells: int = 0,
         seconds_per_time_unit: float = 1.0,
@@ -442,6 +450,12 @@ class Modflow6OutputAdapter:
         ``budget/constant_head_stream``. That spatial field is the stream-role
         CHD term of ``release_flux``; it gets no budget table row, since the
         ``constant_head`` row already counts that water.
+
+        The budget table holds every scalar record. A per-cell field is built
+        only for a term ``budget_terms`` reads and written only for a term it
+        keeps; ``constant_head_stream`` is written whenever it is kept, even
+        when ``constant_head`` is not. The ``budget/`` attributes record the
+        policy and the terms kept.
         """
         from hydromodpy.solver.modflow6.extractors.cbc_reader import Mf6CellBudgetReader
 
@@ -459,6 +473,14 @@ class Modflow6OutputAdapter:
                 name for name in cbb.unique_record_names() if is_scalar_budget_component(name)
             ]
             component_rank = {name: rank for rank, name in enumerate(components)}
+            built = {
+                name
+                for name in components
+                if budget_terms.reads_record(canonical_budget_component(name))
+            }
+            keep_stream_chd = stream_constant_head_mask is not None and budget_terms.keeps(
+                STREAM_CONSTANT_HEAD_BUDGET
+            )
 
             n_timesteps = len(times)
             # One sequential pass over the file-order record index. Per-record
@@ -470,10 +492,10 @@ class Modflow6OutputAdapter:
                 stamp_keys=[(int(kstp) + 1, int(kper) + 1) for kstp, kper in kstpkpers],
             )
             # The cbc file is time-major, so budget spatial fields are streamed in
-            # time slabs shared across the components: the slab is sized so all
-            # components together stay under one field-slab budget rather than
-            # holding every component's full (nper, nlay, ncpl) stack in RAM.
-            budget_slab = max(1, slab_steps(nlay, n_cells) // max(1, len(components)))
+            # time slabs shared across the components built: the slab is sized so
+            # they together stay under one field-slab budget rather than holding
+            # every component's full (nper, nlay, ncpl) stack in RAM.
+            budget_slab = max(1, slab_steps(nlay, n_cells) // max(1, len(built)))
             created_fields: set[str] = set()
             ranked_records: list[tuple[int, int, dict]] = []
             slab_stacks: dict[str, np.ndarray] = {}
@@ -511,8 +533,9 @@ class Modflow6OutputAdapter:
             def _flush_window(t0: int) -> None:
                 for comp, stack in slab_stacks.items():
                     comp_key = canonical_budget_component(comp)
-                    _write_budget_stack(comp_key, stack, t0)
-                    if comp_key == "constant_head" and stream_constant_head_mask is not None:
+                    if budget_terms.keeps(comp_key):
+                        _write_budget_stack(comp_key, stack, t0)
+                    if comp_key == "constant_head" and keep_stream_chd:
                         _write_budget_stack(
                             STREAM_CONSTANT_HEAD_BUDGET,
                             np.where(stream_constant_head_mask, stack, 0.0),
@@ -523,7 +546,7 @@ class Modflow6OutputAdapter:
             n_reads = sum(len(steps) for by in records_by_stamp for steps in by.values())
             with progress.task("Extracting budget terms", total=n_reads) as handle:
                 for t, by_component in enumerate(records_by_stamp):
-                    if spatial_fields and t >= window_t0 + budget_slab:
+                    if built and t >= window_t0 + budget_slab:
                         _flush_window(window_t0)
                         window_t0 = (t // budget_slab) * budget_slab
                     for component, steps in by_component.items():
@@ -537,6 +560,7 @@ class Modflow6OutputAdapter:
                             n_cells=n_cells,
                             seconds_per_time_unit=spt,
                             catchment_cells=catchment_cells,
+                            with_field=component in built,
                         )
                         if mean is None:
                             continue
@@ -560,7 +584,7 @@ class Modflow6OutputAdapter:
                             # The row above spans the model domain. On a buffered
                             # box that is not what a gauge at the outlet sees, and
                             # the per-cell field is dropped right after unless
-                            # spatial_fields is on. Summing the basin here, where
+                            # the run keeps the term. Summing the basin here, where
                             # the array is already in memory, is what lets a run
                             # carry a catchment-supported budget for free.
                             ranked_records.append(
@@ -577,7 +601,7 @@ class Modflow6OutputAdapter:
                                     },
                                 )
                             )
-                        if spatial_fields and mean.field is not None:
+                        if mean.field is not None:
                             field = mean.field
                             stack = slab_stacks.get(component)
                             if stack is None:
@@ -596,6 +620,7 @@ class Modflow6OutputAdapter:
                 store.write_budgets(sim_id, budget_records)
         finally:
             cbb.close()
+        record_budget_policy(store, sim_id, budget_terms, created_fields)
 
     def _period_mean_record(
         self,
@@ -608,13 +633,15 @@ class Modflow6OutputAdapter:
         n_cells: int,
         seconds_per_time_unit: float,
         catchment_cells: np.ndarray | None,
+        with_field: bool = True,
     ) -> _PeriodBudget | None:
         """Weighted mean over the steps of one stamp of one budget record.
 
         The in and out totals are the means of the step totals, so a cell that
         changes sign within the period counts its inflow and its outflow, as
         the volumes of the period do. The cell field is the mean of the step
-        fields, in the TDIS unit. None when no step could be read.
+        fields, in the TDIS unit, computed only ``with_field``. None when no
+        step could be read.
         """
         spt = seconds_per_time_unit
         weights: list[float] = []
@@ -656,7 +683,7 @@ class Modflow6OutputAdapter:
             flux_out=weighted_period_scalar(flux_out, weights),
             basin_in=weighted_period_scalar(basin_in, field_weights) if has_basin else None,
             basin_out=weighted_period_scalar(basin_out, field_weights) if has_basin else None,
-            field=weighted_period_mean(fields, field_weights) if fields else None,
+            field=weighted_period_mean(fields, field_weights) if fields and with_field else None,
         )
 
     def _extract_lake_series(
@@ -1248,18 +1275,6 @@ class Modflow6OutputAdapter:
             ]
         )
         return vertices, Modflow6OutputAdapter._structured_face_connectivity(nrow, ncol)
-
-    def derive(
-        self,
-        sim_id: str,
-        store: Any,
-        config: dict | None = None,
-    ) -> None:
-        """Compute derived variables from stored head fields."""
-        from hydromodpy.simulation.extraction.derivation.derived import compute_derived
-
-        cfg = config or {}
-        compute_derived(sim_id, store, cfg)
 
 
 def _write_flow_properties(sz: Any, solver_output_dir: Path, *, n_cells: int) -> None:

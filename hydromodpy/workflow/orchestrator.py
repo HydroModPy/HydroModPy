@@ -74,8 +74,7 @@ def standard_steps() -> tuple:
     :mod:`hydromodpy.workflow.phases`: build the geographic/domain runtime,
     load data into that runtime, build/import the mesh, bind processes, then
     prepare and run the solver. The tail is extract, derive, display, export:
-    figures are the last reader of the run, so they draw before the export
-    step drops the intermediate fields and seals the store.
+    figures draw before the export step seals the store.
     """
     from hydromodpy.workflow.steps import (
         BuildGeographicStep,

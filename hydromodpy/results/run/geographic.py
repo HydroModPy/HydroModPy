@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.budget_terms import KeptBudget, kept_budget
 from hydromodpy.results import field_registry
 from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.run.array import lookup_zarr_path
@@ -65,6 +66,38 @@ def geographic_metadata(run: Run) -> dict[str, str]:
     dict when the run recorded none.
     """
     return run._catalog.read_geographic_metadata(run.sim_id)
+
+
+def kept_budget_of(run: Run) -> KeptBudget | None:
+    """Return what the ``budget/`` group of the store of ``run`` says it kept.
+
+    A module function rather than a ``Run`` attribute, like :func:`crs_epsg`.
+    None when the store has no ``budget/`` group or declares no policy, which
+    is a store written before the attributes existed, and for a stand-in whose
+    catalog opens no store (see :func:`field_steps`).
+    """
+    if not callable(getattr(getattr(run, "_catalog", None), "open_zarr", None)):
+        return None
+    sz = run._catalog.open_zarr(run.sim_id)
+    try:
+        return kept_budget(sz.root)
+    finally:
+        sz.close()
+
+
+def has_head_of(run: Run) -> bool:
+    """Say whether the store of ``run`` holds a head.
+
+    True for a stand-in whose catalog opens no store, which is unknown, not
+    headless. A run without a head (a lumped model) cannot hold a per-cell budget.
+    """
+    if not callable(getattr(getattr(run, "_catalog", None), "open_zarr", None)):
+        return True
+    sz = run._catalog.open_zarr(run.sim_id)
+    try:
+        return "head" in sz.root
+    finally:
+        sz.close()
 
 
 class RunGeographicMixin:
@@ -207,7 +240,7 @@ class RunGeographicMixin:
         try:
             arr = self._catalog.query_field(self._sim_id, variable, timestep, layer=layer)
         except KeyError as exc:
-            raise _field_not_found(self._sim_id, variable) from exc
+            raise _field_not_found(self, variable) from exc
         if bbox is not None:
             arr = _apply_bbox_mask(self, arr, bbox)
         return arr
@@ -218,8 +251,8 @@ class RunGeographicMixin:
         A field counts as available when it is persisted, or when it is a
         virtual field this store can rebuild (watertable elevation/depth and
         seepage mask from the stored head, drain outflow from the per-cell
-        budget), so figures find them even though ``results.derived.*`` is
-        off by default.
+        budget), so figures find them although no array of their own is
+        written.
         """
         from hydromodpy.results.derive.virtual_fields import available_virtual_fields
 
@@ -328,7 +361,7 @@ def field_range(
             run._catalog, run.sim_id, variable, start, stop, layer=layer
         )
     except KeyError as exc:
-        raise _field_not_found(run.sim_id, variable) from exc
+        raise _field_not_found(run, variable) from exc
 
 
 def field_steps(run: Run, variable: str, steps: Sequence[int]) -> np.ndarray:
@@ -374,15 +407,15 @@ def _consecutive_runs(order: list[int]) -> list[tuple[int, int]]:
     return bounds
 
 
-def _field_not_found(sim_id: str, variable: str) -> FieldNotFoundError:
+def _field_not_found(run: Run, variable: str) -> FieldNotFoundError:
     """Return the error a field read raises when nothing stores or rebuilds the field."""
-    from hydromodpy.results.derive.config_flags import config_option_for, enable_options_hint
+    from hydromodpy.results.derive.config_flags import missing_field_explanation
 
-    option = config_option_for(variable)
-    hint = "" if option is None else f" {enable_options_hint([option])}"
+    explanation = missing_field_explanation([variable], run)
+    hint = f" {explanation}" if explanation else ""
     return FieldNotFoundError(
-        f"Field '{variable}' not found in simulation '{sim_id}'.{hint}",
-        sim_id=sim_id,
+        f"Field '{variable}' not found in simulation '{run.sim_id}'.{hint}",
+        sim_id=run.sim_id,
         variable=variable,
     )
 

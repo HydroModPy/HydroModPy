@@ -119,14 +119,12 @@ def collect_registration_kwargs(ctx: WorkflowContext) -> dict:
 
 
 def collect_effective_config_snapshot(ctx: WorkflowContext) -> dict:
-    """Return the reproducible config snapshot used by the current run."""
-    payload = ctx.cfg.model_dump(mode="json")
+    """Return the reproducible config snapshot used by the current run.
 
-    effective_results = getattr(ctx, "effective_results_config", None)
-    if effective_results is not None:
-        simulation_payload = dict(payload.get("simulation") or {})
-        simulation_payload["results"] = effective_results.model_dump(mode="json")
-        payload["simulation"] = simulation_payload
+    It is the configuration of the run as written, with the domain section
+    the built domain carries.
+    """
+    payload = ctx.cfg.model_dump(mode="json")
 
     domain = getattr(ctx.setup, "domain", None)
     domain_config = getattr(domain, "config", None)

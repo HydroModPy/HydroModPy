@@ -21,6 +21,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.budget_terms import POLICY_CONSUMERS, budget_terms_for, kept_budget
 from hydromodpy.core.field_routing import (
     DRN_TO_MVR_KEYS,
     drain_band_depth,
@@ -594,6 +595,44 @@ def _single_step(rows: Callable[[Any, int, int], np.ndarray]) -> Callable[[Any, 
     return read
 
 
+#: Fields rebuilt from per-cell budget terms alone. Their other sources (a stored
+#: array, a geometric fallback) are not budget terms, so they are not listed.
+BUDGET_ONLY_FIELDS: tuple[str, ...] = (
+    "outflow_drain",
+    "release_flux",
+    "fluxes_from_budget",
+    "accumulation_flux",
+    "release_accumulation_flux",
+)
+
+
+def budget_terms_kept(root: Any, field: str) -> bool:
+    """Say whether the store kept every budget term ``field`` reads.
+
+    Only a store that declares the ``"consumers"`` policy can lack a term. A
+    term it declares with no array is a term the model does not produce, which
+    is fine. Under ``"all"``, and on a store without attributes, nothing is
+    refused here.
+    """
+    kept = kept_budget(root)
+    if kept is None or kept.policy != POLICY_CONSUMERS:
+        return True
+    return set(budget_terms_for(field)) <= set(kept.terms)
+
+
+def _needing_kept_terms(field: str, rows: Callable[[Any, int, int], np.ndarray]):
+    """Wrap the rows of a budget-only field so a partly kept store refuses it."""
+
+    def gated(root: Any, start: int, stop: int) -> np.ndarray:
+        if not budget_terms_kept(root, field):
+            raise KeyError(f"The run did not keep every budget term {field} reads")
+        return rows(root, start, stop)
+
+    gated.__name__ = rows.__name__
+    gated.__doc__ = rows.__doc__
+    return gated
+
+
 # Virtual fields and their whole-range computation, function(root, start,
 # stop). A reader wanting many steps takes it: one pass over the stored chunks
 # instead of one store opening per step. A single step is one row of it, so a
@@ -611,6 +650,9 @@ VIRTUAL_FIELD_ROWS: dict[str, Any] = {
     "mass_seepage": mass_seepage_rows,
     "mass_accumulated": mass_accumulated_rows,
 }
+VIRTUAL_FIELD_ROWS.update(
+    {name: _needing_kept_terms(name, VIRTUAL_FIELD_ROWS[name]) for name in BUDGET_ONLY_FIELDS}
+)
 
 # Registry: variable name -> computation function(store, sim_id, timestep).
 # The simulated network is the exception to the range path: it needs the
@@ -658,7 +700,10 @@ def available_virtual_fields(root: Any) -> list[str]:
     concentration: ``concentration_seepage`` also a seepage mask,
     ``mass_seepage`` also a budget group, ``mass_accumulated`` nothing more.
     A field an older run stored under ``derived/`` stands in for its rebuild
-    upstream.
+    upstream. A store that declares the ``"consumers"`` budget policy serves a
+    field built from budget terms only when it kept every term the field reads
+    (:func:`budget_terms_kept`), so a partly kept field is refused, not served
+    without a word.
     """
     names: list[str] = []
     mesh = root.get("mesh")
@@ -679,6 +724,9 @@ def available_virtual_fields(root: Any) -> list[str]:
         names.append("accumulation_flux")
     if release_accumulation_flux_available(root):
         names.append("release_accumulation_flux")
+    names = [
+        name for name in names if name not in BUDGET_ONLY_FIELDS or budget_terms_kept(root, name)
+    ]
     names.extend(_solute_fields_available(root, budget))
     return sorted(names)
 

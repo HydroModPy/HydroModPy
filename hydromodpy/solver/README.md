@@ -24,9 +24,8 @@ rules, how a run reaches a backend, and where to add what.
 | `boussinesq/` | the in-house unstructured-mesh Boussinesq solver; its own map is `boussinesq/README.md` |
 
 Extractors sit beside the adapters of each backend, in `extractors/`. An
-extractor carries `solver_name`, a `category` (`distributed` or `lumped`), an
-`extract(sim_id, solver_output_dir, store, ...)` method and a
-`derive(sim_id, store, flags)` method.
+extractor carries `solver_name`, a `category` (`distributed` or `lumped`) and an
+`extract(sim_id, solver_output_dir, store, ...)` method.
 
 ## Import rules
 

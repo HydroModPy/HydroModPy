@@ -32,7 +32,7 @@ from hydromodpy.physics.transport.transport_config import (
     ModpathParametersConfig,
 )
 from hydromodpy.simulation.planning.config import SimulationConfig
-from hydromodpy.simulation.planning.results_config import DerivedConfig, ResultsConfig
+from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.spatial.field.core._field_param_sections import FieldHeterogeneousSection
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
 from hydromodpy.spatial.mesh.config.main import MeshCatchmentConfig
@@ -60,7 +60,6 @@ TAUGHT = [
     (ModpathParametersConfig, ("zone_partic", "track_dir", "sel_slice")),
     (ConcentrationTransportParametersConfig, ("porosity", "sconc_init", "sconc_input")),
     (ResultsConfig, ("keep_solver_files",)),
-    (DerivedConfig, ("release_flux", "accumulation_flux")),
     (SimulationConfig, ("results",)),
     (VerticalGridConfig, ("lay_decay", "lay_proportions")),
     (FieldHeterogeneousSection, ("values_csv_file", "csv_key_column", "csv_value_column")),

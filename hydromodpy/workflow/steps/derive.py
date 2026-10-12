@@ -1,10 +1,9 @@
-"""Step 9 - derived fields via the :mod:`~hydromodpy.workflow.internals.derived` registry.
+"""Step 9 - what a run derives once its fields are in the store.
 
-Runs the registered :class:`DerivedComputation` objects over the
-simulation Zarr store. Each computation is responsible for its own
-input check; the step itself is a thin driver that opens the run catalog
-for its own span, opens the Zarr, and delegates to ``registry.apply``.
-Skipped derivations are logged but do not raise.
+Every derived field is rebuilt on read, so this step writes none. It runs
+:func:`~hydromodpy.simulation.extraction.post_run.derive_run_outputs` for each
+solver-backed run: the discharge band of the drains, the catchment
+aggregates, the declared observation points and the fit metrics.
 
 Inputs
 ------
@@ -12,41 +11,31 @@ Inputs
 
 Outputs
 -------
-``ctx`` : unchanged; the Zarr ``/derived`` group gains any computed
-fields as a side effect.
+``ctx`` : unchanged; the store gains the rows above as a side effect.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from hydromodpy.core.exceptions import ConfigError, ExtractError
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.workflow.internals.derived import DerivedResult
-from hydromodpy.workflow.internals.derived import registry as _default_registry
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.simulation.planning.results_config import ResultsConfig
 
 logger = get_logger(__name__)
 
 
 class DeriveStep:
-    """Compute derived fields registered on the :class:`DerivedRegistry`."""
+    """Write the catchment aggregates, observation samples and fit metrics."""
 
     name = "derive"
     reads: ClassVar[tuple[str, ...]] = ("ctx",)
-    writes: ClassVar[tuple[str, ...]] = (
-        "ctx",
-        "derived_names",
-    )
+    writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = ("postprocess",)
-
-    def __init__(self, registry=None) -> None:
-        self._registry = registry if registry is not None else _default_registry
 
     def depends_on(self) -> tuple[str, ...]:
         return ("extract",)
@@ -58,32 +47,14 @@ class DeriveStep:
         workspace,
         run_id: str,
     ) -> PipelineState:
-        """Restore derived names by listing the Zarr ``/derived`` group."""
+        """Advance past a derive phase whose rows are already in the store."""
         ctx: WorkflowContext | None = prior_state.get("ctx")
         if ctx is None:
             raise ConfigError("DeriveStep.rebuild_state requires 'ctx' in state.data")
-        derived_names: list[str] = []
-        sim_id = getattr(ctx, "sim_id", None)
-        if sim_id is not None and run_is_catalogued(ctx):
-            with run_catalog(ctx) as store:
-                try:
-                    sim_zarr = store.open_zarr(sim_id)
-                except Exception:
-                    sim_zarr = None
-                if sim_zarr is not None:
-                    try:
-                        derived_group = sim_zarr.root.get("derived")
-                        if derived_group is not None:
-                            derived_names = sorted(str(k) for k in derived_group.array_keys())
-                    except Exception:
-                        derived_names = []
-                    finally:
-                        _close_owned_zarr_handle(sim_zarr)
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
             step_name=self.name,
             ctx=ctx,
-            derived_names=derived_names,
         )
 
     def run(self, state: PipelineState) -> PipelineState:
@@ -104,57 +75,16 @@ class DeriveStep:
         # calibration trial metrics; trials cap the pipeline at extract). Past
         # this point they are dead weight: a transient flopy model carries the
         # full stress-period data, which reaches GBs on multi-thousand-period
-        # runs. Release them before the derive stacks allocate.
+        # runs. Release them before the derive phase allocates.
         ctx.execution.models_by_run_id.clear()
 
         plan = ctx.execution.simulation_plan
-        results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
+        if plan is not None:
+            from hydromodpy.simulation.extraction.post_run import derive_run_outputs
+            from hydromodpy.simulation.planning.plan import RunContext
 
-        # Registry first (needs head): it can persist watertable_elevation/depth
-        # and seepage_mask slab-wise. These are OFF by default: figures
-        # recompute them on the fly from head, so only the config-enabled
-        # fields are materialised. Running it before compute_derived lets an enabled
-        # pass reuse the slab-written water table.
-        enabled = self._enabled_registry_names(results_cfg)
-        derived_names: list[str] = []
-        with run_catalog(ctx) as store:
-            try:
-                sim_zarr = store.open_zarr(sim_id)
-            except Exception as exc:
-                raise ExtractError(f"DeriveStep cannot open Zarr for sim {sim_id}") from exc
-            try:
-                # Before the registry derives a seepage mask: the discharge band
-                # the drains were given changes what "this cell seeps" means, and a
-                # figure drawn months later reads it back from the store rather
-                # than from a config it no longer has. ``derive_run_outputs``
-                # writes the same value on the direct post-run path.
-                sim_zarr.drain_band_depth_m = float(ctx.cfg.solver.drain_band_depth_m)
-                if enabled and "head" in sim_zarr.root:
-                    results = self._registry.apply(sim_zarr, names=enabled)
-                    for result in results:
-                        if result.status == "computed":
-                            derived_names.append(result.name)
-                            logger.debug("DeriveStep: computed '%s'", result.name)
-                        else:
-                            self._log_skipped_derived(result)
-                elif not enabled:
-                    logger.debug("DeriveStep: no derived field enabled, registry skipped")
-                else:
-                    logger.debug(
-                        "DeriveStep: no 'head' field in Zarr for sim %s, registry skipped",
-                        sim_id,
-                    )
-            finally:
-                _close_owned_zarr_handle(sim_zarr)
-
-            # compute_derived (opt-in transport/flux variables) plus catchment
-            # aggregation. Runs regardless of head, as before; its seepage step is
-            # now a guarded no-op and water-table readers find the registry's
-            # slab-written field.
-            if plan is not None:
-                from hydromodpy.simulation.extraction.post_run import derive_run_outputs
-                from hydromodpy.simulation.planning.plan import RunContext
-
+            results_cfg = ctx.cfg.simulation.results
+            with run_catalog(ctx) as store:
                 for run in plan.runs:
                     if not run.is_solver_backed:
                         continue
@@ -163,51 +93,10 @@ class DeriveStep:
                         sim_id=sim_id,
                         results_config=results_cfg,
                         store=store,
-                        forced_flags=tuple(getattr(ctx, "forced_results_flags", ())),
                     )
 
         return state.advance(
             step_index=state.step_index + 1,
             step_name=self.name,
             ctx=ctx,
-            derived_names=derived_names,
         )
-
-    @staticmethod
-    def _log_skipped_derived(result: DerivedResult) -> None:
-        """Report a registry field that was enabled and did not get computed.
-
-        Loud: the config asked for the field, so an empty ``/derived`` entry
-        cannot pass in silence.
-        """
-        logger.warning(
-            "Derived field '%s' is enabled in [simulation.results] but was not computed: %s.",
-            result.name,
-            result.reason,
-        )
-
-    @staticmethod
-    def _enabled_registry_names(results_cfg: ResultsConfig) -> list[str]:
-        """Registry derived fields to persist, per the results config.
-
-        Watertable/seepage fields are off by default: figures recompute them on
-        the fly from head. A dependent field pulls in its upstream
-        (watertable_elevation). ``fluxes_from_budget`` is never persisted: it is
-        rebuilt on read from the per-cell budget and the mesh.
-        """
-        derived = results_cfg.derived
-        names: set[str] = set()
-        if derived.watertable_elevation:
-            names.add("watertable_elevation")
-        if derived.watertable_depth:
-            names.update(("watertable_elevation", "watertable_depth"))
-        if derived.seepage_areas:
-            names.update(("watertable_elevation", "seepage_mask"))
-        return sorted(names)
-
-
-def _close_owned_zarr_handle(sim_zarr) -> None:
-    """Close catalog-owned Zarr handles, but leave borrowed handles open."""
-
-    if getattr(sim_zarr, "_on_close", None) is not None:
-        sim_zarr.close()

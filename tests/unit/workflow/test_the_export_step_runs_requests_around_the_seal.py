@@ -1,8 +1,9 @@
 """The export step writes the data requests before the seal and the run requests after it.
 
-A data request (a field, a series, a layer) may read the per-cell budget the
-step drops before the seal, so it runs first. The package and the metadata
-views read the seal, so they run after it. The console says once, for the
+A data request (a field, a series, a layer) reads the fields of the run, so it
+runs first. The package and the metadata views read the seal, so they run
+after it. Nothing is dropped from the store in between: the run keeps what it
+wrote. The console says once, for the
 whole run, how many files were written and where.
 """
 
@@ -26,7 +27,11 @@ def test_data_requests_run_before_the_seal_and_the_package_after(
     requests = load_export_requests(
         [{"variables": "head", "time": "last"}, {"variables": "all", "format": "package"}]
     )
-    store = SimpleNamespace(project_path=tmp_path)
+
+    def no_zarr(_sim_id):
+        raise AssertionError("the export step must not touch the fields of the run")
+
+    store = SimpleNamespace(project_path=tmp_path, open_zarr=no_zarr)
 
     @contextmanager
     def fake_catalog(_ctx):
@@ -44,9 +49,6 @@ def test_data_requests_run_before_the_seal_and_the_package_after(
     monkeypatch.setattr(export_module, "run_is_catalogued", lambda _ctx: True)
     monkeypatch.setattr(export_module, "run_catalog", fake_catalog)
     monkeypatch.setattr(export_module, "step_save_run_artifacts", lambda *_a, **_k: None)
-    monkeypatch.setattr(
-        export_module, "step_drop_intermediate_budget", lambda *_a, **_k: order.append("drop")
-    )
     monkeypatch.setattr(export_module, "step_seal_store", lambda *_a, **_k: order.append("seal"))
     monkeypatch.setattr(export_module, "step_cleanup_scratch", lambda *_a, **_k: None)
     monkeypatch.setattr(export_module, "step_cleanup_preprocessing", lambda *_a, **_k: 0)
@@ -61,7 +63,6 @@ def test_data_requests_run_before_the_seal_and_the_package_after(
     ctx = SimpleNamespace(
         sim_id="0123456789abcdef",
         cfg=SimpleNamespace(simulation=SimpleNamespace(results=results_cfg), export=requests),
-        effective_results_config=None,
         execution=SimpleNamespace(simulation_plan=SimpleNamespace(runs=())),
         setup=SimpleNamespace(run_id="run-1", workspace=None),
     )
@@ -71,7 +72,7 @@ def test_data_requests_run_before_the_seal_and_the_package_after(
         PipelineState(run_id="run-1", step_index=7, data={"ctx": ctx, "wall_seconds": 1.0})
     )
 
-    assert order == ["data", "drop", "seal", "package"]
+    assert order == ["data", "seal", "package"]
     announced = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Exported")]
     assert len(announced) == 1
     assert announced[0].startswith("Exported 2 file(s) -> ")

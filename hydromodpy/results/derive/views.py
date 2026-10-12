@@ -1,7 +1,7 @@
 """Lazy catchment-scale views computed on demand from a Run.
 
-These functions read already-persisted spatial fields (``derived/`` and
-``budget/`` groups in the simulation Zarr) and reduce them to scalar
+These functions read spatial fields, stored or rebuilt on read from the
+``budget/`` group of the simulation Zarr, and reduce them to scalar
 timeseries on the fly. Nothing is written to DuckDB: results are returned
 as ``pd.Series`` so that callers can plot, combine or aggregate them
 freely.
@@ -130,11 +130,11 @@ def _stack_field(sim: Run, variable: str) -> np.ndarray:
     closed the store, so a long run triggered thousands of open/close round-trips
     per figure.
 
-    A field absent from the store is not an error: derived fields are off by
-    default and are rebuilt on read. The miss is rebuilt on the same open
-    handle when the store holds what it needs, and otherwise falls back to
-    ``Run.field`` (the single virtual-aware read path), which names the
-    option to enable when nothing can rebuild it.
+    A field absent from the store is not an error: derived fields are rebuilt
+    on read. The miss is rebuilt on the same open handle when the store holds
+    what it needs, and otherwise falls back to ``Run.field`` (the single
+    virtual-aware read path), which says what the run kept when nothing can
+    rebuild it.
     """
     from hydromodpy.results.derive.virtual_fields import derive_field_stack
 
@@ -162,23 +162,23 @@ def _stack_virtual_field(sim: Run, variable: str, n: int) -> list[np.ndarray]:
     """Stack a non-persisted field through the virtual-derivation fallback.
 
     Raises :class:`~hydromodpy.results.errors.FieldNotFoundError` when the
-    variable is neither stored nor derivable. When a ``[simulation.results]``
-    option would have kept it, the message names that option: the field is
-    written during the run, so reading it back needs a new solve.
+    variable is neither stored nor derivable. When the run did not keep the
+    per-cell budget terms the field is rebuilt from, the message says what it
+    kept and what to set.
     """
-    from hydromodpy.results.derive.config_flags import config_option_for, enable_options_hint
+    from hydromodpy.results.derive.config_flags import missing_field_explanation
     from hydromodpy.results.errors import FieldNotFoundError
 
     try:
         with progress.status(f"Deriving {variable}"):
             return [np.asarray(sim.field(variable, timestep=t)).ravel() for t in range(n)]
     except FieldNotFoundError:
-        option = config_option_for(variable)
-        if option is None:
+        explanation = missing_field_explanation([variable], sim)
+        if not explanation:
             raise
         raise FieldNotFoundError(
             f"Field '{variable}' is not in the store of simulation '{sim.sim_id}' and "
-            f"cannot be rebuilt from what the run kept. {enable_options_hint([option])}",
+            f"cannot be rebuilt from what the run kept. {explanation}",
             sim_id=sim.sim_id,
             variable=variable,
         ) from None
@@ -369,7 +369,7 @@ def saturated_fraction(
 ) -> pd.Series:
     """Fraction of active catchment cells where seepage exceeds ``threshold``.
 
-    Reads ``derived/seepage_mask`` from the simulation Zarr and
+    Reads ``seepage_mask`` (rebuilt on read) and
     reduces each timestep to the percentage of active cells above the
     threshold. Unit: ``%``.
     """
@@ -392,7 +392,7 @@ def drainage_density(
 ) -> pd.Series:
     """Fraction of active catchment cells whose routed drain flux is positive.
 
-    Reads ``derived/accumulation_flux`` (m³/d) from the simulation Zarr
+    Reads ``accumulation_flux`` (m³/d, rebuilt on read)
     and returns the fraction of active cells above ``threshold``, per
     timestep. Unit: ``%``.
 

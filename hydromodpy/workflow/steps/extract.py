@@ -117,7 +117,7 @@ class ExtractStep:
         return ("run_solver",)
 
     def run(self, state: PipelineState) -> PipelineState:
-        ctx = state.get("ctx")
+        ctx: WorkflowContext | None = state.get("ctx")
         if ctx is None:
             raise ConfigError("ExtractStep requires 'ctx' in state.data")
         if ctx.sim_id is None or not run_is_catalogued(ctx):
@@ -136,17 +136,20 @@ class ExtractStep:
         if plan is None:
             raise ConfigError("ExtractStep requires execution.simulation_plan to be set")
 
-        results_cfg = getattr(ctx, "effective_results_config", None)
-        if results_cfg is None:
-            reconciled = step_configure_results(
-                ctx.cfg.simulation.results,
+        results_cfg = ctx.cfg.simulation.results
+        budget_terms = ctx.budget_terms
+        if budget_terms is None:
+            budget_terms = step_configure_results(
+                results_cfg,
                 plan,
                 ctx.cfg.display,
                 display_active=not bool(state.get("skip_display")),
+                export_requests=ctx.cfg.export,
+                calibration=ctx.cfg.calibration,
+                observation=ctx.cfg.observation,
+                lightweight=ctx.execution.lightweight,
             )
-            results_cfg = reconciled.config
-            ctx.forced_results_flags = reconciled.forced_flags
-        ctx.effective_results_config = results_cfg
+            ctx.budget_terms = budget_terms
 
         extracted = 0
         with run_catalog(ctx) as store:
@@ -158,6 +161,7 @@ class ExtractStep:
                     sim_id=ctx.sim_id,
                     results_config=results_cfg,
                     store=store,
+                    budget_terms=budget_terms,
                 )
                 extracted += 1
             # Observation series (hydrometry, piezometry, ...) are part of the

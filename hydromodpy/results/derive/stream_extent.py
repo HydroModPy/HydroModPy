@@ -45,7 +45,10 @@ from hydromodpy.core.stream_extent import (
 )
 from hydromodpy.core.stream_geometry import CriterionSupports, NetworkGeometry, criterion_supports
 from hydromodpy.results.derive.stream_network import (
+    has_recharge_source,
     network_comparison_from_run,
+    no_recharge_reason,
+    no_release_flux_reason,
     unavailable_reason_for_comparison,
 )
 
@@ -106,12 +109,12 @@ def unavailable_reason_for_flow(
 
     Counting needs the release field and the criterion graph, which is built
     on a stored network, the mesh and its CRS; a positive ``tau_specific_ratio``
-    also needs the recharge budget the threshold is a fraction of.
+    also needs the recharge the threshold is a fraction of, read from the
+    station forcing the run stores or from its recharge budget, whichever the
+    criterion reads.
     """
     if not sim.has_field(FLOW_FIELD):
-        return (
-            "run has no per-cell release_flux: set [simulation.results.derived] release_flux = true"
-        )
+        return no_release_flux_reason(sim)
     role = graph_role(sim)
     if role is None:
         return (
@@ -121,11 +124,8 @@ def unavailable_reason_for_flow(
     reason = unavailable_reason_for_comparison(sim, role=role)
     if reason is not None:
         return reason
-    if float(tau_specific_ratio) > 0.0 and not sim.has_field("recharge"):
-        return (
-            f"a seepage threshold of tau = {float(tau_specific_ratio):g} is a fraction of the "
-            "recharge the model received, and this run persisted no recharge budget"
-        )
+    if float(tau_specific_ratio) > 0.0 and not has_recharge_source(sim):
+        return no_recharge_reason(sim, tau_specific_ratio)
     return None
 
 

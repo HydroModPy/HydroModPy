@@ -194,17 +194,6 @@ FIELD_REGISTRY: dict[str, FieldDescriptor] = {
         valid_min=0.0,
         valid_max=1.0,
     ),
-    "seepage_rate": FieldDescriptor(
-        public_name="seepage_rate",
-        zarr_path="derived/seepage_rate",
-        standard_name="",
-        csdms_standard_name="subsurface_water__seepage_volume_flux",
-        long_name="Rate of groundwater seepage at land surface",
-        units="m s-1",
-        shape=SHAPE_TIME_FACE,
-        cell_methods="time: mean area: mean",
-        derived_by="core",
-    ),
     "storage_change": FieldDescriptor(
         public_name="storage_change",
         zarr_path="derived/storage_change",

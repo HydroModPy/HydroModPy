@@ -143,8 +143,7 @@ class _ContextReads(ast.NodeVisitor):
         called = node.func
         name = called.id if isinstance(called, ast.Name) else getattr(called, "attr", None)
         if name == "getattr" and len(node.args) >= 2 and self._is_receiver(node.args[0]):
-            # ``getattr(ctx, "effective_results_config", None)`` is a read, and
-            # every reader that member has is spelled this way.
+            # ``getattr(ctx, "sim_id", None)`` is a read too.
             requested = node.args[1]
             if isinstance(requested, ast.Constant) and requested.value in self._members:
                 self.reads.setdefault(str(requested.value), node.lineno)

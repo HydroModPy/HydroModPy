@@ -13,7 +13,9 @@ import uuid
 import numpy as np
 import pandas as pd
 import pytest
+import zarr
 
+from hydromodpy.core.budget_terms import BudgetKeep, kept_budget
 from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
     CONFIGS_DIRNAME,
@@ -26,7 +28,7 @@ from hydromodpy.core.state.paths import (
 from hydromodpy.data.provenance.lockfile import LOCKFILE_NAME
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
+from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME, read_manifest
 from hydromodpy.results.storage.contract import (
     ALLOWED_RUN_ENTRIES,
     FIELDS_STORE_NAME,
@@ -91,6 +93,12 @@ def solved_run(tmp_path):
         index = pd.date_range("2020-01-01", periods=3, freq="D")
         catalog.write_timeseries(sim_id, "P01", "head", pd.Series(np.ones(3), index=index))
         catalog.write_budget(sim_id, 0, "z1", "recharge", 10.0, 0.0)
+        catalog.write_field_stack(sim_id, "recharge", np.ones((3, 1, 4)), subgroup="budget")
+        sz = catalog.open_zarr(sim_id)
+        try:
+            sz.write_budget_policy(BudgetKeep.everything(), ["recharge"])
+        finally:
+            sz.close()
         catalog.write_mass_balance(sim_id, 0, 10.0, 9.5, 5.0)
         catalog.write_metric(sim_id, "P01", "nse", 0.8)
         catalog.write_provenance(sim_id, "dem", "dem.tif", np.ones(4))
@@ -113,6 +121,18 @@ def test_run_writes_one_directory_named_after_the_run(solved_run):
     )
     assert (run_dir / FIELDS_STORE_NAME).is_dir()
     assert (run_dir / TABLES_DIRNAME).is_dir()
+
+
+def test_the_field_store_and_the_manifest_say_what_budget_the_run_kept(solved_run):
+    project, _ = solved_run
+    run_dir = project / RUNS_DIRNAME / RUN_NAME
+    root = zarr.open_group(str(run_dir / FIELDS_STORE_NAME), mode="r")
+    kept = kept_budget(root)
+
+    assert kept == ("all", ("recharge",))
+    assert read_manifest(run_dir)["budget"] == {"policy": "all", "kept_terms": ["recharge"]}
+    # Every derived field is rebuilt on read: the run wrote none.
+    assert "derived" not in root
 
 
 def test_tabular_payloads_are_plain_parquet_files_in_one_directory(solved_run):

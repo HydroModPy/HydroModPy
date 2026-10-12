@@ -56,7 +56,16 @@ MODFLOW_6_RECORDS = (
     "SFR",
     "LAK",
 )
-MODFLOW_NWT_RECORDS = ("DRAINS", "RECHARGE", "ET", "WELLS", "CONSTANT HEAD", "STORAGE")
+MODFLOW_NWT_RECORDS = (
+    "DRAINS",
+    "RECHARGE",
+    "ET",
+    "WELLS",
+    "CONSTANT HEAD",
+    "STORAGE",
+    "STREAM LEAKAGE",
+    "LAKE SEEPAGE",
+)
 
 
 def _boussinesq_terms() -> set[str]:

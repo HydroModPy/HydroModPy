@@ -589,11 +589,11 @@ class TestReadCatchmentArea:
 
 
 class TestAggregateFromLumpedBudget:
-    """The fallback that keeps discharge alive once ``budget.spatial_fields`` is off.
+    """The fallback that keeps discharge alive when the per-cell budget is not kept.
 
-    With the per-cell budget unpersisted (the default), the catchment scalars
-    come from the lumped per-component ``budgets`` table instead of a Zarr
-    field, so this path is the one carrying discharge in a default run.
+    With the per-cell budget unpersisted (``keep_per_cell_budget = false``),
+    the catchment scalars come from the lumped per-component ``budgets``
+    table instead of a Zarr field, so this path carries discharge in such a run.
     """
 
     def _register(self, catalog, n_ts: int = 3) -> str:
@@ -688,7 +688,7 @@ class TestAggregateFromLumpedBudget:
 
     def test_end_to_end_discharge_without_spatial_budget(self, catalog):
         # No drain Zarr field at all: the lumped budget alone must produce the
-        # catchment discharge series, which is what a default run relies on.
+        # catchment discharge series, which is what a run without the per-cell budget relies on.
         sid = self._register(catalog)
         for t in range(3):
             catalog.write_field(
@@ -916,3 +916,70 @@ class TestLumpedBudgetPrefersTheCatchmentZone:
         assert _catchment_fraction(catchment, domain) == pytest.approx(0.5)
         assert _catchment_fraction(None, domain) is None
         assert _catchment_fraction(catchment, np.zeros(4, dtype=bool)) is None
+
+
+class TestTheCatchmentRowBeatsTheRoundedPerCellField:
+    """The per-cell budget is float32 rounded to 16 bits, the lumped row float64."""
+
+    N_TS = 2
+
+    def _sim_with_drain_field(self, catalog) -> str:
+        sid = str(uuid4())
+        reg = catalog.register_simulation(
+            sid,
+            project="test",
+            solver="modflow6",
+            n_cells=4,
+            n_layers=1,
+            n_timesteps=self.N_TS,
+            period_start="2020-01-01",
+            period_end="2020-01-02",
+        )
+        if reg.zarr is not None:
+            reg.zarr.close()
+        for t in range(self.N_TS):
+            catalog.write_field(
+                sid, "head", t, np.full((1, 4), 5.0), n_timesteps=self.N_TS if t == 0 else None
+            )
+            catalog.write_field(
+                sid,
+                "drain",
+                t,
+                np.full((1, 4), -1.0),
+                n_timesteps=self.N_TS if t == 0 else None,
+            )
+        return sid
+
+    def _write_row(self, catalog, sid, zone, values):
+        for timestep, flux_out in values.items():
+            catalog.write_budget(
+                sid,
+                timestep=timestep,
+                zone_id=zone,
+                component="drain",
+                flux_in=0.0,
+                flux_out=flux_out,
+            )
+
+    def _discharge(self, catalog, sid) -> np.ndarray:
+        aggregate_catchment_timeseries(sid, catalog)
+        return catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge").values
+
+    def test_the_catchment_row_gives_the_series_exactly(self, catalog):
+        sid = self._sim_with_drain_field(catalog)
+        exact = {0: 3.141592653589793, 1: 2.718281828459045}
+        self._write_row(catalog, sid, CATCHMENT_BUDGET_ZONE, exact)
+
+        series = self._discharge(catalog, sid)
+
+        # The per-cell field would give 4.0 on both steps.
+        assert series.tolist() == list(exact.values())
+
+    def test_without_a_catchment_row_the_per_cell_field_is_used(self, catalog):
+        sid = self._sim_with_drain_field(catalog)
+        # A domain row exists but is no catchment row: it must not win.
+        self._write_row(catalog, sid, "0", {0: 99.0, 1: 99.0})
+
+        series = self._discharge(catalog, sid)
+
+        np.testing.assert_allclose(series, [4.0, 4.0])

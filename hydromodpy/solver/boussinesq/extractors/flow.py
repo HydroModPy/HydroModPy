@@ -8,9 +8,15 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import CF_EPOCH, CF_TIME_UNITS, cf_time_axis_seconds
 from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
+from hydromodpy.solver.boussinesq.extractors.descent import (
+    raster_grid_shape,
+    whitebox_d8_descent,
+    write_raster_descent,
+)
 
 logger = get_logger(__name__)
 
@@ -23,6 +29,9 @@ class BoussinesqOutputAdapter:
     (convergence metadata). ``Boussinesq.processing()`` writes both files at
     the end of the solve, mirroring the MODFLOW lifecycle where the run step
     is the only writer of solver outputs.
+
+    The extractor also stores the descent D of a raster run, so the
+    accumulation fluxes are routed on read as on MODFLOW.
     """
 
     solver_name = "boussinesq"
@@ -34,10 +43,14 @@ class BoussinesqOutputAdapter:
         solver_output_dir: Path,
         store: Any,
         *,
-        budget_spatial_fields: bool = False,
+        budget_terms: BudgetKeep = BudgetKeep.everything(),
         start_datetime: object | None = None,
     ) -> None:
-        """Read .npz state history and write head fields to the store."""
+        """Read .npz state history and write head and budget fields to the store.
+
+        ``budget_terms`` says which per-cell budget terms are written; the
+        lumped budget table always holds every term.
+        """
         solver_output_dir = Path(solver_output_dir)
         npz_path = solver_output_dir / "_boussinesq_state_history.npz"
 
@@ -100,22 +113,13 @@ class BoussinesqOutputAdapter:
                 cell_area_m2=cell_area_m2,
                 first_snapshot=first,
             )
-            # The lumped per-component budget is always persisted, like on the
-            # MODFLOW backends: the catchment scalars (discharge, well pumping)
-            # are derived from it when the per-cell group stays opt-in.
+            # The lumped per-component budget holds every term, whatever the
+            # per-cell policy: the catchment scalars (discharge, well pumping)
+            # are derived from it.
             self._write_budget_table(sim_id, store, components, n_timesteps=n_timesteps)
-            if budget_spatial_fields:
-                self._write_budget_fields(
-                    sim_id,
-                    store,
-                    components,
-                    n_timesteps=n_timesteps,
-                    surface_excess_rate_m_s=self._saturation_excess_rate(
-                        payload, n_timesteps, first_snapshot=first
-                    ),
-                )
+            self._write_budget_fields(sim_id, store, components, budget_terms=budget_terms)
 
-        self._write_surface_elevation(
+        z_top = self._write_surface_elevation(
             sim_id,
             store,
             solver_output_dir,
@@ -123,6 +127,7 @@ class BoussinesqOutputAdapter:
             z_top_m=z_top_m,
             z_bottom_m=z_bottom_m,
         )
+        self._write_descent(sim_id, store, z_top, cell_area_m2=cell_area_m2)
 
     @staticmethod
     def _persist_state_history(sim_id: str, store: Any, payload) -> None:
@@ -144,19 +149,6 @@ class BoussinesqOutputAdapter:
             logger.debug("Persisted %d Boussinesq state arrays to store", len(payload.files))
         finally:
             sz.close()
-
-    @staticmethod
-    def _saturation_excess_rate(
-        payload, n_timesteps: int, *, first_snapshot: int = 0
-    ) -> np.ndarray | None:
-        """Return the saturation-excess rate of each period in m/s, or None when absent."""
-        values = payload.get("saturation_excess_history_m_s")
-        if values is None:
-            return None
-        arr = np.asarray(values, dtype=float)
-        if arr.ndim == 1:
-            arr = arr.reshape(1, -1)
-        return arr[first_snapshot : first_snapshot + n_timesteps]
 
     @staticmethod
     def _budget_components(
@@ -258,58 +250,30 @@ class BoussinesqOutputAdapter:
         store: Any,
         components: dict[str, np.ndarray],
         *,
-        n_timesteps: int,
-        surface_excess_rate_m_s: np.ndarray | None,
+        budget_terms: BudgetKeep,
     ) -> None:
-        """Write the per-cell Boussinesq budget fields with solver units.
+        """Write the per-cell budget terms the run keeps, with solver units.
 
-        Gated by ``budget_spatial_fields``: the per-cell budget group, and the
-        seepage fields derived from its surface-excess component, are opt-in
-        like on the MODFLOW backends.
+        ``surface_excess`` is written like any other term: the seepage mask is
+        rebuilt on read from it. The ``budget/`` group then records the policy
+        and the terms kept.
         """
+        written: list[str] = []
         for name, stack in components.items():
+            if not budget_terms.keeps(name):
+                continue
             # The registry signs a constant-head flux positive into the aquifer,
             # as MODFLOW writes it; the solver signs it positive out.
             signed = -stack if name == "constant_head" else stack
             values = signed.reshape(signed.shape[0], 1, -1) if name == "well" else signed
             store.write_field_stack(sim_id, name, values, subgroup="budget")
+            written.append(name)
 
-        if surface_excess_rate_m_s is not None:
-            BoussinesqOutputAdapter._write_surface_excess_seepage_fields(
-                sim_id,
-                store,
-                surface_excess_rate_m_s,
-                n_timesteps=n_timesteps,
-            )
-
-    @staticmethod
-    def _write_surface_excess_seepage_fields(
-        sim_id: str,
-        store: Any,
-        surface_excess_rate_m_s: np.ndarray,
-        *,
-        n_timesteps: int,
-    ) -> None:
-        """Expose Boussinesq saturation excess through canonical seepage fields.
-
-        ``surface_excess`` is the Boussinesq surface-interaction flux. It is the
-        physically relevant seepage signal for constrained formulations where
-        the solved head may be kept at, or just below, the surface. Persisting it
-        as ``seepage_rate`` and ``seepage_mask`` lets generic readers and figures
-        discover active seepage without knowing Boussinesq internals.
-        """
-        rates = np.asarray(surface_excess_rate_m_s, dtype=float)
-        if rates.ndim == 1:
-            rates = rates.reshape(1, -1)
-        if rates.shape[0] < int(n_timesteps):
-            raise ValueError(
-                "Boussinesq surface excess history has fewer timesteps than head "
-                f"history: {rates.shape[0]} < {int(n_timesteps)}"
-            )
-        positive_rate = np.maximum(np.asarray(rates[:n_timesteps], dtype="float64"), 0.0)
-        active_mask = (positive_rate > 0.0).astype("float64")
-        store.write_field_stack(sim_id, "seepage_rate", positive_rate, subgroup="derived")
-        store.write_field_stack(sim_id, "seepage_mask", active_mask, subgroup="derived")
+        sz = store.open_zarr(sim_id)
+        try:
+            sz.write_budget_policy(budget_terms, written)
+        finally:
+            sz.close()
 
     def _write_surface_elevation(
         self,
@@ -320,8 +284,8 @@ class BoussinesqOutputAdapter:
         *,
         z_top_m: np.ndarray | None,
         z_bottom_m: np.ndarray | None,
-    ) -> None:
-        """Write mesh/topography from Boussinesq summary for derived variables."""
+    ) -> np.ndarray:
+        """Write mesh/topography from the Boussinesq payload or summary; return the top."""
         summary: dict[str, Any] = {}
         if z_top_m is None or z_bottom_m is None:
             summary_path = solver_output_dir / "_boussinesq_summary.json"
@@ -362,20 +326,44 @@ class BoussinesqOutputAdapter:
             )
         finally:
             sz.close()
+        return z_top
 
-    def derive(
-        self,
+    @staticmethod
+    def _write_descent(
         sim_id: str,
         store: Any,
-        config: dict | None = None,
-    ) -> None:
-        """Compute derived variables from stored head fields.
+        z_top: np.ndarray,
+        *,
+        cell_area_m2: np.ndarray | None,
+    ) -> bool:
+        """Store the descent D of a raster run; return whether it was stored.
 
-        Watertable elevation/depth are produced by the workflow registry
-        (:class:`DeriveStep`); this hook only handles fields that the
-        registry does not own.
+        Without a raster shape or without Whitebox, no D is stored and the log
+        says why: the accumulation fluxes of the run are then unavailable on
+        read, never routed some other way.
         """
-        from hydromodpy.simulation.extraction.derivation.derived import compute_derived
-
-        cfg = config or {}
-        compute_derived(sim_id, store, cfg)
+        metadata = store.read_geographic_metadata(sim_id)
+        shape, reason = raster_grid_shape(metadata, int(z_top.size), cell_area_m2)
+        if shape is None:
+            logger.info(
+                "Run %s stores no descent: %s. Its accumulation fluxes are unavailable.",
+                sim_id,
+                reason,
+            )
+            return False
+        try:
+            receiver, surface = whitebox_d8_descent(z_top, shape)
+        except Exception:
+            logger.warning(
+                "Run %s stores no descent: the Whitebox D8 pointer of its top failed. "
+                "Its accumulation fluxes are unavailable.",
+                sim_id,
+                exc_info=True,
+            )
+            return False
+        sz = store.open_zarr(sim_id)
+        try:
+            write_raster_descent(sz, top=z_top, receiver=receiver, surface=surface)
+        finally:
+            sz.close()
+        return True

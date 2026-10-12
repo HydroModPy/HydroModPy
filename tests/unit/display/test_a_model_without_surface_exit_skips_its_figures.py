@@ -1,9 +1,9 @@
 """A figure built on the surface outflow is skipped on a model without exit.
 
 A model with no drain, stream, lake or surface excess releases no groundwater
-at the surface, so ``release_flux`` does not exist. When a requested figure is
-what turned the field on, the derive step goes on and the figure is skipped
-with that reason. A field the user asked for still stops the run.
+at the surface, so ``release_flux`` does not exist. The field is rebuilt on
+read, so nothing stops the run: the figure is skipped with that reason, and
+the skip is not actionable, since no option adds an exit to the model.
 """
 
 from __future__ import annotations
@@ -15,12 +15,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.display import runs
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.run import Run
-from hydromodpy.simulation.extraction.derivation.derived import FIGURE_REQUEST, compute_derived
 
 N_STEPS = 2
 N_CELLS = 4
@@ -37,6 +35,9 @@ def _seed(catalog: Catalog, budget: dict[str, np.ndarray]) -> str:
         sz.write_field_stack("head", np.full((N_STEPS, 1, N_CELLS), 120.0))
         for name, values in budget.items():
             sz.write_field_stack(name, values, subgroup="budget")
+        if budget:
+            # What a run that kept the whole budget declares.
+            sz.root["budget"].attrs.update({"policy": "all", "kept_terms": sorted(budget)})
     finally:
         sz.close()
     return sid
@@ -52,21 +53,10 @@ def catalog(tmp_path: Path):
         yield cat
 
 
-def test_a_field_a_figure_asked_for_does_not_stop_the_run(catalog, caplog) -> None:
+def test_a_run_without_an_exit_does_not_serve_the_release_flux(catalog) -> None:
     sid = _seed(catalog, _recharge_only())
 
-    with caplog.at_level(logging.INFO):
-        compute_derived(sid, catalog, {"release_flux": FIGURE_REQUEST})
-
-    assert "Derived field 'release_flux' not computed" in caplog.text
-    assert "expected a drain, stream, lake or surface excess" in caplog.text
-
-
-def test_a_field_the_user_asked_for_still_stops_the_run(catalog) -> None:
-    sid = _seed(catalog, _recharge_only())
-
-    with pytest.raises(ExtractError, match="spatial_fields"):
-        compute_derived(sid, catalog, {"release_flux": True})
+    assert not Run(sid, catalog).has_field("release_flux")
 
 
 def test_the_figure_is_skipped_with_the_physical_reason(catalog, tmp_path, caplog) -> None:
@@ -84,7 +74,7 @@ def test_the_figure_is_skipped_with_the_physical_reason(catalog, tmp_path, caplo
     assert "release_flux" in skip.reason
     # No results option can add an exit to the model: the skip is not actionable.
     assert not skip.actionable
-    assert "Set [simulation.results.derived]" not in caplog.text
+    assert "keep_per_cell_budget" not in caplog.text
 
 
 def test_a_drain_only_figure_names_the_drain(catalog) -> None:

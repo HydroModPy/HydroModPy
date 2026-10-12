@@ -24,7 +24,6 @@ _TRACK_AXES = ("particle", "track_step")
 _ENDPOINT_AXES = ("endpoint",)
 
 
-
 class ModpathOutputAdapter:
     """Read MODPATH pathline / endpoint files and inject into a Catalog.
 
@@ -160,12 +159,3 @@ class ModpathOutputAdapter:
             sz.close()
 
         logger.info("Extracted %d endpoints for sim %s", len(all_data), sim_id)
-
-    def derive(
-        self,
-        sim_id: str,
-        store: Any,
-        config: dict | None = None,
-    ) -> None:
-        """No derived variables for particle tracking."""
-        pass

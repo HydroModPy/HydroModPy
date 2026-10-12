@@ -588,30 +588,6 @@
         }
       }
     },
-    "BudgetConfig": {
-      "additionalProperties": false,
-      "description": "Budget extraction configuration.",
-      "properties": {
-        "spatial_fields": {
-          "default": false,
-          "description": "Persist per-cell budget fields (DRN, RCH, etc.) into Zarr. Off by default: the lumped per-component budget still lands in the budgets table, and the catchment scalars (discharge, well pumping) are derived from it. Turn it on to map or export a per-cell flux, at the cost of the heaviest arrays a run can hold.",
-          "examples": [
-            false
-          ],
-          "title": "Spatial Fields",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "BudgetConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
     "CalibAggregateDecl": {
       "additionalProperties": false,
       "description": "How several scored targets become one cost.\n\nTwo questions the word \"weight\" runs together. Whether an error is large for\nwhat the instrument can resolve is a property of the measurement, not a\ndecision. What matters more between the outlet and the reservoir is a\ndecision, and the modeller's. The cost is the product of both, never one of\nthem, and this section names which recipe made them addable.\n\nThe literature offers two named recipes and states they are incompatible: one\nover sigma, which makes each residual dimensionless and statistically\ndefensible, and an equal share of the initial objective, which guarantees no\ndata type is invisible to the search. There is no third to invent, only a\nchoice to name and to record.",
@@ -6162,120 +6138,6 @@
         }
       },
       "title": "DemCatchDef",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "DerivedConfig": {
-      "additionalProperties": false,
-      "description": "Toggle flags for derived variable computation.\n\nThere is no ``groundwater_flux`` flag: no backend stores the intercell\nface flows it would need. MODFLOW 6 filters FLOW-JA-FACE out of the\nper-cell budget (it is an antisymmetric vector record, not a scalar\nstress term), Boussinesq has no face record at all, and the derivation\ncould only ever fail after the solve. The flag was removed with its\ncomputation rather than kept as a run-killing option.",
-      "properties": {
-        "watertable_elevation": {
-          "default": false,
-          "description": "Persist water-table elevation (uppermost saturated layer) as a Zarr field. Off by default: figures recompute it on the fly from the stored head.",
-          "examples": [
-            false
-          ],
-          "title": "Watertable Elevation",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "watertable_depth": {
-          "default": false,
-          "description": "Persist water-table depth (surface minus water-table elevation) as a Zarr field. Off by default: recomputed on the fly from head at render time.",
-          "examples": [
-            false
-          ],
-          "title": "Watertable Depth",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "seepage_areas": {
-          "default": false,
-          "description": "Persist the seepage mask (water table >= surface elevation) as a Zarr field. Off by default: recomputed on the fly from head at render time.",
-          "examples": [
-            false
-          ],
-          "title": "Seepage Areas",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "release_flux": {
-          "default": false,
-          "description": "Make available the positive per-cell groundwater release flux (m3/s): drains and DRN-TO-MVR, SFR streams, LAK lakes and the surface excess. It is rebuilt on read from the per-cell budget terms, which this option turns on and keeps in the store; no array of its own is written.",
-          "examples": [
-            false
-          ],
-          "title": "Release Flux",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "accumulation_flux": {
-          "default": false,
-          "description": "Make available the positive drain outflow of each cell, routed downstream and accumulated along the drainage paths (m3/s). It needs the per-cell budget.",
-          "examples": [
-            false
-          ],
-          "title": "Accumulation Flux",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "release_accumulation_flux": {
-          "default": false,
-          "description": "Release flux routed on surface drainage paths.",
-          "examples": [
-            false
-          ],
-          "title": "Release Accumulation Flux",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "outflow_drain": {
-          "default": false,
-          "description": "Positive per-cell drain outflow summed over layers.",
-          "examples": [
-            false
-          ],
-          "title": "Outflow Drain",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "concentration_seepage": {
-          "default": false,
-          "description": "Concentration at seepage cells only. Requires transport.",
-          "examples": [
-            false
-          ],
-          "title": "Concentration Seepage",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "mass_seepage": {
-          "default": false,
-          "description": "Mass flux at seepage cells. Requires transport + budget.",
-          "examples": [
-            false
-          ],
-          "title": "Mass Seepage",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "mass_accumulated": {
-          "default": false,
-          "description": "Cumulative mass_seepage over time.",
-          "examples": [
-            false
-          ],
-          "title": "Mass Accumulated",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        }
-      },
-      "title": "DerivedConfig",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -24179,7 +24041,7 @@
     },
     "ResultsConfig": {
       "additionalProperties": false,
-      "description": "Configuration for ``[simulation.results]``.\n\nControls whether simulation outputs are stored in the Catalog and\nwhich derived variables are computed. Automated export formats live in the\ntop-level ``[export]`` section (:class:`ExportConfig`), not here.",
+      "description": "Configuration for ``[simulation.results]``.\n\nControls whether simulation outputs are stored in the Catalog, which raw\nsolver files are kept and how much of the per-cell budget a run keeps.\nEvery derived field is rebuilt on read. Automated export formats live in\nthe top-level ``[export]`` section (:class:`ExportConfig`), not here.",
       "properties": {
         "persistence": {
           "$ref": "#/$defs/PersistenceConfig",
@@ -24205,15 +24067,6 @@
           "title": "Keep Per Cell Budget",
           "type": "boolean",
           "x-hmp-profile": "dev"
-        },
-        "derived": {
-          "$ref": "#/$defs/DerivedConfig",
-          "description": "Derived variable computation toggles.",
-          "x-hmp-profile": "user"
-        },
-        "budget": {
-          "$ref": "#/$defs/BudgetConfig",
-          "x-hmp-profile": "user"
         }
       },
       "title": "ResultsConfig",

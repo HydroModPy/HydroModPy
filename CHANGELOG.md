@@ -306,6 +306,31 @@ Each release section includes the following standard categories:
   committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- A run keeps its whole per-cell budget by default: every scalar term the solver produces,
+  storage included (`storage` under MODFLOW-NWT, `storage_ss` and `storage_sy` under
+  MODFLOW 6), is written under `budget/` at extraction, and the group says what it kept
+  (attributes `policy` and `kept_terms`, repeated in `manifest.json`). The developer option
+  `[simulation.results] keep_per_cell_budget = false` keeps only the terms the run's own
+  consumers read: the figures of `[display].figures` with their optional fields and
+  overlays, the `[[export]]` names, the declared calibration outputs, the `[observation]`
+  points and the seepage mask of a surface-excess solver. The filter acts before the
+  per-cell slab is built, so nothing is computed to be dropped; the intermediate budget the
+  seal dropped, and its log line, are gone. A field whose terms the run kept only in part is
+  refused, never served as a partial sum, and the message names the terms the run kept and
+  `keep_per_cell_budget`. On the six-year daily Nançon run (21 406 cells) the group weighs
+  299 MB, 3.7 times the head; writing it costs no more extraction time than before.
+- Boussinesq stores the descent of a raster run: the Whitebox D8 pointer of the filled top
+  becomes `mesh/descent_*` once per run, and the accumulation fluxes route on it at read.
+  A run on a triangle mesh stores none, and its accumulation fluxes are unavailable instead
+  of the unrouted local outflow written under that name before. Boussinesq no longer writes
+  `derived/seepage_mask` nor `derived/seepage_rate`: the mask is rebuilt from
+  `budget/surface_excess`, and `seepage_rate` leaves the field registry.
+- The catchment discharge and well pumping series read the `catchment` row of the budget
+  table when the run has one (MODFLOW 6), the per-cell field masked to the basin otherwise.
+  A Boussinesq run, which now keeps its per-cell budget, gets the basin total instead of the
+  total of its whole domain.
+- MODFLOW-NWT `STREAM LEAKAGE` and `LAKE SEEPAGE` records are stored as `stream` and `lake`,
+  the names their MODFLOW 6 counterparts take, and enter `release_flux`.
 - A file or a stored run configuration that writes `[simulation.results.derived]` or
   `[simulation.results.budget]`, at the root, in a comparison or testbed overlay or in the
   dotted `overrides` of a calibration phase, loads with both tables dropped, whatever they
@@ -558,6 +583,12 @@ Each release section includes the following standard categories:
   refused.
 
 ### Fixed
+- A sealed run whose figures read the network criterion kept the release terms of its
+  per-cell budget but not the recharge the seepage threshold is a fraction of:
+  `hmp export <run> simulated_active_network` refused and `seepage_network_confusion_map`
+  was skipped once the run was sealed. The recharge is kept, and the criterion gate asks the
+  source the computation reads, a station forcing first and the per-cell recharge
+  otherwise, so a station-forced run without a recharge budget is no longer refused.
 - The network maps draw their topography background under MODFLOW 6 and MODFLOW-NWT:
   they read the per-cell `topography`, not the one-column `z_interfaces`.
 - A stress period cut into time steps (simulation.time.substeps_per_period, adaptive
@@ -866,6 +897,11 @@ Each release section includes the following standard categories:
   documentation version links its own pages.
 
 ### Removed
+- `[simulation.results.derived]` and `[simulation.results.budget]` (refused by the model,
+  dropped on load by the migration), the `derive()` hook of every output adapter, the
+  post-run derivation module `simulation/extraction/derivation/derived.py`, the derived
+  registry of the workflow (`workflow/internals/derived.py`) and the drop of the
+  intermediate budget at the seal.
 - `[geographic.enforce_streams]`, the burn of the mapped network into the routing DEM, and what
   existed for it: the burned DEM, the catchment delineated again without the burn and its drift
   check (`max_catchment_area_drift`), the resolution of its `stream_geometry_path` from the

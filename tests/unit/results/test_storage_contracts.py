@@ -338,52 +338,58 @@ def test_exportable_fields_include_the_virtual_ones(catalog):
     assert {"watertable_elevation", "watertable_depth", "seepage_mask"} <= fields
 
 
-def test_view_names_the_flag_when_a_derived_field_was_never_computed(catalog):
-    """A view on a missing derived field must say which flag to switch on."""
+def test_view_names_the_key_when_the_terms_of_a_field_were_not_kept(catalog):
+    """A view on a field whose budget terms are missing must name the key."""
     from hydromodpy.results.derive.views import drainage_density
     from hydromodpy.results.errors import FieldNotFoundError
 
     sid = _seed_head_and_topography(catalog)
     run = catalog[sid]
 
-    with pytest.raises(FieldNotFoundError, match="results.derived. accumulation_flux = true"):
+    with pytest.raises(FieldNotFoundError, match="keep_per_cell_budget"):
         drainage_density(run)
 
 
-def test_drop_group_removes_the_arrays_and_reports_the_freed_bytes(catalog):
-    """The store must be able to shed an intermediate group before it is sealed."""
-    sid = _seed_field(catalog)
-    catalog.write_field(sid, "drain", 0, np.array([-1.0, -2.0]), n_timesteps=2, subgroup="budget")
-    catalog.write_field(sid, "drain", 1, np.array([-3.0, -4.0]), n_timesteps=2, subgroup="budget")
-
+def _budget_attrs(catalog: Catalog, sid: str) -> dict:
     sz = catalog.open_zarr(sid)
     try:
-        assert "budget" in sz.root
-        freed = sz.drop_group("budget")
-        assert freed > 0
-        assert "budget" not in sz.root
-        assert not (sz.path / "budget").exists()
-        assert sz.drop_group("budget") == 0
+        return dict(sz.root["budget"].attrs)
     finally:
         sz.close()
 
 
-def test_drop_group_can_keep_the_members_a_field_is_rebuilt_from(catalog):
-    """An intermediate budget sheds its other terms and keeps the named ones."""
-    sid = _seed_field(catalog)
-    for name in ("drain", "recharge", "storage_sy"):
-        catalog.write_field_stack(
-            sid, name, np.array([[-1.0, -2.0], [-3.0, -4.0]]), subgroup="budget"
-        )
+def test_the_budget_group_says_it_kept_every_written_term(catalog):
+    from hydromodpy.core.budget_terms import BudgetKeep, kept_budget
 
+    sid = _seed_field(catalog)
+    catalog.write_field_stack(sid, "recharge", np.ones((2, 1, 2)), subgroup="budget")
     sz = catalog.open_zarr(sid)
     try:
-        freed = sz.drop_group("budget", keep=("drain", "stream"))
-        assert freed > 0
-        assert sorted(sz.root["budget"].array_keys()) == ["drain"]
-        assert not (sz.path / "budget" / "recharge").exists()
-        np.testing.assert_allclose(sz.root["budget"]["drain"][:], [[-1.0, -2.0], [-3.0, -4.0]])
-        assert sz.drop_group("budget", keep=("stream",)) > 0
-        assert "budget" not in sz.root
+        sz.write_budget_policy(BudgetKeep.everything(), ["storage_sy", "recharge", "recharge"])
+        assert kept_budget(sz.root) == ("all", ("recharge", "storage_sy"))
     finally:
         sz.close()
+
+    assert _budget_attrs(catalog, sid) == {
+        "policy": "all",
+        "kept_terms": ["recharge", "storage_sy"],
+    }
+
+
+def test_the_budget_group_says_it_kept_the_planned_terms_produced_or_not(catalog):
+    from hydromodpy.core.budget_terms import BudgetKeep
+
+    sid = _seed_field(catalog)
+    sz = catalog.open_zarr(sid)
+    try:
+        assert "budget" not in sz.root
+        # Nothing written: the group is created all the same, with its attributes.
+        sz.write_budget_policy(BudgetKeep.of_terms({"recharge", "drain"}), [])
+        assert list(sz.root["budget"].array_keys()) == []
+    finally:
+        sz.close()
+
+    assert _budget_attrs(catalog, sid) == {
+        "policy": "consumers",
+        "kept_terms": ["drain", "recharge"],
+    }

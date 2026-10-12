@@ -48,9 +48,3 @@ class TestGr4jFlowExtractor:
 
         result = catalog.query_timeseries(sid, "BV1", "evap")
         assert len(result) == 10
-
-    def test_derive_noop(self, catalog):
-        sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="gr4j")
-        adapter = Gr4jFlowExtractor()
-        adapter.derive(sid, catalog)  # should not raise

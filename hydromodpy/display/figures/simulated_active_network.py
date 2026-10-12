@@ -153,6 +153,8 @@ class SimulatedActiveNetworkMap(BaseFigure):
         title="Simulated active network",
         kind="spatial",
         required_fields=("accumulation_flux",),
+        # The "persistence" mode with no cut reads the network criterion.
+        optional_fields=("release_flux",),
         default_figsize=(7.0, 6.2),
     )
 

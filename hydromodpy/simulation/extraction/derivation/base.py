@@ -13,10 +13,3 @@ class OutputAdapter(Protocol):
         solver_output_dir: Path,
         store: Any,
     ) -> None: ...
-
-    def derive(
-        self,
-        sim_id: str,
-        store: Any,
-        config: dict | None = None,
-    ) -> None: ...

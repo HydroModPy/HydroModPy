@@ -21,7 +21,6 @@ logger = get_logger(__name__)
 _TRACK_AXES = ("particle", "track_step")
 
 
-
 class Modflow6PrtOutputAdapter:
     """Read MF6 PRT track CSV files and inject particle tracks into a catalog.
 
@@ -121,12 +120,3 @@ class Modflow6PrtOutputAdapter:
             arrays.max_steps,
             sim_id,
         )
-
-    def derive(
-        self,
-        sim_id: str,
-        store: Any,
-        config: dict | None = None,
-    ) -> None:
-        """No derived variables for particle tracking yet."""
-        del sim_id, store, config

@@ -18,8 +18,9 @@ its public import path is preserved
 from __future__ import annotations
 
 from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
+from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import PipelineState
@@ -41,15 +42,20 @@ from hydromodpy.workflow.steps.prepare_solver.validate import (
     collect_registration_kwargs,
 )
 
+if TYPE_CHECKING:
+    from hydromodpy.core.state.run_state import WorkflowContext
+
 logger = get_logger(__name__)
 
 
-def _resolve_plan_and_results(ctx, *, skip_display: bool) -> None:
-    """Populate the simulation plan and the reconciled results config on ``ctx``.
+def _resolve_plan_and_results(ctx, *, skip_display: bool, store=None) -> None:
+    """Populate the simulation plan and the per-cell budget the run keeps.
 
-    Both are deterministic derivations of the config, shared by the fresh run
-    and the resume path so a rebuilt state carries the same effective results
-    flags as the run that produced the artefacts.
+    The plan is a deterministic derivation of the config. The budget policy
+    is decided once, at planning: a resumed run whose store already says what
+    its extraction kept (the ``budget/`` attributes) takes it from there, so
+    the display flag of the resuming invocation cannot change it. ``store`` is
+    the open catalog of a resume; a fresh run passes none.
     """
     from hydromodpy.simulation.planning.planner import SimulationPlanner
     from hydromodpy.workflow.steps.planning import step_configure_results
@@ -61,14 +67,39 @@ def _resolve_plan_and_results(ctx, *, skip_display: bool) -> None:
 
     if ctx.execution.simulation_plan is None:
         return
-    reconciled = step_configure_results(
+    stored = _stored_budget_keep(ctx, store) if store is not None else None
+    if stored is not None:
+        ctx.budget_terms = stored
+        return
+    ctx.budget_terms = step_configure_results(
         ctx.cfg.simulation.results,
         ctx.execution.simulation_plan,
         ctx.cfg.display,
         display_active=not skip_display,
+        export_requests=ctx.cfg.export,
+        calibration=ctx.cfg.calibration,
+        observation=ctx.cfg.observation,
+        lightweight=ctx.execution.lightweight,
     )
-    ctx.effective_results_config = reconciled.config
-    ctx.forced_results_flags = reconciled.forced_flags
+
+
+def _stored_budget_keep(ctx: WorkflowContext, store) -> BudgetKeep | None:
+    """Return the budget policy the store of ``ctx`` declares, or None."""
+    from hydromodpy.core.budget_terms import POLICY_ALL, kept_budget
+
+    sim_id = ctx.sim_id
+    if sim_id is None or not store.fields_path_for(sim_id).exists():
+        return None
+    sim_zarr = store.open_zarr(sim_id)
+    try:
+        kept = kept_budget(sim_zarr.root)
+    finally:
+        sim_zarr.close()
+    if kept is None:
+        return None
+    if kept.policy == POLICY_ALL:
+        return BudgetKeep.everything()
+    return BudgetKeep.of_terms(kept.terms)
 
 
 class PrepareSolverStep:
@@ -138,10 +169,10 @@ class PrepareSolverStep:
     ) -> PipelineState:
         """Recover the identity of the run a previous ``run`` call registered.
 
-        The plan and the reconciled results config are pure functions of the
-        config, so they are recomputed here: without them a resumed run would
-        derive and draw against the raw ``[simulation.results]`` section and
-        silently drop the fields a figure had forced on.
+        The plan is a pure function of the config, so it is recomputed here.
+        The per-cell budget policy is read back from the store when the
+        extraction already wrote it, and decided again otherwise: a run
+        resumed after its extraction keeps the policy it was extracted under.
         """
         from hydromodpy.results.catalog import (
             AmbiguousReferenceError,
@@ -152,35 +183,38 @@ class PrepareSolverStep:
         if ctx is None:
             raise ConfigError("PrepareSolverStep.rebuild_state requires 'ctx' in state.data")
 
-        _resolve_plan_and_results(ctx, skip_display=bool(prior_state.get("skip_display")))
-
         ws = getattr(getattr(ctx, "setup", None), "workspace", None)
         if ws is None:
             raise ConfigError(
                 "PrepareSolverStep.rebuild_state requires a resolved workspace on the context"
             )
 
-        if getattr(ctx, "sim_id", None) is None and run_is_catalogued(ctx):
-            # Resolve the resumed run by its NAME (the identity column), not by
-            # "latest sim in project", so a resume after a later run was
-            # registered attaches to the right simulation, not the newest one.
-            # The index is per project, so the directory name is not part of
-            # the lookup: renaming or copying a project must not break resume.
-            # ``find`` and not ``resolve``: the resume knows the name it wrote
-            # and wants that row or nothing. ``resolve`` also accepts a run id
-            # prefix and falls back to the newest version of a name stem, and
-            # a resume that lands on ``foo.v3`` because ``foo`` no longer
-            # exists writes a journal into the wrong simulation.
+        skip_display = bool(prior_state.get("skip_display"))
+        if not run_is_catalogued(ctx):
+            _resolve_plan_and_results(ctx, skip_display=skip_display)
+        else:
             with run_catalog(ctx) as store:
-                sim_ids = store.find(name=run_id).sim_ids
-            if not sim_ids:
-                raise SimulationNotFoundError(
-                    f"resume: no simulation named {run_id!r} in the project index at "
-                    f"{ws.project_root}; cannot rebuild the run state."
-                )
-            if len(sim_ids) > 1:
-                raise AmbiguousReferenceError(run_id, [(sid, run_id) for sid in sim_ids])
-            ctx.sim_id = sim_ids[0]
+                if getattr(ctx, "sim_id", None) is None:
+                    # Resolve the resumed run by its NAME (the identity column), not by
+                    # "latest sim in project", so a resume after a later run was
+                    # registered attaches to the right simulation, not the newest one.
+                    # The index is per project, so the directory name is not part of
+                    # the lookup: renaming or copying a project must not break resume.
+                    # ``find`` and not ``resolve``: the resume knows the name it wrote
+                    # and wants that row or nothing. ``resolve`` also accepts a run id
+                    # prefix and falls back to the newest version of a name stem, and
+                    # a resume that lands on ``foo.v3`` because ``foo`` no longer
+                    # exists writes a journal into the wrong simulation.
+                    sim_ids = store.find(name=run_id).sim_ids
+                    if not sim_ids:
+                        raise SimulationNotFoundError(
+                            f"resume: no simulation named {run_id!r} in the project index at "
+                            f"{ws.project_root}; cannot rebuild the run state."
+                        )
+                    if len(sim_ids) > 1:
+                        raise AmbiguousReferenceError(run_id, [(sid, run_id) for sid in sim_ids])
+                    ctx.sim_id = sim_ids[0]
+                _resolve_plan_and_results(ctx, skip_display=skip_display, store=store)
 
         return prior_state.advance(
             step_index=prior_state.step_index + 1,

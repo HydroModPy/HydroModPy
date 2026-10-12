@@ -23,9 +23,10 @@ CF_CONVENTIONS = "CF-1.11, ACDD-1.3, UGRID-1.0"
 # Stored in the ``meta`` group attributes and validated on open.
 ZARR_SCHEMA_VERSION = "2"
 
-# Subgroups created at store init. ``derived`` and ``budget`` are NOT pre-created:
-# they are opt-in (results.derived.* / budget.spatial_fields) and materialised on
-# demand by the first field write, so a default run carries neither group.
+# Subgroups created at store init. ``budget`` is created by the extraction,
+# which writes the per-cell terms and the attributes that say what it kept.
+# ``derived`` holds only static parameter fields and appears on their first
+# write: every derived field is rebuilt on read.
 _SUBGROUPS = (
     "meta",
     "mesh",

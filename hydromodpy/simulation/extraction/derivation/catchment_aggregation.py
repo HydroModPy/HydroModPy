@@ -82,12 +82,24 @@ def aggregate_catchment_timeseries(
 
         pending: list[tuple[str, list[float]]] = []
         for store_var, output_var, reducer in _AGGREGATION_SPEC:
-            values = _aggregate_variable(
-                store, sim_id, grp, store_var, n_timesteps, active_mask, reducer
+            # The lumped row of the catchment zone is the float64 budget of the
+            # solver; the per-cell field is stored rounded to 16 mantissa bits.
+            # MODFLOW 6 writes the row, so it wins where it exists.
+            values = _aggregate_from_lumped_budget(
+                store,
+                sim_id,
+                store_var,
+                reducer,
+                n_timesteps,
+                catchment_only=True,
             )
             if values is None:
-                # budget.spatial_fields is off by default: the per-cell field is
-                # not persisted, but the lumped per-component budget still is.
+                values = _aggregate_variable(
+                    store, sim_id, grp, store_var, n_timesteps, active_mask, reducer
+                )
+            if values is None:
+                # The run kept no per-cell field for this term: the lumped
+                # per-component budget still carries it.
                 values = _aggregate_from_lumped_budget(
                     store,
                     sim_id,
@@ -468,8 +480,9 @@ def _warn_lumped_budget_is_domain_wide(
         "row and no per-cell field, so the '%s' series is the whole model domain, "
         "of which the catchment covers %.0f%% of the active cells. The value is "
         "NOT rescaled: it is a domain total, not what a gauge at the outlet sees. "
-        "Set [simulation.results.budget] spatial_fields = true to get the "
-        "catchment support back.",
+        "The run kept no per-cell drain: set [simulation.results] "
+        "keep_per_cell_budget = true (the default) to get the catchment "
+        "support back.",
         sim_id,
         component,
         CATCHMENT_BUDGET_ZONE,
@@ -486,12 +499,14 @@ def _aggregate_from_lumped_budget(
     n_timesteps: int,
     *,
     catchment_fraction: float | None = None,
+    catchment_only: bool = False,
 ) -> list[float] | None:
     """Catchment scalar from the lumped per-component budget table.
 
-    Fallback for when ``budget.spatial_fields`` is off (the default): the spatial
-    per-cell field is absent, but the lumped in/out fluxes (m3/s) still land in the
-    ``budgets`` table. For a single-sign outflow term the spatial ``abs_sum`` (drain)
+    Used when the run kept no per-cell field for the term, or, with
+    ``catchment_only``, to prefer the float64 catchment row over the rounded
+    per-cell field. The lumped in/out fluxes (m3/s) land in the ``budgets``
+    table whatever the per-cell budget kept. For a single-sign outflow term the spatial ``abs_sum`` (drain)
     equals ``flux_out``; a signed term's spatial ``sum`` (well) equals
     ``flux_in - flux_out``. Returns None for other reducers or when no component
     row matches.
@@ -500,7 +515,8 @@ def _aggregate_from_lumped_budget(
     catchment, so it wins. Any other zone spans the model domain, which on a
     buffered grid takes in the neighbouring basins; such a row is still used,
     because a run carrying nothing else must report something, but it is warned
-    about once and never rescaled.
+    about once and never rescaled. ``catchment_only`` skips every other zone and
+    returns None when no catchment row exists.
     """
     if reducer not in ("abs_sum", "sum"):
         return None
@@ -513,6 +529,8 @@ def _aggregate_from_lumped_budget(
             # read below, not die on the probe.
             rows = []
         on_catchment = bool(rows)
+        if not rows and catchment_only:
+            continue
         if not rows:
             try:
                 rows = _lumped_budget_rows(conn, sim_id, candidate, None)

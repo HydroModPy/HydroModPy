@@ -29,8 +29,7 @@ if TYPE_CHECKING:
 
 def _persistence_of(ctx: WorkflowContext):
     """Return the persistence policy this run writes under."""
-    results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
-    return results_cfg.persistence
+    return ctx.cfg.simulation.results.persistence
 
 
 def run_is_catalogued(ctx: WorkflowContext) -> bool:

@@ -4,13 +4,19 @@ import logging
 from types import SimpleNamespace
 
 import pytest
-from pydantic import ValidationError
 
 import hydromodpy.workflow.steps.planning as planning_module
+from hydromodpy.core.budget_terms import (
+    POLICY_ALL,
+    POLICY_CONSUMERS,
+    BudgetKeep,
+    budget_terms_for,
+)
+from hydromodpy.core.config_kit.export_spec import load_export_requests
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.simulation.planning.plan import ProcessRun, SimulationPlan
-from hydromodpy.simulation.planning.results_config import DerivedConfig, ResultsConfig
+from hydromodpy.simulation.planning.results_config import ResultsConfig
 
 
 def _no_figures() -> DisplayConfig:
@@ -154,142 +160,9 @@ def test_default_flow_solver_falls_back_to_solver_backend() -> None:
     assert planning_module._default_flow_solver(ctx) == "boussinesq"
 
 
-def test_step_configure_results_disables_transport_only_outputs_without_transport() -> None:
-    user_cfg = ResultsConfig(
-        derived=DerivedConfig(
-            concentration_seepage=True,
-            mass_seepage=True,
-            mass_accumulated=True,
-            watertable_depth=False,
-        )
-    )
-    plan = SimulationPlan(
-        name="flow-only",
-        description="flow-only",
-        runs=(_run("flow_main::modflow6", "flow", "modflow6"),),
-    )
-
-    configured = planning_module.step_configure_results(user_cfg, plan, _no_figures()).config
-
-    assert configured is not user_cfg
-    assert configured.derived.concentration_seepage is False
-    assert configured.derived.mass_seepage is False
-    # mass_accumulated is built from mass_seepage: the whole solute chain goes.
-    assert configured.derived.mass_accumulated is False
-    assert configured.derived.watertable_depth is False
-    assert user_cfg.derived.concentration_seepage is True
-    assert user_cfg.derived.mass_seepage is True
-    assert user_cfg.derived.mass_accumulated is True
-
-
-@pytest.mark.parametrize("particle_solver", ["modflow6_prt", "modpath"])
-def test_step_configure_results_disables_solute_outputs_on_a_particle_only_plan(
-    particle_solver: str,
-) -> None:
-    # Particle tracking is a transport process that carries pathlines, not
-    # concentrations. Counting it would leave the solute chain enabled and
-    # promise a transport run that resolves it, which never comes.
-    user_cfg = ResultsConfig(
-        derived=DerivedConfig(
-            concentration_seepage=True,
-            mass_seepage=True,
-            mass_accumulated=True,
-        )
-    )
-    plan = SimulationPlan(
-        name="flow-particles",
-        description="flow-particles",
-        runs=(
-            _run("flow_main::modflow6", "flow", "modflow6"),
-            _run(f"transport_main::{particle_solver}", "transport", particle_solver),
-        ),
-    )
-
-    configured = planning_module.step_configure_results(user_cfg, plan, _no_figures()).config
-
-    assert configured.derived.concentration_seepage is False
-    assert configured.derived.mass_seepage is False
-    assert configured.derived.mass_accumulated is False
-
-
-def test_step_configure_results_preserves_user_config_when_transport_exists() -> None:
-    # Transport is present, so neither transport-only field is pruned.
-    # mass_seepage reads the per-cell drain budget, which comes back with it
-    # as an intermediate.
-    user_cfg = ResultsConfig(
-        derived=DerivedConfig(
-            concentration_seepage=True,
-            mass_seepage=True,
-        )
-    )
-    plan = SimulationPlan(
-        name="flow-transport",
-        description="flow-transport",
-        runs=(
-            _run("flow_main::modflow6", "flow", "modflow6"),
-            _run("transport_main::mt3dms", "transport", "mt3dms"),
-        ),
-    )
-
-    reconciled = planning_module.step_configure_results(user_cfg, plan, _no_figures())
-
-    assert reconciled.config.derived == user_cfg.derived
-    assert reconciled.config.budget.spatial_fields is True
-    assert reconciled.budget_is_intermediate is True
-    assert user_cfg.budget.spatial_fields is False
-
-
-def test_step_configure_results_preserves_user_config_without_budget_consumer() -> None:
-    user_cfg = ResultsConfig(derived=DerivedConfig(concentration_seepage=True))
-    plan = SimulationPlan(
-        name="flow-transport",
-        description="flow-transport",
-        runs=(
-            _run("flow_main::modflow6", "flow", "modflow6"),
-            _run("transport_main::mt3dms", "transport", "mt3dms"),
-        ),
-    )
-
-    assert planning_module.step_configure_results(user_cfg, plan, _no_figures()).config is user_cfg
-
-
-def test_step_configure_results_forces_budget_for_budget_dependent_derived() -> None:
-    user_cfg = ResultsConfig(derived=DerivedConfig(accumulation_flux=True))
-    plan = SimulationPlan(
-        name="flow-only",
-        description="flow-only",
-        runs=(_run("flow_main::modflow6", "flow", "modflow6"),),
-    )
-    assert user_cfg.budget.spatial_fields is False
-
-    # HMP loggers do not propagate: attach a handler to the module logger.
-    records: list[logging.LogRecord] = []
-    handler = logging.Handler()
-    handler.emit = records.append  # type: ignore[method-assign]
-    planning_module.logger.addHandler(handler)
-    try:
-        reconciled = planning_module.step_configure_results(user_cfg, plan, _no_figures())
-    finally:
-        planning_module.logger.removeHandler(handler)
-
-    assert reconciled.config.budget.spatial_fields is True
-    assert reconciled.config.derived.accumulation_flux is True
-    assert reconciled.budget_is_intermediate is True
-    assert any("accumulation_flux" in record.getMessage() for record in records)
-    assert user_cfg.budget.spatial_fields is False
-
-
-def test_step_configure_results_keeps_budget_off_without_budget_derived() -> None:
-    user_cfg = ResultsConfig()
-    plan = SimulationPlan(
-        name="flow-only",
-        description="flow-only",
-        runs=(_run("flow_main::modflow6", "flow", "modflow6"),),
-    )
-
-    configured = planning_module.step_configure_results(user_cfg, plan, _no_figures()).config
-
-    assert configured.budget.spatial_fields is False
+# ---------------------------------------------------------------------------
+# step_configure_results - the per-cell budget the run keeps
+# ---------------------------------------------------------------------------
 
 
 def _flow_only_plan() -> SimulationPlan:
@@ -300,85 +173,6 @@ def _flow_only_plan() -> SimulationPlan:
     )
 
 
-def test_step_configure_results_enables_derived_required_by_a_figure() -> None:
-    # A figure listed in display.figures is an explicit request: the field it
-    # declares gets computed, and the budget it needs comes back with it.
-    user_cfg = ResultsConfig()
-    display = DisplayConfig(figures=["simulated_active_network"])
-
-    records: list[logging.LogRecord] = []
-    handler = logging.Handler()
-    handler.emit = records.append  # type: ignore[method-assign]
-    planning_module.logger.addHandler(handler)
-    try:
-        reconciled = planning_module.step_configure_results(user_cfg, _flow_only_plan(), display)
-    finally:
-        planning_module.logger.removeHandler(handler)
-
-    assert reconciled.config.derived.accumulation_flux is True
-    assert reconciled.config.budget.spatial_fields is True
-    assert reconciled.forced_flags == ("derived.accumulation_flux", "budget.spatial_fields")
-    assert any("simulated_active_network" in record.getMessage() for record in records)
-    assert user_cfg.derived.accumulation_flux is False
-
-
-def test_step_configure_results_keeps_head_derived_figures_unpersisted() -> None:
-    # Water table and seepage are recomputed on the fly from the stored head:
-    # asking for their figures must not switch the Zarr fields back on.
-    configured = planning_module.step_configure_results(
-        ResultsConfig(),
-        _flow_only_plan(),
-        DisplayConfig(figures=["piezometric_map", "watertable_depth_map", "seepage_map"]),
-    ).config
-
-    assert configured.derived.watertable_elevation is False
-    assert configured.derived.watertable_depth is False
-    assert configured.derived.seepage_areas is False
-    assert configured.budget.spatial_fields is False
-
-
-def test_step_configure_results_ignores_figures_when_display_disabled() -> None:
-    configured = planning_module.step_configure_results(
-        ResultsConfig(),
-        _flow_only_plan(),
-        DisplayConfig(enabled=False, figures=["simulated_active_network"]),
-    ).config
-
-    assert configured.derived.accumulation_flux is False
-    assert configured.budget.spatial_fields is False
-
-
-def test_step_configure_results_ignores_figures_when_display_is_off_for_this_run() -> None:
-    # `hmp run --no-display` must cost nothing: the effective switch wins over
-    # the TOML [display] section, so no figure gets to turn a flag on.
-    reconciled = planning_module.step_configure_results(
-        ResultsConfig(),
-        _flow_only_plan(),
-        DisplayConfig(figures=["simulated_active_network"]),
-        display_active=False,
-    )
-
-    assert reconciled.config.derived.accumulation_flux is False
-    assert reconciled.config.budget.spatial_fields is False
-    assert reconciled.forced_flags == ()
-    assert reconciled.budget_is_intermediate is False
-
-
-def test_step_configure_results_keeps_user_requested_budget_out_of_forced_flags() -> None:
-    # An explicit spatial_fields = true is a choice, never an intermediate.
-    from hydromodpy.simulation.planning.results_config import BudgetConfig
-
-    user_cfg = ResultsConfig(
-        budget=BudgetConfig(spatial_fields=True),
-        derived=DerivedConfig(accumulation_flux=True),
-    )
-
-    reconciled = planning_module.step_configure_results(user_cfg, _flow_only_plan(), _no_figures())
-
-    assert reconciled.config.budget.spatial_fields is True
-    assert reconciled.budget_is_intermediate is False
-
-
 def _boussinesq_plan() -> SimulationPlan:
     return SimulationPlan(
         name="boussinesq",
@@ -387,79 +181,237 @@ def _boussinesq_plan() -> SimulationPlan:
     )
 
 
-def test_step_configure_results_forces_budget_for_a_raw_budget_figure_field() -> None:
-    # recharge_map reads budget/recharge, a field no results.derived flag
-    # covers: the group itself is the switch, so the figure turns it on and
-    # the run drops it again once the figure is drawn.
-    reconciled = planning_module.step_configure_results(
-        ResultsConfig(),
-        _flow_only_plan(),
-        DisplayConfig(figures=["recharge_map"]),
+_CONSUMERS = ResultsConfig(keep_per_cell_budget=False)
+
+
+def _keep(
+    results: ResultsConfig = _CONSUMERS,
+    *,
+    plan: SimulationPlan | None = None,
+    display: DisplayConfig | None = None,
+    display_active: bool = True,
+    exports: list[dict] | None = None,
+    calibration: object | None = None,
+    observation: object | None = None,
+    lightweight: bool = False,
+) -> BudgetKeep:
+    return planning_module.step_configure_results(
+        results,
+        plan or _flow_only_plan(),
+        display or _no_figures(),
+        display_active=display_active,
+        export_requests=load_export_requests(exports or []),
+        calibration=calibration,
+        observation=observation,
+        lightweight=lightweight,
     )
 
-    assert reconciled.config.budget.spatial_fields is True
-    assert reconciled.forced_flags == ("budget.spatial_fields",)
-    assert reconciled.budget_is_intermediate is True
+
+def _records(call) -> tuple[object, list[logging.LogRecord]]:
+    # HMP loggers do not propagate: attach a handler to the module logger.
+    records: list[logging.LogRecord] = []
+    handler = logging.Handler()
+    handler.emit = records.append  # type: ignore[method-assign]
+    planning_module.logger.addHandler(handler)
+    try:
+        return call(), records
+    finally:
+        planning_module.logger.removeHandler(handler)
 
 
-def test_step_configure_results_ignores_a_raw_budget_figure_without_display() -> None:
-    reconciled = planning_module.step_configure_results(
-        ResultsConfig(),
-        _flow_only_plan(),
-        DisplayConfig(figures=["recharge_map"]),
+def test_the_default_keeps_the_whole_budget_and_says_nothing() -> None:
+    every_consumer = DisplayConfig(figures=["recharge_map", "simulated_active_network"])
+
+    keep, records = _records(
+        lambda: _keep(ResultsConfig(), display=every_consumer, exports=[{"variables": "drain"}])
+    )
+
+    assert keep == BudgetKeep.everything()
+    assert keep.policy == POLICY_ALL
+    assert records == []
+
+
+def test_the_default_keeps_the_whole_budget_on_a_surface_excess_plan() -> None:
+    assert _keep(ResultsConfig(), plan=_boussinesq_plan()) == BudgetKeep.everything()
+
+
+def test_without_consumers_the_run_keeps_no_term() -> None:
+    keep, records = _records(lambda: _keep())
+
+    assert keep == BudgetKeep.of_terms(())
+    assert keep.policy == POLICY_CONSUMERS
+    assert len(records) == 1
+    assert records[0].levelno == logging.INFO
+    assert "keep_per_cell_budget = false" in records[0].getMessage()
+
+
+def test_a_figure_keeps_the_terms_its_required_fields_read() -> None:
+    keep = _keep(display=DisplayConfig(figures=["recharge_map"]))
+
+    assert keep.terms == frozenset(budget_terms_for("recharge"))
+    assert keep.terms == {"recharge"}
+
+
+def test_the_active_network_figure_keeps_the_network_criterion_terms() -> None:
+    """The persistence mode reads release_flux, whatever its required field says."""
+    from hydromodpy.display import figure_registry
+
+    spec = figure_registry.get("simulated_active_network").spec
+    assert spec.required_fields == ("accumulation_flux",)
+    assert "release_flux" in spec.optional_fields
+
+    keep = _keep(display=DisplayConfig(figures=["simulated_active_network"]))
+
+    assert keep.terms >= frozenset(budget_terms_for("accumulation_flux"))
+    assert keep.terms >= frozenset(budget_terms_for("release_flux"))
+
+
+def test_a_figure_keeps_the_terms_its_optional_fields_read() -> None:
+    """A map over a family of packages requires none and reads all of them."""
+    from hydromodpy.display import figure_registry
+
+    spec = figure_registry.get("boundary_package_map").spec
+    assert spec.required_fields == ()
+
+    keep = _keep(display=DisplayConfig(figures=["boundary_package_map"]))
+
+    assert keep.terms == frozenset(spec.optional_fields)
+
+
+def test_the_kept_terms_are_the_union_over_the_consumers() -> None:
+    keep, records = _records(
+        lambda: _keep(
+            display=DisplayConfig(figures=["recharge_map", "simulated_active_network"]),
+            exports=[{"variables": ["well", "head"]}],
+        )
+    )
+
+    assert keep.terms == {"recharge", "drain", "drain_to_mover", "well"} | frozenset(
+        budget_terms_for("release_flux")
+    )
+    message = records[0].getMessage()
+    assert "recharge (figure 'recharge_map'" in message
+    assert "well ([[export]])" in message
+    assert "simulated_active_network" in message
+
+
+def _observation(*variables: str, point_variables: list[str] | None = None):
+    from hydromodpy.simulation.planning.observation_config import ObservationConfig
+
+    point = {"id": "p1", "x": 1.0, "y": 2.0, "depth": 5.0}
+    if point_variables is not None:
+        point["variables"] = point_variables
+    kwargs = {"variables": list(variables)} if variables else {}
+    return ObservationConfig(points=[point], **kwargs)
+
+
+def test_an_observation_point_keeps_the_terms_of_its_variables() -> None:
+    keep, records = _records(
+        lambda: _keep(observation=_observation(point_variables=["head", "drain", "well"]))
+    )
+
+    assert keep.terms == {"drain", "well"}
+    assert "[[observation.points]] 'p1'" in records[0].getMessage()
+
+
+def test_an_observation_section_variable_default_is_resolved_per_point() -> None:
+    keep = _keep(observation=_observation("recharge"))
+
+    assert keep.terms == {"recharge"}
+
+
+def test_an_observation_without_points_keeps_nothing() -> None:
+    from hydromodpy.simulation.planning.observation_config import ObservationConfig
+
+    assert _keep(observation=ObservationConfig()).terms == frozenset()
+
+
+def test_a_lightweight_trial_logs_the_decision_at_debug() -> None:
+    _, records = _records(lambda: _keep(lightweight=True))
+
+    assert [r.levelno for r in records] == [logging.DEBUG]
+
+
+def test_an_overlay_asked_for_in_the_overrides_keeps_what_it_reads() -> None:
+    display = DisplayConfig(
+        figures=["piezometric_map"],
+        overrides={"piezometric_map": {"overlays": ["watershed", "wells", "seepage"]}},
+    )
+
+    keep = _keep(display=display)
+
+    assert keep.terms == {"well", *budget_terms_for("seepage_mask")}
+
+
+def test_an_export_keeps_the_terms_its_names_read() -> None:
+    keep = _keep(exports=[{"variables": ["release_flux"]}, {"variables": "recharge"}])
+
+    assert keep.terms == frozenset(budget_terms_for("release_flux"))
+
+
+def test_an_all_export_adds_nothing() -> None:
+    assert _keep(exports=[{"variables": "all"}]).terms == frozenset()
+
+
+def test_a_network_criterion_keeps_what_release_flux_reads() -> None:
+    calibration = SimpleNamespace(
+        outputs={
+            "network": SimpleNamespace(support="network"),
+            "piezometer": SimpleNamespace(support="point", variable="head"),
+        }
+    )
+
+    keep, records = _records(lambda: _keep(calibration=calibration))
+
+    assert keep.terms == frozenset(budget_terms_for("release_flux"))
+    assert "calibration output 'network'" in records[0].getMessage()
+
+
+def test_a_cell_output_on_a_budget_term_keeps_that_term() -> None:
+    calibration = SimpleNamespace(
+        outputs={"drain_cell": SimpleNamespace(support="cell", variable="drain")}
+    )
+
+    assert _keep(calibration=calibration).terms == {"drain"}
+
+
+def test_a_surface_excess_solver_keeps_its_seepage_term() -> None:
+    keep = _keep(plan=_boussinesq_plan())
+
+    assert keep.terms == {"surface_excess"}
+
+
+def test_a_modflow_plan_keeps_surface_excess_only_for_a_seepage_consumer() -> None:
+    # seepage_map reads seepage_mask, rebuilt from surface_excess where a
+    # solver writes it: asked for, kept if produced.
+    assert _keep(display=DisplayConfig(figures=["seepage_map"])).terms == {"surface_excess"}
+    assert _keep().terms == frozenset()
+
+
+def test_no_display_drops_the_figures_and_their_overlays() -> None:
+    display = DisplayConfig(
+        figures=["recharge_map"],
+        overrides={"recharge_map": {"overlays": ["wells"]}},
+    )
+
+    assert _keep(display=display, display_active=False).terms == frozenset()
+
+
+def test_a_disabled_display_drops_the_figures() -> None:
+    display = DisplayConfig(enabled=False, figures=["recharge_map"])
+
+    assert _keep(display=display).terms == frozenset()
+
+
+def test_no_display_keeps_the_other_consumers() -> None:
+    keep = _keep(
+        plan=_boussinesq_plan(),
+        display=DisplayConfig(figures=["recharge_map"]),
         display_active=False,
+        exports=[{"variables": "drain"}],
     )
 
-    assert reconciled.config.budget.spatial_fields is False
-    assert reconciled.forced_flags == ()
-
-
-def test_derived_config_has_no_groundwater_flux_flag() -> None:
-    # No backend stores the intercell face flows the field needed: MODFLOW 6
-    # filters FLOW-JA-FACE out of the per-cell budget and Boussinesq has no
-    # face record at all. The flag was removed rather than left to kill the
-    # run after the solve.
-    assert "groundwater_flux" not in DerivedConfig.model_fields
-    with pytest.raises(ValidationError):
-        DerivedConfig(groundwater_flux=True)
-
-
-def test_step_configure_results_forces_budget_for_a_boussinesq_seepage_figure() -> None:
-    # The Boussinesq seepage mask is budget/surface_excess. Without it the
-    # mask silently degrades to the geometric criterion, so the budget is
-    # computed as an intermediate to keep the physics.
-    reconciled = planning_module.step_configure_results(
-        ResultsConfig(),
-        _boussinesq_plan(),
-        DisplayConfig(figures=["seepage_map"]),
-    )
-
-    assert reconciled.config.budget.spatial_fields is True
-    assert reconciled.budget_is_intermediate is True
-
-
-def test_step_configure_results_forces_budget_for_a_boussinesq_seepage_flag() -> None:
-    reconciled = planning_module.step_configure_results(
-        ResultsConfig(derived=DerivedConfig(seepage_areas=True)),
-        _boussinesq_plan(),
-        _no_figures(),
-    )
-
-    assert reconciled.config.budget.spatial_fields is True
-    assert reconciled.budget_is_intermediate is True
-
-
-def test_step_configure_results_leaves_modflow_seepage_on_the_geometric_criterion() -> None:
-    # MODFLOW has no surface-excess flux: the geometric mask is the criterion
-    # there, not a degradation, so the budget stays off.
-    reconciled = planning_module.step_configure_results(
-        ResultsConfig(derived=DerivedConfig(seepage_areas=True)),
-        _flow_only_plan(),
-        DisplayConfig(figures=["seepage_map"]),
-    )
-
-    assert reconciled.config.budget.spatial_fields is False
-    assert reconciled.forced_flags == ()
+    assert keep.terms == {"drain", "surface_excess"}
 
 
 # ---------------------------------------------------------------------------

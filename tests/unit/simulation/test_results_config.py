@@ -4,15 +4,12 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.simulation.planning.results_config import (
-    BudgetConfig,
-    DerivedConfig,
-    ResultsConfig,
-)
+from hydromodpy.simulation.planning.results_config import ResultsConfig
 
 
 class TestResultsConfigDefaults:
@@ -22,27 +19,18 @@ class TestResultsConfigDefaults:
         assert cfg.persistence.save_zarr is True
         assert cfg.persistence.save_parquet is True
         assert cfg.keep_solver_files is False
-        # Persistence off by default: derived fields recomputed on the
-        # fly, budget spatial fields opt-in. Scalars still land in the tables.
-        assert cfg.derived.watertable_elevation is False
-        assert cfg.derived.watertable_depth is False
-        assert cfg.derived.seepage_areas is False
-        assert cfg.budget.spatial_fields is False
+        assert cfg.keep_per_cell_budget is True
 
     def test_from_dict(self):
         cfg = ResultsConfig.model_validate(
             {
                 "persistence": {"save_catalog": True, "save_zarr": False},
                 "keep_solver_files": True,
-                "derived": {"watertable_elevation": True},
             }
         )
         assert cfg.persistence.save_catalog is True
         assert cfg.persistence.save_zarr is False
         assert cfg.keep_solver_files is True
-        # Opting one field in leaves the others at their (off) default.
-        assert cfg.derived.watertable_elevation is True
-        assert cfg.derived.watertable_depth is False
 
     def test_export_field_rejected(self):
         # [export] is now a top-level section, not nested under results.
@@ -52,6 +40,14 @@ class TestResultsConfigDefaults:
     def test_extra_field_rejected(self):
         with pytest.raises(ValidationError):
             ResultsConfig.model_validate({"unknown_field": True})
+
+    @pytest.mark.parametrize("retired", ["derived", "budget"])
+    def test_a_retired_table_is_refused(self, retired):
+        # The migrations drop these tables from a file or a stored config; the
+        # model itself knows neither.
+        with pytest.raises(ValidationError):
+            ResultsConfig.model_validate({retired: {}})
+        assert retired not in ResultsConfig.model_fields
 
 
 class TestKeepPerCellBudget:
@@ -91,24 +87,6 @@ class TestKeepPerCellBudget:
                 assert bare not in text
 
 
-class TestDerivedConfig:
-    def test_all_false(self):
-        cfg = DerivedConfig(
-            watertable_elevation=False,
-            watertable_depth=False,
-            seepage_areas=False,
-        )
-        dump = cfg.model_dump()
-        assert dump["watertable_elevation"] is False
-        assert dump["watertable_depth"] is False
-        assert dump["seepage_areas"] is False
-        assert dump["accumulation_flux"] is False
-        assert dump["outflow_drain"] is False
-        assert dump["concentration_seepage"] is False
-        assert dump["mass_seepage"] is False
-        assert dump["mass_accumulated"] is False
-
-
 class TestIntegrationWithSimulationConfig:
     def test_results_in_simulation_config(self):
         from hydromodpy.simulation.planning.config import SimulationConfig
@@ -118,55 +96,62 @@ class TestIntegrationWithSimulationConfig:
                 "results": {
                     "persistence": {"save_catalog": True},
                     "keep_solver_files": True,
-                    "derived": {"seepage_areas": False},
                 },
             }
         )
         assert cfg.results.persistence.save_catalog is True
         assert cfg.results.keep_solver_files is True
-        assert cfg.results.derived.seepage_areas is False
 
     def test_results_default_in_simulation_config(self):
         from hydromodpy.simulation.planning.config import SimulationConfig
 
         cfg = SimulationConfig()
         assert cfg.results.persistence.save_catalog is True
-        assert cfg.results.derived.watertable_depth is False
+        assert cfg.results.keep_per_cell_budget is True
 
 
-class TestFieldConfigOptionMapping:
-    """The field -> option map must stay pinned to the real config fields.
+def _run(*, terms: dict[str, tuple[str, ...]] | None = None, present=("head",), head=True):
+    """A run whose store declares what its ``budget/`` group kept.
 
-    The map lives in ``results`` (which cannot import ``simulation``), so a
-    renamed flag or a new raw budget field would only surface here.
+    ``terms`` maps a policy to the terms it kept; None leaves the group without
+    attributes, as a store written before they existed. ``head=False`` leaves
+    the head out, as a lumped model does.
     """
+    import numpy as np
+    import zarr
 
-    def test_every_derived_flag_exists_on_derived_config(self):
-        from hydromodpy.results.derive.config_flags import DERIVED_FIELD_FLAGS
+    root = zarr.group()
+    if head:
+        root.create_array("head", data=np.zeros((2, 1, 3)))
+    budget = root.create_group("budget")
+    if terms is not None:
+        ((policy, kept),) = terms.items()
+        budget.attrs.update({"policy": policy, "kept_terms": list(kept)})
+    store = SimpleNamespace(root=root, close=lambda: None)
+    return SimpleNamespace(
+        sim_id="sim-x",
+        has_field=lambda variable, **_: variable in present,
+        _catalog=SimpleNamespace(open_zarr=lambda sim_id: store),
+    )
 
-        unknown = sorted(set(DERIVED_FIELD_FLAGS.values()) - set(DerivedConfig.model_fields))
-        assert unknown == []
 
-    def test_every_derived_config_flag_is_mapped(self):
-        from hydromodpy.results.derive.config_flags import DERIVED_FIELD_FLAGS
+class TestWhatTheRunKeptDecidesTheMessage:
+    """A missing field is actionable only when the run did not keep what it reads."""
 
-        unmapped = sorted(set(DerivedConfig.model_fields) - set(DERIVED_FIELD_FLAGS.values()))
-        assert unmapped == []
+    def test_the_only_option_is_the_budget_switch(self):
+        from hydromodpy.results.derive.config_flags import KEEP_BUDGET_OPTION, config_option_for
 
-    def test_budget_option_exists_on_budget_config(self):
-        from hydromodpy.results.derive.config_flags import BUDGET_SPATIAL_OPTION
+        assert KEEP_BUDGET_OPTION == "keep_per_cell_budget"
+        assert KEEP_BUDGET_OPTION in ResultsConfig.model_fields
+        for field in ("release_flux", "accumulation_flux", "seepage_mask", "recharge", "drain"):
+            assert config_option_for(field) == KEEP_BUDGET_OPTION
+        # A head or a static parameter reads no budget term: no option keeps it.
+        assert config_option_for("head") is None
+        assert config_option_for("lake_stage") is None
 
-        section, _, key = BUDGET_SPATIAL_OPTION.partition(".")
-        assert section == "budget"
-        assert key in BudgetConfig.model_fields
-
-    def test_raw_budget_fields_are_read_from_the_field_registry(self):
-        # The list is derived, never written by hand: a new budget/<name>
-        # descriptor must become actionable without touching config_flags.
-        from hydromodpy.results.derive.config_flags import (
-            BUDGET_SPATIAL_OPTION,
-            FIELD_CONFIG_OPTIONS,
-        )
+    def test_every_raw_budget_field_of_the_registry_has_the_option(self):
+        from hydromodpy.core.budget_terms import PER_CELL_BUDGET_TERMS
+        from hydromodpy.results.derive.config_flags import KEEP_BUDGET_OPTION, config_option_for
         from hydromodpy.results.field_registry import FIELD_REGISTRY
 
         registered = {
@@ -174,53 +159,85 @@ class TestFieldConfigOptionMapping:
             for name, descriptor in FIELD_REGISTRY.items()
             if descriptor.zarr_path.startswith("budget/")
         }
-        mapped = {
-            name for name, option in FIELD_CONFIG_OPTIONS.items() if option == BUDGET_SPATIAL_OPTION
-        }
-        assert mapped == registered
-        assert {"recharge", "drain"} <= mapped
+        assert registered
+        assert {name for name in registered if config_option_for(name) == KEEP_BUDGET_OPTION} == (
+            registered & PER_CELL_BUDGET_TERMS
+        )
 
-    def test_seepage_flag_and_field_names_differ(self):
-        from hydromodpy.results.derive.config_flags import config_option_for, derived_flag_for
+    def test_a_consumers_run_that_left_a_term_out_is_actionable(self):
+        from hydromodpy.results.derive.config_flags import (
+            missing_field_explanation,
+            missing_field_options,
+        )
 
-        assert derived_flag_for("seepage_mask") == "seepage_areas"
-        assert config_option_for("seepage_mask") == "derived.seepage_areas"
-        assert config_option_for("head") is None
+        run = _run(terms={"consumers": ("drain",)})
 
-    def test_missing_options_separate_an_option_off_from_a_non_applicable_field(self):
+        assert missing_field_options(["release_flux", "head"], run) == ["keep_per_cell_budget"]
+        text = missing_field_explanation(["release_flux"], run)
+        assert "kept only the per-cell budget terms its consumers read (drain)" in text
+        assert "recharge" in text
+        assert "stream" in text
+        assert "drain," not in text.split("also needs")[1]
+        assert "[[export]]" in text
+        assert "[simulation.results] keep_per_cell_budget = true" in text
+        assert "run the simulation again" in text
+
+    def test_a_consumers_run_that_kept_everything_the_field_reads_is_quiet(self):
+        # The terms are kept and no array is there: the model does not produce them.
+        from hydromodpy.core.budget_terms import budget_terms_for
+        from hydromodpy.results.derive.config_flags import (
+            missing_field_explanation,
+            missing_field_options,
+        )
+
+        run = _run(terms={"consumers": budget_terms_for("release_flux")})
+
+        assert missing_field_options(["release_flux"], run) == []
+        assert missing_field_explanation(["release_flux"], run) == ""
+
+    def test_a_run_that_kept_the_whole_budget_is_quiet(self):
         from hydromodpy.results.derive.config_flags import missing_field_options
 
-        class _Run:
-            def has_field(self, variable: str) -> bool:
-                return variable == "head"
+        run = _run(terms={"all": ("drain",)})
 
-        run = _Run()
-        assert missing_field_options(["accumulation_flux", "head"], run) == [
-            "derived.accumulation_flux"
-        ]
-        # A missing field no option controls stays a quiet skip.
-        assert missing_field_options(["lake_stage"], run) == []
+        assert missing_field_options(["release_flux", "recharge"], run) == []
 
-    def test_dropped_raw_budget_field_is_actionable(self):
-        # A run whose intermediate per-cell budget was dropped no longer holds
-        # 'recharge'. Rendering it again needs a new solve, and the option to
-        # set for that must be named.
+    def test_a_store_without_attributes_was_written_before_the_budget_was_kept(self):
+        from hydromodpy.results.derive.config_flags import (
+            missing_field_explanation,
+            missing_field_options,
+        )
+
+        run = _run(terms=None)
+
+        assert missing_field_options(["accumulation_flux"], run) == ["keep_per_cell_budget"]
+        text = missing_field_explanation(["accumulation_flux"], run)
+        assert "written before the per-cell budget was kept by default" in text
+        assert "run the simulation again" in text
+
+    def test_a_store_without_attributes_and_without_head_is_quiet(self):
+        # A lumped run (GR4J) writes no budget group and no head: no run can fix that.
+        from hydromodpy.results.derive.config_flags import (
+            missing_field_explanation,
+            missing_field_options,
+        )
+
+        run = _run(terms=None, head=False)
+
+        assert missing_field_options(["release_flux"], run) == []
+        assert missing_field_explanation(["release_flux"], run) == ""
+
+    def test_a_field_that_is_present_or_reads_no_term_is_never_actionable(self):
         from hydromodpy.results.derive.config_flags import missing_field_options
 
-        class _Run:
-            def has_field(self, variable: str) -> bool:
-                return variable == "head"
+        run = _run(terms={"consumers": ()}, present=("head", "release_flux"))
 
-        assert missing_field_options(["recharge"], _Run()) == ["budget.spatial_fields"]
+        assert missing_field_options(["release_flux", "head", "lake_stage"], run) == []
 
-    def test_log_missing_field_warns_only_for_an_option_controlled_field(self):
+    def test_log_missing_field_warns_only_when_the_run_could_have_kept_the_field(self):
         import logging
 
         from hydromodpy.results.derive.config_flags import log_missing_field
-
-        class _Run:
-            def has_field(self, variable: str) -> bool:
-                return False
 
         records: list[tuple[int, str]] = []
 
@@ -231,12 +248,12 @@ class TestFieldConfigOptionMapping:
             def debug(self, msg, *args):
                 records.append((logging.DEBUG, msg % args))
 
-        log_missing_field(_Logger(), _Run(), "accumulation_flux", "metrics for run x")
-        log_missing_field(_Logger(), _Run(), "recharge", "metrics for run x")
-        log_missing_field(_Logger(), _Run(), "lake_stage", "metrics for run x")
+        consumers = _run(terms={"consumers": ("drain",)})
+        log_missing_field(_Logger(), consumers, "recharge", "metrics for run x")
+        log_missing_field(_Logger(), _run(terms={"all": ("drain",)}), "recharge", "metrics")
+        log_missing_field(_Logger(), consumers, "lake_stage", "metrics for run x")
 
         assert records[0][0] == logging.WARNING
-        assert "[simulation.results.derived] accumulation_flux = true" in records[0][1]
-        assert records[1][0] == logging.WARNING
-        assert "[simulation.results.budget] spatial_fields = true" in records[1][1]
+        assert "kept only the per-cell budget terms its consumers read (drain)" in records[0][1]
+        assert records[1][0] == logging.DEBUG
         assert records[2][0] == logging.DEBUG

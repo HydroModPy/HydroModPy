@@ -19,6 +19,7 @@ from typing import Any
 import numpy as np
 import pytest
 
+from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.solver.modflow6.build import output_control_records
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow_common import calibration_extractors as cal
@@ -133,6 +134,9 @@ class _RecordingStore:
 
     def read_geographic_feature(self, sim_id: str, name: str) -> None:
         raise LookupError("no geography in a unit test")
+
+    # No field store: the extractor records no budget policy.
+    save_zarr = False
 
     def open_zarr(self, sim_id: str) -> None:
         raise LookupError("no Zarr in a unit test")
@@ -313,7 +317,7 @@ def test_mf6_stores_the_last_head_and_the_mean_flux_of_each_period(tmp_path: Pat
     raw = _run_mf6(tmp_path / "raw", oc={"saverecord": [("HEAD", "ALL"), ("BUDGET", "ALL")]})
     store = _RecordingStore()
     Modflow6OutputAdapter().extract(
-        "sim", stored, store, model_name="flow", budget_spatial_fields=True
+        "sim", stored, store, model_name="flow", budget_terms=BudgetKeep.everything()
     )
 
     # One slice per stress period, stamped at its end.
@@ -377,7 +381,7 @@ def test_mf6_one_step_per_period_stores_what_it_always_stored(tmp_path: Path) ->
     for workspace in (before, after):
         store = _RecordingStore()
         Modflow6OutputAdapter().extract(
-            "sim", workspace, store, model_name="flow", budget_spatial_fields=True
+            "sim", workspace, store, model_name="flow", budget_terms=BudgetKeep.everything()
         )
         stores.append(store)
 
@@ -409,7 +413,7 @@ def test_nwt_stores_one_slice_per_period_with_the_mean_flux(tmp_path: Path) -> N
         hdry=HDRY,
         hnoflo=HNOFLO,
         model_name="flow",
-        budget_spatial_fields=True,
+        budget_terms=BudgetKeep.everything(),
     )
 
     # The OC saves every step (the particle tracking reads them); the store

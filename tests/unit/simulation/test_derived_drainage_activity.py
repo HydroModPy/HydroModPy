@@ -1,3 +1,9 @@
+"""Drain, release and seepage fields of a store with no array of their own.
+
+Each field is read from the per-cell budget the run kept: nothing is computed
+and written after the run.
+"""
+
 from __future__ import annotations
 
 from uuid import uuid4
@@ -12,10 +18,6 @@ from hydromodpy.core.field_routing import (
     drain_budget_to_positive_outflow,
 )
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.simulation.extraction.derivation.derived import (
-    DERIVED_VARIABLES,
-    compute_derived,
-)
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -23,12 +25,6 @@ from tests._helpers.fixtures_catalog import simulation_catalog
 def catalog(tmp_path):
     with simulation_catalog(tmp_path / "workspace") as cat:
         yield cat
-
-
-def _disabled_derived_flags(**enabled: bool) -> dict[str, bool]:
-    flags = {key: False for key in DERIVED_VARIABLES}
-    flags.update(enabled)
-    return flags
 
 
 def _register_catalog_run(
@@ -108,7 +104,7 @@ def test_accumulate_downhill_on_mesh_routes_to_lower_neighbor() -> None:
     np.testing.assert_allclose(accumulated, np.array([2.5, 2.5]))
 
 
-def test_compute_derived_writes_positive_outflow_and_local_accumulation(
+def test_the_outflow_drain_is_read_as_the_positive_outflow_of_the_cell(
     catalog: Catalog,
 ) -> None:
     sim_id = _register_catalog_run(catalog, n_cells=3, n_layers=2)
@@ -121,18 +117,15 @@ def test_compute_derived_writes_positive_outflow_and_local_accumulation(
         subgroup="budget",
     )
 
-    compute_derived(
-        sim_id,
-        catalog,
-        _disabled_derived_flags(outflow_drain=True, accumulation_flux=True),
-    )
-
     expected = np.array([5.0, 4.0, 0.5])
     np.testing.assert_allclose(catalog.query_field(sim_id, "outflow_drain", 0), expected)
-    np.testing.assert_allclose(catalog.query_field(sim_id, "accumulation_flux", 0), expected)
+    # No mesh topology and no stored descent: nothing to route on, so the field
+    # is unavailable rather than served as the local flux.
+    with pytest.raises(KeyError):
+        catalog.query_field(sim_id, "accumulation_flux", 0)
 
 
-def test_compute_derived_prefers_surface_excess_for_seepage_mask(
+def test_the_seepage_mask_is_read_from_the_surface_excess(
     catalog: Catalog,
 ) -> None:
     sim_id = _register_catalog_run(catalog, n_cells=3)
@@ -158,15 +151,13 @@ def test_compute_derived_prefers_surface_excess_for_seepage_mask(
         subgroup="budget",
     )
 
-    compute_derived(sim_id, catalog, _disabled_derived_flags(seepage_areas=True))
-
     np.testing.assert_allclose(
         catalog.query_field(sim_id, "seepage_mask", 0),
         np.array([0.0, 1.0, 0.0]),
     )
 
 
-def test_compute_derived_writes_release_flux_from_drain_and_surface_excess(
+def test_the_release_flux_is_read_from_the_drain_and_the_surface_excess(
     catalog: Catalog,
 ) -> None:
     sim_id = _register_catalog_run(catalog, n_cells=3, n_layers=1)
@@ -187,15 +178,13 @@ def test_compute_derived_writes_release_flux_from_drain_and_surface_excess(
         subgroup="budget",
     )
 
-    compute_derived(sim_id, catalog, _disabled_derived_flags(release_flux=True))
-
     np.testing.assert_allclose(
         catalog.query_field(sim_id, "release_flux", 0),
         np.array([1.0, 2.0, 4.0], dtype="float64"),
     )
 
 
-def test_compute_derived_routes_release_accumulation_on_unstructured_mesh(
+def test_the_release_accumulation_is_routed_on_an_unstructured_mesh_on_read(
     catalog: Catalog,
 ) -> None:
     sim_id = _register_catalog_run(catalog, n_cells=2, mesh_topology="unstructured_2d")
@@ -242,12 +231,6 @@ def test_compute_derived_routes_release_accumulation_on_unstructured_mesh(
         subgroup="budget",
     )
 
-    compute_derived(
-        sim_id,
-        catalog,
-        _disabled_derived_flags(release_accumulation_flux=True),
-    )
-
     np.testing.assert_allclose(
         catalog.query_field(sim_id, "release_flux", 0),
         np.array([2.5, 0.0]),
@@ -258,7 +241,7 @@ def test_compute_derived_routes_release_accumulation_on_unstructured_mesh(
     )
 
 
-def test_compute_derived_routes_accumulation_on_unstructured_mesh(
+def test_the_accumulation_is_routed_on_an_unstructured_mesh_on_read(
     catalog: Catalog,
 ) -> None:
     sim_id = _register_catalog_run(catalog, n_cells=2, mesh_topology="unstructured_2d")
@@ -304,8 +287,6 @@ def test_compute_derived_routes_accumulation_on_unstructured_mesh(
         n_timesteps=1,
         subgroup="budget",
     )
-
-    compute_derived(sim_id, catalog, _disabled_derived_flags(accumulation_flux=True))
 
     np.testing.assert_allclose(
         catalog.query_field(sim_id, "accumulation_flux", 0),

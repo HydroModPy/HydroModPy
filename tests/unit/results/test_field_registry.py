@@ -29,7 +29,6 @@ class TestRegistryContents:
             "watertable_elevation",
             "watertable_depth",
             "seepage_mask",
-            "seepage_rate",
             "storage_change",
             "recharge",
             "drain",
