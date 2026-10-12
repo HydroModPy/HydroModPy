@@ -34,6 +34,12 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- `[geographic.catchment].dem_resolution`: the cell size the DEM is aggregated to before
+  anything is delineated, a length such as `"75 m"`. The routing surface, the catchment, the
+  mesh and the model top all take it; unset keeps the pixel of the DEM file. Each coarse
+  cell is the mean of the fine pixels it covers, on a grid aligned on the upper-left corner
+  of the DEM, and a value finer than the DEM's own pixel is refused when the run starts.
+  It is how a 25 m BD ALTI download runs at the 75 m of the published examples.
 - flow.partition_release_depth_m: the depth scale, in metres, over which the
   regularized partition of the Boussinesq solver starts to release water at the
   surface, 0.05 m by default.

@@ -91,6 +91,30 @@ class _CatchDefBase(HydroModelBase):
             "May be left absent when [data.dem.sources] declares the DEM."
         ),
     )
+    dem_resolution: Annotated[LengthMeters | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Cell size the DEM is aggregated to before anything is delineated, a length "
+            "('75 m', a bare number in metres). The routing surface, the catchment, the "
+            "mesh and the model top all take it. Unset keeps the pixel of the DEM file, "
+            "which is what the mesh follows otherwise: 25 m for a BD ALTI download. "
+            "Aggregation only: each coarse cell is the mean of the fine pixels it covers, "
+            "nodata left out, on a grid aligned on the upper-left corner of the DEM; a "
+            "value finer than the DEM's own pixel is refused when the run starts. The "
+            "DEM file is not changed, the aggregated copy lives in the geographic "
+            "products of the run."
+        ),
+        examples=["75 m"],
+        json_schema_extra={"unit": "m"},
+    )
+
+    @field_validator("dem_resolution")
+    @classmethod
+    def _positive_dem_resolution(cls, value: float | None) -> float | None:
+        """Refuse a cell size that is zero or negative."""
+        if value is not None and not value > 0.0:
+            raise ValueError(f"dem_resolution = {value:g} m: a cell size is a positive length.")
+        return value
 
 
 class DemCatchDef(_CatchDefBase):
@@ -130,6 +154,16 @@ class TxtCatchDef(_CatchDefBase):
         ),
         examples=["25 m"],
     )
+
+    @model_validator(mode="after")
+    def _cell_size_is_the_grid(self) -> TxtCatchDef:
+        """Refuse dem_resolution here: cell_size already says the grid."""
+        if self.dem_resolution is not None:
+            raise ValueError(
+                "catch_def='txt' rasterises the points at cell_size; dem_resolution would "
+                "say the grid twice. Drop it, or set cell_size to that value."
+            )
+        return self
 
 
 class OutletCatchDef(_CatchDefBase):
@@ -827,6 +861,11 @@ class GeographicConfig(HydroModelBase):
     def cell_size(self) -> float | None:
         """Cell size for 'txt' variant, or None otherwise."""
         return getattr(self.catchment, "cell_size", None) if self.catchment is not None else None
+
+    @property
+    def dem_resolution(self) -> float | None:
+        """Cell size the DEM is aggregated to, in metres, or None to keep its pixel."""
+        return None if self.catchment is None else self.catchment.dem_resolution
 
     @property
     def x_outlet(self) -> float | None:

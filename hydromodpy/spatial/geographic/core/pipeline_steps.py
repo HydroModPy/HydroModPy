@@ -31,6 +31,11 @@ from hydromodpy.spatial.geographic.core.catchment_from_point import (
     extract_catchment_from_point,
 )
 from hydromodpy.spatial.geographic.core.catchment_from_polygon import extract_catchment_from_polygon
+from hydromodpy.spatial.geographic.core.dem_aggregation import (
+    RESOLUTION_TOLERANCE,
+    aggregate_dem,
+    aggregated_dem_filename,
+)
 from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths, build_geographic_paths
 from hydromodpy.spatial.terrain import FlowAccumulation
@@ -76,6 +81,9 @@ def prepare_geographic_run(
     with rasterio.open(dem_init_path) as dem_src:
         epsg = dem_src.crs.to_epsg() if dem_src.crs is not None else None
         dem_res = float(abs(dem_src.transform.a))
+    dem_init_path, dem_res = _aggregated_if_asked(
+        config, dem_init_path=dem_init_path, dem_res=dem_res, paths=paths
+    )
     crs_project = (
         config.crs_project
         if config.crs_project is not None
@@ -89,6 +97,27 @@ def prepare_geographic_run(
         epsg=epsg,
         dem_res=dem_res,
     )
+
+
+def _aggregated_if_asked(
+    config: GeographicConfig,
+    *,
+    dem_init_path: str,
+    dem_res: float,
+    paths: GeographicPaths,
+) -> tuple[str, float]:
+    """Return the DEM every later step reads, aggregated when the config asks for it.
+
+    The DEM's own pixel is kept when ``dem_resolution`` is unset or names it. A
+    finer value is refused here, before any delineation, by ``aggregate_dem``.
+    """
+    target = config.dem_resolution
+    if target is None or abs(float(target) - dem_res) <= RESOLUTION_TOLERANCE * dem_res:
+        return dem_init_path, dem_res
+    out_path = Path(paths.correcflow_path) / aggregated_dem_filename(float(target))
+    with progress.status(f"Aggregating the DEM to {float(target):g} m"):
+        aggregate_dem(dem_init_path, out_path, resolution_m=float(target))
+    return str(out_path), float(target)
 
 
 def build_standard_catchment(

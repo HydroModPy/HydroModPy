@@ -230,6 +230,11 @@ def _geographic_cache_fingerprint(config: GeographicConfig) -> str:
     # existed, so the trees already cached stay valid.
     if config_payload.get("capped_breach") is None:
         config_payload.pop("capped_breach", None)
+    # Same rule for the cell size: unset, the DEM keeps its pixel, as it did
+    # before the key existed, so the trees already cached stay valid.
+    catchment_payload = config_payload.get("catchment")
+    if isinstance(catchment_payload, dict) and catchment_payload.get("dem_resolution") is None:
+        catchment_payload.pop("dem_resolution", None)
     # Same rule for the notch: off, it changes nothing, so it leaves a cached
     # tree valid. Its vector is signed below when it is on.
     # The bed regularisation reads the weirs and dams of the crossings file, so
