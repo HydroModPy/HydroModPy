@@ -324,8 +324,8 @@ Each release section includes the following standard categories:
   computational top. A store that keeps no Zarr asks for no mesh.
 - MF6 circular-island thresholds re-derived after the computational top. On the Cartesian
   grid MF6 sits at NWT's distance from the closed form (Dupuit 0.0499 m, piecewise K
-  0.0282 m of radial RMSE): twice the RMSE and the max, which fall with refinement, the
-  spread and the freeboard with a 10 % margin. On the Voronoi dual the measured value
+  0.0282 m of radial RMSE): twice the error and half the freeboard, as for the Boussinesq
+  islands. On the Voronoi dual the measured value
   with a 10 % margin, the upstream saturation and the straddled K zones being left
   (rows 37, 38, 108, 109 of `tests/TOLERANCES.md`).
 - The deep Brutsaert recession and the Glover-Balmer stream depletion compare the

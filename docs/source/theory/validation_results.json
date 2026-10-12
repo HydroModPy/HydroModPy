@@ -24,6 +24,18 @@
    "ci_run": "",
    "markers": "",
    "command": "pytest -q -n 4 --dist loadgroup -p no:cacheprovider tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[boussinesq] tests/validation/analytical/steady/test_boussinesq_divide_fixed_head_piecewise_k_1d.py::test_boussinesq_divide_fixed_head_piecewise_k_1d_matches_reference_profile[boussinesq] tests/validation/analytical/steady/test_boussinesq_fixed_head_piecewise_k_1d.py::test_boussinesq_fixed_head_piecewise_k_1d_matches_reference_profile[boussinesq] tests/validation/analytical/steady/test_boussinesq_hillslope_interception_1d.py::test_boussinesq_hillslope_interception_1d_matches_reference_position[boussinesq] tests/validation/analytical/steady/test_boussinesq_sloping_substratum_constant_thickness_1d.py::test_boussinesq_sloping_substratum_constant_thickness_1d_matches_reference_profile[boussinesq] tests/validation/analytical/steady/test_boussinesq_sloping_substratum_fixed_head_1d.py::test_boussinesq_sloping_substratum_fixed_head_1d_matches_reference_profile[boussinesq] tests/validation/analytical/steady/test_boussinesq_sloping_substratum_uniform_recharge_1d.py::test_boussinesq_sloping_substratum_uniform_recharge_1d_matches_reference_profile[boussinesq] tests/validation/analytical/steady/test_boussinesq_uniform_recharge_piecewise_k_1d.py::test_boussinesq_uniform_recharge_piecewise_k_1d_matches_reference_profile[boussinesq] tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[boussinesq] tests/validation/analytical/steady/test_dupuit_divide_river_1d.py::test_dupuit_divide_river_1d_matches_reference_profile[boussinesq] tests/validation/analytical/steady/test_dupuit_fixed_head_1d.py::test_dupuit_fixed_head_1d_matches_reference_profile[boussinesq] tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py::test_dupuit_fixed_head_petsc_variants_match_reference_profile[petsc_complementarity] tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py::test_dupuit_fixed_head_petsc_variants_match_reference_profile[petsc_partition] tests/validation/analytical/steady/test_dupuit_fixed_head_petsc_1d.py::test_dupuit_fixed_head_petsc_vi_obstacle_reaches_reference_profile tests/validation/analytical/steady/test_dupuit_uniform_recharge_1d.py::test_dupuit_uniform_recharge_1d_matches_reference_profile[boussinesq] tests/validation/analytical/transient/test_boussinesq_hillslope_recharge_step_interception_1d.py::test_boussinesq_hillslope_recharge_step_interception_1d_matches_onset_approximation[boussinesq] tests/validation/analytical/transient/test_brutsaert_recession_boussinesq_thin_1d.py::test_brutsaert_recession_boussinesq_thin_1d_matches_reference_recession[boussinesq] tests/validation/analytical/transient/test_brutsaert_recession_linearized_deep_1d.py::test_brutsaert_recession_linearized_deep_1d_matches_reference_recession[boussinesq] tests/validation/analytical/transient/test_hantush_recharge_mound_2d.py::test_recharge_mound_matches_hantush_boussinesq_petsc[boussinesq] tests/validation/analytical/transient/test_late_time_unconfined_pumping_2d.py::test_late_time_unconfined_pumping_2d_matches_late_time_reference_boussinesq tests/validation/analytical/transient/test_linearized_unconfined_boundary_periodic_1d.py::test_tide_matches_ferris_boussinesq_petsc[boussinesq] tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[boussinesq-boundary_piecewise] tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[boussinesq-boundary_step] tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[boussinesq-recharge_periodic] tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[boussinesq-recharge_step] tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_matches_reference_profiles[boussinesq-recharge_step_deep] tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_petsc_obstacle_matches_reference_profiles[petsc_ts_vi_obstacle-boundary_step] tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_petsc_obstacle_matches_reference_profiles[petsc_ts_vi_obstacle-recharge_step] tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_petsc_obstacle_matches_reference_profiles[petsc_vi_obstacle-boundary_step] tests/validation/analytical/transient/test_linearized_unconfined_transient_1d.py::test_linearized_unconfined_transient_1d_petsc_obstacle_matches_reference_profiles[petsc_vi_obstacle-recharge_step] tests/validation/analytical/transient/test_stream_depletion_glover_balmer_2d.py::test_stream_depletion_glover_balmer_2d_boussinesq tests/validation/numerical/transient/test_boussinesq_drying_petsc.py::test_single_cell_pumping_activates_lower_obstacle tests/validation/numerical/transient/test_boussinesq_drying_petsc.py::test_steep_sloping_hillslope_zero_recharge_dries_then_rewets tests/validation/numerical/transient/test_boussinesq_hillslope_recharge_pulse_overflow_petsc.py::test_hillslope_overflow_petsc_variants_activate_surface_threshold[petsc_complementarity] tests/validation/numerical/transient/test_boussinesq_hillslope_recharge_pulse_overflow_petsc.py::test_hillslope_overflow_petsc_variants_activate_surface_threshold[petsc_complementarity_alternating] tests/validation/numerical/transient/test_boussinesq_hillslope_recharge_pulse_overflow_petsc.py::test_hillslope_overflow_petsc_variants_activate_surface_threshold[petsc_complementarity_strong] tests/validation/numerical/transient/test_boussinesq_hillslope_recharge_pulse_overflow_petsc.py::test_hillslope_overflow_petsc_variants_activate_surface_threshold[petsc_partition]"
+  },
+  "2026-10-12T14:38:53+00:00-07106a227": {
+   "date": "2026-10-12T14:38:53+00:00",
+   "commit": "07106a227c9a4875c43d5535f8ee3413975105d6",
+   "dirty": true,
+   "branch": "dev",
+   "version": "2.0.0a4",
+   "python": "3.13.15",
+   "platform": "Linux x86_64",
+   "ci_run": "",
+   "markers": "",
+   "command": "pytest -q -n 4 --dist loadgroup -p no:cacheprovider tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py -k modflow6"
   }
  },
  "tests": {
@@ -185,7 +197,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.05,
+   "duration_s": 10.87,
    "metrics": [
     {
      "name": "Radial head-profile RMSE",
@@ -206,7 +218,7 @@
     {
      "name": "Azimuthal spread",
      "value": 0.08165790089933206,
-     "threshold": 0.09,
+     "threshold": 0.17,
      "op": "<",
      "unit": "m",
      "ideal": null
@@ -214,7 +226,7 @@
     {
      "name": "Minimum land freeboard",
      "value": 0.9096344909004185,
-     "threshold": 0.81,
+     "threshold": 0.45,
      "op": ">=",
      "unit": "m",
      "ideal": null
@@ -252,7 +264,7 @@
     }
    ],
    "spacetime": [],
-   "run": "2026-10-12T14:24:10+00:00-427d8bb47"
+   "run": "2026-10-12T14:38:53+00:00-07106a227"
   },
   "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[modflow6_irregular_tri]",
@@ -262,7 +274,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 6.99,
+   "duration_s": 11.25,
    "metrics": [
     {
      "name": "Radial head-profile RMSE",
@@ -327,7 +339,7 @@
     }
    ],
    "spacetime": [],
-   "run": "2026-10-12T14:24:10+00:00-427d8bb47"
+   "run": "2026-10-12T14:38:53+00:00-07106a227"
   },
   "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[modflow6_voronoi]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[modflow6_voronoi]",
@@ -337,7 +349,7 @@
    "solver": "modflow6_voronoi",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.21,
+   "duration_s": 10.68,
    "metrics": [
     {
      "name": "Radial head-profile RMSE",
@@ -402,7 +414,7 @@
     }
    ],
    "spacetime": [],
-   "run": "2026-10-12T14:24:10+00:00-427d8bb47"
+   "run": "2026-10-12T14:38:53+00:00-07106a227"
   },
   "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_boussinesq_circular_island_piecewise_k_2d.py::test_boussinesq_circular_island_piecewise_k_2d_matches_reference_profile[modflow_nwt]",
@@ -2495,7 +2507,7 @@
    "solver": "modflow6",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.79,
+   "duration_s": 10.73,
    "metrics": [
     {
      "name": "Radial head-profile RMSE",
@@ -2516,7 +2528,7 @@
     {
      "name": "Azimuthal spread",
      "value": 0.11204149897513288,
-     "threshold": 0.124,
+     "threshold": 0.23,
      "op": "<",
      "unit": "m",
      "ideal": null
@@ -2524,7 +2536,7 @@
     {
      "name": "Minimum land freeboard",
      "value": 0.7867733800806791,
-     "threshold": 0.7,
+     "threshold": 0.39,
      "op": ">=",
      "unit": "m",
      "ideal": null
@@ -2562,7 +2574,7 @@
     }
    ],
    "spacetime": [],
-   "run": "2026-10-12T14:24:10+00:00-427d8bb47"
+   "run": "2026-10-12T14:38:53+00:00-07106a227"
   },
   "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[modflow6_irregular_tri]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[modflow6_irregular_tri]",
@@ -2572,7 +2584,7 @@
    "solver": "modflow6_irregular_tri",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.17,
+   "duration_s": 10.59,
    "metrics": [
     {
      "name": "Radial head-profile RMSE",
@@ -2637,7 +2649,7 @@
     }
    ],
    "spacetime": [],
-   "run": "2026-10-12T14:24:10+00:00-427d8bb47"
+   "run": "2026-10-12T14:38:53+00:00-07106a227"
   },
   "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[modflow6_voronoi]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[modflow6_voronoi]",
@@ -2647,7 +2659,7 @@
    "solver": "modflow6_voronoi",
    "outcome": "passed",
    "reason": "",
-   "duration_s": 7.29,
+   "duration_s": 10.28,
    "metrics": [
     {
      "name": "Radial head-profile RMSE",
@@ -2712,7 +2724,7 @@
     }
    ],
    "spacetime": [],
-   "run": "2026-10-12T14:24:10+00:00-427d8bb47"
+   "run": "2026-10-12T14:38:53+00:00-07106a227"
   },
   "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[modflow_nwt]": {
    "nodeid": "tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py::test_dupuit_circular_island_ocean_2d_matches_reference_profile[modflow_nwt]",

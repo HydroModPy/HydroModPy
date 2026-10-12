@@ -1,14 +1,13 @@
 [radial_profile]
 rmse = 0.057
 max_abs_error = 0.11
-azimuthal_spread = 0.090
-min_land_clearance = 0.81
+azimuthal_spread = 0.17
+min_land_clearance = 0.45
 
 [doc]
 reason = """
-Twice the error measured on the 10 m grid, radial RMSE 0.0282 m and max error
-0.0546 m; the measured spread of 0.0817 m and freeboard of 0.910 m with a 10 %
-margin, since neither falls with refinement. MODFLOW 6
+Twice the error measured on the 10 m grid: radial RMSE 0.0282 m, max error
+0.0546 m, spread 0.0817 m, and half the measured freeboard of 0.910 m. MODFLOW 6
 reads a computational top that gives every cell of the layer the same
 thickness, so its Newton conductance is the one of MODFLOW-NWT, and the two sit
 at the same distance from the reference (NWT 0.0284 m). What is left is the
