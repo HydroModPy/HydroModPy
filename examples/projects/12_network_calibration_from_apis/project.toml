@@ -1,3 +1,17 @@
+# Nancon catchment on public French services only: nothing ships with this
+# example, the DEM included. IGN BD ALTI for the terrain, BD Topage for the
+# stream network, Hub'Eau for the gauge, SIM2 for the recharge and the runoff.
+#
+# One steady period over twenty years, and one search: K alone, found where
+# the seepage network the water table sustains balances the mapped one, every
+# BD Topage reach counted, permanent and intermittent alike. Sy never enters:
+# a steady solve carries no storage, and the network criterion identifies K/R.
+# Abherve et al. (2023), 10.5194/hess-27-3221-2023.
+#
+# Needs network access at the first run; every download is cached under
+# examples/data/ after it. The BD ALTI archives of four departments are the
+# large part, about 130 MB.
+#
 #   hmp calibrate project.toml --check          every problem at once, no solve
 #   hmp calibrate project.toml --list-phases    the one phase, before any solve
 #   hmp run       project.toml --until load_data   the data alone, no mesh, no solve
@@ -77,22 +91,33 @@ thickness = "30.0 m"
 [data]
 types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
 
+# IGN BD ALTI 25 m, assembled from the department archives around the outlet,
+# then aggregated to dem_resolution above.
 [[data.dem.sources]]
 source = "ign_geoplateforme_dem"
 dataset = "bd-alti"
 
+# BD Topage: every reach with its permanence, the permanent ones written
+# apart. The download box comes from the delineated watershed.
 [[data.hydrography.sources]]
 source = "bdtopage"
 
+# Hub'Eau daily mean discharge at the outlet. Not calibrated on: the run is
+# steady, so the gauge is a check of the recharge, exported beside the
+# simulated discharge.
 [[data.hydrometry.sources]]
 source = "hubeau"
 product = "QmnJ"
 station_ids = ["J001401001"]
 
+# Meteo-France SIM2 reanalysis, 8 km grid, drainage (DRAINC_Q) averaged over
+# the watershed. The steady solve uses the mean of the twenty years.
 [[data.recharge.sources]]
 source = "sim2"
 extent = "watershed"
 
+# SIM2 surface runoff (RUNC_Q): the share of the gauged discharge the
+# groundwater model does not produce, added before the comparison.
 [[data.runoff.sources]]
 source = "sim2"
 extent = "watershed"
@@ -107,6 +132,7 @@ active_sinks_sources = ["recharge"]
 # default): the drain follows K, which is what makes the criterion read K/R.
 active_bc = ["drainage"]
 
+# The start of the search; the calibration moves it.
 [flow.param.K.field]
 kind = "homogeneous"
 unit = "m/s"
@@ -122,6 +148,7 @@ value = 0.05
 
 [calibration]
 seed = 42
+# The best trial is kept as a run and replayed with its figures and exports.
 save_runs = "best_n"
 save_best_n = 1
 rerun_best_with_outputs = true
@@ -130,10 +157,18 @@ rerun_best_with_outputs = true
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
 
+# The mapped network is every reach [data.hydrography] loaded, permanent and
+# intermittent together, clipped to the catchment. No minimal map: in one
+# state a minimal map would be the one scored, and the full network is the
+# extent wanted here. The map enters by its heads, the default: each head
+# lands on a nearby cell and the rest is drawn down the criterion's own
+# descent, so a rectified reach below a head is not counted as model error.
 [calibration.outputs.seepage_network]
 support = "network"
 observed_network = "data.hydrography"
 
+# Eq. 1: the signed gap in metres between the two descents, simulated to
+# mapped and mapped to simulated, zero where neither network overshoots.
 [[calibration.objective_blocks]]
 name = "network_extent"
 metric = "distance_gap"
