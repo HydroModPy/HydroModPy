@@ -289,8 +289,9 @@ The solver time step is a numerical choice: a period solved in one step differs
 from the same period in several. {ref}`solvers-time` gives the size of that
 difference on a test case.
 
-{toml}`flow.flow_regime` picks the regime. In a `steady` run, every period is
-steady. In a `transient` run, {toml}`flow.first_period_steady` marks the first
+{toml}`flow.flow_regime` picks the regime. A `steady` run is one steady period
+over the whole `[simulation.time]` window, whatever step the file writes. In a
+`transient` run, {toml}`flow.first_period_steady` marks the first
 period as steady, in the three solvers. In a steady period the right side
 of the balance is zero, the storage plays no part, and the heads settle where the
 forcing of that period puts them. Example 04 states the regime:
