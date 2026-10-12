@@ -1,4 +1,4 @@
-"""Run/publish the natural N1 10 km2 MF6/Boussinesq gallery chain."""
+"""Run the natural N1 10 km2 MF6/Boussinesq comparison chain."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[5]))
 
 from hydromodpy.analysis.comparison.experiment_launcher import SimulationComparisonLauncher
-from tools.doc_gallery.import_simulation_comparison import publish_comparison
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[4]
@@ -50,21 +49,6 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Reuse existing child run folders and rerun comparison extraction/HTML only.",
     )
-    parser.add_argument(
-        "--publish-gallery",
-        action="store_true",
-        help="Copy completed comparison artifacts into examples/projects/09_capability_gallery/simulation_comparison.",
-    )
-    parser.add_argument(
-        "--doc-gallery",
-        action="store_true",
-        help="Run python -m tools.doc_gallery for the published slugs after publication.",
-    )
-    parser.add_argument(
-        "--force-gallery",
-        action="store_true",
-        help="Overwrite existing published gallery bundles.",
-    )
     return parser
 
 
@@ -98,32 +82,6 @@ def _write_testbed_html() -> Path:
     return OUTPUT_ROOT / "web_synthesis" / "index.html"
 
 
-def _publish_gallery(site_ids: list[str], *, force: bool) -> list[str]:
-    slugs: list[str] = []
-    for index, site_id in enumerate(site_ids, start=1):
-        comparison_root = OUTPUT_ROOT / "comparisons" / f"{site_id}_natural_n1_10km2_mf6_bouss"
-        destination = publish_comparison(
-            comparison_root,
-            study_area="Natural N1 10 km2 testbed",
-            case_order=index * 10,
-            family_key="boussinesq_mf6_natural_testbed",
-            family_label="Natural-Geology MF6/Boussinesq Testbed",
-            force=force,
-        )
-        slugs.append(destination.name)
-    return slugs
-
-
-def _run_doc_gallery(slugs: list[str]) -> None:
-    if not slugs:
-        return
-    subprocess.run(
-        [sys.executable, "-m", "tools.doc_gallery", "--only", ",".join(slugs)],
-        cwd=REPO_ROOT,
-        check=True,
-    )
-
-
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     site_ids = _site_ids(args.sites)
@@ -143,13 +101,6 @@ def main(argv: list[str] | None = None) -> int:
 
     page = _write_testbed_html()
     print(f"Testbed synthesis page: {page}")
-
-    slugs: list[str] = []
-    if args.publish_gallery:
-        slugs = _publish_gallery(site_ids, force=bool(args.force_gallery))
-        print("Published gallery slugs: " + ", ".join(slugs))
-    if args.doc_gallery:
-        _run_doc_gallery(slugs)
     return 0
 
 
