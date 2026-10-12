@@ -102,12 +102,6 @@ id = "flow"
 type = "flow"
 solvers = ["modflow6"]
 
-[simulation.results.derived]
-release_flux = true
-
-[simulation.results.budget]
-spatial_fields = true
-
 # The round trip compares the recharge read back to 1e-9: compact storage
 # keeps 16 mantissa bits, about 1e-5.
 [simulation.results.persistence]

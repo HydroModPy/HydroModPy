@@ -123,15 +123,6 @@ solvers = ["modflow_nwt"]
 [simulation.results]
 keep_solver_files = false
 
-[simulation.results.derived]
-outflow_drain = true
-accumulation_flux = true
-watertable_depth = true
-watertable_elevation = true
-
-[simulation.results.budget]
-spatial_fields = true
-
 [display]
 enabled = true
 show = false

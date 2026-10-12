@@ -8,15 +8,6 @@ base_config = "step1_minimal.toml"
 [simulation]
 name = "nancon_step2_local"
 
-# The per-cell seepage the network comparison reads.
-[simulation.results.derived]
-release_flux = true
-
-# The per-cell recharge: a cell counts as seepage above a share of it. The
-# distance map needs it here, the persistence maps of step 4 too.
-[simulation.results.budget]
-spatial_fields = true
-
 [data]
 types = ["hydrography", "hydrometry"]
 

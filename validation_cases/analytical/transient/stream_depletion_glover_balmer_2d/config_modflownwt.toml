@@ -13,10 +13,6 @@ step_value = "12 hour"
 substeps_per_period = 4
 coverage_policy = "ignore"
 
-[simulation.results.budget]
-# Keeps the per-cell constant-head flux: the stream depletion is its sum.
-spatial_fields = true
-
 [[simulation.process]]
 id = "flow_validation"
 type = "flow"

@@ -306,6 +306,10 @@ Each release section includes the following standard categories:
   committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- The example projects, the regression fixtures and the validation cases no longer declare
+  `[simulation.results.derived]` or `[simulation.results.budget]`: they keep the whole
+  per-cell budget by default, and example 11 says a run without figures has nothing to
+  declare.
 - A calibration that saves runs (`save_runs = "best_n"` or `"all"`) writes the best run with
   the results options of the project file, and every other saved run with
   `keep_per_cell_budget = false`: those keep only the per-cell terms their figures, exports,

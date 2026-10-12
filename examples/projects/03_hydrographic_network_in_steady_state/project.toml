@@ -25,14 +25,6 @@ id = "flow_main"
 type = "flow"
 solvers = ["modflow6"]
 
-# The figure list below already asks for these, but run_manual.py drives its
-# sweep with no_display=True, and a field nothing draws is not persisted.
-[simulation.results.derived]
-watertable_elevation = true
-seepage_areas = true
-accumulation_flux = true
-
-
 [geographic]
 crs_project = "EPSG:2154"
 

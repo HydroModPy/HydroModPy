@@ -205,21 +205,6 @@ id = "flow_main"
 type = "flow"
 solvers = ["modflow6"]
 
-# Les champs derives sont ce qui debloque les cartes. Ils sont calcules
-# APRES le solve, a partir de la charge et du budget deja lus, donc ils
-# ne rallongent pas le solve lui-meme.
-#   release_flux         -> downslope_distance_map, seepage_network_*
-#   watertable_elevation -> piezometric_map, cross_section
-#   watertable_depth     -> watertable_depth_map
-#   seepage_areas        -> seepage_map
-#   accumulation_flux    -> accumulation_map, simulated_active_network
-[simulation.results.derived]
-release_flux = true
-watertable_elevation = true
-watertable_depth = true
-seepage_areas = true
-accumulation_flux = true
-
 
 # ----------------------------------------------------------------------
 # MODFLOW 6

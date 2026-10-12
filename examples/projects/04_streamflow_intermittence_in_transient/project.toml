@@ -30,13 +30,6 @@ id = "flow_main"
 type = "flow"
 solvers = ["modflow6"]
 
-# The per-cell seepage the network criterion reads.
-[simulation.results.derived]
-release_flux = true
-
-[simulation.results.budget]
-spatial_fields = true
-
 [geographic]
 crs_project = "EPSG:2154"
 

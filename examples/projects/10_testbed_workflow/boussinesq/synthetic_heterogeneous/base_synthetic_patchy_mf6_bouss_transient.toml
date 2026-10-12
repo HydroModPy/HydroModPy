@@ -25,15 +25,6 @@ solvers = ["modflow6"]
 [simulation.results]
 keep_solver_files = false
 
-[simulation.results.derived]
-outflow_drain = true
-accumulation_flux = true
-watertable_depth = true
-watertable_elevation = true
-
-[simulation.results.budget]
-spatial_fields = true
-
 [geographic]
 source_mode = "synthetic"
 reuse_existing_outputs = false
