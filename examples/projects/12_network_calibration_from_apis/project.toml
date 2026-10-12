@@ -24,14 +24,6 @@ id = "flow_main"
 type = "flow"
 solvers = ["modflow6"]
 
-# Kept in the store: the per-cell seepage the criterion reads, and the per-cell
-# budget it is rebuilt from.
-[simulation.results.derived]
-release_flux = true
-
-[simulation.results.budget]
-spatial_fields = true
-
 [geographic]
 crs_project = "EPSG:2154"
 
