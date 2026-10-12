@@ -76,7 +76,9 @@ class SimulationTimeConfig(HydroModelBase):
             "Forcing/stress-period time-step scalar or inline token '<value> <unit>' "
             "(for example '30 day'). "
             "This controls the temporal aggregation step for forcing series "
-            "(for example recharge/runoff) and the resulting stress periods."
+            "(for example recharge/runoff) and the resulting stress periods. "
+            "Not read by a steady run (flow.flow_regime = 'steady'), which is one "
+            "stress period over the whole window, its forcings averaged over it."
         ),
         examples=["1 month", "10 day"],
     )

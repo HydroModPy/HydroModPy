@@ -19,6 +19,7 @@ validation errors intended to be user-facing.
 
 from __future__ import annotations
 
+import dataclasses
 import re
 import warnings
 from dataclasses import dataclass
@@ -27,11 +28,14 @@ from typing import Any, Literal
 import pandas as pd
 
 from hydromodpy.core.config_kit.types import CoveragePolicy, TimePeriodUnit
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import (
     normalize_time_unit,
     parse_scalar_and_unit,
     timedelta_to_seconds,
 )
+
+logger = get_logger(__name__)
 
 _VALID_POLICIES = {"error", "warn", "ignore"}
 _VALID_MODES = {"explicit"}
@@ -60,6 +64,12 @@ class ResolvedSimulationTimeWindow:
     step_value: int
     step_unit: TimePeriodUnit
     coverage_policy: CoveragePolicy
+    period_bounds: tuple[tuple[pd.Timestamp, pd.Timestamp], ...] | None = None
+    """Explicit half-open periods, when the window is not cut by its step.
+
+    A steady run carries one period over the whole window here, whatever
+    ``step_value`` says. ``None`` cuts the window by the step.
+    """
 
     def to_date_bounds(self) -> tuple[str, str]:
         """Return inclusive date bounds as ISO ``YYYY-MM-DD`` strings.
@@ -379,7 +389,7 @@ def resolve_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
     if window is None:
         return None
     # Build explicit period boundaries first, then derive second-based lenper.
-    boundaries = _build_time_boundaries(window)
+    boundaries = build_simulation_time_boundaries(window)
     perlen_seconds = _period_lengths_in_seconds_from_boundaries(boundaries)
     return ResolvedSimulationTimeGrid(
         window=window,
@@ -531,13 +541,43 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
         raise ValueError(
             "simulation.time.end_datetime must be greater than or equal to start_datetime."
         )
-    return ResolvedSimulationTimeWindow(
+    window = ResolvedSimulationTimeWindow(
         start=start,
         end=end,
         step_value=step_value,
         step_unit=step_unit,
         coverage_policy=coverage_policy,
     )
+    if _flow_regime(cfg) == "steady":
+        return _one_period_over_the_window(window)
+    return window
+
+
+def _one_period_over_the_window(
+    window: ResolvedSimulationTimeWindow,
+) -> ResolvedSimulationTimeWindow:
+    """Return ``window`` as one stress period, the form a steady run takes.
+
+    A steady period stands for the long-term state, so several of them over
+    one window are the same solve repeated. The step is not read; when it
+    would have cut the window, the run says so once.
+    """
+    end_exclusive = _inclusive_end_to_exclusive_end(window.end, step_unit=window.step_unit)
+    try:
+        cut = len(_build_time_boundaries(window)) - 1
+    except ValueError:
+        cut = 0
+    if cut > 1:
+        logger.info(
+            "flow_regime = 'steady': one stress period over %s to %s. The step of "
+            "[simulation.time], %d %s (%d periods), is not read.",
+            window.start.date().isoformat(),
+            window.end.date().isoformat(),
+            window.step_value,
+            window.step_unit,
+            cut,
+        )
+    return dataclasses.replace(window, period_bounds=((window.start, end_exclusive),))
 
 
 def resolve_simulation_time_window_dates(

@@ -306,6 +306,12 @@ Each release section includes the following standard categories:
   committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- A steady run (`flow_regime = "steady"`) is one stress period over the whole
+  `[simulation.time]` window, whatever `step_value` says, with the forcings averaged over
+  it; the step is not read, and the run says so when it would have cut the window. Before,
+  the step cut a steady window into identical steady periods, each the same solve, so a
+  steady file had to write a step equal to its window. The calibration phase
+  `regime = "steady"` already ran one period; a plain steady run now does the same.
 - MODFLOW 6 reads a computational top. Under Newton it builds the horizontal conductance
   from the full thickness of the two cells times the upstream saturation, so a thickness
   that changes from one cell to the next gave too low a transmissivity (0.16 to 0.31 m of
