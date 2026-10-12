@@ -49,6 +49,40 @@ def test_the_skip_is_a_warning_when_the_user_can_fix_it(caplog) -> None:
     assert "keep_per_cell_budget = true" in record.getMessage()
 
 
+def _store_run(policy: str, kept: list[str]) -> SimpleNamespace:
+    """A run whose ``budget/`` group declares what it kept, as a store does."""
+    root = {
+        "head": object(),
+        "budget": SimpleNamespace(attrs={"policy": policy, "kept_terms": kept}),
+    }
+    store = SimpleNamespace(root=root, close=lambda: None)
+    return SimpleNamespace(
+        sim_id="sim-wells",
+        has_field=lambda variable, **_: False,
+        config_snapshot={"flow": {"sinks_sources": {"wells": WELLS}}},
+        _catalog=SimpleNamespace(open_zarr=lambda _sim_id: store),
+    )
+
+
+def test_the_skip_says_what_the_run_kept() -> None:
+    with pytest.raises(OverlayUnavailable) as raised:
+        draw_wells(None, _store_run("consumers", ["recharge"]))
+
+    assert raised.value.actionable
+    message = str(raised.value)
+    assert "kept only the per-cell budget terms its consumers read (recharge)" in message
+    assert "also needs well" in message
+    assert "spatial_fields" not in message
+
+
+def test_a_run_that_kept_the_whole_budget_has_no_key_to_set() -> None:
+    """The model has no well package: no setting would have stored one."""
+    with pytest.raises(OverlayUnavailable) as raised:
+        draw_wells(None, _store_run("all", ["recharge"]))
+
+    assert not raised.value.actionable
+
+
 @pytest.mark.parametrize(
     "snapshot",
     [None, {}, {"flow": {"sinks_sources": {}}}, {"flow": {"sinks_sources": {"wells": {}}}}],

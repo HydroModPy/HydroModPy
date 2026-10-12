@@ -352,13 +352,26 @@ def warn_on_geometric_seepage_fallback(root: Any, *, sim_id: str) -> None:
         return
     if not degraded:
         return
+    from hydromodpy.core.budget_terms import POLICY_ALL, kept_budget
+
+    kept = kept_budget(root)
+    if kept is None:
+        cause = "This run was written before the per-cell budget was kept by default: run it again."
+    elif kept.policy == POLICY_ALL:
+        cause = "The solver produced no surface excess for this run: there is no option to set."
+    else:
+        cause = (
+            f"This run kept only the per-cell budget terms its consumers read "
+            f"({', '.join(kept.terms) or 'none'}); "
+            "[simulation.results] keep_per_cell_budget = true keeps surface_excess."
+        )
     logger.warning(
         "Seepage mask for sim %s falls back to the geometric criterion "
         "(water table >= surface): this solver releases seepage through "
         "budget/surface_excess, which the store does not hold, so the mask "
-        "over-reports the seepage extent. Set [simulation.results.budget] "
-        "spatial_fields = true to keep that flux.",
+        "over-reports the seepage extent. %s",
         sim_id,
+        cause,
     )
 
 

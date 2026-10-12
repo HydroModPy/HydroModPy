@@ -306,6 +306,13 @@ Each release section includes the following standard categories:
   committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- A figure, a map overlay or a reader skipped because the run did not keep a per-cell budget
+  term now says which terms the run kept, which ones the field needs and that
+  `[simulation.results] keep_per_cell_budget = true` (the default) keeps them; a run that
+  kept every term the solver produced and has no drain, stream, lake or surface excess is
+  still told the model has no such exit. The geometric seepage fallback of a surface-excess
+  solver names the run's policy the same way. `hmp viz` and the calibration loader read a
+  sealed `runs/<name>/config.toml` through the stored migration.
 - A run keeps its whole per-cell budget by default: every scalar term the solver produces,
   storage included (`storage` under MODFLOW-NWT, `storage_ss` and `storage_sy` under
   MODFLOW 6), is written under `budget/` at extraction, and the group says what it kept

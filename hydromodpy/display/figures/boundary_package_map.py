@@ -55,7 +55,7 @@ from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import last_timestep
 from hydromodpy.display.style import neutral
-from hydromodpy.results.derive.config_flags import enable_options_hint, missing_field_options
+from hydromodpy.results.derive.config_flags import missing_field_explanation
 from hydromodpy.results.run.array import acting_faces, acting_faces_over_run
 
 if TYPE_CHECKING:
@@ -178,7 +178,7 @@ class BoundaryPackageMap(BaseFigure):
     )
 
     def unavailable_reason(self, sim: Run) -> str | None:
-        """Name the components looked for, and the option that would keep them."""
+        """Name the components looked for, what the run kept and the option that keeps them."""
         base = super().unavailable_reason(sim)
         if base is not None:
             return base
@@ -189,8 +189,8 @@ class BoundaryPackageMap(BaseFigure):
             "this run stores no per-cell boundary flux: none of "
             f"{looked_for} is in the store, so no cell can be attributed to a package."
         )
-        options = missing_field_options(BOUNDARY_PACKAGES, sim)
-        return reason if not options else f"{reason} {enable_options_hint(options)}"
+        explanation = missing_field_explanation(BOUNDARY_PACKAGES, sim)
+        return f"{reason} {explanation}" if explanation else reason
 
     def render(
         self,

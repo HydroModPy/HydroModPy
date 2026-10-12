@@ -151,6 +151,8 @@ def render_gallery(
     and could not produce is reported here exactly as it is on the run path.
     """
     from hydromodpy.config.config_migration import migrate_config_doc_on_load
+    from hydromodpy.config.stored_config_migration import migrate_stored_config
+    from hydromodpy.core.state.paths import is_sealed_run_config
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.display.runs import (
@@ -167,12 +169,21 @@ def render_gallery(
 
     raw_toml = load_toml_with_base_config(target_path)
     # The same in-memory migration `hmp run` applies, so an old key loads and
-    # is reported the same way on both commands.
+    # is reported the same way on both commands. A config a run froze in its
+    # run directory takes the stored migration first, as HydroModPyConfig.from_toml
+    # does: its message must not send the user to `hmp doctor` for a file they
+    # do not own.
+    sealed = is_sealed_run_config(target_path)
+    if sealed:
+        raw_toml = migrate_stored_config(raw_toml, source=target_path)
     migrate_config_doc_on_load(raw_toml, source=target_path)
     display_cfg = DisplayConfig.model_validate(raw_toml.get("display", {}))
     if no_show:
         display_cfg.show = False
-    project_dir = target_path.parent.resolve()
+    # A sealed config sits in <project>/runs/<name>/: the project is the folder
+    # that holds runs/, which is where the catalog index lives.
+    resolved = target_path.resolve()
+    project_dir = resolved.parent.parent.parent if sealed else resolved.parent
     # The index stores the config path relative to the project, so a copied or
     # moved project still recognises the runs it owns.
     config_source = portable_config_source(project_dir, target_path)

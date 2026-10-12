@@ -39,7 +39,6 @@ from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.config.config_migration import migrate_config_doc_on_load
 from hydromodpy.config.stored_config_migration import (
-    is_sealed_run_config,
     migrate_stored_config,
     raw_flow_process_solver,
 )
@@ -72,6 +71,7 @@ from hydromodpy.core.exceptions import (
     ConfigValidationError,
     IncompatibleCapabilitiesError,
 )
+from hydromodpy.core.state.paths import is_sealed_run_config
 from hydromodpy.core.time.window import (
     build_simulation_time_boundaries,
     resolve_simulation_time_window,
