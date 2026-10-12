@@ -1,3 +1,17 @@
+# Nancon catchment on public French services only: nothing ships with this
+# example, the DEM included. IGN BD ALTI for the terrain, BD Topage for the
+# stream network, Hub'Eau for the gauge, SIM2 for the recharge and the runoff.
+#
+# One steady period over twenty years, and one search: K alone, found where
+# the seepage network the water table sustains balances the mapped one, every
+# BD Topage reach counted, permanent and intermittent alike. Sy never enters:
+# a steady solve carries no storage, and the network criterion identifies K/R.
+# Abherve et al. (2023), 10.5194/hess-27-3221-2023.
+#
+# Needs network access at the first run; every download is cached under
+# examples/data/ after it. The BD ALTI archives of four departments are the
+# large part, about 130 MB.
+#
 #   hmp calibrate project.toml --check          every problem at once, no solve
 #   hmp calibrate project.toml --list-phases    the one phase, before any solve
 #   hmp run       project.toml --until load_data   the data alone, no mesh, no solve
