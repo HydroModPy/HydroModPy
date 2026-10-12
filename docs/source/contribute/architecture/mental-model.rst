@@ -222,7 +222,7 @@ The simulated active network
 The hydrographic-network contract reserves a third role, ``simulated_active``,
 for the network that emerges from simulated drainage. It exists in the type
 contract (``HydrographicNetworks.simulated_active``) and no workflow step stores
-it as a vector feature. What HydroModPy computes from the persisted
+it as a vector feature. What HydroModPy computes from the
 ``accumulation_flux`` field are lazy views of the run: ``run.drainage_density()``,
 ``run.persistence()``, ``run.cell_field_active_mask()``,
 ``run.cell_field_active_metrics()``, ``run.cell_field_network_overlap_metrics()``

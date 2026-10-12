@@ -74,8 +74,8 @@ The stream-network criterion reads the same union off the budget, so the network
 a calibration scores and the network the maps draw come from one quantity. A run
 stored before the river share of the fixed head was stored lacks that one term.
 
-The release flux is rebuilt on read from the per-cell budget, which the run keeps
-only with {toml}`simulation.results.budget.spatial_fields`.
+The release flux is rebuilt on read from the per-cell budget, which a run keeps
+by default ({toml}`simulation.results.keep_per_cell_budget`).
 
 In the code: `release_flux_stack`.
 
@@ -88,10 +88,11 @@ outflow plus that of every cell upstream, the usual flow accumulation on a
 single-flow-direction graph {cite:p}`ocallaghan1984`. High values mark the
 confluences and the persistent branches. $F_n$ is a routed diagnostic: the same
 water is counted again in every cell downstream, so the sum of $F$ over the cells
-is not a water budget. Use the budget for a mass balance. $F$ is stored as
+is not a water budget. Use the budget for a mass balance. $F$ is the field
 `accumulation_flux`, and the same routing applied to the release flux gives
 `release_accumulation_flux`. The Boussinesq solver, whose store holds a top and no
-mesh connectivity, routes on a D8 raster of WhiteboxTools instead.
+mesh connectivity, stores a $D$ built from the D8 pointer of WhiteboxTools on its
+filled top, for a raster run, and routes on it.
 
 A cell is active in period $t$ when a field, $F$ for instance, exceeds a
 threshold. A time rule reduces the periods to one mask:
@@ -109,8 +110,9 @@ A steady run uses `last` by default, since it has one state. A transient run use
 mask is active at every period of the window analysed, which is not a steady
 network.
 
-The derived fields are written only when asked, with the keys
-`simulation.results.derived.*` and {toml}`simulation.results.budget.spatial_fields`
+The derived fields are not stored: they are rebuilt on read from the per-cell
+budget, which a run keeps by default with
+{toml}`simulation.results.keep_per_cell_budget`
 (see {doc}`[simulation] <../../reference/parameters/simulation>`).
 
 In the code: `accumulate_on_downhill_graph`.
@@ -156,9 +158,10 @@ a routed seepage discharge, not a river discharge: no runoff and no bed loss
 enter it.
 
 The flowing cells are the field `simulated_active_network`, 1 where a stream
-flows and 0 elsewhere. It is rebuilt on read from the stored release flux and
-from a stored network on which the graph is rebuilt. It is never stored, and it
-needs {toml}`simulation.results.derived.release_flux`.
+flows and 0 elsewhere. It is rebuilt on read from the release flux (itself
+rebuilt from the per-cell budget) and from a stored network on which the graph is
+rebuilt. It is never stored, and it needs the release terms of the per-cell
+budget, which a run keeps by default.
 
 Over a transient run, the criterion counts, for each complete calendar year, the
 periods each cell flows, and builds a maximal and a minimal extent from those
@@ -239,11 +242,7 @@ harmonic mean `length_f1_ratio` and the Hausdorff distance of the two networks
 ## Parameters of this page
 
 ```{hmp-params}
-simulation.results.derived.seepage_areas
-simulation.results.derived.release_flux
-simulation.results.derived.accumulation_flux
-simulation.results.derived.outflow_drain
-simulation.results.budget.spatial_fields
+simulation.results.keep_per_cell_budget
 calibration.outputs.<name>.tau_specific_ratio
 calibration.outputs.<name>.extent.visible_flow
 ```
@@ -257,7 +256,7 @@ appears here on the next build.
 hydromodpy.core.field_routing
 hydromodpy.core.stream_network
 hydromodpy.core.stream_extent
-hydromodpy.simulation.extraction.derivation.derived
+hydromodpy.results.derive.virtual_fields
 hydromodpy.results.derive.views
 ```
 
@@ -268,6 +267,6 @@ hydromodpy.results.derive.views
 | Seepage mask, release flux, accumulation | `hydromodpy/core/field_routing.py` |
 | Sources and closure | `hydromodpy/core/stream_network.py` |
 | Flowing cells, yearly extents | `hydromodpy/core/stream_extent.py` |
-| Derived fields written after the run | `hydromodpy/simulation/extraction/derivation/derived.py` |
+| Derived fields rebuilt on read | `hydromodpy/results/derive/virtual_fields.py` |
 | Active masks and the diagnostics | `hydromodpy/results/derive/views.py` |
 | Overlap of lines | `hydromodpy/spatial/geographic/core/hydrographic_network_comparison.py` |

@@ -306,6 +306,17 @@ Each release section includes the following standard categories:
   committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- With the whole per-cell budget kept, `[[export]] variables = "all"` and `hmp export --list`
+  offer every budget term and every field rebuilt from it (`outflow_drain`, `release_flux`,
+  the accumulation fluxes, `simulated_active_network`, the storage terms), a portable `.hmp`
+  package carries the budget group, and the testbed tables of a MODFLOW run gain
+  `outflow_drain_*` and `accumulation_flux_*` columns. Left as they were, and not covered by
+  this change: the legacy solver post-processing that carries the same field names without a
+  caller (`modflow_common/options.py`, `modflow6/postprocess/`, `nwt/_post_processing.py`,
+  `mt3dms.py`), the float64 `boussinesq_state` histories that duplicate `budget/`, the testbed
+  reader of `recharge_flux` and the comparison series mapped to `seepage_areas` (names no store
+  holds), and the Boussinesq adapter that declares `release_flux` for a calibration and refuses
+  it at extraction.
 - The example projects, the regression fixtures and the validation cases no longer declare
   `[simulation.results.derived]` or `[simulation.results.budget]`: they keep the whole
   per-cell budget by default, and example 11 says a run without figures has nothing to

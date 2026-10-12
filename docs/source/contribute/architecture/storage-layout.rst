@@ -305,11 +305,12 @@ root arrays ``head``, ``time`` and ``crs`` (plus ``quantization_info`` when a fi
 The generated :doc:`generated/storage-tree` lists them.
 
 ``meta``, ``mesh``, ``state``, ``particles`` and ``forcing`` are created
-at store init. ``derived``, ``budget`` and ``geographic`` are not
-pre-created: heavy fields are opt-in
-(``[simulation.results.derived]`` and
-``[simulation.results.budget] spatial_fields``), so a default run carries
-neither group and the lumped budget still feeds the catchment scalars.
+at store init. ``derived``, ``budget`` and ``geographic`` are created when a
+writer first needs them. ``budget/`` holds the per-cell budget terms and a
+default run keeps all of them, storage terms included
+(see the per-cell budget below). ``derived/`` holds only the static parameter
+fields (hydraulic conductivity, specific yield, ...); no time-varying
+derived field is ever written there.
 
 Compression defaults to Blosc-zstd with bitshuffle, each variable carries
 CF ``standard_name`` and ``_FillValue`` attributes where the CF table has
@@ -322,7 +323,7 @@ capped near 64 MiB.
 **Precision.** ``[simulation.results.persistence] field_precision`` sets how
 the time-varying fields are kept: every array written through
 ``write_field`` or ``write_field_stack`` (head, per-cell budget terms,
-stored derived fields, concentrations). ``compact``, the default, stores
+concentrations). ``compact``, the default, stores
 float32 whose mantissa is rounded to nearest at 16 bits
 (:mod:`hydromodpy.core.field_precision`): a value moves by at most 2**-17
 of itself, 7.6e-6 relative, NaN stays NaN and no finite value becomes
@@ -336,18 +337,38 @@ interfaces, static parameter fields, indices, coordinates and timestamps
 are never rounded. Every library reader returns float fields as float64
 whichever precision the store holds.
 
-**Fields rebuilt on read.** ``release_flux`` and ``fluxes_from_budget`` are
-not stored: the readers rebuild them from the per-cell budget terms
-(:mod:`hydromodpy.results.derive.virtual_fields`) with the function that
-used to compute them before writing, so a step read equals the step that
-would have been stored. ``[simulation.results.derived] release_flux`` keeps
-its meaning, making the field available: it turns the per-cell budget on
-and keeps the terms the field is built from when the rest of that budget is
-dropped as an intermediate. A store written before holds
-``derived/release_flux`` and ``derived/fluxes_from_budget`` in float64, and
-every reader returns the stored array first, so it reads as it always did.
+**Per-cell budget.** A run writes under ``budget/`` every per-cell term its
+extractor produces, under the canonical CBC name: the exchange terms
+(``recharge``, ``drain``, ``river``, ``constant_head``, ``lake``, ``stream``,
+``evapotranspiration``, ...) and the storage terms (``storage`` under
+MODFLOW-NWT, ``storage_ss`` and ``storage_sy`` under MODFLOW 6). Each term has
+a descriptor in :mod:`hydromodpy.results.field_registry`, so it can be listed,
+exported and read with ``run.field``. The group carries two attributes that
+say what the run kept (:mod:`hydromodpy.core.budget_terms`):
 
-Neither change bumps ``zarr_schema_version``: the layout, the names, the
+- ``policy``: ``all`` (the default) or ``consumers``, set by
+  ``[simulation.results] keep_per_cell_budget = false``;
+- ``kept_terms``: under ``all``, the terms written; under ``consumers``, the
+  terms the run planned to keep. A kept term without an array is a term the
+  model does not produce. A term outside ``kept_terms`` under ``consumers`` was
+  not kept.
+
+Readers and missing-field messages read these attributes, never the config.
+The lumped ``budgets`` table is not affected by the policy.
+
+**Fields rebuilt on read.** Every derived field is rebuilt from the stored
+terms and the stored mesh by the readers
+(:mod:`hydromodpy.results.derive.virtual_fields`), on the same grid, with a
+range path so a window of steps reads only its slab: ``watertable_elevation``,
+``watertable_depth``, ``seepage_mask``, ``release_flux``, ``outflow_drain``,
+``accumulation_flux``, ``release_accumulation_flux``, ``fluxes_from_budget`` and
+the solute fields ``concentration_seepage``, ``mass_seepage`` and
+``mass_accumulated``. Nothing time-varying is written under ``derived/``. A
+store written before holds some of these arrays under ``derived/`` (in
+float64 for ``release_flux`` and ``fluxes_from_budget``), and every reader
+returns the stored array first, so it reads as it always did.
+
+None of this bumps ``zarr_schema_version``: the layout, the names, the
 shapes and the meaning of every stored array are unchanged, the float width
 is declared by each array's own Zarr metadata, and both an old store and a
 new one read the same through every reader.
@@ -359,10 +380,13 @@ and ``descent_pinned``, and the list ``descent_dam_foot``. The attributes of ``d
 name the neighbourhood and carry the build report. The solver build leaves D in the solver folder
 as ``<model>.descent.npz`` and the extractor copies it into the store right after the mesh.
 ``run.descent`` reads it back, and the flow direction map and ``accumulation_flux`` route on it
-(the contract of D is in :doc:`solver/backends`). Boussinesq has no mesh connectivity and stores
-none. The arrays are new datasets, so ``zarr_schema_version`` does not change. A run sealed
-before D was stored has no ``descent_*`` array, and its readers rebuild D from the stored top,
-with no channel pin, no constant-head seed and no lake.
+(the contract of D is in :doc:`solver/backends`). Boussinesq has no mesh connectivity, so its
+extractor builds D from the Whitebox D8 pointer of the filled top and stores it once per run as
+``descent_receiver`` and ``descent_surface``, for a raster run only. A Boussinesq run on a
+triangular mesh stores no D, and its accumulation fields are unavailable. The arrays are new
+datasets, so ``zarr_schema_version`` does not change. A run sealed before D was stored has no
+``descent_*`` array, and its readers rebuild D from the stored top, with no channel pin, no
+constant-head seed and no lake.
 
 **Soil reservoir.** A run whose recharge comes from
 ``[flow.sinks_sources.recharge.soil]`` writes its daily columns under
