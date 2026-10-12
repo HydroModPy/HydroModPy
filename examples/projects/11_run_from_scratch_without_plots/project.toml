@@ -32,16 +32,6 @@ id = "particles"
 type = "transport"
 solvers = ["modflow6_prt"]
 
-# Nothing is drawn, so nothing asks for a derived field: a headless run has to
-# name what it wants persisted.
-[simulation.results.derived]
-watertable_elevation = true
-watertable_depth = true
-seepage_areas = true
-outflow_drain = true
-accumulation_flux = true
-
-
 [geographic]
 crs_project = "EPSG:2154"
 

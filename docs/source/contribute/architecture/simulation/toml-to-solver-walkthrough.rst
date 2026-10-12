@@ -53,8 +53,7 @@ The twelve steps
 ``PrepareSolverStep``, ``RunSolverStep``, ``ExtractStep``, ``DeriveStep``,
 ``DisplayStep``, ``ExportStep``. Each is a class in ``hydromodpy/workflow/steps/``
 with a ``name``, a ``run(state)`` method and the payload keys it reads and writes.
-Figures are drawn before ``ExportStep`` because the export drops the intermediate
-fields and seals the store.
+Figures are drawn before ``ExportStep`` because the export seals the store.
 
 Planning
 --------
@@ -92,7 +91,9 @@ Persistence
 The disk is the truth and the DuckDB index is derived from it
 (:doc:`../storage-layout`). ``PrepareSolverStep`` registers the run and creates the
 paths of its artefacts. ``ExtractStep`` writes the solver outputs into them,
-``DeriveStep`` computes the derived fields, and ``ExportStep`` finalizes the run,
+``DeriveStep`` writes the catchment aggregates, the observation samples and the fit
+metrics (the derived fields are rebuilt on read, not written), and ``ExportStep``
+finalizes the run,
 seals it with ``manifest.json`` and removes the transient solver scratch.
 
 Where to change what

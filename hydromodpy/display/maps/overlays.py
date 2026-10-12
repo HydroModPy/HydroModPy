@@ -26,7 +26,7 @@ import numpy as np
 from hydromodpy.core.logging import get_logger
 from hydromodpy.display.maps.axes import overlay_watershed_contour
 from hydromodpy.display.maps.mesh_geometry import face_centroids, face_polygons
-from hydromodpy.results.derive.config_flags import enable_options_hint, missing_field_options
+from hydromodpy.results.derive.config_flags import missing_field_explanation
 from hydromodpy.results.run.particles import read_particle_tracks
 
 if TYPE_CHECKING:
@@ -144,9 +144,10 @@ def draw_wells(ax: Axes, sim: Run, *, timestep: int | None = None, **_) -> None:
 
     Reading the budget rather than the config keeps the overlay solver- and
     config-agnostic: any run whose solver wrote a well package shows its
-    wells, wherever they were declared from. The field is kept only when
-    ``[simulation.results.budget] spatial_fields`` is true. A run that declares
-    wells and did not keep it is skipped with a warning that names the key.
+    wells, wherever they were declared from. A run that kept only the terms
+    its consumers read may lack the field. One that declares wells and did not
+    keep it is skipped with a warning that says what the run kept and names
+    the key.
     """
     if not sim.has_field("well"):
         raise _well_field_missing(sim)
@@ -192,12 +193,11 @@ def _declared_wells(sim: Run) -> bool:
 def _well_field_missing(sim: Run) -> OverlayUnavailable:
     """Build the skip for a run without the well budget field."""
     reason = "run has no well budget field"
-    options = missing_field_options(["well"], sim)
-    if not (options and _declared_wells(sim)):
+    explanation = missing_field_explanation(["well"], sim)
+    if not (explanation and _declared_wells(sim)):
         return OverlayUnavailable(reason)
-    hint = enable_options_hint(options).rstrip(".")
     return OverlayUnavailable(
-        f"{reason}, but its configuration declares wells. {hint}", actionable=True
+        f"{reason}, but its configuration declares wells. {explanation}", actionable=True
     )
 
 

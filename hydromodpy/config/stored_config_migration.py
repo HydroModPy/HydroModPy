@@ -45,7 +45,6 @@ from typing import Any
 
 from hydromodpy.config.config_migration import drop_retired_results_tables
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.solver.base.solver_config import solver_name_of_backend
 
 _logger = get_logger(__name__)
@@ -87,15 +86,6 @@ def raw_flow_process_solver(simulation: Any) -> tuple[str, str] | None:
         if names:
             return str(process_id or "flow"), names[0]
     return None
-
-
-def is_sealed_run_config(path: str | Path) -> bool:
-    """Return whether *path* is a configuration a run froze in its run directory.
-
-    A run directory is ``<project>/runs/<name>``. The frozen file is its
-    ``config.toml``, and ``hmp run --set`` writes its effective copy next to it.
-    """
-    return Path(path).parent.parent.name == RUNS_DIRNAME
 
 
 def migrate_stored_config(
@@ -261,4 +251,4 @@ def _fold_flow_station_keys(selection: dict[str, Any]) -> list[str]:
     return changes
 
 
-__all__ = ["is_sealed_run_config", "migrate_stored_config", "raw_flow_process_solver"]
+__all__ = ["migrate_stored_config", "raw_flow_process_solver"]

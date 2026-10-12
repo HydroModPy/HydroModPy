@@ -219,13 +219,6 @@ id = "flow_main"
 type = "flow"
 solvers = ["modflow6"]
 
-[simulation.results.derived]
-release_flux = true
-watertable_elevation = true
-watertable_depth = true
-seepage_areas = true
-accumulation_flux = true
-
 
 # ---------------------------------------------------------------------- modflow 6
 

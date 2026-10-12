@@ -465,9 +465,9 @@ class SimulationConfig(HydroModelBase):
     results: Annotated[ResultsConfig, Profile.USER] = Field(
         default_factory=ResultsConfig,
         description=(
-            "Results storage and export configuration loaded from "
-            "[simulation.results]. Controls Catalog, derived variables, "
-            "and automated exports."
+            "Results storage loaded from [simulation.results]: what the run writes "
+            "to the catalog, whether the raw solver files are kept, and how much of "
+            "the per-cell budget the run keeps."
         ),
     )
     rng_seed: Annotated[int | None, Profile.USER] = Field(

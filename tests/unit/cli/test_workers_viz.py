@@ -674,3 +674,96 @@ class TestFigureOptionsFromTheCommandLine:
         viz_worker.render_figure("abc", "head_map", options={"show_run_name": False})
 
         assert drawn == {"show_run_name": False}
+
+
+def _gallery_with_one_run(monkeypatch) -> list[Path]:
+    """Fake one run in the catalog; return the project roots the catalog was opened on."""
+    opened: list[Path] = []
+
+    class FakeCatalog:
+        def __init__(self, root: Path, *, read_only: bool = False) -> None:
+            self.root = root
+            opened.append(root)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info: object) -> None:
+            return None
+
+        def list_simulations(self, **kwargs: object) -> pd.DataFrame:
+            return pd.DataFrame({"sim_id": ["abcd1111"], "name": ["baseline"]})
+
+        def __getitem__(self, sim_id: str) -> SimpleNamespace:
+            return SimpleNamespace(name="baseline")
+
+    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", FakeCatalog)
+    monkeypatch.setattr(
+        "hydromodpy.display.runs.resolve_run_output_dir",
+        lambda cfg, *, project_root, run_name, sim_id: project_root / "figures" / run_name,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.display.runs.render_figures_for_run",
+        lambda sim, cfg, *, output_dir, figure_names: FigureRenderReport(
+            requested=(), rendered=(), written=(), skipped=()
+        ),
+    )
+    return opened
+
+
+_RETIRED = "[display]\n[simulation.results.budget]\nspatial_fields = true\n"
+
+
+def _migration_messages(config: Path, caplog) -> list[str]:
+    with caplog.at_level(logging.INFO):
+        viz_worker.render_gallery(config, no_show=True)
+    return [r.getMessage() for r in caplog.records if "migrated" in r.getMessage()]
+
+
+def test_a_sealed_run_config_takes_the_stored_migration(monkeypatch, tmp_path, caplog) -> None:
+    # runs/<name>/config.toml belongs to the run, not to the user: its message
+    # must not send them to `hmp doctor`.
+    run_dir = tmp_path / RUNS_DIRNAME / "baseline"
+    run_dir.mkdir(parents=True)
+    config = run_dir / "config.toml"
+    config.write_text(_RETIRED, encoding="utf-8")
+    _gallery_with_one_run(monkeypatch)
+
+    messages = _migration_messages(config, caplog)
+
+    assert len(messages) == 1
+    assert "removed since the run was stored" in messages[0]
+    assert "hmp doctor" not in messages[0]
+
+
+def test_a_sealed_run_config_opens_the_catalog_of_its_project(monkeypatch, tmp_path) -> None:
+    run_dir = tmp_path / RUNS_DIRNAME / "baseline"
+    run_dir.mkdir(parents=True)
+    config = run_dir / "config.toml"
+    config.write_text("[display]\n", encoding="utf-8")
+    opened = _gallery_with_one_run(monkeypatch)
+
+    viz_worker.render_gallery(config, no_show=True)
+
+    assert opened == [tmp_path.resolve()]
+
+
+def test_a_user_config_opens_the_catalog_of_its_folder(monkeypatch, tmp_path) -> None:
+    config = tmp_path / "model.toml"
+    config.write_text("[display]\n", encoding="utf-8")
+    opened = _gallery_with_one_run(monkeypatch)
+
+    viz_worker.render_gallery(config, no_show=True)
+
+    assert opened == [tmp_path.resolve()]
+
+
+def test_a_user_config_keeps_the_user_migration(monkeypatch, tmp_path, caplog) -> None:
+    config = tmp_path / "model.toml"
+    config.write_text(_RETIRED, encoding="utf-8")
+    _gallery_with_one_run(monkeypatch)
+
+    messages = _migration_messages(config, caplog)
+
+    assert len(messages) == 1
+    assert "hmp doctor --fix-config" in messages[0]

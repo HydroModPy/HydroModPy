@@ -271,7 +271,8 @@ seepage
   Cell where the {term}`water table` reaches the ground surface and where water leaves the
   aquifer.
 
-  *In the file:* {toml}`simulation.results.derived.seepage_areas`.
+  Rebuilt on read from the head and the ground surface (or from the surface excess of a
+  Boussinesq run); nothing to set.
 
 seepage threshold
   Fraction of its own recharge that a cell must give back to count as seepage: 0.01 % by
@@ -367,8 +368,6 @@ visible flow
 water budget
   What enters the aquifer (recharge), what leaves it (drainage) and the change in storage. Its
   closure is a numerical check of the solver.
-
-  *In the file:* {toml}`simulation.results.budget`.
 
 water table
   The top of the {term}`groundwater`: the level below which the ground is saturated. The model

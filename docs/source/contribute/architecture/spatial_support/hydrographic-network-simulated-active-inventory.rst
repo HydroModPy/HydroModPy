@@ -22,17 +22,17 @@ practice.
 What a run offers instead
 -------------------------
 
-The run stores two cell fields, computed per timestep in
-``hydromodpy/simulation/extraction/derivation/derived.py``:
+The run stores the per-cell budget terms (``budget/``), and two cell fields are rebuilt from them
+on read (:mod:`hydromodpy.results.derive.virtual_fields`):
 
 - ``outflow_drain`` is the positive drain outflow of each cell, summed over layers and
   normalised from the raw MODFLOW budget signs;
-- ``accumulation_flux`` is the downstream accumulation of that outflow. For MODFLOW 6 and
-  MODFLOW-NWT it is routed on the stored descent D of the mesh
-  (:doc:`../solver/backends`). The Boussinesq path routes on its own Whitebox D8 raster,
-  because its store holds a top and no mesh connectivity.
+- ``accumulation_flux`` is the downstream accumulation of that outflow. It is routed on the
+  stored descent D of the mesh (:doc:`../solver/backends`). Boussinesq stores D once per run
+  for a raster run, built from the Whitebox D8 pointer of its filled top, because its store
+  holds a top and no mesh connectivity.
 
-Both are cell arrays of the Zarr store. The MODFLOW 6 output adapter also writes the
+Both are cell fields of the run. The MODFLOW 6 output adapter also writes the
 mesh topology the views need (``mesh/vertices``, ``mesh/face_node_connectivity``,
 ``mesh/topography``, ``mesh/z_interfaces``), so a field keeps the shape of the solver
 grid when it differs from the DEM grid.
@@ -40,7 +40,7 @@ grid when it differs from the DEM grid.
 Lazy views of the run
 ---------------------
 
-``hydromodpy/results/derive/views.py`` computes these from the stored fields, without
+``hydromodpy/results/derive/views.py`` computes these from the fields of the run (stored or rebuilt on read), without
 changing the catalog:
 
 ``run.drainage_density()``

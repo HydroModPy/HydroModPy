@@ -10,9 +10,6 @@ id = "flow_validation"
 type = "flow"
 solvers = ["modflow6"]
 
-[simulation.results.budget]
-spatial_fields = true
-
 [workspace]
 project_root = "."
 

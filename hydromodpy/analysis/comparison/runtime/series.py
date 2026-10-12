@@ -214,9 +214,9 @@ def _load_store_series(
                 arr = loc[store_field]
                 break
         if arr is None:
-            # Derived fields (watertable_elevation/depth, seepage_mask) are off by
-            # default: recompute them on the fly from the stored head so the
-            # comparison series survives an unpersisted derived group.
+            # Derived fields are never written (runs before the retirement may
+            # still hold a copy under derived/): rebuild them from the stored
+            # head and per-cell budget.
             from hydromodpy.results.derive.virtual_fields import VIRTUAL_FIELDS
 
             if store_field not in VIRTUAL_FIELDS or "head" not in grp:

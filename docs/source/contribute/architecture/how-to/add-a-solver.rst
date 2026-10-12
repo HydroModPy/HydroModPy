@@ -54,7 +54,6 @@ outputs into the catalog. It is registered on the same
 
    class SolverOutputAdapter:
        def extract(self, sim_id: str, solver_output_dir: Path, store) -> None: ...
-       def derive(self, sim_id: str, store, ...) -> None: ...
 
 Files to create
 ---------------

@@ -103,6 +103,7 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.interrupts import TerminationRequested, terminate_as_interrupt
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import is_sealed_run_config
 from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.core.workspace.path_registry import in_run_scratch, project_root_of_config
 
@@ -129,7 +130,10 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     calibration overlay of two lines failed on "No [calibration] section".
 
     The legacy keys are migrated in memory first, as the project loader does,
-    so a file ``hmp doctor --fix-config`` would fix also runs unfixed.
+    so a file ``hmp doctor --fix-config`` would fix also runs unfixed. A file a
+    run froze in ``runs/<name>/config.toml`` goes through the stored migration
+    first: it owns the keys removed since the run was made, and the message for
+    a user file would name a command that does not apply to it.
     """
     from pydantic import ValidationError
 
@@ -139,8 +143,11 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     raw = load_toml_with_base_config(path)
+    provider = get_root_config_provider()
     try:
-        get_root_config_provider().migrate_on_load(raw, source=path)
+        if is_sealed_run_config(path):
+            raw = provider.migrate_stored(raw, source=path)
+        provider.migrate_on_load(raw, source=path)
     except ValueError as exc:
         raise ConfigError(f"{path}: {exc}") from None
     if "calibration" not in raw:

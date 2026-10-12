@@ -28,14 +28,6 @@ extent_mode = "intersection"
 interpolation = "linear"
 write_geotiff = false
 
-[comparison.base_simulation_overlay.simulation.results.derived]
-release_flux = true
-release_accumulation_flux = true
-accumulation_flux = true
-outflow_drain = true
-watertable_depth = true
-watertable_elevation = true
-
 [comparison.base_simulation_overlay.flow.param.K]
 field__delete = true
 

@@ -37,11 +37,6 @@ mesh_mode = "mesh_input"
 project_root = "outputs/nancon_transient_monthly_bouss_network_methods/workspace_mf6"
 root = "outputs/nancon_transient_monthly_bouss_network_methods/workspace_mf6"
 
-[comparison.simulation.overlay.simulation.results.derived]
-release_flux = true
-accumulation_flux = true
-outflow_drain = true
-
 [comparison.simulation.overlay.modflow6.runtime]
 mf6_ims_complexity = "COMPLEX"
 mf6_outer_dvclose = 0.0001
@@ -67,9 +62,6 @@ mesh_mode = "mesh_input"
 [comparison.simulation.overlay.workspace]
 project_root = "outputs/nancon_transient_monthly_bouss_network_methods/workspace_bouss"
 root = "outputs/nancon_transient_monthly_bouss_network_methods/workspace_bouss"
-
-[comparison.simulation.overlay.simulation.results.derived]
-release_flux = true
 
 [comparison.simulation.overlay.flow]
 runtime_backend = "petsc"

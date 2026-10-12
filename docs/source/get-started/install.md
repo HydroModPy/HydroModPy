@@ -1,6 +1,6 @@
 # Install
 
-HydroModPy needs Python 3.11, 3.12 or 3.13. The current pre-release is `2.0.0a4`; the
+HydroModPy needs Python 3.11, 3.12 or 3.13. The current pre-release is `2.0.0a5`; the
 {doc}`versions page <../about/versions>` lists the others. On a fast connection pip needs
 about two minutes, and a clean environment weighs 1.3 GB: most of it is the geospatial and
 scientific wheels.

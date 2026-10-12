@@ -1172,28 +1172,28 @@ symbols:
     symbol: m_n
     meaning: "seepage mask of cell :math:`n`: 1 where the water table reaches the drain"
     unit: "-"
-    set_by: ":toml:`simulation.results.derived.seepage_areas`"
+    set_by: derived
     group: exits
     pages: [exits/simulated-network]
   - id: drain-outflow
     symbol: q^\mathrm{drn}_n
     meaning: "drain outflow of cell :math:`n`, with the part handed to the mover (``outflow_drain``)"
     unit: "m³/s"
-    set_by: ":toml:`simulation.results.derived.outflow_drain`"
+    set_by: derived
     group: exits
     pages: [exits/simulated-network]
   - id: release-flux
     symbol: q^\mathrm{rel}_n
     meaning: "water the aquifer releases to the surface in cell :math:`n` (``release_flux``)"
     unit: "m³/s"
-    set_by: ":toml:`simulation.results.derived.release_flux`"
+    set_by: derived
     group: exits
     pages: [exits/simulated-network, downslope-distance]
   - id: accumulated-flux
     symbol: F_n
     meaning: "drain outflow routed downstream on :math:`D` (``accumulation_flux``); not a budget"
     unit: "m³/s"
-    set_by: ":toml:`simulation.results.derived.accumulation_flux`"
+    set_by: derived
     group: exits
     pages: [exits/simulated-network]
   - id: seep-ratio

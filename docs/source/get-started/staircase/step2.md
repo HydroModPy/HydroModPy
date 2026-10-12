@@ -101,8 +101,6 @@ network, as a GeoPackage. Five files land in `share/nancon_step2_local/`.
 ```{hmp-params}
 data.types
 data.hydrography.sources.path
-simulation.results.derived.release_flux
-simulation.results.budget.spatial_fields
 ```
 
 Next: {doc}`step3`, the same data from the APIs, or {doc}`step4`, the transient run.

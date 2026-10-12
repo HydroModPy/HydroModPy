@@ -33,6 +33,10 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [v2.0.0a5] - 2026-10-13
+
 ### Added
 - `[geographic.catchment].dem_resolution`: the cell size the DEM is aggregated to before
   anything is delineated, a length such as `"75 m"`. The routing surface, the catchment, the
@@ -306,6 +310,32 @@ Each release section includes the following standard categories:
   committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- With the whole per-cell budget kept, `[[export]] variables = "all"` and `hmp export --list`
+  offer every budget term and every field rebuilt from it (`outflow_drain`, `release_flux`,
+  the accumulation fluxes, `simulated_active_network`, the storage terms), a portable `.hmp`
+  package carries the budget group, and the testbed tables of a MODFLOW run gain
+  `outflow_drain_*` and `accumulation_flux_*` columns. Left as they were, and not covered by
+  this change: the legacy solver post-processing that carries the same field names without a
+  caller (`modflow_common/options.py`, `modflow6/postprocess/`, `nwt/_post_processing.py`,
+  `mt3dms.py`), the float64 `boussinesq_state` histories that duplicate `budget/`, the testbed
+  reader of `recharge_flux` and the comparison series mapped to `seepage_areas` (names no store
+  holds), and the Boussinesq adapter that declares `release_flux` for a calibration and refuses
+  it at extraction.
+- The example projects, the regression fixtures and the validation cases no longer declare
+  `[simulation.results.derived]` or `[simulation.results.budget]`: they keep the whole
+  per-cell budget by default, and example 11 says a run without figures has nothing to
+  declare.
+- A calibration that saves runs (`save_runs = "best_n"` or `"all"`) writes the best run with
+  the results options of the project file, and every other saved run with
+  `keep_per_cell_budget = false`: those keep only the per-cell terms their figures, exports,
+  calibration outputs and observation points read.
+- A figure, a map overlay or a reader skipped because the run did not keep a per-cell budget
+  term now says which terms the run kept, which ones the field needs and that
+  `[simulation.results] keep_per_cell_budget = true` (the default) keeps them; a run that
+  kept every term the solver produced and has no drain, stream, lake or surface excess is
+  still told the model has no such exit. The geometric seepage fallback of a surface-excess
+  solver names the run's policy the same way. `hmp viz` and the calibration loader read a
+  sealed `runs/<name>/config.toml` through the stored migration.
 - A run keeps its whole per-cell budget by default: every scalar term the solver produces,
   storage included (`storage` under MODFLOW-NWT, `storage_ss` and `storage_sy` under
   MODFLOW 6), is written under `budget/` at extraction, and the group says what it kept

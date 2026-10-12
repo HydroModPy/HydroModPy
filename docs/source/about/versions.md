@@ -1,14 +1,14 @@
 # Versions and stability
 
 This site documents version {{ release }}. It is a pre-release of the 2.0 line. Versions
-2.0.0a1 to 2.0.0a4 are published on [PyPI](https://pypi.org/project/hydromodpy/). What each
+2.0.0a1 to 2.0.0a5 are published on [PyPI](https://pypi.org/project/hydromodpy/). What each
 one changed is in the {doc}`changelog <changelog>`.
 
 ## What a version number says
 
 HydroModPy follows [Semantic Versioning](https://semver.org/). A pre-release adds a suffix
 that [PEP 440](https://peps.python.org/pep-0440/) defines: `a` for alpha, `b` for beta and `rc`
-for release candidate, then a number, as in `2.0.0a4`.
+for release candidate, then a number, as in `2.0.0a5`.
 
 - **Major** (`X.0.0`): a change that makes you edit your files. A removed or renamed TOML key,
   Python function or `hmp` verb, a new storage format, a different solver behaviour.
@@ -21,7 +21,7 @@ change, unless it lands in a pre-release before the stable version.
 
 | Stage | Example | What to expect |
 |---|---|---|
-| Alpha | `2.0.0a4` | Public testing. Keys, API and storage can still change. |
+| Alpha | `2.0.0a5` | Public testing. Keys, API and storage can still change. |
 | Beta | `2.0.0b1` | Feature complete. The contract changes only to fix a blocker. |
 | Release candidate | `2.0.0rc1` | Only blocking fixes land. |
 | Final | `2.0.0` | The version to recommend to users. |

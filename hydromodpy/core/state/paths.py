@@ -115,6 +115,15 @@ def runs_dir_for(project_root: Path) -> Path:
     return Path(project_root) / RUNS_DIRNAME
 
 
+def is_sealed_run_config(path: str | Path) -> bool:
+    """Return whether *path* is a configuration a run froze in its run directory.
+
+    A run directory is ``<project>/runs/<name>``. The frozen file is its
+    ``config.toml``, and ``hmp run --set`` writes its effective copy next to it.
+    """
+    return Path(path).expanduser().resolve().parent.parent.name == RUNS_DIRNAME
+
+
 def share_dir_for(project_root: Path) -> Path:
     """Return ``<project>/share``, where on-demand outputs are published."""
     return Path(project_root) / SHARE_DIRNAME
@@ -527,6 +536,7 @@ __all__: Iterable[str] = (
     "encode_workspace_path",
     "from_workspace_relative",
     "internal_dir",
+    "is_sealed_run_config",
     "kept_preprocessing_dir",
     "is_project_root",
     "is_under_workspace",

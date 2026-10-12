@@ -169,8 +169,11 @@ def promote_iterations(
 ) -> tuple[int, list[str], str | None]:
     """Promote selected trials and return ``(count, failures, best_sim_id)``.
 
-    The best trial is promoted under ``run_name``. Any other trial that
-    ``save_runs`` keeps gets ``<run_name>_trial_<iteration>``.
+    The best trial is promoted under ``run_name`` and keeps the project's
+    ``keep_per_cell_budget``, the whole per-cell budget by default. Any other
+    trial that ``save_runs`` keeps gets ``<run_name>_trial_<iteration>`` and the
+    ``consumers`` budget policy: it keeps only the terms its figures,
+    ``[[export]]`` blocks, calibration outputs and observation points read.
     """
     top = select_iterations_to_promote(cfg, persistence, session_id, best)
     if not top:
@@ -183,11 +186,8 @@ def promote_iterations(
     count = 0
     for row in progress.track(top, "Promoting calibrated runs"):
         iteration = int(row["iteration"])
-        promoted_as = (
-            run_name
-            if iteration == best_trial
-            else run_name + _TRIAL_SUFFIX.format(iteration=iteration)
-        )
+        is_best = iteration == best_trial
+        promoted_as = run_name if is_best else run_name + _TRIAL_SUFFIX.format(iteration=iteration)
         logger.debug("Promoting %s", promoted_as)
         values = {
             name: stored_parameter_value(row["parameters"][name])
@@ -218,6 +218,7 @@ def promote_iterations(
                     sim_id=sim_id,
                     kept=kept,
                     spared=spared,
+                    keep_per_cell_budget=None if is_best else False,
                 )
         except Exception as exc:
             update_iter_sim_id(catalog, session_id, row["iteration"], None)

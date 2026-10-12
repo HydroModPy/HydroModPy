@@ -339,9 +339,9 @@ Declared apart, each on its own surface:
   solver-grid DEM, conditioned by ``dem_correc_type``. Mass transfer and MT3DMS
   accumulation trace point sources down the Whitebox pointer and stay on it
   until they are migrated.
-- The Boussinesq raster path of ``derived.py`` routes on its own Whitebox D8
-  raster: a Boussinesq store holds a top and no mesh connectivity, so it has no
-  D.
+- The Boussinesq extractor builds its own D from the Whitebox D8 pointer of the
+  filled top (``solver/boussinesq/extractors/descent.py``): a Boussinesq store
+  holds a top and no mesh connectivity, and D is stored only for a raster run.
 - ``solver/modflow6/postprocess/_unstructured.py``
   (``accumulate_unstructured_cell_values``, the legacy GeoTIFF export on an
   unstructured MODFLOW 6 mesh) accumulates on its own adjacency of the DEM.

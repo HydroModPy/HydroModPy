@@ -428,6 +428,8 @@ def test_unavailable_reason_names_every_component_and_the_option() -> None:
     for name in BOUNDARY_PACKAGES:
         assert name in reason
     assert "keep_per_cell_budget" in reason
+    assert "kept only the per-cell budget terms its consumers read (none)" in reason
+    assert "spatial_fields" not in reason
 
 
 def test_a_run_that_kept_the_whole_budget_has_no_option_to_offer() -> None:

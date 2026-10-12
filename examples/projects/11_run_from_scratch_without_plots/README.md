@@ -17,20 +17,10 @@ Runtime: about 20 s, most of it in the delineation over the regional DEM
 
 ## What a run without figures has to declare
 
-With `[display] enabled = false`, no figure asks for a derived field, and a
-field nobody asks for is not persisted. A headless run therefore has to name
-what it wants kept:
-
-```toml
-[simulation.results.derived]
-watertable_elevation = true
-watertable_depth = true
-seepage_areas = true
-outflow_drain = true
-accumulation_flux = true
-```
-
-That is the only substantive difference from an example that draws its figures.
+Nothing. The run keeps the whole per-cell budget and every derived field is
+rebuilt on read from the stored head and budget, so a headless run needs no `[simulation.results]`
+key. Everything can be read again later, with `hmp export`, `hmp viz show` or
+the Python API (below).
 
 ## Outputs
 

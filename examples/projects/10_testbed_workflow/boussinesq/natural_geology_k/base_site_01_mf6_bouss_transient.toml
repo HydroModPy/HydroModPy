@@ -65,24 +65,6 @@ solvers = ["modflow6"]
 # Keep raw solver output files (.hds, .cbc, .lst) after ingestion.
 keep_solver_files = false
 
-# Derived variable computation toggles.
-
-[simulation.results.derived]
-# Positive per-cell drain outflow summed over layers.
-outflow_drain = true
-# Drain flux routed on the drainage network.
-accumulation_flux = true
-# Compute water-table depth (surface minus water-table elevation).
-watertable_depth = true
-# Compute water-table elevation from uppermost saturated layer.
-watertable_elevation = true
-
-# Budget extraction configuration.
-
-[simulation.results.budget]
-# Extract per-cell budget fields (DRN, RCH, etc.) into Zarr.
-spatial_fields = true
-
 # Geographic configuration for watershed delineation.
 
 [geographic]
