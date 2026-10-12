@@ -149,6 +149,28 @@ is, by default, the Voronoi dual of its triangles, which is orthogonal to its co
 {toml}`modflow6.sgrid.grid_dual` keeps the triangles as cells instead. The number of
 layers is {toml}`modflow6.sgrid.vertical.nlay`. The mesh is the subject of {doc}`mesh`.
 
+(solvers-computational-top)=
+**The computational top.** Under Newton, MODFLOW 6 builds the horizontal conductance from
+the full thickness of the two cells times the saturation of the upstream cell, where
+MODFLOW-NWT and MODFLOW-USG use the saturated thickness
+([`GwfConductanceUtils.f90`](https://github.com/MODFLOW-ORG/modflow6/blob/6.6.3/src/Model/ModelUtilities/GwfConductanceUtils.f90),
+[NPF](https://modflow6.readthedocs.io/en/latest/_mf6io/gwf-npf.html)) {cite:p}`langevin2017`.
+Where the thickness $H$ changes from one cell to the next, the transmissivity is then too
+low by about $\Delta H / (2H)$. The grid MODFLOW 6 reads therefore has a computational top
+$z'_\mathrm{top} = z_\mathrm{top} + \max H_1 - H_1$, with $H_1$ the thickness of the top
+layer under the ground: every cell of the top layer gets the same thickness. A thickness
+that is the same everywhere gives $z_\mathrm{top}$ back, so no file changes then. This is a
+numerical device of HydroModPy, not a USGS practice. Every package elevation (drains, EVT,
+streambeds, lake banks, barriers, the ocean), the initial heads and the run store keep the
+ground. Water above the ground stays in the aquifer up to $z'_\mathrm{top}$, with its
+specific yield, where a cell topped at the ground would turn confined; the drains at the
+ground keep that rise to a few centimetres. Two limits. A lake column keeps its ground, since a raised top would
+reach into the lake, so the thickness still changes at the banks. Only the top of the top
+layer moves: a lower layer whose saturated part changes from cell to cell keeps the bias.
+Anyone who opens the native MODFLOW 6 files (flopy, ModelMuse) sees a top above the ground
+wherever the thickness varies. That is intended; the ground is `topography` in the run
+store. In the code: `disv_grid_kwargs`.
+
 ### Flow between cells, and XT3D
 
 NPF receives $K$, $K_z = K/\beta$ and the convertible flag. With the two-point conductance
@@ -182,9 +204,12 @@ The laws, conductances and worked cells of these exits are on {doc}`exits`.
 CHD imposes the head of the ocean, stream and lateral boundaries on their cells. MODFLOW 6
 takes one CHD package, so the three supports are merged, and a cell claimed twice keeps
 the head written last. WEL adds the rate of each well. Under the Newton formulation the
-code sets `auto_flow_reduce` to 0.1 on WEL, so that a well that dewaters its cell tapers
-its extraction instead of making the head oscillate across the threshold. In the code:
-`assemble_constant_head_stress_period_data`.
+code sets `auto_flow_reduce` on WEL, so that a well that dewaters its cell tapers its
+extraction instead of making the head oscillate across the threshold. MODFLOW 6 reads it as
+a fraction of the cell height, and the option is one value per package: it is the
+smallest fraction that keeps the interval within a tenth of the aquifer below the ground
+in every well cell, 0.1 when the top is the ground. In the code:
+`assemble_constant_head_stress_period_data`, `well_flow_reduce_fraction`.
 
 (solvers-newton-ims)=
 ### The solution: Newton and IMS
@@ -316,13 +341,12 @@ in both. Two points differ.
 sides ({toml}`modflownwt.runtime.nwt.headtol` against the two `dvclose` keys): the residual
 tests do not measure the same thing. {doc}`validation` lists the cases that run both solvers
 against the same closed-form solution, and runs both on the catchment of example 04, where
-their heads differ by less than a millimetre. They part where the cell thickness changes
-from one cell to the next. Under Newton, MODFLOW 6 takes the conductance of the full cell
-thickness times the saturation of the upstream cell; MODFLOW-NWT takes the saturated
-thickness of the upstream cell. On the circular-island cases, whose top follows the ground
-over a flat bottom, that puts MODFLOW 6 several times further from the closed form.
-{doc}`validation` gives the thresholds and the reason for each. A threshold is a bound a
-test accepts, not a measured error, so it ranks nothing.
+their heads differ by less than a millimetre. Where the cell thickness changes from one
+cell to the next, the two conductances differ, and the
+{ref}`computational top <solvers-computational-top>` brings MODFLOW 6 back to
+MODFLOW-NWT: on the circular-island cases, whose top follows the ground over a flat
+bottom, both sit at the same distance from the closed form. {doc}`validation` gives the thresholds and the reason
+for each. A threshold is a bound a test accepts, not a measured error, so it ranks nothing.
 
 ## The Boussinesq solver
 
