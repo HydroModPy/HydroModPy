@@ -114,8 +114,9 @@ def test_the_best_trial_takes_the_name_and_a_kept_one_its_trial_number(
         sim_id=None,
         kept=None,
         spared=(),
+        keep_per_cell_budget=None,
     ):
-        del trial_ctx, values, tags, session_id, kept, spared
+        del trial_ctx, values, tags, session_id, kept, spared, keep_per_cell_budget
         names.append(str(name))
         return sim_id
 

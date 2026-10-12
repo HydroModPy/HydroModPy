@@ -306,6 +306,10 @@ Each release section includes the following standard categories:
   committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- A calibration that saves runs (`save_runs = "best_n"` or `"all"`) writes the best run with
+  the results options of the project file, and every other saved run with
+  `keep_per_cell_budget = false`: those keep only the per-cell terms their figures, exports,
+  calibration outputs and observation points read.
 - A figure, a map overlay or a reader skipped because the run did not keep a per-cell budget
   term now says which terms the run kept, which ones the field needs and that
   `[simulation.results] keep_per_cell_budget = true` (the default) keeps them; a run that

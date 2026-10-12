@@ -163,8 +163,9 @@ def fake_pipeline(monkeypatch, tmp_path):
         sim_id=None,
         kept=None,
         spared=(),
+        keep_per_cell_budget=None,
     ):
-        del trial_ctx, tags, kept, spared
+        del trial_ctx, tags, kept, spared, keep_per_cell_budget
         sim_id = sim_id or uuid.uuid4().hex
         promoted.append(
             {

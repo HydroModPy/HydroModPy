@@ -164,8 +164,9 @@ def _promote(catalog, session_id, monkeypatch, *, cfg=None, fail: bool = False):
         sim_id=None,
         kept=None,
         spared=(),
+        keep_per_cell_budget=None,
     ):
-        del trial_ctx, values, name, tags, session_id, kept, spared
+        del trial_ctx, values, name, tags, session_id, kept, spared, keep_per_cell_budget
         # A pipeline mints its own id when none was reserved, which is what the
         # promotion used to leave it to do.
         promoted = sim_id or str(uuid.uuid4())

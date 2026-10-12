@@ -625,6 +625,7 @@ def promote_prepared_trial(
     sim_id: str | None = None,
     kept: KeptSolve | None = None,
     spared: Sequence[Path] = (),
+    keep_per_cell_budget: bool | None = None,
 ) -> str:
     """Run a full promoted simulation from an already prepared trial context.
 
@@ -640,10 +641,20 @@ def promote_prepared_trial(
 
     ``spared`` names the solver folders of other kept trials, which the export
     step of this run must leave in the run scratch for their own promotion.
+
+    ``keep_per_cell_budget`` overrides ``[simulation.results] keep_per_cell_budget``
+    for this run only. ``None`` leaves what the project file says. The override is
+    set on the results section of the forked configuration, a copy: the base
+    configuration of the session is never touched.
     """
     provider = get_trial_pipeline_provider()
     forked = trial_ctx.fork(values)
     ctx = forked.ctx
+    if keep_per_cell_budget is not None:
+        simulation = ctx.cfg.simulation
+        simulation.results = simulation.results.model_copy(
+            update={"keep_per_cell_budget": keep_per_cell_budget}
+        )
     ctx.execution.lightweight = False
     ctx.execution.simulation_plan = None
     ctx.setup.run_id = name or "promoted"
