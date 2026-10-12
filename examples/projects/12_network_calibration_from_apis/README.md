@@ -78,7 +78,7 @@ its figures and its exports.
 
 The figures are the catchment card, the three networks (BD Topage, its
 permanent reaches, the one the DEM delineates), the mapped heads on the mesh,
-the water table and its depth, the budget, then the
+the water table and its depth, a south-north section, the budget, then the
 simulated seepage against the map (overlay, confusion map, downslope
 distances), and the search itself (crossing curves, bracket trace, cost
 profile, progress, method card).

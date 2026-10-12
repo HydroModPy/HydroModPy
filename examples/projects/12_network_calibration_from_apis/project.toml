@@ -193,6 +193,7 @@ figures = [
     "mesh_map",
     "piezometric_map",
     "watertable_depth_map",
+    "cross_section",
     "water_budget",
     "seepage_map",
     "simulated_active_network",
@@ -207,6 +208,14 @@ figures = [
     "calibration_progress",
     "matching_hydrographic_network_card",
 ]
+
+# South to north through the middle of the catchment, so the section cuts the
+# tributaries across. Not through the outlet: the DEM box is centred on it
+# with a width that is a multiple of the cell size, so a line through the
+# outlet runs along a cell edge and samples nothing.
+[display.overrides.cross_section]
+orientation = "sn"
+through = [389300, 6819000]
 
 
 # What the promoted run writes to share/<run>/. A block says what (variables)
