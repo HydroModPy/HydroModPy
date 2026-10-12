@@ -33,6 +33,10 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+---
+
+## [v2.0.0a5] - 2026-10-13
+
 ### Added
 - `[geographic.catchment].dem_resolution`: the cell size the DEM is aggregated to before
   anything is delineated, a length such as `"75 m"`. The routing surface, the catchment, the
