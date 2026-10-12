@@ -60,7 +60,9 @@ Mean recharge obtained: about **800 mm/year**.
 The run declares a `[simulation.time]` window even though it is steady. A
 gridded forcing is selected on the run window before it is averaged, so a
 steady run still has to say which three years it averages; without a window
-the selection is empty and the aquifer is solved with no recharge at all.
+the selection is empty and the aquifer is solved with no recharge at all. The
+window carries no step: a steady run is one stress period over the whole
+window, whatever step a file would write.
 
 PyHELP only runs the cells inside the catchment polygon, while the groundwater
 domain is the catchment plus a 20% buffer ring. `build_pyhelp_recharge.py`

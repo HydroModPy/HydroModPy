@@ -94,7 +94,11 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             widget_type="select",
             unit="-",
             value_docs={
-                "steady": "Solves one equilibrium state, with no storage term.",
+                "steady": (
+                    "Solves one equilibrium state, with no storage term: one stress "
+                    "period over the whole [simulation.time] window, whatever its "
+                    "step_value says, with the forcings averaged over the window."
+                ),
                 "transient": (
                     "Solves the heads through time; it starts from the state [flow.ic] gives."
                 ),

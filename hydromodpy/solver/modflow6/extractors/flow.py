@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core import progress
+from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE, STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import (
@@ -27,6 +28,7 @@ from hydromodpy.solver.modflow6.extractors.sfr import (
     build_sfr_columns,
     read_sfr_meta,
 )
+from hydromodpy.solver.modflow6.support.computational_top import read_ground_sidecar
 from hydromodpy.solver.modflow_common.boundary_roles import read_constant_head_roles
 from hydromodpy.solver.modflow_common.budget_components import (
     canonical_budget_component,
@@ -997,7 +999,14 @@ class Modflow6OutputAdapter:
         *,
         grid_shape: tuple[int, int] | None = None,
     ) -> None:
-        """Write mesh topology and surface elevation for derived variables."""
+        """Write mesh topology and surface elevation for derived variables.
+
+        The top of the grid file is the computational top, so ``topography``,
+        ``z_interfaces`` and ``layer_thickness`` are built from the ground the
+        build left beside the model. A missing ground file is an error.
+        """
+        if not getattr(store, "save_zarr", True):
+            return
         try:
             grb_files = list(solver_output_dir.glob("*.dis.grb")) + list(
                 solver_output_dir.glob("*.disv.grb")
@@ -1016,7 +1025,10 @@ class Modflow6OutputAdapter:
                 bot_raw = getattr(grd, "bot1d", None)
                 if bot_raw is None:
                     bot_raw = grd.bot
-                top = np.asarray(top_raw, dtype="float64").ravel()[:n_cells]
+                top = read_ground_sidecar(
+                    solver_output_dir,
+                    written_top=np.asarray(top_raw, dtype="float64").ravel()[:n_cells],
+                )
                 botm = np.asarray(bot_raw, dtype="float64")
                 botm_per_layer = (
                     botm.reshape(nlay, n_cells) if botm.size == nlay * n_cells else None
@@ -1076,6 +1088,8 @@ class Modflow6OutputAdapter:
                 )
             finally:
                 sz.close()
+        except SolverInputError:
+            raise
         except Exception:
             logger.warning(
                 "Could not write the mesh and surface elevation for sim %s; every map, "

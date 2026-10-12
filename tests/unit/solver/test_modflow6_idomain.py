@@ -111,6 +111,7 @@ def test_gwt_disv_receives_idomain_with_inactive_cell(tmp_path: Path) -> None:
         ims=ims,
         rch=rch,
         solver_mesh=mesh,
+        open_water_cell_ids=[],
         nlay=1,
         ncpl=ncpl,
         nper=1,

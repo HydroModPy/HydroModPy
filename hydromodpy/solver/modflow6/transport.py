@@ -13,6 +13,7 @@ import numpy as np
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
 from hydromodpy.solver.modflow6.build import mf6_safe_name, optional_ims_kwargs
 from hydromodpy.solver.modflow6.postprocess import run_transport_post_processing
+from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
 from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,
     build_concentration_runtime_overrides,
@@ -173,19 +174,8 @@ class Modflow6Transport:
                 key=0,
             )
 
-        disv_kwargs = self.model_modflow.solver_mesh.to_disv_kwargs()
-        # GWT must share the GWF active domain for a valid GWF6-GWT6 exchange.
-        # DISV vertices are absolute model coordinates, so the package origin
-        # must be 0 to match the GWF and PRT grids (no double offset).
-        self.gwtdis = flopy.mf6.ModflowGwtdisv(
-            self.gwt,
-            nlay=self.model_modflow.nlay,
-            **disv_kwargs,
-            idomain=self.model_modflow.solver_mesh.idomain(),
-            xorigin=0.0,
-            yorigin=0.0,
-            length_units="METERS",
-        )
+        # GWT must share the GWF grid for a valid GWF6-GWT6 exchange.
+        self.gwtdis = flopy.mf6.ModflowGwtdisv(self.gwt, **disv_grid_kwargs(self.model_modflow))
         self.gwtic = flopy.mf6.ModflowGwtic(self.gwt, strt=self.sconc_init)
         self.adv = flopy.mf6.ModflowGwtadv(self.gwt, scheme=self.scheme)
         # DSP only matters when dispersion or molecular diffusion is non-zero.

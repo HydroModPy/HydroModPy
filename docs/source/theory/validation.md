@@ -35,8 +35,10 @@ the command behind each one.
 The aquifer of example 04 has the same thickness in every cell. Where the
 thickness changes from one cell to the next, MODFLOW 6 under Newton computes
 another horizontal conductance than MODFLOW-NWT, smaller where water flows from
-a thicker cell to a thinner one, and the two solvers part: the circular-island
-cases above show it.
+a thicker cell to a thinner one. MODFLOW 6 then reads a
+{ref}`computational top <solvers-computational-top>` that gives every cell the
+same thickness, and the two solvers agree again: the circular-island cases above
+show it on the Cartesian grid.
 
 ::::{grid} 1 1 2 2
 :gutter: 2

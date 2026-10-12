@@ -23,13 +23,12 @@ name = "urse_pyhelp_mf6"
 description = "Urse catchment, steady MODFLOW 6 forced by a PyHELP recharge grid."
 if_exists = "replace"
 
-# One steady period spanning the three years PyHELP covers: a gridded forcing
-# is selected on the run window, so a steady run still has to say which window
-# it averages.
+# The three years PyHELP covers: a gridded forcing is selected on the run
+# window, so a steady run still has to say which window it averages. It is one
+# stress period over that window, whatever step a file would write, so none is.
 [simulation.time]
 start_datetime = "2021-01-01"
 end_datetime = "2023-12-31"
-step_value = "3 year"
 
 [[simulation.process]]
 id = "flow_main"

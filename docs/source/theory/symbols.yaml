@@ -98,7 +98,14 @@ symbols:
     unit: m
     set_by: ":toml:`data.dem`"
     group: space
-    pages: [notation, groundwater-flow, exits/routing-on-the-mesh, exits/drains-and-et, exits/streams-and-mover, exits/simulated-network]
+    pages: [notation, groundwater-flow, solvers, exits/routing-on-the-mesh, exits/drains-and-et, exits/streams-and-mover, exits/simulated-network]
+  - id: computational-top
+    symbol: z'_\mathrm{top}
+    meaning: "computational top MODFLOW 6 reads, :math:`z'_\\mathrm{top} = z_\\mathrm{top} + \\max H_1 - H_1`"
+    unit: m
+    set_by: derived
+    group: space
+    pages: [notation, solvers]
   - id: zbot
     symbol: z_\mathrm{bot}
     meaning: bottom of the aquifer
@@ -112,7 +119,14 @@ symbols:
     unit: m
     set_by: ":toml:`kind|domain.depth_model.kind`"
     group: space
-    pages: [notation, groundwater-flow]
+    pages: [notation, groundwater-flow, solvers]
+  - id: top-layer-thickness
+    symbol: H_1
+    meaning: thickness of the top layer under the ground
+    unit: m
+    set_by: ":toml:`nlay|modflow6.sgrid.vertical.nlay`"
+    group: space
+    pages: [notation, solvers]
   - id: satthick
     symbol: B
     meaning: "saturated thickness, :math:`B(h) = \\min\\bigl(\\max(h - z_\\mathrm{bot}, 0), H\\bigr)`"

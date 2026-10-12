@@ -305,29 +305,29 @@ def _read_watershed(sim: Run):
 
 
 def plot_topography_background(ax, sim: Run, *, alpha: float = 0.82) -> None:
-    """Draw cell topography with the same terrain palette as context maps."""
+    """Draw cell topography with the same terrain palette as context maps.
+
+    It reads the per-cell ``topography`` of the mesh. ``z_interfaces`` is a
+    single column under MODFLOW, so it cannot colour the cells.
+    """
     import numpy as np
     from matplotlib.collections import PolyCollection
 
     try:
         mesh = sim.mesh
-        z_interfaces = np.asarray(mesh.z_interfaces, dtype=float)
+        topography = mesh.topography
         vertices = np.asarray(mesh.vertices)
         face_node_connectivity = np.asarray(mesh.face_node_connectivity)
     except Exception:
         return
-    if z_interfaces.ndim == 1:
-        top = z_interfaces
-    elif z_interfaces.shape[0] <= z_interfaces.shape[-1]:
-        top = z_interfaces[0]
-    else:
-        top = z_interfaces[:, 0]
+    if topography is None:
+        return
 
     polygons = []
     for row in face_node_connectivity:
         nodes = row[row >= 0] if row.dtype.kind in "iu" else row[~np.isnan(row)]
         polygons.append(vertices[nodes.astype(int)][:, :2])
-    flat = np.asarray(top).ravel()
+    flat = np.asarray(topography, dtype=float).ravel()
     if flat.size != len(polygons):
         return
     collection = PolyCollection(

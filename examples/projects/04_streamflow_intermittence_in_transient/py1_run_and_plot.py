@@ -26,7 +26,7 @@ print(run.name)
 # %% Les données
 
 # Les champs sont rangés par période de stress, sans date. La période i va de
-# edges[i] à edges[i + 1] ; on repère chaque mois par son premier jour.
+# edges[i] à edges[i + 1], on repère chaque mois par son premier jour.
 months = run.periods.edges[:-1]
 
 # Débit simulé, moyenne du mois, et débit jaugé, journalier, moyenné sur les

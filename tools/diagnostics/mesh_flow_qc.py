@@ -69,13 +69,16 @@ def load_mesh(solver_dir: str) -> Mesh:
     import flopy
     from shapely.geometry import Polygon
 
+    from hydromodpy.solver.modflow6.support.computational_top import read_ground_sidecar
+
     sim = flopy.mf6.MFSimulation.load(sim_ws=solver_dir, verbosity_level=0)
     gwf = sim.get_model()
     mg = gwf.modelgrid
     ncpl = int(mg.ncpl)
     xc = np.asarray(mg.xcellcenters).reshape(-1)
     yc = np.asarray(mg.ycellcenters).reshape(-1)
-    top = np.asarray(mg.top).reshape(-1).astype(float)
+    # The DISV top is the computational top; the ground sits beside the model.
+    top = read_ground_sidecar(solver_dir, written_top=np.asarray(mg.top).reshape(-1))
     idom = np.asarray(mg.idomain).reshape(mg.nlay, -1)
     active = idom[0] == 1
     iverts = mg.iverts

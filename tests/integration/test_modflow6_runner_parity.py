@@ -53,6 +53,7 @@ from hydromodpy.solver.modflow_common.binaries import (  # noqa: E402
     locate_solver_binary,
     managed_bin_dir,
 )
+from tests._helpers.mf6_ground import leave_ground_beside  # noqa: E402
 
 # Reuse the proven single-lake DISV builder + recording store double.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -102,6 +103,7 @@ def _solve(ws: Path, exe: str, runner: str, callback: Any = None) -> None:
     import flopy
 
     sim = flopy.mf6.MFSimulation.load(sim_ws=str(ws), exe_name=exe)
+    leave_ground_beside(sim.get_model())
     model = _ShimModel(sim, ws)
     model._mf6_api_callback = callback
     options = ModflowRunOptions(write_model=False, run_model=True, verbose=False, runner=runner)

@@ -77,6 +77,11 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     sfr_networks_lie_on_the_river_network,
     sfr_networks_walk_the_descent,
 )
+from hydromodpy.solver.modflow6.support.computational_top import (
+    disv_grid_kwargs,
+    well_flow_reduce_fraction,
+    write_ground_sidecar,
+)
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.support.flopy_structure_warmup import warm_flopy_structure
 from hydromodpy.solver.modflow6.support.property_mapping import (
@@ -1062,8 +1067,6 @@ def run_pre_processing(  # noqa: PLR0915
         model.inactive_mask = solver_mesh.inactive_mask[0]
         model.dem_mask = model.inactive_mask
 
-    idomain = solver_mesh.idomain()
-
     # Measured here and not on the raw grid: the lake mask moves the surface the
     # drains sit on.
     model.sink = resolve_sink_mask(
@@ -1174,20 +1177,12 @@ def run_pre_processing(  # noqa: PLR0915
 
     # MF6 uses DISV for every grid (structured and unstructured) so one code path
     # covers both. Native DIS is reserved for the NWT backend, which only supports
-    # structured grids.
-    disv_kwargs = solver_mesh.to_disv_kwargs()
-    # DISV vertices already hold absolute model coordinates (UTM/Lambert meters),
-    # so the package origin must be 0. Passing solver_mesh.xoffset here would shift
-    # the whole grid by one full origin (double offset).
-    model.dis = flopy.mf6.ModflowGwfdisv(
-        model.gwf,
-        nlay=solver_mesh.nlay,
-        **disv_kwargs,
-        idomain=idomain,
-        xorigin=0.0,
-        yorigin=0.0,
-        length_units="METERS",
-    )
+    # structured grids. The DISV carries the computational top; every package
+    # below reads the ground of the solver mesh, and so does the run store
+    # through the ground file.
+    model.dis = flopy.mf6.ModflowGwfdisv(model.gwf, **disv_grid_kwargs(model))
+    if not getattr(model, "auxiliary", False):
+        write_ground_sidecar(model)
 
     strt = build_start_heads(model, solver_mesh)
     model.ic = flopy.mf6.ModflowGwfic(model.gwf, strt=strt)
@@ -1430,8 +1425,11 @@ def run_pre_processing(  # noqa: PLR0915
             # solve diverges. AUTO_FLOW_REDUCE tapers the extraction as the
             # saturated thickness drops below 10% of the cell (physically
             # correct: you cannot pump water that is not there), which removes
-            # the oscillation. No effect on cells that stay saturated.
-            wel_kwargs["auto_flow_reduce"] = 0.1
+            # the oscillation. No effect on cells that stay saturated. The 10 %
+            # are of the aquifer, not of a cell raised to the computational top.
+            wel_kwargs["auto_flow_reduce"] = well_flow_reduce_fraction(
+                model, wel_spd, of_aquifer=0.1
+            )
         model.wel = flopy.mf6.ModflowGwfwel(model.gwf, **wel_kwargs)
 
     # LAK (lake / reservoir) package. Built after model.wel and before model.oc.

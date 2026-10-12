@@ -244,3 +244,70 @@ def test_resolve_simulation_time_grid_accepts_inline_step_value_unit() -> None:
     assert grid is not None
     assert grid.nper == 3
     assert grid.period_lengths_seconds == (2592000.0, 2592000.0, 2592000.0)
+
+
+def _steady_cfg(
+    *,
+    start: str = "2020-01-01",
+    end: str = "2021-12-31",
+    step_value: object = "1 month",
+    step_unit: str | None = None,
+) -> SimpleNamespace:
+    cfg = _make_cfg_with_time()
+    cfg.simulation.time.start_datetime = start
+    cfg.simulation.time.end_datetime = end
+    cfg.simulation.time.step_value = step_value
+    cfg.simulation.time.step_unit = step_unit
+    cfg.flow = SimpleNamespace(flow_regime="steady")
+    return cfg
+
+
+def test_a_steady_run_is_one_period_over_its_window_whatever_the_step() -> None:
+    grid = resolve_simulation_time_grid(_steady_cfg())
+
+    assert grid is not None
+    assert grid.nper == 1
+    assert grid.boundaries == (pd.Timestamp("2020-01-01"), pd.Timestamp("2022-01-01"))
+    assert grid.period_lengths_seconds == (731 * 86400.0,)
+    assert grid.window.period_bounds == ((pd.Timestamp("2020-01-01"), pd.Timestamp("2022-01-01")),)
+
+
+def test_the_forcing_of_a_steady_run_is_aggregated_over_the_whole_window() -> None:
+    from hydromodpy.core.time import build_simulation_time_boundaries
+
+    window = resolve_simulation_time_window(_steady_cfg())
+
+    assert window is not None
+    assert build_simulation_time_boundaries(window) == [
+        pd.Timestamp("2020-01-01"),
+        pd.Timestamp("2022-01-01"),
+    ]
+
+
+def test_a_steady_window_need_not_align_with_the_step() -> None:
+    grid = resolve_simulation_time_grid(_steady_cfg(end="2021-12-15"))
+
+    assert grid is not None
+    assert grid.nper == 1
+    assert grid.boundaries[-1] == pd.Timestamp("2021-12-16")
+
+
+def test_a_steady_hourly_window_closes_one_hour_after_its_end() -> None:
+    grid = resolve_simulation_time_grid(
+        _steady_cfg(start="2020-01-01 00:00:00", end="2020-01-01 23:00:00", step_value="1 hour")
+    )
+
+    assert grid is not None
+    assert grid.nper == 1
+    assert grid.period_lengths_seconds == (24 * 3600.0,)
+
+
+def test_a_transient_run_still_reads_its_step() -> None:
+    cfg = _steady_cfg()
+    cfg.flow = SimpleNamespace(flow_regime="transient")
+
+    grid = resolve_simulation_time_grid(cfg)
+
+    assert grid is not None
+    assert grid.nper == 24
+    assert grid.window.period_bounds is None

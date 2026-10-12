@@ -56,6 +56,7 @@ def _build_gwt(tmp_path: Path, params: dict, *, complexity: str = "COMPLEX") -> 
         ims=ims,
         rch=rch,
         solver_mesh=mesh,
+        open_water_cell_ids=[],
         nlay=1,
         ncpl=ncpl,
         nper=1,
