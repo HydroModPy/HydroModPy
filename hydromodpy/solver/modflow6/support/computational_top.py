@@ -118,8 +118,10 @@ def top_layer_ground_fraction(model: Any) -> np.ndarray:
     """Return ``(G - botm[0]) / (T' - botm[0])`` per cell, 1 where the top is not raised.
 
     It is the share of the written top-layer cell that lies below the ground.
-    A fraction of the cell height that MODFLOW 6 reads (a pumping turnoff, a
-    particle release) is scaled by it to stay a fraction of the aquifer.
+    The WEL pumping turnoff, which MODFLOW 6 reads as a fraction of the cell
+    height, is scaled by it to stay a fraction of the aquifer. A PRT release at
+    a local z needs no scaling: MODFLOW 6 places it between the bottom and the
+    head.
     """
     solver_mesh = model.solver_mesh
     ground = np.asarray(solver_mesh.top, dtype=float)
