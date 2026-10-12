@@ -33,8 +33,6 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
----
-
 ## [v2.0.0a5] - 2026-10-13
 
 ### Added
