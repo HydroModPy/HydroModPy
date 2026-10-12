@@ -185,10 +185,12 @@ jobs:
       - name: Install Linux system libraries
         run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
 
-      - name: Install package and test extras
+      # tests/unit/docs and tests/unit/tools import the Sphinx extensions of
+      # docs/source/_ext, which need the docs extra.
+      - name: Install package, test and docs extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration]"
+          pip install -e ".[test,calibration,docs]"
 
       - name: Install external validity_frame package
         run: pip install -e validity_frame
@@ -207,9 +209,9 @@ jobs:
             hydromodpy/core/state/global_index.py \
             hydromodpy/core/units/types.py \
             hydromodpy/display/__init__.py \
-            hydromodpy/display/viz.py \
+            hydromodpy/display/quicklook/viz.py \
             hydromodpy/project/facade.py \
-            hydromodpy/results/catalog/facade.py \
+            hydromodpy/results/catalog/ \
             hydromodpy/results/exporters/ \
             hydromodpy/results/run/ \
             hydromodpy/spatial/field/core/physical_bounds.py
