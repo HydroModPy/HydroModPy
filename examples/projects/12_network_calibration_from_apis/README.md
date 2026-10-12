@@ -34,16 +34,19 @@ hmp run examples/projects/12_network_calibration_from_apis/project.toml --until 
 
 | Family | Source | Role |
 |---|---|---|
-| dem | IGN Geoplateforme, BD ALTI 25 m | catchment delineation, model top, mesh at 25 m |
+| dem | IGN Geoplateforme, BD ALTI 25 m, aggregated to 75 m (`dem_resolution`) | catchment delineation, model top, mesh at 75 m |
 | hydrography | Sandre BD Topage | the mapped network the criterion is scored on, with the permanence of every reach |
 | hydrometry | Hub'Eau, product `QmnJ`, station J001401001 | daily discharge at the outlet, a check of the recharge, not a target |
 | recharge | Météo-France SIM2, `DRAINC_Q` | drainage averaged over the watershed; the steady solve uses its 2000-2019 mean |
 | runoff | Météo-France SIM2, `RUNC_Q` | surface runoff, added to the simulated baseflow before the comparison with the gauge |
 
 No section names a path or a bounding box. The DEM is fetched around the
-outlet, the catchment is delineated on it, and every other source is asked
-over the delineated watershed. The time series inherit the `[simulation.time]`
-window.
+outlet and aggregated to 75 m, the cell size of example 04, before the
+catchment is delineated on it; every other source is asked over the
+delineated watershed. The time series inherit the `[simulation.time]` window.
+Drop `dem_resolution` to run on the 25 m pixels of BD ALTI: nine times more
+cells, about a minute per steady solve, and a larger mismatch in the flat
+valley bottoms that the 75 m smooths.
 
 ## The search
 
@@ -91,7 +94,9 @@ budget as CSV.
 
 ## Runtime
 
-The mesh keeps the 25 m of BD ALTI: 103 000 cells inside the catchment, 195 000
-with the buffer. A steady solve takes about a minute; the search closed in 15
-of them and the promoted run took three more, about 16 minutes in all. The
-bisection may spend up to 23 solves.
+At 75 m the mesh holds 21 400 cells, 11 500 of them inside the catchment, the
+grid of example 04. A steady solve takes a few seconds: the search closed in
+15 of them in about 90 s, the promoted run took 30 s more, and the whole file
+runs in about three minutes, the first DEM download apart. The bisection may
+spend up to 23 solves. On the 25 m pixels, with `dem_resolution` dropped, the
+same search takes about 16 minutes.

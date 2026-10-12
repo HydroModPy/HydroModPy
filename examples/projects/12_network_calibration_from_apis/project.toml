@@ -15,7 +15,7 @@
 #   hmp calibrate project.toml --check          every problem at once, no solve
 #   hmp calibrate project.toml --list-phases    the one phase, before any solve
 #   hmp run       project.toml --until load_data   the data alone, no mesh, no solve
-#   hmp run       project.toml                  15 to 23 steady solves of about a minute, then the best run
+#   hmp run       project.toml                  15 to 23 steady solves, then the best run
 
 [workflow]
 mode = "calibration"
@@ -66,6 +66,11 @@ y_outlet = 6816518.749
 snap_dist = "150 m"
 # "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
 buff_area = "10%"
+# BD ALTI comes at 25 m. Aggregated to the 75 m of example 04 before anything
+# is delineated: each 75 m cell is the mean of its nine pixels, and the routing
+# surface, the catchment, the mesh and the model top all follow. Drop the key
+# to run at 25 m, nine times more cells and about a minute per solve.
+dem_resolution = "75 m"
 
 # The network the DEM alone delineates, drawn beside the mapped one. Context
 # only: the criterion is scored on BD Topage.
@@ -82,8 +87,8 @@ thickness = "30.0 m"
 [data]
 types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
 
-# IGN BD ALTI 25 m, assembled from the department archives around the outlet.
-# The mesh keeps that resolution: about 100 000 cells inside the catchment.
+# IGN BD ALTI 25 m, assembled from the department archives around the outlet,
+# then aggregated to dem_resolution above.
 [[data.dem.sources]]
 source = "ign_geoplateforme_dem"
 dataset = "bd-alti"
