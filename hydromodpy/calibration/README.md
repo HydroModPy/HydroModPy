@@ -117,7 +117,10 @@ module whose name does not start with `_`.
 
 ```python
 from hydromodpy.calibration.optim.optimizer import (
-    EngineTraits, EvaluationResult, ParamSuggestion, register_optimizer,
+    EngineTraits,
+    EvaluationResult,
+    ParamSuggestion,
+    register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 
@@ -373,22 +376,39 @@ project = hmp.Project("examples/projects/04_streamflow_intermittence_in_transien
 report = project.calibrate(
     parameters={"K": {"bounds": [1e-7, 1e-3]}, "Sy": {"bounds": [5e-3, 0.35]}},
     outputs={
-        "streams": {"support": "network", "stream_geometry_path": "nancon_stream_network.gpkg",
-                    "diagonal_neighbors": True},
+        "streams": {
+            "support": "network",
+            "stream_geometry_path": "nancon_stream_network.gpkg",
+            "diagonal_neighbors": True,
+        },
         "gauge": {"support": "point", "variable": "discharge", "observes": "NANCON"},
     },
     objective_blocks=[
         {"name": "network", "metric": "distance_gap", "uses_outputs": ["streams"]},
-        {"name": "network_share", "metric": "distance_gap", "uses_outputs": ["streams"],
-         "normalize_cost": True},
+        {
+            "name": "network_share",
+            "metric": "distance_gap",
+            "uses_outputs": ["streams"],
+            "normalize_cost": True,
+        },
         {"name": "hydrograph", "metric": "nse_log", "uses_outputs": ["gauge"]},
     ],
     phases=[
-        {"name": "k_steady", "parameters": ["K"], "regime": "steady",
-         "objective_blocks": ["network"], "max_iter": 18},
-        {"name": "sy_transient", "parameters": ["Sy"], "regime": "transient",
-         "objective_blocks": {"hydrograph": 0.8, "network_share": 0.2}, "max_iter": 30,
-         "scoring_window": {"start": "2001-01-01"}},
+        {
+            "name": "k_steady",
+            "parameters": ["K"],
+            "regime": "steady",
+            "objective_blocks": ["network"],
+            "max_iter": 18,
+        },
+        {
+            "name": "sy_transient",
+            "parameters": ["Sy"],
+            "regime": "transient",
+            "objective_blocks": {"hydrograph": 0.8, "network_share": 0.2},
+            "max_iter": 30,
+            "scoring_window": {"start": "2001-01-01"},
+        },
     ],
 )
 ```
