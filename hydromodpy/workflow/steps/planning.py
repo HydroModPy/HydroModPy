@@ -1,16 +1,20 @@
-"""Planning step - build a SimulationPlan and align ResultsConfig with the plan."""
+"""Planning step - build a SimulationPlan and decide the per-cell budget it keeps."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.budget_terms import SURFACE_EXCESS_TERM, BudgetKeep, budget_terms_for_fields
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
+    from hydromodpy.calibration.config import CalibrationConfig
+    from hydromodpy.core.config_kit.export_spec import ExportRequest
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.simulation.planning.observation_config import ObservationConfig
     from hydromodpy.simulation.planning.plan import SimulationPlan
     from hydromodpy.simulation.planning.results_config import ResultsConfig
 
@@ -165,286 +169,116 @@ def _default_flow_solver(ctx: WorkflowContext) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Results-config alignment
+# Per-cell budget of the run
 # ---------------------------------------------------------------------------
 
 
-# Derived fields computed from the per-cell budget group. They are impossible
-# to build unless ``budget.spatial_fields`` persisted that group.
-BUDGET_DEPENDENT_DERIVED: tuple[str, ...] = (
-    "release_flux",
-    "accumulation_flux",
-    "release_accumulation_flux",
-    "outflow_drain",
-    "mass_seepage",
-)
-
-# Dotted path of the per-cell budget switch, as written in the TOML.
-BUDGET_SPATIAL_FLAG = "budget.spatial_fields"
-
-# Derived fields of the solute chain. Each one is built from the concentration
-# field, so a plan with no solute-transport run can produce none of them.
-SOLUTE_DERIVED: tuple[str, ...] = (
-    "concentration_seepage",
-    "mass_seepage",
-    "mass_accumulated",
-)
-
-# Adapter capability that marks a run able to produce a solute concentration
-# field (GWT, MT3DMS). Particle tracking (MODPATH, MF6 PRT) is a transport
-# process too, but it carries pathlines, not concentrations.
-SOLUTE_CONCENTRATION_CAPABILITY = "transport:concentration"
-
 # A solver whose seepage is an explicit surface-release flux stored in
-# ``budget/surface_excess`` declares it. On those the geometric criterion (water
-# table at or above the surface) over-reports, so the budget is what keeps the
-# physics. Declared rather than listed by name, like the solute check below: a
-# backend added later says what it can do instead of waiting to be added here.
+# ``budget/surface_excess`` declares it. Its seepage mask is rebuilt from that
+# term, so a run that keeps only what its consumers read still keeps it.
 SURFACE_EXCESS_CAPABILITY = "flow:surface_excess"
 
+# Overlays of ``[display.overrides.<figure>] overlays`` that read a field.
+_OVERLAY_FIELDS: dict[str, tuple[str, ...]] = {
+    "seepage": ("seepage_mask",),
+    "wells": ("well",),
+}
 
-@dataclass(frozen=True, slots=True)
-class ReconciledResults:
-    """Results config aligned with the plan, plus what reconciliation forced.
-
-    ``forced_flags`` holds the dotted config paths reconciliation turned on
-    by itself. They are computed means, not user choices, so the run may drop
-    a heavy one once it has served its purpose. A flag the user wrote in the
-    TOML never appears here.
-    """
-
-    config: ResultsConfig
-    forced_flags: tuple[str, ...] = ()
-
-    @property
-    def budget_is_intermediate(self) -> bool:
-        """True when the per-cell budget was forced on, not asked for."""
-        return BUDGET_SPATIAL_FLAG in self.forced_flags
+# What a calibration output support asks the backend for, beyond its variable.
+_CALIBRATION_FIELDS_BY_SUPPORT: dict[str, tuple[str, ...]] = {
+    "network": ("release_flux",),
+}
 
 
 def step_configure_results(
-    user_cfg: ResultsConfig,
+    results: ResultsConfig,
     plan: SimulationPlan,
     display: DisplayConfig,
     *,
-    display_active: bool = True,
-) -> ReconciledResults:
-    """Return a ResultsConfig aligned with the plan and the requested figures.
-
-    A figure listed in ``display.figures`` is an explicit request: the derived
-    fields it declares are turned on so the tool computes what it was asked to
-    draw. ``display_active`` is the run's effective rendering switch (``hmp run
-    --no-display`` turns it off): when nothing will be drawn, no figure gets to
-    turn a flag on, so skipping the figures also skips their storage cost.
-    Solute-chain derived variables are then disabled when no run of the plan
-    can produce a concentration, and whatever survives that pruning turns the
-    per-cell budget back on when it cannot be built without it.
-    """
-    cfg, forced = _reconcile_figure_dependent_derived(
-        user_cfg,
-        display,
-        display_active=display_active,
-    )
-    if not _plan_produces_concentration(plan):
-        cfg = _disable_solute_derived(cfg)
-    cfg, budget_forced = _reconcile_budget_consumers(
-        cfg,
-        plan,
-        display,
-        display_active=display_active,
-    )
-    if budget_forced:
-        forced = (*forced, BUDGET_SPATIAL_FLAG)
-    return ReconciledResults(config=cfg, forced_flags=forced)
-
-
-def _plan_produces_concentration(plan: SimulationPlan) -> bool:
-    """True when one run of the plan can write a solute concentration field.
-
-    The process type alone is not the criterion: particle tracking (MODPATH,
-    MODFLOW 6 PRT) is declared as a transport process but produces pathlines,
-    never a concentration. Counting it would promise the user a transport run
-    that resolves the solute chain, and that run never comes. The adapter
-    capability ``transport:concentration`` is what actually answers.
-    """
-    from hydromodpy.solver.base.registry import capabilities
-
-    return any(
-        SOLUTE_CONCENTRATION_CAPABILITY in capabilities(run.process_type, run.solver)
-        for run in plan.runs
-        if run.process_type == "transport"
-    )
-
-
-def _disable_solute_derived(cfg: ResultsConfig) -> ResultsConfig:
-    """Turn the solute-chain derived fields off when nothing computes a solute.
-
-    Concentration is the input of the whole chain, so without a solute
-    transport run (GWT, MT3DMS) nothing can produce these fields. Leaving the
-    flags on would end in a field the user asked for and never got, so the drop
-    is announced with what to add to get it.
-    """
-    dropped = [name for name in SOLUTE_DERIVED if getattr(cfg.derived, name)]
-    if not dropped:
-        return cfg
-    logger.warning(
-        "No solute transport process in this plan: turning [simulation.results.derived] %s off. "
-        "Declare a solute transport process (modflow6 GWT, mt3dms) to compute %s.",
-        ", ".join(f"{name} = true" for name in dropped),
-        "them" if len(dropped) > 1 else "it",
-    )
-    return cfg.model_copy(
-        update={"derived": cfg.derived.model_copy(update=dict.fromkeys(dropped, False))}
-    )
-
-
-def _reconcile_figure_dependent_derived(
-    cfg: ResultsConfig,
-    display: DisplayConfig,
-    *,
     display_active: bool,
-) -> tuple[ResultsConfig, tuple[str, ...]]:
-    """Enable the ``results.derived`` flags the requested figures need.
+    export_requests: Sequence[ExportRequest],
+    calibration: CalibrationConfig | None,
+    observation: ObservationConfig | None,
+    lightweight: bool = False,
+) -> BudgetKeep:
+    """Return the per-cell budget terms this run keeps.
 
-    Fields recomputed on the fly from the stored head (water-table elevation
-    and depth, seepage mask) are left unpersisted: they are available without
-    a flag. Anything else a requested figure declares must be computed, or the
-    figure the user asked for would silently disappear from the output.
-    Returns the config and the dotted paths this pass turned on.
+    ``[simulation.results] keep_per_cell_budget = true`` (the default) keeps
+    every term the extractor produces. ``false`` keeps the union of the terms
+    the declared consumers read: the figures of ``[display].figures`` and the
+    overlays they ask for (only when ``display_active`` and ``display.enabled``;
+    ``hmp run --no-display`` turns it off), the ``[[export]]`` requests, the
+    calibration outputs, the variables of the ``[observation]`` points, and the
+    seepage mask of a surface-excess solver. ``lightweight`` is a calibration
+    trial: it logs the decision at DEBUG, not INFO.
     """
-    if not display_active or not display.enabled or not display.figures:
-        return cfg, ()
-    from hydromodpy.display import figure_registry
-    from hydromodpy.results.derive.config_flags import derived_flag_for
-    from hydromodpy.results.derive.virtual_fields import HEAD_DERIVED_VIRTUAL_FIELDS
+    if results.keep_per_cell_budget:
+        return BudgetKeep.everything()
+    consumers: dict[str, list[str]] = {}
 
-    updates: dict[str, bool] = {}
-    for figure_name in display.figures:
-        for field in figure_registry.get(figure_name).spec.required_fields:
-            flag = derived_flag_for(field)
-            if flag is None or field in HEAD_DERIVED_VIRTUAL_FIELDS:
-                continue
-            if getattr(cfg.derived, flag) or flag in updates:
-                continue
-            updates[flag] = True
-            logger.info(
-                "Figure '%s' needs the '%s' field: enabling "
-                "[simulation.results.derived] %s = true.",
-                figure_name,
-                field,
-                flag,
+    def _add(fields: Iterable[str], consumer: str) -> None:
+        for term in budget_terms_for_fields(fields):
+            names = consumers.setdefault(term, [])
+            if consumer not in names:
+                names.append(consumer)
+
+    if display_active and display.enabled:
+        from hydromodpy.display import figure_registry
+
+        for figure_name in display.figures:
+            spec = figure_registry.get(figure_name).spec
+            _add((*spec.required_fields, *spec.optional_fields), f"figure {figure_name!r}")
+            for overlay in _requested_overlays(display, figure_name):
+                _add(
+                    _OVERLAY_FIELDS.get(overlay, ()),
+                    f"overlay {overlay!r} of {figure_name!r}",
+                )
+    for request in export_requests:
+        _add(request.names, "[[export]]")
+    if calibration is not None:
+        for name, output in (calibration.outputs or {}).items():
+            support = str(getattr(output, "support", ""))
+            fields = (
+                *_CALIBRATION_FIELDS_BY_SUPPORT.get(support, ()),
+                str(getattr(output, "variable", "") or ""),
             )
-    if not updates:
-        return cfg, ()
-    forced = tuple(f"derived.{flag}" for flag in sorted(updates))
-    return cfg.model_copy(update={"derived": cfg.derived.model_copy(update=updates)}), forced
+            _add(fields, f"calibration output {name!r}")
+    if observation is not None:
+        for point in observation.declarations():
+            _add(
+                tuple(str(name) for name in point["variables"]),
+                f"[[observation.points]] {point['id']!r}",
+            )
+    if _plan_has_surface_excess(plan):
+        _add((SURFACE_EXCESS_TERM,), "the seepage mask of a surface-excess solver")
 
-
-def _reconcile_budget_consumers(
-    cfg: ResultsConfig,
-    plan: SimulationPlan,
-    display: DisplayConfig,
-    *,
-    display_active: bool,
-) -> tuple[ResultsConfig, bool]:
-    """Force ``budget.spatial_fields`` on when something in the run needs it.
-
-    The per-cell budget is off by default. Silently keeping it off would turn a
-    requested derived field into a no-op, a requested figure into a silent skip,
-    or a Boussinesq seepage mask into its geometric approximation, so the
-    request wins. The group is an intermediate here: it is written, consumed by
-    the derivation and by the figures, then dropped before the run is sealed.
-    Returns the config and whether the switch was flipped.
-    """
-    if cfg.budget.spatial_fields:
-        return cfg, False
-    reasons = _budget_consumers(cfg, plan, display, display_active=display_active)
-    if not reasons:
-        return cfg, False
-    logger.info(
-        "%s need the per-cell budget: computing it as an intermediate "
-        "(dropped from the store once the derived fields and the figures are written).",
-        "; ".join(reasons),
+    keep = BudgetKeep.of_terms(consumers)
+    log = logger.debug if lightweight else logger.info
+    log(
+        "[simulation.results] keep_per_cell_budget = false: the run keeps the per-cell "
+        "budget its consumers read (policy %r): %s.",
+        keep.policy,
+        "; ".join(f"{term} ({', '.join(consumers[term])})" for term in sorted(consumers))
+        or "no term",
     )
-    updated = cfg.model_copy(
-        update={"budget": cfg.budget.model_copy(update={"spatial_fields": True})}
-    )
-    return updated, True
+    return keep
 
 
-def _budget_consumers(
-    cfg: ResultsConfig,
-    plan: SimulationPlan,
-    display: DisplayConfig,
-    *,
-    display_active: bool,
-) -> list[str]:
-    """Name every consumer of this run that reads the per-cell budget."""
-    reasons: list[str] = []
-    derived = [name for name in BUDGET_DEPENDENT_DERIVED if getattr(cfg.derived, name)]
-    if derived:
-        reasons.append(f"results.derived {', '.join(derived)}")
-    figure_fields = _figure_budget_fields(display, display_active=display_active)
-    if figure_fields:
-        reasons.append(f"requested figure field(s) {', '.join(figure_fields)}")
-    if _seepage_needs_surface_excess(cfg, plan, display, display_active=display_active):
-        reasons.append("the seepage mask of a surface-excess solver (budget/surface_excess)")
-    return reasons
-
-
-def _figure_budget_fields(
-    display: DisplayConfig,
-    *,
-    display_active: bool,
-) -> tuple[str, ...]:
-    """Raw budget fields the requested figures read, sorted and deduplicated.
-
-    These fields have no ``results.derived`` flag of their own: the budget
-    group is their only switch, so a figure declaring one is a request for
-    the group. Optional fields count too: a map over a family of packages
-    cannot require every member without reporting itself unavailable on a run
-    that carries only one, yet asking for it is still asking for the group.
-    """
-    from hydromodpy.display import figure_registry
-    from hydromodpy.results.field_registry import FIELD_REGISTRY
-
-    if not display_active or not display.enabled or not display.figures:
+def _requested_overlays(display: DisplayConfig, figure_name: str) -> tuple[str, ...]:
+    """Return the overlays ``[display.overrides.<figure>]`` asks a figure for."""
+    options = display.overrides.get(figure_name) or {}
+    overlays = options.get("overlays") if isinstance(options, dict) else None
+    if overlays is None:
         return ()
-    wanted: set[str] = set()
-    for figure_name in display.figures:
-        spec = figure_registry.get(figure_name).spec
-        for field in (*spec.required_fields, *spec.optional_fields):
-            descriptor = FIELD_REGISTRY.get(field)
-            if descriptor is not None and descriptor.zarr_path.startswith("budget/"):
-                wanted.add(field)
-    return tuple(sorted(wanted))
+    if isinstance(overlays, str):
+        return (overlays,)
+    return tuple(str(name) for name in overlays)
 
 
-def _seepage_needs_surface_excess(
-    cfg: ResultsConfig,
-    plan: SimulationPlan,
-    display: DisplayConfig,
-    *,
-    display_active: bool,
-) -> bool:
-    """True when a seepage mask is requested on a surface-excess solver.
-
-    Those solvers release water through ``budget/surface_excess``; without it
-    the mask degrades to the geometric criterion, which over-reports. Keeping
-    the physics means computing the budget, so the mask reads the flux.
-    """
+def _plan_has_surface_excess(plan: SimulationPlan) -> bool:
+    """True when one run of the plan declares a surface-excess flux."""
     from hydromodpy.solver.base.registry import capabilities
 
-    if not any(
-        SURFACE_EXCESS_CAPABILITY in capabilities(run.process_type, run.solver) for run in plan.runs
-    ):
-        return False
-    if cfg.derived.seepage_areas:
-        return True
-    if not display_active or not display.enabled or not display.figures:
-        return False
-    from hydromodpy.display import figure_registry
-
     return any(
-        "seepage_mask" in figure_registry.get(name).spec.required_fields for name in display.figures
+        SURFACE_EXCESS_CAPABILITY in capabilities(run.process_type, run.solver) for run in plan.runs
     )

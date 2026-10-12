@@ -57,7 +57,6 @@ def _make_ctx(
         cfg=cfg,
         setup=setup,
         sim_id="deadbeef-dead-beef-dead-beefdeadbeef",
-        effective_results_config=None,
         execution=SimpleNamespace(lightweight=False),
     )
 
@@ -226,9 +225,8 @@ def test_display_step_summary_names_a_figure_the_run_could_not_produce(
 
 
 def test_display_step_renders_before_the_export_step_seals_the_run():
-    # Figures are the last reader of the run: they draw through their own
-    # catalog scope, then export drops the intermediate budget and packs the
-    # Zarr.
+    # Figures draw through their own catalog scope, then export seals and
+    # packs the Zarr.
     from hydromodpy.workflow.orchestrator import standard_steps
 
     names = [type(s).__name__ for s in standard_steps()]

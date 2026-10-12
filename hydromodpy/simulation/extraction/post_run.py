@@ -13,6 +13,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.config_kit.export_spec import RUN_FORMATS, ExportRequest
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.logging import get_logger
@@ -64,6 +65,7 @@ def post_run_results(
     export_requests: Sequence[ExportRequest] = (),
     keep_solver_files: bool | None = None,
     run_id: str | None = None,
+    budget_terms: BudgetKeep | None = None,
 ) -> None:
     """Ingest solver outputs into the Catalog after a run completes.
 
@@ -86,17 +88,29 @@ def post_run_results(
     run_id : str, optional
         Human-readable run identifier used to name export subdirectories.
         Falls back to the first 8 characters of *sim_id* when absent.
+    budget_terms : BudgetKeep, optional
+        The per-cell budget the plan of the run keeps. A direct call without
+        a plan keeps every term, which ``keep_per_cell_budget = true`` (the
+        default) asks for; with ``false`` the plan's terms must be passed.
     """
     if not ctx.run.is_solver_backed:
         return
     if not results_config.persistence.save_catalog:
         return
+    if budget_terms is None:
+        if not results_config.keep_per_cell_budget:
+            raise ValueError(
+                "[simulation.results] keep_per_cell_budget = false keeps the terms the "
+                "consumers of the run read, which only its plan knows: pass budget_terms."
+            )
+        budget_terms = BudgetKeep.everything()
 
     extract_run_outputs(
         ctx=ctx,
         sim_id=sim_id,
         results_config=results_config,
         store=store,
+        budget_terms=budget_terms,
     )
     derive_run_outputs(
         ctx=ctx,
@@ -125,8 +139,13 @@ def extract_run_outputs(
     sim_id: str,
     results_config: ResultsConfig,
     store: Any,
+    budget_terms: BudgetKeep,
 ) -> None:
-    """Extract raw solver outputs into the Catalog."""
+    """Extract raw solver outputs into the Catalog.
+
+    ``budget_terms`` is the per-cell budget the run keeps; an extractor that
+    writes one takes it as its ``budget_terms`` keyword.
+    """
     if not ctx.run.is_solver_backed:
         return
     if not results_config.persistence.save_catalog:
@@ -146,12 +165,9 @@ def extract_run_outputs(
             f"Solver output directory is missing for sim {sim_id}: {solver_output_dir}"
         )
 
-    extract_kwargs = {}
-    if results_config.budget.spatial_fields and _accepts_kwarg(
-        extractor.extract,
-        "budget_spatial_fields",
-    ):
-        extract_kwargs["budget_spatial_fields"] = True
+    extract_kwargs: dict[str, Any] = {}
+    if _accepts_kwarg(extractor.extract, "budget_terms"):
+        extract_kwargs["budget_terms"] = budget_terms
     start_datetime = _resolve_run_start_datetime(ctx)
     if start_datetime is not None and _accepts_kwarg(extractor.extract, "start_datetime"):
         extract_kwargs["start_datetime"] = start_datetime
@@ -280,15 +296,12 @@ def derive_run_outputs(
     sim_id: str,
     results_config: ResultsConfig,
     store: Any,
-    forced_flags: Sequence[str] = (),
 ) -> None:
-    """Compute solver-adapter derived outputs and catchment aggregates.
+    """Write what the run derives once its fields are in the store.
 
-    ``forced_flags`` are the dotted ``[simulation.results]`` paths the
-    planning turned on for a requested figure. Such a derived field is
-    computed when the run can build it; otherwise it is left out with a log
-    line and the figure is skipped with the reason, instead of the run
-    stopping on a field the user never asked for.
+    The discharge band of the drains, the catchment aggregates, the declared
+    observation points and the fit metrics. Derived fields are not written:
+    every one is rebuilt on read.
     """
     if not ctx.run.is_solver_backed:
         return
@@ -302,26 +315,17 @@ def derive_run_outputs(
         raise RuntimeError(f"No output adapter registered for {ctx.run.process_type}/{solver_name}")
 
     # The discharge band the drains were given changes what "this cell seeps"
-    # means, so it has to be in the store BEFORE anything derives a seepage
-    # mask from it, and it has to stay there for every figure drawn afterwards.
-    # Written here rather than in the workflow step because this function is
-    # the one funnel both the step and the direct post-run path go through.
+    # means, so it has to stay in the store for every seepage mask read and
+    # every figure drawn afterwards. Written here rather than in the workflow
+    # step because this function is the one funnel both the step and the
+    # direct post-run path go through.
     sim_zarr = store.open_zarr(sim_id)
     try:
         sim_zarr.drain_band_depth_m = float(ctx.state.cfg.solver.drain_band_depth_m)
     finally:
         sim_zarr.close()
 
-    from hydromodpy.simulation.extraction.derivation.derived import FIGURE_REQUEST
-
-    derived_flags = results_config.derived.model_dump()
-    for path in forced_flags:
-        section, _, flag = str(path).partition(".")
-        if section == "derived" and derived_flags.get(flag) is True:
-            derived_flags[flag] = FIGURE_REQUEST
-    extractor.derive(sim_id, store, derived_flags)
-
-    # Phase 3: aggregate catchment timeseries from spatial fields
+    # Aggregate catchment timeseries from spatial fields
     if getattr(extractor, "category", None) != "lumped":
         from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
             aggregate_catchment_timeseries,
@@ -331,7 +335,7 @@ def derive_run_outputs(
 
     sample_declared_observation_points(ctx=ctx, sim_id=sim_id, store=store)
 
-    # Phase 4: score the run against the observations sitting beside it. Last,
+    # Score the run against the observations sitting beside it. Last,
     # because it reads the series the two phases above just wrote.
     from hydromodpy.simulation.extraction.derivation.fit_metrics import write_fit_metrics
 

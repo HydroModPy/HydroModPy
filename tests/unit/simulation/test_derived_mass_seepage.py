@@ -1,9 +1,9 @@
-"""Conservation tests for solute / mass / release-flux derivations.
+"""Conservation tests for the solute / mass / release-flux fields rebuilt on read.
 
-These cover the dark branch of
-``hydromodpy.simulation.extraction.derivation.derived``: the transport-specific
-derived fields (concentration_seepage, mass_seepage, mass_accumulated) plus the
-solver-neutral release/drain flux derivations.
+These cover the transport-specific fields (concentration_seepage, mass_seepage,
+mass_accumulated) plus the solver-neutral release/drain flux fields. No array of
+their own is written: each is rebuilt from the stored concentration, drain and
+surface-excess terms when it is read.
 
 The asserts target genuine invariants derived from the science:
 
@@ -24,21 +24,9 @@ from uuid import uuid4
 import numpy as np
 import pytest
 
-from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.field_routing import (
     drain_budget_to_positive_outflow,
     positive_cell_flux_stack,
-)
-from hydromodpy.simulation.extraction.derivation.derived import (
-    _check_release_flux_budget,
-    _compute_accumulation_flux,
-    _compute_concentration_seepage,
-    _compute_mass_accumulated,
-    _compute_mass_seepage,
-    _compute_outflow_drain,
-    _compute_release_accumulation_flux,
-    _drain_outflow_stack,
-    compute_derived,
 )
 from tests._helpers.fixtures_catalog import simulation_catalog
 
@@ -91,8 +79,7 @@ class TestMassSeepageConservation:
         sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
         _write_mesh(catalog, sid, n_cells=n_cells)
 
-        # head field only drives shape discovery in compute_derived; keep it
-        # finite and irrelevant to the transport math.
+        # The head only gives the run its shape; it is irrelevant to the transport math.
         head = np.full((n_ts, 1, n_cells), 9.0)
         _write_head(catalog, sid, head, n_ts=n_ts)
 
@@ -113,7 +100,7 @@ class TestMassSeepageConservation:
                 n_timesteps=n_ts if t == 0 else None,
                 subgroup="budget",
             )
-            # Pre-seed the seepage mask the derived chain depends on.
+            # A seepage mask an earlier run stored: it decides the seepage cells.
             catalog.write_field(
                 sid,
                 "seepage_mask",
@@ -148,10 +135,6 @@ class TestMassSeepageConservation:
             drn_stack=drn,
             seep_stack=seep,
         )
-
-        _compute_concentration_seepage(sid, catalog, n_ts, n_cells)
-        _compute_mass_seepage(sid, catalog, n_ts, n_cells)
-        _compute_mass_accumulated(sid, catalog, n_ts, n_cells)
 
         # 1) concentration_seepage = conc where seepage active, NaN otherwise.
         for t in range(n_ts):
@@ -196,7 +179,7 @@ class TestMassSeepageConservation:
             assert np.all(ma + 1e-12 >= prev_partial)
             prev_partial = ma
 
-    def test_mass_seepage_zero_when_no_drain(self, catalog):
+    def test_mass_seepage_is_the_concentration_when_the_run_has_no_drain(self, catalog):
         """Without a drain budget key, flux defaults to ones -> mass == conc."""
         n_ts, n_cells = 2, 4
         sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
@@ -232,9 +215,6 @@ class TestMassSeepageConservation:
                 n_timesteps=n_ts if t == 0 else None,
                 subgroup="budget",
             )
-
-        _compute_concentration_seepage(sid, catalog, n_ts, n_cells)
-        _compute_mass_seepage(sid, catalog, n_ts, n_cells)
 
         for t in range(n_ts):
             ms = catalog.query_field(sid, "mass_seepage", t)
@@ -276,13 +256,10 @@ class TestReleaseFluxNonNegative:
                 subgroup="budget",
             )
 
-        _check_release_flux_budget(sid, catalog)
-
         for t in range(n_ts):
             rf = catalog.query_field(sid, "release_flux", t)
             pos_drn = drain_budget_to_positive_outflow(drn[t], n_cells=n_cells)
-            # surface_excess summed via _positive_cell_flux (single layer) ==
-            # itself since it is already non-negative.
+            # The surface excess is already a non-negative release.
             expected = pos_drn + np.maximum(sexc[t], 0.0)
             assert np.allclose(rf, expected)
             # release flux is non-negative and finite (m3/s).
@@ -290,10 +267,10 @@ class TestReleaseFluxNonNegative:
             assert np.all(np.isfinite(rf))
 
 
-class TestComputeDerivedDispatch:
-    """compute_derived wires the toggles to the right derivations end to end."""
+class TestTheChainFromTheHead:
+    """The seepage cells come from the stored head when no mask was stored."""
 
-    def test_full_transport_chain_via_compute_derived(self, catalog):
+    def test_full_transport_chain_is_read_from_the_stored_terms(self, catalog):
         n_ts, n_cells = 3, 5
         rng = np.random.default_rng(99)
         sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
@@ -322,19 +299,8 @@ class TestComputeDerivedDispatch:
                 subgroup="budget",
             )
 
-        compute_derived(
-            sid,
-            catalog,
-            {
-                "seepage_areas": True,
-                "concentration_seepage": True,
-                "mass_seepage": True,
-                "mass_accumulated": True,
-            },
-        )
-
         # mass_accumulated obeys the literal cumulative recurrence over
-        # mass_seepage (NaN-aware), the closure the writer guarantees.
+        # mass_seepage (NaN-aware).
         mass = np.full((n_ts, n_cells), np.nan)
         for t in range(n_ts):
             mass[t] = catalog.query_field(sid, "mass_seepage", t)
@@ -346,20 +312,13 @@ class TestComputeDerivedDispatch:
             assert np.all(ma[np.isfinite(ma)] >= 0.0)
             prev = ma
 
-    def test_no_head_field_is_noop(self, catalog):
-        """compute_derived returns silently when no head field is stored."""
-        sid = _register(catalog, n_ts=2, n_layers=1, n_cells=3)
-        # no head written -> early return, nothing raised.
-        compute_derived(sid, catalog, {"mass_seepage": True})
-        with pytest.raises(KeyError):
-            catalog.query_field(sid, "mass_seepage", 0)
-
 
 class TestSoluteChainDependencies:
-    """A solute field that cannot be built is reported, never dropped in silence."""
+    """A solute field that cannot be rebuilt is not served."""
 
-    def _seed_flow_only(self, catalog, *, n_ts, n_cells):
-        """Store of a flow run: head, mesh and drain budget, no concentration."""
+    def test_a_flow_only_store_serves_no_solute_field(self, catalog):
+        # The flow run of a flow-then-transport plan holds no concentration.
+        n_ts, n_cells = 2, 4
         sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
         _write_mesh(catalog, sid, n_cells=n_cells)
         _write_head(catalog, sid, np.full((n_ts, 1, n_cells), 9.0), n_ts=n_ts)
@@ -372,57 +331,18 @@ class TestSoluteChainDependencies:
                 n_timesteps=n_ts if t == 0 else None,
                 subgroup="budget",
             )
-        return sid
-
-    def test_chain_waits_for_the_transport_run(self, catalog):
-        # Derivation runs after every run of a plan, so the flow run of a
-        # flow-then-transport plan gets here before any concentration exists.
-        # That is a deferral, not a failure: nothing raises, nothing is written.
-        n_ts, n_cells = 2, 4
-        sid = self._seed_flow_only(catalog, n_ts=n_ts, n_cells=n_cells)
-
-        compute_derived(
-            sid,
-            catalog,
-            {
-                "concentration_seepage": True,
-                "mass_seepage": True,
-                "mass_accumulated": True,
-            },
-        )
 
         for variable in ("concentration_seepage", "mass_seepage", "mass_accumulated"):
             with pytest.raises(KeyError):
                 catalog.query_field(sid, variable, 0)
 
-    def test_mass_seepage_without_its_input_raises(self, catalog):
-        # Concentration is there, so the transport run has happened: a missing
-        # concentration_seepage is a disabled flag, and the error names it.
-        n_ts, n_cells = 2, 4
-        sid = self._seed_flow_only(catalog, n_ts=n_ts, n_cells=n_cells)
-        for t in range(n_ts):
-            catalog.write_field(
-                sid,
-                "concentration",
-                t,
-                np.ones(n_cells),
-                n_timesteps=n_ts if t == 0 else None,
-            )
-
-        with pytest.raises(ExtractError, match="concentration_seepage"):
-            _compute_mass_seepage(sid, catalog, n_ts, n_cells)
-
-        with pytest.raises(ExtractError, match="mass_seepage"):
-            _compute_mass_accumulated(sid, catalog, n_ts, n_cells)
-
 
 class TestDrainRoutingChain:
     """outflow_drain and the accumulation/release routing fallbacks.
 
-    The catalog mesh carries no ``topography`` array, so both the raster-D8 and
-    mesh-graph routing backends bail out and the derivation falls back to the
-    local positive cell-flux stack. We assert that fallback equals the local
-    drain/release stack exactly and stays non-negative.
+    The catalog mesh carries no ``topography`` array and no stored descent, so
+    there is nothing to route on: the accumulation fields are not served, and
+    never replaced by the local flux under the routed name.
     """
 
     def _seed_drain(self, catalog, *, n_ts, n_cells, drn_stack, surface_excess=None):
@@ -458,8 +378,6 @@ class TestDrainRoutingChain:
         drn[0, 0] = -99999.0  # nodata sentinel -> treated as zero outflow
         sid = self._seed_drain(catalog, n_ts=n_ts, n_cells=n_cells, drn_stack=drn)
 
-        _compute_outflow_drain(sid, catalog, n_ts, n_cells)
-
         for t in range(n_ts):
             od = catalog.query_field(sid, "outflow_drain", t)
             expected = drain_budget_to_positive_outflow(drn[t], n_cells=n_cells)
@@ -470,60 +388,38 @@ class TestDrainRoutingChain:
         # nodata cell has zero outflow at t=0.
         assert catalog.query_field(sid, "outflow_drain", 0)[0] == 0.0
 
-    def test_accumulation_flux_falls_back_to_local_drain(self, catalog):
+    def test_no_accumulation_is_served_without_a_route(self, catalog):
         n_ts, n_cells = 2, 4
         rng = np.random.default_rng(22)
         drn = -rng.uniform(0.1, 3.0, (n_ts, n_cells))
-        sid = self._seed_drain(catalog, n_ts=n_ts, n_cells=n_cells, drn_stack=drn)
-
-        _compute_accumulation_flux(sid, catalog, n_ts, n_cells)
-
-        # No mesh/topography -> routing unavailable -> local drain stack.
-        local = _drain_outflow_stack(sid, catalog, n_ts, n_cells)
-        for t in range(n_ts):
-            acc = catalog.query_field(sid, "accumulation_flux", t)
-            assert np.allclose(acc, local[t])
-            assert np.all(acc >= 0.0)
-
-    def test_release_accumulation_falls_back_to_release_flux(self, catalog):
-        n_ts, n_cells = 2, 4
-        rng = np.random.default_rng(23)
-        drn = -rng.uniform(0.1, 2.0, (n_ts, n_cells))
         sexc = rng.uniform(0.0, 1.0, (n_ts, n_cells))
         sid = self._seed_drain(
             catalog, n_ts=n_ts, n_cells=n_cells, drn_stack=drn, surface_excess=sexc
         )
 
-        _check_release_flux_budget(sid, catalog)
-        _compute_release_accumulation_flux(sid, catalog, n_ts, n_cells)
+        for variable in ("accumulation_flux", "release_accumulation_flux"):
+            with pytest.raises(KeyError):
+                catalog.query_field(sid, variable, 0)
+        # The local fluxes stay readable.
+        assert np.all(catalog.query_field(sid, "release_flux", 0) >= 0.0)
 
-        for t in range(n_ts):
-            rf = catalog.query_field(sid, "release_flux", t)
-            rac = catalog.query_field(sid, "release_accumulation_flux", t)
-            # routing unavailable -> accumulation equals the local release flux.
-            assert np.allclose(rac, rf)
-            assert np.all(rac >= 0.0)
-
-    def test_outflow_drain_raises_without_budget(self, catalog):
-        """No budget group -> outflow_drain fails loudly, nothing written."""
+    def test_outflow_drain_is_not_served_without_budget(self, catalog):
+        """No budget group -> outflow_drain is not served."""
         n_ts, n_cells = 2, 3
         sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
         head = np.full((n_ts, 1, n_cells), 9.0)
         _write_head(catalog, sid, head, n_ts=n_ts)
 
-        with pytest.raises(ExtractError, match="spatial_fields"):
-            _compute_outflow_drain(sid, catalog, n_ts, n_cells)
         with pytest.raises(KeyError):
             catalog.query_field(sid, "outflow_drain", 0)
 
 
 class TestMeshGraphRouting:
-    """Downhill mass-flux routing on a UGRID mesh conserves total mass.
+    """Downhill routing on a UGRID mesh conserves total mass.
 
-    Adding a ``topography`` array to the mesh group makes raster-D8 routing bail
-    (UGRID) and the mesh-graph backend run. The routed accumulation must conserve
-    the total injected source mass: sum of routed >= sum of local, and the global
-    outlet carries the full basin input.
+    With a ``topography`` array in the mesh group, the descent is rebuilt from
+    the mesh on read. The routed accumulation must conserve the total injected
+    source mass: the outlet carries the full basin input.
     """
 
     def _seed_routable(self, catalog, *, n_ts, n_cells, drn_stack, topo):
@@ -539,7 +435,7 @@ class TestMeshGraphRouting:
         )
         z_intf = np.array([float(topo.max()) + 1.0, 0.0])
         catalog.write_mesh(sid, verts, conn, z_intf)
-        # inject topography directly into the mesh subgroup so graph routing runs.
+        # Inject topography directly into the mesh subgroup so the descent can be rebuilt.
         catalog.write_field(sid, "topography", 0, topo, n_timesteps=1, subgroup="mesh")
         head = np.full((n_ts, 1, n_cells), 9.0)
         _write_head(catalog, sid, head, n_ts=n_ts)
@@ -561,13 +457,10 @@ class TestMeshGraphRouting:
         drn = -np.array([[1.0, 1.0, 1.0, 1.0, 1.0]])  # 1 m3/s released per cell
         sid = self._seed_routable(catalog, n_ts=n_ts, n_cells=n_cells, drn_stack=drn, topo=topo)
 
-        _compute_accumulation_flux(sid, catalog, n_ts, n_cells)
-
-        local = _drain_outflow_stack(sid, catalog, n_ts, n_cells)[0]
+        local = drain_budget_to_positive_outflow(drn[0], n_cells=n_cells)
         acc = catalog.query_field(sid, "accumulation_flux", 0)
         acc_finite = acc[np.isfinite(acc)]
-        # the routed field differs from the local field (routing actually ran),
-        # otherwise this test would not exercise the graph backend.
+        # The routed field differs from the local field (routing actually ran).
         assert not np.allclose(acc, local)
         # total routed mass at the basin outlet conserves total local input.
         assert np.isclose(np.nanmax(acc), local.sum())
@@ -604,15 +497,3 @@ class TestPositiveCellFlux:
     def test_empty_stack_returns_zeros(self):
         out = positive_cell_flux_stack(np.empty((0, 1, 3)), n_cells=3)
         assert out.shape == (0, 3)
-
-
-class TestBudgetDependentDerivedFailLoudly:
-    """A requested budget-dependent field with no budget is an error, not a no-op."""
-
-    def test_mass_seepage_raises_without_budget(self, catalog):
-        n_ts, n_cells = 2, 3
-        sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
-        _write_head(catalog, sid, np.full((n_ts, 1, n_cells), 9.0), n_ts=n_ts)
-
-        with pytest.raises(ExtractError, match="spatial_fields"):
-            _compute_mass_seepage(sid, catalog, n_ts, n_cells)

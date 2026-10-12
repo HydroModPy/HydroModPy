@@ -198,6 +198,20 @@ class TestReadPoint:
         reference = [float(run.field("watertable_depth", timestep=t)[1]) for t in range(N_STEPS)]
         assert frame["value"].tolist() == reference
 
+    @pytest.mark.parametrize("elements_per_block", [None, N_CELLS, 2 * N_CELLS])
+    def test_a_virtual_series_is_the_column_of_the_range_read(
+        self, run, monkeypatch, elements_per_block
+    ):
+        from hydromodpy.results.derive import virtual_fields
+
+        if elements_per_block is not None:
+            monkeypatch.setattr(virtual_fields, "ROWS_PER_PASS_ELEMENTS", elements_per_block)
+        frame = run.probe.series("watertable_depth", cell=2)
+        stack = virtual_fields.read_field_range_or_virtual(
+            run._catalog, run.sim_id, "watertable_depth", 0, N_STEPS
+        )
+        np.testing.assert_array_equal(frame["value"].to_numpy(), stack[:, 2])
+
     def test_the_point_matches_the_full_field(self, run):
         frame = run.probe.series("head", cell=2, layer=0)
         reference = [float(run.field("head", timestep=t, layer=0)[2]) for t in range(N_STEPS)]

@@ -150,7 +150,7 @@ def test_every_registry_field_aligns_by_its_cell_methods(name: str) -> None:
 
 def test_the_registry_states_and_fluxes_are_the_ones_expected() -> None:
     states = {"head", "watertable_elevation", "watertable_depth", "concentration"}
-    fluxes = {"drain", "seepage_rate", "recharge", "release_flux", "outflow_drain"}
+    fluxes = {"drain", "surface_excess", "recharge", "release_flux", "outflow_drain"}
 
     assert {time_method_for(name) for name in states} == {"point"}
     assert {time_method_for(name) for name in fluxes} == {"mean"}

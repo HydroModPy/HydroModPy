@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.extraction.post_run import extract_run_outputs
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
@@ -30,10 +31,10 @@ class _RecordingExtractor:
         hdry: float,
         hnoflo: float,
         model_name: str | None = None,
-        budget_spatial_fields: bool = False,
+        budget_terms: BudgetKeep = BudgetKeep.everything(),
         start_datetime: object | None = None,
     ) -> None:
-        del sim_id, solver_output_dir, store, model_name, budget_spatial_fields, start_datetime
+        del sim_id, solver_output_dir, store, model_name, budget_terms, start_datetime
         self.seen = {"hdry": hdry, "hnoflo": hnoflo}
 
 
@@ -76,6 +77,7 @@ def test_configured_sentinels_reach_the_extractor(tmp_path, recording) -> None:
         sim_id="sim",
         results_config=ResultsConfig(),
         store=object(),
+        budget_terms=BudgetKeep.everything(),
     )
 
     assert recording.seen == {"hdry": -1234.0, "hnoflo": -4321.0}
@@ -87,6 +89,7 @@ def test_default_sentinels_are_the_modflow_nwt_defaults(tmp_path, recording) -> 
         sim_id="sim",
         results_config=ResultsConfig(),
         store=object(),
+        budget_terms=BudgetKeep.everything(),
     )
 
     assert recording.seen == {"hdry": -100.0, "hnoflo": -9999.0}

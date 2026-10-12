@@ -588,30 +588,6 @@
         }
       }
     },
-    "BudgetConfig": {
-      "additionalProperties": false,
-      "description": "Budget extraction configuration.",
-      "properties": {
-        "spatial_fields": {
-          "default": false,
-          "description": "Persist per-cell budget fields (DRN, RCH, etc.) into Zarr. Off by default: the lumped per-component budget still lands in the budgets table, and the catchment scalars (discharge, well pumping) are derived from it. Turn it on to map or export a per-cell flux, at the cost of the heaviest arrays a run can hold.",
-          "examples": [
-            false
-          ],
-          "title": "Spatial Fields",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "BudgetConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
     "CalibAggregateDecl": {
       "additionalProperties": false,
       "description": "How several scored targets become one cost.\n\nTwo questions the word \"weight\" runs together. Whether an error is large for\nwhat the instrument can resolve is a property of the measurement, not a\ndecision. What matters more between the outlet and the reservoir is a\ndecision, and the modeller's. The cost is the product of both, never one of\nthem, and this section names which recipe made them addable.\n\nThe literature offers two named recipes and states they are incompatible: one\nover sigma, which makes each residual dimensionless and statistically\ndefensible, and an equal share of the initial objective, which guarantees no\ndata type is invisible to the search. There is no third to invent, only a\nchoice to name and to record.",
@@ -6126,6 +6102,29 @@
           "title": "Dem Init Path",
           "x-hmp-profile": "user"
         },
+        "dem_resolution": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cell size the DEM is aggregated to before anything is delineated, a length ('75 m', a bare number in metres). The routing surface, the catchment, the mesh and the model top all take it. Unset keeps the pixel of the DEM file, which is what the mesh follows otherwise: 25 m for a BD ALTI download. Aggregation only: each coarse cell is the mean of the fine pixels it covers, nodata left out, on a grid aligned on the upper-left corner of the DEM; a value finer than the DEM's own pixel is refused when the run starts. The DEM file is not changed, the aggregated copy lives in the geographic products of the run.",
+          "examples": [
+            "75 m"
+          ],
+          "title": "Dem Resolution",
+          "unit": "m",
+          "x-hmp-profile": "user"
+        },
         "catch_def": {
           "const": "dem",
           "default": "dem",
@@ -6139,120 +6138,6 @@
         }
       },
       "title": "DemCatchDef",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "DerivedConfig": {
-      "additionalProperties": false,
-      "description": "Toggle flags for derived variable computation.\n\nThere is no ``groundwater_flux`` flag: no backend stores the intercell\nface flows it would need. MODFLOW 6 filters FLOW-JA-FACE out of the\nper-cell budget (it is an antisymmetric vector record, not a scalar\nstress term), Boussinesq has no face record at all, and the derivation\ncould only ever fail after the solve. The flag was removed with its\ncomputation rather than kept as a run-killing option.",
-      "properties": {
-        "watertable_elevation": {
-          "default": false,
-          "description": "Persist water-table elevation (uppermost saturated layer) as a Zarr field. Off by default: figures recompute it on the fly from the stored head.",
-          "examples": [
-            false
-          ],
-          "title": "Watertable Elevation",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "watertable_depth": {
-          "default": false,
-          "description": "Persist water-table depth (surface minus water-table elevation) as a Zarr field. Off by default: recomputed on the fly from head at render time.",
-          "examples": [
-            false
-          ],
-          "title": "Watertable Depth",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "seepage_areas": {
-          "default": false,
-          "description": "Persist the seepage mask (water table >= surface elevation) as a Zarr field. Off by default: recomputed on the fly from head at render time.",
-          "examples": [
-            false
-          ],
-          "title": "Seepage Areas",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "release_flux": {
-          "default": false,
-          "description": "Make available the positive per-cell groundwater release flux (m3/s): drains and DRN-TO-MVR, SFR streams, LAK lakes and the surface excess. It is rebuilt on read from the per-cell budget terms, which this option turns on and keeps in the store; no array of its own is written.",
-          "examples": [
-            false
-          ],
-          "title": "Release Flux",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "accumulation_flux": {
-          "default": false,
-          "description": "Make available the positive drain outflow of each cell, routed downstream and accumulated along the drainage paths (m3/s). It needs the per-cell budget.",
-          "examples": [
-            false
-          ],
-          "title": "Accumulation Flux",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "release_accumulation_flux": {
-          "default": false,
-          "description": "Release flux routed on surface drainage paths.",
-          "examples": [
-            false
-          ],
-          "title": "Release Accumulation Flux",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "outflow_drain": {
-          "default": false,
-          "description": "Positive per-cell drain outflow summed over layers.",
-          "examples": [
-            false
-          ],
-          "title": "Outflow Drain",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "concentration_seepage": {
-          "default": false,
-          "description": "Concentration at seepage cells only. Requires transport.",
-          "examples": [
-            false
-          ],
-          "title": "Concentration Seepage",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "mass_seepage": {
-          "default": false,
-          "description": "Mass flux at seepage cells. Requires transport + budget.",
-          "examples": [
-            false
-          ],
-          "title": "Mass Seepage",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "mass_accumulated": {
-          "default": false,
-          "description": "Cumulative mass_seepage over time.",
-          "examples": [
-            false
-          ],
-          "title": "Mass Accumulated",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        }
-      },
-      "title": "DerivedConfig",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -8609,7 +8494,7 @@
           "type": "string",
           "unit": "-",
           "value_docs": {
-            "steady": "Solves one equilibrium state, with no storage term.",
+            "steady": "Solves one equilibrium state, with no storage term: one stress period over the whole [simulation.time] window, whatever its step_value says, with the forcings averaged over the window.",
             "transient": "Solves the heads through time; it starts from the state [flow.ic] gives."
           },
           "widget_type": "select",
@@ -20477,6 +20362,29 @@
           "title": "Dem Init Path",
           "x-hmp-profile": "user"
         },
+        "dem_resolution": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cell size the DEM is aggregated to before anything is delineated, a length ('75 m', a bare number in metres). The routing surface, the catchment, the mesh and the model top all take it. Unset keeps the pixel of the DEM file, which is what the mesh follows otherwise: 25 m for a BD ALTI download. Aggregation only: each coarse cell is the mean of the fine pixels it covers, nodata left out, on a grid aligned on the upper-left corner of the DEM; a value finer than the DEM's own pixel is refused when the run starts. The DEM file is not changed, the aggregated copy lives in the geographic products of the run.",
+          "examples": [
+            "75 m"
+          ],
+          "title": "Dem Resolution",
+          "unit": "m",
+          "x-hmp-profile": "user"
+        },
         "catch_def": {
           "const": "from_outlet_coord",
           "default": "from_outlet_coord",
@@ -21673,6 +21581,29 @@
           "default": null,
           "description": "Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.",
           "title": "Dem Init Path",
+          "x-hmp-profile": "user"
+        },
+        "dem_resolution": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cell size the DEM is aggregated to before anything is delineated, a length ('75 m', a bare number in metres). The routing surface, the catchment, the mesh and the model top all take it. Unset keeps the pixel of the DEM file, which is what the mesh follows otherwise: 25 m for a BD ALTI download. Aggregation only: each coarse cell is the mean of the fine pixels it covers, nodata left out, on a grid aligned on the upper-left corner of the DEM; a value finer than the DEM's own pixel is refused when the run starts. The DEM file is not changed, the aggregated copy lives in the geographic products of the run.",
+          "examples": [
+            "75 m"
+          ],
+          "title": "Dem Resolution",
+          "unit": "m",
           "x-hmp-profile": "user"
         },
         "catch_def": {
@@ -24110,7 +24041,7 @@
     },
     "ResultsConfig": {
       "additionalProperties": false,
-      "description": "Configuration for ``[simulation.results]``.\n\nControls whether simulation outputs are stored in the Catalog and\nwhich derived variables are computed. Automated export formats live in the\ntop-level ``[export]`` section (:class:`ExportConfig`), not here.",
+      "description": "Configuration for ``[simulation.results]``.\n\nControls whether simulation outputs are stored in the Catalog, which raw\nsolver files are kept and how much of the per-cell budget a run keeps.\nEvery derived field is rebuilt on read. Automated export formats live in\nthe top-level ``[export]`` section (:class:`ExportConfig`), not here.",
       "properties": {
         "persistence": {
           "$ref": "#/$defs/PersistenceConfig",
@@ -24127,14 +24058,15 @@
           "type": "boolean",
           "x-hmp-profile": "user"
         },
-        "derived": {
-          "$ref": "#/$defs/DerivedConfig",
-          "description": "Derived variable computation toggles.",
-          "x-hmp-profile": "user"
-        },
-        "budget": {
-          "$ref": "#/$defs/BudgetConfig",
-          "x-hmp-profile": "user"
+        "keep_per_cell_budget": {
+          "default": true,
+          "description": "Keep every per-cell budget term the solver produces, storage terms included, so every flux can be mapped, exported and read after the run is sealed (hmp export, hmp viz show, the Python API), and every derived field is rebuilt on read. False keeps only the terms the run's own consumers read: the figures of [display].figures, the [[export]] blocks, the calibration criterion and the seepage mask of a surface-excess solver. A later read of anything else then needs a new run. On a daily run, true is the heaviest group of the store: about 300 MB for six daily years on about 21 000 cells, 3.7 times the head.",
+          "examples": [
+            true
+          ],
+          "title": "Keep Per Cell Budget",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
         }
       },
       "title": "ResultsConfig",
@@ -25047,7 +24979,7 @@
             }
           ],
           "default": "1 month",
-          "description": "Forcing/stress-period time-step scalar or inline token '<value> <unit>' (for example '30 day'). This controls the temporal aggregation step for forcing series (for example recharge/runoff) and the resulting stress periods.",
+          "description": "Forcing/stress-period time-step scalar or inline token '<value> <unit>' (for example '30 day'). This controls the temporal aggregation step for forcing series (for example recharge/runoff) and the resulting stress periods. Not read by a steady run (flow.flow_regime = 'steady'), which is one stress period over the whole window, its forcings averaged over it.",
           "examples": [
             "1 month",
             "10 day"
@@ -28469,6 +28401,29 @@
           "default": null,
           "description": "Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.",
           "title": "Dem Init Path",
+          "x-hmp-profile": "user"
+        },
+        "dem_resolution": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cell size the DEM is aggregated to before anything is delineated, a length ('75 m', a bare number in metres). The routing surface, the catchment, the mesh and the model top all take it. Unset keeps the pixel of the DEM file, which is what the mesh follows otherwise: 25 m for a BD ALTI download. Aggregation only: each coarse cell is the mean of the fine pixels it covers, nodata left out, on a grid aligned on the upper-left corner of the DEM; a value finer than the DEM's own pixel is refused when the run starts. The DEM file is not changed, the aggregated copy lives in the geographic products of the run.",
+          "examples": [
+            "75 m"
+          ],
+          "title": "Dem Resolution",
+          "unit": "m",
           "x-hmp-profile": "user"
         },
         "catch_def": {

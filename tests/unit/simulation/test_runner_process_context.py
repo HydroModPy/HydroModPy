@@ -132,7 +132,6 @@ def test_run_solver_step_uses_injected_launcher() -> None:
                 results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=False))
             )
         ),
-        effective_results_config=None,
         setup=SimpleNamespace(workspace=None),
     )
 
@@ -189,7 +188,6 @@ def test_run_solver_step_hands_the_run_catalog_to_the_launcher(monkeypatch) -> N
                 results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=True))
             )
         ),
-        effective_results_config=None,
         setup=SimpleNamespace(workspace=object()),
         sim_id="sim-1",
     )

@@ -37,7 +37,7 @@ def test_model_json_schema_exposes_profile_metadata():
 
     assert props["workflow"]["x-hmp-profile"] == "user"
     defs = schema["$defs"]
-    assert defs["DerivedConfig"]["properties"]["outflow_drain"]["x-hmp-profile"] == "dev"
+    assert defs["ResultsConfig"]["properties"]["keep_per_cell_budget"]["x-hmp-profile"] == "dev"
     assert defs["Modflow6Config"]["properties"]["runtime"]["x-hmp-profile"] == "expert"
 
 

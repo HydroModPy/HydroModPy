@@ -25,7 +25,6 @@ def _ctx(*, save_catalog: bool, lightweight: bool, workspace: object) -> SimpleN
                 results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=save_catalog))
             )
         ),
-        effective_results_config=None,
         execution=SimpleNamespace(lightweight=lightweight),
         setup=SimpleNamespace(workspace=workspace),
     )

@@ -538,23 +538,32 @@ def store_field_signature(store, sim_id: str, variable: str) -> dict:
     Reads the last available timestep and computes the same stats as
     ``modflow_signature`` so golden comparison is identical.
     """
-    # Scan all available timesteps for this variable (up to a reasonable max).
-    available = 0
-    for t in range(10000):
-        try:
-            store.query_field(sim_id, variable, t)
-            available = t + 1
-        except (KeyError, IndexError, Exception) as exc:
-            # Zarr raises BoundsCheckError (subclass of IndexError) when out of range.
-            if "out of bounds" in str(exc).lower() or isinstance(exc, (KeyError, IndexError)):
-                break
-            break
+    from hydromodpy.results.derive.virtual_fields import read_field_range_or_virtual
+
+    sz = store.open_zarr(sim_id)
+    try:
+        # The time axis is the one of the stored array, else the one of the head
+        # a rebuilt field follows.
+        owner = next(
+            (
+                group
+                for group in (sz.root, sz.root.get("derived"), sz.root.get("budget"))
+                if group is not None and variable in group
+            ),
+            None,
+        )
+        axis = owner[variable] if owner is not None else sz.root.get("head")
+        available = int(axis.shape[0]) if axis is not None and axis.ndim > 1 else 0
+    finally:
+        sz.close()
 
     if available == 0:
         raise KeyError(f"Variable '{variable}' has no timesteps for sim={sim_id}")
 
     last_t = available - 1
-    arr = np.asarray(store.query_field(sim_id, variable, last_t), dtype=float)
+    arr = np.asarray(
+        read_field_range_or_virtual(store, sim_id, variable, last_t, available)[0], dtype=float
+    )
     # Flatten multi-layer to 1D (same as legacy .npy which stored flat arrays).
     if arr.ndim > 1:
         arr = arr.reshape(-1)

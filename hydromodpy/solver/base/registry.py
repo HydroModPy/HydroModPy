@@ -453,7 +453,7 @@ def load_extractor_plugins(*, force: bool = False) -> int:
 
     Each entry-point name must be ``"<process_type>_<solver_name>"`` (e.g.
     ``"flow_modflow6"``). The loaded value must be a class implementing the
-    extractor contract (``extract`` / ``derive``).
+    extractor contract (``extract``).
     """
     global _EXTRACTOR_PLUGINS_LOADED
     if _EXTRACTOR_PLUGINS_LOADED and not force:

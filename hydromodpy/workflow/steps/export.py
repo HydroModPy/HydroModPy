@@ -80,50 +80,6 @@ def step_save_run_artifacts(
 
 
 # ---------------------------------------------------------------------------
-# Intermediate cleanup
-# ---------------------------------------------------------------------------
-
-
-def step_drop_intermediate_budget(ctx: WorkflowContext, *, store: SimulationStore) -> None:
-    """Drop the per-cell budget group when reconciliation forced it on.
-
-    Computing is not persisting. A user who writes
-    ``[simulation.results.budget] spatial_fields = true`` keeps the group.
-    A user who only asked for a figure gets what the figure needs, not the
-    raw per-cell budget consumed on the way: that one is written, read by
-    the derive phase and by the figures, then removed. It runs last in the
-    export step, after every consumer of the run and just before the store
-    is sealed.
-
-    ``release_flux`` is rebuilt on read from the budget terms that carry water
-    out of the aquifer, so a run that asked for it keeps those terms and drops
-    the others: the field stays available once the run is sealed.
-    """
-    from hydromodpy.core.field_routing import RELEASE_BUDGET_KEYS
-    from hydromodpy.workflow.steps.planning import BUDGET_SPATIAL_FLAG
-
-    if BUDGET_SPATIAL_FLAG not in tuple(getattr(ctx, "forced_results_flags", ())):
-        return
-    sim_id = ctx.sim_id
-    if sim_id is None:
-        return
-    results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
-    keep = RELEASE_BUDGET_KEYS if results_cfg.derived.release_flux else ()
-    sz = store.open_zarr(sim_id)
-    try:
-        freed = sz.drop_group("budget", keep=keep)
-    finally:
-        sz.close()
-    if freed:
-        logger.info(
-            "Dropped the intermediate per-cell budget from the store (%.2f MB freed%s). "
-            "Set [simulation.results.budget] spatial_fields = true to keep it.",
-            freed / 1e6,
-            ", release_flux terms kept" if keep else "",
-        )
-
-
-# ---------------------------------------------------------------------------
 # Store finalization
 # ---------------------------------------------------------------------------
 
@@ -364,7 +320,7 @@ class ExportStep:
 
         wall_seconds = float(state.get("wall_seconds", 0.0) or 0.0)
 
-        results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
+        results_cfg = ctx.cfg.simulation.results
         if run_is_catalogued(ctx):
             with run_catalog(ctx) as store:
                 step_save_run_artifacts(ctx, wall_seconds, store=store)
@@ -382,9 +338,8 @@ class ExportStep:
 
                     export_requests = list(ctx.cfg.export)
                     save_catalog = bool(results_cfg.persistence.save_catalog)
-                    # The data requests run before the intermediate budget is
-                    # dropped and before the seal: a per-cell budget field is
-                    # still there to be exported.
+                    # The data requests read the fields of the run, not its
+                    # seal: they run before it.
                     exported = auto_export_results(
                         sim_id=ctx.sim_id,
                         store=store,
@@ -410,7 +365,6 @@ class ExportStep:
                         save_catalog=save_catalog,
                         run_id=ctx.setup.run_id,
                     )
-                step_drop_intermediate_budget(ctx, store=store)
                 # Seal first, package second: the archive must carry the
                 # manifest and the provenance the seal writes, and the packer
                 # reads the index and the live Zarr through the same handle.

@@ -1,4 +1,4 @@
-"""Unit tests for derived-variable computation (watertable, seepage)."""
+"""The water table and the seepage mask are rebuilt on read from the stored head."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ from uuid import uuid4
 import numpy as np
 import pytest
 
-from hydromodpy.simulation.extraction.derivation.derived import compute_derived
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -17,7 +16,7 @@ def catalog(tmp_path):
         yield cat
 
 
-class TestDerivedVariables:
+class TestVariablesRebuiltOnRead:
     def _setup_sim_with_head(self, catalog, n_ts=3, n_layers=2, n_cells=10):
         sid = str(uuid4())
         reg = catalog.register_simulation(
@@ -51,23 +50,11 @@ class TestDerivedVariables:
 
     def test_watertable_elevation(self, catalog):
         sid = self._setup_sim_with_head(catalog)
-        compute_derived(
-            sid,
-            catalog,
-            {"watertable_elevation": True, "watertable_depth": False, "seepage_areas": False},
-        )
-
         wt = catalog.query_field(sid, "watertable_elevation", 0)
         assert wt.shape == (10,)
 
     def test_watertable_depth(self, catalog):
         sid = self._setup_sim_with_head(catalog)
-        compute_derived(
-            sid,
-            catalog,
-            {"watertable_elevation": True, "watertable_depth": True, "seepage_areas": False},
-        )
-
         depth = catalog.query_field(sid, "watertable_depth", 0)
         assert depth.shape == (10,)
         # top=10, head~8-12, so depth = 10 - wt should be roughly -2 to 2
@@ -75,12 +62,6 @@ class TestDerivedVariables:
 
     def test_seepage_mask(self, catalog):
         sid = self._setup_sim_with_head(catalog)
-        compute_derived(
-            sid,
-            catalog,
-            {"watertable_elevation": True, "watertable_depth": False, "seepage_areas": True},
-        )
-
         seep = catalog.query_field(sid, "seepage_mask", 0)
         assert seep.shape == (10,)
         # Some cells have head > 10 (surface), so seepage > 0

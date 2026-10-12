@@ -17,7 +17,7 @@ Refer to ``reports_db/03_zarr_stores.md`` and
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +26,7 @@ import zarr
 from filelock import FileLock
 from upath import UPath
 
+from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.field_precision import DEFAULT_FIELD_PRECISION, FieldPrecision
 from hydromodpy.results.zarr_store import zarr_finalizer, zarr_reader, zarr_writer
 from hydromodpy.results.zarr_store.zarr_finalizer import (
@@ -314,6 +315,10 @@ class SimulationZarr:
             subgroup=subgroup,
         )
 
+    def write_budget_policy(self, keep: BudgetKeep, written: Iterable[str]) -> None:
+        """Record on ``budget/`` the policy applied and the per-cell terms kept."""
+        zarr_writer.write_budget_policy(self, keep, written)
+
     def write_static_field(
         self,
         variable: str,
@@ -498,10 +503,6 @@ class SimulationZarr:
     def consolidate_metadata(self) -> None:
         """Consolidate Zarr metadata into a single ``.zmetadata`` entry."""
         zarr_finalizer.consolidate_metadata(self._store, self._path)
-
-    def drop_group(self, name: str, *, keep: Collection[str] = ()) -> int:
-        """Delete a top-level group but the members named in ``keep``; return bytes freed."""
-        return zarr_finalizer.drop_group(self, name, keep=keep)
 
     def close(self) -> None:
         zarr_finalizer.close(self)

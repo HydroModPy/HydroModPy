@@ -81,7 +81,7 @@ def patched_registry(monkeypatch, runs_module):
             if name.startswith("bad_"):
                 raise KeyError(name)
             # 'na_' stubs are inapplicable by nature (no such process in the
-            # run); 'nd_' stubs miss a field a results.derived flag produces;
+            # run); 'nd_' stubs miss a field rebuilt from budget terms the run did not keep;
             # 'nb_' stubs miss a raw budget field the budget switch keeps.
             required: tuple[str, ...] = ()
             if name.startswith("nd_"):
@@ -197,12 +197,12 @@ def test_inapplicable_figure_skip_stays_quiet(
     assert [r.levelname for r in records] == ["DEBUG"]
 
 
-def test_uncomputed_derived_field_skip_warns(
+def test_derived_field_without_its_budget_terms_skip_warns(
     tmp_path, patched_registry, runs_module, hmp_log_records
 ):
-    # A field only a disabled results.derived flag would have written is a
-    # computation the run was asked for and did not do: it must be visible,
-    # and the message must name the flag to enable.
+    # A derived field is rebuilt on read from budget terms. A run that did not
+    # keep them cannot serve it: the skip must be visible, and the message must
+    # name the option that keeps the per-cell budget.
     runs_module.render_figures_for_run(
         _StubRun(),
         _skip_config("nd_active_network"),
@@ -210,13 +210,13 @@ def test_uncomputed_derived_field_skip_warns(
     )
     records = [r for r in hmp_log_records if "nd_active_network" in r.getMessage()]
     assert [r.levelname for r in records] == ["WARNING"]
-    assert "accumulation_flux" in records[0].getMessage()
+    assert "[simulation.results] keep_per_cell_budget = true" in records[0].getMessage()
 
 
-def test_dropped_budget_field_skip_warns(tmp_path, patched_registry, runs_module, hmp_log_records):
-    # Re-rendering a gallery on a run whose intermediate per-cell budget was
-    # dropped finds no raw budget field. The figure cannot come back without a
-    # new solve, so the skip names the switch to set instead of vanishing.
+def test_unkept_budget_field_skip_warns(tmp_path, patched_registry, runs_module, hmp_log_records):
+    # Re-rendering a gallery on a run that did not keep a raw budget field
+    # cannot bring the figure back without a new solve, so the skip names the
+    # switch to set instead of vanishing.
     runs_module.render_figures_for_run(
         _StubRun(),
         _skip_config("nb_recharge_map"),
@@ -224,7 +224,7 @@ def test_dropped_budget_field_skip_warns(tmp_path, patched_registry, runs_module
     )
     records = [r for r in hmp_log_records if "nb_recharge_map" in r.getMessage()]
     assert [r.levelname for r in records] == ["WARNING"]
-    assert "[simulation.results.budget] spatial_fields = true" in records[0].getMessage()
+    assert "[simulation.results] keep_per_cell_budget = true" in records[0].getMessage()
 
 
 def test_save_false_skips_filesystem(tmp_path, patched_registry, runs_module):

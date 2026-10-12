@@ -18,7 +18,7 @@ the twelve steps, and where to add what.
 | `orchestrator.py` | `standard_steps()`, the order of the twelve; `prepare_runtime()`, the model phase (workspace, geographic, data, mesh) in one call |
 | `runner.py` | `Pipeline`: runs the steps, writes the journal and the heartbeat, resumes, verifies the resolved manifest |
 | `dag.py`, `parallel.py` | the step graph built from `depends_on()` and its cohorts (Kahn sort); the executors that run a cohort and the sweep helper `run_sweep` |
-| `internals/` | the primitives: `PipelineState` and the `Step` protocol, `ResolvedRunManifest` (the step blueprint and the config digest), `earliest_affected_step` (which step an override reaches), `DerivedRegistry` (ordered derived fields), the description of what a data load read |
+| `internals/` | the primitives: `PipelineState` and the `Step` protocol, `ResolvedRunManifest` (the step blueprint and the config digest), `earliest_affected_step` (which step an override reaches), the description of what a data load read |
 | `tracking/` | `WorkflowJournal` (the `workflow_steps` table of the catalog), `WorkflowEventStream`, `ResumePlanner`, `HeartbeatPulse` |
 | `phases.py` | the phase vocabulary that `Project` and `Pipeline` share |
 | `launcher_protocol.py` | the `Launcher` Protocol: what drives a plan against a state; `SimulationRunner` is the one in tree |
@@ -44,8 +44,8 @@ on, so the graph is a chain and every cohort holds one step.
 | `prepare_solver` | `steps/prepare_solver/` | the simulation plan, the run registered in the catalog, the inputs frozen |
 | `run_solver` | `steps/run_solver.py` | the plan, executed by `SimulationRunner` |
 | `extract` | `steps/extract.py` | the solver files read into the store, the observations ingested |
-| `derive` | `steps/derive.py` | derived fields |
-| `display` | `steps/display.py` | the figures of `[display]`, drawn while the intermediate fields still exist |
+| `derive` | `steps/derive.py` | the catchment aggregates, the observation points and the fit metrics |
+| `display` | `steps/display.py` | the figures of `[display]`, drawn before the store is sealed |
 | `export` | `steps/export.py` | the `[[export]]` requests, then the store sealed |
 
 `steps/planning.py` builds the `SimulationPlan`. `steps/calibration.py` renders the
@@ -118,7 +118,7 @@ hydromodpy/workflow/
 |---|---|
 | a step | a module in `steps/` with its `step_*` function and `*Step` class, exported by `steps/__init__.py`, placed in `standard_steps()`, with `depends_on`, `reads`, `writes` and `config_sections` |
 | a persistent step | `artifacts` and `rebuild_state` on the step, so a resume can skip it |
-| a derived field | a computation registered in `internals/derived.py` (`DerivedRegistry`) |
+| a derived field | a row of `VIRTUAL_FIELD_ROWS` in `results/derive/virtual_fields.py`: it is rebuilt on read, never written by a step |
 | a way to bind loaded data | a function in `steps/data.py` calling the binder of `physics` or `spatial` |
 | a workflow mode | a name in `KNOWN_WORKFLOWS` (`dispatch.py`) and its adapter in `project/dispatch/workflow.py`; see `project/README.md` |
 | a standalone launcher | a class in `pipelines/` on the steps it needs |

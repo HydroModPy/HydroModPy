@@ -11,12 +11,18 @@ of hidden state and can be unit-tested in isolation.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import zarr
 
+from hydromodpy.core.budget_terms import (
+    BUDGET_KEPT_TERMS_ATTR,
+    BUDGET_POLICY_ATTR,
+    POLICY_ALL,
+    BudgetKeep,
+)
 from hydromodpy.core.field_precision import (
     KEPT_MANTISSA_BITS,
     QUANTIZATION_ALGORITHM,
@@ -774,6 +780,25 @@ def write_field_stack(
 
         arr = target[variable]
         arr[offset : offset + int(values.shape[0])] = values
+
+
+def write_budget_policy(
+    store_obj: SimulationZarr, keep: BudgetKeep, written: Iterable[str]
+) -> None:
+    """Record on ``budget/`` the policy an extractor applied and the terms it kept.
+
+    Under ``"all"`` the kept terms are the names written under ``budget/``.
+    Under ``"consumers"`` they are the terms of the plan, produced or not: a
+    kept term with no array is one the model does not produce. The group is
+    created when absent, so a store that wrote nothing still says so.
+    """
+    if keep.policy == POLICY_ALL:
+        kept = sorted({str(name) for name in written})
+    else:
+        kept = sorted(keep.terms)
+    with store_obj._guard_write():
+        group = _field_target(store_obj, "budget")
+        update_attrs(group, {BUDGET_POLICY_ATTR: keep.policy, BUDGET_KEPT_TERMS_ATTR: kept})
 
 
 # -- Forcing -----------------------------------------------------------------

@@ -57,7 +57,6 @@ class _FakeExtractor:
 
     def __init__(self) -> None:
         self.extract_calls: list[dict] = []
-        self.derive_calls: list[dict] = []
 
     def extract(self, sim_id, solver_output_dir, store, **kwargs) -> None:
         self.extract_calls.append(
@@ -67,9 +66,6 @@ class _FakeExtractor:
                 "kwargs": dict(kwargs),
             }
         )
-
-    def derive(self, sim_id, store, derived_flags) -> None:
-        self.derive_calls.append({"sim_id": sim_id, "derived_flags": dict(derived_flags)})
 
 
 class _FakeLumpedExtractor(_FakeExtractor):

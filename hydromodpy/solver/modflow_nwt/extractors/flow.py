@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.exceptions import ExtractError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import (
@@ -18,6 +19,7 @@ from hydromodpy.solver.modflow_common.budget_components import (
     canonical_budget_component,
     is_scalar_budget_component,
 )
+from hydromodpy.solver.modflow_common.budget_policy import record_budget_policy
 from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
@@ -91,7 +93,7 @@ class ModflowNwtOutputAdapter:
         hdry: float,
         hnoflo: float,
         model_name: str | None = None,
-        budget_spatial_fields: bool = False,
+        budget_terms: BudgetKeep = BudgetKeep.everything(),
         start_datetime: object | None = None,
     ) -> None:
         """Read .hds and .cbc files and write fields into the store.
@@ -101,6 +103,9 @@ class ModflowNwtOutputAdapter:
         hnoflo``). They carry no default here: masking a user's heads against
         the stock -100 / -9999 would silently keep sentinel values in the
         field, or blank out real heads that happen to sit near them.
+
+        ``budget_terms`` says which per-cell budget terms go under
+        ``budget/``. The lumped budget table holds every term whatever it says.
         """
         import flopy.utils.binaryfile as bf
 
@@ -173,9 +178,11 @@ class ModflowNwtOutputAdapter:
                 nlay,
                 nrow,
                 ncol,
-                spatial_fields=budget_spatial_fields,
+                budget_terms=budget_terms,
                 flux_scale_to_m3_s=flux_scale_to_m3_s,
             )
+        else:
+            record_budget_policy(store, sim_id, budget_terms, ())
 
         lst_path = _listing_path(solver_output_dir, model_name)
         if lst_path.exists():
@@ -204,7 +211,7 @@ class ModflowNwtOutputAdapter:
         nrow: int,
         ncol: int,
         *,
-        spatial_fields: bool = False,
+        budget_terms: BudgetKeep = BudgetKeep.everything(),
         flux_scale_to_m3_s: float = 1.0,
     ) -> None:
         """Extract the scalar stress and storage terms of the .cbc file.
@@ -221,6 +228,10 @@ class ModflowNwtOutputAdapter:
         field means anything on them. Kept, they also write one full
         (n_steps, nlay, n_cells) array per direction that no field of the
         registry names and that every walk of ``budget/`` picks up.
+
+        The budget table holds every scalar record. A per-cell field is built
+        and written only for a term ``budget_terms`` keeps. The ``budget/``
+        attributes record the policy and the terms kept.
         """
 
         cbb = open_cell_budget(cbc_path)
@@ -240,8 +251,11 @@ class ModflowNwtOutputAdapter:
         n_timesteps = len(times)
         budget_records: list[dict] = []
         budget_slab = slab_steps(nlay, n_cells)
+        written: set[str] = set()
         for component in record_names:
             comp_key = canonical_budget_component(component)
+            # No synthetic term is built from an NWT record: a slab only for a kept term.
+            per_cell = budget_terms.keeps(comp_key)
             slab_stack: np.ndarray | None = None
             window_t0 = 0
             spatial_written = False
@@ -287,7 +301,7 @@ class ModflowNwtOutputAdapter:
                         "unit": "m3/s",
                     }
                 )
-                if spatial_fields and arrays[0].ndim >= 2:
+                if per_cell and arrays[0].ndim >= 2:
                     arr = weighted_period_mean(arrays, weights)
                     field = arr.reshape(nlay, n_cells) if arr.ndim == 3 else arr.reshape(1, n_cells)
                     if slab_stack is not None and t >= window_t0 + budget_slab:
@@ -326,12 +340,16 @@ class ModflowNwtOutputAdapter:
                     timestep_offset=window_t0,
                     subgroup="budget",
                 )
+                spatial_written = True
+            if spatial_written:
+                written.add(comp_key)
 
         # Keep the historical time-major record order for downstream readers.
         budget_records.sort(key=lambda record: record["timestep"])
         if budget_records:
             store.write_budgets(sim_id, budget_records)
         cbb.close()
+        record_budget_policy(store, sim_id, budget_terms, written)
 
     def _extract_mass_balance(
         self,
@@ -475,15 +493,3 @@ class ModflowNwtOutputAdapter:
                 sz.close()
         except Exception:
             logger.debug("Could not write surface elevation for sim %s", sim_id)
-
-    def derive(
-        self,
-        sim_id: str,
-        store: Any,
-        config: dict | None = None,
-    ) -> None:
-        """Compute derived variables from stored head fields."""
-        from hydromodpy.simulation.extraction.derivation.derived import compute_derived
-
-        cfg = config or {}
-        compute_derived(sim_id, store, cfg)

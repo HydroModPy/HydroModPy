@@ -99,15 +99,3 @@ class Mt3dmsExtractorBase:
         import flopy.utils.binaryfile as bf
 
         return bf.UcnFile(str(ucn_path))
-
-    def derive(
-        self,
-        sim_id: str,
-        store: Any,
-        config: dict | None = None,
-    ) -> None:
-        """Compute derived variables from stored concentration fields."""
-        from hydromodpy.simulation.extraction.derivation.derived import compute_derived
-
-        cfg = config or {}
-        compute_derived(sim_id, store, cfg)

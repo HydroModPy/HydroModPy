@@ -349,14 +349,8 @@ project_results.zarr/
     +-- head                               # (ntimesteps, nlayers, ncells) float64
     +-- concentration                      # (ntimesteps, nlayers, ncells) float64
     |
-    +-- derived/                           # Variables derivees (configurable)
-    |   +-- watertable_elevation           # (ntimesteps, ncells) float64 - 2D
-    |   +-- watertable_depth               # (ntimesteps, ncells) float64 - 2D
-    |   +-- seepage_areas                  # (ntimesteps, ncells) bool - 2D
-    |   +-- accumulation_flux              # (ntimesteps, ncells) float64 - 2D
-    |   +-- concentration_seepage          # (ntimesteps, ncells) float64 - 2D
-    |   +-- mass_seepage                   # (ntimesteps, ncells) float64 - 2D
-    |   +-- mass_accumulated               # (ntimesteps, ncells) float64 - 2D
+    +-- derived/                           # Parametres statiques seulement; les champs
+    |                                      # derives sont reconstruits a la lecture
     |
     +-- budget/                            # Champs spatiaux par composante (optionnel)
     |   +-- drn                            # (ntimesteps, nlayers, ncells)
@@ -860,28 +854,31 @@ L'OutputAdapter detecte automatiquement les composantes de budget presentes
 dans le CellBudgetFile (`cbb.get_unique_record_names()`) et extrait :
 - Les **totaux agreses** (in/out par composante par timestep) → DuckDB `budgets`
 - Les **champs spatiaux** par composante → Zarr `budget/{component}`
-  (optionnel, si `budget.spatial_fields = true`)
+  (tous gardes par defaut; avec `keep_per_cell_budget = false`, seulement les
+  termes que lisent les consommateurs declares du run)
 
 Composantes MODFLOW typiques : DRN, RCH/RCHA, WEL, RIV, GHB, CHD, STO-SS,
 STO-SY, FLOW-JA-FACE.
 
-**Phase 2 - Variables derivees (configurable via TOML)**
+**Phase 2 - Variables derivees (reconstruites a la lecture)**
 
-Calculees a partir des sorties brutes, stockees dans Zarr `derived/` :
+Aucun champ derive n'est ecrit apres le run. Chacun est reconstruit a la
+lecture depuis la charge et les termes du budget par maille
+(`hydromodpy/results/derive/virtual_fields.py`) :
 
 | Variable derivee | Calcul | Dependances |
 |------------------|--------|-------------|
-| `watertable_elevation` | `flopy.utils.postprocessing.get_water_table(head)` | head |
+| `watertable_elevation` | couche saturee la plus haute | head |
 | `watertable_depth` | `SolverMesh.top - watertable_elevation` | head, mesh |
-| `seepage_areas` | `watertable_elevation >= SolverMesh.top` (booleen) | head, mesh |
-| `accumulation_flux` | routage des flux de drain sur le reseau hydrographique | budget (DRN) |
+| `seepage_mask` | `watertable_elevation >= SolverMesh.top`, ou exces de surface | head, mesh |
+| `release_flux` | somme des flux sortants (drain, stream, lake, exces) | budget |
+| `accumulation_flux` | routage des flux de drain sur le descent `mesh/descent_*` | budget (DRN), mesh |
 | `concentration_seepage` | concentration aux cellules de suintement uniquement | concentration, seepage |
 | `mass_seepage` | flux de masse au suintement | concentration, budget |
 | `mass_accumulated` | cumul temporel de mass_seepage | mass_seepage |
 
-Note : `watertable_depth` depend de `SolverMesh.top` (elevation de surface),
-qui est une donnee du maillage deja disponible dans l'OutputAdapter - pas
-besoin d'interroger les data managers.
+Le groupe `budget/` declare ce qu'il garde par ses attributs `policy` et
+`kept_terms`.
 
 ### Suppression des fichiers solver
 
@@ -1010,22 +1007,9 @@ keep_solver_files = false          # garder les fichiers proprietaires du solver
                                    # defaut: false → supprimes apres ingestion
                                    # mettre true pour debug / reproductibilite
 
-[simulation.results.derived]
-# Variables derivees calculees a partir des sorties brutes.
-# Stockees dans Zarr derived/. Desactiver pour economiser du disque.
-watertable_elevation = true
-watertable_depth = true
-seepage_areas = true
-accumulation_flux = false          # necessite le reseau de drainage
-concentration_seepage = false      # necessite un transport de solute
-mass_seepage = false
-mass_accumulated = false
-
-[simulation.results.budget]
-spatial_fields = false             # stocker les champs spatiaux par composante
-                                   # de budget dans Zarr (DRN, RCH, WEL, ...)
-                                   # volumineux - desactive par defaut
-                                   # les totaux agreges sont toujours dans DuckDB
+keep_per_cell_budget = true        # garder tout le budget par maille (defaut)
+                                   # false : seulement les termes lus par les
+                                   # figures, les [[export]] et le critere
 
 [simulation.results.export]
 # Exports automatiques en fin de simulation.
@@ -1102,13 +1086,12 @@ simulation/results/
 |-- calibration_bridge.py # make_calibration_simulator() wrapper
 |-- adapters/
 |   |-- __init__.py
-|   |-- base.py           # BaseOutputAdapter (protocole : phase 1 + phase 2)
+|   |-- base.py           # BaseOutputAdapter (protocole : extraction)
 |   |-- modflownwt.py     # ModflowNwtOutputAdapter
 |   |-- modflow6.py       # Modflow6OutputAdapter (+ listing parser)
 |   |-- mt3dms.py         # Mt3dmsOutputAdapter
 |   |-- modpath.py        # ModpathOutputAdapter
 |   |-- gr4j.py           # GR4JOutputAdapter
-|   |-- derived.py        # Calcul des variables derivees (phase 2)
 |-- exporters/
 |   |-- __init__.py
 |   |-- netcdf.py         # Export NetCDF-4/UGRID (via xugrid)

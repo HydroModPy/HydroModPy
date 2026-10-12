@@ -983,14 +983,16 @@ class HydroModPyConfig(HydroModelBase):
         """
         toml_path = Path(toml_path).expanduser().resolve()
         raw = load_toml_with_base_config(toml_path)
+        if is_sealed_run_config(toml_path):
+            # A run froze this file in its run directory: drop the keys removed
+            # since, so the run can still be resumed. It goes first: the stored
+            # migration owns the keys a sealed file cannot be told to fix, and the
+            # message for a user file would name a command that does not apply.
+            raw = migrate_stored_config(raw, source=toml_path)
         # A config written against an earlier schema still loads: the migration
         # runs on the parsed payload, in memory. Reading never rewrites the file;
         # only `hmp doctor` does, and the log line says so.
         migrate_config_doc_on_load(raw, source=toml_path)
-        if is_sealed_run_config(toml_path):
-            # A run froze this file in its run directory: drop the keys removed
-            # since, so the run can still be resumed. A user file is not migrated.
-            raw = migrate_stored_config(raw, source=toml_path)
 
         if validate_profile is not None:
             threshold = resolve_profile(validate_profile)

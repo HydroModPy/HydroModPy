@@ -15,6 +15,11 @@ the key to write instead.
 What is migrated, and why it is safe:
 
 - the root ``[persistence]`` table: no run read it;
+- ``[simulation.results.derived]`` and ``[simulation.results.budget]``, at the
+  root and under every comparison or testbed overlay, whatever they hold: a run
+  keeps its whole per-cell budget and rebuilds every derived field on read. The
+  ``spatial_fields`` of a sealed config is false, so it is never carried to the
+  new key;
 - ``solver.backend``, when a flow process names the solver: the backend
   follows the process, which is the solver the run built. A stored backend
   that names another solver predates that rule and is dropped;
@@ -38,6 +43,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.config.config_migration import drop_retired_results_tables
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.solver.base.solver_config import solver_name_of_backend
@@ -107,6 +113,9 @@ def migrate_stored_config(
     if "persistence" in doc:
         del doc["persistence"]
         changes.append("persistence dropped (no run read the root table)")
+    dropped = drop_retired_results_tables(doc)
+    if dropped:
+        changes.append(f"{', '.join(dropped)} dropped (every field is rebuilt on read)")
     changes.extend(_drop_the_stored_backend(doc))
     changes.extend(_drop_the_null_cell_ids(doc))
     changes.extend(_drop_the_unread_names(doc))

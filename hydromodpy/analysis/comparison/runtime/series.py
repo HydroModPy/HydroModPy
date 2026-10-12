@@ -167,23 +167,26 @@ def _virtual_field_slices(
     elapsed_by_index: list,
     has_initial_state: bool,
 ) -> tuple[TimeSlice, ...]:
-    """Build per-timestep slices for an unpersisted field via ``query_field``."""
-    slices: list[TimeSlice] = []
-    for t in range(int(n_slices)):
-        try:
-            values = np.asarray(store.query_field(sim_id, store_field, t), dtype=float).ravel()
-        except Exception:
-            return ()
-        slices.append(
-            TimeSlice(
-                time_key=t,
-                time_index=t,
-                values=values,
-                elapsed_seconds=elapsed_by_index[t] if t < len(elapsed_by_index) else None,
-                is_initial_state=has_initial_state and t == 0,
-            )
+    """Build per-timestep slices for an unpersisted field, rebuilt over the whole range."""
+    from hydromodpy.results.derive.virtual_fields import read_field_range_or_virtual
+
+    try:
+        stack = np.asarray(
+            read_field_range_or_virtual(store, sim_id, store_field, 0, int(n_slices)), dtype=float
         )
-    return tuple(slices)
+    except Exception:
+        return ()
+    rows = stack.reshape(stack.shape[0], -1)
+    return tuple(
+        TimeSlice(
+            time_key=t,
+            time_index=t,
+            values=rows[t],
+            elapsed_seconds=elapsed_by_index[t] if t < len(elapsed_by_index) else None,
+            is_initial_state=has_initial_state and t == 0,
+        )
+        for t in range(rows.shape[0])
+    )
 
 
 def _load_store_series(

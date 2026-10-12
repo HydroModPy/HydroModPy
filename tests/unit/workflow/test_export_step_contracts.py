@@ -8,9 +8,7 @@ import pytest
 
 import hydromodpy.workflow.steps.export as export_module
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.field_routing import RELEASE_BUDGET_KEYS
 from hydromodpy.core.logging import get_logger
-from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.workflow.internals.state import PipelineState
 
 
@@ -54,7 +52,6 @@ def test_an_uncatalogued_run_skips_store_work_but_cleans_scratch(monkeypatch) ->
     )
     ctx = SimpleNamespace(
         cfg=SimpleNamespace(simulation=SimpleNamespace(results=results_cfg)),
-        effective_results_config=None,
         execution=SimpleNamespace(lightweight=False),
         setup=SimpleNamespace(workspace=None),
     )
@@ -86,7 +83,6 @@ def test_a_lightweight_run_never_opens_the_index(monkeypatch) -> None:
     ctx = SimpleNamespace(
         sim_id="sim-123",
         cfg=SimpleNamespace(simulation=SimpleNamespace(results=results_cfg)),
-        effective_results_config=None,
         execution=SimpleNamespace(
             simulation_plan=SimpleNamespace(runs=(SimpleNamespace(is_solver_backed=True),)),
             lightweight=True,
@@ -129,86 +125,6 @@ def test_export_artifacts_filters_to_existing_workspace_relative_paths(tmp_path:
     )
 
     assert export_module.ExportStep().artifacts(state) == ("exports/head.parquet",)
-
-
-class _FakeZarr:
-    """Minimal store handle recording which group was dropped."""
-
-    def __init__(self, present: bool) -> None:
-        self.present = present
-        self.dropped: list[str] = []
-        self.kept: list[tuple[str, ...]] = []
-        self.closed = 0
-
-    def drop_group(self, name: str, *, keep: tuple[str, ...] = ()) -> int:
-        self.dropped.append(name)
-        self.kept.append(tuple(keep))
-        return 12_730_000 if self.present else 0
-
-    def close(self) -> None:
-        self.closed += 1
-
-
-class _ZarrStore(_RecordingStore):
-    def __init__(self, handle: _FakeZarr) -> None:
-        super().__init__()
-        self.handle = handle
-
-    def open_zarr(self, sim_id: str) -> _FakeZarr:
-        return self.handle
-
-
-def test_step_drop_intermediate_budget_removes_a_reconciled_budget() -> None:
-    # Computing is not persisting: a budget switched on by the figure ->
-    # derived -> budget cascade is an intermediate and leaves no trace.
-    handle = _FakeZarr(present=True)
-    ctx = SimpleNamespace(
-        sim_id="sim-123",
-        forced_results_flags=("derived.accumulation_flux", "budget.spatial_fields"),
-        effective_results_config=ResultsConfig(derived={"accumulation_flux": True}),
-    )
-
-    export_module.step_drop_intermediate_budget(ctx, store=_ZarrStore(handle))
-
-    assert handle.dropped == ["budget"]
-    assert handle.kept == [()]
-    assert handle.closed == 1
-
-
-def test_a_run_that_asked_for_release_flux_keeps_the_terms_it_is_rebuilt_from() -> None:
-    # release_flux is served on read from the budget terms that carry water out
-    # of the aquifer: dropping them would make the field vanish at the seal.
-    handle = _FakeZarr(present=True)
-    ctx = SimpleNamespace(
-        sim_id="sim-123",
-        forced_results_flags=("budget.spatial_fields",),
-        effective_results_config=ResultsConfig(derived={"release_flux": True}),
-    )
-
-    export_module.step_drop_intermediate_budget(ctx, store=_ZarrStore(handle))
-
-    assert handle.dropped == ["budget"]
-    assert handle.kept == [RELEASE_BUDGET_KEYS]
-    assert {
-        "drain",
-        "drain_to_mover",
-        "stream",
-        "lake",
-        "constant_head_stream",
-        "surface_excess",
-    } == set(RELEASE_BUDGET_KEYS)
-
-
-def test_step_drop_intermediate_budget_keeps_a_user_requested_budget() -> None:
-    handle = _FakeZarr(present=True)
-    ctx = SimpleNamespace(
-        sim_id="sim-123",
-        forced_results_flags=("derived.accumulation_flux",),
-    )
-
-    export_module.step_drop_intermediate_budget(ctx, store=_ZarrStore(handle))
-
-    assert handle.dropped == []
 
 
 class _IndexedStore(_RecordingStore):

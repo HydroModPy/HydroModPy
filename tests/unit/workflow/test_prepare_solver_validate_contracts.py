@@ -80,7 +80,6 @@ def test_collect_registration_kwargs_collects_mesh_time_and_simulation_metadata(
             time_grid=SimpleNamespace(boundaries=("2020-01-01", "2020-01-02", "2020-01-03")),
             domain=None,
         ),
-        effective_results_config=None,
     )
 
     kwargs = validate_module.collect_registration_kwargs(ctx)

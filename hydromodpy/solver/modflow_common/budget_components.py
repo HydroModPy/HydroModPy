@@ -54,6 +54,10 @@ _CANONICAL_BUDGET_NAMES: dict[str, str] = {
     # river leakage
     "RIVER LEAKAGE": "river",
     "RIV": "river",
+    # MODFLOW-NWT stream (SFR2, STR) and lake (LAK3) exchanges: the same
+    # aquifer fluxes as the MODFLOW 6 SFR and LAK records, signed alike.
+    "STREAM LEAKAGE": "stream",
+    "LAKE SEEPAGE": "lake",
     # constant head
     "CONSTANT HEAD": "constant_head",
     "CHD": "constant_head",
@@ -73,6 +77,9 @@ _CANONICAL_BUDGET_NAMES: dict[str, str] = {
     "SFR": "stream",
     "MVR": "mover",
 }
+
+#: Every canonical name a MODFLOW record can take.
+CANONICAL_BUDGET_TERMS: frozenset[str] = frozenset(_CANONICAL_BUDGET_NAMES.values())
 
 
 def _normalize(record_name: str) -> str:
@@ -101,6 +108,7 @@ def canonical_budget_component(record_name: str) -> str:
 
 
 __all__ = [
+    "CANONICAL_BUDGET_TERMS",
     "canonical_budget_component",
     "is_scalar_budget_component",
 ]

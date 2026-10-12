@@ -15,6 +15,7 @@ import flopy
 import numpy as np
 import pytest
 
+from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.solver.modflow6.extractors.flow import (
     Modflow6OutputAdapter,
     _seconds_per_time_unit,
@@ -24,6 +25,9 @@ from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 
 
 class _FakeStore:
+    # No field store: the extractor records no budget policy.
+    save_zarr = False
+
     def __init__(self) -> None:
         self.times = None
         self.fields: list = []
@@ -131,7 +135,7 @@ def _run_extract(tmp_path: Path, monkeypatch, time_units: str, records: dict[str
     )
     store = _FakeStore()
     Modflow6OutputAdapter().extract(
-        "sim", tmp_path, store, model_name="flow", budget_spatial_fields=False
+        "sim", tmp_path, store, model_name="flow", budget_terms=BudgetKeep.of_terms(())
     )
     return store
 
@@ -165,6 +169,7 @@ def test_mf6_budget_flux_seconds_is_identity(tmp_path, monkeypatch) -> None:
         tmp_path / "flow.cbc",
         [1.0],
         [(0, 0)],
+        budget_terms=BudgetKeep.of_terms(()),
         nlay=1,
         n_cells=2,
         seconds_per_time_unit=1.0,

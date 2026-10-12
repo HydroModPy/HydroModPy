@@ -54,7 +54,10 @@ __all__ = (
     "AGREEMENT_NEITHER",
     "AGREEMENT_VALID",
     "NetworkComparison",
+    "has_recharge_source",
     "network_comparison_from_run",
+    "no_release_flux_reason",
+    "no_recharge_reason",
     "unavailable_reason_for_comparison",
 )
 
@@ -113,6 +116,30 @@ class NetworkComparison:
         return self.supports.counts
 
 
+def no_release_flux_reason(sim: Run) -> str:
+    """Say why a run has no per-cell release flux, and what its store kept."""
+    return _with_kept_budget("run has no per-cell release_flux", "release_flux", sim)
+
+
+def no_recharge_reason(sim: Run, ratio: float) -> str:
+    """Say why the recharge a seepage threshold is a fraction of cannot be read."""
+    return _with_kept_budget(
+        f"a seepage threshold of tau = {float(ratio):g} is a fraction of the recharge the "
+        "model received, and this run persisted no recharge budget and no dated station "
+        "recharge forcing",
+        "recharge",
+        sim,
+    )
+
+
+def _with_kept_budget(reason: str, field: str, sim: Run) -> str:
+    """Append to ``reason`` what the run kept of the per-cell budget, when it matters."""
+    from hydromodpy.results.derive.config_flags import missing_field_explanation
+
+    explanation = missing_field_explanation([field], sim)
+    return f"{reason}. {explanation}" if explanation else reason
+
+
 def unavailable_reason_for_comparison(sim: Run, *, role: str = _REFERENCE_ROLE) -> str | None:
     """Return why this run cannot be compared to a mapped network, or ``None``.
 
@@ -123,9 +150,7 @@ def unavailable_reason_for_comparison(sim: Run, *, role: str = _REFERENCE_ROLE) 
     than failing halfway through a graph build.
     """
     if not sim.has_field("release_flux"):
-        return (
-            "run has no per-cell release_flux: set [simulation.results.derived] release_flux = true"
-        )
+        return no_release_flux_reason(sim)
     if not sim.has_hydrographic_network(role):
         return f"run carries no {role!r} hydrographic network"
     # ``Run.mesh`` raises on a run that has no mesh at all, a lumped GR4J one
@@ -388,15 +413,40 @@ def _mean_recharge_m_s(sim: Run, areas: np.ndarray, *, ratio: float) -> float:
     dates to place it on. A gridded forcing is stored without its time axis,
     and the gridded path writes each period's rate as the forcing gives it, so
     its budget is the forcing on the cells. A zero ratio makes the threshold
-    zero whatever the recharge is, so the run is not asked for one.
+    zero whatever the recharge is, so the run is not asked for one. The gates
+    ask :func:`has_recharge_source`, which answers from the same two sources.
     """
     if float(ratio) == 0.0:
         return 0.0
-    stored = _stored_recharge_forcing_m_s(sim)
-    edges = _run_period_edges(sim) if stored is not None else None
-    if stored is not None and edges is not None:
+    forcing = _recharge_forcing_on_periods(sim)
+    if forcing is not None:
+        stored, edges = forcing
         return criterion_mean_recharge(forcing_period_rates(stored, edges))
-    return _budget_mean_recharge_m_s(sim, areas, ratio=ratio)
+    if not sim.has_field("recharge"):
+        raise ValueError(
+            f"stream comparison unavailable for {sim.sim_id}: {no_recharge_reason(sim, ratio)}. "
+            "Or set tau_specific_ratio = 0 to read the purely geometric criterion."
+        )
+    return _budget_mean_recharge_m_s(sim, areas)
+
+
+def has_recharge_source(sim: Run) -> bool:
+    """Return whether the mean recharge of a positive seepage threshold can be read.
+
+    The one predicate the gates and the computation share: the station forcing
+    the run stores on its period edges, else the recharge budget. A run with
+    either computes the criterion.
+    """
+    return _recharge_forcing_on_periods(sim) is not None or sim.has_field("recharge")
+
+
+def _recharge_forcing_on_periods(sim: Run) -> tuple[pd.Series, pd.DatetimeIndex] | None:
+    """Return the stored station forcing and the period edges to place it on, or None."""
+    stored = _stored_recharge_forcing_m_s(sim)
+    if stored is None:
+        return None
+    edges = _run_period_edges(sim)
+    return None if edges is None else (stored, edges)
 
 
 def _stored_recharge_forcing_m_s(sim: Run) -> pd.Series | None:
@@ -448,20 +498,13 @@ def _run_period_edges(sim: Run) -> pd.DatetimeIndex | None:
     return period_edges(stamps)
 
 
-def _budget_mean_recharge_m_s(sim: Run, areas: np.ndarray, *, ratio: float) -> float:
+def _budget_mean_recharge_m_s(sim: Run, areas: np.ndarray) -> float:
     """Return the mean recharge rate of the budget the solver wrote, in m/s.
 
     Every timestep and every cell of finite area, unweighted. The last
     timestep alone is one day of a transient run: 4.5 times the mean on the
     daily Nancon run.
     """
-    if not sim.has_field("recharge"):
-        raise ValueError(
-            f"stream comparison unavailable for {sim.sim_id}: a seepage threshold of "
-            f"{ratio:g} is a fraction of the recharge the model received, and this run "
-            "persisted no recharge budget. Enable it, or set tau_specific_ratio = 0 to "
-            "read the purely geometric criterion."
-        )
     from hydromodpy.core.stream_extent import CHUNK_ELEMENTS
     from hydromodpy.results.run.geographic import field_steps
 

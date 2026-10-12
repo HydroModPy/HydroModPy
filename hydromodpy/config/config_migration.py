@@ -22,6 +22,10 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
   the lockfile is written on every run.
 - ``geographic.bottom_path`` -> one ``[[data.substratum.sources]]`` entry,
   ``[domain.depth_model]`` left as it is (the old key was never read)
+- ``[simulation.results.derived]`` and ``[simulation.results.budget]`` dropped,
+  whatever they held, at the root and under every comparison or testbed
+  overlay: a run keeps its whole per-cell budget and rebuilds every derived
+  field on read, so neither table has anything left to switch
 - ``roptim_max`` of a network output under ``[calibration.outputs.<name>]``
   dropped when it is 2, the paper's bound, which ``validity_length = "auto"``
   reproduces; any other value is refused, since a ratio has no length without
@@ -55,6 +59,20 @@ _logger = get_logger(__name__)
 
 _SOLVER_SECTIONS = ("modflow6", "modflownwt")
 
+#: The result tables a run no longer reads. A stored config and a user file both
+#: drop them, and the docs list them as migrated keys.
+RETIRED_RESULTS_TABLES: tuple[str, ...] = (
+    "simulation.results.derived",
+    "simulation.results.budget",
+)
+
+# Where a comparison or a testbed holds a fragment of the root config.
+_OVERLAY_MEMBERS = (
+    ("comparison", "simulation"),
+    ("testbed", "case"),
+    ("testbed", "case_from_catalog"),
+)
+
 
 def fix_config_file(path: str | Path) -> list[str]:
     """Rewrite legacy ``[simulation]`` keys in ``path`` in place.
@@ -85,6 +103,7 @@ def migrate_config_doc(doc: Any) -> list[str]:
     human-readable changes applied.
     """
     changes: list[str] = _drop_dead_result_options(doc)
+    changes.extend(_report_retired_results_tables(doc))
     changes.extend(_move_the_bottom_path(doc))
     changes.extend(_flatten_boundary_conditions(doc))
     changes.extend(_drop_the_solver_time_grids(doc))
@@ -458,6 +477,101 @@ def _drop_the_validity_ratio(doc: Any) -> list[str]:
     return changes
 
 
+def _overlays(doc: Any) -> list[tuple[str, Mapping[str, Any]]]:
+    """Return every ``(path, overlay)`` pair: a fragment of the root config.
+
+    A comparison patches the root config under ``base_simulation_overlay`` and
+    under the ``overlay`` of each simulation; a testbed under the ``overlay`` of
+    each case and of each catalog case rule. Every overlay is shaped like a
+    config file, so its ``[simulation.results]`` is read like the root one.
+    """
+    found: list[tuple[str, Any]] = []
+    comparison = doc.get("comparison")
+    if isinstance(comparison, Mapping):
+        found.append(
+            ("comparison.base_simulation_overlay", comparison.get("base_simulation_overlay"))
+        )
+    for owner, member in _OVERLAY_MEMBERS:
+        section = doc.get(owner)
+        entries = section.get(member) if isinstance(section, Mapping) else None
+        if isinstance(entries, Mapping):
+            entries = [entries]
+        if not isinstance(entries, list | tuple):
+            continue
+        for index, entry in enumerate(entries):
+            overlay = entry.get("overlay") if isinstance(entry, Mapping) else None
+            found.append((f"{owner}.{member}[{index}].overlay", overlay))
+    return [(path, overlay) for path, overlay in found if isinstance(overlay, Mapping)]
+
+
+def drop_retired_results_tables(doc: Any) -> list[str]:
+    """Drop :data:`RETIRED_RESULTS_TABLES` from *doc* in place; return the paths dropped.
+
+    The root and every overlay are read, and so are the ``overrides`` of the
+    calibration phases, which write dotted paths into the project config. A
+    table goes whatever it holds: the ``spatial_fields`` of a sealed config is
+    always false, and carrying it to the new key would make every resume lose
+    the per-cell budget again.
+    """
+    names = [table.rsplit(".", 1)[1] for table in RETIRED_RESULTS_TABLES]
+    dropped: list[str] = []
+    for prefix, scope in [("", doc), *((f"{path}.", overlay) for path, overlay in _overlays(doc))]:
+        for name in names:
+            # Fetched again per delete: on an out-of-order tomlkit document a
+            # delete leaves the earlier proxy of [simulation.results] stale.
+            results = _results_table(scope)
+            if results is not None and name in results:
+                del results[name]
+                dropped.append(f"{prefix}simulation.results.{name}")
+    dropped.extend(_drop_retired_phase_overrides(doc))
+    return dropped
+
+
+def _drop_retired_phase_overrides(doc: Any) -> list[str]:
+    """Drop the retired tables a calibration phase writes in its ``overrides``."""
+    phases = (doc.get("calibration") or {}).get("phases")
+    if isinstance(phases, Mapping):
+        phases = [phases]
+    dropped: list[str] = []
+    for index, phase in enumerate(phases or ()):
+        overrides = phase.get("overrides") if isinstance(phase, Mapping) else None
+        if not isinstance(overrides, Mapping):
+            continue
+        where = f"calibration.phases[{index}].overrides"
+        for key in list(overrides):
+            if any(str(key) == t or str(key).startswith(f"{t}.") for t in RETIRED_RESULTS_TABLES):
+                del overrides[key]
+                dropped.append(f'{where}."{key}"')
+        for table in RETIRED_RESULTS_TABLES:
+            *parents, name = table.split(".")
+            node: Any = overrides
+            for part in parents:
+                node = node.get(part) if isinstance(node, Mapping) else None
+            if isinstance(node, Mapping) and name in node:
+                del node[name]
+                dropped.append(f"{where}.{table}")
+    return dropped
+
+
+def _results_table(scope: Any) -> Mapping[str, Any] | None:
+    """Return the ``[simulation.results]`` table of a config-shaped *scope*, if any."""
+    simulation = scope.get("simulation")
+    results = simulation.get("results") if isinstance(simulation, Mapping) else None
+    return results if isinstance(results, Mapping) else None
+
+
+def _report_retired_results_tables(doc: Any) -> list[str]:
+    """Drop the retired result tables of a user file, with the new default."""
+    dropped = drop_retired_results_tables(doc)
+    if not dropped:
+        return []
+    return [
+        f"{', '.join(dropped)} dropped: a run now keeps its whole per-cell budget, "
+        "storage terms included, and rebuilds every derived field on read; "
+        "[simulation.results] keep_per_cell_budget = false keeps less"
+    ]
+
+
 def _solver_tables(doc: Any) -> list[tuple[str, Any]]:
     """Return every ``(path, table)`` pair holding a MODFLOW solver section."""
     tables: list[tuple[str, Any]] = [(name, doc.get(name)) for name in _SOLVER_SECTIONS]
@@ -609,4 +723,10 @@ def _promote_export(doc: Any, simulation: Any) -> list[str]:
     return ["simulation.results.export -> [export]"]
 
 
-__all__ = ["fix_config_file", "migrate_config_doc", "migrate_config_doc_on_load"]
+__all__ = [
+    "RETIRED_RESULTS_TABLES",
+    "drop_retired_results_tables",
+    "fix_config_file",
+    "migrate_config_doc",
+    "migrate_config_doc_on_load",
+]

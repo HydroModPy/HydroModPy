@@ -1,9 +1,8 @@
 """Step 11 - auto-render the figures listed in ``[display].figures``.
 
-Runs after :class:`DeriveStep` and before :class:`ExportStep`. Figures are
-the last reader of the run: they open the catalog for their own span and
-see the intermediate fields (the raw per-cell budget) that the export step
-drops right before sealing. Each figure declared in the TOML is written into
+Runs after :class:`DeriveStep` and before :class:`ExportStep`, which seals
+the store. Figures open the catalog for their own span. Each figure declared
+in the TOML is written into
 ``<project_root>/runs/<run>/<display.output_dir>/``.
 
 Skipped silently when ``display.enabled`` is false, when ``display.figures``

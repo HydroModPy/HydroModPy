@@ -8,6 +8,7 @@ import time
 import pyarrow.parquet as pq
 import pytest
 
+from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.manifest import (
     KEY_PACKAGES,
@@ -98,6 +99,38 @@ def sealed_run(tmp_path):
         catalog.finalize(SID, status="completed")
         run_dir = catalog.run_dir_for(SID)
     return run_dir, read_manifest(run_dir)
+
+
+# -- kept budget --------------------------------------------------------------
+
+
+def test_a_store_without_budget_attributes_writes_no_budget_block(sealed_run):
+    _run_dir, manifest = sealed_run
+
+    assert "budget" not in manifest
+
+
+@pytest.mark.parametrize(
+    ("keep", "written", "expected"),
+    [
+        (BudgetKeep.everything(), ["storage_sy", "recharge"], ["recharge", "storage_sy"]),
+        (BudgetKeep.of_terms({"recharge", "lake"}), ["recharge"], ["lake", "recharge"]),
+        (BudgetKeep.of_terms(()), [], []),
+    ],
+    ids=["all", "consumers", "lumped"],
+)
+def test_the_manifest_repeats_what_the_store_kept_of_the_budget(tmp_path, keep, written, expected):
+    with Catalog(tmp_path / "project") as catalog:
+        _register(catalog)
+        sz = catalog.open_zarr(SID)
+        try:
+            sz.write_budget_policy(keep, written)
+        finally:
+            sz.close()
+        catalog.finalize(SID, status="completed")
+        manifest = read_manifest(catalog.run_dir_for(SID))
+
+    assert manifest["budget"] == {"policy": keep.policy, "kept_terms": expected}
 
 
 # -- sealing ----------------------------------------------------------------

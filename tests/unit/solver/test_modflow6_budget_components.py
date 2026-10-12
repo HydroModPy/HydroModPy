@@ -10,20 +10,20 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow_common.budget_components import is_scalar_budget_component
 
 
 class _FakeStore:
+    # No field store: the extractor records no budget policy.
+    save_zarr = False
+
     def __init__(self) -> None:
         self.budgets: list | None = None
-        self.fields: list = []
 
     def write_budgets(self, sim_id, records) -> None:
         self.budgets = records
-
-    def write_field(self, sim_id, name, t, values, n_timesteps=None, subgroup=None) -> None:
-        self.fields.append((name, t, np.asarray(values)))
 
 
 def _fake_cbc(record_data: dict, kstpkpers: list[tuple[int, int]]):
@@ -82,6 +82,7 @@ def _extract(monkeypatch, tmp_path, record_data, *, times, kstpkpers, nlay=1, n_
         tmp_path / "flow.cbc",
         times,
         kstpkpers,
+        budget_terms=BudgetKeep.of_terms(()),
         nlay=nlay,
         n_cells=n_cells,
         seconds_per_time_unit=1.0,

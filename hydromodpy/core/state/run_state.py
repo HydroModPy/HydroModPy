@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.state.data import LoadedDataContext
 from hydromodpy.core.state.execution import ExecutionRegistry
 from hydromodpy.core.state.setup import SetupContext
@@ -73,12 +74,10 @@ class WorkflowContext:
     # the store-opening step. Calibration promotion reserves it so the row
     # linking the run to its session exists before the run draws its figures.
     reserved_sim_id: str | None = None
-    effective_results_config: Any = field(default=None, repr=False)
 
-    # Dotted results-config paths the planning reconciliation turned on by
-    # itself (never a user choice). Finalization reads them to tell a computed
-    # intermediate apart from a requested output.
-    forced_results_flags: tuple[str, ...] = ()
+    # The per-cell budget this run keeps, decided at planning (or read back
+    # from the store on a resume after extraction). The extraction reads it.
+    budget_terms: BudgetKeep | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -86,7 +85,7 @@ class RunState:
     """What a solver adapter reads of the workflow runtime, and nothing else.
 
     A :class:`WorkflowContext` is the state of a whole pipeline: the loaded support
-    data, the raw TOML, the data plan, the flags the planner forced. An adapter executes
+    data, the raw TOML, the data plan, the budget the planner kept. An adapter executes
     one run and reads two scopes of it. Handing it the context made everything else
     reachable, and the field that carried it was typed ``Any``, so nothing said what an
     adapter was allowed to read. This view says it: the three members below are the

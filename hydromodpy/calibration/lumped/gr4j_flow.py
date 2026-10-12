@@ -69,14 +69,5 @@ class Gr4jFlowExtractor:
 
         logger.info("GR4J results written for sim %s", sim_id)
 
-    def derive(
-        self,
-        sim_id: str,
-        store: Any,
-        config: dict | None = None,
-    ) -> None:
-        """No derived variables for lumped models."""
-        pass
-
 
 __all__ = ["Gr4jFlowExtractor"]

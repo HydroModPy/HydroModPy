@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 import pytest
 
+from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.field_routing import (
     RELEASE_BUDGET_KEYS,
     STREAM_CONSTANT_HEAD_BUDGET,
@@ -129,6 +130,9 @@ class _FakeCbb:
 
 
 class _FakeStore:
+    # No field store: the extractor records no budget policy.
+    save_zarr = False
+
     def __init__(self) -> None:
         self.budgets: list[dict] = []
         self.stacks: dict[str, np.ndarray] = {}
@@ -156,7 +160,7 @@ def test_the_extractor_writes_the_stream_share_and_no_table_row(
         Path("unused.cbc"),
         times=[1.0],
         kstpkpers=[(0, 0)],
-        spatial_fields=True,
+        budget_terms=BudgetKeep.everything(),
         nlay=1,
         n_cells=N_CELLS,
         seconds_per_time_unit=1.0,
