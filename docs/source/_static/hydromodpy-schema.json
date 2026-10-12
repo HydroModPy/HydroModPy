@@ -1190,12 +1190,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -1561,12 +1576,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -1611,12 +1641,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -1654,12 +1699,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -1853,12 +1913,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -1892,12 +1967,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -1995,12 +2085,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -8641,12 +8746,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -8833,12 +8953,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -8982,12 +9117,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -9268,12 +9418,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -9426,12 +9591,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -9825,12 +10005,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -9863,12 +10058,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -10093,12 +10303,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -10219,12 +10444,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -10257,12 +10497,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -10850,12 +11105,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -10888,12 +11158,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -10937,12 +11222,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -11138,12 +11438,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -11225,12 +11540,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -11276,12 +11606,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -11315,12 +11660,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -11632,12 +11992,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -11671,12 +12046,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -11790,12 +12180,27 @@
                   {
                     "properties": {
                       "magnitude": {
-                        "title": "Magnitude",
-                        "type": "string"
+                        "anyOf": [
+                          {
+                            "type": "integer"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ],
+                        "title": "Magnitude"
                       },
                       "units": {
-                        "title": "Units",
-                        "type": "string"
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {}
+                        ],
+                        "title": "Units"
                       }
                     },
                     "type": "object"
@@ -11870,12 +12275,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -12440,12 +12860,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -17869,12 +18304,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -17908,12 +18358,27 @@
                 {
                   "properties": {
                     "magnitude": {
-                      "title": "Magnitude",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "title": "Magnitude"
                     },
                     "units": {
-                      "title": "Units",
-                      "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {}
+                      ],
+                      "title": "Units"
                     }
                   },
                   "type": "object"
@@ -18063,12 +18528,27 @@
                     {
                       "properties": {
                         "magnitude": {
-                          "title": "Magnitude",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "title": "Magnitude"
                         },
                         "units": {
-                          "title": "Units",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {}
+                          ],
+                          "title": "Units"
                         }
                       },
                       "type": "object"
@@ -18146,12 +18626,27 @@
                     {
                       "properties": {
                         "magnitude": {
-                          "title": "Magnitude",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "title": "Magnitude"
                         },
                         "units": {
-                          "title": "Units",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {}
+                          ],
+                          "title": "Units"
                         }
                       },
                       "type": "object"
@@ -18190,12 +18685,27 @@
                     {
                       "properties": {
                         "magnitude": {
-                          "title": "Magnitude",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "title": "Magnitude"
                         },
                         "units": {
-                          "title": "Units",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {}
+                          ],
+                          "title": "Units"
                         }
                       },
                       "type": "object"
@@ -18234,12 +18744,27 @@
                     {
                       "properties": {
                         "magnitude": {
-                          "title": "Magnitude",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "title": "Magnitude"
                         },
                         "units": {
-                          "title": "Units",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {}
+                          ],
+                          "title": "Units"
                         }
                       },
                       "type": "object"
@@ -18306,12 +18831,27 @@
                     {
                       "properties": {
                         "magnitude": {
-                          "title": "Magnitude",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "title": "Magnitude"
                         },
                         "units": {
-                          "title": "Units",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {}
+                          ],
+                          "title": "Units"
                         }
                       },
                       "type": "object"
@@ -18385,12 +18925,27 @@
                     {
                       "properties": {
                         "magnitude": {
-                          "title": "Magnitude",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "title": "Magnitude"
                         },
                         "units": {
-                          "title": "Units",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {}
+                          ],
+                          "title": "Units"
                         }
                       },
                       "type": "object"
@@ -18429,12 +18984,27 @@
                     {
                       "properties": {
                         "magnitude": {
-                          "title": "Magnitude",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "title": "Magnitude"
                         },
                         "units": {
-                          "title": "Units",
-                          "type": "string"
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {}
+                          ],
+                          "title": "Units"
                         }
                       },
                       "type": "object"
