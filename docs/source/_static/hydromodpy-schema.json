@@ -6126,6 +6126,29 @@
           "title": "Dem Init Path",
           "x-hmp-profile": "user"
         },
+        "dem_resolution": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cell size the DEM is aggregated to before anything is delineated, a length ('75 m', a bare number in metres). The routing surface, the catchment, the mesh and the model top all take it. Unset keeps the pixel of the DEM file, which is what the mesh follows otherwise: 25 m for a BD ALTI download. Aggregation only: each coarse cell is the mean of the fine pixels it covers, nodata left out, on a grid aligned on the upper-left corner of the DEM; a value finer than the DEM's own pixel is refused when the run starts. The DEM file is not changed, the aggregated copy lives in the geographic products of the run.",
+          "examples": [
+            "75 m"
+          ],
+          "title": "Dem Resolution",
+          "unit": "m",
+          "x-hmp-profile": "user"
+        },
         "catch_def": {
           "const": "dem",
           "default": "dem",
@@ -8609,7 +8632,7 @@
           "type": "string",
           "unit": "-",
           "value_docs": {
-            "steady": "Solves one equilibrium state, with no storage term.",
+            "steady": "Solves one equilibrium state, with no storage term: one stress period over the whole [simulation.time] window, whatever its step_value says, with the forcings averaged over the window.",
             "transient": "Solves the heads through time; it starts from the state [flow.ic] gives."
           },
           "widget_type": "select",
@@ -20477,6 +20500,29 @@
           "title": "Dem Init Path",
           "x-hmp-profile": "user"
         },
+        "dem_resolution": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cell size the DEM is aggregated to before anything is delineated, a length ('75 m', a bare number in metres). The routing surface, the catchment, the mesh and the model top all take it. Unset keeps the pixel of the DEM file, which is what the mesh follows otherwise: 25 m for a BD ALTI download. Aggregation only: each coarse cell is the mean of the fine pixels it covers, nodata left out, on a grid aligned on the upper-left corner of the DEM; a value finer than the DEM's own pixel is refused when the run starts. The DEM file is not changed, the aggregated copy lives in the geographic products of the run.",
+          "examples": [
+            "75 m"
+          ],
+          "title": "Dem Resolution",
+          "unit": "m",
+          "x-hmp-profile": "user"
+        },
         "catch_def": {
           "const": "from_outlet_coord",
           "default": "from_outlet_coord",
@@ -21673,6 +21719,29 @@
           "default": null,
           "description": "Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.",
           "title": "Dem Init Path",
+          "x-hmp-profile": "user"
+        },
+        "dem_resolution": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cell size the DEM is aggregated to before anything is delineated, a length ('75 m', a bare number in metres). The routing surface, the catchment, the mesh and the model top all take it. Unset keeps the pixel of the DEM file, which is what the mesh follows otherwise: 25 m for a BD ALTI download. Aggregation only: each coarse cell is the mean of the fine pixels it covers, nodata left out, on a grid aligned on the upper-left corner of the DEM; a value finer than the DEM's own pixel is refused when the run starts. The DEM file is not changed, the aggregated copy lives in the geographic products of the run.",
+          "examples": [
+            "75 m"
+          ],
+          "title": "Dem Resolution",
+          "unit": "m",
           "x-hmp-profile": "user"
         },
         "catch_def": {
@@ -24127,6 +24196,16 @@
           "type": "boolean",
           "x-hmp-profile": "user"
         },
+        "keep_per_cell_budget": {
+          "default": true,
+          "description": "Keep every per-cell budget term the solver produces, storage terms included, so every flux can be mapped, exported and read after the run is sealed (hmp export, hmp viz show, the Python API), and every derived field is rebuilt on read. False keeps only the terms the run's own consumers read: the figures of [display].figures, the [[export]] blocks, the calibration criterion and the seepage mask of a surface-excess solver. A later read of anything else then needs a new run. On a daily run, true is the heaviest group of the store: about 300 MB for six daily years on about 21 000 cells, 3.7 times the head.",
+          "examples": [
+            true
+          ],
+          "title": "Keep Per Cell Budget",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
         "derived": {
           "$ref": "#/$defs/DerivedConfig",
           "description": "Derived variable computation toggles.",
@@ -25047,7 +25126,7 @@
             }
           ],
           "default": "1 month",
-          "description": "Forcing/stress-period time-step scalar or inline token '<value> <unit>' (for example '30 day'). This controls the temporal aggregation step for forcing series (for example recharge/runoff) and the resulting stress periods.",
+          "description": "Forcing/stress-period time-step scalar or inline token '<value> <unit>' (for example '30 day'). This controls the temporal aggregation step for forcing series (for example recharge/runoff) and the resulting stress periods. Not read by a steady run (flow.flow_regime = 'steady'), which is one stress period over the whole window, its forcings averaged over it.",
           "examples": [
             "1 month",
             "10 day"
@@ -28469,6 +28548,29 @@
           "default": null,
           "description": "Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.",
           "title": "Dem Init Path",
+          "x-hmp-profile": "user"
+        },
+        "dem_resolution": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cell size the DEM is aggregated to before anything is delineated, a length ('75 m', a bare number in metres). The routing surface, the catchment, the mesh and the model top all take it. Unset keeps the pixel of the DEM file, which is what the mesh follows otherwise: 25 m for a BD ALTI download. Aggregation only: each coarse cell is the mean of the fine pixels it covers, nodata left out, on a grid aligned on the upper-left corner of the DEM; a value finer than the DEM's own pixel is refused when the run starts. The DEM file is not changed, the aggregated copy lives in the geographic products of the run.",
+          "examples": [
+            "75 m"
+          ],
+          "title": "Dem Resolution",
+          "unit": "m",
           "x-hmp-profile": "user"
         },
         "catch_def": {

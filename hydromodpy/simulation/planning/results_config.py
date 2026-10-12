@@ -119,6 +119,19 @@ class ResultsConfig(HydroModelBase):
             "did not converge."
         ),
     )
+    keep_per_cell_budget: Annotated[bool, Profile.DEV] = Field(
+        default=True,
+        description=(
+            "Keep every per-cell budget term the solver produces, storage terms included, "
+            "so every flux can be mapped, exported and read after the run is sealed "
+            "(hmp export, hmp viz show, the Python API), and every derived field is rebuilt "
+            "on read. False keeps only the terms the run's own consumers read: the figures "
+            "of [display].figures, the [[export]] blocks, the calibration criterion and the "
+            "seepage mask of a surface-excess solver. A later read of anything else then "
+            "needs a new run. On a daily run, true is the heaviest group of the store: about "
+            "300 MB for six daily years on about 21 000 cells, 3.7 times the head."
+        ),
+    )
     derived: Annotated[DerivedConfig, Profile.USER] = Field(
         default_factory=DerivedConfig,
         description="Derived variable computation toggles.",

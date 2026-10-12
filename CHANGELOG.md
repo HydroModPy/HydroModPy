@@ -306,6 +306,12 @@ Each release section includes the following standard categories:
   committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- A file or a stored run configuration that writes `[simulation.results.derived]` or
+  `[simulation.results.budget]`, at the root, in a comparison or testbed overlay or in the
+  dotted `overrides` of a calibration phase, loads with both tables dropped, whatever they
+  held, and says so in one line; `hmp doctor --fix-config` removes them from the file. A
+  sealed run configuration is migrated by the stored route only. The new developer key
+  `[simulation.results] keep_per_cell_budget`, true by default, takes their place.
 - Every derived field of a run is rebuilt on read, over a range in bounded passes: the
   water table, its depth, the seepage mask, the drain outflow, the two accumulation fluxes
   and the solute seepage chain (`concentration_seepage`, `mass_seepage`,

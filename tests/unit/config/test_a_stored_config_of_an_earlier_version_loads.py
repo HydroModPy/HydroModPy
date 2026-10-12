@@ -59,6 +59,8 @@ def test_the_snapshot_reloads_and_runs_the_solver_of_the_process(
     assert len(migrated) == 1
     assert "persistence dropped" in migrated[0]
     assert "solver.backend 'modflow6' dropped" in migrated[0]
+    assert "simulation.results.derived" in migrated[0]
+    assert "simulation.results.budget" in migrated[0]
 
 
 def test_an_override_of_the_flow_solver_applies_to_the_snapshot() -> None:

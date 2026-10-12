@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -49,6 +52,43 @@ class TestResultsConfigDefaults:
     def test_extra_field_rejected(self):
         with pytest.raises(ValidationError):
             ResultsConfig.model_validate({"unknown_field": True})
+
+
+class TestKeepPerCellBudget:
+    def test_on_by_default(self):
+        assert ResultsConfig().keep_per_cell_budget is True
+
+    def test_can_be_turned_off(self):
+        cfg = ResultsConfig.model_validate({"keep_per_cell_budget": False})
+        assert cfg.keep_per_cell_budget is False
+
+    def test_is_a_dev_boolean(self):
+        from hydromodpy.core.config_kit.profile import Profile
+
+        field = ResultsConfig.model_fields["keep_per_cell_budget"]
+        assert field.annotation is bool
+        assert Profile.DEV in field.metadata
+        assert field.is_required() is False
+
+    def test_a_non_boolean_is_refused(self):
+        with pytest.raises(ValidationError):
+            ResultsConfig.model_validate({"keep_per_cell_budget": "maybe"})
+
+    def test_a_misspelled_sibling_is_refused(self):
+        with pytest.raises(ValidationError):
+            ResultsConfig.model_validate({"keep_per_cell_budgets": True})
+
+    def test_the_description_names_no_example_project(self):
+        text = ResultsConfig.model_fields["keep_per_cell_budget"].description.lower()
+        projects = Path(__file__).resolve().parents[3] / "examples" / "projects"
+        names = sorted(folder.name.lower() for folder in projects.iterdir() if folder.is_dir())
+        assert names
+        for name in names:
+            assert name not in text
+            bare = re.sub(r"^\d+_", "", name)
+            # A one-word folder ("calibration") is also plain prose.
+            if "_" in bare:
+                assert bare not in text
 
 
 class TestDerivedConfig:

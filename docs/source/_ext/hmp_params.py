@@ -1006,7 +1006,7 @@ class ChangelogDirective(SphinxDirective):
         reads = legacy_keys.accepted_old_names(S["nodes"])
         STILL = {
             legacy_keys.WARNS: "still loads; ConfigKeyRenamedWarning names the new key",
-            legacy_keys.MIGRATES: "still loads; the loader rewrites it on load",
+            legacy_keys.MIGRATES: "still loads; the loader rewrites or drops it on load",
         }
 
         def rename_note(c: dict) -> str:
@@ -1023,6 +1023,19 @@ class ChangelogDirective(SphinxDirective):
             return (
                 "A file that writes an old name still loads, as each line says. Write the new name"
             )
+
+        def removal_note(c: dict) -> str:
+            """What the loader does with a removed key, read from the loader (legacy_keys)."""
+            if c["to"] != CURRENT:
+                return "a file that writes them is refused"
+            kinds = {reads.get(p) for p in c["removed"]}
+            if kinds == {None}:
+                return "a file that writes them is refused"
+            if None in kinds:
+                return (
+                    "a file that writes one of them is refused, unless its line says it still loads"
+                )
+            return "a file that writes them still loads, as each line says"
 
         loader = {"reads": {}}
 
@@ -1043,7 +1056,7 @@ class ChangelogDirective(SphinxDirective):
                 )
             blocks = (
                 ("renamed", "Renamed", rename_note(c)),
-                ("removed", "Removed", "a file that writes them is refused"),
+                ("removed", "Removed", removal_note(c)),
                 ("added", "Added", ""),
                 ("changed", "Changed", ""),
             )
@@ -1051,9 +1064,9 @@ class ChangelogDirective(SphinxDirective):
                 items = c.get(key, [])
                 if not items:
                     continue
-                breaking = key == "removed" or (
-                    key == "renamed" and any(it["from"] not in loader["reads"] for it in items)
-                )
+                breaking = (
+                    key == "removed" and any(it not in loader["reads"] for it in items)
+                ) or (key == "renamed" and any(it["from"] not in loader["reads"] for it in items))
                 parts.append(
                     f'<h2 class="hmp-ch-h">{title} <span class="hmp-muted">({len(items)})</span>'
                     + (' <span class="tc tc-req">breaking</span>' if breaking else "")
@@ -1088,7 +1101,9 @@ class ChangelogDirective(SphinxDirective):
                     for k, v in it["changes"].items()
                 )
                 return f"<li>{link(it['path'])} {detail}</li>"
-            return f"<li>{link(it)}</li>"
+            kind = loader["reads"].get(it)
+            still = f' <span class="hmp-muted">({STILL[kind]})</span>' if kind in STILL else ""
+            return f"<li>{link(it)}{still}</li>"
 
         default = (versions[-2], versions[-1])
         sections = []

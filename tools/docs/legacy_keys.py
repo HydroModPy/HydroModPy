@@ -7,7 +7,8 @@ read there and not written by hand:
 - ``warns``: the model lists the old spelling in ``model_legacy_keys``. The key
   is renamed on load and ``ConfigKeyRenamedWarning`` names the new one.
 - ``migrates``: the old ``[export]`` tables, which ``config_migration`` rewrites
-  into ``[[export]]`` blocks in memory on load.
+  into ``[[export]]`` blocks in memory on load, and the retired
+  ``[simulation.results]`` tables, which the loader drops on load.
 
 A rename in neither group is refused (``extra="forbid"``).
 """
@@ -42,10 +43,11 @@ def _models_named(name: str) -> list[type]:
 
 
 def accepted_old_names(nodes: dict[str, dict[str, Any]]) -> dict[str, str]:
-    """Old path -> ``warns`` or ``migrates`` for each renamed key the loader still reads.
+    """Old path -> ``warns`` or ``migrates`` for each old key the loader still reads.
 
     ``nodes`` is the ``nodes`` mapping of the field registry. An old path that is
-    absent from the result is refused by the loader.
+    absent from the result is refused by the loader. The retired tables come out
+    as ``migrates`` whether or not the registry still holds them.
     """
     from hydromodpy.config import config_migration
 
@@ -59,4 +61,6 @@ def accepted_old_names(nodes: dict[str, dict[str, Any]]) -> dict[str, str]:
             elif path == "export" and old.startswith("export."):
                 if _leaf(old) in config_migration._EXPORT_TABLE_KEYS:
                     accepted[old] = MIGRATES
+    for table in config_migration.RETIRED_RESULTS_TABLES:
+        accepted[table] = MIGRATES
     return accepted

@@ -83,6 +83,17 @@ def test_every_rename_the_loader_still_reads_is_classified(renamed_nodes: dict) 
     assert accepted["export.artifacts"] == legacy_keys.MIGRATES
 
 
+def test_the_retired_results_tables_still_load(renamed_nodes: dict) -> None:
+    from hydromodpy.config import config_migration
+
+    accepted = legacy_keys.accepted_old_names(renamed_nodes)
+    assert config_migration.RETIRED_RESULTS_TABLES
+    for table in config_migration.RETIRED_RESULTS_TABLES:
+        assert accepted[table] == legacy_keys.MIGRATES
+    assert accepted["simulation.results.derived"] == legacy_keys.MIGRATES
+    assert accepted["simulation.results.budget"] == legacy_keys.MIGRATES
+
+
 def test_a_rename_the_loader_does_not_read_is_left_out(renamed_nodes: dict) -> None:
     nodes = {
         "flow.hk": {"model": "FlowConfig", "renamed_from": ["flow.never_read_key"]},
@@ -98,6 +109,54 @@ def test_the_old_calibration_name_loads_with_a_rename_warning() -> None:
     assert CalibPhaseDecl.model_legacy_keys["optimizer_kwargs"] == "method_options"
     with pytest.warns(ConfigKeyRenamedWarning):
         CalibPhaseDecl(name="p", parameters=["K"], optimizer_kwargs={})
+
+
+def _removed_block(hmp_params, monkeypatch: pytest.MonkeyPatch, removed: list[str]) -> str:
+    """Render the changes page for one pair, released version to this tree, and return its HTML."""
+    from types import SimpleNamespace
+
+    class Page(hmp_params.ChangelogDirective):
+        env = SimpleNamespace(docname="changes")
+
+    pair = {
+        "from": "1.0.0",
+        "to": hmp_params.CURRENT,
+        "renamed": [],
+        "removed": removed,
+        "added": [],
+        "changed": [],
+    }
+    history = {"versions": ["1.0.0", hmp_params.CURRENT], "pairs": [pair]}
+    monkeypatch.setattr(hmp_params, "current_builder", lambda: SimpleNamespace())
+    monkeypatch.setattr(hmp_params, "version_history", lambda: history)
+    monkeypatch.setitem(hmp_params.S, "nodes", {})
+    monkeypatch.setitem(hmp_params.S, "home", {})
+    return Page.__new__(Page).run()[0].astext()
+
+
+def test_a_retired_table_is_listed_as_still_loading_and_not_breaking(
+    monkeypatch: pytest.MonkeyPatch, ext_path: None
+) -> None:
+    import hmp_params
+
+    html = _removed_block(hmp_params, monkeypatch, ["simulation.results.derived"])
+
+    assert "A file that writes them still loads, as each line says." in html
+    assert "still loads; the loader rewrites or drops it on load" in html
+    assert "tc-req" not in html
+
+
+def test_a_removed_key_the_loader_refuses_keeps_the_block_breaking(
+    monkeypatch: pytest.MonkeyPatch, ext_path: None
+) -> None:
+    import hmp_params
+
+    html = _removed_block(
+        hmp_params, monkeypatch, ["simulation.results.derived", "flow.never_read_key"]
+    )
+
+    assert "refused, unless its line says it still loads" in html
+    assert 'tc-req">breaking' in html
 
 
 # ---------------------------------------------------------------- TOML diff
