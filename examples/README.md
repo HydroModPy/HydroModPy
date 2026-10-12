@@ -13,11 +13,12 @@ hmp install-binaries     # MODFLOW 6, MODFLOW-NWT, MODPATH, MT3D-USGS
 hmp doctor               # environment diagnosis
 ```
 
-## The ported suite
+## The suite
 
-Twelve examples, ported from the v1 example scripts of tag `v1.0.0`, all
-solved with **MODFLOW 6**. Each folder is self-contained: a `README.md`, a
-`project.toml`, and the scripts the case needs.
+Twelve examples ported from the v1 example scripts of tag `v1.0.0`, plus one
+built on public services only, all solved with **MODFLOW 6**. Each folder is
+self-contained: a `README.md`, a `project.toml`, and the scripts the case
+needs.
 
 | # | Folder | Theme | Regime | Runtime |
 |---|---|---|---|---|
@@ -33,6 +34,7 @@ solved with **MODFLOW 6**. Each folder is self-contained: a `README.md`, a
 | 09 | [`09_transport_model_for_an_agricultural_catchment`](projects/09_transport_model_for_an_agricultural_catchment/) | nitrate through an agricultural headwater, MODFLOW 6 GWT | monthly transient | ~8 min |
 | 10 | [`10_coupling_with_land_surface_model_pyhelp`](projects/10_coupling_with_land_surface_model_pyhelp/) | recharge computed by PyHELP, then K found from the network | steady + calibration | ~3 min |
 | 11 | [`11_run_from_scratch_without_plots`](projects/11_run_from_scratch_without_plots/) | headless run: artefacts only, no figure | steady + PRT | ~25 s |
+| 12 | [`12_network_calibration_from_apis`](projects/12_network_calibration_from_apis/) | Nancon from one outlet coordinate: DEM, network, gauge and recharge fetched, K found from the full BD Topage network | steady + calibration | ~16 min |
 
 Run any of them the same way:
 
@@ -49,6 +51,8 @@ hmp run examples/projects/<folder>/project.toml
 5. **07** and **08** - two synthetic cases where the answer is known in closed
    form, so the solver can be checked rather than illustrated.
 6. **09** and **10** - the two couplings: a solute, and a land surface model.
+7. **12** - no file at all: every input from a public service, then K from the
+   mapped network.
 
 ## Where a run puts its results
 

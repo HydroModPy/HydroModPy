@@ -1,0 +1,253 @@
+# Nancon catchment on public French services only: nothing ships with this
+# example, the DEM included. IGN BD ALTI for the terrain, BD Topage for the
+# stream network, Hub'Eau for the gauge, SIM2 for the recharge and the runoff.
+#
+# One steady period over twenty years, and one search: K alone, found where
+# the seepage network the water table sustains balances the mapped one, every
+# BD Topage reach counted, permanent and intermittent alike. Sy never enters:
+# a steady solve carries no storage, and the network criterion identifies K/R.
+# Abherve et al. (2023), 10.5194/hess-27-3221-2023.
+#
+# Needs network access at the first run; every download is cached under
+# examples/data/ after it. The BD ALTI archives of four departments are the
+# large part, about 130 MB.
+#
+#   hmp calibrate project.toml --check          every problem at once, no solve
+#   hmp calibrate project.toml --list-phases    the one phase, before any solve
+#   hmp run       project.toml --until load_data   the data alone, no mesh, no solve
+#   hmp run       project.toml                  15 to 23 steady solves of about a minute, then the best run
+
+[workflow]
+mode = "calibration"
+
+[workspace]
+project_root = "."
+
+[simulation]
+name = "nancon_network_k_from_apis"
+description = "Nancon, every input from a public service, K from the full BD Topage network, steady state."
+if_exists = "replace"
+
+# A steady run still says which window it averages: the forcings are selected
+# on it, and the one period spans it whole. Twenty calendar years, the mean
+# a steady state stands for.
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2019-12-31"
+step_value = "20 year"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+# The per-cell seepage the network criterion reads, and the fields the maps
+# and the GeoTIFF exports below need.
+[simulation.results.derived]
+release_flux = true
+seepage_areas = true
+watertable_elevation = true
+accumulation_flux = true
+
+# The per-cell recharge: a cell counts as seepage above a share of it.
+[simulation.results.budget]
+spatial_fields = true
+
+
+[geographic]
+crs_project = "EPSG:2154"
+
+# No dem_init_path: the catchment is delineated on the BD ALTI download,
+# upslope of the gauge "Le Nancon a Lecousse - Pont aux Anes" (J001401001).
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+x_outlet = 389285.910
+y_outlet = 6816518.749
+snap_dist = "150 m"
+# "10%" is an area increase: the buffered domain covers 10 % more area than the catchment.
+buff_area = "10%"
+
+# The network the DEM alone delineates, drawn beside the mapped one. Context
+# only: the criterion is scored on BD Topage.
+[geographic.river_network]
+enabled = true
+threshold_area_km2 = 0.5
+
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "30.0 m"
+
+
+[data]
+types = ["dem", "hydrography", "hydrometry", "recharge", "runoff"]
+
+# IGN BD ALTI 25 m, assembled from the department archives around the outlet.
+# The mesh keeps that resolution: about 100 000 cells inside the catchment.
+[[data.dem.sources]]
+source = "ign_geoplateforme_dem"
+dataset = "bd-alti"
+
+# BD Topage: every reach with its permanence, the permanent ones written
+# apart. The download box comes from the delineated watershed.
+[[data.hydrography.sources]]
+source = "bdtopage"
+
+# Hub'Eau daily mean discharge at the outlet. Not calibrated on: the run is
+# steady, so the gauge is a check of the recharge, exported beside the
+# simulated discharge.
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+station_ids = ["J001401001"]
+
+# Meteo-France SIM2 reanalysis, 8 km grid, drainage (DRAINC_Q) averaged over
+# the watershed. The steady solve uses the mean of the twenty years.
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+# SIM2 surface runoff (RUNC_Q): the share of the gauged discharge the
+# groundwater model does not produce, added before the comparison.
+[[data.runoff.sources]]
+source = "sim2"
+extent = "watershed"
+
+
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+active_sinks_sources = ["recharge"]
+# Seepage at the ground surface. No conductance is declared, so each drain
+# derives it from K, C = K * cell_area / drain_bed_thickness_m (1 m by
+# default): the drain follows K, which is what makes the criterion read K/R.
+active_bc = ["drainage"]
+
+# The start of the search; the calibration moves it.
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+
+# Never read by a steady solve. Declared so a transient variant of this file
+# has a storage to start from.
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+
+[calibration]
+seed = 42
+# The best trial is kept as a run and replayed with its figures and exports.
+save_runs = "best_n"
+save_best_n = 1
+rerun_best_with_outputs = true
+
+# Log space by default: the bisection halves the bracket on log K.
+[calibration.parameters.K]
+bounds = [1e-7, 1e-3]
+
+# The mapped network is every reach [data.hydrography] loaded, permanent and
+# intermittent together, clipped to the catchment. No minimal map: in one
+# state a minimal map would be the one scored, and the full network is the
+# extent wanted here. The map enters by its heads, the default: each head
+# lands on a nearby cell and the rest is drawn down the criterion's own
+# descent, so a rectified reach below a head is not counted as model error.
+[calibration.outputs.seepage_network]
+support = "network"
+observed_network = "data.hydrography"
+
+# Eq. 1: the signed gap in metres between the two descents, simulated to
+# mapped and mapped to simulated, zero where neither network overshoots.
+[[calibration.objective_blocks]]
+name = "network_extent"
+metric = "distance_gap"
+uses_outputs = ["seepage_network"]
+
+# One phase: K alone, one steady period, a seven-point log sweep then the
+# bisection on the bracket where the gap changes sign, to one per cent on K:
+# 15 solves here, 23 at most.
+[[calibration.phases]]
+name = "steady_conductivity"
+description = "Match the simulated seepage network to the full BD Topage network by moving K, steady state over 2000-2019."
+parameters = ["K"]
+regime = "steady"
+objective_blocks = ["network_extent"]
+method = "bisection"
+
+
+[display]
+on_error = "warn"
+
+# The catchment and its data first, then the water table, then the five that
+# compare the simulated network to the map, then the search itself. The last
+# five only apply to the run the calibration promoted, and skip themselves,
+# with a reason, on a plain `hmp run`.
+figures = [
+    "watershed_id_card",
+    "hydrographic_network_reference",
+    "hydrographic_network_permanence",
+    "hydrographic_network_comparison",
+    "observed_network_heads_map",
+    "mesh_map",
+    "piezometric_map",
+    "watertable_depth_map",
+    "water_budget",
+    "seepage_map",
+    "simulated_active_network",
+    "simulated_active_network_reference_overlay",
+    "seepage_network_reference_overlay",
+    "seepage_network_confusion_map",
+    "downslope_distance_map",
+
+    "downslope_distance_crossing",
+    "bisection_bracket_trace",
+    "parameter_cost_profile",
+    "calibration_progress",
+    "matching_hydrographic_network_card",
+]
+
+
+# What the promoted run writes to share/<run>/. A block says what (variables)
+# and when (time); the format follows the data, and is named where it is not
+# the natural one.
+
+# The catchment, the three networks (all BD Topage reaches, the permanent
+# ones, the DEM-delineated one): GeoPackage.
+[[export]]
+variables = [
+    "watershed",
+    "hydrographic_network_reference",
+    "hydrographic_network_reference_permanent",
+    "hydrographic_network_generated",
+]
+
+# The DEM the catchment was cut from: GeoTIFF.
+[[export]]
+variables = "watershed_dem"
+
+# The one state of the steady run, one GeoTIFF each: the water table, its
+# depth, the seepage cells, the seepage flux, the simulated active network,
+# the recharge and the conductivity the search returned.
+[[export]]
+variables = [
+    "watertable_elevation",
+    "watertable_depth",
+    "seepage_mask",
+    "release_flux",
+    "simulated_active_network",
+    "recharge",
+    "hydraulic_conductivity",
+]
+time = "last"
+format = "geotiff"
+
+# Simulated and gauged discharge: CSV. One simulated value, the steady
+# discharge R x A, against the daily record of the twenty years.
+[[export]]
+variables = ["discharge", "discharge_obs"]
+
+# The water budget of the period: CSV.
+[[export]]
+variables = "budget"
