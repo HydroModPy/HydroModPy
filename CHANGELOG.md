@@ -306,6 +306,21 @@ Each release section includes the following standard categories:
   committed snapshot, so a local build shows fresh measures without changing a tracked file.
 
 ### Changed
+- Every derived field of a run is rebuilt on read, over a range in bounded passes: the
+  water table, its depth, the seepage mask, the drain outflow, the two accumulation fluxes
+  and the solute seepage chain (`concentration_seepage`, `mass_seepage`,
+  `mass_accumulated`), as `release_flux` already was. A step read alone is the row of the
+  range read, and the values equal, bit for bit, what the post-run derivation wrote. The
+  seepage mask of a six-year daily run on 21 406 cells reads in 0.3 s instead of 9.4 s.
+  The accumulation fluxes route on the stored descent D, or on one rebuilt from the stored
+  top once per store; a run with neither serves none, never the unrouted local outflow the
+  derivation wrote under the same name. `outflow_drain` read back adds the DRN-TO-MVR
+  record, as the stored field did; the field read back before took the DRN record alone.
+- Every per-cell budget term a solver writes has a field descriptor: `storage` (MODFLOW-NWT),
+  `storage_ss` and `storage_sy` (MODFLOW 6), `evapotranspiration`, `general_head` and the
+  mover terms are listed, exported and read like `drain` or `recharge`, and so are
+  `fluxes_from_budget` and the solute seepage chain. `cell_budget`, which no extractor wrote,
+  leaves the registry.
 - A steady run (`flow_regime = "steady"`) is one stress period over the whole
   `[simulation.time]` window, whatever `step_value` says, with the forcings averaged over
   it; the step is not read, and the run says so when it would have cut the window. Before,

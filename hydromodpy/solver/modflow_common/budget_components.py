@@ -74,6 +74,9 @@ _CANONICAL_BUDGET_NAMES: dict[str, str] = {
     "MVR": "mover",
 }
 
+#: Every canonical name a MODFLOW record can take.
+CANONICAL_BUDGET_TERMS: frozenset[str] = frozenset(_CANONICAL_BUDGET_NAMES.values())
+
 
 def _normalize(record_name: str) -> str:
     """Return the record name upper-cased with collapsed inner whitespace."""
@@ -101,6 +104,7 @@ def canonical_budget_component(record_name: str) -> str:
 
 
 __all__ = [
+    "CANONICAL_BUDGET_TERMS",
     "canonical_budget_component",
     "is_scalar_budget_component",
 ]

@@ -39,7 +39,6 @@ class TestRegistryContents:
             "release_accumulation_flux",
             "river",
             "well",
-            "cell_budget",
             "topography",
             "layer_thickness",
             "hydraulic_conductivity",

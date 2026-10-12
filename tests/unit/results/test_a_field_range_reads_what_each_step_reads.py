@@ -217,7 +217,7 @@ class TestAFieldRebuiltOnRead:
 
 
 class TestTheErrors:
-    @pytest.mark.parametrize("variable", ["no_such_field", "accumulation_flux"])
+    @pytest.mark.parametrize("variable", ["no_such_field", "mass_accumulated"])
     def test_a_field_nothing_holds_raises_what_a_step_read_raises(self, catalog, variable) -> None:
         sid = _seed(catalog)
         run = Run(sid, catalog)

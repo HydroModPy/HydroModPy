@@ -470,15 +470,16 @@ def _slice_cell(
 def _virtual_cell_values(
     run: Run, sz: Any, variable: str, point: ResolvedPoint
 ) -> tuple[np.ndarray, int | None]:
-    """Rebuild a non-persisted field at one cell, timestep by timestep.
+    """Rebuild a non-persisted field at one cell, over the run in blocks of steps.
 
-    The derivation runs on the whole field (it is the same code a map read
-    uses, so the two can never disagree) but only the cell is kept, which
-    caps memory at one field instead of one stack.
+    The derivation is the one a map read uses, so the two can never disagree.
+    A block of steps is rebuilt at once and only the cell is kept, which caps
+    memory at one block instead of the whole stack.
     """
     from hydromodpy.results.derive.virtual_fields import (
+        ROWS_PER_PASS_ELEMENTS,
         available_virtual_fields,
-        derive_field_slice,
+        derive_field_stack,
     )
 
     if variable not in available_virtual_fields(sz.root):
@@ -488,15 +489,17 @@ def _virtual_cell_values(
             variable=variable,
         )
     n_steps = int(run.n_timesteps or 1)
+    per_block = max(1, ROWS_PER_PASS_ELEMENTS // max(1, int(run.n_cells or 1)))
     layer = point.layer
     used: int | None = None
     out = np.empty(n_steps, dtype="float64")
-    for step in range(n_steps):
-        field = np.asarray(derive_field_slice(sz, run.sim_id, variable, step, layer=layer))
-        if field.ndim == 2:
+    for first in range(0, n_steps, per_block):
+        last = min(first + per_block, n_steps)
+        block = np.asarray(derive_field_stack(sz, run.sim_id, variable, range(first, last)))
+        if block.ndim == 3:
             used = 0 if layer is None else layer
-            field = field[used]
-        out[step] = float(field.ravel()[point.cell])
+            block = block[:, used]
+        out[first:last] = block.reshape(last - first, -1)[:, point.cell]
     return out, used
 
 
