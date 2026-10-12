@@ -1,25 +1,20 @@
 [radial_profile]
-rmse = 0.25
-max_abs_error = 0.30
-azimuthal_spread = 0.14
-min_land_clearance = 0.63
+rmse = 0.10
+max_abs_error = 0.19
+azimuthal_spread = 0.124
+min_land_clearance = 0.70
 
 [doc]
-gap = """
-Known gap. MODFLOW 6 sits about 0.2 m above the reference, four times further
-than MODFLOW-NWT on the same grid. Under Newton, the HydroModPy default,
-MODFLOW 6 builds the horizontal conductance from the full thickness of the two
-cells (harmonic mean of K times top minus bottom) times the saturation of the
-upstream cell. The cell top follows the DEM, so the thickness falls towards
-the coast and the transmissivity is too low: by a factor of 0.63 to 0.80
-between the last land cell and the first sea cell. NWT uses the saturated thickness of
-the upstream cell and does not depend on the top. Control run, the same MF6
-input files with only the top changed to a flat 13 m: radial RMSE 0.050 m,
-against 0.049 m for NWT. Without Newton the same files give 0.118 m. The case
-keeps the DEM top because HydroModPy builds every model that way.
-"""
 reason = """
-Measured values with a 10 % margin: radial RMSE 0.221 m, max error 0.264 m,
-spread 0.121 m, freeboard 0.70 m. About 0.17 m of the RMSE is the Newton
-conductance bias above; the rest is the error of the 10 m grid, as for NWT.
+Twice the error measured on the 10 m grid, radial RMSE 0.0499 m and max error
+0.0921 m; the measured spread of 0.112 m and freeboard of 0.787 m with a 10 %
+margin, since neither falls with refinement. MODFLOW 6
+reads a computational top that gives every cell of the layer the same
+thickness, so its Newton conductance is the one of MODFLOW-NWT, and the two sit
+at the same distance from the reference (NWT 0.0495 m). What is left is the
+error of the grid. On a 5 m grid the RMSE falls to 0.0349 m and the max error
+to 0.0606 m, for MF6 and NWT alike; the spread stays at 0.111 m and the
+freeboard drops to 0.69 m, the first land ring being closer to the coast. Until
+2026-10-12 the top was the DEM, the conductance followed the full thickness of
+the cells, and the RMSE was 0.221 m.
 """

@@ -316,6 +316,12 @@ Each release section includes the following standard categories:
 - The MODFLOW 6 extractor stores `topography`, `z_interfaces` and `layer_thickness` from
   the ground file and refuses a solver folder without it: the top of its grid file is a
   computational top. A store that keeps no Zarr asks for no mesh.
+- MF6 circular-island thresholds re-derived after the computational top. On the Cartesian
+  grid MF6 sits at NWT's distance from the closed form (Dupuit 0.0499 m, piecewise K
+  0.0282 m of radial RMSE): twice the RMSE and the max, which fall with refinement, the
+  spread and the freeboard with a 10 % margin. On the Voronoi dual the measured value
+  with a 10 % margin, the upstream saturation and the straddled K zones being left
+  (rows 37, 38, 108, 109 of `tests/TOLERANCES.md`).
 - The deep Brutsaert recession and the Glover-Balmer stream depletion compare the
   period-mean discharge and depletion with the mean of the closed form over each
   period, not with its value at the period end. Their thresholds are re-derived from

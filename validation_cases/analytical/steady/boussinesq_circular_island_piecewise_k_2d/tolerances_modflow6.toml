@@ -1,25 +1,19 @@
 [radial_profile]
-rmse = 0.13
-max_abs_error = 0.18
-azimuthal_spread = 0.091
-min_land_clearance = 0.78
+rmse = 0.057
+max_abs_error = 0.11
+azimuthal_spread = 0.090
+min_land_clearance = 0.81
 
 [doc]
-gap = """
-Known gap. MODFLOW 6 sits about 0.1 m above the reference, four times further
-than MODFLOW-NWT on the same grid. Under Newton, the HydroModPy default,
-MODFLOW 6 builds the horizontal conductance from the full thickness of the two
-cells (harmonic mean of K times top minus bottom) times the saturation of the
-upstream cell. The cell top follows the DEM, so the thickness falls towards
-the coast and the transmissivity is too low: by a factor of 0.63 to 0.80
-between the last land cell and the first sea cell. NWT uses the saturated
-thickness of the upstream cell and does not depend on the top. Control run,
-the same MF6 input files with only the top changed to a flat 13 m: radial RMSE
-0.028 m, against 0.029 m for NWT. Without Newton the same files give 0.048 m.
-The case keeps the DEM top because HydroModPy builds every model that way.
-"""
 reason = """
-Measured values with a 10 % margin: radial RMSE 0.111 m, max error 0.156 m,
-spread 0.083 m, freeboard 0.86 m. About 0.08 m of the RMSE is the Newton
-conductance bias above; the rest is the error of the 10 m grid, as for NWT.
+Twice the error measured on the 10 m grid, radial RMSE 0.0282 m and max error
+0.0546 m; the measured spread of 0.0817 m and freeboard of 0.910 m with a 10 %
+margin, since neither falls with refinement. MODFLOW 6
+reads a computational top that gives every cell of the layer the same
+thickness, so its Newton conductance is the one of MODFLOW-NWT, and the two sit
+at the same distance from the reference (NWT 0.0284 m). What is left is the
+error of the grid. On a 5 m grid the RMSE falls to 0.0166 m and the max error
+to 0.0349 m, for MF6 and NWT alike; the spread stays at 0.083 m and the
+freeboard drops to 0.755 m. Until 2026-10-12 the top was the DEM and the RMSE
+0.111 m.
 """
