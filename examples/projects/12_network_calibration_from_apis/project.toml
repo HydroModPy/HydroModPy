@@ -89,11 +89,13 @@ rerun_best_with_outputs = true
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
 
-# Every BD Topage reach, permanent and intermittent. No minimal map: in one
-# state it would be the one scored.
+# Every BD Topage reach, permanent and intermittent, scored as the API returns
+# it: each line drawn on the cells it crosses, never retraced from its heads.
+# No minimal map: in one state it would be the one scored.
 [calibration.outputs.seepage_network]
 support = "network"
 observed_network = "data.hydrography"
+observed_rasterization = "crossing"
 
 [[calibration.objective_blocks]]
 name = "network_extent"
