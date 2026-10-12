@@ -43,7 +43,9 @@ hmp run examples/projects/12_network_calibration_from_apis/project.toml --until 
 No section names a path or a bounding box. The DEM is fetched around the
 outlet and aggregated to 75 m, the cell size of example 04, before the
 catchment is delineated on it; every other source is asked over the
-delineated watershed. The time series inherit the `[simulation.time]` window.
+delineated watershed. The time series inherit the `[simulation.time]` window,
+which carries no step: a steady run is one stress period over the whole
+window, and its forcings are the means of the twenty years.
 Drop `dem_resolution` to run on the 25 m pixels of BD ALTI: nine times more
 cells, about a minute per steady solve, and a larger mismatch in the flat
 valley bottoms that the 75 m smooths.
