@@ -503,11 +503,29 @@ class ConsoleLogHandler(logging.Handler):
             self.handleError(record)
 
 
+class _StderrHandler(logging.StreamHandler):
+    """Plain handler on the ``sys.stderr`` in force when it was made.
+
+    Holding that stream keeps a later ``redirect_stderr`` zone from swallowing
+    log lines. A stream closed since, such as the file of a redirect zone that
+    has ended, is replaced by the current ``sys.stderr`` rather than failing
+    every record.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(sys.stderr)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if getattr(self.stream, "closed", False):
+            self.stream = sys.stderr
+        super().emit(record)
+
+
 def make_console_handler() -> logging.Handler:
     """Console handler for the LogManager: rich-aware on a terminal."""
     if console.is_terminal or console.is_jupyter:
         return ConsoleLogHandler()
-    return logging.StreamHandler(sys.stderr)
+    return _StderrHandler()
 
 
 __all__ = [

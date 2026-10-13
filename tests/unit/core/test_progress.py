@@ -178,6 +178,33 @@ def test_make_console_handler_plain_when_not_terminal(disabled_console):
     assert not isinstance(handler, core_progress.ConsoleLogHandler)
 
 
+def test_a_plain_handler_outliving_its_stream_writes_to_the_current_stderr(
+    disabled_console, monkeypatch
+):
+    gone = io.StringIO()
+    monkeypatch.setattr("sys.stderr", gone)
+    handler = core_progress.make_console_handler()
+    gone.close()
+    current = io.StringIO()
+    monkeypatch.setattr("sys.stderr", current)
+
+    handler.handle(logging.makeLogRecord({"msg": "still shown", "levelno": logging.WARNING}))
+
+    assert current.getvalue() == "still shown\n"
+
+
+def test_a_plain_handler_keeps_its_stream_through_a_redirect_zone(disabled_console, monkeypatch):
+    import contextlib
+
+    pinned = io.StringIO()
+    monkeypatch.setattr("sys.stderr", pinned)
+    handler = core_progress.make_console_handler()
+    with contextlib.redirect_stderr(io.StringIO()):
+        handler.handle(logging.makeLogRecord({"msg": "not swallowed"}))
+
+    assert pinned.getvalue() == "not swallowed\n"
+
+
 def test_console_stream_pinned_against_redirect_stderr():
     import contextlib
     import importlib
