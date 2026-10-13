@@ -35,7 +35,7 @@ from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.spatial.field.core._field_param_sections import FieldHeterogeneousSection
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
-from hydromodpy.spatial.mesh.config.main import MeshCatchmentConfig
+from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 
 TAUGHT = [
     (FlowWellConfig, ("units", "forcing")),
@@ -64,8 +64,8 @@ TAUGHT = [
     (VerticalGridConfig, ("lay_decay", "lay_proportions")),
     (FieldHeterogeneousSection, ("values_csv_file", "csv_key_column", "csv_value_column")),
     (CalibrationConfig, ("persist_trial_series", "persist_iteration_detail")),
-    (MeshCatchmentConfig, ("zone_meshing",)),
-    (HydroModPyConfig, ("modflow6", "modflownwt", "analysis")),
+    (MeshConfig, ("engine", "cell_size", "river_cell_size", "river_band", "families")),
+    (HydroModPyConfig, ("mesh", "modflow6", "modflownwt", "analysis")),
 ]
 
 

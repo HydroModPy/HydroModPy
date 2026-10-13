@@ -372,7 +372,7 @@ def test_a_comparison_child_rewrites_only_the_paths_its_schema_declares(tmp_path
     assert csv == (tmp_path / "tables" / "k.csv").as_posix()
 
 
-def test_a_comparison_child_makes_the_mesh_geology_paths_absolute(tmp_path: Path) -> None:
+def test_a_comparison_child_makes_the_triangulation_path_absolute(tmp_path: Path) -> None:
     """The base sits in another folder than the comparison, as in the testbed examples."""
     base_dir = tmp_path / "bases"
     base_dir.mkdir()
@@ -382,14 +382,11 @@ def test_a_comparison_child_makes_the_mesh_geology_paths_absolute(tmp_path: Path
             "\n".join(
                 [
                     "",
-                    "[mesh_catchment]",
-                    'constraints_mode = "geology_only"',
+                    "[mesh]",
+                    'engine = "triangle"',
                     "",
-                    "[mesh_catchment.geology.source]",
-                    'path = "../data/geology/GEO1M.shp"',
-                    'kind = "vector"',
-                    'code_field = "CODE"',
-                    'reference_raster_path = "../data/dem/dem.tif"',
+                    "[mesh.triangle]",
+                    'path = "../data/meshes/catchment.msh"',
                 ]
             )
             + "\n"
@@ -422,10 +419,9 @@ def test_a_comparison_child_makes_the_mesh_geology_paths_absolute(tmp_path: Path
 
     cfg = _load_comparison_cfg(config_path)
     (child,) = materialize_child_configs(cfg)
-    source = load_toml_with_base_config(child.config_path)["mesh_catchment"]["geology"]["source"]
+    triangle = load_toml_with_base_config(child.config_path)["mesh"]["triangle"]
 
-    assert source["path"] == (tmp_path / "data/geology/GEO1M.shp").as_posix()
-    assert source["reference_raster_path"] == (tmp_path / "data/dem/dem.tif").as_posix()
+    assert triangle["path"] == (tmp_path / "data/meshes/catchment.msh").as_posix()
 
 
 def test_a_child_that_changes_the_flow_solver_keeps_the_common_process_overlay(

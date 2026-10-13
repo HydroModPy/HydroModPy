@@ -100,15 +100,14 @@ mf6_ims_complexity = "COMPLEX"
 [modflow6.process_specific]
 vka = 1.0
 
-[modflow6.sgrid]
-grid_dual = "triangle"
-
 [modflow6.sgrid.vertical]
 nlay = 1
 
-[mesh_input]
-mesh_path = "../../../../../validation_cases/shared/mesh_bundles/dupuit_circular_island_ocean_irregular_tri_radial_48/mesh_2d.msh"
-bundle_dir = "../../../../../validation_cases/shared/mesh_bundles/dupuit_circular_island_ocean_irregular_tri_radial_48"
+[mesh]
+engine = "triangle"
+
+[mesh.triangle]
+path = "../../../../../validation_cases/shared/mesh_bundles/dupuit_circular_island_ocean_irregular_tri_radial_48/mesh_2d.msh"
 
 [display]
 enabled = false

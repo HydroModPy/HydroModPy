@@ -1,9 +1,9 @@
 """Tests for the head-at-point cell-index resolution in the twin runtime.
 
-Covers the lightweight v1 path where ``setup.mesh_planar`` is ``None`` for
-sgrid simulations: the runtime helper must resolve the structured cell from
-the solver model registered in ``execution.models_by_run_id`` instead of
-relying on a pre-existing planar mesh.
+Covers the lightweight v1 path where ``setup.cell_mesh`` is ``None``: the
+runtime helper must resolve the structured cell from the solver model
+registered in ``execution.models_by_run_id`` instead of relying on a
+pre-existing cell mesh.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ import pytest
 from validation_cases.calibration.shared.runtime import (
     _extract_outputs_from_trial_ctx,
     _model_cell_centroids,
-    _resolve_cell_index_from_mesh_planar,
+    _resolve_cell_index_from_cell_mesh,
     _resolve_cell_index_from_model,
 )
 
@@ -43,11 +43,11 @@ class TestModelCellCentroids:
         assert out is not None
         np.testing.assert_array_equal(out, centroids)
 
-    def test_falls_back_to_runtime_mesh_planar(self):
+    def test_falls_back_to_the_cell_mesh_of_the_model(self):
         centroids = _make_structured_centroids(1, 4)
         model = SimpleNamespace(
             solver_mesh=None,
-            runtime_mesh_planar=SimpleNamespace(cell_centroids=centroids),
+            cell_mesh=SimpleNamespace(centers=centroids),
         )
         out = _model_cell_centroids(model)
         assert out is not None
@@ -83,16 +83,22 @@ class TestResolveCellIndexFromModel:
         assert cell == (0, 0, 2, 2)
 
 
-class TestResolveCellIndexFromMeshPlanar:
+class TestResolveCellIndexFromCellMesh:
     def test_handles_none_mesh(self):
-        assert _resolve_cell_index_from_mesh_planar(None, x=0.0, y=0.0) is None
+        assert _resolve_cell_index_from_cell_mesh(None, x=0.0, y=0.0) is None
 
-    def test_resolves_via_centroids_and_shape(self):
+    def test_resolves_via_centres_and_structured_shape(self):
         nrow, ncol = 2, 3
         centroids = _make_structured_centroids(nrow, ncol, dx=10.0, dy=5.0)
-        mesh = SimpleNamespace(cell_centroids=centroids, shape=(1, nrow, ncol))
-        cell = _resolve_cell_index_from_mesh_planar(mesh, x=14.0, y=2.0)
+        mesh = SimpleNamespace(centers=centroids, structured_shape=(nrow, ncol))
+        cell = _resolve_cell_index_from_cell_mesh(mesh, x=14.0, y=2.0)
         assert cell == (0, 0, 1, 1)
+
+    def test_an_unstructured_mesh_gives_the_flat_index_alone(self):
+        centroids = _make_structured_centroids(1, 4)
+        mesh = SimpleNamespace(centers=centroids, structured_shape=None)
+        cell = _resolve_cell_index_from_cell_mesh(mesh, x=25.0, y=2.5)
+        assert cell == (0, 0, 2, 2)
 
 
 class TestReadHeadAtCell:
@@ -183,12 +189,12 @@ class TestExtractHeadAtPointFromDir:
             x=24.0,
             y=8.0,
             model=model,
-            mesh_planar=None,
+            cell_mesh=None,
         )
         assert result is None
 
     def test_returns_none_when_no_cell_resolvable(self, tmp_path):
-        # mesh_planar=None and model=None: no way to resolve (k,i,j),
+        # cell_mesh=None and model=None: no way to resolve (k,i,j),
         # the helper must short-circuit instead of indexing on bogus data.
         from validation_cases.calibration.shared.runtime import (
             _extract_head_at_point_from_dir,
@@ -203,6 +209,6 @@ class TestExtractHeadAtPointFromDir:
             x=24.0,
             y=8.0,
             model=None,
-            mesh_planar=None,
+            cell_mesh=None,
         )
         assert result is None

@@ -48,8 +48,7 @@ from hydromodpy.config.toml_section_loader import (
     _load_flow_section,
     _load_optional_analysis_section,
     _load_optional_calibration_section,
-    _load_optional_mesh_catchment_section,
-    _load_optional_mesh_input_section,
+    _load_optional_mesh_section,
     _load_optional_overview_section,
     _load_optional_spinup_section,
     _load_optional_testbed_section,
@@ -65,7 +64,6 @@ from hydromodpy.core.config_kit.introspect import (
     collect_profile_violations,
     resolve_profile,
 )
-from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
 from hydromodpy.core.exceptions import (
     ConfigValidationError,
@@ -108,7 +106,7 @@ from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from hydromodpy.spatial.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+from hydromodpy.spatial.mesh.config import MeshConfig
 from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
 
 WorkflowMode = Literal[
@@ -221,6 +219,33 @@ _ROOT_PERSISTENCE_REFUSAL = (
     "[simulation.results.persistence], which a run reads, or under "
     "[calibration.persistence] for the outputs of a calibration."
 )
+
+
+_RETIRED_MESH_SECTIONS: dict[str, str] = {
+    "mesh_catchment": (
+        'Section [mesh_catchment] is replaced by [mesh]. Write engine = "triangle" or '
+        '"voronoi" (the cells MODFLOW 6 ran on were chosen by sgrid.grid_dual), '
+        "cell_size (was zone_meshing.global_size), river_cell_size and river_band (were "
+        "zone_meshing.interface_size and interface_distance) and [mesh.families] (was "
+        "constraints_mode and watershed_boundary). The cache, output, figure, "
+        "hydraulic_properties and rivers keys are gone: the run caches its mesh and "
+        "reads K from [flow.param.K]."
+    ),
+    "mesh_catchment_batch": (
+        "Section [mesh_catchment_batch] has no replacement: [mesh] meshes the catchment "
+        "of the project."
+    ),
+    "mesh_input": (
+        'Section [mesh_input] is replaced by [mesh.triangle] path, with engine = "triangle" '
+        'or "voronoi" in [mesh]. '
+        "Its bundle_dir has no replacement."
+    ),
+}
+
+
+def _retired_mesh_section(data: Mapping[str, Any]) -> str | None:
+    """Return the first retired mesh section a document declares, or None."""
+    return next((name for name in _RETIRED_MESH_SECTIONS if name in data), None)
 
 
 def _refuse_unknown_transport_solvers(names: list[str]) -> None:
@@ -409,8 +434,8 @@ class HydroModPyConfig(HydroModelBase):
     modflownwt: Annotated[ModflowConfig, Profile.USER] = Field(
         default_factory=ModflowConfig,
         description=(
-            "MODFLOW-NWT settings: the structured grid ([modflownwt.sgrid.planar], "
-            "[modflownwt.sgrid.vertical]), the package options "
+            "MODFLOW-NWT settings: the vertical layering and top sampling of the grid "
+            "([modflownwt.sgrid.vertical], [modflownwt.sgrid.top_sampling]), the package options "
             "([modflownwt.process_specific]) and the solver settings "
             "([modflownwt.runtime.<package>], expert keys)."
         ),
@@ -418,8 +443,8 @@ class HydroModPyConfig(HydroModelBase):
     modflow6: Annotated[Modflow6Config, Profile.USER] = Field(
         default_factory=Modflow6Config,
         description=(
-            "MODFLOW 6 settings: the structured grid ([modflow6.sgrid.planar], "
-            "[modflow6.sgrid.vertical]), the package options ([modflow6.process_specific]) "
+            "MODFLOW 6 settings: the vertical layering and top sampling of the grid "
+            "([modflow6.sgrid.vertical], [modflow6.sgrid.top_sampling]), the package options ([modflow6.process_specific]) "
             "and the solver settings ([modflow6.runtime], expert keys)."
         ),
     )
@@ -476,23 +501,24 @@ class HydroModPyConfig(HydroModelBase):
             "data-overview (watershed identity card) workflow."
         ),
     )
-    mesh_catchment: Annotated[MeshCatchmentConfig | None, Profile.USER] = Field(
+    mesh: Annotated[MeshConfig | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Optional mesh-only settings loaded from the [mesh_catchment] "
-            "section. Mesh-only public runs should use [simulation.process] "
-            "with type='mesh'; the standalone mesh API can still consume this "
-            "section directly."
+            "Optional mesh settings loaded from the [mesh] section: which engine meshes "
+            "the model ('regular', 'triangle' or 'voronoi') and how fine. Without the "
+            "section the 'regular' engine meshes the model with the DEM pixels. The "
+            "solver must read the cells of the engine, which is checked before any "
+            "meshing."
         ),
-    )
-    mesh_input: Annotated[MeshInputConfig | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Optional external mesh declaration loaded from the [mesh_input] "
-            "section. Declares a pre-existing planar mesh (and optional solver "
-            "exchange bundle) the simulation or comparison workflow should "
-            "consume instead of running the embedded mesh-catchment workflow. "
-            "Mutually exclusive with [mesh_catchment]."
+        json_schema_extra=field_metadata(
+            renamed_from=[
+                "mesh_catchment",
+                "mesh_input",
+                "modflow6.sgrid.planar",
+                "modflownwt.sgrid.planar",
+                "modflow6.sgrid.grid_dual",
+                "modflownwt.sgrid.grid_dual",
+            ]
         ),
     )
     calibration: Annotated[CalibrationConfig | None, Profile.USER] = Field(
@@ -560,6 +586,16 @@ class HydroModPyConfig(HydroModelBase):
 
     @model_validator(mode="before")
     @classmethod
+    def _name_the_replacement_of_a_retired_mesh_section(cls, data: Any) -> Any:
+        """Refuse ``[mesh_catchment]``, ``[mesh_catchment_batch]`` and ``[mesh_input]``."""
+        if isinstance(data, Mapping):
+            name = _retired_mesh_section(data)
+            if name is not None:
+                raise ValueError(_RETIRED_MESH_SECTIONS[name])
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
     def _align_solver_keys(cls, data: Any) -> Any:
         """Make ``solver.backend`` and the flow process name one solver.
 
@@ -615,7 +651,8 @@ class HydroModPyConfig(HydroModelBase):
         The mesh switches ``[geographic.river_network]`` on by itself, so the
         threshold check of that section never ran and the run stopped at
         ``build_geographic`` on a message that named neither the section nor the
-        mesh.
+        mesh. The rule is ``MeshConfig.requires_river_trace``, the one the
+        geographic step reads.
         """
         geographic = getattr(self, "geographic", None)
         if geographic is None or geographic.uses_synthetic_geographic():
@@ -623,20 +660,62 @@ class HydroModPyConfig(HydroModelBase):
         river_network = geographic.river_network
         if bool(river_network.enabled):
             return
-        needed_by = None
-        mesh = getattr(self, "mesh_catchment", None)
-        mode = str(getattr(mesh, "constraints_mode", "") or "").strip().lower()
-        if mesh is not None and mode in {"rivers_only", "geology_rivers"}:
-            needed_by = f"mesh_catchment.constraints_mode = {mode!r}"
+        mesh = getattr(self, "mesh", None)
+        if mesh is None:
+            return
         flow_cfg = getattr(self, "flow", None)
         active_bc = {str(name).lower() for name in getattr(flow_cfg, "active_bc", []) or []}
-        if getattr(self, "mesh_input", None) is not None and "stream" in active_bc:
-            needed_by = "The 'stream' boundary on a [mesh_input] mesh"
-        if needed_by is None:
+        if not mesh.requires_river_trace(active_bc=active_bc, synthetic=False):
             return
+        if mesh.triangle is not None and mesh.triangle.path is not None:
+            needed_by = "The 'stream' boundary on a [mesh.triangle] path mesh"
+        else:
+            needed_by = f"[mesh] engine = {mesh.engine!r} with families.rivers = 'cell'"
         refusal = river_network.missing_threshold_refusal(needed_by=needed_by)
         if refusal is not None:
             raise ValueError(refusal)
+
+    def _check_the_solver_reads_the_mesh(self, solver_cfg: SolverConfig) -> None:
+        """Refuse a solver paired with a mesh engine whose cells it cannot read.
+
+        Raised while the document is read, before any step of the pipeline runs.
+        The engine is the one of ``[mesh]``, or ``regular`` when the section is
+        absent.
+        """
+        from hydromodpy.solver.base import registry as solver_registry
+        from hydromodpy.spatial.mesh import registry as mesh_registry
+        from hydromodpy.spatial.mesh.port import ANY_PLANAR_ENGINE, engine_accepted
+
+        mesh = getattr(self, "mesh", None)
+        engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID
+        solver_name = solver_cfg.backend_name
+
+        def reads(accepted: frozenset[str]) -> bool:
+            # The engine class is loaded only when the solver accepts engines by capability.
+            if engine_id in accepted:
+                return True
+            return ANY_PLANAR_ENGINE in accepted and engine_accepted(
+                accepted, engine_id, mesh_registry.get(engine_id).capabilities
+            )
+
+        accepted = solver_registry.accepted_meshes("flow", solver_name)
+        if reads(accepted):
+            return
+        names = ", ".join(sorted(accepted - {ANY_PLANAR_ENGINE}))
+        if ANY_PLANAR_ENGINE in accepted:
+            names += " and any engine with planar cells"
+        readers = sorted(
+            name
+            for _, name in solver_registry.pairs_for_process("flow")
+            if reads(solver_registry.accepted_meshes("flow", name))
+        )
+        origin = "" if mesh is not None and "engine" in mesh.model_fields_set else " (the default)"
+        raise ValueError(
+            f"solver {solver_name!r} reads the meshes of the engines {names}, and mesh.engine "
+            f"is {engine_id!r}{origin}. Write [mesh] engine with one of the engines the solver "
+            f"reads, or run a solver that reads {engine_id!r}"
+            + (f" ({', '.join(readers)})." if readers else ".")
+        )
 
     @model_validator(mode="after")
     def _check_cross_section_coherence(self) -> HydroModPyConfig:
@@ -951,6 +1030,9 @@ class HydroModPyConfig(HydroModelBase):
                 "soil section, or remove [data.soil_capacity]."
             )
 
+        # Last, so a fault of the solver itself is named before a mesh it would not read.
+        if solver_cfg is not None:
+            self._check_the_solver_reads_the_mesh(solver_cfg)
         return self
 
     @classmethod
@@ -1136,6 +1218,13 @@ class HydroModPyConfig(HydroModelBase):
                 _ROOT_PERSISTENCE_REFUSAL,
                 source_path=source_path,
             )
+        retired_mesh = _retired_mesh_section(raw)
+        if retired_mesh is not None:
+            raise _section_refusal(
+                retired_mesh,
+                _RETIRED_MESH_SECTIONS[retired_mesh],
+                source_path=source_path,
+            )
         if "regional_lab" in raw:
             raise _section_refusal(
                 "regional_lab",
@@ -1266,8 +1355,7 @@ class HydroModPyConfig(HydroModelBase):
             "observation": ({}, _std(ObservationConfig)),
             "analysis": (None, _load_optional_analysis_section),
             "overview": (None, _load_optional_overview_section),
-            "mesh_catchment": (None, _load_optional_mesh_catchment_section),
-            "mesh_input": (None, _load_optional_mesh_input_section),
+            "mesh": (None, _load_optional_mesh_section),
             "calibration": (None, _load_optional_calibration_section),
             "spinup": (None, _load_optional_spinup_section),
             "testbed": (None, _load_optional_testbed_section),

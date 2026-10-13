@@ -87,8 +87,8 @@ class ComparisonSimulation(HydroModelBase):
     )
     mesh_mode: Annotated[
         Literal[
-            "mesh_catchment",
-            "mesh_input",
+            "triangle",
+            "voronoi",
             "sgrid",
             "structured",
             "unstructured",

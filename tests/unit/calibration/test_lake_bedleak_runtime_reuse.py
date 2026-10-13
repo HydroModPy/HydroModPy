@@ -97,7 +97,7 @@ def test_bedleak_refresh_leaves_runtime_signature_unchanged() -> None:
     model = _model_with_lakes(bedleak_lac0=1.0, bedleak_lac1=1.0)
     flow, domain = model.flow, object()
     options = SimpleNamespace(time_grid=object())
-    cell_mesh, mesh_support = object(), object()
+    cell_mesh = object()
 
     def _signature() -> tuple:
         return runtime_reuse_signature(
@@ -106,7 +106,6 @@ def test_bedleak_refresh_leaves_runtime_signature_unchanged() -> None:
             domain=domain,
             options=options,
             cell_mesh=cell_mesh,
-            mesh_support=mesh_support,
         )
 
     before = _signature()

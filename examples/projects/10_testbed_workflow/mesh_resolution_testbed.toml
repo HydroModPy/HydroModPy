@@ -23,10 +23,8 @@ axis = "resolution"
 [testbed.case.overlay.workspace]
 project_root = "outputs/mesh_resolution_testbed/coarse_workspace"
 
-[testbed.case.overlay.mesh_catchment.zone_meshing]
-global_size = 3500.0
-min_size = 1800.0
-max_size = 5200.0
+[testbed.case.overlay.mesh]
+cell_size = 3500.0
 
 [[testbed.case]]
 id = "reference"
@@ -35,10 +33,8 @@ axis = "resolution"
 [testbed.case.overlay.workspace]
 project_root = "outputs/mesh_resolution_testbed/reference_workspace"
 
-[testbed.case.overlay.mesh_catchment.zone_meshing]
-global_size = 2500.0
-min_size = 1200.0
-max_size = 4000.0
+[testbed.case.overlay.mesh]
+cell_size = 2500.0
 
 [[testbed.case]]
 id = "fine"
@@ -47,10 +43,8 @@ axis = "resolution"
 [testbed.case.overlay.workspace]
 project_root = "outputs/mesh_resolution_testbed/fine_workspace"
 
-[testbed.case.overlay.mesh_catchment.zone_meshing]
-global_size = 1600.0
-min_size = 700.0
-max_size = 2800.0
+[testbed.case.overlay.mesh]
+cell_size = 1600.0
 
 [[testbed.metrics]]
 name = "n_cells"

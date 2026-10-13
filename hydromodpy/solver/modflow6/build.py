@@ -86,7 +86,6 @@ from hydromodpy.solver.modflow6.support.computational_top import (
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.support.flopy_structure_warmup import warm_flopy_structure
 from hydromodpy.solver.modflow6.support.property_mapping import (
-    fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
     resolve_k33_field,
     resolve_required_flow_properties,
@@ -841,8 +840,7 @@ def run_pre_processing(  # noqa: PLR0915
     domain: DomainLike,
     options: ModflowPreprocessOptions | None = None,
     *,
-    cell_mesh: PlanarCellMesh | None = None,
-    mesh_support: object | None = None,
+    cell_mesh: PlanarCellMesh,
     flow_runtime_overrides: Mapping[str, object] | None = None,
 ) -> None:
     """Run MODFLOW 6 pre_processing: assemble flopy packages and discretizations."""
@@ -853,7 +851,6 @@ def run_pre_processing(  # noqa: PLR0915
     model.flow = flow
     model.domain = domain
     model.runtime_cell_mesh = cell_mesh
-    model.runtime_mesh_support = mesh_support
     model._flow_runtime_overrides = flow_runtime_overrides
     active_options = model.preprocess_options if options is None else options
     apply_preprocess_options(model, active_options)
@@ -876,7 +873,6 @@ def run_pre_processing(  # noqa: PLR0915
         domain=domain,
         options=active_options,
         cell_mesh=cell_mesh,
-        mesh_support=mesh_support,
     )
     if can_refresh_runtime_reuse(
         model,
@@ -884,7 +880,6 @@ def run_pre_processing(  # noqa: PLR0915
         domain=domain,
         options=active_options,
         cell_mesh=cell_mesh,
-        mesh_support=mesh_support,
         flow_runtime_overrides=flow_runtime_overrides,
     ):
         model._runtime_dirty_packages = refresh_reused_runtime_property_packages(
@@ -916,13 +911,11 @@ def run_pre_processing(  # noqa: PLR0915
         domain=model.domain,
         sgrid_config=getattr(model.modflow_config, "sgrid", None),
         cell_mesh=model.runtime_cell_mesh,
-        runtime_mesh_support=model.runtime_mesh_support,
         channel_mask=_resolve_channel_mask_for_zonal(model),
     )
     solver_mesh = model.grid_ctx.solver_mesh
     model.solver_mesh = solver_mesh
-    # Wells and boundaries are located on the solved cells. On the default
-    # Voronoi dual these are not the bundle triangles of runtime_mesh_support.
+    # Wells and boundaries are located on the solved cells.
     model.solver_mesh_support = model.grid_ctx.mesh_support
     model.top_elevation = solver_mesh.top  # (ncpl,)
     model.inactive_mask = solver_mesh.inactive_mask[0]  # (ncpl,)
@@ -944,15 +937,9 @@ def run_pre_processing(  # noqa: PLR0915
         flow=model.flow,
         domain=model.domain,
         solver_mesh=solver_mesh,
-        cell_mesh=model.runtime_cell_mesh,
         required_properties=resolve_required_flow_properties(flow_regime=model.flow_regime),
         optional_fill_values={"Sy": 0.0, "Ss": 0.0},
         runtime_property_overrides=flow_runtime_overrides,
-    )
-    flow_params = fill_missing_flow_properties_from_mesh_support(
-        flow_params,
-        mesh_support=model.runtime_mesh_support,
-        solver_mesh=solver_mesh,
     )
     model.hk = solver_mesh.flatten_from_grid(flow_params["hk"])
     require_positive_conductivity(

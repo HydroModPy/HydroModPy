@@ -405,12 +405,6 @@ def _apply_transient_payload(
 
     solver_section = dict(payload.get(solver, {}))
     solver_sgrid = dict(solver_section.get("sgrid", {}))
-    solver_sgrid["planar"] = {
-        "mode": "resample_to_shape",
-        "nx": BOUSS_NX,
-        "ny": BOUSS_NY,
-        "resampling": "nearest",
-    }
     solver_sgrid["vertical"] = {"nlay": 1}
     solver_section["sgrid"] = solver_sgrid
     payload[solver] = solver_section
@@ -602,9 +596,9 @@ def _run_launcher_solver(
             storage_coefficient=SPECIFIC_YIELD,
             seed=IRREGULAR_TRI_SEED,
         )
-        payload["mesh_input"] = {
-            "mesh_path": str((bundle_dir / "mesh_2d.msh").resolve()),
-            "bundle_dir": str(bundle_dir.resolve()),
+        payload["mesh"] = {
+            "engine": "triangle",
+            "triangle": {"path": str((bundle_dir / "mesh_2d.msh").resolve())},
         }
         solver_section = dict(payload.get("modflow6", {}))
         solver_sgrid = dict(solver_section.get("sgrid", {}))

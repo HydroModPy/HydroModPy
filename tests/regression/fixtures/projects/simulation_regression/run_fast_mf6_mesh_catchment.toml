@@ -1,7 +1,7 @@
 # Reduced MODFLOW 6 / GWT example with embedded catchment meshing.
 #
 # This is the end-to-end process_simulation path:
-# geographic setup -> mesh_catchment -> runtime Gmsh mesh -> MF6 GWF -> MF6 GWT.
+# geographic setup -> [mesh] -> runtime Gmsh mesh -> MF6 GWF -> MF6 GWT.
 
 base_config = "config_mf6_mesh_catchment_common.toml"
 
@@ -60,9 +60,6 @@ value = "1e-5 m/s"
 
 [flow.param.Sy.field]
 value = "0.12 -"
-
-[mesh_catchment.hydraulic_properties.storage_coefficient]
-default_value = 0.08
 
 [transport.modflow6gwt.parameters]
 sconc_init = 0.1

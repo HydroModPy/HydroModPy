@@ -57,12 +57,6 @@ mf_verbose = false
 mf6_ims_complexity = "COMPLEX"
 
 [comparison.simulation.overlay.modflow6.sgrid]
-[comparison.simulation.overlay.modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 50
-ny = 5
-resampling = "nearest"
-
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
 

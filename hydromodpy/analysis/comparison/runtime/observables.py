@@ -551,7 +551,6 @@ def extract_observable_rows(
                 expected_size=(
                     None if first_slice_size is None or first_slice_size <= 1 else first_slice_size
                 ),
-                solver_name=simulation.solver,
                 store=store,
                 sim_id=sim_id,
             )

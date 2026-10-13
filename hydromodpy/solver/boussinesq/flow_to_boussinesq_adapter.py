@@ -52,8 +52,7 @@ def resolve_mesh_bundle(setup_state: object) -> CatchmentMeshBundle:
         "flow/boussinesq requires either a runtime planar mesh with Flow/Domain "
         "property mapping support, or one CatchmentMeshBundle from the gmsh mesh "
         "workflow. Provide state.setup.cell_mesh or state.setup.mesh_bundle, "
-        "or run the embedded [mesh_catchment] phase so output_mesh or "
-        "output_exchange_bundle_dir is available."
+        "or set output_exchange_bundle_dir in state.setup.mesh_summary."
     )
 
 

@@ -7,8 +7,8 @@
 
 base_config = "base_site_01_mf6_bouss_transient.toml"
 
-# External [mesh_input] is supplied by each generated comparison row.
-mesh_catchment__delete = true
+# The [mesh] of each generated comparison row names the triangulation to read.
+mesh__delete = true
 
 [workflow]
 mode = "simulation"

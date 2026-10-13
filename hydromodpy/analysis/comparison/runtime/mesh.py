@@ -16,9 +16,6 @@ from hydromodpy.analysis.comparison.runtime.metadata import (
     _resolve_recorded_output_path,
     read_json_file,
 )
-from hydromodpy.core.contracts.solver_registry import (
-    get_solver_registry_provider,
-)
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
@@ -97,55 +94,33 @@ class CellCentroidTable:
         return top, bottom
 
 
-def _candidate_solver_sections(solver_name: str | None = None) -> tuple[str, ...]:
-    """Return candidate TOML section names for a structured flow solver.
-
-    Sections are pulled from the solver registry filtered by the
-    ``distributed`` category - the only backends that expose a structured
-    ``(nrow, ncol)`` shape via their TOML config. ``solver_name``, when
-    given, is tried first. The registry lookup goes through
-    :class:`SolverRegistryProvider` so analysis stays decoupled from the
-    solver layer.
-    """
-    sections: list[str] = []
-    if solver_name:
-        sections.append(str(solver_name).strip().lower())
-
-    provider = get_solver_registry_provider()
-    sections.extend(provider.distributed_flow_solver_sections())
-
-    return tuple(dict.fromkeys(section for section in sections if section))
-
-
-def resolve_structured_shape_from_config(
-    config_path: Path,
-    *,
-    solver_name: str | None = None,
-) -> tuple[int, int] | None:
-    """Return `(nrow, ncol)` for one structured solver config when declared."""
+def resolve_structured_shape_from_config(config_path: Path) -> tuple[int, int] | None:
+    """Return `(nrow, ncol)` from ``[mesh.regular] shape`` when the config declares it."""
     try:
         payload = load_toml_with_base_config(config_path)
     except Exception:
         return None
-
-    for section_name in _candidate_solver_sections(solver_name):
-        section = payload.get(section_name)
-        if not isinstance(section, Mapping):
-            continue
-        sgrid = section.get("sgrid")
-        if not isinstance(sgrid, Mapping):
-            continue
-        planar = sgrid.get("planar")
-        if not isinstance(planar, Mapping):
-            continue
-        try:
-            nx = int(planar["nx"])
-            ny = int(planar["ny"])
-        except Exception:
-            continue
-        if nx > 0 and ny > 0:
-            return (ny, nx)
+    mesh = payload.get("mesh")
+    regular = mesh.get("regular") if isinstance(mesh, Mapping) else None
+    shape = regular.get("shape") if isinstance(regular, Mapping) else None
+    try:
+        nrow, ncol = (int(value) for value in shape)
+    except Exception:
+        return None
+    if nrow > 0 and ncol > 0:
+        return (nrow, ncol)
     return None
+
+
+def triangle_mesh_dir_from_payload(payload: Mapping[str, Any], *, base_dir: Path) -> Path | None:
+    """Return the folder of the file named by ``[mesh.triangle] path``, when set."""
+    mesh = payload.get("mesh")
+    triangle = mesh.get("triangle") if isinstance(mesh, Mapping) else None
+    raw_path = triangle.get("path") if isinstance(triangle, Mapping) else None
+    if not raw_path:
+        return None
+    mesh_file = _resolve_recorded_output_path(str(raw_path), base_dir=base_dir)
+    return None if mesh_file is None else mesh_file.parent
 
 
 def resolve_structured_shape_from_run_folder(run_folder: Path) -> tuple[int, int] | None:
@@ -239,10 +214,9 @@ def _structured_bounds_from_config(config_path: Path) -> tuple[float, float, flo
 def _structured_cells_from_config(
     *,
     config_path: Path,
-    solver_name: str | None = None,
     expected_size: int | None = None,
 ) -> CellCentroidTable | None:
-    shape = resolve_structured_shape_from_config(config_path, solver_name=solver_name)
+    shape = resolve_structured_shape_from_config(config_path)
     if shape is None:
         return None
     nrow, ncol = shape
@@ -365,22 +339,11 @@ def _bundle_cells_from_dir(bundle_dir: Path) -> CellCentroidTable | None:
 
 
 def _bundle_cells_from_config(config_path: Path) -> CellCentroidTable | None:
-    from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
-
     try:
         payload = load_toml_with_base_config(config_path)
     except Exception:
         return None
-    mesh_input_raw = payload.get("mesh_input")
-    if not isinstance(mesh_input_raw, Mapping):
-        return None
-    try:
-        mesh_input = MeshInputConfig.model_validate(dict(mesh_input_raw))
-    except Exception:
-        return None
-    if mesh_input.bundle_dir is None:
-        return None
-    bundle_dir = _resolve_recorded_output_path(mesh_input.bundle_dir, base_dir=config_path.parent)
+    bundle_dir = triangle_mesh_dir_from_payload(payload, base_dir=config_path.parent)
     if bundle_dir is None:
         return None
     return _bundle_cells_from_dir(bundle_dir)
@@ -443,7 +406,6 @@ def resolve_bundle_cells(
     *,
     config_path: Path | None = None,
     expected_size: int | None = None,
-    solver_name: str | None = None,
     store: Catalog | None = None,
     sim_id: str | None = None,
 ) -> CellCentroidTable | None:
@@ -484,7 +446,6 @@ def resolve_bundle_cells(
             return config_bundle_cells
     structured_cells = _structured_cells_from_config(
         config_path=config_path,
-        solver_name=solver_name,
         expected_size=expected_size,
     )
     if structured_cells is not None:
@@ -501,4 +462,5 @@ __all__ = (
     "resolve_bundle_cells",
     "resolve_structured_shape_from_config",
     "resolve_structured_shape_from_run_folder",
+    "triangle_mesh_dir_from_payload",
 )

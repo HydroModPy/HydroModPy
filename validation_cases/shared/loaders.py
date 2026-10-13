@@ -294,12 +294,29 @@ def _reshape_to_expected(
     return values
 
 
+def case_config_mesh_bundle_dir(case_dir: Path, config: Mapping[str, object]) -> Path | None:
+    """Return the folder of the triangulation a case config reads in ``[mesh.triangle] path``.
+
+    The mesh bundle of a validation case sits next to its ``mesh_2d.msh``. The path is
+    relative to the case folder, like every path of the config.
+    """
+    mesh = config.get("mesh")
+    triangle = mesh.get("triangle") if isinstance(mesh, Mapping) else None
+    path_raw = str(triangle.get("path", "")).strip() if isinstance(triangle, Mapping) else ""
+    if path_raw == "":
+        return None
+    mesh_path = Path(path_raw).expanduser()
+    if not mesh_path.is_absolute():
+        mesh_path = (case_dir / mesh_path).resolve()
+    return mesh_path.parent
+
+
 def resolve_case_mesh_bundle_dir(
     case_dir: Path,
     metadata: Mapping[str, object],
     solver: str | None,
 ) -> Path | None:
-    """Return the mesh bundle a solver config reads in ``[mesh_input]``, or None."""
+    """Return the mesh bundle a solver config reads in ``[mesh.triangle] path``, or None."""
     config_files = metadata.get("config_files")
     solver_name = str(solver or "").strip().lower()
     if not isinstance(config_files, Mapping) or solver_name == "":
@@ -307,14 +324,7 @@ def resolve_case_mesh_bundle_dir(
     config_name = str(config_files.get(solver_name, "")).strip()
     if config_name == "":
         return None
-    mesh_input = load_case_config(case_dir, config_name).get("mesh_input")
-    if not isinstance(mesh_input, Mapping):
-        return None
-    bundle_dir_raw = str(mesh_input.get("bundle_dir", "")).strip()
-    if bundle_dir_raw == "":
-        return None
-    bundle_dir = Path(bundle_dir_raw).expanduser()
-    return bundle_dir if bundle_dir.is_absolute() else (case_dir / bundle_dir).resolve()
+    return case_config_mesh_bundle_dir(case_dir, load_case_config(case_dir, config_name))
 
 
 def _read_bundle_table(bundle_dir: Path, name: str) -> np.ndarray:
@@ -638,21 +648,11 @@ def load_field_on_expected_grid(
         )
 
     config_payload = load_case_config(case_dir, config_name)
-    mesh_input = config_payload.get("mesh_input")
-    if not isinstance(mesh_input, Mapping):
+    bundle_dir = case_config_mesh_bundle_dir(case_dir, config_payload)
+    if bundle_dir is None or values.ndim != 1 or len(expected_shape) != 2:
         raise AssertionError(
             f"Unexpected shape for {observable_name}: {values.shape} != {expected_shape}"
         )
-
-    bundle_dir_raw = str(mesh_input.get("bundle_dir", "")).strip()
-    if bundle_dir_raw == "" or values.ndim != 1 or len(expected_shape) != 2:
-        raise AssertionError(
-            f"Unexpected shape for {observable_name}: {values.shape} != {expected_shape}"
-        )
-
-    bundle_dir = Path(bundle_dir_raw).expanduser()
-    if not bundle_dir.is_absolute():
-        bundle_dir = (case_dir / bundle_dir).resolve()
 
     if collapse_y_to_x_profile and dual_cell_centers(bundle_dir, values.size) is not None:
         regridded = _regrid_bundle_history(

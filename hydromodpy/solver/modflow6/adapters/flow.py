@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
 
@@ -35,6 +35,7 @@ from hydromodpy.solver.modflow_common.observable_extraction import (
     extract_common_modflow_observables,
     resolve_run_output,
 )
+from hydromodpy.spatial.mesh.port import ANY_PLANAR_ENGINE
 
 # LAK observation states this adapter serves, and the unit each carries. The
 # request names the state directly now that it also carries the lake in its
@@ -78,6 +79,9 @@ class Modflow6FlowAdapter:
     process_type = "flow"
     solver_name = "modflow6"
     requires: tuple[tuple[str, str], ...] = ()
+    accepted_meshes: ClassVar[frozenset[str]] = frozenset(
+        {"regular", "triangle", "voronoi", ANY_PLANAR_ENGINE}
+    )
 
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for MODFLOW 6 flow runs."""
@@ -220,15 +224,7 @@ class Modflow6FlowAdapter:
             modflow_config=state.cfg.modflow6,
             preprocess_options=preprocess_options,
         )
-        return run_flow_model(
-            ctx,
-            model_modflow,
-            preprocess_options,
-            mesh_inputs={
-                "cell_mesh": getattr(state.setup, "cell_mesh", None),
-                "mesh_support": getattr(state.setup, "mesh_support", None),
-            },
-        )
+        return run_flow_model(ctx, model_modflow, preprocess_options)
 
 
 def _saved_head_times(output_dir: Path, model_name: str) -> list[float]:

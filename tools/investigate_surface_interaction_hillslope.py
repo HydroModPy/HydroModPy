@@ -263,12 +263,6 @@ def _apply_scenario_to_launcher_payload(
 
     solver_section = dict(payload.get(solver, {}))
     solver_sgrid = dict(solver_section.get("sgrid", {}))
-    solver_sgrid["planar"] = {
-        "mode": "resample_to_shape",
-        "nx": BOUSS_NX,
-        "ny": BOUSS_NY,
-        "resampling": "nearest",
-    }
     solver_sgrid["vertical"] = {"nlay": 1}
     solver_section["sgrid"] = solver_sgrid
     payload[solver] = solver_section

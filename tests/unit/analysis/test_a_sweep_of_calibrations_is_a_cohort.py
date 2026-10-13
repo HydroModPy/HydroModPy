@@ -72,8 +72,8 @@ solver = "modflow6"
 [comparison.simulation.overlay.workflow]
 mode = "calibration"
 
-[comparison.simulation.overlay.mesh_catchment.zone_meshing]
-global_size = 500.0
+[comparison.simulation.overlay.mesh]
+cell_size = 500.0
 
 [comparison.simulation.overlay.calibration]
 method = "grid"
@@ -90,8 +90,8 @@ solver = "modflow6"
 [comparison.simulation.overlay.workflow]
 mode = "calibration"
 
-[comparison.simulation.overlay.mesh_catchment.zone_meshing]
-global_size = 250.0
+[comparison.simulation.overlay.mesh]
+cell_size = 250.0
 
 [comparison.simulation.overlay.calibration]
 method = "grid"
@@ -119,10 +119,7 @@ def test_a_sweep_of_calibrations_validates(sweep) -> None:
 
 
 def test_each_cell_carries_its_own_mesh(sweep) -> None:
-    sizes = [
-        cell.overlay["mesh_catchment"]["zone_meshing"]["global_size"]
-        for cell in sweep.comparison.simulation
-    ]
+    sizes = [cell.overlay["mesh"]["cell_size"] for cell in sweep.comparison.simulation]
 
     assert sizes == [500.0, 250.0]
     assert len(set(sizes)) == len(sizes)
@@ -142,7 +139,7 @@ def test_the_materialised_child_runs_as_a_calibration(sweep) -> None:
 
     assert payload["workflow"]["mode"] == "calibration"
     assert payload["calibration"]["parameters"]["K"]["bounds"] == [1e-7, 1e-3]
-    assert payload["mesh_catchment"]["zone_meshing"]["global_size"] == 500.0
+    assert payload["mesh"]["cell_size"] == 500.0
 
 
 def test_the_cohort_is_not_ranked_by_cost(sweep) -> None:

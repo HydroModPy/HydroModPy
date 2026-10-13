@@ -4568,15 +4568,15 @@
         "mesh_mode": {
           "default": "unknown",
           "enum": [
-            "mesh_catchment",
-            "mesh_input",
+            "triangle",
+            "voronoi",
             "sgrid",
             "structured",
             "unstructured",
             "unknown"
           ],
           "examples": [
-            "mesh_catchment"
+            "triangle"
           ],
           "title": "Mesh Mode",
           "type": "string",
@@ -8630,7 +8630,7 @@
             }
           ],
           "default": null,
-          "description": "Optional hotstart: path to a prior simulation Zarr store whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior run must share this run's mesh, so enable [mesh_catchment] cache = true; otherwise the cell count differs and restart is refused. None keeps [flow.ic]. Read only by a solver that declares it can: elsewhere the run is refused rather than started from [flow.ic] without a word. This is one of the four ways to say where a transient starts, next to [flow.ic] type='steady_state' (equilibrium under the mean recharge, or under a rate you state with source='prescribed'), type='custom'/'top'/'bottom' (a level you write), and `hmp spinup` (repeat a representative window until the state stops moving, then point this key at its result).",
+          "description": "Optional hotstart: path to a prior simulation Zarr store whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior run must share this run's mesh: a regular grid is rebuilt identically and a generated triangle or voronoi mesh is read back from the mesh cache of the project; otherwise the cell count differs and restart is refused. None keeps [flow.ic]. Read only by a solver that declares it can: elsewhere the run is refused rather than started from [flow.ic] without a word. This is one of the four ways to say where a transient starts, next to [flow.ic] type='steady_state' (equilibrium under the mean recharge, or under a rate you state with source='prescribed'), type='custom'/'top'/'bottom' (a level you write), and `hmp spinup` (repeat a representative window until the state stops moving, then point this key at its result).",
           "title": "Restart From",
           "x-hmp-profile": "user"
         }
@@ -14010,67 +14010,6 @@
         }
       }
     },
-    "GeologyConfigBlock": {
-      "additionalProperties": false,
-      "description": "Geology the mesh follows: its source, an optional clip and a coastal override.",
-      "properties": {
-        "id": {
-          "default": "field_geology",
-          "description": "Logical identifier of the geology field once loaded into HydroModPy. This id is reused by support discretization and by parameter mappings that target geology-based zonation.",
-          "examples": [
-            "field_geology"
-          ],
-          "title": "Id",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "source": {
-          "$ref": "#/$defs/GeologySource",
-          "description": "Raw geology source definition. This section explains where the geology polygons or raster come from and how they should be interpreted.",
-          "x-hmp-profile": "user"
-        },
-        "clip_polygon_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional polygon mask applied before meshing or field projection. Use it to crop a very large national dataset to one smaller study area before further processing.",
-          "title": "Clip Polygon Path",
-          "x-hmp-profile": "user"
-        },
-        "landsea": {
-          "$ref": "#/$defs/GeologyLandSea",
-          "description": "Optional coastal override applied after loading the base geology source.",
-          "x-hmp-profile": "user"
-        },
-        "cell_samples_per_axis": {
-          "default": 8,
-          "description": "Number of sample points along each axis of a mesh cell when the geology fractions are projected onto the mesh. More points give better fractions in narrow or irregular polygons and take longer.",
-          "examples": [
-            8
-          ],
-          "minimum": 2,
-          "title": "Cell Samples Per Axis",
-          "type": "integer",
-          "unit": "-",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "GeologyConfigBlock",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
     "GeologyCriteriaConfig": {
       "additionalProperties": false,
       "description": "Geology criterion configuration.",
@@ -14127,66 +14066,6 @@
           "items": {
             "$ref": "#/$defs/GeologyLayerConfig"
           }
-        }
-      }
-    },
-    "GeologyLandSea": {
-      "additionalProperties": false,
-      "description": "Optional sea-mask override for coastal workflows.",
-      "properties": {
-        "enabled": {
-          "default": false,
-          "description": "Enable the coastal override that replaces geology values over sea areas.",
-          "examples": [
-            false
-          ],
-          "title": "Enabled",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Mask raster or vector path used when landsea.enabled=true. The mask is interpreted so that sea pixels/features overwrite the base geology code.",
-          "title": "Path",
-          "x-hmp-profile": "user"
-        },
-        "sea_value": {
-          "default": 0.0,
-          "description": "Value of the land/sea mask that marks the sea. Cells of the mask that hold it take the geology code override_code.",
-          "examples": [
-            0.0
-          ],
-          "title": "Sea Value",
-          "type": "number",
-          "unit": "-",
-          "x-hmp-profile": "user"
-        },
-        "override_code": {
-          "default": "1",
-          "description": "Geology code written into sea areas after applying the land/sea mask. Choose a stable code that is meaningful in downstream parameter tables.",
-          "examples": [
-            "1"
-          ],
-          "title": "Override Code",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "GeologyLandSea",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
         }
       }
     },
@@ -14254,84 +14133,6 @@
         }
       },
       "title": "GeologyLayerConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "GeologySource": {
-      "additionalProperties": false,
-      "description": "The geology dataset the mesh follows, and how its polygons or cells are read.",
-      "properties": {
-        "path": {
-          "description": "Path to the raw geology dataset used by the meshing workflow. It can point to a raster or polygon vector file depending on kind.",
-          "examples": [
-            "data/input.csv"
-          ],
-          "format": "path",
-          "title": "Path",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "kind": {
-          "default": "auto",
-          "description": "How to interpret the geology source. Use 'vector' for polygon geology, 'raster' for an already rasterized grid, or 'auto' to infer the type from the file.",
-          "enum": [
-            "auto",
-            "raster",
-            "vector"
-          ],
-          "examples": [
-            "auto"
-          ],
-          "title": "Kind",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "code_field": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Attribute column carrying the geology code for each polygon when kind='vector'.",
-          "title": "Code Field",
-          "x-hmp-profile": "user"
-        },
-        "reference_raster_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Reference raster used when vector geology must be rasterized. Its extent and resolution define the target encoding grid.",
-          "title": "Reference Raster Path",
-          "x-hmp-profile": "user"
-        },
-        "all_touched": {
-          "default": false,
-          "description": "Rasterization rule for vector geology. When true, any pixel touched by a polygon is filled; when false, only pixels whose center falls inside are filled.",
-          "examples": [
-            false
-          ],
-          "title": "All Touched",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "GeologySource",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -17830,266 +17631,187 @@
         }
       }
     },
-    "MeshCatchmentConfig": {
+    "MeshConfig": {
       "additionalProperties": false,
-      "description": "Top-level launcher contract for one mono-catchment meshing run.",
+      "description": "The mesh engine and the sizes it meshes the model with.",
       "properties": {
-        "constraints_mode": {
-          "description": "Meshing compliance target, required in every [mesh_catchment] table. 'geology_only' conforms the mesh to geology interfaces only, 'rivers_only' conforms the mesh to river traces only, and 'geology_rivers' enforces both sets of constraints in one mesh.",
-          "enum": [
-            "geology_only",
-            "rivers_only",
-            "geology_rivers"
-          ],
+        "engine": {
+          "default": "regular",
+          "description": "Mesh engine: 'regular' (one quadrilateral cell per DEM pixel, or per cell_size), 'triangle' (triangles that follow the lines) or 'voronoi' (polygons around generators). A string and not a closed choice, since an installed third-party engine is named the same way.",
           "examples": [
-            "rivers_only",
-            "geology_rivers"
+            "regular",
+            "triangle",
+            "voronoi"
           ],
-          "title": "Constraints Mode",
+          "title": "Engine",
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "output_mesh": {
+        "cell_size": {
           "anyOf": [
             {
-              "type": "string"
+              "exclusiveMinimum": 0.0,
+              "type": "number"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Optional `.msh` output path for the generated planar mesh. When omitted, the launcher writes the mesh to `.hmp/scratch/<run>/_preprocessing/mesh/mesh_catchment.msh` inside the active catchment workspace in standard layout, or directly to `workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used.",
-          "title": "Output Mesh",
-          "x-hmp-profile": "dev"
+          "description": "Cell size in metres of the regular grid, or background cell size of the triangle and voronoi engines. Unset, the DEM pixel size.",
+          "title": "Cell Size",
+          "unit": "m",
+          "x-hmp-profile": "user"
         },
-        "output_summary_json": {
+        "river_cell_size": {
           "anyOf": [
             {
-              "type": "string"
+              "exclusiveMinimum": 0.0,
+              "type": "number"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Optional JSON sidecar path for QA metrics, cleaned-input diagnostics, and summary metadata describing the generated mesh. When omitted, the launcher writes it next to the default mesh output.",
-          "title": "Output Summary Json",
-          "x-hmp-profile": "dev"
+          "description": "Cell size in metres along the rivers. Unset, the DEM pixel size; never finer than the DEM pixel.",
+          "title": "River Cell Size",
+          "unit": "m",
+          "x-hmp-profile": "user"
         },
-        "output_figure": {
+        "river_band": {
           "anyOf": [
             {
-              "type": "string"
+              "exclusiveMinimum": 0.0,
+              "type": "number"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Optional overview figure path. Use it when you want a quick visual QA artifact showing the support domain, geology zones, river constraints, and final mesh footprint.",
-          "title": "Output Figure",
-          "x-hmp-profile": "dev"
-        },
-        "output_figure_regional": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional regional overview figure path. When omitted but output_figure is set, the launcher writes a second figure next to the main one with suffix `_regional` to show where the catchment sits on the full DEM.",
-          "title": "Output Figure Regional",
-          "x-hmp-profile": "dev"
-        },
-        "figures_enabled": {
-          "default": true,
-          "description": "If true, generate the overview figure artifacts when figure output paths are configured. Set it to false to skip figure creation entirely, even in batch mode where default filename patterns are present.",
-          "examples": [
-            true
-          ],
-          "title": "Figures Enabled",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "export_exchange_bundle": {
-          "default": true,
-          "description": "If true, write next to the mesh the bundle of files a solver reads the mesh from. Set it to false for profiling or mesh-only runs. A solver that reads the Gmsh mesh may fail without this bundle.",
-          "examples": [
-            true
-          ],
-          "title": "Export Exchange Bundle",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "cache": {
-          "default": false,
-          "description": "If true, reuse a previously generated mesh when its inputs (domain geometry, river constraint, lake/dam refinement, mesh and delineation configuration) are unchanged, instead of regenerating it. Gmsh is not reproducible run to run (it reseeds from the system clock), so regeneration yields a different mesh and makes results and calibration objectives irreproducible; caching pins the mesh. Default off (regenerate every run). See hydromodpy.spatial.mesh.mesh_cache.",
-          "examples": [
-            false
-          ],
-          "title": "Cache",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "figure_dpi": {
-          "default": 300,
-          "description": "Pixel density of the main mesh overview figure. Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG.",
-          "examples": [
-            300
-          ],
-          "exclusiveMinimum": 0,
-          "title": "Figure Dpi",
-          "type": "integer",
-          "unit": "dpi",
-          "x-hmp-profile": "user"
-        },
-        "figure_regional_dpi": {
-          "default": 220,
-          "description": "Pixel density of the regional overview figure. Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy.",
-          "examples": [
-            220
-          ],
-          "exclusiveMinimum": 0,
-          "title": "Figure Regional Dpi",
-          "type": "integer",
-          "unit": "dpi",
-          "x-hmp-profile": "user"
-        },
-        "output_layout": {
-          "default": "standard",
-          "description": "Where a mesh-only launch writes its files. Use 'standard' to keep final mesh artifacts under `.hmp/scratch/<run>/_preprocessing/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate folders out of that final directory.",
-          "enum": [
-            "standard",
-            "flat"
-          ],
-          "examples": [
-            "standard"
-          ],
-          "title": "Output Layout",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "show_plot": {
-          "default": false,
-          "description": "If true, open the generated overview figure interactively at the end of the run. Keep it false for batch or headless execution.",
-          "examples": [
-            false
-          ],
-          "title": "Show Plot",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "geographic_outputs_mode": {
-          "default": "keep",
-          "description": "Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `.hmp/scratch/<run>/_preprocessing/geographic` and `.hmp/scratch/<run>/_preprocessing/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.",
-          "enum": [
-            "keep",
-            "cleanup"
-          ],
-          "examples": [
-            "keep"
-          ],
-          "title": "Geographic Outputs Mode",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "rivers": {
-          "$ref": "#/$defs/MeshCatchmentRiversConfig",
-          "description": "River-constraint section used when constraints_mode includes rivers. The default behavior is to reuse the in-memory river trace already built by the geographic pipeline.",
-          "x-hmp-profile": "user"
-        },
-        "geology": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/GeologyConfigBlock"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Geology polygons the mesh follows. This section says which polygon source holds the lithological zones and how its polygons are read before meshing. It is checked against the geology data sources when the file loads.",
-          "x-hmp-profile": "user"
-        },
-        "watershed_boundary": {
-          "$ref": "#/$defs/MeshCatchmentWatershedBoundaryConfig",
-          "description": "Optional watershed-boundary mesh constraint. Enable it to force a conformal mesh line along the catchment boundary while keeping the geology zonation represented on the whole support domain.",
-          "x-hmp-profile": "user"
-        },
-        "hydraulic_properties": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/MeshCatchmentHydraulicPropertiesConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional hydraulic-property tables keyed by geology zones. The launcher projects geology on the mesh and exports per-cell conductivity/storage values as weighted averages of geology fractions.",
-          "x-hmp-profile": "user"
-        },
-        "domain": {
-          "description": "Effective support domain to mesh. The default `geographic_box_buffer` mode reuses the catchment bounding box plus geographic buffer prepared during delineation, which is usually the right support for mono-catchment meshing.",
-          "discriminator": {
-            "mapping": {
-              "bbox": "#/$defs/ZoneMeshingDomainBBox",
-              "geographic_box_buffer": "#/$defs/ZoneMeshingDomainGeographicBoxBuffer",
-              "geographic_watershed": "#/$defs/ZoneMeshingDomainGeographicWatershed",
-              "geographic_watershed_box": "#/$defs/ZoneMeshingDomainGeographicWatershedBox",
-              "polygon": "#/$defs/ZoneMeshingDomainPolygon",
-              "vector": "#/$defs/ZoneMeshingDomainVector"
-            },
-            "propertyName": "kind"
-          },
-          "title": "Domain",
-          "x-hmp-profile": "user",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ZoneMeshingDomainBBox"
-            },
-            {
-              "$ref": "#/$defs/ZoneMeshingDomainPolygon"
-            },
-            {
-              "$ref": "#/$defs/ZoneMeshingDomainVector"
-            },
-            {
-              "$ref": "#/$defs/ZoneMeshingDomainGeographicBoxBuffer"
-            },
-            {
-              "$ref": "#/$defs/ZoneMeshingDomainGeographicWatershed"
-            },
-            {
-              "$ref": "#/$defs/ZoneMeshingDomainGeographicWatershedBox"
-            }
-          ]
-        },
-        "zone_meshing": {
-          "$ref": "#/$defs/ZoneMeshingSettings",
-          "description": "Gmsh sizing and cleanup settings: cell sizes, simplification and interface refinement. The defaults are valid; set the sizes to reach the number of cells you want.",
-          "x-hmp-profile": "user"
-        },
-        "lake_refinement": {
-          "$ref": "#/$defs/LakeRefinementConfig",
-          "description": "Optional local refinement on the lake shoreline band and the hydraulic structures (cutoff wall, sill, dam outlet). Disabled by default; set enabled = true to add the lake size fields.",
+          "description": "Distance in metres from a river over which the cell size grows back to cell_size. Unset, twice cell_size.",
+          "title": "River Band",
+          "unit": "m",
           "x-hmp-profile": "user"
         },
         "refinement_zone": {
-          "description": "User-provided zones of interest for local refinement. Each entry names one vector layer (polygons = zones, points / lines = corridors) and a target cell size; declare entries as [[mesh_catchment.refinement_zone]] tables.",
+          "description": "Zones of local refinement, one [[mesh.refinement_zone]] table per vector layer, each with its own cell size.",
           "items": {
             "$ref": "#/$defs/RefinementZoneConfig"
           },
           "title": "Refinement Zone",
           "type": "array",
           "x-hmp-profile": "user"
+        },
+        "lake_refinement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LakeRefinementConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Local refinement on the lake shoreline band and the hydraulic structures (cutoff wall, sill, dam outlet). The table switches it on.",
+          "x-hmp-profile": "user"
+        },
+        "families": {
+          "$ref": "#/$defs/MeshFamiliesConfig",
+          "description": "What the mesh does on the rivers, the geology contacts, the lake shores and the catchment boundary.",
+          "x-hmp-profile": "user"
+        },
+        "triangle": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshTriangleConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Triangulation the triangle and voronoi engines start from: a file to read, the gmsh algorithm.",
+          "x-hmp-profile": "user"
+        },
+        "voronoi": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshVoronoiConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Generator settings of the voronoi engine.",
+          "x-hmp-profile": "dev"
+        },
+        "regular": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshRegularConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Grid shape of the regular engine, instead of a cell size.",
+          "x-hmp-profile": "dev"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Seed of the random draws of an engine; one seed gives one mesh.",
+          "examples": [
+            0
+          ],
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer",
+          "unit": "-",
+          "x-hmp-profile": "dev"
+        },
+        "outside_factor": {
+          "default": 2.0,
+          "description": "Cell size outside the catchment, as a multiple of cell_size.",
+          "examples": [
+            2.0
+          ],
+          "minimum": 1.0,
+          "title": "Outside Factor",
+          "type": "number",
+          "unit": "-",
+          "x-hmp-profile": "dev"
+        },
+        "transition_distance": {
+          "default": 500.0,
+          "description": "Distance in metres outside the catchment over which the cell size grows to its outside value.",
+          "examples": [
+            500.0
+          ],
+          "minimum": 0.0,
+          "title": "Transition Distance",
+          "type": "number",
+          "unit": "m",
+          "x-hmp-profile": "dev"
+        },
+        "max_slope": {
+          "default": 0.5,
+          "description": "Largest growth of the cell size per metre of distance, which bounds the size ratio of two neighbours.",
+          "examples": [
+            0.5
+          ],
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Max Slope",
+          "type": "number",
+          "unit": "m/m",
+          "x-hmp-profile": "dev"
         }
       },
-      "title": "MeshCatchmentConfig",
+      "title": "MeshConfig",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -18110,973 +17832,84 @@
         }
       }
     },
-    "MeshCatchmentHydraulicConductivity": {
+    "MeshFamiliesConfig": {
       "additionalProperties": false,
-      "description": "Conductivity mapping exported on mesh cells.",
+      "description": "What the mesh does on each family of lines.",
       "properties": {
-        "values_source": {
-          "default": "inline",
-          "description": "Source of the geology-key to property mapping. Use 'inline' for TOML dictionaries or 'csv' for an external table.",
+        "rivers": {
+          "default": "cell",
+          "description": "How the mesh follows the river network traced from the DEM.",
           "enum": [
-            "inline",
-            "csv"
+            "cell",
+            "none"
           ],
           "examples": [
-            "inline"
+            "cell"
           ],
-          "title": "Values Source",
+          "title": "Rivers",
           "type": "string",
+          "value_docs": {
+            "cell": "The cells along each river form an ordered chain, from upstream to downstream; the river size applies along it.",
+            "none": "The mesh ignores the rivers."
+          },
           "x-hmp-profile": "user"
         },
-        "values": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Inline mapping from geology zone key to property value. Keys must match the normalized `zone_key` values exported by the geology loader.",
-          "title": "Values",
-          "x-hmp-profile": "user"
-        },
-        "values_csv_file": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "CSV file used when values_source='csv'. Relative paths are resolved from the launcher TOML directory.",
-          "title": "Values Csv File",
-          "x-hmp-profile": "dev"
-        },
-        "csv_key_column": {
-          "default": "zone_key",
-          "description": "CSV column containing geology zone keys.",
-          "examples": [
-            "zone_key"
-          ],
-          "title": "Csv Key Column",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "csv_value_column": {
-          "default": "value",
-          "description": "CSV column containing numeric property values.",
-          "examples": [
-            "value"
-          ],
-          "title": "Csv Value Column",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_value": {
-          "anyOf": [
-            {},
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Fallback value applied when one geology zone has no explicit mapping. Leave empty to keep exported cell values undefined for unmapped zones.",
-          "title": "Default Value",
-          "x-hmp-profile": "user"
-        },
-        "unit": {
-          "default": "m/s",
-          "description": "Input unit used by conductivity values. Exported bundle values are always converted to `m/s`.",
-          "examples": [
-            "m/s"
-          ],
-          "minLength": 1,
-          "title": "Unit",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        }
-      },
-      "title": "MeshCatchmentHydraulicConductivity",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "MeshCatchmentHydraulicPropertiesConfig": {
-      "additionalProperties": false,
-      "description": "Optional hydraulic properties derived from the geology zonation.",
-      "properties": {
-        "conductivity": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/MeshCatchmentHydraulicConductivity"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional hydraulic-conductivity mapping by geology key. When provided, the bundle exports one `hydraulic_conductivity_m_s` value per cell.",
-          "x-hmp-profile": "user"
-        },
-        "storage_coefficient": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/MeshCatchmentStorageCoefficient"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional storage-coefficient mapping by geology key. When provided, the bundle exports one `storage_coefficient` value per cell.",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "MeshCatchmentHydraulicPropertiesConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "MeshCatchmentRiversConfig": {
-      "additionalProperties": false,
-      "description": "River-trace inputs consumed by the conformal mesher.",
-      "properties": {
-        "source": {
-          "default": "geographic_features",
-          "description": "Origin of the river constraints used to force mesh edges along the river network. Use 'geographic_features' for the in-memory river trace produced by geographic preprocessing, or 'file' to reload a vector river dataset from disk.",
+        "geology": {
+          "default": "face",
+          "description": "How the mesh follows the contacts between the zones of the vector geology map that a flow parameter reads.",
           "enum": [
-            "geographic_features",
-            "file"
+            "face",
+            "none"
           ],
           "examples": [
-            "geographic_features"
+            "face"
           ],
-          "title": "Source",
+          "title": "Geology",
           "type": "string",
+          "value_docs": {
+            "face": "Cell faces lie on the contacts between geology zones.",
+            "none": "The mesh ignores the geology contacts."
+          },
           "x-hmp-profile": "user"
         },
-        "path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Vector file of the river lines. The path may be absolute or relative to the TOML location and should point to a line dataset describing the river centerlines to honor during meshing.",
-          "title": "Path",
-          "x-hmp-profile": "user"
-        },
-        "clip_to_domain": {
-          "default": true,
-          "description": "If true, clip the river trace to the effective meshing support before sending it to Gmsh. Keep this enabled in most workflows to avoid constraining the mesh with segments that lie outside the chosen domain or scope.",
-          "examples": [
-            true
-          ],
-          "title": "Clip To Domain",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "min_segment_length": {
-          "anyOf": [
-            {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "properties": {
-                    "magnitude": {
-                      "anyOf": [
-                        {
-                          "type": "integer"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "string"
-                        }
-                      ],
-                      "title": "Magnitude"
-                    },
-                    "units": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {}
-                      ],
-                      "title": "Units"
-                    }
-                  },
-                  "type": "object"
-                }
-              ]
-            },
-            {
-              "type": "number"
-            },
-            {
-              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-              "type": "string"
-            }
-          ],
-          "default": 0.0,
-          "description": "Minimum retained river segment length, in projected metres after reprojection. Use this to discard tiny residual segments created by clipping or noisy hydrography that would only add mesh complexity without hydraulic meaning.",
-          "examples": [
-            0.0
-          ],
-          "title": "Min Segment Length",
-          "x-hmp-profile": "user"
-        },
-        "snap_tolerance": {
-          "anyOf": [
-            {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "properties": {
-                    "magnitude": {
-                      "anyOf": [
-                        {
-                          "type": "integer"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "string"
-                        }
-                      ],
-                      "title": "Magnitude"
-                    },
-                    "units": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {}
-                      ],
-                      "title": "Units"
-                    }
-                  },
-                  "type": "object"
-                }
-              ]
-            },
-            {
-              "type": "number"
-            },
-            {
-              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-              "type": "string"
-            }
-          ],
-          "default": 0.0,
-          "description": "Reserved snapping tolerance, in projected metres, for possible future cleanup of nearly coincident river vertices. The current workflow stores the value in the launcher contract but does not apply an additional snapping pass.",
-          "examples": [
-            0.0
-          ],
-          "title": "Snap Tolerance",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "MeshCatchmentRiversConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "MeshCatchmentStorageCoefficient": {
-      "additionalProperties": false,
-      "description": "Storage-coefficient mapping exported on mesh cells.",
-      "properties": {
-        "values_source": {
-          "default": "inline",
-          "description": "Source of the geology-key to property mapping. Use 'inline' for TOML dictionaries or 'csv' for an external table.",
+        "lakes": {
+          "default": "face",
+          "description": "How the mesh follows the shore of each lake of the flow model.",
           "enum": [
-            "inline",
-            "csv"
+            "face",
+            "none"
           ],
           "examples": [
-            "inline"
+            "face"
           ],
-          "title": "Values Source",
+          "title": "Lakes",
           "type": "string",
+          "value_docs": {
+            "face": "Cell faces lie on the lake shores.",
+            "none": "The mesh ignores the lake shores."
+          },
           "x-hmp-profile": "user"
         },
-        "values": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Inline mapping from geology zone key to property value. Keys must match the normalized `zone_key` values exported by the geology loader.",
-          "title": "Values",
-          "x-hmp-profile": "user"
-        },
-        "values_csv_file": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "CSV file used when values_source='csv'. Relative paths are resolved from the launcher TOML directory.",
-          "title": "Values Csv File",
-          "x-hmp-profile": "dev"
-        },
-        "csv_key_column": {
-          "default": "zone_key",
-          "description": "CSV column containing geology zone keys.",
-          "examples": [
-            "zone_key"
-          ],
-          "title": "Csv Key Column",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "csv_value_column": {
-          "default": "value",
-          "description": "CSV column containing numeric property values.",
-          "examples": [
-            "value"
-          ],
-          "title": "Csv Value Column",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_value": {
-          "anyOf": [
-            {},
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Fallback value applied when one geology zone has no explicit mapping. Leave empty to keep exported cell values undefined for unmapped zones.",
-          "title": "Default Value",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "MeshCatchmentStorageCoefficient",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "MeshCatchmentWatershedBoundaryConfig": {
-      "additionalProperties": false,
-      "description": "Optional watershed-boundary mesh constraint.",
-      "properties": {
-        "enabled": {
-          "default": false,
-          "description": "If true, inject the watershed boundary as one dedicated linear constraint in addition to geology and/or river constraints.",
-          "examples": [
-            false
-          ],
-          "title": "Enabled",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "boundary_refinement_distance": {
-          "anyOf": [
-            {
-              "anyOf": [
-                {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "properties": {
-                        "magnitude": {
-                          "anyOf": [
-                            {
-                              "type": "integer"
-                            },
-                            {
-                              "type": "number"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ],
-                          "title": "Magnitude"
-                        },
-                        "units": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {}
-                          ],
-                          "title": "Units"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-                  "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-                  "type": "string"
-                }
-              ],
-              "ge": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional influence distance, in projected metres, used for the watershed-boundary refinement family. When omitted, the mesher derives one conservative distance from the boundary extent.",
-          "title": "Boundary Refinement Distance",
-          "x-hmp-profile": "dev"
-        },
-        "smoothing": {
-          "$ref": "#/$defs/MeshCatchmentWatershedBoundarySmoothingConfig",
-          "description": "Optional regularization controls applied before the watershed boundary is converted to a linear constraint.",
-          "x-hmp-profile": "user"
-        },
-        "outside_coarsening": {
-          "$ref": "#/$defs/MeshCatchmentWatershedOutsideCoarseningConfig",
-          "description": "Optional coarse-background size field applied outside the regularized watershed while keeping the geology partition unchanged.",
-          "x-hmp-profile": "user"
-        },
-        "geology_conformity": {
-          "$ref": "#/$defs/MeshCatchmentWatershedGeologyConformityConfig",
-          "description": "Optional control of where geology remains conformal relative to the watershed. Keep the default full_domain mode to preserve the current behavior.",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "MeshCatchmentWatershedBoundaryConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "MeshCatchmentWatershedBoundarySmoothingConfig": {
-      "additionalProperties": false,
-      "description": "Optional smoothing controls for the watershed-boundary constraint.",
-      "properties": {
-        "enabled": {
-          "default": false,
-          "description": "If true, apply the smoothing controls below before converting the watershed boundary into one linear constraint.",
-          "examples": [
-            false
-          ],
-          "title": "Enabled",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "distance": {
-          "anyOf": [
-            {
-              "anyOf": [
-                {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "properties": {
-                        "magnitude": {
-                          "anyOf": [
-                            {
-                              "type": "integer"
-                            },
-                            {
-                              "type": "number"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ],
-                          "title": "Magnitude"
-                        },
-                        "units": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {}
-                          ],
-                          "title": "Units"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-                  "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-                  "type": "string"
-                }
-              ],
-              "ge": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional regularization tolerance, in projected metres, used to simplify the watershed boundary at roughly the target internal mesh scale before it is injected as a linear mesh constraint. When omitted, the mesher reuses zone_meshing.global_size.",
-          "title": "Distance",
-          "x-hmp-profile": "dev"
-        },
-        "river_buffer_distance": {
-          "anyOf": [
-            {
-              "anyOf": [
-                {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "properties": {
-                        "magnitude": {
-                          "anyOf": [
-                            {
-                              "type": "integer"
-                            },
-                            {
-                              "type": "number"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ],
-                          "title": "Magnitude"
-                        },
-                        "units": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {}
-                          ],
-                          "title": "Units"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-                  "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-                  "type": "string"
-                }
-              ],
-              "ge": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional protective buffer around river traces, in projected metres, merged into the boundary-support polygon before smoothing so the final watershed boundary stays slightly outside river corridors near the basin edge.",
-          "title": "River Buffer Distance",
-          "x-hmp-profile": "dev"
-        },
-        "outer_bias_distance": {
-          "anyOf": [
-            {
-              "anyOf": [
-                {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "properties": {
-                        "magnitude": {
-                          "anyOf": [
-                            {
-                              "type": "integer"
-                            },
-                            {
-                              "type": "number"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ],
-                          "title": "Magnitude"
-                        },
-                        "units": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {}
-                          ],
-                          "title": "Units"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-                  "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-                  "type": "string"
-                }
-              ],
-              "ge": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional outward bias, in projected metres, applied after smoothing so the final watershed boundary remains slightly englobing instead of cutting back toward the raw catchment contour.",
-          "title": "Outer Bias Distance",
-          "x-hmp-profile": "dev"
-        }
-      },
-      "title": "MeshCatchmentWatershedBoundarySmoothingConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "MeshCatchmentWatershedGeologyConformityConfig": {
-      "additionalProperties": false,
-      "description": "Optional control of where geology remains conformal around the watershed.",
-      "properties": {
-        "mode": {
-          "default": "full_domain",
-          "description": "Control where geology remains conformal. Use 'full_domain' to keep the current behavior, or 'buffered_watershed_envelope' to keep geology interfaces active only inside one buffered envelope around the regularized watershed, without creating one strict partition boundary on that envelope.",
+        "watershed_boundary": {
+          "default": "none",
+          "description": "How the mesh follows the boundary of the catchment inside the domain.",
           "enum": [
-            "full_domain",
-            "buffered_watershed_envelope"
+            "face",
+            "none"
           ],
           "examples": [
-            "full_domain"
+            "face"
           ],
-          "title": "Mode",
+          "title": "Watershed Boundary",
           "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "buffer_distance": {
-          "anyOf": [
-            {
-              "anyOf": [
-                {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "properties": {
-                        "magnitude": {
-                          "anyOf": [
-                            {
-                              "type": "integer"
-                            },
-                            {
-                              "type": "number"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ],
-                          "title": "Magnitude"
-                        },
-                        "units": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {}
-                          ],
-                          "title": "Units"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-                  "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-                  "type": "string"
-                }
-              ],
-              "ge": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional outward buffer, in projected metres, added around the regularized watershed before selecting where geology interfaces remain active. When omitted in buffered_watershed_envelope mode, the mesher reuses zone_meshing.global_size.",
-          "title": "Buffer Distance",
-          "x-hmp-profile": "dev"
-        }
-      },
-      "title": "MeshCatchmentWatershedGeologyConformityConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "MeshCatchmentWatershedOutsideCoarseningConfig": {
-      "additionalProperties": false,
-      "description": "Optional coarse-background size controls outside the watershed.",
-      "properties": {
-        "enabled": {
-          "default": false,
-          "description": "If true, add one regional mesh-size field that keeps the current background size inside the watershed and coarsens the mesh outside it.",
-          "examples": [
-            false
-          ],
-          "title": "Enabled",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "size_factor": {
-          "default": 2.0,
-          "description": "Multiplicative factor applied to zone_meshing.global_size outside the watershed. Use 2.0 for an outside background roughly twice as coarse as the internal baseline.",
-          "examples": [
-            2.0
-          ],
-          "minimum": 1.0,
-          "title": "Size Factor",
-          "type": "number",
-          "x-hmp-profile": "dev"
-        },
-        "transition_distance": {
-          "anyOf": [
-            {
-              "anyOf": [
-                {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "properties": {
-                        "magnitude": {
-                          "anyOf": [
-                            {
-                              "type": "integer"
-                            },
-                            {
-                              "type": "number"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ],
-                          "title": "Magnitude"
-                        },
-                        "units": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {}
-                          ],
-                          "title": "Units"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-                  "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-                  "type": "string"
-                }
-              ],
-              "ge": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional transition width, in projected metres, used to ramp from the internal background size to the coarser outside size away from the watershed boundary.",
-          "title": "Transition Distance",
-          "x-hmp-profile": "dev"
-        },
-        "grid_resolution": {
-          "anyOf": [
-            {
-              "anyOf": [
-                {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "properties": {
-                        "magnitude": {
-                          "anyOf": [
-                            {
-                              "type": "integer"
-                            },
-                            {
-                              "type": "number"
-                            },
-                            {
-                              "type": "string"
-                            }
-                          ],
-                          "title": "Magnitude"
-                        },
-                        "units": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {}
-                          ],
-                          "title": "Units"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-                  "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-                  "type": "string"
-                }
-              ],
-              "gt": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional structured-grid resolution, in projected metres, used to discretize the outside coarsening field. When omitted, the mesher reuses zone_meshing.global_size.",
-          "title": "Grid Resolution",
-          "x-hmp-profile": "dev"
-        }
-      },
-      "title": "MeshCatchmentWatershedOutsideCoarseningConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "MeshInputConfig": {
-      "additionalProperties": false,
-      "description": "External pre-existing mesh declared in ``[mesh_input]``.\n\nEither ``mesh_path`` or ``bundle_dir`` must be provided. Paths are stored\nas ``Path`` instances; relative paths are resolved by the call site (the\nsimulation launcher resolves them against the TOML directory).",
-      "properties": {
-        "mesh_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Path to the external planar mesh file (typically a ``.msh``). Required when ``bundle_dir`` is not provided. Relative paths are resolved against the TOML directory.",
-          "title": "Mesh Path",
-          "x-hmp-profile": "user"
-        },
-        "bundle_dir": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Path to the solver-exchange mesh bundle directory associated with the external mesh. Required when ``mesh_path`` is not provided. Relative paths are resolved against the TOML directory.",
-          "title": "Bundle Dir",
+          "value_docs": {
+            "face": "Cell faces lie on the catchment boundary.",
+            "none": "The mesh ignores the catchment boundary."
+          },
           "x-hmp-profile": "user"
         }
       },
-      "title": "MeshInputConfig",
+      "title": "MeshFamiliesConfig",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -19113,7 +17946,7 @@
         "backend": {
           "const": "catchment",
           "default": "catchment",
-          "description": "How the mesh process builds its mesh. 'catchment' is the one value: it builds the mesh that [mesh_catchment] describes.",
+          "description": "How the mesh process builds its mesh. 'catchment' is the one value: it builds the mesh that [mesh] describes.",
           "examples": [
             "catchment"
           ],
@@ -19150,6 +17983,141 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "MeshRegularConfig": {
+      "additionalProperties": false,
+      "description": "A regular grid given by its shape rather than by a cell size.",
+      "properties": {
+        "shape": {
+          "description": "Number of rows and columns [nrow, ncol] of the grid over the DEM extent; the cells are rectangular when the extent is not square.",
+          "examples": [
+            [
+              60,
+              60
+            ]
+          ],
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "description": "Positive integer.",
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "description": "Positive integer.",
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            }
+          ],
+          "title": "Shape",
+          "type": "array",
+          "unit": "cells",
+          "x-hmp-profile": "dev"
+        }
+      },
+      "title": "MeshRegularConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^shape__append$": {
+          "type": "array"
+        },
+        "^shape__merge$": {
+          "type": "array"
+        }
+      }
+    },
+    "MeshTriangleConfig": {
+      "additionalProperties": false,
+      "description": "The triangulation the ``triangle`` and ``voronoi`` engines start from.",
+      "properties": {
+        "path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Existing gmsh .msh file (format 2.2) to read instead of generating a triangulation, relative to the configuration file. The line families are derived on the mesh read.",
+          "examples": [
+            "mesh/catchment.msh"
+          ],
+          "title": "Path",
+          "x-hmp-profile": "user"
+        },
+        "algorithm": {
+          "default": "delaunay",
+          "description": "Two-dimensional gmsh algorithm that generates the triangulation.",
+          "enum": [
+            "delaunay",
+            "frontal",
+            "meshadapt"
+          ],
+          "examples": [
+            "delaunay"
+          ],
+          "title": "Algorithm",
+          "type": "string",
+          "value_docs": {
+            "delaunay": "Gmsh Delaunay (algorithm 5): fast and robust.",
+            "frontal": "Gmsh frontal-Delaunay (algorithm 6): better shaped triangles.",
+            "meshadapt": "Gmsh MeshAdapt (algorithm 1): for complex curved boundaries."
+          },
+          "x-hmp-profile": "dev"
+        }
+      },
+      "title": "MeshTriangleConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "MeshVoronoiConfig": {
+      "additionalProperties": false,
+      "description": "Settings of the ``voronoi`` engine.",
+      "properties": {
+        "seeds": {
+          "anyOf": [
+            {
+              "enum": [
+                "generated",
+                "triangulation"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where the generators of the Voronoi cells come from. Unset, they are the vertices of the triangulation read from [mesh.triangle] path when a path is given, and generated from the size field otherwise.",
+          "title": "Seeds",
+          "value_docs": {
+            "generated": "The engine places the generators from the size field.",
+            "triangulation": "The vertices of the triangulation read from [mesh.triangle] path are the generators."
+          },
+          "x-hmp-profile": "dev"
+        }
+      },
+      "title": "MeshVoronoiConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
         }
       }
     },
@@ -19194,7 +18162,7 @@
         },
         "sgrid": {
           "$ref": "#/$defs/SolverSGridConfig",
-          "description": "Solver-grid payload split into planar and vertical sections.",
+          "description": "Vertical layering and top sampling of the solver grid; the planar grid is set by [mesh].",
           "x-hmp-profile": "user"
         }
       },
@@ -19966,7 +18934,7 @@
         },
         "sgrid": {
           "$ref": "#/$defs/SolverSGridConfig",
-          "description": "Spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`.",
+          "description": "Vertical layering and top sampling of the solver grid; the planar grid is set by [mesh].",
           "x-hmp-profile": "user"
         }
       },
@@ -22081,87 +21049,6 @@
           "items": {
             "type": "string"
           }
-        }
-      }
-    },
-    "PlanarGridConfig": {
-      "additionalProperties": false,
-      "description": "Planar discretization contract for solver-facing grids.",
-      "properties": {
-        "mode": {
-          "default": "keep_native",
-          "description": "Planar solver-grid mode: keep the native domain support or resample to an explicit (ny, nx) target shape.",
-          "enum": [
-            "keep_native",
-            "resample_to_shape"
-          ],
-          "examples": [
-            "keep_native"
-          ],
-          "title": "Mode",
-          "type": "string",
-          "value_docs": {
-            "keep_native": "Keeps the top raster's native shape and resolution, no resampling.",
-            "resample_to_shape": "Resamples top and bottom onto an explicit (ny, nx) grid, keeping the same extent."
-          },
-          "x-hmp-profile": "user"
-        },
-        "nx": {
-          "anyOf": [
-            {
-              "description": "Positive integer.",
-              "exclusiveMinimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Target number of columns when planar mode is 'resample_to_shape'.",
-          "title": "Nx",
-          "unit": "-",
-          "x-hmp-profile": "user"
-        },
-        "ny": {
-          "anyOf": [
-            {
-              "description": "Positive integer.",
-              "exclusiveMinimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Target number of rows when planar mode is 'resample_to_shape'.",
-          "title": "Ny",
-          "unit": "-",
-          "x-hmp-profile": "user"
-        },
-        "resampling": {
-          "default": "bilinear",
-          "description": "Resampling rule applied when planar mode is 'resample_to_shape'.",
-          "enum": [
-            "bilinear",
-            "average",
-            "nearest"
-          ],
-          "examples": [
-            "bilinear"
-          ],
-          "title": "Resampling",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        }
-      },
-      "title": "PlanarGridConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
         }
       }
     },
@@ -26530,30 +25417,11 @@
     },
     "SolverSGridConfig": {
       "additionalProperties": false,
-      "description": "Solver-facing grid configuration split into explicit planar and vertical parts.",
+      "description": "Solver-facing grid configuration: vertical layering and top sampling.\n\nThe planar grid is the mesh of ``[mesh]``, not a key of this table.",
       "properties": {
-        "planar": {
-          "$ref": "#/$defs/PlanarGridConfig",
-          "description": "Planar discretization of the solver grid.",
-          "x-hmp-profile": "user"
-        },
         "vertical": {
           "$ref": "#/$defs/VerticalGridConfig",
           "description": "Vertical layering of the solver grid.",
-          "x-hmp-profile": "user"
-        },
-        "grid_dual": {
-          "default": "voronoi",
-          "description": "Applies only to a MODFLOW 6 run on a Gmsh mesh built by the run; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the default; 'triangle' keeps the triangulation cells as the DISV grid for simplex comparison runs.",
-          "enum": [
-            "voronoi",
-            "triangle"
-          ],
-          "examples": [
-            "voronoi"
-          ],
-          "title": "Grid Dual",
-          "type": "string",
           "x-hmp-profile": "user"
         },
         "top_sampling": {
@@ -28588,7 +27456,7 @@
     },
     "TopSamplingConfig": {
       "additionalProperties": false,
-      "description": "How the top of the solver grid is sampled from the DEM.\n\nApplies to the MODFLOW 6 runtime mesh and to a structured grid coarser than\nits DEM (``planar.mode = \"resample_to_shape\"``). The default 'centroid' mode\nsamples the DEM at each Voronoi generator, or resamples it to the grid, which\nunder-represents narrow incised channels (the sample lands on a bank, not the\nthalweg). The 'zonal' mode reduces every DEM pixel inside a cell with a\nper-class statistic (a thalweg-preserving stat on channel pixels, an area stat\non hillslope pixels), so channel cells keep their incised low. A structured\ngrid whose cells are the DEM pixels (``keep_native``) already holds the pixel\nvalues and is unchanged. Only the top is zonal; the bottom keeps its rule. On\na structured grid the idomain does not move, and zonal applies only when a cell\ncovers at least two DEM pixels. MODFLOW-NWT builds no channel mask, so a zonal\ntop there needs ``channel_source = \"none\"`` (median only), and the config load\nrefuses the other value. Boussinesq ignores it. Every\nnon-default value changes the calibration params_hash (config-scoped); when\nthe sampling CODE changes, bump the version so the code-blind cache re-solves.",
+      "description": "How the top of the solver grid is sampled from the DEM.\n\nApplies to the MODFLOW 6 runtime mesh and to a structured grid coarser than\nits DEM (``[mesh] cell_size`` or ``[mesh.regular] shape``). The default 'centroid' mode\nsamples the DEM at each Voronoi generator, or resamples it to the grid, which\nunder-represents narrow incised channels (the sample lands on a bank, not the\nthalweg). The 'zonal' mode reduces every DEM pixel inside a cell with a\nper-class statistic (a thalweg-preserving stat on channel pixels, an area stat\non hillslope pixels), so channel cells keep their incised low. A structured\ngrid whose cells are the DEM pixels already holds the pixel\nvalues and is unchanged. Only the top is zonal; the bottom keeps its rule. On\na structured grid the idomain does not move, and zonal applies only when a cell\ncovers at least two DEM pixels. MODFLOW-NWT builds no channel mask, so a zonal\ntop there needs ``channel_source = \"none\"`` (median only), and the config load\nrefuses the other value. Boussinesq ignores it. Every\nnon-default value changes the calibration params_hash (config-scoped); when\nthe sampling CODE changes, bump the version so the code-blind cache re-solves.",
       "properties": {
         "mode": {
           "default": "centroid",
@@ -30116,756 +28984,6 @@
         }
       }
     },
-    "ZoneMeshingDomainBBox": {
-      "additionalProperties": false,
-      "description": "A rectangle given by bbox = [xmin, ymin, xmax, ymax].",
-      "properties": {
-        "kind": {
-          "const": "bbox",
-          "default": "bbox",
-          "description": "Where the outline of the meshed domain comes from. Unset, it follows from the key given: bbox, coordinates or path.",
-          "examples": [
-            "bbox"
-          ],
-          "title": "Kind",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "bbox": {
-          "description": "Rectangle of the domain as [xmin, ymin, xmax, ymax], in metres in the projected CRS of the project.",
-          "examples": [
-            [
-              350000.0,
-              6780000.0,
-              362000.0,
-              6792000.0
-            ]
-          ],
-          "items": {
-            "type": "number"
-          },
-          "title": "Bbox",
-          "type": "array",
-          "unit": "m",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "ZoneMeshingDomainBBox",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        },
-        "^bbox__append$": {
-          "type": "array",
-          "items": {
-            "type": "number"
-          }
-        },
-        "^bbox__merge$": {
-          "type": "array",
-          "items": {
-            "type": "number"
-          }
-        }
-      }
-    },
-    "ZoneMeshingDomainGeographicBoxBuffer": {
-      "additionalProperties": false,
-      "description": "The buffered rectangle around the catchment that [geographic] builds.",
-      "properties": {
-        "kind": {
-          "const": "geographic_box_buffer",
-          "default": "geographic_box_buffer",
-          "examples": [
-            "geographic_box_buffer"
-          ],
-          "title": "Kind",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "ZoneMeshingDomainGeographicBoxBuffer",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "ZoneMeshingDomainGeographicWatershed": {
-      "additionalProperties": false,
-      "description": "The catchment polygon that [geographic] delineates.",
-      "properties": {
-        "kind": {
-          "const": "geographic_watershed",
-          "default": "geographic_watershed",
-          "examples": [
-            "geographic_watershed"
-          ],
-          "title": "Kind",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "ZoneMeshingDomainGeographicWatershed",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "ZoneMeshingDomainGeographicWatershedBox": {
-      "additionalProperties": false,
-      "description": "The bounding rectangle of the catchment that [geographic] delineates.",
-      "properties": {
-        "kind": {
-          "const": "geographic_watershed_box",
-          "default": "geographic_watershed_box",
-          "examples": [
-            "geographic_watershed_box"
-          ],
-          "title": "Kind",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "ZoneMeshingDomainGeographicWatershedBox",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "ZoneMeshingDomainPolygon": {
-      "additionalProperties": false,
-      "description": "A polygon given inline by its vertices.",
-      "properties": {
-        "kind": {
-          "const": "polygon",
-          "default": "polygon",
-          "examples": [
-            "polygon"
-          ],
-          "title": "Kind",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "coordinates": {
-          "description": "Vertices [[x, y], ...] of the domain polygon, at least three, in metres in the projected CRS of the project.",
-          "examples": [
-            [
-              [
-                350000.0,
-                6780000.0
-              ],
-              [
-                362000.0,
-                6780000.0
-              ],
-              [
-                356000.0,
-                6792000.0
-              ]
-            ]
-          ],
-          "items": {
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
-          },
-          "title": "Coordinates",
-          "type": "array",
-          "unit": "m",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "ZoneMeshingDomainPolygon",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        },
-        "^coordinates__append$": {
-          "type": "array",
-          "items": {
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
-          }
-        },
-        "^coordinates__merge$": {
-          "type": "array",
-          "items": {
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
-          }
-        }
-      }
-    },
-    "ZoneMeshingDomainVector": {
-      "additionalProperties": false,
-      "description": "A polygon read from a vector file.",
-      "properties": {
-        "kind": {
-          "const": "vector",
-          "default": "vector",
-          "examples": [
-            "vector"
-          ],
-          "title": "Kind",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "path": {
-          "description": "Vector file (gpkg, shp, GeoJSON) holding the polygon of the meshed domain.",
-          "examples": [
-            "domain.gpkg"
-          ],
-          "format": "path",
-          "title": "Path",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "id_field": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional vector attribute field name used to filter features.",
-          "title": "Id Field",
-          "x-hmp-profile": "user"
-        },
-        "selected_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional value of id_field that selects a single feature in the vector source.",
-          "title": "Selected Id",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "ZoneMeshingDomainVector",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "ZoneMeshingRefinementFamilySettings": {
-      "additionalProperties": false,
-      "description": "One family-specific refinement override inside the hotspot policy.",
-      "properties": {
-        "enabled": {
-          "default": true,
-          "description": "If False, this family is parsed but skipped during refinement. Per-family defaults: river and geology_interface are enabled, watershed_boundary is disabled (whole-divide refinement is opt-in).",
-          "examples": [
-            true
-          ],
-          "title": "Enabled",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "priority": {
-          "default": 0,
-          "description": "Application order between families. Higher values win when budgets compete.",
-          "examples": [
-            0
-          ],
-          "title": "Priority",
-          "type": "integer",
-          "unit": "-",
-          "x-hmp-profile": "user"
-        },
-        "interface_size": {
-          "anyOf": [
-            {
-              "description": "Non-negative floating-point value.",
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Override target cell size at the family interface, in projected metres.",
-          "title": "Interface Size",
-          "x-hmp-profile": "dev"
-        },
-        "interface_distance": {
-          "anyOf": [
-            {
-              "description": "Non-negative floating-point value.",
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Override influence distance from the family interface, in projected metres.",
-          "title": "Interface Distance",
-          "x-hmp-profile": "dev"
-        },
-        "interface_sampling": {
-          "anyOf": [
-            {
-              "minimum": 2,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Override the number of sampled points along the family interface (>=2).",
-          "title": "Interface Sampling",
-          "x-hmp-profile": "dev"
-        }
-      },
-      "title": "ZoneMeshingRefinementFamilySettings",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "ZoneMeshingRefinementGridSettings": {
-      "additionalProperties": false,
-      "description": "Validated grid settings for one locality-first refinement policy.",
-      "properties": {
-        "cell_size": {
-          "anyOf": [
-            {
-              "description": "Positive floating-point value.",
-              "exclusiveMinimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Target cell size in projected metres. None lets the mesher derive a default from constraints.",
-          "title": "Cell Size",
-          "unit": "m",
-          "x-hmp-profile": "user"
-        },
-        "neighborhood_rings": {
-          "default": 1,
-          "description": "Number of cell rings inspected around each hotspot when projecting refinement budget.",
-          "examples": [
-            1
-          ],
-          "exclusiveMinimum": 0,
-          "title": "Neighborhood Rings",
-          "type": "integer",
-          "x-hmp-profile": "dev"
-        },
-        "enable_exact_gap_check": {
-          "default": true,
-          "description": "If True, run the exact pairwise gap check between candidate hotspot curves.",
-          "examples": [
-            true
-          ],
-          "title": "Enable Exact Gap Check",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "max_exact_gap_candidates": {
-          "default": 256,
-          "description": "Cap on the number of curves submitted to the exact gap check before falling back to a heuristic.",
-          "examples": [
-            256
-          ],
-          "exclusiveMinimum": 0,
-          "title": "Max Exact Gap Candidates",
-          "type": "integer",
-          "x-hmp-profile": "dev"
-        }
-      },
-      "title": "ZoneMeshingRefinementGridSettings",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "ZoneMeshingRefinementHotspotSettings": {
-      "additionalProperties": false,
-      "description": "Validated hotspot-detection thresholds for local refinement budgeting.",
-      "properties": {
-        "radius": {
-          "anyOf": [
-            {
-              "description": "Non-negative floating-point value.",
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Hotspot detection radius in projected metres. None lets the mesher derive a default.",
-          "title": "Radius",
-          "x-hmp-profile": "dev"
-        },
-        "max_curve_count": {
-          "default": 180,
-          "description": "Maximum number of constraint curves admitted in one hotspot before triggering local refinement.",
-          "examples": [
-            180
-          ],
-          "exclusiveMinimum": 0,
-          "title": "Max Curve Count",
-          "type": "integer",
-          "x-hmp-profile": "dev"
-        },
-        "max_family_count": {
-          "default": 2,
-          "description": "Maximum number of distinct constraint families coexisting in one hotspot.",
-          "examples": [
-            2
-          ],
-          "exclusiveMinimum": 0,
-          "title": "Max Family Count",
-          "type": "integer",
-          "x-hmp-profile": "dev"
-        },
-        "min_gap": {
-          "default": 80.0,
-          "description": "Minimum acceptable gap between non-conformal curves in projected metres.",
-          "examples": [
-            80.0
-          ],
-          "minimum": 0.0,
-          "title": "Min Gap",
-          "type": "number",
-          "x-hmp-profile": "dev"
-        },
-        "max_node_degree": {
-          "default": 4,
-          "description": "Maximum tolerated topological degree at a hotspot junction node.",
-          "examples": [
-            4
-          ],
-          "exclusiveMinimum": 0,
-          "title": "Max Node Degree",
-          "type": "integer",
-          "x-hmp-profile": "dev"
-        },
-        "short_segment_length": {
-          "default": 120.0,
-          "description": "Length threshold below which a constraint segment is counted as short, in projected metres.",
-          "examples": [
-            120.0
-          ],
-          "minimum": 0.0,
-          "title": "Short Segment Length",
-          "type": "number",
-          "x-hmp-profile": "dev"
-        },
-        "max_short_segment_count": {
-          "default": 12,
-          "description": "Maximum tolerated number of short segments inside one hotspot.",
-          "examples": [
-            12
-          ],
-          "exclusiveMinimum": 0,
-          "title": "Max Short Segment Count",
-          "type": "integer",
-          "x-hmp-profile": "dev"
-        }
-      },
-      "title": "ZoneMeshingRefinementHotspotSettings",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "ZoneMeshingRefinementPolicy": {
-      "additionalProperties": false,
-      "description": "Local refinement policy for mixed river/geology interfaces.",
-      "properties": {
-        "enabled": {
-          "default": false,
-          "description": "If True, the local refinement policy runs on top of the global zone meshing.",
-          "examples": [
-            false
-          ],
-          "title": "Enabled",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "mode": {
-          "default": "family_priority_local_budget",
-          "description": "Refinement mode selector. One of 'family_priority_local_budget' or 'grid_local_budget'.",
-          "enum": [
-            "family_priority_local_budget",
-            "grid_local_budget"
-          ],
-          "examples": [
-            "family_priority_local_budget"
-          ],
-          "title": "Mode",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "hotspot": {
-          "$ref": "#/$defs/ZoneMeshingRefinementHotspotSettings",
-          "description": "Hotspot-detection thresholds used when budgeting local refinement.",
-          "x-hmp-profile": "dev"
-        },
-        "grid": {
-          "$ref": "#/$defs/ZoneMeshingRefinementGridSettings",
-          "description": "Grid settings used by the locality-first refinement policy.",
-          "x-hmp-profile": "user"
-        },
-        "families": {
-          "additionalProperties": {
-            "$ref": "#/$defs/ZoneMeshingRefinementFamilySettings"
-          },
-          "description": "Per-family refinement settings keyed by family name.",
-          "title": "Families",
-          "type": "object",
-          "x-hmp-profile": "user",
-          "patternProperties": {
-            "^.+__delete$": {
-              "const": true,
-              "description": "Remove the inherited key. Only the literal true is accepted."
-            },
-            "^.+__append$": {
-              "type": "array"
-            },
-            "^.+__merge$": {
-              "type": "array"
-            }
-          }
-        }
-      },
-      "title": "ZoneMeshingRefinementPolicy",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "ZoneMeshingSettings": {
-      "additionalProperties": false,
-      "description": "Validated settings for one conformal 2D Gmsh meshing run.",
-      "properties": {
-        "algorithm": {
-          "default": "delaunay",
-          "description": "Planar Gmsh algorithm name. In practice the examples use 'delaunay', which is a robust default for irregular geological and river-constrained domains.",
-          "examples": [
-            "delaunay"
-          ],
-          "title": "Algorithm",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "global_size": {
-          "default": 250.0,
-          "description": "Baseline target cell size in projected metres over the full support domain. Think of it as the coarse background resolution before local interface refinement is added.",
-          "examples": [
-            250.0
-          ],
-          "minimum": 0.0,
-          "title": "Global Size",
-          "type": "number",
-          "unit": "m",
-          "x-hmp-profile": "user"
-        },
-        "min_size": {
-          "anyOf": [
-            {
-              "description": "Non-negative floating-point value.",
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Lower bound on local cell size in projected metres. Use it to prevent extreme refinement from generating very small cells in narrow features.",
-          "title": "Min Size",
-          "unit": "m",
-          "x-hmp-profile": "user"
-        },
-        "max_size": {
-          "anyOf": [
-            {
-              "description": "Non-negative floating-point value.",
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Upper bound on local cell size in projected metres. Use it when you want to cap the coarsening far from interfaces.",
-          "title": "Max Size",
-          "unit": "m",
-          "x-hmp-profile": "user"
-        },
-        "simplify_tolerance": {
-          "default": 0.0,
-          "description": "Geometry simplification tolerance, in projected metres, applied before meshing. Increase it only when the source polygons contain excessive vertex noise that does not carry hydrogeological meaning.",
-          "examples": [
-            0.0
-          ],
-          "minimum": 0.0,
-          "title": "Simplify Tolerance",
-          "type": "number",
-          "x-hmp-profile": "dev"
-        },
-        "heal_tolerance": {
-          "default": 0.0,
-          "description": "Cleanup tolerance, in projected metres, used to repair tiny gaps or slivers between input polygons. Keep it near zero unless the source dataset is known to contain topology artifacts.",
-          "examples": [
-            0.0
-          ],
-          "minimum": 0.0,
-          "title": "Heal Tolerance",
-          "type": "number",
-          "x-hmp-profile": "dev"
-        },
-        "linear_constraint_snap_tolerance": {
-          "default": 0.0,
-          "description": "Optional global snapping tolerance, in projected metres, applied to internal linear constraints such as rivers or watershed-boundary segments before partition splitting and Gmsh embedding.",
-          "examples": [
-            0.0
-          ],
-          "minimum": 0.0,
-          "title": "Linear Constraint Snap Tolerance",
-          "type": "number",
-          "x-hmp-profile": "dev"
-        },
-        "min_polygon_area": {
-          "default": 0.0,
-          "description": "Minimum polygon area, in square metres, kept after cleaning. Use it to drop microscopic remnants that would otherwise create meaningless tiny mesh patches.",
-          "examples": [
-            0.0
-          ],
-          "minimum": 0.0,
-          "title": "Min Polygon Area",
-          "type": "number",
-          "x-hmp-profile": "dev"
-        },
-        "refine_interfaces": {
-          "default": false,
-          "description": "Enable a distance-based size field around geology or river interfaces. When false, the mesh uses only the global background size constraints.",
-          "examples": [
-            false
-          ],
-          "title": "Refine Interfaces",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "interface_size": {
-          "anyOf": [
-            {
-              "description": "Non-negative floating-point value.",
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Target local size, in projected metres, close to constrained interfaces. When omitted and refine_interfaces=true, the schema derives a conservative default from global_size/min_size.",
-          "title": "Interface Size",
-          "x-hmp-profile": "dev"
-        },
-        "interface_distance": {
-          "anyOf": [
-            {
-              "description": "Non-negative floating-point value.",
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Influence distance, in projected metres, over which the local interface refinement fades back to the background size. Larger values spread refinement farther away from the interface network.",
-          "title": "Interface Distance",
-          "x-hmp-profile": "dev"
-        },
-        "interface_sampling": {
-          "default": 64,
-          "description": "Sampling density used to discretize interface-based distance fields. Higher values better capture long and sinuous interfaces but increase Gmsh preprocessing cost.",
-          "examples": [
-            64
-          ],
-          "minimum": 2,
-          "title": "Interface Sampling",
-          "type": "integer",
-          "x-hmp-profile": "dev"
-        },
-        "refinement_policy": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ZoneMeshingRefinementPolicy"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional local hotspot policy used to selectively thin low-priority refinement families when the mixed interface network becomes too dense for one robust Gmsh Delaunay run.",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "ZoneMeshingSettings",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
     "hydromodpy__data__variables__dem__config__DemConfig": {
       "additionalProperties": false,
       "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"bd-alti\"\n    resolution_m = 25.0\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"rge-alti\"\n    resolution_m = 5.0\n\n    [[data.dem.sources]]\n    source = \"custom\"\n    path = \"data/my_dem.tif\"",
@@ -31112,12 +29230,12 @@
     },
     "modflownwt": {
       "$ref": "#/$defs/ModflowConfig",
-      "description": "MODFLOW-NWT settings: the structured grid ([modflownwt.sgrid.planar], [modflownwt.sgrid.vertical]), the package options ([modflownwt.process_specific]) and the solver settings ([modflownwt.runtime.<package>], expert keys).",
+      "description": "MODFLOW-NWT settings: the vertical layering and top sampling of the grid ([modflownwt.sgrid.vertical], [modflownwt.sgrid.top_sampling]), the package options ([modflownwt.process_specific]) and the solver settings ([modflownwt.runtime.<package>], expert keys).",
       "x-hmp-profile": "user"
     },
     "modflow6": {
       "$ref": "#/$defs/Modflow6Config",
-      "description": "MODFLOW 6 settings: the structured grid ([modflow6.sgrid.planar], [modflow6.sgrid.vertical]), the package options ([modflow6.process_specific]) and the solver settings ([modflow6.runtime], expert keys).",
+      "description": "MODFLOW 6 settings: the vertical layering and top sampling of the grid ([modflow6.sgrid.vertical], [modflow6.sgrid.top_sampling]), the package options ([modflow6.process_specific]) and the solver settings ([modflow6.runtime], expert keys).",
       "x-hmp-profile": "user"
     },
     "display": {
@@ -31176,30 +29294,25 @@
       "description": "Optional overview report settings loaded from the [overview] section.  When present without [simulation], triggers the data-overview (watershed identity card) workflow.",
       "x-hmp-profile": "user"
     },
-    "mesh_catchment": {
+    "mesh": {
       "anyOf": [
         {
-          "$ref": "#/$defs/MeshCatchmentConfig"
+          "$ref": "#/$defs/MeshConfig"
         },
         {
           "type": "null"
         }
       ],
       "default": null,
-      "description": "Optional mesh-only settings loaded from the [mesh_catchment] section. Mesh-only public runs should use [simulation.process] with type='mesh'; the standalone mesh API can still consume this section directly.",
-      "x-hmp-profile": "user"
-    },
-    "mesh_input": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/MeshInputConfig"
-        },
-        {
-          "type": "null"
-        }
+      "description": "Optional mesh settings loaded from the [mesh] section: which engine meshes the model ('regular', 'triangle' or 'voronoi') and how fine. Without the section the 'regular' engine meshes the model with the DEM pixels. The solver must read the cells of the engine, which is checked before any meshing.",
+      "renamed_from": [
+        "mesh_catchment",
+        "mesh_input",
+        "modflow6.sgrid.planar",
+        "modflownwt.sgrid.planar",
+        "modflow6.sgrid.grid_dual",
+        "modflownwt.sgrid.grid_dual"
       ],
-      "default": null,
-      "description": "Optional external mesh declaration loaded from the [mesh_input] section. Declares a pre-existing planar mesh (and optional solver exchange bundle) the simulation or comparison workflow should consume instead of running the embedded mesh-catchment workflow. Mutually exclusive with [mesh_catchment].",
       "x-hmp-profile": "user"
     },
     "calibration": {

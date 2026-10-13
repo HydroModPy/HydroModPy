@@ -22,7 +22,11 @@ A project root holds ``project.toml`` (the canonical config and the marker of th
 (one directory per run), ``sessions/`` (one per calibration session), ``share/`` (exports,
 reports and ``.hmp`` packages) and ``.hmp/``. The ``.hmp/`` folder is disposable: the index
 (``index.duckdb``), the logs, the resolved workflow manifests used for resume, the heartbeats of
-live runs, the solver scratch and the ``gc`` quarantine.
+live runs, the solver scratch and the ``gc`` quarantine. One entry is not: ``.hmp/mesh_cache/``
+holds the cell mesh of every request an engine cannot rebuild bit for bit (the gmsh engines,
+``triangle`` and ``voronoi``), one ``<key>/`` folder each with ``mesh.npz`` and ``mesh.json``.
+A resume and ``restart_from`` read the mesh from there, so deleting it changes the mesh of a
+resumed run and makes ``restart_from`` refuse.
 
 These entries do not exist: ``simulations/``, ``exports/``, ``figures/`` and ``reports/`` at the
 project root, ``.solver_scratch/``, ``catalog.duckdb`` at the project root, the ``.parquet.d``

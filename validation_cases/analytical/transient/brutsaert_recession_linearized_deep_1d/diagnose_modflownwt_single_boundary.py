@@ -26,6 +26,7 @@ from hydromodpy.solver.modflow_nwt import (
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
+from validation_cases.shared.regular_cell_mesh import regular_cell_mesh_of
 from validation_cases.shared.runtime import (
     _build_validation_launcher_config,
     remove_file_with_retry,
@@ -180,6 +181,7 @@ def _run_probe(
         flow=flow,
         domain=domain,
         options=preprocess_options,
+        cell_mesh=regular_cell_mesh_of(domain.surface_topo),
     )
     if restart_head is not None:
         model.bas.strt = np.asarray(restart_head, dtype=float).copy()

@@ -310,8 +310,8 @@ def test_testbed_launcher_runs_mesh_cases_and_collects_metrics(
                 "[workspace]",
                 'project_root = "mesh_outputs/base"',
                 "",
-                "[mesh_catchment]",
-                'constraints_mode = "rivers_only"',
+                "[mesh]",
+                'engine = "voronoi"',
                 "",
                 "[testbed]",
                 'id = "mesh_resolution"',
@@ -321,15 +321,15 @@ def test_testbed_launcher_runs_mesh_cases_and_collects_metrics(
                 'id = "coarse"',
                 'axis = "resolution"',
                 "",
-                "[testbed.case.overlay.mesh_catchment.zone_meshing]",
-                "global_size = 400.0",
+                "[testbed.case.overlay.mesh]",
+                "cell_size = 400.0",
                 "",
                 "[[testbed.case]]",
                 'id = "fine"',
                 'axis = "resolution"',
                 "",
-                "[testbed.case.overlay.mesh_catchment.zone_meshing]",
-                "global_size = 100.0",
+                "[testbed.case.overlay.mesh]",
+                "cell_size = 100.0",
                 "",
                 "[[testbed.metrics]]",
                 'name = "n_cells"',
@@ -347,7 +347,7 @@ def test_testbed_launcher_runs_mesh_cases_and_collects_metrics(
             payload = load_toml_with_base_config(child_config)
             assert payload["workflow"] == {"mode": "simulation"}
             assert payload["simulation"]["process"][0]["type"] == "mesh"
-            size = payload["mesh_catchment"]["zone_meshing"]["global_size"]
+            size = payload["mesh"]["cell_size"]
             n_cells = 10 if size == 400.0 else 40
             return {
                 "summary_schema_version": "zone_conformal_sidecar_v1",

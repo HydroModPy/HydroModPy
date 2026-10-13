@@ -80,9 +80,6 @@ value = "{conductivity}"
 type = "custom"
 value = "5.0 m"
 
-[modflownwt.sgrid.planar]
-mode = "keep_native"
-
 [modflownwt.sgrid.vertical]
 nlay = 1
 

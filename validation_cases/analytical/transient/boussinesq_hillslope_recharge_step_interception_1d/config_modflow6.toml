@@ -8,11 +8,5 @@ mf6_outer_dvclose = 1e-8
 mf6_inner_dvclose = 1e-9
 mf6_inner_rclose = 1e-11
 
-[modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 40
-ny = 3
-resampling = "nearest"
-
 [modflow6.sgrid.vertical]
 nlay = 1

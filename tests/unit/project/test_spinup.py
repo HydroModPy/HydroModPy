@@ -100,7 +100,6 @@ def _stub_config() -> SimpleNamespace:
     return SimpleNamespace(
         flow=FlowConfig(),  # real flow config so ic.h.type / restart_from behave
         simulation=SimpleNamespace(time=SimpleNamespace(start_datetime=None, end_datetime=None)),
-        mesh_catchment=None,
         spinup=None,
     )
 

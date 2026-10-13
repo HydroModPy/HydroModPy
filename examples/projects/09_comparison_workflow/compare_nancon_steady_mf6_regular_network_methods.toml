@@ -31,14 +31,14 @@ id = "mf6_disv_ref"
 label = "MODFLOW 6 DISV Nancon steady reference, river-constrained mesh"
 solver = "modflow6"
 mesh_label = "Nancon river-constrained triangular mesh"
-mesh_mode = "mesh_input"
+mesh_mode = "voronoi"
 
 [comparison.simulation.overlay.workspace]
 project_root = "outputs/nancon_steady_mf6_regular_network_methods/workspace_mf6_disv"
 root = "outputs/nancon_steady_mf6_regular_network_methods/workspace_mf6_disv"
 
-[comparison.simulation.overlay.mesh_input]
-bundle_dir = "outputs/nancon_transient_seasonal_hydrography/workspace_mf6/mesh/mesh_catchment_bundle"
+[comparison.simulation.overlay.mesh]
+engine = "voronoi"
 
 [comparison.simulation.overlay.modflow6.runtime]
 mf6_ims_complexity = "COMPLEX"
@@ -78,11 +78,8 @@ mf_verbose = false
 [comparison.simulation.overlay.modflow6.process_specific]
 vka = 1.0
 
-[comparison.simulation.overlay.modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 120
-ny = 120
-resampling = "nearest"
+[comparison.simulation.overlay.mesh.regular]
+shape = [120, 120]
 
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
@@ -110,11 +107,8 @@ mf_verbose = false
 [comparison.simulation.overlay.modflow6.process_specific]
 vka = 1.0
 
-[comparison.simulation.overlay.modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 180
-ny = 180
-resampling = "nearest"
+[comparison.simulation.overlay.mesh.regular]
+shape = [180, 180]
 
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1

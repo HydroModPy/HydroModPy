@@ -134,9 +134,8 @@ def _refined_case(root: Path, *, ncol: int, newton: bool | None, label: str, sol
     section = "modflownwt" if solver == "modflow_nwt" else "modflow6"
     if solver in MESH_SOLVERS:
         bundle = _write_strip_mesh(case_dir, ncol=ncol, nrow=nrow, reference=metadata["reference"])
-        config["mesh_input"].update(mesh_path=str(bundle / "mesh_2d.msh"), bundle_dir=str(bundle))
-    else:
-        config[section]["sgrid"]["planar"].update(nx=ncol, ny=nrow)
+        config["mesh"]["triangle"]["path"] = str(bundle / "mesh_2d.msh")
+    # A structured solver meshes the synthetic grid written above: its cells are the pixels.
     if section == "modflow6" and newton is not None:
         runtime = config[section].setdefault("runtime", {})
         runtime.update(TIGHT_MF6_RUNTIME)

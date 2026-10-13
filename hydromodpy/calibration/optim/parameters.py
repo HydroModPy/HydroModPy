@@ -92,7 +92,7 @@ class CalibParameter:
         return self.target if self.target is not None else self.path
 
 
-_MESH_SECTIONS: tuple[str, ...] = ("mesh_catchment", "mesh_catchment_batch", "mesh_input")
+_MESH_SECTIONS: tuple[str, ...] = ("mesh",)
 
 
 def _assert_path_is_not_the_mesh(name: str, path: str | None) -> None:

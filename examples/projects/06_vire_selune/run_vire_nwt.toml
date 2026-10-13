@@ -75,10 +75,8 @@ output_file_name = "mt3d_link.ftl"
 extension = "lmt8"
 output_format = "unformatted"
 
-[modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 80
-ny = 80
+[mesh.regular]
+shape = [80, 80]
 
 [modflownwt.sgrid.vertical]
 genmtd_lay = "decay"

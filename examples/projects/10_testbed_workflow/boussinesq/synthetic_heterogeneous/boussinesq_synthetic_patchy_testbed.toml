@@ -32,12 +32,9 @@ id = "flow_main"
 type = "flow"
 solvers = ["boussinesq"]
 
-[testbed.case.overlay.mesh_catchment.zone_meshing]
-global_size = 650.0
-min_size = 250.0
-max_size = 1100.0
-interface_size = 320.0
-interface_distance = 700.0
+[testbed.case.overlay.mesh]
+engine = "triangle"
+cell_size = 650.0
 
 [testbed.case.overlay.flow.bc.drainage]
 value = "0.0 m2/s"
@@ -62,12 +59,9 @@ id = "flow_main"
 type = "flow"
 solvers = ["boussinesq"]
 
-[testbed.case.overlay.mesh_catchment.zone_meshing]
-global_size = 450.0
-min_size = 180.0
-max_size = 800.0
-interface_size = 220.0
-interface_distance = 550.0
+[testbed.case.overlay.mesh]
+engine = "triangle"
+cell_size = 450.0
 
 [testbed.case.overlay.flow.bc.drainage]
 value = "0.0 m2/s"
@@ -92,12 +86,9 @@ id = "flow_main"
 type = "flow"
 solvers = ["boussinesq"]
 
-[testbed.case.overlay.mesh_catchment.zone_meshing]
-global_size = 320.0
-min_size = 140.0
-max_size = 650.0
-interface_size = 180.0
-interface_distance = 450.0
+[testbed.case.overlay.mesh]
+engine = "triangle"
+cell_size = 320.0
 
 [testbed.case.overlay.flow.bc.drainage]
 value = "0.0 m2/s"

@@ -96,12 +96,6 @@ runoff_ratio = 0.0
 
 # --- Solveur (MODFLOW-NWT) ------------------------------------------
 
-[modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 40
-ny = 5
-resampling = "nearest"
-
 [modflownwt.sgrid.vertical]
 nlay = 1
 

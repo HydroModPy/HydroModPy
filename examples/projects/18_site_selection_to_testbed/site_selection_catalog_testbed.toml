@@ -43,7 +43,5 @@ x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 buff_area = "10%"
 
-[testbed.case_from_catalog.overlay.mesh_catchment.zone_meshing]
-global_size = 2000.0
-min_size = 900.0
-max_size = 3500.0
+[testbed.case_from_catalog.overlay.mesh]
+cell_size = 2000.0

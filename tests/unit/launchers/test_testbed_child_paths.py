@@ -67,12 +67,12 @@ def test_a_bare_file_name_present_in_the_source_folder_becomes_absolute(tmp_path
 
 
 @pytest.mark.fast
-def test_a_mesh_domain_file_becomes_absolute(tmp_path: Path) -> None:
-    payload = {"mesh_catchment": {"domain": {"path": "masks/domain.gpkg"}}}
+def test_a_triangulation_file_becomes_absolute(tmp_path: Path) -> None:
+    payload = {"mesh": {"triangle": {"path": "meshes/catchment.msh"}}}
 
     out = _walk(payload, tmp_path)
 
-    assert out["mesh_catchment"]["domain"]["path"] == (tmp_path / "masks/domain.gpkg").as_posix()
+    assert out["mesh"]["triangle"]["path"] == (tmp_path / "meshes/catchment.msh").as_posix()
 
 
 @pytest.mark.fast
@@ -108,8 +108,8 @@ def test_the_dotted_key_of_a_calibrated_parameter_is_copied(tmp_path: Path) -> N
 def test_the_paths_typed_as_paths_become_absolute(tmp_path: Path) -> None:
     payload = {
         "flow": {"param": {"K": {"field": {"values_csv_file": "k.csv"}}}},
-        "mesh_catchment": {
-            "rivers": {"source": "file", "path": "rivers.gpkg"},
+        "mesh": {
+            "triangle": {"path": "catchment.msh"},
             "refinement_zone": [{"path": "zones.gpkg", "cell_size": 50.0}],
         },
         "calibration": {"outputs": {"net": {"stream_geometry_path": "net.gpkg"}}},
@@ -118,8 +118,8 @@ def test_the_paths_typed_as_paths_become_absolute(tmp_path: Path) -> None:
     out = _walk(payload, tmp_path)
 
     assert out["flow"]["param"]["K"]["field"]["values_csv_file"] == (tmp_path / "k.csv").as_posix()
-    mesh = out["mesh_catchment"]
-    assert mesh["rivers"]["path"] == (tmp_path / "rivers.gpkg").as_posix()
+    mesh = out["mesh"]
+    assert mesh["triangle"]["path"] == (tmp_path / "catchment.msh").as_posix()
     assert mesh["refinement_zone"][0]["path"] == (tmp_path / "zones.gpkg").as_posix()
     network = out["calibration"]["outputs"]["net"]["stream_geometry_path"]
     assert network == (tmp_path / "net.gpkg").as_posix()
@@ -127,14 +127,11 @@ def test_the_paths_typed_as_paths_become_absolute(tmp_path: Path) -> None:
 
 @pytest.mark.fast
 def test_a_merge_directive_is_walked_as_its_field(tmp_path: Path) -> None:
-    payload = {"mesh_catchment": {"refinement_zone__merge": [{"path": "zones.gpkg"}]}}
+    payload = {"mesh": {"refinement_zone__merge": [{"path": "zones.gpkg"}]}}
 
     out = _walk(payload, tmp_path)
 
-    assert (
-        out["mesh_catchment"]["refinement_zone__merge"][0]["path"]
-        == (tmp_path / "zones.gpkg").as_posix()
-    )
+    assert out["mesh"]["refinement_zone__merge"][0]["path"] == (tmp_path / "zones.gpkg").as_posix()
 
 
 @pytest.mark.fast
@@ -167,29 +164,3 @@ def test_a_comparison_overlay_is_read_as_a_simulation_fragment(tmp_path: Path) -
     dem = overlay["geographic"]["catchment"]["dem_init_path"]
     assert dem == (tmp_path.parent / "dem.tif").as_posix()
     assert overlay["workflow"]["profile"] == "fast"
-
-
-@pytest.mark.fast
-def test_the_mesh_geology_paths_become_absolute(tmp_path: Path) -> None:
-    payload = {
-        "mesh_catchment": {
-            "geology": {
-                "source": {
-                    "path": "geo/geology.gpkg",
-                    "kind": "vector",
-                    "code_field": "CODE",
-                    "reference_raster_path": "dem/dem.tif",
-                },
-                "clip_polygon_path": "clip.shp",
-                "landsea": {"enabled": True, "path": "mask.tif"},
-            }
-        }
-    }
-
-    geology = _walk(payload, tmp_path)["mesh_catchment"]["geology"]
-
-    assert geology["source"]["path"] == (tmp_path / "geo/geology.gpkg").as_posix()
-    assert geology["source"]["reference_raster_path"] == (tmp_path / "dem/dem.tif").as_posix()
-    assert geology["source"]["code_field"] == "CODE"
-    assert geology["clip_polygon_path"] == (tmp_path / "clip.shp").as_posix()
-    assert geology["landsea"]["path"] == (tmp_path / "mask.tif").as_posix()

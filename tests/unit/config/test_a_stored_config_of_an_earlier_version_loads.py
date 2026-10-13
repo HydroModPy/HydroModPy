@@ -67,7 +67,11 @@ def test_an_override_of_the_flow_solver_applies_to_the_snapshot() -> None:
     snapshot = _fixture("snapshot_modflow_nwt.json")
     process = [{"id": "flow_main", "type": "flow", "solvers": ["boussinesq"]}]
 
-    cfg = HydroModPyConfig.from_snapshot(snapshot, simulation={"process": process})
+    cfg = HydroModPyConfig.from_snapshot(
+        snapshot,
+        simulation={"process": process},
+        mesh={"engine": "triangle", "families": {"rivers": "none"}},
+    )
 
     assert cfg.solver.backend_name == "boussinesq"
 

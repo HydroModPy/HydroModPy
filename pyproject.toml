@@ -157,6 +157,10 @@ hydromodpy = "hydromodpy.cli:main"
 # terrain-delineate request names in its "engine" member, so a flow-routing
 # engine is substituted from outside without a patch to this package.
 #
+# "hydromodpy.mesh.engine" is the fourth, read by hydromodpy.spatial.mesh.registry,
+# under the same three rules. It is what [mesh] engine names, so a mesh engine
+# (regular, triangle and voronoi ship in-tree) is substituted the same way.
+#
 # "hydromodpy.calibration.evaluator" and "hydromodpy.calibration.forward_model"
 # are the two of the calibration, read by
 # hydromodpy.calibration.evaluation.registry and by

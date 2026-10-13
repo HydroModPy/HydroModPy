@@ -34,10 +34,8 @@ mf6_outer_maximum = 1000
 mf6_inner_maximum = 1000
 mf6_enable_rewet = false
 
-[modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 80
-ny = 80
+[mesh.regular]
+shape = [80, 80]
 
 [modflow6.sgrid.vertical]
 genmtd_lay = "decay"

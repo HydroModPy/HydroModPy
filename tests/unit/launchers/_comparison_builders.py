@@ -117,14 +117,12 @@ def _write_base_simulation_config(path: Path) -> None:
 
 
 def _write_structured_solver_config(path: Path, *, solver: str, nx: int, ny: int) -> None:
+    del solver  # the regular grid is the same for every structured solver
     path.write_text(
         "\n".join(
             [
-                f"[{solver}.sgrid.planar]",
-                "dx = 100.0",
-                "dy = 100.0",
-                f"nx = {nx}",
-                f"ny = {ny}",
+                "[mesh.regular]",
+                f"shape = [{ny}, {nx}]",
             ]
         )
         + "\n",
@@ -178,7 +176,7 @@ def _write_simulation_comparison_config(path: Path, run_folder: Path) -> None:
                 "[[comparison.simulation]]",
                 'id = "mf6_demo"',
                 'solver = "modflow6"',
-                'mesh_mode = "mesh_catchment"',
+                'mesh_mode = "voronoi"',
                 f'simulation_config = "{simulation_config.as_posix()}"',
                 f'run_folder = "{run_folder.as_posix()}"',
                 "",

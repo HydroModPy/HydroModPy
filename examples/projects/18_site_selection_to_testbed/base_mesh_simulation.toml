@@ -33,10 +33,10 @@ id = "mesh_main"
 type = "mesh"
 backend = "catchment"
 
-[mesh_catchment]
-constraints_mode = "rivers_only"
+[mesh]
+engine = "voronoi"
+cell_size = 2500.0
+outside_factor = 1.0
 
-[mesh_catchment.zone_meshing]
-global_size = 2500.0
-min_size = 1200.0
-max_size = 4000.0
+[mesh.families]
+geology = "none"

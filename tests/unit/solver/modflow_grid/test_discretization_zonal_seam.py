@@ -75,7 +75,6 @@ def _build(top_surface, bottom_surface, *, top_sampling=None, channel_mask=None)
         bottom_surface=bottom_surface,
         vertical_config=VerticalGridConfig(),
         nodata=-9999.0,
-        grid_dual="triangle",  # keep the quads as-is, no Voronoi dual
         top_sampling=top_sampling,
         channel_mask=channel_mask,
     )

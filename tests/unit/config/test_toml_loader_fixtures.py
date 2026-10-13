@@ -25,7 +25,7 @@ def test_simulation_regression_example_config_inheritance_keeps_only_relevant_da
     assert payload["data"]["recharge"]["sources"][0]["source"] == "synthetic"
 
 
-def test_simulation_regression_mf6_precomputed_mesh_input_config_uses_runtime_mesh(
+def test_simulation_regression_mf6_precomputed_mesh_config_reads_the_triangulation_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -33,17 +33,20 @@ def test_simulation_regression_mf6_precomputed_mesh_input_config_uses_runtime_me
 
     payload = load_toml_with_base_config(example_config)
 
-    assert payload["mesh_input"]["mesh_path"] == "mesh/mesh_catchment.msh"
-    assert payload["mesh_input"]["bundle_dir"] == "mesh/mesh_catchment_bundle"
+    assert payload["mesh"]["engine"] == "voronoi"
+    assert payload["mesh"]["triangle"]["path"] == "mesh/mesh_catchment.msh"
+    assert payload["mesh"]["voronoi"]["seeds"] == "triangulation"
+    assert "mesh_input" not in payload
     assert "planar" not in payload["modflow6"]["sgrid"]
     assert payload["modflow6"]["sgrid"]["vertical"]["nlay"] == 2
     assert "postprocess" not in payload
     monkeypatch.setenv("HMP_WORKSPACE", str(tmp_path))
     cfg = HydroModPyConfig.from_toml(example_config)
     assert list(cfg.simulation.process[0].solvers) == ["modflow6"]
+    assert cfg.mesh.triangle.path == example_config.parent / "mesh" / "mesh_catchment.msh"
 
 
-def test_simulation_regression_mf6_mesh_catchment_config_embeds_mesh_generation(
+def test_simulation_regression_mf6_generated_mesh_config_asks_for_voronoi_cells(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -51,7 +54,8 @@ def test_simulation_regression_mf6_mesh_catchment_config_embeds_mesh_generation(
 
     payload = load_toml_with_base_config(example_config)
 
-    assert payload["mesh_catchment"]["constraints_mode"] == "geology_rivers"
+    assert payload["mesh"]["engine"] == "voronoi"
+    assert "mesh_catchment" not in payload
     assert payload["simulation"]["name"] == "example12_fast_mf6_mesh_catchment"
     assert payload["simulation"]["process"][0]["solvers"] == ["modflow6"]
     assert payload["simulation"]["process"][1]["solvers"] == ["modflow6"]
@@ -67,7 +71,9 @@ def test_simulation_regression_mf6_mesh_catchment_config_embeds_mesh_generation(
 
     monkeypatch.setenv("HMP_WORKSPACE", str(tmp_path))
     cfg = HydroModPyConfig.from_toml(example_config)
-    assert cfg.mesh_catchment is not None
+    assert cfg.mesh.engine == "voronoi"
+    assert cfg.mesh.families.rivers == "cell"
+    assert cfg.mesh.families.geology == "face"
     assert cfg.flow.first_period_steady is False
 
 

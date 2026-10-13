@@ -82,12 +82,6 @@ mf6_inner_rclose = 1e-11
 mf6_outer_maximum = 1500
 mf6_inner_maximum = 500
 
-[modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 80
-ny = 5
-resampling = "nearest"
-
 [modflow6.sgrid.vertical]
 nlay = 1
 

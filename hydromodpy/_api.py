@@ -704,8 +704,8 @@ def spinup(config: ConfigLike, **kwargs: Any) -> SpinupResult:
     -------
     hydromodpy.project.spinup.SpinupResult
         The loop outcome. Feed ``result.restart_from`` to a production run's
-        ``[flow] restart_from`` (enable ``[mesh_catchment] cache`` for a gmsh grid
-        so that run reproduces this mesh).
+        ``[flow] restart_from`` (a triangle or voronoi mesh is read back from the
+        project mesh cache, so that run reproduces this mesh).
 
     See Also
     --------
@@ -741,8 +741,8 @@ def spinup(config: ConfigLike, **kwargs: Any) -> SpinupResult:
         return result
 
     # Production run: a fresh project over the full [simulation.time] window,
-    # seeded from the converged state. Its mesh must reproduce the spin-up mesh,
-    # so a gmsh grid needs [mesh_catchment] cache = true.
+    # seeded from the converged state. Its mesh must reproduce the spin-up mesh:
+    # a generated mesh is read back from the project mesh cache.
     warning = result.antecedent_warning()
     if warning is not None:
         from hydromodpy.core.logging import get_logger

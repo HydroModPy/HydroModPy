@@ -611,9 +611,6 @@ def test_project_runner_binds_the_project_root_it_runs(
         _spatial_support_registry=None,
         _requested_support_ids=None,
         _requested_domain_supports=None,
-        _mesh_section_data=None,
-        _mesh_constraints_mode=None,
-        _external_mesh_input=None,
     )
 
     assert ProjectRunner(project).run(name="frozen_run", frozen=True) is None

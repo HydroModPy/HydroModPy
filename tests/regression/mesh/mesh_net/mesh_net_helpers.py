@@ -1,10 +1,10 @@
-"""Characterization net of the current triangle and Voronoi planar meshes.
+"""Characterization net of the triangle and Voronoi planar meshes.
 
 The net freezes what the mesh refactor must not move, on a committed mesh
 bundle (gmsh is not reproducible, so a triangulation is never generated here):
 
-- the geometry of the two cell sets the production code derives from the bundle
-  (triangles, and their Voronoi dual), as invariant quantiles;
+- the geometry of the two cell sets the engines build from the bundle
+  (triangles, and the Voronoi cells around their vertices), as invariant quantiles;
 - the heads of a short steady MODFLOW 6 run on each, read back from the store.
 
 Nothing compares connectivity or cell ids. Cell counts are exact, the areas of
@@ -109,34 +109,65 @@ def cells_under_probes(shapes: np.ndarray, probes: np.ndarray) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
-# Production producers of the two meshes
+# The two cell meshes, from the engine registry
 # ---------------------------------------------------------------------------
+
+BUNDLE_CRS_WKT = 'PROJCS["RGF93 v1 / Lambert-93"]'
+"""Any non-empty WKT: the engines read the triangulation, they never reproject it."""
+
+
+def _read_request(bundle: str, **options: Any):
+    """Return the request that makes an engine read the committed ``.msh`` of *bundle*."""
+    from hydromodpy.spatial.mesh import MeshRequest, RasterGridSpec
+    from hydromodpy.spatial.mesh.planning.input_mesh import (
+        domain_polygon_of,
+        read_input_triangulation,
+    )
+
+    triangulation = read_input_triangulation(BUNDLES_ROOT / bundle / "mesh_2d.msh")
+    domain = domain_polygon_of(triangulation)
+    xmin, ymin, xmax, ymax = domain.bounds
+    side = max(xmax - xmin, ymax - ymin) / 10.0
+    grid = RasterGridSpec(
+        xmin=xmin,
+        xmax=xmin + 10 * side,
+        ymin=ymin,
+        ymax=ymin + 10 * side,
+        dx=side,
+        dy=side,
+        nrow=10,
+        ncol=10,
+        crs_wkt=BUNDLE_CRS_WKT,
+    )
+    return MeshRequest(
+        domain=domain,
+        crs_wkt=BUNDLE_CRS_WKT,
+        grid=grid,
+        nominal_size_m=side,
+        input_triangulation=triangulation,
+        options=options,
+    )
 
 
 def triangle_mesh(bundle: str = ISLAND_BUNDLE):
-    """Return the triangulation of a committed bundle as the pivot ``HydroMesh``."""
-    from hydromodpy.spatial.mesh.gmsh_grid.exchange_api import load_planar_mesh
+    """Return the triangles of a committed bundle as built by the ``triangle`` engine."""
+    from hydromodpy.spatial.mesh import registry
 
-    return load_planar_mesh(BUNDLES_ROOT / bundle / "mesh_2d.msh").to_hydro_mesh()
+    return registry.create("triangle").build(_read_request(bundle))
 
 
 def voronoi_mesh(bundle: str = ISLAND_BUNDLE):
-    """Return the Voronoi dual built as ``discretization_spatial`` builds it."""
-    from hydromodpy.spatial.mesh.ops.voronoi import (
-        domain_polygon_from_mesh,
-        voronoi_dual_of_mesh,
-    )
+    """Return the Voronoi cells around the vertices of a committed bundle, from the engine."""
+    from hydromodpy.spatial.mesh import registry
 
-    triangulation = triangle_mesh(bundle)
-    return voronoi_dual_of_mesh(triangulation, domain_polygon_from_mesh(triangulation))
+    return registry.create("voronoi").build(_read_request(bundle, seeds="triangulation"))
 
 
-def polygons_of_mesh(mesh) -> tuple[list[np.ndarray], np.ndarray]:
-    """Cell polygons (vertex coordinates) and the cell centres of a ``HydroMesh``."""
-    vertices = np.asarray(mesh.vertices, dtype=float)[:, :2]
-    polygons = [vertices[np.asarray(cell, dtype=int)] for cell in mesh.flat_connectivity]
-    xc, yc = mesh.cell_centroids()
-    return polygons, np.column_stack([np.asarray(xc, float), np.asarray(yc, float)])
+def polygons_of_mesh(cell_mesh) -> tuple[list[np.ndarray], np.ndarray]:
+    """Cell polygons (vertex coordinates) and the cell centres of a ``PlanarCellMesh``."""
+    vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
+    polygons = [vertices[np.asarray(cell, dtype=int)] for cell in cell_mesh.mesh.flat_connectivity]
+    return polygons, np.asarray(cell_mesh.centers, dtype=float)
 
 
 # ---------------------------------------------------------------------------
@@ -186,7 +217,7 @@ def geometry_metrics(mesh, probes: np.ndarray | None = None) -> dict[str, Any]:
       mesh, the probe cells are not.
     """
     polygons, centers = polygons_of_mesh(mesh)
-    connectivity = [np.asarray(c, dtype=int) for c in mesh.flat_connectivity]
+    connectivity = [np.asarray(c, dtype=int) for c in mesh.mesh.flat_connectivity]
     shapes = shapely.polygons([shapely.linearrings(p) for p in polygons])
     area = shapely.area(shapes)
     side = np.sqrt(area)

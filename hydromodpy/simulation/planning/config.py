@@ -290,7 +290,7 @@ class MeshProcessConfig(_ProcessBase):
         default="catchment",
         description=(
             "How the mesh process builds its mesh. 'catchment' is the one value: it "
-            "builds the mesh that [mesh_catchment] describes."
+            "builds the mesh that [mesh] describes."
         ),
     )
     solvers: Annotated[list[str], Profile.USER] = Field(

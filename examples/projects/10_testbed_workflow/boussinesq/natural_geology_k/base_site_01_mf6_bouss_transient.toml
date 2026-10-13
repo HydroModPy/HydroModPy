@@ -298,189 +298,50 @@ negative_to_evt = true
 
 # Top-level launcher contract for one mono-catchment meshing run.
 
-[mesh_catchment]
-# Meshing compliance target. 'geology_only' conforms the mesh to geology interfaces only,
-# 'rivers_only' conforms the mesh to river traces only, and 'geology_rivers' enforces both sets of
-# constraints in one mesh.
-constraints_mode = "geology_rivers"
-# Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under
-# `results_stable/mesh/`, or 'flat' to write final mesh artifacts directly under
-# `workspace.project_root` while keeping intermediate runtime folders out of that final directory.
-output_layout = "flat"
-# If true, generate the overview figure artifacts when figure output paths are configured. Set it
-# to false to skip figure creation entirely, even when default filename patterns are present.
-figures_enabled = true
-# Pixel density used when rendering the main mesh overview figure. Increase it when you need to
-# inspect mesh edges and constraints more closely in the saved PNG.
-figure_dpi = 220
-# Pixel density used when rendering the regional overview figure. Keep it lower than figure_dpi
-# when you want detailed local mesh inspection without making the regional PNG too heavy.
-figure_regional_dpi = 180
+[mesh]
+engine = "voronoi"
+cell_size = 130.0
+river_cell_size = 70.0
+river_band = 220.0
+outside_factor = 1.4
+transition_distance = 250.0
+
+[mesh.families]
+watershed_boundary = "face"
 
 # Optional watershed-boundary mesh constraint. Enable it to force a conformal mesh line along the
 # catchment boundary while keeping the geology zonation represented on the whole support domain.
 
-[mesh_catchment.watershed_boundary]
-# If true, inject the watershed boundary as one dedicated linear constraint in addition to geology
-# and/or river constraints.
-enabled = true
-# Optional influence distance, in projected metres, used for the watershed-boundary refinement
-# family. When omitted, the mesher derives one conservative distance from the boundary extent.
-boundary_refinement_distance = 150.0
-
 # Optional regularization controls applied before the watershed boundary is converted to a linear
 # constraint.
-
-[mesh_catchment.watershed_boundary.smoothing]
-# If true, apply the smoothing controls below before converting the watershed boundary into one
-# linear constraint.
-enabled = true
-# Optional regularization tolerance, in projected metres, used to simplify the watershed boundary
-# at roughly the target internal mesh scale before it is injected as a linear mesh constraint.
-# When omitted, the mesher reuses zone_meshing.global_size.
-distance = 80.0
-# Optional protective buffer around river traces, in projected metres, merged into the boundary-
-# support polygon before smoothing so the final watershed boundary stays slightly outside river
-# corridors near the basin edge.
-river_buffer_distance = 60.0
-# Optional outward bias, in projected metres, applied after smoothing so the final watershed
-# boundary remains slightly englobing instead of cutting back toward the raw catchment contour.
-outer_bias_distance = 10.0
 
 # Optional coarse-background size field applied outside the regularized watershed while keeping
 # the geology partition unchanged.
 
-[mesh_catchment.watershed_boundary.outside_coarsening]
-# If true, add one regional mesh-size field that keeps the current background size inside the
-# watershed and coarsens the mesh outside it.
-enabled = true
-# Multiplicative factor applied to zone_meshing.global_size outside the watershed. Use 2.0 for an
-# outside background roughly twice as coarse as the internal baseline.
-size_factor = 1.4
-# Optional transition width, in projected metres, used to ramp from the internal background size
-# to the coarser outside size away from the watershed boundary.
-transition_distance = 250.0
-# Optional structured-grid resolution, in projected metres, used to discretize the outside
-# coarsening field. When omitted, the mesher reuses zone_meshing.global_size.
-grid_resolution = 180.0
-
 # Optional control of where geology remains conformal relative to the watershed. Keep the default
 # full_domain mode to preserve the current behavior.
-
-[mesh_catchment.watershed_boundary.geology_conformity]
-# Control where geology remains conformal. Use 'full_domain' to keep the current behavior, or
-# 'buffered_watershed_envelope' to keep geology interfaces active only inside one buffered
-# envelope around the regularized watershed, without creating one strict partition boundary on
-# that envelope.
-mode = "buffered_watershed_envelope"
-# Optional outward buffer, in projected metres, added around the regularized watershed before
-# selecting where geology interfaces remain active. When omitted in buffered_watershed_envelope
-# mode, the mesher reuses zone_meshing.global_size.
-buffer_distance = 100.0
 
 # Optional geology support used when constraints_mode includes geology. This section defines which
 # polygon source represents lithological zones and how those polygons should be interpreted before
 # conformal meshing. Validated through the geology data-source Protocol; stored as a normalized
 # mapping.
 
-[mesh_catchment.geology]
-id = "field_geology"
-cell_samples_per_axis = 8
-
-[mesh_catchment.geology.source]
-path = "../../../../data/geology/GEO1M.shp"
-kind = "vector"
-code_field = "CODE_LEG"
-reference_raster_path = "../../../../data/dem/DEM_armorican_massif.tif"
-
 # Optional hydraulic-conductivity mapping by geology key. When provided, the bundle exports one
 # `hydraulic_conductivity_m_s` value per cell.
 
-[mesh_catchment.hydraulic_properties.conductivity]
-# Source of the geology-key to property mapping. Use 'inline' for TOML dictionaries or 'csv' for
-# an external table.
-values_source = "csv"
-# CSV file used when values_source='csv'. Relative paths are resolved from the launcher TOML
-# directory.
-values_csv_file = "../../../../data/geology/geology_K_dummy_demo.csv"
-# CSV column containing numeric property values.
-csv_value_column = "K_value"
-
 # Optional storage-coefficient mapping by geology key. When provided, the bundle exports one
 # `storage_coefficient` value per cell.
-
-[mesh_catchment.hydraulic_properties.storage_coefficient]
-# Fallback value applied when one geology zone has no explicit mapping. Leave empty to keep
-# exported cell values undefined for unmapped zones.
-default_value = 0.05
 
 # Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, and
 # interface refinement. Defaults are valid, but project examples typically override them to target
 # a desired number of cells.
 
-[mesh_catchment.zone_meshing]
-# Baseline target cell size in projected metres over the full support domain. Think of it as the
-# coarse background resolution before local interface refinement is added.
-global_size = 130.0
-# Lower bound on local cell size in projected metres. Use it to prevent extreme refinement from
-# generating very small cells in narrow features.
-min_size = 45.0
-# Upper bound on local cell size in projected metres. Use it when you want to cap the coarsening
-# far from interfaces.
-max_size = 300.0
-# Minimum polygon area, in square metres, kept after cleaning. Use it to drop microscopic remnants
-# that would otherwise create meaningless tiny mesh patches.
-min_polygon_area = 1.0
-# Enable a distance-based size field around geology or river interfaces. When false, the mesh uses
-# only the global background size constraints.
-refine_interfaces = true
-# Target local size, in projected metres, close to constrained interfaces. When omitted and
-# refine_interfaces=true, the schema derives a conservative default from global_size/min_size.
-interface_size = 70.0
-# Influence distance, in projected metres, over which the local interface refinement fades back to
-# the background size. Larger values spread refinement farther away from the interface network.
-interface_distance = 220.0
-# Sampling density used to discretize interface-based distance fields. Higher values better
-# capture long and sinuous interfaces but increase Gmsh preprocessing cost.
-interface_sampling = 128
-
 # Optional local hotspot policy used to selectively thin low-priority refinement families when the
 # mixed interface network becomes too dense for one robust Gmsh Delaunay run.
 
-[mesh_catchment.zone_meshing.refinement_policy]
-enabled = true
-# Refinement mode selector. One of 'family_priority_local_budget' or 'grid_local_budget'.
-mode = "grid_local_budget"
-
 # Grid settings used by the locality-first refinement policy.
 
-[mesh_catchment.zone_meshing.refinement_policy.grid]
-neighborhood_rings = 1
-enable_exact_gap_check = false
-max_exact_gap_candidates = 128
-
 # Hotspot-detection thresholds used when budgeting local refinement.
-
-[mesh_catchment.zone_meshing.refinement_policy.hotspot]
-radius = 350.0
-max_curve_count = 180
-max_family_count = 2
-min_gap = 60.0
-max_node_degree = 4
-short_segment_length = 120.0
-max_short_segment_count = 20
-
-[mesh_catchment.zone_meshing.refinement_policy.families.river]
-enabled = true
-priority = 300
-
-[mesh_catchment.zone_meshing.refinement_policy.families.geology_interface]
-enabled = true
-priority = 200
-
-[mesh_catchment.zone_meshing.refinement_policy.families.watershed_boundary]
-enabled = true
-priority = 100
 
 # Display behaviour resolved from the ``[display]`` TOML section.
 

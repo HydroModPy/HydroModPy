@@ -7,7 +7,6 @@ and from ``solver/modflow_common/`` (which holds non-grid shared helpers).
 
 from .discretization_spatial import (
     build_spatial_discretization,
-    project_surfaces_to_planar_grid,
     resolve_domain_surfaces,
 )
 from .discretization_temporal import (
@@ -25,7 +24,6 @@ __all__ = [
     "build_spatial_discretization",
     "build_temporal_discretization_from_time_grid",
     "grid_reference_from_solver_mesh",
-    "project_surfaces_to_planar_grid",
     "resolve_first_period_steady",
     "resolve_domain_surfaces",
 ]

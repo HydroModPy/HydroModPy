@@ -207,10 +207,8 @@ value = "0.0 m2/s"
 first_clim = "mean"
 {flow_extra}
 {data_toml}
-[modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 30
-ny = 30
+[mesh.regular]
+shape = [30, 30]
 
 [modflow6.sgrid.vertical]
 nlay = 2

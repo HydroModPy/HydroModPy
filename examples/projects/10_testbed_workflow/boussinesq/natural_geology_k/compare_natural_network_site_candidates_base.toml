@@ -42,7 +42,7 @@ id = "mf6_unstructured_reference"
 label = "MF6 maillage triangulaire contraint"
 solver = "modflow6"
 mesh_label = "unstructured_reference"
-mesh_mode = "mesh_catchment"
+mesh_mode = "voronoi"
 
 [comparison.simulation.overlay.modflow6.runtime]
 mf6_ims_complexity = "COMPLEX"
@@ -70,7 +70,7 @@ id = "bouss_unstructured_same_mesh"
 label = "Boussinesq meme maillage triangulaire"
 solver = "boussinesq"
 mesh_label = "unstructured_reference"
-mesh_mode = "mesh_catchment"
+mesh_mode = "triangle"
 
 [comparison.simulation.overlay.flow]
 runtime_backend = "petsc"
@@ -84,6 +84,9 @@ ts_vi_snes_type = "vinewtonrsls"
 value = "0.0 m2/s"
 kind = "cauchy"
 
+[comparison.simulation.overlay.mesh]
+engine = "triangle"
+
 [[comparison.simulation]]
 id = "mf6_regular_120"
 label = "MF6 grille reguliere 120 x 120"
@@ -92,8 +95,7 @@ mesh_label = "regular_grid_120"
 mesh_mode = "structured"
 
 [comparison.simulation.overlay]
-mesh_catchment__delete = true
-mesh_input__delete = true
+mesh__delete = true
 
 [comparison.simulation.overlay.modflow6.runtime]
 mf6_ims_complexity = "COMPLEX"
@@ -109,11 +111,8 @@ mf_verbose = false
 [comparison.simulation.overlay.modflow6.process_specific]
 vka = 1.0
 
-[comparison.simulation.overlay.modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 120
-ny = 120
-resampling = "nearest"
+[comparison.simulation.overlay.mesh.regular]
+shape = [120, 120]
 
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
@@ -130,8 +129,7 @@ mesh_label = "regular_grid_180"
 mesh_mode = "structured"
 
 [comparison.simulation.overlay]
-mesh_catchment__delete = true
-mesh_input__delete = true
+mesh__delete = true
 
 [comparison.simulation.overlay.modflow6.runtime]
 mf6_ims_complexity = "COMPLEX"
@@ -147,11 +145,8 @@ mf_verbose = false
 [comparison.simulation.overlay.modflow6.process_specific]
 vka = 1.0
 
-[comparison.simulation.overlay.modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 180
-ny = 180
-resampling = "nearest"
+[comparison.simulation.overlay.mesh.regular]
+shape = [180, 180]
 
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
@@ -165,19 +160,12 @@ id = "mf6_unstructured_350m"
 label = "MF6 maillage triangulaire 350 m"
 solver = "modflow6"
 mesh_label = "unstructured_350m"
-mesh_mode = "mesh_catchment"
+mesh_mode = "voronoi"
 
-[comparison.simulation.overlay]
-mesh_input__delete = true
-
-[comparison.simulation.overlay.mesh_catchment.zone_meshing]
-global_size = 350.0
-min_size = 150.0
-max_size = 800.0
-refine_interfaces = true
-interface_size = 180.0
-interface_distance = 500.0
-interface_sampling = 64
+[comparison.simulation.overlay.mesh]
+cell_size = 350.0
+river_cell_size = 180.0
+river_band = 500.0
 
 [comparison.simulation.overlay.modflow6.runtime]
 mf6_ims_complexity = "COMPLEX"

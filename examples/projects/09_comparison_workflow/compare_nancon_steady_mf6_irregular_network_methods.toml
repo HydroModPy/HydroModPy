@@ -33,7 +33,7 @@ solver = "modflow6"
 simulation_config = "run_nancon_steady_mf6_irregular_mesh_input.toml"
 run_folder = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_input"
 mesh_label = "Nancon precomputed river-constrained irregular mesh"
-mesh_mode = "mesh_input"
+mesh_mode = "voronoi"
 
 [[comparison.simulation]]
 id = "mf6_mesh_catchment_250"
@@ -42,7 +42,7 @@ solver = "modflow6"
 simulation_config = "run_nancon_steady_mf6_mesh_catchment_250.toml"
 run_folder = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_catchment_250"
 mesh_label = "Nancon generated irregular mesh-catchment 250 m"
-mesh_mode = "mesh_catchment"
+mesh_mode = "voronoi"
 
 [[comparison.simulation]]
 id = "mf6_mesh_catchment_350"
@@ -51,7 +51,7 @@ solver = "modflow6"
 simulation_config = "run_nancon_steady_mf6_mesh_catchment_350.toml"
 run_folder = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_catchment_350"
 mesh_label = "Nancon generated irregular mesh-catchment 350 m"
-mesh_mode = "mesh_catchment"
+mesh_mode = "voronoi"
 
 [[comparison.observable]]
 name = "active_network_flux_map_last"

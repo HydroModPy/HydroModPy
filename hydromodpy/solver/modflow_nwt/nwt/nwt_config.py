@@ -253,7 +253,7 @@ class ModflowConfig(HydroModelBase):
     sgrid: Annotated[SolverSGridConfig, Profile.USER] = Field(
         default_factory=SolverSGridConfig,
         description=(
-            "Spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`."
+            "Vertical layering and top sampling of the solver grid; the planar grid is set by [mesh]."
         ),
     )
 

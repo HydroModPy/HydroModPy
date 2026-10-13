@@ -66,6 +66,7 @@ def run_nwt_steady_state_initialization(model: object) -> np.ndarray:
     steady_model.pre_processing(
         flow=steady_flow_copy_for_initialization(model.flow),
         domain=model.domain,
+        cell_mesh=model.cell_mesh,
         flow_runtime_overrides=getattr(model, "flow_runtime_overrides", None),
     )
     # Auxiliary single-period solve: keep it out of the live display.

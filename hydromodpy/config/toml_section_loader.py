@@ -11,14 +11,13 @@ from pydantic.fields import FieldInfo
 
 from hydromodpy.analysis.config import AnalysisConfig
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.data import DataManagersConfig
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+from hydromodpy.spatial.mesh.config import MeshConfig
 
 ValidationContext = Literal["toml", "api"]
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -240,28 +239,27 @@ def _load_optional_overview_section(
     return load_standard_section(section_data, OverviewConfig, base)
 
 
-def _load_optional_mesh_catchment_section(
+def _load_optional_mesh_section(
     section_data: Any,
     base: Path,
-) -> MeshCatchmentConfig | None:
-    """Load the optional ``[mesh_catchment]`` section."""
+) -> MeshConfig | None:
+    """Load the optional ``[mesh]`` section.
+
+    The file named by ``[mesh.triangle] path`` is resolved against the TOML
+    directory, like every other declared path.
+    """
     if section_data is None:
         return None
-    from hydromodpy.spatial.mesh.config import parse_mesh_catchment_config_data
-
-    return parse_mesh_catchment_config_data(section_data)
-
-
-def _load_optional_mesh_input_section(
-    section_data: Any,
-    base: Path,
-) -> MeshInputConfig | None:
-    """Load the optional ``[mesh_input]`` section."""
-    if section_data is None:
-        return None
-    from hydromodpy.core.config_kit.mesh_input import parse_mesh_input_config_data
-
-    return parse_mesh_input_config_data(section_data)
+    if not isinstance(section_data, Mapping):
+        raise ValueError("TOML section must be a mapping for MeshConfig")
+    payload = dict(section_data)
+    triangle = payload.get("triangle")
+    if isinstance(triangle, Mapping) and isinstance(triangle.get("path"), str):
+        payload["triangle"] = {
+            **triangle,
+            "path": str(resolve_declared_path(triangle["path"], base_dir=base)),
+        }
+    return MeshConfig.model_validate(payload)
 
 
 def _load_optional_testbed_section(

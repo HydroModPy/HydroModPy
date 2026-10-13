@@ -418,13 +418,6 @@ class ProjectRunner:
                 "spatial_support_registry": project._spatial_support_registry,
                 "requested_spatial_support_ids": project._requested_support_ids,
                 "requested_domain_supports": project._requested_domain_supports,
-                # ``BuildMeshStep`` reads its mesh sections from the state; the
-                # facade verb reads the same three off the Project. A Pipeline
-                # that builds the mesh without them would ignore
-                # [mesh_catchment] and [mesh_input] entirely.
-                "mesh_section_data": project._mesh_section_data,
-                "constraints_mode": project._mesh_constraints_mode,
-                "external_mesh_input": project._external_mesh_input,
                 # This run is already named. ``run_setup`` derives a name from
                 # the config when nobody gives it one, which would rename a run
                 # the caller named differently.

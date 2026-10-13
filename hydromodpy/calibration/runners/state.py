@@ -220,7 +220,7 @@ def build_cache_context(
     model_payload.pop("calibration", None)
     model_payload.pop("display", None)
     model_payload.pop("overview", None)
-    model_payload.pop("mesh_catchment", None)
+    model_payload.pop("mesh", None)
 
     calibration_payload = cfg.model_dump(mode="json")
     for runtime_key in (

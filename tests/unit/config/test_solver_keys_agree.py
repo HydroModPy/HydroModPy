@@ -26,12 +26,19 @@ def _flow(solver: str) -> dict[str, Any]:
     return {"process": [{"id": "flow_main", "type": "flow", "solvers": [solver]}]}
 
 
+def _mesh(solver: str) -> dict[str, Any]:
+    """The mesh section the solver reads: Boussinesq reads triangles only."""
+    if solver != "boussinesq":
+        return {}
+    return {"mesh": {"engine": "triangle", "families": {"rivers": "none"}}}
+
+
 @pytest.mark.parametrize(
     ("solver", "expected"),
     [("modflow6", "modflow6"), ("modflow_nwt", "modflow_nwt"), ("boussinesq", "boussinesq")],
 )
 def test_backend_follows_the_flow_process_when_unset(solver: str, expected: str) -> None:
-    cfg = HydroModPyConfig.model_validate(_payload(simulation=_flow(solver)))
+    cfg = HydroModPyConfig.model_validate(_payload(simulation=_flow(solver), **_mesh(solver)))
 
     assert cfg.solver.backend_name == expected
 
@@ -119,7 +126,9 @@ def test_a_transport_process_under_the_boussinesq_flow_is_refused() -> None:
 
 
 def test_the_boussinesq_flow_alone_loads_with_its_default_transport_section() -> None:
-    cfg = HydroModPyConfig.model_validate(_payload(simulation=_flow("boussinesq")))
+    cfg = HydroModPyConfig.model_validate(
+        _payload(simulation=_flow("boussinesq"), **_mesh("boussinesq"))
+    )
 
     assert cfg.solver.backend_name == "boussinesq"
 

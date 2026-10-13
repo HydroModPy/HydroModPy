@@ -195,7 +195,9 @@ class TestHydraulicFeatureGeometries:
         return SimpleNamespace(flow=SimpleNamespace(sinks_sources={"lakes": lakes}))
 
     def test_voile_gets_hfb_zone_buffer_default(self) -> None:
-        from hydromodpy.workflow.steps.mesh import _hydraulic_feature_geometries
+        from hydromodpy.workflow.steps.mesh_inputs import (
+            hydraulic_feature_geometries as _hydraulic_feature_geometries,
+        )
 
         line = LineString([(0.0, 0.0), (200.0, 0.0)])
         state = self._setup_state({"l1": {"cutoff_wall_line": line, "polygon": None}})
@@ -204,7 +206,9 @@ class TestHydraulicFeatureGeometries:
         assert features == [("voile:l1", line, 60.0, 260.0)]
 
     def test_voile_hfb_buffer_override(self) -> None:
-        from hydromodpy.workflow.steps.mesh import _hydraulic_feature_geometries
+        from hydromodpy.workflow.steps.mesh_inputs import (
+            hydraulic_feature_geometries as _hydraulic_feature_geometries,
+        )
 
         line = LineString([(0.0, 0.0), (200.0, 0.0)])
         state = self._setup_state({"l1": {"cutoff_wall_line": line, "polygon": None}})
@@ -215,7 +219,9 @@ class TestHydraulicFeatureGeometries:
         assert features[0][3] == pytest.approx(90.0)
 
     def test_sill_zone_between_two_lakes(self) -> None:
-        from hydromodpy.workflow.steps.mesh import _hydraulic_feature_geometries
+        from hydromodpy.workflow.steps.mesh_inputs import (
+            hydraulic_feature_geometries as _hydraulic_feature_geometries,
+        )
 
         lake_a = Polygon([(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)])
         lake_b = Polygon([(140.0, 0.0), (240.0, 0.0), (240.0, 100.0), (140.0, 100.0)])
@@ -482,45 +488,59 @@ class TestPartialFamilyTable:
         assert family.priority == 10
 
 
-class TestLakeMeshRefinementWiring:
+class TestLakeStructuresWiring:
     @staticmethod
-    def _make_inputs(voile_line, x_outlet=331315.0, y_outlet=6781273.0):
+    def _make_inputs(voile_line, x_outlet=331315.0, y_outlet=6781273.0, **overrides):
         lr = LakeRefinementConfig(
-            enabled=True, cell_size=80.0, buffer=160.0, dam_cell_size=60.0, dam_buffer=130.0
+            enabled=True,
+            cell_size=80.0,
+            buffer=160.0,
+            dam_cell_size=60.0,
+            dam_buffer=130.0,
+            **overrides,
         )
         lakes = {"reservoir": {"polygon": LAKE, "cutoff_wall_line": voile_line}}
-        cfg = SimpleNamespace(geographic=SimpleNamespace(x_outlet=x_outlet, y_outlet=y_outlet))
-        section = SimpleNamespace(
-            lake_refinement=lr, zone_meshing=SimpleNamespace(global_size=150.0)
-        )
+        geographic = SimpleNamespace(x_outlet=x_outlet, y_outlet=y_outlet)
         setup_state = SimpleNamespace(flow=SimpleNamespace(sinks_sources={"lakes": lakes}))
-        return cfg, section, setup_state
+        return setup_state, geographic, lr
+
+    @staticmethod
+    def _labels(setup_state, geographic, lr) -> set[str]:
+        from hydromodpy.workflow.steps.mesh_inputs import lake_structures
+
+        return {label for label, *_ in lake_structures(setup_state, geographic, lr)}
 
     def test_disk_absorbed_when_wall_zone_reaches_outlet(self) -> None:
-        from hydromodpy.workflow.steps.mesh import _build_lake_mesh_refinement
-
         # Wall 100 m from the outlet: zone (260) + disk (130) overlap by far.
         voile = LineString([(331215.0, 6781273.0), (331255.0, 6781173.0)])
-        cfg, section, state = self._make_inputs(voile)
-        fields = {
-            f.name
-            for f in _build_lake_mesh_refinement(cfg=cfg, section_data=section, setup_state=state)
-        }
-        assert "lake::dam_outlet" not in fields
-        assert "lake::shoreline" in fields
-        assert "feature::voile:reservoir" in fields
+        labels = self._labels(*self._make_inputs(voile))
+        assert "dam_outlet" not in labels
+        assert "voile:reservoir" in labels
 
     def test_disk_kept_when_wall_is_far_from_outlet(self) -> None:
-        from hydromodpy.workflow.steps.mesh import _build_lake_mesh_refinement
-
         # Wall on another lake 2 km away: the under-dam disk must survive.
         voile = LineString([(329300.0, 6781273.0), (329400.0, 6781273.0)])
-        cfg, section, state = self._make_inputs(voile)
-        fields = {
-            f.name
-            for f in _build_lake_mesh_refinement(cfg=cfg, section_data=section, setup_state=state)
-        }
-        assert "lake::dam_outlet" in fields
+        assert "dam_outlet" in self._labels(*self._make_inputs(voile))
+
+    def test_the_disk_can_be_forced_next_to_a_wall(self) -> None:
+        voile = LineString([(331215.0, 6781273.0), (331255.0, 6781173.0)])
+        labels = self._labels(*self._make_inputs(voile, dam_outlet_disk=True))
+        assert {"dam_outlet", "voile:reservoir"} <= labels
+
+    def test_the_disk_is_a_point_the_planner_dilates_by_the_dam_buffer(self) -> None:
+        from hydromodpy.workflow.steps.mesh_inputs import lake_structures
+
+        voile = LineString([(329300.0, 6781273.0), (329400.0, 6781273.0)])
+        structures = {s[0]: s for s in lake_structures(*self._make_inputs(voile))}
+        _, geometry, size, buffer = structures["dam_outlet"]
+        assert (geometry.x, geometry.y) == (331315.0, 6781273.0)
+        assert (size, buffer) == (60.0, 130.0)
+
+    def test_no_structure_without_the_lake_table(self) -> None:
+        from hydromodpy.workflow.steps.mesh_inputs import lake_structures
+
+        setup_state, geographic, _ = self._make_inputs(LineString([(0, 0), (1, 1)]))
+        assert lake_structures(setup_state, geographic, None) == ()
 
 
 class TestWatershedBoundaryInputsFlag:

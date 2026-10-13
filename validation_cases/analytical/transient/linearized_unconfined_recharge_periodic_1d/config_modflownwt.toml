@@ -94,12 +94,6 @@ freq = "D"
 periods = 40
 runoff_ratio = 0.0
 
-[modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 50
-ny = 5
-resampling = "nearest"
-
 [modflownwt.sgrid.vertical]
 nlay = 1
 

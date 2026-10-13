@@ -95,22 +95,22 @@ def test_merge_append_rejects_empty_target() -> None:
 
 
 def test_merge_delete_suffix_removes_inherited_key() -> None:
-    base = {"mesh_catchment": {"constraints_mode": "geology_rivers"}, "flow": {"K": 1.0}}
-    overlay = {"mesh_catchment__delete": True}
+    base = {"mesh": {"engine": "voronoi"}, "flow": {"K": 1.0}}
+    overlay = {"mesh__delete": True}
     merged = merge_toml_payloads(base, overlay)
     assert merged == {"flow": {"K": 1.0}}
 
 
 def test_merge_delete_ignores_missing_key() -> None:
     base = {"flow": {"K": 1.0}}
-    overlay = {"mesh_catchment__delete": True}
+    overlay = {"mesh__delete": True}
     merged = merge_toml_payloads(base, overlay)
     assert merged == base
 
 
 def test_merge_delete_rejects_non_true_value() -> None:
     base: dict = {}
-    overlay = {"mesh_catchment__delete": False}
+    overlay = {"mesh__delete": False}
     with pytest.raises(ValueError, match="requires the literal boolean true"):
         merge_toml_payloads(base, overlay)
 

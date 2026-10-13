@@ -184,14 +184,6 @@ def run_spinup(
         if settings.window_end is not None:
             cfg.simulation.time.end_datetime = settings.window_end
 
-        if cfg.mesh_catchment is None or not cfg.mesh_catchment.cache:
-            logger.warning(
-                "spin-up reuses one Project, so its mesh is stable across cycles. But a "
-                "later production run that restarts from the converged Zarr needs the SAME "
-                "mesh: enable [mesh_catchment] cache = true for a gmsh grid, or the restart "
-                "shape check will reject it."
-            )
-
         project.prepare()  # build geographic / data / mesh once, reused every cycle
 
         cycles: list[SpinupCycle] = []

@@ -261,6 +261,13 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "without changing a tracked file.",
     ),
     EnvVar(
+        "HMP_REQUIRE_GMSH",
+        "unset, an engine that needs gmsh is skipped without it",
+        "test",
+        "Any non-empty value makes the mesh engine contract fail, instead of skipping, "
+        "when gmsh is missing or a built-in engine cannot be loaded.",
+    ),
+    EnvVar(
         "HMP_REQUIRE_SYBIL",
         "unset, the page blocks are skipped without sybil",
         "test",

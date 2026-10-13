@@ -1,29 +1,27 @@
 """Toggling the bed regularisation keeps the cached mesh.
 
 The bed regularisation writes the surface the model top is sampled from,
-after the mesh inputs are built. The mesh cache key leaves it out, so a run
-with the option on hits the mesh of a run with it off, and both keep the key
-every cached mesh had before the section existed.
+after the mesh inputs are built. The mesh request leaves it out, so a run
+with the option on hits the mesh of a run with it off.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
+
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.mesh_cache import compute_mesh_cache_key
+from hydromodpy.spatial.mesh.cache import cache_key
+from hydromodpy.spatial.mesh.config.mesh import MeshConfig
+from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
+from hydromodpy.spatial.mesh.planning import plan_mesh_request
+from hydromodpy.spatial.raster_support import RasterSupport
+from hydromodpy.spatial.surface import Surface
+from hydromodpy.workflow.steps.mesh_inputs import planning_inputs
 
 _RIVER = {"enabled": True, "threshold_mode": "cells", "threshold_cells": 50}
-
-
-class _Dump:
-    """A configuration whose dump is a given payload."""
-
-    def __init__(self, payload: dict) -> None:
-        self._payload = payload
-
-    def model_dump(self, mode: str | None = None) -> dict:
-        return dict(self._payload)
 
 
 def _geographic(**bed) -> GeographicConfig:
@@ -32,29 +30,49 @@ def _geographic(**bed) -> GeographicConfig:
     )
 
 
-def _key(geographic: object) -> str:
-    return compute_mesh_cache_key(
-        section_data=_Dump({"size": 80}),
-        geographic_cfg=geographic,
-        domain_cfg=_Dump({"buffer": 10}),
-        constraints_mode="rivers_only",
-        extra_size_fields=(),
-        domain_geographic=SimpleNamespace(regional_dem_path=None),
+def _ctx(geographic: GeographicConfig, *, cells: int = 10) -> SimpleNamespace:
+    """The slice of a run context the planner reads, over a square DEM of ``cells`` pixels."""
+    support = RasterSupport(
+        crs="EPSG:2154",
+        dx=10.0,
+        dy=10.0,
+        xmin=0.0,
+        xmax=10.0 * cells,
+        ymin=0.0,
+        ymax=10.0 * cells,
+        nrows=cells,
+        ncols=cells,
+        nodata=-9999.0,
+    )
+    surface = Surface.from_geographic_dem(np.zeros((cells, cells)), support=support)
+    return SimpleNamespace(
+        cfg=SimpleNamespace(geographic=geographic, flow=SimpleNamespace(active_bc=[])),
+        config_path=Path("project.toml"),
+        setup=SimpleNamespace(
+            domain=SimpleNamespace(surface_topo=surface),
+            geographic=SimpleNamespace(crs_project="EPSG:2154"),
+            domain_geographic=None,
+            geographic_features=None,
+            flow=None,
+            workspace=None,
+        ),
     )
 
 
+def _key(ctx: SimpleNamespace) -> str:
+    mesh_cfg = MeshConfig(engine="triangle", families={"rivers": "none", "geology": "none"})
+    request = plan_mesh_request(mesh_cfg, planning_inputs(ctx, mesh_cfg))
+    return cache_key(request, TriangleMeshEngine)
+
+
 def test_the_bed_regularisation_keeps_the_cached_mesh() -> None:
-    off = _geographic(enabled=False)
-    on = _geographic(enabled=True, min_slope=5.0e-4)
-    before_the_section = off.model_dump(mode="json")
-    before_the_section.pop("bed_regularization")
+    off = _ctx(_geographic(enabled=False))
+    on = _ctx(_geographic(enabled=True, min_slope=5.0e-4))
 
-    assert _key(on) == _key(off) == _key(_Dump(before_the_section))
+    assert _key(on) == _key(off)
 
 
-def test_another_geographic_field_still_moves_the_key() -> None:
-    assert _key(_geographic(enabled=False)) != _key(
-        GeographicConfig.from_outlet(
-            x=1.0, y=3.0, dem="dem.tif", river_network=_RIVER, bed_regularization={}
-        )
+def test_another_dem_still_moves_the_key() -> None:
+    assert _key(_ctx(_geographic(enabled=False))) != _key(
+        _ctx(_geographic(enabled=False), cells=12)
     )

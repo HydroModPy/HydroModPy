@@ -32,7 +32,7 @@ id = "mf6_disv_ref"
 label = "MODFLOW 6 DISV Nancon monthly transient reference, river-constrained mesh"
 solver = "modflow6"
 mesh_label = "nancon_river_constrained_triangular_mesh"
-mesh_mode = "mesh_input"
+mesh_mode = "voronoi"
 
 [comparison.simulation.overlay.workspace]
 project_root = "outputs/nancon_transient_monthly_mf6_disv_vs_nwt/workspace_mf6_disv"
@@ -96,11 +96,11 @@ compact = true
 
 [comparison.simulation.overlay.modflownwt.runtime.wel]
 ipakcb = 1
-[comparison.simulation.overlay.modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 120
-ny = 120
-resampling = "nearest"
+[comparison.simulation.overlay]
+mesh__delete = true
+
+[comparison.simulation.overlay.mesh.regular]
+shape = [120, 120]
 
 [comparison.simulation.overlay.modflownwt.sgrid.vertical]
 nlay = 1
@@ -148,11 +148,11 @@ compact = true
 
 [comparison.simulation.overlay.modflownwt.runtime.wel]
 ipakcb = 1
-[comparison.simulation.overlay.modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 180
-ny = 180
-resampling = "nearest"
+[comparison.simulation.overlay]
+mesh__delete = true
+
+[comparison.simulation.overlay.mesh.regular]
+shape = [180, 180]
 
 [comparison.simulation.overlay.modflownwt.sgrid.vertical]
 nlay = 1

@@ -207,10 +207,8 @@ source = "custom"
 path = "{_ABACUS_PATH}"
 lake_id = "{_LAKE_ID}"
 
-[modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 30
-ny = 30
+[mesh.regular]
+shape = [30, 30]
 
 [modflow6.sgrid.vertical]
 nlay = 2

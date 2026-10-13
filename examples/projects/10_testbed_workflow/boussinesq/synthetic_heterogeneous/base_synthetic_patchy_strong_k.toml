@@ -8,7 +8,3 @@ description = "Synthetic patchy 2D case with a stronger hydraulic-conductivity c
 
 [flow.param.K.field]
 values = { west_low_k = "1e-6 m/s", central_high_k = "1e-4 m/s", east_medium_k = "3e-5 m/s" }
-
-[mesh_catchment.hydraulic_properties.conductivity]
-values_source = "inline"
-values = { west_low_k = "1e-6", central_high_k = "1e-4", east_medium_k = "3e-5" }

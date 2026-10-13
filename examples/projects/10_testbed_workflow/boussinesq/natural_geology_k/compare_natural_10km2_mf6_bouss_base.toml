@@ -47,15 +47,6 @@ buff_area = "900.0 m"
 # Stream initiation threshold in contributing square kilometres.
 threshold_area_km2 = 0.2
 
-# Shared irregular mesh sizing for every site in the campaign.
-[comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
-# Background target cell size in metres.
-global_size = 130.0
-# Minimum allowed local cell size in metres.
-min_size = 45.0
-# Target cell size near rivers, geology interfaces and watershed boundaries.
-interface_size = 70.0
-
 # Shared Boussinesq nonlinear tolerances. MODFLOW 6 ignores these flow-runtime keys.
 [comparison.base_simulation_overlay.flow]
 # Round residual tolerance chosen to keep Boussinesq budget closure in the same
@@ -88,7 +79,7 @@ solver = "modflow6"
 # Mesh provenance label displayed in reports.
 mesh_label = "generated geology-river catchment mesh"
 # Mesh mode used for reporting and audit context.
-mesh_mode = "mesh_catchment"
+mesh_mode = "voronoi"
 
 # MODFLOW 6 nonlinear/linear runtime settings.
 [comparison.simulation.overlay.modflow6.runtime]
@@ -136,7 +127,7 @@ solver = "boussinesq"
 # Mesh provenance label displayed in reports.
 mesh_label = "generated geology-river catchment mesh"
 # Mesh mode used for reporting and audit context.
-mesh_mode = "mesh_catchment"
+mesh_mode = "triangle"
 
 # Boussinesq PETSc TS/SNESVI runtime settings.
 [comparison.simulation.overlay.flow]
@@ -163,6 +154,10 @@ description = "Boussinesq case 1: Cauchy drainage disabled; the VI upper obstacl
 
 # Initial hydraulic-head map comparison.
 kind = "cauchy"
+
+[comparison.simulation.overlay.mesh]
+engine = "triangle"
+
 [[comparison.observable]]
 # Observable identifier used in metrics, differences and figures.
 name = "head_map_first_computed"

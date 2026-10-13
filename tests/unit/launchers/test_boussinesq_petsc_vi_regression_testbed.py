@@ -106,12 +106,16 @@ def test_petsc_vi_regression_100km2_rule_overrides_scale_settings(tmp_path: Path
     assert base_overlay["geographic"]["catchment"]["snap_dist"] == "300.0 m"
     assert base_overlay["geographic"]["catchment"]["buff_area"] == "1800.0 m"
     assert base_overlay["geographic"]["river_network"]["enabled"] is False
-    assert "mesh_catchment" not in base_overlay
     assert base_overlay["data"]["types"] == ["dem", "geology", "recharge"]
-    assert base_overlay["mesh_input"]["bundle_dir"].endswith(
+    assert base_overlay["mesh"]["engine"] == "voronoi"
+    assert "cell_size" not in base_overlay["mesh"]
+    assert base_overlay["mesh"]["triangle"]["path"].endswith(
         "examples/projects/07_mesh_gallery/100km2/"
-        "mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/bundle"
+        "mesh_headwater_100km2_outlet_2_geology_rivers_buffer30/bundle/mesh_2d.msh"
     )
+    assert [simulation["mesh_mode"] for simulation in comparison["simulation"]] == [
+        "voronoi",
+        "triangle",
+    ]
     for simulation in comparison["simulation"]:
-        assert simulation["mesh_mode"] == "mesh_input"
         assert simulation["mesh_label"] == "precomputed mesh-gallery geology-river bundle"

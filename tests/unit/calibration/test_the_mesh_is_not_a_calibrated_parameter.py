@@ -9,10 +9,9 @@ method is normalised by cell size precisely because the distances it measures
 shrink as the mesh refines. Optimising the mesh against that criterion is
 circular: the search improves the number by changing the yardstick.
 
-And a mesh setting does not reach the mesh through this route anyway. The mesh
-step reads the mesh sections resolved once from the raw file, not the per-trial
-configuration, so a value written into a trial's config would leave the mesh
-exactly as it was and the trial would score the same model.
+And a mesh that cannot be rebuilt bit for bit is cached by its request, so each
+value a search tried would leave one more cached mesh in the project and score
+a model nobody can reproduce from the chosen value alone.
 
 The route for a mesh question is a sweep: one run per mesh, compared, and read
 for convergence rather than for a best score.
@@ -32,9 +31,9 @@ def _declaration(path: str) -> dict[str, dict[str, object]]:
 @pytest.mark.parametrize(
     "path",
     [
-        "mesh_catchment.resolution",
-        "mesh_catchment.refinement.stream_buffer_m",
-        "mesh_input.mesh_path",
+        "mesh.cell_size",
+        "mesh.river_band",
+        "mesh.triangle.path",
     ],
 )
 def test_a_mesh_path_is_refused(path: str) -> None:
@@ -44,17 +43,17 @@ def test_a_mesh_path_is_refused(path: str) -> None:
 
 def test_the_refusal_points_at_the_route_that_works() -> None:
     with pytest.raises(ValueError) as caught:
-        ParameterSpace.from_toml_mapping(_declaration("mesh_catchment.resolution"))
+        ParameterSpace.from_toml_mapping(_declaration("mesh.cell_size"))
 
     message = str(caught.value)
-    assert "mesh_catchment.resolution" in message
+    assert "mesh.cell_size" in message
     assert "compare" in message
 
 
 def test_a_target_naming_the_mesh_is_refused_too() -> None:
     with pytest.raises(ValueError, match="mesh"):
         ParameterSpace.from_toml_mapping(
-            {"m": {"bounds": [50.0, 500.0], "target": "mesh_catchment.resolution"}}
+            {"m": {"bounds": [50.0, 500.0], "target": "mesh.cell_size"}}
         )
 
 

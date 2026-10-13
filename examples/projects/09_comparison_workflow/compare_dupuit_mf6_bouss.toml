@@ -31,7 +31,7 @@ id = "mf6_ref"
 label = "MODFLOW 6 reference"
 solver = "modflow6"
 mesh_label = "shared_irregular_triangle_mesh"
-mesh_mode = "mesh_input"
+mesh_mode = "voronoi"
 
 [comparison.simulation.overlay.modflow6.runtime]
 mf6_ims_complexity = "SIMPLE"
@@ -43,15 +43,30 @@ vka = 1.0
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
 
+[comparison.simulation.overlay.mesh]
+engine = "voronoi"
+
+[comparison.simulation.overlay.mesh.triangle]
+path = "../../../validation_cases/shared/mesh_bundles/sloping_substratum_irregular_tri_400x50/mesh_2d.msh"
+
+[comparison.simulation.overlay.mesh.voronoi]
+seeds = "triangulation"
+
 [[comparison.simulation]]
 id = "bouss_candidate"
 label = "Boussinesq candidate"
 solver = "boussinesq"
 mesh_label = "shared_irregular_triangle_mesh"
-mesh_mode = "mesh_input"
+mesh_mode = "triangle"
 
 [comparison.simulation.overlay.flow]
 runtime_backend = "scipy_sparse"
+
+[comparison.simulation.overlay.mesh]
+engine = "triangle"
+
+[comparison.simulation.overlay.mesh.triangle]
+path = "../../../validation_cases/shared/mesh_bundles/sloping_substratum_irregular_tri_400x50/mesh_2d.msh"
 
 [[comparison.observable]]
 name = "head_map_last"

@@ -49,10 +49,8 @@ start_datetime = "2000-01-01"
 end_datetime = "2000-12-31"
 step_value = "1 month"
 
-[modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 30
-ny = 30
+[mesh.regular]
+shape = [30, 30]
 
 [calibration]
 save_runs = "all"

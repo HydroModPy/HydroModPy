@@ -42,9 +42,6 @@ def test_project_state_mapping_covers_all_known_attrs() -> None:
         "_time_grid",
         "_headless",
         "_no_display",
-        "_mesh_section_data",
-        "_external_mesh_input",
-        "_mesh_constraints_mode",
         "_spatial_support_registry",
         "_requested_support_ids",
         "_requested_domain_supports",
@@ -112,9 +109,6 @@ def test_project_state_defaults_match_phases_configure_defaults() -> None:
     assert state.time_grid is None
     assert state.headless is False
     assert state.no_display is False
-    assert state.mesh_section_data is None
-    assert state.external_mesh_input is None
-    assert state.mesh_constraints_mode is None
     assert state.spatial_support_registry is None
     assert state.requested_support_ids == ()
     assert state.requested_domain_supports == {}

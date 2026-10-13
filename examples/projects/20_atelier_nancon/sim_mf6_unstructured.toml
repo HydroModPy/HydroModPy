@@ -6,7 +6,7 @@
 # regulier. C'est le cas phare "maillage irregulier" : seul MODFLOW 6
 # gere le DISV.
 #
-# Le maillage est construit par le bloc [mesh_catchment]. Le regime
+# Le maillage est construit par le bloc [mesh]. Le regime
 # permanent garde le run rapide pour l'atelier.
 #
 # Lancement :
@@ -45,64 +45,17 @@ all_vertices = true
 
 # Definition du maillage non-structure. "rivers_only" raffine la
 # triangulation vers le reseau de cours d'eau et la limite du bassin.
-[mesh_catchment]
-constraints_mode = "rivers_only"
-output_layout = "flat"
-figures_enabled = true
-
-[mesh_catchment.watershed_boundary]
-enabled = true
-boundary_refinement_distance = 400.0
-
-[mesh_catchment.watershed_boundary.smoothing]
-enabled = true
-distance = 200.0
-river_buffer_distance = 100.0
-outer_bias_distance = 10.0
-
-[mesh_catchment.watershed_boundary.outside_coarsening]
-enabled = true
-size_factor = 2.0
+[mesh]
+engine = "voronoi"
+cell_size = 1400.0
+river_cell_size = 800.0
+river_band = 1400.0
+outside_factor = 2.0
 transition_distance = 680.0
-grid_resolution = 680.0
 
-# Tailles de triangles visees (metres). Plus fines pres des rivieres,
-# plus grossieres en s'eloignant.
-[mesh_catchment.zone_meshing]
-global_size = 1400.0
-min_size = 700.0
-max_size = 2600.0
-min_polygon_area = 1.0
-refine_interfaces = true
-interface_size = 800.0
-interface_distance = 1400.0
-interface_sampling = 96
-
-[mesh_catchment.zone_meshing.refinement_policy]
-enabled = true
-mode = "grid_local_budget"
-
-[mesh_catchment.zone_meshing.refinement_policy.grid]
-neighborhood_rings = 1
-enable_exact_gap_check = false
-max_exact_gap_candidates = 128
-
-[mesh_catchment.zone_meshing.refinement_policy.hotspot]
-radius = 1400.0
-max_curve_count = 180
-max_family_count = 2
-min_gap = 200.0
-max_node_degree = 4
-short_segment_length = 500.0
-max_short_segment_count = 12
-
-[mesh_catchment.zone_meshing.refinement_policy.families.river]
-enabled = true
-priority = 300
-
-[mesh_catchment.zone_meshing.refinement_policy.families.watershed_boundary]
-enabled = true
-priority = 100
+[mesh.families]
+geology = "none"
+watershed_boundary = "face"
 
 [[simulation.process]]
 id = "flow_main"

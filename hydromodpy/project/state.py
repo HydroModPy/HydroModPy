@@ -26,7 +26,6 @@ if TYPE_CHECKING:
     )
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
-    from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
 
 @dataclass(slots=True)
@@ -44,9 +43,6 @@ class ProjectState:
     time_grid: ResolvedSimulationTimeGrid | ResolvedSteadySimulationTimeGrid | None = None
     headless: bool = False
     no_display: bool = False
-    mesh_section_data: MeshCatchmentConfig | None = None
-    external_mesh_input: dict[str, str] | None = None
-    mesh_constraints_mode: str | None = None
     spatial_support_registry: Any = None
     requested_support_ids: tuple[str, ...] = ()
     requested_domain_supports: dict[str, Any] = field(default_factory=dict)
@@ -68,9 +64,6 @@ PROJECT_ATTR_TO_STATE_FIELD: dict[str, str] = {
     "_time_grid": "time_grid",
     "_headless": "headless",
     "_no_display": "no_display",
-    "_mesh_section_data": "mesh_section_data",
-    "_external_mesh_input": "external_mesh_input",
-    "_mesh_constraints_mode": "mesh_constraints_mode",
     "_spatial_support_registry": "spatial_support_registry",
     "_requested_support_ids": "requested_support_ids",
     "_requested_domain_supports": "requested_domain_supports",

@@ -13,8 +13,9 @@ for ``load_data``. The other three leave nothing, and that is the honest
 answer rather than a gap - see D172. ``resolve`` builds a data plan in memory
 whose result is already on disk inside the document ``load_data`` writes;
 ``setup_process`` instantiates the flow and transport objects from a domain
-that is already described; and ``build_mesh`` writes a mesh only when
-``[mesh_catchment]`` asks for one, which the project below does not.
+that is already described; and ``build_mesh`` caches a mesh only for an engine
+that cannot rebuild it bit for bit, which the regular engine of the project
+below can.
 
 So the assertion is no longer "all six declare". It is: every step of a run has
 a row, every step with a durable product declares it, and the three that leave
@@ -41,7 +42,7 @@ DECLARING_HEAD_STEPS = ("validate", "build_geographic", "load_data")
 # The head steps that leave nothing on this project, and why. D172.
 SILENT_HEAD_STEPS = {
     "resolve": "builds a data plan in memory; load_data's document carries its result",
-    "build_mesh": "meshes only under [mesh_catchment], which this project does not declare",
+    "build_mesh": "caches only a mesh an engine cannot rebuild; the regular engine rebuilds it",
     "setup_process": "instantiates flow and transport from a domain already described",
 }
 

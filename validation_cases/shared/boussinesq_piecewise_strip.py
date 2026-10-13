@@ -457,6 +457,17 @@ def write_piecewise_strip_launcher_config(
         'kind = "flat"',
         f"base_elevation = {PIECEWISE_STRIP_Z_TOP_M:.1f}",
         "",
+        "[domain.supports.k_bands]",
+        'kind = "generated_bands"',
+        'axis = "x"',
+        'coordinate_mode = "relative"',
+        "breaks = ["
+        + ", ".join(
+            f"{x / PIECEWISE_STRIP_LENGTH_X_M:.12g}" for x in PIECEWISE_STRIP_X_ZONE_BREAKS_M
+        )
+        + "]",
+        'labels = ["zone_1", "zone_2", "zone_3"]',
+        "",
         "[domain.depth_model]",
         'kind = "constant_thickness"',
         f'thickness = "{PIECEWISE_STRIP_Z_TOP_M - PIECEWISE_STRIP_Z_BOTTOM_M:.1f} m"',
@@ -476,18 +487,34 @@ def write_piecewise_strip_launcher_config(
         'type = "flow"',
         'solvers = ["boussinesq"]',
         "",
-        "[mesh_input]",
-        f"bundle_dir = {json.dumps(str(Path(bundle_dir).resolve()))}",
+        "[mesh]",
+        'engine = "triangle"',
+        "",
+        "[mesh.triangle]",
+        f"path = {json.dumps(str(Path(bundle_dir).resolve() / 'mesh_2d.msh'))}",
         "",
         "[flow]",
         'flow_regime = "steady"',
         *runtime_lines,
+        'param_list = ["K"]',
         f"active_sinks_sources = [{', '.join(json.dumps(item) for item in active_sinks_sources)}]",
         f"active_bc = [{', '.join(json.dumps(item) for item in active_bc)}]",
         "",
         "[flow.ic]",
         'type = "custom"',
         f"value = {float(initial_head_m):.12g}",
+        "",
+        "[flow.param.K.field]",
+        'id = "K"',
+        'kind = "heterogeneous"',
+        'values_source = "inline"',
+        "values = { "
+        + ", ".join(
+            f'zone_{index + 1} = "{value:.12g} m/s"'
+            for index, value in enumerate(PIECEWISE_STRIP_HYDRAULIC_CONDUCTIVITY_M_S_BY_ZONE)
+        )
+        + " }",
+        'field_spatial_id = "k_bands"',
     ]
     if west_head_m is not None:
         lines.extend(

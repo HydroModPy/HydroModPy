@@ -31,7 +31,7 @@ id = "mf6_ref"
 label = "MODFLOW 6 reference"
 solver = "modflow6"
 mesh_label = "shared_irregular_triangle_mesh"
-mesh_mode = "mesh_input"
+mesh_mode = "triangle"
 
 [comparison.simulation.overlay.modflow6.runtime]
 mf6_ims_complexity = "SIMPLE"
@@ -39,9 +39,6 @@ mf_verbose = false
 
 [comparison.simulation.overlay.modflow6.process_specific]
 vka = 1.0
-
-[comparison.simulation.overlay.modflow6.sgrid]
-grid_dual = "triangle"
 
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
@@ -51,7 +48,7 @@ id = "bouss_candidate"
 label = "Boussinesq candidate"
 solver = "boussinesq"
 mesh_label = "shared_irregular_triangle_mesh"
-mesh_mode = "mesh_input"
+mesh_mode = "triangle"
 
 [comparison.simulation.overlay.flow]
 runtime_backend = "scipy_sparse"

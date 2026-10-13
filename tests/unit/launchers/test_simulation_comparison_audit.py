@@ -30,7 +30,7 @@ def test_cli_resolves_comparison_workflow(tmp_path: Path) -> None:
     assert _infer_workflow_from_sections({"comparison": {}}) == "comparison"
 
 
-def test_resolve_bundle_cells_reads_mesh_input_from_generated_config(
+def test_resolve_bundle_cells_reads_the_triangulation_folder_from_generated_config(
     tmp_path: Path,
 ) -> None:
     bundle_dir = tmp_path / "bundle"
@@ -57,8 +57,11 @@ def test_resolve_bundle_cells_reads_mesh_input_from_generated_config(
                 "[simulation]",
                 'run_id = "demo"',
                 "",
-                "[mesh_input]",
-                'bundle_dir = "bundle"',
+                "[mesh]",
+                'engine = "triangle"',
+                "",
+                "[mesh.triangle]",
+                'path = "bundle/mesh_2d.msh"',
             ]
         )
         + "\n",
@@ -88,9 +91,8 @@ def _write_structured_child_config(tmp_path: Path) -> Path:
                 "[workspace]",
                 'project_root = "."',
                 "",
-                "[modflow6.sgrid.planar]",
-                "nx = 4",
-                "ny = 2",
+                "[mesh.regular]",
+                "shape = [2, 4]",
             ]
         )
         + "\n",

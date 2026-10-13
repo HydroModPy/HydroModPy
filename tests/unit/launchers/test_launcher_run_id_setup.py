@@ -169,43 +169,6 @@ def test_run_setup_builds_synthetic_geographic_when_requested(monkeypatch) -> No
     assert captured["output_dir"] == Path("workspace") / PREPROCESSING_DIR / "geographic"
 
 
-def test_process_launcher_rejects_embedded_mesh_catchment_batch_section() -> None:
-    from hydromodpy.workflow.steps.mesh import resolve_optional_mesh_section
-
-    with pytest.raises(ConfigError, match="Embedded \\[mesh_catchment_batch\\] is not supported"):
-        resolve_optional_mesh_section(
-            {
-                "mesh_catchment": {"constraints_mode": "rivers_only"},
-                "mesh_catchment_batch": {
-                    "enabled": True,
-                    "outlets_table_path": "outlets.csv",
-                },
-            }
-        )
-
-
-def test_resolve_optional_mesh_input_resolves_relative_paths(tmp_path: Path) -> None:
-    from hydromodpy.workflow.steps.mesh import resolve_optional_mesh_input
-
-    config_path = tmp_path / "configs" / "simulation.toml"
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-
-    actual = resolve_optional_mesh_input(
-        {
-            "mesh_input": {
-                "mesh_path": "mesh/external_mesh.msh",
-                "bundle_dir": "mesh/external_mesh_bundle",
-            }
-        },
-        config_path,
-    )
-
-    assert actual == {
-        "mesh_path": str((config_path.parent / "mesh/external_mesh.msh").resolve()),
-        "bundle_dir": str((config_path.parent / "mesh/external_mesh_bundle").resolve()),
-    }
-
-
 def test_run_setup_declares_the_binder_zone_ids(monkeypatch) -> None:
     """apply_geology_to_domain writes under a fixed zone id, so the runtime arms it."""
     monkeypatch.setattr(

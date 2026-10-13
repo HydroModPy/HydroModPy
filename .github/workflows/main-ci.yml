@@ -138,7 +138,7 @@ jobs:
       - name: Install package and test extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,performance,calibration]"
+          pip install -e ".[test,performance,calibration,mesh]"
 
       - name: Install external validity_frame package
         run: pip install -e validity_frame
@@ -170,7 +170,11 @@ jobs:
 
       # tests/contract/ is the only coverage of DuckDBCacheBackend and of the
       # catalog backend compatibility surface. It was in no workflow before.
+      # HMP_REQUIRE_GMSH turns a skipped gmsh engine into a failure: the mesh
+      # engine contract proves nothing on an engine it did not run.
       - name: Run contract tests
+        env:
+          HMP_REQUIRE_GMSH: "1"
         run: python -m pytest tests/contract/ -q
 
   unit:

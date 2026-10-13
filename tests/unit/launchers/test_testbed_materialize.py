@@ -43,8 +43,8 @@ def test_testbed_launcher_materializes_child_configs_without_executing(
                 'id = "coarse"',
                 'axis = "resolution"',
                 "",
-                "[testbed.case.overlay.mesh_catchment.zone_meshing]",
-                "global_size = 400.0",
+                "[testbed.case.overlay.mesh]",
+                "cell_size = 400.0",
             ]
         )
         + "\n",
@@ -59,8 +59,8 @@ def test_testbed_launcher_materializes_child_configs_without_executing(
     _assert_child_config_loads(child_payload, "simulation")
     assert child_payload["simulation"]["process"][0]["type"] == "mesh"
     assert "testbed" not in child_payload
-    assert child_payload["mesh_catchment"]["constraints_mode"] == "rivers_only"
-    assert child_payload["mesh_catchment"]["zone_meshing"]["global_size"] == 400.0
+    assert child_payload["mesh"]["engine"] == "voronoi"
+    assert child_payload["mesh"]["cell_size"] == 400.0
     assert Path(summary["plan_json"]).exists()
     assert Path(summary["manifest_json"]).exists()
     with Path(summary["cases_csv"]).open("r", encoding="utf-8", newline="") as stream:
@@ -131,7 +131,7 @@ def test_testbed_launcher_expands_catalog_cases_without_execution(
                     "scale": "resolution",
                     "tier": "smoke",
                     "workspace_root": "workspaces/catalog_coarse",
-                    "global_size": 400.0,
+                    "cell_size": 400.0,
                     "tags": ["mesh_ready", "catalog"],
                     "enabled": True,
                 },
@@ -141,7 +141,7 @@ def test_testbed_launcher_expands_catalog_cases_without_execution(
                     "scale": "resolution",
                     "tier": "smoke",
                     "workspace_root": "workspaces/catalog_disabled",
-                    "global_size": 200.0,
+                    "cell_size": 200.0,
                     "tags": ["mesh_ready", "catalog"],
                     "enabled": False,
                 },
@@ -151,7 +151,7 @@ def test_testbed_launcher_expands_catalog_cases_without_execution(
                     "scale": "resolution",
                     "tier": "full",
                     "workspace_root": "workspaces/catalog_other_tier",
-                    "global_size": 100.0,
+                    "cell_size": 100.0,
                     "tags": ["mesh_ready", "catalog"],
                     "enabled": True,
                 },
@@ -185,13 +185,13 @@ def test_testbed_launcher_expands_catalog_cases_without_execution(
                 'tags = ["mesh_ready"]',
                 "",
                 "[[testbed.case_from_catalog]]",
-                'required_fields = ["workspace_root", "global_size"]',
+                'required_fields = ["workspace_root", "cell_size"]',
                 "",
                 "[testbed.case_from_catalog.overlay.workspace]",
                 'project_root = "{workspace_root}"',
                 "",
-                "[testbed.case_from_catalog.overlay.mesh_catchment.zone_meshing]",
-                'global_size = "{global_size}"',
+                "[testbed.case_from_catalog.overlay.mesh]",
+                'cell_size = "{cell_size}"',
             ]
         )
         + "\n",
@@ -208,8 +208,8 @@ def test_testbed_launcher_expands_catalog_cases_without_execution(
     assert child_payload["simulation"]["process"] == [
         {"id": "mesh_main", "type": "mesh", "backend": "catchment"}
     ]
-    assert child_payload["mesh_catchment"]["constraints_mode"] == "rivers_only"
-    assert child_payload["mesh_catchment"]["zone_meshing"]["global_size"] == 400.0
+    assert child_payload["mesh"]["engine"] == "voronoi"
+    assert child_payload["mesh"]["cell_size"] == 400.0
     assert Path(summary["plan_json"]).exists()
     assert Path(summary["manifest_json"]).exists()
     with Path(summary["cases_csv"]).open("r", encoding="utf-8", newline="") as stream:
@@ -218,7 +218,7 @@ def test_testbed_launcher_expands_catalog_cases_without_execution(
     assert rows[0]["case_id"] == "catalog_coarse"
     assert summary["executed_count"] == 0
     assert child_payload["workspace"]["project_root"].endswith("workspaces/catalog_coarse")
-    assert child_payload["mesh_catchment"]["zone_meshing"]["global_size"] == 400.0
+    assert child_payload["mesh"]["cell_size"] == 400.0
     with Path(summary["cases_csv"]).open("r", encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream))
     assert "variant_id" not in rows[0]

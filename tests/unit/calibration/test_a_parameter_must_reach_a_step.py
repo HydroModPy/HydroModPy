@@ -7,7 +7,7 @@ model with a new number attached to it. Every trial returned the same cost, the
 search converged on whatever it started from, and the report named a calibrated
 value.
 
-The mesh is the case that made it visible. ``[mesh_catchment]`` drives the mesh
+The mesh is the case that made it visible. ``[mesh]`` drives the mesh
 step and the step did not say so, so calibrating a mesh resolution changed the
 number in the record and nothing on disk.
 """
@@ -30,7 +30,7 @@ _STEPS = (
     _Step(("workspace", "simulation")),
     _Step(("geographic", "data.dem")),
     _Step(("data",)),
-    _Step(("domain.supports", "mesh_catchment", "mesh_input")),
+    _Step(("domain.supports", "mesh")),
     _Step(("flow", "transport")),
     _Step(()),
 )
@@ -41,7 +41,7 @@ def test_a_path_a_step_owns_selects_that_step() -> None:
 
 
 def test_a_mesh_path_selects_the_mesh_step() -> None:
-    assert earliest_affected_step({"mesh_catchment.resolution"}, _STEPS) == 3
+    assert earliest_affected_step({"mesh.cell_size"}, _STEPS) == 3
 
 
 def test_a_path_no_step_owns_is_refused() -> None:
@@ -55,11 +55,11 @@ def test_the_refusal_names_the_path_and_what_a_step_would_have_to_declare() -> N
 
     message = str(caught.value)
     assert "nowhere.at.all" in message
-    assert "mesh_catchment" in message
+    assert "mesh" in message
 
 
 def test_the_mesh_step_declares_the_sections_that_drive_it() -> None:
-    """The step reads [mesh_catchment] and [mesh_input]; it has to say so."""
+    """The step reads [mesh]; it has to say so."""
     declared = set(BuildMeshStep.config_sections)
 
-    assert {"mesh_catchment", "mesh_input"} <= declared
+    assert {"mesh"} <= declared

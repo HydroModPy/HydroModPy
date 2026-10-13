@@ -1,0 +1,176 @@
+"""The ``triangle`` engine: gmsh constrained Delaunay triangles, or a read ``.msh``.
+
+A generated triangulation embeds every family line as mesh edges, so face
+families are exact. The ``rivers`` cell family is derived from its faces: the
+triangles on the left bank of each line, in order. Centres are the vertex
+means the solvers use. gmsh is not reproducible, so the engine asks for a cache.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar
+
+import numpy as np
+
+from hydromodpy.spatial.mesh.engines.triangle.families import (
+    EdgeLookup,
+    TriangleFamilies,
+    box_side_edges,
+    cell_zones,
+    chains_of,
+    edge_lookup,
+    face_table,
+    families_from_labels,
+    families_from_line_edges,
+    families_from_matching,
+    request_zone_names,
+)
+from hydromodpy.spatial.mesh.engines.triangle.gmsh_cdt import triangulate
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry, derive_geometry
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
+    MeshIdentity,
+    PlanarCellMesh,
+    build_planar_cell_mesh,
+)
+from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
+from hydromodpy.spatial.mesh.request import MeshRequest
+
+if TYPE_CHECKING:
+    from shapely.geometry import LineString
+
+__all__ = ["TriangleMeshEngine", "TriangulatedRequest", "triangulate_request"]
+
+
+@dataclass(frozen=True, eq=False)
+class TriangulatedRequest:
+    """A triangulation of a request with its families, before any cell mesh.
+
+    The ``voronoi`` engine starts from the same object: its generators are the
+    vertices and its river chains follow the ``rivers`` edges.
+    """
+
+    request: MeshRequest
+    mesh: HydroMesh
+    geometry: DerivedGeometry
+    lookup: EdgeLookup
+    families: TriangleFamilies
+    read: bool
+    notes: tuple[str, ...]
+
+    def lines_for_qa(self) -> dict[str, tuple[LineString, ...]]:
+        """The source lines of each requested family, for the QA."""
+        return {family.name: family.lines for family in self.request.lines}
+
+
+def _read_families(
+    request: MeshRequest, mesh: HydroMesh, geometry: DerivedGeometry, lookup: EdgeLookup
+) -> tuple[TriangleFamilies, tuple[str, ...]]:
+    """Families of a read triangulation: physical line groups first, else the request lines."""
+    triangulation = request.input_triangulation
+    labelled, label_zones, notes = families_from_labels(triangulation.edge_labels, lookup, geometry)
+    from_labels = frozenset(family.name for family in labelled)
+    matched = families_from_matching(request, mesh.vertices, geometry, lookup, skip=from_labels)
+    cell_families = {family.name for family in request.lines if family.intent == "cell"}
+    if "rivers" in from_labels:
+        cell_families.add("rivers")
+    families = TriangleFamilies(
+        families=labelled + matched,
+        zone_names=label_zones if "geology" in from_labels else request_zone_names(request),
+        cell_families=tuple(sorted(cell_families)),
+    )
+    note = "triangle read the input triangulation; family lines were not embedded"
+    return families, (note, *notes)
+
+
+def triangulate_request(request: MeshRequest) -> TriangulatedRequest:
+    """Triangulate *request*, or take its input triangulation, and derive its families."""
+    triangulation = request.input_triangulation
+    if triangulation is not None:
+        vertices = np.asarray(triangulation.vertices, dtype=np.float64)
+        triangles = np.asarray(triangulation.triangles, dtype=np.int64)
+    else:
+        cdt = triangulate(request)
+        vertices, triangles = cdt.vertices, cdt.triangles
+    mesh = HydroMesh(
+        vertices=vertices,
+        cell_blocks=(CellBlock(cell_type=CellType.TRIANGLE, connectivity=triangles),),
+    )
+    geometry = derive_geometry(mesh)
+    lookup = edge_lookup(vertices, triangles)
+    if triangulation is None:
+        families = families_from_line_edges(request, lookup, cdt.line_edges)
+        notes: tuple[str, ...] = ()
+    else:
+        families, notes = _read_families(request, mesh, geometry, lookup)
+    return TriangulatedRequest(
+        request=request,
+        mesh=mesh,
+        geometry=geometry,
+        lookup=lookup,
+        families=TriangleFamilies(
+            families=families.families + box_side_edges(vertices, geometry, lookup),
+            zone_names=families.zone_names,
+            cell_families=families.cell_families,
+        ),
+        read=triangulation is not None,
+        notes=notes,
+    )
+
+
+class TriangleMeshEngine:
+    """Triangles of a gmsh constrained Delaunay triangulation (or of a read ``.msh``)."""
+
+    engine_id: ClassVar[str] = "triangle"
+    engine_version: ClassVar[str] = "1.0.0"
+    capabilities: ClassVar[MeshEngineCapabilities] = MeshEngineCapabilities(
+        cell_types=(CellType.TRIANGLE,),
+        structured=False,
+        graded=True,
+        exact_faces=True,
+        cell_families="derived_from_faces",
+        deterministic=False,
+        needs_cache=True,
+    )
+
+    def build(self, request: MeshRequest) -> PlanarCellMesh:
+        """Triangulate the request and assemble its planar cell mesh."""
+        triangulated = triangulate_request(request)
+        return self.assemble(triangulated)
+
+    def assemble(self, triangulated: TriangulatedRequest) -> PlanarCellMesh:
+        """The planar cell mesh of a triangulated request."""
+        mesh = triangulated.mesh
+        families = triangulated.families
+        chains = tuple(
+            chain
+            for name in families.cell_families
+            if (family := families.get(name)) is not None
+            for chain in chains_of(family, triangulated.lookup)
+        )
+        request = triangulated.request
+        return build_planar_cell_mesh(
+            mesh,
+            mesh.vertices[np.asarray(mesh.flat_connectivity)].mean(axis=1),
+            geometry=triangulated.geometry,
+            center_kind="vertex_mean",
+            crs_wkt=request.crs_wkt,
+            identity=MeshIdentity(
+                self.engine_id,
+                self.engine_version,
+                request.canonical_hash(),
+                None if triangulated.read else request.seed,
+            ),
+            declarations=self.capabilities.declarations(),
+            cell_chains=chains,
+            face_families=face_table(families.families),
+            cell_zone=cell_zones(
+                triangulated.geometry, families.get("geology"), len(families.zone_names)
+            ),
+            zone_names=families.zone_names,
+            domain_area_m2=request.domain.area,
+            lines=triangulated.lines_for_qa(),
+            notes=triangulated.notes,
+        )

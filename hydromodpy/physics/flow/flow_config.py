@@ -132,8 +132,9 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         description=(
             "Optional hotstart: path to a prior simulation Zarr store whose last time step "
             "seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior "
-            "run must share this run's mesh, so enable [mesh_catchment] cache = true; "
-            "otherwise the cell count differs and restart is refused. None keeps [flow.ic]. "
+            "run must share this run's mesh: a regular grid is rebuilt identically and a "
+            "generated triangle or voronoi mesh is read back from the mesh cache of "
+            "the project; otherwise the cell count differs and restart is refused. None keeps [flow.ic]. "
             "Read only by a solver that declares it can: elsewhere the run is refused "
             "rather than started from [flow.ic] without a word. This is one of the four "
             "ways to say where a transient starts, next to [flow.ic] type='steady_state' "

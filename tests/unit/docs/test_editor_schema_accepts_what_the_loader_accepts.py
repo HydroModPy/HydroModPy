@@ -83,7 +83,7 @@ ACCEPTED = {
     "append a list": 'base_config = "a.toml"\n[display]\nfigures__append = ["x"]\n',
     "append a table list": 'export__append = [{ format = "csv" }]\n',
     "merge a table list": 'export__merge = [{ format = "csv" }]\n',
-    "delete a section": 'base_config = "a.toml"\nmesh_catchment__delete = true\n',
+    "delete a section": 'base_config = "a.toml"\nmesh__delete = true\n',
     "delete a key in a section": "[data]\nrecharge__delete = true\n",
     "delete a key the variant lacks": (
         '[domain.depth_model]\nkind = "raster_thickness"\nthickness__delete = true\n'

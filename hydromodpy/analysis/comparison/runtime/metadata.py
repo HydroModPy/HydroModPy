@@ -92,7 +92,7 @@ def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
         "wall_time_seconds",
         "solvers",
         "success",
-        "mesh_constraints_mode",
+        "mesh_engine",
         "mesh_output_mesh",
         "mesh_output_summary_json",
         "mesh_output_exchange_bundle_dir",
@@ -249,7 +249,6 @@ def read_simulation_run_metadata(
                     "n_nodes",
                     "n_cells",
                     "n_edges",
-                    "constraints_mode",
                 )
                 if key in bundle_metadata
             }

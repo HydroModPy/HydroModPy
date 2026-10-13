@@ -96,12 +96,6 @@ cell = [0, 50, 50]
 value = -1000.0
 kind = "constant"
 
-[modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 101
-ny = 101
-resampling = "nearest"
-
 [modflownwt.sgrid.vertical]
 nlay = 1
 

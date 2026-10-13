@@ -98,12 +98,6 @@ value = "50.0 m"
 kind = "dirichlet"
 value = "50.0 m"
 
-[modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 101
-ny = 101
-resampling = "nearest"
-
 [modflownwt.sgrid.vertical]
 nlay = 1
 

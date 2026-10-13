@@ -261,11 +261,8 @@ mf6_preconditioner_drop_tolerance = 0.0
 
 _SOLVER_BLOCKS = {
     "modflow_nwt": """\
-[modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = {n_cells}
-ny = 1
-resampling = "nearest"
+[mesh.regular]
+shape = [1, {n_cells}]
 
 [modflownwt.sgrid.vertical]
 nlay = 1
@@ -273,11 +270,8 @@ nlay = 1
     "modflow6": _MODFLOW6_RUNTIME
     + """\
 
-[modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = {n_cells}
-ny = 1
-resampling = "nearest"
+[mesh.regular]
+shape = [1, {n_cells}]
 
 [modflow6.sgrid.vertical]
 nlay = 1
@@ -285,27 +279,28 @@ nlay = 1
     "modflow6_irregular_tri": _MESH_RUNTIME
     + """\
 
-[modflow6.sgrid]
-grid_dual = "triangle"
-
 [modflow6.sgrid.vertical]
 nlay = 1
 
-[mesh_input]
-mesh_path = "{bundle_dir}/mesh_2d.msh"
-bundle_dir = "{bundle_dir}"
+[mesh]
+engine = "triangle"
+
+[mesh.triangle]
+path = "{bundle_dir}/mesh_2d.msh"
 """,
     "modflow6_voronoi": _MESH_RUNTIME
     + """\
-[modflow6.sgrid]
-grid_dual = "voronoi"
-
 [modflow6.sgrid.vertical]
 nlay = 1
 
-[mesh_input]
-mesh_path = "{bundle_dir}/mesh_2d.msh"
-bundle_dir = "{bundle_dir}"
+[mesh]
+engine = "voronoi"
+
+[mesh.triangle]
+path = "{bundle_dir}/mesh_2d.msh"
+
+[mesh.voronoi]
+seeds = "triangulation"
 """,
 }
 """The solver section of the project, per column. The two meshes share one bundle."""
