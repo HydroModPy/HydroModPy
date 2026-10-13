@@ -53,9 +53,9 @@ thickness = "100.0 m"
 # tenth of the head signal left in the tail. Solved that way the tail stops
 # decaying and the rate budget reaches -190 %. These three values sit below the
 # smallest quantity the case resolves, and both MF6 grids inherit them so their
-# tails are comparable. The triangle grid does not converge one decade tighter,
-# and past day 90 its tail falls below what this closure resolves (rate budget
-# above 10 %): the run stops at day 90 for that reason.
+# tails are comparable. Past day 90 the triangle tail falls below what this
+# closure resolves (rate budget above 10 %): the run stops at day 90 for that
+# reason.
 [modflow6.runtime]
 mf6_outer_dvclose = 1e-7
 mf6_inner_dvclose = 1e-8

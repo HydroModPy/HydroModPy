@@ -8,6 +8,21 @@ solvers = ["modflow6"]
 [modflow6.runtime]
 mf_verbose = false
 mf6_ims_complexity = "COMPLEX"
+# The steady warm-up amplifies a flow residual into a head error by up to
+# 8.1e5 m per m3/s (largest row sum of the inverse matrix), so the 1e-9 m3/s
+# closure of config_common.toml only meets the 1e-7 m head closure when the
+# linear solve goes well below it. The stock ILUT (fill 5, drop 1e-4) with
+# BICGSTAB on this XT3D Newton matrix stalls between 1.1e-9 and 2.1e-9: 25
+# inner solves hit the 500 cap, the first step creeps at 4e-7 m for 13 outer
+# iterations, and convergence is a lucky crossing. Perturbing K by 1e-12
+# relative, the size of a rounding change between builds, failed 7 runs of 16
+# on Linux, and the macOS arm64 CI run failed this case. A fill of 40 with
+# nothing dropped never stalls: 6 outer iterations on the first step and at
+# most 2 after it, 16 of 16 under the same perturbation, and it still
+# converges with all three closures one decade tighter. The floating-point
+# floor of the residual is 6e-16 m3/s per cell, far below any of them.
+mf6_preconditioner_levels = 40
+mf6_preconditioner_drop_tolerance = 0.0
 
 [modflow6.process_specific]
 vka = 1.0

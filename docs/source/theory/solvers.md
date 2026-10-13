@@ -467,6 +467,8 @@ modflow6.runtime.mf6_ims_complexity
 modflow6.runtime.mf6_outer_dvclose
 modflow6.runtime.mf6_inner_dvclose
 modflow6.runtime.mf6_inner_rclose
+modflow6.runtime.mf6_preconditioner_levels
+modflow6.runtime.mf6_preconditioner_drop_tolerance
 modflow6.runtime.mf6_linear_acceleration
 modflow6.runtime.mf6_under_relaxation
 modflow6.runtime.mf6_enable_rewet

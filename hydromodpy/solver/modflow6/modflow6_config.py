@@ -123,6 +123,23 @@ class Modflow6RuntimeConfig(HydroModelBase):
             "non-symmetric Newton formulation. None keeps the preset default."
         ),
     )
+    mf6_preconditioner_levels: Annotated[PositiveInt | None, Profile.EXPERT] = Field(
+        default=None,
+        description=(
+            "IMS ILUT fill: entries kept per row of each incomplete factor. A fill "
+            "as wide as the matrix band, with a zero drop tolerance, gives a "
+            "complete factorization. None keeps the preset default (5 for COMPLEX)."
+        ),
+    )
+    mf6_preconditioner_drop_tolerance: Annotated[float | None, Profile.EXPERT] = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "IMS ILUT drop tolerance: factor entries below it are dropped. Zero "
+            "keeps every entry the fill allows. None keeps the preset default "
+            "(1e-4 for COMPLEX)."
+        ),
+    )
     mf6_under_relaxation: Annotated[
         Literal["NONE", "SIMPLE", "COOLEY", "DBD"] | None, Profile.EXPERT
     ] = Field(

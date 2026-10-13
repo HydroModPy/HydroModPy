@@ -107,6 +107,37 @@ def worst_percent_discrepancy(listing_dir: Path) -> float | None:
     return max(values, key=abs)
 
 
+_SIMULATION_FAILURE_RE = re.compile(
+    r"did not converge|convergence failure|premature termination", re.IGNORECASE
+)
+
+
+def simulation_listing_failure_lines(model_dir: Path, *, max_lines: int = 10) -> list[str]:
+    """Return the lines of ``mfsim.lst`` that say why MODFLOW 6 stopped.
+
+    Best-effort and never raises. Keeps the convergence-failure lines and the
+    whole ``ERROR REPORT`` block MF6 prints at the end, without duplicates and
+    with runs of spaces collapsed, and returns the last ``max_lines`` of them.
+    A missing listing means mf6 never started or could not create it.
+    """
+    listing = model_dir / "mfsim.lst"
+    try:
+        text = listing.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return ["mfsim.lst was not written: mf6 did not start or could not create it"]
+    picked: list[str] = []
+    in_report = False
+    for raw in text.splitlines():
+        line = " ".join(raw.split())
+        if not line:
+            continue
+        if line.endswith("ERROR REPORT:"):
+            in_report = True
+        if (in_report or _SIMULATION_FAILURE_RE.search(line)) and line not in picked:
+            picked.append(line)
+    return picked[-max_lines:]
+
+
 def _has_single_process_run(plan: SimulationPlan, process_type: str) -> bool:
     """Return ``True`` when *plan* contains exactly one run of *process_type*.
 
@@ -280,6 +311,11 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
             percent = last_percent_discrepancy(model_dir)
             if percent is not None:
                 detail = f" Final water-budget PERCENT DISCREPANCY = {percent}."
+            # The scratch holding mfsim.lst is often deleted with a test or CI
+            # workspace, so the lines that say why the run stopped ride along.
+            failure_lines = simulation_listing_failure_lines(model_dir)
+            if failure_lines:
+                detail += " mfsim.lst: " + " | ".join(failure_lines) + "."
             diagnostics_path = model_dir / "mfsim.lst"
         raise SolverDivergedError(
             f"[HMPY.E401] Flow solver '{ctx.run.solver}' failed for run '{ctx.run.id}'."
