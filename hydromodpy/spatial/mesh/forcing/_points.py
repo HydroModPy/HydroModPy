@@ -1,4 +1,4 @@
-"""Point-record discretization on structured grids."""
+"""Point-record discretization on cell centres."""
 
 from __future__ import annotations
 
@@ -9,6 +9,10 @@ import pandas as pd
 
 from hydromodpy.core.config_kit.types import InterpolationMethod
 from hydromodpy.core.time.coverage import enforce_coverage, samples_by_period
+from hydromodpy.spatial.mesh.forcing._source import (
+    interpolate_points_on_cells,
+    unit_to_m_per_s_factor,
+)
 
 
 def extract_located_points(load_result: Any) -> list[Any]:
@@ -53,10 +57,7 @@ def period_means(
 def discretize_located_points(
     *,
     located_points: list[Any],
-    x_centers: np.ndarray,
-    y_centers: np.ndarray,
-    nrow: int,
-    ncol: int,
+    centers: np.ndarray,
     nper: int,
     period_bounds: list[tuple[pd.Timestamp, pd.Timestamp]] | None,
     coverage_policy: str = "ignore",
@@ -64,13 +65,6 @@ def discretize_located_points(
     source_unit: str = "mm/day",
 ) -> dict[int, np.ndarray]:
     """Interpolate the time series of located points onto cell centers."""
-    from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import (
-        unit_to_m_per_s_factor,
-    )
-    from hydromodpy.spatial.mesh.cartesian_grid.spatial_interpolation import (
-        interpolate_points_to_grid,
-    )
-
     station_x = np.array([p.location.x for p in located_points])
     station_y = np.array([p.location.y for p in located_points])
 
@@ -121,16 +115,8 @@ def discretize_located_points(
         )
         values_m_s = values * unit_factors
 
-        arr = interpolate_points_to_grid(
-            point_x=station_x,
-            point_y=station_y,
-            point_values=values_m_s,
-            target_x=x_centers,
-            target_y=y_centers,
-            nrow=nrow,
-            ncol=ncol,
-            method=method,
+        rch_arrays[kper] = interpolate_points_on_cells(
+            station_x, station_y, values_m_s, centers, method
         )
-        rch_arrays[kper] = arr
 
     return rch_arrays

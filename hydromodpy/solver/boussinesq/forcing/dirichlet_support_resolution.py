@@ -48,15 +48,9 @@ class DirichletSupportResolutionMixin:
         support_label = self.boundary_support_label(boundary)
         if support_label is None:
             return None
-        support = self.require_runtime_mesh_support(label=f"flow.bc.{bc_id}")
-        edge_indices = np.asarray(
-            support.edge_indices_for_label(support_label),
-            dtype=int,
-        ).reshape(-1)
-        cell_indices = np.asarray(
-            support.cell_indices_for_label(support_label),
-            dtype=int,
-        ).reshape(-1)
+        edge_indices, cell_indices = self.labelled_support_indices(
+            support_label, label=f"flow.bc.{bc_id}"
+        )
         if edge_indices.size == 0 or cell_indices.size == 0:
             raise ValueError(
                 f"flow.bc.{bc_id}.support_label='{support_label}' did not match any runtime mesh support."

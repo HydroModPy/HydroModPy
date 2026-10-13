@@ -24,13 +24,16 @@ class SolverMeshLike(Protocol):
     is_structured: bool
     top: np.ndarray
     planar_mesh: object
+    cell_mesh: object
     n_cells: int
 
     def reshape_to_grid(self, flat_array: np.ndarray) -> np.ndarray: ...
 
     def flatten_from_grid(self, values: np.ndarray) -> np.ndarray: ...
 
-    def cell_centroids(self) -> object: ...
+    def cell_centroids(self) -> np.ndarray: ...
+
+    def face_adjacency(self) -> list[set[int]]: ...
 
 
 class RoutingContextLike(Protocol):
@@ -50,8 +53,6 @@ class FlowPostprocessModel(RuntimeSupportOverviewModel, Protocol):
     times: list[float] | tuple[float, ...]
     ncpl: int
     nper: int
-    nrow: int
-    ncol: int
     dem: np.ndarray
     dem_mask: np.ndarray
     dem_watershed_path: str

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import (
+from hydromodpy.spatial.mesh.forcing._source import (
     find_xy_dims,
     pick_field_variable,
 )

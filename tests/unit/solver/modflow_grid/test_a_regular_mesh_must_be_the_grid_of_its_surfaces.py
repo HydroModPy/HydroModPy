@@ -69,7 +69,6 @@ def test_a_mesh_on_the_grid_of_the_surfaces_is_extruded() -> None:
     ctx = _extrude(_mesh())
 
     assert ctx.solver_mesh.structured_shape == (_N, _N)
-    assert ctx.mesh_support is None
 
 
 @pytest.mark.parametrize(

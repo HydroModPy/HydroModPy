@@ -1,8 +1,9 @@
-"""Scalar spatial metadata for a simulation: cell size, shape, extent.
+"""Scalar metadata of the DEM raster a simulation was built from: pixel size, shape, extent.
 
-Exposed as :attr:`hydromodpy.results.run.Run.grid`. Provides the
-scalars typically needed when post-processing or plotting a
-distributed simulation without reaching for the raw DEM transform.
+Exposed as :attr:`hydromodpy.results.run.Run.grid`. It describes the DEM
+raster, never the cells of the model: a mesh is not obliged to follow the
+pixels. The cells of a run, their centres and their areas are read from
+:attr:`hydromodpy.results.run.Run.mesh`.
 
 Lumped simulations (e.g. GR4J, ``solver_category == "lumped"``) raise
 ``RuntimeError`` because they have no spatial discretisation.
@@ -12,8 +13,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-
-import numpy as np
 
 from hydromodpy.results.run.geographic import crs_proj_from_metadata
 
@@ -26,12 +25,12 @@ __all__ = ["Grid", "build_grid"]
 
 @dataclass(frozen=True, slots=True)
 class Grid:
-    """Scalar spatial metadata for a regular-in-plan simulation.
+    """Scalar metadata of the DEM raster of a simulation.
 
     Attributes
     ----------
     cell_size : float
-        DEM pixel size in metres (uniform for ``dis`` / ``disv``).
+        DEM pixel size in metres.
     shape : tuple[int, int]
         DEM raster shape as ``(nrow, ncol)``.
     extent : tuple[float, float, float, float]
@@ -43,7 +42,9 @@ class Grid:
         Catchment area from the watershed delineation polygon (m²),
         i.e. ``catch_area`` stored in the catalog converted to m².
         For a mask-consistent area use
-        ``int(run.catchment_mask.sum()) * grid.cell_size ** 2``.
+        ``int(run.catchment_mask.sum()) * grid.cell_size ** 2``, which holds
+        only for a run whose cells are the DEM pixels. Otherwise sum
+        ``run.mesh.cell_areas()``.
     """
 
     cell_size: float
@@ -51,22 +52,6 @@ class Grid:
     extent: tuple[float, float, float, float]
     crs: str | None
     catchment_area_m2: float
-
-    def cell_centers_xy(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return ``(xs, ys)`` flat arrays of cell-centre coordinates.
-
-        Row-major ordering matches the flat cell-field layout used by Zarr
-        readers (row 0 first, then row 1, etc.). Each array has length
-        ``nrow * ncol``.
-        """
-        nrow, ncol = int(self.shape[0]), int(self.shape[1])
-        xmin, xmax, ymin, ymax = (float(v) for v in self.extent)
-        cs = float(self.cell_size)
-        x_centres = xmin + (np.arange(ncol) + 0.5) * cs
-        y_centres = ymax - (np.arange(nrow) + 0.5) * cs
-        xs = np.tile(x_centres, nrow)
-        ys = np.repeat(y_centres, ncol)
-        return xs, ys
 
 
 def build_grid(run: Run) -> Grid:

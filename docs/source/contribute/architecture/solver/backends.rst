@@ -151,8 +151,8 @@ Fields of ``SolverGridContext``:
      - Cell count, bounds, CRS, nodata, optional structured shape
    * - ``solver_mesh``
      - ``SolverMesh``
-     - Prismatic mesh: ``planar_mesh``, ``top``, ``botm``,
-       ``inactive_mask``
+     - Prismatic mesh: ``cell_mesh`` (the ``PlanarCellMesh``), ``top``,
+       ``botm``, ``inactive_mask``
    * - ``top_surface``
      - ``Surface``
      - Validated topographic support

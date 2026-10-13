@@ -71,7 +71,7 @@ _DEM_PATH = _REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif"
 def _write_lake_geometry_fixture(data_dir: Path) -> Path:
     """Write a tiny rectangular lake polygon (~200 m box) at the outlet.
 
-    The polygon is in the project CRS (EPSG:2154) so GridIntersect needs no
+    The polygon is in the project CRS (EPSG:2154) so the lake cell rule needs no
     reprojection, and is sized to span a few cells of the small DISV grid.
     """
     geom_dir = data_dir / "lake_geometry"

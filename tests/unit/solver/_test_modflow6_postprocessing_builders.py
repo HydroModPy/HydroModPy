@@ -9,7 +9,11 @@ import numpy as np
 from hydromodpy.solver.modflow6 import Modflow6, Modflow6Transport
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.adapters.cell_mesh import cell_mesh_from_triangulation
 from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import GmshSupportMetadata
+from tests._helpers.cell_meshes import TEST_CRS_WKT
+
+from ._test_modflow6_boundary_conditions_builders import regular_solver_mesh
 
 
 def _path_exists(path: Path) -> bool:
@@ -151,16 +155,9 @@ def _build_model(work_dir: Path) -> Modflow6:
     model.dem = dem.ravel()  # flat (ncpl,)
     model.dem_mask = np.zeros(4, dtype=bool)  # flat (ncpl,)
     model.dem_watershed_path = str(work_dir / "grid.tif")
-    model.nrow = 2
-    model.ncol = 2
     model.ncpl = 4
     model.nlay = 1
-    model.solver_mesh = SimpleNamespace(
-        is_structured=True,
-        nrow=2,
-        ncol=2,
-        reshape_to_grid=lambda arr: np.asarray(arr, dtype=float).reshape(2, 2),
-    )
+    model.solver_mesh = regular_solver_mesh(2, 2)
     return model
 
 
@@ -201,7 +198,9 @@ def _build_unstructured_model(
         cell_blocks=(CellBlock(CellType.TRIANGLE, np.asarray([[0, 1, 2], [0, 2, 3]], dtype=int)),),
     )
     model.solver_mesh = SolverMesh(
-        planar_mesh=planar_mesh,
+        cell_mesh=cell_mesh_from_triangulation(
+            planar_mesh, _build_unstructured_support_metadata(), crs_wkt=TEST_CRS_WKT
+        ),
         top=np.asarray([10.0, 10.0], dtype=float),
         botm=np.asarray([[1.0, 1.0]], dtype=float),
         inactive_mask=np.zeros((1, 2), dtype=bool),

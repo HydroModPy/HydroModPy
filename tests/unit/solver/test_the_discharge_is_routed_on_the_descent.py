@@ -20,11 +20,12 @@ from hydromodpy.solver.modflow_common.discharge_routing import (
 )
 from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def _model(top: np.ndarray, base_level: np.ndarray | None = None) -> SimpleNamespace:
     nrow, ncol = top.shape
-    mesh = SolverMesh.from_structured_arrays(
+    mesh = solver_mesh_from_structured_arrays(
         nrow=nrow,
         ncol=ncol,
         top=top,

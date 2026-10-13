@@ -77,14 +77,28 @@ class ForcingCommonMixin:
             return build_gmsh_support_metadata(self.mesh_bundle)
         return None
 
-    def require_runtime_mesh_support(self, *, label: str) -> GmshSupportMetadata:
-        """Return runtime support metadata or raise a clear support-resolution error."""
+    def labelled_support_indices(
+        self, support_label: str, *, label: str
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return the edge and cell indices of one support label.
+
+        A mesh bundle answers through its support metadata. A mesh built from a
+        cell mesh answers through the face families of that cell mesh.
+        """
         support = self.runtime_mesh_support()
-        if support is None:
+        if support is not None:
+            return (
+                np.asarray(support.edge_indices_for_label(support_label), dtype=int).reshape(-1),
+                np.asarray(support.cell_indices_for_label(support_label), dtype=int).reshape(-1),
+            )
+        if getattr(self.mesh, "cell_mesh", None) is None:
             raise ValueError(
                 f"{label} requires runtime gmsh support metadata but mesh support is unavailable."
             )
-        return support
+        return (
+            np.asarray(self.mesh.edge_indices_for_label(support_label), dtype=int).reshape(-1),
+            np.asarray(self.mesh.cell_indices_for_label(support_label), dtype=int).reshape(-1),
+        )
 
     @staticmethod
     def boundary_attr(boundary: object, field_name: str, default=None):

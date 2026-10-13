@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 77 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 79 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 77 loadable rows split into three enforcement classes (W5 classification):
+The 79 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 77 loadable TOLERANCES.md rows.
+# W5 classification of the 79 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -140,6 +140,9 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "mesh_engine_conformance__sum_of_the_cell_areas_against_the_area_to_cover_relative",
         "mesh_engine_conformance__exact_faces_to_their_source_lines_hausdorff_distance_as_a_share_of_the_extent",
         "mesh_engine_conformance__wall_clock_time_of_one_build_on_a_closed_case",
+        # One cell mesh acceptance, tests/integration/test_one_cell_mesh_gives_every_solver_the_same_recharge_and_k.py.
+        "one_cell_mesh_acceptance__recharge_against_the_hand_reference_relative",
+        "one_cell_mesh_acceptance__zone_means_against_the_exact_areas_relative",
     }
 )
 
@@ -247,7 +250,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 77, sorted(loadable)
+    assert len(loadable) == 79, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"

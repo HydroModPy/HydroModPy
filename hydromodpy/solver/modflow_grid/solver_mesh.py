@@ -1,9 +1,9 @@
 """Unified solver mesh abstraction for structured and unstructured grids.
 
 ``SolverMesh`` is the single grid object that traverses the entire solver
-pipeline.  It wraps a 2D ``HydroMesh`` (planar geometry) together with
-layer elevations, providing everything the solver needs to build MODFLOW
-DIS or DISV packages.
+pipeline.  It wraps a ``PlanarCellMesh`` (planar geometry, centres, derived
+areas and adjacency, cell families) together with layer elevations, providing
+everything the solver needs to build MODFLOW DIS or DISV packages.
 
 All solver code receives a ``SolverMesh`` - never raw FloPy grids or
 explicit ``(nlay, nrow, ncol)`` tuples.  The structured/unstructured
@@ -18,7 +18,8 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 
 @dataclass(frozen=True)
@@ -35,8 +36,8 @@ class SolverMesh:
 
     Parameters
     ----------
-    planar_mesh : HydroMesh
-        2D mesh with vertices and cell connectivity.
+    cell_mesh : PlanarCellMesh
+        Planar cells with their centres, derived geometry and families.
     top : ndarray, shape (n_cells,)
         Top elevation per cell.
     botm : ndarray, shape (nlay, n_cells)
@@ -45,26 +46,23 @@ class SolverMesh:
         Boolean mask where True = inactive cell.
     """
 
-    planar_mesh: HydroMesh
+    cell_mesh: PlanarCellMesh
     top: np.ndarray
     botm: np.ndarray
     inactive_mask: np.ndarray
 
     def __post_init__(self) -> None:
-        if self.planar_mesh.ndim != 2:
-            raise ValueError("SolverMesh requires a 2D planar mesh")
+        n_cells = self.cell_mesh.n_cells
         top = np.asarray(self.top, dtype=float).reshape(-1)
-        if top.size != self.planar_mesh.n_cells:
-            raise ValueError(f"top must have {self.planar_mesh.n_cells} values, got {top.size}")
+        if top.size != n_cells:
+            raise ValueError(f"top must have {n_cells} values, got {top.size}")
         object.__setattr__(self, "top", top)
 
         botm = np.asarray(self.botm, dtype=float)
         if botm.ndim == 1:
             botm = botm.reshape(1, -1)
-        if botm.ndim != 2 or botm.shape[1] != self.planar_mesh.n_cells:
-            raise ValueError(
-                f"botm must have shape (nlay, {self.planar_mesh.n_cells}), got {botm.shape}"
-            )
+        if botm.ndim != 2 or botm.shape[1] != n_cells:
+            raise ValueError(f"botm must have shape (nlay, {n_cells}), got {botm.shape}")
         object.__setattr__(self, "botm", botm)
 
         mask = np.asarray(self.inactive_mask, dtype=bool)
@@ -75,9 +73,14 @@ class SolverMesh:
     # -- Properties -----------------------------------------------------------
 
     @property
+    def planar_mesh(self) -> HydroMesh:
+        """The planar ``HydroMesh`` of the cell mesh."""
+        return self.cell_mesh.mesh
+
+    @property
     def n_cells(self) -> int:
         """Number of planar cells."""
-        return self.planar_mesh.n_cells
+        return self.cell_mesh.n_cells
 
     @property
     def nlay(self) -> int:
@@ -87,12 +90,12 @@ class SolverMesh:
     @property
     def is_structured(self) -> bool:
         """True when the planar mesh is a regular quadrilateral grid."""
-        return self.planar_mesh.is_structured
+        return self.cell_mesh.structured_shape is not None
 
     @property
     def structured_shape(self) -> tuple[int, int] | None:
         """Return (nrow, ncol) if structured, else None."""
-        return self.planar_mesh.structured_shape
+        return self.cell_mesh.structured_shape
 
     @property
     def nrow(self) -> int:
@@ -115,29 +118,25 @@ class SolverMesh:
     def cell_centroids(self) -> np.ndarray:
         """Return cell centers as ndarray (n_cells, 2).
 
-        Delegates to the planar mesh, which returns the explicit DISV cell
-        centers (the Voronoi/PEBI generator seeds written to the DISV file) when
-        present, so LAK connection lengths, the watershed DRN mask and PRT release
-        points use the same centers MODFLOW 6 sees, and nearest-centroid lookup is
-        exact point-location on a Voronoi grid. Falls back to the per-cell vertex
-        mean (exact for parallelogram cells) otherwise.
+        These are the ``centers`` of the cell mesh, the one centre rule of every
+        consumer: the Voronoi generators written to the DISV file, so LAK
+        connection lengths, the watershed DRN mask and PRT release points use
+        the centers MODFLOW 6 sees, or the vertex mean on a regular grid and on
+        triangles.
         """
-        xs, ys = self.planar_mesh.cell_centroids()
-        return np.column_stack([np.asarray(xs, dtype=float), np.asarray(ys, dtype=float)])
+        return self.cell_mesh.centers.copy()
 
     def cell_areas(self) -> np.ndarray:
         """Return area of each planar cell."""
-        conn = self.planar_mesh.flat_connectivity
-        verts = np.asarray(self.planar_mesh.vertices, dtype=float)
-        areas = np.zeros(self.n_cells, dtype=float)
-        for ic in range(self.n_cells):
-            nodes = conn[ic]
-            poly = verts[nodes]
-            # Shoelace formula
-            x = poly[:, 0]
-            y = poly[:, 1]
-            areas[ic] = abs(float(0.5 * np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y)))
-        return areas
+        return self.cell_mesh.geometry.areas.copy()
+
+    def face_adjacency(self) -> list[set[int]]:
+        """Return, for each cell, the set of cells that share a face with it.
+
+        Built from the CSR adjacency of the derived geometry, once per mesh;
+        each call returns fresh sets the caller may modify.
+        """
+        return self.cell_mesh.geometry.adjacency_sets()
 
     @property
     def characteristic_length(self) -> float:
@@ -150,10 +149,10 @@ class SolverMesh:
         return tops - self.botm
 
     def layer_center_depths(self) -> np.ndarray:
-        """Return depth of layer centers below top, shape (nlay, n_cells)."""
+        """Return depth of layer centers below top, shape (nlay, n_cells), never negative."""
         tops = np.vstack([self.top.reshape(1, -1), self.botm[:-1]])
         centers_z = 0.5 * (tops + self.botm)
-        return self.top.reshape(1, -1) - centers_z
+        return np.maximum(0.0, self.top.reshape(1, -1) - centers_z)
 
     def idomain(self) -> np.ndarray:
         """Return MODFLOW IDOMAIN, shape (nlay, n_cells): 1 active, 0 inactive."""
@@ -214,7 +213,7 @@ class SolverMesh:
 
     # -- Structured-grid compatibility properties ------------------------------
     # These properties allow SolverMesh to be passed where an sgrid-like
-    # object is expected (e.g. sgrid_fieldparam_discretization, sgrid_mesh_adapter).
+    # object is expected (e.g. sgrid_mesh_adapter).
     # They raise for unstructured meshes.
 
     @property
@@ -298,136 +297,6 @@ class SolverMesh:
             self.planar_mesh,
             top=self.top,
             botm=self.botm,
-        )
-
-    # -- Constructors ---------------------------------------------------------
-
-    @classmethod
-    def from_sgrid(
-        cls,
-        sgrid: object,
-        *,
-        zbot: np.ndarray,
-        inactive_mask: np.ndarray,
-    ) -> SolverMesh:
-        """Build from a FloPy StructuredGrid.
-
-        Parameters
-        ----------
-        sgrid : flopy.discretization.StructuredGrid
-            Structured grid with delr, delc, top, botm, nrow, ncol.
-        zbot : ndarray, shape (nlay, nrow, ncol)
-            Layer bottom elevations.
-        inactive_mask : ndarray, shape (nlay, nrow, ncol) or (nrow, ncol)
-            Inactive cell mask.
-        """
-        from hydromodpy.spatial.mesh.adapters.flopy_adapter import from_flopy_structured
-
-        planar_mesh = from_flopy_structured(sgrid)
-        top = np.asarray(sgrid.top, dtype=float).reshape(-1)
-        botm = np.asarray(zbot, dtype=float)
-        if botm.ndim == 3:
-            botm = botm.reshape(botm.shape[0], -1)
-
-        mask = np.asarray(inactive_mask, dtype=bool)
-        if mask.ndim == 2:
-            # 2D mask → broadcast to all layers
-            mask_flat = mask.reshape(-1)
-            mask = np.tile(mask_flat, (botm.shape[0], 1))
-        elif mask.ndim == 3:
-            mask = mask.reshape(mask.shape[0], -1)
-
-        return cls(
-            planar_mesh=planar_mesh,
-            top=top,
-            botm=botm,
-            inactive_mask=mask,
-        )
-
-    @classmethod
-    def from_structured_arrays(
-        cls,
-        *,
-        nrow: int,
-        ncol: int,
-        top: np.ndarray,
-        botm: np.ndarray,
-        dx: float = 1.0,
-        dy: float = 1.0,
-        xoff: float = 0.0,
-        yoff: float = 0.0,
-        inactive_mask: np.ndarray | None = None,
-    ) -> SolverMesh:
-        """Build a structured SolverMesh from elevation arrays.
-
-        Parameters
-        ----------
-        nrow, ncol : int
-            Grid dimensions.
-        top : ndarray, shape (nrow, ncol) or (n_cells,)
-            Top elevation per cell.
-        botm : ndarray, shape (nlay, nrow, ncol) or (nlay, n_cells)
-            Bottom elevation per cell per layer.
-        dx, dy : float
-            Cell sizes.
-        xoff, yoff : float
-            Western and southern edges of the grid. Row 0 is the northern row.
-        inactive_mask : ndarray, optional
-            Boolean mask; if None all cells are active.
-        """
-        top_flat = np.asarray(top, dtype=float).reshape(-1)
-        botm_arr = np.asarray(botm, dtype=float)
-        if botm_arr.ndim == 3:
-            nlay = botm_arr.shape[0]
-            botm_flat = botm_arr.reshape(nlay, -1)
-        elif botm_arr.ndim == 2:
-            nlay = botm_arr.shape[0]
-            botm_flat = botm_arr
-        elif botm_arr.ndim == 1:
-            nlay = 1
-            botm_flat = botm_arr.reshape(1, -1)
-        else:
-            raise ValueError(f"botm must be 1D, 2D, or 3D, got ndim={botm_arr.ndim}")
-
-        n_cells = nrow * ncol
-        if top_flat.size != n_cells:
-            raise ValueError(f"top must have {n_cells} values, got {top_flat.size}")
-
-        # Vertices (nrow+1)*(ncol+1), row 0 at the north like MODFLOW and flopy;
-        # ``yoff`` is the southern edge of the grid.
-        x_edges = xoff + np.arange(ncol + 1) * dx
-        y_edges = yoff + (nrow - np.arange(nrow + 1)) * dy
-        xx, yy = np.meshgrid(x_edges, y_edges, indexing="xy")
-        vertices = np.column_stack([xx.ravel(), yy.ravel()])
-
-        # Quad connectivity: row-major cells.
-        connectivity = np.empty((n_cells, 4), dtype=int)
-        for r in range(nrow):
-            for c in range(ncol):
-                ic = r * ncol + c
-                n0 = r * (ncol + 1) + c
-                connectivity[ic] = [n0, n0 + 1, n0 + ncol + 2, n0 + ncol + 1]
-
-        planar_mesh = HydroMesh(
-            vertices=vertices,
-            cell_blocks=(CellBlock(CellType.QUADRILATERAL, connectivity),),
-            structured_shape=(nrow, ncol),
-        )
-
-        if inactive_mask is None:
-            mask = np.zeros((nlay, n_cells), dtype=bool)
-        else:
-            mask = np.asarray(inactive_mask, dtype=bool)
-            if mask.ndim == 2 and mask.shape == (nrow, ncol):
-                mask = np.tile(mask.reshape(-1), (nlay, 1))
-            elif mask.ndim == 3:
-                mask = mask.reshape(mask.shape[0], -1)
-
-        return cls(
-            planar_mesh=planar_mesh,
-            top=top_flat,
-            botm=botm_flat,
-            inactive_mask=mask,
         )
 
     # -- Diagnostics ----------------------------------------------------------

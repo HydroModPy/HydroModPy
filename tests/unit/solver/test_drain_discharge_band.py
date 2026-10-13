@@ -40,6 +40,7 @@ from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from hydromodpy.solver.modflow_nwt.nwt.payloads.well_drainage import build_drainage_spd
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 NROW = 2
 NCOL = 3
@@ -73,7 +74,7 @@ BANDED_COND_M2_S = 0.16
 def _mesh() -> SolverMesh:
     top = np.repeat(100.0 - np.arange(NCOL, dtype=float)[None, :], NROW, axis=0)
     thickness = np.repeat(4.0 + np.arange(NCOL, dtype=float)[None, :], NROW, axis=0)
-    return SolverMesh.from_structured_arrays(
+    return solver_mesh_from_structured_arrays(
         nrow=NROW,
         ncol=NCOL,
         top=top,
@@ -496,3 +497,56 @@ class TestTheBandTravelsInTheStore:
             assert drain_band_depth(sz.root) == 0.0
         finally:
             sz.close()
+
+
+class TestTheDrainedCells:
+    """The rows follow the cell order and leave out the cells another package holds."""
+
+    def test_masked_cells_have_no_row_and_the_others_keep_the_cell_order(self) -> None:
+        model = _mf6_model(band_depth_m=0.0)
+        model.dem_mask = np.array([False, True, False, False, False, False])
+        ocean = np.array([False, False, False, False, False, True])
+        stream = np.array([False, False, True, False, False, False])
+
+        spd = build_drain_stress_period_data(
+            model,
+            solver_mesh=_mesh(),
+            drainage_cond_series=np.array([DRAIN_COND_M2_S]),
+            ocean_support_mask=ocean,
+            stream_support_mask=stream,
+        )
+
+        assert [row[1] for row in spd[0]] == [0, 3, 4]
+        assert [row[0] for row in spd[0]] == [0, 0, 0]
+
+    def test_a_closed_depression_keeps_its_row_with_no_conductance(self) -> None:
+        model = _mf6_model(band_depth_m=BAND_M)
+        model.sink_fill = True
+        model.sink = np.array([False, False, True, False, False, False])
+
+        spd = build_drain_stress_period_data(
+            model,
+            solver_mesh=_mesh(),
+            drainage_cond_series=np.array([DRAIN_COND_M2_S]),
+            ocean_support_mask=np.zeros(N_CELLS, dtype=bool),
+            stream_support_mask=np.zeros(N_CELLS, dtype=bool),
+        )
+
+        conductance = {int(row[1]): float(row[3]) for row in spd[0]}
+        assert conductance[2] == 0.0
+        assert conductance[1] == pytest.approx(BANDED_COND_M2_S)
+
+    def test_a_period_is_written_only_when_the_conductance_changes(self) -> None:
+        model = _mf6_model(band_depth_m=0.0)
+        model.nper = 4
+
+        spd = build_drain_stress_period_data(
+            model,
+            solver_mesh=_mesh(),
+            drainage_cond_series=np.array([0.04, 0.04, 0.08, 0.08]),
+            ocean_support_mask=np.zeros(N_CELLS, dtype=bool),
+            stream_support_mask=np.zeros(N_CELLS, dtype=bool),
+        )
+
+        assert sorted(spd) == [0, 2]
+        assert {row[3] for row in spd[2]} == {0.08}

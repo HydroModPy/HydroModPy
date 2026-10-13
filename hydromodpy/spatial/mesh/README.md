@@ -54,6 +54,10 @@ definit :
   `cell_mesh_from_regular_grid`, `cell_mesh_from_triangulation` et
   `cell_mesh_from_voronoi_dual` : un adaptateur par producteur, chacun rend un
   `PlanarCellMesh`.
+- [forcing](./forcing)
+  `discretize_fields_on_cells` et `discretize_points_on_cells` : le seul chemin
+  qui met un forcage spatial (raster, NetCDF, stations) sur les cellules d'un
+  maillage, une valeur par cellule en m/s, a partir des centres seuls.
 - [io/vtu_io.py](./io/vtu_io.py)
   Lecture / ecriture VTU.
 - [UML.md](./UML.md)

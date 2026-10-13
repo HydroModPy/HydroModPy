@@ -14,11 +14,13 @@ import numpy as np
 from hydromodpy.analysis.comparison.runtime.metadata import (
     _resolve_project_root_from_config,
     _resolve_recorded_output_path,
+    discover_result_store,
     read_json_file,
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.results.run.contracts import cell_centers, polygon_areas
 
 try:
     import rasterio
@@ -42,6 +44,9 @@ class CellCentroidTable:
     storage_coefficient: np.ndarray | None = None
     z_top: np.ndarray | None = None
     z_bottom: np.ndarray | None = None
+    structured_shape: tuple[int, int] | None = None
+    """``(nrow, ncol)`` when the run stored its mesh as a regular grid (rows north
+    first), read from the ``mesh/`` group of ``fields.zarr``; ``None`` otherwise."""
 
     def nearest_cell_id(self, *, x: float, y: float) -> int:
         """Return the cell id whose centroid is closest to ``(x, y)``."""
@@ -349,20 +354,6 @@ def _bundle_cells_from_config(config_path: Path) -> CellCentroidTable | None:
     return _bundle_cells_from_dir(bundle_dir)
 
 
-def _polygon_areas(xy: np.ndarray, faces: np.ndarray) -> np.ndarray:
-    """Return the shoelace area of each face; padded node slots are negative."""
-    areas = np.empty(faces.shape[0], dtype=float)
-    for index, nodes in enumerate(faces):
-        ring = xy[nodes[nodes >= 0]]
-        if ring.shape[0] < 3:
-            areas[index] = math.nan
-            continue
-        x = ring[:, 0]
-        y = ring[:, 1]
-        areas[index] = 0.5 * abs(float(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
-    return areas
-
-
 def cells_from_run_mesh(store: Catalog, sim_id: str) -> CellCentroidTable | None:
     """Build the cell table from the mesh the run stored in its own ``fields.zarr``.
 
@@ -382,22 +373,20 @@ def cells_from_run_mesh(store: Catalog, sim_id: str) -> CellCentroidTable | None
             return None
         vertices = np.asarray(mesh["vertices"][:], dtype=float)
         faces = np.asarray(mesh["face_node_connectivity"][:], dtype=np.int64)
+        face_x = mesh["face_x"][:] if "face_x" in mesh else None
+        face_y = mesh["face_y"][:] if "face_y" in mesh else None
+        raw_shape = mesh.attrs.get("structured_shape")
     finally:
         sz.close()
     if vertices.ndim != 2 or faces.ndim != 2 or faces.shape[0] == 0:
         return None
-    xy = vertices[:, :2]
-    valid = faces >= 0
-    counts = valid.sum(axis=1)
-    safe = np.where(valid, faces, 0)
-    with np.errstate(invalid="ignore", divide="ignore"):
-        cx = np.where(valid, xy[safe, 0], 0.0).sum(axis=1) / counts
-        cy = np.where(valid, xy[safe, 1], 0.0).sum(axis=1) / counts
+    centers = cell_centers(vertices, faces, face_x, face_y)
     return CellCentroidTable(
         cell_ids=np.arange(faces.shape[0], dtype=int),
-        x=cx,
-        y=cy,
-        area_m2=_polygon_areas(xy, faces),
+        x=centers[:, 0],
+        y=centers[:, 1],
+        area_m2=polygon_areas(vertices, faces),
+        structured_shape=None if raw_shape is None else (int(raw_shape[0]), int(raw_shape[1])),
     )
 
 
@@ -411,9 +400,12 @@ def resolve_bundle_cells(
 ) -> CellCentroidTable | None:
     """Load cell centroids for one run.
 
-    Sources, in order: a mesh exchange bundle the run recorded, the mesh the
-    run stored in ``fields.zarr`` (when ``store`` and ``sim_id`` are given),
-    then the structured-grid support declared by the config or the run folder.
+    Sources, in order: a mesh exchange bundle the run recorded (it also carries
+    storage and elevations), the mesh the run stored in ``fields.zarr`` (when
+    ``store`` and ``sim_id`` are given), then the structured-grid support
+    declared by the config or the run folder. Pass ``store`` and ``sim_id``
+    whenever the run has a catalog: the stored mesh is the one the field arrays
+    are indexed by, the later sources only guess it.
     """
     metrics = read_json_file(run_folder / "_metrics.json")
     bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir")
@@ -456,11 +448,41 @@ def resolve_bundle_cells(
     )
 
 
+def resolve_summary_cells(summary: Mapping[str, Any]) -> CellCentroidTable | None:
+    """Load the cells of one simulation summary, with the run's stored mesh available.
+
+    ``summary`` carries ``run_folder`` and ``config_path``; its ``sim_id`` and
+    ``run_name`` pick the run in the catalog the config points at. Returns
+    ``None`` when the summary has no run folder or no source gives cells.
+    """
+    run_folder_raw = summary.get("run_folder")
+    if run_folder_raw in (None, ""):
+        return None
+    config_path_raw = summary.get("config_path")
+    config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
+    sim_id_raw = summary.get("sim_id")
+    run_name_raw = summary.get("run_name")
+    store, sim_id = discover_result_store(
+        config_path,
+        preferred_sim_id=None if sim_id_raw in (None, "") else str(sim_id_raw),
+        preferred_name=None if run_name_raw in (None, "") else str(run_name_raw),
+    )
+    try:
+        return resolve_bundle_cells(
+            Path(str(run_folder_raw)),
+            config_path=config_path,
+            store=store,
+            sim_id=sim_id,
+        )
+    finally:
+        if store is not None:
+            store.close()
+
+
 __all__ = (
     "CellCentroidTable",
     "cells_from_run_mesh",
     "resolve_bundle_cells",
-    "resolve_structured_shape_from_config",
-    "resolve_structured_shape_from_run_folder",
+    "resolve_summary_cells",
     "triangle_mesh_dir_from_payload",
 )

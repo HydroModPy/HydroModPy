@@ -1,6 +1,6 @@
 """Build the MODFLOW 6 HFB (Horizontal Flow Barrier) stress-period data.
 
-Turns the barrier faces a line crosses (``spatial.mesh.flow_barrier``) into HFB
+Turns the barrier faces a line crosses (``spatial.mesh.ops.flow_barrier``) into HFB
 rows ``[(lay, cell_a), (lay, cell_b), hydchr]``, one per layer the barrier spans
 from the model top down to a (possibly per-segment) depth. ``hydchr`` is the
 barrier hydraulic characteristic = ``K_barrier / thickness`` [1/T]; a small value
@@ -85,7 +85,7 @@ def build_flow_barrier_hfb(
     cell is inactive. Raises when the trace crosses no interior face, and warns
     when every row was dropped for inactivity.
     """
-    faces = barrier_faces_from_line(solver_mesh.planar_mesh, line)
+    faces = barrier_faces_from_line(solver_mesh.cell_mesh, line)
     if not faces:
         raise ValueError(
             f"{label}: the trace crosses no interior mesh face. Check the trace CRS and "

@@ -74,8 +74,22 @@ Each release section includes the following standard categories:
   PETSc; twin calibrations on NWT, triangles, Voronoi and Boussinesq.
 - `[modflow6.runtime] mf6_preconditioner_levels` and `mf6_preconditioner_drop_tolerance`
   set the fill and the drop tolerance of the IMS ILUT preconditioner; unset keeps the preset.
+- Every solver reads the cell mesh through the same helpers, whatever the engine:
+  `spatial/mesh/ops/family_cells.py` (cells of a side, of the river, of a label),
+  `cell_location.py` (`locate_cells`), `spatial/mesh/forcing/` (gridded and station forcing on the
+  cell centres), `spatial/field/zone_fractions.py`, `family_interior.py` (lake cells on
+  shore faces), `line_on_chain.py` (a reach on the river chain of the mesh) and `side_offset.py`
+  (the `side_center_offset_m_p50` QA of the engines).
+  `tests/integration/test_one_cell_mesh_gives_every_solver_the_same_recharge_and_k.py` proves
+  that MODFLOW 6, MODFLOW-NWT and Boussinesq get the same K, Sy and recharge, to the byte, from
+  one mesh.
 
 ### Changed
+- The case-by-solver matrix of the Validation page shows how far each solver lands from the
+  known reference: the error as a share of a scale of the case (head range, largest drawdown,
+  initial discharge), in four classes, red when the test fails, a red mark when the error grew
+  by more than 20 % since the previous run. The share of the threshold moves to the case
+  sections; the snapshot merge keeps each test's previous values.
 - The solver builds a regular grid from the `regular` engine's cell mesh, bit for bit the grid of
   before (vertices, DIS of MODFLOW-NWT, DISV of MODFLOW 6); the flopy round trip is gone. The
   Voronoi dual is built by the `voronoi` engine, no longer inside the solver.
@@ -87,6 +101,29 @@ Each release section includes the following standard categories:
   (`setup.mesh_planar` is gone). The calibration `mesh_fingerprint` now hashes the cell centres
   with the true cell count (it hashed a (2, n) tuple and counted 2 cells): calibration caches of
   gmsh runs miss once. Example 02 `run_cellular.py` still reads `setup.mesh_planar` and fails.
+- Zone fractions of a cell are exact for a vector geology source (polygon areas, one function
+  for all solvers); `generated_rings`, `generated_bands` and raster sources keep their sampling,
+  so `cell_samples_per_axis` applies to those only. Example 06 changes: the K of 207 of 826
+  cells moves (up to 98 %), head RMSE 0.11 m on a 7 to 215 m range, mean K +0.6 %. In example
+  10 the fractions move (up to 0.89) and K does not (uniform). Cell areas are computed relative
+  to the first vertex: up to 1e-5 relative less rounding on triangle and Voronoi meshes far from
+  the origin.
+- K, Sy and Ss reach MODFLOW 6, MODFLOW-NWT and Boussinesq through one mapping,
+  `map_flow_properties` (`solver/field_property_mapping.py`). A `Kv` field is now mapped on a
+  regular MODFLOW 6 grid (it was ignored and `k33 = hk / vka` used). A Boussinesq mesh bundle
+  that carries K or Sy refuses a `[flow.param]` for the same property instead of overwriting it.
+- Reaches (SFR), lakes (LAK) and barriers (HFB) read the cell mesh. On a mesh with river
+  chains each chain cell goes to the nearest parent reach and the length is conserved by
+  construction (on triangles the chain is one bank, so the reaches change: the former split
+  counted 3 % extra bed on a shared edge); without chains the reach is cut at the cell edges,
+  as before. On `exact_faces` triangles with a `lakes` face family a lake owns the cells its
+  shore faces enclose (225 cells against 241 on the pentagon test, the same area). A well, a
+  side or a stream boundary is located by the cell mesh; `[lay, row, col]` addressing of a well
+  or an SFR reach is refused (exit code 14) on every engine but `regular`.
+- `Run.field(bbox=)` and `to_xarray_batch(bbox=)` select cells by the centres of the run's own
+  mesh. The default GeoTIFF resolution of an export is the side of the smallest cell, refused
+  above 1e8 pixels. A map of a structured run is drawn from the `structured_shape` attribute of
+  its stored mesh and no longer flips north and south (`origin="upper"`).
 - MODFLOW-NWT defaults to `options = "MODERATE"`. Under chi-MD, the default linear solver
   since 2.0.0a5, `"COMPLEX"` runs BiCGSTAB on a level-15 incomplete factorization: on the
   ten-layer example 12 regression model it diverged at the first solve and NWT stopped on a
@@ -102,6 +139,12 @@ Each release section includes the following standard categories:
   `rivers.snap_tolerance`: a TOML that declares one is refused with its replacement; a stored
   configuration is migrated (`migrate_stored_config`). The K of a gmsh bundle no longer fills
   invalid cells: K comes from `[flow.param.K]` only.
+- `sgrid_field_discretization` and its four helpers, `planar_forcing_discretization`,
+  `modflow6/support/forcing_discretization`, `builders/vertex_grid.py` and the `GridIntersect`
+  calls of LAK and SFR, `spatial/mesh/model/cell_adjacency.py`, `SolverMesh.from_sgrid`,
+  `Grid.cell_centers_xy`, `setup.mesh_support`, `SolverGridContext.mesh_support`,
+  `model.solver_mesh_support` and the `river_trace` argument of `BoussinesqMesh.from_cell_mesh`.
+  The solvers read the cell mesh instead.
 
 ### Fixed
 - A gridded recharge or ETP (SIM2, several stations, the soil reservoir EVTA) on a regular

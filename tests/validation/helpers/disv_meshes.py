@@ -41,6 +41,7 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 from hydromodpy.spatial.mesh.ops.mesh_orthogonality import nonorthogonality_summary
 from hydromodpy.spatial.mesh.ops.voronoi import voronoi_planar_mesh
+from tests._helpers.solver_meshes import solver_mesh_from
 
 KINDS = ("triangle", "voronoi")
 DEFAULT_SEED = 20261013
@@ -129,8 +130,8 @@ def _boundary_cells(planar: HydroMesh) -> np.ndarray:
 def _finish(kind: str, planar: HydroMesh, top: float, botm: list[float]) -> DisvMesh:
     ncpl = planar.n_cells
     botm_arr = np.tile(np.asarray(botm, dtype=float).reshape(-1, 1), (1, ncpl))
-    solver_mesh = SolverMesh(
-        planar_mesh=planar,
+    solver_mesh = solver_mesh_from(
+        planar,
         top=np.full(ncpl, float(top)),
         botm=botm_arr,
         inactive_mask=np.zeros_like(botm_arr, dtype=bool),

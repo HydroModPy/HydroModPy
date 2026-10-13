@@ -13,6 +13,7 @@ from hydromodpy.physics.flow.initial_conditions import (
 )
 from hydromodpy.solver.modflow6.builders import build_start_heads
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 from ._test_modflow6_boundary_conditions_builders import _build_model
 
@@ -26,7 +27,7 @@ def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
     )
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
     botm_2d = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=float)
-    solver_mesh = SolverMesh.from_structured_arrays(
+    solver_mesh = solver_mesh_from_structured_arrays(
         nrow=2,
         ncol=3,
         top=top,
@@ -49,7 +50,7 @@ def test_modflow6_steady_state_initial_condition_uses_top_as_build_guess() -> No
     )
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
     botm_2d = np.ones_like(top)
-    solver_mesh = SolverMesh.from_structured_arrays(
+    solver_mesh = solver_mesh_from_structured_arrays(
         nrow=2,
         ncol=3,
         top=top,
@@ -72,7 +73,7 @@ def test_modflow6_accepts_bottom_initial_condition_name() -> None:
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
     botm_layer1 = np.array([[6.0, 6.0, 6.0], [6.0, 6.0, 6.0]], dtype=float)
     botm_layer2 = np.array([[2.0, 3.0, 4.0], [5.0, 6.0, 7.0]], dtype=float)
-    solver_mesh = SolverMesh.from_structured_arrays(
+    solver_mesh = solver_mesh_from_structured_arrays(
         nrow=2,
         ncol=3,
         top=top,

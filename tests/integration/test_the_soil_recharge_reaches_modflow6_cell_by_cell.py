@@ -47,6 +47,7 @@ from hydromodpy.solver.modflow6.builders import (
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import last_percent_discrepancy
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests._helpers.tolerances import tol
 
 _MM_DAY_TO_M_S = 1.0 / 86_400_000.0
@@ -130,7 +131,7 @@ def _window(days: pd.DatetimeIndex) -> ResolvedSimulationTimeWindow:
 def _mesh() -> SolverMesh:
     top = np.full((_NROW, _NCOL), _TOP_M)
     botm = np.zeros((1, _NROW, _NCOL))
-    return SolverMesh.from_structured_arrays(
+    return solver_mesh_from_structured_arrays(
         nrow=_NROW, ncol=_NCOL, top=top, botm=botm, dx=_DX, dy=_DY
     )
 

@@ -23,6 +23,7 @@ from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 from hydromodpy.solver.modflow_common.sink_mask import closed_depression_mask, resolve_sink_mask
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.payloads.well_drainage import build_drainage_spd
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 NROW = 5
 NCOL = 5
@@ -47,7 +48,7 @@ def _tilted_top(*, dug: bool) -> np.ndarray:
 
 
 def _mesh(*, dug: bool, inactive: np.ndarray | None = None) -> SolverMesh:
-    return SolverMesh.from_structured_arrays(
+    return solver_mesh_from_structured_arrays(
         nrow=NROW,
         ncol=NCOL,
         top=_tilted_top(dug=dug),
@@ -281,7 +282,7 @@ class TestTheMaskReachesTheModel:
         """
         top = np.repeat(BASE_M - np.arange(NCOL, dtype=float)[None, :], NROW, axis=0)
         top[:, :3] = BASE_M
-        flat_mesh = SolverMesh.from_structured_arrays(
+        flat_mesh = solver_mesh_from_structured_arrays(
             nrow=NROW,
             ncol=NCOL,
             top=top,
@@ -293,7 +294,7 @@ class TestTheMaskReachesTheModel:
 
         # And the same plateau with one cell dug into it still holds exactly it.
         top[PIT_ROW, PIT_COL] = BASE_M - 10.0
-        dug_mesh = SolverMesh.from_structured_arrays(
+        dug_mesh = solver_mesh_from_structured_arrays(
             nrow=NROW,
             ncol=NCOL,
             top=top,

@@ -152,7 +152,8 @@ class GeologyConfig(HydroModelBase):
     cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
         default=8,
         description=(
-            "Sub-sampling density for GeologyField.on_mesh(). "
+            "Sub-sampling density for GeologyField.on_mesh() on a raster source. A vector "
+            "source gets the exact polygon areas in the solver and ignores it. "
             "Higher = more precise geology interface, slower runtime."
         ),
     )

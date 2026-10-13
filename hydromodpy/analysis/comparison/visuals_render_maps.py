@@ -68,7 +68,7 @@ def _render_map_subplot(
 
     image = _mask_nodata(np.asarray(payload.values, dtype=float)).reshape(payload.structured_shape)
     imshow_kwargs: dict[str, Any] = {
-        "origin": "lower",
+        "origin": "upper",
         "cmap": cmap,
         "vmin": vmin,
         "vmax": vmax,
@@ -112,7 +112,7 @@ def _render_difference_subplot(
 
     image = _mask_nodata(np.asarray(payload.values, dtype=float)).reshape(payload.structured_shape)
     imshow_kwargs: dict[str, Any] = {
-        "origin": "lower",
+        "origin": "upper",
         "cmap": cmap,
         "vmin": -vmax,
         "vmax": vmax,

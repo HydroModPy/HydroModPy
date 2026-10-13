@@ -179,56 +179,27 @@ _FLOW_PROPERTY_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
 )
 
 
-def _flow_surface_shape(solver_mesh) -> tuple[tuple[int, ...], int]:
-    if bool(getattr(solver_mesh, "is_structured", False)):
-        nrow = int(solver_mesh.nrow)
-        ncol = int(solver_mesh.ncol)
-        return (nrow, ncol), int(nrow * ncol)
-    n_cells = int(solver_mesh.n_cells)
-    return (n_cells,), n_cells
-
-
-def _repeat_surface_to_layers(surface_values: np.ndarray, *, nlay: int) -> np.ndarray:
-    if surface_values.ndim == 1:
-        return np.repeat(surface_values.reshape(1, -1), int(nlay), axis=0)
-    return np.repeat(surface_values.reshape(1, *surface_values.shape), int(nlay), axis=0)
-
-
 def _coerce_flow_property_override(
     value: object,
     *,
-    solver_mesh,
+    nlay: int,
+    n_cells: int,
 ) -> tuple[np.ndarray, np.ndarray]:
-    arr = np.asarray(value, dtype=float)
-    nlay = int(solver_mesh.nlay)
-    surface_shape, surface_size = _flow_surface_shape(solver_mesh)
-    full_shape = (nlay, *surface_shape)
-
-    if arr.ndim == 0 or arr.size == 1:
-        scalar = float(arr.reshape(-1)[0])
-        surface_values = np.full(surface_shape, scalar, dtype=float)
-        return _repeat_surface_to_layers(surface_values, nlay=nlay), surface_values
-
-    if tuple(arr.shape) == surface_shape:
-        surface_values = np.asarray(arr, dtype=float).copy()
-        return _repeat_surface_to_layers(surface_values, nlay=nlay), surface_values
-
-    if tuple(arr.shape) == full_shape:
-        values_3d = np.asarray(arr, dtype=float).copy()
-        return values_3d, np.asarray(values_3d[0], dtype=float).copy()
-
-    flat = np.asarray(arr, dtype=float).reshape(-1)
-    if flat.size == surface_size:
-        surface_values = flat.reshape(surface_shape)
-        return _repeat_surface_to_layers(surface_values, nlay=nlay), surface_values
-    if flat.size == nlay * surface_size:
-        values_3d = flat.reshape(full_shape)
-        return values_3d, np.asarray(values_3d[0], dtype=float).copy()
-
+    """Return ``(nlay, n_cells)`` values and their first layer from one override."""
+    flat = np.asarray(value, dtype=float).reshape(-1)
+    if flat.size == 1:
+        surface_values = np.full(n_cells, float(flat[0]), dtype=float)
+        return np.repeat(surface_values[None, :], nlay, axis=0), surface_values
+    if flat.size == n_cells:
+        surface_values = flat.copy()
+        return np.repeat(surface_values[None, :], nlay, axis=0), surface_values
+    if flat.size == nlay * n_cells:
+        values = flat.reshape(nlay, n_cells).copy()
+        return values, values[0].copy()
     raise ValueError(
         "Hydraulic runtime override has incompatible size. "
-        f"Expected scalar, surface size {surface_size}, or full size {nlay * surface_size}; "
-        f"got shape {arr.shape}."
+        f"Expected scalar, surface size {n_cells}, or full size {nlay * n_cells}; "
+        f"got shape {np.shape(value)}."
     )
 
 
@@ -245,8 +216,9 @@ def _extract_flow_property_mapping(
 
 def resolve_flow_property_runtime_overrides(
     parameters: Mapping[str, object] | None,
-    solver_mesh,
     *,
+    nlay: int,
+    n_cells: int,
     required_properties: frozenset[str] | set[str] | None = None,
     optional_fill_values: Mapping[str, float] | None = None,
 ) -> dict[str, np.ndarray]:
@@ -260,8 +232,12 @@ def resolve_flow_property_runtime_overrides(
     For each property, callers may provide:
 
     - one scalar value,
-    - one 2D/support array with one value per surface cell, or
-    - one full 3D array with one value per model cell.
+    - one array with one value per planar cell, or
+    - one array with one value per model cell (``nlay * n_cells``).
+
+    Arrays of any shape are read in C order, so a grid-shaped ``(nrow, ncol)``
+    array reads as its cells, row 0 first. The result is flat:
+    ``(nlay, n_cells)`` and ``(n_cells,)``.
     """
 
     property_mapping = _extract_flow_property_mapping(parameters)
@@ -292,13 +268,11 @@ def resolve_flow_property_runtime_overrides(
             if fill_value is None:
                 continue
             values_3d, values_2d = _coerce_flow_property_override(
-                float(fill_value),
-                solver_mesh=solver_mesh,
+                float(fill_value), nlay=int(nlay), n_cells=int(n_cells)
             )
         else:
             values_3d, values_2d = _coerce_flow_property_override(
-                raw_value,
-                solver_mesh=solver_mesh,
+                raw_value, nlay=int(nlay), n_cells=int(n_cells)
             )
 
         out[target_3d_attr] = values_3d

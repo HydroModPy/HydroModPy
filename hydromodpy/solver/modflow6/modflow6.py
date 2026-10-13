@@ -47,7 +47,6 @@ from hydromodpy.solver.modflow_common import (
     ensure_solver_binary,
 )
 from hydromodpy.solver.modflow_grid import SolverGridContext
-from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import GmshSupportMetadata
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
@@ -82,8 +81,6 @@ class Modflow6:
         self.full_path = os.path.join(model_folder, model_name)
         self.dem_watershed_path = None
         self.grid_ctx: SolverGridContext | None = None
-        # Feature locations on the solved cells, set by build.run_pre_processing.
-        self.solver_mesh_support: GmshSupportMetadata | None = None
         self.routing_ctx: SolverRoutingContext | None = None
         # The descent D of the build, set by build.run_pre_processing.
         self.descent: Descent | None = None
@@ -103,9 +100,6 @@ class Modflow6:
         else:
             self.exe = str(ensure_platform_executable(os.path.join(bin_path, exe_name)))
 
-        self.resolution = geographic.dem_res
-        self.xul = geographic.xmin
-        self.yul = geographic.ymax
         self.sink: np.ndarray | None = None
 
         self.preprocess_options = preprocess_options or ModflowPreprocessOptions()

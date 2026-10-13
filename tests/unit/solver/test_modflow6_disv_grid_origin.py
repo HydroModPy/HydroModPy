@@ -20,6 +20,7 @@ from hydromodpy.solver.modflow6.prt import Modflow6Prt
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from tests._helpers.solver_meshes import solver_mesh_from
 
 
 def _offset_two_cell_mesh() -> SolverMesh:
@@ -40,8 +41,8 @@ def _offset_two_cell_mesh() -> SolverMesh:
         vertices=vertices,
         cell_blocks=(CellBlock(CellType.QUADRILATERAL, connectivity),),
     )
-    return SolverMesh(
-        planar_mesh=planar_mesh,
+    return solver_mesh_from(
+        planar_mesh,
         top=np.array([10.0, 10.0]),
         botm=np.array([[0.0, 0.0]]),
         inactive_mask=np.array([[False, False]]),

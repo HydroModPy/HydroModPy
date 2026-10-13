@@ -35,6 +35,7 @@ from hydromodpy.solver.modflow6.builders import (
 )
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 _CREST = 95.0  # sill crest = both reciprocal weir inverts
 _SPILL = 98.0  # spillway crest on lac1 (external)
@@ -80,7 +81,7 @@ def _run(ws: Path, exe: str, *, strt0: float, strt1: float) -> tuple[dict, dict]
 
     top = np.full((_NROW, _NCOL), 100.0)
     botm = np.stack([np.full((_NROW, _NCOL), 90.0), np.full((_NROW, _NCOL), 50.0)])
-    mesh = SolverMesh.from_structured_arrays(
+    mesh = solver_mesh_from_structured_arrays(
         nrow=_NROW, ncol=_NCOL, top=top, botm=botm, dx=10.0, dy=10.0
     )
     # lac0 = west 3x3 block, lac1 = east 3x3 block; the gap (cols 4-6) keeps the

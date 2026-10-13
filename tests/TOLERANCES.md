@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 172 tolerances enforced today. Every tolerance
+The table below records the 174 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -200,6 +200,8 @@ must carry a rationale before it is merged.
 | 170 | Mesh engine conformance | Sum of the cell areas against the area to cover, relative | `1e-9` | **Machine epsilon.** The cells of an unstructured engine tile the domain polygon, so the sum is the polygon area up to the rounding of `N` additions of values near the mean cell area; 1e-9 is four decades above `N eps` for the 1e5 cells of the largest contract case | `tests/contract/test_mesh_engine_contract.py`. Structured engines rasterize the domain and are exempt |
 | 171 | Mesh engine conformance | Exact faces to their source lines, Hausdorff distance as a share of the extent | `1e-6` | **By construction.** An engine that declares `exact_faces` embeds the lines in the mesh; the only move is the 1 mm merge of coincident nodes, 1e-6 of a 1 km extent | `tests/contract/test_mesh_engine_contract.py`, the `geology` family of the square case |
 | 172 | Mesh engine conformance | Wall-clock time of one build on a closed case | `20 s` | **Declared choice.** Ten times the slowest build measured on the contract cases (about 2 s with gmsh); it catches an engine that went quadratic, not a slow machine | `tests/contract/test_mesh_engine_contract.py`. A time budget, not a numerical error |
+| 173 | One cell mesh acceptance | Recharge against the hand reference, relative | `1e-12` | **Machine epsilon.** The reference is the nearest pixel or station value times the mm/day to m/s factor, or three inverse-distance weights summed by hand: a few float64 operations, 1e-15 relative each. 1e-12 is three decades above that rounding, and a mirrored row order or a wrong station changes the value of whole cells, not its last digits | Measured 0 on the nearest-pixel and nearest-station cases and 6.4e-16 on the inverse-distance one, on a regular mesh with an unaligned origin and on the 1200-triangle island, three periods each. Hand values come from the raw source and the vertex mean of each cell, not from the solver paths. The test is `tests/integration/test_one_cell_mesh_gives_every_solver_the_same_recharge_and_k.py` |
+| 174 | One cell mesh acceptance | Zone means against the exact areas, relative | `1e-12` | **Derived.** The reference is the area of the cell cut by each zone polygon over the cell area, with coordinates taken from the mesh corner so the 6.7e6 m northings do not round the areas; K and Sy are the zone means, times the exponential profile on the regular mesh. The sampled fractions of the former path (8 x 8 points per cell) give a K that differs from it by up to 1.5 (regular) and 3.5 (triangles) in relative terms, on the cells the contacts cut, because the three K span two decades: 1e-12 sits twelve decades below that and a factor 40 above the measurement | Measured 2.8e-15 (regular, 60 cells cut by one contact, 1 by three zones) and 2.4e-14 (island triangles, 121 and 2). Between two solvers there is no tolerance: the arrays are compared with `np.array_equal`. The test is `tests/integration/test_one_cell_mesh_gives_every_solver_the_same_recharge_and_k.py` |
 
 ## Update policy
 

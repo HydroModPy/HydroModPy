@@ -7,8 +7,6 @@ lake it overlaps most (by intersected area) so the footprints stay cell-disjoint
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import numpy as np
 import pytest
 
@@ -19,6 +17,8 @@ from hydromodpy.solver.modflow6.builders.lake import (
     resolve_downstream_spillway_reaches,
     resolve_spillway_seed_cells,
 )
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def test_shared_cell_goes_to_the_larger_overlap_lake() -> None:
@@ -42,42 +42,21 @@ def test_raises_when_a_lake_loses_every_cell() -> None:
         _resolve_shared_lake_cells(cells, areas)
 
 
-@dataclass
-class _PlanarQuadMesh:
-    flat_connectivity: tuple
-
-
-class _QuadMesh:
-    """Minimal SolverMesh stand-in: an nrow x ncol quad grid, cells active by default."""
-
-    def __init__(self, nrow: int, ncol: int, inactive: tuple[int, ...] = ()) -> None:
-        self.n_cells = nrow * ncol
-        conn = []
-        for r in range(nrow):
-            for c in range(ncol):
-                corner = [
-                    r * (ncol + 1) + c,
-                    r * (ncol + 1) + c + 1,
-                    (r + 1) * (ncol + 1) + c + 1,
-                    (r + 1) * (ncol + 1) + c,
-                ]
-                conn.append(np.array(corner, dtype=int))
-        self.planar_mesh = _PlanarQuadMesh(tuple(conn))
-        self._inactive = set(inactive)
-
-    def idomain(self) -> np.ndarray:
-        dom = np.ones((1, self.n_cells), dtype=int)
-        for cell in self._inactive:
-            dom[0, cell] = 0
-        return dom
-
-    def cell_areas(self) -> np.ndarray:
-        return np.full(self.n_cells, 100.0)
+def _quad_mesh(nrow: int, ncol: int) -> SolverMesh:
+    """An nrow x ncol grid of 10 m cells, all active, ids row-major from the north."""
+    return solver_mesh_from_structured_arrays(
+        nrow=nrow,
+        ncol=ncol,
+        top=np.zeros((nrow, ncol)),
+        botm=np.full((1, nrow, ncol), -10.0),
+        dx=10.0,
+        dy=10.0,
+    )
 
 
 def test_fully_lake_enclosed_cell_is_absorbed() -> None:
     # 3x3 grid: the centre cell 4 has edge-neighbours {1, 3, 5, 7}, all lake -> absorbed.
-    mesh = _QuadMesh(3, 3)
+    mesh = _quad_mesh(3, 3)
     cells = {"a": [1, 3, 5, 7]}
     areas = {"a": {c: 100.0 for c in (1, 3, 5, 7)}}
     _fill_lake_enclosed_cells(cells, areas, mesh)
@@ -87,7 +66,7 @@ def test_fully_lake_enclosed_cell_is_absorbed() -> None:
 
 def test_cell_with_an_open_face_is_left_active() -> None:
     # Neighbour 7 is not lake, so the centre keeps an active face and is not absorbed.
-    mesh = _QuadMesh(3, 3)
+    mesh = _quad_mesh(3, 3)
     cells = {"a": [1, 3, 5]}
     areas = {"a": {c: 100.0 for c in (1, 3, 5)}}
     _fill_lake_enclosed_cells(cells, areas, mesh)

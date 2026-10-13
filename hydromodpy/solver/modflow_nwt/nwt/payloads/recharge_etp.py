@@ -17,8 +17,8 @@ from hydromodpy.physics.forcing.validation import (
     has_temporal_index,
 )
 from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
-from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import is_scalar_number
+from hydromodpy.spatial.mesh.forcing import discretize_fields_on_cells, discretize_points_on_cells
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import (
@@ -26,43 +26,40 @@ if TYPE_CHECKING:
     )
 
 
-def discretize_heterogeneous_source(
+def _heterogeneous_on_grid(
+    adapter: FlowToModflowAdapter,
     het_source: object,
     *,
-    solver_mesh: SolverMesh,
-    nper: int,
-    simulation_window: object,
-    method: str = "nearest",
-    source_unit: str = "m/s",
+    method: str,
+    source_unit: str,
 ) -> dict[int, np.ndarray]:
-    """Dispatch heterogeneous discretization for fields or located points."""
-    from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
-        discretize_fields_on_sgrid,
-        discretize_points_on_sgrid,
-    )
+    """Discretize a field or station source on the cells, then shape it as the DIS grid.
 
+    NWT writes ``(nrow, ncol)`` arrays; the discretization itself is the one
+    every solver takes, one value per cell.
+    """
+    solver_mesh = adapter.solver_mesh
+    centers = solver_mesh.cell_centroids()
     if getattr(het_source, "has_fields", False):
-        return discretize_fields_on_sgrid(
+        flat = discretize_fields_on_cells(
             load_result=het_source,
-            sgrid=solver_mesh,
-            nper=nper,
-            simulation_window=simulation_window,
+            centers=centers,
+            nper=adapter.nper,
+            simulation_window=adapter.simulation_window,
             method=method,
         )
-
-    if getattr(het_source, "has_points", False):
-        return discretize_points_on_sgrid(
+    elif getattr(het_source, "has_points", False):
+        flat = discretize_points_on_cells(
             load_result=het_source,
-            sgrid=solver_mesh,
-            nper=nper,
-            simulation_window=simulation_window,
+            centers=centers,
+            nper=adapter.nper,
+            simulation_window=adapter.simulation_window,
             method=method,
             source_unit=source_unit,
         )
-
-    nrow = solver_mesh.nrow
-    ncol = solver_mesh.ncol
-    return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
+    else:
+        flat = {kper: np.zeros(solver_mesh.n_cells, dtype=float) for kper in range(adapter.nper)}
+    return {kper: solver_mesh.reshape_to_grid(values) for kper, values in flat.items()}
 
 
 def copy_payload(payload: object) -> object:
@@ -279,13 +276,8 @@ def build_heterogeneous_recharge_payload(
     het_source = recharge_cfg.heterogeneous_source
     interp_method = getattr(recharge_cfg, "interpolation_method", "nearest")
     source_unit = "mm/day"
-    raw_arrays = discretize_heterogeneous_source(
-        het_source,
-        solver_mesh=adapter.solver_mesh,
-        nper=adapter.nper,
-        simulation_window=adapter.simulation_window,
-        method=interp_method,
-        source_unit=source_unit,
+    raw_arrays = _heterogeneous_on_grid(
+        adapter, het_source, method=interp_method, source_unit=source_unit
     )
 
     negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", False))
@@ -320,13 +312,8 @@ def build_heterogeneous_etp_payload(
     """Discretize gridded FieldRecords / points onto the MODFLOW grid."""
     het_source = etp_cfg.heterogeneous_source
     interp_method = getattr(etp_cfg, "interpolation_method", "nearest")
-    raw_arrays = discretize_heterogeneous_source(
-        het_source,
-        solver_mesh=adapter.solver_mesh,
-        nper=adapter.nper,
-        simulation_window=adapter.simulation_window,
-        method=interp_method,
-        source_unit="mm/day",
+    raw_arrays = _heterogeneous_on_grid(
+        adapter, het_source, method=interp_method, source_unit="mm/day"
     )
     rate_arrays = apply_first_clim_2d(
         raw_arrays=raw_arrays,
@@ -448,7 +435,6 @@ __all__ = [
     "clip_etp_to_non_negative",
     "clip_negative_payload",
     "copy_payload",
-    "discretize_heterogeneous_source",
     "extract_negative_recharge_evt_payload",
     "merge_evt_payloads",
     "payload_has_negative_values",

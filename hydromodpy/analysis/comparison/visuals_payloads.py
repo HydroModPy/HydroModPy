@@ -19,8 +19,6 @@ from hydromodpy.analysis.comparison.config import (
 )
 from hydromodpy.analysis.comparison.runtime.mesh import (
     resolve_bundle_cells,
-    resolve_structured_shape_from_config,
-    resolve_structured_shape_from_run_folder,
     triangle_mesh_dir_from_payload,
 )
 from hydromodpy.analysis.comparison.runtime.metadata import (
@@ -36,6 +34,7 @@ from hydromodpy.analysis.comparison.runtime.series import (
 )
 from hydromodpy.analysis.comparison.visuals_style import _mask_nodata
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.results.run.contracts import cell_centers
 
 try:
     from scipy.interpolate import griddata
@@ -467,22 +466,6 @@ def _simulation_time_summary_lines(
     return tuple(lines)
 
 
-def _face_centroids(
-    vertices: np.ndarray | None, faces: np.ndarray | None
-) -> tuple[np.ndarray, np.ndarray]:
-    if vertices is None or faces is None or vertices.ndim != 2 or faces.ndim != 2:
-        return np.asarray([], dtype=float), np.asarray([], dtype=float)
-    valid_faces = []
-    for face in np.asarray(faces, dtype=int):
-        face = face[(face >= 0) & (face < vertices.shape[0])]
-        if face.size >= 3:
-            valid_faces.append(face)
-    if not valid_faces:
-        return np.asarray([], dtype=float), np.asarray([], dtype=float)
-    centroids = np.asarray([vertices[face, :2].mean(axis=0) for face in valid_faces], dtype=float)
-    return centroids[:, 0], centroids[:, 1]
-
-
 def _alphabetic_label(index: int) -> str:
     """Return spreadsheet-style alphabetical labels: A, B, ..., Z, AA, AB."""
     value = int(index)
@@ -576,6 +559,7 @@ def _build_case_configuration_payload(
     vertices = faces = topography = None
     recharge_values = None
     recharge_unit = ""
+    run_folder = Path(str(selected.get("run_folder", "")))
     store = None
     sim_id = None
     try:
@@ -591,6 +575,9 @@ def _build_case_configuration_payload(
         if store is not None and sim_id is not None:
             vertices, faces, topography = _mesh_payload_from_store(store, sim_id)
             recharge_values, recharge_unit = _recharge_payload_from_store(store, sim_id)
+        cells = resolve_bundle_cells(
+            run_folder, config_path=config_path, store=store, sim_id=sim_id
+        )
     finally:
         if store is not None:
             try:
@@ -598,15 +585,14 @@ def _build_case_configuration_payload(
             except Exception:
                 pass
 
-    run_folder = Path(str(selected.get("run_folder", "")))
     if vertices is None or faces is None:
         vertices, faces, topography = _mesh_payload_from_bundle(
             _bundle_dir_for_case(run_folder, config_path)
         )
-    cells = resolve_bundle_cells(run_folder, config_path=config_path)
     centroid_x = centroid_y = None
     if vertices is not None and faces is not None:
-        centroid_x, centroid_y = _face_centroids(vertices, faces)
+        centers = cell_centers(vertices, faces)
+        centroid_x, centroid_y = centers[:, 0], centers[:, 1]
     if (centroid_x is None or centroid_x.size == 0) and cells is not None:
         centroid_x = np.asarray(cells.x, dtype=float)
         centroid_y = np.asarray(cells.y, dtype=float)
@@ -711,15 +697,22 @@ def _build_map_payload(
             store=store,
             sim_id=sim_id,
         )
+        selected = _choose_map_slice(series=series, observable=observable)
+        if selected is None:
+            return None
+        values, time_label = selected
+        if values.size == 0:
+            return None
+        cells = resolve_bundle_cells(
+            run_folder_path,
+            config_path=config_path,
+            expected_size=values.size,
+            store=store,
+            sim_id=sim_id,
+        )
     finally:
         if store is not None:
             store.close()
-    selected = _choose_map_slice(series=series, observable=observable)
-    if selected is None:
-        return None
-    values, time_label = selected
-    if values.size == 0:
-        return None
 
     unit = next(
         (
@@ -731,18 +724,7 @@ def _build_map_payload(
         ),
         observable.unit or "",
     )
-    cells = resolve_bundle_cells(
-        run_folder_path,
-        config_path=config_path,
-        expected_size=values.size,
-    )
-    structured_shape = (
-        None
-        if config_path is None or not config_path.exists()
-        else resolve_structured_shape_from_config(config_path)
-    )
-    if structured_shape is None:
-        structured_shape = resolve_structured_shape_from_run_folder(run_folder_path)
+    structured_shape = None if cells is None else cells.structured_shape
     if structured_shape is None:
         if cells is None or cells.cell_ids.size != values.size:
             return None

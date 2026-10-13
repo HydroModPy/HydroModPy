@@ -398,14 +398,10 @@ def _build_descent_and_dam_feet(
     descent = _run_descent(model, solver_mesh, lake_cell_ids_by_lake, constant_head)
     spillway_seed_by_lake: dict[str, int] = {}
     if lake_cell_ids_by_lake:
-        from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
-
         spillway_seed_by_lake = resolve_spillway_seed_cells(
             model,
             lake_cells_by_id=lake_cell_ids_by_lake,
-            cell_adjacency=build_planar_cell_adjacency(
-                solver_mesh.planar_mesh, int(solver_mesh.n_cells)
-            ),
+            cell_adjacency=solver_mesh.face_adjacency(),
             cell_centroids=solver_mesh.cell_centroids(),
             idomain=solver_mesh.idomain(),
             mesh_top=solver_mesh.top,
@@ -915,17 +911,10 @@ def run_pre_processing(  # noqa: PLR0915
     )
     solver_mesh = model.grid_ctx.solver_mesh
     model.solver_mesh = solver_mesh
-    # Wells and boundaries are located on the solved cells.
-    model.solver_mesh_support = model.grid_ctx.mesh_support
     model.top_elevation = solver_mesh.top  # (ncpl,)
     model.inactive_mask = solver_mesh.inactive_mask[0]  # (ncpl,)
     model.nlay = solver_mesh.nlay
     model.ncpl = solver_mesh.n_cells
-    if solver_mesh.is_structured:
-        model.nrow = solver_mesh.nrow
-        model.ncol = solver_mesh.ncol
-    model.cell_area = float(model.grid_ctx.grid.cell_area)
-    model.resolution = float(model.grid_ctx.grid.characteristic_length)
     model.dem = model.top_elevation  # flat (ncpl,)
     model.dem_mask = model.inactive_mask  # flat (ncpl,)
     model.dem_watershed_path = write_solver_grid_template(model)
@@ -1369,18 +1358,12 @@ def run_pre_processing(  # noqa: PLR0915
             # the period-0 rows, hence the static-DRN requirement.
             drainage_movers = []
             if sfr_routes_drainage(sfr_networks):
-                from hydromodpy.spatial.mesh.model.cell_adjacency import (
-                    build_planar_cell_adjacency,
-                )
-
                 drainage_movers = build_drainage_mover_records(
                     sfr_networks,
                     drn_spd=drn_spd,
                     receiver=descent.stopping_receiver,
                     basin_cell_mask=_drainage_basin(model, descent, solver_mesh),
-                    face_adjacency=build_planar_cell_adjacency(
-                        solver_mesh.planar_mesh, int(solver_mesh.n_cells)
-                    ),
+                    face_adjacency=solver_mesh.face_adjacency(),
                     mesh_top=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
                     lake_cells_by_number=lake_cells_by_number,
                 )

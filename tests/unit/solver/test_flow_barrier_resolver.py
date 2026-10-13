@@ -23,6 +23,7 @@ from hydromodpy.solver.modflow6.builders.flow_barrier import resolve_flow_barrie
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from tests._helpers.solver_meshes import solver_mesh_from
 
 # A near-vertical trace across the 2x2 grid bars the connected faces (0, 1) and (2, 3).
 _CUT_COORDS = [[1.01, -0.5], [1.01, 2.5]]
@@ -41,8 +42,8 @@ def _two_layer_grid() -> SolverMesh:
         dtype=int,
     )
     mesh = HydroMesh(vertices=verts, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),))
-    return SolverMesh(
-        planar_mesh=mesh,
+    return solver_mesh_from(
+        mesh,
         top=np.full(4, 10.0),
         botm=np.array([[5.0] * 4, [0.0] * 4]),
         inactive_mask=np.zeros((2, 4), dtype=bool),

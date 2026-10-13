@@ -21,6 +21,7 @@ import os
 import re
 from collections import Counter
 from pathlib import Path
+from typing import NamedTuple
 
 import hmp_params as H
 import hmp_validation_figures as FIG
@@ -76,6 +77,22 @@ BINS = [
     (1.0, "r4", "three quarters to the threshold"),
     (math.inf, "r5", "over the threshold"),
 ]
+# Accuracy of a cell, by upper bound of the error as a fraction of the scale of the case.
+ACCURACY_BINS = [
+    (1e-3, "r1", "under 0.1 % of the scale"),
+    (1e-2, "r2", "0.1 to 1 %"),
+    (5e-2, "r3", "1 to 5 %"),
+    (math.inf, "r4", "5 % and over"),
+]
+# Same for the distance of an observed convergence order from the expected one.
+ORDER_BINS = [(0.1, "r1"), (0.2, "r2"), (math.inf, "r4")]
+ACCURACY_FLOOR = 1e-4
+"""A relative error under this reads "< 0.01 %", and counts as this one in a comparison."""
+REGRESSION_FACTOR = 1.2
+"""The error must grow by more than this factor to show a regression mark."""
+REGRESSION_FLOOR = 1e-12
+"""A change smaller than this is rounding, whatever its factor."""
+NO_ACCURACY_WORDS = re.compile(r"\b(evaluations?|drifts?|ratios?|differences?)\b", re.I)
 STATUS_WORDS = {
     "passed": "pass",
     "failed": "fail",
@@ -248,6 +265,170 @@ def outcome_of(records: list[dict]) -> str:
         if o in outcomes:
             return o
     return "not measured"
+
+
+class Headline(NamedTuple):
+    """The metric that speaks for a test, and its accuracy."""
+
+    metric: dict
+    kind: str
+    value: float
+    label: str
+
+
+def _below(metric: dict) -> bool:
+    return metric["op"] in ("<", "<=") and metric["value"] is not None
+
+
+def headline_of(record: dict) -> Headline | None:
+    """The headline accuracy of a record: which metric speaks for the test.
+
+    1. The record has a scale (head range of the reference, largest drawdown,
+       initial discharge, travel of the front, peak recharge): among the metrics
+       that must stay below a threshold and share the unit of the scale, the first
+       whose name contains RMSE, else the first head error. A metric in the same
+       unit that measures something else (a position along the strip, a discharge
+       increment) is not read against the scale. The accuracy is its absolute
+       value over the scale, kind ``relative``.
+    2. Else, among the dimensionless metrics that must stay below a threshold and
+       whose name contains "relative", leaving out evaluations, drifts, ratios and
+       differences between two runs:
+       the largest absolute value, kind ``relative``.
+    3. Else a metric named "Distance of the observed order ...": its absolute
+       value, kind ``order``.
+    4. Else None: the test has no number that measures a distance to a reference.
+    """
+    metrics = record.get("metrics") or []
+    scale = record.get("scale")
+    if scale and scale.get("value"):
+        same = [m for m in metrics if _below(m) and m["unit"] == scale["unit"]]
+        m = next((m for m in same if "rmse" in m["name"].lower()), None) or next(
+            (m for m in same if re.search(r"\bhead\b.*\berror\b", m["name"], re.I)), None
+        )
+        if m is not None:
+            return Headline(
+                m,
+                "relative",
+                abs(m["value"]) / abs(scale["value"]),
+                f"{m['name']} / {scale['label']}",
+            )
+    pure = [
+        m
+        for m in metrics
+        if _below(m)
+        and m["unit"] in ("", "-")
+        and "relative" in m["name"].lower()
+        and not NO_ACCURACY_WORDS.search(m["name"])
+    ]
+    if pure:
+        m = max(pure, key=lambda m: abs(m["value"]))
+        return Headline(m, "relative", abs(m["value"]), m["name"])
+    for m in metrics:
+        if m["name"].startswith("Distance of the observed order") and m["value"] is not None:
+            return Headline(m, "order", abs(m["value"]), m["name"])
+    return None
+
+
+def accuracy_of(record: dict) -> tuple[float, str, str] | None:
+    """The headline accuracy of a record as (value, kind, label), see ``headline_of``."""
+    head = headline_of(record)
+    return None if head is None else (head.value, head.kind, head.label)
+
+
+def cell_headline(records: list[dict], column: str | None = None) -> tuple[Headline, dict] | None:
+    """The worst headline among the records of a cell, and its record.
+
+    The plain solver of the column speaks for the cell: a control variant of it
+    (``modflow6_k_only``, ``modflow6_no_newton``, ``..._xt3d_off``) stays in the
+    section of the case. A relative accuracy wins over an order one when a cell
+    mixes both.
+    """
+    plain = [r for r in records if r.get("solver") in (None, column)]
+    pool_records = plain if column is not None and plain else records
+    found = [(h, r) for r in pool_records if (h := headline_of(r)) is not None]
+    relative = [x for x in found if x[0].kind == "relative"]
+    pool = relative or found
+    return max(pool, key=lambda x: x[0].value) if pool else None
+
+
+def percent_text(fraction: float) -> str:
+    """A fraction as a percent with two significant digits."""
+    if not math.isfinite(fraction):
+        return "over"
+    if fraction < ACCURACY_FLOOR:
+        return "< 0.01 %"
+    p = float(f"{100 * fraction:.2g}")
+    decimals = 0 if p >= 100 else max(0, 1 - math.floor(math.log10(p)))
+    return f"{p:.{decimals}f} %"
+
+
+def accuracy_class(value: float, kind: str) -> str:
+    """The CSS class of an accuracy: r1 reads best, r4 is a warning."""
+    if kind == "order":
+        return next(cls for top, cls in ORDER_BINS if value < top)
+    return next(cls for top, cls, _ in ACCURACY_BINS if value < top)
+
+
+def accuracy_text(value: float, kind: str) -> str:
+    return f"|p - p0| {value:.2g}" if kind == "order" else percent_text(value)
+
+
+def _times(x: float) -> str:
+    return f"{x:.0f}" if x >= 10 else f"{x:.2g}"
+
+
+def regression_mark(head: Headline, record: dict) -> str:
+    """A red up mark when the error grew since the previous run, a muted down mark when it fell."""
+    prev = record.get("previous")
+    if not prev:
+        return ""
+    old = next(
+        (m["value"] for m in prev.get("metrics", []) if m["name"] == head.metric["name"]), None
+    )
+    new = head.metric["value"]
+    if old is None or new is None:
+        return ""
+    a, b = abs(new), abs(old)
+    since = f"since {str(prev.get('date', ''))[:10]} ({str(prev.get('commit') or '')[:9]})"
+    if a > REGRESSION_FACTOR * b and a - b > REGRESSION_FLOOR:
+        how = f"error x{_times(a / b)}" if b > 0 else "error grew from zero"
+        return (
+            f' <span class="hmp-val-up" role="img" aria-label="{esc(how)} {esc(since)}" '
+            f'title="{esc(how)} {esc(since)}">\u25b2</span>'
+        )
+    if a < b / REGRESSION_FACTOR and b - a > REGRESSION_FLOOR:
+        how = f"error x{_times(a / b)}"
+        return (
+            f' <span class="hmp-val-down" role="img" aria-label="{esc(how)} {esc(since)}" '
+            f'title="{esc(how)} {esc(since)}">\u25bc</span>'
+        )
+    return ""
+
+
+def accuracy_title(
+    head: Headline, n_records: int, row_best: float | None, failed: bool = False
+) -> str:
+    """The hover text of an accuracy cell, one fact per line."""
+    m = head.metric
+    unit = f" {m['unit']}" if m["unit"] else ""
+    lines = ["failed" if failed else "passed", head.label, f"value {fmt(m['value'])}{unit}"]
+    if n_records > 1:
+        lines[0] += f", worst of {n_records} variants"
+    if m["threshold"] is not None:
+        lines.append(f"threshold {m['op']} {fmt(m['threshold'])}{unit}")
+    share = ratio(m)
+    if share is not None and math.isfinite(share):
+        lines.append(f"{share:.0%} of the threshold used")
+    if row_best is not None and head.kind == "relative":
+        # Under the display floor two errors are the same to the reader.
+        mine, best = max(head.value, ACCURACY_FLOOR), max(row_best, ACCURACY_FLOOR)
+        if mine <= best:
+            lines.append("the best solver of this case")
+        elif mine < 1.05 * best:
+            lines.append("level with the best solver of this case")
+        else:
+            lines.append(f"{_times(mine / best)} x the best solver of this case")
+    return "&#10;".join(esc(x) for x in lines)
 
 
 def gap_notes(entry: dict) -> dict[str, str]:
@@ -983,13 +1164,25 @@ class ValidationDirective(SphinxDirective):
                 only = next(iter(declared)) if len(declared) == 1 else "other"
                 by_function = function_columns(e)
 
+                by_col = {
+                    col: [r for r in recs if record_column(r, by_function, only) == col]
+                    for col in MATRIX_COLUMNS
+                }
+                values = [
+                    h[0].value
+                    for col, rs in by_col.items()
+                    if (h := cell_headline(rs, col)) is not None and h[0].kind == "relative"
+                ]
+                row_best = min(values) if len(values) >= 2 else None
                 cells = "".join(
                     self.cell(
-                        [r for r in recs if record_column(r, by_function, only) == col],
+                        by_col[col],
                         col in declared,
                         col in gaps,
                         na.get(col),
                         col != "other",
+                        row_best,
+                        col,
                     )
                     for col in MATRIX_COLUMNS
                 )
@@ -999,20 +1192,35 @@ class ValidationDirective(SphinxDirective):
                 )
         legend = " ".join(
             f'<span class="hmp-val-share hmp-val-{cls}">{esc(words)}</span>'
-            for _, cls, words in BINS
+            for _, cls, words in ACCURACY_BINS
+        ) + (
+            ' <span class="hmp-val-share hmp-val-r5">&#x2717; beyond the threshold of the test</span>'
         )
         sec += H.raw(
-            "<p>Each cell is the largest share of its threshold that a metric used in the last "
-            "recorded run of that solver: 50 % means the worst metric sat at half its threshold. "
-            "A metric that must stay above its threshold counts the share of the margin it used "
-            "between its ideal value and the threshold. <em>skipped</em> and <em>not measured</em> "
-            "prove nothing. A cross marks a failure. <em>n/a</em> means the solver cannot run "
-            "that test: the reason shows on hover and in the section of the case. A blank cell no "
-            "longer exists: a solver column is a result, <em>not measured</em>, <em>n/a</em> or, "
-            "while its declaration is missing, <em>undeclared</em>. <em>gap</em> marks a known discrepancy that "
-            "the threshold lets through; the section of the case explains it. <em>other</em> "
-            "gathers the solvers outside these columns and the tests that name none. The columns "
-            "are "
+            "<p>Each cell shows how close a solver gets to the known reference of a case, in the "
+            "last recorded run. It is the distance to the reference as a share of a scale of the "
+            "case, so that cases and solvers can be compared: for the closed-form head and "
+            "discharge cases, the head-profile RMSE (else the first error in the unit of the "
+            "scale) over the head range of the reference, its largest drawdown, its initial "
+            "discharge, the travel of its front or the peak recharge, whichever the case names; "
+            "for transport, particle tracking and calibration twins, the largest relative error "
+            "the test records; for grid convergence and manufactured solutions, "
+            "<code>|p - p0|</code>, the distance of the observed order from the expected one "
+            "(under 0.1, under 0.2, above). Four classes, from the best to a warning: under "
+            "0.1 %, 0.1 to 1 %, 1 to 5 %, 5 % and over. A red cross means the test failed: the "
+            "error went beyond its threshold. <em>&#x25B2;</em> means the error grew by more than "
+            "20 % since the previous recorded run of that test, <em>&#x25BC;</em> that it fell by "
+            "as much. <em>pass</em> is a check that records no distance to a reference: the "
+            "asserts of the test decide. Hover a cell for the metric, its value, its threshold, "
+            "the share of the threshold it used and, when two solvers share the row, how many "
+            "times the best solver's error it is. The thresholds and their shares stay in the "
+            "section of each case. <em>skipped</em> and <em>not measured</em> prove nothing. "
+            "<em>n/a</em> means the solver cannot run that test: the reason shows on hover and "
+            "in the section of the case. A blank cell no longer exists: a solver column is a "
+            "result, <em>not measured</em>, <em>n/a</em> or, while its declaration is missing, "
+            "<em>undeclared</em>. <em>gap</em> marks a known discrepancy that the threshold lets "
+            "through; the section of the case explains it. <em>other</em> gathers the solvers "
+            "outside these columns and the tests that name none. The columns are "
             + ", ".join(f"<code>{esc(c)}</code>" for c in SOLVER_ORDER[:-1])
             + f" and <code>{esc(SOLVER_ORDER[-1])}</code>.</p>"
             f'<p class="hmp-val-legend">{legend}</p>'
@@ -1028,7 +1236,15 @@ class ValidationDirective(SphinxDirective):
         gap: bool,
         reason: str | None = None,
         solver_column: bool = True,
+        row_best: float | None = None,
+        column: str | None = None,
     ) -> str:
+        """One cell of the matrix: the accuracy of the solver on the case.
+
+        ``row_best`` is the smallest relative accuracy of the row when the row
+        has at least two, to say how many times the best solver's error a cell is.
+        ``column`` names the solver whose plain variant speaks for the cell.
+        """
         if not records:
             if declared:
                 return '<td class="hmp-val-cell hmp-val-nm">not measured</td>'
@@ -1041,22 +1257,28 @@ class ValidationDirective(SphinxDirective):
                 )
             return '<td class="hmp-val-cell hmp-val-na">-</td>'
         status = outcome_of(records)
-        ratios = [ratio(m) for r in records for m in r["metrics"]]
-        worst = max((x for x in ratios if x is not None), default=None)
+        failed = status in ("failed", "error")
         mark = ' <span class="hmp-val-gapmark">gap</span>' if gap else ""
-        if status in ("failed", "error"):
-            share = f" {worst:.0%}" if worst is not None and math.isfinite(worst) else ""
-            return f'<td class="hmp-val-cell hmp-val-r5" title="failed">&#x2717;{share}{mark}</td>'
         if status == "skipped":
             return '<td class="hmp-val-cell hmp-val-sk">skipped</td>'
-        if worst is None:
+        hit = cell_headline(records, column)
+        if hit is not None:
+            head, record = hit
+            text = accuracy_text(head.value, head.kind)
+            cls = "r5" if failed else accuracy_class(head.value, head.kind)
+            title = accuracy_title(head, len(records), row_best, failed)
+            cross = "&#x2717; " if failed else ""
             return (
-                f'<td class="hmp-val-cell hmp-val-r0" title="passed, no metric recorded">'
-                f"pass{mark}</td>"
+                f'<td class="hmp-val-cell hmp-val-{cls}" title="{title}">'
+                f"{cross}{esc(text)}{regression_mark(head, record)}{mark}</td>"
             )
-        cls, words = bin_of(worst)
-        text = f"{worst:.0%}" if math.isfinite(worst) else "over"
-        return f'<td class="hmp-val-cell hmp-val-{cls}" title="{esc(words)}">{text}{mark}</td>'
+        ratios = [ratio(m) for r in records for m in r["metrics"]]
+        worst = max((x for x in ratios if x is not None), default=None)
+        if failed:
+            share = f" {worst:.0%}" if worst is not None and math.isfinite(worst) else ""
+            return f'<td class="hmp-val-cell hmp-val-r5" title="failed">&#x2717;{share}{mark}</td>'
+        why = "passed, no distance to a reference recorded; the asserts of the test decide"
+        return f'<td class="hmp-val-cell hmp-val-r0" title="{why}">pass{mark}</td>'
 
     def entry_section(self, entry: dict, builder, doc: str) -> nodes.section:
         ident = anchor_of(entry["file"])

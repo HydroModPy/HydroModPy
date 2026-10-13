@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import types
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -15,18 +14,12 @@ from hydromodpy.data.contracts.spatial_field import FieldRecord
 MM_DAY_TO_M_S = 1.0e-3 / 86400.0
 
 
-def _make_sgrid(nrow: int, ncol: int, dx: float = 10.0, dy: float = 10.0):
-    """Minimal mock structured grid with cell-center arrays."""
-    x_centers = np.array([[(j + 0.5) * dx for j in range(ncol)] for _ in range(nrow)])
-    y_centers = np.array([[(i + 0.5) * dy for i in range(nrow)] for _ in range(nrow)])
-    # Fix y_centers: each row should have a constant y
-    y_centers = np.array([[(nrow - i - 0.5) * dy] * ncol for i in range(nrow)])
-    return types.SimpleNamespace(
-        nrow=nrow,
-        ncol=ncol,
-        xcellcenters=x_centers,
-        ycellcenters=y_centers,
-    )
+def _make_centers(nrow: int, ncol: int, dx: float = 10.0, dy: float = 10.0) -> np.ndarray:
+    """Cell centres ``(nrow * ncol, 2)`` of a regular grid, row 0 at the north."""
+    x = (np.arange(ncol) + 0.5) * dx
+    y = (nrow - np.arange(nrow) - 0.5) * dy
+    xx, yy = np.meshgrid(x, y, indexing="xy")
+    return np.column_stack([xx.ravel(), yy.ravel()])
 
 
 def _make_static_field_record(

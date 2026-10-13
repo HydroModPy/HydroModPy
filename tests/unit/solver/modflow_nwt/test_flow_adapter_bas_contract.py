@@ -9,6 +9,7 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import (
     FlowToModflowAdapter,
 )
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def _build_adapter(
@@ -43,7 +44,7 @@ def _build_adapter(
     )
     domain = SimpleNamespace(zones={})
 
-    solver_mesh = SolverMesh.from_structured_arrays(
+    solver_mesh = solver_mesh_from_structured_arrays(
         nrow=dem.shape[0],
         ncol=dem.shape[1],
         top=dem,

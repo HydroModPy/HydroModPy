@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
@@ -19,6 +20,7 @@ from hydromodpy.solver.modflow6.builders import (
 from ._test_modflow6_boundary_conditions_builders import (
     _build_model,
     _build_unstructured_model,
+    regular_solver_mesh,
 )
 
 
@@ -270,3 +272,84 @@ def test_a_stream_head_overwritten_by_a_side_head_is_not_checked() -> None:
             stream_spd=stream,
             side_spd=side,
         )
+
+
+def test_modflow6_reads_a_boundary_group_by_its_family_name_or_its_bare_name() -> None:
+    labels = {1: "east_custom"}
+    for support_label in ("east_custom", "boundary:east_custom"):
+        model = _build_unstructured_model(boundary_labels_by_edge_id=labels)
+        model.flow = SimpleNamespace(
+            boundary_conditions={
+                "east_side": SimpleNamespace(value=6.0, units="m", support_label=support_label)
+            },
+            active_bc=["east_side"],
+        )
+
+        assert build_side_boundary_chd_spd(model)[0] == [[0, 0, pytest.approx(6.0)]]
+
+
+def test_modflow6_refuses_a_support_label_that_matches_no_cell() -> None:
+    model = _build_unstructured_model()
+    model.flow = SimpleNamespace(
+        boundary_conditions={
+            "east_side": SimpleNamespace(value=6.0, units="m", support_label="nowhere")
+        },
+        active_bc=["east_side"],
+    )
+
+    with pytest.raises(ValueError, match="support_label='nowhere' did not match"):
+        build_side_boundary_chd_spd(model)
+
+
+def test_modflow6_applies_a_support_label_on_a_regular_grid() -> None:
+    model = _build_model()
+    model.flow = SimpleNamespace(
+        boundary_conditions={
+            "west_side": SimpleNamespace(value=3.0, units="m", support_label="boundary:south")
+        },
+        active_bc=["west_side"],
+    )
+
+    # The label wins over the side the boundary is named after: the south row of 2 x 3.
+    assert [row[1] for row in build_side_boundary_chd_spd(model)[0]] == [3, 4, 5]
+
+
+def test_modflow6_builds_a_stream_chd_on_the_river_chain_of_a_regular_grid() -> None:
+    model = _build_model()
+    model.solver_mesh = regular_solver_mesh(2, 3, river=LineString([(0.5, 1.5), (1.5, 0.5)]))
+    model.flow = SimpleNamespace(
+        boundary_conditions={"stream": SimpleNamespace(value=7.0)},
+        active_bc=["stream"],
+    )
+
+    chd_spd, stream_mask = build_stream_boundary_chd_spd(model)
+
+    chain_cells = np.concatenate(
+        [chain.cell_ids for chain in model.solver_mesh.cell_mesh.chains("rivers")]
+    )
+    assert np.flatnonzero(stream_mask).tolist() == sorted(set(chain_cells.tolist()))
+    assert stream_mask.sum() >= 2
+    assert [row[1] for row in chd_spd[0]] == np.flatnonzero(stream_mask).tolist()
+
+
+def test_modflow6_refuses_a_stream_chd_on_a_mesh_without_river_cells() -> None:
+    model = _build_model()
+    model.flow = SimpleNamespace(
+        boundary_conditions={"stream": SimpleNamespace(value=7.0)},
+        active_bc=["stream"],
+    )
+
+    with pytest.raises(ValueError, match="selected runtime mesh support is empty"):
+        build_stream_boundary_chd_spd(model)
+
+
+def test_modflow6_cannot_pick_boundary_cells_without_a_solver_mesh() -> None:
+    model = _build_model()
+    model.solver_mesh = None
+    model.flow = SimpleNamespace(
+        boundary_conditions={"west_side": SimpleNamespace(value=1.0)},
+        active_bc=["west_side"],
+    )
+
+    with pytest.raises(ValueError, match="reads the cells of the solver mesh"):
+        build_side_boundary_chd_spd(model)

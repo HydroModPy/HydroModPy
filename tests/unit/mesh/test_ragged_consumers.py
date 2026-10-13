@@ -10,6 +10,7 @@ from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.ops.flow_barrier import barrier_faces_from_line
 from hydromodpy.spatial.mesh.ops.mesh_orthogonality import connection_nonorthogonality_deg
+from tests._helpers.cell_meshes import cell_mesh_of
 
 
 def _two_polygon_mesh() -> HydroMesh:
@@ -31,7 +32,9 @@ def _two_polygon_mesh() -> HydroMesh:
 def test_flow_barrier_faces_on_a_ragged_mesh() -> None:
     mesh = _two_polygon_mesh()
     line = LineString([(1.0, -0.5), (1.0, 1.5)])  # passes between cells 0 and 1 (crosses their
-    faces = barrier_faces_from_line(mesh, line)  # centroid segment) -> bars the shared face
+    faces = barrier_faces_from_line(
+        cell_mesh_of(mesh), line
+    )  # centroid segment) -> bars the shared face
     assert len(faces) == 1
     assert {faces[0].cell_a, faces[0].cell_b} == {0, 1}
 

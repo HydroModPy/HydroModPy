@@ -14,6 +14,7 @@ import numpy as np
 from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from tests._helpers.solver_meshes import solver_mesh_from
 from tests._helpers.ugrid_meshes import quad_mesh
 
 N = 7
@@ -26,8 +27,8 @@ def _cell(row: int, col: int) -> int:
 def _grid_mesh(inactive_mask: np.ndarray) -> SolverMesh:
     vertices, connectivity = quad_mesh(N, N)
     rows, cols = np.divmod(np.arange(N * N), N)
-    return SolverMesh(
-        planar_mesh=HydroMesh(
+    return solver_mesh_from(
+        HydroMesh(
             vertices=vertices[:, :2],
             cell_blocks=(CellBlock(CellType.QUADRILATERAL, connectivity),),
         ),
@@ -68,8 +69,8 @@ def test_a_constant_head_cell_seeds_the_descent(caplog) -> None:
     pit = _cell(3, 3)
     top = mesh.top.copy()
     top[pit] = 0.0
-    mesh = SolverMesh(
-        planar_mesh=mesh.planar_mesh, top=top, botm=mesh.botm, inactive_mask=mesh.inactive_mask
+    mesh = solver_mesh_from(
+        mesh.planar_mesh, top=top, botm=mesh.botm, inactive_mask=mesh.inactive_mask
     )
     base_level = np.zeros(N * N, dtype=bool)
     base_level[pit] = True
@@ -86,8 +87,8 @@ def test_a_ragged_polygon_mesh_descends_by_shared_faces() -> None:
     # One quad and two triangles: the first triangle meets the quad at a node only.
     vertices = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [0.0, 1.0], [1.0, 1.0], [2.0, 1.0]])
     cells = ([0, 1, 4, 3], [1, 2, 5], [1, 5, 4])
-    mesh = SolverMesh(
-        planar_mesh=HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, cells),)),
+    mesh = solver_mesh_from(
+        HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, cells),)),
         top=np.array([3.0, 1.0, 2.0]),
         botm=np.zeros((1, 3)),
         inactive_mask=np.zeros((1, 3), dtype=bool),

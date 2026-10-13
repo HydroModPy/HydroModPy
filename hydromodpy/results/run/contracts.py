@@ -17,7 +17,59 @@ if TYPE_CHECKING:
 
     from hydromodpy.core.field_routing import DownhillGraph
 
-__all__ = ["Mesh", "MeshDescent", "RasterField", "Stack", "UGridStack"]
+__all__ = [
+    "Mesh",
+    "MeshDescent",
+    "RasterField",
+    "Stack",
+    "UGridStack",
+    "cell_centers",
+    "polygon_areas",
+]
+
+
+def cell_centers(
+    vertices: np.ndarray,
+    faces: np.ndarray,
+    face_x: np.ndarray | None = None,
+    face_y: np.ndarray | None = None,
+) -> np.ndarray:
+    """Return the ``(n_faces, 2)`` centres the field arrays of a run are indexed by.
+
+    The stored ``face_x`` / ``face_y`` when the mesh group has them, else the
+    mean of the corners of each face. ``faces`` is the padded UGRID
+    connectivity: corner slots below zero are padding. The one rule every
+    reader that places a field value in space goes through.
+    """
+    if face_x is not None and face_y is not None:
+        return np.column_stack((np.asarray(face_x, dtype=float), np.asarray(face_y, dtype=float)))
+    xy = np.asarray(vertices, dtype=float)[:, :2]
+    rows = np.asarray(faces)
+    valid = rows >= 0
+    safe = np.where(valid, rows, 0)
+    count = valid.sum(axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        cx = np.where(valid, xy[safe, 0], 0.0).sum(axis=1) / count
+        cy = np.where(valid, xy[safe, 1], 0.0).sum(axis=1) / count
+    return np.column_stack((cx, cy))
+
+
+def polygon_areas(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
+    """Return the shoelace area of each face, ``NaN`` for a face of fewer than 3 corners.
+
+    The shoelace sum is taken relative to the first corner, which keeps the
+    precision of coordinates expressed in a projected CRS (6e6 m northings).
+    """
+    xy = np.asarray(vertices, dtype=float)[:, :2]
+    rows = np.asarray(faces)
+    valid = rows >= 0
+    count = valid.sum(axis=1)
+    safe = np.where(valid, rows, rows[:, :1])
+    x = xy[safe, 0] - xy[safe[:, :1], 0]
+    y = xy[safe, 1] - xy[safe[:, :1], 1]
+    # Padded slots repeat the first corner: they close the ring and add no area.
+    twice = (x * np.roll(y, -1, axis=1) - y * np.roll(x, -1, axis=1)).sum(axis=1)
+    return np.where(count >= 3, 0.5 * np.abs(twice), np.nan)
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +85,42 @@ class Mesh:
     """Projected CRS the vertices are expressed in (``crs_proj``), ``None`` when
     the run pre-dates geographic ingestion. Overlaying a vector layer on this mesh
     needs it: bare coordinates say nothing about the frame they belong to."""
+    structured_shape: tuple[int, int] | None = None
+    """``(nrow, ncol)`` when the run was solved on a regular grid, rows north
+    first; ``None`` for any other mesh."""
+    face_x: np.ndarray | None = None
+    face_y: np.ndarray | None = None
+    """Per-face centres, when the mesh group stores them."""
+
+    def cell_centers(self) -> np.ndarray:
+        """Return the ``(n_faces, 2)`` centres the field arrays are indexed by.
+
+        The stored ``face_x`` / ``face_y`` when the mesh group has them, else
+        the mean of each face's corners. Every reader that needs to place a
+        field value in space (bounding box, point lookup) goes through here.
+        """
+        return cell_centers(self.vertices, self.face_node_connectivity, self.face_x, self.face_y)
+
+    def cell_areas(self) -> np.ndarray:
+        """Return the ``(n_faces,)`` plan area of each face in square metres."""
+        return polygon_areas(self.vertices, self.face_node_connectivity)
+
+    def cells_in_bbox(self, bbox: tuple[float, float, float, float]) -> np.ndarray:
+        """Return the boolean mask of faces whose centre lies in ``bbox``.
+
+        ``bbox`` is ``(xmin, ymin, xmax, ymax)`` in the CRS of the vertices,
+        edges included.
+        """
+        xmin, ymin, xmax, ymax = (float(v) for v in bbox)
+        if not (xmin < xmax and ymin < ymax):
+            raise ValueError(f"bbox must satisfy xmin<xmax and ymin<ymax; got {bbox!r}")
+        centers = self.cell_centers()
+        return (
+            (centers[:, 0] >= xmin)
+            & (centers[:, 0] <= xmax)
+            & (centers[:, 1] >= ymin)
+            & (centers[:, 1] <= ymax)
+        )
 
 
 @dataclass(frozen=True, slots=True)

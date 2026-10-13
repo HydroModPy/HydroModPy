@@ -6,8 +6,6 @@ from .config import materialize_simulation_config, write_toml_payload
 from .mesh import (
     CellCentroidTable,
     resolve_bundle_cells,
-    resolve_structured_shape_from_config,
-    resolve_structured_shape_from_run_folder,
 )
 from .metadata import (
     _resolve_recorded_output_path,
@@ -55,8 +53,6 @@ __all__ = (
     "read_simulation_run_metadata",
     "read_simulation_run_metrics",
     "resolve_bundle_cells",
-    "resolve_structured_shape_from_config",
-    "resolve_structured_shape_from_run_folder",
     "select_time_slices",
     "write_observables_csv",
     "write_public_observables_csv",

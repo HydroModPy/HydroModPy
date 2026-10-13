@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -19,6 +20,7 @@ from hydromodpy.simulation.planning.plan import (
 )
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.spatial.mesh.gmsh_grid import GmshPlanarMesh2D
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable
 from tests._helpers.cell_meshes import cell_mesh_of
 
 from ._test_boussinesq_flow_adapter_builders import (
@@ -154,7 +156,7 @@ def test_boussinesq_flow_adapter_supports_runtime_mesh_with_heterogeneous_rechar
     assert model.runtime_summary["active_recharge"] is True
 
 
-def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mesh(
+def test_boussinesq_flow_adapter_reads_the_river_faces_of_the_cell_mesh(
     tmp_path: Path,
 ) -> None:
     planar_mesh = GmshPlanarMesh2D(
@@ -208,17 +210,24 @@ def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mes
             }
         )
     )
-    river_trace = SimpleNamespace(lines=[LineString([(0.0, 0.0), (1.0, 1.0)])])
+    # The river is the diagonal the two triangles share: the face family the mesh engine writes.
+    river_faces = FaceFamilyTable(
+        names=("rivers",),
+        family=[0],
+        cell_a=[0],
+        cell_b=[1],
+        node_a=[0],
+        node_b=[2],
+        zone_left=[-1],
+        zone_right=[-1],
+    )
     state = RunState(
         setup=SimpleNamespace(
-            cell_mesh=cell_mesh_of(planar_mesh),
+            cell_mesh=replace(cell_mesh_of(planar_mesh), face_families=river_faces),
             mesh_bundle=None,
             mesh_summary=None,
             flow=flow,
             domain=domain,
-            geographic_features=SimpleNamespace(
-                rivers=SimpleNamespace(river_mesh_trace=river_trace)
-            ),
             domain_geographic=None,
             time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
             workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),

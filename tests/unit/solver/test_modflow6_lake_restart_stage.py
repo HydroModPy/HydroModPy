@@ -17,6 +17,7 @@ import pytest
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 from hydromodpy.solver.modflow6.builders.initial_conditions import read_restart_lake_stages
 from hydromodpy.solver.modflow6.extractors.lake import final_lake_stages
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def test_final_lake_stages_keeps_last_step_per_lake() -> None:
@@ -118,7 +119,7 @@ def test_build_lak_uses_restart_stage_over_stageinit(tmp_path: Path) -> None:
 
     top = np.full((4, 4), 100.0)
     botm = np.stack([np.full((4, 4), 100.0 - (lay + 1) * 50.0) for lay in range(2)])
-    mesh = SolverMesh.from_structured_arrays(nrow=4, ncol=4, top=top, botm=botm, dx=1.0, dy=1.0)
+    mesh = solver_mesh_from_structured_arrays(nrow=4, ncol=4, top=top, botm=botm, dx=1.0, dy=1.0)
     model = SimpleNamespace(
         model_output_name="restart_test",
         time_units="seconds",

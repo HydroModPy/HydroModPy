@@ -113,7 +113,6 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     build_sfr_package_args,
     build_sfr_period_data,
     remove_drain_cells,
-    resolve_reach_line_cells,
     resolve_sfr_networks,
     sfr_drain_cells_to_drop,
     sfr_routes_drainage,
@@ -127,7 +126,6 @@ from hydromodpy.solver.modflow6.builders.solver_options import (
     xt3d_is_enabled,
     xt3d_requested_value,
 )
-from hydromodpy.solver.modflow6.builders.vertex_grid import build_vertex_grid_for_intersection
 from hydromodpy.solver.modflow6.builders.wells import (
     build_well_stress_period_data,
     resolve_well_disv_cell,
@@ -179,7 +177,6 @@ __all__ = [
     "build_soil_evta_payload",
     "build_start_heads",
     "build_stream_boundary_chd_spd",
-    "build_vertex_grid_for_intersection",
     "build_well_stress_period_data",
     "clip_negative_payload",
     "coerce_conductance_series_to_m2_per_s",
@@ -224,7 +221,6 @@ __all__ = [
     "resolve_spillway_seed_cells",
     "resolve_lake_occupied_layers",
     "resolve_ocean_boundary_series",
-    "resolve_reach_line_cells",
     "resolve_rewet_npf_options",
     "resolve_sfr_networks",
     "resolve_side_boundary_series",

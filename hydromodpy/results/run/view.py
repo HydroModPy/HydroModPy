@@ -58,7 +58,7 @@ Cross-refs
 - ``hydromodpy.results.catalog.Catalog`` owns this object's data.
 - ``hydromodpy.results.run.group.RunSet`` iterates over
   ``Run`` instances.
-- ``hydromodpy.results.grid.Grid`` backs the spatial helpers.
+- ``hydromodpy.results.grid.Grid`` describes the grid of the DEM, never the model cells.
 - ``hydromodpy.results.derive.derived`` provides the derived-metric implementations.
 """
 

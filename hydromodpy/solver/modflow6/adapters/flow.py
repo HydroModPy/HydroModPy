@@ -53,13 +53,14 @@ def _collapse_to_disv_cells(
 ) -> dict[str, tuple[int, int, int]]:
     """Map structured ``(layer, row, col)`` station cells to DISV ``(layer, 0, id)``.
 
-    MF6 always writes DISV, whose head array is ``(nlay, 1, ncpl)``. The station
-    resolver returns ``(layer, row, col)`` from the structured planar grid, so the
-    ``(row, col)`` is collapsed to the flat row-major ``cell2d`` id and the head is
-    read as ``head[layer, 0, id]``. Without this, ``head[layer, row, col]`` indexes
-    the size-1 middle axis and raises for any station off the first grid row. On an
-    unstructured mesh (no ``ncol``) the cells are already flat, so they pass
-    through unchanged.
+    MF6 always writes DISV, whose head array is ``(nlay, 1, ncpl)``. A station that
+    a record places by its row and column on a regular grid arrives as
+    ``(layer, row, col)``, so the ``(row, col)`` is collapsed to the flat row-major
+    ``cell2d`` id and the head is read as ``head[layer, 0, id]``. Without this,
+    ``head[layer, row, col]`` indexes the size-1 middle axis and raises for any
+    station off the first grid row. A station located by coordinates arrives as
+    ``(layer, 0, id)`` already, which the collapse leaves as it is, and so are the
+    cells of an unstructured mesh.
     """
     mesh = getattr(model, "solver_mesh", None)
     if mesh is None or not getattr(mesh, "is_structured", False):
@@ -124,7 +125,7 @@ class Modflow6FlowAdapter:
         )
 
     def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
-        """Return the nearest cell on the mesh this run actually wrote."""
+        """Return the cell that holds ``(x, y)`` on the mesh this run actually wrote."""
         from hydromodpy.solver.base.cell_lookup import locate_cell_on_solver_mesh
 
         return locate_cell_on_solver_mesh(ctx, x, y)

@@ -14,6 +14,7 @@ import numpy as np
 
 from hydromodpy.solver.modflow6.builders.recharge import build_soil_evta_payload
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 _NCPL = 4
 
@@ -21,7 +22,7 @@ _NCPL = 4
 def _mesh() -> SolverMesh:
     top = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
     botm = np.array([[1.0, 1.0], [1.0, 1.0]], dtype=float)
-    return SolverMesh.from_structured_arrays(nrow=2, ncol=2, top=top, botm=np.stack([botm]))
+    return solver_mesh_from_structured_arrays(nrow=2, ncol=2, top=top, botm=np.stack([botm]))
 
 
 def _model(*, drain_band_depth_m: float, surface_offset_m: float = 0.0) -> SimpleNamespace:

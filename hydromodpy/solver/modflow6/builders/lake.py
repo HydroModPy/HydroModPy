@@ -2,10 +2,15 @@
 
 The lake is a boundary package laid on the existing aquifer grid: lake cells are
 made inactive (``idomain = 0``) and LAK supplies storage and exchange through its
-own CONNECTIONDATA. We build that CONNECTIONDATA ourselves with
-``flopy.utils.GridIntersect`` because ``flopy.mf6.utils.get_lak_connections`` does
-not support embedded / horizontal lakes on DISV (it raises for unstructured grids
-and only handles the trivial surface-lake case).
+own CONNECTIONDATA. We build that CONNECTIONDATA ourselves from the cell mesh
+because ``flopy.mf6.utils.get_lak_connections`` does not support embedded /
+horizontal lakes on DISV (it raises for unstructured grids and only handles the
+trivial surface-lake case).
+
+The lake cells come from the cell mesh. On a mesh whose faces follow the lake
+shore (``exact_faces`` with a ``lakes`` face family), a lake owns the regions the
+shore faces enclose, each cell whole. On any other mesh it owns every cell its
+polygon overlaps by a positive area, credited with that overlap.
 
 Each lake cell gets:
 
@@ -45,11 +50,9 @@ from hydromodpy.solver.modflow6.builders._lake_geometry import (
     _abacus_stage_sarea,
     _abacus_volume,
     _cell_behind_wall,
-    _cell_edges,
+    _cell_faces,
     _drop_cutoff_wall_downstream_cells,
     _drop_interior_rings,
-    _edge_length,
-    _edge_neighbours,
     _fill_lake_enclosed_cells,
     _first_active_layer_below,
     _point_to_segment_distance,
@@ -81,11 +84,12 @@ from hydromodpy.solver.modflow6.builders.period_forcing import (
     package_unit_conversions,
     resolve_forcing_mode,
 )
-from hydromodpy.solver.modflow6.builders.vertex_grid import build_vertex_grid_for_intersection
 from hydromodpy.solver.modflow6.support.time_series import Ts6Series
+from hydromodpy.spatial.mesh.ops.family_interior import interior_cells, polygon_overlap
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 
@@ -111,92 +115,48 @@ def resolve_lake_cells(
     *,
     lake_id: str,
     polygon: object,
-    vertex_grid: object,
+    cell_mesh: PlanarCellMesh,
     with_areas: bool = False,
 ) -> list[int] | tuple[list[int], dict[int, float]]:
-    """Intersect one lake polygon with the grid and return the flat cell2d ids.
+    """Return the sorted cell ids of one lake polygon on the cell mesh.
 
-    Cells are returned sorted and de-duplicated. An empty result means the
-    polygon misses the grid, which is almost always a CRS or extent mistake, so
-    we fail naming the lake. With ``with_areas=True`` also return the per-cell
-    intersected area [L2] (the part of each cell actually inside the polygon),
-    which edge cells under-fill; this is the true lake area, free of the
-    full-cell footprint over-count.
+    When the mesh faces follow the lake shores (the engine declares
+    ``exact_faces`` and the mesh carries a ``lakes`` face family), the lake
+    owns the regions those faces enclose that its polygon covers for most of
+    their area, and each cell counts with its whole area. Otherwise it owns
+    every cell its polygon overlaps by a positive area, and each cell counts
+    with that overlap, so the edge cells under-fill. An empty result means the
+    polygon misses the mesh, almost always a CRS or extent mistake, so we fail
+    naming the lake. With ``with_areas=True`` also return the per-cell lake
+    area [L2].
     """
-    from flopy.utils import GridIntersect
-
-    gi = GridIntersect(vertex_grid)
-    result = gi.intersect(polygon, geo_dataframe=False)
-    cell_ids = sorted({int(cid) for cid in np.asarray(result["cellids"]).ravel()})
-    if not cell_ids:
+    if _follows_lake_shores(cell_mesh):
+        cells = interior_cells(cell_mesh, "lakes", polygon)
+        areas = cell_mesh.geometry.areas[cells]
+        if cells.size == 0 and polygon_overlap(cell_mesh, polygon)[0].size:
+            raise ValueError(
+                f"flow.sinks_sources.lakes.{lake_id} polygon encloses no region of the "
+                "lakes faces of the mesh: the mesh was built without this lake shore. "
+                'Rebuild the mesh with the lake loaded, or set [mesh.families] lakes = "none".'
+            )
+    else:
+        cells, areas = polygon_overlap(cell_mesh, polygon)
+    if cells.size == 0:
         raise ValueError(
             f"flow.sinks_sources.lakes.{lake_id} polygon does not intersect any grid "
             "cell; check the lake geometry CRS and the model extent."
         )
+    cell_ids = [int(cid) for cid in cells]
     if not with_areas:
         return cell_ids
-    intersected = _intersected_areas(vertex_grid, polygon, result, lake_id=lake_id)
-    return cell_ids, intersected
+    return cell_ids, {int(cid): float(area) for cid, area in zip(cells, areas, strict=True)}
 
 
-# Relative gap above which the areas FloPy reports are rejected in favour of the
-# recomputed ones. The two agree bit for bit on a clean intersection, so anything
-# past rounding means the collapse described in _intersected_areas.
-_AREA_MISMATCH_TOL = 1e-6
-
-
-def _intersected_areas(vertex_grid, polygon, result, *, lake_id: str) -> dict[int, float]:
-    """Per-cell area inside ``polygon``, recomputed rather than read off FloPy.
-
-    FloPy 3.10 collapses the areas of every cell whose intersection is a
-    GeometryCollection -- which is what a cell edge running along the lake
-    shoreline produces. ``gridintersect.py`` calls ``np.apply_along_axis`` with
-    ``axis=0`` on a 1-D object array, so the parser runs ONCE over the whole array,
-    merges those intersections into a single multipolygon and broadcasts it back to
-    every slot: each of those cells is then credited the SUM of all of them. (FloPy
-    knows: the linestring twin of that call carries the comment "not working for
-    multiple geometry collections ... causes doubles in the result" and is commented
-    out; the polygon one was left live.)
-
-    The consequence is not cosmetic: every affected cell is credited the SUM of
-    them all, which inflates the lake footprint by whatever those cells represent.
-    The abacus reconciliation then divides the cumulative area by that footprint
-    ratio, so the ranking it builds is wrong and the carved bed over-stores. A mesh
-    whose edges follow the shoreline (a boundary-aligned refinement) produces more
-    of those degenerate intersections, not fewer.
-
-    Summing per cell (a cell can appear more than once) stays as before.
-    """
-    from shapely.geometry import Polygon as _Polygon
-
-    cellids = np.asarray(result["cellids"]).ravel()
-    reported: dict[int, float] = {}
-    for cid, area in zip(cellids, np.asarray(result["areas"]).ravel(), strict=True):
-        reported[int(cid)] = reported.get(int(cid), 0.0) + float(area)
-
-    verts = np.asarray(vertex_grid.verts)
-    exact: dict[int, float] = {}
-    for cid in reported:
-        row = vertex_grid.cell2d[cid]
-        ring = verts[[int(i) for i in row[4:] if int(i) >= 0]][:, :2]
-        exact[cid] = float(_Polygon(ring).intersection(polygon).area)
-
-    total_exact = sum(exact.values())
-    total_reported = sum(reported.values())
-    if total_exact > 0.0:
-        gap = abs(total_reported - total_exact) / total_exact
-        if gap > _AREA_MISMATCH_TOL:
-            logger.warning(
-                "lake '%s': FloPy reported a lake footprint of %.4g m2 where the cell "
-                "polygons give %.4g m2 (%+.2f %%), on %d cell(s). This is the FloPy "
-                "GeometryCollection area collapse; the recomputed areas are used.",
-                lake_id,
-                total_reported,
-                total_exact,
-                100.0 * (total_reported - total_exact) / total_exact,
-                sum(1 for cid in exact if abs(exact[cid] - reported[cid]) > 1e-6),
-            )
-    return exact
+def _follows_lake_shores(cell_mesh: PlanarCellMesh) -> bool:
+    """Whether the mesh faces follow the lake shores."""
+    return bool(cell_mesh.qa.declarations["exact_faces"]) and bool(
+        cell_mesh.face_rows("lakes").any()
+    )
 
 
 def apply_lake_idomain_mask(
@@ -482,7 +442,6 @@ def build_lake_connectiondata(
     botm = np.asarray(solver_mesh.botm, dtype=float)  # (nlay, n_cells)
     nlay = int(solver_mesh.nlay)
     vertices = np.asarray(solver_mesh.planar_mesh.vertices, dtype=float)
-    conn = solver_mesh.planar_mesh.flat_connectivity
     centroids = solver_mesh.cell_centroids()
 
     def _occ(cid: int) -> int:
@@ -512,51 +471,43 @@ def build_lake_connectiondata(
             float(centroids[neighbour, 0]), float(centroids[neighbour, 1]), bx, by, p0, p1
         )
 
-    # Each cell's undirected edges, used to find shared edges with neighbours.
-    cell_edges: dict[int, list[tuple[int, int]]] = {
-        cid: _cell_edges(conn[cid]) for cid in range(int(solver_mesh.n_cells))
-    }
-
     def _horizontal_rows(cid: int, lake_top: float, lake_bottom: float, occ_c: int, iconn: int):
         """HORIZONTAL bank connections of one lake column, sealed at the dam."""
         out: list[list[Any]] = []
+        faces = _cell_faces(solver_mesh.cell_mesh, cid)
         for lay in range(occ_c):
-            for edge in cell_edges[cid]:
-                width = _edge_length(vertices, edge)
+            for neighbour, node_a, node_b, width in faces:
                 if width <= 0.0:
                     continue  # degenerate (zero-length) edge: skip
-                for neighbour in _edge_neighbours(edge, cell_edges, cid):
-                    if neighbour in lake_set:
-                        continue  # never connect a lake to another lake cell
-                    if int(idomain[lay, neighbour]) != 1:
-                        continue  # neighbour inactive at this layer
-                    if _neighbour_behind_wall(neighbour):
-                        continue  # seal: no bank seepage across the dam
-                    connlen = _point_to_segment_distance(
-                        centroids[neighbour], vertices[edge[0]], vertices[edge[1]]
-                    )
-                    if connlen <= 0.0:
-                        continue
-                    belev = max(float(botm[lay, neighbour]), lake_bottom)
-                    cell_top = (
-                        float(top[neighbour]) if lay == 0 else float(botm[lay - 1, neighbour])
-                    )
-                    telev = min(cell_top, lake_top)
-                    if telev <= belev:
-                        continue  # neighbour cell sits outside the lake vertical extent
-                    out.append(
-                        [
-                            int(lake_index),
-                            len(out) + iconn,
-                            (int(lay), int(neighbour)),
-                            _HORIZONTAL,
-                            float(bedleak),
-                            float(belev),
-                            float(telev),
-                            float(connlen),
-                            float(width),
-                        ]
-                    )
+                if neighbour in lake_set:
+                    continue  # never connect a lake to another lake cell
+                if int(idomain[lay, neighbour]) != 1:
+                    continue  # neighbour inactive at this layer
+                if _neighbour_behind_wall(neighbour):
+                    continue  # seal: no bank seepage across the dam
+                connlen = _point_to_segment_distance(
+                    centroids[neighbour], vertices[node_a], vertices[node_b]
+                )
+                if connlen <= 0.0:
+                    continue
+                belev = max(float(botm[lay, neighbour]), lake_bottom)
+                cell_top = float(top[neighbour]) if lay == 0 else float(botm[lay - 1, neighbour])
+                telev = min(cell_top, lake_top)
+                if telev <= belev:
+                    continue  # neighbour cell sits outside the lake vertical extent
+                out.append(
+                    [
+                        int(lake_index),
+                        len(out) + iconn,
+                        (int(lay), int(neighbour)),
+                        _HORIZONTAL,
+                        float(bedleak),
+                        float(belev),
+                        float(telev),
+                        float(connlen),
+                        float(width),
+                    ]
+                )
         return out
 
     rows: list[list[Any]] = []
@@ -876,7 +827,6 @@ def resolve_lake_cells_for_active_lakes(
     if not lakes:
         return {}
 
-    vertex_grid = build_vertex_grid_for_intersection(solver_mesh)
     cells_by_lake: dict[str, list[int]] = {}
     intersected_area_by_lake: dict[str, dict[int, float]] = {}
     for lake_id, definition in lakes.items():
@@ -889,7 +839,11 @@ def resolve_lake_cells_for_active_lakes(
         if definition.get("fill_enclosed_cells"):
             polygon = _drop_interior_rings(polygon)
         cells, intersected = resolve_lake_cells(
-            model, lake_id=lake_id, polygon=polygon, vertex_grid=vertex_grid, with_areas=True
+            model,
+            lake_id=lake_id,
+            polygon=polygon,
+            cell_mesh=solver_mesh.cell_mesh,
+            with_areas=True,
         )
         cells_by_lake[lake_id] = cells
         intersected_area_by_lake[lake_id] = intersected

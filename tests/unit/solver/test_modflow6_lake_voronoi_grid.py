@@ -5,17 +5,14 @@ must hold on non-uniform polygon cells, not only on a unit grid. Two irregular
 meshes exercise that:
 
 * an irregular *triangular* mesh (jittered Delaunay) driven through the
-  production ``build_lake_connectiondata``. ``SolverMesh`` carries homogeneous
-  triangle / quad blocks only, so a mixed-polygon Voronoi tessellation cannot be
-  wrapped as a ``SolverMesh`` directly; an irregular triangulation is the
-  non-rectangular mesh the production builder consumes. Every HORIZONTAL row is
+  production ``build_lake_connectiondata``. Every HORIZONTAL row is
   checked against the true shared-edge length (``connwidth``) and the exact
   perpendicular distance from the neighbour centroid to that edge (``connlen``);
 * a genuinely mixed-polygon *Voronoi* DISV (coarse background plus a refined
   cluster around the lake) built with ``flopy.utils.cvfdutil``. The production
-  ``resolve_lake_cells`` intersects the lake polygon with the Voronoi
-  ``VertexGrid``, and MF6 runs one period to confirm the package converges on the
-  irregular mesh.
+  ``resolve_lake_cells`` intersects the lake polygon with the Voronoi cells,
+  and MF6 runs one period to confirm the package converges on the irregular
+  mesh.
 
 The point is the geometry is correct on non-uniform polygon cells. The lake
 polygon is intersected with the mesh, CONNECTIONDATA is built, and the
@@ -40,11 +37,17 @@ from shapely.geometry import Polygon, box
 from hydromodpy.solver.modflow6.builders import (
     apply_lake_idomain_mask,
     build_lake_connectiondata,
-    build_vertex_grid_for_intersection,
     resolve_lake_cells,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
+    MeshIdentity,
+    PlanarCellMesh,
+    build_planar_cell_mesh,
+)
+from tests._helpers.cell_meshes import TEST_CRS_WKT
+from tests._helpers.solver_meshes import solver_mesh_from
 
 _DOMAIN = 100.0
 _LAKE_POLYGON = Polygon([(40.0, 40.0), (60.0, 40.0), (60.0, 60.0), (40.0, 60.0)])
@@ -88,8 +91,8 @@ def _triangular_solver_mesh() -> SolverMesh:
     )
     n_cells = planar.n_cells
     botm = np.stack([np.full(n_cells, _BOTM[0]), np.full(n_cells, _BOTM[1])])
-    return SolverMesh(
-        planar_mesh=planar,
+    return solver_mesh_from(
+        planar,
         top=np.full(n_cells, _TOP),
         botm=botm,
         inactive_mask=np.zeros((2, n_cells), dtype=bool),
@@ -97,8 +100,7 @@ def _triangular_solver_mesh() -> SolverMesh:
 
 
 def _resolve_lake_on(mesh: SolverMesh) -> list[int]:
-    vertex_grid = build_vertex_grid_for_intersection(mesh)
-    return resolve_lake_cells(None, lake_id="lac0", polygon=_LAKE_POLYGON, vertex_grid=vertex_grid)
+    return resolve_lake_cells(None, lake_id="lac0", polygon=_LAKE_POLYGON, cell_mesh=mesh.cell_mesh)
 
 
 def _cell_edges(nodes: np.ndarray) -> list[tuple[int, int]]:
@@ -283,18 +285,23 @@ def _voronoi_disv_gridprops() -> dict:
     return get_disv_gridprops(verts, iverts)
 
 
-def _voronoi_vertex_grid(gridprops: dict, idomain: np.ndarray):
-    from flopy.discretization import VertexGrid
-
-    ncpl = int(gridprops["ncpl"])
-    return VertexGrid(
-        vertices=gridprops["vertices"],
-        cell2d=gridprops["cell2d"],
-        top=np.full(ncpl, _TOP),
-        botm=np.stack([np.full(ncpl, _BOTM[0]), np.full(ncpl, _BOTM[1])]),
-        idomain=idomain,
-        nlay=2,
-        ncpl=ncpl,
+def _voronoi_cell_mesh(gridprops: dict) -> PlanarCellMesh:
+    """The Voronoi DISV as a cell mesh, centred on the cvfd cell centres."""
+    vertices = np.asarray([row[1:3] for row in gridprops["vertices"]], dtype=float)
+    cells = tuple(np.asarray(row[4:], dtype=np.int64) for row in gridprops["cell2d"])
+    centres = np.asarray([row[1:3] for row in gridprops["cell2d"]], dtype=float)
+    return build_planar_cell_mesh(
+        HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, cells),)),
+        centres,
+        center_kind="generator",
+        crs_wkt=TEST_CRS_WKT,
+        identity=MeshIdentity("test", "0", "", None),
+        declarations={
+            "graded": True,
+            "exact_faces": False,
+            "deterministic": True,
+            "needs_cache": False,
+        },
     )
 
 
@@ -307,30 +314,27 @@ def test_voronoi_grid_has_mixed_polygon_cells() -> None:
     assert min(vertex_counts) >= 5
 
 
-def test_resolve_lake_cells_on_voronoi_vertex_grid() -> None:
-    gridprops = _voronoi_disv_gridprops()
-    ncpl = int(gridprops["ncpl"])
-    idomain = np.ones((2, ncpl), dtype=int)
-    vertex_grid = _voronoi_vertex_grid(gridprops, idomain)
+def test_resolve_lake_cells_on_voronoi_cells() -> None:
+    cell_mesh = _voronoi_cell_mesh(_voronoi_disv_gridprops())
     lake_cells = resolve_lake_cells(
-        None, lake_id="lac0", polygon=_LAKE_POLYGON, vertex_grid=vertex_grid
+        None, lake_id="lac0", polygon=_LAKE_POLYGON, cell_mesh=cell_mesh
     )
     assert lake_cells, "the lake polygon must intersect the Voronoi grid"
-    xc, yc = vertex_grid.xcellcenters, vertex_grid.ycellcenters
     # Resolved cells cluster around the lake footprint (40..60); a Voronoi cell
     # straddling the polygon edge may sit a little outside, so allow a small halo.
     for cell in lake_cells:
-        assert 30.0 <= float(xc[cell]) <= 70.0
-        assert 30.0 <= float(yc[cell]) <= 70.0
+        x, y = cell_mesh.centers[cell]
+        assert 30.0 <= float(x) <= 70.0
+        assert 30.0 <= float(y) <= 70.0
 
 
 def test_resolve_lake_cells_intersected_area_matches_polygon() -> None:
-    gridprops = _voronoi_disv_gridprops()
-    ncpl = int(gridprops["ncpl"])
-    idomain = np.ones((2, ncpl), dtype=int)
-    vertex_grid = _voronoi_vertex_grid(gridprops, idomain)
     cells, areas = resolve_lake_cells(
-        None, lake_id="lac0", polygon=_LAKE_POLYGON, vertex_grid=vertex_grid, with_areas=True
+        None,
+        lake_id="lac0",
+        polygon=_LAKE_POLYGON,
+        cell_mesh=_voronoi_cell_mesh(_voronoi_disv_gridprops()),
+        with_areas=True,
     )
     assert set(areas) == set(cells)
     # The intersected areas sum to the true polygon area (edge cells under-fill),
@@ -351,9 +355,8 @@ def test_lak_converges_on_voronoi_grid(tmp_path: Path) -> None:
     gridprops = _voronoi_disv_gridprops()
     ncpl = int(gridprops["ncpl"])
     idomain = np.ones((2, ncpl), dtype=int)
-    vertex_grid = _voronoi_vertex_grid(gridprops, idomain)
     lake_cells = resolve_lake_cells(
-        None, lake_id="lac0", polygon=_LAKE_POLYGON, vertex_grid=vertex_grid
+        None, lake_id="lac0", polygon=_LAKE_POLYGON, cell_mesh=_voronoi_cell_mesh(gridprops)
     )
     for cell in lake_cells:
         idomain[0, cell] = 0

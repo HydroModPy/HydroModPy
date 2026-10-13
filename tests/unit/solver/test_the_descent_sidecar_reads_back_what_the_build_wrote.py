@@ -18,6 +18,7 @@ from hydromodpy.solver.modflow_common.mesh_descent import (
     write_descent_sidecar,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def _descent():
@@ -25,7 +26,7 @@ def _descent():
     rows, cols = np.divmod(np.arange(nrow * ncol), ncol)
     top = (10.0 + rows + np.abs(cols - 3)).astype(float)
     top[2 * ncol + 3] = 0.0  # a pit D raises
-    mesh = SolverMesh.from_structured_arrays(
+    mesh = solver_mesh_from_structured_arrays(
         nrow=nrow,
         ncol=ncol,
         top=top.reshape(nrow, ncol),

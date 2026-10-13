@@ -6,10 +6,11 @@ arguments: PACKAGEDATA, signed CONNECTIONDATA, DIVERSIONS, PERIOD forcings and
 the OBS6 spec the extractor re-keys per reach.
 
 A trace reach is a LineString that generally spans several DISV cells, so it is
-split into per-cell sub-reaches (order-preserving along the line), then the
-post-split DAG is re-numbered by a Kahn topological sort so the final ``ifno``
-is strictly downstream-increasing (lets MF6 run with
-``maximum_picard_iterations = 1``).
+split into per-cell sub-reaches (order-preserving along the line): on a mesh that
+carries the ``rivers`` cell chains, its length is shared among the chain cells
+along it; on any other mesh, among the cells it crosses. The post-split DAG is
+then re-numbered by a Kahn topological sort so the final ``ifno`` is strictly
+downstream-increasing (lets MF6 run with ``maximum_picard_iterations = 1``).
 
 SFR is lake-independent by construction: this module never imports
 ``builders.lake``. The optional coupling to a lake is data, one
@@ -64,7 +65,6 @@ from hydromodpy.solver.modflow6.builders.period_forcing import (
     forcing_to_si,
     package_unit_conversions,
 )
-from hydromodpy.solver.modflow6.builders.vertex_grid import build_vertex_grid_for_intersection
 
 if TYPE_CHECKING:
     from hydromodpy.core.descent import Descent
@@ -75,9 +75,6 @@ logger = get_logger(__name__)
 # FloPy cellid for a reach not connected to the aquifer: (-1, -1) is written as
 # the MF6-recommended "0 0" unconnected encoding ("none" is deprecated in 6.4.3+).
 _UNCONNECTED_CELLID = (-1, -1)
-
-# Segments shorter than this [m] are GridIntersect corner grazes, not reaches.
-_MIN_SEGMENT_LENGTH = 1e-6
 
 
 @dataclasses.dataclass(frozen=True)
@@ -119,37 +116,6 @@ class ResolvedSfrNetwork:
         return all(d > reach.ifno for reach in self.reaches for d in reach.downstream)
 
 
-def resolve_reach_line_cells(
-    line,
-    *,
-    grid_intersect,
-    location: str,
-) -> list[tuple[int, float, float]]:
-    """Intersect one reach LineString with the grid, preserving along-line order.
-
-    Returns ``[(cell2d, segment_length_m, midpoint_distance_m), ...]`` ordered by
-    the projected position of each within-cell segment along the line (head ->
-    outlet). This deliberately does NOT reuse the lake's ``resolve_lake_cells``,
-    which sorts and de-duplicates cell ids and would destroy the reach order.
-    """
-    result = grid_intersect.intersect(line, geo_dataframe=False)
-    segments: list[tuple[float, int, float]] = []
-    for row in result:
-        seg_length = float(row["lengths"])
-        if seg_length < _MIN_SEGMENT_LENGTH:
-            continue
-        shape = row["ixshapes"]
-        midpoint = shape.interpolate(0.5, normalized=True)
-        segments.append((float(line.project(midpoint)), int(row["cellids"]), seg_length))
-    if not segments:
-        raise ValueError(
-            f"{location} reach polyline does not intersect any grid cell; check the "
-            "network geometry CRS and the model extent."
-        )
-    segments.sort(key=lambda item: item[0])
-    return [(cell2d, seg_length, mid) for mid, cell2d, seg_length in segments]
-
-
 def sfr_networks_walk_the_descent(model) -> bool:
     """Return whether an active network walks the descent D during the build.
 
@@ -186,7 +152,7 @@ def resolve_sfr_networks(
     Returns ``{}`` when no SFR boundary is active, which keeps the SFR wiring in
     ``build.py`` a no-op for models without a stream network. Reach cells come
     either from the explicit ``reaches`` table or from the binder-attached
-    ``reach_trace`` intersected with the DISV mesh. ``lake_cells_by_number`` (0-based
+    ``reach_trace`` shared among the cells of the mesh. ``lake_cells_by_number`` (0-based
     LAK numbers) truncates trace reaches at the lake footprint so none sits on a lake
     cell (needed once the DEM is hydro-conditioned to route streams through a lake).
     ``descent`` is the descent D, a filled copy of the solver top; a network with
@@ -205,7 +171,6 @@ def resolve_sfr_networks(
         lake_cell2d = frozenset(lake_number_of)
 
     networks: dict[str, ResolvedSfrNetwork] = {}
-    vertex_grid = None
     face_adjacency: list[set[int]] | None = None
     for network_id, definition in definitions.items():
         location = f"flow.sinks_sources.sfr.{network_id}"
@@ -214,12 +179,9 @@ def resolve_sfr_networks(
                 definition=definition, solver_mesh=solver_mesh, location=location
             )
         elif definition.get("reach_trace") is not None:
-            if vertex_grid is None:
-                vertex_grid = build_vertex_grid_for_intersection(solver_mesh)
             records = _resolve_trace_network(
                 definition=definition,
                 solver_mesh=solver_mesh,
-                vertex_grid=vertex_grid,
                 location=location,
                 lake_cell2d=lake_cell2d,
                 lake_number_of=lake_number_of,
@@ -239,13 +201,7 @@ def resolve_sfr_networks(
             stub_max = definition.get("rectify_stub_max_upstream")
             min_comp = definition.get("rectify_min_component_cells")
             if face_adjacency is None:
-                from hydromodpy.spatial.mesh.model.cell_adjacency import (
-                    build_planar_cell_adjacency,
-                )
-
-                face_adjacency = build_planar_cell_adjacency(
-                    solver_mesh.planar_mesh, int(solver_mesh.n_cells)
-                )
+                face_adjacency = solver_mesh.face_adjacency()
             records = _rectify_network_on_mesh(
                 records,
                 solver_mesh=solver_mesh,
@@ -692,7 +648,6 @@ __all__ = [
     "build_sfr_package_args",
     "build_sfr_period_data",
     "remove_drain_cells",
-    "resolve_reach_line_cells",
     "resolve_sfr_networks",
     "sfr_drain_cells_to_drop",
     "sfr_networks_lie_on_the_river_network",

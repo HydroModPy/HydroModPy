@@ -24,13 +24,14 @@ td.hmp-val-out { color: var(--pst-color-danger); font-weight: 600; }
 .hmp-vs-skipped, .hmp-vs-not-measured { color: var(--pst-color-text-muted); border-style: dashed; }
 .hmp-vs-gap { color: var(--pst-color-warning); font-weight: 600; }
 
-/* Share of the threshold used: one hue per bin, mixed into the surface. */
+/* Accuracy and share of the threshold: one hue per class, mixed into the surface.
+   r1 reads best, r4 is a warning, only r5 (a failed test) is red. */
 .hmp-val-share { display: inline-block; min-width: 3.2em; padding: 0 .3rem; border-radius: .25rem; text-align: center; }
 .hmp-val-r0 { background: var(--pst-color-surface); }
-.hmp-val-r1 { background: color-mix(in srgb, var(--pst-color-success) 22%, transparent); }
-.hmp-val-r2 { background: color-mix(in srgb, var(--pst-color-success) 12%, transparent); }
-.hmp-val-r3 { background: color-mix(in srgb, var(--pst-color-warning) 18%, transparent); }
-.hmp-val-r4 { background: color-mix(in srgb, var(--pst-color-warning) 34%, transparent); }
+.hmp-val-r1 { background: color-mix(in srgb, var(--pst-color-success) 34%, transparent); }
+.hmp-val-r2 { background: color-mix(in srgb, var(--pst-color-success) 14%, transparent); }
+.hmp-val-r3 { background: color-mix(in srgb, var(--pst-color-warning) 14%, transparent); }
+.hmp-val-r4 { background: color-mix(in srgb, var(--pst-color-warning) 32%, transparent); }
 .hmp-val-r5 { background: color-mix(in srgb, var(--pst-color-danger) 30%, transparent); }
 .hmp-val-legend .hmp-val-share { min-width: 0; margin: 0 .2rem .2rem 0; font-size: .85em; }
 
@@ -45,6 +46,8 @@ td.hmp-val-nm { color: var(--pst-color-text-muted); font-style: italic; font-siz
 td.hmp-val-sk { color: var(--pst-color-text-muted); font-size: .85em; }
 td.hmp-val-na { background: transparent; color: var(--pst-color-text-muted); font-size: .85em; }
 td.hmp-val-un { color: var(--pst-color-text-muted); font-size: .85em; font-style: italic; }
+.hmp-val-up { color: var(--pst-color-danger); font-weight: 700; cursor: help; }
+.hmp-val-down { color: var(--pst-color-text-muted); cursor: help; }
 .hmp-val-gapmark {
   font-size: .75em; font-weight: 700; color: var(--pst-color-warning);
   border: 1px solid currentColor; border-radius: .3rem; padding: 0 .2rem;

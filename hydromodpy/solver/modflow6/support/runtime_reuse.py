@@ -8,11 +8,12 @@ import numpy as np
 
 from hydromodpy.solver.field_property_mapping import require_positive_conductivity
 from hydromodpy.solver.modflow6.builders import build_drain_stress_period_data
-from hydromodpy.solver.modflow6.support.property_mapping import (
+from hydromodpy.solver.modflow6.support.property_mapping import resolve_k33_field
+from hydromodpy.solver.modflow_common import ModflowPreprocessOptions
+from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
 )
-from hydromodpy.solver.modflow_common import ModflowPreprocessOptions
 
 
 def calibration_runtime_reuse_enabled(
@@ -82,20 +83,26 @@ def refresh_reused_runtime_property_packages(
         optional_fill_values={"Sy": 0.0, "Ss": 0.0},
         runtime_property_overrides=flow_runtime_overrides,
     )
-    model.hk = model.solver_mesh.flatten_from_grid(flow_params["hk"])
+    model.hk = flow_params["hk"]
     require_positive_conductivity(
         model.hk,
         active_mask=~np.asarray(model.solver_mesh.inactive_mask, dtype=bool),
         flow=model.flow,
     )
-    model.sy = model.solver_mesh.flatten_from_grid(flow_params["sy"])
-    model.ss = model.solver_mesh.flatten_from_grid(flow_params["ss"])
+    model.sy = flow_params["sy"]
+    model.ss = flow_params["ss"]
+    # The rule of the first build: a Kv field wins, else k33 = k / vka.
+    model.k33 = resolve_k33_field(
+        model.hk,
+        flow_params.get("kv"),
+        model.modflow_config.process_specific.vka,
+        label="flow vertical anisotropy",
+    )
 
     updated_packages: list[str] = []
     if getattr(model, "npf", None) is not None:
         model.npf.k.set_data(model.hk)
-        # k33 = k / vka (vka = kh/kv vertical anisotropy ratio, > 0).
-        model.npf.k33.set_data(model.hk / float(model.modflow_config.process_specific.vka))
+        model.npf.k33.set_data(model.k33)
         updated_packages.append("npf")
     if getattr(model, "sto", None) is not None:
         model.sto.sy.set_data(model.sy)

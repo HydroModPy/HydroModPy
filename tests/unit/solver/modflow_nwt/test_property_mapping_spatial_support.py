@@ -13,6 +13,7 @@ from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def _build_solver_mesh(*, nlay: int = 1, nrow: int = 2, ncol: int = 4):
@@ -20,7 +21,7 @@ def _build_solver_mesh(*, nlay: int = 1, nrow: int = 2, ncol: int = 4):
     botm = np.empty((nlay, nrow, ncol), dtype=float)
     for ilay in range(nlay):
         botm[ilay, :, :] = 9.0 - float(ilay)
-    return SolverMesh.from_structured_arrays(
+    return solver_mesh_from_structured_arrays(
         nrow=nrow,
         ncol=ncol,
         top=top,
@@ -96,15 +97,10 @@ def test_resolve_flow_property_arrays_heterogeneous_uses_non_geology_support() -
         required_properties={"K"},
     )
 
-    expected_surface = np.array(
-        [
-            [10.0, 10.0, 2.0, 2.0],
-            [10.0, 10.0, 2.0, 2.0],
-        ],
-        dtype=float,
-    )
-    np.testing.assert_allclose(actual["hk_value"], expected_surface)
-    np.testing.assert_allclose(actual["hk"][0], expected_surface)
+    # Flat per cell, row 0 first: the NWT adapter reshapes to its DIS grid.
+    expected_surface = np.array([10.0, 10.0, 2.0, 2.0, 10.0, 10.0, 2.0, 2.0], dtype=float)
+    np.testing.assert_array_equal(actual["hk_value"], expected_surface)
+    np.testing.assert_array_equal(actual["hk"][0], expected_surface)
 
 
 def test_resolve_flow_property_arrays_reports_missing_requested_support() -> None:

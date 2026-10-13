@@ -12,6 +12,7 @@ from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow6.builders import build_evt_stress_period_data
 from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 
 from ._test_modflow6_boundary_conditions_builders import _build_model
 
@@ -29,7 +30,7 @@ _DELETED_DELEGATORS = (
 
 
 def test_to_export_array_structured_reshape_and_unstructured_identity() -> None:
-    structured = SolverMesh.from_structured_arrays(
+    structured = solver_mesh_from_structured_arrays(
         nrow=2,
         ncol=3,
         top=np.full((2, 3), 10.0),
@@ -54,8 +55,8 @@ def test_to_export_array_structured_reshape_and_unstructured_identity() -> None:
         vertices=np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=float),
         cell_blocks=(CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2], [0, 2, 3]], dtype=int)),),
     )
-    model.solver_mesh = SolverMesh(
-        planar_mesh=planar,
+    model.solver_mesh = solver_mesh_from(
+        planar,
         top=np.array([1.0, 1.0]),
         botm=np.array([[0.0, 0.0]]),
         inactive_mask=np.zeros((1, 2), dtype=bool),
@@ -71,7 +72,7 @@ def test_mf6_evt_extinction_depth_from_process_specific() -> None:
     model.modflow_config = _coerce_modflow6_config(
         {"process_specific": {"evt_extinction_depth": 2.5}}
     )
-    solver_mesh = SolverMesh.from_structured_arrays(
+    solver_mesh = solver_mesh_from_structured_arrays(
         nrow=2,
         ncol=3,
         top=np.full((2, 3), 10.0),

@@ -4,6 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.physics.flow import Flow
@@ -241,26 +242,43 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_param
     assert np.allclose(model.state.head_m, [5.0, 5.0])
 
 
-def test_boussinesq_flow_adapter_falls_back_to_bundle_and_overrides_properties(
+def _bundle_context(tmp_path: Path, *, bundle_dir: Path, flow: Flow, **setup: object) -> RunContext:
+    state = RunState(
+        setup=SimpleNamespace(
+            mesh_bundle=None,
+            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
+            flow=flow,
+            domain=None,
+            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
+            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
+            **setup,
+        ),
+    )
+    run = ProcessRun(
+        id="flow_main::boussinesq_bundle",
+        process_id="flow_main",
+        process_type="flow",
+        solver="boussinesq",
+    )
+    return RunContext(
+        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
+        run=run,
+        state=state,
+    )
+
+
+def test_boussinesq_flow_adapter_refuses_a_flow_k_next_to_the_k_of_a_bundle(
     tmp_path: Path,
 ) -> None:
+    """The bundle cells carry K and [flow.param.K] sets it too: two sources, refused.
+
+    The runtime mesh cannot be built here (the domain has no surface), so the
+    adapter falls back to the bundle. Before, the flow K mapped on the runtime
+    mesh overwrote the bundle K in silence.
+    """
     planar_mesh = GmshPlanarMesh2D(
-        points_xy=np.asarray(
-            [
-                [0.0, 0.0],
-                [1.0, 0.0],
-                [1.0, 1.0],
-                [0.0, 1.0],
-            ],
-            dtype=float,
-        ),
-        connectivity=np.asarray(
-            [
-                [0, 1, 2],
-                [0, 2, 3],
-            ],
-            dtype=int,
-        ),
+        points_xy=np.asarray([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=float),
+        connectivity=np.asarray([[0, 1, 2], [0, 2, 3]], dtype=int),
         cell_type="triangle",
     )
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_heterogeneous_override")
@@ -282,40 +300,63 @@ def test_boussinesq_flow_adapter_falls_back_to_bundle_and_overrides_properties(
             }
         )
     )
-    state = RunState(
-        setup=SimpleNamespace(
-            cell_mesh=cell_mesh_of(planar_mesh),
-            mesh_bundle=None,
-            mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=flow,
-            domain=SimpleNamespace(
-                zones={"field_hydrofacies": _HalfDomainSupport("field_hydrofacies")}
-            ),
-            domain_geographic=None,
-            time_grid=SimpleNamespace(period_lengths_seconds=(3600.0,)),
-            workspace=SimpleNamespace(simulations_folder=tmp_path, solver_scratch_folder=tmp_path),
-        ),
-    )
-    run = ProcessRun(
-        id="flow_main::boussinesq_bundle_heterogeneous_override",
-        process_id="flow_main",
-        process_type="flow",
-        solver="boussinesq",
-    )
-    ctx = RunContext(
-        plan=SimulationPlan(name="demo", description="demo", runs=(run,)),
-        run=run,
-        state=state,
+    ctx = _bundle_context(tmp_path, bundle_dir=bundle_dir, flow=flow)
+    ctx.state.setup.cell_mesh = cell_mesh_of(planar_mesh)
+    ctx.state.setup.domain = SimpleNamespace(
+        zones={"field_hydrofacies": _HalfDomainSupport("field_hydrofacies")}
     )
 
-    result = BoussinesqFlowAdapter().execute(ctx)
-    model = result.primary_model
+    with pytest.raises(ValueError, match=r"Two sources set K") as error:
+        BoussinesqFlowAdapter().execute(ctx)
+    assert str(bundle_dir) in str(error.value)
+    assert "[flow.param.K]" in str(error.value)
 
-    assert model.mesh_bundle is not None
-    assert model.mesh is not None
-    assert np.allclose(model.mesh.hydraulic_conductivity_m_s, [8.0e-7, 3.0e-4])
-    assert np.allclose(model.mesh.storage_coefficient, [0.03, 0.21])
-    assert model.has_numerical_solution is True
+
+def test_boussinesq_flow_adapter_refuses_a_flow_k_next_to_a_bundle_default_k(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_custom_bundle(
+        tmp_path / "bundle_default_k",
+        conductivity_values=("", ""),
+        conductivity_default=3.0e-5,
+    )
+    flow = Flow(
+        FlowConfig.model_validate(
+            {"param_list": ["K"], "param": {"K": _homogeneous_param(1.0e-5)}, "ic": {"type": "top"}}
+        )
+    )
+
+    with pytest.raises(ValueError, match=r"Two sources set K"):
+        BoussinesqFlowAdapter().execute(_bundle_context(tmp_path, bundle_dir=bundle_dir, flow=flow))
+
+
+def test_boussinesq_flow_adapter_never_maps_a_flow_k_on_a_bundle(tmp_path: Path) -> None:
+    bundle_dir = _write_custom_bundle(tmp_path / "bundle_no_k", conductivity_values=("", ""))
+    flow = Flow(
+        FlowConfig.model_validate(
+            {"param_list": ["K"], "param": {"K": _homogeneous_param(1.0e-5)}, "ic": {"type": "top"}}
+        )
+    )
+
+    with pytest.raises(ValueError, match=r"cannot be mapped on the mesh bundle"):
+        BoussinesqFlowAdapter().execute(_bundle_context(tmp_path, bundle_dir=bundle_dir, flow=flow))
+
+
+def test_boussinesq_flow_adapter_completes_bundle_k_from_metadata_default(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = _write_custom_bundle(
+        tmp_path / "bundle_default_k_only",
+        conductivity_values=("", "4.0e-5"),
+        conductivity_default=3.0e-5,
+    )
+    flow = Flow(FlowConfig.model_validate({"ic": {"type": "top"}}))
+
+    result = BoussinesqFlowAdapter().execute(
+        _bundle_context(tmp_path, bundle_dir=bundle_dir, flow=flow)
+    )
+
+    assert np.allclose(result.primary_model.mesh.hydraulic_conductivity_m_s, [3.0e-5, 4.0e-5])
 
 
 def test_boussinesq_flow_adapter_loads_bundle_from_mesh_summary(tmp_path: Path) -> None:

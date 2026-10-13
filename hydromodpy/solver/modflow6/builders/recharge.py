@@ -29,6 +29,7 @@ from hydromodpy.physics.forcing.validation import (
 )
 from hydromodpy.solver.modflow6.builders.boundary_conditions import collapse_identical_periods
 from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
+from hydromodpy.spatial.mesh.forcing import discretize_fields_on_cells, discretize_points_on_cells
 
 logger = get_logger(__name__)
 
@@ -306,58 +307,29 @@ def bind_heterogeneous_recharge(model, recharge_cfg: object) -> None:
 def _discretize_heterogeneous_source(
     model, source: object, *, interpolation_method: str, source_unit: str
 ) -> dict[int, np.ndarray] | None:
-    """Discretize one gridded or located-point source onto the solver mesh.
+    """Discretize one gridded or located-point source onto the solver cells.
 
     Shared by the aquifer recharge and the soil residual ETP: both hand a
     ``LoadResult``-like ``source`` and get back ``{kper: (ncpl,) m/s}``, or
-    ``None`` when ``source`` carries neither fields nor points.
+    ``None`` when ``source`` carries neither fields nor points. The centres are
+    those of the solver mesh, whatever its engine.
     """
     sim_window = model.time_grid.window if model.time_grid is not None else None
-    use_structured = bool(getattr(model.solver_mesh, "is_structured", False))
-    if use_structured:
-        from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
-            discretize_fields_on_sgrid,
-            discretize_points_on_sgrid,
-        )
-    else:
-        from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
-            discretize_fields_on_planar_mesh,
-            discretize_points_on_planar_mesh,
-        )
-
-        # The solver cells, ragged-safe through the HydroMesh (cell_centroids + n_cells).
-        planar_mesh = model.solver_mesh.planar_mesh
+    centers = model.solver_mesh.cell_centroids()
 
     # Prefer fields; fall back to located points.
     if getattr(source, "has_fields", False):
-        if use_structured:
-            return discretize_fields_on_sgrid(
-                load_result=source,
-                sgrid=model.solver_mesh,
-                nper=int(model.nper),
-                simulation_window=sim_window,
-                method=interpolation_method,
-            )
-        return discretize_fields_on_planar_mesh(
+        return discretize_fields_on_cells(
             load_result=source,
-            planar_mesh=planar_mesh,
+            centers=centers,
             nper=int(model.nper),
             simulation_window=sim_window,
             method=interpolation_method,
         )
     if getattr(source, "has_points", False):
-        if use_structured:
-            return discretize_points_on_sgrid(
-                load_result=source,
-                sgrid=model.solver_mesh,
-                nper=int(model.nper),
-                simulation_window=sim_window,
-                method=interpolation_method,
-                source_unit=source_unit,
-            )
-        return discretize_points_on_planar_mesh(
+        return discretize_points_on_cells(
             load_result=source,
-            planar_mesh=planar_mesh,
+            centers=centers,
             nper=int(model.nper),
             simulation_window=sim_window,
             method=interpolation_method,

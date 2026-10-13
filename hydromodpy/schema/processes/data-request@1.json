@@ -1500,7 +1500,7 @@
               },
               "cell_samples_per_axis": {
                 "default": 8,
-                "description": "Sub-sampling density for GeologyField.on_mesh(). Higher = more precise geology interface, slower runtime.",
+                "description": "Sub-sampling density for GeologyField.on_mesh() on a raster source. A vector source gets the exact polygon areas in the solver and ignores it. Higher = more precise geology interface, slower runtime.",
                 "examples": [
                   8
                 ],

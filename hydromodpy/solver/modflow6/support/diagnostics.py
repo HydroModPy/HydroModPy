@@ -24,26 +24,10 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
 )
 from hydromodpy.solver.modflow6.builders.wells import resolve_well_disv_cell
 from hydromodpy.solver.modflow_common.options import ModflowPostprocessOptions
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
-
-class RuntimeSupportLike(Protocol):
-    """Minimal runtime-support contract used by overview plotting helpers."""
-
-    edge_ids: np.ndarray
-    node_x_m: np.ndarray
-    node_y_m: np.ndarray
-    edge_node_a_index: np.ndarray
-    edge_node_b_index: np.ndarray
-    cell_node_indices: tuple[tuple[int, ...], ...]
-    cell_centroid_x_m: np.ndarray
-    cell_centroid_y_m: np.ndarray
-    edge_midpoint_x_m: np.ndarray
-    edge_midpoint_y_m: np.ndarray
-    boundary_labels_by_edge_id: Mapping[int, object]
-
-    def river_edge_indices(self) -> np.ndarray: ...
-
-    def edge_indices_for_label(self, label: str) -> np.ndarray: ...
+_BOUNDARY_FAMILY_PREFIX = "boundary:"
 
 
 class RuntimeSupportOverviewModel(Protocol):
@@ -51,85 +35,37 @@ class RuntimeSupportOverviewModel(Protocol):
 
     flow: object | None
     save_file: str
-    solver_mesh_support: RuntimeSupportLike | None
+    solver_mesh: SolverMesh
     grid_ctx: object | None
 
-    def _boundary_conditions_mapping(self) -> Mapping[str, object]: ...
 
-    def _is_bc_active(self, bc_id: str) -> bool: ...
-
-    def _boundary_attr(self, boundary: object, name: str, default=None): ...
-
-    def _boundary_support_cell_ids(self, *, boundary: object, bc_id: str) -> list[int]: ...
-
-    def _resolve_stream_boundary_series(self) -> np.ndarray | None: ...
-
-    def _stream_chd_support_mask(self, stream_series: np.ndarray | None) -> np.ndarray: ...
-
-    def _resolve_ocean_boundary_series(self) -> np.ndarray | None: ...
-
-    def _ocean_chd_support_mask(self, ocean_series: np.ndarray | None) -> np.ndarray: ...
-
-    def _resolve_well_disv_cell(
-        self,
-        *,
-        well_id: str,
-        well_cfg: object,
-        grid: object | None,
-    ) -> tuple[int, int]: ...
+def mesh_edge_segments(cell_mesh: PlanarCellMesh) -> np.ndarray:
+    """Return every mesh edge as an ``(m, 2, 2)`` array of XY end points."""
+    nodes = cell_mesh.geometry.edge_nodes
+    return _node_segments(cell_mesh, nodes[:, 0], nodes[:, 1])
 
 
-def support_edge_segments(
-    support: RuntimeSupportLike, edge_indices: np.ndarray
-) -> list[np.ndarray]:
-    """Return XY segments for one sequence of runtime support edge indices."""
-    indices = np.asarray(edge_indices, dtype=int).reshape(-1)
-    if indices.size == 0:
-        return []
-    node_x_m = np.asarray(getattr(support, "node_x_m", ()), dtype=float).reshape(-1)
-    node_y_m = np.asarray(getattr(support, "node_y_m", ()), dtype=float).reshape(-1)
-    edge_node_a = np.asarray(getattr(support, "edge_node_a_index", ()), dtype=int).reshape(-1)
-    edge_node_b = np.asarray(getattr(support, "edge_node_b_index", ()), dtype=int).reshape(-1)
-    segments: list[np.ndarray] = []
-    for edge_index in indices.tolist():
-        if edge_index < 0 or edge_index >= edge_node_a.size or edge_index >= edge_node_b.size:
-            continue
-        node_a = int(edge_node_a[edge_index])
-        node_b = int(edge_node_b[edge_index])
-        segments.append(
-            np.asarray(
-                [
-                    [float(node_x_m[node_a]), float(node_y_m[node_a])],
-                    [float(node_x_m[node_b]), float(node_y_m[node_b])],
-                ],
-                dtype=float,
-            )
-        )
-    return segments
+def family_edge_segments(cell_mesh: PlanarCellMesh, family: str) -> np.ndarray:
+    """Return the faces of one face family as an ``(m, 2, 2)`` array of XY end points."""
+    table = cell_mesh.face_families
+    rows = cell_mesh.face_rows(family)
+    if table is None or not rows.any():
+        return np.empty((0, 2, 2), dtype=float)
+    return _node_segments(cell_mesh, table.node_a[rows], table.node_b[rows])
 
 
-def support_cell_polygons(support: RuntimeSupportLike, cell_ids: np.ndarray) -> list[np.ndarray]:
-    """Return XY polygons for one sequence of runtime support cell ids."""
-    indices = np.asarray(cell_ids, dtype=int).reshape(-1)
-    if indices.size == 0:
-        return []
-    node_x_m = np.asarray(getattr(support, "node_x_m", ()), dtype=float).reshape(-1)
-    node_y_m = np.asarray(getattr(support, "node_y_m", ()), dtype=float).reshape(-1)
-    cell_node_indices = tuple(getattr(support, "cell_node_indices", ()) or ())
-    polygons: list[np.ndarray] = []
-    for cell_id in np.unique(indices).tolist():
-        if cell_id < 0 or cell_id >= len(cell_node_indices):
-            continue
-        node_indices = np.asarray(cell_node_indices[int(cell_id)], dtype=int).reshape(-1)
-        if node_indices.size < 3:
-            continue
-        polygons.append(
-            np.column_stack([node_x_m[node_indices], node_y_m[node_indices]]).astype(
-                float,
-                copy=False,
-            )
-        )
-    return polygons
+def _node_segments(cell_mesh: PlanarCellMesh, node_a: np.ndarray, node_b: np.ndarray) -> np.ndarray:
+    vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)
+    return np.stack([vertices[node_a], vertices[node_b]], axis=1)
+
+
+def cell_outlines(cell_mesh: PlanarCellMesh, cell_ids: np.ndarray) -> list[np.ndarray]:
+    """Return the XY outline of each distinct cell of ``cell_ids``."""
+    ids = np.unique(np.asarray(cell_ids, dtype=np.int64).reshape(-1))
+    ids = ids[(ids >= 0) & (ids < cell_mesh.n_cells)]
+    vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)
+    rows = cell_mesh.geometry.padded_connectivity[ids]
+    return [vertices[row[row >= 0]] for row in rows]
 
 
 def build_support_overlay_specs(
@@ -212,35 +148,19 @@ def build_well_overlay_specs(model: RuntimeSupportOverviewModel) -> list[dict[st
     if not isinstance(wells, Mapping):
         return []
 
-    support = getattr(model, "solver_mesh_support", None)
-    grid = None if model.grid_ctx is None else model.grid_ctx.grid
+    centroids = model.solver_mesh.cell_centroids()
     items: list[dict[str, object]] = []
     for well_id, well_cfg in wells.items():
         try:
-            _, cell_id = resolve_well_disv_cell(
-                model,
-                well_id=str(well_id),
-                well_cfg=well_cfg,
-                grid=grid,
-            )
+            _, cell_id = resolve_well_disv_cell(model, well_id=str(well_id), well_cfg=well_cfg)
         except Exception:
-            continue
-
-        if support is not None and 0 <= int(cell_id) < int(getattr(support, "n_cells", 0)):
-            x_m = float(
-                np.asarray(support.cell_centroid_x_m, dtype=float).reshape(-1)[int(cell_id)]
-            )
-            y_m = float(
-                np.asarray(support.cell_centroid_y_m, dtype=float).reshape(-1)[int(cell_id)]
-            )
-        else:
             continue
         items.append(
             {
                 "id": str(well_id),
                 "cell_id": int(cell_id),
-                "x_m": x_m,
-                "y_m": y_m,
+                "x_m": float(centroids[int(cell_id), 0]),
+                "y_m": float(centroids[int(cell_id), 1]),
             }
         )
     return items
@@ -254,9 +174,7 @@ def export_runtime_support_overview(
     """Write one diagnostic figure showing runtime gmsh supports used by the solver."""
     if not getattr(options, "native_mesh_png", False):
         return
-    support = getattr(model, "solver_mesh_support", None)
-    if support is None:
-        return
+    cell_mesh = model.solver_mesh.cell_mesh
 
     import matplotlib
 
@@ -269,15 +187,12 @@ def export_runtime_support_overview(
     figure_dir = os.path.join(model.save_file, "_figures", "native_mesh")
     filesystem.create_folder(figure_dir)
 
-    all_edge_indices = np.arange(
-        np.asarray(getattr(support, "edge_ids", ()), dtype=int).size, dtype=int
-    )
-    all_segments = support_edge_segments(support, all_edge_indices)
-    if not all_segments:
+    all_segments = mesh_edge_segments(cell_mesh)
+    if not all_segments.size:
         return
 
-    node_x_m = np.asarray(getattr(support, "node_x_m", ()), dtype=float).reshape(-1)
-    node_y_m = np.asarray(getattr(support, "node_y_m", ()), dtype=float).reshape(-1)
+    node_x_m = np.asarray(cell_mesh.mesh.vertices[:, 0], dtype=float)
+    node_y_m = np.asarray(cell_mesh.mesh.vertices[:, 1], dtype=float)
     fig, axs = plt.subplots(1, 2, figsize=(14.8, 6.4), dpi=220)
     ax_active, ax_labels = axs
 
@@ -293,7 +208,7 @@ def export_runtime_support_overview(
 
     active_handles: list[object] = []
     for label, cell_ids, color in build_support_overlay_specs(model):
-        polygons = support_cell_polygons(support, cell_ids)
+        polygons = cell_outlines(cell_mesh, cell_ids)
         if not polygons:
             continue
         ax_active.add_collection(
@@ -308,9 +223,8 @@ def export_runtime_support_overview(
         )
         active_handles.append(Patch(facecolor=color, edgecolor=color, alpha=0.22, label=label))
 
-    river_indices = np.asarray(support.river_edge_indices(), dtype=int).reshape(-1)
-    river_segments = support_edge_segments(support, river_indices)
-    if river_segments:
+    river_segments = family_edge_segments(cell_mesh, "rivers")
+    if river_segments.size:
         river_collection = LineCollection(
             river_segments,
             colors="#17becf",
@@ -357,12 +271,15 @@ def export_runtime_support_overview(
         )
 
     label_handles: list[object] = []
-    label_values = sorted(
-        {
-            str(value)
-            for value in getattr(support, "boundary_labels_by_edge_id", {}).values()
-            if str(value).strip() != ""
-        }
+    table = cell_mesh.face_families
+    label_values = (
+        []
+        if table is None
+        else sorted(
+            name.removeprefix(_BOUNDARY_FAMILY_PREFIX)
+            for name in table.names
+            if name.startswith(_BOUNDARY_FAMILY_PREFIX) and cell_mesh.face_rows(name).any()
+        )
     )
     palette = (
         "#d62728",
@@ -375,9 +292,8 @@ def export_runtime_support_overview(
         "#bcbd22",
     )
     for index, label in enumerate(label_values):
-        edge_indices = np.asarray(support.edge_indices_for_label(label), dtype=int).reshape(-1)
-        segments = support_edge_segments(support, edge_indices)
-        if not segments:
+        segments = family_edge_segments(cell_mesh, f"{_BOUNDARY_FAMILY_PREFIX}{label}")
+        if not segments.size:
             continue
         color = palette[index % len(palette)]
         ax_labels.add_collection(
@@ -389,12 +305,8 @@ def export_runtime_support_overview(
                 zorder=2,
             )
         )
-        x_mid = float(
-            np.mean(np.asarray(support.edge_midpoint_x_m, dtype=float).reshape(-1)[edge_indices])
-        )
-        y_mid = float(
-            np.mean(np.asarray(support.edge_midpoint_y_m, dtype=float).reshape(-1)[edge_indices])
-        )
+        x_mid = float(segments[:, :, 0].mean())
+        y_mid = float(segments[:, :, 1].mean())
         ax_labels.text(
             x_mid,
             y_mid,
@@ -452,11 +364,11 @@ def export_runtime_support_overview(
 
 
 __all__ = [
-    "RuntimeSupportLike",
     "RuntimeSupportOverviewModel",
     "build_support_overlay_specs",
     "build_well_overlay_specs",
+    "cell_outlines",
     "export_runtime_support_overview",
-    "support_cell_polygons",
-    "support_edge_segments",
+    "family_edge_segments",
+    "mesh_edge_segments",
 ]

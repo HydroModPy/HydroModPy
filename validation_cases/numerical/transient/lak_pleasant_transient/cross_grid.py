@@ -23,11 +23,11 @@ from scipy.spatial import cKDTree
 from shapely.geometry import Polygon, box
 
 from hydromodpy.solver.modflow6.builders.lake import (
-    build_vertex_grid_for_intersection,
     resolve_lake_cells,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.ops.voronoi import voronoi_planar_mesh
+from validation_cases.shared.solver_mesh import solver_mesh_of
 
 from .geometry import CASE_DIR, PleasantTransientGeometry, load_geometry
 from .grid_equivalence import (
@@ -116,8 +116,8 @@ def _voronoi_solver_mesh(geometry: PleasantTransientGeometry) -> SolverMesh:
     planar = voronoi_planar_mesh(points, box(0.0, 0.0, domain, domain))
     n_cells = planar.n_cells
     botm = np.stack([np.full(n_cells, b) for b in geometry.botm_m])
-    return SolverMesh(
-        planar_mesh=planar,
+    return solver_mesh_of(
+        planar,
         top=np.full(n_cells, geometry.top_m),
         botm=botm,
         inactive_mask=np.zeros((geometry.nlay, n_cells), dtype=bool),
@@ -149,9 +149,8 @@ def _mirror_across_lake_lines(
 def _run_voronoi(workspace: Path, geometry: PleasantTransientGeometry) -> GridRunResult:
     """Build, run and summarise the Voronoi-grid LAK simulation."""
     mesh = _voronoi_solver_mesh(geometry)
-    vertex_grid = build_vertex_grid_for_intersection(mesh)
     lake_cells = resolve_lake_cells(
-        None, lake_id=_LAKE_ID, polygon=_lake_polygon(geometry), vertex_grid=vertex_grid
+        None, lake_id=_LAKE_ID, polygon=_lake_polygon(geometry), cell_mesh=mesh.cell_mesh
     )
     sim, gwf, connectiondata = _build_irregular_simulation(workspace, geometry, mesh, lake_cells)
     sim.write_simulation(silent=True)

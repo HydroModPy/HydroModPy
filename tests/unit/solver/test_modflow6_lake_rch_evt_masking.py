@@ -17,6 +17,7 @@ from hydromodpy.solver.modflow6.builders import (
 )
 from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def test_mask_recharge_zeros_only_lake_cells() -> None:
@@ -42,7 +43,7 @@ def _evt_model() -> tuple[SimpleNamespace, SolverMesh]:
     nrow, ncol = 2, 3
     top = np.full((nrow, ncol), 10.0)
     botm = np.stack([np.full((nrow, ncol), 5.0), np.full((nrow, ncol), 0.0)])
-    mesh = SolverMesh.from_structured_arrays(nrow=nrow, ncol=ncol, top=top, botm=botm)
+    mesh = solver_mesh_from_structured_arrays(nrow=nrow, ncol=ncol, top=top, botm=botm)
     return SimpleNamespace(
         ncpl=nrow * ncol,
         nper=1,

@@ -31,9 +31,7 @@ def extract_homogeneous_series_from_fields(
     by averaging all spatial cells. Returns a Series in the data-manager
     internal unit, or None when no field data is available.
     """
-    from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
-        spatial_mean_from_fields,
-    )
+    from hydromodpy.spatial.mesh.forcing import spatial_mean_from_fields
 
     return spatial_mean_from_fields(result)
 

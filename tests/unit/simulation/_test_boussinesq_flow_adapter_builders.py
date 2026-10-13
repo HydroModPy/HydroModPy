@@ -25,6 +25,8 @@ def _write_custom_bundle(
     river_internal_edge: bool = False,
     storage_values: tuple[str, str] = ("0.10", "0.15"),
     storage_default: float | None = None,
+    conductivity_values: tuple[str, str] = ("1.0e-5", "2.0e-5"),
+    conductivity_default: float | None = None,
 ) -> Path:
     bundle_dir.mkdir(parents=True, exist_ok=True)
     (bundle_dir / "mesh_2d.msh").write_text(
@@ -38,6 +40,13 @@ def _write_custom_bundle(
             "unit": "-",
             "values_source": "inline",
             "default_value": float(storage_default),
+        }
+    if conductivity_default is not None:
+        hydraulic_properties["conductivity"] = {
+            "available": True,
+            "unit": "m/s",
+            "values_source": "inline",
+            "default_value": float(conductivity_default),
         }
     (bundle_dir / "metadata.json").write_text(
         json.dumps(
@@ -71,8 +80,8 @@ def _write_custom_bundle(
         bundle_dir / "cells.csv",
         "cell_id,geom_type,n0,n1,n2,n3,centroid_x,centroid_y,area_m2,z_top_centroid,z_top_mean,z_bottom_centroid,z_bottom_mean,geology_code,geology_key,hydraulic_conductivity_m_s,storage_coefficient",
         [
-            f"0,triangle,0,1,2,,0.666667,0.333333,0.5,10.0,10.0,5.0,5.0,1,granite,1.0e-5,{storage_values[0]}",
-            f"1,triangle,0,2,3,,0.333333,0.666667,0.5,11.0,11.0,4.0,4.0,2,schist,2.0e-5,{storage_values[1]}",
+            f"0,triangle,0,1,2,,0.666667,0.333333,0.5,10.0,10.0,5.0,5.0,1,granite,{conductivity_values[0]},{storage_values[0]}",
+            f"1,triangle,0,2,3,,0.333333,0.666667,0.5,11.0,11.0,4.0,4.0,2,schist,{conductivity_values[1]},{storage_values[1]}",
         ],
     )
     _write_csv(

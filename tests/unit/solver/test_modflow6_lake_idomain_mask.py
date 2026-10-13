@@ -15,12 +15,13 @@ import pytest
 
 from hydromodpy.solver.modflow6.builders import apply_lake_idomain_mask
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def _grid(nrow: int, ncol: int, nlay: int = 3) -> SolverMesh:
     top = np.full((nrow, ncol), 10.0)
     botm = np.stack([np.full((nrow, ncol), 10.0 - (lay + 1) * 3.0) for lay in range(nlay)])
-    return SolverMesh.from_structured_arrays(nrow=nrow, ncol=ncol, top=top, botm=botm)
+    return solver_mesh_from_structured_arrays(nrow=nrow, ncol=ncol, top=top, botm=botm)
 
 
 def test_apply_lake_idomain_mask_deactivates_surface_layer_of_lake_cells() -> None:

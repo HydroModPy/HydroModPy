@@ -20,6 +20,7 @@ from hydromodpy.solver.modflow_common.discharge_routing import (
 )
 from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 _NROW, _NCOL = 3, 3
 
@@ -27,7 +28,7 @@ _NROW, _NCOL = 3, 3
 def _model(top: np.ndarray) -> SimpleNamespace:
     """A 3x3 structured model whose top D is built on, as the build does."""
     botm = np.full((_NROW, _NCOL), -10.0, dtype=float)
-    mesh = SolverMesh.from_structured_arrays(
+    mesh = solver_mesh_from_structured_arrays(
         nrow=_NROW,
         ncol=_NCOL,
         top=top,

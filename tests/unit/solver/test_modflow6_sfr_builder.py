@@ -27,12 +27,13 @@ from hydromodpy.solver.modflow6.builders.sfr import (
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReachTrace
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def _mesh(nrow: int = 5, ncol: int = 5, nlay: int = 1) -> SolverMesh:
     top = np.full((nrow, ncol), 100.0)
     botm = np.stack([np.full((nrow, ncol), 100.0 - 50.0 * (k + 1)) for k in range(nlay)])
-    return SolverMesh.from_structured_arrays(
+    return solver_mesh_from_structured_arrays(
         nrow=nrow, ncol=ncol, top=top, botm=botm, dx=10.0, dy=10.0
     )
 
@@ -141,7 +142,7 @@ def test_trace_split_assigns_cells_in_along_line_order() -> None:
     model = _fake_model({"net0": _trace_payload(trace)})
     networks = resolve_sfr_networks(model, solver_mesh=mesh)
     cells = [reach.cellid[1] for reach in networks["net0"].reaches]
-    # from_structured_arrays puts row 0 at the north, so the top row
+    # solver_mesh_from_structured_arrays puts row 0 at the north, so the top row
     # (y in [40, 50]) is cells 0..4 west to east.
     assert cells == sorted(cells)
     assert len(cells) == 4 or len(cells) == 5

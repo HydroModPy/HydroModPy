@@ -26,6 +26,7 @@ from hydromodpy.solver.modflow6.support.computational_top import (
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from tests._helpers.solver_meshes import solver_mesh_from
 from tests._helpers.ugrid_meshes import quad_mesh
 
 GROUND = np.array([12.0, 10.5, 9.0, 7.25, 6.0, 4.0])
@@ -35,8 +36,8 @@ SUBSTRATUM = -5.0
 def _mesh(ground, botm, *, inactive=None) -> SolverMesh:
     vertices, connectivity = quad_mesh(1, len(ground))
     botm = np.atleast_2d(np.asarray(botm, dtype=float))
-    return SolverMesh(
-        planar_mesh=HydroMesh(
+    return solver_mesh_from(
+        HydroMesh(
             vertices=vertices[:, :2],
             cell_blocks=(CellBlock(CellType.QUADRILATERAL, connectivity),),
         ),

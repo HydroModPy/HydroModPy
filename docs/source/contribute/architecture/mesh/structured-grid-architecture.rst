@@ -20,10 +20,12 @@ Code map
   planar discretization helpers.
 - ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_mesh_adapter.py``:
   geometry bridge from solver grid to field-side mesh logic.
-- ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_field_discretization.py``:
-  field discretization helpers.
-- ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``:
-  heterogeneous parameter mapping to solver arrays.
+- ``hydromodpy/spatial/mesh/forcing/``: forcing (grids, stations) sampled
+  on the cell centres, for every mesh.
+- ``hydromodpy/spatial/field/zone_fractions.py`` and
+  ``hydromodpy/solver/field_property_mapping.py``: the zone fractions of
+  each cell and the one mapping of the flow properties to solver arrays,
+  read by every solver.
 - ``hydromodpy/solver/modflow_grid/solver_mesh.py``: solver-side
   consumer of the resolved mesh contract.
 - ``hydromodpy/spatial/field/core/field_param.py``: upstream field
@@ -35,8 +37,7 @@ Recommended reading path:
 2. ``raster_grid_reader.py`` and ``planar_discretizer.py``
 3. ``sgrid_generation.py``
 4. ``sgrid_mesh_adapter.py``
-5. ``sgrid_field_discretization.py`` and
-   ``sgrid_fieldparam_discretization.py``
+5. ``zone_fractions.py`` and ``field_property_mapping.py``
 
 Static class diagram
 --------------------

@@ -140,8 +140,9 @@ class GeologyConfigBlock(HydroModelBase):
         default=8,
         description=(
             "Number of sample points along each axis of a mesh cell when the geology fractions "
-            "are projected onto the mesh. More points give better fractions in narrow or "
-            "irregular polygons and take longer."
+            "are sampled: a raster source, or a generated rings or bands support. A vector "
+            "source gets the exact polygon areas in the solver and ignores it. More points "
+            "give better fractions in narrow or irregular polygons and take longer."
         ),
         json_schema_extra=field_metadata(unit="-"),
     )

@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     build_concentration_runtime_overrides,
@@ -67,37 +68,27 @@ def test_build_concentration_runtime_overrides_normalizes_mapping_payloads() -> 
 
 
 def test_resolve_flow_property_runtime_overrides_broadcasts_surface_payloads() -> None:
-    solver_mesh = SimpleNamespace(
-        nlay=2,
-        nrow=2,
-        ncol=3,
-        n_cells=6,
-        is_structured=True,
-    )
-
     overrides = resolve_flow_property_runtime_overrides(
         {"properties": {"K": [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], "Sy": 0.2}},
-        solver_mesh,
+        nlay=2,
+        n_cells=6,
         required_properties={"K", "Sy"},
     )
 
-    assert overrides["hk"].shape == (2, 2, 3)
-    assert overrides["hk_value"].shape == (2, 3)
-    assert np.allclose(overrides["hk"][0], overrides["hk_value"])
-    assert np.allclose(overrides["hk"][1], overrides["hk_value"])
+    # A grid-shaped surface reads as its cells, row 0 first; the result is flat.
+    assert overrides["hk"].shape == (2, 6)
+    assert overrides["hk_value"].shape == (6,)
+    assert np.array_equal(overrides["hk_value"], [1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+    assert np.array_equal(overrides["hk"][0], overrides["hk_value"])
+    assert np.array_equal(overrides["hk"][1], overrides["hk_value"])
     assert np.allclose(overrides["sy"], 0.2)
 
 
-def test_resolve_flow_property_runtime_overrides_accepts_unstructured_full_arrays() -> None:
-    solver_mesh = SimpleNamespace(
-        nlay=2,
-        n_cells=4,
-        is_structured=False,
-    )
-
+def test_resolve_flow_property_runtime_overrides_accepts_full_arrays() -> None:
     overrides = resolve_flow_property_runtime_overrides(
         {"K": [[1.0, 2.0, 3.0, 4.0], [10.0, 20.0, 30.0, 40.0]]},
-        solver_mesh,
+        nlay=2,
+        n_cells=4,
         required_properties={"K"},
     )
 
@@ -105,3 +96,10 @@ def test_resolve_flow_property_runtime_overrides_accepts_unstructured_full_array
     assert overrides["hk_value"].shape == (4,)
     assert np.allclose(overrides["hk"][1], [10.0, 20.0, 30.0, 40.0])
     assert np.allclose(overrides["hk_value"], [1.0, 2.0, 3.0, 4.0])
+
+
+def test_resolve_flow_property_runtime_overrides_refuses_a_wrong_size() -> None:
+    with pytest.raises(ValueError, match="incompatible size"):
+        resolve_flow_property_runtime_overrides(
+            {"K": [1.0, 2.0, 3.0]}, nlay=2, n_cells=4, required_properties={"K"}
+        )

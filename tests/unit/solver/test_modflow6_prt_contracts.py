@@ -17,6 +17,7 @@ from hydromodpy.solver.modflow6.extractors.prt import Modflow6PrtOutputAdapter
 from hydromodpy.solver.modflow6.prt import Modflow6Prt
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from tests._helpers.solver_meshes import solver_mesh_from
 
 
 class _ZarrHandle:
@@ -208,7 +209,7 @@ def test_modflow6_prt_can_write_minimal_disv_package(tmp_path: Path) -> None:
         vertices=np.array([[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]),
         cell_blocks=(CellBlock(CellType.QUADRILATERAL, np.array([[0, 1, 2, 3]], dtype=int)),),
     )
-    solver_mesh = SolverMesh(
+    solver_mesh = solver_mesh_from(
         hydro_mesh,
         top=np.array([1.0]),
         botm=np.array([[0.0]]),
@@ -287,7 +288,7 @@ def test_modflow6_prt_converts_day_controls_to_model_seconds(tmp_path: Path) -> 
         vertices=np.array([[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]),
         cell_blocks=(CellBlock(CellType.QUADRILATERAL, np.array([[0, 1, 2, 3]], dtype=int)),),
     )
-    solver_mesh = SolverMesh(
+    solver_mesh = solver_mesh_from(
         hydro_mesh,
         top=np.array([1.0]),
         botm=np.array([[0.0]]),
@@ -356,7 +357,7 @@ def test_modflow6_prt_generates_regular_track_times(tmp_path: Path) -> None:
         vertices=np.array([[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]),
         cell_blocks=(CellBlock(CellType.QUADRILATERAL, np.array([[0, 1, 2, 3]], dtype=int)),),
     )
-    solver_mesh = SolverMesh(
+    solver_mesh = solver_mesh_from(
         hydro_mesh,
         top=np.array([1.0]),
         botm=np.array([[0.0]]),

@@ -36,12 +36,13 @@ from hydromodpy.solver.modflow6.builders import (
     mover_package_count,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def _grid_4x4(nlay: int = 2) -> SolverMesh:
     top = np.full((4, 4), 100.0)
     botm = np.stack([np.full((4, 4), 100.0 - (lay + 1) * 50.0) for lay in range(nlay)])
-    return SolverMesh.from_structured_arrays(nrow=4, ncol=4, top=top, botm=botm, dx=1.0, dy=1.0)
+    return solver_mesh_from_structured_arrays(nrow=4, ncol=4, top=top, botm=botm, dx=1.0, dy=1.0)
 
 
 def test_factor_mover_record_routes_outlet_to_receiver_lake() -> None:
@@ -175,7 +176,9 @@ def _grid_4x4_metric() -> SolverMesh:
     """A 4x4, 100 m, 2-layer grid that converges with a LAK + MVR cascade."""
     top = np.full((4, 4), 100.0)
     botm = np.stack([np.full((4, 4), 50.0), np.full((4, 4), 0.0)])
-    return SolverMesh.from_structured_arrays(nrow=4, ncol=4, top=top, botm=botm, dx=100.0, dy=100.0)
+    return solver_mesh_from_structured_arrays(
+        nrow=4, ncol=4, top=top, botm=botm, dx=100.0, dy=100.0
+    )
 
 
 def _two_lake_mvr_sim(tmp_path, *, exe: str):

@@ -274,14 +274,18 @@ class FlowToModflowAdapter:
         required_properties = resolve_required_flow_properties(
             flow_regime=resolve_flow_regime(self.flow),
         )
-        properties = resolve_flow_property_arrays(
-            flow=self.flow,
-            domain=self.domain,
-            solver_mesh=self.solver_mesh,
-            required_properties=required_properties,
-            optional_fill_values={"Sy": 0.0, "Ss": 0.0},
-            runtime_property_overrides=self.flow_runtime_overrides,
-        )
+        # NWT writes a DIS grid: the flat cell arrays go back to (nlay, nrow, ncol).
+        properties = {
+            name: self.solver_mesh.reshape_to_grid(values)
+            for name, values in resolve_flow_property_arrays(
+                flow=self.flow,
+                domain=self.domain,
+                solver_mesh=self.solver_mesh,
+                required_properties=required_properties,
+                optional_fill_values={"Sy": 0.0, "Ss": 0.0},
+                runtime_property_overrides=self.flow_runtime_overrides,
+            ).items()
+        }
         hk = properties["hk"]
         require_positive_conductivity(
             hk,

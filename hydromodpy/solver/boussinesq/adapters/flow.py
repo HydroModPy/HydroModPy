@@ -93,10 +93,17 @@ class BoussinesqFlowAdapter:
         )
 
     def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
-        """Return the nearest cell on the mesh this run actually wrote."""
-        from hydromodpy.solver.base.cell_lookup import locate_cell_on_solver_mesh
+        """Return the cell that holds ``(x, y)`` on the mesh this run actually wrote.
 
-        return locate_cell_on_solver_mesh(ctx, x, y)
+        The selector is ``(0, 0, cell_id)``, the flat form the head extractor of
+        this one-layer solver reads. A point outside the mesh takes the nearest
+        cell. ``None`` when the run has no cell mesh: a bundle mesh of the
+        validation cases carries none.
+        """
+        mesh = getattr(ctx.model, "mesh", None)
+        if getattr(mesh, "cell_mesh", None) is None:
+            return None
+        return (0, 0, mesh.locate_cell_index_for_point(x, y, allow_nearest=True))
 
     def cleanup(self, ctx: RunContext) -> None:
         """Remove the scratch directory written by this run, if any."""

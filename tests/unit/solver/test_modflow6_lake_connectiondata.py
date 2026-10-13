@@ -1,8 +1,8 @@
 """The home-grown LAK CONNECTIONDATA builder on a DISV grid.
 
 ``flopy.mf6.utils.get_lak_connections`` does not support embedded / horizontal
-lakes on DISV, so ``builders/lake.py`` builds CONNECTIONDATA itself with
-``flopy.utils.GridIntersect`` and the mesh geometry. The invariants under test:
+lakes on DISV, so ``builders/lake.py`` builds CONNECTIONDATA itself from the cell
+mesh. The invariants under test:
 
 * exactly one VERTICAL connection per lake column, pointing at the first active
   cell below the occupied layers (``cellid = (lay, cell2d)``);
@@ -26,11 +26,11 @@ from hydromodpy.solver.modflow6.builders import (
     apply_lake_idomain_mask,
     build_lak_package_args,
     build_lake_connectiondata,
-    build_vertex_grid_for_intersection,
     resolve_lake_cells,
 )
 from hydromodpy.solver.modflow6.builders.lake import _drop_interior_rings
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 # A 4x4, 2-layer unit grid with the central 2x2 block as the lake footprint.
 # Row-major flat ids: the centre cells are 5, 6, 9, 10.
@@ -40,7 +40,7 @@ _LAKE_CELLS = [5, 6, 9, 10]
 def _grid_4x4(nlay: int = 2) -> SolverMesh:
     top = np.full((4, 4), 10.0)
     botm = np.stack([np.full((4, 4), 10.0 - (lay + 1) * 5.0) for lay in range(nlay)])
-    return SolverMesh.from_structured_arrays(nrow=4, ncol=4, top=top, botm=botm, dx=1.0, dy=1.0)
+    return solver_mesh_from_structured_arrays(nrow=4, ncol=4, top=top, botm=botm, dx=1.0, dy=1.0)
 
 
 def _masked_grid() -> SolverMesh:
@@ -130,10 +130,9 @@ def test_builder_does_not_use_get_lak_connections() -> None:
 
 def test_resolve_lake_cells_intersects_polygon() -> None:
     mesh = _grid_4x4(nlay=2)
-    vertex_grid = build_vertex_grid_for_intersection(mesh)
     # The central 2x2 polygon (1,1)-(3,3) covers exactly cells 5,6,9,10.
     polygon = Polygon([(1.0, 1.0), (3.0, 1.0), (3.0, 3.0), (1.0, 3.0)])
-    cells = resolve_lake_cells(None, lake_id="lac0", polygon=polygon, vertex_grid=vertex_grid)
+    cells = resolve_lake_cells(None, lake_id="lac0", polygon=polygon, cell_mesh=mesh.cell_mesh)
     assert cells == sorted(_LAKE_CELLS)
 
 
@@ -153,16 +152,15 @@ def test_drop_interior_rings_removes_holes() -> None:
 
 def test_fill_enclosed_cells_reclaims_the_island_cell() -> None:
     mesh = _grid_4x4(nlay=2)
-    vertex_grid = build_vertex_grid_for_intersection(mesh)
     # The northern 3x3 block (0,1)-(3,4) with its centre cell punched out as an
     # island. Row 0 is the northern row, so the island is row 1, column 1.
     holed = Polygon(
         [(0.0, 1.0), (3.0, 1.0), (3.0, 4.0), (0.0, 4.0)],
         holes=[[(1.0, 2.0), (2.0, 2.0), (2.0, 3.0), (1.0, 3.0)]],
     )
-    kept = resolve_lake_cells(None, lake_id="lac0", polygon=holed, vertex_grid=vertex_grid)
+    kept = resolve_lake_cells(None, lake_id="lac0", polygon=holed, cell_mesh=mesh.cell_mesh)
     filled = resolve_lake_cells(
-        None, lake_id="lac0", polygon=_drop_interior_rings(holed), vertex_grid=vertex_grid
+        None, lake_id="lac0", polygon=_drop_interior_rings(holed), cell_mesh=mesh.cell_mesh
     )
     # The (1,2)-(2,3) hole punches out the centre cell 5 of the 3x3 block.
     assert 5 not in kept  # island cell stays aquifer by default

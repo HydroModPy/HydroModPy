@@ -16,13 +16,14 @@ import numpy as np
 from hydromodpy.solver.modflow_common.mesh_descent import read_descent_sidecar
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 NROW = NCOL = 5
 
 
 def _mesh() -> SolverMesh:
     rows, cols = np.divmod(np.arange(NROW * NCOL), NCOL)
-    return SolverMesh.from_structured_arrays(
+    return solver_mesh_from_structured_arrays(
         nrow=NROW,
         ncol=NCOL,
         top=(10.0 + rows + cols).reshape(NROW, NCOL).astype(float),
