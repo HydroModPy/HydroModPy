@@ -63,20 +63,80 @@ def load_npy_time_series_arrays(
     return indices, arrays
 
 
+class _DualMeshError(ValueError):
+    """A Voronoi dual was read without, or against the wrong, node positions."""
+
+
+def cell_polygon_areas(store: Any, sim_id: str) -> np.ndarray:
+    """Return the plan area of every solver cell of one run, in m2."""
+    areas = []
+    for ring in load_cell_polygons(store=store, sim_id=sim_id):
+        x, y = ring[:, 0], ring[:, 1]
+        areas.append(0.5 * abs(float(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))))
+    return np.asarray(areas, dtype=float)
+
+
+def dual_column_index(node_x: np.ndarray, *, xmin: float, xmax: float, ncol: int) -> np.ndarray:
+    """Return the equal-width column of each node abscissa, clipped to ``0..ncol-1``."""
+    dx = (float(xmax) - float(xmin)) / int(ncol)
+    return np.clip(((np.asarray(node_x, dtype=float) - float(xmin)) / dx).astype(int), 0, ncol - 1)
+
+
+def dual_column_profile(
+    values: np.ndarray,
+    *,
+    node_x: np.ndarray,
+    cell_area: np.ndarray,
+    xmin: float | None,
+    xmax: float | None,
+    ncol: int,
+) -> np.ndarray:
+    """Bin the cell values of a Voronoi dual by node abscissa onto ``ncol`` columns.
+
+    A Voronoi dual holds each head at its node, so a cell belongs to the column
+    of its node, not of its polygon. Each column is the area-weighted mean of
+    its cells, and a column with no node is filled by index. ``xmin`` and
+    ``xmax`` default to the node extent. ``values`` is one value per cell, or
+    one row of them per output time.
+    """
+    node_x = np.asarray(node_x, dtype=float)
+    lo = float(node_x.min()) if xmin is None else float(xmin)
+    hi = float(node_x.max()) if xmax is None else float(xmax)
+    column = dual_column_index(node_x, xmin=lo, xmax=hi, ncol=ncol)
+    weight = np.asarray(cell_area, dtype=float)
+    rows = np.atleast_2d(np.asarray(values, dtype=float))
+    norm = np.bincount(column, weights=weight, minlength=int(ncol))
+    filled = norm > 0.0
+    index = np.flatnonzero(filled).astype(float)
+    profiles = np.empty((rows.shape[0], int(ncol)), dtype=float)
+    for row_index, row in enumerate(rows):
+        total = np.bincount(column, weights=row * weight, minlength=int(ncol))
+        profiles[row_index] = np.interp(
+            np.arange(int(ncol), dtype=float), index, total[filled] / norm[filled]
+        )
+    return profiles[0] if np.ndim(values) == 1 else profiles
+
+
 def _aggregate_triangles_to_grid(
     data: np.ndarray,
     target_shape: tuple[int, ...],
     store: Any,
     sim_id: str,
+    cell_centers: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Collapse unstructured triangle-cell values onto an x-profile grid.
+    """Collapse unstructured cell values onto an x-profile grid.
 
-    Used when the store contains per-cell data from a triangular mesh but
-    the comparison expects a structured ``(nrow, ncol)`` grid. The triangles
-    are projected onto a 1D x-profile (mean over cells whose centroid falls
+    Used when the store contains per-cell data from an unstructured mesh but
+    the comparison expects a structured ``(nrow, ncol)`` grid. The cells are
+    projected onto a 1D x-profile (mean over cells whose centroid falls
     in each x-bin, with nearest-value fill for empty bins) and the same
     profile is repeated across all rows. That keeps the cross-row spread
     exactly zero, matching the dimensional assumption of 1D validation cases.
+
+    A Voronoi dual needs ``cell_centers``, the node of each cell (see
+    :func:`run_dual_cell_centers`). Its cells are then binned by node abscissa
+    and weighted by polygon area. Without them a polygon mesh is refused,
+    because the vertex mean is not where the dual holds its heads.
     """
     if len(target_shape) != 2:
         return data
@@ -86,6 +146,26 @@ def _aggregate_triangles_to_grid(
         sz = store.open_zarr(sim_id)
         vertices = sz.root["mesh"]["vertices"][:]
         connectivity = sz.root["mesh"]["face_node_connectivity"][:]
+        if cell_centers is not None:
+            flat = np.asarray(data, dtype=float).reshape(-1)
+            if np.shape(cell_centers)[0] != flat.size:
+                raise _DualMeshError(
+                    f"{np.shape(cell_centers)[0]} cell centres for {flat.size} cell values."
+                )
+            profile = dual_column_profile(
+                flat,
+                node_x=np.asarray(cell_centers, dtype=float)[:, 0],
+                cell_area=cell_polygon_areas(store, sim_id),
+                xmin=None,
+                xmax=None,
+                ncol=int(ncol),
+            )
+            return np.repeat(profile.reshape(1, -1), nrow, axis=0)
+        if int(np.max(np.sum(np.asarray(connectivity) >= 0, axis=1))) > 3:
+            raise _DualMeshError(
+                "The run holds polygon cells (a Voronoi dual), whose heads sit at their nodes, "
+                "not at their vertex mean. Pass cell_centers=run_dual_cell_centers(result)."
+            )
         centroids_x = np.mean(vertices[connectivity, 0], axis=1).astype(float)
         node_x = np.asarray(vertices[:, 0], dtype=float)
         x_min = float(node_x.min())
@@ -116,6 +196,8 @@ def _aggregate_triangles_to_grid(
                 profile[valid_idx],
             )
         return np.repeat(profile.reshape(1, -1), nrow, axis=0)
+    except _DualMeshError:
+        raise
     except Exception:
         logger.debug("Triangle-to-grid aggregation failed, returning raw data")
         return data
@@ -263,6 +345,55 @@ def bundle_cell_centers(bundle_dir: Path, n_cells: int) -> tuple[np.ndarray, str
     )
 
 
+def dual_cell_centers(bundle_dir: Path | None, n_cells: int) -> np.ndarray | None:
+    """Return the node of each cell when ``n_cells`` cells are the Voronoi dual of a bundle.
+
+    Return None for a triangle grid, a structured grid, or a cell count that
+    matches neither the bundle triangles nor its nodes.
+    """
+    if bundle_dir is None:
+        return None
+    if _read_bundle_table(bundle_dir, "cells.csv").size == int(n_cells):
+        return None
+    if _read_bundle_table(bundle_dir, "nodes.csv").size != int(n_cells):
+        return None
+    centers, _ = bundle_cell_centers(bundle_dir, n_cells)
+    return centers
+
+
+def run_dual_cell_centers(
+    result: Any, metadata: Mapping[str, object] | None = None
+) -> np.ndarray | None:
+    """Return the ``(n_cells, 2)`` node of each cell of a Voronoi-dual run, or None.
+
+    This is the opt-in test of a strip comparison. It reads the mesh bundle that
+    the config of ``result.solver_name`` points at, and compares its node count
+    with the cell count of the stored run. A triangle, structured or Boussinesq
+    run gives None, and its comparison is untouched.
+    """
+    store = getattr(result, "store", None)
+    sim_id = getattr(result, "sim_id", None)
+    case_dir = getattr(result, "case_dir", None)
+    if store is None or sim_id is None or case_dir is None:
+        return None
+    case_dir = Path(case_dir)
+    case_metadata = load_case_metadata(case_dir) if metadata is None else metadata
+    bundle_dir = resolve_case_mesh_bundle_dir(
+        case_dir, case_metadata, getattr(result, "solver_name", None)
+    )
+    if bundle_dir is None:
+        return None
+    sz = store.open_zarr(sim_id)
+    try:
+        mesh = sz.root["mesh"] if "mesh" in sz.root else {}
+        if "face_node_connectivity" not in mesh:
+            return None
+        n_cells = int(mesh["face_node_connectivity"].shape[0])
+    finally:
+        sz.close()
+    return dual_cell_centers(bundle_dir, n_cells)
+
+
 def _nearest_cell_history_to_grid(
     history: np.ndarray,
     centers: np.ndarray,
@@ -303,11 +434,15 @@ def _regrid_bundle_history(
     y_min_m: float | None,
     y_max_m: float | None,
     collapse_y_to_x_profile: bool = False,
+    store: Any = None,
+    sim_id: str | None = None,
 ) -> np.ndarray:
     """Project one time-cell history of a mesh-bundle run onto a ``ny x nx`` grid.
 
     A triangle grid goes through ``interpolate_bundle_history_to_structured_grids``.
     A Voronoi dual reads, for each structured cell, the solver cell under its centre.
+    A Voronoi dual collapsed to an x-profile bins its cells by node abscissa,
+    weighted by polygon area, and so needs ``store`` and ``sim_id``.
     """
     from validation_cases.shared.gmsh_irregular_strip import (
         interpolate_bundle_history_to_structured_grids,
@@ -315,6 +450,19 @@ def _regrid_bundle_history(
 
     data = np.asarray(history, dtype=float)
     n_cells = int(data.shape[-1])
+    nodes = dual_cell_centers(bundle_dir, n_cells)
+    if collapse_y_to_x_profile and nodes is not None:
+        if store is None or sim_id is None:
+            raise _DualMeshError("Collapsing a Voronoi dual needs the store and sim_id of the run.")
+        profile = dual_column_profile(
+            data.reshape(-1, n_cells),
+            node_x=nodes[:, 0],
+            cell_area=cell_polygon_areas(store, sim_id),
+            xmin=x_min_m,
+            xmax=x_max_m,
+            ncol=int(nx),
+        )
+        return np.repeat(profile[:, None, :], int(ny), axis=1)
     if collapse_y_to_x_profile or _read_bundle_table(bundle_dir, "cells.csv").size == n_cells:
         return interpolate_bundle_history_to_structured_grids(
             data,
@@ -506,6 +654,22 @@ def load_field_on_expected_grid(
     if not bundle_dir.is_absolute():
         bundle_dir = (case_dir / bundle_dir).resolve()
 
+    if collapse_y_to_x_profile and dual_cell_centers(bundle_dir, values.size) is not None:
+        regridded = _regrid_bundle_history(
+            values,
+            bundle_dir=bundle_dir,
+            nx=int(expected_shape[1]),
+            ny=int(expected_shape[0]),
+            x_min_m=x_min_m,
+            x_max_m=x_max_m,
+            y_min_m=y_min_m,
+            y_max_m=y_max_m,
+            collapse_y_to_x_profile=True,
+            store=store,
+            sim_id=sim_id,
+        )
+        return timestep, np.asarray(regridded[0], dtype=float)
+
     if collapse_y_to_x_profile:
         cells = np.genfromtxt(
             bundle_dir / "cells.csv",
@@ -571,6 +735,7 @@ def load_field(
     observable_name: str,
     timestep: int = -1,
     expected_shape: tuple[int, ...] | None = None,
+    cell_centers: np.ndarray | None = None,
 ) -> tuple[int, np.ndarray]:
     """Load one spatial field from the result store.
 
@@ -590,6 +755,10 @@ def load_field(
         but a different shape, reshape it.  This bridges the flat
         per-cell vectors returned by the Catalog with the
         ``(nrow, ncol)`` grids expected by validation comparisons.
+    cell_centers : np.ndarray, optional
+        ``(n_cells, 2)`` node of each cell of a Voronoi-dual run, from
+        :func:`run_dual_cell_centers`. It makes the x-profile collapse bin the
+        cells by node abscissa. Leave it out for a triangle or structured run.
 
     Returns
     -------
@@ -648,6 +817,7 @@ def load_field(
                 eff_shape,
                 store,
                 sim_id,
+                cell_centers,
             )
         return int(resolved_ts), data
     except Exception as exc:
@@ -738,6 +908,8 @@ def load_time_series_fields(
                         y_min_m=y_min_m,
                         y_max_m=y_max_m,
                         collapse_y_to_x_profile=collapse_y_to_x_profile,
+                        store=store,
+                        sim_id=sim_id,
                     )
                 else:
                     data = _aggregate_triangle_history_to_grid(

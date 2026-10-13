@@ -53,7 +53,7 @@ from hydromodpy.core.contracts.observables import ObservableResult
 def _empty_ctx():
     """Return a minimal context with no flow run and no loaded data."""
     return SimpleNamespace(
-        setup=SimpleNamespace(mesh_planar=None, domain=None, time_grid=None),
+        setup=SimpleNamespace(cell_mesh=None, domain=None, time_grid=None),
         loaded_data=SimpleNamespace(piezometry=None, hydrometry=None),
         execution=None,
     )
@@ -260,7 +260,7 @@ class TestHelpers:
     def test_station_cells_uses_structural_metadata_without_mesh(self):
         rec = SimpleNamespace(station_id="P1", cell_ij=(3, 4, 2))
         ctx = SimpleNamespace(
-            setup=SimpleNamespace(mesh_planar=None, domain=None),
+            setup=SimpleNamespace(cell_mesh=None, domain=None),
             loaded_data=SimpleNamespace(piezometry=SimpleNamespace(points=[rec])),
         )
         observed = [

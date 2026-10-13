@@ -169,16 +169,10 @@ def mesh_fingerprint(ctx: Any) -> dict[str, object] | None:
     """
     import hashlib
 
-    mesh = getattr(getattr(ctx, "setup", None), "mesh_planar", None)
-    if mesh is None:
+    cell_mesh = getattr(getattr(ctx, "setup", None), "cell_mesh", None)
+    if cell_mesh is None:
         return None
-    centroids_of = getattr(mesh, "cell_centroids", None)
-    if not callable(centroids_of):
-        return None
-    try:
-        centroids = np.asarray(centroids_of(), dtype=float)
-    except Exception:  # noqa: BLE001 - a mesh that cannot describe itself has no identity
-        return None
+    centroids = np.asarray(cell_mesh.centers, dtype=float)
     if centroids.ndim != 2 or centroids.shape[0] == 0:
         return None
     # Rounded before hashing so a re-read of the same mesh through a different
@@ -188,7 +182,7 @@ def mesh_fingerprint(ctx: Any) -> dict[str, object] | None:
     return {
         "n_cells": int(centroids.shape[0]),
         "centroid_digest": digest,
-        "structured": bool(getattr(mesh, "is_structured", False)),
+        "structured": cell_mesh.structured_shape is not None,
     }
 
 

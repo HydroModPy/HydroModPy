@@ -32,6 +32,10 @@ from hydromodpy.simulation.soil_recharge import compute_soil_forcings
 from tests._helpers.tolerances import tol
 from tests.validation.helpers import assert_metric_below, record_scale, record_series
 
+NOT_APPLICABLE = {
+    "*": "The test calls compute_soil_forcings (the soil reservoir kernel) and reads the recharge it returns; no groundwater solver is run. The result is a forcing, so it cannot depend on the solver.",
+}
+
 _CRS = "EPSG:2154"
 _TRANSIT_TIMES_DAYS = (2.0, 5.0, 20.0)
 

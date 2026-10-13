@@ -21,6 +21,7 @@ from validation_cases.analytical.steady.boussinesq_divide_fixed_head_piecewise_k
         pytest.param("modflow_nwt", True, False, id="modflow_nwt"),
         pytest.param("modflow6", False, True, id="modflow6"),
         pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
+        pytest.param("modflow6_voronoi", False, True, id="modflow6_voronoi"),
         pytest.param("boussinesq", False, False, id="boussinesq"),
         pytest.param("boussinesq_local", False, False, id="boussinesq_local"),
     ],
@@ -28,7 +29,11 @@ from validation_cases.analytical.steady.boussinesq_divide_fixed_head_piecewise_k
 def test_boussinesq_divide_fixed_head_piecewise_k_1d_matches_reference_profile(
     solver: str, require_modflow: bool, require_modflow6: bool
 ) -> None:
-    """Run the launcher case and compare the final head profile to Boussinesq."""
+    """Run the case on each grid and compare the final head profile to Boussinesq.
+
+    The grids are the structured MODFLOW grid, the triangle strip, its Voronoi
+    dual and the two Boussinesq strips.
+    """
     assert_required_executables(
         require_modflow=require_modflow,
         require_modflow6=require_modflow6,

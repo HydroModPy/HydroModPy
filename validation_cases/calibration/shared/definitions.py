@@ -101,6 +101,8 @@ def build_payload(
         }
         if target.transform is not None:
             parameter_decl["transform"] = str(target.transform)
+        if target.prior is not None:
+            parameter_decl["prior"] = str(target.prior)
         parameters[str(name)] = parameter_decl
 
     outputs: dict[str, dict[str, Any]] = {}
@@ -212,6 +214,8 @@ class TwinParameterTarget:
     target: str
     mode: str = "replace"
     transform: str | None = None
+    prior: str | None = None
+    """Unset, the target's own prior applies: a conductivity is log-uniform."""
 
 
 @dataclass(frozen=True, slots=True)

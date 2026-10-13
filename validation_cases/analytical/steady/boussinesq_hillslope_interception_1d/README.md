@@ -1,8 +1,11 @@
 # Boussinesq Hillslope Interception 1D
 
-Steady synthetic groundwater-flow case used to validate the PETSc VI obstacle
-`flow/boussinesq` runtime on a sloping hillslope where the water table reaches
-the land surface near the outlet.
+Steady synthetic groundwater-flow case used to validate the seepage face of a
+sloping hillslope where the water table reaches the land surface near the
+outlet. Six solvers run it: the PETSc VI obstacle `flow/boussinesq` runtime, the
+default local engine (`boussinesq_local`), and MODFLOW-NWT, MODFLOW 6 on a
+structured grid, MODFLOW 6 on irregular triangles and MODFLOW 6 on their
+Voronoi dual, which drain the land surface through a DRN.
 
 Intent:
 
@@ -21,6 +24,22 @@ Numerical setup:
 - fixed head `5 m` on the east side,
 - west side left as the natural divide/no-flow boundary.
 
+The MODFLOW variants (`config_modflownwt.toml` and its overrides) put a DRN on
+the land surface, as HydroModPy does for a drained hillslope. Its conductance is
+`K * area / b` with `b = 1 m`, so the leakance is the same on every cell. The
+surface is sampled at the cell centres (linear raster, 5.0625 m at the centre of
+the last column), and the east head is the surface there. The two unstructured
+variants read the triangle bundle built by `mesh_bundle.py` (586 triangles of
+about 6 m, stored under `mesh_bundles/`; rebuild it with
+`python -m validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.mesh_bundle`)
+and sample the surface from a 2.5 m raster, so that no flat strip lies along
+the east face. Their reference is evaluated at each cell and averaged over the
+same 10 m bins as the model.
+
+A DRN has a finite conductance: the head stands above the surface by the head
+that passes what the face drains, `(R + K S^2) b / K = 3.9e-4 m`. The clearance
+check of those variants bounds that excess instead of the obstacle closure.
+
 Comparison:
 
 - simulated observable: `watertable_elevation`,
@@ -32,7 +51,8 @@ Comparison:
   head comes within `5 cm` of the surface, read the same way on the model and
   on the reference (281.6 m here: the tangent contact starts 41 m upslope of
   `x_e` at that tolerance),
-- sanity checks: no overshoot above topography and low cross-row spread,
+- sanity checks: no overshoot above topography (or, with a DRN, no more than the
+  drain excess) and low cross-row spread,
 - the solve starts from the outlet head over the whole hillslope, not from the
   answer.
 

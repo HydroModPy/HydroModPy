@@ -44,6 +44,7 @@ import pytest
 from hydromodpy.core.state.paths import scratch_dir_for
 from hydromodpy.solver.modflow_common import ensure_platform_executable
 from tests._helpers.tolerances import tol
+from validation_cases.shared.runtime import budgeted_dir_name
 
 # Golden / signature comparison tolerances (single source: tests/TOLERANCES.md).
 # Rows 14/15 (regression goldens arrays) and rows 16/17 (signature stats
@@ -217,6 +218,7 @@ def resolve_tiered_results_dir(
     *,
     test_file: str | Path,
     run_name: str,
+    generated_path_length: int = 0,
 ) -> Path:
     """
     Build and prepare one deterministic output directory for a regression test.
@@ -228,6 +230,10 @@ def resolve_tiered_results_dir(
     If ``HMP_OUT_PATH`` is not set, a deterministic temporary root is
     used: ``<tempdir>/hydromodpy_regression_outputs``.
 
+    ``generated_path_length`` is what the test writes below the directory. On
+    Windows the run name is shortened until that fits under the path limit of
+    the solvers.
+
     The target directory is cleaned before each run to avoid stale artifacts.
     """
     base_out_path = os.environ.get("HMP_OUT_PATH")
@@ -238,7 +244,10 @@ def resolve_tiered_results_dir(
     file_path = Path(test_file).resolve()
     file_parts = set(file_path.parts)
     tier = "extensive" if "extensive" in file_parts else "fast"
-    out_dir = results_root / tier / str(run_name)
+    tier_root = results_root / tier
+    out_dir = tier_root / budgeted_dir_name(
+        tier_root, str(run_name), generated_length=generated_path_length
+    )
     if out_dir.exists():
         remove_tree_with_retry(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

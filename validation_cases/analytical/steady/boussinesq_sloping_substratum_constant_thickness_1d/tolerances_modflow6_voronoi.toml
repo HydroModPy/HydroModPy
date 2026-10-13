@@ -1,0 +1,26 @@
+[head_profile]
+rmse = 0.0078
+max_abs_error = 0.0165
+row_spread = 1e-9
+
+[doc]
+gap = """
+Known gap, 17 times the triangle strip (RMSE 4.0e-4 m). The reference is the
+uniform flow at constant thickness, which a flux error of a few tenths of a
+percent bends into a thickness drift of 0.03 m over the strip. The flux error comes from the face of
+the strip. The mesh bundle holds 3 face nodes 25 m apart, so the Voronoi cells
+of three interior nodes (x = 10.5, 388 and 390 m) own 2.6, 1.0 and 4.5 m of the
+held face, a no-flow edge there, and only the face nodes hold the head. Controls
+with the same case: the same nodes on a new Delaunay triangulation, RMSE 7.08e-3
+m and max 1.49e-2 m, unchanged; face nodes added every 5 m so that they own the
+whole face, RMSE 8.4e-4 m and max 1.3e-3 m; a raster of 400 columns instead of 40,
+which removes the bilinear clamp in the half column at the ends, RMSE 7.05e-3 m
+and max 1.49e-2 m, unchanged. So the clamp is not the cause.
+"""
+reason = """
+Measured values with a 10 % margin: RMSE 7.08e-3 m, max error 1.49e-2 m, at
+x = 375 m. The gap below explains why the margin is not 2x. Each cell is read at
+its node and the profile is the area-weighted mean per 10 m column, for the
+model and the reference alike. The row spread is zero by construction: the
+loader tiles one profile.
+"""

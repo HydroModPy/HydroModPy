@@ -1,7 +1,7 @@
 """Guard the single-source tolerance policy.
 
 ``tests/TOLERANCES.md`` is the one source of truth for numerical tolerances.
-``tests/_helpers/tolerances.py::tol`` loads the 55 single-scalar rows from that
+``tests/_helpers/tolerances.py::tol`` loads the 74 single-scalar rows from that
 table. This test prevents two kinds of drift:
 
 1. A ``tol("...")`` call that points at a typo / dangling key (it would resolve
@@ -9,7 +9,7 @@ table. This test prevents two kinds of drift:
 2. An INLINE row whose value is hard-coded at its assertion site again, so the
    row could diverge from the table without anyone noticing.
 
-The 55 loadable rows split into three enforcement classes (W5 classification):
+The 74 loadable rows split into three enforcement classes (W5 classification):
 
 * INLINE  - the value is asserted at a validation/regression call site; the
             literal was replaced by ``tol(<slug>)``. Every INLINE row MUST be
@@ -47,7 +47,7 @@ _SCAN_EXCLUDE: frozenset[str] = frozenset(
 )
 
 # --------------------------------------------------------------------------- #
-# W5 classification of the 55 loadable TOLERANCES.md rows.
+# W5 classification of the 74 loadable TOLERANCES.md rows.
 # --------------------------------------------------------------------------- #
 
 # INLINE: literal replaced by tol(); must be referenced by >= 1 tol() call.
@@ -69,6 +69,13 @@ INLINE_ROWS: frozenset[str] = frozenset(
         "stress_period_sub_stepping_mf6__rmse_difference_between_tsmult_r_and_1_r",
         "adaptive_time_stepping_mf6__rmse_relative_difference_ats_on_against_ats_off",
         "one_step_per_stress_period_mf6__monthly_discharge_drift_against_a_refined_run",
+        "stress_period_sub_stepping_boussinesq__rmse_ratio_between_nstp_1_and_nstp_10",
+        # Grid-convergence order bands of the triangle, Voronoi and Boussinesq legs.
+        "grid_convergence_dupuit_fixed_head_1d_boussinesq_petsc_and_local_engine__observed_order_of_the_head_rmse_on_16_32_64_columns_p_2",
+        "grid_convergence_dupuit_fixed_head_1d_modflow_6_triangles_voronoi_dual__observed_order_of_the_head_rmse_on_16_32_64_columns_p_2_without_newton_and_p_1_under_newton",
+        # Twin closure at the truth and the NWT recharge read-back.
+        "twin_calibration_closure_noise_free_search_started_at_the_truth_piecewise_k_transient_k_sy_modflow_nwt_modflow_6_modflow_6_triangles_modflow_6_voronoi__best_normalized_cost_and_p_p_true_p_true_of_every_parameter_after_3_evaluations_of_nelder_mead",
+        "twin_stream_network_calibration_modflow_nwt__recharge_read_back_from_the_solver_files_rel_against_the_input",
         # SFR standalone budget closure + SFR->LAK MVR reciprocity, asserted in
         # tests/integration/solver/test_sfr_standalone.py and test_sfr_lak_mvr.py.
         "sfr_standalone_budget_closure_mf6__gwf_listing_percent_discrepancy",
@@ -119,6 +126,16 @@ INLINE_ROWS: frozenset[str] = frozenset(
         # Routed impulse through the full soil orchestrator, asserted in
         # tests/validation/analytical/transient/test_a_routed_impulse_matches_the_exponential_reservoir.py.
         "routed_impulse_validation_case__t95_against_k_ln_0_05_days",
+        # Mesh characterization net, asserted in tests/regression/mesh/mesh_net/
+        # through mesh_net_helpers.py. The cell-count row is exact equality (n/a),
+        # so it is not loadable.
+        "mesh_characterization_net__geometry_quantiles_relative_band",
+        "mesh_characterization_net__cell_areas_and_their_sum_relative",
+        "mesh_characterization_net__heads_share_of_the_golden_head_range",
+        "mesh_characterization_net__centre_offset_over_side_absolute_floor",
+        "mesh_characterization_net__non_orthogonality_absolute_floor",
+        "mesh_characterization_net__neighbour_size_ratio_absolute_floor",
+        "mesh_characterization_net__probe_cell_centre_offset_absolute_floor",
     }
 )
 
@@ -226,7 +243,7 @@ def test_classification_partitions_all_loadable_rows() -> None:
     """INLINE, CASE_TOML and UNUSED partition exactly the loadable rows."""
     classified = INLINE_ROWS | CASE_TOML_ROWS | UNUSED_ROWS
     loadable = set(TOLERANCES)
-    assert len(loadable) == 62, sorted(loadable)
+    assert len(loadable) == 74, sorted(loadable)
     missing = loadable - classified
     extra = classified - loadable
     assert not missing, f"loadable rows with no classification: {sorted(missing)}"

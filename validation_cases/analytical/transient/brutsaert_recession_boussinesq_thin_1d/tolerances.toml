@@ -6,7 +6,8 @@
 # Fitted a of -dQ/dt = a Q^(3/2) against the analytical a. Upstream weighting
 # next to the dry outlet gives a first-order error: +4.0 % at dx = 1.25 m
 # (+4.2 % with 16 steps a day), +2.1 % at 0.625 m, +1.1 % at 0.3125 m. The
-# triangle grid, with its outlet heads 0.34 m inside the edge, reads +2.3 %.
+# triangle grid, with its outlet heads 0.34 m inside the edge, reads +2.3 %, and
+# its Voronoi dual, with the outlet nodes on the edge, +2.0 %.
 coefficient_relative_error = 0.05
 # Fitted b against 3/2. Every refined run gives 1.4945 to 1.5008. An outlet
 # above the substratum gives a linear tail, b = 1.08 with 1 m.

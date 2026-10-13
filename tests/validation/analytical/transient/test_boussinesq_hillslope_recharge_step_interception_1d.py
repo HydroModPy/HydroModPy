@@ -14,25 +14,49 @@ from validation_cases.analytical.transient.boussinesq_hillslope_recharge_step_in
 @pytest.mark.validation
 @pytest.mark.analytical
 @pytest.mark.transient
-@pytest.mark.slow
 @pytest.mark.parametrize(
-    "solver",
+    ("solver", "require_modflow", "require_modflow6"),
     [
-        pytest.param("boussinesq", marks=pytest.mark.petsc, id="boussinesq"),
-        pytest.param("boussinesq_local", id="boussinesq_local"),
+        pytest.param("modflow_nwt", True, False, id="modflow_nwt", marks=pytest.mark.fast),
+        pytest.param("modflow6", False, True, id="modflow6", marks=pytest.mark.fast),
+        pytest.param(
+            "modflow6_irregular_tri",
+            False,
+            True,
+            id="modflow6_irregular_tri",
+            marks=pytest.mark.fast,
+        ),
+        pytest.param(
+            "modflow6_voronoi", False, True, id="modflow6_voronoi", marks=pytest.mark.fast
+        ),
+        pytest.param(
+            "boussinesq",
+            False,
+            False,
+            id="boussinesq",
+            marks=[pytest.mark.petsc, pytest.mark.slow],
+        ),
+        pytest.param(
+            "boussinesq_local", False, False, id="boussinesq_local", marks=pytest.mark.slow
+        ),
     ],
 )
 def test_boussinesq_hillslope_recharge_step_interception_1d_matches_onset_approximation(
     solver: str,
+    require_modflow: bool,
+    require_modflow6: bool,
 ) -> None:
-    """Run one Boussinesq variant and compare the onset diagnostics.
+    """Run one variant and compare the onset diagnostics.
 
     ``boussinesq`` runs the PETSc TS VI obstacle; ``boussinesq_local`` runs the
-    default engine with its regularized partition closure, without PETSc.
+    default engine with its regularized partition closure, without PETSc. The
+    MODFLOW variants drain the land surface through a DRN, which the 120 days
+    never engage: the head stays below the surface, so the clearance bound
+    there is the 1e-6 m of an obstacle.
     """
     assert_required_executables(
-        require_modflow=False,
-        require_modflow6=False,
+        require_modflow=require_modflow,
+        require_modflow6=require_modflow6,
         require_modpath=False,
         require_mt3dms=False,
     )

@@ -232,8 +232,8 @@ def test_a_named_discharge_station_is_placed_and_snapped_when_asked(adapter: _Ad
 
 def test_several_gauges_each_snap_to_their_own_cell(adapter: _Adapter) -> None:
     outputs = {
-        "upper": _point(x=160.0, y=150.0, snap_radius=100.0),
-        "lower": _point(x=160.0, y=350.0, snap_radius=100.0),
+        "upper": _point(x=160.0, y=350.0, snap_radius=100.0),
+        "lower": _point(x=160.0, y=150.0, snap_radius=100.0),
     }
     extract_outputs(SimpleNamespace(), outputs)
     discharge = {r.id: r.cell for r in adapter.asked if r.name == "discharge"}
@@ -244,8 +244,8 @@ def test_several_gauges_each_snap_to_their_own_cell(adapter: _Adapter) -> None:
 
 def test_two_gauges_snapped_onto_one_cell_are_named(adapter: _Adapter, caplog) -> None:
     outputs = {
-        "a": _point(x=160.0, y=150.0, snap_radius=100.0),
-        "b": _point(x=160.0, y=160.0, snap_radius=100.0),
+        "a": _point(x=160.0, y=350.0, snap_radius=100.0),
+        "b": _point(x=160.0, y=340.0, snap_radius=100.0),
     }
     with caplog.at_level(logging.WARNING):
         extract_outputs(SimpleNamespace(), outputs)

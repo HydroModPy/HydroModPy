@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -29,6 +30,9 @@ from hydromodpy.spatial.mesh.ops.zonal_stats import regular_grid_cell_ids, zonal
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 
@@ -340,7 +344,7 @@ def _zonal_structured_top(
 
 def _build_extruded_solver_mesh_from_runtime_planar(
     *,
-    planar_mesh: object,
+    cell_mesh: PlanarCellMesh,
     top_surface: Surface,
     bottom_surface: Surface,
     vertical_config: VerticalGridConfig | None,
@@ -360,21 +364,17 @@ def _build_extruded_solver_mesh_from_runtime_planar(
             voronoi_dual_of_mesh,
         )
 
-        triangulation = (
-            planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh
-        )
-        planar_mesh = voronoi_dual_of_mesh(triangulation, domain_polygon_from_mesh(triangulation))
-    elif grid_dual != "triangle":
+        triangulation = cell_mesh.mesh
+        hydro_mesh = voronoi_dual_of_mesh(triangulation, domain_polygon_from_mesh(triangulation))
+        x_centers, y_centers = hydro_mesh.cell_centroids()
+    elif grid_dual == "triangle":
+        hydro_mesh = cell_mesh.mesh
+        x_centers, y_centers = cell_mesh.centers.T
+    else:
         raise ValueError(f"Unsupported grid_dual '{grid_dual}'. Allowed: voronoi, triangle.")
-
-    mesh_2d = planar_mesh
-    hydro_mesh = (
-        planar_mesh.to_hydro_mesh() if hasattr(planar_mesh, "to_hydro_mesh") else planar_mesh
-    )
 
     # Sample top/botm at the cell centers (Voronoi generators or triangle centroids)
     # from the domain surfaces.
-    x_centers, y_centers = mesh_2d.cell_centroids()
     cfg = _coerce_vertical_config(vertical_config)
     top_sampler = PreparedSurfaceSampler.from_surface(top_surface)
     bottom_sampler = PreparedSurfaceSampler.from_surface(bottom_surface)
@@ -427,7 +427,7 @@ def build_spatial_discretization(
     *,
     domain: DomainLike,
     sgrid_config: SolverSGridConfig | None,
-    runtime_planar_mesh: object | None = None,
+    cell_mesh: PlanarCellMesh | None = None,
     runtime_mesh_support: GmshSupportMetadata | None = None,
     channel_mask: np.ndarray | None = None,
 ) -> SolverGridContext:
@@ -439,7 +439,7 @@ def build_spatial_discretization(
     (``planar.mode == 'resample_to_shape'``); a grid whose cells are the DEM pixels
     already holds the pixel values.
 
-    ``runtime_mesh_support`` describes the triangles of ``runtime_planar_mesh``.
+    ``runtime_mesh_support`` describes the triangles of ``cell_mesh``.
     The returned context carries a support on the solver cells: the same one when
     ``grid_dual = 'triangle'``, one rebuilt on the dual when ``'voronoi'``.
     """
@@ -457,7 +457,7 @@ def build_spatial_discretization(
 
     top_surface, bottom_surface = resolve_domain_surfaces(domain=domain)
 
-    if runtime_planar_mesh is None:
+    if cell_mesh is None:
         native_top = top_surface
         top_surface, bottom_surface = project_surfaces_to_planar_grid(
             top_surface=top_surface,
@@ -499,7 +499,7 @@ def build_spatial_discretization(
         )
     else:
         solver_mesh = _build_extruded_solver_mesh_from_runtime_planar(
-            planar_mesh=runtime_planar_mesh,
+            cell_mesh=cell_mesh,
             top_surface=top_surface,
             bottom_surface=bottom_surface,
             vertical_config=vertical_config,
@@ -510,7 +510,7 @@ def build_spatial_discretization(
         )
 
     mesh_support: GmshSupportMetadata | None = None
-    if runtime_planar_mesh is not None and runtime_mesh_support is not None:
+    if cell_mesh is not None and runtime_mesh_support is not None:
         mesh_support = (
             runtime_mesh_support
             if grid_dual == "triangle"

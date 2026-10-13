@@ -268,11 +268,19 @@ def resolve_modflow_runner(model_modflow: object) -> Literal["subprocess", "api"
     return "api" if str(declared()) == "api" else "subprocess"
 
 
-def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExecutionResult:
+def run_flow_model(
+    ctx: RunContext,
+    model_modflow,
+    preprocess_options,
+    *,
+    mesh_inputs: Mapping[str, object] | None = None,
+) -> RunExecutionResult:
     """Execute the shared lifecycle for one already-instantiated flow model.
 
     The solver-specific adapters only choose and configure the concrete flow
-    backend. Once the model object exists, the execution steps are identical:
+    backend. ``mesh_inputs`` holds the keywords of the ``pre_processing`` of a
+    backend that builds on a prepared cell mesh. Once the model object exists,
+    the execution steps are identical:
 
     1. run preprocessing against the shared ``flow`` and ``domain`` objects,
     2. launch the numerical solve,
@@ -287,9 +295,8 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
         flow=state.setup.flow,
         domain=state.setup.domain,
         options=preprocess_options,
-        mesh_planar=getattr(state.setup, "mesh_planar", None),
-        mesh_support=getattr(state.setup, "mesh_support", None),
         flow_runtime_overrides=flow_runtime_overrides,
+        **(mesh_inputs or {}),
     )
 
     # The numerical run is shared across flow backends: write files, execute

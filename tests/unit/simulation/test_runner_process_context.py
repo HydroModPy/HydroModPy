@@ -376,15 +376,19 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
             return None
 
     model = _SuccessfulFlowModel()
+    cell_mesh = object()
 
     run_flow_model(
         RunContext(plan=plan, run=plan.runs[0], state=state),
         model,
         ModflowPreprocessOptions(),
+        mesh_inputs={"cell_mesh": cell_mesh, "mesh_support": None},
     )
 
     assert model.pre_kwargs is not None
     assert model.pre_kwargs["flow_runtime_overrides"] == {"properties": {"K": [1.0, 2.0]}}
+    assert model.pre_kwargs["cell_mesh"] is cell_mesh
+    assert model.pre_kwargs["mesh_support"] is None
     assert model.processing_options.link_mt3dms is False
 
 

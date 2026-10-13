@@ -15,6 +15,10 @@ from validation_cases.calibration.recession_brutsaert.experiment import (
     build_calibration,
 )
 
+NOT_APPLICABLE = {
+    "*": "The forward model is the closed-form Brutsaert-Nieber recession evaluated in NumPy; no HydroModPy groundwater solver runs. The test checks the calibration engine only.",
+}
+
 
 def _best_values(session) -> dict[str, float]:
     completed = [r for r in session.history if r.status == "completed"]

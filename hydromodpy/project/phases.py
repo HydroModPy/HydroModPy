@@ -207,8 +207,9 @@ def adopt_pipeline_phase(project: Project, executed_steps: Sequence[str]) -> Non
         # A rebuilt geographic invalidates the data and the mesh drawn on it.
         project._data_loaded.clear()
         project._ctx.loaded_data.loaded_plan_types = None
-        project._ctx.setup.mesh_planar = None
+        project._ctx.setup.cell_mesh = None
         project._ctx.setup.mesh_bundle = None
+        project._ctx.setup.mesh_support = None
     else:
         project._data_loaded = set(getattr(project._ctx.data_plan, "types", ()) or ())
     project._phase = phase
@@ -228,8 +229,9 @@ def build_geographic(project: Project, *, reuse_dem: bool = False) -> None:
     project._phase = "geographic"
     project._data_loaded.clear()
     project._ctx.loaded_data.loaded_plan_types = None
-    project._ctx.setup.mesh_planar = None
+    project._ctx.setup.cell_mesh = None
     project._ctx.setup.mesh_bundle = None
+    project._ctx.setup.mesh_support = None
 
 
 def load_data(project: Project, *, types: list[str] | None = None) -> None:

@@ -11,6 +11,8 @@ import hydromodpy.workflow.steps.prepare_solver.validate as validate_module
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, TABLES_DIRNAME
+from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from tests._helpers.cell_meshes import cell_mesh_of
 
 
 class _DumpableConfig:
@@ -59,14 +61,13 @@ def test_primary_solver_rejects_empty_plan() -> None:
 def test_collect_registration_kwargs_collects_mesh_time_and_simulation_metadata(
     tmp_path: Path,
 ) -> None:
-    points = np.array([[0.0, 0.0], [1.0, 0.0]], dtype=np.float64)
-    connectivity = np.array([[0, 1]], dtype=np.int32)
-    mesh = SimpleNamespace(
-        n_cells=2,
-        cell_type="triangle",
-        bounds=(0.0, 1.0, 2.0, 3.0),
-        points_xy=points,
-        connectivity=connectivity,
+    points = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 3.0], [0.0, 3.0]], dtype=np.float64)
+    connectivity = np.array([[0, 1, 2], [0, 2, 3]], dtype=np.int64)
+    cell_mesh = cell_mesh_of(
+        HydroMesh(
+            vertices=points,
+            cell_blocks=(CellBlock(CellType.TRIANGLE, connectivity),),
+        )
     )
     cfg_payload = {
         "flow": {"flow_regime": "transient"},
@@ -76,7 +77,7 @@ def test_collect_registration_kwargs_collects_mesh_time_and_simulation_metadata(
         config_path=tmp_path / "config.toml",
         cfg=_DumpableConfig(cfg_payload),
         setup=SimpleNamespace(
-            mesh_planar=mesh,
+            cell_mesh=cell_mesh,
             time_grid=SimpleNamespace(boundaries=("2020-01-01", "2020-01-02", "2020-01-03")),
             domain=None,
         ),
@@ -99,7 +100,7 @@ def test_collect_registration_kwargs_collects_mesh_time_and_simulation_metadata(
     assert kwargs["n_cells"] == 2
     assert kwargs["mesh_type"] == "triangle"
     assert kwargs["cell_types"] == ["triangle"]
-    assert kwargs["bbox"] == [0.0, 1.0, 2.0, 3.0]
+    assert kwargs["bbox"] == [0.0, 0.0, 2.0, 3.0]
     assert kwargs["mesh_hash"] == expected_mesh_hash
     assert kwargs["crs"] == "EPSG:2154"
     assert kwargs["period_start"] == "2020-01-01"

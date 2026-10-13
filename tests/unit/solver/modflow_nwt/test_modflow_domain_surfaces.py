@@ -17,6 +17,7 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     SolverSGridConfig,
     VerticalGridConfig,
 )
+from tests._helpers.cell_meshes import cell_mesh_of
 
 
 class _DummyGeographic:
@@ -28,25 +29,6 @@ class _DummyGeographic:
         self.dem_data = np.asarray(dem, dtype=float)
         self.watershed_box_buff_dem = "dummy_box.tif"
         self.watershed_buff_dem = "dummy_buff.tif"
-
-
-class _RuntimePlanarMesh:
-    def __init__(self, hydro_mesh: HydroMesh):
-        self._hydro_mesh = hydro_mesh
-
-    def cell_centroids(self):
-        vertices = np.asarray(self._hydro_mesh.vertices, dtype=float)
-        connectivity = self._hydro_mesh.flat_connectivity
-        return np.asarray(
-            [
-                [float(vertices[nodes, 0].mean()), float(vertices[nodes, 1].mean())]
-                for nodes in connectivity
-            ],
-            dtype=float,
-        )
-
-    def to_hydro_mesh(self) -> HydroMesh:
-        return self._hydro_mesh
 
 
 def _build_surface(
@@ -80,20 +62,6 @@ def _build_domain_from_dem(dem: np.ndarray) -> Domain:
         config=DomainConfig(),
         surface_topo=_build_surface(np.asarray(dem, dtype=float), name="surface_topo"),
     )
-
-
-class _RuntimePlanarMesh:
-    def __init__(self, hydro_mesh: HydroMesh):
-        self._hydro_mesh = hydro_mesh
-
-    def cell_centroids(self) -> tuple[np.ndarray, np.ndarray]:
-        vertices = np.asarray(self._hydro_mesh.vertices, dtype=float)
-        connectivity = np.asarray(self._hydro_mesh.flat_connectivity, dtype=int)
-        centroids = np.asarray([vertices[cell_nodes].mean(axis=0) for cell_nodes in connectivity])
-        return centroids[:, 0], centroids[:, 1]
-
-    def to_hydro_mesh(self) -> HydroMesh:
-        return self._hydro_mesh
 
 
 def test_modflow_requires_domain_object_for_spatial_geometry():
@@ -202,7 +170,7 @@ def test_runtime_planar_mesh_samples_domain_surfaces_at_voronoi_generators():
             ),
         ),
     )
-    planar_mesh = _RuntimePlanarMesh(hydro_mesh)
+    cell_mesh = cell_mesh_of(hydro_mesh)
 
     ctx = build_spatial_discretization(
         domain=domain,
@@ -213,7 +181,7 @@ def test_runtime_planar_mesh_samples_domain_surfaces_at_voronoi_generators():
                 nodata=-9999.0,
             ),
         ),
-        runtime_planar_mesh=planar_mesh,
+        cell_mesh=cell_mesh,
     )
 
     # The runtime triangulation is dualized to a Voronoi solver grid whose top/botm
@@ -237,7 +205,7 @@ def test_grid_dual_triangle_keeps_the_triangulation_cells():
         ),
         cell_blocks=(CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2], [0, 2, 3]], dtype=int)),),
     )
-    planar_mesh = _RuntimePlanarMesh(hydro_mesh)
+    cell_mesh = cell_mesh_of(hydro_mesh)
 
     ctx = build_spatial_discretization(
         domain=domain,
@@ -245,7 +213,7 @@ def test_grid_dual_triangle_keeps_the_triangulation_cells():
             grid_dual="triangle",
             vertical=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
         ),
-        runtime_planar_mesh=planar_mesh,
+        cell_mesh=cell_mesh,
     )
 
     # grid_dual="triangle" (e.g. for Boussinesq) keeps the 2 triangulation cells; it

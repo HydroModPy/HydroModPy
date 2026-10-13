@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -47,6 +48,9 @@ from hydromodpy.solver.modflow_common import (
 )
 from hydromodpy.solver.modflow_grid import SolverGridContext
 from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import GmshSupportMetadata
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 
 class Modflow6:
@@ -181,7 +185,7 @@ class Modflow6:
         domain: DomainLike,
         options: ModflowPreprocessOptions | None = None,
         *,
-        mesh_planar: object | None = None,
+        cell_mesh: PlanarCellMesh | None = None,
         mesh_support: object | None = None,
         flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
@@ -198,8 +202,8 @@ class Modflow6:
             The domain the grid is built on.
         options
             Pre-processing options. None keeps the ones the model holds.
-        mesh_planar, mesh_support
-            The planar mesh and its support when the run built one; None on a
+        cell_mesh, mesh_support
+            The planar cell mesh and its support when the run built one; None on a
             structured grid built from the domain.
         flow_runtime_overrides
             Flow values that replace the configured ones for this build only,
@@ -210,7 +214,7 @@ class Modflow6:
             flow,
             domain,
             options,
-            mesh_planar=mesh_planar,
+            cell_mesh=cell_mesh,
             mesh_support=mesh_support,
             flow_runtime_overrides=flow_runtime_overrides,
         )

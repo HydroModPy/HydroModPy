@@ -29,6 +29,8 @@ from docutils.statemachine import StringList
 from sphinx.util import logging
 from sphinx.util.docutils import SphinxDirective
 
+from tools.docs.tests_index import MARK_SOLVER, SOLVER_ORDER, column_of, solvers_of
+
 logger = logging.getLogger(__name__)
 
 DATA: dict = {}
@@ -48,16 +50,6 @@ GROUPS = {
     "mms": "Manufactured solutions",
     "calibration": "Calibration finds a known truth",
 }
-# A marker that names a solver, for tests that do not parametrize one.
-MARK_SOLVER = {"mf6": "modflow6", "petsc": "petsc"}
-SOLVER_ORDER = [
-    "modflow_nwt",
-    "modflow6",
-    "modflow6_irregular_tri",
-    "modflow6_voronoi",
-    "boussinesq",
-    "boussinesq_local",
-]
 MATRIX_COLUMNS = [*SOLVER_ORDER, "other"]
 COLUMN_LABELS = {
     "modflow_nwt": "NWT",
@@ -150,20 +142,55 @@ def group_of(entry: dict) -> str:
     return "sanity" if "solver_sanity" in entry["markers"] else entry["group"]
 
 
-def solvers_of(entry: dict) -> list[str]:
-    """Parametrized solvers, else the solvers of its cases, else the solver markers."""
-    if entry["solvers"]:
-        return entry["solvers"]
-    from_cases = list(dict.fromkeys(s for c in entry["cases"] for s in c.get("solver_files", {})))
-    return from_cases or [MARK_SOLVER[m] for m in entry["markers"] if m in MARK_SOLVER]
-
-
 def solver_key(s: str) -> tuple[int, str]:
     return (SOLVER_ORDER.index(s) if s in SOLVER_ORDER else len(SOLVER_ORDER), s)
 
 
-def column_of(solver: str | None) -> str:
-    return solver if solver in SOLVER_ORDER else "other"
+def declared_columns(entry: dict) -> set[str]:
+    """The matrix columns the solvers of a test file fall in."""
+    return {column_of(s) for s in solvers_of(entry)}
+
+
+def not_applicable_of(entry: dict, warn: bool = False) -> dict[str, str]:
+    """Column to the reason a solver cannot run the test; ``*`` stands for every column.
+
+    A column that is both declared and not applicable counts as declared.
+    """
+    raw = entry.get("not_applicable") or {}
+    columns = {}
+    for key, reason in raw.items():
+        if key == "*":
+            columns.update({c: reason for c in SOLVER_ORDER if c not in raw})
+        elif key in SOLVER_ORDER:
+            columns[key] = reason
+        elif warn:
+            logger.warning("%s: NOT_APPLICABLE names the unknown column %r", entry["file"], key)
+    both = sorted(set(columns) & declared_columns(entry))
+    if both and warn:
+        logger.warning(
+            "%s: NOT_APPLICABLE lists %s, which the file declares; treated as declared",
+            entry["file"],
+            ", ".join(both),
+        )
+    return {c: r for c, r in columns.items() if c not in both}
+
+
+def record_column(record: dict, by_function: dict[str, str], only: str) -> str:
+    """The column of a recorded test: its solver, else the markers of its function, else ``only``."""
+    if record.get("solver"):
+        return column_of(record["solver"])
+    name = record.get("nodeid", "").split("::")[-1].split("[")[0] or record.get("function", "")
+    return by_function.get(name, only)
+
+
+def function_columns(entry: dict) -> dict[str, str]:
+    """Test function to the column its solver markers name, when they name exactly one."""
+    out = {}
+    for fn in entry.get("functions", []):
+        cols = {column_of(MARK_SOLVER[m]) for m in fn["markers"] if m in MARK_SOLVER}
+        if len(cols) == 1:
+            out[fn["name"]] = next(iter(cols))
+    return out
 
 
 def fmt(value) -> str:
@@ -951,17 +978,18 @@ class ValidationDirective(SphinxDirective):
             for e in groups[g]:
                 recs = records_of(e)
                 gaps = {column_of(s) for s in gap_notes(e)}
-                declared = {column_of(s) for s in solvers_of(e)} or {"other"}
+                declared = declared_columns(e) or {"other"}
+                na = not_applicable_of(e, warn=True)
                 only = next(iter(declared)) if len(declared) == 1 else "other"
-
-                def col_of(r: dict, only: str = only) -> str:
-                    return column_of(r["solver"]) if r.get("solver") else only
+                by_function = function_columns(e)
 
                 cells = "".join(
                     self.cell(
-                        [r for r in recs if col_of(r) == col],
+                        [r for r in recs if record_column(r, by_function, only) == col],
                         col in declared,
                         col in gaps,
+                        na.get(col),
+                        col != "other",
                     )
                     for col in MATRIX_COLUMNS
                 )
@@ -978,7 +1006,10 @@ class ValidationDirective(SphinxDirective):
             "recorded run of that solver: 50 % means the worst metric sat at half its threshold. "
             "A metric that must stay above its threshold counts the share of the margin it used "
             "between its ideal value and the threshold. <em>skipped</em> and <em>not measured</em> "
-            "prove nothing. A cross marks a failure. <em>gap</em> marks a known discrepancy that "
+            "prove nothing. A cross marks a failure. <em>n/a</em> means the solver cannot run "
+            "that test: the reason shows on hover and in the section of the case. A blank cell no "
+            "longer exists: a solver column is a result, <em>not measured</em>, <em>n/a</em> or, "
+            "while its declaration is missing, <em>undeclared</em>. <em>gap</em> marks a known discrepancy that "
             "the threshold lets through; the section of the case explains it. <em>other</em> "
             "gathers the solvers outside these columns and the tests that name none. The columns "
             "are "
@@ -991,11 +1022,24 @@ class ValidationDirective(SphinxDirective):
         return sec
 
     @staticmethod
-    def cell(records: list[dict], declared: bool, gap: bool) -> str:
+    def cell(
+        records: list[dict],
+        declared: bool,
+        gap: bool,
+        reason: str | None = None,
+        solver_column: bool = True,
+    ) -> str:
         if not records:
             if declared:
                 return '<td class="hmp-val-cell hmp-val-nm">not measured</td>'
-            return '<td class="hmp-val-cell hmp-val-na"></td>'
+            if reason is not None:
+                return f'<td class="hmp-val-cell hmp-val-na" title="{esc(reason)}">n/a</td>'
+            if solver_column:
+                return (
+                    '<td class="hmp-val-cell hmp-val-un" title="neither run nor marked '
+                    'not applicable">undeclared</td>'
+                )
+            return '<td class="hmp-val-cell hmp-val-na">-</td>'
         status = outcome_of(records)
         ratios = [ratio(m) for r in records for m in r["metrics"]]
         worst = max((x for x in ratios if x is not None), default=None)
@@ -1036,6 +1080,16 @@ class ValidationDirective(SphinxDirective):
                 '<div class="admonition warning hmp-val-gap"><p class="admonition-title">'
                 f"Known gap: {names}</p><p>{md(text, builder, doc)}</p></div>"
             )
+        na = not_applicable_of(entry)
+        if na:
+            by_reason: dict[str, list[str]] = {}
+            for col, reason in na.items():
+                by_reason.setdefault(reason, []).append(COLUMN_LABELS[col])
+            items = "".join(
+                f"<li><strong>{esc(', '.join(cols))}</strong>: {md(reason, builder, doc)}</li>"
+                for reason, cols in by_reason.items()
+            )
+            head += f'<p class="hmp-val-h">Not run on</p><ul class="hmp-val-nalist">{items}</ul>'
         sec += H.raw(head)
 
         refs = [c["reference"] for c in entry["cases"] if c["reference"]] or (

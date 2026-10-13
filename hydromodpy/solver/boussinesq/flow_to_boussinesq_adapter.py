@@ -2,7 +2,7 @@
 
 The Boussinesq backend accepts either:
 
-- one runtime Gmsh planar mesh together with ``Flow``/``Domain`` property
+- one runtime planar cell mesh together with ``Flow``/``Domain`` property
   mapping (same spirit as the MODFLOW adapters), or
 - one gmsh-derived ``CatchmentMeshBundle`` (historical fallback).
 
@@ -27,27 +27,11 @@ from hydromodpy.solver.boussinesq.property_mapping import (
     resolve_required_flow_properties,
 )
 from hydromodpy.spatial.geographic.core.derived_features import resolve_river_mesh_trace
-from hydromodpy.spatial.mesh.gmsh_grid import load_planar_mesh
+from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import to_field_mesh
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
     load_catchment_mesh_bundle,
 )
-
-
-def _resolve_planar_mesh(setup_state: object):
-    """Return the canonical runtime Gmsh planar mesh attached to launcher setup."""
-    preloaded = getattr(setup_state, "mesh_planar", None)
-    if preloaded is not None:
-        return preloaded
-
-    mesh_summary = getattr(setup_state, "mesh_summary", None)
-    if isinstance(mesh_summary, dict):
-        mesh_path = str(mesh_summary.get("output_mesh", "")).strip()
-        if mesh_path != "":
-            mesh = load_planar_mesh(Path(mesh_path).expanduser())
-            setup_state.mesh_planar = mesh
-            return mesh
-    return None
 
 
 def resolve_mesh_bundle(setup_state: object) -> CatchmentMeshBundle:
@@ -67,7 +51,7 @@ def resolve_mesh_bundle(setup_state: object) -> CatchmentMeshBundle:
     raise ValueError(
         "flow/boussinesq requires either a runtime planar mesh with Flow/Domain "
         "property mapping support, or one CatchmentMeshBundle from the gmsh mesh "
-        "workflow. Provide state.setup.mesh_planar or state.setup.mesh_bundle, "
+        "workflow. Provide state.setup.cell_mesh or state.setup.mesh_bundle, "
         "or run the embedded [mesh_catchment] phase so output_mesh or "
         "output_exchange_bundle_dir is available."
     )
@@ -110,8 +94,8 @@ def _flow_uses_stream_bc(flow: object) -> bool:
 
 def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
     """Build one direct solver mesh from runtime mesh + Flow/Domain mapping."""
-    planar_mesh = _resolve_planar_mesh(setup_state)
-    if planar_mesh is None:
+    cell_mesh = getattr(setup_state, "cell_mesh", None)
+    if cell_mesh is None:
         return None
 
     flow = getattr(setup_state, "flow", None)
@@ -131,7 +115,7 @@ def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
     property_arrays = resolve_flow_property_arrays(
         flow=flow,
         domain=domain,
-        solver_mesh=planar_mesh,
+        solver_mesh=to_field_mesh(cell_mesh.mesh),
         required_properties=required_properties,
     )
     conductivity = np.asarray(
@@ -141,7 +125,7 @@ def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
     storage = np.asarray(
         property_arrays.get(
             "storage_coefficient",
-            np.zeros(int(planar_mesh.n_cells), dtype=float),
+            np.zeros(cell_mesh.n_cells, dtype=float),
         ),
         dtype=float,
     )
@@ -151,12 +135,17 @@ def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
     )
     if _flow_uses_stream_bc(flow) and river_trace is None:
         return None
-    return BoussinesqMesh.from_planar_mesh(
-        planar_mesh,
+    mesh_summary = getattr(setup_state, "mesh_summary", None)
+    output_mesh = (
+        str(mesh_summary.get("output_mesh", "")).strip() if isinstance(mesh_summary, dict) else ""
+    )
+    return BoussinesqMesh.from_cell_mesh(
+        cell_mesh,
         domain=domain,
         hydraulic_conductivity_m_s=conductivity,
         storage_coefficient=storage,
         river_trace=river_trace,
+        source_path=Path(output_mesh).expanduser() if output_mesh != "" else None,
     )
 
 
@@ -169,9 +158,9 @@ def _resolve_optional_bundle_property_arrays(
     if not requested_properties:
         return {}
 
-    planar_mesh = _resolve_planar_mesh(setup_state)
+    cell_mesh = getattr(setup_state, "cell_mesh", None)
     flow = getattr(setup_state, "flow", None)
-    if planar_mesh is None or flow is None:
+    if cell_mesh is None or flow is None:
         return {}
 
     available_properties = frozenset(
@@ -185,7 +174,7 @@ def _resolve_optional_bundle_property_arrays(
     return resolve_flow_property_arrays(
         flow=flow,
         domain=getattr(setup_state, "domain", None),
-        solver_mesh=planar_mesh,
+        solver_mesh=to_field_mesh(cell_mesh.mesh),
         required_properties=available_properties,
     )
 

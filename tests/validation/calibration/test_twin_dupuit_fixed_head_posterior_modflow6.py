@@ -16,6 +16,14 @@ from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment im
     STEADY_DUPUIT_POSTERIOR_TWIN_CASE,
 )
 
+NOT_APPLICABLE = {
+    "modflow_nwt": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, so the posterior built by GP mapping and DA-MH is the same on every solver. Measured identical recovery errors on NWT, MF6 triangles and Voronoi for the sibling twin.",
+    "modflow6_irregular_tri": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, so the posterior built by GP mapping and DA-MH is the same on every solver. Measured identical recovery errors on NWT, MF6 triangles and Voronoi for the sibling twin.",
+    "modflow6_voronoi": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, so the posterior built by GP mapping and DA-MH is the same on every solver. Measured identical recovery errors on NWT, MF6 triangles and Voronoi for the sibling twin.",
+    "boussinesq": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, so the posterior built by GP mapping and DA-MH is the same on every solver.",
+    "boussinesq_local": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, so the posterior built by GP mapping and DA-MH is the same on every solver.",
+}
+
 
 @pytest.mark.validation
 @pytest.mark.steady

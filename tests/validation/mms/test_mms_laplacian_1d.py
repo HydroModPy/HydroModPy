@@ -39,6 +39,10 @@ import pytest
 
 from .conftest import assert_order, l2_error, run_mms_convergence
 
+NOT_APPLICABLE = {
+    "*": "The test assembles its own finite-volume stencil and imports nothing from hydromodpy, so there is no HydroModPy solver to run. It verifies the order of that stencil.",
+}
+
 
 def _exact_solution(x: np.ndarray) -> np.ndarray:
     return np.sin(np.pi * x)

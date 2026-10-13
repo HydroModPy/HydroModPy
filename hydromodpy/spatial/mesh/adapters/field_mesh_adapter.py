@@ -11,10 +11,15 @@ container with minimal additional policy.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
 
 
 def from_field_mesh(field_mesh) -> HydroMesh:
@@ -70,6 +75,22 @@ def from_gmsh_planar(planar_mesh) -> HydroMesh:
         vertices=points_xy,
         cell_blocks=(CellBlock(cell_type=ct, connectivity=connectivity),),
     )
+
+
+def to_field_mesh(mesh: HydroMesh) -> BaseFieldMesh:
+    """Return the field mesh that samples fields on the cells of a planar ``HydroMesh``.
+
+    Triangles and quadrilaterals keep their own cell kind, so a field is sampled
+    on them as it is on a Gmsh planar mesh; ragged polygons (a Voronoi dual) are
+    sampled by area through ``PolygonFieldMesh``.
+    """
+    if CellType.POLYGON in mesh.cell_types:
+        from hydromodpy.spatial.field.meshes.polygon_field_mesh import PolygonFieldMesh
+
+        return PolygonFieldMesh(mesh)
+    from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
+
+    return GmshPlanarMesh2D.from_hydro_mesh(mesh)
 
 
 def from_extruded_prism(extruded_mesh) -> HydroMesh:

@@ -1,0 +1,23 @@
+[head_profile]
+rmse = 0.021
+max_abs_error = 0.051
+row_spread = 1e-9
+
+[doc]
+gap = """
+Known gap. A Voronoi cell that straddles a K break takes the area-weighted
+arithmetic K of its two zones, while the reference jumps sharply, so the error
+peaks at the breaks (+0.046 m at x = 285 m, -0.021 m at x = 115 m). Control on a
+lattice strip of 3 node rows and 16 m columns: with the breaks on cell edges
+(120 m and 280 m are edges) RMSE 5.6e-3 m, max 9.4e-3 m; with the breaks through
+the cell nodes (columns shifted by 8 m) RMSE 1.70e-2 m, max 5.17e-2 m, close to
+the irregular strip (1.87e-2 m, 4.59e-2 m). The triangle strip assigns K by
+centroid and does not blend.
+"""
+reason = """
+Measured values with a 10 % margin: RMSE 1.87e-2 m, max error 4.59e-2 m, at
+x = 285 m. The gap below explains why the margin is not 2x. Each cell is read
+at its node and the profile is the area-weighted mean per 10 m column, for the
+model and the reference alike. The row spread is the float noise of the
+area-weighted mean.
+"""

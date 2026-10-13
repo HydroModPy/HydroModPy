@@ -218,7 +218,7 @@ try:
         "declared_geographic_files": sorted(
             str(path) for path in geographic_artifact_paths(setup.geographic)
         ),
-        "mesh_loaded": setup.mesh_planar is not None and setup.mesh_bundle is not None,
+        "mesh_loaded": setup.cell_mesh is not None and setup.mesh_bundle is not None,
     }
     Path(digest_path).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 finally:

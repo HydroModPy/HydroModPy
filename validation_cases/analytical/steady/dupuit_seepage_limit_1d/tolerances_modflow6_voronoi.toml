@@ -1,0 +1,27 @@
+[seepage_limit]
+position_error = 3.4
+head_profile_max_abs_error = 0.025
+mask_row_disagreement_max = 2
+
+[invariance]
+head_max_abs_error = 2e-7
+
+[control]
+drain_outflow_ratio_error = 8e-9
+
+[doc]
+reason = """
+MODFLOW 6 on the 320-node Voronoi dual of the same triangles, one cell per node,
+the land surface a DRN of conductance K * area / b with b = 1 m. Each head sits
+at its node, so a column is the area-weighted mean of the cells whose node falls
+in it, for the model and the reference alike. The surface is sampled at the
+nodes from the 5 m raster, flat past the centre of its end columns: the toe nodes
+at x = 400 m read 0.05 m, not the 0 m of the plane, so no cell is dry, and the
+reference is read at the same positions. Measured, the seepage limit sits at 200
+m (error 0) in the three scenarios of x_e = 200 m and at 135 m against 133.3 m
+for the doubled K (1.67 m): bound twice that. Head profile: max error 8.6e-3 m,
+1.23e-2 m for the doubled K; bound twice the largest. One cell differs from the
+seepage state of its column in the doubled-K scenario: bound twice that. The K/R
+invariance holds to 1.0e-7 m and moves no cell: bound 2e-7 m. Doubling K alone
+moves 57 cells and leaves the drain outflow at R * area to 3.7e-9, bound 8e-9.
+"""

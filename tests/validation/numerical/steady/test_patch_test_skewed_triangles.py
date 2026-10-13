@@ -4,8 +4,12 @@ Compared with: the steady head of a uniform flow at every triangle centroid.
 
 A consistent finite-volume flux reproduces a linear head on any cell shape. On
 this strip of skewed, non-isosceles triangles MODFLOW 6 with XT3D does, to the
-solver closure. The two-point flux of MODFLOW 6 without XT3D and of the
-Boussinesq solver does not: their error is recorded against a documented gap.
+solver closure, and so does MODFLOW 6 on the Voronoi dual of the same nodes: the
+dual cells are orthogonal to their faces (the face between two cells bisects
+their nodes), so the two-point flux of a uniform gradient is exact. The
+two-point flux between triangle centroids, in MODFLOW 6 without XT3D and in the
+Boussinesq solver (default local engine and PETSc engine, which assemble the same
+residual), does not: their error is recorded against a documented gap.
 """
 
 from __future__ import annotations
@@ -18,6 +22,11 @@ from validation_cases.numerical.steady.patch_test_skewed_triangles.comparison im
     run_patch_test_comparison,
 )
 
+NOT_APPLICABLE = {
+    "modflow_nwt": "MODFLOW-NWT builds a structured grid of axis-aligned rectangles and ignores a runtime mesh: it cannot hold the skewed triangles of this strip.",
+    "modflow6": "The structured MODFLOW 6 grid is axis-aligned rectangles with centres normal to the shared faces: no skewed cells. Its skewed-triangle runs are the triangle and Voronoi columns.",
+}
+
 
 @pytest.mark.validation
 @pytest.mark.steady
@@ -27,6 +36,8 @@ from validation_cases.numerical.steady.patch_test_skewed_triangles.comparison im
     [
         pytest.param("modflow6_irregular_tri", True, id="modflow6_irregular_tri"),
         pytest.param("modflow6_irregular_tri_xt3d_off", True, id="modflow6_irregular_tri_xt3d_off"),
+        pytest.param("modflow6_voronoi", True, id="modflow6_voronoi"),
+        pytest.param("boussinesq", False, marks=pytest.mark.petsc, id="boussinesq"),
         pytest.param("boussinesq_local", False, id="boussinesq_local"),
     ],
 )

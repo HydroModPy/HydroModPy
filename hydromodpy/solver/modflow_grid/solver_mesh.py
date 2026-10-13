@@ -371,7 +371,7 @@ class SolverMesh:
         dx, dy : float
             Cell sizes.
         xoff, yoff : float
-            Grid origin offsets.
+            Western and southern edges of the grid. Row 0 is the northern row.
         inactive_mask : ndarray, optional
             Boolean mask; if None all cells are active.
         """
@@ -393,9 +393,10 @@ class SolverMesh:
         if top_flat.size != n_cells:
             raise ValueError(f"top must have {n_cells} values, got {top_flat.size}")
 
-        # Build structured planar mesh vertices (nrow+1)*(ncol+1) nodes.
+        # Vertices (nrow+1)*(ncol+1), row 0 at the north like MODFLOW and flopy;
+        # ``yoff`` is the southern edge of the grid.
         x_edges = xoff + np.arange(ncol + 1) * dx
-        y_edges = yoff + np.arange(nrow + 1) * dy
+        y_edges = yoff + (nrow - np.arange(nrow + 1)) * dy
         xx, yy = np.meshgrid(x_edges, y_edges, indexing="xy")
         vertices = np.column_stack([xx.ravel(), yy.ravel()])
 

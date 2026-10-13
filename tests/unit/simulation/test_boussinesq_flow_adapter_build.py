@@ -19,6 +19,7 @@ from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import 
     WeightedAverageFieldDiscretization,
 )
 from hydromodpy.spatial.mesh.gmsh_grid import GmshPlanarMesh2D
+from tests._helpers.cell_meshes import cell_mesh_of
 
 from ._test_boussinesq_flow_adapter_builders import (
     _DummyRasterSupport,
@@ -119,7 +120,7 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_flow_parameters(
     )
     state = RunState(
         setup=SimpleNamespace(
-            mesh_planar=planar_mesh,
+            cell_mesh=cell_mesh_of(planar_mesh),
             mesh_bundle=None,
             mesh_summary=None,
             flow=flow,
@@ -208,7 +209,7 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_param
     )
     state = RunState(
         setup=SimpleNamespace(
-            mesh_planar=planar_mesh,
+            cell_mesh=cell_mesh_of(planar_mesh),
             mesh_bundle=None,
             mesh_summary=None,
             flow=flow,
@@ -283,7 +284,7 @@ def test_boussinesq_flow_adapter_falls_back_to_bundle_and_overrides_properties(
     )
     state = RunState(
         setup=SimpleNamespace(
-            mesh_planar=planar_mesh,
+            cell_mesh=cell_mesh_of(planar_mesh),
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=flow,

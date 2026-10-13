@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from validation_cases.calibration.shared.definitions import (
@@ -12,9 +13,20 @@ from validation_cases.calibration.shared.definitions import (
     TwinOutputSpec,
     TwinParameterTarget,
 )
-from validation_cases.shared.runtime import _merge_toml_payloads, _read_toml
+from validation_cases.calibration.shared.solver_variants import (
+    TWIN_SOLVERS,
+    VARIANTS,
+    case_id_for,
+    config_builder,
+)
 
 CASE_DIR = Path(__file__).resolve().parents[4] / "analytical" / "steady" / "dupuit_fixed_head_1d"
+REFINED_BUNDLE_DIR = (
+    Path(__file__).resolve().parent
+    / "mesh_bundles"
+    / "sloping_substratum_irregular_tri_refined_400x50"
+)
+"""Truth mesh of the unstructured columns, see ``mesh_bundle.py``."""
 
 
 def _build_modflow6_simulation_config(
@@ -26,25 +38,13 @@ def _build_modflow6_simulation_config(
     ny: int = 5,
 ) -> None:
     """Write one MODFLOW 6 simulation config with configurable planar resolution."""
-    from validation_cases.shared.runtime import _dump_toml
-
-    payload = _merge_toml_payloads(
-        _read_toml(CASE_DIR / "config_common.toml"),
-        _read_toml(CASE_DIR / "config_modflow6.toml"),
-    )
-    payload.setdefault("workspace", {})["project_root"] = str(project_root)
-    payload.setdefault("simulation", {})["name"] = str(run_id)
-    planar = (
-        payload.setdefault("modflow6", {})
-        .setdefault("sgrid", {})
-        .setdefault(
-            "planar",
-            {},
-        )
-    )
-    planar["nx"] = int(nx)
-    planar["ny"] = int(ny)
-    path.write_text(_dump_toml(payload), encoding="utf-8", newline="\n")
+    config_builder(
+        "modflow6",
+        case_dir=CASE_DIR,
+        common_files=("config_common.toml",),
+        run_id=run_id,
+        planar=(nx, ny),
+    )(path, project_root)
 
 
 def build_simulation_config(path: Path, project_root: Path) -> None:
@@ -372,3 +372,53 @@ STEADY_DUPUIT_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
     output_specs=_STEADY_DUPUIT_OUTPUT_SPECS,
     objective_block_specs=_STEADY_DUPUIT_OBJECTIVE_BLOCK_SPECS,
 )
+
+
+def _mesh_perturbed_case_for(column: str):
+    """Return the mesh-perturbed twin of one solver column.
+
+    The truth runs on a mesh twice as fine as the calibration mesh. The
+    structured solvers double the columns, 80 by 5 against 40 by 5. The
+    unstructured columns take the coarse triangle bundle of the analytical
+    case for the calibration and ``REFINED_BUNDLE_DIR`` for the truth, and the
+    Voronoi column takes the dual of each.
+    """
+    if column == "modflow6":
+        return STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE
+    variant = VARIANTS[column]
+    unstructured = variant.unstructured
+    common = ("config_common.toml",)
+    return replace(
+        STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE,
+        case_id=case_id_for(STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE.case_id, column),
+        solver_name=variant.solver_name,
+        build_simulation_config=config_builder(
+            column,
+            case_dir=CASE_DIR,
+            common_files=common,
+            run_id="steady_dupuit_truth",
+            planar=None if unstructured else (40, 5),
+        ),
+        build_truth_simulation_config=config_builder(
+            column,
+            case_dir=CASE_DIR,
+            common_files=common,
+            run_id="steady_dupuit_truth_refined",
+            planar=None if unstructured else (80, 5),
+            bundle_dir=REFINED_BUNDLE_DIR if unstructured else None,
+        ),
+        perturbation_description=(
+            "Truth observations come from a mesh twice as fine as the calibration mesh: "
+            + (
+                "the refined triangle bundle against the 176-triangle one."
+                if unstructured
+                else "80x5 cells against 40x5."
+            )
+        ),
+    )
+
+
+STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASES = {
+    column: _mesh_perturbed_case_for(column) for column in TWIN_SOLVERS
+}
+"""One mesh-perturbed twin per solver column, keyed by the matrix column."""

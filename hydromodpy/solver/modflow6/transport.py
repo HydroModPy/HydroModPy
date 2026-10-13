@@ -14,6 +14,7 @@ from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, Transpor
 from hydromodpy.solver.modflow6.build import mf6_safe_name, optional_ims_kwargs
 from hydromodpy.solver.modflow6.postprocess import run_transport_post_processing
 from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
+from hydromodpy.solver.modflow6.support.windows_paths import check_mf6_workspace_paths
 from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,
     build_concentration_runtime_overrides,
@@ -232,6 +233,7 @@ class Modflow6Transport:
                 self.model_modflow.sim.write_simulation(silent=False)
         success = False
         if run_model:
+            check_mf6_workspace_paths(self.model_modflow.sim)
             success, _ = run_simulation_with_progress(
                 self.model_modflow.sim,
                 int(self.model_modflow.nper),

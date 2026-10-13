@@ -23,6 +23,7 @@ import numpy as np
 
 from hydromodpy.core.exceptions import MeshError, PipelineError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import to_field_mesh
 from hydromodpy.workflow.internals.data_description import (
     iter_loaded_records,
     read_data_description,
@@ -107,17 +108,17 @@ def step_persist_mesh(ctx: WorkflowContext, sim_id: str, *, store: SimulationSto
 
     z_intf = np.asarray(domain.z_interfaces, dtype=float)
 
-    mesh_planar = ctx.setup.mesh_planar
-    if mesh_planar is not None:
-        vertices = mesh_planar.points_xy
-        connectivity = mesh_planar.connectivity
+    cell_mesh = ctx.setup.cell_mesh
+    if cell_mesh is not None:
+        vertices = cell_mesh.mesh.vertices
+        connectivity = cell_mesh.connectivity_rows
     else:
         from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
 
         support = getattr(domain.surface_topo, "support", None)
         if support is None or support.nrows is None or support.ncols is None:
             raise MeshError(
-                "step_persist_mesh: no Gmsh planar mesh and no raster support "
+                "step_persist_mesh: no cell mesh and no raster support "
                 "on domain.surface_topo - cannot materialise a HydroMesh"
             )
         regular = RegularGrid(
@@ -334,10 +335,10 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> No
                     geo_grp.attrs["source_kind"] = str(getattr(obj, "source_kind", "raster"))
 
                     mesh = getattr(ctx, "setup", None)
-                    mesh_planar = getattr(mesh, "mesh_planar", None) if mesh else None
-                    if mesh_planar is not None:
+                    cell_mesh = getattr(mesh, "cell_mesh", None) if mesh else None
+                    if cell_mesh is not None:
                         try:
-                            disc = obj.on_mesh(mesh_planar)
+                            disc = obj.on_mesh(to_field_mesh(cell_mesh.mesh))
                             fractions = getattr(disc, "fractions_by_zone", {})
                             for zone_key, frac_array in fractions.items():
                                 safe_key = zone_key.replace("/", "_").replace(" ", "_")

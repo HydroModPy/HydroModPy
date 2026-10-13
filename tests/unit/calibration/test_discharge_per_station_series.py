@@ -71,7 +71,7 @@ def _ctx(station_cells: dict[str, tuple[int, int, int]]) -> SimpleNamespace:
         for sid, cell in station_cells.items()
     ]
     return SimpleNamespace(
-        setup=SimpleNamespace(mesh_planar=None, domain=None, geographic=None),
+        setup=SimpleNamespace(cell_mesh=None, domain=None, geographic=None),
         loaded_data=SimpleNamespace(
             hydrometry=SimpleNamespace(points=points),
             piezometry=None,

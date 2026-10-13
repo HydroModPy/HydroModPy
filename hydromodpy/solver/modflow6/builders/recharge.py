@@ -324,15 +324,9 @@ def _discretize_heterogeneous_source(
             discretize_fields_on_planar_mesh,
             discretize_points_on_planar_mesh,
         )
-        from hydromodpy.spatial.mesh.model.cell_types import CellType
 
-        solver_planar = model.solver_mesh.planar_mesh
-        planar_mesh = getattr(model, "runtime_mesh_planar", None)
-        # The runtime_mesh_planar is the triangular seed mesh; on a Voronoi solver grid
-        # recharge must discretize onto the actual (POLYGON) solver cells, which the
-        # HydroMesh exposes ragged-safe (cell_centroids + n_cells).
-        if planar_mesh is None or CellType.POLYGON in getattr(solver_planar, "cell_types", ()):
-            planar_mesh = solver_planar
+        # The solver cells, ragged-safe through the HydroMesh (cell_centroids + n_cells).
+        planar_mesh = model.solver_mesh.planar_mesh
 
     # Prefer fields; fall back to located points.
     if getattr(source, "has_fields", False):

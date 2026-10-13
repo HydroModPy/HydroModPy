@@ -22,8 +22,14 @@ Comparison:
 - reference: steady 1D Boussinesq profile with west divide, east fixed head, and piecewise `K`
 - boundary positions: each side head is posed where the model holds it, at the
   centre of the boundary column, or at the mean centroid of the boundary
-  triangles on the triangle strip; a no-flow side stays on the domain face
+  triangles on the triangle strip, or on the face on the Voronoi dual, whose
+  cells are seeded on the face; a no-flow side stays on the domain face
   (`validation_cases/shared/strip_geometry.py`)
+- Voronoi dual: one cell per node of the triangle strip, read at its node and
+  binned by area-weighted mean into the same 40 columns as the reference
+
+Known gap on `modflow6_voronoi`: a cell that straddles a K break takes the
+area-weighted K of its two zones (`tolerances_modflow6_voronoi.toml`).
 
 Direct execution:
 
@@ -41,6 +47,8 @@ The runner saves a PNG figure with:
 Solver variants:
 
 - `modflownwt` and `modflow6` use the historical launcher-backed structured-grid setup,
+- `modflow6_irregular_tri` and `modflow6_voronoi` use one irregular triangular strip
+  mesh and its Voronoi dual,
 - `boussinesq` uses a small triangular-strip bundle projected back to a regular
   `3 x 40` profile grid for plotting and metric comparison.
 

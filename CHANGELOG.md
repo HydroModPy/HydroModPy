@@ -34,10 +34,34 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- `PlanarCellMesh` (`spatial/mesh/model/`): a planar `HydroMesh` with one centre rule for every
+  consumer (`centers`, `center_kind`), a required CRS, cell chains and face families, zone labels,
+  the engine identity and a `MeshQA`. Its `DerivedGeometry` (areas, area centroids, edge table,
+  CSR adjacency, -1 padded connectivity) is computed once and vectorised: 1.5 s for 200 000
+  Voronoi cells against 10.8 s for the per-consumer functions. Adapters build it from a regular
+  grid, a gmsh triangulation with its support, and the current Voronoi dual.
+- A characterization net freezes the triangle and Voronoi meshes before the mesh refactor
+  (`tests/regression/mesh/mesh_net/`): cell count, areas and quality quantiles of the current
+  dual on two frozen bundles, and MF6 steady heads on the island with an asymmetric recharge;
+  bands in `tests/TOLERANCES.md` rows 162 to 169.
+- The validation page marks a solver that cannot run a case `n/a`, with the reason the test
+  file declares in `NOT_APPLICABLE`; a unit gate refuses a matrix cell that is neither run nor
+  declared.
+- Validation variants for every solver able to run a case: MF6 Voronoi on the fourteen 1D
+  strip cases; MODFLOW-NWT, MF6, triangles and Voronoi on the hillslope interception cases and
+  the seepage limit; Boussinesq on the seepage limit, and with the PETSc engine on the two
+  linearized drainage cases; NWT, triangles and Voronoi on Theis, Hantush, Ogata-Banks and PRT;
+  LAK grid equivalence on the Voronoi dual; stress-period substepping on NWT and Boussinesq;
+  grid convergence on triangles, Voronoi and Boussinesq; patch test on Voronoi and Boussinesq
+  PETSc; twin calibrations on NWT, triangles, Voronoi and Boussinesq.
 - `[modflow6.runtime] mf6_preconditioner_levels` and `mf6_preconditioner_drop_tolerance`
   set the fill and the drop tolerance of the IMS ILUT preconditioner; unset keeps the preset.
 
 ### Changed
+- The solvers take a `PlanarCellMesh` (`setup.cell_mesh`) instead of a `GmshPlanarMesh2D`
+  (`setup.mesh_planar` is gone). The calibration `mesh_fingerprint` now hashes the cell centres
+  with the true cell count (it hashed a (2, n) tuple and counted 2 cells): calibration caches of
+  gmsh runs miss once. Example 02 `run_cellular.py` still reads `setup.mesh_planar` and fails.
 - MODFLOW-NWT defaults to `options = "MODERATE"`. Under chi-MD, the default linear solver
   since 2.0.0a5, `"COMPLEX"` runs BiCGSTAB on a level-15 incomplete factorization: on the
   ten-layer example 12 regression model it diverged at the first solve and NWT stopped on a
@@ -48,6 +72,26 @@ Each release section includes the following standard categories:
   0.02 % (0.12 % on one percentile), the mean water-table depth by 0.9 mm.
 
 ### Fixed
+- A gridded recharge or ETP (SIM2, several stations, the soil reservoir EVTA) on a regular
+  grid read its values north-south mirrored: `cell_centers_from_sgrid` put row 0 at the south
+  when given a `SolverMesh`, which has no `xcellcenters`, while MODFLOW puts it at the north. Hit
+  MF6 on a regular grid and every NWT run with a heterogeneous recharge or ETP; triangles and
+  Voronoi were right. `SolverMesh.from_structured_arrays` is north-first too. Example 04
+  `step6_soil_reservoir.toml`: 28.8 % of the cells change recharge, mean discharge -0.10 %, NSE
+  0.75249 to 0.75248, heads |dh| mean 4.6 cm, max 0.68 m. Runs sealed before this fix on such a
+  grid are not comparable to later ones.
+- The strip validation comparisons read MF6 Voronoi heads at the bundle nodes. They read the
+  mean of the polygon vertices: 0.46 m RMSE on a case solved to 7 mm. A polygon mesh read without
+  its nodes now raises.
+- Twin calibrations read the truth and the trials in the same cell. On triangles and Voronoi the
+  truth took a raster index or a vertex mean, so a noise-free twin did not return to zero.
+- The transient hillslope interception comparison bins the reference with the model's cell
+  areas; on triangles the unweighted reference hid a one-period onset lag.
+- In the case-by-solver matrix, PETSc variants sit in the Boussinesq column and MF6 control
+  variants in their MF6 column, not in `other`; a test that gains parameters drops its old
+  snapshot record on merge.
+- On Windows, a MODFLOW 6 run whose files sit past 259 characters fails with `HMPY.E406`
+  naming the path and its length, instead of mf6's `Could not open ... IOSTAT 29`.
 - Depression removal no longer ends the Python process. whitebox-workflows 1.3.5 can lose a
   thread race in `fill_depressions` ("Error unwrapping 'output'"), even on one worker, and
   its panic hook then calls `exit(1)`: a run or a test session stopped with no traceback.

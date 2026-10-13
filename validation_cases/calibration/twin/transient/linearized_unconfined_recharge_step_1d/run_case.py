@@ -6,10 +6,11 @@ import argparse
 from pathlib import Path
 
 from validation_cases.calibration.shared.runtime import run_twin_benchmark_case
+from validation_cases.calibration.shared.solver_variants import TWIN_SOLVERS
 from validation_cases.calibration.twin.transient.linearized_unconfined_recharge_step_1d.experiment import (
-    TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE,
+    TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASES,
     TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE,
-    TRANSIENT_RECHARGE_STEP_TWIN_CASE,
+    TRANSIENT_RECHARGE_STEP_TWIN_CASES,
 )
 
 
@@ -29,11 +30,19 @@ def main(argv: list[str] | None = None) -> None:
         default=None,
         help="Optional method name filter. Repeat to select multiple methods.",
     )
+    parser.add_argument(
+        "--solver",
+        choices=TWIN_SOLVERS,
+        default="modflow6",
+        help="Solver column of the standard and flux_only_noisy variants.",
+    )
     args = parser.parse_args(argv)
+    if args.solver != "modflow6" and args.case == "noisy":
+        parser.error("--solver other than modflow6 needs --case standard or flux_only_noisy")
     definition = {
-        "standard": TRANSIENT_RECHARGE_STEP_TWIN_CASE,
+        "standard": TRANSIENT_RECHARGE_STEP_TWIN_CASES[str(args.solver)],
         "noisy": TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE,
-        "flux_only_noisy": TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE,
+        "flux_only_noisy": TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASES[str(args.solver)],
     }[str(args.case)]
     benchmark = run_twin_benchmark_case(
         definition,

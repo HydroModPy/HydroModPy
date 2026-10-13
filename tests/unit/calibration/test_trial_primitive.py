@@ -85,7 +85,7 @@ class _FakeCfg:
 class _FakeSetup:
     workspace: Any = None
     geographic: Any = None
-    mesh_planar: Any = None
+    cell_mesh: Any = None
     domain: Any = None
     flow: Any = None
     transport: Any = None
@@ -189,17 +189,17 @@ class TestFork:
     def test_fork_produces_independent_setup_but_shares_big_refs(self, tmp_path: Path) -> None:
         trial_ctx, _ = _make_trial_context(tmp_path, earliest=6)
         trial_ctx.ctx.setup.geographic = object()
-        trial_ctx.ctx.setup.mesh_planar = object()
+        trial_ctx.ctx.setup.cell_mesh = object()
         trial_ctx.ctx.setup.flow = "should_be_reset"
 
         forked = trial_ctx.fork({"K": 3.0})
 
         # setup instance is new (so mutation inside the trial does not
-        # leak back to base), but geographic / mesh_planar are shared
+        # leak back to base), but geographic / cell_mesh are shared
         # references because those are expensive to rebuild.
         assert forked.ctx.setup is not trial_ctx.ctx.setup
         assert forked.ctx.setup.geographic is trial_ctx.ctx.setup.geographic
-        assert forked.ctx.setup.mesh_planar is trial_ctx.ctx.setup.mesh_planar
+        assert forked.ctx.setup.cell_mesh is trial_ctx.ctx.setup.cell_mesh
         # flow is reset so step 05 / SimulationRunner will rebuild it from
         # the trial's cfg.flow.
         assert forked.ctx.setup.flow is None

@@ -42,6 +42,10 @@ import pytest
 
 from .conftest import assert_order, l2_error, run_mms_convergence
 
+NOT_APPLICABLE = {
+    "*": "The test assembles its own space and time stencils and imports nothing from hydromodpy, so there is no HydroModPy solver to run. It verifies the convergence orders of those stencils.",
+}
+
 D = 1.0  # diffusion coefficient (unit strength keeps numbers O(1))
 T_FINAL = 0.1  # final time - several e-folding times for D = 1
 LAMBDA = (np.pi**2) * D

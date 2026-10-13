@@ -317,7 +317,7 @@ class Project:
     @property
     def has_mesh(self) -> bool:
         """True once the mesh has been built for the project."""
-        return self._ctx.setup.mesh_planar is not None
+        return self._ctx.setup.cell_mesh is not None
 
     @property
     def data_loaded(self) -> set[str]:

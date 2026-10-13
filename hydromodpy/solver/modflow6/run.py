@@ -20,6 +20,7 @@ from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     run_modflow6_cyclic_spinup,
     run_modflow6_steady_state_initialization,
 )
+from hydromodpy.solver.modflow6.support.windows_paths import check_mf6_workspace_paths
 from hydromodpy.solver.modflow_common import ModflowRunOptions
 from hydromodpy.solver.modflow_common.progress import (
     run_simulation_with_progress,
@@ -94,6 +95,7 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
     success_model = False
     model.last_flow_solve_time_seconds = None
     if options.run_model:
+        check_mf6_workspace_paths(model.sim)
         solve_start = time.perf_counter()
         try:
             if getattr(options, "runner", "subprocess") == "api":

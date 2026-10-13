@@ -25,6 +25,14 @@ from validation_cases.numerical.transient.lak_pleasant_transient.comparison impo
     run_pleasant_transient_scenario,
 )
 
+NOT_APPLICABLE = {
+    "modflow_nwt": "HydroModPy builds no LAK package on MODFLOW-NWT, and this case checks the HydroModPy MODFLOW 6 DISV lake builder against the upstream MODFLOW 6 example.",
+    "modflow6_irregular_tri": "The structural checks count the connections of the 15x15 quad grid (vertical and horizontal per layer), which other cell shapes do not share. The same lake problem on triangle and Voronoi meshes is run by test_lak_grid_equivalence.",
+    "modflow6_voronoi": "The structural checks count the connections of the 15x15 quad grid (vertical and horizontal per layer), which other cell shapes do not share. The same lake problem on triangle and Voronoi meshes is run by test_lak_grid_equivalence.",
+    "boussinesq": "The Boussinesq solver has no lake package: a lake boundary is refused with IncompatibleCapabilitiesError, and the lake boundary lists modflow6 as its only backend.",
+    "boussinesq_local": "The Boussinesq solver has no lake package: a lake boundary is refused with IncompatibleCapabilitiesError, and the lake boundary lists modflow6 as its only backend.",
+}
+
 
 @pytest.mark.validation
 @pytest.mark.transient

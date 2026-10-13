@@ -1,0 +1,9 @@
+# Default local engine on the scaled_down scenario.
+[flow]
+runtime_max_iterations = 300
+runtime_tol_residual_inf = 1e-10
+runtime_tol_state_update_inf = 1e-13
+
+[flow.ic]
+type = "custom"
+value = 4.0

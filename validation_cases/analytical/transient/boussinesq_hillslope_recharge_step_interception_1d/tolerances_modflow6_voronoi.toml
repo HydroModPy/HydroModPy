@@ -1,0 +1,28 @@
+[onset]
+time_error_days = 15.0
+
+[trajectory]
+rmse_m = 10.0
+max_abs_error_m = 15.0
+reversal_m = 1e-6
+
+[uniformity]
+row_spread = 1e-9
+
+[contact]
+max_positive_clearance_m = 1e-6
+
+[doc]
+reason = """
+MODFLOW 6 on the 315-node Voronoi dual of the same triangles, 12 periods of 10
+days, DRN at the land surface with b = 1 m. The surface is 5.0 m on the nodes of
+the east face (x = 400 m), from a 2.5 m raster. Each cell is read at its node and
+the profile is the area-weighted mean per 10 m column, for the model and the
+reference alike. The onset is one period early (50 d against 60 d: the reference
+reads 2.6e-4 m from its own contact threshold), so the front is one column ahead
+at 3 of 12 periods (50, 80 and 120 d): onset error 10 d, trajectory RMSE 5.0 m, max 10 m. The
+bounds sit half a step above the onset and max and twice the RMSE. The head stays
+below the surface for the 120 days (largest clearance -2.8e-3 m), so the DRN
+never acts. Reversal is a solver-closure bound. The row spread is zero by
+construction.
+"""

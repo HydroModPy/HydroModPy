@@ -62,16 +62,10 @@ class RegularGrid:
         x_v, y_v = np.meshgrid(x_edges, y_edges, indexing="xy")
         vertices = np.column_stack((x_v.reshape(-1), y_v.reshape(-1)))
         nx = ncol + 1
-        connectivity = np.empty((nrow * ncol, 4), dtype=int)
-        idx = 0
-        for j in range(nrow):
-            for i in range(ncol):
-                n00 = j * nx + i
-                n10 = j * nx + (i + 1)
-                n11 = (j + 1) * nx + (i + 1)
-                n01 = (j + 1) * nx + i
-                connectivity[idx] = [n00, n10, n11, n01]
-                idx += 1
+        j, i = np.divmod(np.arange(nrow * ncol), ncol)
+        n00 = j * nx + i
+        n01 = (j + 1) * nx + i
+        connectivity = np.column_stack([n00, n00 + 1, n01 + 1, n01]).astype(int)
         return HydroMesh(
             vertices=vertices,
             cell_blocks=(CellBlock(CellType.QUADRILATERAL, connectivity),),

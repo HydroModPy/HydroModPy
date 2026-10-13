@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from validation_cases.calibration.shared.definitions import (
@@ -11,7 +12,12 @@ from validation_cases.calibration.shared.definitions import (
     TwinOutputSpec,
     TwinParameterTarget,
 )
-from validation_cases.shared.runtime import _merge_toml_payloads, _read_toml
+from validation_cases.calibration.shared.solver_variants import (
+    TWIN_SOLVERS,
+    VARIANTS,
+    case_id_for,
+    config_builder,
+)
 
 CASE_DIR = (
     Path(__file__).resolve().parents[4]
@@ -23,15 +29,12 @@ CASE_DIR = (
 
 def build_simulation_config(path: Path, project_root: Path) -> None:
     """Write one MODFLOW 6 simulation config for the steady piecewise-K benchmark."""
-    from validation_cases.shared.runtime import _dump_toml
-
-    payload = _merge_toml_payloads(
-        _read_toml(CASE_DIR / "config_modflownwt.toml"),
-        _read_toml(CASE_DIR / "config_modflow6.toml"),
-    )
-    payload.setdefault("workspace", {})["project_root"] = str(project_root)
-    payload.setdefault("simulation", {})["name"] = "steady_piecewise_k_truth"
-    path.write_text(_dump_toml(payload), encoding="utf-8", newline="\n")
+    config_builder(
+        "modflow6",
+        case_dir=CASE_DIR,
+        common_files=("config_modflownwt.toml",),
+        run_id="steady_piecewise_k_truth",
+    )(path, project_root)
 
 
 def _cma_es_profile(*, seed: int = 17) -> CalibrationMethodProfile:
@@ -175,3 +178,31 @@ PIECEWISE_K_TWIN_CASE = TwinCalibrationCaseDefinition(
     output_specs=_PIECEWISE_K_OUTPUT_SPECS,
     objective_block_specs=_PIECEWISE_K_OBJECTIVE_BLOCK_SPECS,
 )
+
+
+def _case_for(column: str):
+    """Return the piecewise-K twin of one solver column.
+
+    The K bands, the observation points and the methods are those of the
+    MODFLOW 6 twin. Only the solver config changes: the band file of the
+    analytical case read with the solver file of the column, and for the
+    unstructured columns the triangle bundle of that case.
+    """
+    if column == "modflow6":
+        return PIECEWISE_K_TWIN_CASE
+    variant = VARIANTS[column]
+    return replace(
+        PIECEWISE_K_TWIN_CASE,
+        case_id=case_id_for(PIECEWISE_K_TWIN_CASE.case_id, column),
+        solver_name=variant.solver_name,
+        build_simulation_config=config_builder(
+            column,
+            case_dir=CASE_DIR,
+            common_files=("config_modflownwt.toml",),
+            run_id="steady_piecewise_k_truth",
+        ),
+    )
+
+
+PIECEWISE_K_TWIN_CASES = {column: _case_for(column) for column in TWIN_SOLVERS}
+"""One piecewise-K twin per solver column, keyed by the matrix column."""

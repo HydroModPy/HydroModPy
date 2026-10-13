@@ -16,6 +16,14 @@ from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment im
     STEADY_DUPUIT_NOISY_TWIN_CASE,
 )
 
+NOT_APPLICABLE = {
+    "modflow_nwt": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, and the 1 percent noise is a seeded factor on it. The recovery is the same on every solver (identical on NWT, MF6 triangles and Voronoi for the noise-free twin).",
+    "modflow6_irregular_tri": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, and the 1 percent noise is a seeded factor on it. The recovery is the same on every solver (identical on NWT, MF6 triangles and Voronoi for the noise-free twin).",
+    "modflow6_voronoi": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, and the 1 percent noise is a seeded factor on it. The recovery is the same on every solver (identical on NWT, MF6 triangles and Voronoi for the noise-free twin).",
+    "boussinesq": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, and the 1 percent noise is a seeded multiplicative factor on it. The cost landscape, and so the recovery, is the same on every solver.",
+    "boussinesq_local": "The only observable is the east boundary flux, exactly proportional to K for fixed heads and no sources, and the 1 percent noise is a seeded multiplicative factor on it. The cost landscape, and so the recovery, is the same on every solver.",
+}
+
 
 @pytest.mark.validation
 @pytest.mark.steady

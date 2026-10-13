@@ -14,6 +14,11 @@ bin is one column. On an irregular triangle mesh one bin averages the triangles
 whose centroid falls in it, so the reference is averaged the same way: it is
 evaluated at each centroid, then binned.
 
+A MODFLOW 6 Voronoi dual has one cell per mesh node and holds its head at that
+node. A side head sits on the nodes of the face, so ``west_x`` and ``east_x``
+are the faces. The loaders bin the cells by node abscissa, weighted by polygon
+area, and the reference is evaluated at the nodes and binned the same way.
+
 A synthetic ``linear`` topography is defined on the raster columns: it takes
 its west value at the centre of the first column and its east value at the
 centre of the last one. A launcher run samples its cell tops from that raster.
@@ -26,6 +31,8 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+
+from validation_cases.shared.loaders import dual_column_index, run_dual_cell_centers
 
 # Relative tolerance that decides whether a mesh node lies on a strip face.
 _FACE_RTOL = 1.0e-9
@@ -238,6 +245,53 @@ def strip_geometry_from_mesh(
     )
 
 
+def strip_geometry_from_dual(
+    *,
+    cell_centers: np.ndarray,
+    vertices: np.ndarray,
+    connectivity: np.ndarray,
+    ncol: int,
+    raster_ncol: int | None = None,
+    xmin: float | None = None,
+    xmax: float | None = None,
+) -> StripGeometry:
+    """Build the strip geometry of a Voronoi dual, one cell per mesh node.
+
+    ``cell_centers`` is the node of each cell. ``xmin`` and ``xmax`` default to
+    the node extent, like the loaders. A column is the area-weighted mean of the
+    cells whose node falls in it, the same bins as the loader.
+    """
+    node_x = np.asarray(cell_centers, dtype=float)[:, 0]
+    x_lo = float(node_x.min()) if xmin is None else float(xmin)
+    x_hi = float(node_x.max()) if xmax is None else float(xmax)
+    atol = _FACE_RTOL * max(abs(x_hi - x_lo), 1.0)
+    on_west = np.isclose(node_x, x_lo, rtol=0.0, atol=atol)
+    on_east = np.isclose(node_x, x_hi, rtol=0.0, atol=atol)
+    if not (on_west.any() and on_east.any()):
+        raise ValueError(f"No Voronoi node sits on the strip faces x = {x_lo} and x = {x_hi}.")
+    _, area, _ = _cell_centroid_x_and_area(
+        np.asarray(vertices, dtype=float), np.asarray(connectivity, dtype=int)
+    )
+    if raster_ncol is None:
+        surface_west_x, surface_east_x = x_lo, x_hi
+    else:
+        raster_centres = column_centres(xmin=x_lo, xmax=x_hi, ncol=int(raster_ncol))
+        surface_west_x, surface_east_x = float(raster_centres[0]), float(raster_centres[-1])
+    return StripGeometry(
+        xmin=x_lo,
+        xmax=x_hi,
+        x=column_centres(xmin=x_lo, xmax=x_hi, ncol=int(ncol)),
+        west_x=float(np.mean(node_x[on_west])),
+        east_x=float(np.mean(node_x[on_east])),
+        surface_west_x=surface_west_x,
+        surface_east_x=surface_east_x,
+        mean_cell_area=float(np.mean(area)),
+        cell_x=node_x,
+        cell_column=dual_column_index(node_x, xmin=x_lo, xmax=x_hi, ncol=int(ncol)),
+        cell_weight=area,
+    )
+
+
 def split_triangle_strip_geometry(*, xmin: float, xmax: float, ncol: int) -> StripGeometry:
     """Build the geometry of the structured triangle strip of the Boussinesq runtime.
 
@@ -271,12 +325,26 @@ def strip_geometry_for_run(
 
     A launcher run stores its mesh and its topography raster, which give the
     true positions. A run of the Boussinesq validation runtime stores column
-    fields only, and gets the geometry of its structured triangle strip.
+    fields only, and gets the geometry of its structured triangle strip. A
+    Voronoi-dual run is told apart by its mesh bundle
+    (:func:`~validation_cases.shared.loaders.run_dual_cell_centers`) and gets
+    the dual geometry, area weighted whatever ``area_weighted`` says.
     """
     layout = _read_store_layout(getattr(result, "store", None), getattr(result, "sim_id", None))
     if layout is None:
         return split_triangle_strip_geometry(xmin=xmin, xmax=xmax, ncol=int(ncol))
     vertices, connectivity, raster_ncol = layout
+    cell_centers = run_dual_cell_centers(result)
+    if cell_centers is not None:
+        return strip_geometry_from_dual(
+            cell_centers=cell_centers,
+            vertices=vertices,
+            connectivity=connectivity,
+            ncol=int(ncol),
+            raster_ncol=raster_ncol,
+            xmin=float(xmin) if area_weighted else None,
+            xmax=float(xmax) if area_weighted else None,
+        )
     return strip_geometry_from_mesh(
         vertices=vertices,
         connectivity=connectivity,
@@ -294,5 +362,6 @@ __all__ = [
     "column_centres",
     "split_triangle_strip_geometry",
     "strip_geometry_for_run",
+    "strip_geometry_from_dual",
     "strip_geometry_from_mesh",
 ]

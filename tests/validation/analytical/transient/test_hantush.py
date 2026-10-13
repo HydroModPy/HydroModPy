@@ -1,4 +1,4 @@
-"""Hantush-Jacob (1955) leaky-aquifer benchmark against MODFLOW 6.
+"""Hantush-Jacob (1955) leaky-aquifer benchmark against MODFLOW 6 and MODFLOW-NWT.
 
 Compared with: the Hantush-Jacob (1955) drawdown of a leaky confined aquifer, `s = Q / (4 pi T) W(u, r / B)`.
 
@@ -26,15 +26,38 @@ Dirichlet ring sits well beyond the radius of influence
 ``~sqrt(4 T t / S)``. Drawdown is compared at radii 10/50/100 m and
 times 1/3/10 d.
 
+Four grids run the same sandwich, well, time steps and probes:
+
+   * ``modflow6``: the MF6 telescoping rectilinear DIS grid above.
+   * ``modflow_nwt``: the same grid and layers in MODFLOW-NWT (UPW, three
+     confined layers, layer 0 and the outer ring of layer 2 at ``ibound = -1``,
+     ``headtol = 1e-8`` m so the closure cannot hide the 2 % bound).
+   * ``modflow6_irregular_tri`` and ``modflow6_voronoi``: three layers on a DISV
+     disc of jittered concentric rings (``tests/validation/helpers/disv_meshes.py``),
+     cells growing by 1.2 per ring out to 1 km (ten leakage factors, where the
+     drawdown is 3e-6 m). Layer 0 holds the head in every cell, layer 2 in the
+     cells with a boundary edge, and the well pumps from the layer 2 cell that
+     holds the origin. The probe is the cell whose centre is the closest to the
+     target point; the closed form uses the discrete distance between centres.
+
+XT3D on the triangles follows HydroModPy's rule (``DisvMesh.xt3d_reason``): the
+triangle disc has a p95 connection non-orthogonality of 37 deg, above the 30 deg
+trigger, so XT3D is on (control run with the two-point flux: 1.28 % instead of
+0.61 %). The Voronoi disc is orthogonal and runs with the two-point flux.
+
 Tolerance rationale - ``tests/TOLERANCES.md`` row 6: NSE > 0.99 and
-maximum pointwise relative error below 2 %.
+maximum pointwise relative error below 2 %, for every grid. Measured maximum
+relative error: rectilinear 0.81 %, NWT 0.81 %, triangles 0.61 %, Voronoi 1.31 %
+(NSE above 0.9995 for all). The drawdown is steady from the first probe time, so the
+three times of a radius carry one error.
 
 Scope - ``solver_sanity``:
    The three-layer sandwich (source / aquitard / pumped aquifer) and the
    telescoping grid are built directly on the flopy SDK because the
    hydromodpy launcher TOML does not expose this geometry. The test
    therefore validates **MODFLOW 6 against the Hantush analytical
-   solution**, not the hydromodpy pipeline.
+   solution**, not the hydromodpy pipeline. The NWT leg checks the NWT
+   binary against the same closed form.
 """
 
 from __future__ import annotations
@@ -46,11 +69,26 @@ import numpy as np
 import pytest
 from scipy.integrate import quad
 
+from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from tests.regression.golden_utils import (
     assert_required_executables,
     resolve_bundled_executable,
 )
 from tests.validation.helpers import assert_metric_above, assert_metric_below, record_scale
+from tests.validation.helpers.disv_meshes import DisvMesh, radial_mesh
+
+NOT_APPLICABLE = {
+    "boussinesq": (
+        "The Boussinesq solver is one 2D layer with no confined storage, and its drainage only "
+        "removes water above the ground, so a leaky aquifer fed by a constant-head source bed "
+        "cannot be set up."
+    ),
+    "boussinesq_local": (
+        "The Boussinesq solver is one 2D layer with no confined storage, and its drainage only "
+        "removes water above the ground, so a leaky aquifer fed by a constant-head source bed "
+        "cannot be set up."
+    ),
+}
 
 PUMPING_RATE_M3_PER_DAY = 100.0
 TRANSMISSIVITY_M2_PER_DAY = 100.0
@@ -83,6 +121,14 @@ OBSERVATION_RADII_M = (10.0, 50.0, 100.0)
 OBSERVATION_TIMES_D = (1.0, 3.0, 10.0)
 
 INITIAL_HEAD_M = 50.0
+
+# DISV meshes: rings of triangles or Voronoi polygons out to ten leakage factors (B = 100 m),
+# where the leakage has cut the drawdown to 3e-6 m.
+DISV_KIND = {"modflow6_irregular_tri": "triangle", "modflow6_voronoi": "voronoi"}
+DISV_R_MAX_M = 1000.0
+DISV_R_FINE_M = 1.0
+DISV_GROWTH = 1.2
+DISV_JITTER = 0.4
 
 N_STRESS_PERIODS = 10
 PERIOD_LENGTH_D = 1.0
@@ -266,22 +312,233 @@ def _build_and_run_hantush_model(workspace: Path) -> tuple[list[float], list[flo
     return numerical, analytical
 
 
+def _build_and_run_hantush_model_nwt(workspace: Path) -> tuple[list[float], list[float]]:
+    """Run the MODFLOW-NWT three-layer Hantush model on the same telescoping grid.
+
+    Same sandwich, well, time steps and probes as the MODFLOW 6 model. Layer 0 is
+    held with ``ibound = -1``, the outer ring of layer 2 as well. The vertical
+    leakance between layers is NWT's harmonic mean of the half-thickness
+    resistances, which is the MODFLOW 6 conductance of the same layers. The closure
+    is tightened far below the NWT default so it cannot hide the 2 % bound.
+    """
+    import flopy
+
+    delr = _build_telescoping_axis()
+    n_cells = int(delr.size)
+    centre_index = n_cells // 2
+    x_centers = _cell_centers(delr)
+    well_x = x_centers[centre_index]
+
+    model = flopy.modflow.Modflow(
+        "hantush",
+        model_ws=str(workspace),
+        exe_name=str(ensure_solver_binary("mfnwt")),
+        version="mfnwt",
+    )
+    flopy.modflow.ModflowDis(
+        model,
+        nlay=3,
+        nrow=n_cells,
+        ncol=n_cells,
+        delr=delr,
+        delc=delr,
+        top=INITIAL_HEAD_M + SOURCE_THICKNESS_M,
+        botm=[
+            INITIAL_HEAD_M,
+            INITIAL_HEAD_M - AQUITARD_THICKNESS_M,
+            INITIAL_HEAD_M - AQUITARD_THICKNESS_M - AQUIFER_THICKNESS_M,
+        ],
+        nper=N_STRESS_PERIODS,
+        perlen=[PERIOD_LENGTH_D] * N_STRESS_PERIODS,
+        nstp=[NSTP_PER_PERIOD] * N_STRESS_PERIODS,
+        tsmult=[1.2] * N_STRESS_PERIODS,
+        steady=[False] * N_STRESS_PERIODS,
+        itmuni=4,
+        lenuni=2,
+    )
+    ibound = np.ones((3, n_cells, n_cells), dtype=int)
+    ibound[0] = -1
+    ibound[2, 0, :] = ibound[2, -1, :] = ibound[2, :, 0] = ibound[2, :, -1] = -1
+    flopy.modflow.ModflowBas(model, ibound=ibound, strt=INITIAL_HEAD_M)
+    k_layers = [SOURCE_K_M_PER_DAY, AQUITARD_K_M_PER_DAY, HYDRAULIC_CONDUCTIVITY_M_PER_DAY]
+    flopy.modflow.ModflowUpw(
+        model,
+        laytyp=[0, 0, 0],
+        layvka=0,
+        hk=k_layers,
+        vka=k_layers,
+        ss=[0.0, 0.0, SPECIFIC_STORAGE],
+        sy=0.0,
+    )
+    flopy.modflow.ModflowWel(
+        model,
+        stress_period_data={
+            period: [[2, centre_index, centre_index, -PUMPING_RATE_M3_PER_DAY]]
+            for period in range(N_STRESS_PERIODS)
+        },
+    )
+    flopy.modflow.ModflowNwt(model, headtol=1e-8, fluxtol=1e-6, maxiterout=200, linmeth=2)
+    flopy.modflow.ModflowOc(
+        model,
+        stress_period_data={
+            (period, NSTP_PER_PERIOD - 1): ["save head"] for period in range(N_STRESS_PERIODS)
+        },
+    )
+    model.write_input()
+    success, _buff = model.run_model(silent=True)
+    assert success, "MODFLOW-NWT Hantush simulation did not converge"
+
+    head_file = flopy.utils.HeadFile(workspace / "hantush.hds")
+    totim_array = np.asarray(head_file.get_times())
+
+    numerical: list[float] = []
+    analytical: list[float] = []
+    for radius in OBSERVATION_RADII_M:
+        obs_j = int(np.argmin(np.abs(x_centers - (well_x + radius))))
+        discrete_radius = float(abs(x_centers[obs_j] - well_x))
+        for requested_time in OBSERVATION_TIMES_D:
+            time_idx = int(np.argmin(np.abs(totim_array - requested_time)))
+            head_snapshot = head_file.get_data(totim=totim_array[time_idx])
+            numerical.append(INITIAL_HEAD_M - float(head_snapshot[2, centre_index, obs_j]))
+            analytical.append(
+                _hantush_drawdown(radius_m=discrete_radius, elapsed_d=float(totim_array[time_idx]))
+            )
+
+    return numerical, analytical
+
+
+def _build_and_run_hantush_model_disv(
+    workspace: Path, solver: str, force_xt3d: bool | None = None
+) -> tuple[list[float], list[float], DisvMesh]:
+    """Run the three-layer MF6 Hantush model on a radial triangle or Voronoi DISV mesh.
+
+    The three layers share the planar mesh (``disv_meshes.radial_mesh``, out to
+    1 km, ten leakage factors): layer 0 holds the head in every cell, layer 2
+    holds it in the cells with a boundary edge, and the well pumps from the layer 2
+    cell that holds the origin. Probes use the DISCRETE distance between cell
+    centres. ``force_xt3d`` overrides HydroModPy's XT3D rule (control runs).
+    """
+    import flopy
+
+    mesh = radial_mesh(
+        DISV_KIND[solver],
+        r_max=DISV_R_MAX_M,
+        r_fine=DISV_R_FINE_M,
+        growth=DISV_GROWTH,
+        jitter=DISV_JITTER,
+        top=INITIAL_HEAD_M + SOURCE_THICKNESS_M,
+        botm=[
+            INITIAL_HEAD_M,
+            INITIAL_HEAD_M - AQUITARD_THICKNESS_M,
+            INITIAL_HEAD_M - AQUITARD_THICKNESS_M - AQUIFER_THICKNESS_M,
+        ],
+    )
+    use_xt3d = mesh.xt3d if force_xt3d is None else force_xt3d
+    well_cell = mesh.cell_containing(0.0, 0.0)
+    well_x, well_y = mesh.centers[well_cell]
+
+    sim = flopy.mf6.MFSimulation(
+        sim_name="hantush",
+        sim_ws=str(workspace),
+        exe_name=str(resolve_bundled_executable("mf6")),
+        version="mf6",
+    )
+    flopy.mf6.ModflowTdis(
+        sim,
+        time_units="DAYS",
+        nper=N_STRESS_PERIODS,
+        perioddata=[(PERIOD_LENGTH_D, NSTP_PER_PERIOD, 1.2)] * N_STRESS_PERIODS,
+    )
+    # HydroModPy promotes SIMPLE to COMPLEX under XT3D (solver_options.resolve_ims_complexity).
+    flopy.mf6.ModflowIms(
+        sim,
+        print_option="SUMMARY",
+        complexity="COMPLEX" if use_xt3d else "SIMPLE",
+        outer_dvclose=1e-6,
+        inner_dvclose=1e-8,
+        linear_acceleration="BICGSTAB" if use_xt3d else "CG",
+    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname="hantush", save_flows=True)
+    flopy.mf6.ModflowGwfdisv(gwf, length_units="METERS", **mesh.disv_kwargs())
+    flopy.mf6.ModflowGwfic(gwf, strt=INITIAL_HEAD_M)
+    k_layers = [SOURCE_K_M_PER_DAY, AQUITARD_K_M_PER_DAY, HYDRAULIC_CONDUCTIVITY_M_PER_DAY]
+    flopy.mf6.ModflowGwfnpf(
+        gwf,
+        icelltype=0,
+        k=k_layers,
+        k33=k_layers,
+        xt3doptions=["XT3D"] if use_xt3d else None,
+    )
+    flopy.mf6.ModflowGwfsto(
+        gwf,
+        iconvert=0,
+        ss=[0.0, 0.0, SPECIFIC_STORAGE],
+        sy=0.0,
+        steady_state={0: False},
+        transient={0: True},
+    )
+    well_record = [((2, well_cell), -PUMPING_RATE_M3_PER_DAY)]
+    flopy.mf6.ModflowGwfwel(
+        gwf, stress_period_data={period: well_record for period in range(N_STRESS_PERIODS)}
+    )
+    chd = [((0, ic), INITIAL_HEAD_M) for ic in range(mesh.ncpl)]
+    chd += [((2, int(ic)), INITIAL_HEAD_M) for ic in mesh.boundary_cells]
+    flopy.mf6.ModflowGwfchd(gwf, stress_period_data={0: chd})
+    flopy.mf6.ModflowGwfoc(gwf, head_filerecord=f"{gwf.name}.hds", saverecord=[("HEAD", "ALL")])
+
+    sim.write_simulation(silent=True)
+    success, _buff = sim.run_simulation(silent=True)
+    assert success, "MF6 Hantush simulation on a DISV mesh did not converge"
+
+    head_file = flopy.utils.HeadFile(workspace / f"{gwf.name}.hds")
+    totim_array = np.asarray(head_file.get_times())
+
+    numerical: list[float] = []
+    analytical: list[float] = []
+    for radius in OBSERVATION_RADII_M:
+        obs = mesh.nearest_cell(well_x + radius, well_y)
+        discrete_radius = float(
+            np.hypot(mesh.centers[obs, 0] - well_x, mesh.centers[obs, 1] - well_y)
+        )
+        for requested_time in OBSERVATION_TIMES_D:
+            time_idx = int(np.argmin(np.abs(totim_array - requested_time)))
+            head_snapshot = head_file.get_data(totim=totim_array[time_idx])
+            numerical.append(INITIAL_HEAD_M - float(head_snapshot[2, 0, obs]))  # pumped layer
+            analytical.append(
+                _hantush_drawdown(radius_m=discrete_radius, elapsed_d=float(totim_array[time_idx]))
+            )
+
+    return numerical, analytical, mesh
+
+
 @pytest.mark.validation
 @pytest.mark.analytical
 @pytest.mark.transient
-@pytest.mark.mf6
-@pytest.mark.slow
 @pytest.mark.solver_sanity
-def test_hantush_leaky_aquifer_matches_analytical_reference(tmp_path: Path) -> None:
-    """Run the MF6 Hantush model and compare drawdowns to ``W(u, r/B)``."""
+@pytest.mark.parametrize(
+    "solver",
+    [
+        pytest.param("modflow_nwt", marks=[pytest.mark.nwt, pytest.mark.slow]),
+        pytest.param("modflow6", marks=[pytest.mark.mf6, pytest.mark.slow]),
+        pytest.param("modflow6_irregular_tri", marks=[pytest.mark.mf6, pytest.mark.fast]),
+        pytest.param("modflow6_voronoi", marks=[pytest.mark.mf6, pytest.mark.fast]),
+    ],
+)
+def test_hantush_leaky_aquifer_matches_analytical_reference(solver: str, tmp_path: Path) -> None:
+    """Run the Hantush model on the solver's grid and compare drawdowns to ``W(u, r/B)``."""
     assert_required_executables(
-        require_modflow=False,
-        require_modflow6=True,
+        require_modflow=solver == "modflow_nwt",
+        require_modflow6=solver != "modflow_nwt",
         require_modpath=False,
         require_mt3dms=False,
     )
 
-    numerical, analytical = _build_and_run_hantush_model(tmp_path)
+    if solver == "modflow_nwt":
+        numerical, analytical = _build_and_run_hantush_model_nwt(tmp_path)
+    elif solver == "modflow6":
+        numerical, analytical = _build_and_run_hantush_model(tmp_path)
+    else:
+        numerical, analytical, _mesh = _build_and_run_hantush_model_disv(tmp_path, solver)
     numerical_arr = np.asarray(numerical)
     analytical_arr = np.asarray(analytical)
 

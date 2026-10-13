@@ -1,7 +1,7 @@
 # Brutsaert Recession Validation: Deep Linearized Aquifer
 
-This transient validation case checks that the `modflow_nwt`, `modflow6` and
-`modflow6_irregular_tri` backends reproduce the linearized recession of a
+This transient validation case checks that the `modflow_nwt`, `modflow6`,
+`modflow6_irregular_tri` and `modflow6_voronoi` backends reproduce the linearized recession of a
 deep aquifer, whose tail is the exponential law of Brutsaert and Nieber
 (1977), `-dQ/dt = a Q`.
 
@@ -24,7 +24,8 @@ Analytical target:
   `D = 50 m`, the saturated thickness at the outlet,
 - the drainage length `B` runs from the divide to the cells that hold the
   outlet head: half a column inside the edge on a structured grid, at the
-  boundary triangle centroids on a mesh,
+  boundary triangle centroids on a mesh, on the edge itself on the Voronoi dual,
+  whose outlet cells are seeded at the nodes of the edge,
 - the recharged length is the steady discharge over `R W`: a model loses the
   recharge that falls on its fixed-head cells.
 
@@ -39,6 +40,12 @@ Primary metrics:
 
 The thresholds come from a time-step refinement (`tolerances.toml`). Backward
 Euler lowers the decay rate by `a dt / 2 = 0.33 %` at 100 steps a period.
+
+The Voronoi dual has its own thresholds (`tolerances_modflow6_voronoi.toml`).
+Its decay rate sits 0.66 % under the law, 0.33 % of it from backward Euler and
+0.32 % from space: the lowest eigenvalue of the dual operator on this mesh is
+0.346 % under the continuum rate, and a drainage length of 400.69 m instead of
+400 m gives back the time-stepping error alone.
 
 Direct MODFLOW-NWT diagnostics:
 

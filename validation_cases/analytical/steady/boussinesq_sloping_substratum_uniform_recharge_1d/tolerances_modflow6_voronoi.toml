@@ -1,0 +1,13 @@
+[head_profile]
+rmse = 0.037
+max_abs_error = 0.059
+row_spread = 1e-9
+
+[doc]
+reason = """
+Twice the error measured on the 101-node Voronoi dual of the triangle strip:
+RMSE 1.84e-2 m, max error 2.92e-2 m, against 2.07e-2 m and 3.10e-2 m on the
+triangle strip. Each cell is read at its node and the profile is the
+area-weighted mean per 10 m column, for the model and the reference alike. The
+row spread is the float noise of the area-weighted mean.
+"""

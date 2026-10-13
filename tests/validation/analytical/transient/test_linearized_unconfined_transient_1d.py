@@ -78,6 +78,7 @@ def _require_linux_petsc4py() -> None:
         pytest.param("modflow_nwt", True, False, id="modflow_nwt"),
         pytest.param("modflow6", False, True, id="modflow6"),
         pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
+        pytest.param("modflow6_voronoi", False, True, id="modflow6_voronoi"),
         pytest.param("boussinesq", False, False, id="boussinesq"),
     ],
 )

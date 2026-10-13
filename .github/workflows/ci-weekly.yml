@@ -41,6 +41,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The test scratch in the job's own temp folder: on windows-latest the
+      # user temp folder plus the pytest session nesting take 80 characters,
+      # and mf6.exe opens no path over 259. The product and the validation
+      # runtime still check every path a run writes.
+      - name: Put the test scratch in the runner temp folder
+        shell: bash
+        run: echo "HMP_TEST_SCRATCH_ROOT=$RUNNER_TEMP" >> "$GITHUB_ENV"
+
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}

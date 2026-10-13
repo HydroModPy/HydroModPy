@@ -21,6 +21,10 @@ from validation_cases.analytical.transient.brutsaert_reference import (
     nonlinear_recession_coefficient,
 )
 
+NOT_APPLICABLE = {
+    "*": "It compares the closed-form recession helpers with a SciPy BDF solve of the strip written inside the test; no HydroModPy solver is called. The solver runs of the same laws are the test_brutsaert_recession_* files.",
+}
+
 K_M_PER_S = 1.0e-4
 SPECIFIC_YIELD = 0.1
 RECHARGE_M_PER_S = 2.0e-3 / SECONDS_PER_DAY

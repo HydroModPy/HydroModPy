@@ -11,13 +11,13 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import to_field_mesh
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
     CatchmentMeshBundleCell,
     CatchmentMeshBundleEdge,
     CatchmentMeshBundleNode,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     build_gmsh_support_metadata,
 )
@@ -31,26 +31,29 @@ from ._mesh_geometry import (
 )
 
 if TYPE_CHECKING:
+    from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+
     from .mesh import BoussinesqMesh
 
 
-def build_runtime_bundle_from_planar_mesh(
-    mesh: GmshPlanarMesh2D,
+def build_runtime_bundle_from_cell_mesh(
+    cell_mesh: PlanarCellMesh,
     *,
     domain: object,
     hydraulic_conductivity_m_s,
     storage_coefficient,
     river_trace: object | None = None,
+    source_path: Path | None = None,
 ) -> CatchmentMeshBundle:
-    """Translate a runtime planar mesh into one CatchmentMeshBundle."""
+    """Translate a runtime planar cell mesh into one CatchmentMeshBundle."""
     from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle import (
         _build_edge_rows,
     )
 
-    if not isinstance(mesh, GmshPlanarMesh2D):
-        raise TypeError("mesh must be a GmshPlanarMesh2D instance")
     if domain is None:
         raise ValueError("Boussinesq runtime mesh construction requires a domain")
+    mesh = to_field_mesh(cell_mesh.mesh)
 
     surface_topo = getattr(domain, "surface_topo", None)
     substratum = getattr(domain, "substratum", None)
@@ -74,9 +77,7 @@ def build_runtime_bundle_from_planar_mesh(
     substratum_sampler = PreparedSurfaceSampler.from_surface(substratum)
     node_z_top = surface_topo_sampler.sample(node_x, node_y).reshape(-1)
     node_z_bottom = substratum_sampler.sample(node_x, node_y).reshape(-1)
-    centroid_x, centroid_y = mesh.cell_centroids()
-    centroid_x = np.asarray(centroid_x, dtype=float).reshape(-1)
-    centroid_y = np.asarray(centroid_y, dtype=float).reshape(-1)
+    centroid_x, centroid_y = cell_mesh.centers.T
     centroid_z_top = surface_topo_sampler.sample(centroid_x, centroid_y).reshape(-1)
     centroid_z_bottom = substratum_sampler.sample(centroid_x, centroid_y).reshape(-1)
 
@@ -143,7 +144,6 @@ def build_runtime_bundle_from_planar_mesh(
         for row in edge_rows
     )
 
-    source_path = getattr(mesh, "source_path", None)
     bundle_dir = Path(source_path).resolve().parent if source_path is not None else Path.cwd()
     return CatchmentMeshBundle(
         bundle_dir=bundle_dir,
@@ -361,7 +361,7 @@ def _assemble_edge_arrays(
 def build_planar_mesh_kwargs(
     *,
     base_mesh: BoussinesqMesh,
-    planar_mesh: GmshPlanarMesh2D,
+    planar_mesh: HydroMesh,
 ) -> dict:
     """Return constructor kwargs for the planar-mesh BoussinesqMesh variant."""
     return {

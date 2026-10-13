@@ -24,16 +24,12 @@ from hydromodpy.calibration.runners.state import mesh_fingerprint
 
 class _Mesh:
     def __init__(self, centroids: np.ndarray, *, structured: bool = True) -> None:
-        self._centroids = centroids
-        self.is_structured = structured
-        self.ncol = 2
-
-    def cell_centroids(self) -> np.ndarray:
-        return self._centroids
+        self.centers = centroids
+        self.structured_shape = (2, 2) if structured else None
 
 
 def _ctx(mesh: object | None) -> SimpleNamespace:
-    return SimpleNamespace(setup=SimpleNamespace(mesh_planar=mesh, mesh_summary=None))
+    return SimpleNamespace(setup=SimpleNamespace(cell_mesh=mesh, mesh_summary=None))
 
 
 _A = np.array([[0.0, 0.0], [10.0, 0.0], [0.0, 10.0], [10.0, 10.0]], dtype=float)

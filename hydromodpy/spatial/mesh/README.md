@@ -39,10 +39,21 @@ definit :
   Contrat principal : `HydroMesh` et `CellBlock`.
 - [model/cell_types.py](./model/cell_types.py)
   Enumeration canonique des types de cellules.
+- [model/planar_cell_mesh.py](./model/planar_cell_mesh.py)
+  `PlanarCellMesh` : un `HydroMesh` planaire avec ses centres, son CRS, ses
+  familles, ses zones, son identite et sa QA. Le maillage que lisent les solveurs.
+- [model/derived_geometry.py](./model/derived_geometry.py)
+  `DerivedGeometry` : aires, table d'aretes et adjacence, calculees une fois, vectorisees.
+- [model/mesh_qa.py](./model/mesh_qa.py)
+  `MeshQA` : bilan de qualite et declarations du moteur d'un `PlanarCellMesh`.
 - [plotting.py](./plotting.py)
   Affichage Matplotlib unifie pour maillages 2D.
 - [adapters](./adapters)
   Conversions vers / depuis `meshio`, `flopy`, `field`, `gmsh`.
+- [adapters/cell_mesh.py](./adapters/cell_mesh.py)
+  `cell_mesh_from_regular_grid`, `cell_mesh_from_triangulation` et
+  `cell_mesh_from_voronoi_dual` : un adaptateur par producteur, chacun rend un
+  `PlanarCellMesh`.
 - [io/vtu_io.py](./io/vtu_io.py)
   Lecture / ecriture VTU.
 - [UML.md](./UML.md)

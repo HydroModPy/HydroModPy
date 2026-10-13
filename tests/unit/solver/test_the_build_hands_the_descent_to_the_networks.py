@@ -35,7 +35,7 @@ _CODE_OF_STEP = {step: code for code, step in D8_WBT_OFFSETS.items()}
 
 
 def _mesh(nrow: int, ncol: int, top: np.ndarray) -> SolverMesh:
-    """10 m cells; mesh row 0 is the SOUTH row, cell id ``row * ncol + col``."""
+    """10 m cells; mesh row 0 is the NORTH row, cell id ``row * ncol + col``."""
     return SolverMesh.from_structured_arrays(
         nrow=nrow,
         ncol=ncol,
@@ -189,15 +189,14 @@ def test_rectify_on_mesh_traces_d_and_keeps_a_lone_staircase_whole() -> None:
     nrow = ncol = 8
     path = [(1, 1), (1, 2), (2, 2), (2, 3), (3, 3), (3, 4), (4, 4), (4, 5), (5, 5), (5, 6), (6, 6)]
     rows, cols = np.divmod(np.arange(nrow * ncol), ncol)
-    raster_rows = nrow - 1 - rows
-    mesh = _mesh(nrow, ncol, 50.0 - raster_rows - cols)
+    mesh = _mesh(nrow, ncol, 50.0 - rows - cols)
     descent = build_solver_mesh_descent(
         mesh,
         lake_cells_by_lake={},
         base_level_mask=None,
         channel_tree=_staircase_tree(nrow, ncol, path),
     )
-    staircase = [(nrow - 1 - r) * ncol + c for r, c in path]
+    staircase = [r * ncol + c for r, c in path]
     head_row, head_col = divmod(staircase[0], ncol)
     model = _model({"net0": _rectify_payload(head_row, head_col)})
 
@@ -211,18 +210,19 @@ def _two_valleys(nrow: int = 10, ncol: int = 10) -> SolverMesh:
     """Two valleys running south, centred on columns 2 and 7."""
     rows, cols = np.divmod(np.arange(nrow * ncol), ncol)
     centre = np.where(cols < 5, 2, 7)
-    return _mesh(nrow, ncol, 100.0 + 0.5 * rows + np.abs(cols - centre))
+    return _mesh(nrow, ncol, 100.0 + 0.5 * (nrow - 1 - rows) + np.abs(cols - centre))
 
 
-def _xy(row: int, col: int) -> tuple[float, float]:
-    return (10.0 * col + 5.0, 10.0 * row + 5.0)
+def _xy(row: int, col: int, nrow: int = 10) -> tuple[float, float]:
+    """Centre of a mesh cell: row 0 is the northern row, the grid's south edge is y = 0."""
+    return (10.0 * col + 5.0, 10.0 * (nrow - 1 - row) + 5.0)
 
 
 def test_the_drainage_basin_closes_on_the_snapped_outlet(monkeypatch) -> None:
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
     monkeypatch.setattr(build, "_watershed_polygon_mask", lambda model, centroids: None)
-    snapped, declared = _xy(0, 2), _xy(0, 7)
+    snapped, declared = _xy(9, 2), _xy(9, 7)
     model = SimpleNamespace(
         geographic=SimpleNamespace(
             x_outlet=declared[0],
@@ -242,7 +242,7 @@ def test_without_a_snapped_outlet_the_declared_one_closes_the_basin(monkeypatch)
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
     monkeypatch.setattr(build, "_watershed_polygon_mask", lambda model, centroids: None)
-    declared = _xy(0, 7)
+    declared = _xy(9, 7)
     model = SimpleNamespace(geographic=SimpleNamespace(x_outlet=declared[0], y_outlet=declared[1]))
 
     basin = build._drainage_basin(model, descent, mesh)
@@ -271,7 +271,7 @@ def test_a_basin_far_from_the_polygon_is_a_warning(monkeypatch, caplog) -> None:
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
     east = mesh.cell_centroids()[:, 0] > 50.0
     monkeypatch.setattr(build, "_watershed_polygon_mask", lambda model, centroids: east)
-    snapped = _xy(0, 2)
+    snapped = _xy(9, 2)
     model = SimpleNamespace(
         geographic=SimpleNamespace(x_outlet_snapped=snapped[0], y_outlet_snapped=snapped[1])
     )

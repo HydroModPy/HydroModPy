@@ -1,0 +1,12 @@
+# Boussinesq PETSc VI obstacle. The heads stand above the drain elevation, so
+# the upper obstacle must be relaxed: that happens only for an explicit positive
+# drain conductance (flow.bc.drainage.value, written by runtime_boussinesq.py).
+# The default local engine cannot hold a head above the surface, so it has no
+# variant here.
+
+[workflow]
+mode = "simulation"
+
+[flow]
+runtime_backend = "petsc"
+surface_interaction_model = "vi_obstacle"

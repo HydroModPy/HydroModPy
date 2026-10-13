@@ -125,8 +125,10 @@ pivot, and the pivot serves the plot, the disk formats and the solver adapters:
    ExtrudedPrismMesh3D ---+                  +-- to_meshio()
    FloPy StructuredGrid --+
 
-The cell types are ``TRIANGLE``, ``QUADRILATERAL``, ``WEDGE`` and ``HEXAHEDRON``
-(``CellType``, with string aliases such as ``"tri"`` and ``"triangular_prism"``).
+The cell types are ``TRIANGLE``, ``QUADRILATERAL``, ``POLYGON`` (ragged cells, such as a
+Voronoi dual), ``WEDGE`` and ``HEXAHEDRON`` (``CellType``, with string aliases such as
+``"tri"`` and ``"triangular_prism"``). A ``POLYGON`` block stores its connectivity as a tuple
+of rows of different lengths.
 ``is_structured`` is true when ``structured_shape`` is set. That hint lets the plot use
 ``pcolormesh`` and lets an export use DIS instead of DISV. ``with_cell_data(**fields)``
 and ``with_point_data(**fields)`` return a new instance, because the class is frozen.
@@ -161,6 +163,62 @@ Dependencies stay light: the core (``model/cell_types.py``, ``model/hydro_mesh.p
 needs only numpy, the plot needs matplotlib, and the adapters import meshio and flopy
 only when called.
 
+Cell mesh
+---------
+
+``PlanarCellMesh`` (``spatial/mesh/model/planar_cell_mesh.py``) is the mesh the solvers and
+the workflow steps read, as ``setup.cell_mesh``. It wraps one planar ``HydroMesh`` block of
+triangles, quadrilaterals or polygons, unchanged, and holds what every consumer would
+otherwise recompute:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Attribute
+     - Content
+   * - ``centers``, ``center_kind``
+     - The one cell centre rule, ``(n_cells, 2)``: ``generator`` (Voronoi), ``cell_center``
+       (regular grid) or ``vertex_mean`` (triangles).
+   * - ``crs_wkt``
+     - The CRS of the vertices, as WKT. It is required.
+   * - ``face_families``
+     - One row per mesh edge on a family line (``rivers``, ``geology``,
+       ``boundary:<side>``): the two cells and the two vertices of the edge, and the zone on
+       each side. ``cell_chains`` holds ordered chains of cells along a family.
+   * - ``cell_zone``, ``zone_names``
+     - The zone index of each cell, ``-1`` when unknown, and the sorted zone names.
+   * - ``identity``
+     - ``MeshIdentity``: engine id, engine version, request hash and seed.
+   * - ``qa``
+     - ``MeshQA``: area, size, centre offset and non-orthogonality quantiles, degenerate
+       faces, family coverage, and the engine declarations (``graded``, ``exact_faces``,
+       ``deterministic``, ``needs_cache``).
+   * - ``structured_shape``
+     - ``(nrow, ncol)`` of a regular grid, otherwise ``None``.
+
+``cell_mesh.geometry`` is a ``DerivedGeometry`` (``spatial/mesh/model/derived_geometry.py``),
+derived once on first use with vectorised numpy. It holds the ``-1`` padded connectivity
+(the format of the Zarr store), the areas and area centroids, the edge table keyed by
+vertex ids (``edge_nodes``, ``edge_cells``, length and midpoint) and the CSR adjacency of
+the interior edges. An edge shared by more than two cells raises ``ValueError``.
+``cell_mesh.connectivity_rows`` returns the cells as one array: the block itself for
+triangles and quadrilaterals, the padded rows for polygons.
+
+Three adapters in ``spatial/mesh/adapters/cell_mesh.py`` build it, one per producer. Each
+keeps the producer's cell and vertex order:
+
+- ``cell_mesh_from_regular_grid(grid, crs_wkt=...)``: the quadrilaterals of
+  ``RegularGrid.to_hydro_mesh()``, row 0 north, centres at the cell centres.
+- ``cell_mesh_from_triangulation(mesh, support, crs_wkt=...)``: a Gmsh triangulation, centres
+  at the vertex means. The runtime support gives the families and the zones. A support whose
+  cell count, vertices or cell order differ from the mesh raises ``ValueError``.
+- ``cell_mesh_from_voronoi_dual(dual, support_on_dual, crs_wkt=...)``: the polygons of a
+  Voronoi dual, centres at its generators.
+
+A consumer that samples a field on the cells calls ``to_field_mesh(cell_mesh.mesh)`` in
+``adapters/field_mesh_adapter.py``.
+
 Module layout
 -------------
 
@@ -168,9 +226,11 @@ Module layout
 
    hydromodpy/spatial/mesh/
    |-- __init__.py          CellType, CellBlock, HydroMesh
-   |-- model/               cell_types.py, hydro_mesh.py, grid_wrappers.py, protocol.py
+   |-- model/               cell_types.py, hydro_mesh.py, grid_wrappers.py, protocol.py,
+   |                        planar_cell_mesh.py, derived_geometry.py, mesh_qa.py
    |-- plotting.py          plot_cell_values
-   |-- adapters/            meshio_adapter.py, field_mesh_adapter.py, flopy_adapter.py
+   |-- adapters/            meshio_adapter.py, field_mesh_adapter.py, flopy_adapter.py,
+   |                        cell_mesh.py
    |-- io/                  vtu_io.py
    |-- cartesian_grid/      the structured grid path
    |-- gmsh_grid/           the Gmsh path: planar, extruded, bundles, exchange API

@@ -119,14 +119,14 @@ def _run_setup_process(trial) -> None:
     Pipeline((step,)).run(state)
 
 
-def _column_depth(domain, *, planar_mesh) -> np.ndarray:
+def _column_depth(domain, *, cell_mesh) -> np.ndarray:
     """Top minus botm of the solver grid the MODFLOW 6 build derives from the domain."""
     from hydromodpy.solver.modflow_grid.discretization_spatial import (
         build_spatial_discretization,
     )
 
     mesh = build_spatial_discretization(
-        domain=domain, sgrid_config=None, runtime_planar_mesh=planar_mesh
+        domain=domain, sgrid_config=None, cell_mesh=cell_mesh
     ).solver_mesh
     active = ~mesh.inactive_mask[0]
     return (mesh.top - mesh.botm[-1])[active]
@@ -141,11 +141,11 @@ def test_a_trial_solves_the_thickness_it_moved(tmp_path: Path) -> None:
     trial = prepared.fork({"h": 80.0})
     _run_setup_process(trial)
 
-    planar = trial.ctx.setup.mesh_planar
-    np.testing.assert_allclose(_column_depth(trial.ctx.setup.domain, planar_mesh=planar), 80.0)
+    cell_mesh = trial.ctx.setup.cell_mesh
+    np.testing.assert_allclose(_column_depth(trial.ctx.setup.domain, cell_mesh=cell_mesh), 80.0)
     # The prefix keeps its own geometry for the next fork.
     assert prepared.ctx.setup.domain is shared
-    np.testing.assert_allclose(_column_depth(shared, planar_mesh=planar), 30.0)
+    np.testing.assert_allclose(_column_depth(shared, cell_mesh=cell_mesh), 30.0)
 
 
 def test_a_trial_solves_the_substratum_elevation_it_moved(tmp_path: Path) -> None:

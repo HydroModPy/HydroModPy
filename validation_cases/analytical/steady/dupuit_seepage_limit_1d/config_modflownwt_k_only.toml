@@ -1,0 +1,14 @@
+[[simulation.process]]
+solvers = ["modflow_nwt"]
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 80
+ny = 5
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+[flow.param.K.field]
+value = "5.0e-4 m/s"

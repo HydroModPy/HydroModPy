@@ -36,9 +36,50 @@ Reference used by the documentation:
 - `twin/`: standardized same-solver twin-experiment cases.
 - `run_benchmarks.py`: run one or several twin benchmarks outside pytest.
 
+## Solver columns
+
+Four twins run on every column that can host them: `modflow_nwt`, `modflow6`
+(structured grid), `modflow6_irregular_tri` (triangle mesh),
+`modflow6_voronoi` (Voronoi dual of that mesh), and the in-house Boussinesq
+solver on the same triangles with its PETSc engine (`boussinesq`) and its
+default local engine (`boussinesq_local`). They are the mesh-perturbed
+scalar `K` twin, the zoned `piecewise K` twin, the transient `K + Sy` twin and
+its flux-only noisy variant. Each experiment module holds one definition per
+column in a dict keyed by the column (`PIECEWISE_K_TWIN_CASES`, ...), built with
+`dataclasses.replace` on the `modflow6` definition and the config builders of
+`shared/solver_variants.py`. Another column is one more entry in
+`solver_variants.VARIANTS`.
+
+The Boussinesq solver writes no MODFLOW files. A trial reads the head and the
+outflow of its `_boussinesq_state_history.npz` (`runtime.py`,
+`_extract_outputs_from_boussinesq_dir`). The outlet discharge is the first of
+`drain` and `constant_head` that carries a flux, on both routes, because a
+Boussinesq budget lists a drain row of zeros when the case has no drain. The
+PETSc leg of a test runs without CMA-ES when `cma` is missing from its
+environment (`solver_variants.runnable_method_names`). The default local engine
+leg of the transient twin runs two methods, Nelder-Mead and Optuna, because its
+dense solver takes several seconds per candidate.
+
+The truth is read from the catalog Run and the trial costs from the solver
+files. Both routes locate an observation point with the same point-in-polygon
+lookup on the mesh cells and read a field stored at full precision
+(`field_precision = "exact"`), so a twin without noise is closed: a search that
+starts at the truth costs zero on every column. `shared/zero_return.py` is that
+check.
+
+The mesh-perturbed twin runs its truth on a mesh twice as fine as the
+calibration mesh. The refined triangle bundle is under
+`twin/steady/dupuit_fixed_head_1d/mesh_bundles/`; `mesh_bundle.py` rebuilds it.
+The stream-network twin (`tests/validation/calibration/
+test_twin_matching_stream_network_modflow6.py`) runs the same four columns on a
+strip of 800 triangles and its 802-cell Voronoi dual, and the Boussinesq PETSc
+column on the 800 triangles. The default local engine cannot solve that
+hillslope: see the `NOT_APPLICABLE` entry of the test.
+
 ## Current Scope
 
-The first V1 inventory focuses on `modflow6` inverse benchmarks:
+The first V1 inventory focuses on `modflow6` inverse benchmarks, with the
+columns above for four of them:
 
 - one steady scalar `K` case on `dupuit_fixed_head_1d`,
 - one steady posterior-oriented scalar `K` case on `dupuit_fixed_head_1d`,
