@@ -48,6 +48,8 @@ Each release section includes the following standard categories:
   0.02 % (0.12 % on one percentile), the mean water-table depth by 0.9 mm.
 
 ### Fixed
+- On Windows, a MODFLOW 6 run whose files sit past 259 characters fails with `HMPY.E406`
+  naming the path and its length, instead of mf6's `Could not open ... IOSTAT 29`.
 - Depression removal no longer ends the Python process. whitebox-workflows 1.3.5 can lose a
   thread race in `fill_depressions` ("Error unwrapping 'output'"), even on one worker, and
   its panic hook then calls `exit(1)`: a run or a test session stopped with no traceback.

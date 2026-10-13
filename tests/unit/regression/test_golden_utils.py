@@ -174,3 +174,72 @@ def test_resolve_tiered_results_dir_retries_when_rmtree_onerror_hits_locked_file
     assert list(resolved.iterdir()) == []
     assert calls["count"] == 2
     assert sleeps == [golden_utils.remove_tree_with_retry.__kwdefaults__["base_delay_s"]]
+
+
+class _WindowsOs:
+    """Stand-in for ``os`` that reads as Windows, for the budget module only."""
+
+    name = "nt"
+
+    def __getattr__(self, attr: str):
+        import os
+
+        return getattr(os, attr)
+
+
+def test_resolve_tiered_results_dir_shortens_the_run_name_to_fit_on_windows(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """A run name that leaves no room for the run below it is shortened on Windows."""
+    import validation_cases.shared.runtime as runtime
+
+    monkeypatch.setattr(runtime, "os", _WindowsOs())
+    monkeypatch.setenv("HMP_OUT_PATH", str(tmp_path))
+    run_name = "intercomparison_dupuit_irregular_mf6_bouss_outputs"
+    tier_root = tmp_path.resolve() / "fast"
+    # Room for a 20-character folder name, not for the 50-character one.
+    generated = runtime._WINDOWS_VALIDATION_PATH_LIMIT - len(str(tier_root)) - 1 - 20
+
+    resolved = golden_utils.resolve_tiered_results_dir(
+        test_file=tmp_path / "tests" / "regression" / "fast" / "test_dummy.py",
+        run_name=run_name,
+        generated_path_length=generated,
+    )
+
+    assert resolved.parent == tier_root
+    assert resolved.name == runtime._short_validation_name(run_name, max_length=20)
+    assert len(str(resolved)) + generated <= runtime._WINDOWS_VALIDATION_PATH_LIMIT
+
+
+def test_resolve_tiered_results_dir_keeps_the_run_name_off_windows(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HMP_OUT_PATH", str(tmp_path))
+
+    resolved = golden_utils.resolve_tiered_results_dir(
+        test_file=tmp_path / "tests" / "regression" / "fast" / "test_dummy.py",
+        run_name="intercomparison_dupuit_irregular_mf6_bouss_outputs",
+        generated_path_length=10_000,
+    )
+
+    assert resolved.name == "intercomparison_dupuit_irregular_mf6_bouss_outputs"
+
+
+def test_comparison_generated_path_length_covers_the_longest_child_run() -> None:
+    from tests.regression.intercomparison_helpers import comparison_generated_path_length
+    from validation_cases.shared.runtime import run_generated_path_length
+
+    source = (
+        golden_utils.REPO_ROOT
+        / "tests"
+        / "regression"
+        / "fixtures"
+        / "projects"
+        / "intercomparison"
+        / "compare_dupuit_irregular_mf6_bouss.toml"
+    )
+
+    # The children are "dupuit_mf6_vs_bouss__mf6_ref" and "..._bouss_candidate".
+    longest_child = len("dupuit_mf6_vs_bouss__bouss_candidate")
+    assert comparison_generated_path_length(source) == len("/workspace") + (
+        run_generated_path_length(longest_child)
+    )

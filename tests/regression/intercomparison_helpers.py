@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,9 @@ from tests.regression.golden_utils import (
     resolve_tiered_results_dir,
     update_or_assert_goldens,
 )
+from validation_cases.shared.runtime import run_generated_path_length
+
+WORKSPACE_DIRNAME = "workspace"
 
 SUMMARY_METRIC_FIELDS = (
     "bias",
@@ -177,6 +181,23 @@ def write_isolated_comparison_config(
     return target_config
 
 
+def comparison_generated_path_length(source_config: Path) -> int:
+    """Return the longest path the comparison children write below the output dir.
+
+    Each child runs in ``<out>/workspace`` under the name
+    ``<comparison_id>__<simulation id>``
+    (``analysis.comparison.child_materialization``), which names its model folder.
+    """
+    with source_config.open("rb") as stream:
+        comparison = tomllib.load(stream)["comparison"]
+    child_names = [
+        f"{comparison['comparison_id']}__{simulation['id']}"
+        for simulation in comparison["simulation"]
+    ]
+    longest_child = max(len(name) for name in child_names)
+    return len("/" + WORKSPACE_DIRNAME) + run_generated_path_length(longest_child)
+
+
 def run_intercomparison_regression(
     *,
     test_file: str | Path,
@@ -200,9 +221,13 @@ def run_intercomparison_regression(
         require_modpath=require_modpath,
         require_mt3dms=require_mt3dms,
     )
-    out_path = resolve_tiered_results_dir(test_file=test_file, run_name=run_name)
+    out_path = resolve_tiered_results_dir(
+        test_file=test_file,
+        run_name=run_name,
+        generated_path_length=comparison_generated_path_length(source_config),
+    )
     comparison_root = out_path / "comparison"
-    workspace_root = out_path / "workspace"
+    workspace_root = out_path / WORKSPACE_DIRNAME
     config_path = write_isolated_comparison_config(
         source_config=source_config,
         target_config=out_path / "comparison_regression.toml",

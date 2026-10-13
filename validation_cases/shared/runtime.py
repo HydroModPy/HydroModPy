@@ -35,9 +35,54 @@ spread of a steady case then reads 2.4e-5 m or more against thresholds of
 5e-6 m to 2e-5 m.
 """
 
-_WINDOWS_VALIDATION_PATH_LIMIT = 240
-_VALIDATION_GENERATED_PATH_HEADROOM = 96
+_WINDOWS_VALIDATION_PATH_LIMIT = 259
+"""Longest path mf6.exe and mfnwt.exe open on Windows.
+
+MAX_PATH is 260 with the terminating NUL. The Fortran runtime of the solvers
+is not long-path aware, even where Python is.
+"""
+_VALIDATION_SIM_NAME_LENGTH = 48
+"""Cap of the ``[simulation] name`` a validation run gets, which names its model folder."""
 _VALIDATION_COMPONENT_LENGTHS = (28, 24, 20, 16, 12)
+
+# What a run writes below its project root, part by part. Every part is the
+# longest the product builds.
+# "/.hmp/scratch": hydromodpy.core.state.paths.scratch_root_for.
+_SCRATCH_ROOT_PART = len("/.hmp/scratch")
+# "/<label>.p<pid>": paths.run_scratch keeps 24 label characters. A Windows
+# process id is a DWORD, 10 digits at most.
+_RUN_FOLDER_PART = len("/") + 24 + len(".p") + 10
+# "/<model>/<model>.flow_properties.npz": the solver folder is named after the
+# model, and MODFLOW-NWT names every file after it. MODFLOW 6 does too while the
+# path is short; past 240 characters build.mf6_output_name collapses the stem to
+# the 16-character MF6 name, which only shortens it. The flow property sidecar
+# (build.FLOW_PROPERTY_SIDECAR_SUFFIX) is the longest suffix put after the name.
+_MODEL_FILE_SUFFIX = len(".flow_properties.npz")
+# "/_cyc49/cyc49/cyc49.flow_properties.npz": the deepest file of a MODFLOW 6
+# cyclic spin-up (flow.ic.max_cycles <= 50), inside the model folder.
+_SPINUP_FILE_PART = len("/_cyc49/cyc49/cyc49.flow_properties.npz")
+# "/_preprocessing/geographic/watershed_box_buff_dem.tif": the longest file
+# the run preprocessing writes beside the model (paths.PREPROCESSING_DIRNAME),
+# measured: its names come from the geographic attributes.
+_PREPROCESSING_FILE_PART = len("/_preprocessing/geographic/watershed_box_buff_dem.tif")
+
+
+def run_generated_path_length(model_name_length: int) -> int:
+    """Return the longest path a run writes below its project root.
+
+    It covers the run's solver tree, which mf6.exe and mfnwt.exe open. The
+    catalog store under ``runs/`` is left out: only Python writes it, and
+    Python opens long paths on Windows.
+    """
+    model_part = len("/") + model_name_length
+    deepest = max(
+        model_part + max(len("/") + model_name_length + _MODEL_FILE_SUFFIX, _SPINUP_FILE_PART),
+        _PREPROCESSING_FILE_PART,
+    )
+    return _SCRATCH_ROOT_PART + _RUN_FOLDER_PART + deepest
+
+
+_VALIDATION_GENERATED_PATH_HEADROOM = run_generated_path_length(_VALIDATION_SIM_NAME_LENGTH)
 
 # One MODFLOW-NWT profile for every validation case that sets one. The run is
 # in seconds, so both closures are absolute, in m and m3/s.
@@ -369,10 +414,25 @@ def _fallback_validation_results_root(base_out_path: str) -> Path:
 
 
 def _windows_path_budget_exceeded(path: Path, *, headroom: int = 0) -> bool:
-    """Return True when *path* is likely to exceed Windows path limits."""
+    """Return True when *path* plus *headroom* characters is too long on Windows."""
     if os.name != "nt":
         return False
-    return len(str(path)) + int(headroom) >= _WINDOWS_VALIDATION_PATH_LIMIT
+    return len(str(path)) + int(headroom) > _WINDOWS_VALIDATION_PATH_LIMIT
+
+
+def budgeted_dir_name(parent: Path, name: str, *, generated_length: int) -> str:
+    """Return *name*, shortened until a run below ``parent / name`` fits on Windows.
+
+    ``generated_length`` is what the run writes below that folder. When no
+    length fits, the shortest name is returned and the solver guard reports
+    the path it cannot open.
+    """
+    candidate = name
+    for component_length in _VALIDATION_COMPONENT_LENGTHS:
+        if not _windows_path_budget_exceeded(parent / candidate, headroom=generated_length):
+            return candidate
+        candidate = _short_validation_name(name, max_length=component_length)
+    return candidate
 
 
 def _candidate_validation_results_dir(
@@ -720,7 +780,9 @@ def _build_validation_launcher_config(
     # ``[simulation] name`` is the run identity (``run_id`` was removed by the
     # simulation-management v2 schema); it must stay unique per solver.
     case_id = str(metadata.get("case_id", case_dir.name))
-    stable_name = _short_validation_name(f"{case_id}_{solver_name}", max_length=48)
+    stable_name = _short_validation_name(
+        f"{case_id}_{solver_name}", max_length=_VALIDATION_SIM_NAME_LENGTH
+    )
     sim_section = merged_payload.setdefault("simulation", {})
     sim_section["name"] = stable_name
     # A run reads [simulation.results.persistence]; the top-level
