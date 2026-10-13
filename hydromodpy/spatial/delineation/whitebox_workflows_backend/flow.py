@@ -12,11 +12,13 @@ class WhiteboxFlowBackend(_WhiteboxComponent):
 
     Depression removal runs single-threaded: it is the only stage of the chain
     whose parallel form is not reproducible, and everything downstream (D8
-    pointer, accumulation, watershed, catchment area) inherits its output.
+    pointer, accumulation, watershed, catchment area) inherits its output. It
+    also runs in a child interpreter, because Whitebox can end the process that
+    calls it (see :mod:`.isolated`).
     """
 
     def fill_depressions_raster(self, dem):
-        return self._run_single_threaded(self._env.fill_depressions, dem)
+        return self._run_depression_tool("fill_depressions", dem)
 
     def fill_depressions(self, input_dem: str, output_dem: str) -> None:
         self._write_raster(
@@ -48,7 +50,7 @@ class WhiteboxFlowBackend(_WhiteboxComponent):
             options["max_cost"] = float(max_cost)
         if fill_deps:
             options["fill_deps"] = True
-        return self._run_single_threaded(self._env.breach_depressions_least_cost, dem, **options)
+        return self._run_depression_tool("breach_depressions_least_cost", dem, **options)
 
     def breach_depressions(self, input_dem: str, output_dem: str) -> None:
         self._write_raster(
