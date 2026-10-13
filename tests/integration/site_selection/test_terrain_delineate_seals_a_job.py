@@ -585,16 +585,22 @@ def test_the_only_thing_it_writes_outside_the_job_is_what_it_declares(tmp_path):
 LOCAL_NAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhost"})
 """Names of the local machine. Not egress: reachable with no route out at all."""
 
-CHILD_PROCESSES_THE_JOB_SPAWNS = ("git", "uname")
+CHILD_PROCESSES_THE_JOB_SPAWNS = ("git", Path(sys.executable).name, "uname")
 """The executables the capability runs, and the ceiling of the two socket spies.
 
 A child process has its own interpreter and its own sockets, so patching
 ``socket`` in the parent says nothing about what it does -- which makes this
-list, not the spies, what holds the guarantee for that path. Both entries are
-measured, and the second was found by this assertion rather than by reading:
+list, not the spies, what holds the guarantee for that path. All three entries
+are measured, and the last two were found by this assertion rather than by
+reading:
 
 - ``git``, twice, from ``schema/job/provenance.py``: ``rev-parse`` and
   ``status --porcelain``, to record which revision did the work.
+- this interpreter, from ``spatial/delineation/whitebox_workflows_backend``:
+  Whitebox removes depressions in a child, because a lost thread race ends the
+  interpreter that called it. The same Rust code ran in this interpreter
+  before, where its sockets bypassed the ``socket`` spies as well, so the child
+  hides nothing new. An interpreter runs anything, so its script is pinned too.
 - ``uname -p``, from the standard library and not from this repository.
   ``platform.platform()`` unpacks ``uname_result``, whose ``processor`` member is
   a ``cached_property`` that falls back to ``subprocess.check_output(('uname',
@@ -603,6 +609,10 @@ measured, and the second was found by this assertion rather than by reading:
 A capability that shells out to ``curl`` lands in this assertion by name rather
 than passing unseen, which is the whole reason the list is pinned.
 """
+
+SCRIPTS_THE_INTERPRETER_CHILD_RUNS = ("_depression_child.py",)
+"""The scripts the interpreter child runs. It imports ``json``, ``sys`` and
+``whitebox_workflows``, nothing else. A ``python -m pip`` lands here by name."""
 
 
 def _is_local(value: object) -> bool:
@@ -749,6 +759,19 @@ def test_the_only_hosts_it_contacts_are_the_ones_it_declares(tmp_path):
     )
     assert children == sorted(CHILD_PROCESSES_THE_JOB_SPAWNS), (
         f"it spawns {children}, and only {sorted(CHILD_PROCESSES_THE_JOB_SPAWNS)} is accounted for"
+    )
+    # The script is the first argument that is not an option of the interpreter.
+    interpreter = Path(sys.executable).name
+    scripts = sorted(
+        {
+            Path(next((arg for arg in argv[1:] if not arg.startswith("-")), "")).name
+            for argv in recorded["spawned"]
+            if isinstance(argv, list) and Path(argv[0]).name == interpreter
+        }
+    )
+    assert scripts == sorted(SCRIPTS_THE_INTERPRETER_CHILD_RUNS), (
+        f"its interpreter child runs {scripts}, and only "
+        f"{sorted(SCRIPTS_THE_INTERPRETER_CHILD_RUNS)} is accounted for"
     )
 
 
