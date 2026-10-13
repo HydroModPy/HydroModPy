@@ -1,7 +1,8 @@
 """Small synthetic run stores the derived fields are checked on.
 
 Each store is built with store calls that exist at d5f485f88 and at HEAD, and
-is deterministic: the base code and the current code read the very same store.
+is deterministic on every platform: the base code and the current code read
+the very same store.
 ``fixtures/derived_at_d5f485f88/<kind>.npz`` holds what the base code derived
 on each of them (``gen_reference_d5f485f88.py`` writes those files).
 
@@ -49,6 +50,19 @@ def sim_id_of(kind: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"hmp-derived-reference/{kind}"))
 
 
+def _uniform(
+    rng: np.random.Generator, low: float, high: float, size: int | tuple[int, ...]
+) -> np.ndarray:
+    """Draw as ``rng.uniform`` does, with the same bits on every platform.
+
+    ``Generator.uniform`` computes ``low + (high - low) * u`` in C, and the
+    macOS arm64 wheel fuses it into one FMA, so a nonzero ``low`` moves the
+    last bit away from the Linux draw the fixtures were derived on. Drawing
+    ``u`` and scaling it in two ufunc passes rounds each operation alone.
+    """
+    return low + (high - low) * rng.random(size)
+
+
 def _quad_mesh() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return vertices, face-node connectivity and centroids of the unit quad grid."""
     nodes_per_row = NCOL + 1
@@ -69,12 +83,12 @@ def _top(rng: np.random.Generator) -> np.ndarray:
     """A valley that opens to the last row, with a little noise so no two cells tie."""
     rows, cols = np.divmod(np.arange(N_CELLS), NCOL)
     valley = 0.8 * np.abs(cols - NCOL // 2) + 0.6 * (NROW - 1 - rows)
-    return 20.0 + valley + rng.uniform(0.0, 0.05, N_CELLS)
+    return 20.0 + valley + _uniform(rng, 0.0, 0.05, N_CELLS)
 
 
 def _heads(rng: np.random.Generator, top: np.ndarray, n_layers: int) -> np.ndarray:
     """Heads around the surface: some cells above it, a few dry in the first layer."""
-    depth = rng.uniform(-0.4, 2.0, (N_STEPS, N_CELLS))
+    depth = _uniform(rng, -0.4, 2.0, (N_STEPS, N_CELLS))
     head = np.repeat((top - depth)[:, None, :], n_layers, axis=1)
     head -= 0.5 * np.arange(n_layers)[None, :, None]
     if n_layers > 1:
@@ -89,19 +103,19 @@ def _budget(
 ) -> dict[str, np.ndarray]:
     """Budget terms with MODFLOW signs: outflow negative. Some cells positive or NaN."""
     shape = (N_STEPS, n_layers, N_CELLS)
-    drain = -rng.uniform(0.0, 2e-3, shape)
+    drain = -_uniform(rng, 0.0, 2e-3, shape)
     drain[:, :, ::5] = 0.0
     drain[1, :, 4] = 1e-4
     drain[3, 0, 9] = np.nan
     # One step whose every drain value is positive: the fallback of the sign convention.
     drain[4] = np.abs(drain[4]) + 1e-5
-    budget = {"drain": drain, "recharge": rng.uniform(0.0, 1e-4, shape)}
+    budget = {"drain": drain, "recharge": _uniform(rng, 0.0, 1e-4, shape)}
     if solver_terms:
-        mover = -rng.uniform(0.0, 5e-4, shape)
+        mover = -_uniform(rng, 0.0, 5e-4, shape)
         mover[:, :, ::3] = 0.0
         budget["drain_to_mover"] = mover
-        budget["stream"] = rng.uniform(-3e-3, 1e-3, shape)
-        constant_head = rng.uniform(-1e-3, 1e-3, shape)
+        budget["stream"] = _uniform(rng, -3e-3, 1e-3, shape)
+        constant_head = _uniform(rng, -1e-3, 1e-3, shape)
         constant_head[2, :, 6] = np.nan
         budget["constant_head_stream"] = constant_head
     return budget
@@ -170,7 +184,7 @@ def build_store(kind: str, catalog) -> str:
             head = head[:, 0, :]
             budget = {name: values[:, 0, :] for name, values in budget.items()}
             budget["surface_excess"] = np.where(
-                rng.uniform(size=(N_STEPS, N_CELLS)) < 0.3, 1e-4, 0.0
+                _uniform(rng, 0.0, 1.0, (N_STEPS, N_CELLS)) < 0.3, 1e-4, 0.0
             )
             budget["surface_excess"][1, 5] = -2e-5
             store.root.create_group("boussinesq_state")
@@ -192,7 +206,7 @@ def build_store(kind: str, catalog) -> str:
         for name, values in budget.items():
             store.write_field_stack(name, values, subgroup="budget")
         if kind == "transport":
-            concentration = rng.uniform(0.0, 5.0, (N_STEPS, n_layers, N_CELLS))
+            concentration = _uniform(rng, 0.0, 5.0, (N_STEPS, n_layers, N_CELLS))
             concentration[:, 0, 2] = np.nan
             store.write_field_stack("concentration", concentration)
     finally:
