@@ -19777,6 +19777,37 @@
           "title": "Mf6 Linear Acceleration",
           "x-hmp-profile": "expert"
         },
+        "mf6_preconditioner_levels": {
+          "anyOf": [
+            {
+              "description": "Positive integer.",
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "IMS ILUT fill: entries kept per row of each incomplete factor. A fill as wide as the matrix band, with a zero drop tolerance, gives a complete factorization. None keeps the preset default (5 for COMPLEX).",
+          "title": "Mf6 Preconditioner Levels",
+          "x-hmp-profile": "expert"
+        },
+        "mf6_preconditioner_drop_tolerance": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "IMS ILUT drop tolerance: factor entries below it are dropped. Zero keeps every entry the fill allows. None keeps the preset default (1e-4 for COMPLEX).",
+          "title": "Mf6 Preconditioner Drop Tolerance",
+          "x-hmp-profile": "expert"
+        },
         "mf6_under_relaxation": {
           "anyOf": [
             {

@@ -59,6 +59,7 @@ def _write_tmp_config(work_root: Path) -> Path:
 
 
 @pytest.mark.slow
+@pytest.mark.allow_subprocess  # depression removal runs in a child
 def test_run_reference_river_network_nancon_case(
     monkeypatch: pytest.MonkeyPatch,
     hydromodpy_test_scratch_root: Path,

@@ -112,6 +112,7 @@ def test_whitebox_tools_backend_module_is_no_longer_importable() -> None:
         raise AssertionError("legacy whitebox_tools_backend module should be removed")
 
 
+@pytest.mark.allow_subprocess  # depression removal runs in a child
 def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
     backend = get_whitebox_backend("whitebox_workflows")
 
@@ -287,6 +288,7 @@ def test_whitebox_workflows_backend_smoke_operations(tmp_path: Path) -> None:
     assert not gpd.read_file(streams_vector).empty
 
 
+@pytest.mark.allow_subprocess  # depression removal runs in a child
 def test_whitebox_workflows_backend_in_memory_chain(tmp_path: Path) -> None:
     backend = get_whitebox_backend()
     dem = tmp_path / "dem.tif"

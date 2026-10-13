@@ -10,6 +10,9 @@ from pathlib import Path
 import whitebox_workflows as wbw
 
 from hydromodpy.core import progress
+from hydromodpy.spatial.delineation.whitebox_workflows_backend.isolated import (
+    run_depression_tool,
+)
 
 _VECTOR_EXTENSIONS = {
     ".shp",
@@ -507,10 +510,25 @@ class _WhiteboxComponent:
     def _write_vector(self, vector, path: str) -> None:
         self._raster._write_vector(vector, path)
 
-    def _run_single_threaded(self, operation, *args, **kwargs):
-        """Run one operation on a single Whitebox worker (reproducible output)."""
-        with self._raster.single_threaded():
-            return self._raster._run_env_operation(operation, *args, **kwargs)
+    def _run_depression_tool(self, tool: str, dem, **options):
+        """Run a depression tool on one worker, in a child interpreter.
+
+        One worker makes the output reproducible. The child keeps this
+        interpreter alive when Whitebox panics, see :mod:`.isolated`.
+        """
+        with (
+            self._raster.single_threaded(),
+            progress.status(f"Whitebox: {tool.replace('_', ' ')}"),
+            self._raster._silence_stdio(),
+        ):
+            return run_depression_tool(
+                self._env,
+                tool,
+                dem,
+                options=options,
+                max_procs=self._env.max_procs,
+                verbose=self._raster._verbose,
+            )
 
 
 __all__ = ["WhiteboxRasterBackend", "_WhiteboxComponent"]

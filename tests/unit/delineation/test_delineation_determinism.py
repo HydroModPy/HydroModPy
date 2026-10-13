@@ -18,12 +18,16 @@ import pytest
 from hydromodpy.spatial.delineation.whitebox_workflows_backend import (
     WhiteboxWorkflowsBackend,
 )
+from hydromodpy.spatial.delineation.whitebox_workflows_backend import raster as raster_module
 from hydromodpy.spatial.terrain import LN_FLOAT32_COLLISION_COUNT
 
 wbw = pytest.importorskip("whitebox_workflows")
 rasterio = pytest.importorskip("rasterio")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+
+# Depression removal runs in a child interpreter, see whitebox_workflows_backend.isolated.
+pytestmark = pytest.mark.allow_subprocess
 
 
 def _to_numpy(backend, raster) -> np.ndarray:
@@ -93,17 +97,17 @@ def test_single_threaded_restores_the_worker_count_after_a_failure() -> None:
 
 @pytest.mark.parametrize("correction", ["breach_depressions_raster", "fill_depressions_raster"])
 def test_depression_removal_runs_on_one_worker(monkeypatch, rough_dem, correction) -> None:
-    """The DEM correction must see ``max_procs == 1`` while it runs."""
+    """The child running the DEM correction must be handed one worker."""
     backend = WhiteboxWorkflowsBackend()
     dem = backend.raster.read_raster(str(rough_dem))
     seen: list[int] = []
-    original = backend.raster._run_env_operation
+    original = raster_module.run_depression_tool
 
-    def spy(operation, *args, **kwargs):
-        seen.append(backend.raster._env.max_procs)
-        return original(operation, *args, **kwargs)
+    def spy(env, tool, raster, **kwargs):
+        seen.append(kwargs["max_procs"])
+        return original(env, tool, raster, **kwargs)
 
-    monkeypatch.setattr(backend.raster, "_run_env_operation", spy)
+    monkeypatch.setattr(raster_module, "run_depression_tool", spy)
     getattr(backend.flow, correction)(dem)
 
     assert seen == [1]

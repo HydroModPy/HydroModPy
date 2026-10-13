@@ -18,7 +18,10 @@ from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config, Modflow6R
 from hydromodpy.solver.modflow6.support.steady_initial_conditions import (
     _modflow_config_for_steady_initialization,
 )
-from hydromodpy.solver.modflow_common.flow_adapter_helpers import last_percent_discrepancy
+from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
+    last_percent_discrepancy,
+    simulation_listing_failure_lines,
+)
 from tests._helpers.tolerances import tol
 
 # tests/TOLERANCES.md row 2 (fraction; the MF6 listing reports percent).
@@ -107,6 +110,27 @@ def test_modflow6_optional_ims_kwargs_accepted_by_flopy_ims() -> None:
         flopy.mf6.ModflowIms(sim, complexity="COMPLEX", inner_rclose=1e-3, pname="ims_bad")
 
 
+def test_modflow6_preconditioner_fields_reach_the_ims_package() -> None:
+    """The ILUT fill and drop tolerance are omitted by default and written when set."""
+    import flopy
+
+    runtime = Modflow6RuntimeConfig()
+    assert runtime.mf6_preconditioner_levels is None
+    assert runtime.mf6_preconditioner_drop_tolerance is None
+    set_runtime = _runtime(mf6_preconditioner_levels=40, mf6_preconditioner_drop_tolerance=0.0)
+    kwargs = optional_ims_kwargs(set_runtime)
+    assert kwargs == {"preconditioner_levels": 40, "preconditioner_drop_tolerance": 0.0}
+    sim = flopy.mf6.MFSimulation()
+    flopy.mf6.ModflowTdis(sim)
+    ims = flopy.mf6.ModflowIms(sim, complexity="COMPLEX", **kwargs)
+    assert ims.preconditioner_levels.get_data() == 40
+    assert ims.preconditioner_drop_tolerance.get_data() == 0.0
+    with pytest.raises(ValidationError):
+        Modflow6RuntimeConfig(mf6_preconditioner_drop_tolerance=-1e-4)
+    with pytest.raises(ValidationError):
+        Modflow6RuntimeConfig(mf6_preconditioner_levels=0)
+
+
 def test_modflow6_newton_cg_conflict_raises() -> None:
     runtime = _runtime(mf6_newton=True, mf6_linear_acceleration="CG")
     with pytest.raises(ValueError, match="E406"):
@@ -166,6 +190,45 @@ def test_modflow6_divergence_message_includes_percent_discrepancy(tmp_path) -> N
 
 def test_modflow6_divergence_message_fallback_when_lst_missing(tmp_path) -> None:
     assert last_percent_discrepancy(tmp_path) is None
+
+
+def test_modflow6_failure_lines_quote_the_convergence_failure(tmp_path) -> None:
+    (tmp_path / "mfsim.lst").write_text(
+        " OUTER ITERATION CONVERGENCE CRITERION    (DVCLOSE) =    0.100000E-06\n"
+        " Solution 1 did not converge for stress period 1 and time step 1\n"
+        " Simulation convergence failure. Simulation will terminate after output.\n"
+        "\nERROR REPORT:\n\n  1.  Simulation convergence failure occurred 1 time(s).\n"
+        " Premature termination of simulation.\n",
+        encoding="utf-8",
+    )
+    assert simulation_listing_failure_lines(tmp_path) == [
+        "Solution 1 did not converge for stress period 1 and time step 1",
+        "Simulation convergence failure. Simulation will terminate after output.",
+        "ERROR REPORT:",
+        "1. Simulation convergence failure occurred 1 time(s).",
+        "Premature termination of simulation.",
+    ]
+
+
+def test_modflow6_failure_lines_quote_an_input_error(tmp_path) -> None:
+    (tmp_path / "mfsim.lst").write_text(
+        "ERROR REPORT:\n\n  1. MODEL **M** PRODUCES AN ASYMMETRIC COEFFICIENT MATRIX,\n"
+        "     BUT THE       CONJUGATE GRADIENT METHOD WAS SELECTED.\n",
+        encoding="utf-8",
+    )
+    assert simulation_listing_failure_lines(tmp_path) == [
+        "ERROR REPORT:",
+        "1. MODEL **M** PRODUCES AN ASYMMETRIC COEFFICIENT MATRIX,",
+        "BUT THE CONJUGATE GRADIENT METHOD WAS SELECTED.",
+    ]
+
+
+def test_modflow6_failure_lines_name_a_missing_listing(tmp_path) -> None:
+    assert simulation_listing_failure_lines(tmp_path) == [
+        "mfsim.lst was not written: mf6 did not start or could not create it"
+    ]
+    (tmp_path / "mfsim.lst").write_text(" Normal termination of simulation.\n", encoding="utf-8")
+    assert simulation_listing_failure_lines(tmp_path) == []
 
 
 @pytest.mark.regression

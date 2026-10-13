@@ -687,6 +687,10 @@ def optional_ims_kwargs(runtime) -> dict[str, object]:
         kwargs["rcloserecord"] = [(float(runtime.mf6_inner_rclose), "")]
     if runtime.mf6_linear_acceleration is not None:
         kwargs["linear_acceleration"] = runtime.mf6_linear_acceleration
+    if runtime.mf6_preconditioner_levels is not None:
+        kwargs["preconditioner_levels"] = int(runtime.mf6_preconditioner_levels)
+    if runtime.mf6_preconditioner_drop_tolerance is not None:
+        kwargs["preconditioner_drop_tolerance"] = float(runtime.mf6_preconditioner_drop_tolerance)
     if runtime.mf6_under_relaxation is not None:
         kwargs["under_relaxation"] = runtime.mf6_under_relaxation
     return kwargs

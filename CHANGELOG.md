@@ -33,6 +33,10 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Added
+- `[modflow6.runtime] mf6_preconditioner_levels` and `mf6_preconditioner_drop_tolerance`
+  set the fill and the drop tolerance of the IMS ILUT preconditioner; unset keeps the preset.
+
 ### Changed
 - MODFLOW-NWT defaults to `options = "MODERATE"`. Under chi-MD, the default linear solver
   since 2.0.0a5, `"COMPLEX"` runs BiCGSTAB on a level-15 incomplete factorization: on the
@@ -44,6 +48,14 @@ Each release section includes the following standard categories:
   0.02 % (0.12 % on one percentile), the mean water-table depth by 0.9 mm.
 
 ### Fixed
+- Depression removal no longer ends the Python process. whitebox-workflows 1.3.5 can lose a
+  thread race in `fill_depressions` ("Error unwrapping 'output'"), even on one worker, and
+  its panic hook then calls `exit(1)`: a run or a test session stopped with no traceback.
+  The fill and breach tools now run in a child interpreter; a child that lost that race is
+  run again, at most three times, with a warning, and any other failure raises
+  `TerrainError`. The output is bit-identical to the in-process call.
+- A failed MODFLOW 6 run quotes the lines of `mfsim.lst` that say why it stopped in its
+  `HMPY.E401` message, or says that `mfsim.lst` was never written.
 - A resume of a killed run (`hmp run --resume`) works in the scratch folder of the run it
   continues, instead of letting the sweep of killed runs delete it: the delineation and the
   mesh are reused, not generated again. A `<run>.holder` file keeps the sweep of other runs
