@@ -30,7 +30,9 @@ jobs:
   cross-os:
     name: Weekly / ${{ matrix.os }} py${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    # The unit tier alone takes 30 minutes on windows-latest, before the fast
+    # regression and the analytical validation.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
