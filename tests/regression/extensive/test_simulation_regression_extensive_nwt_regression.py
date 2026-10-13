@@ -1,5 +1,13 @@
 """Extensive regression test for simulation_regression with MODFLOW-NWT.
 
+Golden refreshed 2026-10-13, every number. ``buff_area = "20%"`` now adds 20 %
+of area (``37208d4f2``), so the grid went from 6 468 to 4 148 cells. The run
+now converges under chi-MD with the ``MODERATE`` preset. The former golden came
+from GMRES, which on the new grid leaves budget errors of -148 % and +91 % in two
+periods; its mean head stood 0.5 m under the MODFLOW 6 golden. MODFLOW 6 and NWT
+now agree to 1 mm on the mean head. The accumulation flux sums the descent D (``922cc9a9e``).
+See CHANGELOG.md, [Unreleased].
+
 Golden refreshed 2026-09-17, two numbers, and here is why they moved.
 ``concentration_seepage`` and ``mass_seepage`` declared ``nodata_count`` 1497;
 they now declare 0. Nothing the model computes changed: on the produced run the

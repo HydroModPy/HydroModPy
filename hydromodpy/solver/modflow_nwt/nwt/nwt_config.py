@@ -72,8 +72,13 @@ class NwtSolverConfig(HydroModelBase):
         description="NWT option for averaging saturated thickness at the cell bottom.",
     )
     options: Annotated[str, Profile.EXPERT] = Field(
-        default="COMPLEX",
-        description="NWT nonlinear option keyword (for example SIMPLE or COMPLEX).",
+        default="MODERATE",
+        description=(
+            "Preset of the NWT nonlinear solver and of its linear solver: SIMPLE, MODERATE "
+            "or COMPLEX. MODERATE is the default: under chi-MD, COMPLEX runs BiCGSTAB on a "
+            "level-15 incomplete factorization, which diverged at the first solve of a "
+            "ten-layer catchment model."
+        ),
     )
     continue_run: Annotated[bool, Profile.EXPERT] = Field(
         default=False,
