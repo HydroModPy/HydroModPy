@@ -2,7 +2,10 @@
 
 Steady synthetic hillslope used to validate the seepage mask against its Dupuit
 closed form, and to prove that the mask and the head depend on `K` and `R` only
-through the ratio `K/R`.
+through the ratio `K/R`. Six solvers run it, each on the four scenarios below:
+MODFLOW-NWT, MODFLOW 6 on a structured grid, on irregular triangles and on their
+Voronoi dual (a drain at the land surface), and the in-house Boussinesq solver on
+its PETSc VI obstacle and on its default local engine (no drain).
 
 Reference used by the documentation:
 
@@ -68,12 +71,39 @@ discharge then stops scaling with the rest of the problem.
 
 ## Scenarios
 
-| solver key | K | R | purpose |
+Each solver has the four scenarios of the table; its key is the solver name, and
+the name with the suffix of the scenario. The solvers are `modflow_nwt`,
+`modflow6`, `modflow6_irregular_tri`, `modflow6_voronoi`, `boussinesq` and
+`boussinesq_local`.
+
+| scenario key | K | R | purpose |
 |---|---|---|---|
 | `modflow6` | `2.5e-4 m/s` | `8.64 mm/day` | reference |
 | `modflow6_scaled_down` | `x 0.01` | `x 0.01` | `K/R` invariance |
 | `modflow6_scaled_up` | `x 100` | `x 100` | `K/R` invariance |
 | `modflow6_k_only` | `x 2` | unchanged | negative control |
+
+## Grids and solvers
+
+- MODFLOW-NWT and MODFLOW 6 (structured): the `80 x 5` grid above. The NWT
+  scenarios run with the NWT validation profile of `validation_cases/shared/runtime.py`
+  (headtol `1e-9` m, fluxtol `1e-10` m3/s), which the scaled scenarios inherit by
+  the name of their solver; without it they differ from the reference by `7e-3 m`.
+- MODFLOW 6 on triangles and on their Voronoi dual: the 594 triangles of about 6 m
+  built by `mesh_bundle.py` (bundle under `mesh_bundles/`, rebuilt with
+  `python -m validation_cases.analytical.steady.dupuit_seepage_limit_1d.mesh_bundle`),
+  or their 320 nodes. The cell tops come from the same 5 m raster, flat past the
+  centre of its end columns, so the toe nodes of the dual read `0.05 m` and none
+  is dry. The reference is read at each cell and averaged over the same 5 m
+  columns as the model. Both need the ILUT fill of their configs. The cells that
+  disagree with the seepage state of their column are counted; a structured
+  grid has none.
+- Boussinesq: 320 triangles (`80 x 2` columns of 5 m, 10 m wide), no drain. A cell
+  seeps when its head is within `1e-6 m` of its surface, and the water that leaves
+  is the surface-excess flux. The default engine runs the `K` and `R` scenarios
+  with Newton closures scaled with the recharge (`config_boussinesq_local*.toml`)
+  and starts the doubled-`K` control from the solution of the reference scenario:
+  from a flat start its dense Newton fails.
 
 ## What the case asserts
 

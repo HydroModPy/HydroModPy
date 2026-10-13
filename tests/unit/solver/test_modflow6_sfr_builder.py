@@ -141,8 +141,8 @@ def test_trace_split_assigns_cells_in_along_line_order() -> None:
     model = _fake_model({"net0": _trace_payload(trace)})
     networks = resolve_sfr_networks(model, solver_mesh=mesh)
     cells = [reach.cellid[1] for reach in networks["net0"].reaches]
-    # from_structured_arrays builds row-major cells with y increasing upward, so
-    # the top row (y in [40, 50]) is cells 40..44 west to east.
+    # from_structured_arrays puts row 0 at the north, so the top row
+    # (y in [40, 50]) is cells 0..4 west to east.
     assert cells == sorted(cells)
     assert len(cells) == 4 or len(cells) == 5
 

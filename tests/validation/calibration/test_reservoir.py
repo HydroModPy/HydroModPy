@@ -17,6 +17,10 @@ from validation_cases.calibration.reservoir.experiment import (
     build_calibration,
 )
 
+NOT_APPLICABLE = {
+    "*": "The forward model is a lumped reservoir (one or two in series) integrated by explicit Euler in NumPy. No groundwater solver is involved.",
+}
+
 
 def _best_values(session) -> dict[str, float]:
     completed = [r for r in session.history if r.status == "completed"]

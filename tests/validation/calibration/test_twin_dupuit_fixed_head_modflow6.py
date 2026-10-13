@@ -16,6 +16,14 @@ from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment im
     STEADY_DUPUIT_TWIN_CASE,
 )
 
+NOT_APPLICABLE = {
+    "modflow_nwt": "The only observable is the east boundary flux, which is exactly proportional to K for fixed heads and no sources, so the normalized cost and the recovery do not depend on the solver. Measured on NWT, MF6 triangles and MF6 Voronoi: grid, random search, Optuna and CMA-ES return identical errors.",
+    "modflow6_irregular_tri": "The only observable is the east boundary flux, which is exactly proportional to K for fixed heads and no sources, so the normalized cost and the recovery do not depend on the solver. Measured on NWT, MF6 triangles and MF6 Voronoi: grid, random search, Optuna and CMA-ES return identical errors.",
+    "modflow6_voronoi": "The only observable is the east boundary flux, which is exactly proportional to K for fixed heads and no sources, so the normalized cost and the recovery do not depend on the solver. Measured on NWT, MF6 triangles and MF6 Voronoi: grid, random search, Optuna and CMA-ES return identical errors.",
+    "boussinesq": "The only observable is the east boundary flux, which is exactly proportional to K for fixed heads and no sources, so the normalized cost and the recovery do not depend on the solver. The head stays far below the surface, so the Boussinesq obstacle closure never acts.",
+    "boussinesq_local": "The only observable is the east boundary flux, which is exactly proportional to K for fixed heads and no sources, so the normalized cost and the recovery do not depend on the solver. The head stays far below the surface, so the surface closure never acts.",
+}
+
 
 def _assert_modflow6_runtime_available() -> None:
     """Require the MODFLOW 6 runtime used by the Dupuit twin benchmarks."""

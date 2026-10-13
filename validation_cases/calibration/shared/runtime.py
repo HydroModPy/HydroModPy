@@ -15,6 +15,8 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.state.paths import internal_dir, runs_dir_for, share_dir_for
+from hydromodpy.results.spatial_index import point_in_cell
+from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
 from hydromodpy.solver.modflow_common.budget_components import canonical_budget_component
 from validation_cases.calibration.shared.definitions import (
     CalibrationMethodProfile,
@@ -33,6 +35,9 @@ from validation_cases.shared.runtime import _dump_toml, resolve_validation_resul
 # lookup, so a Run and its solver output directory always resolve the same
 # component.
 OUTLET_BUDGET_COMPONENTS: tuple[str, ...] = ("drain", "constant_head")
+
+BOUSSINESQ_STATE_HISTORY = "_boussinesq_state_history.npz"
+"""File a Boussinesq trial leaves in its solver folder, in place of MODFLOW files."""
 
 
 def _write_toml(path: Path, payload: dict[str, Any]) -> None:
@@ -570,6 +575,7 @@ def extract_outputs(
                     run,
                     x=float(_quantity_magnitude(getattr(decl, "x", None)) or 0.0),
                     y=float(_quantity_magnitude(getattr(decl, "y", None)) or 0.0),
+                    variable=variable,
                 )
         except Exception:
             values = None
@@ -601,7 +607,23 @@ def _extract_outlet_discharge_from_run(run: Any) -> np.ndarray | None:
     if bud is None or bud.empty:
         return None
     available = {str(c).strip().lower() for c in bud["component"].unique() if c is not None}
-    resolved = next((key for key in OUTLET_BUDGET_COMPONENTS if key in available), None)
+    carrying = {
+        key
+        for key in OUTLET_BUDGET_COMPONENTS
+        if key in available
+        and float(
+            bud.loc[bud["component"].astype(str).str.strip().str.lower() == key, "flux_out"]
+            .abs()
+            .max()
+        )
+        > 0.0
+    }
+    # The Boussinesq budget lists a drain row of zeros when the case has no
+    # drain, so a component counts only when it carries a flux.
+    resolved = next(
+        (key for key in OUTLET_BUDGET_COMPONENTS if key in carrying),
+        next((key for key in OUTLET_BUDGET_COMPONENTS if key in available), None),
+    )
     if resolved is None:
         return None
     subset = bud[bud["component"].astype(str).str.strip().str.lower() == resolved]
@@ -612,48 +634,117 @@ def _extract_outlet_discharge_from_run(run: Any) -> np.ndarray | None:
     return flux.to_numpy(dtype=float)
 
 
-def _extract_head_at_point_from_run(run: Any, *, x: float, y: float) -> np.ndarray | None:
-    """Read a head time series at the cell closest to ``(x, y)`` from a Run."""
-    flat_index: int | None = None
+def _padded_connectivity(connectivity: Any) -> np.ndarray:
+    """Return a ``(n_cells, max_vertices)`` array padded with ``-1``.
+
+    Accepts a rectangular array or a ragged sequence of index arrays, the two
+    forms a Voronoi or hybrid mesh takes in the catalog and in the solver.
+    """
+    if isinstance(connectivity, np.ndarray) and connectivity.ndim == 2:
+        return np.asarray(connectivity, dtype=int)
+    rows = [np.asarray(row, dtype=int).ravel() for row in connectivity]
+    width = max((row.size for row in rows), default=0)
+    padded = np.full((len(rows), width), -1, dtype=int)
+    for index, row in enumerate(rows):
+        padded[index, : row.size] = row
+    return padded
+
+
+def locate_cell_in_polygons(
+    vertices: Any,
+    connectivity: Any,
+    *,
+    x: float,
+    y: float,
+) -> int | None:
+    """Return the index of the polygon cell that contains ``(x, y)``.
+
+    Truth observations (read from the catalog Run) and trial costs (read from
+    the solver output) both locate an observation point with this function on
+    the mesh polygons, so a point resolves to the same cell on both routes
+    whatever the mesh: triangles, Voronoi polygons or any other DISV cell. The
+    lookup is the library's own point-in-cell resolver. A point on a cell edge
+    or outside the mesh returns the cell whose vertex mean is nearest.
+    """
+    verts = np.asarray(vertices, dtype=float)[:, :2]
+    faces = _padded_connectivity(connectivity)
+    if faces.size == 0:
+        return None
+    found = point_in_cell(
+        verts,
+        faces,
+        {"point": (float(x), float(y))},
+        warn_outside=False,
+    )["point"]
+    if found is not None:
+        return int(found)
+    valid = faces >= 0
+    gathered = np.where(valid[..., None], verts[np.where(valid, faces, 0)], np.nan)
+    centroids = np.nanmean(gathered, axis=1)
+    return int(np.argmin(np.hypot(centroids[:, 0] - float(x), centroids[:, 1] - float(y))))
+
+
+def _structured_flat_index_from_grid(grid: Any, *, x: float, y: float) -> int | None:
+    """Return the row-major flat index of the structured cell holding ``(x, y)``."""
+    if grid is None or not getattr(grid, "cell_size", None) or not getattr(grid, "extent", None):
+        return None
+    try:
+        cell_size = float(grid.cell_size)
+        x_min, _, y_min, _ = (float(v) for v in grid.extent)
+        n_rows, n_cols = (int(v) for v in grid.shape)
+        col = int(round((float(x) - x_min) / cell_size - 0.5))
+        row_from_bottom = int(round((float(y) - y_min) / cell_size - 0.5))
+    except (TypeError, ValueError):
+        return None
+    col = max(0, min(n_cols - 1, col))
+    row_from_bottom = max(0, min(n_rows - 1, row_from_bottom))
+    return int((n_rows - 1 - row_from_bottom) * n_cols + col)
+
+
+def _run_flat_index(run: Any, *, x: float, y: float) -> int | None:
+    """Return the cell of ``(x, y)`` in a Run.
+
+    The catalog Run carries a raster ``grid`` for unstructured meshes too (the
+    catchment raster), so that grid indexes the cells only when the mesh is a
+    structured quadrilateral grid with exactly its cell count. Any other mesh
+    resolves the point on its polygons, like the trial route does.
+    """
+    try:
+        mesh_payload = run.mesh
+    except Exception:
+        mesh_payload = None
     try:
         grid = run.grid
     except Exception:
         grid = None
-    if grid is not None and getattr(grid, "cell_size", None) and getattr(grid, "extent", None):
-        try:
-            cell_size = float(grid.cell_size)
-            x_min, _, y_min, _ = (float(v) for v in grid.extent)
-            n_rows, n_cols = (int(v) for v in grid.shape)
-            col = int(round((float(x) - x_min) / cell_size - 0.5))
-            row_from_bottom = int(round((float(y) - y_min) / cell_size - 0.5))
-            col = max(0, min(n_cols - 1, col))
-            row_from_bottom = max(0, min(n_rows - 1, row_from_bottom))
-            row = n_rows - 1 - row_from_bottom
-            flat_index = int(row * n_cols + col)
-        except Exception:
-            flat_index = None
-    if flat_index is None:
-        try:
-            mesh_payload = run.mesh
-        except Exception:
-            mesh_payload = None
-        if mesh_payload is not None:
-            vertices = np.asarray(mesh_payload.vertices, dtype=float)
-            connectivity = np.asarray(mesh_payload.face_node_connectivity, dtype=int)
-            if connectivity.size and vertices.size >= 2:
-                valid = connectivity >= 0
-                gathered = np.where(
-                    valid[..., None],
-                    vertices[np.where(valid, connectivity, 0)],
-                    np.nan,
-                )
-                centroids = np.nanmean(gathered, axis=1)[:, :2]
-                if centroids.size:
-                    distances = np.hypot(
-                        centroids[:, 0] - float(x),
-                        centroids[:, 1] - float(y),
-                    )
-                    flat_index = int(np.argmin(distances))
+    if mesh_payload is not None:
+        connectivity = np.asarray(mesh_payload.face_node_connectivity, dtype=int)
+        if connectivity.size and np.asarray(mesh_payload.vertices).size >= 2:
+            structured_shape = getattr(grid, "shape", None)
+            if (
+                connectivity.shape[1] == 4
+                and structured_shape is not None
+                and connectivity.shape[0] == int(structured_shape[0]) * int(structured_shape[1])
+            ):
+                return _structured_flat_index_from_grid(grid, x=x, y=y)
+            return locate_cell_in_polygons(mesh_payload.vertices, connectivity, x=x, y=y)
+    return _structured_flat_index_from_grid(grid, x=x, y=y)
+
+
+def _extract_head_at_point_from_run(
+    run: Any,
+    *,
+    x: float,
+    y: float,
+    variable: str = "watertable_elevation",
+) -> np.ndarray | None:
+    """Read a head time series at the cell holding ``(x, y)`` from a Run.
+
+    ``variable`` is the declared observable. The matching field is read first,
+    so a watertable observation is clipped to the surface like the trial route
+    clips it, and the other head field is the fallback.
+    """
+    flat_index = _run_flat_index(run, x=x, y=y)
     if flat_index is None:
         return None
 
@@ -666,12 +757,15 @@ def _extract_head_at_point_from_run(run: Any, *, x: float, y: float) -> np.ndarr
     except Exception:
         n_ts = 1
 
-    for variable in ("head", "watertable_elevation"):
+    names = ("head", "watertable_elevation")
+    if variable == "watertable_elevation":
+        names = names[::-1]
+    for name in names:
         values: list[float] = []
         ok = True
         for t in range(n_ts):
             try:
-                frame = run.field(variable, timestep=t)
+                frame = run.field(name, timestep=t)
             except Exception:
                 ok = False
                 break
@@ -786,6 +880,8 @@ def _extract_outputs_from_trial_ctx(
         return out
     output_dir = Path(output_dirs[flow_run_id])
     model = models.get(flow_run_id)
+    if (output_dir / BOUSSINESQ_STATE_HISTORY).is_file():
+        return _extract_outputs_from_boussinesq_dir(output_dir, model, output_decls)
     model_name = (
         getattr(model, "model_name", None) or getattr(model, "name", None) if model else None
     )
@@ -817,6 +913,64 @@ def _extract_outputs_from_trial_ctx(
             except Exception:
                 values = None
         if values is None or values.size == 0:
+            values = np.full(expected_len, np.nan, dtype=float)
+        selected[str(name)] = [float(v) for v in np.asarray(values).ravel()]
+    return selected
+
+
+def _extract_outputs_from_boussinesq_dir(
+    output_dir: Path,
+    model: Any,
+    output_decls: tuple[tuple[str, Any], ...],
+) -> dict[str, list[float]]:
+    """Read configured outputs from the state history of a Boussinesq trial.
+
+    The Boussinesq solver writes no MODFLOW files. It writes one
+    ``_boussinesq_state_history.npz`` with a row per stress period, the first
+    row being the initial state of a transient run. The outlet discharge and
+    the head follow the rules of the catalog route: the first outlet component
+    that carries a flux, the head clipped to the cell top.
+    """
+    with np.load(output_dir / BOUSSINESQ_STATE_HISTORY) as payload:
+        arrays = {key: np.asarray(payload[key]) for key in payload.files}
+    head_history = arrays.get("head_history_m")
+    if head_history is None:
+        head_history = np.asarray(arrays["final_head_m"], dtype=float)
+    head_history = np.atleast_2d(np.asarray(head_history, dtype=float))
+    first = first_period_snapshot(arrays, n_snapshots=head_history.shape[0])
+    head_history = head_history[first:]
+    mesh = model.mesh
+    top = np.asarray(mesh.z_top_m, dtype=float)
+
+    discharge: np.ndarray | None = None
+    for key in ("drainage_flux_history_m3_s", "prescribed_head_flux_history_m3_s"):
+        history = arrays.get(key)
+        if history is None:
+            continue
+        history = np.atleast_2d(np.asarray(history, dtype=float))[first:]
+        # Both histories are signed positive when the water leaves the aquifer.
+        outflow = np.maximum(history, 0.0).sum(axis=1)
+        if discharge is None or (not np.any(discharge) and np.any(outflow)):
+            discharge = outflow
+
+    selected: dict[str, list[float]] = {}
+    for name, decl in output_decls:
+        variable = str(getattr(decl, "variable", "")).strip().lower()
+        support = str(getattr(decl, "support", "point")).strip().lower()
+        observed = getattr(decl, "observed_values", None)
+        expected_len = len(observed) if observed is not None else 1
+        values: np.ndarray | None = None
+        if variable == "outlet_discharge" or support == "boundary":
+            values = discharge
+        elif variable in {"watertable_elevation", "head"} and support == "point":
+            x = float(_quantity_magnitude(getattr(decl, "x", None)) or 0.0)
+            y = float(_quantity_magnitude(getattr(decl, "y", None)) or 0.0)
+            # The cell that holds the point, like the catalog route resolves it.
+            cell = int(mesh.locate_cell_index_for_point(x, y))
+            values = head_history[:, cell]
+            if variable == "watertable_elevation":
+                values = np.minimum(values, top[cell])
+        if values is None or np.asarray(values).size == 0:
             values = np.full(expected_len, np.nan, dtype=float)
         selected[str(name)] = [float(v) for v in np.asarray(values).ravel()]
     return selected
@@ -1039,11 +1193,30 @@ def _resolve_cell_index_from_model(
             row = max(0, min(nrow - 1, row))
             flat = row * ncol + col
             return (0, row, col, flat)
-    distances = np.hypot(arr[:, 0] - float(x), arr[:, 1] - float(y))
-    flat_index = int(np.argmin(distances))
+    flat_index = _model_polygon_cell(model, x=x, y=y)
+    if flat_index is None:
+        distances = np.hypot(arr[:, 0] - float(x), arr[:, 1] - float(y))
+        flat_index = int(np.argmin(distances))
     if nrow > 0 and ncol > 0 and flat_index < nrow * ncol:
         return (0, flat_index // ncol, flat_index % ncol, flat_index)
     return (0, 0, flat_index, flat_index)
+
+
+def _model_polygon_cell(model: Any, *, x: float, y: float) -> int | None:
+    """Return the polygon cell of ``(x, y)`` on the planar mesh of a solver model."""
+    planar = getattr(getattr(model, "solver_mesh", None), "planar_mesh", None)
+    if planar is None:
+        return None
+    try:
+        return locate_cell_in_polygons(
+            planar.vertices,
+            planar.flat_connectivity,
+            x=x,
+            y=y,
+        )
+    except Exception:
+        # No polygon geometry on this model: the caller keeps the nearest centre.
+        return None
 
 
 def _model_cell_centroids(model: Any) -> np.ndarray | None:

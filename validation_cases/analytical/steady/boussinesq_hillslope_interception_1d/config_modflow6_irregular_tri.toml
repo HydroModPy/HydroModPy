@@ -1,0 +1,50 @@
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 1e-8
+mf6_inner_dvclose = 1e-9
+mf6_inner_rclose = 1e-11
+mf6_outer_maximum = 1500
+mf6_inner_maximum = 500
+# The stock ILUT (fill 5, drop 1e-4) with BICGSTAB stalls on the unstructured
+# Newton matrix: every inner solve hits the 500 cap and the outer loop creeps.
+mf6_preconditioner_levels = 40
+mf6_preconditioner_drop_tolerance = 0.0
+
+[modflow6.process_specific]
+vka = 1.0
+
+[modflow6.sgrid]
+grid_dual = "triangle"
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+# A 2.5 m raster (160 x 12) under the 10 m columns of the structured grids: a
+# linear surface is flat past the centre of the end raster columns (1.25 m from
+# the faces), and the flow to the held head crosses that flat strip only by a
+# head above the surface, so the strip is kept short. The two boundary
+# triangles of the east face have their centroids at 397.7 and 398.9 m, whose
+# mean (398.29 m) has the surface at 5.0214 m.
+[geographic.synthetic.grid]
+length_x = "400.0 m"
+length_y = "30.0 m"
+nx = 160
+ny = 12
+
+[geographic.synthetic.topography]
+base_elevation = 5.015625
+right_to_left_amplitude = 4.96875
+
+[flow.ic]
+value = "5.0214 m"
+
+[flow.bc.east_side]
+value = "5.0214 m"
+
+[mesh_input]
+mesh_path = "mesh_bundles/boussinesq_hillslope_interception_irregular_tri_400x30/mesh_2d.msh"
+bundle_dir = "mesh_bundles/boussinesq_hillslope_interception_irregular_tri_400x30"

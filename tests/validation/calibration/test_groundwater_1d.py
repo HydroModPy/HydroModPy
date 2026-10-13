@@ -15,6 +15,10 @@ from validation_cases.calibration.groundwater_1d.experiment import (
     build_calibration,
 )
 
+NOT_APPLICABLE = {
+    "*": "The forward model is a 30-line NumPy finite-difference solver inside the case module, not a HydroModPy groundwater solver. The test checks the calibration engine on it, so there is no solver to switch.",
+}
+
 
 def _best_values(session) -> dict[str, float]:
     completed = [r for r in session.history if r.status == "completed"]

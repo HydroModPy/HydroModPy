@@ -1,0 +1,21 @@
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+# The stock ILUT (fill 5, drop 1e-4) with BICGSTAB stalls on the unstructured
+# Newton matrix: every inner solve hits the 500 cap and the outer loop creeps.
+mf6_preconditioner_levels = 40
+mf6_preconditioner_drop_tolerance = 0.0
+
+[modflow6.process_specific]
+vka = 1.0
+
+[modflow6.sgrid]
+grid_dual = "voronoi"
+
+[mesh_input]
+mesh_path = "mesh_bundles/dupuit_seepage_limit_irregular_tri_400x25/mesh_2d.msh"
+bundle_dir = "mesh_bundles/dupuit_seepage_limit_irregular_tri_400x25"
+
+[flow.param.K.field]
+value = "5.0e-4 m/s"

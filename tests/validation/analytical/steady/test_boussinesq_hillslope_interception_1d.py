@@ -16,21 +16,32 @@ from validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.com
 @pytest.mark.steady
 @pytest.mark.fast
 @pytest.mark.parametrize(
-    "solver",
+    ("solver", "require_modflow", "require_modflow6"),
     [
-        pytest.param("boussinesq", marks=pytest.mark.petsc, id="boussinesq"),
-        pytest.param("boussinesq_local", id="boussinesq_local"),
+        pytest.param("modflow_nwt", True, False, id="modflow_nwt"),
+        pytest.param("modflow6", False, True, id="modflow6"),
+        pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
+        pytest.param("modflow6_voronoi", False, True, id="modflow6_voronoi"),
+        pytest.param("boussinesq", False, False, marks=pytest.mark.petsc, id="boussinesq"),
+        pytest.param("boussinesq_local", False, False, id="boussinesq_local"),
     ],
 )
-def test_boussinesq_hillslope_interception_1d_matches_reference_position(solver: str) -> None:
-    """Run one Boussinesq variant and compare it to the exact seepage-face solution.
+def test_boussinesq_hillslope_interception_1d_matches_reference_position(
+    solver: str,
+    require_modflow: bool,
+    require_modflow6: bool,
+) -> None:
+    """Run one variant and compare it to the exact seepage-face solution.
 
     ``boussinesq`` runs the PETSc VI obstacle; ``boussinesq_local`` runs the
-    default engine with its regularized partition closure, without PETSc.
+    default engine with its regularized partition closure, without PETSc. The
+    MODFLOW variants drain the land surface through a DRN, so the head may stand
+    above it by about ``(R + K S^2) b / K``: the clearance bound of those
+    variants is that excess, not the closure of the obstacle.
     """
     assert_required_executables(
-        require_modflow=False,
-        require_modflow6=False,
+        require_modflow=require_modflow,
+        require_modflow6=require_modflow6,
         require_modpath=False,
         require_mt3dms=False,
     )

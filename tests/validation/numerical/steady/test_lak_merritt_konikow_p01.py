@@ -26,6 +26,14 @@ from validation_cases.numerical.steady.lak_merritt_konikow_p01.comparison import
     run_lake_p01_scenario,
 )
 
+NOT_APPLICABLE = {
+    "modflow_nwt": "HydroModPy builds no LAK package on MODFLOW-NWT, and this case checks the HydroModPy MODFLOW 6 DISV lake builder against the upstream MODFLOW 6 example.",
+    "modflow6_irregular_tri": "The reference is the published solution on its own rectilinear grid, and the structural checks count that grid's connections (25 vertical, 20 horizontal). Other cell shapes have other counts. The lake on triangle and Voronoi meshes is run by test_lak_grid_equivalence.",
+    "modflow6_voronoi": "The reference is the published solution on its own rectilinear grid, and the structural checks count that grid's connections (25 vertical, 20 horizontal). Other cell shapes have other counts. The lake on triangle and Voronoi meshes is run by test_lak_grid_equivalence.",
+    "boussinesq": "The Boussinesq solver has no lake package: a lake boundary is refused with IncompatibleCapabilitiesError, and the lake boundary lists modflow6 as its only backend.",
+    "boussinesq_local": "The Boussinesq solver has no lake package: a lake boundary is refused with IncompatibleCapabilitiesError, and the lake boundary lists modflow6 as its only backend.",
+}
+
 
 @pytest.mark.validation
 @pytest.mark.steady

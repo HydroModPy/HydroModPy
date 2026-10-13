@@ -1,8 +1,12 @@
 # Boussinesq Hillslope Recharge-Step Interception 1D
 
-Transient synthetic groundwater-flow case used to validate the dense in-house
-`flow/boussinesq` runtime on a sloping hillslope where a recharge step causes
-an interception zone to appear progressively from the outlet toward the divide.
+Transient synthetic groundwater-flow case used to validate a sloping hillslope
+where a recharge step causes an interception zone to appear progressively from
+the outlet toward the divide. Six solvers run it: the in-house `flow/boussinesq`
+runtime (PETSc TS VI obstacle) and its default local engine
+(`boussinesq_local`), and MODFLOW-NWT, MODFLOW 6 on a structured grid, on
+irregular triangles and on their Voronoi dual, which drain the land surface
+through a DRN.
 
 Intent:
 
@@ -21,6 +25,20 @@ Numerical setup:
 - east fixed head `5 m`,
 - recharge step to `2 mm/day` from the first transient period,
 - `12` periods of `10 days`.
+
+The MODFLOW variants (`config_modflownwt.toml` and its overrides) put a DRN on
+the land surface (conductance `K * area / b`, `b = 1 m`). Their surface is the
+toe elevation, 5 m, at the cell that holds the outlet head (the centre of the
+last column, `x = 395 m`, on the structured grids), so the toe is in contact from
+the start and the front moves inland from there. The two unstructured variants
+read the triangle bundle of the steady interception case
+(`../../steady/boussinesq_hillslope_interception_1d/mesh_bundles`) and sample the
+surface from a 2.5 m raster. Their reference is evaluated at each cell and
+averaged over the same 10 m bins as the model. A launcher run stores the state at
+the stamp that closes each period, so the period `n` is read at `n * 10 days`. In
+the 120 days the head stays below the surface, so the DRN never acts and its
+finite conductance, which would hold the head `3.9e-4 m` above the surface (see
+the steady case), does not enter.
 
 Reference:
 

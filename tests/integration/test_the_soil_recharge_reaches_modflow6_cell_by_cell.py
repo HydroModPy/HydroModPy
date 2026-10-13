@@ -253,7 +253,8 @@ def _build_and_run(ws: Path):
     success, _buff = sim.run_simulation(silent=True)
     assert success, "soil-recharge MF6 run did not converge"
 
-    iy_nearest = _nearest_safran_index(np.arange(_NROW) * _DY + _DY / 2.0, _SAFRAN_Y)
+    # Row 0 is the northern row, as in MODFLOW; the model's southern edge is y = 0.
+    iy_nearest = _nearest_safran_index((_NROW - 1 - np.arange(_NROW)) * _DY + _DY / 2.0, _SAFRAN_Y)
     ix_nearest = _nearest_safran_index(np.arange(_NCOL) * _DX + _DX / 2.0, _SAFRAN_X)
     return iy_nearest, ix_nearest, soil
 

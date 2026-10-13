@@ -12,6 +12,14 @@ Numerical setup:
 - initial condition: uniform `10.0 m`,
 - simulated observable: `watertable_elevation`.
 
+Solver variants:
+
+- `modflow_nwt` and `modflow6` use the structured grid,
+- `modflow6_irregular_tri` runs the case on one shared irregular-triangle strip,
+- `modflow6_voronoi` runs it on the Voronoi dual of that strip, one cell per node: the
+  side heads sit on the faces, and the cells are read at their nodes and binned by
+  area into the columns of the reference.
+
 Run manually:
 
 ```powershell

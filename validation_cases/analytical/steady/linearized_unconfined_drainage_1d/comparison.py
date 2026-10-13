@@ -18,9 +18,13 @@ from validation_cases.shared import (
     rmse,
     run_launcher_validation_case,
 )
+from validation_cases.shared.loaders import run_dual_cell_centers
 from validation_cases.shared.strip_geometry import strip_geometry_for_run
 
 from .reference import expected_linearized_unconfined_drainage_profile
+from .runtime_boussinesq import (
+    run_boussinesq_linearized_unconfined_drainage_case,
+)
 
 CASE_DIR = Path(__file__).resolve().parent
 
@@ -67,6 +71,7 @@ def build_linearized_unconfined_drainage_comparison(
         sim_id=result.sim_id,
         observable_name=observable_name,
         expected_shape=expected_shape,
+        cell_centers=run_dual_cell_centers(result, case_metadata),
     )
 
     if expected_shape:
@@ -127,15 +132,27 @@ def run_linearized_unconfined_drainage_comparison(
     timeout: int = 1800,
     solver: str | None = None,
 ) -> LinearizedUnconfinedDrainageComparison:
-    """Run the launcher case and return the full comparison payload."""
+    """Run the case on one solver and return the full comparison payload.
+
+    MODFLOW variants go through the launcher. ``boussinesq`` runs the PETSc VI
+    engine on a strip bundle: the default local engine cannot hold a head above
+    the drain elevation, so it has no variant.
+    """
     metadata = load_case_metadata(CASE_DIR)
     tolerances = load_case_tolerances(CASE_DIR, solver=solver)
-    result = run_launcher_validation_case(
-        case_dir=CASE_DIR,
-        test_file=caller_file,
-        timeout=timeout,
-        solver=solver,
-    )
+    if solver is not None and str(solver).strip().lower() == "boussinesq":
+        result = run_boussinesq_linearized_unconfined_drainage_case(
+            caller_file=caller_file,
+            timeout=timeout,
+            public_solver_label="boussinesq",
+        )
+    else:
+        result = run_launcher_validation_case(
+            case_dir=CASE_DIR,
+            test_file=caller_file,
+            timeout=timeout,
+            solver=solver,
+        )
     return build_linearized_unconfined_drainage_comparison(
         result=result,
         metadata=metadata,

@@ -1,0 +1,21 @@
+[head_profile]
+rmse = 8.5e-6
+max_abs_error = 8.6e-6
+row_spread = 1e-8
+
+[doc]
+reason = """
+Twice the error measured with the PETSc VI engine on the 50 x 5 strip of
+equal-area triangles (2 m2): RMSE 4.2e-6 m, max error 4.3e-6 m, an almost
+uniform offset. The drain is C * max(h - z_top, 0) with the explicit
+conductance C = K * A / b = 5e-8 m2/s on every cell; a positive value is what
+lifts the upper obstacle, and a scalar per cell gives the leakance K / b only
+because the cells have equal areas. A column holds two triangles whose
+centroids sit at dx/3 and 2 dx/3; their mean exceeds the reference at the
+column centre by u'' (dx/6)^2 / 2 = 4.1e-6 m. Against the reference averaged
+over the two centroids the strip reads RMSE 8.8e-8 m. The heads sit at the
+centroid of the triangle that owns a side edge, dx/3 inside the face. The
+drain moves the profile by up to 9.0e-2 m and a 10 % change of the leakance by
+8.9e-3 m, three orders above the bound. The strip is uniform across rows, so a
+row spread is solver noise: 9e-16 m measured; the bound is 1e-8 m.
+"""

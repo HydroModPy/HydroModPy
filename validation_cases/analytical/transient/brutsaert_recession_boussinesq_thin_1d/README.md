@@ -1,7 +1,7 @@
 # Brutsaert Recession Validation: Thin Nonlinear Aquifer
 
-This transient validation case checks that the `modflow_nwt`, `modflow6` and
-`modflow6_irregular_tri` backends reproduce the nonlinear late recession of
+This transient validation case checks that the `modflow_nwt`, `modflow6`,
+`modflow6_irregular_tri` and `modflow6_voronoi` backends reproduce the nonlinear late recession of
 Brutsaert and Nieber (1977), `-dQ/dt = a Q^(3/2)`, on a thin aquifer.
 
 Numerical setup:
@@ -20,7 +20,8 @@ Analytical target:
 
 - the drainage length `B` runs from the divide to the cells that hold the
   outlet head: half a column inside the edge on a structured grid, at the
-  boundary triangle centroids on a mesh,
+  boundary triangle centroids on a mesh, on the edge itself on the Voronoi dual,
+  whose outlet cells are seeded at the nodes of the edge,
 - the outlet width `W`, `K` and `Sy` are read from `config_common.toml`,
 - `Q*` is fitted on the run: the late law does not describe the initial water
   table.

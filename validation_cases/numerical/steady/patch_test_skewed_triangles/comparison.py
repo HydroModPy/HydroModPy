@@ -5,7 +5,8 @@ The steady head of a uniform flow is linear in ``x``. With a transmissivity
 aquifer the two differ by 5e-6 m. A consistent flux reproduces it at every cell
 centre, whatever the shape of the cells. The heads are held at the centroids of
 the triangles that own a west or an east edge, so the reference is anchored
-there.
+there. A Voronoi dual has one cell per mesh node and holds the heads on the
+nodes of the faces, so the reference is anchored at the face abscissae.
 """
 
 from __future__ import annotations
@@ -58,8 +59,13 @@ class PatchTestComparison:
     map_reference: np.ndarray
 
 
-def _held_x(bundle_dir: Path, centroids_xy: np.ndarray, *, side: str) -> float:
-    """Return the centroid x of the triangles that own a west or an east edge."""
+def _held_x(bundle_dir: Path, centroids_xy: np.ndarray, *, side: str, kind: str) -> float:
+    """Return the x where a west or an east head is held.
+
+    On a triangle grid that is the centroid x of the triangles that own a west or
+    an east edge. A Voronoi dual has one cell per node, and the side heads are
+    held on the nodes of the face: the held x is the extreme node abscissa.
+    """
     nodes = np.genfromtxt(bundle_dir / "nodes.csv", delimiter=",", names=True)
     edges = np.genfromtxt(
         bundle_dir / "edges.csv", delimiter=",", names=True, dtype=None, encoding="utf-8"
@@ -67,6 +73,11 @@ def _held_x(bundle_dir: Path, centroids_xy: np.ndarray, *, side: str) -> float:
     node_x = np.asarray(nodes["x"], dtype=float)
     edge_x = 0.5 * (node_x[edges["node_a"].astype(int)] + node_x[edges["node_b"].astype(int)])
     target = float(node_x.min()) if side == "west" else float(node_x.max())
+    if kind == "voronoi":
+        on_face = np.isclose(centroids_xy[:, 0], target)
+        if not on_face.any():
+            raise ValueError(f"No Voronoi node sits on the {side} face x = {target}.")
+        return target
     on_side = (edges["edge_kind"] == "boundary") & np.isclose(edge_x, target)
     owners = np.unique(edges["cell_a"][on_side].astype(int))
     held = np.asarray(centroids_xy[owners, 0], dtype=float)
@@ -111,9 +122,9 @@ def build_patch_test_comparison(
     bundle_dir = resolve_case_mesh_bundle_dir(CASE_DIR, case_metadata, solver_name)
     if bundle_dir is None:
         raise ValueError(f"No mesh bundle for solver '{solver_name}'.")
-    centroids, _ = bundle_cell_centers(bundle_dir, heads.size)
-    west_x_m = _held_x(bundle_dir, centroids, side="west")
-    east_x_m = _held_x(bundle_dir, centroids, side="east")
+    centroids, kind = bundle_cell_centers(bundle_dir, heads.size)
+    west_x_m = _held_x(bundle_dir, centroids, side="west", kind=kind)
+    east_x_m = _held_x(bundle_dir, centroids, side="east", kind=kind)
     reference = uniform_flow_head(
         centroids[:, 0],
         west_x_m=west_x_m,

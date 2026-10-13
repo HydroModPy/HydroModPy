@@ -17,6 +17,14 @@ For `solver=boussinesq`, the validation uses one small balanced triangular strip
 projected back to a regular `40 x 3` comparison grid. The runtime itself is
 selected through the case `config_boussinesq.toml`.
 
+Solver variants:
+
+- `modflow_nwt` and `modflow6` use the structured grid,
+- `modflow6_irregular_tri` runs the case on one shared irregular-triangle strip,
+- `modflow6_voronoi` runs it on the Voronoi dual of that strip, one cell per node: the
+  side heads sit on the faces, and the cells are read at their nodes and binned by
+  area into the columns of the reference.
+
 Run manually:
 
 ```powershell

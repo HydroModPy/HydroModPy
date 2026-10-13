@@ -43,7 +43,8 @@ code.hmp-val-wf { white-space: nowrap; font-size: .85em; }
 table.hmp-val-matrix tr.hmp-val-grow th { text-align: left; background: var(--pst-color-surface); font-weight: 600; }
 td.hmp-val-nm { color: var(--pst-color-text-muted); font-style: italic; font-size: .85em; }
 td.hmp-val-sk { color: var(--pst-color-text-muted); font-size: .85em; }
-td.hmp-val-na { background: transparent; }
+td.hmp-val-na { background: transparent; color: var(--pst-color-text-muted); font-size: .85em; }
+td.hmp-val-un { color: var(--pst-color-text-muted); font-size: .85em; font-style: italic; }
 .hmp-val-gapmark {
   font-size: .75em; font-weight: 700; color: var(--pst-color-warning);
   border: 1px solid currentColor; border-radius: .3rem; padding: 0 .2rem;

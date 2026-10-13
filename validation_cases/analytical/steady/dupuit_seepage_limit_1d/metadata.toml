@@ -6,11 +6,33 @@ config_file = "config_modflow6.toml"
 default_solver = "modflow6"
 base_config = "config_modflow6.toml"
 
+# Four scenarios per solver: the reference, K and R scaled together down and up
+# (the K/R invariance), and K alone doubled (the negative control).
 [config_files]
+modflow_nwt = "config_modflownwt.toml"
+modflow_nwt_scaled_down = "config_modflownwt_scaled_down.toml"
+modflow_nwt_scaled_up = "config_modflownwt_scaled_up.toml"
+modflow_nwt_k_only = "config_modflownwt_k_only.toml"
 modflow6 = "config_modflow6.toml"
 modflow6_scaled_down = "config_modflow6_scaled_down.toml"
 modflow6_scaled_up = "config_modflow6_scaled_up.toml"
 modflow6_k_only = "config_modflow6_k_only.toml"
+modflow6_irregular_tri = "config_modflow6_irregular_tri.toml"
+modflow6_irregular_tri_scaled_down = "config_modflow6_irregular_tri_scaled_down.toml"
+modflow6_irregular_tri_scaled_up = "config_modflow6_irregular_tri_scaled_up.toml"
+modflow6_irregular_tri_k_only = "config_modflow6_irregular_tri_k_only.toml"
+modflow6_voronoi = "config_modflow6_voronoi.toml"
+modflow6_voronoi_scaled_down = "config_modflow6_voronoi_scaled_down.toml"
+modflow6_voronoi_scaled_up = "config_modflow6_voronoi_scaled_up.toml"
+modflow6_voronoi_k_only = "config_modflow6_voronoi_k_only.toml"
+boussinesq = "config_boussinesq.toml"
+boussinesq_scaled_down = "config_boussinesq_scaled_down.toml"
+boussinesq_scaled_up = "config_boussinesq_scaled_up.toml"
+boussinesq_k_only = "config_boussinesq_k_only.toml"
+boussinesq_local = "config_boussinesq_local.toml"
+boussinesq_local_scaled_down = "config_boussinesq_local_scaled_down.toml"
+boussinesq_local_scaled_up = "config_boussinesq_local_scaled_up.toml"
+boussinesq_local_k_only = "config_boussinesq_local_k_only.toml"
 
 [workspace]
 results_folder_name = "results_simulations"
@@ -18,7 +40,13 @@ results_folder_name = "results_simulations"
 [output]
 expected_shape = [5, 80]
 
+# The Boussinesq runtime has 80 columns of 2 rows of 5 m: 320 triangles.
+[output.expected_shape_by_solver]
+boussinesq = [2, 80]
+boussinesq_local = [2, 80]
+
 [reference]
 hillslope_length_m = 400.0
 hillslope_width_m = 25.0
 substratum_elevation_m = 0.0
+topography_slope_m_per_m = 0.02

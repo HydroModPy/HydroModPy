@@ -48,7 +48,7 @@ def _tree(shape: tuple[int, int], path: list[tuple[int, int]], *, pixel: float, 
 
 
 def _quad(nrow: int, ncol: int, top: np.ndarray, inactive: np.ndarray | None = None):
-    """A structured mesh of 10 m cells; mesh row 0 is the SOUTH row."""
+    """A structured mesh of 10 m cells; mesh row 0 is the NORTH row, like a raster."""
     return SolverMesh.from_structured_arrays(
         nrow=nrow,
         ncol=ncol,
@@ -60,9 +60,9 @@ def _quad(nrow: int, ncol: int, top: np.ndarray, inactive: np.ndarray | None = N
     )
 
 
-def _cell(nrow: int, ncol: int, raster_row: int, col: int) -> int:
+def _cell(ncol: int, raster_row: int, col: int) -> int:
     """Mesh cell under the raster pixel (one 10 m pixel per cell)."""
-    return (nrow - 1 - raster_row) * ncol + col
+    return raster_row * ncol + col
 
 
 def test_a_staircase_of_a_pins_each_cell_to_the_next_one_on_a() -> None:
@@ -70,7 +70,7 @@ def test_a_staircase_of_a_pins_each_cell_to_the_next_one_on_a() -> None:
     path = [(1, 1), (1, 2), (2, 2), (2, 3), (3, 3), (3, 4), (4, 4), (5, 5), (6, 6)]
     tree = _tree((nrow, ncol), path, pixel=10.0, top_y=10.0 * nrow)
     mesh = _quad(nrow, ncol, np.full(nrow * ncol, 50.0))
-    cells = [_cell(nrow, ncol, r, c) for r, c in path]
+    cells = [_cell(ncol, r, c) for r, c in path]
     n = nrow * ncol
 
     pinned, channel = project_channel_tree(
@@ -88,8 +88,8 @@ def test_pins_drive_the_receivers_of_d_even_where_the_top_climbs(caplog) -> None
     tree = _tree((nrow, ncol), path, pixel=10.0, top_y=10.0 * nrow)
     rows, cols = np.divmod(np.arange(nrow * ncol), ncol)
     # T rises to the south-east: A runs uphill on T, a burned channel D must follow.
-    top = 50.0 + (nrow - 1 - rows) + cols
-    cells = [_cell(nrow, ncol, r, c) for r, c in path]
+    top = 50.0 + rows + cols
+    cells = [_cell(ncol, r, c) for r, c in path]
     mesh = _quad(nrow, ncol, top)
 
     with caplog.at_level(logging.INFO):
@@ -110,10 +110,11 @@ def test_a_flat_beside_a_drains_into_a_not_along_it() -> None:
     # column, beside A; the pinned flood sends them into A.
     nrow, ncol = 12, 7
     rows, cols = np.divmod(np.arange(nrow * ncol), ncol)
+    from_south = nrow - 1 - rows
     top = np.full(nrow * ncol, 20.0)
-    valley = (rows >= 2) & (rows <= nrow - 2) & (cols >= 2) & (cols <= 4)
-    top[valley | ((rows == 1) & (cols == 3))] = 10.0
-    top[(rows == 0) & (cols == 3)] = 9.0
+    valley = (from_south >= 2) & (from_south <= nrow - 2) & (cols >= 2) & (cols <= 4)
+    top[valley | ((from_south == 1) & (cols == 3))] = 10.0
+    top[(from_south == 0) & (cols == 3)] = 9.0
     path = [(r, 3) for r in range(1, nrow)]  # raster rows from the north, down to the spill
     tree = _tree((nrow, ncol), path, pixel=10.0, top_y=10.0 * nrow)
     mesh = _quad(nrow, ncol, top)
@@ -134,10 +135,10 @@ def test_a_leaves_through_a_lake_so_the_cell_above_it_is_an_outlet_of_a() -> Non
     path = [(r, 2) for r in range(1, 7)]
     tree = _tree((nrow, ncol), path, pixel=10.0, top_y=10.0 * nrow)
     n = nrow * ncol
-    lake_cell = _cell(nrow, ncol, 3, 2)
+    lake_cell = _cell(ncol, 3, 2)
     lake_of = np.full(n, -1)
     lake_of[lake_cell] = 0
-    above, below = _cell(nrow, ncol, 2, 2), _cell(nrow, ncol, 4, 2)
+    above, below = _cell(ncol, 2, 2), _cell(ncol, 4, 2)
 
     pinned, channel = project_channel_tree(
         tree,
@@ -150,7 +151,7 @@ def test_a_leaves_through_a_lake_so_the_cell_above_it_is_an_outlet_of_a() -> Non
     assert pinned[lake_cell] == -1
     assert lake_cell not in pinned.tolist()
     assert pinned[above] == -1
-    assert channel[below] and pinned[below] == _cell(nrow, ncol, 5, 2)
+    assert channel[below] and pinned[below] == _cell(ncol, 5, 2)
 
 
 def test_a_cell_off_the_graph_is_neither_a_channel_nor_a_pin() -> None:
@@ -159,7 +160,7 @@ def test_a_cell_off_the_graph_is_neither_a_channel_nor_a_pin() -> None:
     tree = _tree((nrow, ncol), path, pixel=10.0, top_y=10.0 * nrow)
     n = nrow * ncol
     routable = np.ones(n, dtype=bool)
-    off = _cell(nrow, ncol, 3, 1)
+    off = _cell(ncol, 3, 1)
     routable[off] = False
 
     pinned, channel = project_channel_tree(
@@ -170,7 +171,7 @@ def test_a_cell_off_the_graph_is_neither_a_channel_nor_a_pin() -> None:
     )
 
     assert not channel[off]
-    assert pinned[_cell(nrow, ncol, 2, 1)] == -1
+    assert pinned[_cell(ncol, 2, 1)] == -1
     assert off not in pinned.tolist()
 
 

@@ -1,0 +1,17 @@
+[head_profile]
+rmse = 1.8e-4
+max_abs_error = 3.6e-4
+row_spread = 1e-9
+
+[doc]
+reason = """
+Twice the error measured on the 190-node Voronoi dual of the triangle strip:
+RMSE 8.8e-5 m, max error 1.8e-4 m, below the triangles (2.7e-4 m and 3.7e-4 m).
+Each drain takes C = K * dual_cell_area / b, so the leakance K / b is the same
+on every dual cell and the 1D reference holds on this mesh. The heads are
+posed on the faces, where the cells are seeded. Each cell is read at its node
+and the profile is the area-weighted mean per 2 m column, for the model and the
+reference alike; one column holds no node and is filled by index. What is left
+is the default MODFLOW 6 head closure of 1e-4 m, as on the triangles. The row
+spread is zero by construction: the loader tiles one profile.
+"""

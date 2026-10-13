@@ -43,7 +43,7 @@ from validation_cases.shared import (
 )
 from validation_cases.shared.boussinesq_analytical_runtime import DEFAULT_ENGINE_SOLVER
 from validation_cases.shared.boussinesq_plotting import with_boussinesq_method_line
-from validation_cases.shared.loaders import resolve_case_mesh_bundle_dir
+from validation_cases.shared.loaders import resolve_case_mesh_bundle_dir, run_dual_cell_centers
 
 from .brutsaert_reference import (
     SECONDS_PER_DAY,
@@ -271,9 +271,12 @@ def outlet_offset_m(
 
     Every backend pins the head at cell centres, not on the edge. A structured
     MODFLOW grid holds it half a column inside; a mesh, at the centroids of the
-    triangles along the edge.
+    triangles along the edge. A Voronoi dual holds it at the nodes of the edge,
+    which sit on it, so the offset is zero.
     """
     normalized = str(solver_name or "").strip().lower()
+    if result is not None and run_dual_cell_centers(result, metadata) is not None:
+        return 0.0
     bundle_dir = resolve_case_mesh_bundle_dir(case_dir, metadata, normalized)
     strip_runtime = normalized in {"boussinesq", DEFAULT_ENGINE_SOLVER}
     if bundle_dir is None and strip_runtime and result is not None:
@@ -590,11 +593,23 @@ def build_brutsaert_recession_comparison(
             expected_head_shape = tuple(expected_shape_by_solver[solver_name])
         elif solver_name == "modflow6_irregular_tri":
             expected_head_shape = (params.ny, params.nx)
+        # A Voronoi dual holds its heads at its nodes: bin them by node abscissa
+        # into the strip columns, like the other mesh runs, instead of reading
+        # every cell as a row.
+        dual_bundle_dir = (
+            resolve_case_mesh_bundle_dir(case_dir, case_metadata, solver_name)
+            if run_dual_cell_centers(result, case_metadata) is not None
+            else None
+        )
+        if dual_bundle_dir is not None:
+            expected_head_shape = (params.ny, params.nx)
         _, heads_all = load_time_series_fields(
             store=result.store,
             sim_id=result.sim_id,
             observable_name=head_observable_name,
             expected_spatial_shape=expected_head_shape,
+            mesh_bundle_dir=dual_bundle_dir,
+            collapse_y_to_x_profile=dual_bundle_dir is not None,
         )
         heads = _period_rows(
             np.asarray(heads_all, dtype=float), n_periods, label=head_observable_name

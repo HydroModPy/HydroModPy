@@ -1,0 +1,24 @@
+[seepage_limit]
+position_error = 3.4
+head_profile_max_abs_error = 0.024
+
+[invariance]
+head_max_abs_error = 1e-6
+
+[control]
+drain_outflow_ratio_error = 3e-8
+
+[doc]
+reason = """
+MODFLOW-NWT, 80 x 5 cells of 5 m, the land surface a DRN of conductance
+K * area / b with b = 1 m, in the four scenarios. Measured, the seepage limit
+sits at 200 m in the three scenarios of x_e = 200 m (error 0) and at 135 m
+against 133.3 m for the doubled K (1.67 m, the 5 m column edge): bound twice
+that. Head profile: max error 8.2e-3 m in the three, 1.17e-2 m for the doubled K,
+the cell-size error of placing the free boundary; bound twice the largest. The
+K/R invariance holds to 4.8e-7 m, the float32 resolution of the stored heads:
+bound 1e-6 m. This needs the run to use the NWT validation profile (headtol
+1e-9 m, fluxtol 1e-10 m3/s) in every scenario; without it the scaled scenarios
+differ from the reference by 7e-3 m. Doubling K alone moves 65 cells and leaves
+the drain outflow at R * area to 1.3e-8, bound 3e-8. The quasi-1D rows agree.
+"""

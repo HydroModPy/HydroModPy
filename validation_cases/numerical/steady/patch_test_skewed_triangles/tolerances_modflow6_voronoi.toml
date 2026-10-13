@@ -1,0 +1,13 @@
+[heads]
+rmse = 8e-8
+max_abs_error = 1.5e-7
+
+[doc]
+reason = """
+Twice the measurement: RMSE 3.9e-8 m, max error 7.3e-8 m. The Voronoi dual of
+the skewed nodes has orthogonal cells (a face bisects the two nodes it
+separates), so the two-point flux of a uniform gradient is exact, as XT3D is on
+the triangles. What is left is the solver closure (outer dvclose 1e-9 m) and the
+2e-4 spread of the transmissivity across the strip. The heads are held on the
+nodes of the faces, x = 0 and 100 m, and the reference is anchored there.
+"""

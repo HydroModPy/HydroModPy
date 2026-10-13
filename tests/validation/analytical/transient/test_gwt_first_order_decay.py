@@ -21,6 +21,14 @@ from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from tests._helpers.tolerances import tol
 from tests.validation.helpers import assert_metric_below
 
+NOT_APPLICABLE = {
+    "modflow_nwt": "MODFLOW-NWT has no GWT. HydroModPy transports on NWT with MT3DMS, a separate code whose decay rate is in 1/day, so the per-second GWT clock this file guards does not exist there.",
+    "modflow6_irregular_tri": "The case is one closed cell with no flow, advection or dispersion, so its result cannot depend on the mesh. A triangle or Voronoi DISV would repeat the same cell.",
+    "modflow6_voronoi": "The case is one closed cell with no flow, advection or dispersion, so its result cannot depend on the mesh. A triangle or Voronoi DISV would repeat the same cell.",
+    "boussinesq": "The Boussinesq solver has no transport: the registry holds no transport adapter for it and the solver page lists its transport as refused. This file runs MODFLOW 6 GWT.",
+    "boussinesq_local": "The Boussinesq solver has no transport: the registry holds no transport adapter for it and the solver page lists its transport as refused. This file runs MODFLOW 6 GWT.",
+}
+
 
 @pytest.mark.validation
 @pytest.mark.analytical

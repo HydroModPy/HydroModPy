@@ -18,6 +18,14 @@ selected through the case `config_boussinesq.toml`, so the geometry stays fixed
 while the nonlinear backend can evolve independently. The analytical
 `boussinesq` variant now defaults to PETSc TS VI.
 
+Solver variants:
+
+- `modflow_nwt` and `modflow6` use the structured grid,
+- `modflow6_irregular_tri` runs the case on one shared irregular-triangle strip,
+- `modflow6_voronoi` runs it on the Voronoi dual of that strip, one cell per node: the
+  side heads sit on the faces, and the cells are read at their nodes and binned by
+  area into the columns of the reference.
+
 Run manually:
 
 ```powershell

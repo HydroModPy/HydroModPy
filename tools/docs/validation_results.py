@@ -87,6 +87,12 @@ def collect(sources: list[Path]) -> dict[str, Any]:
     return out
 
 
+def _function_of(nodeid: str) -> tuple[str, bool]:
+    """The test function of a node id, and whether the id carries parameters."""
+    head = nodeid.split("@", 1)[0]
+    return head.split("[", 1)[0], "[" in head
+
+
 def merge(
     snapshot: dict[str, Any], new: dict[str, Any], *, replace: bool, repo: Path = ROOT
 ) -> dict[str, Any]:
@@ -94,6 +100,13 @@ def merge(
     tests = {} if replace else dict(snapshot.get("tests", {}))
     runs = {} if replace else dict(snapshot.get("runs", {}))
     runs.update(new["runs"])
+    # A function that gained or lost its parameters no longer has its old node ids.
+    shapes = {_function_of(n) for n in new["tests"]}
+    tests = {
+        k: v
+        for k, v in tests.items()
+        if k in new["tests"] or (_function_of(k)[0], not _function_of(k)[1]) not in shapes
+    }
     for nodeid, test in new["tests"].items():
         old = tests.get(nodeid)
         if old is None or runs.get(old["run"], {}).get("date", "") <= runs[test["run"]]["date"]:

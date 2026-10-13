@@ -1,0 +1,89 @@
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "Hillslope interception val"
+description = "Synthetic steady hillslope with an outlet head at the toe and a seepage face, drained at the land surface."
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflow_nwt"]
+
+[workspace]
+project_root = "."
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "val_hillslope_interception"
+
+[geographic.synthetic.grid]
+length_x = "400.0 m"
+length_y = "30.0 m"
+nx = 40
+ny = 3
+
+[geographic.synthetic.topography]
+kind = "linear"
+# The surface takes its east value at the centre of the last column (x = 395 m):
+# 5 + 0.0125 * (400 - x) is 5.0625 m there and 9.9375 m at the centre of the first.
+base_elevation = 5.0625
+right_to_left_amplitude = 4.875
+
+[domain]
+
+[domain.depth_model]
+kind = "flat_substratum"
+substratum_elevation = 0.0
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["east_side", "drainage"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+value = "1e-4 m/s"
+
+[flow.ic]
+type = "custom"
+value = "5.0625 m"
+
+[flow.bc.east_side]
+kind = "dirichlet"
+# The surface at the centre of the last column, where the model holds the head.
+value = "5.0625 m"
+
+[flow.bc.drainage]
+application_domain = "top"
+kind = "cauchy"
+# No conductance: each drain takes C = K * cell_area / b with b = 1 m.
+value = "0.0 m2/s"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+[data]
+types = ["recharge"]
+inference_mode = "warn"
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [2.0]
+runoff_ratio = 0.0
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 40
+ny = 3
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+[display]
+enabled = false

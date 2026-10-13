@@ -11,6 +11,14 @@ from validation_cases.analytical.steady.dupuit_fixed_head_1d.comparison import (
     run_dupuit_fixed_head_comparison,
 )
 
+NOT_APPLICABLE = {
+    "modflow_nwt": "The file runs the Boussinesq surface-interaction closures (regularized partition, complementarity, VI obstacle) selected through runtime_backend = petsc, which have no MODFLOW counterpart. The same Dupuit profile runs on NWT in test_dupuit_fixed_head_1d.py.",
+    "modflow6": "The file runs the Boussinesq surface-interaction closures (regularized partition, complementarity, VI obstacle) selected through runtime_backend = petsc, which have no MODFLOW counterpart. The same Dupuit profile runs on MF6 in test_dupuit_fixed_head_1d.py.",
+    "modflow6_irregular_tri": "The file runs the Boussinesq surface-interaction closures (regularized partition, complementarity, VI obstacle) selected through runtime_backend = petsc, which have no MODFLOW counterpart. The same Dupuit profile runs on MF6 triangles in test_dupuit_fixed_head_1d.py.",
+    "modflow6_voronoi": "The file runs the Boussinesq surface-interaction closures (regularized partition, complementarity, VI obstacle) selected through runtime_backend = petsc, which have no MODFLOW counterpart. A MF6 Voronoi run of this Dupuit profile belongs in test_dupuit_fixed_head_1d.py, not here.",
+    "boussinesq_local": "The complementarity and VI obstacle closures exist only in the PETSc engine; the local engine supports head_only_regularized_partition only. The regularized-partition profile on the default engine is already test_dupuit_fixed_head_1d[boussinesq_local].",
+}
+
 
 def _require_linux_petsc4py() -> None:
     if platform.system().strip().lower() != "linux":

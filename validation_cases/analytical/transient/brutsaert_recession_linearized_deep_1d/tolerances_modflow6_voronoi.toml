@@ -1,0 +1,49 @@
+# The Voronoi dual of the triangle strip, one cell per node, on the same
+# time stepping as the other MODFLOW variants (100 backward-Euler steps a
+# period). Its decay rate sits 0.66 % under the law, against 0.22 % on the
+# triangles: see the gap below.
+[discharge]
+# Twice the measurement: RMSE 4.4e-4, maximum 6.9e-4 (triangles 9.3e-4 and
+# 2.4e-3).
+relative_rmse = 9e-4
+relative_max_error = 1.4e-3
+
+[recession]
+# Known gap, 1.1 times the measurement: -0.663 %.
+coefficient_relative_error = 7.3e-3
+# Fitted b against 1; measured 3.5e-4.
+exponent_abs_error = 7e-4
+# Known gap, 1.1 times the measurement: 1.955 %.
+late_relative_rmse = 2.2e-2
+
+[uniformity]
+# Measured 7e-15 m: the dual is binned into one profile.
+row_spread = 1e-9
+
+[monotonicity]
+max_positive_increment_m3_s = 1e-12
+
+[doc]
+gap = """
+Known gap. The fitted decay rate is 0.66 % under the linearized law, 0.22 % on
+the triangles. Backward Euler explains 0.33 % at 100 steps a period (0.09 % at
+400, as on the structured grid, which has no space error). The rest, 0.32 % at
+400 steps, is spatial. The lowest eigenvalue of the dual operator, assembled
+from the stored cell polygons (K D L / d between nodes, Sy times the polygon
+area, the 3 outlet nodes held, no time stepping), is 0.346 % under
+pi^2 K D / (4 Sy B^2) with B = 400 m. With B = 400.69 m, the length that
+eigenvalue implies, the same run reads -0.318 % on the rate and 0.52 % on the
+late RMSE, the time-stepping values. The mesh is irregular and its outlet face
+holds 3 nodes, 15 m apart; a finer bundle was not built.
+"""
+reason = """
+The outlet nodes lie on the east edge, so the drainage length is the full 400 m.
+Measured on the 321-node dual: discharge RMSE 4.4e-4 and maximum 6.9e-4
+(twice that), rate error -0.663 % and late RMSE 1.955 % (1.1 times, with the
+gap), exponent error 3.5e-4 (twice that). The run is deterministic: a relative
+perturbation of K by 1e-12 to 5e-12 moves the rate error by less than 1e-11.
+The dual keeps the ILUT fill of 40 of the triangle config, which stops the
+linear solver from stalling on this matrix. The row spread is zero by
+construction: the loader bins the dual by node abscissa into one profile
+(7e-15 m measured).
+"""

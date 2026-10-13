@@ -154,6 +154,9 @@ _VALIDATION_PROFILES_BY_SOLVER_AND_CASE: dict[str, dict[str, str]] = {
             "boussinesq_sloping_substratum_constant_thickness_1d",
             "boussinesq_sloping_substratum_fixed_head_1d",
             "boussinesq_sloping_substratum_uniform_recharge_1d",
+            "boussinesq_hillslope_interception_1d",
+            "boussinesq_hillslope_recharge_step_interception_1d",
+            "dupuit_seepage_limit_1d",
             "brutsaert_recession_linearized_deep_1d",
             "brutsaert_recession_boussinesq_thin_1d",
             "dupuit_divide_river_1d",
@@ -165,6 +168,21 @@ _VALIDATION_PROFILES_BY_SOLVER_AND_CASE: dict[str, dict[str, str]] = {
         )
     },
 }
+
+
+def _validation_profile_block(solver_name: str, case_name: str) -> str | None:
+    """Return the runtime profile of a solver for one case, or None.
+
+    A scenario key such as ``modflow_nwt_scaled_down`` is a variant of the
+    solver whose name it starts with, and runs with the profile of that solver.
+    """
+    by_case = _VALIDATION_PROFILES_BY_SOLVER_AND_CASE.get(solver_name)
+    if by_case is None:
+        parents = [
+            key for key in _VALIDATION_PROFILES_BY_SOLVER_AND_CASE if solver_name.startswith(key)
+        ]
+        by_case = _VALIDATION_PROFILES_BY_SOLVER_AND_CASE[max(parents, key=len)] if parents else {}
+    return by_case.get(case_name)
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
@@ -756,7 +774,7 @@ def _build_validation_launcher_config(
     """
     metadata = load_case_metadata(case_dir)
     base_config_name = str(metadata.get("base_config", "")).strip()
-    profile_block = _VALIDATION_PROFILES_BY_SOLVER_AND_CASE.get(solver_name, {}).get(case_dir.name)
+    profile_block = _validation_profile_block(solver_name, case_dir.name)
 
     use_base = bool(base_config_name)
     base_config_path = case_dir / base_config_name if use_base else None

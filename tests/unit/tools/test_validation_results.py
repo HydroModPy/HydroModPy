@@ -105,6 +105,19 @@ def test_a_newer_run_replaces_a_result_and_an_older_one_does_not(tmp_path: Path)
     assert next(iter(again["tests"].values()))["outcome"] == "failed"
 
 
+def test_a_function_that_gained_parameters_drops_its_old_node_id(tmp_path: Path) -> None:
+    old = V.collect([_part(tmp_path, "a", "2026-10-01T00:00:00", "aaaa", "passed", 0.01)])
+    new = V.collect([_part(tmp_path, "b", "2026-10-02T00:00:00", "bbbb", "passed", 0.02)])
+    (test,) = new["tests"].values()
+    nodeid = f"{test['nodeid']}[modflow6]"
+    new["tests"] = {nodeid: {**test, "nodeid": nodeid}}
+    snap = V.merge(V.merge({}, old, replace=False, repo=ROOT), new, replace=False, repo=ROOT)
+    assert list(snap["tests"]) == [nodeid]
+    sibling = f"{test['nodeid']}[modflow_nwt]"
+    later = {**new, "tests": {sibling: {**test, "nodeid": sibling}}}
+    assert sorted(V.merge(snap, later, replace=False, repo=ROOT)["tests"]) == [nodeid, sibling]
+
+
 def test_a_result_of_a_test_file_that_left_the_tree_is_dropped(tmp_path: Path) -> None:
     run = V.collect([_part(tmp_path, "a", "2026-10-01T00:00:00", "aaaa", "passed", 0.01)])
     gone = next(iter(run["tests"].values()))

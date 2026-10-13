@@ -1,0 +1,19 @@
+[[simulation.process]]
+solvers = ["modflow_nwt"]
+
+[modflownwt.sgrid.planar]
+mode = "resample_to_shape"
+nx = 80
+ny = 5
+resampling = "nearest"
+
+[modflownwt.sgrid.vertical]
+nlay = 1
+
+[flow.param.K.field]
+value = "2.5e-6 m/s"
+
+[[data.recharge.sources]]
+source = "synthetic"
+values = [0.0864]
+runoff_ratio = 0.0

@@ -35,14 +35,16 @@ def cell_centers_from_sgrid(
     except Exception:
         pass
 
-    # Fallback: compute from delr/delc + offsets.
+    # Fallback: compute from delr/delc + offsets. MODFLOW orders rows from
+    # north to south and the offset is the lower-left corner, so row 0 is the
+    # northernmost row.
     delr = np.asarray(sgrid.delr, dtype=float).reshape(-1)
     delc = np.asarray(sgrid.delc, dtype=float).reshape(-1)
     xoff = float(getattr(sgrid, "xoffset", getattr(sgrid, "xoff", 0.0)))
     yoff = float(getattr(sgrid, "yoffset", getattr(sgrid, "yoff", 0.0)))
 
     x_edges = xoff + np.concatenate(([0.0], np.cumsum(delr)))
-    y_edges = yoff + np.concatenate(([0.0], np.cumsum(delc)))
+    y_edges = yoff + delc.sum() - np.concatenate(([0.0], np.cumsum(delc)))
     x_cell = 0.5 * (x_edges[:-1] + x_edges[1:])
     y_cell = 0.5 * (y_edges[:-1] + y_edges[1:])
 

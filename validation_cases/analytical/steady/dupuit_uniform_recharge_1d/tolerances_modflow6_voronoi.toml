@@ -1,0 +1,14 @@
+[head_profile]
+rmse = 0.009
+max_abs_error = 0.027
+row_spread = 1e-9
+
+[doc]
+reason = """
+Twice the error measured on the 101-node Voronoi dual of the triangle strip:
+RMSE 4.5e-3 m, max error 1.31e-2 m. A side head sits on the cells seeded on the
+face, so the reference poses it on the faces. Each cell is read at its node and
+the profile is the area-weighted mean per 10 m column, for the model and the
+reference alike. The row spread is zero by construction: the loader tiles one
+profile.
+"""

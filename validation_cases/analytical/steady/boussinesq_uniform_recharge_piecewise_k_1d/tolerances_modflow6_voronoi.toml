@@ -1,0 +1,21 @@
+[head_profile]
+rmse = 0.0124
+max_abs_error = 0.0265
+row_spread = 1e-9
+
+[doc]
+gap = """
+Known gap. A Voronoi cell that straddles a K break takes the area-weighted
+arithmetic K of its two zones, while the reference jumps sharply, so the error
+peaks just east of the first break (-0.024 m at x = 135 m). Control on a lattice
+strip of 3 node rows and 16 m columns: with the breaks on cell edges RMSE
+6.6e-3 m, max 9.8e-3 m; with the breaks through the cell nodes RMSE 1.86e-2 m,
+max 3.33e-2 m.
+"""
+reason = """
+Measured values with a 10 % margin: RMSE 1.12e-2 m, max error 2.40e-2 m, at
+x = 135 m. The gap below explains why the margin is not 2x. Each cell is read
+at its node and the profile is the area-weighted mean per 10 m column, for the
+model and the reference alike. The row spread is zero by construction: the
+loader tiles one profile.
+"""

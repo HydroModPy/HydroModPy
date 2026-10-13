@@ -1,0 +1,115 @@
+# Steady MODFLOW 6 run on the committed circular-island bundle (1200 triangles).
+# Frozen mesh: the net never asks gmsh for a new triangulation.
+# Self-contained: no import of validation_cases code, only the committed bundle data.
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "mesh_net_island_triangle"
+description = "Mesh net: steady head on the circular-island bundle, triangle cells."
+
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-01-02 00:00:00"
+step_value = "1 day"
+coverage_policy = "ignore"
+
+# Heads are compared at 1e-4 of their range: keep them at full precision.
+[simulation.results.persistence]
+field_precision = "exact"
+
+[[simulation.process]]
+id = "flow_net"
+type = "flow"
+solvers = ["modflow6"]
+
+[workspace]
+project_root = "."
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "mesh_net_island"
+
+[geographic.synthetic.grid]
+length_x = "610.0 m"
+length_y = "610.0 m"
+xmin = 265400.0
+ymin = 6784100.0
+nx = 61
+ny = 61
+
+[geographic.synthetic.topography]
+kind = "radial_island"
+base_elevation = -1.0
+crest_elevation = 12.0
+island_radius = "200.0 m"
+
+[domain]
+
+[domain.depth_model]
+kind = "flat_substratum"
+substratum_elevation = -5.0
+
+[data]
+types = ["oceanic", "recharge"]
+inference_mode = "strict"
+
+[data.oceanic]
+[[data.oceanic.sources]]
+source = "constant"
+value = 0.0
+
+# A planar recharge field breaks the symmetry of the island, so a mirrored or
+# rotated mesh moves the heads: 1 mm/day at the island centre, +0.6 mm/day per
+# 305 m towards the north and +0.3 mm/day per 305 m towards the east (10 x 10
+# pixels of 61 m, EPSG:2154, GeoTIFF committed beside this file).
+[[data.recharge.sources]]
+source = "custom"
+path = "recharge_gradient.tif"
+source_unit = "mm/day"
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = ["recharge"]
+active_bc = ["ocean"]
+param_list = ["K"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+value = "5e-6 m/s"
+
+[flow.ic]
+type = "custom"
+value = "1.0 m"
+
+[flow.bc.ocean]
+kind = "dirichlet"
+value = "0.0 m"
+
+[flow.sinks_sources.recharge]
+first_clim = "mean"
+
+[modflow6.runtime]
+mf_verbose = false
+mf6_ims_complexity = "COMPLEX"
+
+[modflow6.process_specific]
+vka = 1.0
+
+[modflow6.sgrid]
+grid_dual = "triangle"
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+[mesh_input]
+mesh_path = "../../../../../validation_cases/shared/mesh_bundles/dupuit_circular_island_ocean_irregular_tri_radial_48/mesh_2d.msh"
+bundle_dir = "../../../../../validation_cases/shared/mesh_bundles/dupuit_circular_island_ocean_irregular_tri_radial_48"
+
+[display]
+enabled = false
+

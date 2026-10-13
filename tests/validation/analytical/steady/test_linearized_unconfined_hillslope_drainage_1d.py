@@ -10,6 +10,15 @@ from validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage
     run_linearized_unconfined_hillslope_drainage_comparison,
 )
 
+NOT_APPLICABLE = {
+    "boussinesq_local": (
+        "The default local engine closes the land surface with a regularized partition "
+        "that releases at the surface all the water a cell receives once its head reaches "
+        "the drain elevation. It cannot hold a head above the drain, so the "
+        "finite-conductance drain flux stays at zero."
+    ),
+}
+
 
 @pytest.mark.validation
 @pytest.mark.analytical
@@ -21,6 +30,8 @@ from validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage
         pytest.param("modflow_nwt", True, False, id="modflow_nwt"),
         pytest.param("modflow6", False, True, id="modflow6"),
         pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
+        pytest.param("modflow6_voronoi", False, True, id="modflow6_voronoi"),
+        pytest.param("boussinesq", False, False, id="boussinesq", marks=pytest.mark.petsc),
     ],
 )
 def test_linearized_unconfined_hillslope_drainage_1d_matches_reference_profile(
@@ -28,7 +39,11 @@ def test_linearized_unconfined_hillslope_drainage_1d_matches_reference_profile(
     require_modflow: bool,
     require_modflow6: bool,
 ) -> None:
-    """Run the case and compare the mean head profile to the analytical reference."""
+    """Run the case on each grid and compare the mean head profile to the analytical reference.
+
+    The grids are the structured MODFLOW grid, the triangle strip, its Voronoi dual and the
+    PETSc Boussinesq strip, whose finite-conductance drain lets the head stand above the surface.
+    """
     assert_required_executables(
         require_modflow=require_modflow,
         require_modflow6=require_modflow6,

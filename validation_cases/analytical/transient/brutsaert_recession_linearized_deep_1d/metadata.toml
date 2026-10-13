@@ -10,6 +10,7 @@ base_config = "config_common.toml"
 modflow_nwt = "config_modflownwt.toml"
 modflow6 = "config_modflow6.toml"
 modflow6_irregular_tri = "config_modflow6_irregular_tri.toml"
+modflow6_voronoi = "config_modflow6_voronoi.toml"
 boussinesq = "config_boussinesq.toml"
 boussinesq_local = "config_boussinesq_local.toml"
 
@@ -25,6 +26,7 @@ head_observable_name = "watertable_elevation"
 modflow_nwt = 1
 modflow6 = 1
 modflow6_irregular_tri = 1
+modflow6_voronoi = 1
 boussinesq = 0
 boussinesq_local = 0
 

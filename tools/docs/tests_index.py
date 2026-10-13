@@ -6,7 +6,9 @@ Reads only files, imports nothing from the repository. Two parts:
 
 - validation: one entry per tests/validation/**/test_*.py, with its module
   docstring, its test functions and, when it imports a case of
-  validation_cases/, the metadata, README and tolerances of that case;
+  validation_cases/, the metadata, README and tolerances of that case, and
+  its NOT_APPLICABLE dict (solver column to the reason that solver cannot
+  run the test), read from the AST;
 - imports: for every test file of tests/, the hydromodpy modules it imports,
   so that a page can list the tests of the modules it describes;
 - schedule: the CI jobs that run tests/validation, read from
@@ -31,6 +33,56 @@ import tomllib
 from pathlib import Path
 
 TIERS = ("validation", "integration", "unit", "regression", "e2e", "contract")
+
+# The columns of the "Case by solver" matrix, in display order.
+SOLVER_ORDER = (
+    "modflow_nwt",
+    "modflow6",
+    "modflow6_irregular_tri",
+    "modflow6_voronoi",
+    "boussinesq",
+    "boussinesq_local",
+)
+# A solver name belongs to the column of its longest matching prefix.
+COLUMN_PREFIXES = (
+    ("modflow6_irregular_tri", "modflow6_irregular_tri"),
+    ("modflow6_voronoi", "modflow6_voronoi"),
+    ("modflow6", "modflow6"),
+    ("modflow_nwt", "modflow_nwt"),
+    ("boussinesq_local", "boussinesq_local"),
+    ("boussinesq", "boussinesq"),
+    ("petsc", "boussinesq"),
+)
+# A marker that names a solver, for tests that do not parametrize one.
+MARK_SOLVER = {"mf6": "modflow6", "petsc": "boussinesq"}
+NOT_APPLICABLE_NAME = "NOT_APPLICABLE"
+
+
+def column_of(solver: str | None) -> str:
+    """The matrix column of a solver name, ``other`` when it has none."""
+    name = solver or ""
+    for prefix, column in COLUMN_PREFIXES:
+        if name.startswith(prefix):
+            return column
+    return "other"
+
+
+def solvers_of(entry: dict) -> list[str]:
+    """Parametrized solvers, else the solvers of its cases, else the solver markers.
+
+    A test function that parametrizes no solver adds the solver its markers name.
+    """
+    if entry["solvers"]:
+        marked = [
+            MARK_SOLVER[m]
+            for fn in entry.get("functions", [])
+            if not fn["solvers"]
+            for m in fn["markers"]
+            if m in MARK_SOLVER
+        ]
+        return list(dict.fromkeys([*entry["solvers"], *marked]))
+    from_cases = list(dict.fromkeys(s for c in entry["cases"] for s in c.get("solver_files", {})))
+    return from_cases or [MARK_SOLVER[m] for m in entry["markers"] if m in MARK_SOLVER]
 
 
 def slugify(label: str) -> str:
@@ -99,34 +151,74 @@ def module_markers(tree: ast.Module) -> set[str]:
     return out
 
 
-def _param_id(elt: ast.expr) -> tuple[str | None, set[str]]:
-    """The id of one ``solver`` parameter and the marks it carries."""
+def module_constants(tree: ast.Module) -> dict[str, ast.expr]:
+    """Module-level ``NAME = <expression>`` assignments, by name."""
+    out: dict[str, ast.expr] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            if isinstance(node.targets[0], ast.Name):
+                out[node.targets[0].id] = node.value
+    return out
+
+
+def _value(node: ast.expr, env: dict[str, ast.expr], depth: int = 0) -> str | None:
+    """The string a constant or a Name bound to a constant stands for."""
+    if isinstance(node, ast.Constant):
+        return str(node.value)
+    if isinstance(node, ast.Name) and node.id in env and depth < 8:
+        return _value(env[node.id], env, depth + 1)
+    return None
+
+
+def _elements(node: ast.expr, env: dict[str, ast.expr], depth: int = 0) -> list[ast.expr] | None:
+    """The items of a list or tuple, through Names and ``*`` splices; None when unknown."""
+    if isinstance(node, ast.Name) and node.id in env and depth < 8:
+        return _elements(env[node.id], env, depth + 1)
+    if not isinstance(node, (ast.List, ast.Tuple)):
+        return None
+    out: list[ast.expr] = []
+    for elt in node.elts:
+        if isinstance(elt, ast.Starred):
+            inner = _elements(elt.value, env, depth + 1)
+            if inner is None:
+                return None
+            out.extend(inner)
+        else:
+            out.append(elt)
+    return out
+
+
+def _param_id(elt: ast.expr, env: dict[str, ast.expr]) -> tuple[str | None, set[str]]:
+    """The ``solver`` value of one parameter and the marks it carries.
+
+    The recorder stores the value the test receives, not the pytest id, so the
+    value is what the page must match.
+    """
     marks: set[str] = set()
     if isinstance(elt, ast.Call) and ast.unparse(elt.func).endswith("param"):
-        ident = next(
-            (
-                k.value.value
-                for k in elt.keywords
-                if k.arg == "id" and isinstance(k.value, ast.Constant)
-            ),
-            None,
-        )
-        if ident is None and elt.args and isinstance(elt.args[0], ast.Constant):
-            ident = elt.args[0].value
+        ident = _value(elt.args[0], env) if elt.args else None
+        if ident is None:
+            ident = next(
+                (
+                    k.value.value
+                    for k in elt.keywords
+                    if k.arg == "id" and isinstance(k.value, ast.Constant)
+                ),
+                None,
+            )
         for k in elt.keywords:
             if k.arg == "marks":
                 marks |= set(re.findall(r"pytest\.mark\.(\w+)", ast.unparse(k.value)))
         return (str(ident) if ident else None), marks
-    if isinstance(elt, ast.Constant):
-        return str(elt.value), marks
-    if isinstance(elt, ast.Tuple) and elt.elts and isinstance(elt.elts[0], ast.Constant):
-        return str(elt.elts[0].value), marks
-    return None, marks
+    if isinstance(elt, ast.Tuple) and elt.elts:
+        return _value(elt.elts[0], env), marks
+    return _value(elt, env), marks
 
 
 def function_info(tree: ast.Module) -> list[dict]:
     """Per test function: its marks and the ``solver`` parameters it runs, with their marks."""
     module = module_markers(tree)
+    env = module_constants(tree)
     out = []
     for node in ast.walk(tree):
         if not isinstance(
@@ -154,13 +246,34 @@ def function_info(tree: ast.Module) -> list[dict]:
                 if isinstance(argnames, str)
                 else list(argnames)
             )
-            if names and names[0] == "solver" and isinstance(call.args[1], (ast.List, ast.Tuple)):
-                for elt in call.args[1].elts:
-                    ident, param_marks = _param_id(elt)
+            elts = _elements(call.args[1], env)
+            if names and names[0] == "solver" and elts is not None:
+                for elt in elts:
+                    ident, param_marks = _param_id(elt, env)
                     if ident:
                         solvers.append({"id": ident, "marks": sorted(param_marks)})
         out.append({"name": node.name, "markers": sorted(marks), "solvers": solvers})
     return out
+
+
+def not_applicable(tree: ast.Module, file: str) -> dict[str, str]:
+    """The module-level ``NOT_APPLICABLE`` dict: column (or ``*``) to the reason it cannot run."""
+    for node in tree.body:
+        if not (
+            isinstance(node, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == NOT_APPLICABLE_NAME for t in node.targets)
+        ):
+            continue
+        try:
+            value = ast.literal_eval(node.value)
+        except ValueError as err:
+            raise ValueError(f"{file}: {NOT_APPLICABLE_NAME} must be a literal dict") from err
+        if not isinstance(value, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in value.items()
+        ):
+            raise ValueError(f"{file}: {NOT_APPLICABLE_NAME} must map str to str")
+        return value
+    return {}
 
 
 def decorator_info(tree: ast.Module) -> tuple[list[str], list[str]]:
@@ -600,6 +713,7 @@ def build(repo: Path) -> dict:
                     "markers": markers,
                     "solvers": solvers,
                     "functions": functions,
+                    "not_applicable": not_applicable(tree, rel.as_posix()),
                     "criteria": metric_criteria(tree),
                     "tolerance_rows": [r for r in (match_row(rows, t) for t in tol_names) if r],
                     "reference": docstring_paragraph(doc, "Compared with"),

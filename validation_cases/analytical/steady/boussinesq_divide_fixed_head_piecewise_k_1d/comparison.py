@@ -20,6 +20,7 @@ from validation_cases.shared import (
     run_launcher_validation_case,
 )
 from validation_cases.shared.boussinesq_analytical_runtime import DEFAULT_ENGINE_SOLVER
+from validation_cases.shared.loaders import run_dual_cell_centers
 from validation_cases.shared.strip_geometry import strip_geometry_for_run
 
 from .reference import expected_boussinesq_divide_fixed_head_piecewise_profile
@@ -77,6 +78,7 @@ def _load_heads_for_comparison(
                 sim_id=result.sim_id,
                 observable_name=observable_name,
                 expected_shape=expected_shape,
+                cell_centers=run_dual_cell_centers(result),
             )
         except Exception as exc:
             store_error = exc

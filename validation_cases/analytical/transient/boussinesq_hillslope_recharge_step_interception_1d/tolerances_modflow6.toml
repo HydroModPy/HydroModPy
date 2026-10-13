@@ -1,0 +1,25 @@
+[onset]
+time_error_days = 5.0
+
+[trajectory]
+rmse_m = 1.0
+max_abs_error_m = 5.0
+reversal_m = 1e-6
+
+[uniformity]
+row_spread = 1e-8
+
+[contact]
+max_positive_clearance_m = 1e-6
+
+[doc]
+reason = """
+MODFLOW 6, same model as MODFLOW-NWT (40 x 3 cells of 10 m, 12 periods of 10
+days, DRN at the land surface with b = 1 m), IMS closed at 1e-8 m. The front sits
+on the reference column at every period: onset error 0 d, trajectory error 0 m,
+so the bounds sit half a step above, 5 d and 5 m, and fail on any miss (a miss
+reads 10 m, RMSE 2.9 m). The closest the contact test comes to its threshold is
+1.6e-3 m. The head stays below the surface for the 120 days, so the DRN never
+acts: the largest clearance is 0 on the held cell. Reversal is a solver-closure
+bound. Row spread: 3.7e-9 m measured, bound 1e-8 m.
+"""

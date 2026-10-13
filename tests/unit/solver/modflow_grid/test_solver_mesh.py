@@ -78,6 +78,24 @@ def test_idomain_from_inactive_mask() -> None:
     assert sm.idomain().tolist() == [[1, 0]]
 
 
+def test_structured_arrays_put_row_0_at_the_north_like_modflow() -> None:
+    sm = SolverMesh.from_structured_arrays(
+        nrow=3,
+        ncol=2,
+        top=np.zeros((3, 2)),
+        botm=-np.ones((1, 3, 2)),
+        dx=10.0,
+        dy=5.0,
+        xoff=100.0,
+        yoff=200.0,
+    )
+    centroids = sm.cell_centroids().reshape(3, 2, 2)
+    assert centroids[:, 0, 1] == pytest.approx([212.5, 207.5, 202.5])
+    assert centroids[0, :, 0] == pytest.approx([105.0, 115.0])
+    assert sm.yoffset == pytest.approx(200.0)
+    assert sm.yvertices[:, 0] == pytest.approx([215.0, 210.0, 205.0, 200.0])
+
+
 # -- Structured reshape + the structured-only guards --------------------------
 
 

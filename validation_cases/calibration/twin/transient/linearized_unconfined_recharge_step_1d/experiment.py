@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from validation_cases.calibration.shared.definitions import (
@@ -12,7 +13,12 @@ from validation_cases.calibration.shared.definitions import (
     TwinOutputSpec,
     TwinParameterTarget,
 )
-from validation_cases.shared.runtime import _merge_toml_payloads, _read_toml
+from validation_cases.calibration.shared.solver_variants import (
+    TWIN_SOLVERS,
+    VARIANTS,
+    case_id_for,
+    config_builder,
+)
 
 CASE_DIR = (
     Path(__file__).resolve().parents[4]
@@ -24,15 +30,12 @@ CASE_DIR = (
 
 def build_simulation_config(path: Path, project_root: Path) -> None:
     """Write one MODFLOW 6 simulation config for the transient twin benchmark."""
-    from validation_cases.shared.runtime import _dump_toml
-
-    payload = _merge_toml_payloads(
-        _read_toml(CASE_DIR / "config_modflownwt.toml"),
-        _read_toml(CASE_DIR / "config_modflow6.toml"),
-    )
-    payload.setdefault("workspace", {})["project_root"] = str(project_root)
-    payload.setdefault("simulation", {})["name"] = "transient_lu_truth"
-    path.write_text(_dump_toml(payload), encoding="utf-8", newline="\n")
+    config_builder(
+        "modflow6",
+        case_dir=CASE_DIR,
+        common_files=("config_modflownwt.toml",),
+        run_id="transient_lu_truth",
+    )(path, project_root)
 
 
 def _gp_mapping_profile(*, seed: int = 13) -> CalibrationMethodProfile:
@@ -358,3 +361,38 @@ TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE = TwinCalibrationCaseDefinitio
     output_specs=_TRANSIENT_FLUX_ONLY_OUTPUT_SPECS,
     objective_block_specs=_TRANSIENT_FLUX_ONLY_OBJECTIVE_BLOCK_SPECS,
 )
+
+
+def _case_for(base: TwinCalibrationCaseDefinition, column: str) -> TwinCalibrationCaseDefinition:
+    """Return the transient twin ``base`` on one solver column.
+
+    The time discretisation, the recharge step and the fixed heads come from
+    ``config_modflownwt.toml`` for every column. Only the solver file changes,
+    and for the unstructured columns the triangle bundle of the case.
+    """
+    if column == "modflow6":
+        return base
+    variant = VARIANTS[column]
+    return replace(
+        base,
+        case_id=case_id_for(base.case_id, column),
+        solver_name=variant.solver_name,
+        build_simulation_config=config_builder(
+            column,
+            case_dir=CASE_DIR,
+            common_files=("config_modflownwt.toml",),
+            run_id="transient_lu_truth",
+        ),
+    )
+
+
+TRANSIENT_RECHARGE_STEP_TWIN_CASES = {
+    column: _case_for(TRANSIENT_RECHARGE_STEP_TWIN_CASE, column) for column in TWIN_SOLVERS
+}
+"""One K+Sy head and flux twin per solver column, keyed by the matrix column."""
+
+TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASES = {
+    column: _case_for(TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE, column)
+    for column in TWIN_SOLVERS
+}
+"""One flux-only noisy twin per solver column, keyed by the matrix column."""

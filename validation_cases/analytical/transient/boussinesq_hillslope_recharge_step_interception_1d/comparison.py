@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+from validation_cases.analytical.transient.common import load_transient_profile_outputs
 from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
@@ -15,8 +16,10 @@ from validation_cases.shared import (
     max_abs_error,
     max_std_along_axis,
     rmse,
+    run_launcher_validation_case,
 )
 from validation_cases.shared.boussinesq_analytical_runtime import DEFAULT_ENGINE_SOLVER
+from validation_cases.shared.strip_geometry import strip_geometry_for_run
 
 from .reference import (
     SECONDS_PER_DAY,
@@ -31,10 +34,18 @@ from .runtime_boussinesq import (
 
 CASE_DIR = Path(__file__).resolve().parent
 
+BOUSSINESQ_SOLVERS = frozenset({"boussinesq", DEFAULT_ENGINE_SOLVER})
+
 
 @dataclass(frozen=True, slots=True)
 class BoussinesqTransientHillslopeInterceptionComparison:
-    """Arrays and metrics required to validate the transient interception case."""
+    """Arrays and metrics required to validate the transient interception case.
+
+    On a MODFLOW run the land surface is a drain, so the head may stand above it
+    by the head the drain needs to pass the recharge: ``max_positive_clearance_m``
+    is that excess, small but not zero. On an unstructured mesh the reference is
+    averaged over the same x bins as the model.
+    """
 
     result: ValidationRunResult
     metadata: dict
@@ -66,8 +77,22 @@ class BoussinesqTransientHillslopeInterceptionComparison:
 
 
 def _load_outputs(
-    *, result: ValidationRunResult, metadata: dict
+    *,
+    result: ValidationRunResult,
+    metadata: dict,
+    solver_name: str | None = None,
+    tolerances: dict | None = None,
 ) -> tuple[str, np.ndarray, np.ndarray]:
+    if solver_name not in BOUSSINESQ_SOLVERS:
+        # A launcher run: the loader bins an unstructured mesh onto the columns.
+        loaded = load_transient_profile_outputs(
+            case_dir=CASE_DIR,
+            result=result,
+            metadata=metadata,
+            tolerances=tolerances,
+            solver=solver_name,
+        )
+        return loaded.observable_name, loaded.period_indices, loaded.heads
     output_cfg = dict(metadata.get("output", {}))
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
     expected_spatial_shape = tuple(output_cfg.get("expected_spatial_shape", ())) or None
@@ -109,36 +134,59 @@ def build_boussinesq_hillslope_recharge_step_interception_comparison(
     observable_name, period_indices, heads = _load_outputs(
         result=result,
         metadata=case_metadata,
+        solver_name=solver_name,
+        tolerances=case_tolerances,
     )
+    # The Boussinesq runtime stores the state at the start of each period. A
+    # launcher run stores it at the stamp that closes the period.
+    is_boussinesq = solver_name in BOUSSINESQ_SOLVERS
 
     reference_cfg = dict(case_metadata.get("reference", {}))
     time_cfg = dict(case_metadata.get("time", {}))
     dt_seconds = float(time_cfg["dt_seconds"])
-    elapsed_seconds = period_indices.astype(float) * dt_seconds
+    elapsed_seconds = (period_indices.astype(float) + (0.0 if is_boussinesq else 1.0)) * dt_seconds
     elapsed_days = elapsed_seconds / SECONDS_PER_DAY
 
     ncol = int(heads.shape[-1])
-    dx = (float(reference_cfg["xmax"]) - float(reference_cfg["xmin"])) / float(ncol)
-    x = float(reference_cfg["xmin"]) + ((np.arange(ncol, dtype=float) + 0.5) * dx)
-    topography_profile = build_hillslope_topography_values(
-        x_m=x,
+    geometry = strip_geometry_for_run(
+        result,
+        ncol=ncol,
         xmin=float(reference_cfg["xmin"]),
         xmax=float(reference_cfg["xmax"]),
-        toe_elevation_m=float(reference_cfg["toe_elevation_m"]),
-        slope_m_per_m=float(reference_cfg["topography_slope_m_per_m"]),
+        area_weighted=True,
     )
+    x = geometry.x
     numerical_profiles = np.asarray(np.mean(heads, axis=1), dtype=float)
-    analytical_profiles = expected_linearized_hillslope_recharge_step_profiles(
-        x_m=x,
-        eval_times_seconds=elapsed_seconds,
-        xmin=float(reference_cfg["xmin"]),
-        xmax=float(reference_cfg["xmax"]),
-        base_head_m=float(reference_cfg["base_head_m"]),
-        recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
-        hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
-        reference_saturated_thickness_m=float(reference_cfg["reference_saturated_thickness_m"]),
-        specific_yield=float(reference_cfg["specific_yield"]),
-        n_terms=int(reference_cfg.get("n_terms", 400)),
+    # The Boussinesq runtime holds the outlet head at the east face of the
+    # reference. A cell-centred launcher run holds it where the geometry says,
+    # and its surface is the toe elevation at that point.
+    outlet_x = float(reference_cfg["xmax"]) if is_boussinesq else geometry.east_x
+    # The surface is flat past the centre of the end columns: no point is read beyond.
+    surface_span = (geometry.surface_west_x, geometry.surface_east_x)
+    topography_profile = geometry.profile(
+        lambda points: build_hillslope_topography_values(
+            x_m=points,
+            xmin=float(reference_cfg["xmin"]),
+            xmax=outlet_x,
+            toe_elevation_m=float(reference_cfg["toe_elevation_m"]),
+            slope_m_per_m=float(reference_cfg["topography_slope_m_per_m"]),
+        ),
+        within=surface_span,
+    )
+    analytical_profiles = geometry.profile(
+        lambda points: expected_linearized_hillslope_recharge_step_profiles(
+            x_m=points,
+            eval_times_seconds=elapsed_seconds,
+            xmin=float(reference_cfg["xmin"]),
+            xmax=outlet_x,
+            base_head_m=float(reference_cfg["base_head_m"]),
+            recharge_mm_day=float(reference_cfg["recharge_mm_day"]),
+            hydraulic_conductivity_m_per_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
+            reference_saturated_thickness_m=float(reference_cfg["reference_saturated_thickness_m"]),
+            specific_yield=float(reference_cfg["specific_yield"]),
+            n_terms=int(reference_cfg.get("n_terms", 400)),
+        ),
+        within=(float(reference_cfg["xmin"]), outlet_x),
     )
 
     contact_tolerance_m = float(reference_cfg.get("numerical_contact_tolerance_m", 0.05))
@@ -225,25 +273,32 @@ def run_boussinesq_hillslope_recharge_step_interception_comparison(
     timeout: int = 1800,
     solver: str | None = None,
 ) -> BoussinesqTransientHillslopeInterceptionComparison:
-    """Run the PETSc Boussinesq recharge-step interception case and compare it."""
-    normalized_solver = None if solver is None else str(solver).strip().lower()
-    if normalized_solver not in {None, "boussinesq", DEFAULT_ENGINE_SOLVER}:
-        raise ValueError(
-            f"This validation case supports only solver='boussinesq' or '{DEFAULT_ENGINE_SOLVER}'."
-        )
-    solver_label = normalized_solver or "boussinesq"
+    """Run one variant of the recharge-step interception case and compare it.
 
+    A Boussinesq variant runs the in-house runtime. Any other solver runs the
+    launcher case with a drain at the land surface.
+    """
+    normalized_solver = None if solver is None else str(solver).strip().lower()
     metadata = load_case_metadata(CASE_DIR)
-    tolerances = load_case_tolerances(CASE_DIR, solver=solver_label)
-    result = run_boussinesq_hillslope_recharge_step_interception_case(
-        caller_file=caller_file,
-        timeout=timeout,
-        public_solver_label=solver_label,
-    )
+    if normalized_solver in {None, *BOUSSINESQ_SOLVERS}:
+        solver_label = normalized_solver or "boussinesq"
+        result = run_boussinesq_hillslope_recharge_step_interception_case(
+            caller_file=caller_file,
+            timeout=timeout,
+            public_solver_label=solver_label,
+        )
+    else:
+        solver_label = normalized_solver
+        result = run_launcher_validation_case(
+            case_dir=CASE_DIR,
+            test_file=caller_file,
+            timeout=timeout,
+            solver=solver_label,
+        )
     return build_boussinesq_hillslope_recharge_step_interception_comparison(
         result=result,
         metadata=metadata,
-        tolerances=tolerances,
+        tolerances=load_case_tolerances(CASE_DIR, solver=solver_label),
     )
 
 

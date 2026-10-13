@@ -38,12 +38,20 @@ Solver variants:
 
 - `modflownwt` and `modflow6` use the historical launcher-backed structured grid.
 - `modflow6_irregular_tri` runs the same benchmark on one shared irregular-triangle strip.
-
-This case is not exposed yet for the `boussinesq` backend. In that
-backend, the current saturation-excess regularization turns the problem into a
-different seepage/interception regime, so the right validation target should be
-an emergence position / integrated-discharge benchmark rather than this head
-profile.
+- `modflow6_voronoi` runs it on the Voronoi dual of that strip, one cell per node. The
+  topography is sampled at the nodes, each drain sits at the cell top with
+  `C = K * dual_cell_area / b`, and the cells are read at their nodes and binned by area
+  into the 50 columns of the reference.
+- `boussinesq` runs the PETSc VI obstacle engine on a `50 x 5` strip of equal-area
+  triangles (2 m2) with the bottom 30 m under the land surface. The drain is the
+  head-dependent `C * max(h - z_top, 0)` with an explicit positive conductance
+  `C = K * A / b = 5e-6 m2/s`, written under `flow.bc.drainage`. A positive value is
+  what relaxes the upper obstacle, so that the head stands above the land surface; the
+  conductance is one scalar per cell, so `K * A / b` gives the leakance `K / b` only on
+  equal-area cells.
+- `boussinesq_local`, the default local engine, is not run: its regularized partition
+  releases at the surface all the water a cell receives once its head reaches the land
+  surface, so it cannot hold the head above it as this reference requires.
 
 Direct execution:
 
@@ -51,6 +59,7 @@ Direct execution:
 python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case
 python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case --solver modflow6 --show
 python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case --solver modflow6_irregular_tri --show
+python -m validation_cases.analytical.steady.linearized_unconfined_hillslope_drainage_1d.run_case --solver modflow6_voronoi --show
 ```
 
 ## Equations

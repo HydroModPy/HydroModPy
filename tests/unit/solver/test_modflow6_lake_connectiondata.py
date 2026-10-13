@@ -154,16 +154,17 @@ def test_drop_interior_rings_removes_holes() -> None:
 def test_fill_enclosed_cells_reclaims_the_island_cell() -> None:
     mesh = _grid_4x4(nlay=2)
     vertex_grid = build_vertex_grid_for_intersection(mesh)
-    # A 3x3 block (0,0)-(3,3) with the centre cell (9) punched out as an island.
+    # The northern 3x3 block (0,1)-(3,4) with its centre cell punched out as an
+    # island. Row 0 is the northern row, so the island is row 1, column 1.
     holed = Polygon(
-        [(0.0, 0.0), (3.0, 0.0), (3.0, 3.0), (0.0, 3.0)],
-        holes=[[(1.0, 1.0), (2.0, 1.0), (2.0, 2.0), (1.0, 2.0)]],
+        [(0.0, 1.0), (3.0, 1.0), (3.0, 4.0), (0.0, 4.0)],
+        holes=[[(1.0, 2.0), (2.0, 2.0), (2.0, 3.0), (1.0, 3.0)]],
     )
     kept = resolve_lake_cells(None, lake_id="lac0", polygon=holed, vertex_grid=vertex_grid)
     filled = resolve_lake_cells(
         None, lake_id="lac0", polygon=_drop_interior_rings(holed), vertex_grid=vertex_grid
     )
-    # The (1,1)-(2,2) hole punches out the centre cell 5 of the 3x3 block.
+    # The (1,2)-(2,3) hole punches out the centre cell 5 of the 3x3 block.
     assert 5 not in kept  # island cell stays aquifer by default
     assert 5 in filled  # fill_enclosed_cells reclaims it
     assert set(filled) - set(kept) == {5}
