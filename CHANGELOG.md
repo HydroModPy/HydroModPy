@@ -33,6 +33,49 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Changed
+- MODFLOW-NWT defaults to `options = "MODERATE"`. Under chi-MD, the default linear solver
+  since 2.0.0a5, `"COMPLEX"` runs BiCGSTAB on a level-15 incomplete factorization: on the
+  ten-layer example 12 regression model it diverged at the first solve and NWT stopped on a
+  core dump. `"MODERATE"` (Orthomin, level 1) converges in 60 outer iterations at most, every
+  budget within 0.08 %, where the former GMRES default left -148 % and +91 % in two periods.
+  The Brutsaert recession case gives the same metrics under both presets, and the NWT
+  validation profile keeps `"COMPLEX"`. On the fast example 12 regression the outputs move by
+  0.02 % (0.12 % on one percentile), the mean water-table depth by 0.9 mm.
+
+### Fixed
+- A resume of a killed run (`hmp run --resume`) works in the scratch folder of the run it
+  continues, instead of letting the sweep of killed runs delete it: the delineation and the
+  mesh are reused, not generated again. A `<run>.holder` file keeps the sweep of other runs
+  away while the resume runs.
+- On Windows, the scratch folders of killed runs are swept too. Liveness is read from the
+  process exit code; `os.kill(pid, 0)` is not used there.
+- `bootstrap_proj()`, run by every `hmp` command, no longer points `PROJ_DATA` at the
+  database of pyproj when a bundled rasterio, pyogrio or fiona ships a newer one. On Windows
+  with Python 3.11 (pyproj 3.7.2, rasterio 1.4.4) every rasterio CRS lookup after the
+  bootstrap failed with "DATABASE.LAYOUT.VERSION.MINOR = 4 whereas a number >= 5 is
+  expected", in the process and in its workers.
+- Export plans and the step 0 refusal of two `[[export]]` blocks writing one file name the
+  files with forward slashes on every OS, as the TOML spells them. Windows printed
+  backslashes.
+- On Windows, `hmp run` and `hmp calibrate --list-phases` print the paths under the working
+  directory with forward slashes; a broken catalog index error names the file as it is
+  spelled on disk; a `file:///C:/...` input of a capability job resolves to that file
+  instead of a path under the job directory.
+- Example files check out with LF line endings on Windows too, so their size and sha256
+  match the example catalog.
+- A console log line no longer fails with "--- Logging error ---" when the stderr stream
+  its handler was opened on has been closed since.
+- On Python 3.11, a solver adapter whose metaclass answers every attribute is refused, as on
+  3.12 and later: the members are read statically.
+- The page check of the docs no longer reports valid `{doc}` links as dead on Windows.
+- The example 12 regression goldens follow the code. Both extensive cases read
+  `buff_area = "20%"` as 20 % more area since 2.0.0a4, so their domain went from 6 468 to
+  4 148 cells; the accumulation flux sums the descent D since 2.0.0a5; the NWT case now
+  converges. MODFLOW 6 and MODFLOW-NWT agree on the new domain: mean head 122.686 against
+  122.685 m, drain outflow 0.06307 against 0.06305 m3/s, where the GMRES golden stood 0.5 m
+  below MODFLOW 6.
+
 ## [v2.0.0a5] - 2026-10-13
 
 ### Added
