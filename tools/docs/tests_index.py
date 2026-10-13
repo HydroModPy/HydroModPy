@@ -271,7 +271,7 @@ def tolerance_notes(case_dir: Path) -> dict[str, dict[str, str]]:
     """The [doc] table of each tolerance file: reason and gap, by file name."""
     out = {}
     for f in sorted(case_dir.glob("tolerances*.toml")):
-        doc = tomllib.loads(f.read_text()).get("doc", {})
+        doc = tomllib.loads(f.read_text(encoding="utf-8")).get("doc", {})
         if isinstance(doc, dict):
             notes = {k: " ".join(str(v).split()) for k, v in doc.items() if k in ("reason", "gap")}
             if notes:
@@ -284,7 +284,7 @@ def tolerances(case_dir: Path, default_solver: str) -> dict[str, dict[str, dict[
     out: dict[str, dict[str, dict[str, float]]] = {}
     for f in sorted(case_dir.glob("tolerances*.toml")):
         variant = f.stem.removeprefix("tolerances").lstrip("_") or default_solver or "default"
-        data = tomllib.loads(f.read_text())
+        data = tomllib.loads(f.read_text(encoding="utf-8"))
         table: dict[str, dict[str, float]] = {}
         for section, metrics in data.items():
             if isinstance(metrics, dict):
@@ -307,7 +307,7 @@ def tolerance_file(case_dir: Path, solver: str) -> str | None:
 def tolerance_tables(case_dir: Path) -> dict[str, dict]:
     out = {}
     for f in sorted(case_dir.glob("tolerances*.toml")):
-        data = tomllib.loads(f.read_text())
+        data = tomllib.loads(f.read_text(encoding="utf-8"))
         data.pop("doc", None)
         out[f.name] = data
     return out
@@ -323,15 +323,17 @@ def case_info(repo: Path, dotted: str) -> dict | None:
     else:
         return None
     meta = (
-        tomllib.loads((d / "metadata.toml").read_text()) if (d / "metadata.toml").exists() else {}
+        tomllib.loads((d / "metadata.toml").read_text(encoding="utf-8"))
+        if (d / "metadata.toml").exists()
+        else {}
     )
-    readme = (d / "README.md").read_text() if (d / "README.md").exists() else ""
+    readme = (d / "README.md").read_text(encoding="utf-8") if (d / "README.md").exists() else ""
     title = next((ln[2:].strip() for ln in readme.splitlines() if ln.startswith("# ")), d.name)
     default = meta.get("default_solver", "")
     solvers = list(meta.get("config_files", {}).keys()) or ([default] if default else [])
     rel = d.relative_to(repo)
     return {
-        "path": str(rel),
+        "path": rel.as_posix(),
         "id": meta.get("case_id", d.name),
         "title": title,
         "summary": first_paragraph(readme),
@@ -384,7 +386,7 @@ def calls_launcher(files: list[Path]) -> bool:
     """True when one of the files calls run_launcher_validation_case."""
     for f in files:
         try:
-            tree = ast.parse(f.read_text())
+            tree = ast.parse(f.read_text(encoding="utf-8"))
         except (SyntaxError, UnicodeDecodeError):
             continue
         for node in ast.walk(tree):
@@ -500,7 +502,7 @@ def schedule(repo: Path) -> list[dict]:
 
     out = []
     for wf in sorted((repo / ".github" / "workflows").glob("*.yml")):
-        text = wf.read_text()
+        text = wf.read_text(encoding="utf-8")
         data = yaml.safe_load(text) or {}
         on = data.get("on", data.get(True, {})) or {}
         if isinstance(on, (str, list)):
@@ -522,7 +524,7 @@ def schedule(repo: Path) -> list[dict]:
                 run = step.get("run") or ""
                 script = re.search(r"bash\s+(tools/\S+\.sh)", run)
                 if script and (repo / script.group(1)).exists():
-                    run = (repo / script.group(1)).read_text()
+                    run = (repo / script.group(1)).read_text(encoding="utf-8")
                 for command in _pytest_commands(run):
                     selection = _selection(command)
                     if selection is None:
@@ -552,10 +554,10 @@ def build(repo: Path) -> dict:
     """Return the validation entries and the imports of every test file under ``repo``."""
     validation, imports = [], {}
     tol_md = repo / "tests" / "TOLERANCES.md"
-    rows = tolerance_rows(tol_md.read_text()) if tol_md.exists() else []
+    rows = tolerance_rows(tol_md.read_text(encoding="utf-8")) if tol_md.exists() else []
     for f in sorted((repo / "tests").rglob("test_*.py")):
         rel = f.relative_to(repo)
-        text = f.read_text()
+        text = f.read_text(encoding="utf-8")
         try:
             tree = ast.parse(text)
         except SyntaxError:
@@ -565,7 +567,7 @@ def build(repo: Path) -> dict:
         mods = imported_modules(tree)
         tests = test_functions(tree)
         if mods:
-            imports[str(rel)] = {
+            imports[rel.as_posix()] = {
                 "tier": tier,
                 "modules": mods,
                 "tests": tests,
@@ -591,7 +593,7 @@ def build(repo: Path) -> dict:
             tol_names = [m.group(1) for m in re.finditer(r"\btol\(\s*[\"']([^\"']+)[\"']", text)]
             validation.append(
                 {
-                    "file": str(rel),
+                    "file": rel.as_posix(),
                     "group": "/".join(rel.parts[2:-1]),
                     "doc": doc,
                     "tests": tests,

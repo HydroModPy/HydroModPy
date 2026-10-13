@@ -143,7 +143,7 @@ def test_no_producer_escapes_the_list() -> None:
     ``simulation/`` or ``calibration/`` reaches the same field.
     """
     found = {
-        str(path.relative_to(PACKAGE_ROOT))
+        path.relative_to(PACKAGE_ROOT).as_posix()
         for path in PACKAGE_ROOT.rglob("*.py")
         if _result_builds(ast.parse(path.read_text(encoding="utf-8")))
     }
