@@ -21,6 +21,9 @@ permissions:
 env:
   MPLBACKEND: Agg
   PYTHONUNBUFFERED: "1"
+  # flopy's get_modflow sends GITHUB_TOKEN to the GitHub API. Without it the
+  # binary download shares the anonymous rate limit of the runner's address.
+  GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
   quality:
@@ -141,7 +144,7 @@ jobs:
         run: pip install -e validity_frame
 
       - name: Install solver binaries for fast tests
-        run: python -m hydromodpy install-binaries --subset mf6,mfnwt --quiet || true
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt --quiet
 
       # A single bad import aborts the whole pytest session, which silently
       # turns a tier into zero executed tests. This step fails loudly instead.
@@ -186,11 +189,12 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
 
       # tests/unit/docs and tests/unit/tools import the Sphinx extensions of
-      # docs/source/_ext, which need the docs extra.
-      - name: Install package, test and docs extras
+      # docs/source/_ext, which need the docs extra. The gmsh tests skip
+      # without the mesh extra.
+      - name: Install package, test, docs and mesh extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration,docs]"
+          pip install -e ".[test,calibration,docs,mesh]"
 
       - name: Install external validity_frame package
         run: pip install -e validity_frame
@@ -277,13 +281,14 @@ jobs:
       - name: Install Linux system libraries
         run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
 
-      - name: Install package and test extras
+      # The gmsh tests skip without the mesh extra.
+      - name: Install package, test and mesh extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration]"
+          pip install -e ".[test,calibration,mesh]"
 
       - name: Install solver binaries for integration tests
-        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
 
       - name: Run integration suite
         run: |

@@ -18,6 +18,10 @@ permissions:
 
 env:
   MPLBACKEND: Agg
+  # flopy's get_modflow sends GITHUB_TOKEN to the GitHub API. Without it the
+  # binary download shares the anonymous rate limit of the runner's address,
+  # which macOS runners exhaust.
+  GITHUB_TOKEN: ${{ github.token }}
   COVERAGE_OMIT: hydromodpy/**/cases/*,hydromodpy/**/examples/*,hydromodpy/validity_frame/*,hydromodpy/validity_frame/**/*,hydromodpy/physics/hydrology/pyhelp/*,hydromodpy/physics/hydrology/pyhelp/**/*
 
 jobs:
@@ -53,6 +57,12 @@ jobs:
           pip install --upgrade pip
           pip install -e ".[test,calibration,docs]"
 
+      # Before the unit tests: the solver tests otherwise fetch the binaries
+      # lazily, once per xdist worker.
+      - name: Install solver binaries
+        shell: bash
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
+
       # Split whitebox backend out of the parallel run; the native library
       # segfaults under pytest-xdist.
       # No marker filter here on purpose: the push gate runs `-m "not slow"`,
@@ -74,10 +84,6 @@ jobs:
             tests/unit/geographic/test_catchment_from_point.py \
             tests/unit/geographic/test_reference_river_network_nancon_case.py \
             -q
-
-      - name: Install solver binaries
-        shell: bash
-        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
 
       # The Whitebox native binding dies outright when several DEM workflows run
       # in one long-lived xdist worker, and --dist loadgroup is what puts them
@@ -115,10 +121,11 @@ jobs:
       - name: Install system libraries
         run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
 
-      - name: Install package and test extras
+      # The gmsh tests skip without the mesh extra.
+      - name: Install package, test and mesh extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration]"
+          pip install -e ".[test,calibration,mesh]"
 
       - name: Drop coverage .pth shim
         run: |
@@ -130,7 +137,7 @@ jobs:
           "
 
       - name: Install solver binaries
-        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
 
       - name: Run e2e tests
         run: |
@@ -170,13 +177,14 @@ jobs:
       - name: Install system libraries
         run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
 
-      - name: Install package and test extras
+      # The gmsh tests skip without the mesh extra.
+      - name: Install package, test and mesh extras
         run: |
           pip install --upgrade pip
-          pip install -e ".[test,calibration]"
+          pip install -e ".[test,calibration,mesh]"
 
       - name: Install solver binaries
-        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet
 
       # Same Whitebox split as the fast regression job above: the native binding
       # dies when several DEM workflows share one long-lived xdist worker, and
