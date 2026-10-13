@@ -14,6 +14,7 @@ from hydromodpy.physics.transport.transport_config import ConcentrationTransport
 from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow6.transport import Modflow6Transport
 from hydromodpy.solver.modflow_common.runtime_arrays import _normalize_sconc_input
+from tests._helpers.solver_meshes import solver_mesh_from
 
 
 def _build_gwt(tmp_path: Path, params: dict, *, complexity: str = "COMPLEX") -> Modflow6Transport:
@@ -30,10 +31,8 @@ def _build_gwt(tmp_path: Path, params: dict, *, complexity: str = "COMPLEX") -> 
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
     from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 
-    mesh = SolverMesh(
-        planar_mesh=HydroMesh(
-            vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),)
-        ),
+    mesh = solver_mesh_from(
+        HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),)),
         top=np.full(ncpl, 10.0),
         botm=np.zeros((1, ncpl)),
         inactive_mask=np.zeros((1, ncpl), dtype=bool),

@@ -5,9 +5,8 @@ the ordered :class:`SfrReachRecord` list: payload accessors, the width law, the
 per-cell trace split, the mesh rectification, the Kahn topological numbering and
 the connectivity assertions.
 
-Runtime construction of :class:`SfrReachRecord` and the call to the public
-``resolve_reach_line_cells`` are done through function-local imports of
-``builders.sfr`` so the module-load graph stays a one-way DAG
+Runtime construction of :class:`SfrReachRecord` is done through function-local
+imports of ``builders.sfr`` so the module-load graph stays a one-way DAG
 (``sfr -> _sfr_network``); the dataclasses stay defined in ``builders.sfr``.
 """
 
@@ -21,6 +20,7 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.builders.wells import well_cell_to_disv
+from hydromodpy.spatial.mesh.ops.line_on_chain import LinePiece, chain_pieces, crossing_pieces
 
 if TYPE_CHECKING:
     from hydromodpy.core.descent import Descent
@@ -178,23 +178,18 @@ def _resolve_trace_network(
     *,
     definition: Mapping[str, Any],
     solver_mesh: SolverMesh,
-    vertex_grid,
     location: str,
     lake_cell2d: frozenset[int] = frozenset(),
     lake_number_of: Mapping[int, int] | None = None,
 ) -> list[SfrReachRecord]:
-    """Split one delineated trace onto the DISV mesh and re-number downstream."""
+    """Split one delineated trace onto the cell mesh and re-number downstream."""
     lake_number_of = lake_number_of or {}
-    from flopy.utils import GridIntersect
-
-    from hydromodpy.solver.modflow6.builders.sfr import resolve_reach_line_cells
-
     trace = definition["reach_trace"]
     parents = sorted(trace.reaches, key=lambda reach: int(reach.ifno))
     if not parents:
         raise ValueError(f"{location} reach_trace holds no reach.")
 
-    grid_intersect = GridIntersect(vertex_grid)
+    pieces_by_parent = _reach_pieces(solver_mesh, parents, location=location)
     idomain = solver_mesh.idomain()
     nlay = int(solver_mesh.nlay)
     connected = definition.get("connected_to_aquifer") is not False
@@ -212,11 +207,9 @@ def _resolve_trace_network(
     last_sub: dict[int, int | None] = {}
     cut_lake_of: dict[int, int | None] = {}  # parent -> lake it was cut at (terminal)
     in_lake_lake_of: dict[int, int | None] = {}  # parent entirely inside a lake -> lake
-    for parent in parents:
+    for parent, pieces in zip(parents, pieces_by_parent, strict=True):
         ifno = int(parent.ifno)
-        segments = resolve_reach_line_cells(
-            parent.line, grid_intersect=grid_intersect, location=location
-        )
+        segments = [(piece.cell, piece.length, piece.middle) for piece in pieces]
         line_length = float(parent.line.length)
         rgrd = max(float(parent.rgrd), min_slope)
         rwid = _reach_width(
@@ -313,6 +306,38 @@ def _resolve_trace_network(
             edges.append((last, d_first))
 
     return _number_and_freeze(nodes, edges, min_slope=min_slope, location=location)
+
+
+def _reach_pieces(
+    solver_mesh: SolverMesh, parents: Sequence[Any], *, location: str
+) -> list[list[LinePiece]]:
+    """Share each parent reach among the cells of the mesh, in order along it.
+
+    On a mesh that carries the ``rivers`` cell chains, a reach is shared among
+    the chain cells along it, its length conserved; on any other mesh, among
+    the cells it crosses.
+    """
+    cell_mesh = solver_mesh.cell_mesh
+    lines = [parent.line for parent in parents]
+    on_chains = bool(cell_mesh.chains("rivers"))
+    if on_chains:
+        pieces_by_parent = chain_pieces(cell_mesh, lines, family="rivers")
+    else:
+        pieces_by_parent = [crossing_pieces(cell_mesh, line) for line in lines]
+    for parent, pieces in zip(parents, pieces_by_parent, strict=True):
+        if pieces:
+            continue
+        if on_chains:
+            raise ValueError(
+                f"{location} reach {int(parent.ifno)} runs off the river cells of the mesh: "
+                "no cell of its rivers chains lies within one cell size of it. Mesh the "
+                "river network the reaches were delineated on."
+            )
+        raise ValueError(
+            f"{location} reach polyline does not intersect any grid cell; check the "
+            "network geometry CRS and the model extent."
+        )
+    return pieces_by_parent
 
 
 def _number_and_freeze(

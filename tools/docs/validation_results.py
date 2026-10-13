@@ -10,7 +10,10 @@ A validation run writes one ``part-*.json`` per pytest process when
 the nightly job), and writes the snapshot that the Validation page reads:
 ``docs/source/theory/validation_results.json``. A test keeps its newest result;
 a test the run did not reach keeps the result of an older run, with that run's
-date and commit. ``--replace`` drops every older result instead.
+date and commit. A result that replaces an older one of the same test carries
+the old metric values, date and commit as ``previous``, which the Validation
+page reads to mark an error that grew. ``--replace`` drops every older result
+from the snapshot but still takes ``previous`` from it.
 
 ``fetch`` downloads, with the GitHub CLI (``gh``), the artifact each nightly
 validation workflow leaves for one branch: ``validation-results-<branch>`` from
@@ -93,6 +96,28 @@ def _function_of(nodeid: str) -> tuple[str, bool]:
     return head.split("[", 1)[0], "[" in head
 
 
+def _with_previous(
+    test: dict[str, Any], old: dict[str, Any] | None, old_runs: dict[str, Any]
+) -> dict[str, Any]:
+    """The new record with the metric values of the record it replaces, to show a regression.
+
+    Only one generation is kept: the ``previous`` of the old record is dropped, so
+    it never nests. Merging the same run again keeps the ``previous`` it had.
+    """
+    test = {k: v for k, v in test.items() if k != "previous"}
+    if old is None:
+        return test
+    if old["run"] == test["run"]:
+        return {**test, **({"previous": old["previous"]} if "previous" in old else {})}
+    facts = old_runs.get(old["run"], {})
+    previous = {
+        "date": facts.get("date", ""),
+        "commit": facts.get("commit", ""),
+        "metrics": [{"name": m["name"], "value": m["value"]} for m in old.get("metrics", [])],
+    }
+    return {**test, "previous": previous}
+
+
 def merge(
     snapshot: dict[str, Any], new: dict[str, Any], *, replace: bool, repo: Path = ROOT
 ) -> dict[str, Any]:
@@ -107,10 +132,11 @@ def merge(
         for k, v in tests.items()
         if k in new["tests"] or (_function_of(k)[0], not _function_of(k)[1]) not in shapes
     }
+    before = snapshot.get("tests", {})
     for nodeid, test in new["tests"].items():
         old = tests.get(nodeid)
         if old is None or runs.get(old["run"], {}).get("date", "") <= runs[test["run"]]["date"]:
-            tests[nodeid] = test
+            tests[nodeid] = _with_previous(test, before.get(nodeid), snapshot.get("runs", {}))
     # A test file that left the tree takes its results with it.
     tests = {k: v for k, v in tests.items() if (repo / v["file"]).exists()}
     used = {t["run"] for t in tests.values()}

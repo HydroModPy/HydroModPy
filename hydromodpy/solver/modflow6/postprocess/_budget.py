@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from hydromodpy.spatial.mesh.ops.family_cells import side_cells
+
 from ._models import BudgetReaderLike, FlowPostprocessModel
 
 
@@ -76,16 +78,7 @@ def compute_drain_outflow_and_seepage(
 
 def east_side_cell_ids(model: FlowPostprocessModel) -> set[int]:
     """Return east-boundary cell ids for one DISV topological layer."""
-    if getattr(model.solver_mesh, "is_structured", False):
-        nrow = int(model.nrow)
-        ncol = int(model.ncol)
-        return {row * ncol + (ncol - 1) for row in range(nrow)}
-    support = getattr(model, "solver_mesh_support", None)
-    if support is None:
-        return set()
-    return {
-        int(cell_id) for cell_id in support.boundary_cell_indices_for_side("east_side").tolist()
-    }
+    return set(side_cells(model.solver_mesh.cell_mesh, "east_side").tolist())
 
 
 def compute_chd_outlet_discharge_east_side_m3_s(

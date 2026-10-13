@@ -37,12 +37,18 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     PlanarCellMesh,
     build_planar_cell_mesh,
 )
+from hydromodpy.spatial.mesh.ops.side_offset import annotate_side_cells
 from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh, voronoi_dual_of_mesh
 from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
 from hydromodpy.spatial.mesh.request import MeshRequest
 
 __all__ = ["VoronoiMeshEngine", "generator_cells"]
 
+_SIDE_STATEMENT = (
+    "a side head applies to the cells whose generator lies on the side, so the head sits on "
+    "the boundary; when no generator lies there it applies to the cells that have a face on "
+    "the side"
+)
 _SOURCE_OF_SEEDS = {"generated": "generated", "triangulation": "input"}
 _SEEDS = tuple(_SOURCE_OF_SEEDS)
 
@@ -134,7 +140,7 @@ class VoronoiMeshEngine:
             "staircase of dual faces between its two sides, rivers faces are the dual faces "
             "a river edge crosses",
         )
-        return build_planar_cell_mesh(
+        cell_mesh = build_planar_cell_mesh(
             dual,
             adapted.centers,
             geometry=geometry,
@@ -157,3 +163,4 @@ class VoronoiMeshEngine:
             lines=triangulated.lines_for_qa(),
             notes=notes,
         )
+        return annotate_side_cells(cell_mesh, _SIDE_STATEMENT)

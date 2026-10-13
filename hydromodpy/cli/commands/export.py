@@ -111,7 +111,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--resolution",
         type=float,
         default=None,
-        help="Pixel size of a GeoTIFF, in units of the output CRS (default: from the mesh)",
+        help="Pixel size of a GeoTIFF, in units of the output CRS (default: the side of the smallest cell)",
     )
     parser.add_argument(
         "--layer",

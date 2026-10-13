@@ -20,6 +20,7 @@ from hydromodpy.solver.modflow6.builders.recharge import (
 from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from tests._helpers.solver_meshes import solver_mesh_from
 
 from ._test_modflow6_boundary_conditions_builders import _build_model
 
@@ -82,10 +83,8 @@ def _two_layer_mesh(inactive_mask: np.ndarray) -> SolverMesh:
         [[0, 0], [1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1]], dtype=float
     )
     conn = np.array([[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6]], dtype=int)
-    return SolverMesh(
-        planar_mesh=HydroMesh(
-            vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),)
-        ),
+    return solver_mesh_from(
+        HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),)),
         top=np.full(ncpl, 10.0),
         botm=np.array([[5.0, 5.0, 5.0], [0.0, 0.0, 0.0]]),
         inactive_mask=inactive_mask,

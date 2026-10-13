@@ -10,6 +10,7 @@ from hydromodpy.solver.modflow6.builders.flow_barrier import build_flow_barrier_
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from tests._helpers.solver_meshes import solver_mesh_from
 
 # A near-vertical trace across the 2x2 grid: it separates the left column from the
 # right one at both rows, so it bars the connected faces (0, 1) and (2, 3).
@@ -28,8 +29,8 @@ def _two_layer_grid() -> SolverMesh:
         dtype=int,
     )
     mesh = HydroMesh(vertices=verts, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),))
-    return SolverMesh(
-        planar_mesh=mesh,
+    return solver_mesh_from(
+        mesh,
         top=np.full(4, 10.0),
         botm=np.array([[5.0] * 4, [0.0] * 4]),
         inactive_mask=np.zeros((2, 4), dtype=bool),
@@ -88,8 +89,8 @@ def _stepped_two_cells() -> SolverMesh:
     verts = np.array([[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]], dtype=float)
     conn = np.array([[0, 1, 4, 3], [1, 2, 5, 4]], dtype=int)
     mesh = HydroMesh(vertices=verts, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),))
-    return SolverMesh(
-        planar_mesh=mesh,
+    return solver_mesh_from(
+        mesh,
         top=np.array([20.0, 10.0]),
         botm=np.array([[15.0, 5.0], [10.0, 0.0]]),
         inactive_mask=np.zeros((2, 2), dtype=bool),

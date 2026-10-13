@@ -8,10 +8,7 @@ import numpy as np
 
 from hydromodpy.physics.forcing.steady_periods import apply_first_clim
 from hydromodpy.physics.forcing.validation import ensure_non_negative_numeric_payload
-from hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization import (
-    discretize_fields_on_planar_mesh,
-    discretize_points_on_planar_mesh,
-)
+from hydromodpy.spatial.mesh.forcing import discretize_fields_on_cells, discretize_points_on_cells
 
 
 class RechargeResolutionMixin:
@@ -61,25 +58,26 @@ class RechargeResolutionMixin:
         interpolation_method: str,
     ) -> tuple[np.ndarray, ...]:
         """Discretize heterogeneous recharge onto the current Gmsh cell set."""
-        solver_mesh = self.planar_mesh_for_forcing()
+        centers = np.column_stack(self.planar_mesh_for_forcing().cell_centroids())
         simulation_window = (
             getattr(self.time_grid, "window", None) if self.time_grid is not None else None
         )
         if getattr(heterogeneous_source, "has_fields", False):
-            raw_arrays = discretize_fields_on_planar_mesh(
+            raw_arrays = discretize_fields_on_cells(
                 load_result=heterogeneous_source,
-                planar_mesh=solver_mesh,
+                centers=centers,
                 nper=int(nper),
                 simulation_window=simulation_window,
                 method=str(interpolation_method),
             )
         elif getattr(heterogeneous_source, "has_points", False):
-            raw_arrays = discretize_points_on_planar_mesh(
+            raw_arrays = discretize_points_on_cells(
                 load_result=heterogeneous_source,
-                planar_mesh=solver_mesh,
+                centers=centers,
                 nper=int(nper),
                 simulation_window=simulation_window,
                 method=str(interpolation_method),
+                source_unit="mm/day",
             )
         else:
             raw_arrays = {

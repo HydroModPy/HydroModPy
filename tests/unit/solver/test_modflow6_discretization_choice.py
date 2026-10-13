@@ -14,10 +14,11 @@ import pytest
 
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 
 
 def _structured_mesh() -> SolverMesh:
-    return SolverMesh.from_structured_arrays(
+    return solver_mesh_from_structured_arrays(
         nrow=2,
         ncol=3,
         top=np.full((2, 3), 10.0),
@@ -39,8 +40,8 @@ def _unstructured_mesh() -> SolverMesh:
         vertices=vertices,
         cell_blocks=(CellBlock(CellType.TRIANGLE, connectivity),),
     )
-    return SolverMesh(
-        planar_mesh=planar,
+    return solver_mesh_from(
+        planar,
         top=np.full(4, 10.0),
         botm=np.zeros((1, 4)),
         inactive_mask=np.zeros((1, 4), dtype=bool),

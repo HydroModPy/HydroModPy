@@ -1,4 +1,4 @@
-"""xarray and file-based field discretization on structured grids."""
+"""xarray and file-based field discretization on cell centres."""
 
 from __future__ import annotations
 
@@ -12,13 +12,12 @@ import pandas as pd
 from hydromodpy.core.config_kit.types import InterpolationMethod
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.coverage import enforce_coverage, samples_by_period
-from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import (
+from hydromodpy.spatial.mesh.forcing._source import (
     find_xy_dims,
-    interp_2d,
+    interpolate_on_cells,
+    interpolate_stack_on_cells,
     pick_field_variable,
-)
-from hydromodpy.spatial.mesh.cartesian_grid.spatial_interpolation import (
-    interpolate_stack_to_grid,
+    unit_to_m_per_s_factor,
 )
 
 if TYPE_CHECKING:
@@ -40,24 +39,17 @@ def _ensure_finite_field_values(values: object, *, label: str) -> np.ndarray:
 def discretize_one_field_record(
     field_rec: Any,
     *,
-    x_centers: np.ndarray,
-    y_centers: np.ndarray,
-    nrow: int,
-    ncol: int,
+    centers: np.ndarray,
     nper: int,
     period_bounds: list[tuple[pd.Timestamp, pd.Timestamp]] | None,
     coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
 ) -> dict[int, np.ndarray]:
-    """Discretize a single FieldRecord onto the solver grid.
+    """Discretize a single FieldRecord onto the cell centres.
 
     Handles xarray Datasets, file paths (NetCDF, GeoTIFF), and static fields.
     All returned arrays are in m/s.
     """
-    from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import (
-        unit_to_m_per_s_factor,
-    )
-
     data = field_rec.data
     unit = getattr(field_rec, "unit", "mm/day")
     unit_factor = unit_to_m_per_s_factor(unit)
@@ -65,10 +57,7 @@ def discretize_one_field_record(
     if isinstance(data, (str, Path)):
         return discretize_from_file(
             Path(data),
-            x_centers=x_centers,
-            y_centers=y_centers,
-            nrow=nrow,
-            ncol=ncol,
+            centers=centers,
             nper=nper,
             period_bounds=period_bounds,
             coverage_policy=coverage_policy,
@@ -83,10 +72,7 @@ def discretize_one_field_record(
         if isinstance(data, xr.Dataset):
             return discretize_from_xarray(
                 data,
-                x_centers=x_centers,
-                y_centers=y_centers,
-                nrow=nrow,
-                ncol=ncol,
+                centers=centers,
                 nper=nper,
                 period_bounds=period_bounds,
                 coverage_policy=coverage_policy,
@@ -100,27 +86,24 @@ def discretize_one_field_record(
         "Unsupported FieldRecord data type %s for field discretization; returning zeros.",
         type(data).__name__,
     )
-    return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
+    return {kper: np.zeros(centers.shape[0], dtype=float) for kper in range(nper)}
 
 
 def discretize_from_xarray(
     ds: xr.Dataset,
     *,
-    x_centers: np.ndarray,
-    y_centers: np.ndarray,
-    nrow: int,
-    ncol: int,
+    centers: np.ndarray,
     nper: int,
     period_bounds: list[tuple[pd.Timestamp, pd.Timestamp]] | None,
     unit_factor: float,
     coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
 ) -> dict[int, np.ndarray]:
-    """Reproject an xarray Dataset onto solver cell centers."""
+    """Reproject an xarray Dataset onto the cell centres, one value per cell."""
     # Identify the data variable to use.
     var_name = pick_field_variable(ds)
     if var_name is None:
-        return {k: np.zeros((nrow, ncol), dtype=float) for k in range(nper)}
+        return {k: np.zeros(centers.shape[0], dtype=float) for k in range(nper)}
     da = ds[var_name]
 
     x_dim, y_dim = find_xy_dims(da)
@@ -132,20 +115,17 @@ def discretize_from_xarray(
             da.values,
             label="recharge gridded forcing values",
         )
-        arr_2d = (
-            interp_2d(
+        on_cells = (
+            interpolate_on_cells(
                 source_values,
                 da.coords[x_dim].values,
                 da.coords[y_dim].values,
-                x_centers,
-                y_centers,
-                nrow,
-                ncol,
+                centers,
                 method,
             )
             * unit_factor
         )
-        return {kper: arr_2d.copy() for kper in range(nper)}
+        return {kper: on_cells.copy() for kper in range(nper)}
 
     # Time-varying: aggregate per stress period, then interpolate the whole
     # slice stack in one pass (shared nearest-neighbor plan across periods).
@@ -186,14 +166,11 @@ def discretize_from_xarray(
     if not slices:
         return {}
 
-    interpolated = interpolate_stack_to_grid(
+    interpolated = interpolate_stack_on_cells(
         np.stack(slices),
         da.coords[x_dim].values,
         da.coords[y_dim].values,
-        x_centers,
-        y_centers,
-        nrow,
-        ncol,
+        centers,
         method,
     )
     return {kper: interpolated[kper] * unit_factor for kper in range(len(slices))}
@@ -202,10 +179,7 @@ def discretize_from_xarray(
 def discretize_from_file(
     path: Path,
     *,
-    x_centers: np.ndarray,
-    y_centers: np.ndarray,
-    nrow: int,
-    ncol: int,
+    centers: np.ndarray,
     nper: int,
     period_bounds: list[tuple[pd.Timestamp, pd.Timestamp]] | None,
     unit_factor: float,
@@ -221,10 +195,7 @@ def discretize_from_file(
         try:
             return discretize_from_xarray(
                 ds,
-                x_centers=x_centers,
-                y_centers=y_centers,
-                nrow=nrow,
-                ncol=ncol,
+                centers=centers,
                 nper=nper,
                 period_bounds=period_bounds,
                 coverage_policy=coverage_policy,
@@ -237,10 +208,7 @@ def discretize_from_file(
     if suffix in (".tif", ".tiff"):
         return discretize_geotiff(
             path,
-            x_centers=x_centers,
-            y_centers=y_centers,
-            nrow=nrow,
-            ncol=ncol,
+            centers=centers,
             nper=nper,
             period_bounds=period_bounds,
             coverage_policy=coverage_policy,
@@ -251,23 +219,20 @@ def discretize_from_file(
     logger.warning(
         "Unsupported file format '%s' for field discretization; returning zeros.", suffix
     )
-    return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
+    return {kper: np.zeros(centers.shape[0], dtype=float) for kper in range(nper)}
 
 
 def discretize_geotiff(
     path: Path,
     *,
-    x_centers: np.ndarray,
-    y_centers: np.ndarray,
-    nrow: int,
-    ncol: int,
+    centers: np.ndarray,
     nper: int,
     period_bounds: list[tuple[pd.Timestamp, pd.Timestamp]] | None,
     unit_factor: float,
     coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
 ) -> dict[int, np.ndarray]:
-    """Read a GeoTIFF (single- or multi-band) and discretize onto solver grid.
+    """Read a GeoTIFF (single- or multi-band) and discretize onto the cell centres.
 
     Multi-band GeoTIFFs are treated as temporal: one band per time step.
     """
@@ -275,7 +240,7 @@ def discretize_geotiff(
         import rasterio
     except ImportError:
         logger.warning("rasterio not available; returning zeros for GeoTIFF field.")
-        return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
+        return {kper: np.zeros(centers.shape[0], dtype=float) for kper in range(nper)}
 
     with rasterio.open(path) as src:
         transform = src.transform
@@ -290,11 +255,8 @@ def discretize_geotiff(
                 src.read(1),
                 label="recharge GeoTIFF forcing values",
             )
-            arr_2d = (
-                interp_2d(band, src_x, src_y, x_centers, y_centers, nrow, ncol, method)
-                * unit_factor
-            )
-            return {kper: arr_2d.copy() for kper in range(nper)}
+            on_cells = interpolate_on_cells(band, src_x, src_y, centers, method) * unit_factor
+            return {kper: on_cells.copy() for kper in range(nper)}
 
         # Multi-band: one band per time step.
         band_arrays: list[np.ndarray] = []
@@ -303,11 +265,8 @@ def discretize_geotiff(
                 src.read(b),
                 label=f"recharge GeoTIFF forcing band {b}",
             )
-            arr_2d = (
-                interp_2d(band, src_x, src_y, x_centers, y_centers, nrow, ncol, method)
-                * unit_factor
-            )
-            band_arrays.append(arr_2d)
+            on_cells = interpolate_on_cells(band, src_x, src_y, centers, method) * unit_factor
+            band_arrays.append(on_cells)
 
     # Map bands to stress periods.
     if period_bounds is not None:

@@ -18,6 +18,7 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.ops.mesh_orthogonality import nonorthogonality_summary
+from tests._helpers.solver_meshes import solver_mesh_from
 
 from ._test_modflow6_boundary_conditions_builders import _build_unstructured_model
 
@@ -49,8 +50,8 @@ def _solver_mesh(vertices) -> SolverMesh:
         vertices=np.asarray(vertices, dtype=float),
         cell_blocks=(CellBlock(CellType.TRIANGLE, conn),),
     )
-    return SolverMesh(
-        planar_mesh=planar,
+    return solver_mesh_from(
+        planar,
         top=np.asarray([10.0, 10.0], dtype=float),
         botm=np.asarray([[1.0, 1.0]], dtype=float),
         inactive_mask=np.zeros((1, 2), dtype=bool),

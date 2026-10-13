@@ -7255,7 +7255,7 @@
             }
           ],
           "default": null,
-          "description": "Pixel size of a GeoTIFF of a field, in units of the output CRS. Derived from the mesh when left out. Refused on a request that writes no raster.",
+          "description": "Pixel size of a GeoTIFF of a field, in units of the output CRS. Left out, it is the side of the smallest cell of the mesh, and a mesh that would give more than 1e8 pixels is refused until a resolution is set. Refused on a request that writes no raster.",
           "title": "Resolution",
           "unit": "CRS unit",
           "x-hmp-profile": "user"
@@ -13941,7 +13941,7 @@
         },
         "cell_samples_per_axis": {
           "default": 8,
-          "description": "Sub-sampling density for GeologyField.on_mesh(). Higher = more precise geology interface, slower runtime.",
+          "description": "Sub-sampling density for GeologyField.on_mesh() on a raster source. A vector source gets the exact polygon areas in the solver and ignores it. Higher = more precise geology interface, slower runtime.",
           "examples": [
             8
           ],

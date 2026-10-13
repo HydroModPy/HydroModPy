@@ -88,12 +88,9 @@ fraction of every zone from a ``Field`` (``field.on_mesh(mesh, ...)``), and the 
 that distribution. A vertical profile (``mode`` of ``none``, ``exponential`` or
 ``tabulated``) multiplies the value by a factor that depends on depth;
 ``FieldParam.vertical_factor(depth)`` returns it. Values are stored in SI units whatever
-the input unit. The MODFLOW and Gmsh paths have their own entry points:
-``discretize_fieldparam_on_sgrid`` in
-``spatial/mesh/cartesian_grid/sgrid_fieldparam_discretization.py`` returns the 3D values of
-a structured grid, and ``discretize_fieldparam_on_extruded_mesh`` in
-``spatial/mesh/gmsh_grid/extruded_fieldparam_discretization.py`` does the same on an
-extruded mesh. The field layer is described in :doc:`../field/index`.
+the input unit. The solvers do not go through ``BaseFieldMesh``: they map the parameters on the
+cells of the cell mesh, see :ref:`consumers-read-the-cell-mesh`. The field layer is described
+in :doc:`../field/index`.
 
 The pivot
 ---------
@@ -219,6 +216,41 @@ keeps the producer's cell and vertex order:
 A consumer that samples a field on the cells calls ``to_field_mesh(cell_mesh.mesh)`` in
 ``adapters/field_mesh_adapter.py``.
 
+.. _consumers-read-the-cell-mesh:
+
+Consumers read the cell mesh
+----------------------------
+
+Every solver reads the cell mesh, never a producer's own support. One function serves
+every engine for each question a consumer asks:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 66
+
+   * - Question
+     - Where
+   * - Centres, areas, adjacency
+     - ``SolverMesh.cell_centroids()``, ``cell_areas()`` and ``face_adjacency()``, read from
+       ``cell_mesh.geometry``.
+   * - Cells of a side, of the river, of a label
+     - ``side_cells``, ``stream_cells``, ``label_cells`` in ``spatial/mesh/ops/family_cells.py``.
+   * - Cell that holds a point
+     - ``locate_cells`` in ``spatial/mesh/ops/cell_location.py``.
+   * - Forcing grids and stations on the cells
+     - ``discretize_fields_on_cells`` and ``discretize_points_on_cells`` in
+       ``spatial/mesh/forcing/``.
+   * - Zone fractions of a cell
+     - ``zone_fractions`` in ``spatial/field/zone_fractions.py``. A vector geology source gives
+       exact polygon areas; the other supports are sampled.
+   * - K, Sy and Ss on the cells
+     - ``map_flow_properties`` in ``solver/field_property_mapping.py``, for MODFLOW 6,
+       MODFLOW-NWT and Boussinesq.
+   * - HFB, lake and SFR cells
+     - ``spatial/mesh/ops/flow_barrier.py``, ``family_interior.py`` and ``line_on_chain.py``.
+
+A regular grid has no ``rivers`` faces: its river is read from the cell chains.
+
 Module layout
 -------------
 
@@ -232,6 +264,8 @@ Module layout
    |-- adapters/            meshio_adapter.py, field_mesh_adapter.py, flopy_adapter.py,
    |                        cell_mesh.py
    |-- io/                  vtu_io.py
+   |-- forcing/             grids and stations sampled on the cell centres
+   |-- ops/                 the shared cell helpers (families, location, chains, voronoi)
    |-- cartesian_grid/      the structured grid path
    |-- gmsh_grid/           the Gmsh path: planar, extruded, bundles, exchange API
    |-- launcher/            the runtime mesh launcher, single and batch
@@ -241,7 +275,7 @@ What the solvers read
 ---------------------
 
 The mesh a solver reads is not the pivot itself but the ``SolverMesh`` of
-``hydromodpy/solver/modflow_grid/solver_mesh.py``, built from the planar mesh and the
+``hydromodpy/solver/modflow_grid/solver_mesh.py``, built from the cell mesh and the
 vertical layers.
 
 .. list-table::
@@ -257,7 +291,7 @@ vertical layers.
    * - MODFLOW-NWT
      - A structured grid (DIS) only. It does not consume a runtime Gmsh mesh.
    * - Boussinesq
-     - Triangular meshes from a Gmsh catchment bundle.
+     - The runtime cell mesh, or a Gmsh catchment bundle for the validation cases.
 
 Parameter discretization (``FieldParam``) works on every mesh type, and so do the plot
 and the VTU I/O.

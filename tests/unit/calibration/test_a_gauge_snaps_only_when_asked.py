@@ -41,6 +41,7 @@ from hydromodpy.solver.base.cell_lookup import locate_cell_on_solver_mesh
 from hydromodpy.solver.modflow_common import observable_extraction as _extraction
 from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 N = 5
 CELL_M2 = 1.0e4
@@ -52,7 +53,7 @@ GAUGE_XY = (140.0, 250.0)
 def _valley_model() -> SimpleNamespace:
     rows, cols = np.mgrid[0:N, 0:N]
     top = 10.0 * np.abs(cols - 2) + (N - rows) * 1.0 + 5.0
-    mesh = SolverMesh.from_structured_arrays(
+    mesh = solver_mesh_from_structured_arrays(
         nrow=N, ncol=N, top=top, botm=np.full((1, N, N), -10.0), dx=100.0, dy=100.0
     )
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
@@ -167,7 +168,7 @@ def test_a_radius_too_small_says_so() -> None:
 
 def test_default_off_leaves_the_cell_unchanged(adapter: _Adapter) -> None:
     request = observable_request_for_output("gauge", _point(), SimpleNamespace())
-    assert request.cell == (0, 2, 1)
+    assert request.cell == (0, 0, 2 * N + 1)
     assert not _asked_for_the_field(adapter)
 
 
@@ -176,7 +177,7 @@ def test_a_point_snap_moves_the_cell_and_logs_both_areas(adapter: _Adapter, capl
         request = observable_request_for_output(
             "gauge", _point(snap_radius="120 m"), SimpleNamespace()
         )
-    assert request.cell == (0, 2, 2)
+    assert request.cell == (0, 0, 2 * N + 2)
     assert _asked_for_the_field(adapter)
     message = " ".join(record.getMessage() for record in caplog.records)
     assert "snapped 110.0 m (of 120 m allowed)" in message
@@ -194,7 +195,7 @@ def test_a_cell_output_snaps_from_its_own_centre(adapter: _Adapter) -> None:
         {"variable": "discharge", "row": 2, "col": 1, "snap_radius": 100.0}
     )
     request = observable_request_for_output("gauge", output, SimpleNamespace())
-    assert request.cell == (0, 2, 2)
+    assert request.cell == (0, 0, 2 * N + 2)
 
 
 def _station_ctx() -> SimpleNamespace:
@@ -227,7 +228,7 @@ def test_a_named_discharge_station_is_placed_and_snapped_when_asked(adapter: _Ad
     )
     request = observable_request_for_output("gauge", output, _station_ctx())
     assert request.support == "cell"
-    assert request.cell == (0, 2, 2)
+    assert request.cell == (0, 0, 2 * N + 2)
 
 
 def test_several_gauges_each_snap_to_their_own_cell(adapter: _Adapter) -> None:
@@ -238,7 +239,7 @@ def test_several_gauges_each_snap_to_their_own_cell(adapter: _Adapter) -> None:
     extract_outputs(SimpleNamespace(), outputs)
     discharge = {r.id: r.cell for r in adapter.asked if r.name == "discharge"}
     areas = {r.id: r.cell for r in adapter.asked if r.name == "upstream_area" and r.cell}
-    assert discharge == {"upper": (0, 1, 2), "lower": (0, 3, 2)}
+    assert discharge == {"upper": (0, 0, 1 * N + 2), "lower": (0, 0, 3 * N + 2)}
     assert areas == {}  # no 'observes': no runoff scaling asked
 
 
@@ -250,7 +251,7 @@ def test_two_gauges_snapped_onto_one_cell_are_named(adapter: _Adapter, caplog) -
     with caplog.at_level(logging.WARNING):
         extract_outputs(SimpleNamespace(), outputs)
     assert any(
-        "a, b were all snapped onto cell (0, 1, 2)" in record.getMessage()
+        f"a, b were all snapped onto cell (0, 0, {1 * N + 2})" in record.getMessage()
         for record in caplog.records
     )
 

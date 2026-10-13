@@ -17,6 +17,7 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.adapters.flopy_adapter import to_flopy_disv_args
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from tests._helpers.solver_meshes import solver_mesh_from
 
 _N = 11  # cells in a single row; the interior face at x = 5 carries the wall.
 _TOP = 10.0
@@ -29,8 +30,8 @@ def _row_solver_mesh() -> SolverMesh:
     vertices = np.vstack([bottom, top])
     conn = np.array([[i, i + 1, (_N + 1) + i + 1, (_N + 1) + i] for i in range(_N)], dtype=int)
     mesh = HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),))
-    return SolverMesh(
-        planar_mesh=mesh,
+    return solver_mesh_from(
+        mesh,
         top=np.full(_N, _TOP),
         botm=np.zeros((1, _N)),
         inactive_mask=np.zeros((1, _N), dtype=bool),

@@ -24,6 +24,7 @@ from hydromodpy.solver.modflow_common.mesh_descent import (
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
+from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 
 _CODE_OF_STEP = {step: code for code, step in D8_WBT_OFFSETS.items()}
 
@@ -49,7 +50,7 @@ def _tree(shape: tuple[int, int], path: list[tuple[int, int]], *, pixel: float, 
 
 def _quad(nrow: int, ncol: int, top: np.ndarray, inactive: np.ndarray | None = None):
     """A structured mesh of 10 m cells; mesh row 0 is the NORTH row, like a raster."""
-    return SolverMesh.from_structured_arrays(
+    return solver_mesh_from_structured_arrays(
         nrow=nrow,
         ncol=ncol,
         top=np.asarray(top, dtype=float).reshape(nrow, ncol),
@@ -210,8 +211,8 @@ def _brick_mesh(nrow: int, n_bricks: int, top: float) -> SolverMesh:
             top_edge = [node(x, row + 1) for x in range(x1, x0 - 1, -1)]
             cells.append(bottom + top_edge)
     n = len(cells)
-    return SolverMesh(
-        planar_mesh=HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, cells),)),
+    return solver_mesh_from(
+        HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, cells),)),
         top=np.full(n, float(top)),
         botm=np.full((1, n), -50.0),
         inactive_mask=np.zeros((1, n), dtype=bool),

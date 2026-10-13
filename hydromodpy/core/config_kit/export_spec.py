@@ -285,8 +285,10 @@ class ExportRequest(HydroModelBase):
         default=None,
         gt=0,
         description=(
-            "Pixel size of a GeoTIFF of a field, in units of the output CRS. Derived "
-            "from the mesh when left out. Refused on a request that writes no raster."
+            "Pixel size of a GeoTIFF of a field, in units of the output CRS. Left out, "
+            "it is the side of the smallest cell of the mesh, and a mesh that would give "
+            "more than 1e8 pixels is refused until a resolution is set. Refused on a "
+            "request that writes no raster."
         ),
         json_schema_extra={"unit": "CRS unit"},
     )

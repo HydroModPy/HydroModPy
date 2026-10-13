@@ -23,14 +23,14 @@ from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.physics.flow.time_forcing import aggregate_forcing_series
 from hydromodpy.physics.forcing.time_alignment import align_forcing_series_to_simulation_window
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
-    discretize_fields_on_sgrid,
-    discretize_points_on_sgrid,
+from hydromodpy.spatial.mesh.forcing import (
+    discretize_fields_on_cells,
+    discretize_points_on_cells,
 )
 
 from ._test_sgrid_field_discretization_builders import (
     MM_DAY_TO_M_S,
-    _make_sgrid,
+    _make_centers,
     _make_simulation_window,
     _make_temporal_field_record,
 )
@@ -72,16 +72,16 @@ def test_a_series_that_ends_early_stops_the_run_under_error():
 def test_series_station_and_grid_give_the_same_verdict():
     window = _six_months("error")
     with pytest.raises(ValueError, match="does not cover stress period"):
-        discretize_fields_on_sgrid(
+        discretize_fields_on_cells(
             load_result=LoadResult(fields=[_make_temporal_field_record(2, 2, [2.0] * DAYS)]),
-            sgrid=_make_sgrid(2, 2),
+            centers=_make_centers(2, 2),
             nper=6,
             simulation_window=window,
         )
     with pytest.raises(ValueError, match="does not cover stress period"):
-        discretize_points_on_sgrid(
+        discretize_points_on_cells(
             load_result=LoadResult(points=[_point_record()]),
-            sgrid=_make_sgrid(2, 2),
+            centers=_make_centers(2, 2),
             nper=6,
             simulation_window=window,
         )
@@ -158,9 +158,9 @@ def test_a_grid_gap_takes_the_slice_in_force_not_the_nearest_one():
         "2020-01-01", "2020-01-02 23:00", step_value=6, step_unit="hour", coverage_policy="error"
     )
 
-    arrays = discretize_fields_on_sgrid(
+    arrays = discretize_fields_on_cells(
         load_result=LoadResult(fields=[record]),
-        sgrid=_make_sgrid(1, 1),
+        centers=_make_centers(1, 1),
         nper=8,
         simulation_window=window,
     )
@@ -173,9 +173,9 @@ def test_three_grids_on_one_period_are_averaged_with_equal_weights():
     records = [_make_temporal_field_record(1, 1, [value] * 31) for value in (1.0, 2.0, 6.0)]
     window = _make_simulation_window("2020-01-01", "2020-01-31", coverage_policy="error")
 
-    arrays = discretize_fields_on_sgrid(
+    arrays = discretize_fields_on_cells(
         load_result=LoadResult(fields=records),
-        sgrid=_make_sgrid(1, 1),
+        centers=_make_centers(1, 1),
         nper=1,
         simulation_window=window,
     )

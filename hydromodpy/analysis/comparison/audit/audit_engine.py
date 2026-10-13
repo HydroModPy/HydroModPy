@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable, Mapping
-from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.comparison.runtime.mesh import resolve_bundle_cells
+from hydromodpy.analysis.comparison.runtime.mesh import resolve_summary_cells
 
 from .audit_io import (
     HEAD_ABOVE_TOP_FRACTION_TOL,
@@ -233,15 +232,7 @@ def _head_bounds_diagnostics(
         simulation_id = str(summary.get("id", ""))
         solver_name = str(summary.get("solver", "") or "")
         solver_by_simulation[simulation_id] = solver_name
-        run_folder_raw = summary.get("run_folder")
-        if run_folder_raw in ("", None):
-            continue
-        config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in ("", None) else Path(str(config_path_raw))
-        cells = resolve_bundle_cells(
-            Path(str(run_folder_raw)),
-            config_path=config_path,
-        )
+        cells = resolve_summary_cells(summary)
         if cells is not None:
             cells_by_simulation[simulation_id] = cells
 

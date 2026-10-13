@@ -31,6 +31,7 @@ from hydromodpy.solver.modflow_common.discharge_routing import (
 )
 from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 N = 30
 
@@ -40,7 +41,7 @@ def _diagonal_valley_model() -> SimpleNamespace:
     rows, cols = np.meshgrid(np.arange(N), np.arange(N), indexing="ij")
     top = 100.0 + 0.5 * np.abs(rows - cols) + 0.01 * (rows + cols)
     botm = np.full((N, N), -10.0, dtype=float)
-    mesh = SolverMesh.from_structured_arrays(
+    mesh = solver_mesh_from_structured_arrays(
         nrow=N,
         ncol=N,
         top=top,

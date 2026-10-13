@@ -1,7 +1,7 @@
 """Cell / idomain / bed geometry helpers for the MF6 LAK builder.
 
-Geometry primitives (shared-edge length, perpendicular distance, first active
-layer below a lake column), lake-footprint resolution (interior-ring drop,
+Geometry primitives (interior faces of a cell, perpendicular distance, first
+active layer below a lake column), lake-footprint resolution (interior-ring drop,
 enclosed-cell fill, shared-cell arbitration) and the cutoff-wall seal geometry.
 Private to the ``builders`` package; the public ``lake`` facade imports the ones
 its builder functions call.
@@ -9,7 +9,7 @@ its builder functions call.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -19,6 +19,7 @@ from hydromodpy.solver.modflow6.builders._lake_definitions import _active_lake_d
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 
@@ -50,20 +51,32 @@ def _abacus_stage_sarea(abacus: object) -> tuple[list[float] | None, list[float]
     return [float(v) for v in stage], [float(v) for v in sarea]
 
 
-def _cell_edges(nodes: Sequence[int]) -> list[tuple[int, int]]:
-    """Return the undirected edges (sorted vertex pairs) of one cell polygon."""
-    seq = [int(n) for n in nodes]
+def _cell_faces(cell_mesh: PlanarCellMesh, cell: int) -> list[tuple[int, int, int, float]]:
+    """Return the interior faces of one cell, in the order of its vertices.
+
+    Each face is ``(neighbour, node_a, node_b, length)`` with ``node_a < node_b``;
+    a corner repeated in the cell gives no face, and a boundary side has no
+    neighbour and is left out.
+    """
+    geometry = cell_mesh.geometry
+    row = geometry.padded_connectivity[cell]
+    nodes = row[row >= 0].astype(np.int64)
+    following = np.roll(nodes, -1)
+    keep = nodes != following
+    node_a = np.minimum(nodes, following)[keep]
+    node_b = np.maximum(nodes, following)[keep]
+    n_nodes = np.int64(cell_mesh.mesh.n_nodes)
+    edge_keys = geometry.edge_nodes[:, 0] * n_nodes + geometry.edge_nodes[:, 1]
+    edges = np.searchsorted(edge_keys, node_a * n_nodes + node_b)
+    pairs = geometry.edge_cells[edges]
+    neighbours = np.where(pairs[:, 0] == cell, pairs[:, 1], pairs[:, 0])
     return [
-        tuple(sorted((seq[i], seq[(i + 1) % len(seq)])))  # type: ignore[misc]
-        for i in range(len(seq))
+        (int(neighbour), int(a), int(b), float(length))
+        for neighbour, a, b, length in zip(
+            neighbours, node_a, node_b, geometry.edge_length[edges], strict=True
+        )
+        if neighbour >= 0
     ]
-
-
-def _edge_length(vertices: np.ndarray, edge: tuple[int, int]) -> float:
-    """Return the Euclidean length of one mesh edge."""
-    a = vertices[edge[0]]
-    b = vertices[edge[1]]
-    return float(np.hypot(b[0] - a[0], b[1] - a[1]))
 
 
 def _point_to_segment_distance(point: np.ndarray, seg_a: np.ndarray, seg_b: np.ndarray) -> float:
@@ -91,15 +104,6 @@ def _first_active_layer_below(
         if int(idomain[lay, cell_id]) == 1:
             return lay
     return None
-
-
-def _edge_neighbours(
-    edge: tuple[int, int],
-    cell_edges: Mapping[int, list[tuple[int, int]]],
-    owner: int,
-) -> list[int]:
-    """Return the cells (other than ``owner``) that share one edge."""
-    return [cid for cid, edges in cell_edges.items() if cid != owner and edge in edges]
 
 
 def _drop_interior_rings(geometry: object) -> object:
@@ -135,16 +139,11 @@ def _fill_lake_enclosed_cells(
     """
     from collections import Counter
 
-    from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
-
     n_cells = int(solver_mesh.n_cells)
-    adjacency = build_planar_cell_adjacency(solver_mesh.planar_mesh, n_cells)
+    adjacency = solver_mesh.face_adjacency()
     active0 = np.asarray(solver_mesh.idomain()[0] > 0)
     areas = solver_mesh.cell_areas()
-    conn = solver_mesh.planar_mesh.flat_connectivity
-    n_edges = [
-        int(np.asarray(conn[c]).reshape(-1).size) if c < len(conn) else 0 for c in range(n_cells)
-    ]
+    n_edges = (solver_mesh.cell_mesh.geometry.padded_connectivity >= 0).sum(axis=1).tolist()
 
     lake_of: dict[int, str] = {}
     for lake_id, cells in cells_by_lake.items():

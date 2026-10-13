@@ -50,6 +50,7 @@ from hydromodpy.spatial.field.core.field_spatial import Field
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.field.zone_fractions import ZonePolygons
 from hydromodpy.spatial.protocols import get_geology_data_source
 
 
@@ -81,6 +82,11 @@ class GeologyField(Field):
         Informative source label (``"raster"`` or ``"vector"``).
     default_cell_samples_per_axis : int, default=8
         Default sub-sampling density used by ``on_mesh``.
+    zone_polygons : ZonePolygons, optional
+        The zone polygons of a vector source, in the CRS of the model, keyed by
+        ``zone_keys``. A solver reads exact zone fractions from them
+        (``spatial.field.zone_fractions``); the encoded raster stays the sampled
+        view of the same map.
     """
 
     def __init__(
@@ -93,6 +99,7 @@ class GeologyField(Field):
         crs=None,
         source_kind: str = "raster",
         default_cell_samples_per_axis: int = 8,
+        zone_polygons: ZonePolygons | None = None,
     ):
         super().__init__(identifier=identifier)
         codes = np.asarray(encoded_codes, dtype=np.int32)
@@ -125,6 +132,12 @@ class GeologyField(Field):
         known_codes = np.zeros(max_code + 1, dtype=bool)
         known_codes[zone_codes] = True
         self._known_encoded_codes = known_codes
+        if zone_polygons is not None and zone_polygons.zone_keys != self._zone_keys:
+            raise ValueError(
+                "zone_polygons must be keyed by the zone keys of the field, in their order: "
+                f"{zone_polygons.zone_keys} != {self._zone_keys}"
+            )
+        self.zone_polygons = zone_polygons
 
     @property
     def zone_keys(self):

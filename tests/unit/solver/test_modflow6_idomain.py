@@ -18,6 +18,7 @@ from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow6.transport import Modflow6Transport
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from tests._helpers.solver_meshes import solver_mesh_from
 
 
 def _mesh(top, botm, inactive_mask) -> SolverMesh:
@@ -34,8 +35,8 @@ def _mesh(top, botm, inactive_mask) -> SolverMesh:
         vertices=vertices,
         cell_blocks=(CellBlock(CellType.QUADRILATERAL, connectivity),),
     )
-    return SolverMesh(
-        planar_mesh=planar_mesh,
+    return solver_mesh_from(
+        planar_mesh,
         top=np.asarray(top, dtype=float),
         botm=np.asarray(botm, dtype=float),
         inactive_mask=np.asarray(inactive_mask, dtype=bool),

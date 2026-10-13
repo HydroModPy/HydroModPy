@@ -717,6 +717,40 @@ class HydroModPyConfig(HydroModelBase):
             + (f" ({', '.join(readers)})." if readers else ".")
         )
 
+    def _check_cell_addressing_needs_a_regular_mesh(self) -> None:
+        """Refuse a ``[lay, row, col]`` address when the mesh has no rows and columns.
+
+        A well (``location.kind = "cell"``) or an explicit SFR reach
+        (``reaches[].cell``) names its cell by layer, row and column. Only the
+        ``regular`` engine has rows and columns: on a triangle or Voronoi mesh the
+        address names no cell, and the build would stop on it after meshing. The
+        engine is the one of ``[mesh]``, or ``regular`` when the section is absent.
+        """
+        from hydromodpy.spatial.mesh import registry as mesh_registry
+
+        mesh = getattr(self, "mesh", None)
+        engine_id = mesh.engine if mesh is not None else mesh_registry.DEFAULT_ENGINE_ID
+        if engine_id == "regular":
+            return
+        sinks_sources = getattr(getattr(self, "flow", None), "sinks_sources", None)
+        if sinks_sources is None:
+            return
+        addressed: list[str] = []
+        for well_id, well in (getattr(sinks_sources, "wells", None) or {}).items():
+            if getattr(getattr(well, "location", None), "kind", None) == "cell":
+                addressed.append(f"flow.sinks_sources.wells.{well_id}.location")
+        for network_id, network in (getattr(sinks_sources, "sfr", None) or {}).items():
+            for index, reach in enumerate(getattr(network, "reaches", None) or []):
+                if getattr(getattr(reach, "cell", None), "kind", None) == "cell":
+                    addressed.append(f"flow.sinks_sources.sfr.{network_id}.reaches[{index}].cell")
+        if addressed:
+            raise ValueError(
+                f"A cell is addressed by [lay, row, col] at {', '.join(addressed)}, and "
+                f"mesh.engine is {engine_id!r}: only the 'regular' engine has rows and "
+                "columns. Locate a well by coordinates (absolute_xy or relative_xy), or "
+                'write [mesh] engine = "regular".'
+            )
+
     @model_validator(mode="after")
     def _check_cross_section_coherence(self) -> HydroModPyConfig:
         """Cross-section coherence checks run after sub-configs validate.
@@ -1033,6 +1067,7 @@ class HydroModPyConfig(HydroModelBase):
         # Last, so a fault of the solver itself is named before a mesh it would not read.
         if solver_cfg is not None:
             self._check_the_solver_reads_the_mesh(solver_cfg)
+        self._check_cell_addressing_needs_a_regular_mesh()
         return self
 
     @classmethod

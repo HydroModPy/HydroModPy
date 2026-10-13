@@ -30,6 +30,7 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SGridConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_from_config import build_sgrid_from_config
+from tests._helpers.solver_meshes import solver_mesh_from_sgrid
 
 _TOP_ELEVATION = 30.0
 _DEPTH_LAYER_1 = 5.0
@@ -65,7 +66,7 @@ def _column_solver_mesh(tmp_path: Path) -> SolverMesh:
             layering={"kind": "list", "lay_proportions": [1 / 3, 2 / 3]},
         )
     )
-    return SolverMesh.from_sgrid(
+    return solver_mesh_from_sgrid(
         sgrid,
         zbot=np.asarray(sgrid.botm, dtype=float),
         inactive_mask=np.zeros((2, 2), dtype=bool),

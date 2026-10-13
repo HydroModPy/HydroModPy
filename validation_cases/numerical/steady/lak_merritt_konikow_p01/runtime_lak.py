@@ -28,6 +28,7 @@ from hydromodpy.solver.modflow6.builders.lake import (
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from validation_cases.shared.solver_mesh import solver_mesh_of
 
 from .geometry import LakeP01Geometry, load_geometry
 from .reference import LakeRunResult, read_lake_budget_csv
@@ -69,7 +70,7 @@ def build_hmp_solver_mesh(geometry: LakeP01Geometry) -> SolverMesh:
     top = np.full(n_cells, geometry.top_m)
     botm = np.stack([np.full(n_cells, b) for b in geometry.botm_m])
     inactive = np.zeros((geometry.nlay, n_cells), dtype=bool)
-    return SolverMesh(planar_mesh=planar, top=top, botm=botm, inactive_mask=inactive)
+    return solver_mesh_of(planar, top=top, botm=botm, inactive_mask=inactive)
 
 
 def _hmp_model(geometry: LakeP01Geometry) -> SimpleNamespace:

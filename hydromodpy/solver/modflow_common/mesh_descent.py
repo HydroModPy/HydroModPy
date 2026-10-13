@@ -371,9 +371,9 @@ def build_solver_mesh_descent(
         )
     descent = build_descent(
         np.asarray(solver_mesh.top, dtype=float),
-        _padded_connectivity(planar_mesh.flat_connectivity, n_cells),
+        solver_mesh.cell_mesh.geometry.padded_connectivity,
         vertices=np.asarray(planar_mesh.vertices, dtype=float)[:, :2],
-        centroids=solver_mesh.cell_centroids(),
+        centroids=solver_mesh.cell_mesh.centers,
         routable=routable,
         base_level=base_level_mask,
         lake_of=lake_of,
@@ -415,18 +415,6 @@ def resolve_dam_foot_cells(
         for lake_id, cell in spillway_seed_by_lake.items()
         if 0 <= int(cell) < descent.lake_of.size and descent.lake_of[int(cell)] < 0
     }
-
-
-def _padded_connectivity(flat_connectivity: Any, n_cells: int) -> np.ndarray:
-    """Return the per-cell node lists as one array padded with -1."""
-    if isinstance(flat_connectivity, np.ndarray):
-        return np.asarray(flat_connectivity, dtype=int)[:n_cells]
-    rows = [np.asarray(nodes, dtype=int).reshape(-1) for nodes in flat_connectivity][:n_cells]
-    width = max((row.size for row in rows), default=0)
-    padded = np.full((n_cells, width), -1, dtype=int)
-    for cell, row in enumerate(rows):
-        padded[cell, : row.size] = row
-    return padded
 
 
 @dataclass(frozen=True, slots=True)

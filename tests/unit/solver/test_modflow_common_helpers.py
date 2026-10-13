@@ -2,13 +2,8 @@
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow6.support.forcing_discretization import (
-    broadcast_to_stress_periods,
-    stress_period_axes,
-)
 from hydromodpy.solver.modflow_common.boundary_packages import (
     BoundaryCell,
     DisvBoundaryCell,
@@ -70,20 +65,3 @@ class TestBoundaryPackages:
     def test_disv_boundary_cell_as_tuple(self) -> None:
         cell = DisvBoundaryCell(layer=1, cell_id=42, attrs=(7.5,))
         assert cell.as_tuple() == ((1, 42), 7.5)
-
-
-class TestForcingDiscretization:
-    def test_broadcast_scalar_to_stress_periods(self) -> None:
-        out = broadcast_to_stress_periods(3.0, nper=2, shape=(2, 2))
-        assert set(out) == {0, 1}
-        assert out[0].shape == (2, 2)
-        assert np.allclose(out[0], 3.0)
-        assert out[0] is not out[1]  # detached copies
-
-    def test_broadcast_array_keeps_shape(self) -> None:
-        arr = np.array([[1.0, 2.0], [3.0, 4.0]])
-        out = broadcast_to_stress_periods(arr, nper=3)
-        assert np.array_equal(out[2], arr)
-
-    def test_stress_period_axes(self) -> None:
-        assert stress_period_axes(4) == [0, 1, 2, 3]

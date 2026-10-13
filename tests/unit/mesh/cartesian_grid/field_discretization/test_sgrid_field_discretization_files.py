@@ -15,13 +15,13 @@ import xarray as xr
 
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
-    discretize_fields_on_sgrid,
+from hydromodpy.spatial.mesh.forcing import (
+    discretize_fields_on_cells,
 )
 
 from ._test_sgrid_field_discretization_builders import (
     MM_DAY_TO_M_S,
-    _make_sgrid,
+    _make_centers,
     _make_simulation_window,
 )
 
@@ -68,17 +68,17 @@ class TestGeoTIFFDiscretization:
             crs="EPSG:2154",
         )
 
-        sgrid = _make_sgrid(nrow, ncol, dx=dx, dy=dy)
-        result = discretize_fields_on_sgrid(
+        centers = _make_centers(nrow, ncol, dx=dx, dy=dy)
+        result = discretize_fields_on_cells(
             load_result=LoadResult(fields=[field_rec]),
-            sgrid=sgrid,
+            centers=centers,
             nper=2,
         )
 
         expected_m_s = value_mm_day * MM_DAY_TO_M_S
         assert len(result) == 2
         for kper in range(2):
-            assert result[kper].shape == (nrow, ncol)
+            assert result[kper].shape == (nrow * ncol,)
             assert np.allclose(result[kper], expected_m_s, rtol=1e-4)
 
 
@@ -112,15 +112,15 @@ class TestNetCDFDiscretization:
             crs="EPSG:2154",
         )
 
-        sgrid = _make_sgrid(nrow, ncol, dx=dx, dy=dy)
-        result = discretize_fields_on_sgrid(
+        centers = _make_centers(nrow, ncol, dx=dx, dy=dy)
+        result = discretize_fields_on_cells(
             load_result=LoadResult(fields=[field_rec]),
-            sgrid=sgrid,
+            centers=centers,
             nper=1,
         )
 
         expected_m_s = value_mm_day * MM_DAY_TO_M_S
-        assert result[0].shape == (nrow, ncol)
+        assert result[0].shape == (nrow * ncol,)
         assert np.allclose(result[0], expected_m_s, rtol=1e-4)
 
     def test_netcdf_temporal_field_averaged(self, tmp_path: Path):
@@ -155,16 +155,16 @@ class TestNetCDFDiscretization:
         window = _make_simulation_window(
             "2020-01-01", "2020-01-31", step_value=1, step_unit="month"
         )
-        sgrid = _make_sgrid(nrow, ncol, dx=dx, dy=dy)
-        result = discretize_fields_on_sgrid(
+        centers = _make_centers(nrow, ncol, dx=dx, dy=dy)
+        result = discretize_fields_on_cells(
             load_result=LoadResult(fields=[field_rec]),
-            sgrid=sgrid,
+            centers=centers,
             nper=1,
             simulation_window=window,
         )
 
         expected_m_s = 4.0 * MM_DAY_TO_M_S
-        assert result[0].shape == (nrow, ncol)
+        assert result[0].shape == (nrow * ncol,)
         assert np.allclose(result[0], expected_m_s, rtol=1e-4)
 
 
@@ -209,10 +209,10 @@ class TestMultiBandGeoTIFF:
             crs="EPSG:2154",
         )
 
-        sgrid = _make_sgrid(nrow, ncol, dx=dx, dy=dy)
-        result = discretize_fields_on_sgrid(
+        centers = _make_centers(nrow, ncol, dx=dx, dy=dy)
+        result = discretize_fields_on_cells(
             load_result=LoadResult(fields=[field_rec]),
-            sgrid=sgrid,
+            centers=centers,
             nper=3,
         )
 

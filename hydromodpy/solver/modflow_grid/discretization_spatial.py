@@ -21,10 +21,6 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     VerticalGridConfig,
 )
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
-from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
-    GmshSupportMetadata,
-    support_from_cell_mesh,
-)
 from hydromodpy.spatial.mesh.ops.zonal_stats import regular_grid_cell_ids, zonal_top
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
@@ -369,7 +365,7 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     botm[:, invalid] = float(nodata)
     inactive_mask = np.tile(invalid.reshape(1, -1), (nlay, 1))
     return SolverMesh(
-        planar_mesh=hydro_mesh,
+        cell_mesh=cell_mesh,
         top=top_flat,
         botm=botm,
         inactive_mask=inactive_mask,
@@ -500,7 +496,7 @@ def _build_structured_solver_mesh(
     )
     inactive = ~np.isfinite(top) | ~np.isfinite(bottom) | (top <= nodata) | (bottom <= nodata)
     solver_mesh = SolverMesh(
-        planar_mesh=cell_mesh.mesh,
+        cell_mesh=cell_mesh,
         top=spec.top.reshape(-1),
         botm=spec.botm.reshape(spec.nlay, -1),
         inactive_mask=np.tile(inactive.reshape(1, -1), (spec.nlay, 1)),
@@ -527,9 +523,6 @@ def build_spatial_discretization(
     for zonal top sampling when ``sgrid_config.top_sampling.mode == 'zonal'``. It
     serves an unstructured mesh and a regular grid coarser than the DEM; a grid
     whose cells are the DEM pixels already holds the pixel values.
-
-    The returned context carries a support on the cells of an unstructured mesh
-    (``support_from_cell_mesh``) and none for a regular grid.
     """
     vertical_config: VerticalGridConfig | None = None
     top_sampling: TopSamplingConfig | None = None
@@ -541,7 +534,6 @@ def build_spatial_discretization(
 
     top_surface, bottom_surface = resolve_domain_surfaces(domain=domain)
 
-    mesh_support: GmshSupportMetadata | None = None
     if cell_mesh.structured_shape is not None:
         solver_mesh, top_surface, bottom_surface = _build_structured_solver_mesh(
             cell_mesh=cell_mesh,
@@ -562,7 +554,6 @@ def build_spatial_discretization(
             top_sampling=top_sampling,
             channel_mask=channel_mask,
         )
-        mesh_support = support_from_cell_mesh(cell_mesh)
 
     return SolverGridContext(
         grid=grid_reference_from_solver_mesh(
@@ -573,7 +564,6 @@ def build_spatial_discretization(
         solver_mesh=solver_mesh,
         top_surface=top_surface,
         bottom_surface=bottom_surface,
-        mesh_support=mesh_support,
     )
 
 

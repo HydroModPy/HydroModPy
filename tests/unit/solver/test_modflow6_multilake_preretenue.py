@@ -35,6 +35,7 @@ from hydromodpy.solver.modflow6.builders import (
     resolve_lake_cells_for_active_lakes,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 # A concrete sill crest elevation shared by the preretenue spill and the crossed
 # weirs.
@@ -44,7 +45,7 @@ _CREST = 87.0
 def _grid_4x4(nlay: int = 2) -> SolverMesh:
     top = np.full((4, 4), 100.0)
     botm = np.stack([np.full((4, 4), 100.0 - (lay + 1) * 50.0) for lay in range(nlay)])
-    return SolverMesh.from_structured_arrays(nrow=4, ncol=4, top=top, botm=botm, dx=1.0, dy=1.0)
+    return solver_mesh_from_structured_arrays(nrow=4, ncol=4, top=top, botm=botm, dx=1.0, dy=1.0)
 
 
 def _two_lake_model(*, lac0_outlets: list[dict], lac1_outlets: list[dict]) -> SimpleNamespace:

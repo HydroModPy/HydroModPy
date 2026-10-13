@@ -1,4 +1,4 @@
-"""Derived geometry of a planar mesh against the legacy per-consumer copies."""
+"""Derived geometry of a planar mesh against hand-written reference builders."""
 
 from __future__ import annotations
 
@@ -7,8 +7,6 @@ import pytest
 import shapely
 from shapely.geometry import Polygon
 
-from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
@@ -59,19 +57,39 @@ def _polygons(mesh: HydroMesh) -> np.ndarray:
 
 
 def _legacy_areas(mesh: HydroMesh) -> np.ndarray:
-    n = mesh.n_cells
-    return SolverMesh(mesh, np.zeros(n), -np.ones((1, n)), np.zeros((1, n), bool)).cell_areas()
+    """The shoelace of ``SolverMesh.cell_areas`` before M3: a loop on the raw coordinates."""
+    rows = mesh.flat_connectivity
+    areas = np.zeros(mesh.n_cells)
+    for cell, nodes in enumerate(rows):
+        x, y = mesh.vertices[np.asarray(nodes)].T
+        areas[cell] = abs(0.5 * np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y))
+    return areas
+
+
+def _shared_edge_neighbours(mesh: HydroMesh) -> list[set[int]]:
+    """Cells that share an edge (an unordered pair of consecutive nodes), by a dict of edges."""
+    owners: dict[tuple[int, int], list[int]] = {}
+    for cell, nodes in enumerate(mesh.flat_connectivity):
+        ring = [int(node) for node in nodes]
+        for a, b in zip(ring, ring[1:] + ring[:1], strict=True):
+            owners.setdefault((min(a, b), max(a, b)), []).append(cell)
+    adjacency: list[set[int]] = [set() for _ in range(mesh.n_cells)]
+    for cells in owners.values():
+        if len(cells) == 2:
+            adjacency[cells[0]].add(cells[1])
+            adjacency[cells[1]].add(cells[0])
+    return adjacency
 
 
 MESHES = {"quads": _quads, "triangles": _triangles, "voronoi": _voronoi}
 
 
 @pytest.mark.parametrize("kind", sorted(MESHES))
-def test_adjacency_and_areas_match_the_legacy_builders(kind: str) -> None:
+def test_adjacency_and_areas_match_the_reference_builders(kind: str) -> None:
     mesh = MESHES[kind]()
     geometry = derive_geometry(mesh)
 
-    assert geometry.adjacency_sets() == build_planar_cell_adjacency(mesh, mesh.n_cells)
+    assert geometry.adjacency_sets() == _shared_edge_neighbours(mesh)
     np.testing.assert_allclose(geometry.areas, _legacy_areas(mesh), rtol=1e-12, atol=0.0)
 
 

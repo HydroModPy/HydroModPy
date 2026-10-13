@@ -15,7 +15,9 @@ import numpy as np
 from hydromodpy.solver.modflow6.builders import lake as lake_builder
 from hydromodpy.solver.modflow6.builders.lake import resolve_spillway_seed_cells
 from hydromodpy.solver.modflow_common.mesh_descent import resolve_dam_foot_cells
-from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests.unit.core._descent_meshes import grid_descent
 from tests.unit.core._heads_dam import (
@@ -40,12 +42,14 @@ def _dam_foot(monkeypatch, *, declared: bool) -> dict[str, int]:
     )
     n_cells = N_ROWS * N_COLS
     vertices, connectivity = quad_mesh(N_ROWS, N_COLS, cell_size=CELL)
-    planar = type("Planar", (), {"flat_connectivity": connectivity, "vertices": vertices})()
+    planar = HydroMesh(
+        vertices=vertices[:, :2], cell_blocks=(CellBlock(CellType.QUADRILATERAL, connectivity),)
+    )
     centroids = np.asarray([centre(*divmod(c, N_COLS)) for c in range(n_cells)])
     seeds = resolve_spillway_seed_cells(
         object(),
         lake_cells_by_id={"res": LAKE_CELLS},
-        cell_adjacency=build_planar_cell_adjacency(planar, n_cells),
+        cell_adjacency=derive_geometry(planar).adjacency_sets(),
         cell_centroids=centroids,
         idomain=np.ones((1, n_cells), dtype=int),
         mesh_top=topography(),

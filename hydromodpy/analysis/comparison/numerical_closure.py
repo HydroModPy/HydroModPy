@@ -12,7 +12,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.runtime.mesh import resolve_bundle_cells
+from hydromodpy.analysis.comparison.runtime.mesh import resolve_summary_cells
 from hydromodpy.analysis.comparison.runtime.metadata import open_result_store_for_write
 
 CLOSURE_STATION_ID = "__global__"
@@ -328,16 +328,8 @@ def _persist_closure_metrics(
 
 
 def _simulation_area_m2(summary: Mapping[str, Any]) -> float | None:
-    run_folder_raw = summary.get("run_folder")
-    if run_folder_raw in (None, ""):
-        return None
-    config_path_raw = summary.get("config_path")
-    config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
     try:
-        cells = resolve_bundle_cells(
-            Path(str(run_folder_raw)),
-            config_path=config_path,
-        )
+        cells = resolve_summary_cells(summary)
     except Exception:
         return None
     if cells is None or cells.area_m2 is None:

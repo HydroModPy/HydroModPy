@@ -22,10 +22,16 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     PlanarCellMesh,
     build_planar_cell_mesh,
 )
+from hydromodpy.spatial.mesh.ops.side_offset import annotate_side_cells
 from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
 from hydromodpy.spatial.mesh.request import MeshRequest
 
 __all__ = ["RegularMeshEngine"]
+
+_SIDE_STATEMENT = (
+    "a side head applies to the cells that have a face on the side: their centre is "
+    "half a cell inside the domain"
+)
 
 
 class RegularMeshEngine:
@@ -75,7 +81,7 @@ class RegularMeshEngine:
                 f"regular resamples the DEM to {layout.nrow} x {layout.ncol} cells "
                 f"of {layout.dy:g} x {layout.dx:g} m"
             )
-        return build_planar_cell_mesh(
+        cell_mesh = build_planar_cell_mesh(
             mesh,
             centers,
             geometry=geometry,
@@ -95,3 +101,4 @@ class RegularMeshEngine:
             notes=notes,
             extras={"dx_m": layout.dx, "dy_m": layout.dy},
         )
+        return annotate_side_cells(cell_mesh, _SIDE_STATEMENT)

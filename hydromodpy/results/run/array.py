@@ -259,8 +259,8 @@ class RunArrayProvider:
         (no copy on read). ``variables`` lists field-registry names to
         include; missing fields raise ``FieldNotFoundError``. ``time_slice``
         is an optional ``slice`` object applied to the time dimension.
-        ``bbox`` restricts the dataset to cells whose centroid lies within
-        the bounding box.
+        ``bbox`` restricts the dataset to cells whose centre
+        (``run.mesh.cell_centers()``) lies within the bounding box.
 
         A variable that is not persisted but is derivable on the fly
         (water-table elevation/depth, seepage mask, drain outflow) is
@@ -343,17 +343,6 @@ def _bbox_select_ugrid(ds, grid, bbox, face_dim):
 
 
 def _bbox_select_flat(ds, run, bbox):
-    """Slice a flat xarray dataset using a bbox; assumes regular ``run.grid``."""
-    xmin, ymin, xmax, ymax = (float(v) for v in bbox)
-    if not (xmin < xmax and ymin < ymax):
-        raise ValueError(f"bbox must satisfy xmin<xmax and ymin<ymax; got {bbox!r}")
-    try:
-        grid = run.grid
-    except Exception as exc:
-        raise ValueError(
-            "bbox= filter requires a structured grid; this run has no grid metadata."
-        ) from exc
-    xs, ys = grid.cell_centers_xy()
-    inside = (xs >= xmin) & (xs <= xmax) & (ys >= ymin) & (ys <= ymax)
-    idx = np.where(inside)[0]
-    return ds.isel(cell=idx)
+    """Slice a flat xarray dataset to the cells of the run mesh whose centre is in ``bbox``."""
+    inside = run.mesh.cells_in_bbox(bbox)
+    return ds.isel(cell=np.flatnonzero(inside))

@@ -18,8 +18,10 @@ Code map
   runtime support builders.
 - ``hydromodpy/spatial/field/core/field_param.py``:
   consumer side through ``field_spatial_id``.
-- ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``:
-  discretization of heterogeneous field parameters.
+- ``hydromodpy/spatial/field/zone_fractions.py``: the fraction of every zone
+  in every cell, for every mesh.
+- ``hydromodpy/solver/field_property_mapping.py``: the one mapping of a
+  heterogeneous parameter to solver arrays.
 
 Recommended reading path
 ------------------------
@@ -27,7 +29,8 @@ Recommended reading path
 1. ``hydromodpy/spatial/domain/spatial_support_config.py``
 2. ``hydromodpy/spatial/domain/spatial_support.py``
 3. ``hydromodpy/spatial/field/core/field_param.py``
-4. ``hydromodpy/spatial/mesh/cartesian_grid/sgrid_fieldparam_discretization.py``
+4. ``hydromodpy/spatial/field/zone_fractions.py`` and
+   ``hydromodpy/solver/field_property_mapping.py``
 
 Core rule
 ---------

@@ -19,6 +19,11 @@ import pytest
 
 from hydromodpy.solver.base.adapter_protocol import CellLocator, SolverAdapter
 
+from ._test_modflow6_boundary_conditions_builders import (
+    _build_unstructured_runtime,
+    regular_solver_mesh,
+)
+
 
 def test_the_capability_has_its_own_protocol() -> None:
     """Not folded into SolverAdapter: a transport adapter has no grid to look on."""
@@ -43,18 +48,6 @@ def test_every_flow_backend_answers_it(module: str, cls: str) -> None:
     assert isinstance(adapter(), CellLocator)
 
 
-class _Mesh:
-    is_structured = True
-    ncol = 3
-
-    @staticmethod
-    def cell_centroids() -> np.ndarray:
-        return np.array(
-            [[0.0, 0.0], [10.0, 0.0], [20.0, 0.0], [0.0, 10.0], [10.0, 10.0], [20.0, 10.0]],
-            dtype=float,
-        )
-
-
 def _ctx(model: object) -> SimpleNamespace:
     return SimpleNamespace(
         run=SimpleNamespace(id="r1"),
@@ -64,26 +57,52 @@ def _ctx(model: object) -> SimpleNamespace:
 
 
 class TestOnASolverMesh:
-    def test_it_returns_the_nearest_structured_cell(self) -> None:
+    def test_a_point_in_a_grid_cell_returns_the_flat_selector_of_that_cell(self) -> None:
         from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
 
-        cell = Modflow6FlowAdapter().locate_cell(
-            _ctx(SimpleNamespace(solver_mesh=_Mesh())), 11.0, 9.0
-        )
+        # Cells of side 1 m, row 0 north: (2.5, 0.5) is in row 1, column 2 of 2 x 3.
+        mesh = regular_solver_mesh(2, 3)
 
-        assert cell == (0, 1, 1)
+        cell = Modflow6FlowAdapter().locate_cell(_ctx(SimpleNamespace(solver_mesh=mesh)), 2.5, 0.5)
 
-    def test_an_unstructured_mesh_returns_the_flat_selector(self) -> None:
+        assert cell == (0, 0, 1 * 3 + 2)
+
+    def test_a_point_in_a_triangle_returns_the_triangle_that_holds_it(self) -> None:
         from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
 
-        class _Voronoi(_Mesh):
-            is_structured = False
+        # Triangle 0 holds the points under the diagonal y = x, triangle 1 those above it.
+        mesh, _ = _build_unstructured_runtime()
+
+        adapter = Modflow6FlowAdapter()
+        assert adapter.locate_cell(_ctx(SimpleNamespace(solver_mesh=mesh)), 0.9, 0.2) == (0, 0, 0)
+        assert adapter.locate_cell(_ctx(SimpleNamespace(solver_mesh=mesh)), 0.1, 0.8) == (0, 0, 1)
+
+    def test_a_point_outside_every_cell_takes_the_nearest_centre(self) -> None:
+        from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
+
+        mesh = regular_solver_mesh(2, 3)
 
         cell = Modflow6FlowAdapter().locate_cell(
-            _ctx(SimpleNamespace(solver_mesh=_Voronoi())), 19.0, 1.0
+            _ctx(SimpleNamespace(solver_mesh=mesh)), 40.0, -3.0
         )
 
-        assert cell == (0, 0, 2)
+        assert cell == (0, 0, 1 * 3 + 2)
+
+    def test_the_located_selector_is_a_fixed_point_of_the_readers_of_a_cell(self) -> None:
+        from hydromodpy.solver.modflow6.adapters.flow import (
+            Modflow6FlowAdapter,
+            _collapse_to_disv_cells,
+        )
+        from hydromodpy.solver.modflow_common.discharge_routing import flat_cell_index
+
+        model = SimpleNamespace(solver_mesh=regular_solver_mesh(2, 3))
+
+        cell = Modflow6FlowAdapter().locate_cell(_ctx(model), 2.5, 0.5)
+
+        # The head reader collapses (row, col) to the flat id, the discharge reader
+        # flattens it: a flat selector goes through both unchanged.
+        assert _collapse_to_disv_cells({"gauge": cell}, model) == {"gauge": cell}
+        assert flat_cell_index(model, cell) == 1 * 3 + 2
 
     def test_no_model_yields_nothing_rather_than_a_wrong_cell(self) -> None:
         from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter

@@ -15,6 +15,7 @@ from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import refuse_constant_heads_below_bottom
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def _adapter(boundary_conditions: dict[str, object], *, nper: int = 1) -> FlowToModflowAdapter:
@@ -27,7 +28,7 @@ def _adapter(boundary_conditions: dict[str, object], *, nper: int = 1) -> FlowTo
         active_sinks_sources=[],
         parameters={},
     )
-    solver_mesh = SolverMesh.from_structured_arrays(
+    solver_mesh = solver_mesh_from_structured_arrays(
         nrow=2,
         ncol=3,
         top=dem,

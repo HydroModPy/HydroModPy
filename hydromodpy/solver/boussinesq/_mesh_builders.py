@@ -31,10 +31,31 @@ from ._mesh_geometry import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
     from .mesh import BoussinesqMesh
+
+
+def family_edge_indices(cell_mesh: PlanarCellMesh, family: str) -> np.ndarray:
+    """Return the edges of one face family, as rows of ``cell_mesh.geometry.edge_nodes``.
+
+    A face row names its two vertices; the edge is the mesh edge between them,
+    found by the key ``min * n_nodes + max`` the edge table is sorted on. Sorted,
+    without repeats, empty when the mesh has no such family.
+    """
+    table = cell_mesh.face_families
+    rows = cell_mesh.face_rows(family)
+    if table is None or not rows.any():
+        return np.empty(0, dtype=np.int64)
+    n_nodes = np.int64(cell_mesh.mesh.n_nodes)
+    edge_nodes = cell_mesh.geometry.edge_nodes
+    known = edge_nodes[:, 0] * n_nodes + edge_nodes[:, 1]
+    node_a, node_b = table.node_a[rows], table.node_b[rows]
+    wanted = np.minimum(node_a, node_b) * n_nodes + np.maximum(node_a, node_b)
+    position = np.minimum(np.searchsorted(known, wanted), known.size - 1)
+    if np.any(known[position] != wanted):
+        raise ValueError(f"a face of the family '{family}' is not an edge of the mesh")
+    return np.unique(position)
 
 
 def build_runtime_bundle_from_cell_mesh(
@@ -43,14 +64,13 @@ def build_runtime_bundle_from_cell_mesh(
     domain: object,
     hydraulic_conductivity_m_s,
     storage_coefficient,
-    river_trace: object | None = None,
     source_path: Path | None = None,
 ) -> CatchmentMeshBundle:
-    """Translate a runtime planar cell mesh into one CatchmentMeshBundle."""
-    from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle import (
-        _build_edge_rows,
-    )
+    """Translate a runtime planar cell mesh into one CatchmentMeshBundle.
 
+    The edges are the edges of the cell mesh, in the order of its edge table; the
+    river edges are the faces of its ``rivers`` family.
+    """
     if domain is None:
         raise ValueError("Boussinesq runtime mesh construction requires a domain")
     mesh = to_field_mesh(cell_mesh.mesh)
@@ -123,25 +143,31 @@ def build_runtime_bundle_from_cell_mesh(
             )
         )
 
-    edge_rows = _build_edge_rows(
-        mesh=mesh,
-        cell_zone_keys=tuple("" for _ in range(int(mesh.n_cells))),
-        river_trace=river_trace,
-    )
+    geometry = cell_mesh.geometry
+    is_river = np.zeros(geometry.edge_nodes.shape[0], dtype=bool)
+    is_river[family_edge_indices(cell_mesh, "rivers")] = True
     edges = tuple(
         CatchmentMeshBundleEdge(
-            edge_id=int(row["edge_id"]),
-            node_a=int(row["node_a"]),
-            node_b=int(row["node_b"]),
-            cell_a=int(row["cell_a"]),
-            cell_b=(None if str(row.get("cell_b", "")).strip() == "" else int(row["cell_b"])),
-            length_m=float(row["length_m"]),
-            edge_kind=str(row["edge_kind"]),
-            is_river=bool(row["is_river"]),
-            geology_a_key=str(row.get("geology_a_key", "")),
-            geology_b_key=str(row.get("geology_b_key", "")),
+            edge_id=edge_id,
+            node_a=int(node_a),
+            node_b=int(node_b),
+            cell_a=int(cell_a),
+            cell_b=None if cell_b < 0 else int(cell_b),
+            length_m=float(length),
+            edge_kind="boundary" if cell_b < 0 else "internal",
+            is_river=bool(river),
+            geology_a_key="",
+            geology_b_key="",
         )
-        for row in edge_rows
+        for edge_id, ((node_a, node_b), (cell_a, cell_b), length, river) in enumerate(
+            zip(
+                geometry.edge_nodes.tolist(),
+                geometry.edge_cells.tolist(),
+                geometry.edge_length.tolist(),
+                is_river.tolist(),
+                strict=True,
+            )
+        )
     )
 
     bundle_dir = Path(source_path).resolve().parent if source_path is not None else Path.cwd()
@@ -257,7 +283,6 @@ def assemble_mesh_arrays_from_bundle(bundle: CatchmentMeshBundle) -> dict:
         **edge_arrays,
         "cell_index_by_id": cell_index_by_id,
         "node_index_by_id": node_index_by_id,
-        "planar_mesh": None,
         "support_metadata": build_gmsh_support_metadata(bundle),
     }
 
@@ -361,9 +386,9 @@ def _assemble_edge_arrays(
 def build_planar_mesh_kwargs(
     *,
     base_mesh: BoussinesqMesh,
-    planar_mesh: HydroMesh,
+    cell_mesh: PlanarCellMesh,
 ) -> dict:
-    """Return constructor kwargs for the planar-mesh BoussinesqMesh variant."""
+    """Return constructor kwargs for the BoussinesqMesh that keeps its cell mesh."""
     return {
         "bundle_dir": base_mesh.bundle_dir,
         "cell_ids": base_mesh.cell_ids,
@@ -393,6 +418,6 @@ def build_planar_mesh_kwargs(
         "edge_is_river": base_mesh.edge_is_river,
         "cell_index_by_id": base_mesh.cell_index_by_id,
         "node_index_by_id": base_mesh.node_index_by_id,
-        "planar_mesh": planar_mesh,
+        "cell_mesh": cell_mesh,
         "support_metadata": base_mesh.support_metadata,
     }

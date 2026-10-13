@@ -11,27 +11,21 @@ from __future__ import annotations
 import numpy as np
 
 from hydromodpy.simulation.planning.plan import RunContext
+from hydromodpy.spatial.mesh.ops.cell_location import locate_cells
 
 
 def locate_cell_on_solver_mesh(ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
-    """Return the nearest cell selector on ``ctx``'s solver mesh, or ``None``.
+    """Return the cell selector that holds ``(x, y)`` on ``ctx``'s solver mesh, or ``None``.
 
-    ``(0, row, col)`` on a structured mesh, ``(0, 0, cell_id)`` on an
-    unstructured one, which is the flat selector a DISV head extractor reads.
+    The selector is ``(0, 0, cell_id)`` on every mesh, which is the flat selector
+    a DISV head extractor reads. A point outside every cell takes the cell whose
+    centre is the nearest.
     """
-    model = ctx.model
-    mesh = getattr(model, "solver_mesh", None)
+    mesh = getattr(ctx.model, "solver_mesh", None)
     if mesh is None:
         return None
-    centroids = np.asarray(mesh.cell_centroids(), dtype=float)
-    if centroids.ndim != 2 or centroids.shape[0] == 0 or centroids.shape[1] < 2:
-        return None
-    deltas = centroids[:, :2] - np.array([x, y], dtype=float)
-    index = int(np.argmin(np.einsum("ij,ij->i", deltas, deltas)))
-    if not mesh.is_structured:
-        return (0, 0, index)
-    ncol = int(mesh.ncol)
-    return (0, index // ncol, index % ncol)
+    cell_id = locate_cells(mesh.cell_mesh, np.array([[x, y]], dtype=float), allow_nearest=True)[0]
+    return (0, 0, int(cell_id))
 
 
 __all__ = ["locate_cell_on_solver_mesh"]

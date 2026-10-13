@@ -19,6 +19,7 @@ from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow6.builders import lake as lake_builder
 from hydromodpy.solver.modflow_common.mesh_descent import read_descent_sidecar
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 N_ROWS, N_COLS = 5, 7
 LAKE = {"res": [2 * N_COLS + 3, 2 * N_COLS + 4]}
@@ -28,7 +29,7 @@ TOE = 2 * N_COLS + 2  # west of the lake cell nearest the outlet, lower than its
 def _mesh() -> SolverMesh:
     _, cols = np.divmod(np.arange(N_ROWS * N_COLS), N_COLS)
     top = (10.0 + cols).reshape(N_ROWS, N_COLS)
-    return SolverMesh.from_structured_arrays(
+    return solver_mesh_from_structured_arrays(
         nrow=N_ROWS,
         ncol=N_COLS,
         top=top,

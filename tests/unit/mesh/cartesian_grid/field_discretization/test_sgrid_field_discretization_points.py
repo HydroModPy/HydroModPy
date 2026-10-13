@@ -16,14 +16,14 @@ import pytest
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import (
-    discretize_points_on_sgrid,
+from hydromodpy.spatial.mesh.forcing import (
+    discretize_points_on_cells,
     spatial_mean_from_fields,
 )
 
 from ._test_sgrid_field_discretization_builders import (
     MM_DAY_TO_M_S,
-    _make_sgrid,
+    _make_centers,
     _make_static_field_record,
     _make_temporal_field_record,
 )
@@ -66,41 +66,41 @@ class TestPointToGridInterpolation:
         """A single station should fill the entire grid with its value."""
         nrow, ncol = 3, 4
         dx, dy = 10.0, 10.0
-        sgrid = _make_sgrid(nrow, ncol, dx=dx, dy=dy)
+        centers = _make_centers(nrow, ncol, dx=dx, dy=dy)
 
         pt = _make_located_point_record("S1", x=25.0, y=15.0, value=8.0, unit="mm/day")
-        result = discretize_points_on_sgrid(
+        result = discretize_points_on_cells(
             load_result=LoadResult(points=[pt]),
-            sgrid=sgrid,
+            centers=centers,
             nper=1,
             method="nearest",
         )
 
         expected_m_s = 8.0 * MM_DAY_TO_M_S
-        assert result[0].shape == (nrow, ncol)
+        assert result[0].shape == (nrow * ncol,)
         assert np.allclose(result[0], expected_m_s, rtol=1e-6)
 
     def test_two_stations_idw_gradient(self):
         """Two stations at opposite ends should produce a spatial gradient."""
         nrow, ncol = 1, 5
         dx, dy = 10.0, 10.0
-        sgrid = _make_sgrid(nrow, ncol, dx=dx, dy=dy)
+        centers = _make_centers(nrow, ncol, dx=dx, dy=dy)
 
         pt_west = _make_located_point_record("W", x=5.0, y=5.0, value=10.0, unit="mm/day")
         pt_east = _make_located_point_record("E", x=45.0, y=5.0, value=20.0, unit="mm/day")
 
-        result = discretize_points_on_sgrid(
+        result = discretize_points_on_cells(
             load_result=LoadResult(points=[pt_west, pt_east]),
-            sgrid=sgrid,
+            centers=centers,
             nper=1,
             method="idw",
         )
 
         arr = result[0]
-        assert arr.shape == (nrow, ncol)
+        assert arr.shape == (nrow * ncol,)
         # IDW: west cell closer to W station → lower value,
         # east cell closer to E station → higher value.
-        assert arr[0, 0] < arr[0, -1]  # gradient west→east
+        assert arr[0] < arr[-1]  # gradient west→east
         # Both values should be between 10 and 20 mm/day in m/s.
         assert np.all(arr >= 10.0 * MM_DAY_TO_M_S * 0.99)
         assert np.all(arr <= 20.0 * MM_DAY_TO_M_S * 1.01)
@@ -109,16 +109,16 @@ class TestPointToGridInterpolation:
         """IDW should not emit a divide-by-zero warning on exact station matches."""
         nrow, ncol = 1, 3
         dx, dy = 10.0, 10.0
-        sgrid = _make_sgrid(nrow, ncol, dx=dx, dy=dy)
+        centers = _make_centers(nrow, ncol, dx=dx, dy=dy)
 
         pt_west = _make_located_point_record("W", x=5.0, y=5.0, value=10.0, unit="mm/day")
         pt_east = _make_located_point_record("E", x=25.0, y=5.0, value=20.0, unit="mm/day")
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always", RuntimeWarning)
-            result = discretize_points_on_sgrid(
+            result = discretize_points_on_cells(
                 load_result=LoadResult(points=[pt_west, pt_east]),
-                sgrid=sgrid,
+                centers=centers,
                 nper=1,
                 method="idw",
             )
@@ -128,14 +128,14 @@ class TestPointToGridInterpolation:
         ]
         assert runtime_warnings == []
         arr = result[0]
-        assert arr.shape == (nrow, ncol)
-        assert arr[0, 0] == pytest.approx(10.0 * MM_DAY_TO_M_S)
-        assert arr[0, -1] == pytest.approx(20.0 * MM_DAY_TO_M_S)
+        assert arr.shape == (nrow * ncol,)
+        assert arr[0] == pytest.approx(10.0 * MM_DAY_TO_M_S)
+        assert arr[-1] == pytest.approx(20.0 * MM_DAY_TO_M_S)
 
     def test_no_located_points_returns_zeros(self):
         """PointRecords without locations should produce zeros."""
         nrow, ncol = 2, 2
-        sgrid = _make_sgrid(nrow, ncol)
+        centers = _make_centers(nrow, ncol)
 
         dates = pd.date_range("2020-01-01", periods=5, freq="D")
         pt = PointRecord(
@@ -150,9 +150,9 @@ class TestPointToGridInterpolation:
             location=None,
         )
 
-        result = discretize_points_on_sgrid(
+        result = discretize_points_on_cells(
             load_result=LoadResult(points=[pt]),
-            sgrid=sgrid,
+            centers=centers,
             nper=1,
         )
 

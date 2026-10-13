@@ -117,8 +117,10 @@ def test_the_native_pitch_is_the_dem_pitch() -> None:
     cell_mesh = RegularMeshEngine().build(request)
 
     assert cell_mesh.structured_shape == (12, 20)
-    assert cell_mesh.qa.extras == {"dx_m": 50.0, "dy_m": 50.0}
-    assert cell_mesh.qa.notes == ()
+    # The side heads sit half a cell inside, and the only note is the one that says so.
+    assert cell_mesh.qa.extras == {"dx_m": 50.0, "dy_m": 50.0, "side_center_offset_m_p50": 25.0}
+    assert len(cell_mesh.qa.notes) == 1
+    assert "half a cell inside the domain" in cell_mesh.qa.notes[0]
 
 
 def test_a_coarser_size_rounds_the_shape_and_spans_the_dem_bounds() -> None:

@@ -2,8 +2,8 @@
 
 A Voronoi cell mesh has one cell per node of its triangulation. The support of the
 triangles indexes the triangles. A triangle index read as a dual cell index puts a
-well in the wrong cell, or runs past the end of the dual grid. The solver support
-is the one of the mesh it solves on, whatever the engine that built it.
+well in the wrong cell, or runs past the end of the dual grid. The solver reads the
+cell mesh it solves on, whatever the engine that built it.
 """
 
 from __future__ import annotations
@@ -40,6 +40,8 @@ from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     build_gmsh_support_metadata,
     support_on_planar_mesh,
 )
+from hydromodpy.spatial.mesh.ops.cell_location import locate_cells
+from hydromodpy.spatial.mesh.ops.family_cells import stream_cells
 from hydromodpy.spatial.mesh.ops.voronoi import (
     domain_polygon_from_mesh,
     voronoi_dual_of_mesh,
@@ -166,10 +168,8 @@ def _model_on(ctx) -> object:
     model = _build_model()
     model.grid_ctx = ctx
     model.solver_mesh = ctx.solver_mesh
-    model.solver_mesh_support = ctx.mesh_support
     model.nlay = 1
     model.ncpl = int(ctx.solver_mesh.n_cells)
-    model.ncol = 0
     model.dem_mask = np.zeros(model.ncpl, dtype=bool)
     return model
 
@@ -183,26 +183,27 @@ def _dual_polygon(ctx, cell: int) -> Polygon:
 POINTS = [(250.0, 250.0), (61.0, 433.0), (377.0, 120.0), (430.0, 470.0), (190.0, 300.0)]
 
 
-def test_the_voronoi_support_describes_the_dual_cells() -> None:
+def test_the_voronoi_cell_mesh_describes_the_dual_cells() -> None:
     ctx, triangle_support, mesh = _grid_context("voronoi")
-    support = ctx.mesh_support
+    cell_mesh = ctx.solver_mesh.cell_mesh
 
     assert ctx.solver_mesh.n_cells == mesh.n_nodes
     assert triangle_support.n_cells > ctx.solver_mesh.n_cells
-    assert support.n_cells == ctx.solver_mesh.n_cells
-    assert int(support.edge_cell_a.max()) < support.n_cells
-    assert int(support.edge_cell_b.max()) < support.n_cells
+    assert cell_mesh.n_cells == ctx.solver_mesh.n_cells
+    faces = cell_mesh.face_families
+    assert int(max(faces.cell_a.max(), faces.cell_b.max())) < cell_mesh.n_cells
 
 
-def test_the_triangle_mesh_has_a_support_on_its_triangles() -> None:
+def test_the_triangle_cell_mesh_carries_the_river_of_its_triangles() -> None:
     ctx, triangle_support, _mesh = _grid_context("triangle")
-    support = ctx.mesh_support
+    cell_mesh = ctx.solver_mesh.cell_mesh
 
-    assert support.n_cells == triangle_support.n_cells == ctx.solver_mesh.n_cells
-    assert np.array_equal(support.cell_centroid_x_m, triangle_support.cell_centroid_x_m)
-    assert np.array_equal(support.cell_centroid_y_m, triangle_support.cell_centroid_y_m)
-    assert set(support.river_cell_indices().tolist()) == set(
-        triangle_support.river_cell_indices().tolist()
+    assert cell_mesh.n_cells == triangle_support.n_cells == ctx.solver_mesh.n_cells
+    centre_x, centre_y = ctx.solver_mesh.cell_centroids().T
+    assert np.array_equal(centre_x, triangle_support.cell_centroid_x_m)
+    assert np.array_equal(centre_y, triangle_support.cell_centroid_y_m)
+    assert set(triangle_support.river_cell_indices().tolist()) <= set(
+        stream_cells(cell_mesh).tolist()
     )
 
 
@@ -210,10 +211,10 @@ def test_the_triangle_mesh_has_a_support_on_its_triangles() -> None:
 def test_a_point_lands_in_the_dual_cell_that_holds_it(x_m: float, y_m: float) -> None:
     ctx, _triangle_support, _mesh = _grid_context("voronoi")
 
-    cell = ctx.mesh_support.locate_cell_index_for_point(x_m, y_m, allow_nearest=False)
+    cell = int(locate_cells(ctx.solver_mesh.cell_mesh, [(x_m, y_m)], allow_nearest=False)[0])
 
     assert _dual_polygon(ctx, cell).covers(Point(x_m, y_m))
-    center_x, center_y = ctx.solver_mesh.planar_mesh.cell_centroids()
+    center_x, center_y = ctx.solver_mesh.cell_centroids().T
     nearest = int(np.argmin((center_x - x_m) ** 2 + (center_y - y_m) ** 2))
     assert cell == nearest
 
@@ -225,7 +226,7 @@ def test_the_triangle_index_is_not_the_dual_cell() -> None:
 
     differs = [
         triangle_support.locate_cell_index_for_point(x_m, y_m, allow_nearest=False)
-        != ctx.mesh_support.locate_cell_index_for_point(x_m, y_m, allow_nearest=False)
+        != int(locate_cells(ctx.solver_mesh.cell_mesh, [(x_m, y_m)], allow_nearest=False)[0])
         for x_m, y_m in POINTS
     ]
     assert any(differs)

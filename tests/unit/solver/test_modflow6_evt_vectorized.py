@@ -26,6 +26,7 @@ from hydromodpy.solver.modflow6.builders import (
 from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 
 from ._test_modflow6_boundary_conditions_builders import _build_model
 
@@ -33,7 +34,7 @@ from ._test_modflow6_boundary_conditions_builders import _build_model
 def _single_layer_mesh() -> SolverMesh:
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
     botm = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=float)
-    return SolverMesh.from_structured_arrays(nrow=2, ncol=3, top=top, botm=np.stack([botm]))
+    return solver_mesh_from_structured_arrays(nrow=2, ncol=3, top=top, botm=np.stack([botm]))
 
 
 def _reference_array_payload(
@@ -208,10 +209,8 @@ def _two_layer_mesh(inactive_mask: np.ndarray) -> SolverMesh:
         [[0, 0], [1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1]], dtype=float
     )
     conn = np.array([[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6]], dtype=int)
-    return SolverMesh(
-        planar_mesh=HydroMesh(
-            vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),)
-        ),
+    return solver_mesh_from(
+        HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),)),
         top=np.full(ncpl, 10.0),
         botm=np.array([[5.0, 5.0, 5.0], [0.0, 0.0, 0.0]]),
         inactive_mask=inactive_mask,

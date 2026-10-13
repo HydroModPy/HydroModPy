@@ -12,6 +12,7 @@ from hydromodpy.solver.modflow6.builders import (
     xt3d_requested_value,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 from ._test_modflow6_boundary_conditions_builders import (
     _build_model,
@@ -22,7 +23,7 @@ from ._test_modflow6_boundary_conditions_builders import (
 def _structured_solver_mesh() -> SolverMesh:
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
     botm_2d = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=float)
-    return SolverMesh.from_structured_arrays(
+    return solver_mesh_from_structured_arrays(
         nrow=2,
         ncol=3,
         top=top,

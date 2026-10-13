@@ -30,13 +30,14 @@ from hydromodpy.solver.modflow_common.mesh_descent import (
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 _CODE_OF_STEP = {step: code for code, step in D8_WBT_OFFSETS.items()}
 
 
 def _mesh(nrow: int, ncol: int, top: np.ndarray) -> SolverMesh:
     """10 m cells; mesh row 0 is the NORTH row, cell id ``row * ncol + col``."""
-    return SolverMesh.from_structured_arrays(
+    return solver_mesh_from_structured_arrays(
         nrow=nrow,
         ncol=ncol,
         top=np.asarray(top, dtype=float).reshape(nrow, ncol),

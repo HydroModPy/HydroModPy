@@ -24,6 +24,8 @@ from hydromodpy.solver.modflow_common.drain_conductance import (
     drain_discharge_band,
     hk_fallback_drain_conductance,
 )
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.spatial.mesh.ops.family_cells import label_cells, side_cells, stream_cells
 
 logger = get_logger(__name__)
 
@@ -123,51 +125,46 @@ def resolve_side_boundary_series(model, *, boundary: object, bc_id: str) -> np.n
     )
 
 
-def _require_solver_mesh_support(model, *, label: str) -> object:
-    """Return the support that indexes the solver cells (not the bundle triangles)."""
-    support = getattr(model, "solver_mesh_support", None)
-    if support is None:
-        raise ValueError(
-            f"{label} requires gmsh support metadata on the solver cells, but none is set."
-        )
-    return support
+def _solver_cell_mesh(model, *, label: str) -> PlanarCellMesh:
+    """Return the cell mesh the solver cells come from, or refuse by name."""
+    solver_mesh = getattr(model, "solver_mesh", None)
+    if solver_mesh is None:
+        raise ValueError(f"{label} reads the cells of the solver mesh, but none is set.")
+    return solver_mesh.cell_mesh
+
+
+def _support_label_cells(cell_mesh: PlanarCellMesh, support_label: object) -> np.ndarray:
+    """Return the cells of one ``support_label``.
+
+    The label is ``stream``, a side id, ``boundary:<name>``, or the bare name of a
+    boundary group, which reads the family ``boundary:<name>``.
+    """
+    text = str(support_label).strip()
+    cells = label_cells(cell_mesh, text)
+    if cells.size == 0 and not text.startswith("boundary:"):
+        cells = label_cells(cell_mesh, f"boundary:{text}")
+    return cells
 
 
 def boundary_support_cell_ids(model, *, boundary: object, bc_id: str) -> list[int]:
     """Return flat cell ids selected by one BC support definition."""
-    solver_mesh = getattr(model, "solver_mesh", None)
     support_label = boundary_attr(boundary, "support_label", None)
-    if support_label is not None and not (
-        solver_mesh is None or getattr(solver_mesh, "is_structured", False)
-    ):
-        support = _require_solver_mesh_support(model, label=f"flow.bc.{bc_id}")
-        cell_ids = support.cell_indices_for_label(str(support_label))
+    if support_label is not None:
+        cell_mesh = _solver_cell_mesh(model, label=f"flow.bc.{bc_id}")
+        cell_ids = _support_label_cells(cell_mesh, support_label)
         if cell_ids.size == 0:
             raise ValueError(
                 f"flow.bc.{bc_id}.support_label='{support_label}' did not match any "
                 "runtime mesh support."
             )
-        return [int(cell_id) for cell_id in cell_ids.tolist()]
+        return cell_ids.tolist()
     return side_boundary_cell_ids(model, bc_id)
 
 
 def side_boundary_cell_ids(model, bc_id: str) -> list[int]:
     """Return flat cell IDs touched by one side boundary."""
-    solver_mesh = getattr(model, "solver_mesh", None)
-    if solver_mesh is None or getattr(solver_mesh, "is_structured", False):
-        nrow, ncol = int(model.nrow), int(model.ncol)
-        if bc_id == "west_side":
-            return [i * ncol for i in range(nrow)]
-        if bc_id == "east_side":
-            return [i * ncol + (ncol - 1) for i in range(nrow)]
-        if bc_id == "north_side":
-            return list(range(ncol))
-        if bc_id == "south_side":
-            return list(range((nrow - 1) * ncol, nrow * ncol))
-        raise ValueError(f"Unsupported side boundary id: {bc_id}")
-
-    support = _require_solver_mesh_support(model, label=f"flow.bc.{bc_id}")
-    return [int(cell_id) for cell_id in support.boundary_cell_indices_for_side(bc_id).tolist()]
+    cell_mesh = _solver_cell_mesh(model, label=f"flow.bc.{bc_id}")
+    return side_cells(cell_mesh, bc_id).tolist()
 
 
 def iter_side_boundary_cells(model, bc_id: str):
@@ -288,14 +285,12 @@ def stream_chd_support_mask(model, stream_series: np.ndarray | None) -> np.ndarr
     if stream_series is None or np.asarray(stream_series, dtype=float).size == 0:
         return np.zeros(int(model.ncpl), dtype=bool)
     boundary = boundary_conditions_mapping(model).get("stream")
-    support = _require_solver_mesh_support(model, label="flow.bc.stream")
+    cell_mesh = _solver_cell_mesh(model, label="flow.bc.stream")
     support_label = None if boundary is None else boundary_attr(boundary, "support_label", None)
     if support_label is None:
-        cell_ids = np.asarray(support.river_cell_indices(), dtype=int).reshape(-1)
+        cell_ids = stream_cells(cell_mesh)
     else:
-        cell_ids = np.asarray(
-            support.cell_indices_for_label(str(support_label)), dtype=int
-        ).reshape(-1)
+        cell_ids = _support_label_cells(cell_mesh, support_label)
     if cell_ids.size == 0:
         raise ValueError(
             "Boundary 'stream' is active but its selected runtime mesh support is empty."
@@ -502,50 +497,54 @@ def build_drain_stress_period_data(
     last-specified stress_period_data for the omitted periods. This keeps a static
     drain from rewriting all its rows for every period of a long daily run.
     """
-    sink_flat = _sink_mask_flat(model, n_cells=int(model.ncpl)) if model.sink_fill else None
+    n_cells = int(model.ncpl)
+    sink_flat = _sink_mask_flat(model, n_cells=n_cells) if model.sink_fill else None
     band_depth = float(model.drain_band_depth_m)
     conductance_floor = float(model.drain_conductance_floor_m2_s)
     bed_thickness = float(model.drain_bed_thickness_m)
-    drn_spd: dict[int, list[list[float]]] = {}
-    top_flat = solver_mesh.top
     dem_mask_flat = np.asarray(model.dem_mask, dtype=bool).reshape(-1)
     ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
     stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
     cell_areas = solver_mesh.cell_areas()
+    drained = ~(dem_mask_flat | ocean_mask_flat | stream_mask_flat)
     report_per_cell_conductance_spread(
         model,
         drainage_cond_series=drainage_cond_series,
         cell_areas=cell_areas,
-        drained=~(dem_mask_flat | ocean_mask_flat | stream_mask_flat),
+        drained=drained,
     )
+    cell_ids = np.flatnonzero(drained)
+    drained_sink = np.zeros(cell_ids.size, dtype=bool) if sink_flat is None else sink_flat[cell_ids]
+    tops = np.asarray(solver_mesh.top, dtype=float)[cell_ids]
+    areas = cell_areas[cell_ids]
+    drn_spd: dict[int, list[list[float]]] = {}
     previous_cond: float | None = None
     for kper in range(int(model.nper)):
         configured_cond_value = float(drainage_cond_series[kper])
         if previous_cond is not None and configured_cond_value == previous_cond:
             continue
         previous_cond = configured_cond_value
+        hk = None if configured_cond_value > 0.0 else np.asarray(model.hk[0], dtype=float)[cell_ids]
         period_cells: list[list[float]] = []
-        for cid in range(int(model.ncpl)):
-            if dem_mask_flat[cid] or ocean_mask_flat[cid] or stream_mask_flat[cid]:
-                continue
-            if sink_flat is not None and sink_flat[cid]:
+        for row, cell_id in enumerate(cell_ids.tolist()):
+            if drained_sink[row]:
                 cond_value = 0.0
-            elif configured_cond_value > 0.0:
+            elif hk is None:
                 cond_value = max(configured_cond_value, conductance_floor)
             else:
                 cond_value = hk_fallback_drain_conductance(
-                    hk=float(model.hk[0, cid]),
-                    cell_area=float(cell_areas[cid]),
+                    hk=float(hk[row]),
+                    cell_area=float(areas[row]),
                     bed_thickness=bed_thickness,
                     floor_m2_s=conductance_floor,
                 )
             elevation, cond_value = drain_discharge_band(
-                top=float(top_flat[cid]),
+                top=float(tops[row]),
                 conductance=cond_value,
                 bed_thickness=bed_thickness,
                 band_depth=band_depth,
             )
-            period_cells.append([0, cid, elevation, cond_value])
+            period_cells.append([0, cell_id, elevation, cond_value])
         drn_spd[kper] = period_cells
     return drn_spd
 

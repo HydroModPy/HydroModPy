@@ -226,8 +226,9 @@ class RunGeographicMixin:
             Optional layer index for three-dimensional fields.
         bbox
             Optional ``(xmin, ymin, xmax, ymax)`` in the simulation CRS.
-            Cells whose centroid falls outside the bounding box are set to
-            ``NaN`` (for float dtypes) or ``0`` (for integer dtypes).
+            Cells whose centre (``run.mesh.cell_centers()``) falls outside the
+            bounding box are set to ``NaN`` (for float dtypes) or ``0`` (for
+            integer dtypes).
 
         Returns
         -------
@@ -295,36 +296,23 @@ class RunGeographicMixin:
         try:
             mesh_grp = sz.root["mesh"]
             topo = mesh_grp.get("topography")
+            face_x = mesh_grp.get("face_x")
+            face_y = mesh_grp.get("face_y")
+            raw_shape = mesh_grp.attrs.get("structured_shape")
             return Mesh(
                 vertices=mesh_grp["vertices"][:],
                 face_node_connectivity=mesh_grp["face_node_connectivity"][:],
                 z_interfaces=mesh_grp["z_interfaces"][:],
                 topography=None if topo is None else topo[:],
                 crs=crs,
+                structured_shape=(
+                    None if raw_shape is None else (int(raw_shape[0]), int(raw_shape[1]))
+                ),
+                face_x=None if face_x is None else face_x[:],
+                face_y=None if face_y is None else face_y[:],
             )
         finally:
             sz.close()
-
-    def _regular_shape_for_field_size(self, root, n_cells: int) -> tuple[int, int]:
-        mesh = root.get("mesh")
-        if mesh is not None:
-            raw_shape = mesh.attrs.get("structured_shape")
-            if raw_shape is not None:
-                shape = tuple(int(v) for v in raw_shape)
-                if len(shape) == 2 and shape[0] * shape[1] == int(n_cells):
-                    return shape[0], shape[1]
-        try:
-            grid_shape = self.grid.shape
-        except Exception as exc:
-            raise ValueError(
-                f"Field has {n_cells} cells but this run has no regular grid shape metadata."
-            ) from exc
-        if int(grid_shape[0]) * int(grid_shape[1]) != int(n_cells):
-            raise ValueError(
-                f"Field has {n_cells} cells; grid shape {grid_shape} "
-                f"requires {int(grid_shape[0]) * int(grid_shape[1])} cells."
-            )
-        return int(grid_shape[0]), int(grid_shape[1])
 
 
 def field_range(
@@ -425,35 +413,24 @@ def _apply_bbox_mask(
     array: np.ndarray,
     bbox: tuple[float, float, float, float],
 ) -> np.ndarray:
-    """Mask cells outside ``bbox`` (xmin, ymin, xmax, ymax) in-place style."""
-    xmin, ymin, xmax, ymax = (float(v) for v in bbox)
-    if not (xmin < xmax and ymin < ymax):
-        raise ValueError(f"bbox must satisfy xmin<xmax and ymin<ymax; got {bbox!r}")
-    try:
-        grid = run.grid
-    except Exception as exc:
-        raise ValueError(
-            "bbox= filter requires a structured grid; this run has no grid metadata."
-        ) from exc
-    xs, ys = grid.cell_centers_xy()
-    inside = (xs >= xmin) & (xs <= xmax) & (ys >= ymin) & (ys <= ymax)
+    """Mask cells whose centre is outside ``bbox`` (xmin, ymin, xmax, ymax).
+
+    The centres are the ones of the run's own mesh, ``Mesh.cell_centers()``,
+    so the selection is right on any mesh, not only on a grid of DEM pixels.
+    The last axis of ``array`` is the cell axis.
+    """
+    mesh = run.mesh
+    inside = mesh.cells_in_bbox(bbox)
     arr = np.asarray(array)
-    if arr.ndim == 0 or arr.size != inside.size:
-        if arr.ndim >= 1 and arr.shape[-1] == inside.size:
-            mask = ~inside.reshape((1,) * (arr.ndim - 1) + (-1,))
-        elif arr.shape == grid.shape:
-            mask = ~inside.reshape(grid.shape)
-        else:
-            raise ValueError(
-                f"bbox= mask requires array shape compatible with grid; "
-                f"got array {arr.shape}, grid {grid.shape}."
-            )
-    else:
-        mask = ~inside.reshape(arr.shape)
+    if arr.ndim == 0 or arr.shape[-1] != inside.size:
+        raise ValueError(
+            f"bbox= mask needs the last axis of the field to hold the {inside.size} "
+            f"cells of the mesh; got array {arr.shape}."
+        )
     if arr.dtype.kind == "f":
         out = arr.astype("float64", copy=True)
-        out[mask] = np.nan
+        out[..., ~inside] = np.nan
     else:
         out = arr.copy()
-        out[mask] = 0
+        out[..., ~inside] = 0
     return out

@@ -99,18 +99,19 @@ class CellLocator(Protocol):
     structural check for a method it has no business having.
 
     A gauge, a piezometer and a lake staff are given as coordinates, and only the
-    backend knows the grid it wrote: structured rows and columns, a Voronoi cell
-    list, or a flopy model grid. Answering here is what keeps a caller that must
+    backend knows the grid it wrote: the cells of a solver mesh, or a flopy model
+    grid. Answering here is what keeps a caller that must
     serve every solver from reading the internals of one.
     """
 
     def locate_cell(self, ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
-        """Return the cell selector nearest to ``(x, y)``, or ``None``.
+        """Return the selector of the cell that holds ``(x, y)``, or ``None``.
 
-        The selector is the same triple the observable extractors take:
-        ``(layer, row, col)`` on a structured grid and ``(0, 0, cell_id)`` on an
-        unstructured one. ``None`` means the run holds no grid to look on yet,
-        which a caller reports rather than replacing with a guess.
+        The selector is the same triple the observable extractors take. A MODFLOW 6
+        run answers ``(0, 0, cell_id)`` on every mesh, the flat selector of a DISV
+        head array; a point outside every cell takes the nearest centre. ``None``
+        means the run holds no grid to look on yet, which a caller reports rather
+        than replacing with a guess.
         """
         ...
 

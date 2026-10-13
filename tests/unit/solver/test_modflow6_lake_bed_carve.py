@@ -16,6 +16,7 @@ from hydromodpy.physics.flow.sinks_sources.lake import BathymetryReconstructionC
 from hydromodpy.solver.modflow6.builders import build_lake_connectiondata, carve_lake_bed
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.lake_bed import simulate_abacus
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 _EXTENT = 100.0
 _NCELL = 10  # 10 x 10 structured grid, dx = dy = 10 -> cell area 100, footprint 10000
@@ -67,7 +68,7 @@ def _mesh() -> SolverMesh:
             np.full((_NCELL, _NCELL), 10.0),
         ]
     )
-    return SolverMesh.from_structured_arrays(
+    return solver_mesh_from_structured_arrays(
         nrow=_NCELL, ncol=_NCELL, top=top, botm=botm, dx=10.0, dy=10.0
     )
 

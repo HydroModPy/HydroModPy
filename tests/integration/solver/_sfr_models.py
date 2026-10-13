@@ -24,6 +24,7 @@ from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_desc
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReachTrace
 from tests._helpers.mf6_ground import leave_ground_beside
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 INFLOW_M3S = 0.05
 RUNOFF_M3S = 0.02
@@ -34,7 +35,7 @@ NETWORK_ID = "net0"
 def _mesh() -> SolverMesh:
     top = np.full((5, 5), 100.0)
     botm = np.full((1, 5, 5), 50.0)
-    return SolverMesh.from_structured_arrays(nrow=5, ncol=5, top=top, botm=botm, dx=10.0, dy=10.0)
+    return solver_mesh_from_structured_arrays(nrow=5, ncol=5, top=top, botm=botm, dx=10.0, dy=10.0)
 
 
 def _trace() -> SfrReachTrace:
@@ -186,7 +187,7 @@ def _coupled_mesh_and_lake() -> tuple[SolverMesh, list[int]]:
     lake_cells = [r * ncol + c for r in (0, 1, 2) for c in (5, 6, 7)]
     inactive = np.zeros((2, nrow * ncol), dtype=bool)
     inactive[0, lake_cells] = True
-    mesh = SolverMesh.from_structured_arrays(
+    mesh = solver_mesh_from_structured_arrays(
         nrow=nrow, ncol=ncol, top=top, botm=botm, dx=10.0, dy=10.0, inactive_mask=inactive
     )
     return mesh, lake_cells
@@ -248,7 +249,6 @@ def run_coupled_sfr_lak_model(ws: Path, *, route_drainage: bool = False):
         remove_drain_cells,
         sfr_drain_cells_to_drop,
     )
-    from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency
 
     exe = str(ensure_solver_binary("mf6"))
     mesh, lake_cells = _coupled_mesh_and_lake()
@@ -288,7 +288,7 @@ def run_coupled_sfr_lak_model(ws: Path, *, route_drainage: bool = False):
         drn_spd=drn_spd,
         receiver=descent.receiver,
         basin_cell_mask=np.ones(int(mesh.n_cells), dtype=bool),
-        face_adjacency=build_planar_cell_adjacency(mesh.planar_mesh, int(mesh.n_cells)),
+        face_adjacency=mesh.face_adjacency(),
         mesh_top=np.asarray(mesh.top, dtype=float).reshape(-1),
         lake_cells_by_number={0: list(lake_cells)},
     )

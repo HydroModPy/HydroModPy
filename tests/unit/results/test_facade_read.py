@@ -45,6 +45,16 @@ def _seed_field(catalog: Catalog) -> str:
     )
     assert reg.zarr is not None
     reg.zarr.close()
+    # Two unit squares side by side: cell centres at x = 0.5 and x = 1.5.
+    store = catalog.open_zarr(sid)
+    try:
+        store.write_mesh(
+            np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0]], float),
+            np.array([[0, 1, 4, 3], [1, 2, 5, 4]], dtype=np.int32),
+            np.array([10.0, 0.0]),
+        )
+    finally:
+        store.close()
     catalog.write_field(sid, "head", 0, np.array([[1.0, 2.0]]), n_timesteps=2)
     catalog.write_field(sid, "head", 1, np.array([[3.0, 4.0]]), n_timesteps=2)
     catalog.write_geographic_metadata(
@@ -179,7 +189,7 @@ def test_read_bbox_restricts_cells(catalog):
     """``bbox=`` restricts the returned DataArray to faces within the box."""
     sid = _seed_field(catalog)
     run = Run(sid, catalog)
-    # With ncol=2 cells centred at x=0.5 and x=1.5, only cell 0 has centre <= 0.9
+    # The cells of the stored mesh are centred at x=0.5 and x=1.5: only cell 0 is in the box.
     da = hmp.read(run, "head", bbox=(0.0, -1.0, 1.0, 1.0))
     assert da.sizes["cell"] == 1
 

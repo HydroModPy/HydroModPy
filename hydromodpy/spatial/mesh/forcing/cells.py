@@ -1,17 +1,20 @@
-"""Field discretization on structured grids (any 2-D climatic variable).
+"""Forcing fields and station series on the cells of a mesh.
 
 Converts :class:`LoadResult` field records (xarray, NetCDF, GeoTIFF) and
-located point records into per-cell 2-D arrays aligned with the MODFLOW
-structured grid.
+located point records into one value per cell, in m/s, for every stress
+period. This is the only path a solver takes to put a spatial forcing on its
+cells, whatever the mesh engine: it reads the cell centres and nothing else, so
+a regular grid, a triangulation and a Voronoi dual are served alike.
 
 Every public function is **variable-agnostic** and works with any LoadResult
 (recharge, precipitation, ETP, temperature, etc.).
 
 Implementation details are split across:
-- ``_sgrid_field_grid_utils`` - cell centers, time bounds, units, interp,
-- ``_sgrid_field_xarray`` - xarray + NetCDF + GeoTIFF discretization,
-- ``_sgrid_field_points`` - located point time-series,
-- ``_sgrid_field_spatial_mean`` - homogeneous fallback series.
+- ``periods`` - stress-period bounds,
+- ``_source`` - units, dataset variables, interpolation on cell centres,
+- ``_xarray`` - xarray + NetCDF + GeoTIFF discretization,
+- ``_points`` - located point time-series,
+- ``_spatial_mean`` - homogeneous fallback series.
 """
 
 from __future__ import annotations
@@ -21,43 +24,42 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import (
-    cell_centers_from_sgrid,
-    stress_period_bounds,
-)
-from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_points import (
+from hydromodpy.core.config_kit.types import InterpolationMethod
+from hydromodpy.spatial.mesh.forcing._points import (
     discretize_located_points,
     extract_located_points,
 )
-from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_spatial_mean import (
-    spatial_mean_one_field,
-)
-from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_xarray import (
-    discretize_one_field_record,
-)
+from hydromodpy.spatial.mesh.forcing._spatial_mean import spatial_mean_one_field
+from hydromodpy.spatial.mesh.forcing._xarray import discretize_one_field_record
+from hydromodpy.spatial.mesh.forcing.periods import stress_period_bounds
 
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
 
-from hydromodpy.core.config_kit.types import InterpolationMethod
-
-__all__ = (
-    "InterpolationMethod",
-    "discretize_fields_on_sgrid",
-    "discretize_points_on_sgrid",
+__all__ = [
+    "discretize_fields_on_cells",
+    "discretize_points_on_cells",
     "spatial_mean_from_fields",
-)
+]
 
 
-def discretize_fields_on_sgrid(
+def _cell_centers(centers: np.ndarray) -> np.ndarray:
+    """Return ``centers`` as an ``(n_cells, 2)`` float array, or refuse it."""
+    xy = np.asarray(centers, dtype=float)
+    if xy.ndim != 2 or xy.shape[1] != 2:
+        raise ValueError(f"centers must have shape (n_cells, 2), got {xy.shape}")
+    return xy
+
+
+def discretize_fields_on_cells(
     *,
     load_result: Any,
-    sgrid: object,
+    centers: np.ndarray,
     nper: int,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
     method: InterpolationMethod = "nearest",
 ) -> dict[int, np.ndarray]:
-    """Discretize gridded FieldRecords onto a structured MODFLOW grid.
+    """Discretize gridded FieldRecords onto the cell centres of a mesh.
 
     Each record is averaged in time over every stress period, under the
     coverage rule of :mod:`hydromodpy.core.time.coverage`. When several
@@ -66,11 +68,10 @@ def discretize_fields_on_sgrid(
     Parameters
     ----------
     load_result:
-        LoadResult containing FieldRecords with gridded recharge data.
-        Data units are assumed to be mm/day (data-manager internal unit).
-    sgrid:
-        Structured grid object providing nrow, ncol, vertex coordinates.
-        Accepts both FloPy ``StructuredGrid`` and ``SolverMesh``.
+        LoadResult containing FieldRecords with gridded data. Data units are
+        read from each record.
+    centers:
+        Cell centres ``(n_cells, 2)``, in the CRS of the records.
     nper:
         Number of stress periods in the simulation.
     simulation_window:
@@ -81,19 +82,14 @@ def discretize_fields_on_sgrid(
     Returns
     -------
     dict[int, np.ndarray]
-        Mapping ``{kper: array(nrow, ncol)}`` with values in **m/s**
-        (consistent with the homogeneous recharge bridge output).
+        Mapping ``{kper: array(n_cells)}`` with values in **m/s**.
     """
-    nrow = int(sgrid.nrow)
-    ncol = int(sgrid.ncol)
+    xy = _cell_centers(centers)
+    n_cells = xy.shape[0]
 
     if not load_result.has_fields:
-        return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
+        return {kper: np.zeros(n_cells, dtype=float) for kper in range(nper)}
 
-    # Build target cell-center coordinates from the solver grid.
-    x_centers, y_centers = cell_centers_from_sgrid(sgrid, nrow, ncol)
-
-    # Compute stress-period boundaries for temporal slicing.
     period_bounds = stress_period_bounds(nper, simulation_window)
     coverage_policy = str(getattr(simulation_window, "coverage_policy", "ignore"))
 
@@ -104,10 +100,7 @@ def discretize_fields_on_sgrid(
     for field_rec in load_result.fields:
         field_arrays = discretize_one_field_record(
             field_rec,
-            x_centers=x_centers,
-            y_centers=y_centers,
-            nrow=nrow,
-            ncol=ncol,
+            centers=xy,
             nper=nper,
             period_bounds=period_bounds,
             coverage_policy=coverage_policy,
@@ -120,79 +113,68 @@ def discretize_fields_on_sgrid(
             else:
                 sums[kper] = np.asarray(arr, dtype=float)
                 counts[kper] = 1
-    rch_arrays = {kper: sums[kper] / counts[kper] for kper in sums}
+    arrays = {kper: sums[kper] / counts[kper] for kper in sums}
 
     # Fill missing periods with zeros.
     for kper in range(nper):
-        if kper not in rch_arrays:
-            rch_arrays[kper] = np.zeros((nrow, ncol), dtype=float)
+        if kper not in arrays:
+            arrays[kper] = np.zeros(n_cells, dtype=float)
 
-    return rch_arrays
+    return arrays
 
 
-def discretize_points_on_sgrid(
+def discretize_points_on_cells(
     *,
     load_result: Any,
-    sgrid: object,
+    centers: np.ndarray,
     nper: int,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
     method: InterpolationMethod = "nearest",
     source_unit: str = "mm/day",
 ) -> dict[int, np.ndarray]:
-    """Interpolate located PointRecords onto a structured MODFLOW grid.
+    """Interpolate located PointRecords onto the cell centres of a mesh.
 
     Requires each PointRecord to carry a ``location`` with (x, y) coordinates.
-    Station values are interpolated onto cell centers per stress period.
+    Station values are interpolated onto cell centres per stress period.
 
     Parameters
     ----------
     load_result:
         LoadResult containing PointRecords with location data.
-    sgrid, nper, simulation_window, method:
-        Same as :func:`discretize_fields_on_sgrid`.
+    centers, nper, simulation_window, method:
+        Same as :func:`discretize_fields_on_cells`.
+    source_unit:
+        Unit of a record that does not state its own.
 
     Returns
     -------
     dict[int, np.ndarray]
-        Mapping ``{kper: array(nrow, ncol)}`` with values in **m/s**.
+        Mapping ``{kper: array(n_cells)}`` with values in **m/s**.
     """
-    nrow = int(sgrid.nrow)
-    ncol = int(sgrid.ncol)
+    xy = _cell_centers(centers)
 
     located_points = extract_located_points(load_result)
     if not located_points:
-        return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(nper)}
-
-    x_centers, y_centers = cell_centers_from_sgrid(sgrid, nrow, ncol)
-    period_bounds = stress_period_bounds(nper, simulation_window)
-    coverage_policy = str(getattr(simulation_window, "coverage_policy", "ignore"))
+        return {kper: np.zeros(xy.shape[0], dtype=float) for kper in range(nper)}
 
     return discretize_located_points(
         located_points=located_points,
-        x_centers=x_centers,
-        y_centers=y_centers,
-        nrow=nrow,
-        ncol=ncol,
+        centers=xy,
         nper=nper,
-        period_bounds=period_bounds,
-        coverage_policy=coverage_policy,
+        period_bounds=stress_period_bounds(nper, simulation_window),
+        coverage_policy=str(getattr(simulation_window, "coverage_policy", "ignore")),
         method=method,
         source_unit=source_unit,
     )
 
 
-def spatial_mean_from_fields(
-    load_result: Any,
-    *,
-    simulation_window: ResolvedSimulationTimeWindow | None = None,
-) -> pd.Series | None:
+def spatial_mean_from_fields(load_result: Any) -> pd.Series | None:
     """Compute the spatial mean of FieldRecords to produce a homogeneous series.
 
     Reduces gridded data (TIF, NC, xarray) to a single scalar per time step
     by averaging all spatial cells. Returns a pandas Series in mm/day
     (data-manager internal unit) or None if no fields are available.
     """
-    del simulation_window  # accepted for API symmetry; not used today.
     if not load_result.has_fields:
         return None
 

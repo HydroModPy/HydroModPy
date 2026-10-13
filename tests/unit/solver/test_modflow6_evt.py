@@ -9,6 +9,7 @@ from hydromodpy.solver.modflow6.builders import (
     extract_evt_payload_2d,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 from ._test_modflow6_boundary_conditions_builders import _build_model
 
@@ -69,7 +70,7 @@ def test_modflow6_builds_evt_stress_period_data_from_routed_payload() -> None:
     model._evt_rate_payload = {0: 0.0, 1: 1.0e-6}
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
     botm_2d = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=float)
-    solver_mesh = SolverMesh.from_structured_arrays(
+    solver_mesh = solver_mesh_from_structured_arrays(
         nrow=2,
         ncol=3,
         top=top,

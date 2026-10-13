@@ -23,7 +23,7 @@ import numpy as np
 
 from hydromodpy.core.exceptions import MeshError, PipelineError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import to_field_mesh
+from hydromodpy.spatial.field.zone_fractions import zone_fractions
 from hydromodpy.workflow.internals.data_description import (
     iter_loaded_records,
     read_data_description,
@@ -314,28 +314,24 @@ def step_persist_forcings(ctx: WorkflowContext, *, store: SimulationStore) -> No
                         getattr(obj, "default_cell_samples_per_axis", 8)
                     )
                     geo_grp.attrs["source_kind"] = str(getattr(obj, "source_kind", "raster"))
-
-                    mesh = getattr(ctx, "setup", None)
-                    cell_mesh = getattr(mesh, "cell_mesh", None) if mesh else None
-                    if cell_mesh is not None:
-                        try:
-                            disc = obj.on_mesh(to_field_mesh(cell_mesh.mesh))
-                            fractions = getattr(disc, "fractions_by_zone", {})
-                            for zone_key, frac_array in fractions.items():
-                                safe_key = zone_key.replace("/", "_").replace(" ", "_")
-                                sz.write_forcing_field(
-                                    f"geology_frac_{safe_key}",
-                                    np.asarray(frac_array, dtype="float64"),
-                                    unit="fraction",
-                                    source=f"geology:{zone_key}",
-                                )
-                            written += 1
-                        except Exception:
-                            logger.debug("Failed to persist geology zone fractions")
-
                     written += 1
                 except Exception:
                     logger.debug("Failed to persist geology forcing")
+
+                # The fractions the solvers map K, Sy and Ss with, not a second
+                # sampling: an error here is the solver's error, never swallowed.
+                cell_mesh = getattr(getattr(ctx, "setup", None), "cell_mesh", None)
+                if cell_mesh is not None:
+                    fractions = zone_fractions(cell_mesh, obj)
+                    for zone_key, frac_array in fractions.by_zone().items():
+                        safe_key = zone_key.replace("/", "_").replace(" ", "_")
+                        sz.write_forcing_field(
+                            f"geology_frac_{safe_key}",
+                            np.asarray(frac_array, dtype="float64"),
+                            unit="fraction",
+                            source=f"geology:{zone_key}",
+                        )
+                    written += 1
                 continue
 
             if name == "hydrography":

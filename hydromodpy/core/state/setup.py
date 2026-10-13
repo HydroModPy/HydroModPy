@@ -37,7 +37,6 @@ class SetupContext:
     mesh_bundle: Any = None
     # The planar cell mesh the solvers read (spatial.mesh PlanarCellMesh).
     cell_mesh: Any = None
-    mesh_support: Any = None
     flow_runtime_overrides: dict[str, Any] | None = None
     run_id: str = "default"
     time_grid: Any = None

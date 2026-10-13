@@ -2,14 +2,15 @@
 
 The Boussinesq backend accepts either:
 
-- one runtime planar cell mesh together with ``Flow``/``Domain`` property
-  mapping (same spirit as the MODFLOW adapters), or
-- one gmsh-derived ``CatchmentMeshBundle`` (historical fallback).
+- one runtime planar cell mesh, its properties mapped from ``Flow``/``Domain``
+  like the MODFLOW adapters do, or
+- one gmsh-derived ``CatchmentMeshBundle`` that carries its own properties per
+  cell (the validation runtimes).
 
-The helpers below resolve a ready-to-solve ``BoussinesqMesh`` from either
-input, completing missing per-cell properties from ``Flow`` parameters when
-needed. Keeping them out of the adapter file makes the adapter symmetrical
-with ``solver/modflow6/adapters/flow.py`` and ``solver/modflow_nwt``.
+A bundle is never completed from ``Flow`` parameters: a flow ``K`` or ``Sy`` next
+to a bundle is refused, so one property never has two silent sources. Keeping
+these helpers out of the adapter file makes the adapter symmetrical with
+``solver/modflow6/adapters/flow.py`` and ``solver/modflow_nwt``.
 """
 
 from __future__ import annotations
@@ -19,15 +20,12 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.physics.flow.boundary_condition_registry import is_boundary_condition_active
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.property_mapping import (
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
 )
-from hydromodpy.spatial.geographic.core.derived_features import resolve_river_mesh_trace
-from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import to_field_mesh
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
     load_catchment_mesh_bundle,
@@ -86,11 +84,6 @@ def _has_any_flow_parameter(*, flow: object, canonical_name: str) -> bool:
     return any(alias in parameters for alias in aliases)
 
 
-def _flow_uses_stream_bc(flow: object) -> bool:
-    """Tell whether the current Flow run activates the stream boundary condition."""
-    return is_boundary_condition_active(flow, "stream")
-
-
 def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
     """Build one direct solver mesh from runtime mesh + Flow/Domain mapping."""
     cell_mesh = getattr(setup_state, "cell_mesh", None)
@@ -114,7 +107,7 @@ def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
     property_arrays = resolve_flow_property_arrays(
         flow=flow,
         domain=domain,
-        solver_mesh=to_field_mesh(cell_mesh.mesh),
+        cell_mesh=cell_mesh,
         required_properties=required_properties,
     )
     conductivity = np.asarray(
@@ -128,12 +121,6 @@ def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
         ),
         dtype=float,
     )
-    geographic_features = getattr(setup_state, "geographic_features", None)
-    river_trace = resolve_river_mesh_trace(
-        geographic_features=geographic_features,
-    )
-    if _flow_uses_stream_bc(flow) and river_trace is None:
-        return None
     mesh_summary = getattr(setup_state, "mesh_summary", None)
     output_mesh = (
         str(mesh_summary.get("output_mesh", "")).strip() if isinstance(mesh_summary, dict) else ""
@@ -143,39 +130,39 @@ def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
         domain=domain,
         hydraulic_conductivity_m_s=conductivity,
         storage_coefficient=storage,
-        river_trace=river_trace,
         source_path=Path(output_mesh).expanduser() if output_mesh != "" else None,
     )
 
 
-def _resolve_optional_bundle_property_arrays(
+def _refuse_flow_properties_on_bundle(
+    flow: object,
     *,
-    setup_state: object,
-    requested_properties: frozenset[str],
-) -> dict[str, np.ndarray]:
-    """Map available flow properties onto the bundle planar mesh when requested."""
-    if not requested_properties:
-        return {}
+    bundle: CatchmentMeshBundle,
+    bundle_carries: dict[str, bool],
+) -> None:
+    """Refuse a flow K or Sy on a run whose cells come from a mesh bundle.
 
-    cell_mesh = getattr(setup_state, "cell_mesh", None)
-    flow = getattr(setup_state, "flow", None)
-    if cell_mesh is None or flow is None:
-        return {}
-
-    available_properties = frozenset(
-        canonical_name
-        for canonical_name in requested_properties
-        if _has_any_flow_parameter(flow=flow, canonical_name=canonical_name)
-    )
-    if not available_properties:
-        return {}
-
-    return resolve_flow_property_arrays(
-        flow=flow,
-        domain=getattr(setup_state, "domain", None),
-        solver_mesh=to_field_mesh(cell_mesh.mesh),
-        required_properties=available_properties,
-    )
+    A bundle carries its properties per cell (or as a metadata default). A flow
+    parameter next to it would either overwrite them in silence or be ignored in
+    silence; it is neither. A flow parameter is mapped on a cell mesh only.
+    """
+    labels = {"K": "hydraulic_conductivity_m_s", "Sy": "storage_coefficient"}
+    for canonical_name, column in labels.items():
+        if flow is None or not _has_any_flow_parameter(flow=flow, canonical_name=canonical_name):
+            continue
+        source = f"the mesh bundle {bundle.bundle_dir}"
+        if bundle_carries[canonical_name]:
+            raise ValueError(
+                f"Two sources set {canonical_name} for flow/boussinesq: {source} carries "
+                f"'{column}' (per cell or as a metadata default) and [flow.param."
+                f"{canonical_name}] sets it too. Keep one: drop the flow parameter, or "
+                "drop the bundle values."
+            )
+        raise ValueError(
+            f"[flow.param.{canonical_name}] cannot be mapped on {source}: a bundle run "
+            f"reads '{column}' from the bundle. Write the values in the bundle, or run "
+            "on a cell mesh (state.setup.cell_mesh)."
+        )
 
 
 def resolve_bundle_solver_mesh(
@@ -183,76 +170,45 @@ def resolve_bundle_solver_mesh(
     *,
     bundle: CatchmentMeshBundle,
 ) -> BoussinesqMesh:
-    """Build one solver mesh from a bundle, completing missing hydraulic terms."""
+    """Build one solver mesh from a bundle and the properties it carries."""
     flow = getattr(setup_state, "flow", None)
     regime = normalize_flow_regime(getattr(flow, "flow_regime", "transient"))
-    metadata_view = bundle.metadata_view
-    hydraulic_view = metadata_view.hydraulic_properties
-
-    needs_conductivity = any(cell.hydraulic_conductivity_m_s is None for cell in bundle.cells)
-    needs_storage = any(cell.storage_coefficient is None for cell in bundle.cells)
-    needed_properties: set[str] = set()
-    if needs_conductivity and hydraulic_view.conductivity.default_value is None:
-        needed_properties.add("K")
-    if needs_storage:
-        if hydraulic_view.storage_coefficient.default_value is None:
-            has_flow_sy = flow is not None and _has_any_flow_parameter(
-                flow=flow, canonical_name="Sy"
-            )
-            if regime != "steady" or has_flow_sy:
-                needed_properties.add("Sy")
-
-    override_properties: set[str] = set()
-    if flow is not None:
-        if _has_any_flow_parameter(flow=flow, canonical_name="K"):
-            override_properties.add("K")
-        if _has_any_flow_parameter(flow=flow, canonical_name="Sy"):
-            override_properties.add("Sy")
-
-    property_arrays = _resolve_optional_bundle_property_arrays(
-        setup_state=setup_state,
-        requested_properties=frozenset(needed_properties | override_properties),
+    hydraulic_view = bundle.metadata_view.hydraulic_properties
+    default_k = hydraulic_view.conductivity.default_value
+    default_storage = hydraulic_view.storage_coefficient.default_value
+    _refuse_flow_properties_on_bundle(
+        flow,
+        bundle=bundle,
+        bundle_carries={
+            "K": default_k is not None
+            or any(cell.hydraulic_conductivity_m_s is not None for cell in bundle.cells),
+            "Sy": default_storage is not None
+            or any(cell.storage_coefficient is not None for cell in bundle.cells),
+        },
     )
-    mapped_conductivity = property_arrays.get("hydraulic_conductivity_m_s")
-    mapped_storage = property_arrays.get("storage_coefficient")
 
     completed_cells = []
-    for cell_index, bundle_cell in enumerate(bundle.cells):
-        conductivity = (
-            float(mapped_conductivity[cell_index])
-            if mapped_conductivity is not None
-            else bundle_cell.hydraulic_conductivity_m_s
-        )
+    for bundle_cell in bundle.cells:
+        conductivity = bundle_cell.hydraulic_conductivity_m_s
         if conductivity is None:
-            default_k = hydraulic_view.conductivity.default_value
-            if default_k is not None:
-                conductivity = float(default_k)
-            elif mapped_conductivity is not None:
-                conductivity = float(mapped_conductivity[cell_index])
-            else:
+            if default_k is None:
                 raise ValueError(
                     "Boussinesq requires hydraulic_conductivity_m_s for every cell; "
                     f"cannot complete missing value on cell_id={int(bundle_cell.cell_id)}."
                 )
+            conductivity = default_k
 
-        storage = (
-            float(mapped_storage[cell_index])
-            if mapped_storage is not None
-            else bundle_cell.storage_coefficient
-        )
+        storage = bundle_cell.storage_coefficient
         if storage is None:
-            default_storage = hydraulic_view.storage_coefficient.default_value
             if default_storage is not None:
-                storage = float(default_storage)
-            elif mapped_storage is not None:
-                storage = float(mapped_storage[cell_index])
+                storage = default_storage
             elif regime == "steady":
                 storage = 0.0
             else:
                 raise ValueError(
                     "Boussinesq requires storage_coefficient for every cell; "
-                    "provide one bundle default, a flow Sy parameter, or per-cell "
-                    f"bundle values. Missing value on cell_id={int(bundle_cell.cell_id)}."
+                    "provide one bundle default or per-cell bundle values. Missing "
+                    f"value on cell_id={int(bundle_cell.cell_id)}."
                 )
 
         completed_cells.append(

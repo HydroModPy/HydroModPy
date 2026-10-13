@@ -1,10 +1,37 @@
-"""Shared helpers for field-based solver property mapping."""
+"""The one mapping of the hydraulic properties of a flow onto a cell mesh.
+
+Every solver reads K, Kv, Sy and Ss from ``map_flow_properties``: one value per
+cell, evaluated at each layer-centre depth. A homogeneous parameter is its value
+times its vertical profile. A heterogeneous one is the zone-weighted mean of its
+zone values on the fractions ``zone_fractions`` gives for its spatial support.
+MODFLOW passes the layer-centre depths of its solver mesh, Boussinesq one layer
+at depth zero.
+"""
 
 from __future__ import annotations
+
+from collections.abc import Mapping
 
 import numpy as np
 
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
+    WeightedAverageFieldDiscretization,
+)
+from hydromodpy.spatial.field.zone_fractions import ZoneFractions, zone_fractions
+from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import to_field_mesh
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+
+logger = get_logger(__name__)
+
+FLOW_PROPERTY_SPECS: tuple[tuple[str, tuple[str, ...], str, str], ...] = (
+    ("K", ("K", "k"), "hk", "Hydraulic conductivity"),
+    ("Kv", ("Kv", "kv", "K33", "k33"), "kv", "Vertical hydraulic conductivity"),
+    ("Sy", ("Sy", "SY", "sy", "S", "s"), "sy", "Specific yield"),
+    ("Ss", ("Ss", "SS", "ss"), "ss", "Specific storage"),
+)
+"""Canonical name, flow parameter aliases, output name and label of each property."""
 
 
 def coerce_spatial_support_field(zone_obj, *, support_id: str | None = None):
@@ -128,8 +155,112 @@ def require_positive_conductivity(
     raise DataContractViolation(detail + hint)
 
 
+def map_flow_properties(
+    *,
+    flow: object,
+    domain: object,
+    cell_mesh: PlanarCellMesh,
+    layer_depths: np.ndarray,
+    properties: tuple[str, ...],
+    required: frozenset[str] | set[str],
+    optional_fill_values: Mapping[str, float] | None = None,
+    runtime_overrides: Mapping[str, np.ndarray] | None = None,
+) -> dict[str, np.ndarray]:
+    """Map the flow properties named in ``properties`` onto the cells of ``cell_mesh``.
+
+    ``layer_depths`` is ``(nlay, n_cells)``, the depth below the top of each
+    layer centre. Each mapped property ``p`` gives ``p`` ``(nlay, n_cells)`` and
+    ``p_value`` ``(n_cells,)``, the values at depth zero (``hk``, ``hk_value``,
+    ...). A property with no flow parameter is mapped from
+    ``optional_fill_values`` when it is not required, and left out when no fill
+    value is given. ``runtime_overrides`` are arrays already shaped as the output
+    (``resolve_flow_property_runtime_overrides``); they win over the flow.
+    """
+    depths = np.asarray(layer_depths, dtype=float)
+    n_cells = int(cell_mesh.n_cells)
+    if depths.ndim != 2 or depths.shape[1] != n_cells:
+        raise ValueError(f"layer_depths must have shape (nlay, {n_cells}), got {depths.shape}")
+    parameters = getattr(flow, "parameters", None)
+    if not isinstance(parameters, dict):
+        raise TypeError("flow.parameters must be a dictionary")
+    overrides = dict(runtime_overrides or {})
+    fill_values = {str(name): float(value) for name, value in (optional_fill_values or {}).items()}
+    field_mesh = to_field_mesh(cell_mesh.mesh)
+    fractions_by_support: dict[int, ZoneFractions] = {}
+
+    out: dict[str, np.ndarray] = {}
+    for canonical, aliases, name, label in FLOW_PROPERTY_SPECS:
+        if canonical not in properties:
+            continue
+        if name in overrides:
+            out[name] = np.asarray(overrides[name], dtype=float).copy()
+            out[f"{name}_value"] = np.asarray(overrides[f"{name}_value"], dtype=float).copy()
+            continue
+        if not any(alias in parameters for alias in aliases) and canonical not in required:
+            fill = fill_values.get(canonical)
+            if fill is not None:
+                out[name] = np.full(depths.shape, fill, dtype=float)
+                out[f"{name}_value"] = np.full(n_cells, fill, dtype=float)
+            continue
+        selected, param = resolve_field_param(flow=flow, aliases=aliases, property_label=label)
+        discretization = None
+        if getattr(param, "is_heterogeneous", False):
+            support = _heterogeneous_support(param, domain=domain, property_label=label)
+            fractions = fractions_by_support.get(id(support))
+            if fractions is None:
+                fractions = zone_fractions(cell_mesh, support)
+                fractions_by_support[id(support)] = fractions
+            discretization = WeightedAverageFieldDiscretization(
+                mesh=field_mesh,
+                field_id=str(support.identifier),
+                zone_keys=fractions.zone_keys,
+                fractions_by_zone=fractions.by_zone(),
+            )
+        out[f"{name}_value"] = _cell_values(param, discretization, field_mesh, name, 0.0)
+        out[name] = np.vstack(
+            [_cell_values(param, discretization, field_mesh, name, depth) for depth in depths]
+        )
+        logger.debug("%s mapped from flow.%s", label, selected)
+    return out
+
+
+def _heterogeneous_support(param: object, *, domain: object, property_label: str) -> object:
+    """The spatial support a heterogeneous parameter names, checked against its id."""
+    if domain is None:
+        raise ValueError(f"Cannot map {property_label}: missing domain for heterogeneous parameter")
+    required_id = str(getattr(param, "field_spatial_id", "")).strip()
+    support = coerce_spatial_support_field(
+        resolve_spatial_support_from_domain(domain=domain, support_id=required_id),
+        support_id=required_id,
+    )
+    support_id = str(getattr(support, "identifier", "")).strip()
+    if support_id and support_id != required_id:
+        raise ValueError(
+            "field_param.field_spatial_id does not match support_field.identifier: "
+            f"{required_id!r} != {support_id!r}"
+        )
+    return support
+
+
+def _cell_values(
+    param: object,
+    discretization: WeightedAverageFieldDiscretization | None,
+    field_mesh: object,
+    name: str,
+    depth: float | np.ndarray,
+) -> np.ndarray:
+    """One value per cell of a parameter at one depth (scalar or per cell)."""
+    if discretization is None:
+        values = param.to_mesh_field(mesh=field_mesh, label=name, depth=depth)
+    else:
+        values = param.to_mesh_field(discretization, label=name, depth=depth)
+    return np.asarray(values.cell_values, dtype=float).reshape(-1)
+
+
 __all__ = [
+    "FLOW_PROPERTY_SPECS",
     "coerce_spatial_support_field",
+    "map_flow_properties",
     "require_positive_conductivity",
     "resolve_field_param",
     "resolve_spatial_support_from_domain",

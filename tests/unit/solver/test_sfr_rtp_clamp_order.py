@@ -22,6 +22,7 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     build_sfr_package_args,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 # Defaults the builder applies when the definition omits them.
 _RBTH = 1.0  # streambed_thickness default
@@ -46,7 +47,7 @@ def _two_cell_mesh(*, up_bottom: float, down_bottom: float) -> SolverMesh:
     # downstream cell gets a HIGH bottom so its floor lifts rtp above the upstream.
     top = np.full((1, 2), 100.0)
     botm = np.array([[[up_bottom, down_bottom]]], dtype=float)  # (nlay=1, nrow=1, ncol=2)
-    return SolverMesh.from_structured_arrays(nrow=1, ncol=2, top=top, botm=botm, dx=10.0, dy=10.0)
+    return solver_mesh_from_structured_arrays(nrow=1, ncol=2, top=top, botm=botm, dx=10.0, dy=10.0)
 
 
 def _chain_network(*, rtp_up: float, rtp_down: float) -> ResolvedSfrNetwork:

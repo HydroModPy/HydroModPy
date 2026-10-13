@@ -19,6 +19,7 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
 )
 from hydromodpy.solver.modflow_common.drain_conductance import hk_fallback_drain_conductance
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def test_hk_fallback_conductance_formula_and_guards() -> None:
@@ -52,7 +53,7 @@ def test_the_fallback_no_longer_guards_a_zero_thickness() -> None:
 
 
 def _drn_mesh(thickness: float) -> SolverMesh:
-    return SolverMesh.from_structured_arrays(
+    return solver_mesh_from_structured_arrays(
         nrow=1,
         ncol=6,
         top=np.full((1, 6), thickness),

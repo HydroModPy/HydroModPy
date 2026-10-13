@@ -466,6 +466,8 @@ def _load_boussinesq_budget_rows(
             run_folder,
             config_path=config_path,
             expected_size=n_cells,
+            store=store,
+            sim_id=sim_id,
         )
         if cells is not None:
             if cells.area_m2 is not None:
@@ -840,6 +842,8 @@ def _load_boussinesq_obstacle_diagnostic_rows(
         run_folder,
         config_path=config_path,
         expected_size=n_cells,
+        store=store,
+        sim_id=sim_id,
     )
     if cells is None:
         return []

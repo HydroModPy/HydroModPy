@@ -1,7 +1,7 @@
 """The ``regular`` engine hands the solvers the grid the flopy round trip handed them.
 
 Before the unified mesh, a regular grid went surfaces -> ``StructuredGridBuilder``
--> flopy ``StructuredGrid`` -> ``SolverMesh.from_sgrid``. Now the planar grid is
+-> flopy ``StructuredGrid`` -> a ``SolverMesh``. Now the planar grid is
 the one of the engine and the surfaces give the vertical part only. The input
 files of MODFLOW-NWT (DIS) and MODFLOW 6 (DISV) must not move by one bit.
 """
@@ -28,6 +28,7 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.spatial.mesh.request import MeshRequest, RasterGridSpec
 from tests._helpers.cell_meshes import TEST_CRS_WKT
+from tests._helpers.solver_meshes import solver_mesh_from_sgrid
 
 _NODATA = -9999.0
 
@@ -123,7 +124,7 @@ def _legacy_solver_mesh(case: _Case, domain: Domain, vertical: VerticalGridConfi
         crs=spec.crs,
     )
     inactive = ~np.isfinite(top) | ~np.isfinite(bottom) | (top <= _NODATA) | (bottom <= _NODATA)
-    return SolverMesh.from_sgrid(
+    return solver_mesh_from_sgrid(
         sgrid, zbot=np.asarray(sgrid.botm, dtype=float), inactive_mask=inactive
     )
 

@@ -25,6 +25,9 @@ if TYPE_CHECKING:
 
     from hydromodpy.core.config_kit.export_spec import ExportRequest
 
+# Most pixels a raster export may default to; above it the caller names a resolution.
+_MAX_DEFAULT_PIXELS = 100_000_000
+
 # Filter columns that map to a real simulations.* column (no dim join).
 _SIMULATION_DIRECT_FILTERS: frozenset[str] = frozenset(
     {
@@ -568,32 +571,37 @@ class ReadsMixin:
         wkt_attr = attrs.get("crs_wkt")
         return str(wkt_attr) if wkt_attr else None
 
-    def _default_resolution(self, sim_id: str) -> float | None:
-        """Native cell size for raster exports when the caller omits one.
+    def _default_resolution(self, sim_id: str) -> float:
+        """Native pixel size for raster exports when the caller omits one.
 
-        Prefers the grid's ``cell_size`` (exact for regular grids); falls back
-        to ``sqrt(area / n_cells)`` from the catalog bbox. Returns ``None`` when
-        neither is available, leaving the exporter to raise a clear error.
+        The side of a square of the smallest cell of the run's own mesh, so no
+        cell is thinner than a pixel. It reads the mesh, never the DEM: a mesh
+        is not obliged to follow the DEM pixels (cells of a regular run still
+        give the DEM pixel size).
+
+        Raises
+        ------
+        ValueError
+            If the default would give more than ``_MAX_DEFAULT_PIXELS`` pixels
+            over the extent of the mesh, as on a mesh refined to a few metres
+            over a large domain. The caller then names a ``resolution``.
         """
-        try:
-            from hydromodpy.results.run import Run
+        from hydromodpy.results.run import Run
 
-            cell_size = getattr(Run(sim_id, self).grid, "cell_size", None)
-            if cell_size:
-                return float(cell_size)
-        except Exception:
-            pass
-        row = self._backend.fetch_one(
-            "SELECT bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax, n_cells "
-            "FROM simulations WHERE sim_id = ?",
-            [sim_id],
-        )
-        if not row:
-            return None
-        xmin, ymin, xmax, ymax, n_cells = row
-        if None in (xmin, ymin, xmax, ymax) or not n_cells:
-            return None
-        area = (float(xmax) - float(xmin)) * (float(ymax) - float(ymin))
-        if area <= 0 or n_cells <= 0:
-            return None
-        return math.sqrt(area / float(n_cells))
+        mesh = Run(sim_id, self).mesh
+        areas = mesh.cell_areas()
+        areas = areas[np.isfinite(areas) & (areas > 0.0)]
+        if areas.size == 0:
+            raise ValueError(f"Run '{sim_id}' has no cell with a positive area in its mesh.")
+        resolution = math.sqrt(float(areas.min()))
+        width = float(np.ptp(mesh.vertices[:, 0]))
+        height = float(np.ptp(mesh.vertices[:, 1]))
+        n_pixels = math.ceil(width / resolution) * math.ceil(height / resolution)
+        if n_pixels > _MAX_DEFAULT_PIXELS:
+            raise ValueError(
+                f"The default GeoTIFF resolution of run '{sim_id}' is {resolution:.3g} m "
+                f"(the side of its smallest cell), which gives {n_pixels:,} pixels over the "
+                f"mesh extent, above the {_MAX_DEFAULT_PIXELS:,} allowed. "
+                "Give a coarser resolution (resolution=...)."
+            )
+        return resolution

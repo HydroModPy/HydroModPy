@@ -7,7 +7,7 @@ with the SAME physics and forced through the production LAK builders:
 * IRREGULAR: a Delaunay TRIANGLE DISV over the same 600 m square, the same four
   layers and the same lake footprint, refined to ~20 m around the lake so the
   triangle footprint tiles the lake polygon exactly (nodes are pinned on the lake
-  boundary lines so ``GridIntersect`` returns the same 200 m x 200 m area as the
+  boundary lines so the lake cell rule returns the same 200 m x 200 m area as the
   quad grid). HMP ``SolverMesh`` carries homogeneous triangle cells only, so an
   irregular triangulation is the non-rectangular mesh the builder consumes.
 
@@ -36,12 +36,12 @@ from hydromodpy.solver.modflow6.builders.lake import (
     apply_lake_idomain_mask,
     build_lak_package_args,
     build_lake_period_data,
-    build_vertex_grid_for_intersection,
     resolve_lake_cells,
 )
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from validation_cases.shared.solver_mesh import solver_mesh_of
 
 from .geometry import CASE_DIR, PleasantTransientGeometry, load_geometry
 from .runtime_lak import TransientLakeRunResult, run_hmp
@@ -186,8 +186,8 @@ def _triangular_solver_mesh(geometry: PleasantTransientGeometry) -> SolverMesh:
     )
     n_cells = planar.n_cells
     botm = np.stack([np.full(n_cells, b) for b in geometry.botm_m])
-    return SolverMesh(
-        planar_mesh=planar,
+    return solver_mesh_of(
+        planar,
         top=np.full(n_cells, geometry.top_m),
         botm=botm,
         inactive_mask=np.zeros((geometry.nlay, n_cells), dtype=bool),
@@ -410,9 +410,8 @@ def _exchange_flux_per_period(path: Path, n_periods: int) -> tuple[float, ...]:
 def _run_irregular(workspace: Path, geometry: PleasantTransientGeometry) -> GridRunResult:
     """Build, run and summarise the irregular triangle-grid LAK simulation."""
     mesh = _triangular_solver_mesh(geometry)
-    vertex_grid = build_vertex_grid_for_intersection(mesh)
     lake_cells = resolve_lake_cells(
-        None, lake_id=_LAKE_ID, polygon=_lake_polygon(geometry), vertex_grid=vertex_grid
+        None, lake_id=_LAKE_ID, polygon=_lake_polygon(geometry), cell_mesh=mesh.cell_mesh
     )
     sim, gwf, connectiondata = _build_irregular_simulation(workspace, geometry, mesh, lake_cells)
     sim.write_simulation(silent=True)

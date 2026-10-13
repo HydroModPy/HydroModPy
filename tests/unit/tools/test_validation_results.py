@@ -259,3 +259,47 @@ def test_a_detached_checkout_takes_the_event_branch_only_for_its_commit() -> Non
     assert checkout_identity(_fake_git("other", "HEAD"), env) == ("other", "")
     # Without git, the event is all there is.
     assert checkout_identity(_fake_git("", ""), env) == ("abc", "main")
+
+
+def test_a_replaced_result_keeps_the_values_of_the_one_before_it(tmp_path: Path) -> None:
+    old = V.collect([_part(tmp_path, "a", "2026-10-01T00:00:00", "aaaa", "passed", 0.01)])
+    new = V.collect([_part(tmp_path, "b", "2026-10-02T00:00:00", "bbbb", "passed", 0.05)])
+    third = V.collect([_part(tmp_path, "c", "2026-10-03T00:00:00", "cccc", "passed", 0.09)])
+    first = V.merge({}, old, replace=False, repo=ROOT)
+    assert "previous" not in next(iter(first["tests"].values()))
+    second = V.merge(first, new, replace=False, repo=ROOT)
+    prev = next(iter(second["tests"].values()))["previous"]
+    assert prev == {
+        "date": "2026-10-01T00:00:00",
+        "commit": "aaaa",
+        "metrics": [{"name": "order", "value": 0.01}],
+    }
+    last = next(iter(V.merge(second, third, replace=False, repo=ROOT)["tests"].values()))
+    assert last["previous"]["commit"] == "bbbb"
+    assert "previous" not in last["previous"]
+    assert last["metrics"][0]["value"] == 0.09
+
+
+def test_replace_mode_still_takes_previous_from_the_old_snapshot(tmp_path: Path) -> None:
+    old = V.collect([_part(tmp_path, "a", "2026-10-01T00:00:00", "aaaa", "passed", 0.01)])
+    new = V.collect([_part(tmp_path, "b", "2026-10-02T00:00:00", "bbbb", "passed", 0.05)])
+    first = V.merge({}, old, replace=False, repo=ROOT)
+    again = V.merge(first, new, replace=True, repo=ROOT)
+    (test,) = again["tests"].values()
+    assert test["previous"]["metrics"] == [{"name": "order", "value": 0.01}]
+    assert list(again["runs"]) == [V.run_key(new["runs"][test["run"]])]
+
+
+def test_merging_the_same_run_again_changes_no_previous(tmp_path: Path) -> None:
+    old = V.collect([_part(tmp_path, "a", "2026-10-01T00:00:00", "aaaa", "passed", 0.01)])
+    new = V.collect([_part(tmp_path, "b", "2026-10-02T00:00:00", "bbbb", "passed", 0.05)])
+    snap = V.merge(V.merge({}, old, replace=False, repo=ROOT), new, replace=False, repo=ROOT)
+    again = V.merge(snap, new, replace=False, repo=ROOT)
+    assert again == snap
+
+
+def test_an_older_run_replaces_nothing_and_adds_no_previous(tmp_path: Path) -> None:
+    new = V.collect([_part(tmp_path, "b", "2026-10-02T00:00:00", "bbbb", "passed", 0.05)])
+    old = V.collect([_part(tmp_path, "a", "2026-10-01T00:00:00", "aaaa", "passed", 0.01)])
+    snap = V.merge({}, new, replace=False, repo=ROOT)
+    assert V.merge(snap, old, replace=False, repo=ROOT) == snap

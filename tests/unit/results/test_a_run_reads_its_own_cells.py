@@ -1,0 +1,255 @@
+"""A run places its field values on its own mesh, not on the DEM pixels.
+
+``Run.field(bbox=)`` and the xarray reader select the cells whose centre lies in
+the box, the centres being the ones of ``run.mesh``. The default GeoTIFF
+resolution is the side of the smallest cell of that mesh. Neither reads the DEM
+grid of the catalog, which a mesh is not obliged to follow.
+"""
+
+from __future__ import annotations
+
+from uuid import uuid4
+
+import numpy as np
+import pytest
+
+from hydromodpy.core.config_kit.export_spec import ExportRequest
+from hydromodpy.results.run import Run
+from hydromodpy.results.run.contracts import Mesh, polygon_areas
+from tests._helpers.fixtures_catalog import simulation_catalog
+
+LAMBERT_X0, LAMBERT_Y0, CELL = 385_050.0, 6_814_050.0, 75.0
+
+
+@pytest.fixture
+def catalog(tmp_path):
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        yield cat
+
+
+def _register(
+    catalog,
+    vertices: np.ndarray,
+    faces: np.ndarray,
+    values: np.ndarray,
+    *,
+    structured_shape: tuple[int, int] | None = None,
+    dem_shape: tuple[int, int] | None = None,
+) -> str:
+    """Register a one-period run on the given mesh, with an optional DEM grid of its own."""
+    sid = str(uuid4())
+    reg = catalog.register_simulation(
+        sid,
+        project="p",
+        solver="modflow6",
+        n_cells=len(faces),
+        n_layers=1,
+        n_timesteps=1,
+        crs="EPSG:2154",
+        period_start="2000-01-01",
+        period_end="2000-02-01",
+        time_unit="month",
+        config={"k": 1},
+    )
+    if reg.zarr is not None:
+        reg.zarr.close()
+    store = catalog.open_zarr(sid)
+    try:
+        store.write_mesh(vertices, faces, np.array([10.0, 0.0]), structured_shape=structured_shape)
+    finally:
+        store.close()
+    catalog.write_time(sid, np.array(["2000-02-01"], dtype="datetime64[s]").astype("int64"))
+    catalog.write_crs(sid, crs_wkt="EPSG:2154", epsg_code=2154)
+    catalog.write_field(sid, "head", 0, values.reshape(1, -1), n_timesteps=1)
+    if dem_shape is not None:
+        nrow, ncol = dem_shape
+        catalog.write_geographic_metadata(
+            sid,
+            {"dem_res": 50.0, "nrow": nrow, "ncol": ncol, "crs_proj": "EPSG:2154"},
+        )
+        catalog.write_geographic_raster(
+            sid,
+            "watershed_dem",
+            np.full((nrow, ncol), 100.0),
+            transform=(50.0, 0.0, 0.0, 0.0, -50.0, 500.0),
+            crs="EPSG:2154",
+            nodata=-9999.0,
+        )
+    return sid
+
+
+def _lambert_grid(nrow: int, ncol: int) -> tuple[np.ndarray, np.ndarray]:
+    """A grid of 75 m cells in Lambert-93, row 0 at the north, as the regular engine writes it."""
+    ys = LAMBERT_Y0 + CELL * (nrow - np.arange(nrow + 1))
+    xs = LAMBERT_X0 + CELL * np.arange(ncol + 1)
+    vertices = np.array([[x, y, 0.0] for y in ys for x in xs])
+    node = np.arange((nrow + 1) * (ncol + 1)).reshape(nrow + 1, ncol + 1)
+    faces = np.array(
+        [
+            [node[i, j], node[i, j + 1], node[i + 1, j + 1], node[i + 1, j]]
+            for i in range(nrow)
+            for j in range(ncol)
+        ],
+        dtype=np.int32,
+    )
+    return vertices, faces
+
+
+def _irregular_mesh() -> tuple[np.ndarray, np.ndarray]:
+    """Six cells of 3, 4 and 5 corners, padded with -1, none on a pixel lattice."""
+    vertices = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [40.0, 0.0, 0.0],
+            [90.0, 10.0, 0.0],
+            [140.0, 0.0, 0.0],
+            [0.0, 60.0, 0.0],
+            [50.0, 70.0, 0.0],
+            [100.0, 55.0, 0.0],
+            [150.0, 65.0, 0.0],
+            [20.0, 120.0, 0.0],
+            [80.0, 125.0, 0.0],
+            [140.0, 120.0, 0.0],
+        ]
+    )
+    faces = np.array(
+        [
+            [0, 1, 5, 4, -1],
+            [1, 2, 6, 5, -1],
+            [2, 3, 7, 6, -1],
+            [4, 5, 9, 8, -1],
+            [5, 6, 9, -1, -1],
+            [6, 7, 10, 9, -1],
+        ],
+        dtype=np.int32,
+    )
+    return vertices, faces
+
+
+def test_bbox_selects_the_cells_of_an_irregular_mesh(catalog) -> None:
+    vertices, faces = _irregular_mesh()
+    values = np.arange(1.0, 7.0)
+    # The DEM grid has as many pixels as the mesh has cells, 2 x 3 = 6, at other places.
+    sid = _register(catalog, vertices, faces, values, dem_shape=(2, 3))
+    run = Run(sid, catalog)
+
+    box = (0.0, 0.0, 100.0, 70.0)
+    centers = run.mesh.cell_centers()
+    inside = (
+        (centers[:, 0] >= box[0])
+        & (centers[:, 0] <= box[2])
+        & (centers[:, 1] >= box[1])
+        & (centers[:, 1] <= box[3])
+    )
+    assert 0 < inside.sum() < len(values)
+
+    masked = run.field("head", 0, bbox=box)
+    np.testing.assert_array_equal(np.isfinite(masked[0]), inside)
+    np.testing.assert_array_equal(masked[0][inside], values[inside])
+
+    dataset = run.array.to_xarray_batch(("head",), bbox=box)
+    assert dataset.sizes["cell"] == inside.sum()
+    np.testing.assert_array_equal(dataset["head"].values.reshape(-1), values[inside])
+
+
+def test_bbox_on_a_grid_of_pixels_keeps_the_pixel_rule(catalog) -> None:
+    nrow, ncol = 4, 5
+    vertices, faces = _lambert_grid(nrow, ncol)
+    values = np.arange(nrow * ncol, dtype=float)
+    sid = _register(catalog, vertices, faces, values, structured_shape=(nrow, ncol))
+    run = Run(sid, catalog)
+
+    # The rule of the DEM lattice: pixel (i, j) is centred at (xmin + (j + .5) cs, ymax - (i + .5) cs).
+    cols, rows = np.meshgrid(np.arange(ncol), np.arange(nrow))
+    xs = LAMBERT_X0 + (cols.ravel() + 0.5) * CELL
+    ys = LAMBERT_Y0 + nrow * CELL - (rows.ravel() + 0.5) * CELL
+    box = (LAMBERT_X0 + CELL, LAMBERT_Y0 + CELL, LAMBERT_X0 + 3.6 * CELL, LAMBERT_Y0 + 3 * CELL)
+    expected = (xs >= box[0]) & (xs <= box[2]) & (ys >= box[1]) & (ys <= box[3])
+
+    masked = run.field("head", 0, bbox=box)
+    np.testing.assert_array_equal(np.isfinite(masked[0]), expected)
+    assert run.mesh.structured_shape == (nrow, ncol)
+
+
+def test_a_bbox_that_is_not_a_box_is_refused(catalog) -> None:
+    vertices, faces = _irregular_mesh()
+    sid = _register(catalog, vertices, faces, np.arange(6.0))
+    with pytest.raises(ValueError, match="xmin<xmax"):
+        Run(sid, catalog).field("head", 0, bbox=(10.0, 0.0, 0.0, 10.0))
+
+
+def test_stored_face_centres_win_over_the_corner_mean() -> None:
+    vertices, faces = _irregular_mesh()
+    mean = Mesh(vertices, faces, np.array([1.0, 0.0])).cell_centers()
+    stored_x, stored_y = mean[:, 0] + 1.0, mean[:, 1] - 2.0
+    stored = Mesh(
+        vertices, faces, np.array([1.0, 0.0]), face_x=stored_x, face_y=stored_y
+    ).cell_centers()
+    np.testing.assert_array_equal(stored, np.column_stack((stored_x, stored_y)))
+    # The mean of a padded row ignores the padding.
+    np.testing.assert_allclose(mean[4], vertices[[5, 6, 9], :2].mean(axis=0))
+
+
+def test_areas_keep_their_precision_far_from_the_origin() -> None:
+    vertices, faces = _lambert_grid(3, 3)
+    np.testing.assert_array_equal(polygon_areas(vertices, faces), np.full(9, CELL * CELL))
+    _, irregular = _irregular_mesh()
+    areas = polygon_areas(_irregular_mesh()[0], irregular)
+    triangle = 0.5 * abs((100 - 50) * (125 - 70) - (80 - 50) * (55 - 70))  # cell 4: corners 5, 6, 9
+    assert areas[4] == pytest.approx(triangle)
+    assert np.isnan(polygon_areas(vertices, np.array([[0, 1, -1, -1]]))[0])
+
+
+def test_the_default_geotiff_resolution_is_the_smallest_cell(catalog) -> None:
+    import rasterio
+
+    vertices, faces = _irregular_mesh()
+    areas = polygon_areas(vertices, faces)
+    sid = _register(catalog, vertices, faces, np.arange(6.0))
+
+    written = catalog.export(sid, ExportRequest(variables="head", time="2000-01-15"))
+
+    with rasterio.open(written[0]) as src:
+        # The exporter fits whole pixels of at most that side over the extent.
+        side = np.sqrt(np.nanmin(areas))
+        assert src.width == int(np.ceil(np.ptp(vertices[:, 0]) / side))
+        assert src.height == int(np.ceil(np.ptp(vertices[:, 1]) / side))
+
+
+def test_a_grid_of_75_m_cells_exports_at_75_m(catalog) -> None:
+    import rasterio
+
+    vertices, faces = _lambert_grid(4, 5)
+    sid = _register(catalog, vertices, faces, np.arange(20.0), structured_shape=(4, 5))
+
+    written = catalog.export(sid, ExportRequest(variables="head", time="2000-01-15"))
+
+    with rasterio.open(written[0]) as src:
+        assert src.res == (CELL, CELL)
+        assert (src.height, src.width) == (4, 5)
+
+
+def test_a_default_that_would_give_too_many_pixels_asks_for_a_resolution(catalog) -> None:
+    # A 1 m cell in a 200 km wide domain: 4e10 pixels.
+    vertices = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [200_000.0, 0.0, 0.0],
+            [200_000.0, 200_000.0, 0.0],
+            [0.0, 200_000.0, 0.0],
+        ]
+    )
+    faces = np.array([[0, 1, 2, 3], [1, 4, 5, 2], [3, 2, 5, 6]], dtype=np.int32)
+    sid = _register(catalog, vertices, faces, np.arange(3.0))
+
+    with pytest.raises(ValueError, match=r"resolution=") as raised:
+        catalog.export(sid, ExportRequest(variables="head", time="2000-01-15"))
+    assert "smallest cell" in str(raised.value)
+
+    written = catalog.export(
+        sid, ExportRequest(variables="head", time="2000-01-15", resolution=20_000.0)
+    )
+    assert written[0].exists()

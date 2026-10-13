@@ -35,6 +35,7 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     PlanarCellMesh,
     build_planar_cell_mesh,
 )
+from hydromodpy.spatial.mesh.ops.side_offset import annotate_side_cells
 from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
 from hydromodpy.spatial.mesh.request import MeshRequest
 
@@ -42,6 +43,11 @@ if TYPE_CHECKING:
     from shapely.geometry import LineString
 
 __all__ = ["TriangleMeshEngine", "TriangulatedRequest", "triangulate_request"]
+
+_SIDE_STATEMENT = (
+    "a side head applies to the triangles that have an edge on the side: their centre is "
+    "the vertex mean, inside the domain"
+)
 
 
 @dataclass(frozen=True, eq=False)
@@ -151,7 +157,7 @@ class TriangleMeshEngine:
             for chain in chains_of(family, triangulated.lookup)
         )
         request = triangulated.request
-        return build_planar_cell_mesh(
+        cell_mesh = build_planar_cell_mesh(
             mesh,
             mesh.vertices[np.asarray(mesh.flat_connectivity)].mean(axis=1),
             geometry=triangulated.geometry,
@@ -174,3 +180,4 @@ class TriangleMeshEngine:
             lines=triangulated.lines_for_qa(),
             notes=triangulated.notes,
         )
+        return annotate_side_cells(cell_mesh, _SIDE_STATEMENT)
