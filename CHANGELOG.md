@@ -34,6 +34,12 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Added
+- `PlanarCellMesh` (`spatial/mesh/model/`): a planar `HydroMesh` with one centre rule for every
+  consumer (`centers`, `center_kind`), a required CRS, cell chains and face families, zone labels,
+  the engine identity and a `MeshQA`. Its `DerivedGeometry` (areas, area centroids, edge table,
+  CSR adjacency, -1 padded connectivity) is computed once and vectorised: 1.5 s for 200 000
+  Voronoi cells against 10.8 s for the per-consumer functions. Adapters build it from a regular
+  grid, a gmsh triangulation with its support, and the current Voronoi dual.
 - A characterization net freezes the triangle and Voronoi meshes before the mesh refactor
   (`tests/regression/mesh/mesh_net/`): cell count, areas and quality quantiles of the current
   dual on two frozen bundles, and MF6 steady heads on the island with an asymmetric recharge;
@@ -52,6 +58,10 @@ Each release section includes the following standard categories:
   set the fill and the drop tolerance of the IMS ILUT preconditioner; unset keeps the preset.
 
 ### Changed
+- The solvers take a `PlanarCellMesh` (`setup.cell_mesh`) instead of a `GmshPlanarMesh2D`
+  (`setup.mesh_planar` is gone). The calibration `mesh_fingerprint` now hashes the cell centres
+  with the true cell count (it hashed a (2, n) tuple and counted 2 cells): calibration caches of
+  gmsh runs miss once. Example 02 `run_cellular.py` still reads `setup.mesh_planar` and fails.
 - MODFLOW-NWT defaults to `options = "MODERATE"`. Under chi-MD, the default linear solver
   since 2.0.0a5, `"COMPLEX"` runs BiCGSTAB on a level-15 incomplete factorization: on the
   ten-layer example 12 regression model it diverged at the first solve and NWT stopped on a

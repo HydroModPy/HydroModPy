@@ -72,19 +72,16 @@ def collect_registration_kwargs(ctx: WorkflowContext) -> dict:
         if tags:
             kwargs["tags"] = list(tags)
 
-    mesh = ctx.setup.mesh_planar
-    if mesh is not None:
-        kwargs["n_cells"] = mesh.n_cells
-        kwargs["mesh_type"] = getattr(mesh, "cell_type", None)
-        kwargs["cell_types"] = [getattr(mesh, "cell_type", "unknown")]
-        bbox = getattr(mesh, "bounds", None)
-        if bbox is not None:
-            kwargs["bbox"] = list(bbox)
-        try:
-            mesh_bytes = mesh.points_xy.tobytes() + mesh.connectivity.tobytes()
-            kwargs["mesh_hash"] = hashlib.sha256(mesh_bytes).hexdigest()
-        except Exception:
-            pass
+    cell_mesh = ctx.setup.cell_mesh
+    if cell_mesh is not None:
+        mesh = cell_mesh.mesh
+        cell_type = mesh.single_cell_type.value
+        kwargs["n_cells"] = cell_mesh.n_cells
+        kwargs["mesh_type"] = cell_type
+        kwargs["cell_types"] = [cell_type]
+        kwargs["bbox"] = list(mesh.bounds())
+        mesh_bytes = mesh.vertices.tobytes() + cell_mesh.connectivity_rows.tobytes()
+        kwargs["mesh_hash"] = hashlib.sha256(mesh_bytes).hexdigest()
 
     crs = getattr(ctx.cfg.geographic, "crs_project", None)
     if crs is not None:

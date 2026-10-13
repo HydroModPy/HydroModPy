@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -22,16 +23,19 @@ from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.boussinesq._mesh_builders import (
     assemble_mesh_arrays_from_bundle,
     build_planar_mesh_kwargs,
-    build_runtime_bundle_from_planar_mesh,
+    build_runtime_bundle_from_cell_mesh,
 )
 from hydromodpy.solver.boussinesq._mesh_geometry import point_in_triangle
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     GmshSupportMetadata,
 )
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 
 @dataclass(frozen=True)
@@ -71,7 +75,7 @@ class BoussinesqMesh:
     edge_is_river: np.ndarray
     cell_index_by_id: dict[int, int]
     node_index_by_id: dict[int, int]
-    planar_mesh: GmshPlanarMesh2D | None = None
+    planar_mesh: HydroMesh | None = None
     support_metadata: GmshSupportMetadata | None = None
     # solver.drain_bed_thickness_m, with the same default. The flow adapter sets it.
     drain_bed_thickness_m: float = 1.0
@@ -237,31 +241,33 @@ class BoussinesqMesh:
         )
 
     @classmethod
-    def from_planar_mesh(
+    def from_cell_mesh(
         cls,
-        mesh: GmshPlanarMesh2D,
+        cell_mesh: PlanarCellMesh,
         *,
         domain: DomainLike,
         hydraulic_conductivity_m_s,
         storage_coefficient,
         river_trace: object | None = None,
+        source_path: Path | None = None,
     ) -> BoussinesqMesh:
-        """Build the solver mesh view directly from one runtime Gmsh mesh.
+        """Build the solver mesh view directly from one runtime planar cell mesh.
 
         This path keeps the solver in the same architectural shape as the
         MODFLOW adapters: geometry comes from the runtime meshing workflow and
         hydraulic properties come from process-level parameter mapping rather
         than pre-exported CSV tables.
         """
-        runtime_bundle = build_runtime_bundle_from_planar_mesh(
-            mesh,
+        runtime_bundle = build_runtime_bundle_from_cell_mesh(
+            cell_mesh,
             domain=domain,
             hydraulic_conductivity_m_s=hydraulic_conductivity_m_s,
             storage_coefficient=storage_coefficient,
             river_trace=river_trace,
+            source_path=source_path,
         )
         base_mesh = cls.from_bundle(runtime_bundle)
-        return cls(**build_planar_mesh_kwargs(base_mesh=base_mesh, planar_mesh=mesh))
+        return cls(**build_planar_mesh_kwargs(base_mesh=base_mesh, planar_mesh=cell_mesh.mesh))
 
     @classmethod
     def from_bundle(cls, bundle: CatchmentMeshBundle) -> BoussinesqMesh:

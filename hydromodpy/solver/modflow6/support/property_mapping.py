@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -26,7 +27,11 @@ from hydromodpy.solver.modflow_common.property_mapping import (
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     resolve_flow_property_runtime_overrides,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
+from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import to_field_mesh
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 _DEFAULT_CELL_SAMPLES_PER_AXIS = 8
@@ -58,21 +63,15 @@ def _resolve_field_discretization(
     return discretized
 
 
-def _resolve_planar_mesh(planar_mesh: object | None, solver_mesh) -> object:
+def _resolve_field_mesh(cell_mesh: PlanarCellMesh | None, solver_mesh) -> BaseFieldMesh:
     from hydromodpy.spatial.mesh.model.cell_types import CellType
 
     hydro = getattr(solver_mesh, "planar_mesh", None)
     # On a Voronoi (ragged POLYGON) solver grid the property MUST be mapped onto the
-    # Voronoi cells, so ignore any triangular seed planar_mesh passed in: use the
-    # polygon field mesh (arbitrary-arity area sampling; the fixed-arity
-    # GmshPlanarMesh2D bridge cannot wrap a ragged mesh).
+    # Voronoi cells, so ignore the triangular seed cell mesh passed in.
     if hydro is not None and CellType.POLYGON in getattr(hydro, "cell_types", ()):
-        from hydromodpy.spatial.field.meshes.polygon_field_mesh import PolygonFieldMesh
-
-        return PolygonFieldMesh(hydro)
-    if planar_mesh is not None:
-        return planar_mesh
-    return GmshPlanarMesh2D.from_hydro_mesh(hydro)
+        return to_field_mesh(hydro)
+    return to_field_mesh(hydro if cell_mesh is None else cell_mesh.mesh)
 
 
 def _build_cellular_property_from_flow_domain(
@@ -253,7 +252,7 @@ def resolve_flow_property_arrays(
     flow: object,
     domain: object,
     solver_mesh,
-    planar_mesh: object | None = None,
+    cell_mesh: PlanarCellMesh | None = None,
     required_properties: frozenset[str] | set[str] | None = None,
     optional_fill_values: Mapping[str, float] | None = None,
     runtime_property_overrides: Mapping[str, object] | None = None,
@@ -284,7 +283,7 @@ def resolve_flow_property_arrays(
     optional_defaults = {
         str(name).strip(): float(value) for name, value in (optional_fill_values or {}).items()
     }
-    mesh_2d = _resolve_planar_mesh(planar_mesh, solver_mesh)
+    mesh_2d = _resolve_field_mesh(cell_mesh, solver_mesh)
     geometry_cache: dict[tuple[int, int], object] = {}
     out: dict[str, np.ndarray] = {}
     parameters = getattr(flow, "parameters", {})

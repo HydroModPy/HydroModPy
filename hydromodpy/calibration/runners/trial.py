@@ -171,7 +171,7 @@ class TrialContext:
           ``mode="replace"`` / ``"scale"``) when the space is provided,
           otherwise via raw dotted paths.
         - ``setup`` is shallow-copied into a fresh dataclass; the big
-          prepared objects (``geographic``, ``mesh_planar``, ``domain``,
+          prepared objects (``geographic``, ``cell_mesh``, ``domain``,
           ``workspace``, ``time_grid``, ...) stay shared by reference,
           but ``flow`` / ``transport`` are reset so the trial rebuilds them
           from the modified ``cfg.flow`` on demand.

@@ -32,7 +32,7 @@ def runtime_reuse_signature(
     flow: object,
     domain: object,
     options: ModflowPreprocessOptions,
-    mesh_planar: object | None,
+    cell_mesh: object | None,
     mesh_support: object | None,
 ) -> tuple[object, ...]:
     """Capture the static runtime structure that must remain stable."""
@@ -40,7 +40,7 @@ def runtime_reuse_signature(
     return (
         id(flow),
         id(domain),
-        id(mesh_planar),
+        id(cell_mesh),
         id(mesh_support),
         id(time_grid),
         str(model.flow_regime or ""),
@@ -53,7 +53,7 @@ def can_refresh_runtime_reuse(
     flow: object,
     domain: object,
     options: ModflowPreprocessOptions,
-    mesh_planar: object | None,
+    cell_mesh: object | None,
     mesh_support: object | None,
     flow_runtime_overrides: Mapping[str, object] | None,
 ) -> bool:
@@ -67,7 +67,7 @@ def can_refresh_runtime_reuse(
         flow=flow,
         domain=domain,
         options=options,
-        mesh_planar=mesh_planar,
+        cell_mesh=cell_mesh,
         mesh_support=mesh_support,
     )
     return signature == getattr(model, "_calibration_runtime_reuse_signature", None)
@@ -83,7 +83,7 @@ def refresh_reused_runtime_property_packages(
         flow=model.flow,
         domain=model.domain,
         solver_mesh=model.solver_mesh,
-        planar_mesh=model.runtime_mesh_planar,
+        cell_mesh=model.runtime_cell_mesh,
         required_properties=resolve_required_flow_properties(flow_regime=model.flow_regime),
         optional_fill_values={"Sy": 0.0, "Ss": 0.0},
         runtime_property_overrides=flow_runtime_overrides,

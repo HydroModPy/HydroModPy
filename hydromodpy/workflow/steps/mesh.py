@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hydromodpy.core.exceptions import ConfigError, MeshError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.domain.build import read_substratum_source
+from hydromodpy.spatial.mesh.adapters.cell_mesh import cell_mesh_from_triangulation
 from hydromodpy.spatial.mesh.gmsh_grid import load_planar_mesh
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
@@ -291,8 +292,7 @@ def run_mesh_phase(
         extra_size_fields=extra_size_fields,
     )
     setup_state.mesh_summary = mesh_runtime.summary
-    setup_state.mesh_planar = mesh_runtime.mesh_planar
-    load_mesh_artifacts_from_summary(run_state, strict=False, preserve_preloaded=True)
+    load_mesh_artifacts_from_summary(run_state, strict=False, planar=mesh_runtime.mesh_planar)
     write_mesh_description(mesh_dir, setup_state.mesh_summary)
     if cache_key is not None:
         write_mesh_cache_key(mesh_dir, cache_key)
@@ -325,17 +325,42 @@ def run_mesh_input_phase(
 # ---------------------------------------------------------------------------
 
 
+def _mesh_crs_wkt(setup_state: object) -> str:
+    """Return the WKT of the run's projected CRS: geographic first, then the DEM support."""
+    from pyproj import CRS
+
+    geographic = getattr(setup_state, "geographic", None)
+    declared = getattr(geographic, "crs_project", None) or getattr(geographic, "crs_proj", None)
+    if not declared:
+        surface = getattr(getattr(setup_state, "domain", None), "surface_topo", None)
+        declared = getattr(getattr(surface, "support", None), "crs", None)
+    if not declared:
+        raise MeshError(
+            "The cell mesh needs the run's CRS: neither the geographic setup nor the DEM "
+            "surface support declares one. Set [geographic] crs_project."
+        )
+    return CRS.from_user_input(declared).to_wkt()
+
+
 def load_mesh_artifacts_from_summary(
     run_state: WorkflowContext,
     *,
     strict: bool,
-    preserve_preloaded: bool = False,
+    planar: object | None = None,
+    keep_loaded: bool = False,
 ) -> None:
-    """Populate runtime mesh objects from ``setup.mesh_summary`` when available."""
+    """Populate the runtime mesh objects from ``setup.mesh_summary`` when available.
+
+    Ends with ``setup.cell_mesh``, the planar cell mesh the solvers read, built
+    on ``planar`` (a mesh just produced in this process) or on the ``output_mesh``
+    file, with the bundle support as its families. ``keep_loaded`` keeps what
+    ``setup`` already holds instead of reloading it.
+    """
     setup_state = run_state.setup
-    if not preserve_preloaded:
+    if not keep_loaded:
         setup_state.mesh_bundle = None
-        setup_state.mesh_planar = None
+        setup_state.mesh_support = None
+        setup_state.cell_mesh = None
 
     mesh_summary = setup_state.mesh_summary
     if not isinstance(mesh_summary, Mapping):
@@ -352,23 +377,29 @@ def load_mesh_artifacts_from_summary(
                 str(setup_state.mesh_bundle.mesh_path),
             )
 
-    mesh_path = str(mesh_summary.get("output_mesh", "")).strip()
-    if mesh_path == "":
-        if strict and setup_state.mesh_bundle is None and setup_state.mesh_planar is None:
-            raise MeshError(
-                "Mesh loading requires one 'output_mesh' path or "
-                "'output_exchange_bundle_dir' in setup.mesh_summary."
-            )
-        return
-
-    mesh_path_obj = Path(mesh_path).expanduser()
-    if not strict and not mesh_path_obj.exists():
-        return
-    if setup_state.mesh_planar is None:
-        setup_state.mesh_planar = load_planar_mesh(mesh_path_obj)
+    if planar is None and setup_state.cell_mesh is None:
+        mesh_path = str(mesh_summary.get("output_mesh", "")).strip()
+        if mesh_path == "":
+            if strict and setup_state.mesh_bundle is None:
+                raise MeshError(
+                    "Mesh loading requires one 'output_mesh' path or "
+                    "'output_exchange_bundle_dir' in setup.mesh_summary."
+                )
+            return
+        mesh_path_obj = Path(mesh_path).expanduser()
+        if not strict and not mesh_path_obj.exists():
+            return
+        planar = load_planar_mesh(mesh_path_obj)
 
     if setup_state.mesh_support is None and setup_state.mesh_bundle is not None:
         setup_state.mesh_support = build_gmsh_support_metadata(setup_state.mesh_bundle)
+
+    if planar is not None:
+        setup_state.cell_mesh = cell_mesh_from_triangulation(
+            planar,
+            setup_state.mesh_support,
+            crs_wkt=_mesh_crs_wkt(setup_state),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -499,10 +530,15 @@ class BuildMeshStep:
             if described is not None:
                 ctx.setup.mesh_summary = dict(described)
         try:
-            load_mesh_artifacts_from_summary(ctx, strict=False, preserve_preloaded=True)
-        except Exception:
+            load_mesh_artifacts_from_summary(ctx, strict=False, keep_loaded=True)
+        except Exception as exc:
+            logger.warning(
+                "Mesh reload failed (%s: %s); meshing again, so the mesh will differ",
+                type(exc).__name__,
+                exc,
+            )
             return self.run(prior_state)
-        if getattr(ctx.setup, "mesh_planar", None) is None:
+        if getattr(ctx.setup, "cell_mesh", None) is None:
             return self.run(prior_state)
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
@@ -513,4 +549,4 @@ class BuildMeshStep:
     def is_prebuilt(self, state: PipelineState) -> bool:
         """True when the in-memory ctx already carries the mesh."""
         ctx = state.get("ctx")
-        return ctx is not None and getattr(ctx.setup, "mesh_planar", None) is not None
+        return ctx is not None and getattr(ctx.setup, "cell_mesh", None) is not None

@@ -35,7 +35,8 @@ class SetupContext:
     transport: Any = None
     mesh_summary: dict[str, Any] | None = None
     mesh_bundle: Any = None
-    mesh_planar: Any = None
+    # The planar cell mesh the solvers read (spatial.mesh PlanarCellMesh).
+    cell_mesh: Any = None
     mesh_support: Any = None
     flow_runtime_overrides: dict[str, Any] | None = None
     run_id: str = "default"

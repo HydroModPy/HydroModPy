@@ -209,7 +209,7 @@ def test_a_resume_reloads_the_mesh_instead_of_generating_another(
         try:
             project.simulate(resume=RUN_NAME, until_step="setup_process")
             setup = project._ctx.setup
-            assert setup.mesh_planar is not None, "the resume loaded no mesh"
+            assert setup.cell_mesh is not None, "the resume loaded no mesh"
             assert setup.mesh_bundle is not None, "the resume loaded no exchange bundle"
             # The three-key summary a cache hit used to leave is enough to load
             # the files and tells nothing about the meshing that produced them.

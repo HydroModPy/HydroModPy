@@ -149,7 +149,7 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
     steady_model.pre_processing(
         flow=steady_flow_copy_for_initialization(model.flow),
         domain=model.domain,
-        mesh_planar=getattr(model, "runtime_mesh_planar", None),
+        cell_mesh=getattr(model, "runtime_cell_mesh", None),
         mesh_support=getattr(model, "runtime_mesh_support", None),
         flow_runtime_overrides=getattr(model, "_flow_runtime_overrides", None),
     )
@@ -258,7 +258,7 @@ def _run_one_spinup_cycle(
     cycle_model.pre_processing(
         flow=cyclic_flow_copy_for_initialization(model.flow),
         domain=model.domain,
-        mesh_planar=getattr(model, "runtime_mesh_planar", None),
+        cell_mesh=getattr(model, "runtime_cell_mesh", None),
         mesh_support=getattr(model, "runtime_mesh_support", None),
         flow_runtime_overrides=getattr(model, "_flow_runtime_overrides", None),
     )

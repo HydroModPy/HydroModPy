@@ -18,6 +18,15 @@ from ._launcher_run_id_builders import (
 )
 
 
+def _stub_cell_mesh(monkeypatch) -> None:
+    """Replace the cell mesh adapter: these tests pass mesh sentinels, not meshes."""
+    monkeypatch.setattr("hydromodpy.workflow.steps.mesh._mesh_crs_wkt", lambda setup: "WKT")
+    monkeypatch.setattr(
+        "hydromodpy.workflow.steps.mesh.cell_mesh_from_triangulation",
+        lambda mesh, support, *, crs_wkt: SimpleNamespace(planar=mesh),
+    )
+
+
 def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
     monkeypatch,
     hydromodpy_test_scratch_root: Path,
@@ -69,6 +78,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
 
     captured_mesh: dict[str, object] = {}
     mesh_sentinel = object()
+    _stub_cell_mesh(monkeypatch)
 
     def _fake_mesh_workflow(**kwargs):
         captured_mesh.update(kwargs)
@@ -140,7 +150,7 @@ def test_prepare_runtime_executes_embedded_mesh_phase_and_records_metrics(
         assert captured_mesh["constraints_mode"] == "rivers_only"
         assert captured_mesh["workspace"] is ctx.setup.workspace
         assert captured_mesh["domain_geographic"] is ctx.setup.domain_geographic
-        assert ctx.setup.mesh_planar is mesh_sentinel
+        assert ctx.setup.cell_mesh.planar is mesh_sentinel
         assert ctx.setup.mesh_summary is not None
         assert ctx.setup.mesh_summary["output_mesh"] == "workspace/mesh/mesh_catchment.msh"
     finally:
@@ -191,6 +201,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
 
     mesh_load: dict[str, object] = {}
     mesh_sentinel = object()
+    _stub_cell_mesh(monkeypatch)
 
     def _fake_load_planar_mesh(path):
         mesh_load["path"] = Path(path).resolve()
@@ -246,7 +257,7 @@ def test_prepare_runtime_uses_external_mesh_input_and_skips_embedded_workflow(
         prepare_runtime(ctx, external_mesh_input=external_mesh_input)
 
         assert ctx.setup.mesh_bundle is None
-        assert ctx.setup.mesh_planar is mesh_sentinel
+        assert ctx.setup.cell_mesh.planar is mesh_sentinel
         assert ctx.setup.mesh_summary is not None
         assert ctx.setup.mesh_summary["mesh_source"] == "external_input"
         assert ctx.setup.mesh_summary["output_mesh"] == str(external_mesh_path)
@@ -262,6 +273,7 @@ def test_run_mesh_input_phase_loads_bundle_and_infers_mesh_path(monkeypatch) -> 
         raw_toml={},
     )
     mesh_sentinel = object()
+    _stub_cell_mesh(monkeypatch)
     bundle_path = Path("C:/tmp/external_mesh_bundle")
     bundle = SimpleNamespace(mesh_path=bundle_path / "mesh_2d.msh")
 
@@ -283,7 +295,7 @@ def test_run_mesh_input_phase_loads_bundle_and_infers_mesh_path(monkeypatch) -> 
     )
 
     assert run_state.setup.mesh_bundle is bundle
-    assert run_state.setup.mesh_planar is mesh_sentinel
+    assert run_state.setup.cell_mesh.planar is mesh_sentinel
     assert run_state.setup.mesh_summary == {
         "mesh_source": "external_input",
         "output_exchange_bundle_dir": str(bundle_path),

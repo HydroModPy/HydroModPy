@@ -20,6 +20,7 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
 )
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
+from tests._helpers.cell_meshes import cell_mesh_of
 
 _EXTENT = 100.0
 _N = 40
@@ -69,7 +70,7 @@ def _ramp_dem() -> np.ndarray:
 
 def _build(top_surface, bottom_surface, *, top_sampling=None, channel_mask=None):
     return _build_extruded_solver_mesh_from_runtime_planar(
-        planar_mesh=_two_quads(),
+        cell_mesh=cell_mesh_of(_two_quads()),
         top_surface=top_surface,
         bottom_surface=bottom_surface,
         vertical_config=VerticalGridConfig(),

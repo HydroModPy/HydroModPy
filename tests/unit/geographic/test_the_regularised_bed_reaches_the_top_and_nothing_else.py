@@ -409,7 +409,11 @@ def test_a_mesh_read_from_a_file_takes_its_modflow6_top_from_the_regularised_cli
     msh = GmshPlanarMesh2D.from_hydro_mesh(mesh).to_file(tmp_path / "mesh.msh")
     run_state = SimpleNamespace(
         setup=SimpleNamespace(
-            mesh_summary=None, mesh_bundle=None, mesh_planar=None, mesh_support=None
+            mesh_summary=None,
+            mesh_bundle=None,
+            cell_mesh=None,
+            mesh_support=None,
+            geographic=SimpleNamespace(crs_project="EPSG:2154"),
         )
     )
     run_mesh_input_phase(run_state, {"mesh_path": str(msh), "bundle_dir": ""})
@@ -420,7 +424,7 @@ def test_a_mesh_read_from_a_file_takes_its_modflow6_top_from_the_regularised_cli
             grid_dual="triangle",
             vertical=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
         ),
-        runtime_planar_mesh=run_state.setup.mesh_planar,
+        cell_mesh=run_state.setup.cell_mesh,
     )
 
     top = grid.solver_mesh.top.reshape(-1)

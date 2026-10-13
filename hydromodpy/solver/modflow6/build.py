@@ -7,6 +7,7 @@ import json
 import os
 import re
 from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING
 
 import flopy
 import numpy as np
@@ -115,6 +116,9 @@ from hydromodpy.solver.modflow_grid import (
     build_temporal_discretization_from_time_grid,
     resolve_first_period_steady,
 )
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 
@@ -837,7 +841,7 @@ def run_pre_processing(  # noqa: PLR0915
     domain: DomainLike,
     options: ModflowPreprocessOptions | None = None,
     *,
-    mesh_planar: object | None = None,
+    cell_mesh: PlanarCellMesh | None = None,
     mesh_support: object | None = None,
     flow_runtime_overrides: Mapping[str, object] | None = None,
 ) -> None:
@@ -848,7 +852,7 @@ def run_pre_processing(  # noqa: PLR0915
     install_flopy_header_cache()
     model.flow = flow
     model.domain = domain
-    model.runtime_mesh_planar = mesh_planar
+    model.runtime_cell_mesh = cell_mesh
     model.runtime_mesh_support = mesh_support
     model._flow_runtime_overrides = flow_runtime_overrides
     active_options = model.preprocess_options if options is None else options
@@ -871,7 +875,7 @@ def run_pre_processing(  # noqa: PLR0915
         flow=flow,
         domain=domain,
         options=active_options,
-        mesh_planar=mesh_planar,
+        cell_mesh=cell_mesh,
         mesh_support=mesh_support,
     )
     if can_refresh_runtime_reuse(
@@ -879,7 +883,7 @@ def run_pre_processing(  # noqa: PLR0915
         flow=flow,
         domain=domain,
         options=active_options,
-        mesh_planar=mesh_planar,
+        cell_mesh=cell_mesh,
         mesh_support=mesh_support,
         flow_runtime_overrides=flow_runtime_overrides,
     ):
@@ -911,7 +915,7 @@ def run_pre_processing(  # noqa: PLR0915
     model.grid_ctx = build_spatial_discretization(
         domain=model.domain,
         sgrid_config=getattr(model.modflow_config, "sgrid", None),
-        runtime_planar_mesh=model.runtime_mesh_planar,
+        cell_mesh=model.runtime_cell_mesh,
         runtime_mesh_support=model.runtime_mesh_support,
         channel_mask=_resolve_channel_mask_for_zonal(model),
     )
@@ -940,7 +944,7 @@ def run_pre_processing(  # noqa: PLR0915
         flow=model.flow,
         domain=model.domain,
         solver_mesh=solver_mesh,
-        planar_mesh=model.runtime_mesh_planar,
+        cell_mesh=model.runtime_cell_mesh,
         required_properties=resolve_required_flow_properties(flow_regime=model.flow_regime),
         optional_fill_values={"Sy": 0.0, "Ss": 0.0},
         runtime_property_overrides=flow_runtime_overrides,

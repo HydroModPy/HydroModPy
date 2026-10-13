@@ -70,7 +70,7 @@ class _FakeCfg:
 class _FakeSetup:
     workspace: Any = None
     geographic: Any = None
-    mesh_planar: Any = None
+    cell_mesh: Any = None
     domain: Any = None
     flow: Any = None
     transport: Any = None

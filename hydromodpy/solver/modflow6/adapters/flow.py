@@ -220,7 +220,15 @@ class Modflow6FlowAdapter:
             modflow_config=state.cfg.modflow6,
             preprocess_options=preprocess_options,
         )
-        return run_flow_model(ctx, model_modflow, preprocess_options)
+        return run_flow_model(
+            ctx,
+            model_modflow,
+            preprocess_options,
+            mesh_inputs={
+                "cell_mesh": getattr(state.setup, "cell_mesh", None),
+                "mesh_support": getattr(state.setup, "mesh_support", None),
+            },
+        )
 
 
 def _saved_head_times(output_dir: Path, model_name: str) -> list[float]:

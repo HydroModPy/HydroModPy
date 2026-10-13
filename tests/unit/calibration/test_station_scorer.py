@@ -198,7 +198,7 @@ class TestThePipelineTakesTheSameRoute:
         frame = pd.DataFrame({"datetime": _INDEX, "value": [1.0, 1.0, 1.0]})
         record = SimpleNamespace(station_id="OUTLET", variable="discharge", data=frame)
         return SimpleNamespace(
-            setup=SimpleNamespace(mesh_planar=None, domain=None, geographic=None, time_grid=None),
+            setup=SimpleNamespace(cell_mesh=None, domain=None, geographic=None, time_grid=None),
             loaded_data=SimpleNamespace(
                 hydrometry=SimpleNamespace(points=[record]),
                 piezometry=None,

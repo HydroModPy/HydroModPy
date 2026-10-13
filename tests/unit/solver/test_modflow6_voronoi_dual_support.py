@@ -37,6 +37,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     support_on_planar_mesh,
 )
 from hydromodpy.spatial.mesh.ops.voronoi import voronoi_planar_mesh
+from tests._helpers.cell_meshes import cell_mesh_of
 
 from ._test_modflow6_boundary_conditions_builders import _build_model
 
@@ -141,7 +142,7 @@ def _grid_context(grid_dual: str):
             grid_dual=grid_dual,
             vertical=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
         ),
-        runtime_planar_mesh=mesh,
+        cell_mesh=cell_mesh_of(mesh),
         runtime_mesh_support=triangle_support,
     )
     return ctx, triangle_support, mesh

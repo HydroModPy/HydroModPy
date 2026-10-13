@@ -424,8 +424,6 @@ class ModflowNwt:
         domain: DomainLike,
         options: ModflowPreprocessOptions | None = None,
         *,
-        mesh_planar: object | None = None,
-        mesh_support: object | None = None,
         flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
         """Pre-processing to build the hydrologic model.
@@ -441,8 +439,6 @@ class ModflowNwt:
         """
         self.flow = flow
         self.domain = domain
-        self.runtime_mesh_planar = mesh_planar
-        self.runtime_mesh_support = mesh_support
         self.flow_runtime_overrides = (
             None if flow_runtime_overrides is None else dict(flow_runtime_overrides)
         )

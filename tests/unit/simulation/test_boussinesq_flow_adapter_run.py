@@ -19,6 +19,7 @@ from hydromodpy.simulation.planning.plan import (
 )
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.spatial.mesh.gmsh_grid import GmshPlanarMesh2D
+from tests._helpers.cell_meshes import cell_mesh_of
 
 from ._test_boussinesq_flow_adapter_builders import (
     _DummyRasterSupport,
@@ -123,7 +124,7 @@ def test_boussinesq_flow_adapter_supports_runtime_mesh_with_heterogeneous_rechar
     flow.sinks_sources["recharge"].interpolation_method = "nearest"
     state = RunState(
         setup=SimpleNamespace(
-            mesh_planar=planar_mesh,
+            cell_mesh=cell_mesh_of(planar_mesh),
             mesh_bundle=None,
             mesh_summary=None,
             flow=flow,
@@ -210,7 +211,7 @@ def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mes
     river_trace = SimpleNamespace(lines=[LineString([(0.0, 0.0), (1.0, 1.0)])])
     state = RunState(
         setup=SimpleNamespace(
-            mesh_planar=planar_mesh,
+            cell_mesh=cell_mesh_of(planar_mesh),
             mesh_bundle=None,
             mesh_summary=None,
             flow=flow,

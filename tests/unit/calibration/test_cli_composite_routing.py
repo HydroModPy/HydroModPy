@@ -25,7 +25,7 @@ from hydromodpy.calibration.optim.objective import build_objective_from_config
 
 def _empty_ctx():
     return SimpleNamespace(
-        setup=SimpleNamespace(mesh_planar=None, domain=None, time_grid=None),
+        setup=SimpleNamespace(cell_mesh=None, domain=None, time_grid=None),
         loaded_data=SimpleNamespace(piezometry=None, hydrometry=None),
         execution=None,
     )
