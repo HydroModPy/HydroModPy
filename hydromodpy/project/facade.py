@@ -453,7 +453,8 @@ class Project:
             Per-simulation result view returned by successful runs.
         """
         label = name or self.config.simulation.name or "run"
-        with run_scratch(Path(self.config.workspace.project_root), label):
+        resumes = self._runner.resumed_run_scratch(resume) if resume is not None else None
+        with run_scratch(Path(self.config.workspace.project_root), label, resumes=resumes):
             return self._runner.run(
                 name=name,
                 resume=resume,

@@ -39,7 +39,10 @@ Several runs of one project therefore run at once without reading each
 other's files, and a run that ends sweeps only its own folder. A child
 process inherits its parent's folder through ``HMP_RUN_SCRATCH``, and the
 next run of the project removes the folders of runs whose process was
-killed (:func:`~hydromodpy.core.state.paths.run_scratch`).
+killed (:func:`~hydromodpy.core.state.paths.run_scratch`). A resume
+(``hmp run --resume``) works in the folder of the run it continues instead,
+named by the artifacts its journal recorded, and a ``<folder>.holder`` file
+beside it keeps the sweep of any other run away while the resume is alive.
 
 The project config file is ``project.toml``, and
 :func:`~hydromodpy.core.state.paths.resolve_project_root` anchors on it,

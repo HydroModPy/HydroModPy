@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 from urllib.request import url2pathname
@@ -147,6 +148,12 @@ PER_RUN_CONFIG_KEYS: tuple[tuple[str, str], ...] = (("workspace", "solver_scratc
 PREPROCESSING_DIRNAME = "_preprocessing"
 
 _RUN_SCRATCH_SUFFIX = re.compile(r"\.p(\d+)$")
+_RUN_SCRATCH_KEY = re.compile(r"[A-Za-z0-9_-]+\.p\d+")
+#: Beside a run folder a resume took over, names the process now working in it.
+_RUN_SCRATCH_HOLDER_SUFFIX = ".holder"
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+_ERROR_ACCESS_DENIED = 5
+_STILL_ACTIVE = 259
 _RUN_SCRATCH_GUARD = threading.Lock()
 _run_scratch_depth = 0
 
@@ -200,45 +207,126 @@ def _run_scratch_name(label: str) -> str:
     return f"{stem}.p{os.getpid()}"
 
 
-def _process_is_alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
+if sys.platform == "win32":
+
+    def _process_is_alive(pid: int) -> bool:
+        """Probe a process on Windows, where ``os.kill(pid, 0)`` sends a Ctrl+C event."""
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
+        kernel32.GetExitCodeProcess.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel32.CloseHandle.restype = wintypes.BOOL
+
+        handle = kernel32.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            # Denied means the process exists under another account.
+            return bool(ctypes.get_last_error() == _ERROR_ACCESS_DENIED)
+        try:
+            # A handle someone still holds keeps an ended process openable:
+            # only the exit code tells whether it still runs.
+            code = wintypes.DWORD()
+            if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return True
+            return code.value == _STILL_ACTIVE
+        finally:
+            kernel32.CloseHandle(handle)
+
+else:
+
+    def _process_is_alive(pid: int) -> bool:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
         return True
-    return True
+
+
+def _holder_path(root: Path, key: str) -> Path:
+    return root / f"{key}{_RUN_SCRATCH_HOLDER_SUFFIX}"
+
+
+def _scratch_pids(root: Path, key: str) -> set[int]:
+    """Return the process named by a run folder and the one that took it over, if any."""
+    pids: set[int] = set()
+    match = _RUN_SCRATCH_SUFFIX.search(key)
+    if match is not None:
+        pids.add(int(match.group(1)))
+    try:
+        text = _holder_path(root, key).read_text(encoding="ascii").strip()
+    except FileNotFoundError:
+        return pids
+    if text.isdigit():
+        pids.add(int(text))
+    return pids
+
+
+def _held_by_another_process(root: Path, key: str) -> bool:
+    return any(pid != os.getpid() and _process_is_alive(pid) for pid in _scratch_pids(root, key))
 
 
 def sweep_dead_run_scratch(project_root: Path) -> list[Path]:
     """Remove the scratch folders of runs whose process no longer runs.
 
     A run sweeps its own folder when it ends. One that was killed cannot, so the
-    next run of the project removes the folders named after a dead process.
-    POSIX only: elsewhere a process cannot be probed and nothing is removed.
+    next run of the project removes the folders named after a dead process,
+    unless a live resume took the folder over (:func:`run_scratch`). Return the
+    folders that are gone.
     """
     import shutil
 
-    if os.name != "posix":
-        return []
     root = scratch_root_for(project_root)
     if not root.is_dir():
         return []
     removed: list[Path] = []
-    for child in root.iterdir():
-        match = _RUN_SCRATCH_SUFFIX.search(child.name)
-        if not child.is_dir() or match is None:
+    for child in sorted(root.iterdir()):
+        if not child.is_dir() or _RUN_SCRATCH_SUFFIX.search(child.name) is None:
             continue
-        pid = int(match.group(1))
-        if pid == os.getpid() or _process_is_alive(pid):
+        if any(_process_is_alive(pid) for pid in _scratch_pids(root, child.name)):
             continue
         shutil.rmtree(child, ignore_errors=True)
-        removed.append(child)
+        if not child.exists():
+            _holder_path(root, child.name).unlink(missing_ok=True)
+            removed.append(child)
+    for holder in root.glob(f"*{_RUN_SCRATCH_HOLDER_SUFFIX}"):
+        key = holder.name[: -len(_RUN_SCRATCH_HOLDER_SUFFIX)]
+        if not (root / key).exists() and not _held_by_another_process(root, key):
+            holder.unlink(missing_ok=True)
     return removed
 
 
+def run_scratch_of(paths: Iterable[str]) -> str | None:
+    """Return the run folder that project-relative POSIX paths live in, or None.
+
+    The artifacts a run journals under its scratch name the folder it worked in,
+    which is how a resume finds the folder of the run it continues.
+    """
+    for path in paths:
+        parts = PurePosixPath(path).parts
+        if (
+            len(parts) > 2
+            and parts[:2] == (INTERNAL_DIRNAME, "scratch")
+            and _RUN_SCRATCH_KEY.fullmatch(parts[2])
+        ):
+            return parts[2]
+    return None
+
+
+def _can_take_over(project_root: Path, key: str | None) -> bool:
+    if key is None or _RUN_SCRATCH_KEY.fullmatch(key) is None:
+        return False
+    root = scratch_root_for(project_root)
+    return (root / key).is_dir() and not _held_by_another_process(root, key)
+
+
 @contextmanager
-def run_scratch(project_root: Path, label: str) -> Iterator[str]:
+def run_scratch(project_root: Path, label: str, *, resumes: str | None = None) -> Iterator[str]:
     """Give the run this process starts its own folder under ``.hmp/scratch/``.
 
     The outermost call names the folder after ``label`` and this process, and
@@ -246,15 +334,30 @@ def run_scratch(project_root: Path, label: str) -> Iterator[str]:
     and promotions of a calibration session) and child processes work in the
     same folder. On entry it also removes the folders of runs that were killed.
     On exit it removes the run's folder when nothing is left in it.
+
+    A resume passes the folder of the run it continues as ``resumes``
+    (:func:`run_scratch_of`). The outermost call then works in that folder and
+    records this process as its holder, so the sweep of this run and of any
+    other keeps what the killed run left for the resume to reuse. A folder
+    that is gone, or that a live process still works in, is not taken over.
     """
     global _run_scratch_depth
     with _RUN_SCRATCH_GUARD:
         inherited = active_run_scratch()
         owner = inherited is None and _run_scratch_depth == 0
-        key = inherited or _run_scratch_name(label)
+        takes_over = owner and _can_take_over(project_root, resumes)
+        if inherited is not None:
+            key = inherited
+        elif takes_over and resumes is not None:
+            key = resumes
+        else:
+            key = _run_scratch_name(label)
         if owner:
             os.environ[RUN_SCRATCH_ENV] = key
         _run_scratch_depth += 1
+    root = scratch_root_for(project_root)
+    if takes_over:
+        _holder_path(root, key).write_text(str(os.getpid()), encoding="ascii")
     if owner:
         sweep_dead_run_scratch(project_root)
     try:
@@ -264,8 +367,10 @@ def run_scratch(project_root: Path, label: str) -> Iterator[str]:
             _run_scratch_depth -= 1
             if owner:
                 os.environ.pop(RUN_SCRATCH_ENV, None)
+        if takes_over:
+            _holder_path(root, key).unlink(missing_ok=True)
         if owner:
-            for folder in (scratch_root_for(project_root) / key, scratch_root_for(project_root)):
+            for folder in (root / key, root):
                 try:
                     folder.rmdir()
                 except OSError:
@@ -549,6 +654,7 @@ __all__: Iterable[str] = (
     "running_sidecar_dir",
     "running_sidecar_path",
     "run_scratch",
+    "run_scratch_of",
     "runs_dir_for",
     "scratch_dir_for",
     "scratch_root_for",
