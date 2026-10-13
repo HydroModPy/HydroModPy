@@ -151,6 +151,17 @@ jobs:
           user_email: 41898282+github-actions[bot]@users.noreply.github.com
           commit_message: "docs: deploy ${{ steps.build.outputs.version }}"
 
+      # actions-gh-pages starts its ssh-agent on the fixed socket
+      # /tmp/ssh-auth.sock, which the second call cannot bind while the agent
+      # of the first call still runs.
+      - name: Stop the ssh-agent of the first publish
+        if: steps.build.outputs.skip != '1'
+        run: |
+          if pgrep -u "$(id -u)" ssh-agent > /dev/null; then
+            pkill -u "$(id -u)" ssh-agent
+          fi
+          rm -f /tmp/ssh-auth.sock
+
       - name: Publish the root files
         if: steps.build.outputs.skip != '1'
         uses: peaceiris/actions-gh-pages@v4
