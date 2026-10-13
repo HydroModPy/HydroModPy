@@ -14,7 +14,8 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 from hydromodpy.core.exceptions import JobUsageError
 from hydromodpy.schema.job.layout import (
@@ -37,7 +38,9 @@ def _strip_file_scheme(href: str, *, loc: Sequence[str]) -> str:
     """Return the local path *href* names, refusing every non-local scheme.
 
     A single-letter scheme is a Windows drive letter and not a scheme at all,
-    which is the one case a naive RFC 3986 reading gets wrong.
+    which is the one case a naive RFC 3986 reading gets wrong. A ``file:`` URI
+    is read by the platform's own rule, so ``file:///C:/a%20b`` names ``C:\\a b``
+    on Windows.
     """
     match = _SCHEME_PATTERN.match(href)
     if match is None:
@@ -59,7 +62,7 @@ def _strip_file_scheme(href: str, *, loc: Sequence[str]) -> str:
             loc=loc,
             msg="a file: URI must name a local path",
         )
-    return unquote(parsed.path)
+    return url2pathname(parsed.path)
 
 
 @dataclass(frozen=True, slots=True)

@@ -11,7 +11,7 @@ file per date.
 
 from __future__ import annotations
 
-from pathlib import Path, PurePath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import pytest
 from pydantic import ValidationError
@@ -199,7 +199,7 @@ class TestThePlanNamesEveryFile:
             ExportRequest(variables="head", format="vtu"), KINDS, run_label="nancon"
         )
         assert planned.per_step
-        assert planned.path == PurePath("nancon", f"head_{STEP_DATE_TOKEN}.vtu")
+        assert planned.path == PurePosixPath("nancon", f"head_{STEP_DATE_TOKEN}.vtu")
 
     def test_a_file_replaces_the_automatic_name_inside_the_folder(self) -> None:
         request = ExportRequest(
@@ -218,6 +218,44 @@ class TestThePlanNamesEveryFile:
 
     def test_all_plans_nothing_before_the_run(self) -> None:
         assert _plan(ExportRequest(variables="all")) == []
+
+
+class TestThePlanSpellsANameAsTheTomlDoes:
+    """On Windows ``folder`` and ``file`` load as Windows paths; the plan keeps forward slashes."""
+
+    @staticmethod
+    def _on_windows(request: ExportRequest, **paths: str) -> ExportRequest:
+        return request.model_copy(
+            update={key: PureWindowsPath(value) for key, value in paths.items()}
+        )
+
+    def test_a_relative_folder_and_file(self) -> None:
+        request = ExportRequest(variables="head", folder="deliver/sub", file="h.nc")
+        windows = self._on_windows(request, folder="deliver\\sub", file="h.nc")
+        assert _plan(windows) == _plan(request) == ["deliver/sub/h.nc"]
+
+    def test_automatic_names_in_a_windows_folder(self) -> None:
+        request = ExportRequest(variables=["head", "discharge"], time="last", folder="d/e")
+        windows = self._on_windows(request, folder="d\\e")
+        assert _plan(windows) == _plan(request) == ["d/e/head_last.tif", "d/e/discharge_last.csv"]
+
+    def test_an_absolute_folder_keeps_its_drive(self) -> None:
+        request = self._on_windows(ExportRequest(variables="head", time="last"), folder="C:\\out")
+        assert _plan(request) == ["C:/out/head_last.tif"]
+
+    def test_an_absolute_file_replaces_the_folder(self) -> None:
+        request = self._on_windows(
+            ExportRequest(variables="head", time="last", folder="out", file="h.tif"),
+            folder="out",
+            file="D:\\deliver\\h.tif",
+        )
+        assert _plan(request) == ["D:/deliver/h.tif"]
+
+    def test_a_package_in_a_windows_folder(self) -> None:
+        request = self._on_windows(
+            ExportRequest(variables="all", format="package", folder="a"), folder="a\\b"
+        )
+        assert _plan(request) == ["a/b/nancon.hmp"]
 
 
 class TestThePlanRefusesWhatTheKindsMakeImpossible:

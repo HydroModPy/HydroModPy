@@ -25,7 +25,7 @@ import datetime as _dt
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PurePosixPath
 from typing import Annotated, Any
 
 from pydantic import Field, TypeAdapter, field_validator, model_validator
@@ -415,14 +415,14 @@ class ExportRequest(HydroModelBase):
             if named is None:
                 known = ", ".join(sorted(_SUFFIX_TO_FORMAT))
                 raise ValueError(
-                    f"file = {str(self.file)!r} has no extension a format is known by "
+                    f"file = {self.file.as_posix()!r} has no extension a format is known by "
                     f"({known}). Give it one, or write format."
                 )
             return named
         if named is not None and named is not self.format:
             raise ValueError(
-                f"format = {self.format.value!r} and file = {str(self.file)!r}, which names "
-                f"a {named.value} file. Drop format to take the extension, or give the file "
+                f"format = {self.format.value!r} and file = {self.file.as_posix()!r}, which "
+                f"names a {named.value} file. Drop format to take the extension, or give the file "
                 f"the extension {FORMAT_SUFFIX.get(self.format, 'of the format')}."
             )
         return self.format
@@ -459,7 +459,7 @@ class ExportRequest(HydroModelBase):
             reasons.append(f"{len(self.times)} dates write one file each")
         if reasons:
             raise ValueError(
-                f"file = {str(self.file)!r} names one file, but in {fmt.value} "
+                f"file = {self.file.as_posix()!r} names one file, but in {fmt.value} "
                 f"{' and '.join(reasons)}. Write folder instead of file, or format = "
                 '"netcdf", which holds several variables and dates in one file.'
             )
@@ -496,12 +496,15 @@ class PlannedFile:
     """One file an export request writes.
 
     ``path`` is relative to ``share/`` when the request names no absolute
-    folder. It holds :data:`STEP_DATE_TOKEN` when one file is written per step
-    and the steps are known only on the run. ``instant`` is the time selector
-    of a one-instant file, None otherwise.
+    folder. It is spelled with forward slashes on every OS, as a TOML writes
+    it: the step 0 check compares and reports it, and the exporter turns it
+    into a native path only to write the file. It holds
+    :data:`STEP_DATE_TOKEN` when one file is written per step and the steps
+    are known only on the run. ``instant`` is the time selector of a
+    one-instant file, None otherwise.
     """
 
-    path: PurePath
+    path: PurePosixPath
     format: ExportFormat
     variables: tuple[str, ...]
     instant: str | int | None = None
@@ -517,6 +520,11 @@ def _natural_format(kind: ExportKind, request: ExportRequest) -> ExportFormat:
     if kind is ExportKind.field:
         return ExportFormat.geotiff if len(request.times) == 1 else ExportFormat.netcdf
     return KIND_FORMATS[kind][0]
+
+
+def _posix(path: PurePath) -> PurePosixPath:
+    """Return a path of the request spelled as a TOML writes it, whatever the OS."""
+    return PurePosixPath(path.as_posix())
 
 
 def _span_token(request: ExportRequest) -> str:
@@ -559,12 +567,15 @@ def plan_outputs(
         ``resolution`` no planned file can carry, or a ``file`` on a request
         that writes several files.
     """
-    folder = PurePath(request.folder) if request.folder is not None else PurePath(run_label)
+    native = request.folder if request.folder is not None else PurePath(run_label)
+    folder = _posix(native)
+    # Joined natively first: an absolute file (a drive on Windows) replaces the folder.
+    file = None if request.file is None else _posix(native / request.file)
     fmt = request.output_format
     if fmt in RUN_FORMATS:
         default = _RUN_FORMAT_FILES.get(fmt, f"{run_label}{FORMAT_SUFFIX.get(fmt, '')}")
-        name = request.file if request.file is not None else PurePath(default)
-        return (PlannedFile(path=folder / name, format=fmt, variables=()),)
+        path = file if file is not None else folder / default
+        return (PlannedFile(path=path, format=fmt, variables=()),)
 
     selected = request.names if not request.exports_all else list(names or ())
     by_kind: dict[ExportKind, list[str]] = {}
@@ -613,11 +624,11 @@ def plan_outputs(
             )
 
     _check_plan(request, planned)
-    if request.file is not None and planned:
+    if file is not None and planned:
         only = planned[0]
         return (
             PlannedFile(
-                path=folder / request.file,
+                path=file,
                 format=only.format,
                 variables=only.variables,
                 instant=only.instant,
@@ -649,7 +660,7 @@ def _check_plan(request: ExportRequest, planned: list[PlannedFile]) -> None:
     if len(planned) > 1 or any(item.per_step for item in planned):
         count = "one file per date" if len(planned) == 1 else f"{len(planned)} files"
         raise ValueError(
-            f"file = {str(request.file)!r} names one file, but this request writes "
+            f"file = {request.file.as_posix()!r} names one file, but this request writes "
             f"{count}. Write folder instead of file, or split the request in blocks of "
             "one file each."
         )

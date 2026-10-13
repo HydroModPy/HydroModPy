@@ -10,11 +10,13 @@ period that holds it, so one date is right on a monthly and on a daily grid.
 from __future__ import annotations
 
 import textwrap
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
+from types import SimpleNamespace
 
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.config_kit.export_spec import ExportRequest
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.steps.validate import (
@@ -235,6 +237,29 @@ class TestNames:
 
         with pytest.raises(
             ConfigError, match=r"export\[0\] and export\[2\] both write nancon/head_2002-10-15"
+        ):
+            check_export_variables(cfg)
+
+    def test_the_run_folder_named_is_the_default_folder(self, tmp_path: Path) -> None:
+        cfg = _load(
+            tmp_path,
+            '[[export]]\nvariables = "head"\ntime = "last"\n\n'
+            '[[export]]\nvariables = "head"\ntime = "last"\nfolder = "nancon"\n',
+            grid=MONTHLY,
+        )
+
+        with pytest.raises(ConfigError, match=r"both write nancon/head_last\.tif\."):
+            check_export_variables(cfg)
+
+    def test_a_windows_spelling_of_one_file_collides(self) -> None:
+        # On Windows a TOML folder loads as a Windows path.
+        posix = ExportRequest(variables="head", time="last", folder="deliver/sub")
+        windows = posix.model_copy(update={"folder": PureWindowsPath("deliver\\sub")})
+        cfg = SimpleNamespace(export=[posix, windows], simulation=SimpleNamespace(name="nancon"))
+
+        with pytest.raises(
+            ConfigError,
+            match=r"export\[0\] and export\[1\] both write deliver/sub/head_last\.tif\.",
         ):
             check_export_variables(cfg)
 

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from pathlib import Path, PurePath
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -107,9 +107,12 @@ def export_request(
     return written
 
 
-def _destination(path: PurePath, request: ExportRequest, label: str, target: ExportTarget) -> Path:
+def _destination(
+    path: PurePosixPath, request: ExportRequest, label: str, target: ExportTarget
+) -> Path:
     """Return where a planned file lands on disk."""
-    candidate = Path(path)
+    # From the text: a POSIX path object would lose a Windows drive on Python 3.11.
+    candidate = Path(path.as_posix())
     if candidate.is_absolute():
         return candidate
     if request.folder is None:

@@ -92,11 +92,12 @@ def display_path(path: Path | str) -> str:
 
     Console lines carry absolute paths that are mostly the same prefix
     repeated. Relative to the current directory when the path sits under
-    it, absolute otherwise.
+    it, with forward slashes on every OS as a TOML names it; absolute
+    otherwise, in the platform's own spelling.
     """
     resolved = Path(path)
     try:
-        return str(resolved.resolve().relative_to(Path.cwd().resolve()))
+        return resolved.resolve().relative_to(Path.cwd().resolve()).as_posix()
     except ValueError:
         return str(resolved)
 
