@@ -25,15 +25,18 @@ from tests._helpers.terrain_doubles import fake_flow_products
 from tests.unit.geographic.test_geographic_cache import _touch_artifact
 
 FILL_FINGERPRINT_WITHOUT_THE_BURN = (
-    "8377a0546cb6dfa19f3d8918bbb427b1626c93bdb23ad57eef1e1cae3bdb16e0"
+    "7b2ef36222c1439414f36aa3464a7c51e18ed18111f14601fb4112f79344a363"
 )
 """The fingerprint of 79fe734ea, before the capped breach existed, minus the burn.
 
 Removing ``[geographic.enforce_streams]`` took its section and its path signature out of
 the payload, so every cached tree is rebuilt once. Putting both back (defaults, no path)
-gives back ``652599218fe011c6d8574eecbc89b1fffdf4d89c41ecea127247351125440959``, the value
+gives back ``ab83e008ba427355b3c68345745088b13a0337e006164879216e8d7571f626b3``, the value
 a clean export of 79fe734ea computes: the capped breach key is the only other thing the
 payload could have gained, and it is absent.
+
+The DEM is a bare file name that does not exist. The payload holds the path as the OS
+spells it, so a name without a separator is the one input that hashes alike everywhere.
 """
 
 REPORT = CappedBreachReport(
@@ -49,11 +52,14 @@ REPORT = CappedBreachReport(
 
 def _config(method: str, **overrides) -> GeographicConfig:
     return GeographicConfig.from_outlet(
-        x=1.0, y=2.0, dem="/nonexistent/dem.tif", dem_correc_type=method, **overrides
+        x=1.0, y=2.0, dem="no_such_dem.tif", dem_correc_type=method, **overrides
     )
 
 
-def test_a_fill_config_fingerprints_as_before_the_capped_breach_existed() -> None:
+def test_a_fill_config_fingerprints_as_before_the_capped_breach_existed(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
     assert _geographic_cache_fingerprint(_config("fill")) == FILL_FINGERPRINT_WITHOUT_THE_BURN
 
 
