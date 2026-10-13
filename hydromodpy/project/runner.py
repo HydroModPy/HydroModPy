@@ -168,6 +168,35 @@ def _resolve_resume_step_index(
     return plan.restart_index
 
 
+def _scratch_of_resumed_run(workspace: Path, run_id: str) -> str | None:
+    """Return the scratch folder the completed steps of ``run_id`` journalled, or None.
+
+    A run journals its preprocessing under its own ``.hmp/scratch/<run>/``. The
+    resume works in that folder again, or the sweep of killed runs would delete
+    what the resume is meant to reuse.
+    """
+    from hydromodpy.core.state.paths import catalog_path_for, run_scratch_of
+    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.workflow.tracking.journal import WorkflowJournal
+
+    if not catalog_path_for(workspace).is_file():
+        return None
+    try:
+        catalog = Catalog(workspace)
+    except Exception as exc:
+        raise ResumeError(
+            f"Could not open the catalog at {workspace} to resume '{run_id}': {exc}"
+        ) from exc
+    try:
+        rows = WorkflowJournal(catalog).list_steps(run_id)
+    finally:
+        catalog.close()
+    completed = sorted(
+        (row for row in rows if row.status == "completed"), key=lambda row: row.step_order
+    )
+    return run_scratch_of(uri for row in completed for uri in row.artifact_uris)
+
+
 def _print_dry_run_plan(
     *,
     run_id: str,
@@ -518,6 +547,10 @@ class ProjectRunner:
             and setup.geographic is not None
             and setup.domain is not None
         )
+
+    def resumed_run_scratch(self, run_id: str) -> str | None:
+        """Return the scratch folder of the run ``run_id`` a resume continues, or None."""
+        return _scratch_of_resumed_run(self._resolve_workspace_path(), run_id)
 
     def _resolve_workspace_path(self) -> Path:
         """Return the project runtime root used for checkpoints and ledger.

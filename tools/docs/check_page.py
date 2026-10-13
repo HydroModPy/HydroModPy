@@ -73,7 +73,7 @@ def docnames() -> set[str]:
     for f in SRC.rglob("*"):
         rel = f.relative_to(SRC)
         if f.suffix in (".rst", ".md") and not rel.parts[0].startswith(SKIP_DIRS):
-            out.add(str(rel.with_suffix("")))
+            out.add(rel.with_suffix("").as_posix())
     return out
 
 
@@ -84,7 +84,7 @@ class Registry:
             raise SystemExit(
                 "docs/source/_data/registry.json is missing: build the docs once first."
             )
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         self.nodes: dict = data["nodes"]
         self.roots: set[str] = set(data["meta"]["roots"])
         # Tables of the files other than the project file: file name -> root tables.
@@ -258,8 +258,8 @@ def validate_file_block(fragment: dict, reg: Registry) -> list[str]:
 
 
 def check(page: Path, reg: Registry, docs: set[str]) -> list[str]:
-    rel = page.resolve().relative_to(SRC)
-    here = str(rel.with_suffix(""))
+    rel = page.resolve().relative_to(SRC).as_posix()
+    here = posixpath.splitext(rel)[0]
     base = posixpath.dirname(here)
     is_md = page.suffix == ".md"
     lines = page.read_text(encoding="utf-8").splitlines()

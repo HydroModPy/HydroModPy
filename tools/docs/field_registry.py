@@ -371,7 +371,7 @@ def _source_of(model: type[BaseModel]) -> str:
     try:
         file = inspect.getsourcefile(model)
         line = inspect.getsourcelines(model)[1]
-        return f"{Path(file).relative_to(ROOT_TREE)}:{line}"
+        return f"{Path(file).relative_to(ROOT_TREE).as_posix()}:{line}"
     except Exception:
         return model.__module__
 
@@ -912,7 +912,7 @@ def scan_mentions(package_dir: Path, roots: set[str]) -> dict[str, list[dict[str
             tree = ast.parse(py.read_text(), filename=str(py))
         except (SyntaxError, UnicodeDecodeError):
             continue
-        rel = str(py.relative_to(package_dir.parent))
+        rel = py.relative_to(package_dir.parent).as_posix()
         for scope in ast.walk(tree):
             if not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue

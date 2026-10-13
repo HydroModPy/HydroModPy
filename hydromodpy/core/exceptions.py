@@ -645,7 +645,7 @@ class CatalogUnreadableError(CatalogError):
         **context: Any,
     ) -> None:
         message = (
-            f"Catalog index at {db_path!r} exists but could not be opened: {_CATALOG_REPAIR_HINT}."
+            f"Catalog index at '{db_path}' exists but could not be opened: {_CATALOG_REPAIR_HINT}."
         )
         super().__init__(message, sim_id=sim_id, run_id=run_id, **context)
         self.db_path = db_path

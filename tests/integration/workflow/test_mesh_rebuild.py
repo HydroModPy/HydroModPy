@@ -20,6 +20,11 @@ from pathlib import Path
 
 import pytest
 
+try:
+    import gmsh  # noqa: F401
+except (ImportError, OSError) as exc:
+    pytest.skip(f"could not import 'gmsh': {exc}", allow_module_level=True)
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEM = REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif"
 
@@ -156,7 +161,7 @@ def meshed_then_crashed(tmp_path_factory: pytest.TempPathFactory):
         patch.setattr(SetupProcessStep, "run", _bomb)
         project = Project(config_path, no_display=True)
         try:
-            with pytest.raises(StepError):
+            with pytest.raises(StepError, match="injected crash in setup_process"):
                 project.simulate(name=RUN_NAME, until_step="setup_process")
         finally:
             project.close()

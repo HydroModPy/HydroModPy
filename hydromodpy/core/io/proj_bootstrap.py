@@ -18,11 +18,68 @@ from pathlib import Path
 from hydromodpy.core.logging import get_logger
 
 _logger = get_logger("hydromodpy")
-_MIN_PROJ_LAYOUT_MINOR = 6
 _PROJ_DB_NAME = "proj.db"
 _PROJ_LAYOUT_RE = re.compile(
     r"DATABASE\.LAYOUT\.VERSION\.MINOR\s*=\s*\d+\s*whereas a number >=\s*(\d+)\s*is expected"
 )
+# Wheels that bundle their own PROJ library with its database under ``<package>/proj_data``.
+_PROJ_BUNDLING_PACKAGES = ("rasterio", "pyogrio", "fiona")
+
+
+def _read_proj_layout_version(db_path: Path) -> tuple[int, int] | None:
+    try:
+        import sqlite3
+
+        with sqlite3.connect(str(db_path)) as connection:
+            columns = [row[1] for row in connection.execute("pragma table_info(metadata);")]
+            key_column = "key" if "key" in columns else "name" if "name" in columns else None
+            if not key_column:
+                return None
+
+            values = dict(
+                connection.execute(
+                    f"select {key_column}, value from metadata where {key_column} in (?, ?)",
+                    ("DATABASE.LAYOUT.VERSION.MAJOR", "DATABASE.LAYOUT.VERSION.MINOR"),
+                ).fetchall()
+            )
+            major = int(values.get("DATABASE.LAYOUT.VERSION.MAJOR", -1))
+            minor = int(values.get("DATABASE.LAYOUT.VERSION.MINOR", -1))
+            return (major, minor) if major >= 0 and minor >= 0 else None
+    except Exception:
+        return None
+
+
+def _bundled_proj_data_dirs() -> list[Path]:
+    """Return the PROJ data directories shipped inside wheels of the environment."""
+    dirs: list[Path] = []
+    for package in _PROJ_BUNDLING_PACKAGES:
+        spec = find_spec(package)
+        if not spec or not spec.origin:
+            continue
+        base = Path(spec.origin).resolve().parent
+        dirs.extend(
+            candidate
+            for candidate in (
+                base / "proj_data",
+                base / "proj_dir" / "share" / "proj",
+                base / "share" / "proj",
+            )
+            if (candidate / _PROJ_DB_NAME).exists()
+        )
+    return dirs
+
+
+def _required_layout_minor(pyproj_dir: Path | None) -> int:
+    """Return the database layout every PROJ build of the environment can read.
+
+    Each wheel links its own PROJ, which accepts its own database layout or a
+    newer minor one. rasterio reads ``PROJ_DATA`` before its bundled copy, so
+    the directory ``PROJ_DATA`` names must be at least as new as the newest
+    bundled database, not only as new as pyproj's.
+    """
+    dirs = [pyproj_dir, *_bundled_proj_data_dirs()]
+    layouts = [_read_proj_layout_version(d / _PROJ_DB_NAME) for d in dirs if d]
+    return max((layout[1] for layout in layouts if layout), default=0)
 
 
 def _ensure_proj_data_from_env() -> None:
@@ -109,47 +166,9 @@ def _ensure_proj_db_compatibility() -> None:
     except Exception:
         return
 
-    def _read_proj_layout_version(db_path: Path) -> tuple[int, int] | None:
-        try:
-            import sqlite3
-
-            with sqlite3.connect(str(db_path)) as connection:
-                columns = [row[1] for row in connection.execute("pragma table_info(metadata);")]
-                key_column = "key" if "key" in columns else "name" if "name" in columns else None
-                if not key_column:
-                    return None
-
-                values = dict(
-                    connection.execute(
-                        f"select {key_column}, value from metadata where {key_column} in (?, ?)",
-                        ("DATABASE.LAYOUT.VERSION.MAJOR", "DATABASE.LAYOUT.VERSION.MINOR"),
-                    ).fetchall()
-                )
-                major = int(values.get("DATABASE.LAYOUT.VERSION.MAJOR", -1))
-                minor = int(values.get("DATABASE.LAYOUT.VERSION.MINOR", -1))
-                return (major, minor) if major >= 0 and minor >= 0 else None
-        except Exception:
-            return None
-
     def _env_proj_path() -> Path | None:
         value = os.environ.get("PROJ_DATA") or os.environ.get("PROJ_LIB")
         return Path(value).expanduser() if value else None
-
-    def _rasterio_proj_data_dirs() -> list[Path]:
-        spec = find_spec("rasterio")
-        if not spec or not spec.origin:
-            return []
-
-        base = Path(spec.origin).resolve().parent
-        return [
-            candidate
-            for candidate in (
-                base / "proj_data",
-                base / "proj_dir" / "share" / "proj",
-                base / "share" / "proj",
-            )
-            if (candidate / _PROJ_DB_NAME).exists()
-        ]
 
     def _find_compatible_proj_data_dir(
         min_minor: int, pyproj_dir: Path | None
@@ -160,10 +179,10 @@ def _ensure_proj_db_compatibility() -> None:
             pyproj_dir,
             prefix / "share" / "proj",
             prefix / "Library" / "share" / "proj",
+            *_bundled_proj_data_dirs(),
             Path("/usr/local/share/proj"),
             Path("/usr/share/proj"),
             Path("/opt/homebrew/share/proj"),
-            *_rasterio_proj_data_dirs(),
         ]
         seen: set[Path] = set()
 
@@ -209,9 +228,12 @@ def _ensure_proj_db_compatibility() -> None:
 
     proj_dir = datadir.get_data_dir()
     pyproj_dir = Path(proj_dir) if proj_dir else None
-    pyproj_layout = _read_proj_layout_version(pyproj_dir / _PROJ_DB_NAME) if pyproj_dir else None
-    needs_check = bool(pyproj_layout and pyproj_layout[1] < _MIN_PROJ_LAYOUT_MINOR)
-    min_minor = _MIN_PROJ_LAYOUT_MINOR
+    min_minor = _required_layout_minor(pyproj_dir)
+    current_path = _env_proj_path()
+    current_layout = (
+        _read_proj_layout_version(current_path / _PROJ_DB_NAME) if current_path else None
+    )
+    needs_check = bool(current_layout and current_layout[1] < min_minor)
 
     try:
         CRS.from_epsg(4326)

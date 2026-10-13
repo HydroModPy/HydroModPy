@@ -23,6 +23,7 @@ from hydromodpy.core.state.paths import (
     kept_preprocessing_dir,
     preprocessing_dir,
     run_scratch,
+    run_scratch_of,
     scratch_dir_for,
     scratch_root_for,
     sweep_dead_run_scratch,
@@ -97,10 +98,7 @@ def test_two_processes_of_one_project_get_two_folders(tmp_path: Path) -> None:
 
 @pytest.mark.allow_subprocess
 def test_the_folder_of_a_killed_run_is_swept(tmp_path: Path) -> None:
-    dead = subprocess.run(
-        [sys.executable, "-c", "import os; print(os.getpid())"], capture_output=True, text=True
-    )
-    dead_pid = int(dead.stdout.strip())
+    dead_pid = _dead_pid()
     root = scratch_root_for(tmp_path)
     (root / f"step5_export.p{dead_pid}" / "nancon").mkdir(parents=True)
     (root / f"project.p{os.getpid()}").mkdir()
@@ -111,6 +109,70 @@ def test_the_folder_of_a_killed_run_is_swept(tmp_path: Path) -> None:
     assert [path.name for path in removed] == [f"step5_export.p{dead_pid}"]
     assert (root / f"project.p{os.getpid()}").is_dir()
     assert (root / "nancon_intermittence_mf6").is_dir()
+
+
+def _dead_pid() -> int:
+    dead = subprocess.run(
+        [sys.executable, "-c", "import os; print(os.getpid())"], capture_output=True, text=True
+    )
+    return int(dead.stdout.strip())
+
+
+def test_a_resume_finds_the_folder_its_run_journalled() -> None:
+    uris = [
+        "runs/killed/config.toml",
+        ".hmp/scratch/killed.p4242/_preprocessing/geographic/dem.tif",
+        ".hmp/scratch/other.p1/_preprocessing/geographic/dem.tif",
+    ]
+
+    assert run_scratch_of(uris) == "killed.p4242"
+    assert run_scratch_of([".hmp/scratch/_preprocessing/geographic/dem.tif"]) is None
+    assert run_scratch_of([]) is None
+
+
+@pytest.mark.allow_subprocess
+def test_a_resume_works_in_the_folder_of_the_killed_run(tmp_path: Path) -> None:
+    """The sweep must not delete what the killed run left for its resume."""
+    root = scratch_root_for(tmp_path)
+    killed = f"killed.p{_dead_pid()}"
+    tree = root / killed / "_preprocessing" / "geographic"
+    tree.mkdir(parents=True)
+    (tree / "dem.tif").write_bytes(b"dem")
+    sweep = textwrap.dedent(
+        f"""
+        from pathlib import Path
+        from hydromodpy.core.state.paths import sweep_dead_run_scratch
+        print([path.name for path in sweep_dead_run_scratch(Path({str(tmp_path)!r}))])
+        """
+    )
+    env = {k: v for k, v in os.environ.items() if k != RUN_SCRATCH_ENV}
+
+    with run_scratch(tmp_path, "resume", resumes=killed) as key:
+        assert key == killed
+        assert preprocessing_dir(tmp_path) == root / killed / "_preprocessing"
+        assert (tree / "dem.tif").read_bytes() == b"dem"
+        other = subprocess.run(
+            [sys.executable, "-c", sweep], capture_output=True, text=True, env=env, check=True
+        )
+        assert other.stdout.strip() == "[]"
+
+    assert (tree / "dem.tif").is_file()
+    assert [path.name for path in sweep_dead_run_scratch(tmp_path)] == [killed]
+    assert not root.exists() or list(root.iterdir()) == []
+
+
+@pytest.mark.allow_subprocess
+def test_a_resume_does_not_take_over_a_folder_in_use(tmp_path: Path) -> None:
+    root = scratch_root_for(tmp_path)
+    alive = f"running.p{os.getppid()}"
+    (root / alive).mkdir(parents=True)
+    gone = f"gone.p{_dead_pid()}"
+
+    with run_scratch(tmp_path, "resume", resumes=alive) as key:
+        assert key == f"resume.p{os.getpid()}"
+    with run_scratch(tmp_path, "resume", resumes=gone) as key:
+        assert key == f"resume.p{os.getpid()}"
+    assert (root / alive).is_dir()
 
 
 def test_a_kept_tree_is_found_after_the_run(tmp_path: Path) -> None:

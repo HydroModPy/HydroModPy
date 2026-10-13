@@ -27,6 +27,7 @@ from __future__ import annotations
 import gc
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -56,6 +57,8 @@ assert _GOLDEN_ATOL == tol("signature_stats_post_v0_5__atol")
 # Repository root for every path assembled in the regression helpers.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REGRESSION_GOLDENS_ROOT = Path(__file__).resolve().parent / "reference" / "golden_references"
+# Folder name of one run in the project scratch (core.state.paths._run_scratch_name).
+_RUN_SCRATCH_SUFFIX = re.compile(r"\.p\d+$")
 
 # Bump when the statistical signature layout changes (new stats, renamed
 # sections, different aggregation) so stale goldens fail loudly instead of
@@ -820,7 +823,7 @@ def resolve_model_workspace(
 
     Raw solver files live in the disposable scratch of the project
     (``<project>/.hmp/scratch``), one directory per solved model, possibly
-    nested one level under the run name.
+    nested one level under the run scratch folder (``<run>.p<pid>``).
 
     Returns
     -------
@@ -843,6 +846,7 @@ def resolve_model_workspace(
                 for p in results_dir.iterdir()
                 if p.is_dir()
                 and not p.name.startswith("_")
+                and _RUN_SCRATCH_SUFFIX.search(p.name) is None
                 and (model_name_prefix is None or p.name.startswith(model_name_prefix))
             )
             if model_dirs:

@@ -129,8 +129,8 @@ def test_the_index_reads_equations_gaps_and_the_schedule() -> None:
     assert "$$" in dupuit["cases"][0]["equations"]
     island = by_file["tests/validation/analytical/steady/test_dupuit_circular_island_ocean_2d.py"]
     notes = island["cases"][0]["tolerance_notes"]
-    assert "gap" in notes["tolerances_modflow6.toml"]
-    assert "doc" not in island["cases"][0]["tolerance_files"]["tolerances_modflow6.toml"]
+    assert "gap" in notes["tolerances_modflow6_voronoi.toml"]
+    assert "doc" not in island["cases"][0]["tolerance_files"]["tolerances_modflow6_voronoi.toml"]
     theis = by_file["tests/validation/analytical/transient/test_theis.py"]
     assert theis["reference"].startswith("the Theis (1935) drawdown")
     nightly = [j for j in index["schedule"] if j["workflow"] == "ci-nightly.yml"]

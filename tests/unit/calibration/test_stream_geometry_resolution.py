@@ -79,7 +79,8 @@ def test_a_relative_path_is_read_from_the_toml_that_declares_it(project: Path) -
 
 def test_an_absolute_path_is_left_alone(project: Path) -> None:
     declared = (project / "data" / "hydrography" / "streams.gpkg").resolve()
-    assert _load(project, declared.as_posix()) == declared.as_posix()
+    # The field is a Path: Windows spells it with backslashes, the same file.
+    assert Path(_load(project, declared.as_posix())) == declared
 
 
 def test_a_path_that_resolves_to_nothing_is_left_as_declared(project: Path) -> None:

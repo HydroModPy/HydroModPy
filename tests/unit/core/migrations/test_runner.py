@@ -348,7 +348,7 @@ def test_no_alter_table_runs_outside_a_migration_script() -> None:
     """
     package = Path(__file__).resolve().parents[4] / "hydromodpy"
     offenders = sorted(
-        str(path.relative_to(package))
+        path.relative_to(package).as_posix()
         for path in package.rglob("*")
         if path.suffix in {".py", ".sql"}
         and path.name != "runner.py"

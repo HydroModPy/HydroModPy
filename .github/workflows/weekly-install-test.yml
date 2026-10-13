@@ -18,7 +18,7 @@ name: Weekly install & examples (v1.0)
 # Git Bash on Windows and bash on Linux. The example LIST is mirrored from the
 # v1.0 script; keep them in sync if either changes.
 #
-# Net effect: 19 jobs instead of 60, while still touching every OS, every
+# Net effect: 18 jobs instead of 60, while still touching every OS, every
 # supported Python (3.11/3.12/3.13), both pip methods and all three conda envs.
 #
 # LAUNCHING: GitHub only enables `schedule` and the "Run workflow"
@@ -60,11 +60,13 @@ jobs:
           # Linux: install/import edges (examples run in the conda job below).
           - { os: ubuntu-latest, python: '3.11', method: plain }
           - { os: ubuntu-latest, python: '3.13', method: editable }
-          # macOS Intel (riskier legacy runner): newest Python, plain install.
-          - { os: macos-15-intel, python: '3.13', method: plain }
-          # macOS ARM: both Python edges, both methods.
-          - { os: macos-14, python: '3.11', method: plain }
-          - { os: macos-14, python: '3.13', method: editable }
+          # macOS ARM: both Python edges, both methods. macOS 15, because the
+          # rasterio 1.5 wheels that pip picks for Python 3.12+ need it.
+          # No pip job on macOS Intel: llvmlite 0.50 (numba, through pysheds)
+          # ships no x86_64 macOS wheel, so pip cannot install v1.0 there. The
+          # conda job below covers macOS Intel.
+          - { os: macos-15, python: '3.11', method: plain }
+          - { os: macos-15, python: '3.13', method: editable }
     steps:
       - uses: actions/checkout@v4
         with:

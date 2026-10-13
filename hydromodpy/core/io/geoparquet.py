@@ -75,9 +75,6 @@ def write_geoparquet_atomic(
     return target
 
 
-
-
-
 def read_geoparquet(target: Path | str) -> gpd.GeoDataFrame:
     """Read a GeoParquet file via :func:`geopandas.read_parquet`."""
     import geopandas as gpd_mod

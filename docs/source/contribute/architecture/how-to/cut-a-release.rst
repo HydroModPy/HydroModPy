@@ -63,7 +63,9 @@ The checklist
    (``hotfix/X.Y.Z``). ``v1.0`` is frozen at ``v1.0.0``: do not release from it.
 3. **Set the version** in ``pyproject.toml`` and ``_FALLBACK_VERSION``.
 4. **Write the changelog.** Move the content of ``[Unreleased]`` to the new
-   section and leave ``[Unreleased]`` empty for the next release. Use the Keep a
+   section and leave ``[Unreleased]`` empty for the next release. Put no ``---``
+   rule right under the empty heading: the docs include the file, and the strict
+   build refuses a section that begins with a rule. Use the Keep a
    Changelog categories: Added, Changed, Deprecated (only for an announced
    removal), Removed, Fixed, Security. The reason for a change belongs here. The
    release job takes the section as the body of the GitHub Release. It looks for

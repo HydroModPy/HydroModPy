@@ -67,9 +67,11 @@ CONTEXT_BUILDERS = {"simulation/planning/plan.py", "simulation/execution/runner.
 
 
 @pytest.fixture(scope="module")
-def package_trees() -> dict[pathlib.Path, ast.AST]:
+def package_trees() -> dict[str, ast.AST]:
+    """Each module of the package, keyed by its path in POSIX form on every OS."""
     return {
-        path: ast.parse(path.read_text(encoding="utf-8")) for path in PACKAGE_ROOT.rglob("*.py")
+        path.relative_to(PACKAGE_ROOT).as_posix(): ast.parse(path.read_text(encoding="utf-8"))
+        for path in PACKAGE_ROOT.rglob("*.py")
     }
 
 
@@ -126,9 +128,9 @@ def _context_builds(tree: ast.AST) -> list[int]:
 
 def test_only_the_named_modules_reach_an_execution_registry(package_trees) -> None:
     offenders = [
-        f"{path.relative_to(PACKAGE_ROOT)}:{lineno} names {member}"
-        for path, tree in package_trees.items()
-        if str(path.relative_to(PACKAGE_ROOT)) not in REGISTRY_READERS
+        f"{name}:{lineno} names {member}"
+        for name, tree in package_trees.items()
+        if name not in REGISTRY_READERS
         for lineno, member in _registry_reads(tree)
     ]
 
@@ -145,8 +147,7 @@ def test_every_allowed_reader_still_reads_a_registry(package_trees) -> None:
     A module that no longer touches a registry has to leave this list, or the
     next reader added to that module inherits a permission nobody granted it.
     """
-    by_name = {str(path.relative_to(PACKAGE_ROOT)): tree for path, tree in package_trees.items()}
-    stale = [name for name in REGISTRY_READERS if not _registry_reads(by_name[name])]
+    stale = [name for name in REGISTRY_READERS if not _registry_reads(package_trees[name])]
 
     assert not stale, (
         "These modules no longer read a registry and must leave the list:\n"
@@ -167,9 +168,9 @@ def test_a_post_solver_context_is_built_through_the_one_path(package_trees) -> N
     product would read as "this run produced nothing" rather than as an error.
     """
     offenders = [
-        f"{path.relative_to(PACKAGE_ROOT)}:{lineno}"
-        for path, tree in package_trees.items()
-        if str(path.relative_to(PACKAGE_ROOT)) not in CONTEXT_BUILDERS
+        f"{name}:{lineno}"
+        for name, tree in package_trees.items()
+        if name not in CONTEXT_BUILDERS
         for lineno in _context_builds(tree)
     ]
 

@@ -315,8 +315,8 @@ class FigureSpec:
     name: str
     title: str
     former_names: tuple[str, ...] = ()
-    kind: FigureKind = "spatial"   # spatial, section, timeseries, balance,
-                                   # particles, table, comparison, animation
+    # spatial, section, timeseries, balance, particles, table, comparison, animation
+    kind: FigureKind = "spatial"
     required_fields: tuple[str, ...] = ()
     optional_fields: tuple[str, ...] = ()
     required_tables: tuple[str, ...] = ()

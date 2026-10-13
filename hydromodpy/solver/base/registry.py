@@ -330,8 +330,12 @@ def is_adapter(obj: object) -> bool:
     Conformance is structural, so an adapter class answers as well as one of
     its instances: both carry the four methods and the three identifying
     attributes. :func:`register` is the production caller.
+
+    Member presence is also read statically, so the answer does not depend on
+    the Python version: 3.11 reads protocol members with ``hasattr``, which a
+    metaclass ``__getattr__`` satisfies for any name.
     """
-    return isinstance(obj, SolverAdapter)
+    return isinstance(obj, SolverAdapter) and not missing_adapter_members(obj)
 
 
 def _declared_pair(adapter_cls: object) -> AdapterKey | str:

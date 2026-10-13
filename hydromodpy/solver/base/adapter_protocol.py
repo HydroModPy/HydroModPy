@@ -9,6 +9,7 @@ that identify the supported pair and its dependencies.
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -134,13 +135,18 @@ def adapter_members() -> tuple[str, ...]:
 def missing_adapter_members(candidate: object) -> tuple[str, ...]:
     """Return the members *candidate* has no attribute for.
 
-    Presence only, for a refusal message. Conformance is decided by
-    ``isinstance(candidate, SolverAdapter)``, which is strictly stronger: it
-    also rejects a member bound to ``None``, and a class whose metaclass
-    answers every attribute. An empty tuple therefore does not mean the
-    candidate conforms.
+    Presence only. Members are looked up with ``inspect.getattr_static``, as
+    ``isinstance`` against a runtime Protocol does from Python 3.12, so a
+    metaclass ``__getattr__`` that answers every name does not supply them.
+    Python 3.11 still uses ``hasattr`` there. A member bound to ``None`` counts
+    as present, so an empty tuple does not mean the candidate conforms.
     """
-    return tuple(name for name in adapter_members() if not hasattr(candidate, name))
+    missing = object()
+    return tuple(
+        name
+        for name in adapter_members()
+        if inspect.getattr_static(candidate, name, missing) is missing
+    )
 
 
 __all__ = [

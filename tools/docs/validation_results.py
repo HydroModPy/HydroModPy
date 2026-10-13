@@ -44,7 +44,7 @@ NIGHTLY = (
 
 
 def _load(path: Path) -> dict[str, Any]:
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding="utf-8"))
     if data.get("schema") != SCHEMA:
         raise SystemExit(f"{path}: schema {data.get('schema')!r}, expected {SCHEMA}")
     return data

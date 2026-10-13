@@ -39,6 +39,10 @@ from pathlib import Path
 import pytest
 
 pytest.importorskip("whitebox_workflows")
+try:
+    import gmsh  # noqa: F401
+except (ImportError, OSError) as exc:
+    pytest.skip(f"could not import 'gmsh': {exc}", allow_module_level=True)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEM = REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif"

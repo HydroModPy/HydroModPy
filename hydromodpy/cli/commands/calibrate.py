@@ -28,6 +28,7 @@ from hydromodpy.cli.helpers import (
     resolve_profile_output,
 )
 from hydromodpy.core.exceptions import CalibrationError, ConfigError
+from hydromodpy.core.state.paths import display_path
 
 NAME: str = "calibrate"
 HELP: str = "Run a calibration workflow from a TOML config"
@@ -315,15 +316,13 @@ def _shortened_if_under_cwd(text: str) -> str:
     ``text`` is usually not a path at all (a station name, a data section, a
     count of hard-coded values), and those are left untouched: only an
     absolute path both starts with a root and resolves under the directory
-    the command was run from.
+    the command was run from. It is then spelled as :func:`display_path`
+    spells it, forward slashes on every OS; any other text is left as given.
     """
-    path = Path(text)
-    if not path.is_absolute():
+    if not Path(text).is_absolute():
         return text
-    try:
-        return str(path.relative_to(Path.cwd()))
-    except ValueError:
-        return text
+    shown = display_path(text)
+    return text if Path(shown).is_absolute() else shown
 
 
 def _places_the_deviations_are_set(cfg) -> list[Any]:

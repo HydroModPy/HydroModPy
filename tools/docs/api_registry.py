@@ -40,7 +40,7 @@ def source_of(obj: Any) -> str:
     try:
         file = inspect.getsourcefile(obj)
         line = inspect.getsourcelines(obj)[1]
-        return f"{Path(file).relative_to(TREE)}:{line}"
+        return f"{Path(file).relative_to(TREE).as_posix()}:{line}"
     except (TypeError, OSError, ValueError):
         return ""
 

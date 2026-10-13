@@ -196,38 +196,28 @@ The synthesis page is written to:
 examples/projects/10_testbed_workflow/outputs/boussinesq_natural_drainage_k_mesh_matrix_testbed/web_synthesis/index.html
 ```
 
-## Automated Natural N1 Gallery Chain
+## Automated Natural N1 Comparison Chain
 
 The N1 comparison campaign can be refreshed with the same pattern as the
-Nançon hydrographic-network benchmark: run or reuse comparison outputs, rebuild
-the local HTML synthesis, then optionally publish reviewed artifacts into the
-documentation gallery.
+Nançon hydrographic-network benchmark: run or reuse comparison outputs, then
+rebuild the local HTML synthesis.
 
 From WSL, for selected sites:
 
 ```bash
 /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python \
-  examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_natural_10km2_mf6_bouss_gallery_chain.py \
+  examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_natural_10km2_mf6_bouss_chain.py \
   --sites site_03 site_08
 ```
 
-To rebuild extraction/HTML from existing run folders and publish gallery
-bundles:
+To rebuild extraction/HTML from existing run folders:
 
 ```bash
 /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python \
-  examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_natural_10km2_mf6_bouss_gallery_chain.py \
+  examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_natural_10km2_mf6_bouss_chain.py \
   --sites site_03 site_08 \
-  --reuse-runs \
-  --publish-gallery \
-  --doc-gallery \
-  --force-gallery
+  --reuse-runs
 ```
-
-Published bundles land under
-`examples/projects/09_capability_gallery/simulation_comparison/`, the same
-gallery input family used for published solver-comparison and network-comparison
-cases.
 
 ## HTML Synthesis
 

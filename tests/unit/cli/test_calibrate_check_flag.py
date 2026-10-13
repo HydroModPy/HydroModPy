@@ -55,7 +55,7 @@ _TEMPLATE = textwrap.dedent(
 def _write(tmp_path: Path, *, param_path: str) -> Path:
     path = tmp_path / "calib.toml"
     path.write_text(
-        _TEMPLATE.replace("PROJECT_ROOT", str(tmp_path)).replace("PARAM_PATH", param_path),
+        _TEMPLATE.replace("PROJECT_ROOT", tmp_path.as_posix()).replace("PARAM_PATH", param_path),
         encoding="utf-8",
     )
     return path
@@ -148,7 +148,7 @@ _PROTOCOL = textwrap.dedent(
 
 def test_a_named_method_is_announced_and_its_references_wait_for_verbose(tmp_path, capsys) -> None:
     path = tmp_path / "calib.toml"
-    path.write_text(_PROTOCOL.replace("PROJECT_ROOT", str(tmp_path)), encoding="utf-8")
+    path.write_text(_PROTOCOL.replace("PROJECT_ROOT", tmp_path.as_posix()), encoding="utf-8")
     (tmp_path / "streams.gpkg").write_bytes(b"")
 
     _check(path)
@@ -168,7 +168,7 @@ def test_a_named_method_is_announced_and_its_references_wait_for_verbose(tmp_pat
 
 def test_quiet_prints_nothing_for_a_sound_file(tmp_path, capsys) -> None:
     path = tmp_path / "calib.toml"
-    path.write_text(_PROTOCOL.replace("PROJECT_ROOT", str(tmp_path)), encoding="utf-8")
+    path.write_text(_PROTOCOL.replace("PROJECT_ROOT", tmp_path.as_posix()), encoding="utf-8")
     (tmp_path / "streams.gpkg").write_bytes(b"")
 
     _check(path, verbosity="quiet")
@@ -188,7 +188,7 @@ def test_quiet_keeps_the_findings(tmp_path, capsys) -> None:
 
 def _protocol_file(tmp_path: Path, *, end: str = "2000-12-31", geographic: str = "") -> Path:
     path = tmp_path / "calib.toml"
-    text = _PROTOCOL.replace("PROJECT_ROOT", str(tmp_path)).replace(
+    text = _PROTOCOL.replace("PROJECT_ROOT", tmp_path.as_posix()).replace(
         'end_datetime = "2000-12-31"', f'end_datetime = "{end}"'
     )
     text = text.replace('source_mode = "synthetic"', f'source_mode = "synthetic"\n{geographic}')

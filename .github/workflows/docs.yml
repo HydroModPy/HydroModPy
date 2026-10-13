@@ -89,7 +89,9 @@ jobs:
       # The build wrote the field registry; every written page is checked
       # against it: TOML keys, links, TOML blocks loaded by the real loader.
       - name: Check the written pages
-        run: python -m tools.docs.check_page $(git ls-files 'docs/source/*.md' 'docs/source/*.rst')
+        run: |
+          mapfile -t pages < <(git ls-files 'docs/source/*.md' 'docs/source/*.rst')
+          python -m tools.docs.check_page "${pages[@]}"
 
       # Pages written by the extensions are raw HTML that Sphinx does not
       # check: links inside links, dead links and anchors, markup shown as text.
@@ -170,7 +172,9 @@ jobs:
       # The house style: British spelling, one word per concept, no em dash,
       # sentence case headings. The rules are in styles/HydroModPy.
       - name: Check the house style of the written pages
-        run: ./vale --minAlertLevel=warning $(git ls-files 'docs/source/*.md' README.md)
+        run: |
+          mapfile -t pages < <(git ls-files 'docs/source/*.md' README.md)
+          ./vale --minAlertLevel=warning "${pages[@]}"
 
   doc-tests:
     name: Docs / guard tests

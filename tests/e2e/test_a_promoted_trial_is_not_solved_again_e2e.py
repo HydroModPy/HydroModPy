@@ -34,6 +34,9 @@ _EXAMPLE = _REPO_ROOT / "examples" / "projects" / "04_streamflow_intermittence_i
 _CALIBRATION = """\
 base_config = "project.toml"
 
+# The exports of project.toml name October 2002, outside this record.
+export__delete = true
+
 [workflow]
 mode = "calibration"
 
