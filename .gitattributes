@@ -1,1 +1,5 @@
 *.sh text eol=lf
+
+# hydromodpy/examples/catalog.toml records the size and sha256 of these files
+# as the repository serves them. A CRLF checkout on Windows would hash other bytes.
+examples/** text=auto eol=lf
