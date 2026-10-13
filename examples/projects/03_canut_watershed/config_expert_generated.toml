@@ -1583,28 +1583,6 @@ vka = 1.0
 exdp = 1.0
 
 
-# Optional spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`.
-
-# Planar discretization of the solver grid.
-
-[modflownwt.sgrid.planar]
-# Planar solver-grid mode: keep the native domain support or resample to an explicit (ny, nx) target shape.
-# Type: Literal['keep_native', 'resample_to_shape'] | one of: "keep_native", "resample_to_shape" | Default: "keep_native"
-mode = "keep_native"
-
-# Target number of columns when planar mode is 'resample_to_shape'.
-# Type: int (optional) | >= 1 | Optional
-# nx = 1  # omitted: required only when mode='resample_to_shape'
-
-# Target number of rows when planar mode is 'resample_to_shape'.
-# Type: int (optional) | >= 1 | Optional
-# ny = 1  # omitted: required only when mode='resample_to_shape'
-
-# Resampling rule applied when planar mode is 'resample_to_shape'.
-# Type: Literal['bilinear', 'average', 'nearest'] | one of: "bilinear", "average", "nearest" | Default: "bilinear"
-resampling = "bilinear"
-
-
 # Vertical layering of the solver grid.
 
 [modflownwt.sgrid.vertical]
@@ -1667,27 +1645,7 @@ mf6_inner_maximum = 500
 vka = 1.0
 
 
-# Optional solver-grid payload split into planar and vertical sections.
-
-# Planar discretization of the solver grid.
-
-[modflow6.sgrid.planar]
-# Planar solver-grid mode: keep the native domain support or resample to an explicit (ny, nx) target shape.
-# Type: Literal['keep_native', 'resample_to_shape'] | one of: "keep_native", "resample_to_shape" | Default: "keep_native"
-mode = "keep_native"
-
-# Target number of columns when planar mode is 'resample_to_shape'.
-# Type: int (optional) | >= 1 | Optional
-# nx = 1  # omitted: required only when mode='resample_to_shape'
-
-# Target number of rows when planar mode is 'resample_to_shape'.
-# Type: int (optional) | >= 1 | Optional
-# ny = 1  # omitted: required only when mode='resample_to_shape'
-
-# Resampling rule applied when planar mode is 'resample_to_shape'.
-# Type: Literal['bilinear', 'average', 'nearest'] | one of: "bilinear", "average", "nearest" | Default: "bilinear"
-resampling = "bilinear"
-
+# Optional solver-grid payload: the vertical layering.
 
 # Vertical layering of the solver grid.
 

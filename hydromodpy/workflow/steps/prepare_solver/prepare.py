@@ -109,29 +109,10 @@ def step_persist_mesh(ctx: WorkflowContext, sim_id: str, *, store: SimulationSto
     z_intf = np.asarray(domain.z_interfaces, dtype=float)
 
     cell_mesh = ctx.setup.cell_mesh
-    if cell_mesh is not None:
-        vertices = cell_mesh.mesh.vertices
-        connectivity = cell_mesh.connectivity_rows
-    else:
-        from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
-
-        support = getattr(domain.surface_topo, "support", None)
-        if support is None or support.nrows is None or support.ncols is None:
-            raise MeshError(
-                "step_persist_mesh: no cell mesh and no raster support "
-                "on domain.surface_topo - cannot materialise a HydroMesh"
-            )
-        regular = RegularGrid(
-            shape=(int(support.nrows), int(support.ncols)),
-            dx=float(support.dx),
-            dy=float(support.dy),
-            origin=(float(support.xmin), float(support.ymax)),
-            n_layers=max(int(z_intf.size) - 1, 1),
-            crs=str(support.crs) if support.crs is not None else None,
-        )
-        hydro_mesh = regular.to_hydro_mesh()
-        vertices = hydro_mesh.vertices
-        connectivity = hydro_mesh.flat_connectivity
+    if cell_mesh is None:
+        raise MeshError("step_persist_mesh: the mesh step built no cell mesh")
+    vertices = cell_mesh.mesh.vertices
+    connectivity = cell_mesh.connectivity_rows
 
     store.write_mesh(
         sim_id,

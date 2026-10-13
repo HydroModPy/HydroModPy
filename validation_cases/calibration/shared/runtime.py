@@ -885,7 +885,7 @@ def _extract_outputs_from_trial_ctx(
     model_name = (
         getattr(model, "model_name", None) or getattr(model, "name", None) if model else None
     )
-    mesh_planar = getattr(getattr(trial_ctx, "setup", None), "mesh_planar", None)
+    cell_mesh = getattr(getattr(trial_ctx, "setup", None), "cell_mesh", None)
 
     selected: dict[str, list[float]] = {}
     for name, decl in output_decls:
@@ -908,7 +908,7 @@ def _extract_outputs_from_trial_ctx(
                         x=float(_quantity_magnitude(getattr(decl, "x", None)) or 0.0),
                         y=float(_quantity_magnitude(getattr(decl, "y", None)) or 0.0),
                         model=model,
-                        mesh_planar=mesh_planar,
+                        cell_mesh=cell_mesh,
                     )
             except Exception:
                 values = None
@@ -1033,7 +1033,7 @@ def _extract_head_at_point_from_dir(
     x: float,
     y: float,
     model: Any = None,
-    mesh_planar: Any = None,
+    cell_mesh: Any = None,
 ) -> np.ndarray | None:
     """Read a head time series at the cell closest to ``(x, y)`` from an HDS file.
 
@@ -1044,10 +1044,9 @@ def _extract_head_at_point_from_dir(
     the ground surface.
 
     Resolves the cell index from the solver model's mesh first. The v1
-    lightweight trial path may not populate ``setup.mesh_planar`` for ``sgrid``
-    simulations, so the registered solver model is the canonical source for
-    the grid layout at trial time. Falls back to ``mesh_planar`` for
-    catchment-scale runs.
+    lightweight trial path may not populate ``setup.cell_mesh``, so the
+    registered solver model is the canonical source for the grid layout at
+    trial time. Falls back to ``cell_mesh`` when the model exposes none.
 
     Indexes the head array by inspecting its shape: structured DIS arrays
     are ``(nlay, nrow, ncol)`` while DISV arrays come back as
@@ -1063,7 +1062,7 @@ def _extract_head_at_point_from_dir(
         return None
     cell_index = _resolve_cell_index_from_model(model, x=x, y=y)
     if cell_index is None:
-        cell_index = _resolve_cell_index_from_mesh_planar(mesh_planar, x=x, y=y)
+        cell_index = _resolve_cell_index_from_cell_mesh(cell_mesh, x=x, y=y)
     if cell_index is None:
         return None
     k, i, j, flat = cell_index
@@ -1164,10 +1163,9 @@ def _resolve_cell_index_from_model(
 
     Reads the structured layout (``nrow`` / ``ncol``) and the cell centroids
     from the solver model registered in ``execution.models_by_run_id``. Works
-    for MODFLOW 6 (``solver_mesh.cell_centroids()``) and MODFLOW-NWT
-    (``runtime_mesh_planar`` / direct ``cell_centroids``). The ``flat_index``
-    is the cell rank in ``cell_centroids`` and is the right axis-2 offset for
-    DISV heads.
+    for MODFLOW 6 (``solver_mesh.cell_centroids()``) and for any model that
+    keeps the ``cell_mesh`` it was built from. The ``flat_index`` is the cell
+    rank in ``cell_centroids`` and is the right axis-2 offset for DISV heads.
     """
     if model is None:
         return None
@@ -1234,46 +1232,38 @@ def _model_cell_centroids(model: Any) -> np.ndarray | None:
                 return np.asarray(accessor, dtype=float)
             except Exception:
                 return None
-    runtime_planar = getattr(model, "runtime_mesh_planar", None)
-    if runtime_planar is not None:
-        centroids = getattr(runtime_planar, "cell_centroids", None)
-        if centroids is None:
-            centroids = getattr(runtime_planar, "centroids", None)
-        if centroids is not None:
-            try:
-                return np.asarray(centroids, dtype=float)
-            except Exception:
-                return None
+    cell_mesh = getattr(model, "cell_mesh", None)
+    centers = getattr(cell_mesh, "centers", None)
+    if centers is not None:
+        try:
+            return np.asarray(centers, dtype=float)
+        except Exception:
+            return None
     return None
 
 
-def _resolve_cell_index_from_mesh_planar(
-    mesh: Any,
+def _resolve_cell_index_from_cell_mesh(
+    cell_mesh: Any,
     *,
     x: float,
     y: float,
 ) -> tuple[int, int, int, int] | None:
     """Return ``(layer, row, col, flat_index)`` of the cell closest to ``(x, y)``."""
-    if mesh is None:
+    if cell_mesh is None:
         return None
-    centroids = getattr(mesh, "cell_centroids", None)
-    if centroids is None:
-        centroids = getattr(mesh, "centroids", None)
-    if centroids is None:
+    centers = getattr(cell_mesh, "centers", None)
+    if centers is None:
         return None
-    arr = np.asarray(centroids, dtype=float)
+    arr = np.asarray(centers, dtype=float)
     if arr.ndim != 2 or arr.shape[1] < 2:
         return None
     distances = np.hypot(arr[:, 0] - float(x), arr[:, 1] - float(y))
     flat_index = int(np.argmin(distances))
-    shape = getattr(mesh, "shape", None)
-    if shape is None or len(shape) < 2:
+    shape = getattr(cell_mesh, "structured_shape", None)
+    if shape is None:
         return (0, 0, flat_index, flat_index)
-    _, n_rows, n_cols = shape if len(shape) == 3 else (1, *shape)
-    layer = 0
-    row = flat_index // n_cols
-    col = flat_index % n_cols
-    return (layer, int(row), int(col), flat_index)
+    n_rows, n_cols = shape
+    return (0, int(flat_index // n_cols), int(flat_index % n_cols), flat_index)
 
 
 def _normalise_outputs_for_extraction(

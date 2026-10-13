@@ -287,6 +287,7 @@ def test_run_flow_model_raises_when_solver_fails() -> None:
             flow=SimpleNamespace(active_bc=[]),
             domain=SimpleNamespace(),
             workspace=SimpleNamespace(simulations_folder="unused"),
+            cell_mesh=object(),
         ),
     )
 
@@ -320,6 +321,7 @@ def test_run_flow_model_raises_when_solver_fails() -> None:
 
 
 def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
+    cell_mesh = object()
     plan = SimulationPlan(
         name="demo",
         description="demo",
@@ -354,6 +356,7 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
             domain=SimpleNamespace(),
             workspace=SimpleNamespace(simulations_folder="unused"),
             flow_runtime_overrides={"properties": {"K": [1.0, 2.0]}},
+            cell_mesh=cell_mesh,
         ),
     )
 
@@ -376,19 +379,16 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
             return None
 
     model = _SuccessfulFlowModel()
-    cell_mesh = object()
 
     run_flow_model(
         RunContext(plan=plan, run=plan.runs[0], state=state),
         model,
         ModflowPreprocessOptions(),
-        mesh_inputs={"cell_mesh": cell_mesh, "mesh_support": None},
     )
 
     assert model.pre_kwargs is not None
     assert model.pre_kwargs["flow_runtime_overrides"] == {"properties": {"K": [1.0, 2.0]}}
     assert model.pre_kwargs["cell_mesh"] is cell_mesh
-    assert model.pre_kwargs["mesh_support"] is None
     assert model.processing_options.link_mt3dms is False
 
 
@@ -416,6 +416,7 @@ def test_run_flow_model_links_mt3dms_only_for_downstream_mt3dms_transport() -> N
             flow=SimpleNamespace(active_bc=[]),
             domain=SimpleNamespace(),
             flow_runtime_overrides=None,
+            cell_mesh=object(),
         ),
     )
 

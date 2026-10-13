@@ -255,6 +255,12 @@ class IncompatibleMeshError(MeshError):
     code = "HMPY.E302"
 
 
+class MeshRequestError(MeshError):
+    """A mesh request or an engine name is malformed, before any engine builds it."""
+
+    code = "HMPY.E303"
+
+
 # -- Terrain -------------------------------------------------------------------
 # ``cli.helpers.exit_code_for`` maps the family to EXIT_SOLVER_ERROR since the
 # terrain-delineate capability made it reachable: the geospatial backend
@@ -727,6 +733,7 @@ __all__ = [
     "MeshError",
     "MeshGenerationError",
     "IncompatibleMeshError",
+    "MeshRequestError",
     # Terrain
     "TerrainError",
     "TerrainCapabilityError",

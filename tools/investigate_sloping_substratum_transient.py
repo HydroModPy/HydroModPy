@@ -38,6 +38,7 @@ from validation_cases.shared.boussinesq_uniform_strip import (
     build_flow_config,
 )
 from validation_cases.shared.gmsh_irregular_strip import write_irregular_strip_bundle
+from validation_cases.shared.regular_cell_mesh import regular_cell_mesh_of
 from validation_cases.shared.runtime import (
     _dump_toml,
     remove_tree_with_retry,
@@ -272,12 +273,6 @@ def _build_structured_solver_payload(*, solver_name: str, run_variant: str) -> d
     payload["flow"] = flow
     solver_section = dict(payload.get(solver_name, {}))
     solver_sgrid = dict(solver_section.get("sgrid", {}))
-    solver_sgrid["planar"] = {
-        "mode": "resample_to_shape",
-        "nx": int(STRUCTURED_NX),
-        "ny": int(STRUCTURED_NY),
-        "resampling": "nearest",
-    }
     solver_sgrid["vertical"] = {"nlay": 1}
     solver_section["sgrid"] = solver_sgrid
     payload[solver_name] = solver_section
@@ -420,6 +415,7 @@ def _run_structured_modflow(
         flow=flow,
         domain=domain,
         options=preprocess_options,
+        cell_mesh=regular_cell_mesh_of(domain.surface_topo),
     )
     success = bool(
         model.processing(
@@ -495,9 +491,9 @@ def _run_mf6_irregular(*, timeout: int, runtime_configs_dir: Path) -> Validation
     geographic["synthetic"] = synthetic
     payload["geographic"] = geographic
     bundle_dir = _write_irregular_bundle(out_path / "mesh_bundle")
-    payload["mesh_input"] = {
-        "mesh_path": str((bundle_dir / "mesh_2d.msh").resolve()),
-        "bundle_dir": str(bundle_dir.resolve()),
+    payload["mesh"] = {
+        "engine": "triangle",
+        "triangle": {"path": str((bundle_dir / "mesh_2d.msh").resolve())},
     }
     solver_section = dict(payload.get("modflow6", {}))
     solver_sgrid = dict(solver_section.get("sgrid", {}))

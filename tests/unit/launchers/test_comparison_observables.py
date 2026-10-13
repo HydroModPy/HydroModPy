@@ -83,7 +83,7 @@ def test_extract_observable_rows_reads_seepage_areas_from_seepage_mask(
                 "[[comparison.simulation]]",
                 'id = "mf6_demo"',
                 'solver = "modflow6"',
-                'mesh_mode = "mesh_input"',
+                'mesh_mode = "triangle"',
                 f'run_folder = "{run_folder.as_posix()}"',
                 "",
                 "[[comparison.observable]]",
@@ -159,10 +159,8 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(
                 'type = "flow"',
                 'solvers = ["modflow_nwt"]',
                 "",
-                "[modflownwt.sgrid.planar]",
-                'mode = "resample_to_shape"',
-                "nx = 2",
-                "ny = 2",
+                "[mesh.regular]",
+                "shape = [2, 2]",
             ]
         )
         + "\n",

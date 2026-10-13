@@ -105,11 +105,8 @@ source = "synthetic"
 values = [0.8]
 runoff_ratio = 0.0
 
-[modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 6
-ny = 1
-resampling = "nearest"
+[mesh.regular]
+shape = [1, 6]
 
 [modflow6.sgrid.vertical]
 nlay = 1

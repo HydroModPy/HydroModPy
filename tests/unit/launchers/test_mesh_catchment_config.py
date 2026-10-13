@@ -232,18 +232,6 @@ def test_parse_mesh_catchment_batch_selected_requires_ids() -> None:
         )
 
 
-def test_generate_toml_exposes_mesh_catchment_sections() -> None:
-    modules = available_modules()
-
-    assert "mesh_catchment" in modules
-
-    content = generate_toml(modules=["mesh_catchment"], profile="user")
-
-    assert "[mesh_catchment]" in content
-    assert "Meshing compliance target" in content
-    assert "hydraulic_properties" in content
-
-
 def test_constraints_mode_is_required_by_the_model() -> None:
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 

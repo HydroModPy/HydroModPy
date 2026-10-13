@@ -16,15 +16,11 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
 
 def prepare_runtime(
     ctx: WorkflowContext,
     *,
-    mesh_section_data: MeshCatchmentConfig | None = None,
-    constraints_mode: str | None = None,
-    external_mesh_input: dict[str, str] | None = None,
     requested_domain_supports: dict[str, object] | None = None,
     spatial_support_registry: object | None = None,
     requested_spatial_support_ids: tuple[str, ...] = (),
@@ -35,7 +31,7 @@ def prepare_runtime(
     sub-phases as individual verbs for notebook iteration.
     """
     from hydromodpy.workflow.steps.data import step_data_loading
-    from hydromodpy.workflow.steps.mesh import step_mesh, step_mesh_input
+    from hydromodpy.workflow.steps.mesh import step_mesh
     from hydromodpy.workflow.steps.setup import step_setup, step_spatial_supports
 
     if requested_domain_supports is None:
@@ -59,12 +55,7 @@ def prepare_runtime(
         requested_domain_supports=requested_domain_supports,
         registry=spatial_support_registry,
     )
-    step_mesh(
-        ctx,
-        mesh_section_data=mesh_section_data,
-        constraints_mode=constraints_mode,
-    )
-    step_mesh_input(ctx, external_mesh_input=external_mesh_input)
+    step_mesh(ctx)
 
 
 def standard_steps() -> tuple:

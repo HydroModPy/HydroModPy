@@ -10,12 +10,14 @@ mf6_preconditioner_drop_tolerance = 0.0
 [modflow6.process_specific]
 vka = 1.0
 
-[modflow6.sgrid]
-grid_dual = "voronoi"
+[mesh]
+engine = "voronoi"
 
-[mesh_input]
-mesh_path = "mesh_bundles/dupuit_seepage_limit_irregular_tri_400x25/mesh_2d.msh"
-bundle_dir = "mesh_bundles/dupuit_seepage_limit_irregular_tri_400x25"
+[mesh.triangle]
+path = "mesh_bundles/dupuit_seepage_limit_irregular_tri_400x25/mesh_2d.msh"
+
+[mesh.voronoi]
+seeds = "triangulation"
 
 [flow.param.K.field]
 value = "2.5e-2 m/s"

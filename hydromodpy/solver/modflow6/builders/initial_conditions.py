@@ -59,8 +59,8 @@ def read_restart_heads(path: str, *, nlay: int, ncpl: int, top_flat: np.ndarray)
     if head.shape != (nlay, ncpl):
         raise ValueError(
             f"restart_from: prior head shape {head.shape} does not match this run "
-            f"({nlay}, {ncpl}). Enable [mesh_catchment] cache = true so the mesh, and the "
-            f"cell count, is identical between the two runs."
+            f"({nlay}, {ncpl}). Use the same [mesh] settings as the prior run so the "
+            f"cell count is identical between the two runs."
         )
     # Inactive cells carry a NaN / large sentinel; MF6 ignores strt there but the array must
     # be finite, so fill them with the cell top like the default initial condition.

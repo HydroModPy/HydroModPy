@@ -28,6 +28,12 @@ What is migrated, and why it is safe:
 - ``data.lake_abacus.id``, ``data.lake_bathymetry.id`` and ``data.lake_geometry.id``:
   no step read these names;
 - every ``fill_method`` of a CSV forcing: no step read it;
+- the mesh sections replaced by ``[mesh]``: ``[mesh_catchment]``, ``[mesh_input]``,
+  ``sgrid.planar`` and ``sgrid.grid_dual`` of both MODFLOW backends, and the
+  ``mesh_mode`` of a comparison child. :func:`translate_retired_mesh_sections`
+  applies the translation table at the root and under every overlay; the stored
+  grid shape of a ``resample_to_shape`` keeps its exact value as
+  ``[mesh.regular] shape``;
 - the ``site_selection`` keys removed from the schema. Three of them did the
   job of another key, and move to it the way the selection read them:
   ``criteria.observations.flow_station_mode`` and
@@ -43,7 +49,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.config.config_migration import drop_retired_results_tables
+from hydromodpy.config.config_migration import _overlays, drop_retired_results_tables
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.solver_config import solver_name_of_backend
 
@@ -106,6 +112,7 @@ def migrate_stored_config(
     dropped = drop_retired_results_tables(doc)
     if dropped:
         changes.append(f"{', '.join(dropped)} dropped (every field is rebuilt on read)")
+    changes.extend(translate_retired_mesh_sections(doc))
     changes.extend(_drop_the_stored_backend(doc))
     changes.extend(_drop_the_null_cell_ids(doc))
     changes.extend(_drop_the_unread_names(doc))
@@ -120,6 +127,197 @@ def migrate_stored_config(
             "; ".join(changes),
         )
     return doc
+
+
+_SOLVER_SECTIONS = {"modflow6": "modflow6", "modflow_nwt": "modflownwt"}
+_TRIANGLE_ALGORITHMS = ("delaunay", "frontal", "meshadapt")
+_RETIRED_COMPARISON_MESH_MODES = ("mesh_catchment", "mesh_input")
+
+
+def translate_retired_mesh_sections(doc: dict[str, Any]) -> list[str]:
+    """Translate the retired mesh sections of *doc* to ``[mesh]``, in place.
+
+    *doc* is a stored configuration, or any mapping shaped like one. The root and
+    every comparison or testbed overlay are read, each against the solver it runs.
+    Returns one line per translation; an empty list means *doc* was current. A
+    null table is dropped, and a key no step of the new mesh reads is dropped.
+    """
+    changes = _translate_the_comparison_mesh_modes(doc)
+    scopes = [("", doc), *((f"{path}.", overlay) for path, overlay in _overlays(doc))]
+    analysis = doc.get("analysis")
+    if isinstance(analysis, Mapping):
+        scopes.extend((f"analysis.{path}.", overlay) for path, overlay in _overlays(dict(analysis)))
+    for prefix, scope in scopes:
+        if isinstance(scope, dict):
+            changes.extend(_translate_one_scope(scope, doc, prefix))
+    return changes
+
+
+def _flow_solver_of(scope: Mapping[str, Any]) -> str | None:
+    """Return the flow solver a scope names, by its process or its backend."""
+    flow = raw_flow_process_solver(scope.get("simulation"))
+    if flow is not None:
+        return flow[1].lower()
+    solver = scope.get("solver")
+    backend = solver.get("backend") if isinstance(solver, Mapping) else None
+    name = solver_name_of_backend(backend)
+    return name.lower() if name else None
+
+
+def _sgrid_of(scope: Mapping[str, Any], solver: str) -> Mapping[str, Any]:
+    """Return the ``sgrid`` table a scope holds for *solver*, or an empty one."""
+    section = scope.get(_SOLVER_SECTIONS.get(solver, ""))
+    sgrid = section.get("sgrid") if isinstance(section, Mapping) else None
+    return sgrid if isinstance(sgrid, Mapping) else {}
+
+
+def _engine_for(solver: str, grid_dual: object) -> str:
+    """Return the engine the retired sections meant: the cells the solver ran on."""
+    if solver == "boussinesq":
+        return "triangle"
+    return "triangle" if str(grid_dual).strip().lower() == "triangle" else "voronoi"
+
+
+def _translate_the_comparison_mesh_modes(doc: Mapping[str, Any]) -> list[str]:
+    """Rewrite the ``mesh_mode`` of a comparison child to the id of the engine it ran."""
+    sections = [doc.get("comparison")]
+    analysis = doc.get("analysis")
+    if isinstance(analysis, Mapping):
+        sections.append(analysis.get("comparison"))
+    changes: list[str] = []
+    for section in sections:
+        children = section.get("simulation") if isinstance(section, Mapping) else None
+        if isinstance(children, Mapping):
+            children = [children]
+        if not isinstance(children, list | tuple):
+            continue
+        for index, child in enumerate(children):
+            if (
+                not isinstance(child, dict)
+                or child.get("mesh_mode") not in _RETIRED_COMPARISON_MESH_MODES
+            ):
+                continue
+            overlay = child.get("overlay")
+            overlay = overlay if isinstance(overlay, Mapping) else {}
+            solver = (
+                str(child.get("solver") or "").strip().lower()
+                or _flow_solver_of(overlay)
+                or _flow_solver_of(doc)
+                or "modflow6"
+            )
+            grid_dual = _sgrid_of(overlay, solver).get("grid_dual") or _sgrid_of(doc, solver).get(
+                "grid_dual"
+            )
+            engine = _engine_for(solver, grid_dual)
+            changes.append(
+                f"comparison.simulation[{index}].mesh_mode {child['mesh_mode']!r} -> {engine!r}"
+            )
+            child["mesh_mode"] = engine
+    return changes
+
+
+def _translate_one_scope(scope: dict[str, Any], root: Mapping[str, Any], prefix: str) -> list[str]:
+    """Translate the retired mesh sections of the root or of one overlay."""
+    solver = _flow_solver_of(scope) or _flow_solver_of(root) or "modflow6"
+    sgrid = _sgrid_of(scope, solver)
+    engine = _engine_for(solver, sgrid.get("grid_dual") or _sgrid_of(root, solver).get("grid_dual"))
+    planar = sgrid.get("planar")
+    changes: list[str] = []
+    mesh: dict[str, Any] = {}
+    for name in ("mesh_catchment", "mesh_catchment_batch", "mesh_input"):
+        if name not in scope:
+            continue
+        table = scope.pop(name)
+        if table is None:
+            changes.append(f"{prefix}{name} dropped (null)")
+        elif solver == "modflow_nwt":
+            changes.append(f"{prefix}{name} dropped (modflow_nwt never read it)")
+        elif name == "mesh_catchment_batch":
+            changes.append(f"{prefix}{name} dropped (no replacement)")
+        elif isinstance(table, Mapping):
+            mesh["engine"] = engine
+            if name == "mesh_catchment":
+                _translate_mesh_catchment(table, mesh)
+            else:
+                _translate_mesh_input(table, mesh)
+            changes.append(f"{prefix}{name} -> {prefix}mesh (engine {engine!r})")
+    if not mesh and isinstance(planar, Mapping) and planar.get("mode") == "resample_to_shape":
+        shape = [planar.get("ny"), planar.get("nx")]
+        if all(isinstance(n, int) and n > 0 for n in shape):
+            mesh["regular"] = {"shape": shape}
+            changes.append(
+                f"{prefix}sgrid.planar resample_to_shape -> {prefix}mesh.regular {shape}"
+            )
+    for section in _SOLVER_SECTIONS.values():
+        solver_table = scope.get(section)
+        grid = solver_table.get("sgrid") if isinstance(solver_table, Mapping) else None
+        for key in ("planar", "grid_dual"):
+            if isinstance(grid, dict) and key in grid:
+                del grid[key]
+                changes.append(f"{prefix}{section}.sgrid.{key} dropped (replaced by [mesh])")
+    if mesh:
+        existing = scope.get("mesh")
+        scope["mesh"] = {**(existing if isinstance(existing, Mapping) else {}), **mesh}
+    return changes
+
+
+def _translate_mesh_catchment(table: Mapping[str, Any], mesh: dict[str, Any]) -> None:
+    """Fill *mesh* from a ``[mesh_catchment]`` table, by the translation table."""
+    families: dict[str, str] = {}
+    constraints = str(table.get("constraints_mode", "")).strip().lower()
+    if constraints == "rivers_only":
+        families["geology"] = "none"
+    elif constraints == "geology_only":
+        families["rivers"] = "none"
+    zone = table.get("zone_meshing")
+    zone = zone if isinstance(zone, Mapping) else {}
+    size = zone.get("global_size")
+    if isinstance(size, int | float) and size > 0:
+        mesh["cell_size"] = size
+    if zone.get("refine_interfaces") and constraints != "geology_only":
+        for old, new in (
+            ("interface_size", "river_cell_size"),
+            ("interface_distance", "river_band"),
+        ):
+            value = zone.get(old)
+            if isinstance(value, int | float) and value > 0:
+                mesh[new] = value
+    algorithm = str(zone.get("algorithm", "")).strip().lower()
+    if algorithm in _TRIANGLE_ALGORITHMS:
+        mesh["triangle"] = {"algorithm": algorithm}
+    boundary = table.get("watershed_boundary")
+    boundary = boundary if isinstance(boundary, Mapping) else {}
+    if boundary.get("enabled"):
+        families["watershed_boundary"] = "face"
+    outside = boundary.get("outside_coarsening")
+    if isinstance(outside, Mapping) and outside.get("enabled"):
+        factor = outside.get("size_factor")
+        if isinstance(factor, int | float) and factor >= 1.0:
+            mesh["outside_factor"] = factor
+        distance = outside.get("transition_distance")
+        if isinstance(distance, int | float) and distance >= 0.0:
+            mesh["transition_distance"] = distance
+    else:
+        # The coarsening was off unless enabled, so the cells kept their size outside.
+        mesh["outside_factor"] = 1.0
+    if families:
+        mesh["families"] = families
+    lake = table.get("lake_refinement")
+    if isinstance(lake, Mapping) and lake.get("enabled"):
+        mesh["lake_refinement"] = dict(lake)
+    zones = table.get("refinement_zone")
+    if isinstance(zones, list) and zones:
+        mesh["refinement_zone"] = list(zones)
+
+
+def _translate_mesh_input(table: Mapping[str, Any], mesh: dict[str, Any]) -> None:
+    """Fill *mesh* from a ``[mesh_input]`` table: its file is the triangulation to read."""
+    path = table.get("mesh_path")
+    if not path:
+        return
+    mesh["triangle"] = {**mesh.get("triangle", {}), "path": str(path)}
+    if mesh["engine"] == "voronoi":
+        mesh["voronoi"] = {"seeds": "triangulation"}
 
 
 def _drop_the_stored_backend(doc: dict[str, Any]) -> list[str]:
@@ -251,4 +449,4 @@ def _fold_flow_station_keys(selection: dict[str, Any]) -> list[str]:
     return changes
 
 
-__all__ = ["migrate_stored_config", "raw_flow_process_solver"]
+__all__ = ["migrate_stored_config", "raw_flow_process_solver", "translate_retired_mesh_sections"]

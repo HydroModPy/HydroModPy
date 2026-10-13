@@ -257,6 +257,9 @@ def test_a_user_project_file_holding_the_tables_loads(
     document = tomlkit.parse((_FIXTURES / "config_modflow_nwt.toml").read_text(encoding="utf-8"))
     del document["persistence"]
     del document["solver"]["backend"]
+    for solver in ("modflow6", "modflownwt"):
+        for retired in ("planar", "grid_dual"):
+            del document[solver]["sgrid"][retired]
     path.write_text(tomlkit.dumps(document), encoding="utf-8")
     assert "derived" in document["simulation"]["results"]
 

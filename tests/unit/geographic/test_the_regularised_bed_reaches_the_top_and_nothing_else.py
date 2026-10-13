@@ -4,8 +4,8 @@ The terrain engine, the network extraction and the clips are replaced by
 recorders that write the rasters of the bench valley, with a 1.5 m bump on the
 bed. What is under test is which file the model top and the SFR bed read, what
 the regularisation writes, and that the routing products, the channel tree and
-the polygons the mesh is built on do not move. A mesh read from a file takes
-its MODFLOW 6 top from the regularised clip too.
+the polygons the mesh is built on do not move. A triangle mesh takes its
+MODFLOW 6 top from the regularised clip too.
 """
 
 from __future__ import annotations
@@ -41,9 +41,8 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     SolverSGridConfig,
     VerticalGridConfig,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
-from hydromodpy.workflow.steps.mesh import run_mesh_input_phase
 from tests._helpers import ground_bench as bench
+from tests._helpers.cell_meshes import cell_mesh_of
 from tests._helpers.terrain_doubles import fake_flow_products
 
 BUMP_ROW = 5
@@ -374,7 +373,7 @@ def _triangle_at(x: float, y: float, start: int) -> tuple[list[list[float]], lis
     return [[x - 3.0, y - 2.0], [x + 3.0, y - 2.0], [x, y + 4.0]], [start, start + 1, start + 2]
 
 
-def test_a_mesh_read_from_a_file_takes_its_modflow6_top_from_the_regularised_clip(
+def test_a_triangle_mesh_takes_its_modflow6_top_from_the_regularised_clip(
     tmp_path, monkeypatch
 ) -> None:
     config = _config(tmp_path, regularize=True)
@@ -390,8 +389,7 @@ def test_a_mesh_read_from_a_file_takes_its_modflow6_top_from_the_regularised_cli
         name="substratum", values=np.asarray(surface.as_array()) - 50.0, support=surface.support
     )
 
-    # A mesh written to a file and read back the way [mesh_input] reads it: one
-    # cell on the moved channel pixel, one on the hillslope.
+    # A triangle mesh with one cell on the moved channel pixel, one on the hillslope.
     row, col = BUMP_ROW - 1, bench.AXIS - 1  # on the clip grid
     centres = [
         (_CLIP_TRANSFORM.c + (c + 0.5) * bench.RES, _CLIP_TRANSFORM.f - (row + 0.5) * bench.RES)
@@ -406,25 +404,12 @@ def test_a_mesh_read_from_a_file_takes_its_modflow6_top_from_the_regularised_cli
         vertices=np.asarray(vertices, dtype=float),
         cell_blocks=(CellBlock(CellType.TRIANGLE, np.asarray(cells, dtype=int)),),
     )
-    msh = GmshPlanarMesh2D.from_hydro_mesh(mesh).to_file(tmp_path / "mesh.msh")
-    run_state = SimpleNamespace(
-        setup=SimpleNamespace(
-            mesh_summary=None,
-            mesh_bundle=None,
-            cell_mesh=None,
-            mesh_support=None,
-            geographic=SimpleNamespace(crs_project="EPSG:2154"),
-        )
-    )
-    run_mesh_input_phase(run_state, {"mesh_path": str(msh), "bundle_dir": ""})
-
     grid = build_spatial_discretization(
         domain=domain,
         sgrid_config=SolverSGridConfig(
-            grid_dual="triangle",
             vertical=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
         ),
-        cell_mesh=run_state.setup.cell_mesh,
+        cell_mesh=cell_mesh_of(mesh),
     )
 
     top = grid.solver_mesh.top.reshape(-1)

@@ -20,11 +20,9 @@ def _write_mesh_base(path: Path) -> None:
                 'type = "mesh"',
                 'backend = "catchment"',
                 "",
-                "[mesh_catchment]",
-                'constraints_mode = "rivers_only"',
-                "",
-                "[mesh_catchment.zone_meshing]",
-                "global_size = 200.0",
+                "[mesh]",
+                'engine = "voronoi"',
+                "cell_size = 200.0",
             ]
         )
         + "\n",

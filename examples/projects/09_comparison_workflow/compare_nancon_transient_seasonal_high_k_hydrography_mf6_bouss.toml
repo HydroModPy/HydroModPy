@@ -31,7 +31,7 @@ id = "mf6_ref"
 label = "MODFLOW 6 Nancon seasonal high-K reference with observed hydrography"
 solver = "modflow6"
 mesh_label = "nancon_generated_catchment_support"
-mesh_mode = "mesh_catchment"
+mesh_mode = "voronoi"
 
 [comparison.simulation.overlay.workspace]
 project_root = "outputs/nancon_transient_seasonal_high_k_hydrography/workspace_mf6"
@@ -56,7 +56,7 @@ id = "bouss_candidate"
 label = "Boussinesq Nancon seasonal high-K candidate with observed hydrography"
 solver = "boussinesq"
 mesh_label = "nancon_generated_catchment_support"
-mesh_mode = "mesh_catchment"
+mesh_mode = "triangle"
 
 [comparison.simulation.overlay.workspace]
 project_root = "outputs/nancon_transient_seasonal_high_k_hydrography/workspace_bouss"
@@ -64,6 +64,9 @@ root = "outputs/nancon_transient_seasonal_high_k_hydrography/workspace_bouss"
 
 [comparison.simulation.overlay.flow]
 runtime_backend = "scipy_sparse"
+
+[comparison.simulation.overlay.mesh]
+engine = "triangle"
 
 [[comparison.observable]]
 name = "head_map_after_first_week"

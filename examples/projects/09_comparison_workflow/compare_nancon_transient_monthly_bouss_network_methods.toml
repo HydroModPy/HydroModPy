@@ -31,7 +31,7 @@ id = "mf6_ref"
 label = "MODFLOW 6 DISV Nancon monthly reference, comparable setup"
 solver = "modflow6"
 mesh_label = "Nancon river-constrained triangular mesh"
-mesh_mode = "mesh_input"
+mesh_mode = "voronoi"
 
 [comparison.simulation.overlay.workspace]
 project_root = "outputs/nancon_transient_monthly_bouss_network_methods/workspace_mf6"
@@ -57,7 +57,7 @@ id = "bouss_candidate"
 label = "Boussinesq Nancon monthly candidate, comparable setup"
 solver = "boussinesq"
 mesh_label = "Nancon river-constrained triangular mesh"
-mesh_mode = "mesh_input"
+mesh_mode = "triangle"
 
 [comparison.simulation.overlay.workspace]
 project_root = "outputs/nancon_transient_monthly_bouss_network_methods/workspace_bouss"
@@ -70,6 +70,9 @@ ts_vi_steps_per_period = 4
 ts_vi_adapt = false
 ts_vi_type = "beuler"
 ts_vi_snes_type = "vinewtonrsls"
+
+[comparison.simulation.overlay.mesh]
+engine = "triangle"
 
 [[comparison.observable]]
 name = "head_map_last"

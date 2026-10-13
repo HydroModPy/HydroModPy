@@ -233,13 +233,13 @@ class TopSamplingConfig(HydroModelBase):
     """How the top of the solver grid is sampled from the DEM.
 
     Applies to the MODFLOW 6 runtime mesh and to a structured grid coarser than
-    its DEM (``planar.mode = "resample_to_shape"``). The default 'centroid' mode
+    its DEM (``[mesh] cell_size`` or ``[mesh.regular] shape``). The default 'centroid' mode
     samples the DEM at each Voronoi generator, or resamples it to the grid, which
     under-represents narrow incised channels (the sample lands on a bank, not the
     thalweg). The 'zonal' mode reduces every DEM pixel inside a cell with a
     per-class statistic (a thalweg-preserving stat on channel pixels, an area stat
     on hillslope pixels), so channel cells keep their incised low. A structured
-    grid whose cells are the DEM pixels (``keep_native``) already holds the pixel
+    grid whose cells are the DEM pixels already holds the pixel
     values and is unchanged. Only the top is zonal; the bottom keeps its rule. On
     a structured grid the idomain does not move, and zonal applies only when a cell
     covers at least two DEM pixels. MODFLOW-NWT builds no channel mask, so a zonal
@@ -339,31 +339,43 @@ class TopSamplingConfig(HydroModelBase):
     )
 
 
-class SolverSGridConfig(HydroModelBase):
-    """Solver-facing grid configuration split into explicit planar and vertical parts."""
+_RETIRED_SGRID_KEYS = {
+    "planar": (
+        "[mesh]: write cell_size for a regular grid coarser than the DEM pixel, "
+        "or [mesh.regular] shape = [nrow, ncol] for a fixed shape, and remove the key "
+        "to keep the DEM pixels"
+    ),
+    "grid_dual": (
+        '[mesh] engine: write engine = "voronoi" for the dual cells or '
+        'engine = "triangle" for the triangulation cells'
+    ),
+}
 
-    planar: Annotated[PlanarGridConfig, Profile.USER] = Field(
-        default_factory=PlanarGridConfig,
-        description="Planar discretization of the solver grid.",
-    )
+
+class SolverSGridConfig(HydroModelBase):
+    """Solver-facing grid configuration: vertical layering and top sampling.
+
+    The planar grid is the mesh of ``[mesh]``, not a key of this table.
+    """
+
     vertical: Annotated[VerticalGridConfig, Profile.USER] = Field(
         default_factory=VerticalGridConfig,
         description="Vertical layering of the solver grid.",
-    )
-    grid_dual: Annotated[Literal["voronoi", "triangle"], Profile.USER] = Field(
-        default="voronoi",
-        description=(
-            "Applies only to a MODFLOW 6 run on a Gmsh mesh built by the run; ignored for "
-            "structured grids, MODFLOW-NWT and Boussinesq (which keeps its own "
-            "triangulation). 'voronoi' uses the PEBI dual (exact CVFD "
-            "orthogonality, ~half the cells) and is the default; 'triangle' keeps "
-            "the triangulation cells as the DISV grid for simplex comparison runs."
-        ),
     )
     top_sampling: Annotated[TopSamplingConfig, Profile.USER] = Field(
         default_factory=TopSamplingConfig,
         description="How the top of the solver grid is sampled from the DEM.",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _name_the_mesh_section_of_a_retired_key(cls, data: Any) -> Any:
+        """Refuse ``planar`` and ``grid_dual`` and name the ``[mesh]`` key that replaces them."""
+        if isinstance(data, Mapping):
+            for key, replacement in _RETIRED_SGRID_KEYS.items():
+                if key in data:
+                    raise ValueError(f"sgrid.{key} is replaced by {replacement}.")
+        return data
 
     @classmethod
     def from_mapping(cls, config_data: Mapping[str, Any]):

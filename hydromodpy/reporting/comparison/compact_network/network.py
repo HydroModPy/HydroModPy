@@ -89,11 +89,15 @@ def fallback_reference_network(
                 if config_path_raw:
                     config_path = resolve_recorded_path(config_path_raw)
                     cfg = read_toml_mapping(config_path)
-                    mesh_input = cfg.get("mesh_input", {})
-                    if isinstance(mesh_input, dict):
-                        raw_bundle = str(mesh_input.get("bundle_dir") or "")
-                        if raw_bundle:
-                            candidates.append(resolve_recorded_path(raw_bundle))
+                    mesh = cfg.get("mesh", {})
+                    triangle = mesh.get("triangle", {}) if isinstance(mesh, dict) else {}
+                    raw_mesh_file = (
+                        str(triangle.get("path") or "") if isinstance(triangle, dict) else ""
+                    )
+                    if raw_mesh_file:
+                        candidates.append(
+                            resolve_recorded_path(str(config_path.parent / raw_mesh_file)).parent
+                        )
                 run_folder_raw = str(item.get("run_folder") or "")
                 if run_folder_raw:
                     run_folder = resolve_recorded_path(run_folder_raw)

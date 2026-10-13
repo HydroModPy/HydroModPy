@@ -5,8 +5,8 @@ its structured grid, MODFLOW 6 on a triangle mesh, MODFLOW 6 on the Voronoi
 dual of that mesh and the in-house Boussinesq solver on the same triangles,
 with its PETSc engine (``boussinesq``) and its default local engine
 (``boussinesq_local``). The analytical case of a twin holds one config per
-solver. The builders here read them, point the mesh input at an absolute
-bundle path (the paths in the case files are relative to the case folder, and
+solver. The builders here read them, point ``[mesh.triangle] path`` at an
+absolute path (the paths in the case files are relative to the case folder, and
 break once the config is written to the benchmark folder) and write one
 project config.
 
@@ -37,17 +37,15 @@ class SolverVariant:
     """Solver family written in the twin definition."""
     config_file: str
     """Case file holding the solver section, merged over the common files."""
-    section: str
-    """Top-level TOML section of the solver, where the planar resolution lives."""
     unstructured: bool = False
-    """True when the mesh comes from a bundle, not from the planar resolution."""
-    grid_dual: str | None = None
-    """``triangle`` keeps one cell per bundle triangle, ``voronoi`` one per node."""
+    """True when the mesh comes from a triangulation file, not from a regular grid."""
+    engine: str | None = None
+    """``triangle`` keeps one cell per triangle, ``voronoi`` one per vertex."""
     mesh_config_file: str | None = None
-    """Case file that names the bundle when ``config_file`` does not.
+    """Case file that names the triangulation when ``config_file`` does not.
 
     The Boussinesq files of a case hold the ``[flow]`` engine keys only. The
-    solver reads the triangles of the bundle that the triangle file names.
+    solver reads the triangles of the file that the triangle file names.
     """
 
 
@@ -56,44 +54,40 @@ VARIANTS: Mapping[str, SolverVariant] = {
         column="modflow_nwt",
         solver_name="modflow_nwt",
         config_file="config_modflownwt.toml",
-        section="modflownwt",
     ),
     "modflow6": SolverVariant(
         column="modflow6",
         solver_name="modflow6",
         config_file="config_modflow6.toml",
-        section="modflow6",
     ),
     "modflow6_irregular_tri": SolverVariant(
         column="modflow6_irregular_tri",
         solver_name="modflow6",
         config_file="config_modflow6_irregular_tri.toml",
-        section="modflow6",
         unstructured=True,
-        grid_dual="triangle",
+        engine="triangle",
     ),
     "modflow6_voronoi": SolverVariant(
         column="modflow6_voronoi",
         solver_name="modflow6",
         config_file="config_modflow6_irregular_tri.toml",
-        section="modflow6",
         unstructured=True,
-        grid_dual="voronoi",
+        engine="voronoi",
     ),
     "boussinesq": SolverVariant(
         column="boussinesq",
         solver_name="boussinesq",
         config_file="config_boussinesq.toml",
-        section="boussinesq",
         unstructured=True,
+        engine="triangle",
         mesh_config_file="config_modflow6_irregular_tri.toml",
     ),
     "boussinesq_local": SolverVariant(
         column="boussinesq_local",
         solver_name="boussinesq",
         config_file="config_boussinesq_local.toml",
-        section="boussinesq",
         unstructured=True,
+        engine="triangle",
         mesh_config_file="config_modflow6_irregular_tri.toml",
     ),
 }
@@ -141,8 +135,9 @@ def write_variant_config(
         ``(nx, ny)`` of the structured solver grid, for the solvers that mesh
         the domain themselves. The case file resolution is kept when ``None``.
     bundle_dir
-        Mesh bundle of the unstructured columns, replacing the one of the case
-        file. Relative paths of the case file are resolved from ``case_dir``.
+        Folder of the ``mesh_2d.msh`` of the unstructured columns, replacing the
+        file of the case config. Relative paths of the case file are resolved
+        from ``case_dir``.
     """
     variant = VARIANTS[column]
     payload: dict[str, Any] = {}
@@ -161,24 +156,23 @@ def write_variant_config(
     ]
     if variant.mesh_config_file is not None:
         mesh_payload = _read_toml(case_dir / variant.mesh_config_file)
-        payload.setdefault("mesh_input", {}).update(mesh_payload.get("mesh_input", {}))
-    if variant.grid_dual is not None:
-        section = payload.setdefault(variant.section, {}).setdefault("sgrid", {})
-        section["grid_dual"] = str(variant.grid_dual)
+        payload["mesh"] = copy.deepcopy(mesh_payload.get("mesh", {}))
     if variant.unstructured:
-        mesh_input = payload.setdefault("mesh_input", {})
+        mesh = payload.setdefault("mesh", {})
+        triangle = mesh.setdefault("triangle", {})
         resolved = (
-            Path(bundle_dir)
+            Path(bundle_dir) / "mesh_2d.msh"
             if bundle_dir is not None
-            else _absolute(case_dir, mesh_input["bundle_dir"])
+            else _absolute(case_dir, triangle["path"])
         )
-        mesh_input["bundle_dir"] = str(resolved)
-        mesh_input["mesh_path"] = str(resolved / "mesh_2d.msh")
+        triangle["path"] = str(resolved)
+        mesh["engine"] = str(variant.engine)
+        mesh.pop("voronoi", None)
+        if variant.engine == "voronoi":
+            mesh["voronoi"] = {"seeds": "triangulation"}
     elif planar is not None:
-        section = payload.setdefault(variant.section, {}).setdefault("sgrid", {})
-        planar_section = section.setdefault("planar", {})
-        planar_section["nx"] = int(planar[0])
-        planar_section["ny"] = int(planar[1])
+        regular = payload.setdefault("mesh", {}).setdefault("regular", {})
+        regular["shape"] = [int(planar[1]), int(planar[0])]
     path.write_text(_dump_toml(copy.deepcopy(payload)), encoding="utf-8", newline="\n")
 
 

@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.core import progress
-from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+from hydromodpy.core.exceptions import ConfigMissingError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
@@ -47,11 +47,9 @@ def configure(
     from hydromodpy.spatial.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
     )
+    from hydromodpy.spatial.mesh.config import MeshConfig
+    from hydromodpy.spatial.mesh.planning import prepare_geographic_config_for_mesh
     from hydromodpy.workflow.steps.data import log_data_plan
-    from hydromodpy.workflow.steps.mesh import (
-        resolve_optional_mesh_input,
-        resolve_optional_mesh_section,
-    )
     from hydromodpy.workflow.steps.setup import (
         collect_requested_support_ids,
         resolve_support_configs,
@@ -72,43 +70,11 @@ def configure(
 
     project._time_grid = require_flow_simulation_time_grid(project._cfg)
 
-    if project._config_path is not None:
-        project._mesh_section_data = resolve_optional_mesh_section(raw_toml)
-        project._external_mesh_input = resolve_optional_mesh_input(
-            raw_toml,
-            project._config_path,
-        )
-    else:
-        project._mesh_section_data = project._cfg.mesh_catchment
-        project._external_mesh_input = None
-    project._mesh_constraints_mode = None
-    if project._mesh_section_data is not None and project._external_mesh_input is not None:
-        raise ConfigError(
-            "Embedded [mesh_catchment] and external [mesh_input] are mutually "
-            "exclusive. Use only one mesh source."
-        )
-    if project._mesh_section_data is not None:
-        from hydromodpy.spatial.mesh.launcher.runtime import (
-            prepare_geographic_config_for_meshing,
-        )
-
-        project._mesh_constraints_mode = project._mesh_section_data.constraints_mode
-        project._cfg.geographic = prepare_geographic_config_for_meshing(
-            project._cfg.geographic,
-            constraints_mode=project._mesh_constraints_mode,
-        )
-    elif project._external_mesh_input is not None and "stream" in {
-        str(bc_id).strip().lower() for bc_id in getattr(project._cfg.flow, "active_bc", ())
-    }:
-        from hydromodpy.spatial.mesh.launcher.runtime import (
-            prepare_geographic_config_for_meshing,
-        )
-
-        project._cfg.geographic = prepare_geographic_config_for_meshing(
-            project._cfg.geographic,
-            constraints_mode="rivers_only",
-            section_name="mesh_input",
-        )
+    project._cfg.geographic = prepare_geographic_config_for_mesh(
+        project._cfg.geographic,
+        project._cfg.mesh or MeshConfig(),
+        active_bc=project._cfg.flow.active_bc,
+    )
 
     project._spatial_support_registry = build_default_spatial_support_provider_registry()
     project._requested_support_ids = collect_requested_support_ids(project._cfg.flow)
@@ -208,8 +174,7 @@ def adopt_pipeline_phase(project: Project, executed_steps: Sequence[str]) -> Non
         project._data_loaded.clear()
         project._ctx.loaded_data.loaded_plan_types = None
         project._ctx.setup.cell_mesh = None
-        project._ctx.setup.mesh_bundle = None
-        project._ctx.setup.mesh_support = None
+        project._ctx.setup.mesh_summary = None
     else:
         project._data_loaded = set(getattr(project._ctx.data_plan, "types", ()) or ())
     project._phase = phase
@@ -230,8 +195,7 @@ def build_geographic(project: Project, *, reuse_dem: bool = False) -> None:
     project._data_loaded.clear()
     project._ctx.loaded_data.loaded_plan_types = None
     project._ctx.setup.cell_mesh = None
-    project._ctx.setup.mesh_bundle = None
-    project._ctx.setup.mesh_support = None
+    project._ctx.setup.mesh_summary = None
 
 
 def load_data(project: Project, *, types: list[str] | None = None) -> None:
@@ -274,29 +238,22 @@ def rebuild_geographic(project: Project, *, reuse_dem: bool = False) -> None:
 
 
 def build_mesh(project: Project, **overrides: object) -> None:
-    """Build the catchment mesh from the current geographic context.
+    """Build the cell mesh from the current geographic context.
 
-    ``overrides`` patch ``cfg.mesh_catchment`` before the mesh step runs.
+    ``overrides`` patch ``cfg.mesh`` before the mesh step runs.
     """
-    from hydromodpy.workflow.steps.mesh import step_mesh, step_mesh_input
+    from hydromodpy.spatial.mesh.config import MeshConfig
+    from hydromodpy.workflow.steps.mesh import step_mesh
 
     if project._phase == "uninitialized":
         load_data(project)
     if overrides:
-        from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
-
-        if project._cfg.mesh_catchment is None:
-            project._cfg.mesh_catchment = MeshCatchmentConfig.model_validate(overrides)
-        else:
-            merged = {**project._cfg.mesh_catchment.model_dump(), **overrides}
-            project._cfg.mesh_catchment = MeshCatchmentConfig.model_validate(merged)
-    with progress.phase("build_mesh"):
-        step_mesh(
-            project._ctx,
-            mesh_section_data=project._mesh_section_data,
-            constraints_mode=project._mesh_constraints_mode,
+        current = (
+            {} if project._cfg.mesh is None else project._cfg.mesh.model_dump(exclude_unset=True)
         )
-        step_mesh_input(project._ctx, external_mesh_input=project._external_mesh_input)
+        project._cfg.mesh = MeshConfig.model_validate({**current, **overrides})
+    with progress.phase("build_mesh"):
+        step_mesh(project._ctx)
     project._phase = "mesh"
 
 

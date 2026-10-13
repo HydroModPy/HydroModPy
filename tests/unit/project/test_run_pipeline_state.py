@@ -1,11 +1,8 @@
 """The Pipeline receives everything the facade verbs used to read off the Project.
 
-``build_mesh`` reads its mesh sections from the pipeline state, while
-``Project.build_mesh`` read the same three off the Project. As long as the model
-phase was built by the facade before the Pipeline started, the gap was invisible.
-It stopped being invisible when the Pipeline took the model phase over: a state
-missing those keys would mesh a project as if it declared no ``[mesh_catchment]``
-and no ``[mesh_input]``.
+``build_mesh`` reads ``[mesh]`` from the configuration the pipeline state
+carries. The run configuration the facade hands over must be the one that
+declares it, or the Pipeline would mesh a project as if it declared no ``[mesh]``.
 """
 
 from __future__ import annotations
@@ -29,7 +26,7 @@ name = "declared_name"
 [[simulation.process]]
 id = "flow"
 type = "flow"
-solvers = ["modflow_nwt"]
+solvers = ["modflow6"]
 
 [workspace]
 project_root = "{root}"
@@ -68,13 +65,9 @@ id = "K"
 kind = "homogeneous"
 value = "1e-5 m/s"
 
-[mesh_catchment]
-constraints_mode = "rivers_only"
-
-[mesh_catchment.zone_meshing]
-global_size = 350.0
-min_size = 150.0
-max_size = 800.0
+[mesh]
+engine = "triangle"
+cell_size = 350.0
 
 [display]
 enabled = false
@@ -112,13 +105,12 @@ def captured_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> PipelineS
     return seen[0]
 
 
-def test_the_state_carries_the_declared_mesh_sections(captured_state: PipelineState) -> None:
-    """``[mesh_catchment]`` reaches the step that builds the mesh."""
-    section = captured_state.data["mesh_section_data"]
+def test_the_state_carries_the_declared_mesh_section(captured_state: PipelineState) -> None:
+    """``[mesh]`` reaches the step that builds the mesh, through the run configuration."""
+    mesh = captured_state.data["cfg"].mesh
 
-    assert section is not None, "the pipeline would mesh as if no section were declared"
-    assert captured_state.data["constraints_mode"] == "rivers_only"
-    assert captured_state.data["external_mesh_input"] is None
+    assert mesh is not None, "the pipeline would mesh as if no section were declared"
+    assert (mesh.engine, mesh.cell_size) == ("triangle", 350.0)
 
 
 def test_the_state_carries_the_name_the_caller_asked_for(captured_state: PipelineState) -> None:

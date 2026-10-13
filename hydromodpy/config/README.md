@@ -47,8 +47,7 @@ One field of `HydroModPyConfig` per top-level TOML section. Required: `workflow`
 | `[observation]` | `ObservationConfig` | `simulation/planning/observation_config.py` |
 | `[analysis]` | `AnalysisConfig` | `analysis/config.py` |
 | `[overview]` | `OverviewConfig` | `display/overview/config.py` |
-| `[mesh_catchment]` | `MeshCatchmentConfig` | `spatial/mesh/config/` |
-| `[mesh_input]` | `MeshInputConfig` | `core/config_kit/mesh_input.py` |
+| `[mesh]` | `MeshConfig` | `spatial/mesh/config/mesh.py` |
 | `[calibration]` | `CalibrationConfig` | `calibration/config.py` |
 | `[spinup]` | `SpinupConfig` | `simulation/spinup_config.py` |
 | `[testbed]` | `TestbedConfig` | `analysis/testbed/config.py` |

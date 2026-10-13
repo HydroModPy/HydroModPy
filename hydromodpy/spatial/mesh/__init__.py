@@ -36,6 +36,12 @@ Adapters::
         to_flopy_disv_args,
     )
 
+Engines::
+
+    from hydromodpy.spatial.mesh import MeshRequest, registry
+
+    cell_mesh = registry.create("regular").build(request)
+
 I/O::
 
     from hydromodpy.spatial.mesh.io import read_vtu, write_vtu
@@ -58,9 +64,26 @@ the ``Scientific documentation`` tab.
 
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.spatial.mesh.port import MeshEngine, MeshEngineCapabilities
+from hydromodpy.spatial.mesh.request import (
+    InputTriangulation,
+    LineFamilySpec,
+    MeshRequest,
+    RasterGridSpec,
+    SizeField,
+)
 
 __all__ = (
     "CellType",
     "CellBlock",
     "HydroMesh",
+    "InputTriangulation",
+    "LineFamilySpec",
+    "MeshEngine",
+    "MeshEngineCapabilities",
+    "MeshRequest",
+    "PlanarCellMesh",
+    "RasterGridSpec",
+    "SizeField",
 )

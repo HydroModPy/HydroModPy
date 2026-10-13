@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -28,10 +27,6 @@ from hydromodpy.solver.modflow_common.runtime_arrays import (
     resolve_flow_property_runtime_overrides,
 )
 from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import to_field_mesh
-
-if TYPE_CHECKING:
-    from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
-    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 _DEFAULT_CELL_SAMPLES_PER_AXIS = 8
@@ -61,17 +56,6 @@ def _resolve_field_discretization(
     )
     geometry_cache[cache_key] = discretized
     return discretized
-
-
-def _resolve_field_mesh(cell_mesh: PlanarCellMesh | None, solver_mesh) -> BaseFieldMesh:
-    from hydromodpy.spatial.mesh.model.cell_types import CellType
-
-    hydro = getattr(solver_mesh, "planar_mesh", None)
-    # On a Voronoi (ragged POLYGON) solver grid the property MUST be mapped onto the
-    # Voronoi cells, so ignore the triangular seed cell mesh passed in.
-    if hydro is not None and CellType.POLYGON in getattr(hydro, "cell_types", ()):
-        return to_field_mesh(hydro)
-    return to_field_mesh(hydro if cell_mesh is None else cell_mesh.mesh)
 
 
 def _build_cellular_property_from_flow_domain(
@@ -167,92 +151,11 @@ def _zero_property_arrays(*, solver_mesh) -> tuple[np.ndarray, np.ndarray]:
     )
 
 
-def _support_cell_vector(
-    mesh_support: object | None,
-    attr_name: str,
-    *,
-    n_cells: int,
-    positive: bool,
-) -> np.ndarray | None:
-    if mesh_support is None:
-        return None
-    values = getattr(mesh_support, attr_name, None)
-    if values is None:
-        return None
-    arr = np.asarray(values, dtype=float).reshape(-1)
-    if arr.size != int(n_cells):
-        return None
-    valid = np.isfinite(arr)
-    if positive:
-        valid &= arr > 0.0
-    if not np.any(valid):
-        return None
-    return np.where(valid, arr, np.nan)
-
-
-def fill_missing_flow_properties_from_mesh_support(
-    flow_params: dict[str, np.ndarray],
-    *,
-    mesh_support: object | None,
-    solver_mesh: object,
-) -> dict[str, np.ndarray]:
-    """Complete invalid unstructured MF6 properties from mesh-bundle metadata."""
-    if getattr(solver_mesh, "is_structured", False):
-        return flow_params
-
-    n_cells = int(solver_mesh.n_cells)
-    raw_k = getattr(mesh_support, "cell_hydraulic_conductivity_m_s", None)
-    if raw_k is not None and np.asarray(raw_k, dtype=float).reshape(-1).size != n_cells:
-        logger.warning(
-            "Mesh-bundle conductivity carries %d values but the solver grid has %d cells "
-            "(a Voronoi/PEBI dual halves the triangulation cell count); the bundle K is "
-            "ignored. Configure K in [flow] or set grid_dual='triangle' to reuse the bundle.",
-            int(np.asarray(raw_k, dtype=float).reshape(-1).size),
-            n_cells,
-        )
-        return flow_params
-    support_k = _support_cell_vector(
-        mesh_support,
-        "cell_hydraulic_conductivity_m_s",
-        n_cells=n_cells,
-        positive=True,
-    )
-    if support_k is None:
-        return flow_params
-
-    out = dict(flow_params)
-    for key in ("hk", "hk_value"):
-        if key not in out:
-            continue
-        arr = np.asarray(out[key], dtype=float).copy()
-        invalid = ~np.isfinite(arr) | (arr <= 0.0)
-        if not np.any(invalid):
-            continue
-        if arr.ndim == 1:
-            replacement = np.broadcast_to(support_k, arr.shape)
-        elif arr.ndim == 2 and arr.shape[1] == n_cells:
-            replacement = np.broadcast_to(support_k.reshape(1, -1), arr.shape)
-        else:
-            continue
-        replace_mask = invalid & np.isfinite(replacement) & (replacement > 0.0)
-        if not np.any(replace_mask):
-            continue
-        arr[replace_mask] = replacement[replace_mask]
-        out[key] = arr
-        logger.debug(
-            "Completed %s for %d unstructured cell value(s) from mesh bundle conductivity.",
-            key,
-            int(np.count_nonzero(replace_mask)),
-        )
-    return out
-
-
 def resolve_flow_property_arrays(
     *,
     flow: object,
     domain: object,
     solver_mesh,
-    cell_mesh: PlanarCellMesh | None = None,
     required_properties: frozenset[str] | set[str] | None = None,
     optional_fill_values: Mapping[str, float] | None = None,
     runtime_property_overrides: Mapping[str, object] | None = None,
@@ -283,7 +186,7 @@ def resolve_flow_property_arrays(
     optional_defaults = {
         str(name).strip(): float(value) for name, value in (optional_fill_values or {}).items()
     }
-    mesh_2d = _resolve_field_mesh(cell_mesh, solver_mesh)
+    mesh_2d = to_field_mesh(solver_mesh.planar_mesh)
     geometry_cache: dict[tuple[int, int], object] = {}
     out: dict[str, np.ndarray] = {}
     parameters = getattr(flow, "parameters", {})
@@ -390,7 +293,6 @@ def resolve_k33_field(
 
 
 __all__ = [
-    "fill_missing_flow_properties_from_mesh_support",
     "resolve_flow_property_arrays",
     "resolve_k33_field",
     "resolve_required_flow_properties",

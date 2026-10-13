@@ -9,7 +9,6 @@ import numpy as np
 from hydromodpy.solver.field_property_mapping import require_positive_conductivity
 from hydromodpy.solver.modflow6.builders import build_drain_stress_period_data
 from hydromodpy.solver.modflow6.support.property_mapping import (
-    fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
 )
@@ -32,8 +31,7 @@ def runtime_reuse_signature(
     flow: object,
     domain: object,
     options: ModflowPreprocessOptions,
-    cell_mesh: object | None,
-    mesh_support: object | None,
+    cell_mesh: object,
 ) -> tuple[object, ...]:
     """Capture the static runtime structure that must remain stable."""
     time_grid = getattr(options, "time_grid", None)
@@ -41,7 +39,6 @@ def runtime_reuse_signature(
         id(flow),
         id(domain),
         id(cell_mesh),
-        id(mesh_support),
         id(time_grid),
         str(model.flow_regime or ""),
     )
@@ -53,8 +50,7 @@ def can_refresh_runtime_reuse(
     flow: object,
     domain: object,
     options: ModflowPreprocessOptions,
-    cell_mesh: object | None,
-    mesh_support: object | None,
+    cell_mesh: object,
     flow_runtime_overrides: Mapping[str, object] | None,
 ) -> bool:
     """Return ``True`` when a cached runtime can be refreshed in place."""
@@ -68,7 +64,6 @@ def can_refresh_runtime_reuse(
         domain=domain,
         options=options,
         cell_mesh=cell_mesh,
-        mesh_support=mesh_support,
     )
     return signature == getattr(model, "_calibration_runtime_reuse_signature", None)
 
@@ -83,15 +78,9 @@ def refresh_reused_runtime_property_packages(
         flow=model.flow,
         domain=model.domain,
         solver_mesh=model.solver_mesh,
-        cell_mesh=model.runtime_cell_mesh,
         required_properties=resolve_required_flow_properties(flow_regime=model.flow_regime),
         optional_fill_values={"Sy": 0.0, "Ss": 0.0},
         runtime_property_overrides=flow_runtime_overrides,
-    )
-    flow_params = fill_missing_flow_properties_from_mesh_support(
-        flow_params,
-        mesh_support=model.runtime_mesh_support,
-        solver_mesh=model.solver_mesh,
     )
     model.hk = model.solver_mesh.flatten_from_grid(flow_params["hk"])
     require_positive_conductivity(

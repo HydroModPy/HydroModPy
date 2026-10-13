@@ -22,6 +22,7 @@ from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.solver.base.registry import capabilities
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+from hydromodpy.spatial.mesh.config import MeshConfig
 
 RESTART_CAPABILITY = "flow:restart"
 
@@ -68,6 +69,7 @@ def test_leaving_it_unset_is_fine_on_any_backend(tmp_path) -> None:
     cfg = HydroModPyConfig(
         **_base_kwargs(tmp_path),
         solver=SolverConfig(backend={"backend": "boussinesq"}),
+        mesh=MeshConfig(engine="triangle", families={"rivers": "none"}),
         flow=FlowConfig(),
     )
 

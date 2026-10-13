@@ -17,9 +17,6 @@ mf6_preconditioner_drop_tolerance = 0.0
 [modflow6.process_specific]
 vka = 1.0
 
-[modflow6.sgrid]
-grid_dual = "triangle"
-
 [modflow6.sgrid.vertical]
 nlay = 1
 
@@ -45,6 +42,8 @@ value = "5.0214 m"
 [flow.bc.east_side]
 value = "5.0214 m"
 
-[mesh_input]
-mesh_path = "mesh_bundles/boussinesq_hillslope_interception_irregular_tri_400x30/mesh_2d.msh"
-bundle_dir = "mesh_bundles/boussinesq_hillslope_interception_irregular_tri_400x30"
+[mesh]
+engine = "triangle"
+
+[mesh.triangle]
+path = "mesh_bundles/boussinesq_hillslope_interception_irregular_tri_400x30/mesh_2d.msh"

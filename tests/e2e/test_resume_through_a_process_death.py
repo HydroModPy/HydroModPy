@@ -17,8 +17,8 @@ What the runs prove, together:
 - the resume re-reads the delineation instead of re-running it - the 46 files
   it declared are identical, bytes and modification times, and its journal row
   keeps the ``started_at`` of the run that died;
-- the mesh the resumed run generated survives the second death and is not
-  regenerated - Gmsh is not reproducible run to run, so a resume that re-meshes
+- the mesh the resumed run generated survives the second death in the project
+  mesh cache and is not regenerated - Gmsh is not reproducible run to run, so a resume that re-meshes
   silently changes every number computed downstream;
 - the domain that comes out is the domain of an uninterrupted run, array for
   array.
@@ -60,7 +60,7 @@ name = "naizin_process_death"
 [[simulation.process]]
 id = "flow"
 type = "flow"
-solvers = ["modflow_nwt"]
+solvers = ["modflow6"]
 
 [workspace]
 project_root = "{root}"
@@ -86,15 +86,12 @@ compute_strahler_order = true
 compute_stream_links = true
 all_vertices = true
 
-[mesh_catchment]
-constraints_mode = "rivers_only"
-output_layout = "flat"
-figures_enabled = false
+[mesh]
+engine = "voronoi"
+cell_size = 350.0
 
-[mesh_catchment.zone_meshing]
-global_size = 350.0
-min_size = 150.0
-max_size = 800.0
+[mesh.families]
+geology = "none"
 
 [domain]
 
@@ -126,10 +123,7 @@ value = "1e-5 m/s"
 type = "custom"
 value = "5.0 m"
 
-[modflownwt.sgrid.planar]
-mode = "keep_native"
-
-[modflownwt.sgrid.vertical]
+[modflow6.sgrid.vertical]
 nlay = 1
 
 [display]
@@ -218,7 +212,7 @@ try:
         "declared_geographic_files": sorted(
             str(path) for path in geographic_artifact_paths(setup.geographic)
         ),
-        "mesh_loaded": setup.cell_mesh is not None and setup.mesh_bundle is not None,
+        "mesh_loaded": setup.cell_mesh is not None,
     }
     Path(digest_path).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 finally:
@@ -322,9 +316,10 @@ def _marks(paths: list[Path]) -> dict[str, tuple[str, int]]:
 
 
 def _mesh_marks(root: Path) -> dict[str, str]:
+    """Digest of every file of the project mesh cache, by path under the project."""
     return {
         str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in sorted((root / "mesh").rglob("*"))
+        for path in sorted((root / ".hmp" / "mesh_cache").rglob("*"))
         if path.is_file()
     }
 

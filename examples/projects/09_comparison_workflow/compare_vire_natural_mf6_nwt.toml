@@ -41,11 +41,8 @@ mf6_outer_maximum = 500
 mf6_inner_maximum = 500
 mf6_enable_rewet = false
 
-[comparison.simulation.overlay.modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 40
-ny = 40
-resampling = "nearest"
+[comparison.simulation.overlay.mesh.regular]
+shape = [40, 40]
 
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
 nlay = 1
@@ -88,11 +85,8 @@ compact = true
 
 [comparison.simulation.overlay.modflownwt.runtime.wel]
 ipakcb = 1
-[comparison.simulation.overlay.modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 40
-ny = 40
-resampling = "nearest"
+[comparison.simulation.overlay.mesh.regular]
+shape = [40, 40]
 
 [comparison.simulation.overlay.modflownwt.sgrid.vertical]
 nlay = 1

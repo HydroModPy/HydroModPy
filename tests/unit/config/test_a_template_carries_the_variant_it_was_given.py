@@ -48,8 +48,6 @@ from hydromodpy.spatial.geographic.synthetic.config import (
     LinearTopography,
     SyntheticGeographicConfig,
 )
-from hydromodpy.spatial.mesh.config.main import MeshCatchmentConfig
-from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema import ZoneMeshingDomainBBox
 
 pytestmark = pytest.mark.fast
 
@@ -89,13 +87,6 @@ CASES: tuple[tuple[str, str, BaseModel], ...] = (
         FlowReachNetworkConfig(width=FlowReachWidthByOrder(widths={1: 1.5, 3: 4.0})),
     ),
     _case("backend", SolverConfig(backend=ModflowNwtBackend())),
-    _case(
-        "domain",
-        MeshCatchmentConfig(
-            constraints_mode="rivers_only",
-            domain=ZoneMeshingDomainBBox(bbox=[0.0, 0.0, 1000.0, 1000.0]),
-        ),
-    ),
 )
 
 

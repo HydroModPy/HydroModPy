@@ -107,6 +107,6 @@ def run(args: argparse.Namespace) -> None:
         else:
             print(
                 "Set [flow] restart_from to this path in the production run "
-                "(enable [mesh_catchment] cache for a gmsh grid so it reproduces this mesh).",
+                "(a generated mesh is read back from the project mesh cache).",
                 file=sys.stderr,
             )

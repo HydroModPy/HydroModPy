@@ -24,10 +24,8 @@ diffu_coeff = 1e-10
 react_order = 1
 rate_decay = 1.585489599e-08
 
-[modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 60
-ny = 60
+[mesh.regular]
+shape = [60, 60]
 
 [modflow6.sgrid.vertical]
 genmtd_lay = "decay"

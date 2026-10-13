@@ -45,8 +45,8 @@ compute_strahler_order = true
 compute_stream_links = true
 all_vertices = true
 
-[mesh_input]
-bundle_dir = "outputs/nancon_transient_seasonal_hydrography/workspace_mf6/mesh/mesh_catchment_bundle"
+[mesh]
+engine = "voronoi"
 
 [domain]
 

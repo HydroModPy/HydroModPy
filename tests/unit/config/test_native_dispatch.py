@@ -20,12 +20,7 @@ _OPAQUE_DICT_VALUE = re.compile(
 )
 
 # Mappings from an external key (geology zone, station id) to a scalar value.
-INTENTIONALLY_OPAQUE_PATHS = frozenset(
-    {
-        "mesh_catchment.hydraulic_properties.conductivity.values",
-        "mesh_catchment.hydraulic_properties.storage_coefficient.values",
-    }
-)
+INTENTIONALLY_OPAQUE_PATHS: frozenset[str] = frozenset()
 
 
 def _annotation_text(annotation: object) -> str:

@@ -15,9 +15,6 @@ mf6_preconditioner_drop_tolerance = 0.0
 [modflow6.process_specific]
 vka = 1.0
 
-[modflow6.sgrid]
-grid_dual = "triangle"
-
 [modflow6.sgrid.vertical]
 nlay = 1
 
@@ -35,6 +32,8 @@ ny = 12
 base_elevation = 4.994258
 right_to_left_amplitude = 4.96875
 
-[mesh_input]
-mesh_path = "../../steady/boussinesq_hillslope_interception_1d/mesh_bundles/boussinesq_hillslope_interception_irregular_tri_400x30/mesh_2d.msh"
-bundle_dir = "../../steady/boussinesq_hillslope_interception_1d/mesh_bundles/boussinesq_hillslope_interception_irregular_tri_400x30"
+[mesh]
+engine = "triangle"
+
+[mesh.triangle]
+path = "../../steady/boussinesq_hillslope_interception_1d/mesh_bundles/boussinesq_hillslope_interception_irregular_tri_400x30/mesh_2d.msh"

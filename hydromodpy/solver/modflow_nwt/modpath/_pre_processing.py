@@ -166,7 +166,7 @@ def attach_starting_locations(
             f"MODPATH injection raster {zone_partic} has shape {mask_dem.shape} but the "
             f"MODFLOW grid is ({nrow}, {ncol}). Provide "
             "transport.modpath.parameters.zone_partic as a raster aligned on the solver "
-            "grid, or drop the planar resampling in [modflownwt.sgrid.planar]."
+            "grid, or set [mesh] cell_size to the DEM resolution."
         )
 
     head_file = mp.head_file

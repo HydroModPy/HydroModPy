@@ -224,9 +224,7 @@ def test_hmp_run_rejects_removed_mesh_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` no longer accepts the removed workflow=mesh value."""
     config = _write_toml(
         tmp_path / "mesh.toml",
-        '[workflow]\nmode = "mesh"\n'
-        '[workspace]\nproject_root = "."\n'
-        "[mesh_catchment]\nelement_size = 200\n",
+        '[workflow]\nmode = "mesh"\n[workspace]\nproject_root = "."\n[mesh]\ncell_size = 200\n',
     )
 
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])

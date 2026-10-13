@@ -19,11 +19,3 @@ value = "0.06 -"
 values_source__delete = true
 values__delete = true
 field_spatial_id__delete = true
-
-[mesh_catchment.hydraulic_properties.conductivity]
-values_source = "inline"
-values = { west_low_k = "3e-5", central_high_k = "3e-5", east_medium_k = "3e-5" }
-
-[mesh_catchment.hydraulic_properties.storage_coefficient]
-values_source = "inline"
-values = { west_low_k = 0.06, central_high_k = 0.06, east_medium_k = 0.06 }

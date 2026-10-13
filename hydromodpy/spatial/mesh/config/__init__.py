@@ -1,11 +1,12 @@
-"""Schema contract for the dedicated mesh-catchment launcher.
+"""Mesh configuration schemas.
 
-This package sits one layer above the generic HydroModPy runtime schemas. It
-defines the launcher-only sections that control how a delineated catchment is
+``mesh`` holds the ``[mesh]`` section read by the mesh step. The other modules
+are the contract of the mesh-catchment launcher: how a delineated catchment is
 meshed, how optional batch loops are configured, and how launcher-level output
 paths are resolved.
 
 Sub-modules:
+- ``mesh``: the ``[mesh]`` section (engine, sizes, line families).
 - ``rivers``: river-trace constraints.
 - ``watershed``: watershed-boundary constraints (smoothing, coarsening, geology).
 - ``hydraulic``: hydraulic-property tables keyed by geology zones.
@@ -31,6 +32,13 @@ from hydromodpy.spatial.mesh.config.main import (
     ZoneMeshingDomainSchema,
     parse_mesh_catchment_config_data,
 )
+from hydromodpy.spatial.mesh.config.mesh import (
+    MeshConfig,
+    MeshFamiliesConfig,
+    MeshRegularConfig,
+    MeshTriangleConfig,
+    MeshVoronoiConfig,
+)
 from hydromodpy.spatial.mesh.config.rivers import MeshCatchmentRiversConfig
 from hydromodpy.spatial.mesh.config.watershed import (
     MeshCatchmentWatershedBoundaryConfig,
@@ -52,6 +60,11 @@ __all__ = [
     "MeshCatchmentWatershedBoundarySmoothingConfig",
     "MeshCatchmentWatershedGeologyConformityConfig",
     "MeshCatchmentWatershedOutsideCoarseningConfig",
+    "MeshConfig",
+    "MeshFamiliesConfig",
+    "MeshRegularConfig",
+    "MeshTriangleConfig",
+    "MeshVoronoiConfig",
     "ZoneMeshingDomainSchema",
     "parse_mesh_catchment_batch_config_data",
     "parse_mesh_catchment_config_data",

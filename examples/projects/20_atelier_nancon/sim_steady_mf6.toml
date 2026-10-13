@@ -47,10 +47,8 @@ mf6_enable_rewet = false
 # Grille structuree reechantillonnee a 80 x 80 mailles sur la boite du
 # bassin. C'est la discretisation DIS (reguliere), pendant MF6 de la
 # grille native NWT.
-[modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 80
-ny = 80
+[mesh.regular]
+shape = [80, 80]
 
 [modflow6.sgrid.vertical]
 nlay = 1

@@ -1,16 +1,14 @@
 """A resume reloads the mesh it generated instead of generating another one.
 
 Gmsh is not reproducible run to run - the measured evidence is in
-:mod:`hydromodpy.spatial.mesh.mesh_cache`. A resume that re-meshes therefore
+:mod:`hydromodpy.spatial.mesh.cache`. A resume that re-meshes therefore
 does not repeat the step's work, it changes the mesh every number downstream is
 computed on, and the run that comes back from the crash is not the run that
 went into it.
 
-The runtime summary the meshing produces is exactly what
-``load_mesh_artifacts_from_summary`` consumes, and it only ever lived in memory:
-a fresh process had nothing to read. The run below crashes after the mesh is
-complete, then resumes in a context that knows nothing, with the mesher itself
-replaced by a bomb.
+The mesh of a generated request lives under ``<project>/.hmp/mesh_cache/``. The
+run below crashes after the mesh is complete, then resumes in a context that
+knows nothing, with the engine itself replaced by a bomb.
 """
 
 from __future__ import annotations
@@ -40,7 +38,7 @@ name = "naizin_mesh_rebuild"
 [[simulation.process]]
 id = "flow"
 type = "flow"
-solvers = ["modflow_nwt"]
+solvers = ["modflow6"]
 
 [workspace]
 project_root = "{root}"
@@ -66,15 +64,12 @@ compute_strahler_order = true
 compute_stream_links = true
 all_vertices = true
 
-[mesh_catchment]
-constraints_mode = "rivers_only"
-output_layout = "flat"
-figures_enabled = false
+[mesh]
+engine = "voronoi"
+cell_size = 350.0
 
-[mesh_catchment.zone_meshing]
-global_size = 350.0
-min_size = 150.0
-max_size = 800.0
+[mesh.families]
+geology = "none"
 
 [domain]
 
@@ -106,10 +101,7 @@ value = "1e-5 m/s"
 type = "custom"
 value = "5.0 m"
 
-[modflownwt.sgrid.planar]
-mode = "keep_native"
-
-[modflownwt.sgrid.vertical]
+[modflow6.sgrid.vertical]
 nlay = 1
 
 [display]
@@ -119,6 +111,15 @@ enabled = false
 
 def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _cached_arrays(root: Path) -> Path:
+    """Return the one cached mesh of the project."""
+    from hydromodpy.spatial.mesh.cache import ARRAYS_FILENAME
+
+    found = sorted((root / ".hmp" / "mesh_cache").glob(f"*/{ARRAYS_FILENAME}"))
+    assert len(found) == 1, f"expected one cached mesh, found {found}"
+    return found[0]
 
 
 def _journal_row(root: Path, run_id: str, step_order: int):
@@ -167,22 +168,20 @@ def meshed_then_crashed(tmp_path_factory: pytest.TempPathFactory):
             project.close()
 
     row = _journal_row(root, RUN_NAME, 4)
-    return root, row, _digest(root / "mesh" / "mesh_catchment.msh")
+    return root, row, _digest(_cached_arrays(root))
 
 
 def test_the_step_declares_the_mesh_it_left(meshed_then_crashed) -> None:
-    """The journal carries a real digest over the mesh, not the empty one."""
-    from hydromodpy.spatial.mesh.runtime_description import DESCRIPTION_FILENAME
+    """The journal carries a real digest over the cached mesh, not the empty one."""
+    from hydromodpy.spatial.mesh.cache import ARRAYS_FILENAME, DESCRIPTION_FILENAME
 
-    root, row, _msh_digest = meshed_then_crashed
+    root, row, _arrays_digest = meshed_then_crashed
 
     assert row.step_name == "build_mesh"
     assert row.status == "completed"
     assert row.artifact_uris, "build_mesh declares nothing after meshing a catchment"
     names = {Path(uri).name for uri in row.artifact_uris}
-    assert DESCRIPTION_FILENAME in names
-    assert "mesh_catchment.msh" in names
-    assert {"nodes.csv", "cells.csv", "metadata.json"} <= names
+    assert names == {ARRAYS_FILENAME, DESCRIPTION_FILENAME}
     assert all((root / uri).exists() for uri in row.artifact_uris)
     assert row.outputs_hash != hashlib.sha256(b"").hexdigest()
 
@@ -190,31 +189,27 @@ def test_the_step_declares_the_mesh_it_left(meshed_then_crashed) -> None:
 def test_a_resume_reloads_the_mesh_instead_of_generating_another(
     meshed_then_crashed,
 ) -> None:
-    """The mesher is a bomb: reaching it at all is the failure."""
-    import hydromodpy.spatial.mesh.launcher.runtime as mesh_runtime
+    """The engine is a bomb: reaching it at all is the failure."""
     from hydromodpy.project.facade import Project
+    from hydromodpy.spatial.mesh import registry
+    from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
 
-    root, _row, msh_digest = meshed_then_crashed
+    root, _row, arrays_digest = meshed_then_crashed
 
     def _bomb(*_args, **_kwargs):
         raise AssertionError("the resume regenerated the mesh")
 
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(
-            mesh_runtime,
-            "run_single_mesh_catchment_workflow_with_runtime_artifacts",
-            _bomb,
-        )
+        patch.setattr(VoronoiMeshEngine, "build", _bomb)
+        assert registry.get("voronoi") is VoronoiMeshEngine
         project = Project(root / "project.toml", no_display=True)
         try:
             project.simulate(resume=RUN_NAME, until_step="setup_process")
             setup = project._ctx.setup
             assert setup.cell_mesh is not None, "the resume loaded no mesh"
-            assert setup.mesh_bundle is not None, "the resume loaded no exchange bundle"
-            # The three-key summary a cache hit used to leave is enough to load
-            # the files and tells nothing about the meshing that produced them.
-            assert len(setup.mesh_summary) > 10
+            assert setup.cell_mesh.identity.engine_id == "voronoi"
+            assert setup.mesh_summary["cache_key"] is not None
         finally:
             project.close()
 
-    assert _digest(root / "mesh" / "mesh_catchment.msh") == msh_digest
+    assert _digest(_cached_arrays(root)) == arrays_digest

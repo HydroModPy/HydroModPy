@@ -21,6 +21,7 @@ from hydromodpy.analysis.comparison.runtime.mesh import (
     resolve_bundle_cells,
     resolve_structured_shape_from_config,
     resolve_structured_shape_from_run_folder,
+    triangle_mesh_dir_from_payload,
 )
 from hydromodpy.analysis.comparison.runtime.metadata import (
     _resolve_recorded_output_path,
@@ -210,19 +211,8 @@ def _mesh_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None
 
 
 def _bundle_dir_from_config(config_path: Path) -> Path | None:
-    from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
-
     payload = _safe_config_payload(config_path)
-    mesh_input_raw = payload.get("mesh_input")
-    if not isinstance(mesh_input_raw, Mapping):
-        return None
-    try:
-        mesh_input = MeshInputConfig.model_validate(dict(mesh_input_raw))
-    except Exception:
-        return None
-    if mesh_input.bundle_dir is None:
-        return None
-    return _resolve_recorded_output_path(mesh_input.bundle_dir, base_dir=config_path.parent)
+    return triangle_mesh_dir_from_payload(payload, base_dir=config_path.parent)
 
 
 def _bundle_dir_for_case(run_folder: Path, config_path: Path | None) -> Path | None:
@@ -745,15 +735,11 @@ def _build_map_payload(
         run_folder_path,
         config_path=config_path,
         expected_size=values.size,
-        solver_name=simulation.solver,
     )
     structured_shape = (
         None
         if config_path is None or not config_path.exists()
-        else resolve_structured_shape_from_config(
-            config_path,
-            solver_name=simulation.solver,
-        )
+        else resolve_structured_shape_from_config(config_path)
     )
     if structured_shape is None:
         structured_shape = resolve_structured_shape_from_run_folder(run_folder_path)

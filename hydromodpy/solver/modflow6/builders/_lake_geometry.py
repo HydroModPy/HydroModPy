@@ -297,6 +297,6 @@ def _resolve_shared_lake_cells(
     logger.warning(
         "flow.sinks_sources.lakes: %d cell(s) claimed by multiple lakes reassigned to their "
         "largest-overlap lake (sill cells on a mesh coarser than the lake gap). Refine "
-        "mesh_catchment.lake_refinement further if the sill needs to be sharper.",
+        "mesh.lake_refinement further if the sill needs to be sharper.",
         len(shared),
     )

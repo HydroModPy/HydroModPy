@@ -31,13 +31,9 @@ buff_area = "1800.0 m"
 threshold_area_km2 = 1.0
 
 # Shared irregular mesh sizing for 100 km2 sites.
-[comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
-# Background target cell size in metres.
-global_size = 260.0
-# Minimum allowed local cell size in metres.
-min_size = 90.0
-# Target cell size near rivers, geology interfaces and watershed boundaries.
-interface_size = 140.0
+[comparison.base_simulation_overlay.mesh]
+cell_size = 260.0
+river_cell_size = 140.0
 
 # Common raster support for map comparison between different solver meshes.
 [comparison.fine_raster]

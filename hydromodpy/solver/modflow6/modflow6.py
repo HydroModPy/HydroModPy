@@ -185,8 +185,7 @@ class Modflow6:
         domain: DomainLike,
         options: ModflowPreprocessOptions | None = None,
         *,
-        cell_mesh: PlanarCellMesh | None = None,
-        mesh_support: object | None = None,
+        cell_mesh: PlanarCellMesh,
         flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
         """Build the MODFLOW 6 simulation in memory, before it is written and run.
@@ -202,9 +201,9 @@ class Modflow6:
             The domain the grid is built on.
         options
             Pre-processing options. None keeps the ones the model holds.
-        cell_mesh, mesh_support
-            The planar cell mesh and its support when the run built one; None on a
-            structured grid built from the domain.
+        cell_mesh
+            The planar cell mesh the grid is extruded from: the regular grid or the
+            unstructured mesh the run built.
         flow_runtime_overrides
             Flow values that replace the configured ones for this build only,
             as a calibration trial sets them.
@@ -215,7 +214,6 @@ class Modflow6:
             domain,
             options,
             cell_mesh=cell_mesh,
-            mesh_support=mesh_support,
             flow_runtime_overrides=flow_runtime_overrides,
         )
 

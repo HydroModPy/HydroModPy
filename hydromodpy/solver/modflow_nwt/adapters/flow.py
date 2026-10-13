@@ -8,7 +8,7 @@ shared execution lifecycle lives in
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
 
@@ -40,6 +40,7 @@ class ModflowNwtFlowAdapter:
     process_type = "flow"
     solver_name = "modflow_nwt"
     requires: tuple[tuple[str, str], ...] = ()
+    accepted_meshes: ClassVar[frozenset[str]] = frozenset({"regular"})
 
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for MODFLOW-NWT flow runs."""

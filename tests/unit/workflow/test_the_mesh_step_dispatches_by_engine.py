@@ -1,0 +1,235 @@
+"""The mesh step plans one request, builds it with the engine of [mesh], and caches what needs it."""
+
+from __future__ import annotations
+
+import dataclasses
+import logging
+from pathlib import Path
+from types import SimpleNamespace
+
+import numpy as np
+import pytest
+from pyproj import CRS
+from shapely.geometry import box
+
+from hydromodpy.core.exceptions import MeshError
+from hydromodpy.core.state.run_state import WorkflowContext
+from hydromodpy.spatial.mesh import registry
+from hydromodpy.spatial.mesh.cache import cache_dir
+from hydromodpy.spatial.mesh.config.mesh import MeshConfig
+from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import MeshIdentity
+from hydromodpy.spatial.mesh.planning import PlanningInputs
+from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
+from hydromodpy.spatial.mesh.request import RasterGridSpec
+from hydromodpy.workflow.internals.state import PipelineState
+from hydromodpy.workflow.steps import mesh as mesh_module
+from hydromodpy.workflow.steps.mesh import BuildMeshStep, step_mesh
+
+WKT = CRS.from_epsg(2154).to_wkt()
+X0, Y0, SIDE, N = 350_000.0, 6_780_000.0, 1000.0, 10
+
+
+class _CachedEngine:
+    """An engine the cache has to protect: it builds the regular grid, and counts."""
+
+    engine_id = "dispatch_probe"
+    engine_version = "1.0.0"
+    capabilities = MeshEngineCapabilities(
+        cell_types=(CellType.QUADRILATERAL,),
+        structured=True,
+        graded=False,
+        exact_faces=False,
+        cell_families="rasterized",
+        deterministic=False,
+        needs_cache=True,
+    )
+    builds = 0
+
+    def build(self, request):
+        type(self).builds += 1
+        built = RegularMeshEngine().build(request)
+        identity = MeshIdentity(self.engine_id, self.engine_version, request.canonical_hash(), None)
+        return dataclasses.replace(built, identity=identity)
+
+
+@pytest.fixture
+def cached_engine():
+    _CachedEngine.builds = 0
+    registry.register(_CachedEngine)
+    yield _CachedEngine
+    registry.unregister(_CachedEngine.engine_id)
+
+
+@pytest.fixture(autouse=True)
+def planned_inputs(monkeypatch):
+    grid = RasterGridSpec(
+        xmin=X0,
+        xmax=X0 + SIDE,
+        ymin=Y0,
+        ymax=Y0 + SIDE,
+        dx=SIDE / N,
+        dy=SIDE / N,
+        nrow=N,
+        ncol=N,
+        crs_wkt=WKT,
+    )
+    inputs = PlanningInputs(
+        dem_grid=grid,
+        crs_wkt=WKT,
+        domain=box(X0, Y0, X0 + SIDE, Y0 + SIDE),
+        river_trace=None,
+        watershed=None,
+        lakes=(),
+        lake_structures=(),
+        geology=None,
+        refinement_zones=(),
+        input_triangulation=None,
+        synthetic=True,
+    )
+    monkeypatch.setattr(mesh_module, "planning_inputs", lambda ctx, mesh_cfg: inputs)
+
+
+def _context(tmp_path, mesh: MeshConfig | None, *, workspace: bool = True) -> WorkflowContext:
+    ctx = WorkflowContext(cfg=SimpleNamespace(mesh=mesh), config_path="config.toml", raw_toml={})
+    if workspace:
+        ctx.setup.workspace = SimpleNamespace(project_root=tmp_path)
+    return ctx
+
+
+def test_a_run_without_mesh_section_gets_the_regular_grid_and_no_cache(tmp_path) -> None:
+    ctx = _context(tmp_path, None)
+
+    step_mesh(ctx)
+
+    assert ctx.setup.cell_mesh.structured_shape == (N, N)
+    summary = ctx.setup.mesh_summary
+    assert summary["engine"] == "regular"
+    assert summary["cache_key"] is None
+    assert summary["request_hash"] == ctx.setup.cell_mesh.identity.request_hash
+    assert summary["qa"]["n_cells"] == N * N
+    assert not (tmp_path / ".hmp").exists()
+
+
+def test_the_planner_notes_reach_the_qa_of_the_summary(tmp_path, monkeypatch) -> None:
+    inputs = dataclasses.replace(
+        mesh_module.planning_inputs(None, None), notes=("the geology map is a raster",)
+    )
+    monkeypatch.setattr(mesh_module, "planning_inputs", lambda ctx, mesh_cfg: inputs)
+    ctx = _context(tmp_path, MeshConfig(river_cell_size=20.0, cell_size=200.0))
+
+    step_mesh(ctx)
+
+    notes = ctx.setup.mesh_summary["qa"]["notes"]
+    assert "the geology map is a raster" in notes
+    assert any("regular ignores river_cell_size" in note for note in notes)
+
+
+def test_the_regular_shape_of_the_section_reaches_the_grid(tmp_path) -> None:
+    ctx = _context(tmp_path, MeshConfig.model_validate({"regular": {"shape": [4, 5]}}))
+
+    step_mesh(ctx)
+
+    assert ctx.setup.cell_mesh.structured_shape == (4, 5)
+
+
+def test_an_engine_that_needs_a_cache_builds_once_per_request(tmp_path, cached_engine) -> None:
+    mesh_cfg = MeshConfig(engine=cached_engine.engine_id)
+    first, second = _context(tmp_path, mesh_cfg), _context(tmp_path, mesh_cfg)
+
+    step_mesh(first)
+    step_mesh(second)
+
+    assert cached_engine.builds == 1
+    np.testing.assert_array_equal(
+        second.setup.cell_mesh.mesh.vertices, first.setup.cell_mesh.mesh.vertices
+    )
+    assert second.setup.cell_mesh.identity == first.setup.cell_mesh.identity
+    key = first.setup.mesh_summary["cache_key"]
+    assert second.setup.mesh_summary == first.setup.mesh_summary
+    assert cache_dir(tmp_path, key).is_dir()
+    assert first.setup.mesh_summary["engine"] == cached_engine.engine_id
+
+
+def test_a_changed_request_is_meshed_again_under_its_own_key(tmp_path, cached_engine) -> None:
+    coarse = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id, cell_size=100.0))
+    fine = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id, cell_size=125.0))
+
+    step_mesh(coarse)
+    step_mesh(fine)
+
+    assert cached_engine.builds == 2
+    assert coarse.setup.mesh_summary["cache_key"] != fine.setup.mesh_summary["cache_key"]
+    assert len(list((tmp_path / ".hmp" / "mesh_cache").iterdir())) == 2
+
+
+def test_a_resume_that_finds_no_cache_says_the_mesh_will_differ(
+    tmp_path, cached_engine, caplog
+) -> None:
+    ctx = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id))
+    caplog.set_level(logging.WARNING, logger=mesh_module.logger.name)
+
+    step_mesh(ctx, resume=True)
+
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "cached mesh of this request is gone" in warnings[0]
+
+
+def test_a_resume_reads_the_cache_a_crashed_process_left(tmp_path, cached_engine, caplog) -> None:
+    mesh_cfg = MeshConfig(engine=cached_engine.engine_id)
+    step_mesh(_context(tmp_path, mesh_cfg))
+    fresh = _context(tmp_path, mesh_cfg)
+    state = PipelineState(run_id="run-1", step_index=2, step_name="build_mesh", data={"ctx": fresh})
+    caplog.set_level(logging.WARNING, logger=mesh_module.logger.name)
+
+    advanced = BuildMeshStep().rebuild_state(prior_state=state, workspace=tmp_path, run_id="run-1")
+
+    assert cached_engine.builds == 1
+    assert fresh.setup.cell_mesh is not None
+    assert advanced.step_index == 3
+    assert not [r for r in caplog.records if r.levelno == logging.WARNING]
+
+
+def test_a_resume_keeps_the_mesh_the_process_already_holds(tmp_path) -> None:
+    ctx = _context(tmp_path, None)
+    step_mesh(ctx)
+    held = ctx.setup.cell_mesh
+    state = PipelineState(run_id="run-1", step_index=2, step_name="build_mesh", data={"ctx": ctx})
+
+    BuildMeshStep().rebuild_state(prior_state=state, workspace=tmp_path, run_id="run-1")
+
+    assert ctx.setup.cell_mesh is held
+    assert BuildMeshStep().is_prebuilt(state)
+
+
+def test_the_step_declares_the_cache_files_it_left(tmp_path, cached_engine) -> None:
+    cached = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id))
+    plain = _context(tmp_path, None)
+    step_mesh(cached)
+    step_mesh(plain)
+
+    declared = BuildMeshStep().artifacts(PipelineState(run_id="r", data={"ctx": cached}))
+
+    assert len(declared) == 2
+    assert all(
+        cache_dir(tmp_path, cached.setup.mesh_summary["cache_key"]) in p.parents
+        for p in map(Path, declared)
+    )
+    assert BuildMeshStep().artifacts(PipelineState(run_id="r", data={"ctx": plain})) == ()
+
+
+def test_a_cached_engine_needs_a_workspace_to_cache_in(tmp_path, cached_engine) -> None:
+    ctx = _context(tmp_path, MeshConfig(engine=cached_engine.engine_id), workspace=False)
+
+    with pytest.raises(MeshError, match="no workspace"):
+        step_mesh(ctx)
+
+
+def test_the_step_reads_its_sections_from_the_config_names() -> None:
+    step = BuildMeshStep()
+
+    assert step.config_sections == ("domain.supports", "mesh")
+    assert "mesh_section_data" not in step.reads
+    assert "external_mesh_input" not in step.reads

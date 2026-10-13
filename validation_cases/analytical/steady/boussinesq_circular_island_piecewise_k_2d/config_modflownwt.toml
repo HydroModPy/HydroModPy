@@ -88,12 +88,6 @@ source = "synthetic"
 values = [1.0]
 runoff_ratio = 0.0
 
-[modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 61
-ny = 61
-resampling = "nearest"
-
 [modflownwt.sgrid.vertical]
 nlay = 1
 

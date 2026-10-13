@@ -31,7 +31,7 @@ id = "mf6_ref"
 label = "MODFLOW 6 synthetic patchy reference"
 solver = "modflow6"
 mesh_label = "generated geology-only synthetic catchment mesh"
-mesh_mode = "mesh_catchment"
+mesh_mode = "voronoi"
 
 [comparison.simulation.overlay.workspace]
 project_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_patchy_long_mf6_vs_bouss/workspace_mf6"
@@ -57,7 +57,7 @@ id = "bouss_candidate"
 label = "Boussinesq synthetic patchy candidate"
 solver = "boussinesq"
 mesh_label = "generated geology-only synthetic catchment mesh"
-mesh_mode = "mesh_catchment"
+mesh_mode = "triangle"
 
 [comparison.simulation.overlay.workspace]
 project_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_patchy_long_mf6_vs_bouss/workspace_bouss"
@@ -75,6 +75,9 @@ ts_vi_snes_type = "vinewtonrsls"
 value = "0.0 m2/s"
 description = "Boussinesq case 1: Cauchy drainage disabled; the VI upper obstacle enforces h <= z_top."
 kind = "cauchy"
+
+[comparison.simulation.overlay.mesh]
+engine = "triangle"
 
 [[comparison.observable]]
 name = "head_map_first_computed"

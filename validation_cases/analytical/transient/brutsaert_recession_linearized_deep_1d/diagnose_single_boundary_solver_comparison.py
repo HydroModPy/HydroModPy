@@ -29,6 +29,7 @@ from hydromodpy.solver.modflow_nwt import (
 from validation_cases.analytical.transient.brutsaert_common import (
     _load_modflownwt_budget_diagnostics,
 )
+from validation_cases.shared.regular_cell_mesh import regular_cell_mesh_of
 from validation_cases.shared.runtime import (
     _build_validation_launcher_config,
     remove_file_with_retry,
@@ -325,6 +326,7 @@ def _run_nwt_probe(
         flow=flow,
         domain=domain,
         options=preprocess_options,
+        cell_mesh=regular_cell_mesh_of(domain.surface_topo),
     )
     if restart_head is not None:
         model.bas.strt = _coerce_head_to_nwt_layout(
@@ -417,6 +419,7 @@ def _run_mf6_probe(
         flow=flow,
         domain=domain,
         options=preprocess_options,
+        cell_mesh=regular_cell_mesh_of(domain.surface_topo),
     )
     if restart_head is not None:
         start_heads = _coerce_head_to_mf6_layout(

@@ -17,12 +17,12 @@ from hydromodpy.solver.modflow_grid import build_spatial_discretization
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
-    PlanarGridConfig,
     SolverSGridConfig,
     TopSamplingConfig,
     VerticalGridConfig,
 )
 from hydromodpy.spatial.mesh.ops.zonal_stats import regular_grid_cell_ids
+from tests._helpers.regular_cell_meshes import regular_cell_mesh_of_surface
 
 _PIXEL = 25.0
 _N = 12
@@ -60,12 +60,17 @@ def _domain(dem: np.ndarray, bottom: float = 0.0) -> Domain:
     return domain
 
 
-def _sgrid(top_sampling: TopSamplingConfig, *, planar: PlanarGridConfig | None = None):
+def _sgrid(top_sampling: TopSamplingConfig):
     return SolverSGridConfig(
-        planar=planar
-        or PlanarGridConfig(mode="resample_to_shape", nx=_N // _BLOCK, ny=_N // _BLOCK),
         vertical=VerticalGridConfig(nlay=1, nodata=_NODATA),
         top_sampling=top_sampling,
+    )
+
+
+def _grid(n: int = _N // _BLOCK):
+    """The regular mesh of ``n x n`` cells over the extent of the test DEM."""
+    return regular_cell_mesh_of_surface(
+        _surface(np.zeros((_N, _N)), "surface_topo"), nrow=n, ncol=n
     )
 
 
@@ -96,6 +101,7 @@ def test_a_channel_cell_takes_the_minimum_of_its_pixels_and_a_hillslope_cell_the
     ctx = build_spatial_discretization(
         domain=_domain(dem),
         sgrid_config=_sgrid(TopSamplingConfig(mode="zonal", spike_guard_tol_m=0.0)),
+        cell_mesh=_grid(),
         channel_mask=mask,
     )
     top = _top(ctx)
@@ -118,11 +124,13 @@ def test_a_channel_cell_lies_below_the_plain_resample_of_the_dem():
     plain = build_spatial_discretization(
         domain=_domain(dem),
         sgrid_config=_sgrid(TopSamplingConfig(mode="centroid")),
+        cell_mesh=_grid(),
         channel_mask=mask,
     )
     zonal = build_spatial_discretization(
         domain=_domain(dem),
         sgrid_config=_sgrid(TopSamplingConfig(mode="zonal", spike_guard_tol_m=0.0)),
+        cell_mesh=_grid(),
         channel_mask=mask,
     )
     assert _top(zonal)[1, 2] < _top(plain)[1, 2] - 1.0
@@ -133,26 +141,27 @@ def test_centroid_keeps_the_resampled_top_byte_for_byte():
     centroid = build_spatial_discretization(
         domain=_domain(dem),
         sgrid_config=_sgrid(TopSamplingConfig(mode="centroid")),
+        cell_mesh=_grid(),
         channel_mask=_channel_mask(),
     )
     n = _N // _BLOCK
     resampled = _surface(dem, "surface_topo").resample_to_shape(
-        n, n, resampling=PlanarGridConfig().resampling, nodata=_NODATA
+        n, n, resampling="bilinear", nodata=_NODATA
     )
     assert np.array_equal(
         centroid.solver_mesh.top, np.asarray(resampled.as_array(), dtype=float).reshape(-1)
     )
 
 
-def test_keep_native_is_unchanged_by_the_zonal_mode():
+def test_a_mesh_of_the_dem_shape_is_unchanged_by_the_zonal_mode():
     dem = _hill_dem()
-    keep = PlanarGridConfig(mode="keep_native")
     plain = build_spatial_discretization(
-        domain=_domain(dem), sgrid_config=_sgrid(TopSamplingConfig(), planar=keep)
+        domain=_domain(dem), sgrid_config=_sgrid(TopSamplingConfig()), cell_mesh=_grid(_N)
     )
     zonal = build_spatial_discretization(
         domain=_domain(dem),
-        sgrid_config=_sgrid(TopSamplingConfig(mode="zonal"), planar=keep),
+        sgrid_config=_sgrid(TopSamplingConfig(mode="zonal")),
+        cell_mesh=_grid(_N),
         channel_mask=_channel_mask(),
     )
     assert np.array_equal(plain.solver_mesh.top, zonal.solver_mesh.top)
@@ -162,10 +171,10 @@ def test_keep_native_is_unchanged_by_the_zonal_mode():
 def test_a_grid_of_the_dem_pixels_gives_the_pixel_values_in_zonal_mode():
     dem = _hill_dem()
     dem[4, 7] -= 4.0
-    same_shape = PlanarGridConfig(mode="resample_to_shape", nx=_N, ny=_N)
     ctx = build_spatial_discretization(
         domain=_domain(dem),
-        sgrid_config=_sgrid(TopSamplingConfig(mode="zonal"), planar=same_shape),
+        sgrid_config=_sgrid(TopSamplingConfig(mode="zonal")),
+        cell_mesh=_grid(_N),
         channel_mask=_channel_mask(),
     )
     assert np.asarray(ctx.solver_mesh.top).reshape(_N, _N) == pytest.approx(dem)
@@ -178,6 +187,7 @@ def test_the_minimum_thickness_clamp_holds_under_a_lowered_channel():
     ctx = build_spatial_discretization(
         domain=_domain(dem, bottom=bottom),
         sgrid_config=_sgrid(TopSamplingConfig(mode="zonal", min_thickness_m=0.1)),
+        cell_mesh=_grid(),
         channel_mask=_channel_mask(),
     )
     assert _top(ctx)[1, 2] == pytest.approx(bottom + 0.1)
@@ -187,11 +197,12 @@ def test_a_cell_without_data_stays_inactive_in_zonal_mode():
     dem = _hill_dem()
     dem[:_BLOCK, :_BLOCK] = _NODATA
     plain = build_spatial_discretization(
-        domain=_domain(dem), sgrid_config=_sgrid(TopSamplingConfig())
+        domain=_domain(dem), sgrid_config=_sgrid(TopSamplingConfig()), cell_mesh=_grid()
     )
     zonal = build_spatial_discretization(
         domain=_domain(dem),
         sgrid_config=_sgrid(TopSamplingConfig(mode="zonal")),
+        cell_mesh=_grid(),
         channel_mask=_channel_mask(),
     )
     assert np.array_equal(plain.solver_mesh.inactive_mask, zonal.solver_mesh.inactive_mask)
@@ -223,6 +234,7 @@ def test_dead_cells_are_not_counted_as_zonal_or_clamped(caplog):
         build_spatial_discretization(
             domain=_domain(dem),
             sgrid_config=_sgrid(TopSamplingConfig(mode="zonal")),
+            cell_mesh=_grid(),
             channel_mask=_channel_mask(),
         )
     line = next(r.getMessage() for r in caplog.records if "Zonal top sampling:" in r.getMessage())
@@ -262,19 +274,19 @@ def test_zonal_top_leaves_inactive_cells_on_the_fallback():
     assert result.info["n_thickness_clamped"] == 15.0
 
 
-@pytest.mark.parametrize("n_cells", [_N, 2 * _N])
-def test_a_grid_not_coarser_than_two_pixels_keeps_the_resample_and_says_why(n_cells, caplog):
+def test_a_grid_finer_than_the_dem_keeps_the_resample_and_says_why(caplog):
+    n_cells = 2 * _N
     dem = _hill_dem()
     dem[4, 7] -= 4.0
-    planar = PlanarGridConfig(mode="resample_to_shape", nx=n_cells, ny=n_cells)
     with caplog.at_level(logging.INFO):
         zonal = build_spatial_discretization(
             domain=_domain(dem),
-            sgrid_config=_sgrid(TopSamplingConfig(mode="zonal", min_pixels=1), planar=planar),
+            sgrid_config=_sgrid(TopSamplingConfig(mode="zonal", min_pixels=1)),
+            cell_mesh=_grid(n_cells),
             channel_mask=_channel_mask(),
         )
     plain = build_spatial_discretization(
-        domain=_domain(dem), sgrid_config=_sgrid(TopSamplingConfig(), planar=planar)
+        domain=_domain(dem), sgrid_config=_sgrid(TopSamplingConfig()), cell_mesh=_grid(n_cells)
     )
     assert np.array_equal(plain.solver_mesh.top, zonal.solver_mesh.top)
     assert any("Zonal top sampling skipped" in r.getMessage() for r in caplog.records)

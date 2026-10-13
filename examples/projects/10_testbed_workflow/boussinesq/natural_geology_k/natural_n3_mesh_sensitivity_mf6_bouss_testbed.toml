@@ -83,10 +83,9 @@ buff_area = "900.0 m"
 [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
 threshold_area_km2 = 0.2
 
-[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
-global_size = 180.0
-min_size = 60.0
-interface_size = 95.0
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh]
+cell_size = 180.0
+river_cell_size = 95.0
 
 # N3 10 km2 reference mesh variant.
 [[testbed.case_from_catalog]]
@@ -117,10 +116,9 @@ buff_area = "900.0 m"
 [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
 threshold_area_km2 = 0.2
 
-[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
-global_size = 130.0
-min_size = 45.0
-interface_size = 70.0
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh]
+cell_size = 130.0
+river_cell_size = 70.0
 
 # N3 10 km2 refined mesh variant.
 [[testbed.case_from_catalog]]
@@ -151,10 +149,9 @@ buff_area = "900.0 m"
 [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
 threshold_area_km2 = 0.2
 
-[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
-global_size = 95.0
-min_size = 35.0
-interface_size = 50.0
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh]
+cell_size = 95.0
+river_cell_size = 50.0
 
 # N3 100 km2 coarse mesh variant.
 [[testbed.case_from_catalog]]
@@ -185,10 +182,9 @@ buff_area = "1800.0 m"
 [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
 threshold_area_km2 = 1.0
 
-[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
-global_size = 360.0
-min_size = 120.0
-interface_size = 190.0
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh]
+cell_size = 360.0
+river_cell_size = 190.0
 
 # N3 100 km2 reference mesh variant.
 [[testbed.case_from_catalog]]
@@ -219,10 +215,9 @@ buff_area = "1800.0 m"
 [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
 threshold_area_km2 = 1.0
 
-[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
-global_size = 260.0
-min_size = 90.0
-interface_size = 140.0
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh]
+cell_size = 260.0
+river_cell_size = 140.0
 
 # N3 100 km2 refined mesh variant.
 [[testbed.case_from_catalog]]
@@ -253,7 +248,6 @@ buff_area = "1800.0 m"
 [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
 threshold_area_km2 = 1.0
 
-[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
-global_size = 190.0
-min_size = 70.0
-interface_size = 100.0
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh]
+cell_size = 190.0
+river_cell_size = 100.0

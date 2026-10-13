@@ -36,6 +36,7 @@ from typing import Any
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.adapter_protocol import SolverAdapter, missing_adapter_members
+from hydromodpy.spatial.mesh.port import ANY_PLANAR_ENGINE
 
 logger = get_logger(__name__)
 
@@ -85,6 +86,15 @@ _BUILTIN_CAPABILITIES: dict[AdapterKey, Capabilities] = {
     ("transport", "mt3dms"): frozenset({"transport", "transport:concentration"}),
     ("transport", "modflow6"): frozenset({"transport", "transport:concentration"}),
     ("transport", "modflow6_prt"): frozenset({"transport", "transport:particles"}),
+}
+
+# The mesh engines each built-in flow adapter reads, known without importing the
+# adapter, like ``_BUILTIN_CAPABILITIES``. A test keeps these equal to the
+# ``accepted_meshes`` class attribute of the adapters.
+_BUILTIN_ACCEPTED_MESHES: dict[AdapterKey, frozenset[str]] = {
+    ("flow", "modflow_nwt"): frozenset({"regular"}),
+    ("flow", "modflow6"): frozenset({"regular", "triangle", "voronoi", ANY_PLANAR_ENGINE}),
+    ("flow", "boussinesq"): frozenset({"triangle"}),
 }
 
 # Dotted paths to in-tree output extractor classes. Keyed on the same
@@ -234,6 +244,24 @@ def capabilities(process_type: str, solver_name: str) -> Capabilities:
     return frozenset({process_type})
 
 
+def accepted_meshes(process_type: str, solver_name: str) -> frozenset[str]:
+    """Return the mesh engine ids one adapter pair reads.
+
+    A built-in answers from its table without an import. Any other adapter
+    answers with its ``accepted_meshes`` class attribute; one that declares none
+    reads the ``regular`` engine only.
+    """
+    key = (process_type, solver_name)
+    if key not in _REGISTRY:
+        builtin = _BUILTIN_ACCEPTED_MESHES.get(key)
+        if builtin is not None:
+            return builtin
+    declared = getattr(get(process_type, solver_name), "accepted_meshes", None)
+    if declared is not None:
+        return frozenset(str(item) for item in declared)
+    return frozenset({"regular"})
+
+
 def get_solver_adapter(process_type: str, solver_name: str) -> Any:
     """Return a freshly-instantiated adapter for ``(process_type, solver_name)``.
 
@@ -291,6 +319,7 @@ def unregister(process_type: str, solver_name: str) -> None:
     _REGISTRY.pop(key, None)
     _BUILTIN_PATHS.pop(key, None)
     _BUILTIN_CAPABILITIES.pop(key, None)
+    _BUILTIN_ACCEPTED_MESHES.pop(key, None)
 
 
 def unregister_extractor(process_type: str, solver_name: str) -> None:
@@ -494,6 +523,7 @@ def load_extractor_plugins(*, force: bool = False) -> int:
 
 __all__ = [
     "Capabilities",
+    "accepted_meshes",
     "EXTRACTOR_ENTRY_POINT_GROUP",
     "ENTRY_POINT_GROUP",
     "AdapterKey",

@@ -70,12 +70,6 @@ kind = "cauchy"
 # Leakance K / b = 1e-4 / 40 = 2.5e-6 1/s.
 drain_bed_thickness_m = 40.0
 
-[modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 50
-ny = 5
-resampling = "nearest"
-
 [modflownwt.sgrid.vertical]
 nlay = 1
 

@@ -62,10 +62,7 @@ _SOLVER_DISPLAY_NAMES = {
     DEFAULT_ENGINE_SOLVER: "Boussinesq, default engine",
 }
 
-_SOLVER_GRID_SECTIONS = {
-    "modflow_nwt": "modflownwt",
-    "modflow6": "modflow6",
-}
+_REGULAR_GRID_SOLVERS = ("modflow_nwt", "modflow6")
 
 _LEGEND_STYLE_MAIN = {
     "loc": "best",
@@ -285,12 +282,16 @@ def outlet_offset_m(
     if bundle_dir is not None:
         return bundle_outlet_offset_m(bundle_dir, params.length_x_m)
     nx = params.nx
-    section = _SOLVER_GRID_SECTIONS.get(normalized)
     config_files = metadata.get("config_files", {})
-    if section is not None and isinstance(config_files, Mapping) and normalized in config_files:
+    if (
+        normalized in _REGULAR_GRID_SOLVERS
+        and isinstance(config_files, Mapping)
+        and normalized in config_files
+    ):
         solver_config = load_case_config(case_dir, str(config_files[normalized]))
-        planar = solver_config.get(section, {}).get("sgrid", {}).get("planar", {})
-        nx = int(planar.get("nx", nx))
+        shape = solver_config.get("mesh", {}).get("regular", {}).get("shape")
+        if shape is not None:
+            nx = int(shape[1])
     return 0.5 * params.length_x_m / float(nx)
 
 

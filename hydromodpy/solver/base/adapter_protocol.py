@@ -115,6 +115,20 @@ class CellLocator(Protocol):
         ...
 
 
+@runtime_checkable
+class MeshReadingAdapter(Protocol):
+    """A flow adapter that names the mesh engines whose cells it can read.
+
+    Separate from :class:`SolverAdapter` because a transport adapter reads the
+    mesh of the flow it follows and declares none. The names are mesh engine ids,
+    or :data:`~hydromodpy.spatial.mesh.port.ANY_PLANAR_ENGINE` for every engine
+    whose cells are planar ones. A configuration that pairs the solver with
+    another engine is refused before any meshing.
+    """
+
+    accepted_meshes: ClassVar[frozenset[str]]
+
+
 def adapter_members() -> tuple[str, ...]:
     """Return the member names :class:`SolverAdapter` requires.
 
@@ -151,6 +165,7 @@ def missing_adapter_members(candidate: object) -> tuple[str, ...]:
 
 __all__ = [
     "CellLocator",
+    "MeshReadingAdapter",
     "RunResult",
     "SolverAdapter",
     "adapter_members",

@@ -1,9 +1,9 @@
 """MODFLOW 6 locates wells and boundaries on the cells it solves.
 
-With ``grid_dual = "voronoi"`` (the default for a gmsh mesh) MODFLOW 6 solves on
-the Voronoi dual of the bundle triangles: one cell per node. The bundle support
-indexes the triangles. A triangle index read as a dual cell index puts a well in
-the wrong cell, or runs past the end of the dual grid.
+A Voronoi cell mesh has one cell per node of its triangulation. The support of the
+triangles indexes the triangles. A triangle index read as a dual cell index puts a
+well in the wrong cell, or runs past the end of the dual grid. The solver support
+is the one of the mesh it solves on, whatever the engine that built it.
 """
 
 from __future__ import annotations
@@ -27,6 +27,10 @@ from hydromodpy.solver.modflow_grid import build_spatial_discretization
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.adapters.cell_mesh import (
+    cell_mesh_from_triangulation,
+    cell_mesh_from_voronoi_dual,
+)
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     SolverSGridConfig,
     VerticalGridConfig,
@@ -36,8 +40,12 @@ from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     build_gmsh_support_metadata,
     support_on_planar_mesh,
 )
-from hydromodpy.spatial.mesh.ops.voronoi import voronoi_planar_mesh
-from tests._helpers.cell_meshes import cell_mesh_of
+from hydromodpy.spatial.mesh.ops.voronoi import (
+    domain_polygon_from_mesh,
+    voronoi_dual_of_mesh,
+    voronoi_planar_mesh,
+)
+from tests._helpers.cell_meshes import TEST_CRS_WKT
 
 from ._test_modflow6_boundary_conditions_builders import _build_model
 
@@ -131,19 +139,25 @@ def _surface(value: float, name: str) -> Surface:
     return Surface(name=name, values=np.full((52, 52), value), support=support)
 
 
-def _grid_context(grid_dual: str):
+def _grid_context(engine: str):
+    """Extrude the triangles (``engine = "triangle"``) or their dual (``"voronoi"``)."""
     mesh, bundle = _triangulated_square()
     triangle_support = build_gmsh_support_metadata(bundle)
+    if engine == "triangle":
+        cell_mesh = cell_mesh_from_triangulation(mesh, triangle_support, crs_wkt=TEST_CRS_WKT)
+    else:
+        dual = voronoi_dual_of_mesh(mesh, domain_polygon_from_mesh(mesh))
+        cell_mesh = cell_mesh_from_voronoi_dual(
+            dual, support_on_planar_mesh(triangle_support, dual), crs_wkt=TEST_CRS_WKT
+        )
     domain = Domain(config=DomainConfig(), surface_topo=_surface(20.0, "surface_topo"))
     domain.substratum = _surface(0.0, "substratum")
     ctx = build_spatial_discretization(
         domain=domain,
         sgrid_config=SolverSGridConfig(
-            grid_dual=grid_dual,
             vertical=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
         ),
-        cell_mesh=cell_mesh_of(mesh),
-        runtime_mesh_support=triangle_support,
+        cell_mesh=cell_mesh,
     )
     return ctx, triangle_support, mesh
 
@@ -180,10 +194,16 @@ def test_the_voronoi_support_describes_the_dual_cells() -> None:
     assert int(support.edge_cell_b.max()) < support.n_cells
 
 
-def test_the_triangle_dual_keeps_the_bundle_support() -> None:
+def test_the_triangle_mesh_has_a_support_on_its_triangles() -> None:
     ctx, triangle_support, _mesh = _grid_context("triangle")
+    support = ctx.mesh_support
 
-    assert ctx.mesh_support is triangle_support
+    assert support.n_cells == triangle_support.n_cells == ctx.solver_mesh.n_cells
+    assert np.array_equal(support.cell_centroid_x_m, triangle_support.cell_centroid_x_m)
+    assert np.array_equal(support.cell_centroid_y_m, triangle_support.cell_centroid_y_m)
+    assert set(support.river_cell_indices().tolist()) == set(
+        triangle_support.river_cell_indices().tolist()
+    )
 
 
 @pytest.mark.parametrize(("x_m", "y_m"), POINTS)

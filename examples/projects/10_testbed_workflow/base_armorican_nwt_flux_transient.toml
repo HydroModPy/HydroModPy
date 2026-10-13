@@ -157,11 +157,8 @@ ipakcb = 1
 [modflownwt.runtime.oc]
 compact = true
 
-[modflownwt.sgrid.planar]
-mode = "resample_to_shape"
-nx = 80
-ny = 80
-resampling = "nearest"
+[mesh.regular]
+shape = [80, 80]
 
 [modflownwt.sgrid.vertical]
 nlay = 1

@@ -337,7 +337,6 @@ def _simulation_area_m2(summary: Mapping[str, Any]) -> float | None:
         cells = resolve_bundle_cells(
             Path(str(run_folder_raw)),
             config_path=config_path,
-            solver_name=str(summary.get("solver", "") or ""),
         )
     except Exception:
         return None

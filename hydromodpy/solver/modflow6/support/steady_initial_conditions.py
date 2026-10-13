@@ -149,8 +149,7 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
     steady_model.pre_processing(
         flow=steady_flow_copy_for_initialization(model.flow),
         domain=model.domain,
-        cell_mesh=getattr(model, "runtime_cell_mesh", None),
-        mesh_support=getattr(model, "runtime_mesh_support", None),
+        cell_mesh=model.runtime_cell_mesh,
         flow_runtime_overrides=getattr(model, "_flow_runtime_overrides", None),
     )
     # Auxiliary single-period solve: keep it out of the live display.
@@ -258,8 +257,7 @@ def _run_one_spinup_cycle(
     cycle_model.pre_processing(
         flow=cyclic_flow_copy_for_initialization(model.flow),
         domain=model.domain,
-        cell_mesh=getattr(model, "runtime_cell_mesh", None),
-        mesh_support=getattr(model, "runtime_mesh_support", None),
+        cell_mesh=model.runtime_cell_mesh,
         flow_runtime_overrides=getattr(model, "_flow_runtime_overrides", None),
     )
     if seed is not None:

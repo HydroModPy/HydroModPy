@@ -18,9 +18,9 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
-from hydromodpy.core.exceptions import SolverDivergedError, SolverInputError
+from hydromodpy.core.exceptions import MeshError, SolverDivergedError, SolverInputError
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.planning.plan import (
     WATER_BUDGET_METRIC,
@@ -33,6 +33,9 @@ from hydromodpy.solver.modflow_common.options import (
     ModflowPreprocessOptions,
     ModflowRunOptions,
 )
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 WATER_BUDGET_WORST_METRIC = "water_budget_worst_percent_discrepancy"
 """Run-metric name for the worst water-budget PERCENT DISCREPANCY, in percent."""
@@ -268,21 +271,29 @@ def resolve_modflow_runner(model_modflow: object) -> Literal["subprocess", "api"
     return "api" if str(declared()) == "api" else "subprocess"
 
 
+def require_cell_mesh(setup: object) -> PlanarCellMesh:
+    """Return the planar cell mesh of the run, or say that no mesh step ran."""
+    cell_mesh = getattr(setup, "cell_mesh", None)
+    if cell_mesh is None:
+        raise MeshError(
+            "The solver needs the planar cell mesh of the run (setup.cell_mesh), and the "
+            "mesh step has not built one."
+        )
+    return cell_mesh
+
+
 def run_flow_model(
     ctx: RunContext,
     model_modflow,
     preprocess_options,
-    *,
-    mesh_inputs: Mapping[str, object] | None = None,
 ) -> RunExecutionResult:
     """Execute the shared lifecycle for one already-instantiated flow model.
 
     The solver-specific adapters only choose and configure the concrete flow
-    backend. ``mesh_inputs`` holds the keywords of the ``pre_processing`` of a
-    backend that builds on a prepared cell mesh. Once the model object exists,
-    the execution steps are identical:
+    backend. Once the model object exists, the execution steps are identical:
 
-    1. run preprocessing against the shared ``flow`` and ``domain`` objects,
+    1. run preprocessing against the shared ``flow`` and ``domain`` objects and
+       the cell mesh of the run,
     2. launch the numerical solve,
     3. return the result - post-processing is handled by ``post_run_results()``.
     """
@@ -296,7 +307,7 @@ def run_flow_model(
         domain=state.setup.domain,
         options=preprocess_options,
         flow_runtime_overrides=flow_runtime_overrides,
-        **(mesh_inputs or {}),
+        cell_mesh=require_cell_mesh(state.setup),
     )
 
     # The numerical run is shared across flow backends: write files, execute

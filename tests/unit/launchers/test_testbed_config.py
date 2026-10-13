@@ -36,8 +36,8 @@ def test_testbed_config_parses_mesh_cases(tmp_path: Path) -> None:
                 'id = "coarse"',
                 'axis = "resolution"',
                 "",
-                "[testbed.case.overlay.mesh_catchment.zone_meshing]",
-                "global_size = 400.0",
+                "[testbed.case.overlay.mesh]",
+                "cell_size = 400.0",
                 "",
                 "[[testbed.metrics]]",
                 'name = "n_cells"',
@@ -56,7 +56,7 @@ def test_testbed_config_parses_mesh_cases(tmp_path: Path) -> None:
     assert cfg.output_root == (tmp_path / "outputs/testbed").resolve()
     assert cfg.execute is False
     assert cfg.cases is cfg.case
-    assert cfg.cases[0].overlay["mesh_catchment"]["zone_meshing"]["global_size"] == 400.0
+    assert cfg.cases[0].overlay["mesh"]["cell_size"] == 400.0
     assert cfg.metrics[0].source == "n_cells"
 
 
@@ -188,7 +188,7 @@ _MESH_BASE_CATALOG_CSV = "\n".join(
 
 _CASE_CATALOG_CSV = "\n".join(
     [
-        "case_id,title,global_size",
+        "case_id,title,cell_size",
         "catalog_coarse,Catalog coarse,400.0",
     ]
 )
@@ -240,8 +240,8 @@ _REJECTS_LEGACY_CASES = {
             "[[testbed.variant]]",
             'id = "coarse"',
             "",
-            "[testbed.variant.overlay.mesh_catchment.zone_meshing]",
-            "global_size = 400.0",
+            "[testbed.variant.overlay.mesh]",
+            "cell_size = 400.0",
         ],
         "match": "testbed.variant is no longer supported",
     },
@@ -301,10 +301,10 @@ _REJECTS_LEGACY_CASES = {
             'label_field = "title"',
             "",
             "[[testbed.variant_from_catalog]]",
-            'required_fields = ["global_size"]',
+            'required_fields = ["cell_size"]',
             "",
-            "[testbed.variant_from_catalog.overlay.mesh_catchment.zone_meshing]",
-            'global_size = "{global_size}"',
+            "[testbed.variant_from_catalog.overlay.mesh]",
+            'cell_size = "{cell_size}"',
         ],
         "match": "testbed.variant_from_catalog is no longer supported",
     },
@@ -404,8 +404,8 @@ def test_testbed_catalog_can_resolve_site_selection_manifest(tmp_path: Path) -> 
                 'y_outlet = "{y_outlet}"',
                 'buff_area = "10%"',
                 "",
-                "[testbed.case_from_catalog.overlay.mesh_catchment.zone_meshing]",
-                'global_size = "{area_km2}"',
+                "[testbed.case_from_catalog.overlay.mesh]",
+                'cell_size = "{area_km2}"',
             ]
         )
         + "\n",
@@ -427,7 +427,7 @@ def test_testbed_catalog_can_resolve_site_selection_manifest(tmp_path: Path) -> 
     assert child_payload["geographic"]["catchment"]["x_outlet"] == 131189.1
     assert child_payload["geographic"]["catchment"]["y_outlet"] == 6833784.4
     assert child_payload["geographic"]["catchment"]["buff_area"] == "10%"
-    assert child_payload["mesh_catchment"]["zone_meshing"]["global_size"] == 45.5
+    assert child_payload["mesh"]["cell_size"] == 45.5
     manifest = json.loads(Path(summary["manifest_json"]).read_text(encoding="utf-8"))
     assert manifest["site_catalog_path"] == str(catalog_path.resolve())
     assert manifest["catalog"]["path"] == str(catalog_path.resolve())

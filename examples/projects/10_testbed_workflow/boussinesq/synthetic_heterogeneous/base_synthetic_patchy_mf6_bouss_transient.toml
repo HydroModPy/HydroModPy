@@ -136,84 +136,15 @@ value = "0.2 m2/s"
 first_clim = "first"
 negative_to_evt = true
 
-[mesh_catchment]
-constraints_mode = "geology_only"
-output_layout = "flat"
-figures_enabled = true
-figure_dpi = 220
-figure_regional_dpi = 180
-
-[mesh_catchment.watershed_boundary]
-enabled = true
-boundary_refinement_distance = 300.0
-
-[mesh_catchment.watershed_boundary.smoothing]
-enabled = true
-distance = 75.0
-outer_bias_distance = 5.0
-
-[mesh_catchment.watershed_boundary.outside_coarsening]
-enabled = true
-size_factor = 2.0
+[mesh]
+engine = "voronoi"
+cell_size = 450.0
+outside_factor = 2.0
 transition_distance = 450.0
-grid_resolution = 450.0
 
-[mesh_catchment.watershed_boundary.geology_conformity]
-mode = "full_domain"
-
-[mesh_catchment.geology]
-id = "field_geology"
-cell_samples_per_axis = 8
-
-[mesh_catchment.geology.source]
-path = "synthetic_geology_zones.geojson"
-kind = "vector"
-code_field = "ZONE"
-reference_raster_path = "../../../../data/dem/conceptual_dem.tif"
-
-[mesh_catchment.hydraulic_properties.conductivity]
-values_source = "inline"
-values = { west_low_k = "1e-5", central_high_k = "8e-5", east_medium_k = "3e-5" }
-
-[mesh_catchment.hydraulic_properties.storage_coefficient]
-values_source = "inline"
-values = { west_low_k = 0.04, central_high_k = 0.08, east_medium_k = 0.06 }
-
-[mesh_catchment.zone_meshing]
-global_size = 450.0
-min_size = 180.0
-max_size = 800.0
-min_polygon_area = 1.0
-refine_interfaces = true
-interface_size = 220.0
-interface_distance = 550.0
-interface_sampling = 72
-
-[mesh_catchment.zone_meshing.refinement_policy]
-enabled = true
-mode = "grid_local_budget"
-
-[mesh_catchment.zone_meshing.refinement_policy.grid]
-neighborhood_rings = 1
-enable_exact_gap_check = false
-max_exact_gap_candidates = 128
-
-[mesh_catchment.zone_meshing.refinement_policy.hotspot]
-radius = 550.0
-max_curve_count = 120
-max_family_count = 2
-min_gap = 120.0
-max_node_degree = 4
-short_segment_length = 200.0
-max_short_segment_count = 8
-
-[mesh_catchment.zone_meshing.refinement_policy.families.geology_interface]
-enabled = true
-priority = 200
-
-[mesh_catchment.zone_meshing.refinement_policy.families.watershed_boundary]
-enabled = true
-priority = 100
+[mesh.families]
+rivers = "none"
+watershed_boundary = "face"
 
 [display]
 enabled = false

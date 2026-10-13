@@ -404,13 +404,6 @@ output_format = "unformatted" # LMT file format (typically 'formatted' or 'unfor
 vka = 1.0 # Vertical hydraulic conductivity control passed to the UPW package (VKA).
 exdp = 1.0 # Extinction depth (metres) used by the EVT package (EXDP). Accepts inline units, e.g. '1 m', '50 cm'.
 
-[modflownwt.sgrid] # Spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`.
-grid_dual = "voronoi" # Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the default; 'triangle' keeps the triangulation cells as the DISV grid for simplex comparison runs.
-
-[modflownwt.sgrid.planar] # Planar discretization of the solver grid.
-mode = "keep_native" # Planar solver-grid mode: keep the native domain support or resample to an explicit (ny, nx) target shape.
-resampling = "bilinear" # Resampling rule applied when planar mode is 'resample_to_shape'.
-
 [modflownwt.sgrid.vertical] # Vertical layering of the solver grid.
 genmtd_lay = "constant" # Vertical-layering strategy.
 nlay = 1 # Number of layers (required for constant/decay, ignored for list).
@@ -453,13 +446,6 @@ vka = 1.0 # Uniform vertical anisotropy ratio kh/kv (dimensionless, > 0); k33 = 
 evt_extinction_depth = 1.0 # Meters; extinction depth for the EVT sink used when recharge negatives are routed to EVT. The routed deficit tapers linearly from the cell top to this depth and stops below it, so a sustained climatic deficit can saturate near this value.
 lak_forcing_mode = "auto" # How time-varying LAK forcings are written. 'inline' expands values into the LAK PERIOD block, emitting one row per stress period whenever the value changes. 'ts6' always routes non-constant forcings to external MF6 TS6 files. 'auto' keeps constant/short forcings inline and routes only genuinely long series (nper > ts6_min_periods) to TS6.
 ts6_min_periods = 120 # Period count above which 'auto' mode offloads a non-constant LAK forcing to a TS6 file.
-
-[modflow6.sgrid] # Solver-grid payload split into planar and vertical sections.
-grid_dual = "voronoi" # Applies only to a MODFLOW 6 run on a runtime gmsh mesh; ignored for structured grids, MODFLOW-NWT and Boussinesq (which keeps its own triangulation). 'voronoi' uses the PEBI dual (exact CVFD orthogonality, ~half the cells) and is the default; 'triangle' keeps the triangulation cells as the DISV grid for simplex comparison runs.
-
-[modflow6.sgrid.planar] # Planar discretization of the solver grid.
-mode = "keep_native" # Planar solver-grid mode: keep the native domain support or resample to an explicit (ny, nx) target shape.
-resampling = "bilinear" # Resampling rule applied when planar mode is 'resample_to_shape'.
 
 [modflow6.sgrid.vertical] # Vertical layering of the solver grid.
 genmtd_lay = "constant" # Vertical-layering strategy.

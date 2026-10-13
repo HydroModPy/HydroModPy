@@ -17,6 +17,7 @@ from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 
@@ -744,8 +745,81 @@ def support_on_planar_mesh(
     )
 
 
+_SUPPORT_SIDE_BY_FAMILY = {f"boundary:{side[: -len('_side')]}": side for side in _SIDE_IDS}
+
+
+def support_from_cell_mesh(cell_mesh: PlanarCellMesh) -> GmshSupportMetadata:
+    """Describe a planar cell mesh as the runtime support its solver readers expect.
+
+    Nodes, cells and centres are the mesh ones; faces are the derived edges.
+    River faces are the rows of the ``rivers`` face family, side labels the rows
+    of ``boundary:west|east|south|north`` (other ``boundary:<name>`` families do
+    not reach the support). On a mesh centred on its generators, each side
+    carries the cells centred on it, as on the Voronoi dual. Cell properties are
+    NaN and geology keys empty: the solvers take them from the configuration.
+    """
+    vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
+    padded = cell_mesh.geometry.padded_connectivity
+    cell_node_indices = tuple(tuple(row[row >= 0].tolist()) for row in padded)
+    n_cells = len(cell_node_indices)
+    edge_nodes = cell_mesh.geometry.edge_nodes
+    edge_cells = cell_mesh.geometry.edge_cells
+    n_nodes = np.int64(vertices.shape[0])
+    edge_keys = edge_nodes[:, 0] * n_nodes + edge_nodes[:, 1]
+
+    def edges_of(family: str) -> np.ndarray:
+        table = cell_mesh.face_families
+        if table is None:
+            return np.empty(0, dtype=int)
+        rows = cell_mesh.face_rows(family)
+        node_a, node_b = table.node_a[rows], table.node_b[rows]
+        keys = np.minimum(node_a, node_b) * n_nodes + np.maximum(node_a, node_b)
+        return np.unique(np.searchsorted(edge_keys, keys))
+
+    edge_ids = np.arange(edge_nodes.shape[0], dtype=int)
+    edge_is_river = np.zeros(edge_ids.size, dtype=bool)
+    edge_is_river[edges_of("rivers")] = True
+    labels = {
+        int(edge): side
+        for family, side in _SUPPORT_SIDE_BY_FAMILY.items()
+        for edge in edges_of(family).tolist()
+    }
+    no_value = np.full(n_cells, np.nan, dtype=float)
+    face_support = GmshSupportMetadata(
+        cell_ids=np.arange(n_cells, dtype=int),
+        node_ids=np.arange(vertices.shape[0], dtype=int),
+        node_x_m=vertices[:, 0].copy(),
+        node_y_m=vertices[:, 1].copy(),
+        cell_node_indices=cell_node_indices,
+        cell_centroid_x_m=cell_mesh.centers[:, 0].copy(),
+        cell_centroid_y_m=cell_mesh.centers[:, 1].copy(),
+        cell_z_top_m=no_value.copy(),
+        cell_z_bottom_m=no_value.copy(),
+        cell_hydraulic_conductivity_m_s=no_value.copy(),
+        cell_storage_coefficient=no_value.copy(),
+        edge_ids=edge_ids,
+        edge_node_a_index=edge_nodes[:, 0].astype(int),
+        edge_node_b_index=edge_nodes[:, 1].astype(int),
+        edge_cell_a=edge_cells[:, 0].astype(int),
+        edge_cell_b=edge_cells[:, 1].astype(int),
+        edge_midpoint_x_m=0.5 * (vertices[edge_nodes[:, 0], 0] + vertices[edge_nodes[:, 1], 0]),
+        edge_midpoint_y_m=0.5 * (vertices[edge_nodes[:, 0], 1] + vertices[edge_nodes[:, 1], 1]),
+        edge_kind=tuple("boundary" if cell_b < 0 else "internal" for cell_b in edge_cells[:, 1]),
+        edge_is_river=edge_is_river,
+        geology_a_key=("",) * int(edge_ids.size),
+        geology_b_key=("",) * int(edge_ids.size),
+        boundary_labels_by_edge_id=dict(sorted(labels.items())),
+    )
+    if cell_mesh.center_kind != "generator":
+        return face_support
+    return _with_centred_side_cells(
+        face_support, cell_size_m=_cell_sizes_m(vertices, cell_node_indices)
+    )
+
+
 __all__ = [
     "GmshSupportMetadata",
     "build_gmsh_support_metadata",
+    "support_from_cell_mesh",
     "support_on_planar_mesh",
 ]

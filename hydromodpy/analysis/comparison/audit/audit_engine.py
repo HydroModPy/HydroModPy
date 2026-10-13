@@ -241,7 +241,6 @@ def _head_bounds_diagnostics(
         cells = resolve_bundle_cells(
             Path(str(run_folder_raw)),
             config_path=config_path,
-            solver_name=str(summary.get("solver", "")) or None,
         )
         if cells is not None:
             cells_by_simulation[simulation_id] = cells

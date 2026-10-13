@@ -70,15 +70,7 @@ def _build_payload(*, output_root: Path, run_simulations: bool) -> dict[str, Any
                                 "mf_verbose": False,
                                 "mf6_ims_complexity": "COMPLEX",
                             },
-                            "sgrid": {
-                                "planar": {
-                                    "mode": "resample_to_shape",
-                                    "nx": 50,
-                                    "ny": 5,
-                                    "resampling": "nearest",
-                                },
-                                "vertical": {"nlay": 1},
-                            },
+                            "sgrid": {"vertical": {"nlay": 1}},
                         },
                     },
                 },

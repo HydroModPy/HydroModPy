@@ -122,7 +122,7 @@ y_outlet__delete = true
 snap_dist__delete = true
 
 [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay]
-mesh_catchment__delete = true
+mesh__delete = true
 
 [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.data]
 types = ["dem", "geology", "recharge"]
@@ -133,15 +133,21 @@ thickness = 50.0
 [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
 enabled = false
 
-[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_input]
-bundle_dir = "{mesh_bundle_dir}"
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh]
+engine = "voronoi"
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh.triangle]
+path = "{mesh_bundle_dir}/mesh_2d.msh"
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh.voronoi]
+seeds = "triangulation"
 
 [[testbed.case_from_catalog.overlay.comparison.simulation]]
 id = "mf6_unstructured_reference"
 label = "MF6 maillage triangulaire preconstruit"
 solver = "modflow6"
 mesh_label = "unstructured_reference"
-mesh_mode = "mesh_input"
+mesh_mode = "voronoi"
 
 [[testbed.case_from_catalog.overlay.comparison.simulation]]
 id = "mf6_regular_120"
@@ -151,14 +157,10 @@ mesh_label = "regular_grid_120"
 mesh_mode = "structured"
 
 [testbed.case_from_catalog.overlay.comparison.simulation.overlay]
-mesh_catchment__delete = true
-mesh_input__delete = true
+mesh__delete = true
 
-[testbed.case_from_catalog.overlay.comparison.simulation.overlay.modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 120
-ny = 120
-resampling = "nearest"
+[testbed.case_from_catalog.overlay.comparison.simulation.overlay.mesh.regular]
+shape = [120, 120]
 
 [[testbed.case_from_catalog.overlay.comparison.simulation]]
 id = "mf6_regular_180"
@@ -168,14 +170,10 @@ mesh_label = "regular_grid_180"
 mesh_mode = "structured"
 
 [testbed.case_from_catalog.overlay.comparison.simulation.overlay]
-mesh_catchment__delete = true
-mesh_input__delete = true
+mesh__delete = true
 
-[testbed.case_from_catalog.overlay.comparison.simulation.overlay.modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 180
-ny = 180
-resampling = "nearest"
+[testbed.case_from_catalog.overlay.comparison.simulation.overlay.mesh.regular]
+shape = [180, 180]
 
 [[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "head_map_wet_year1"
@@ -263,7 +261,7 @@ y_outlet__delete = true
 snap_dist__delete = true
 
 [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay]
-mesh_catchment__delete = true
+mesh__delete = true
 
 [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.data]
 types = ["dem", "geology", "recharge"]
@@ -274,15 +272,21 @@ thickness = 50.0
 [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
 enabled = false
 
-[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh_input]
-bundle_dir = "{mesh_bundle_dir}"
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh]
+engine = "voronoi"
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh.triangle]
+path = "{mesh_bundle_dir}/mesh_2d.msh"
+
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.mesh.voronoi]
+seeds = "triangulation"
 
 [[testbed.case_from_catalog.overlay.comparison.simulation]]
 id = "mf6_unstructured_reference"
 label = "MF6 maillage triangulaire preconstruit"
 solver = "modflow6"
 mesh_label = "unstructured_reference"
-mesh_mode = "mesh_input"
+mesh_mode = "voronoi"
 
 [[testbed.case_from_catalog.overlay.comparison.simulation]]
 id = "mf6_regular_120"
@@ -292,14 +296,10 @@ mesh_label = "regular_grid_120"
 mesh_mode = "structured"
 
 [testbed.case_from_catalog.overlay.comparison.simulation.overlay]
-mesh_catchment__delete = true
-mesh_input__delete = true
+mesh__delete = true
 
-[testbed.case_from_catalog.overlay.comparison.simulation.overlay.modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 120
-ny = 120
-resampling = "nearest"
+[testbed.case_from_catalog.overlay.comparison.simulation.overlay.mesh.regular]
+shape = [120, 120]
 
 [[testbed.case_from_catalog.overlay.comparison.simulation]]
 id = "mf6_regular_180"
@@ -309,14 +309,10 @@ mesh_label = "regular_grid_180"
 mesh_mode = "structured"
 
 [testbed.case_from_catalog.overlay.comparison.simulation.overlay]
-mesh_catchment__delete = true
-mesh_input__delete = true
+mesh__delete = true
 
-[testbed.case_from_catalog.overlay.comparison.simulation.overlay.modflow6.sgrid.planar]
-mode = "resample_to_shape"
-nx = 180
-ny = 180
-resampling = "nearest"
+[testbed.case_from_catalog.overlay.comparison.simulation.overlay.mesh.regular]
+shape = [180, 180]
 
 [[testbed.case_from_catalog.overlay.comparison.observable]]
 name = "head_map_wet_year1"

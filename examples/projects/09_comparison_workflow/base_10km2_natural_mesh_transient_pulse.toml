@@ -111,9 +111,14 @@ values = [
 ]
 runoff_ratio = 0.0
 
-[mesh_input]
-mesh_path = "../07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_2d.msh"
-bundle_dir = "../07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle"
+[mesh]
+engine = "voronoi"
+
+[mesh.triangle]
+path = "../07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle/mesh_2d.msh"
+
+[mesh.voronoi]
+seeds = "triangulation"
 
 [display]
 enabled = false

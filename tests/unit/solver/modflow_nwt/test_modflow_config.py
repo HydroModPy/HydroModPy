@@ -25,7 +25,6 @@ def test_modflow_config_defaults_match_runtime_defaults():
     assert params.process_specific.vka == 1.0
     assert params.process_specific.exdp == 1.0
     assert isinstance(params.sgrid, SolverSGridConfig)
-    assert params.sgrid.planar.mode == "keep_native"
     assert params.sgrid.vertical.nlay == 1
 
 
@@ -75,11 +74,8 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 "vka = 2.5",
                 "exdp = 3.0",
                 "",
-                "[modflownwt.sgrid.planar]",
-                'mode = "resample_to_shape"',
-                "nx = 6",
-                "ny = 5",
-                'resampling = "nearest"',
+                "[mesh.regular]",
+                "shape = [5, 6]",
                 "",
                 "[modflownwt.sgrid.vertical]",
                 'genmtd_lay = "decay"',
@@ -98,10 +94,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     assert cfg.modflownwt.process_specific.exdp == 3.0
     assert cfg.modflownwt.runtime.nwt.options == "SIMPLE"
     assert isinstance(cfg.modflownwt.sgrid, SolverSGridConfig)
-    assert cfg.modflownwt.sgrid.planar.mode == "resample_to_shape"
-    assert cfg.modflownwt.sgrid.planar.nx == 6
-    assert cfg.modflownwt.sgrid.planar.ny == 5
-    assert cfg.modflownwt.sgrid.planar.resampling == "nearest"
+    assert cfg.mesh.regular.shape == (5, 6)
     assert cfg.modflownwt.sgrid.vertical.genmtd_lay == "decay"
     assert cfg.modflownwt.sgrid.vertical.nlay == 3
     assert cfg.modflownwt.sgrid.vertical.lay_decay == 1.8
@@ -138,44 +131,6 @@ def test_hydromodpy_config_rejects_legacy_flat_sgrid_payload(tmp_path: Path):
     )
 
     with pytest.raises(ConfigValidationError):
-        HydroModPyConfig.from_toml(toml_path)
-
-
-def test_hydromodpy_config_rejects_legacy_planar_mode_aliases(tmp_path: Path):
-    dem_path = tmp_path / "dem.tif"
-    dem_path.touch()
-
-    toml_path = tmp_path / "config.toml"
-    toml_path.write_text(
-        "\n".join(
-            [
-                '[workflow]\nmode = "simulation"',
-                "[workspace]",
-                f'project_root = "{tmp_path}"',
-                f'root = "{tmp_path}"',
-                "",
-                "[geographic]",
-                "",
-                "[geographic.catchment]",
-                'catch_def = "dem"',
-                'dem_init_path = "dem.tif"',
-                "[solver]",
-                'backend = { backend = "modflow_nwt" }',
-                "",
-                "[modflownwt.sgrid.planar]",
-                'mode = "shape"',
-                "nx = 6",
-                "ny = 5",
-                "",
-                "[modflownwt.sgrid.vertical]",
-                'genmtd_lay = "constant"',
-                "nlay = 1",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ConfigValidationError, match="resample_to_shape"):
         HydroModPyConfig.from_toml(toml_path)
 
 

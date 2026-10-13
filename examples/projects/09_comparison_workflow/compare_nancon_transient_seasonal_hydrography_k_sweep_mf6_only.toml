@@ -31,7 +31,7 @@ id = "k_5e5"
 label = "MF6 Nancon hydrography K=5e-5 m/s, wider saturated branch"
 solver = "modflow6"
 mesh_label = "nancon_generated_catchment_support"
-mesh_mode = "mesh_catchment"
+mesh_mode = "voronoi"
 
 [comparison.simulation.overlay.workspace]
 project_root = "outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6/workspace_k_5e5"
@@ -69,7 +69,7 @@ id = "k_1e4"
 label = "MF6 Nancon hydrography K=1e-4 m/s, Nancon F low"
 solver = "modflow6"
 mesh_label = "nancon_generated_catchment_support"
-mesh_mode = "mesh_catchment"
+mesh_mode = "voronoi"
 
 [comparison.simulation.overlay.workspace]
 project_root = "outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6/workspace_k_1e4"
@@ -107,7 +107,7 @@ id = "k_2e4"
 label = "MF6 Nancon hydrography K=2e-4 m/s, Nancon F middle"
 solver = "modflow6"
 mesh_label = "nancon_generated_catchment_support"
-mesh_mode = "mesh_catchment"
+mesh_mode = "voronoi"
 
 [comparison.simulation.overlay.workspace]
 project_root = "outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6/workspace_k_2e4"
@@ -145,7 +145,7 @@ id = "k_5e4"
 label = "MF6 Nancon hydrography K=5e-4 m/s, wider dry branch"
 solver = "modflow6"
 mesh_label = "nancon_generated_catchment_support"
-mesh_mode = "mesh_catchment"
+mesh_mode = "voronoi"
 
 [comparison.simulation.overlay.workspace]
 project_root = "outputs/nancon_transient_seasonal_hydrography_wide_k_sweep_mf6/workspace_k_5e4"

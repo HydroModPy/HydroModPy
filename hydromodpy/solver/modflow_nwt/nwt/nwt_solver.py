@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import time
 from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import flopy
 import numpy as np
@@ -64,6 +65,9 @@ from .steady_initial_conditions import (
     flow_uses_steady_state_initial_condition,
     run_nwt_steady_state_initialization,
 )
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 MODFLOW_LENUNI_METERS = 2
@@ -145,6 +149,8 @@ class ModflowNwt:
         self._params: ModflowSpecifParams = specif_params
         self.sgrid_config: SolverSGridConfig | None = specif_params.sgrid
         self.grid_ctx: SolverGridContext | None = None
+        # The regular cell mesh the grid is extruded from, set by pre_processing.
+        self.cell_mesh: PlanarCellMesh | None = None
         self.routing_ctx: SolverRoutingContext | None = None
         self.descent: Descent | None = None
         # No lake package: the dam foot of the criterion stays empty.
@@ -279,14 +285,13 @@ class ModflowNwt:
 
     def _build_spatial_discretization(self):
         """Build the structured spatial grid from validated domain surfaces."""
+        if self.cell_mesh.structured_shape is None:
+            raise ValueError("MODFLOW NWT requires a structured grid")
         self.grid_ctx = build_spatial_discretization(
             domain=self.domain,
             sgrid_config=self.sgrid_config,
-            # MODFLOW-NWT remains on the structured backend for now even when a
-            # runtime Gmsh mesh is available elsewhere in the launcher state.
+            cell_mesh=self.cell_mesh,
         )
-        if not self.grid_ctx.solver_mesh.is_structured:
-            raise ValueError("MODFLOW NWT requires a structured grid")
         self.solver_mesh = self.grid_ctx.solver_mesh
         self.top_elevation = self.solver_mesh.reshape_to_grid(self.solver_mesh.top)
         self.inactive_mask = self.solver_mesh.reshape_to_grid(self.solver_mesh.inactive_mask[0])
@@ -424,6 +429,7 @@ class ModflowNwt:
         domain: DomainLike,
         options: ModflowPreprocessOptions | None = None,
         *,
+        cell_mesh: PlanarCellMesh,
         flow_runtime_overrides: Mapping[str, object] | None = None,
     ):
         """Pre-processing to build the hydrologic model.
@@ -436,9 +442,13 @@ class ModflowNwt:
             Domain object for this preprocessing run.
         options : ModflowPreprocessOptions, optional
             Optional typed pre-processing options.
+        cell_mesh : PlanarCellMesh
+            The regular cell mesh the grid is extruded from. MODFLOW-NWT refuses
+            any other kind.
         """
         self.flow = flow
         self.domain = domain
+        self.cell_mesh = cell_mesh
         self.flow_runtime_overrides = (
             None if flow_runtime_overrides is None else dict(flow_runtime_overrides)
         )

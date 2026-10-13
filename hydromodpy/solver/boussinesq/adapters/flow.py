@@ -12,7 +12,7 @@ import json
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
 
@@ -59,6 +59,7 @@ class BoussinesqFlowAdapter:
     process_type = "flow"
     solver_name = "boussinesq"
     requires: tuple[tuple[str, str], ...] = ()
+    accepted_meshes: ClassVar[frozenset[str]] = frozenset({"triangle"})
 
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for Boussinesq flow runs."""
@@ -181,9 +182,6 @@ class BoussinesqFlowAdapter:
         if solver_mesh is None:
             mesh_bundle = resolve_mesh_bundle(state.setup)
             solver_mesh = resolve_bundle_solver_mesh(state.setup, bundle=mesh_bundle)
-        runtime_mesh_support = getattr(state.setup, "mesh_support", None)
-        if runtime_mesh_support is not None:
-            solver_mesh = replace(solver_mesh, support_metadata=runtime_mesh_support)
         solver_cfg = getattr(state.cfg, "solver", None)
         if solver_cfg is not None:
             solver_mesh = replace(

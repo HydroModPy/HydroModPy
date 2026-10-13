@@ -13,11 +13,11 @@ from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
-    PlanarGridConfig,
     SolverSGridConfig,
     VerticalGridConfig,
 )
 from tests._helpers.cell_meshes import cell_mesh_of
+from tests._helpers.regular_cell_meshes import regular_cell_mesh_of_surface
 
 
 class _DummyGeographic:
@@ -118,18 +118,13 @@ def test_build_spatial_discretization_resamples_to_solver_shape():
     ctx = build_spatial_discretization(
         domain=domain,
         sgrid_config=SolverSGridConfig(
-            planar=PlanarGridConfig(
-                mode="resample_to_shape",
-                nx=4,
-                ny=3,
-                resampling="bilinear",
-            ),
             vertical=VerticalGridConfig(
                 genmtd_lay="constant",
                 nlay=2,
                 nodata=-9999.0,
             ),
         ),
+        cell_mesh=regular_cell_mesh_of_surface(domain.surface_topo, nrow=3, ncol=4),
     )
 
     assert ctx.nrow == 3
@@ -142,7 +137,7 @@ def test_build_spatial_discretization_resamples_to_solver_shape():
     assert ctx.grid.cell_area == pytest.approx((0.5) * (2.0 / 3.0))
 
 
-def test_runtime_planar_mesh_samples_domain_surfaces_at_voronoi_generators():
+def test_runtime_planar_mesh_samples_domain_surfaces_at_the_cell_centres():
     top = np.full((2, 2), 20.0, dtype=float)
     bottom = np.zeros((2, 2), dtype=float)
     domain = _build_domain_from_dem(top)
@@ -184,16 +179,15 @@ def test_runtime_planar_mesh_samples_domain_surfaces_at_voronoi_generators():
         cell_mesh=cell_mesh,
     )
 
-    # The runtime triangulation is dualized to a Voronoi solver grid whose top/botm
-    # are sampled from the domain surfaces at the generators: every dual cell takes
-    # the DEM top (20) and substratum (0), whatever the dual cell count.
+    # Top and botm are sampled from the domain surfaces at the cell centres: every
+    # cell takes the DEM top (20) and substratum (0).
     top = ctx.solver_mesh.top.reshape(-1)
     botm = ctx.solver_mesh.botm.reshape(-1)
     assert top.tolist() == pytest.approx([20.0] * top.size)
     assert botm.tolist() == pytest.approx([0.0] * botm.size)
 
 
-def test_grid_dual_triangle_keeps_the_triangulation_cells():
+def test_a_triangle_mesh_keeps_its_cells():
     top = np.full((2, 2), 20.0, dtype=float)
     bottom = np.zeros((2, 2), dtype=float)
     domain = _build_domain_from_dem(top)
@@ -210,15 +204,30 @@ def test_grid_dual_triangle_keeps_the_triangulation_cells():
     ctx = build_spatial_discretization(
         domain=domain,
         sgrid_config=SolverSGridConfig(
-            grid_dual="triangle",
             vertical=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
         ),
         cell_mesh=cell_mesh,
     )
 
-    # grid_dual="triangle" (e.g. for Boussinesq) keeps the 2 triangulation cells; it
-    # does not dualize to Voronoi.
+    # The solver grid is the mesh it is given: the 2 triangles, no dual.
     assert ctx.solver_mesh.n_cells == 2
+
+
+def test_modflow_nwt_refuses_a_cell_mesh_that_is_not_a_regular_grid():
+    dem = np.array([[10.0, 11.0], [12.0, 13.0]], dtype=float)
+    model = ModflowNwt(geographic=_DummyGeographic(dem), model_folder=".")
+    model.domain = _build_domain_from_dem(dem)
+    model.cell_mesh = cell_mesh_of(
+        HydroMesh(
+            vertices=np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=float),
+            cell_blocks=(
+                CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2], [0, 2, 3]], dtype=int)),
+            ),
+        )
+    )
+
+    with pytest.raises(ValueError, match="requires a structured grid"):
+        model._build_spatial_discretization()
 
 
 def test_modflow_requires_canonical_time_grid_for_launcher_flow_preprocessing():

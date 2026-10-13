@@ -144,26 +144,6 @@ class WorkflowTrialPipelineProvider(TrialPipelineProvider):
     def build_default_spatial_support_provider_registry(self) -> object:
         return build_default_spatial_support_provider_registry()
 
-    def resolve_mesh_runtime_sections(
-        self,
-        raw_toml: Mapping[str, Any],
-        config_path: str | Path,
-    ) -> dict[str, Any]:
-        from hydromodpy.workflow.steps.mesh import (
-            resolve_optional_mesh_input,
-            resolve_optional_mesh_section,
-        )
-
-        mesh_section_data = resolve_optional_mesh_section(raw_toml)
-        constraints_mode = (
-            None if mesh_section_data is None else str(mesh_section_data.constraints_mode)
-        )
-        return {
-            "mesh_section_data": mesh_section_data,
-            "constraints_mode": constraints_mode,
-            "external_mesh_input": resolve_optional_mesh_input(raw_toml, config_path),
-        }
-
     def apply_structural_updates_from_data(self, ctx: Any) -> None:
         apply_structural_updates_from_data(ctx)
 

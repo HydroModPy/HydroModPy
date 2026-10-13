@@ -79,10 +79,9 @@ solver = "modflow6"
 # Short label describing the mesh used by this child. It is reported in the comparison manifest
 # and HTML context.
 mesh_label = "site_01 refined generated geology-river catchment mesh"
-# Mesh provenance category for this child. Use 'mesh_catchment' when the simulation regenerates an
-# irregular catchment mesh, 'mesh_input' when it reuses an exchanged mesh bundle, or a
-# structured/unstructured category when that better describes the solver grid.
-mesh_mode = "mesh_catchment"
+# Mesh category for this child: the id of its mesh engine ('triangle' or 'voronoi'), or
+# 'structured' when the solver grid is regular.
+mesh_mode = "voronoi"
 
 # Strict-binary workspace configuration.
 [comparison.simulation.overlay.workspace]
@@ -132,10 +131,9 @@ solver = "boussinesq"
 # Short label describing the mesh used by this child. It is reported in the comparison manifest
 # and HTML context.
 mesh_label = "site_01 refined generated geology-river catchment mesh"
-# Mesh provenance category for this child. Use 'mesh_catchment' when the simulation regenerates an
-# irregular catchment mesh, 'mesh_input' when it reuses an exchanged mesh bundle, or a
-# structured/unstructured category when that better describes the solver grid.
-mesh_mode = "mesh_catchment"
+# Mesh category for this child: the id of its mesh engine ('triangle' or 'voronoi'), or
+# 'structured' when the solver grid is regular.
+mesh_mode = "triangle"
 
 # Strict-binary workspace configuration.
 [comparison.simulation.overlay.workspace]
@@ -158,6 +156,10 @@ description = "Boussinesq case 1: Cauchy drainage disabled; the upper free-surfa
 
 # Observables to compare across the declared simulations. At least one entry required.
 kind = "cauchy"
+
+[comparison.simulation.overlay.mesh]
+engine = "triangle"
+
 [[comparison.observable]]
 # Stable observable identifier. It becomes the group name used in metrics, differences, figures,
 # and HTML sections.
