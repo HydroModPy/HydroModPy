@@ -12,13 +12,16 @@ Setup:
 - heads of 50.2 m on the west edge and 50.0 m on the east edge, held at the
   centroids of the triangles that own those edges (x = 10/3 and 100 - 10/3 m);
   on the Voronoi dual, one cell per node, they are held on the nodes of the
-  faces (x = 0 and 100 m),
+  faces (x = 0 and 100 m), on the generated mesh on its seeds of the sides (the
+  first and the last abscissa of its cell centres),
   no-flow north and south, no recharge,
 - an aquifer from -1000 to 1000 m with K = 1e-4 m/s: the transmissivity is
   uniform to 2e-4,
 - variants: MODFLOW 6 on the triangles with XT3D, the same with XT3D off, MODFLOW
-  6 on the Voronoi dual of the same nodes, and the Boussinesq solver with its
-  default local engine and with its PETSc engine. MODFLOW-NWT and the structured
+  6 on the Voronoi dual of the same nodes, MODFLOW 6 on a Voronoi mesh the engine
+  generates on the same strip (cells of 10 m, a seed on each side, a face on the
+  contact of two zones of the same K at x = 50 m), and the Boussinesq solver with
+  its default local engine and with its PETSc engine. MODFLOW-NWT and the structured
   MODFLOW 6 grid are rectangular grids with no skewed cells: not applicable.
 
 Reference: the steady head of a uniform flow, at every triangle centroid.

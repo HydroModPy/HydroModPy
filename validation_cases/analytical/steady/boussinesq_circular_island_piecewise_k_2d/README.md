@@ -30,6 +30,11 @@ Comparison:
   level, so this run reads a 1 m DEM whose shoreline sits 1 m inside that ring
   and every coast cell takes the ocean head (a node on the shoreline itself is
   a tie that the DEM sampling breaks at random)
+- for `solver=modflow6_voronoi_generated`, the engine generates a Voronoi mesh of
+  about 10 m cells over the 610 m square, with a face on each K contact (the
+  rings at 70 m and 140 m), so no cell holds two K; the profile is read on the
+  solver cells (their centres come from the stored mesh), in 10 m bins, and a
+  cell holds the ocean head where the DEM at its centre is at or below sea level
 
 Direct execution:
 

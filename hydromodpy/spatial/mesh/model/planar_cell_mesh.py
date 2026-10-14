@@ -61,21 +61,39 @@ class MeshIdentity:
 class CellChain:
     """One ordered chain of cells of a cell family, upstream to downstream.
 
-    A cell may repeat only at a confluence.
+    A cell may repeat only at a confluence. ``offset_m`` gives, per entry of
+    ``cell_ids``, the distance [m] from the cell centre to the source line; it is
+    ``None`` when the engine publishes no lateral offset (the cell holds the line).
+    A crossing cell, taken by a chain although its centre lies off the line, has
+    an offset above zero.
     """
 
     family: str
     chain_id: int
     cell_ids: np.ndarray
+    offset_m: np.ndarray | None = None
 
     def __post_init__(self) -> None:
-        """Normalise the cell ids to a 1-D int64 array of non-negative ids."""
+        """Normalise the cell ids to a 1-D int64 array and the offsets to float64."""
         cell_ids = np.asarray(self.cell_ids, dtype=np.int64).reshape(-1)
         if not self.family.strip():
             raise ValueError("a cell chain needs a family name")
         if cell_ids.size and int(cell_ids.min()) < 0:
             raise ValueError(f"chain {self.chain_id} of '{self.family}' has a negative cell id")
         object.__setattr__(self, "cell_ids", cell_ids)
+        if self.offset_m is None:
+            return
+        offset_m = np.asarray(self.offset_m, dtype=np.float64).reshape(-1)
+        if offset_m.size != cell_ids.size:
+            raise ValueError(
+                f"chain {self.chain_id} of '{self.family}' has {cell_ids.size} cells "
+                f"but {offset_m.size} offsets"
+            )
+        if offset_m.size and not (np.all(np.isfinite(offset_m)) and float(offset_m.min()) >= 0.0):
+            raise ValueError(
+                f"chain {self.chain_id} of '{self.family}' has an offset that is negative or not finite"
+            )
+        object.__setattr__(self, "offset_m", offset_m)
 
 
 @dataclass(frozen=True, eq=False)
@@ -268,6 +286,7 @@ def build_planar_cell_mesh(
     structured_shape: tuple[int, int] | None = None,
     domain_area_m2: float | None = None,
     lines: Mapping[str, Sequence[LineString]] | None = None,
+    target_size: np.ndarray | None = None,
     notes: Sequence[str] = (),
     extras: Mapping[str, float] | None = None,
 ) -> PlanarCellMesh:
@@ -275,6 +294,8 @@ def build_planar_cell_mesh(
 
     The derived geometry the QA was measured on becomes the mesh geometry, so it
     is computed once; a caller that already derived it passes it as ``geometry``.
+    ``target_size`` is the size [m] asked for at each cell centre, for the QA
+    ``size_fidelity``.
     """
     if geometry is None:
         geometry = derive_geometry(mesh)
@@ -287,6 +308,7 @@ def build_planar_cell_mesh(
         lines=lines,
         cell_chains=cell_chains,
         face_families=face_families,
+        target_size=target_size,
         notes=notes,
         extras=extras,
     )

@@ -10,7 +10,11 @@ from shapely.affinity import translate
 from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.spatial.mesh.planning.geology import contact_lines, geology_lines
+from hydromodpy.spatial.domain.spatial_support_config import (
+    GeneratedBandsSupportConfig,
+    GeneratedRingsSupportConfig,
+)
+from hydromodpy.spatial.mesh.planning.geology import contact_lines, geology_lines, support_contacts
 
 _L93 = CRS.from_epsg(2154).to_wkt()
 _T_MAP = (
@@ -148,3 +152,76 @@ def test_a_map_with_no_crs_is_refused(tmp_path) -> None:
     config = {"source": {"path": str(path), "kind": "vector", "code_field": "code"}}
     with pytest.raises(MeshRequestError, match="no CRS"):
         geology_lines(config, config_path=tmp_path / "project.toml", crs_wkt=_L93)
+
+
+_BOUNDS = (0.0, 0.0, 200.0, 100.0)
+
+
+def test_the_bands_of_a_support_meet_on_their_breaks() -> None:
+    support = GeneratedBandsSupportConfig(
+        kind="generated_bands",
+        coordinate_mode="absolute",
+        breaks=[50.0, 120.0],
+        labels=["a", "b", "c"],
+    )
+    contacts = support_contacts(support, _BOUNDS)
+
+    assert {(left, right) for left, right in zip(contacts.zone_left, contacts.zone_right)} == {
+        ("a", "b"),
+        ("b", "c"),
+    }
+    xs = sorted(line.coords[0][0] for line in contacts.lines)
+    assert xs == [50.0, 120.0]
+    for line, left in zip(contacts.lines, contacts.zone_left):
+        west = {"a": 50.0, "b": 120.0}[left]
+        assert line.coords[0][0] == west and line.length == 100.0
+
+
+def test_relative_breaks_are_shares_of_the_extent_along_the_axis() -> None:
+    support = GeneratedBandsSupportConfig(
+        kind="generated_bands", axis="y", breaks=[0.25], labels=["south", "north"]
+    )
+    (line,) = support_contacts(support, _BOUNDS).lines
+
+    assert {y for _, y in line.coords} == {25.0}
+    assert line.length == 200.0
+
+
+def test_the_rings_of_a_support_are_circles_around_its_centre() -> None:
+    support = GeneratedRingsSupportConfig(
+        kind="generated_rings",
+        coordinate_mode="absolute",
+        radii=[20.0, 40.0],
+        labels=["in", "mid", "out"],
+    )
+    contacts = support_contacts(support, (0.0, 0.0, 100.0, 100.0))
+
+    assert {(left, right) for left, right in zip(contacts.zone_left, contacts.zone_right)} == {
+        ("in", "mid"),
+        ("mid", "out"),
+    }
+    centre = Point(50.0, 50.0)
+    for line, (left, _) in zip(contacts.lines, zip(contacts.zone_left, contacts.zone_right)):
+        radius = {"in": 20.0, "mid": 40.0}[left]
+        assert line.is_closed
+        assert centre.distance(line) == pytest.approx(radius, abs=1e-2)
+        assert line.length == pytest.approx(2.0 * np.pi * radius, rel=1e-3)
+
+
+def test_relative_radii_are_shares_of_the_largest_inscribed_circle() -> None:
+    support = GeneratedRingsSupportConfig(kind="generated_rings", radii=[0.5], labels=["in", "out"])
+    (line,) = support_contacts(support, _BOUNDS).lines
+
+    assert Point(100.0, 50.0).distance(line) == pytest.approx(25.0, abs=1e-2)
+
+
+def test_a_break_outside_the_extent_is_refused() -> None:
+    support = GeneratedBandsSupportConfig(
+        kind="generated_bands", coordinate_mode="absolute", breaks=[250.0], labels=["a", "b"]
+    )
+    with pytest.raises(MeshRequestError, match="outside"):
+        support_contacts(support, _BOUNDS)
+
+
+def test_a_support_with_no_analytical_zones_has_no_contacts() -> None:
+    assert support_contacts(object(), _BOUNDS) is None

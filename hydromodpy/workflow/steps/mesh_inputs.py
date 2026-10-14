@@ -19,6 +19,7 @@ from hydromodpy.spatial.mesh.planning import (
     geology_lines,
     load_refinement_zones,
     read_input_triangulation,
+    support_contacts,
 )
 from hydromodpy.spatial.mesh.planning.geology import GeologyLines
 from hydromodpy.spatial.mesh.refinement.lake_refinement import LakeRefinementConfig
@@ -40,7 +41,7 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
     graded = registry.get(mesh_cfg.engine).capabilities.graded
     reads_catchment = graded or mesh_cfg.families.watershed_boundary == "face"
     triangle = mesh_cfg.triangle
-    geology, notes = _geology_contacts(ctx, mesh_cfg, crs_wkt)
+    geology, notes = _geology_contacts(ctx, mesh_cfg, crs_wkt, grid)
     return PlanningInputs(
         dem_grid=grid,
         crs_wkt=crs_wkt,
@@ -229,13 +230,14 @@ def hydraulic_feature_geometries(setup: object, lake_cfg: object) -> list[LakeSt
 
 
 def _geology_contacts(
-    ctx: WorkflowContext, mesh_cfg: MeshConfig, crs_wkt: str
+    ctx: WorkflowContext, mesh_cfg: MeshConfig, crs_wkt: str, grid: RasterGridSpec
 ) -> tuple[GeologyLines | None, tuple[str, ...]]:
-    """The contacts of the vector geology map a flow parameter reads, and the notes.
+    """The contacts of the zones a flow parameter reads, and the notes.
 
-    Only a custom vector source of ``[data.geology]`` is read: the national maps
-    and the rasters reach the model rasterized, with no contact to follow, which
-    the notes say.
+    The zones are the polygons of a custom vector source of ``[data.geology]``, or,
+    for an engine that follows its face lines exactly and generates its own mesh, the
+    bands and rings of an analytical support. The national maps and the rasters reach the model
+    rasterized, with no contact to follow, which the notes say.
     """
     from hydromodpy.workflow.steps.setup import (
         collect_requested_support_ids,
@@ -245,6 +247,13 @@ def _geology_contacts(
     if mesh_cfg.families.geology != "face":
         return None, ()
     supports = resolve_support_configs(ctx.cfg.domain, collect_requested_support_ids(ctx.cfg.flow))
+    reads_triangulation = mesh_cfg.triangle is not None and mesh_cfg.triangle.path is not None
+    if not reads_triangulation and registry.get(mesh_cfg.engine).capabilities.exact_faces:
+        bounds = (grid.xmin, grid.ymin, grid.xmax, grid.ymax)
+        for support in supports.values():
+            contacts = support_contacts(support, bounds)
+            if contacts is not None:
+                return contacts, ()
     if not any(getattr(support, "kind", None) == "geology" for support in supports.values()):
         return None, ()
     geology = ctx.cfg.data.geology

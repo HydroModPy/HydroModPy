@@ -58,7 +58,7 @@ HAUSDORFF_RTOL = tol(
 )
 BUDGET_S = tol("mesh_engine_conformance__wall_clock_time_of_one_build_on_a_closed_case")
 
-GMSH_ENGINE_IDS = ("triangle", "voronoi")
+GMSH_ENGINE_IDS = ("triangle",)
 """The built-in engines that need the optional ``mesh`` extra (gmsh)."""
 
 SIDES = ("west", "east", "south", "north")
@@ -263,7 +263,7 @@ def test_a_mesh_states_who_built_it_and_from_which_request(engine, case) -> None
     assert cell_mesh.identity.request_hash == request.canonical_hash()
     assert cell_mesh.crs_wkt == request.crs_wkt
     if cls.capabilities.deterministic:
-        assert cell_mesh.identity.seed is None
+        assert cell_mesh.identity.seed in (None, request.seed)
 
 
 def test_a_mesh_carries_the_whole_quality_report(engine, case) -> None:
@@ -284,6 +284,7 @@ def test_a_mesh_carries_the_whole_quality_report(engine, case) -> None:
         "min_face_length_m",
         "n_degenerate_faces",
         "n_duplicate_vertices_in_cells",
+        "size_fidelity",
         "families",
         "declarations",
         "notes",

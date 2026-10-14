@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import shapely
+from shapely.strtree import STRtree
 
 from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry
 
@@ -36,6 +37,13 @@ RELATIVE_FACE_TOLERANCE = 1.0e-3
 """Share of the median face length used as the default face length threshold and
 as the distance within which a family face covers its source line."""
 
+MIXED_CELL_TRAVERSAL = 1.0e-6
+"""A face line crosses a cell when its length inside the cell exceeds this share of
+the cell side (square root of the area)."""
+
+NONORTHOGONALITY_LIMIT_DEG = 30.0
+"""Angle [deg] above which a face counts in ``nonorthogonality_deg["share_gt_30"]``."""
+
 
 @dataclass(frozen=True)
 class MeshQA:
@@ -43,6 +51,8 @@ class MeshQA:
 
     Lengths in metres, areas in square metres, angles in degrees. Quantile
     dictionaries are keyed ``p5``, ``p50`` ... ``min``, ``max``.
+    ``size_fidelity`` is the cell side over the size asked for at its centre
+    (``p5``, ``p50``, ``p95``); it is empty when no target size was given.
     """
 
     n_cells: int
@@ -61,6 +71,7 @@ class MeshQA:
     declarations: dict[str, bool]
     notes: tuple[str, ...] = ()
     extras: dict[str, float] = field(default_factory=dict)
+    size_fidelity: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Check that the engine stated each declaration, and only those."""
@@ -188,9 +199,49 @@ def _chain_qa(
     return out
 
 
+def _cell_polygons(padded: np.ndarray, vertices: np.ndarray) -> np.ndarray:
+    """Return one polygon per padded connectivity row; the padding repeats the last corner."""
+    count = (padded >= 0).sum(axis=1)
+    pick = np.minimum(np.arange(padded.shape[1])[None, :], (count - 1)[:, None])
+    corners = np.take_along_axis(padded, pick, axis=1)
+    return shapely.polygons(shapely.linearrings(vertices[corners]))
+
+
+def _mixed_cells(
+    lines: Sequence[LineString],
+    geometry: DerivedGeometry,
+    vertices: np.ndarray,
+    tolerance_m: float,
+) -> int:
+    """Count the cells whose interior a face line crosses.
+
+    The cell is shrunk by ``tolerance_m`` first, so a line that follows a cell
+    edge within the tolerance (a conformal face) is not a crossing. The cells
+    measured are those whose bounding box meets the lines.
+    """
+    padded = geometry.padded_connectivity.astype(np.int64)
+    valid = padded >= 0
+    x = vertices[np.where(valid, padded, 0), 0]
+    y = vertices[np.where(valid, padded, 0), 1]
+    boxes = shapely.box(
+        np.where(valid, x, np.inf).min(axis=1),
+        np.where(valid, y, np.inf).min(axis=1),
+        np.where(valid, x, -np.inf).max(axis=1),
+        np.where(valid, y, -np.inf).max(axis=1),
+    )
+    source = shapely.union_all(list(lines))
+    near = np.unique(STRtree(boxes).query(source, predicate="intersects"))
+    if near.size == 0:
+        return 0
+    polygons = shapely.buffer(_cell_polygons(padded[near], vertices), -tolerance_m)
+    inside = shapely.length(shapely.intersection(polygons, source))
+    return int(np.count_nonzero(inside > MIXED_CELL_TRAVERSAL * np.sqrt(geometry.areas[near])))
+
+
 def _face_family_qa(
     rows: np.ndarray,
     face_families: FaceFamilyTable,
+    geometry: DerivedGeometry,
     vertices: np.ndarray,
     lines: Sequence[LineString],
     tolerance_m: float,
@@ -206,6 +257,8 @@ def _face_family_qa(
         covered = shapely.intersection(source, shapely.buffer(faces, tolerance_m))
         out["covered_length_rel"] = float(shapely.length(covered) / shapely.length(source))
         out["hausdorff_m"] = float(shapely.hausdorff_distance(source, faces, densify=0.25))
+    if lines:
+        out["mixed_cells"] = float(_mixed_cells(lines, geometry, vertices, tolerance_m))
     return out
 
 
@@ -220,6 +273,7 @@ def compute_mesh_qa(
     cell_chains: Sequence[CellChain] = (),
     face_families: FaceFamilyTable | None = None,
     min_face_length_m: float | None = None,
+    target_size: np.ndarray | None = None,
     notes: Sequence[str] = (),
     extras: Mapping[str, float] | None = None,
 ) -> MeshQA:
@@ -229,12 +283,21 @@ def compute_mesh_qa(
     gets its covered length share and Hausdorff distance, a cell family the
     largest distance of its cells to them. Non-orthogonality counts the interior
     faces longer than ``min_face_length_m`` (default: ``1e-3`` of the median face
-    length).
+    length). A face family with lines also gets ``mixed_cells``, the cells its
+    lines cross. ``target_size`` is the size [m] asked for at each cell centre; it
+    gives ``size_fidelity``.
     """
     lines = dict(lines or {})
     centers = np.asarray(centers, dtype=float)
     if centers.shape != (geometry.n_cells, 2):
         raise ValueError(f"centers must have shape ({geometry.n_cells}, 2), got {centers.shape}")
+    if target_size is not None:
+        target_size = np.asarray(target_size, dtype=float)
+        if target_size.shape != (geometry.n_cells,) or not np.all(target_size > 0.0):
+            raise ValueError(
+                f"target_size must be positive with shape ({geometry.n_cells},), "
+                f"got shape {target_size.shape}"
+            )
     vertices = np.asarray(mesh.vertices, dtype=float)[:, :2]
     areas = geometry.areas
     size = np.sqrt(areas)
@@ -251,6 +314,10 @@ def compute_mesh_qa(
 
     neighbour = _stats(ratio, ("p50", "p95", "p99", "max"))
     neighbour["share_gt_1_5"] = float((ratio > 1.5).mean()) if ratio.size else float("nan")
+    nonorthogonality = _stats(angles, ("p50", "p95", "p99", "max"))
+    nonorthogonality["share_gt_30"] = (
+        float((angles > NONORTHOGONALITY_LIMIT_DEG).mean()) if angles.size else float("nan")
+    )
 
     families: dict[str, dict[str, float]] = {}
     for name in dict.fromkeys(chain.family for chain in cell_chains):
@@ -262,7 +329,9 @@ def compute_mesh_qa(
         for index, name in enumerate(face_families.names):
             rows = np.flatnonzero(face_families.family == index)
             families.setdefault(name, {}).update(
-                _face_family_qa(rows, face_families, vertices, lines.get(name, ()), face_tolerance)
+                _face_family_qa(
+                    rows, face_families, geometry, vertices, lines.get(name, ()), face_tolerance
+                )
             )
 
     area_sum = float(areas.sum())
@@ -279,7 +348,7 @@ def compute_mesh_qa(
         size_quantiles_m=_stats(size, ("p5", "p50", "p95")),
         neighbour_ratio=neighbour,
         center_offset=_stats(offset, ("p50", "p95", "max")),
-        nonorthogonality_deg=_stats(angles, ("p50", "p95", "p99", "max")),
+        nonorthogonality_deg=nonorthogonality,
         min_face_length_m=threshold,
         n_degenerate_faces=int(np.count_nonzero(geometry.edge_length < DEGENERATE_FACE_M)),
         n_duplicate_vertices_in_cells=_n_duplicate_corners(geometry.padded_connectivity),
@@ -287,4 +356,7 @@ def compute_mesh_qa(
         declarations={key: bool(value) for key, value in declarations.items()},
         notes=tuple(notes),
         extras={key: float(value) for key, value in (extras or {}).items()},
+        size_fidelity={}
+        if target_size is None
+        else _stats(size / target_size, ("p5", "p50", "p95")),
     )

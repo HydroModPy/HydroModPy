@@ -438,7 +438,7 @@ grid, ``structured_shape``. The edge arrays are the UGRID ones, with the same fi
 xugrid, so ``xugrid.Ugrid2d`` takes them as stored. A family has one bit, so a mesh holds at most 31
 families. The order along a river, which a bit field cannot keep, is in the ``mesh_cell_families``
 table (``family``, ``chain_id``, ``position`` from upstream, ``cell_id``, and ``offset_m``, null
-while no engine measures it); the faces of the face-intent families (lakes, geology, the
+when the engine publishes no offset for the chain); the faces of the face-intent families (lakes, geology, the
 ``boundary:*`` sides) are in ``mesh_face_families`` (``face_row``, ``family``, ``edge_id``, the two
 nodes, the cell on each side and the zone names). A run whose mesh has no such family writes no
 table: an absent table is an empty one when the ``engine`` attribute is present. All of this is

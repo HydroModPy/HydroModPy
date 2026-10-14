@@ -14,18 +14,20 @@ from pathlib import Path
 
 import numpy as np
 import shapely
-from shapely.geometry import LineString, Point
+from shapely.geometry import LineString, Point, Polygon, box
 from shapely.geometry.base import BaseGeometry
 from shapely.strtree import STRtree
 
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.spatial.protocols import get_geology_data_source
 
-__all__ = ["GeologyLines", "contact_lines", "geology_lines"]
+__all__ = ["GeologyLines", "contact_lines", "geology_lines", "support_contacts"]
 
 _RASTER_SUFFIXES = frozenset({".tif", ".tiff"})
 _SIDE_PROBE_REL = 1.0e-7
 """Offset of the side probe, as a share of the map extent."""
+_RING_QUAD_SEGS = 64
+"""Segments per quarter of a ring contact: 0.01 m from a circle of 140 m."""
 
 
 @dataclass(frozen=True)
@@ -100,6 +102,82 @@ def contact_lines(zones: Iterable[tuple[str, BaseGeometry]]) -> GeologyLines:
         zone_left=tuple(row[0] for row in rows),
         zone_right=tuple(row[1] for row in rows),
     )
+
+
+def support_contacts(
+    support: object, bounds: tuple[float, float, float, float]
+) -> GeologyLines | None:
+    """The contacts of the zones of an analytical support, or None for any other support.
+
+    A ``generated_bands`` support cuts *bounds* along an axis at its breaks, a
+    ``generated_rings`` support cuts it into concentric zones around its centre.
+    Coordinates are read as the support providers read them: a relative break is
+    a share of the extent along the axis, a relative radius a share of the
+    largest circle around the centre that stays inside *bounds*. The zone keys
+    are the labels of the support, so a mesh that follows the contacts names the
+    zones the flow parameters read.
+    """
+    kind = getattr(support, "kind", None)
+    if kind == "generated_bands":
+        return contact_lines(_band_zones(support, bounds))
+    if kind == "generated_rings":
+        return contact_lines(_ring_zones(support, bounds))
+    return None
+
+
+def _band_zones(
+    support: object, bounds: tuple[float, float, float, float]
+) -> list[tuple[str, BaseGeometry]]:
+    """The bands of a ``generated_bands`` support, as slices of *bounds*."""
+    xmin, ymin, xmax, ymax = bounds
+    along_x = support.axis == "x"
+    low, high = (xmin, xmax) if along_x else (ymin, ymax)
+    if support.coordinate_mode == "relative":
+        breaks = [low + float(value) * (high - low) for value in support.breaks]
+    else:
+        breaks = [float(value) for value in support.breaks]
+    if any(value <= low or value >= high for value in breaks):
+        raise MeshRequestError(
+            f"the breaks of the generated_bands support lie outside ({low}, {high})"
+        )
+    edges = [low, *breaks, high]
+    return [
+        (
+            label,
+            box(first, ymin, second, ymax) if along_x else box(xmin, first, xmax, second),
+        )
+        for label, first, second in zip(support.labels, edges[:-1], edges[1:], strict=True)
+    ]
+
+
+def _ring_zones(
+    support: object, bounds: tuple[float, float, float, float]
+) -> list[tuple[str, BaseGeometry]]:
+    """The concentric zones of a ``generated_rings`` support, as discs and annuli of *bounds*."""
+    xmin, ymin, xmax, ymax = bounds
+    x = 0.5 * (xmin + xmax) if support.center_x is None else float(support.center_x)
+    y = 0.5 * (ymin + ymax) if support.center_y is None else float(support.center_y)
+    inscribed = min(x - xmin, xmax - x, y - ymin, ymax - y)
+    if inscribed <= 0.0:
+        raise MeshRequestError("the centre of the generated_rings support lies outside its domain")
+    if support.coordinate_mode == "relative":
+        radii = [float(value) * inscribed for value in support.radii]
+    else:
+        radii = [float(value) for value in support.radii]
+    if any(value >= inscribed for value in radii):
+        raise MeshRequestError(
+            "the radii of the generated_rings support must lie inside the largest circle "
+            "around its centre"
+        )
+    centre = Point(x, y)
+    discs = [centre.buffer(radius, quad_segs=_RING_QUAD_SEGS) for radius in radii]
+    outside = box(xmin, ymin, xmax, ymax)
+    inner = [Polygon(), *discs]
+    outer = [*discs, outside]
+    return [
+        (label, outward.difference(inward))
+        for label, inward, outward in zip(support.labels, inner, outer, strict=True)
+    ]
 
 
 def _merged_lines(shared: BaseGeometry) -> list[LineString]:

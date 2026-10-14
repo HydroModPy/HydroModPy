@@ -191,10 +191,9 @@ class Modflow6RuntimeConfig(HydroModelBase):
         default=None,
         description=(
             "Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled "
-            "only when the mesh is significantly non-orthogonal or anisotropic K "
-            "is configured; the default Voronoi/PEBI dual grid is near-orthogonal, "
-            "so XT3D stays off there. It adds cost but improves accuracy on "
-            "non-orthogonal or anisotropic grids."
+            "on triangle cells, and on other cells when the mesh is significantly "
+            "non-orthogonal; the orthogonal Voronoi cells keep it off. It adds "
+            "cost but improves accuracy on non-orthogonal grids."
         ),
     )
     mf6_rewet_wetfct: Annotated[PositiveFloat, Profile.EXPERT] = Field(

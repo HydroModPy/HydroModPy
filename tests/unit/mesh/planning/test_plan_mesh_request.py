@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import logging
 import shutil
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,7 +11,7 @@ from types import SimpleNamespace
 import geopandas as gpd
 import numpy as np
 import pytest
-from shapely.geometry import LineString, Point, box
+from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig
@@ -168,7 +169,7 @@ def test_a_family_set_to_none_is_left_out(tmp_path: Path) -> None:
     cfg = MeshConfig(engine="voronoi", families={"rivers": "none", "geology": "none"})
     request = plan_mesh_request(cfg, _inputs(tmp_path))
     assert [family.name for family in request.lines] == ["lakes"]
-    assert request.options == {"algorithm": "delaunay", "seeds": "generated"}
+    assert request.options == {"seeds": "generated", "lloyd_tolerance": 0.01}
 
 
 def test_a_triangulation_read_is_meshed_as_it_is(tmp_path: Path) -> None:
@@ -182,7 +183,7 @@ def test_a_triangulation_read_is_meshed_as_it_is(tmp_path: Path) -> None:
     assert request.size_field is None
     assert request.domain.equals(box(0.0, 0.0, 800.0, 900.0))
     assert request.input_triangulation is triangulation
-    assert request.options == {"algorithm": "delaunay", "seeds": "triangulation"}
+    assert request.options == {"seeds": "triangulation"}
     assert request.family("rivers").lines[0].coords[-1][0] == pytest.approx(800.0)
 
 
@@ -229,3 +230,82 @@ def test_the_notes_say_what_an_ungraded_engine_does_not_follow(tmp_path: Path) -
 def test_the_notes_of_the_inputs_travel_with_the_request(tmp_path: Path) -> None:
     inputs = dataclasses.replace(_inputs(tmp_path), notes=("no vector geology",))
     assert plan_mesh_request(MeshConfig(cell_size=50.0), inputs).notes == ("no vector geology",)
+
+
+def _holed(outer: Polygon, *holes: Polygon) -> Polygon:
+    return Polygon(outer.exterior.coords, [hole.exterior.coords for hole in holes])
+
+
+_TINY = 0.5
+"""Radius [m] of a hole of 0.8 m2, as the pixels of a polygonised bathymetry leave."""
+_WIDE = 25.0
+"""Radius [m] of a hole of 1960 m2, larger than one 40 m cell squared."""
+
+
+def _with_holes(tmp_path: Path, **kwargs) -> PlanningInputs:
+    """The inputs with a tiny hole in the domain, a lake and the catchment, and a wide one in a lake."""
+    lake = _holed(
+        Point(300.0, 750.0).buffer(60.0),
+        Point(280.0, 750.0).buffer(_TINY),
+        Point(320.0, 750.0).buffer(_WIDE),
+    )
+    return dataclasses.replace(
+        _inputs(tmp_path, lakes=(lake, Point(750.0, 200.0).buffer(40.0))),
+        domain=_holed(box(0.0, 0.0, 1000.0, 1000.0), Point(50.0, 50.0).buffer(_TINY)),
+        watershed=_holed(box(100.0, 100.0, 900.0, 900.0), Point(200.0, 200.0).buffer(_TINY)),
+        **kwargs,
+    )
+
+
+@pytest.mark.parametrize(
+    "mesh_cfg",
+    [
+        MeshConfig(engine="triangle", cell_size=40.0, families={"watershed_boundary": "face"}),
+        MeshConfig(engine="regular", cell_size=40.0, families={"watershed_boundary": "face"}),
+    ],
+    ids=["graded", "regular"],
+)
+def test_a_hole_under_one_cell_squared_is_dropped_for_every_engine(
+    tmp_path: Path, mesh_cfg: MeshConfig, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.INFO):
+        request = plan_mesh_request(mesh_cfg, _with_holes(tmp_path))
+
+    assert len(request.domain.interiors) == 0
+    assert len(request.family("lakes").lines) == 3  # the lake, its wide hole, the second lake
+    assert len(request.family("watershed_boundary").lines) == 1
+    assert any("3 holes of the domain, the lakes and the catchment" in n for n in request.notes)
+    assert [r.message for r in caplog.records if "Dropped" in r.message] == [
+        "Dropped 3 holes smaller than one local cell squared."
+    ]
+
+
+def test_without_a_small_hole_the_request_is_the_one_of_the_inputs(tmp_path: Path) -> None:
+    inputs = _inputs(tmp_path)
+    request = plan_mesh_request(_TRIANGLE, inputs)
+
+    assert all("holes" not in note for note in request.notes)
+    assert request.domain.equals(inputs.domain)
+
+
+def test_a_triangulation_read_keeps_every_hole(tmp_path: Path) -> None:
+    triangulation = InputTriangulation(
+        vertices=np.array([[0.0, 0.0], [800.0, 0.0], [800.0, 900.0], [0.0, 900.0]]),
+        triangles=np.array([[0, 1, 2], [0, 2, 3]]),
+        edge_labels={},
+    )
+    cfg = MeshConfig(engine="voronoi", triangle={"path": "m.msh"})
+    request = plan_mesh_request(cfg, _with_holes(tmp_path, input_triangulation=triangulation))
+
+    assert len(request.family("lakes").lines) == 4
+    assert all("holes" not in note for note in request.notes)
+
+
+def test_the_lloyd_tolerance_reaches_the_generated_voronoi_engine_only(tmp_path: Path) -> None:
+    inputs = _inputs(tmp_path)
+    generated = MeshConfig(engine="voronoi", voronoi={"lloyd_tolerance": 0.05})
+
+    assert plan_mesh_request(generated, inputs).options == {
+        "seeds": "generated",
+        "lloyd_tolerance": 0.05,
+    }

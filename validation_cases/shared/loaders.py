@@ -433,6 +433,33 @@ def _nearest_cell_history_to_grid(
     return data[:, nearest].reshape(data.shape[0], int(ny), int(nx))
 
 
+def nearest_cell_grid(
+    values: np.ndarray,
+    centers: np.ndarray,
+    *,
+    nx: int,
+    ny: int,
+    x_min_m: float,
+    x_max_m: float,
+    y_min_m: float,
+    y_max_m: float,
+) -> np.ndarray:
+    """Give each cell of a ``ny x nx`` grid the value of the solver cell with the nearest centre.
+
+    Rows run from ``y_min_m`` up, like the other regridding helpers.
+    """
+    return _nearest_cell_history_to_grid(
+        np.asarray(values, dtype=float).reshape(1, -1),
+        centers,
+        nx=nx,
+        ny=ny,
+        x_min=x_min_m,
+        x_max=x_max_m,
+        y_min=y_min_m,
+        y_max=y_max_m,
+    )[0]
+
+
 def _regrid_bundle_history(
     history: np.ndarray,
     *,
@@ -507,6 +534,17 @@ def load_cell_polygons(*, store: Any, sim_id: str) -> list[np.ndarray]:
     finally:
         sz.close()
     return [vertices[row[row >= 0]] for row in faces]
+
+
+def load_cell_centers(*, store: Any, sim_id: str) -> np.ndarray:
+    """Return the ``(n_cells, 2)`` centre of every solver cell of one run, as the mesh stored it."""
+    sz = store.open_zarr(sim_id)
+    try:
+        x = np.asarray(sz.root["mesh"]["face_x"][:], dtype=float)
+        y = np.asarray(sz.root["mesh"]["face_y"][:], dtype=float)
+    finally:
+        sz.close()
+    return np.column_stack([x, y])
 
 
 def structured_cell_polygons(

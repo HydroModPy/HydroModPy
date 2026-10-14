@@ -1,0 +1,19 @@
+[radial_profile]
+rmse = 0.123
+max_abs_error = 0.2
+azimuthal_spread = 0.126
+min_land_clearance = 0.14
+
+[doc]
+reason = """
+Twice the measurement: radial RMSE 0.0614 m, max error 0.0999 m, azimuthal
+spread 0.0626 m, and half the freeboard of 0.2816 m. The engine generates a
+Voronoi mesh of 3 721 cells over the square of the 10 m raster and puts a face
+on each K ring (70 m and 140 m, mirror pairs), so no cell straddles two zones:
+the 0.12 m of the dual of a triangulation (config_modflow6_voronoi.toml), where
+the rings pass through cells, drops to 0.06 m. What is left is the saturation
+error of the upstream cell under Newton. The spread is the error of a mesh
+without the symmetry of the node rings; the freeboard is lower than the
+structured grid's 0.91 m because a generated cell can sit a few decimetres
+above the coast. Measured 2026-10-14.
+"""

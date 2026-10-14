@@ -19,7 +19,6 @@ from shapely.geometry import LineString, box
 
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
-from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import support_from_cell_mesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.ops.family_cells import (
@@ -30,6 +29,7 @@ from hydromodpy.spatial.mesh.ops.family_cells import (
 )
 from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest, RasterGridSpec
 from tests._helpers.bundle_cell_meshes import BUNDLE_CASES, bundle_dual, bundle_triangles
+from tests._helpers.dual_of_triangles import dual_of_the_triangles
 
 WKT = CRS.from_epsg(2154).to_wkt()
 NROW, NCOL = 7, 5
@@ -161,9 +161,17 @@ def test_the_stream_of_a_grid_is_the_cells_of_its_chains() -> None:
     assert np.array_equal(label_cells(cell_mesh, "river"), expected)
 
 
+def _triangles(request: MeshRequest) -> PlanarCellMesh:
+    return TriangleMeshEngine().build(request)
+
+
+def _dual_of_triangles(request: MeshRequest) -> PlanarCellMesh:
+    return dual_of_the_triangles(TriangleMeshEngine().build(request), request)
+
+
 @pytest.mark.skipif(find_spec("gmsh") is None, reason="gmsh is not installed")
-@pytest.mark.parametrize("engine", [TriangleMeshEngine, VoronoiMeshEngine])
-def test_the_stream_of_a_cut_mesh_is_the_cells_on_both_sides_of_its_faces(engine) -> None:
+@pytest.mark.parametrize("build", [_triangles, _dual_of_triangles])
+def test_the_stream_of_a_cut_mesh_is_the_cells_on_both_sides_of_its_faces(build) -> None:
     river = LineString([(100.0, 150.0), (450.0, 420.0), (900.0, 880.0)])
     request = MeshRequest(
         domain=box(0.0, 0.0, 1000.0, 1000.0),
@@ -182,7 +190,7 @@ def test_the_stream_of_a_cut_mesh_is_the_cells_on_both_sides_of_its_faces(engine
         nominal_size_m=50.0,
         lines=(LineFamilySpec("rivers", "cell", (river,)),),
     )
-    cell_mesh = engine().build(request)
+    cell_mesh = build(request)
     legacy = support_from_cell_mesh(cell_mesh)
     assert stream_cells(cell_mesh).size > 0
     assert np.array_equal(stream_cells(cell_mesh), legacy.river_cell_indices())

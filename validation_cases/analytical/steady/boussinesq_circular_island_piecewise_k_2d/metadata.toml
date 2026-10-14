@@ -11,6 +11,7 @@ modflow_nwt = "config_modflownwt.toml"
 modflow6 = "config_modflow6.toml"
 modflow6_irregular_tri = "config_modflow6_irregular_tri.toml"
 modflow6_voronoi = "config_modflow6_voronoi.toml"
+modflow6_voronoi_generated = "config_modflow6_voronoi_generated.toml"
 boussinesq = "config_boussinesq.toml"
 boussinesq_local = "config_boussinesq_local.toml"
 
@@ -21,6 +22,8 @@ results_folder_name = "results_simulations"
 [output]
 observable_name = "watertable_elevation"
 expected_shape = [61, 61]
+# Runs on a mesh the engine generated: no bundle, the cells are read from the stored mesh.
+own_cells_solvers = ["modflow6_voronoi_generated"]
 
 [reference]
 crs = "EPSG:2154"

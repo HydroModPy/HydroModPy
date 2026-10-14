@@ -21,7 +21,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh, voronoi_dual_of_mesh
+from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh, voronoi_planar_mesh
 
 X0, Y0 = 351_250.0, 6_789_500.0
 """Lambert-93 origin of every mesh here (EPSG:2154)."""
@@ -221,7 +221,7 @@ def test_triangle_adapter_without_support_has_no_family() -> None:
 def test_a_support_of_other_cells_is_refused() -> None:
     mesh, bundle = _square_triangulation()
     support = build_gmsh_support_metadata(bundle)
-    dual = voronoi_dual_of_mesh(mesh, domain_polygon_from_mesh(mesh))
+    dual = voronoi_planar_mesh(np.asarray(mesh.vertices)[:, :2], domain_polygon_from_mesh(mesh))
 
     with pytest.raises(ValueError, match="cells"):
         cell_mesh_from_voronoi_dual(dual, support, crs_wkt=CRS)
@@ -257,7 +257,7 @@ def test_a_support_edge_that_is_not_a_mesh_edge_is_refused() -> None:
 
 def test_voronoi_adapter_centres_are_the_generators_and_families_the_dual_support() -> None:
     mesh, bundle = _square_triangulation()
-    dual = voronoi_dual_of_mesh(mesh, domain_polygon_from_mesh(mesh))
+    dual = voronoi_planar_mesh(np.asarray(mesh.vertices)[:, :2], domain_polygon_from_mesh(mesh))
     support = support_on_planar_mesh(build_gmsh_support_metadata(bundle), dual)
     cell_mesh = cell_mesh_from_voronoi_dual(dual, support, crs_wkt=CRS)
 
@@ -276,7 +276,7 @@ def test_voronoi_adapter_centres_are_the_generators_and_families_the_dual_suppor
 
 def test_voronoi_adapter_needs_the_generators() -> None:
     mesh, bundle = _square_triangulation()
-    dual = voronoi_dual_of_mesh(mesh, domain_polygon_from_mesh(mesh))
+    dual = voronoi_planar_mesh(np.asarray(mesh.vertices)[:, :2], domain_polygon_from_mesh(mesh))
     support = support_on_planar_mesh(build_gmsh_support_metadata(bundle), dual)
     bare = HydroMesh(vertices=dual.vertices, cell_blocks=dual.cell_blocks)
 

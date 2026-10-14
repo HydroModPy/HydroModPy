@@ -21,9 +21,11 @@ from validation_cases.shared import (
 from validation_cases.shared.boussinesq_analytical_runtime import DEFAULT_ENGINE_SOLVER
 from validation_cases.shared.loaders import (
     bundle_cell_centers,
+    load_cell_centers,
     load_cell_polygons,
     load_last_cell_values,
     map_polygons_payload,
+    nearest_cell_grid,
     resolve_case_mesh_bundle_dir,
     structured_cell_polygons,
 )
@@ -48,7 +50,9 @@ class BoussinesqCircularIslandPiecewiseKComparison:
     dual by the cell under each grid centre. The radial profile, the azimuthal
     spread and the land freeboard of a Voronoi run are read on its own cells
     instead: each cell centre is a bundle node, so every node ring is compared
-    at its exact radius.
+    at its exact radius. A Voronoi mesh the engine generates has no bundle: its
+    cells and their centres are read from the stored mesh, and it is projected
+    and read like a dual.
     A Boussinesq run is read on its own triangles too, with the reference at
     each centroid; its azimuthal spread is the spread of the head error in a
     bin, since the centroids of one bin sit at different radii.
@@ -246,19 +250,35 @@ def build_boussinesq_circular_island_piecewise_k_comparison(
         expected_shape = tuple(expected_shape_by_solver[solver_name])
     else:
         expected_shape = tuple(output_cfg.get("expected_shape", ()))
+    x_min_m, y_min_m = float(reference_cfg["xmin"]), float(reference_cfg["ymin"])
+    x_max_m = x_min_m + float(reference_cfg["length_x_m"])
+    y_max_m = y_min_m + float(reference_cfg["length_y_m"])
+    own_cells = solver_name in output_cfg.get("own_cells_solvers", ())
     timestep, heads = load_field_on_expected_grid(
         observable_name=observable_name,
         case_dir=CASE_DIR,
         metadata=case_metadata,
         solver=solver_name,
-        expected_shape=expected_shape,
-        x_min_m=float(reference_cfg["xmin"]),
-        x_max_m=float(reference_cfg["xmin"]) + float(reference_cfg["length_x_m"]),
-        y_min_m=float(reference_cfg["ymin"]),
-        y_max_m=float(reference_cfg["ymin"]) + float(reference_cfg["length_y_m"]),
+        expected_shape=() if own_cells else expected_shape,
+        x_min_m=x_min_m,
+        x_max_m=x_max_m,
+        y_min_m=y_min_m,
+        y_max_m=y_max_m,
         store=result.store,
         sim_id=result.sim_id,
     )
+    if own_cells:
+        centers = load_cell_centers(store=result.store, sim_id=result.sim_id)
+        heads = nearest_cell_grid(
+            heads,
+            centers,
+            nx=expected_shape[1],
+            ny=expected_shape[0],
+            x_min_m=x_min_m,
+            x_max_m=x_max_m,
+            y_min_m=y_min_m,
+            y_max_m=y_max_m,
+        )
 
     if expected_shape:
         assert tuple(heads.shape) == expected_shape, (
@@ -284,6 +304,12 @@ def build_boussinesq_circular_island_piecewise_k_comparison(
     elif native_triangles:
         centers, cell_heads, polygons = boussinesq_island_cell_heads(result)
         grid_dual = "triangle"
+    elif own_cells:
+        cell_heads = load_last_cell_values(
+            observable_name=observable_name, store=result.store, sim_id=result.sim_id
+        )
+        polygons = load_cell_polygons(store=result.store, sim_id=result.sim_id)
+        grid_dual = "voronoi"
     else:
         cell_heads = heads.reshape(-1)
         grid_dual = None

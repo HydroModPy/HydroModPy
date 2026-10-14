@@ -5,12 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.ops.mesh_orthogonality import nonorthogonality_summary
 
 logger = get_logger(__name__)
 
-# XT3D advisor triggers. On an isotropic medium the only thing XT3D corrects is
-# the grid non-orthogonality, and the conductance-flux error scales like
+# XT3D advisor triggers. The horizontal K is isotropic (the NPF package receives
+# no k22 or angle), so besides triangles the only thing XT3D corrects is the grid
+# non-orthogonality, and the conductance-flux error scales like
 # sin(non-orthogonality). Below these the two-point flux is accurate and XT3D is
 # pure cost; above them XT3D earns its cost. See Provost et al. (2017), TM 6-A56.
 _NONORTH_FRAC_GT30_TRIGGER = 0.05
@@ -33,33 +35,17 @@ def xt3d_requested_value(model) -> bool | None:
     return None if value is None else bool(value)
 
 
-def _horizontal_anisotropy_present(model) -> bool:
-    """True if the horizontal K tensor is anisotropic or angled (XT3D's tensor case).
-
-    HMP's NPF writes only ``k`` (horizontal, isotropic) and ``k33`` (vertical, via
-    vka). Vertical anisotropy is grid-aligned and needs no XT3D, and there is no
-    k22 / angle1..3 input, so the horizontal plane is isotropic today. This hook
-    flips automatically if a horizontal-anisotropy field is ever added.
-    """
-    process = getattr(model.modflow_config, "process_specific", None)
-    for attr in ("k22_over_k", "horizontal_anisotropy", "angle1"):
-        value = getattr(process, attr, None)
-        try:
-            if value is not None and float(value) not in (0.0, 1.0):
-                return True
-        except (TypeError, ValueError):
-            continue
-    return False
-
-
 def _recommend_xt3d(model, solver_mesh) -> tuple[bool, str]:
     """Compute whether XT3D is worth enabling for this model + mesh, with a reason."""
     if solver_mesh is None:
         return False, "grid not resolved yet"
     if solver_mesh.is_structured:
         return False, "structured grid: the conductance two-point flux is exact"
-    if _horizontal_anisotropy_present(model):
-        return True, "horizontal/angled K anisotropy: XT3D needed for the full tensor"
+    if solver_mesh.cell_mesh.mesh.cell_types[0] is CellType.TRIANGLE:
+        return True, (
+            "triangle cells: the two-point flux between the vertex means of two triangles "
+            "is not consistent, XT3D restores it"
+        )
     m = nonorthogonality_summary(solver_mesh.planar_mesh)
     if m["frac_gt_30"] > _NONORTH_FRAC_GT30_TRIGGER or m["p95"] > _NONORTH_P95_TRIGGER_DEG:
         return True, (

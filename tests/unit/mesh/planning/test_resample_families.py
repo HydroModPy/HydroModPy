@@ -8,7 +8,11 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon, box
 
-from hydromodpy.spatial.mesh.planning.resample import MIN_SEGMENT_SHARE, resample_families
+from hydromodpy.spatial.mesh.planning.resample import (
+    MIN_SEGMENT_SHARE,
+    positions_at_local_size,
+    resample_families,
+)
 from hydromodpy.spatial.mesh.request import LineFamilySpec, RasterGridSpec, SizeField
 from hydromodpy.spatial.mesh.sizing.size_field import sample_size_field
 
@@ -199,3 +203,38 @@ def test_a_river_around_a_re_entrant_corner_stays_in_the_domain() -> None:
     assert domain.buffer(1e-6).covers(line)
     assert _has_vertex(line, (497.0, 497.0))
     assert line.coords[0] == (497.0, 900.0) and line.coords[-1] == (950.0, 497.0)
+
+
+def test_positions_at_local_size_cut_a_piece_in_equal_integral_segments() -> None:
+    piece = LineString([(0.0, 0.0), (100.0, 0.0)])
+    points, positions, short = positions_at_local_size(
+        piece, 2.5, lambda xy: np.full(len(xy), 10.0), ring=False
+    )
+
+    assert positions.tolist() == pytest.approx([10.0 * k for k in range(1, 10)])
+    assert np.asarray(points)[:, 0].tolist() == pytest.approx(positions.tolist())
+    assert short == 0
+
+
+def test_positions_at_local_size_read_the_size_in_the_frame_of_the_piece() -> None:
+    """The size callable sees the coordinates of the piece, so a local frame works."""
+    seen = []
+
+    def size_at(xy: np.ndarray) -> np.ndarray:
+        seen.append(np.asarray(xy))
+        return np.full(len(xy), 20.0)
+
+    piece = LineString([(-50.0, 0.0), (50.0, 0.0)])
+    _, positions, _ = positions_at_local_size(piece, 5.0, size_at, ring=False)
+
+    assert positions.tolist() == pytest.approx([20.0, 40.0, 60.0, 80.0])
+    assert all(np.abs(xy).max() <= 50.0 + 1e-9 for xy in seen)
+
+
+def test_a_closed_ring_gets_at_least_three_segments() -> None:
+    ring = LineString([(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.0, 0.0)])
+    _, positions, _ = positions_at_local_size(
+        ring, 1.0, lambda xy: np.full(len(xy), 100.0), ring=True
+    )
+
+    assert positions.size == 2

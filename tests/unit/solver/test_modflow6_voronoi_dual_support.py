@@ -44,7 +44,6 @@ from hydromodpy.spatial.mesh.ops.cell_location import locate_cells
 from hydromodpy.spatial.mesh.ops.family_cells import stream_cells
 from hydromodpy.spatial.mesh.ops.voronoi import (
     domain_polygon_from_mesh,
-    voronoi_dual_of_mesh,
     voronoi_planar_mesh,
 )
 from tests._helpers.cell_meshes import TEST_CRS_WKT
@@ -148,7 +147,7 @@ def _grid_context(engine: str):
     if engine == "triangle":
         cell_mesh = cell_mesh_from_triangulation(mesh, triangle_support, crs_wkt=TEST_CRS_WKT)
     else:
-        dual = voronoi_dual_of_mesh(mesh, domain_polygon_from_mesh(mesh))
+        dual = voronoi_planar_mesh(np.asarray(mesh.vertices)[:, :2], domain_polygon_from_mesh(mesh))
         cell_mesh = cell_mesh_from_voronoi_dual(
             dual, support_on_planar_mesh(triangle_support, dual), crs_wkt=TEST_CRS_WKT
         )

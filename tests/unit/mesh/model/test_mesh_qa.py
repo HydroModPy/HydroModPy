@@ -69,6 +69,18 @@ def test_an_offset_centre_shows_in_offset_and_orthogonality() -> None:
     assert qa.nonorthogonality_deg["max"] == pytest.approx(np.degrees(np.arctan(0.25)))
 
 
+def test_the_share_of_faces_above_30_degrees_is_counted() -> None:
+    mesh, centers = _grid()
+    n_interior_faces = NROW * (NCOL - 1) + (NROW - 1) * NCOL
+    centers[0, 0] += 0.6 * DX
+    tilted = _qa(mesh, centers)
+    centers[0, 0] -= 0.35 * DX
+    gentle = _qa(mesh, centers)
+
+    assert tilted.nonorthogonality_deg["share_gt_30"] == pytest.approx(1.0 / n_interior_faces)
+    assert gentle.nonorthogonality_deg["share_gt_30"] == 0.0
+
+
 def test_neighbour_ratio_compares_the_square_root_of_areas() -> None:
     vertices = np.array([[0, 0], [1, 0], [3, 0], [3, 2], [1, 2], [0, 2]], dtype=float)
     quads = np.array([[0, 1, 4, 5], [1, 2, 3, 4]])
@@ -200,3 +212,78 @@ def test_the_per_edge_helpers_give_the_numbers_the_qa_summarises() -> None:
     assert qa.nonorthogonality_deg["max"] == np.nanmax(angle)
     assert qa.nonorthogonality_deg["p95"] == float(np.nanpercentile(angle, 95))
     assert qa.nonorthogonality_deg["max"] > 0.0
+
+
+def _column_faces(mesh: HydroMesh, geometry) -> FaceFamilyTable:
+    """The faces on the grid line x = X0 + 2 * DX, as the family ``geology``."""
+    nodes = geometry.edge_nodes
+    on_line = np.all(np.isclose(mesh.vertices[nodes][..., 0], X0 + 2 * DX), axis=1)
+    rows = np.flatnonzero(on_line)
+    return FaceFamilyTable(
+        names=("geology",),
+        family=np.zeros(rows.size),
+        cell_a=geometry.edge_cells[rows, 0],
+        cell_b=geometry.edge_cells[rows, 1],
+        node_a=nodes[rows, 0],
+        node_b=nodes[rows, 1],
+        zone_left=np.full(rows.size, -1),
+        zone_right=np.full(rows.size, -1),
+    )
+
+
+def _mixed_cells(line: LineString) -> float:
+    mesh, centers = _grid()
+    geometry = derive_geometry(mesh)
+    qa = compute_mesh_qa(
+        mesh,
+        centers,
+        geometry,
+        declarations=DECLARATIONS,
+        face_families=_column_faces(mesh, geometry),
+        lines={"geology": [line]},
+    )
+    return qa.families["geology"]["mixed_cells"]
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        # On the grid line, and within a millimetre of it: the faces follow the line.
+        (LineString([(X0 + 2 * DX, Y0), (X0 + 2 * DX, Y0 - NROW * DY)]), 0.0),
+        (LineString([(X0 + 2 * DX + 5e-4, Y0), (X0 + 2 * DX + 5e-4, Y0 - NROW * DY)]), 0.0),
+        # Three metres inside the column of cells right of the grid line: four cells crossed.
+        (LineString([(X0 + 2 * DX + 3.0, Y0), (X0 + 2 * DX + 3.0, Y0 - NROW * DY)]), 4.0),
+        # The diagonal of two cells.
+        (LineString([(X0, Y0), (X0 + 2 * DX, Y0 - 2 * DY)]), 2.0),
+    ],
+)
+def test_mixed_cells_are_the_cells_a_face_line_crosses(line: LineString, expected: float) -> None:
+    assert _mixed_cells(line) == expected
+
+
+def test_a_face_family_without_lines_has_no_mixed_cell_count() -> None:
+    mesh, centers = _grid()
+    geometry = derive_geometry(mesh)
+    qa = compute_mesh_qa(
+        mesh,
+        centers,
+        geometry,
+        declarations=DECLARATIONS,
+        face_families=_column_faces(mesh, geometry),
+    )
+
+    assert "mixed_cells" not in qa.families["geology"]
+
+
+def test_size_fidelity_is_the_cell_side_over_the_size_asked() -> None:
+    mesh, centers = _grid()
+    on_target = _qa(mesh, centers, target_size=np.full(NROW * NCOL, DX))
+    twice = _qa(mesh, centers, target_size=np.full(NROW * NCOL, 2 * DX))
+
+    assert on_target.size_fidelity == pytest.approx({"p5": 1.0, "p50": 1.0, "p95": 1.0})
+    assert twice.size_fidelity["p50"] == pytest.approx(0.5)
+    assert _qa(mesh, centers).size_fidelity == {}
+    with pytest.raises(ValueError, match="target_size"):
+        _qa(mesh, centers, target_size=np.full(3, DX))
+    with pytest.raises(ValueError, match="target_size"):
+        _qa(mesh, centers, target_size=np.zeros(NROW * NCOL))

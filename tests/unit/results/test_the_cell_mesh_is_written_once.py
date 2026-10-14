@@ -357,11 +357,20 @@ def test_the_workflow_writes_the_two_family_tables():
         ("rivers", 3, 2, 6),
         ("rivers", 3, 3, 7),
     ]
+    assert [r["offset_m"] for r in cells] == [None] * 4
     (face,) = store.views["mesh_face_families"]
     assert (face["family"], face["cell_a"], face["cell_b"], face["face_row"]) == ("lakes", 5, 9, 0)
     assert face["zone_left"] is None
     edge = cell_mesh.geometry.edge_nodes[face["edge_id"]]
     assert sorted([face["node_a"], face["node_b"]]) == edge.tolist()
+
+
+def test_the_offsets_of_a_chain_fill_the_offset_column():
+    base = _river_grid()
+    chain = CellChain("rivers", 3, np.array([4, 5, 6]), offset_m=[0.0, 3.5, 0.0])
+    cell_mesh = dataclasses.replace(base, cell_chains=(chain,))
+
+    assert [r["offset_m"] for r in cell_family_rows(cell_mesh)] == [0.0, 3.5, 0.0]
 
 
 def test_a_zone_index_becomes_its_name_in_the_face_table():
