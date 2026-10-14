@@ -4,16 +4,14 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from shapely.geometry import Polygon
+import shapely
+from shapely.geometry import Point, Polygon
 
 from hydromodpy.spatial.mesh.adapters.flopy_adapter import to_flopy_disv_args
 from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.ops.voronoi import (
-    voronoi_cells,
-    voronoi_dual_of_mesh,
-    voronoi_planar_mesh,
-)
+from hydromodpy.spatial.mesh.ops.voronoi import voronoi_planar_mesh
 
 _DOMAIN = Polygon([(0.0, 0.0), (1000.0, 0.0), (1000.0, 1000.0), (0.0, 1000.0)])
 
@@ -69,16 +67,45 @@ def test_ragged_block_rejects_degenerate_and_out_of_range() -> None:
 # -- generator ---------------------------------------------------------------
 
 
-def test_voronoi_cells_tile_the_domain_without_gaps_or_overlap() -> None:
-    cells, kept = voronoi_cells(_jittered_seeds(), _DOMAIN)
-    assert len(cells) == len(kept)
-    total = sum(c.area for c in cells)
-    from shapely.ops import unary_union
+def _cell_polygons(mesh: HydroMesh) -> list[Polygon]:
+    vertices = np.asarray(mesh.vertices, dtype=float)
+    return [Polygon(vertices[np.asarray(cell)]) for cell in mesh.flat_connectivity]
 
-    union = unary_union(cells)
+
+def test_voronoi_cells_tile_the_domain_without_gaps_or_overlap() -> None:
+    mesh = voronoi_planar_mesh(_jittered_seeds(), _DOMAIN)
+    cells = _cell_polygons(mesh)
+    union = shapely.union_all(cells)
+    assert len(cells) == len(_jittered_seeds())
     assert union.area == pytest.approx(_DOMAIN.area, rel=1e-9)  # full coverage
-    assert total == pytest.approx(union.area, rel=1e-9)  # no overlap
-    assert all(c.equals(c.convex_hull) or abs(c.area - c.convex_hull.area) < 1e-6 for c in cells)
+    assert sum(c.area for c in cells) == pytest.approx(union.area, rel=1e-9)  # no overlap
+    assert all(abs(c.area - c.convex_hull.area) < 1e-6 for c in cells)
+
+
+def test_a_domain_far_from_the_origin_keeps_one_cell_per_seed() -> None:
+    # Qhull on Lambert-93 coordinates gave two identical cells for seeds a few metres apart.
+    origin = np.array([350_000.0, 6_800_000.0])
+    axis = np.arange(2.5, 100.0, 5.0)
+    xx, yy = np.meshgrid(axis, axis)
+    seeds = np.c_[xx.ravel(), yy.ravel()] + origin
+    domain = Polygon(
+        [origin, origin + (100.0, 0.0), origin + (100.0, 100.0), origin + (0.0, 100.0)]
+    )
+    mesh = voronoi_planar_mesh(seeds, domain)
+    geometry = derive_geometry(mesh)
+
+    assert mesh.n_cells == len(seeds)
+    assert geometry.areas.sum() == pytest.approx(domain.area, rel=1e-9)
+    assert geometry.areas == pytest.approx(25.0, rel=1e-9)
+    assert np.array_equal(mesh.cell_data["disv_cell_center"], seeds)
+
+
+def test_two_coincident_seeds_are_refused() -> None:
+    from hydromodpy.core.exceptions import MeshGenerationError
+
+    seeds = np.array([[10.0, 10.0], [10.0, 10.0], [60.0, 60.0]])
+    with pytest.raises(MeshGenerationError):
+        voronoi_planar_mesh(seeds, Polygon([(0, 0), (100, 0), (100, 100), (0, 100)]))
 
 
 def test_voronoi_planar_mesh_center_is_the_seed() -> None:
@@ -103,16 +130,13 @@ def test_voronoi_dual_of_a_triangular_mesh() -> None:
         vertices=np.c_[seeds, np.zeros(len(seeds))],  # 3-column, z ignored
         cell_blocks=(CellBlock(cell_type=CellType.TRIANGLE, connectivity=np.array([[0, 1, 2]])),),
     )
-    dual = voronoi_dual_of_mesh(tri, _DOMAIN)
+    dual = voronoi_planar_mesh(np.asarray(tri.vertices)[:, :2], _DOMAIN)
     assert dual.cell_types == (CellType.POLYGON,)
-    assert dual.n_cells <= len(seeds)  # one Voronoi cell per (kept) seed
+    assert dual.n_cells == len(seeds)  # one Voronoi cell per seed
 
 
 def test_concave_domain_keeps_every_cell_center_inside_its_cell() -> None:
-    # L-shaped (concave) domain: the previous max-area clip could leave a seed in
-    # the dropped piece, so the written DISV cell center fell outside its cell.
-    from shapely.geometry import Point
-
+    # L-shaped (concave) domain: a clip that splits a cell keeps the piece that holds its seed.
     domain = Polygon(
         [
             (0.0, 0.0),
@@ -127,8 +151,10 @@ def test_concave_domain_keeps_every_cell_center_inside_its_cell() -> None:
     xx, yy = np.meshgrid(grid, grid)
     candidates = np.c_[xx.ravel(), yy.ravel()]
     seeds = candidates[[domain.contains(Point(p)) for p in candidates]]
-    cells, centers = voronoi_cells(seeds, domain)
-    assert len(cells) == len(centers)
+    mesh = voronoi_planar_mesh(seeds, domain)
+    cells = _cell_polygons(mesh)
+    centers = mesh.cell_data["disv_cell_center"]
+    assert len(cells) == len(centers) == len(seeds)
     for cell, center in zip(cells, centers, strict=True):
         assert cell.covers(Point(center))  # DISV center never falls outside its cell
     total = sum(c.area for c in cells)

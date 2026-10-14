@@ -113,6 +113,44 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The `voronoi` mesh engine generates its own cell generators instead of taking the vertices
+  of a gmsh triangulation (engine version 2.0.0). It puts one generator per river vertex (cell
+  chains), Berge mirror pairs along the face lines (geology contacts, lake shores, catchment
+  boundary) so that a cell face lies on each line, generators on the domain boundary, then fills
+  the rest with a seeded draw weighted by the size field and relaxes it with a weighted Lloyd
+  iteration (25 iterations at most, developer key `[mesh.voronoi] lloyd_tolerance`). GEOS
+  tessellates in a local frame, so Lambert-93 magnitudes no longer reach the geometry code, and
+  five gates (Berge balls, mirror faces, chain continuity, area, degenerate cells) stop an
+  invalid mesh instead of warning. One request and one seed give one mesh, bit for bit; the
+  engine asks for no cache. `[mesh.voronoi] seeds = "triangulation"`, the default when
+  `[mesh.triangle] path` is given, keeps the dual of that triangulation with the same faces as
+  before. Flume v2 size parameters: 21 655 cells instead of 36 697, neighbour pairs above a size
+  ratio of 1.5 from 13 % to 4.8 %, the seed-to-centroid offset p50 at 0.095 of the cell size.
+  Flume v2 weekly run against its gmsh reference: NSE 0.8350 to 0.8373, KGE 0.897 to 0.913, mean
+  discharge -3.66 %, layer-1 heads mean absolute difference 0.475 m, seepage area -11.8 %,
+  solver time 5 068 s to 2 927 s. 200 000 cells are generated in 47 s and built in 3 s.
+- The mesh planner drops a hole of the domain, of a lake or of the catchment whose area is
+  below the square of the local cell size, for every engine, with one INFO line. A bathymetry
+  polygonised from a 1 m raster no longer breaks the Voronoi tessellation. A larger hole that
+  touches the outer ring or another hole at one point still stops the Voronoi engine at its
+  area gate, which says so.
+- MODFLOW 6: XT3D is always on for triangle cells; other cells follow the non-orthogonality rule
+  as before. The top of a river-chain cell whose centre lies off the river line (a river crossing
+  a contact, a cell two thalwegs share, a river end near the boundary) is the zonal minimum of
+  the DEM pixels it covers, also in `centroid` mode.
+- The contacts of the `generated_bands` and `generated_rings` supports are face lines for an
+  engine that generates its mesh with exact faces, so no cell straddles two zones.
+  `[mesh.triangle] algorithm` is no longer read by `voronoi`.
+- Mesh engine contract: a deterministic engine reports `seed = None` or the seed of the request,
+  and the same seed returns the same mesh. `CellChain.offset_m` carries the lateral offset of a
+  chain cell to its river line and fills the `offset_m` column of `mesh_cell_families`. The mesh
+  QA reports `share_gt_30` of the non-orthogonality, `mixed_cells` of each face family and
+  `size_fidelity`.
+- `shapely>=2.1,<3` is required (`voronoi_polygons(ordered=True)`).
+- Validation: the patch test on skewed triangles and the piecewise-K circular island gain a
+  `voronoi_generated` variant with its own tolerances at twice the measure (rows 175 and 176 of
+  `tests/TOLERANCES.md`); every existing Voronoi tolerance is unchanged, the triangulation-seeded
+  variants measure as before.
 - The catchment of a MODFLOW run is the basin of its descent D, computed once per build
   (`core.descent.descent_basin`) and stored as `mesh/descent_basin` with its outlet and rule: the
   budget zone `catchment`, the `_catchment` discharge and its runoff area, the discharge
@@ -185,6 +223,11 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `ops/voronoi.voronoi_cells`, `ops/voronoi.voronoi_dual_of_mesh` (call
+  `voronoi_planar_mesh(vertices, domain)` with the triangulation vertices) and the
+  `vertex_decimals` argument: the tessellation merges vertices at 1 mm in `cell_topology`.
+- The horizontal-anisotropy hook of the XT3D advisor: the NPF package never received an
+  anisotropy.
 - `watershed_drainage_cell_mask` (`solver/modflow6/builders`) and the polygon masks of the
   MODFLOW 6 build: the drainage routing and the catchment readers take the basin of D.
 - `[mesh_catchment]`, `[mesh_catchment_batch]`, `[mesh_input]`, `[modflow6.sgrid.planar]`,
@@ -206,6 +249,16 @@ Each release section includes the following standard categories:
   A run sealed before the family tables draws no reference line.
 
 ### Fixed
+- A polygon cell whose zonal top falls so far under its centre sample that less than
+  `min_thickness_m` or a tenth of the column is left (a coarse cell on the flank of a quarry)
+  kept a column of a few centimetres, which MODFLOW 6 could not solve under Newton: the Flume v2
+  run on a generated Voronoi mesh diverged at period 27. Its bottom now follows the top and the
+  column keeps the thickness of the centre sample. The regular grid keeps raising the top. The
+  tenth is an empirical threshold; on the frozen Flume d2 mesh it moves one cell (NSE +6.6e-5
+  over 53 weeks), on the Flume v2 gmsh reference none.
+- Lake cells: a mesh whose `lakes` faces follow only part of the shore (arms narrower than a
+  cell, 54 % on the two-lake Cheze at 80 m) resolves the lake cells by overlap, like a mesh
+  without shore faces, instead of refusing the mesh.
 - A gridded recharge or ETP (SIM2, several stations, the soil reservoir EVTA) on a regular
   grid read its values north-south mirrored: `cell_centers_from_sgrid` put row 0 at the south
   when given a `SolverMesh`, which has no `xcellcenters`, while MODFLOW puts it at the north. Hit

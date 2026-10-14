@@ -4,9 +4,10 @@ Compared with: the steady head of a uniform flow at every triangle centroid.
 
 A consistent finite-volume flux reproduces a linear head on any cell shape. On
 this strip of skewed, non-isosceles triangles MODFLOW 6 with XT3D does, to the
-solver closure, and so does MODFLOW 6 on the Voronoi dual of the same nodes: the
-dual cells are orthogonal to their faces (the face between two cells bisects
-their nodes), so the two-point flux of a uniform gradient is exact. The
+solver closure, and so does MODFLOW 6 on the Voronoi dual of the same nodes and on
+a Voronoi mesh generated on the same strip: the cells are orthogonal to their
+faces (the face between two cells bisects their nodes), so the two-point flux of
+a uniform gradient is exact. The
 two-point flux between triangle centroids, in MODFLOW 6 without XT3D and in the
 Boussinesq solver (default local engine and PETSc engine, which assemble the same
 residual), does not: their error is recorded against a documented gap.
@@ -37,6 +38,7 @@ NOT_APPLICABLE = {
         pytest.param("modflow6_irregular_tri", True, id="modflow6_irregular_tri"),
         pytest.param("modflow6_irregular_tri_xt3d_off", True, id="modflow6_irregular_tri_xt3d_off"),
         pytest.param("modflow6_voronoi", True, id="modflow6_voronoi"),
+        pytest.param("modflow6_voronoi_generated", True, id="modflow6_voronoi_generated"),
         pytest.param("boussinesq", False, marks=pytest.mark.petsc, id="boussinesq"),
         pytest.param("boussinesq_local", False, id="boussinesq_local"),
     ],

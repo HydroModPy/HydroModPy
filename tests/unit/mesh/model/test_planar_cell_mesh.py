@@ -137,3 +137,22 @@ def test_identity_and_chain_refuse_empty_names() -> None:
         CellChain(" ", 0, np.array([0]))
     with pytest.raises(ValueError, match="negative"):
         CellChain("rivers", 0, np.array([0, -1]))
+
+
+def test_a_chain_keeps_its_offsets_as_float64_or_none() -> None:
+    chain = CellChain("rivers", 0, np.array([1, 2, 3]), offset_m=[0, 2, 0.5])
+
+    assert chain.offset_m.dtype == np.float64
+    assert chain.offset_m.tolist() == [0.0, 2.0, 0.5]
+    assert CellChain("rivers", 1, np.array([1])).offset_m is None
+    cell_mesh = replace(_cell_mesh(), cell_chains=(chain,))
+    assert cell_mesh.chains("rivers")[0].offset_m.tolist() == [0.0, 2.0, 0.5]
+
+
+@pytest.mark.parametrize(
+    ("offset_m", "match"),
+    [([0.0, 1.0], "offsets"), ([0.0, -1.0, 0.0], "negative"), ([0.0, np.nan, 0.0], "not finite")],
+)
+def test_a_chain_refuses_bad_offsets(offset_m: list[float], match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        CellChain("rivers", 0, np.array([1, 2, 3]), offset_m=offset_m)

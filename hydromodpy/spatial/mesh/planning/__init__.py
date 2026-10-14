@@ -1,7 +1,7 @@
 """The mesh planner: from ``[mesh]`` and the project inputs to one mesh request.
 
 One entry point, :func:`plan_mesh_request`. The other modules read what the
-mesh step gathers: the geology contacts, a triangulation from a ``.msh``
+mesh step gathers: the geology contacts (a vector map, or an analytical support), a triangulation from a ``.msh``
 file, the refinement zones, and the river-network switch of the geographic
 configuration.
 """
@@ -9,7 +9,12 @@ configuration.
 from __future__ import annotations
 
 from hydromodpy.spatial.mesh.planning.geographic import prepare_geographic_config_for_mesh
-from hydromodpy.spatial.mesh.planning.geology import GeologyLines, contact_lines, geology_lines
+from hydromodpy.spatial.mesh.planning.geology import (
+    GeologyLines,
+    contact_lines,
+    geology_lines,
+    support_contacts,
+)
 from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_of, read_input_triangulation
 from hydromodpy.spatial.mesh.planning.inputs import LakeStructure, PlanningInputs
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
@@ -30,4 +35,5 @@ __all__ = [
     "prepare_geographic_config_for_mesh",
     "read_input_triangulation",
     "resample_families",
+    "support_contacts",
 ]

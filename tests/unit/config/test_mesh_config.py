@@ -158,6 +158,18 @@ def test_an_installed_engine_is_accepted(monkeypatch: pytest.MonkeyPatch) -> Non
             {"engine": "voronoi", "triangle": {"path": "a.msh"}, "voronoi": {"seeds": "generated"}},
             ("seeds",),
         ),
+        (
+            {
+                "engine": "voronoi",
+                "triangle": {"path": "a.msh"},
+                "voronoi": {"lloyd_tolerance": 0.05},
+            },
+            ("lloyd_tolerance", "triangulation"),
+        ),
+        (
+            {"engine": "voronoi", "voronoi": {"seeds": "triangulation", "lloyd_tolerance": 0.05}},
+            ("triangulation", "path"),
+        ),
         ({"engine": "triangle", "cell_size": 50.0, "river_cell_size": 80.0}, ("river_cell_size",)),
         ({"lake_refinement": {"enabled": False}}, ("lake_refinement",)),
     ],
@@ -181,12 +193,21 @@ def test_a_combination_no_engine_reads_is_refused(data: dict, words: tuple[str, 
         {"outside_factor": 0.5},
         {"max_slope": 0.0},
         {"seed": -1},
-        {"voronoi": {"lloyd_tolerance": 0.05}, "engine": "voronoi"},
+        {"voronoi": {"lloyd_tolerance": 0.0}, "engine": "voronoi"},
     ],
 )
 def test_an_unknown_key_or_a_value_out_of_range_is_refused(data: dict) -> None:
     with pytest.raises(ValidationError):
         MeshConfig.model_validate(data)
+
+
+def test_the_lloyd_tolerance_of_generated_generators_is_a_dev_key_with_the_engine_default() -> None:
+    from hydromodpy.spatial.mesh.engines.voronoi.lloyd import LLOYD_TOLERANCE
+
+    assert MeshVoronoiConfig().lloyd_tolerance == LLOYD_TOLERANCE
+    config = MeshConfig(engine="voronoi", voronoi={"lloyd_tolerance": 0.05})
+
+    assert config.voronoi.lloyd_tolerance == 0.05
 
 
 def test_a_lake_refinement_object_is_switched_on_by_its_presence() -> None:

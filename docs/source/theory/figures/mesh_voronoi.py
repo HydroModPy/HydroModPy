@@ -1,7 +1,7 @@
 """A triangulation, its Voronoi dual and the angle of a connection.
 
 The angles come from connection_nonorthogonality_deg, the dual from
-voronoi_dual_of_mesh, on the two examples of the mesh page.
+voronoi_planar_mesh on its vertices, on the two examples of the mesh page.
 """
 
 import matplotlib.pyplot as plt
@@ -11,7 +11,7 @@ from scipy.spatial import Delaunay
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.ops.mesh_orthogonality import connection_nonorthogonality_deg
-from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh, voronoi_dual_of_mesh
+from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh, voronoi_planar_mesh
 
 
 def triangles(vertices, cells):
@@ -45,7 +45,7 @@ seeds = np.array([[x, y] for y in grid for x in grid])
 inner = (seeds[:, 0] > 0) & (seeds[:, 0] < 5) & (seeds[:, 1] > 0) & (seeds[:, 1] < 5)
 seeds[inner] += np.random.default_rng(3).uniform(-0.35, 0.35, (int(inner.sum()), 2))
 tri = triangles(seeds, Delaunay(seeds).simplices)
-dual = voronoi_dual_of_mesh(tri, domain_polygon_from_mesh(tri))
+dual = voronoi_planar_mesh(seeds, domain_polygon_from_mesh(tri))
 angles_tri = connection_nonorthogonality_deg(tri)
 angles_dual = connection_nonorthogonality_deg(dual)
 for cell in tri.flat_connectivity:

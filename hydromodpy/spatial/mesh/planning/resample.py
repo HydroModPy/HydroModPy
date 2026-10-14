@@ -10,8 +10,9 @@ Such an edge is kept whole and counted.
 
 from __future__ import annotations
 
+import functools
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -23,7 +24,7 @@ from shapely.strtree import STRtree
 from hydromodpy.spatial.mesh.request import LineFamilySpec, SizeField
 from hydromodpy.spatial.mesh.sizing.size_field import sample_size_field
 
-__all__ = ["MIN_SEGMENT_SHARE", "ResampledFamilies", "resample_families"]
+__all__ = ["MIN_SEGMENT_SHARE", "ResampledFamilies", "positions_at_local_size", "resample_families"]
 
 MIN_SEGMENT_SHARE = 0.8
 """Shortest segment, as a share of the local cell size, between two fixed nodes."""
@@ -60,12 +61,13 @@ def resample_families(
     cover = domain.buffer(tol)
     shapely.prepare(cover)
     step = float(size_field.values.min()) / _SAMPLES_PER_CELL
+    size_at = functools.partial(sample_size_field, size_field)
     short = 0
     resampled: list[LineFamilySpec] = []
     for family in families:
         new_lines = []
         for line in family.lines:
-            new_line, line_short = _resample_line(line, nodes, tree, tol, step, size_field, cover)
+            new_line, line_short = _resample_line(line, nodes, tree, tol, step, size_at, cover)
             new_lines.append(new_line)
             short += line_short
         resampled.append(replace(family, lines=tuple(new_lines)))
@@ -93,7 +95,7 @@ def _resample_line(
     tree: STRtree,
     tol: float,
     step: float,
-    size_field: SizeField,
+    size_at: Callable[[np.ndarray], np.ndarray],
     cover: Polygon,
 ) -> tuple[LineString, int]:
     """One line cut at its fixed nodes, each piece resampled; returns the short piece count."""
@@ -103,8 +105,8 @@ def _resample_line(
     coords: list[np.ndarray] = [stops[0][1]]
     short = 0
     for (start, _), (end, end_xy) in zip(stops[:-1], stops[1:], strict=True):
-        inner, positions, piece_short = _inner_points(
-            substring(line, start, end), step, size_field, ring=ring
+        inner, positions, piece_short = positions_at_local_size(
+            substring(line, start, end), step, size_at, ring=ring
         )
         distances.extend(start + positions)
         coords.extend(inner)
@@ -178,18 +180,25 @@ def _stops(
     return stops
 
 
-def _inner_points(
-    piece: LineString, step: float, size_field: SizeField, *, ring: bool
+def positions_at_local_size(
+    piece: LineString,
+    step: float,
+    size_at: Callable[[np.ndarray], np.ndarray],
+    *,
+    ring: bool,
 ) -> tuple[list[np.ndarray], np.ndarray, int]:
     """New vertices strictly inside *piece*, their distances along it, and the short flag.
 
-    The flag is 1 when the segments of the piece stay under 0.8 cell.
+    ``size_at`` maps coordinates ``(k, 2)`` to the local cell size [m], in the
+    frame of *piece*. ``step`` [m] is the spacing of the samples of ``1 / h``. The
+    piece is cut into ``n`` segments of equal ``integral ds / h``. The flag is 1
+    when the segments of the piece stay under 0.8 cell.
     """
     length = piece.length
     count = max(2, math.ceil(length / step) + 1)
     along = np.linspace(0.0, length, count)
     xy = shapely.get_coordinates(shapely.line_interpolate_point(piece, along))
-    inverse = 1.0 / sample_size_field(size_field, xy)
+    inverse = 1.0 / size_at(xy)
     cumulative = np.concatenate(
         ([0.0], np.cumsum(0.5 * (inverse[1:] + inverse[:-1]) * np.diff(along)))
     )

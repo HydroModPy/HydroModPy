@@ -1,0 +1,37 @@
+# MODFLOW 6 on a Voronoi mesh the engine generates on the same 100 x 40 m strip:
+# no triangulation, a seed on each side, cells of about 10 m. The strip is cut
+# into two zones of the same K at x = 50 m, and the engine puts a face on the
+# contact (mirror pairs), so the zones are exact and the flux of a uniform
+# gradient crosses a contact that changes nothing. The mesh is orthogonal, so the
+# two-point flux is exact without XT3D. The side heads sit on the seeds of the
+# sides.
+
+[[simulation.process]]
+solvers = ["modflow6"]
+
+[modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 1e-9
+mf6_inner_dvclose = 1e-10
+mf6_inner_rclose = 1e-10
+mf_verbose = false
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+[mesh]
+engine = "voronoi"
+cell_size = 10.0
+
+[domain.supports.k_bands]
+kind = "generated_bands"
+coordinate_mode = "relative"
+breaks = [0.5]
+labels = ["west_half", "east_half"]
+
+[flow.param.K.field]
+id = "K"
+kind = "heterogeneous"
+values_source = "inline"
+values = { west_half = "1e-4 m/s", east_half = "1e-4 m/s" }
+field_spatial_id = "k_bands"

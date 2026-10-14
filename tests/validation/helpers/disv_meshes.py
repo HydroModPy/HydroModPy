@@ -12,12 +12,13 @@ cell centre is its vertex mean (what HydroModPy writes for a triangle grid), a
 Voronoi cell centre is its seed.
 
 Two-point flux and XT3D: on a triangle mesh the line between two cell centres
-is not perpendicular to the shared face, so the two-point flux loses accuracy.
+is not perpendicular to the shared face, so the two-point flux is not consistent.
 ``DisvMesh.xt3d`` applies the rule HydroModPy uses in
-``hydromodpy.solver.modflow6.build.xt3d_mode``: XT3D is switched on when the p95
-of the connection non-orthogonality exceeds 30 degrees or more than 5 % of the
-connections exceed 30 degrees. A Voronoi mesh is orthogonal by construction and
-stays off. The decision and its numbers are in ``DisvMesh.xt3d_reason``.
+``hydromodpy.solver.modflow6.build.xt3d_mode``: XT3D is always on for triangle
+cells, and for other cells it is switched on when the p95 of the connection
+non-orthogonality exceeds 30 degrees or more than 5 % of the connections exceed
+30 degrees. A Voronoi mesh is orthogonal by construction and stays off. The
+decision and the non-orthogonality numbers are in ``DisvMesh.xt3d_reason``.
 
 Jitter is deterministic (fixed seed, legacy RandomState whose stream NumPy keeps frozen).
 Points on a domain boundary only move
@@ -45,9 +46,6 @@ from tests._helpers.solver_meshes import solver_mesh_from
 
 KINDS = ("triangle", "voronoi")
 DEFAULT_SEED = 20261013
-# Voronoi vertices merge at 1 micrometre: the default 1 mm collapses the short faces that a
-# jittered lattice makes (a zero-length face stops MODFLOW 6 with a floating-point error).
-VERTEX_DECIMALS = 6
 
 
 def _stub_model() -> SimpleNamespace:
@@ -229,9 +227,7 @@ def strip_mesh(
         move_y = (iy > 0) & (iy < ny - 1)
         pts[:, 0] += rng.uniform(-amp, amp, len(pts)) * move_x
         pts[:, 1] += rng.uniform(-amp, amp, len(pts)) * move_y
-        planar = voronoi_planar_mesh(
-            pts, box(0.0, 0.0, length, width), vertex_decimals=VERTEX_DECIMALS
-        )
+        planar = voronoi_planar_mesh(pts, box(0.0, 0.0, length, width))
     return _finish(kind, planar, top, botm)
 
 
@@ -298,5 +294,5 @@ def radial_mesh(
     else:
         r_last = float(np.hypot(pts[:, 0], pts[:, 1]).max())
         clip = Point(0.0, 0.0).buffer(r_last * (1.0 + 0.5 * (growth - 1.0)), quad_segs=64)
-        planar = voronoi_planar_mesh(pts, clip, vertex_decimals=VERTEX_DECIMALS)
+        planar = voronoi_planar_mesh(pts, clip)
     return _finish(kind, planar, top, botm)

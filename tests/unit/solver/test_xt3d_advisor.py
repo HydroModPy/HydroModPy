@@ -1,4 +1,4 @@
-"""The XT3D advisor: auto on/off from mesh non-orthogonality, with override warning."""
+"""The XT3D advisor: on for triangles, else from mesh non-orthogonality, with override warning."""
 
 from __future__ import annotations
 
@@ -58,28 +58,68 @@ def _solver_mesh(vertices) -> SolverMesh:
     )
 
 
+def _quad_solver_mesh(shear: float):
+    """Two quadrilaterals side by side, the top row shifted by ``shear`` metres.
+
+    ``shear = 0`` gives two unit squares, an orthogonal connection; ``shear = 1`` a
+    connection at 45 degrees to the normal of the shared face.
+    """
+    vertices = [
+        [0.0, 0.0],
+        [1.0, 0.0],
+        [2.0, 0.0],
+        [shear, 1.0],
+        [1.0 + shear, 1.0],
+        [2.0 + shear, 1.0],
+    ]
+    conn = np.asarray([[0, 1, 4, 3], [1, 2, 5, 4]], dtype=int)
+    planar = HydroMesh(
+        vertices=np.asarray(vertices, dtype=float),
+        cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),),
+    )
+    return solver_mesh_from(
+        planar,
+        top=np.asarray([10.0, 10.0], dtype=float),
+        botm=np.asarray([[1.0, 1.0]], dtype=float),
+        inactive_mask=np.zeros((1, 2), dtype=bool),
+    )
+
+
+def _model_on(solver_mesh: SolverMesh):
+    model = _build_unstructured_model()
+    model.solver_mesh = solver_mesh
+    return model
+
+
 def test_nonorthogonality_orthogonal_vs_skewed() -> None:
     assert nonorthogonality_summary(_solver_mesh(_ORTHO).planar_mesh)["p95"] < 1.0
     assert nonorthogonality_summary(_solver_mesh(_SKEW).planar_mesh)["p95"] > 30.0
 
 
-def test_recommend_off_on_near_orthogonal_mesh() -> None:
-    model = _build_unstructured_model()
+def test_recommend_off_on_near_orthogonal_quadrilaterals() -> None:
+    model = _model_on(_quad_solver_mesh(0.0))
     enabled, reason = _recommend_xt3d(model, model.solver_mesh)
     assert enabled is False
     assert "near-orthogonal" in reason
 
 
-def test_recommend_on_for_skewed_mesh() -> None:
-    model = _build_unstructured_model()
-    model.solver_mesh = _solver_mesh(_SKEW)
+def test_recommend_on_for_skewed_quadrilaterals() -> None:
+    model = _model_on(_quad_solver_mesh(1.0))
     enabled, reason = _recommend_xt3d(model, model.solver_mesh)
     assert enabled is True
     assert "non-orthogonality" in reason
 
 
+def test_recommend_on_for_triangles_even_when_orthogonal() -> None:
+    model = _model_on(_solver_mesh(_ORTHO))
+    assert nonorthogonality_summary(model.solver_mesh.planar_mesh)["p95"] < 1.0
+    enabled, reason = _recommend_xt3d(model, model.solver_mesh)
+    assert enabled is True
+    assert "triangle cells" in reason
+
+
 def test_auto_off_decision_logs_info() -> None:
-    model = _build_unstructured_model()  # near-orthogonal -> auto off
+    model = _model_on(_quad_solver_mesh(0.0))
     with _capture_advisor_logs(logging.INFO) as records:
         decision = resolve_xt3d_decision(model, model.solver_mesh)
     assert decision.enabled is False
@@ -88,21 +128,31 @@ def test_auto_off_decision_logs_info() -> None:
     assert all(r.levelno == logging.INFO for r in records)
 
 
-def test_auto_on_decision_for_skewed_mesh() -> None:
-    model = _build_unstructured_model()
-    model.solver_mesh = _solver_mesh(_SKEW)
+def test_auto_on_decision_for_triangles() -> None:
+    model = _model_on(_solver_mesh(_ORTHO))
     decision = resolve_xt3d_decision(model, model.solver_mesh)
     assert decision.enabled is True
     assert decision.source == "auto_on"
 
 
-def test_explicit_override_warns_when_it_contradicts() -> None:
-    model = _build_unstructured_model()  # checks recommend off
-    model.modflow_config = model.modflow_config.model_copy(
+def test_auto_on_decision_for_skewed_mesh() -> None:
+    model = _model_on(_quad_solver_mesh(1.0))
+    decision = resolve_xt3d_decision(model, model.solver_mesh)
+    assert decision.enabled is True
+    assert decision.source == "auto_on"
+
+
+def _with_override(model, value: bool):
+    return model.modflow_config.model_copy(
         update={
-            "runtime": model.modflow_config.runtime.model_copy(update={"mf6_enable_xt3d": True})
+            "runtime": model.modflow_config.runtime.model_copy(update={"mf6_enable_xt3d": value})
         }
     )
+
+
+def test_explicit_override_warns_when_it_contradicts() -> None:
+    model = _model_on(_quad_solver_mesh(0.0))  # checks recommend off
+    model.modflow_config = _with_override(model, True)
     with _capture_advisor_logs(logging.WARNING) as records:
         decision = resolve_xt3d_decision(model, model.solver_mesh)
     assert decision.enabled is True
@@ -111,13 +161,20 @@ def test_explicit_override_warns_when_it_contradicts() -> None:
     assert any("recommend off" in r.getMessage().lower() for r in warnings)
 
 
+def test_explicit_off_on_triangles_is_honoured_with_a_warning() -> None:
+    model = _model_on(_solver_mesh(_ORTHO))  # checks recommend on
+    model.modflow_config = _with_override(model, False)
+    with _capture_advisor_logs(logging.WARNING) as records:
+        decision = resolve_xt3d_decision(model, model.solver_mesh)
+    assert decision.enabled is False
+    assert decision.source == "explicit_off"
+    warnings = [r for r in records if r.levelno == logging.WARNING]
+    assert any("recommend on" in r.getMessage().lower() for r in warnings)
+
+
 def test_explicit_off_agreeing_does_not_warn() -> None:
-    model = _build_unstructured_model()  # checks recommend off
-    model.modflow_config = model.modflow_config.model_copy(
-        update={
-            "runtime": model.modflow_config.runtime.model_copy(update={"mf6_enable_xt3d": False})
-        }
-    )
+    model = _model_on(_quad_solver_mesh(0.0))  # checks recommend off
+    model.modflow_config = _with_override(model, False)
     with _capture_advisor_logs(logging.WARNING) as records:
         decision = resolve_xt3d_decision(model, model.solver_mesh)
     assert decision.enabled is False

@@ -103,10 +103,10 @@ def test_modflow6_enables_xt3d_when_requested() -> None:
         pytest.param(
             None,
             None,
-            "auto_off",
-            False,
-            None,
-            id="test_modflow6_auto_disables_xt3d_on_near_orthogonal_unstructured_mesh",
+            "auto_on",
+            True,
+            ["XT3D"],
+            id="test_modflow6_auto_enables_xt3d_on_an_orthogonal_triangle_mesh",
         ),
         pytest.param(
             False,

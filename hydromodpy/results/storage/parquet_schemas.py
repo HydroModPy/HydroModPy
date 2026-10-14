@@ -811,7 +811,7 @@ MESH_CELL_FAMILIES_SCHEMA: Final[pa.Schema] = pa.schema(
             pa.float64(),
             nullable=True,
             metadata=_field_meta(
-                description="Distance from the cell centre to the family line, m; null when unknown"
+                description="Distance from the cell centre to the family line, m; null when the chain gives none"
             ),
         ),
     ],

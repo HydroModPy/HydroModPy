@@ -165,6 +165,8 @@ def _zonal_top_flat(
     nodata: float,
     top_sampling: TopSamplingConfig,
     channel_mask: np.ndarray | None,
+    label: str = "Zonal top sampling",
+    clamp_to_bottom: bool = True,
 ) -> np.ndarray:
     """Zonal per-cell top from the DEM; falls back to the centroid sample.
 
@@ -173,6 +175,9 @@ def _zonal_top_flat(
     generator. Requires a fully georeferenced ``top_surface``; without it the
     centroid projection is returned unchanged. The cells are the ``hydro_mesh``
     polygons, or the boxes of the regular grid described by ``grid_support``.
+    ``label`` opens the log line. With ``clamp_to_bottom`` a top lowered to within
+    ``min_thickness_m`` of ``bottom_flat`` is raised back to that distance; without
+    it the caller moves the bottom (see :func:`_bottom_under_lowered_top`).
     """
     from rasterio.transform import from_bounds
 
@@ -226,12 +231,13 @@ def _zonal_top_flat(
         channel_stat=top_sampling.channel_stat,
         min_pixels=int(top_sampling.min_pixels),
         spike_guard_tol_m=float(top_sampling.spike_guard_tol_m),
-        bottom=bottom_flat,
+        bottom=bottom_flat if clamp_to_bottom else None,
         min_thickness_m=float(top_sampling.min_thickness_m),
     )
     logger.info(
-        "Zonal top sampling: %d/%d cells zonal (%d channel), %d lowered "
+        "%s: %d/%d cells zonal (%d channel), %d lowered "
         "(max -%.2f m, mean -%.2f m), %d spike-reverted, %d thickness-clamped.",
+        label,
         int(result.info["n_zonal"]),
         int(result.info["n_cells"]),
         int(result.info["n_channel_cells"]),
@@ -242,6 +248,119 @@ def _zonal_top_flat(
         int(result.info["n_thickness_clamped"]),
     )
     return result.top
+
+
+_MIN_COLUMN_SHARE = 0.1
+"""A lowered top keeps at least this share of the column its centre sample gave.
+
+The Flume meshes MODFLOW 6 solves under Newton keep 11.6 % of the centre column at the
+least (3.5 m of 30 m); columns of 0.2 to 1.6 m beside 30 m neighbours do not converge.
+"""
+
+
+def _bottom_under_lowered_top(
+    *,
+    top: np.ndarray,
+    centroid_top: np.ndarray,
+    bottom: np.ndarray,
+    min_thickness_m: float,
+    nodata: float,
+) -> np.ndarray:
+    """Bottom that follows a top lowered far under the centre sample.
+
+    The bottom is sampled at the cell centre, the zonal top reduces every pixel
+    of the cell. A coarse cell on a pit or a steep valley side can hold a pixel
+    tens of metres under its centre sample. Leaving the bottom there keeps a column
+    of a few decimetres, whose transmissivity is nil next to the neighbours and
+    which MODFLOW 6 cannot solve under Newton. When the lowered top leaves less than
+    ``min_thickness_m``, or less than :data:`_MIN_COLUMN_SHARE` of the centre-sample
+    column, the bottom moves down with the top and the column keeps the thickness
+    of the centre sample. A cell whose top was not lowered, or whose column stays
+    thick enough, is untouched, byte for byte.
+    """
+    valid = (
+        np.isfinite(top)
+        & np.isfinite(bottom)
+        & np.isfinite(centroid_top)
+        & (top > float(nodata))
+        & (bottom > float(nodata))
+        & (centroid_top > float(nodata))
+    )
+    column = np.maximum(centroid_top - bottom, float(min_thickness_m))
+    floor = np.maximum(float(min_thickness_m), _MIN_COLUMN_SHARE * column)
+    follows = valid & (top < centroid_top) & (top - bottom < floor)
+    if not follows.any():
+        return bottom
+    lowered = np.where(follows, top - column, bottom)
+    logger.info(
+        "Zonal top: %d cells would keep less than %.0f %% of their column under their lowered "
+        "top; their bottom follows the top (down by up to %.2f m, the centre-sample thickness "
+        "kept).",
+        int(follows.sum()),
+        100.0 * _MIN_COLUMN_SHARE,
+        float((bottom - lowered)[follows].max()),
+    )
+    return lowered
+
+
+def _crossing_cells(cell_mesh: PlanarCellMesh) -> np.ndarray:
+    """Boolean mask of the cells a river chain crosses off their centre.
+
+    A crossing cell is a cell of a ``rivers`` chain with a lateral offset above
+    zero: the river runs through it, but its centre lies beside the line. That is
+    the pair of cells a contact line crosses a river with, a cell that two thalwegs
+    closer than half a cell share, and the end cell of a river that starts near the
+    domain boundary. A chain that publishes no offset holds the line in every cell.
+    """
+    crossing = np.zeros(cell_mesh.n_cells, dtype=bool)
+    for chain in cell_mesh.chains("rivers"):
+        if chain.offset_m is not None:
+            crossing[chain.cell_ids[chain.offset_m > 0.0]] = True
+    return crossing
+
+
+def _lower_crossing_cells(
+    *,
+    cell_mesh: PlanarCellMesh,
+    top_surface: Surface,
+    centroid_top: np.ndarray,
+    bottom_flat: np.ndarray,
+    nodata: float,
+    top_sampling: TopSamplingConfig | None,
+) -> np.ndarray:
+    """Top of the centroid mode with the crossing cells at their zonal minimum.
+
+    The sample at the centre of a crossing cell lands beside the river, on a bank.
+    Those cells, and only those, take the lowest DEM pixel they hold, the channel
+    statistic ``min``, so the river cell keeps its incised low. The other cells keep
+    the centroid sample, byte for byte. The caller moves the bottom of a cell whose
+    lowered top comes within the minimum thickness of it.
+    """
+    crossing = _crossing_cells(cell_mesh)
+    valid = (
+        np.isfinite(centroid_top)
+        & np.isfinite(bottom_flat)
+        & (centroid_top > float(nodata))
+        & (bottom_flat > float(nodata))
+    )
+    crossing &= valid
+    if not crossing.any():
+        return centroid_top
+    sampling = (top_sampling or TopSamplingConfig()).model_copy(update={"channel_stat": "min"})
+    # Every pixel of a crossing cell counts as channel: the river runs through it.
+    every_pixel = np.ones(np.asarray(top_surface.as_array()).shape, dtype=bool)
+    return _zonal_top_flat(
+        hydro_mesh=cell_mesh.mesh,
+        active=crossing,
+        top_surface=top_surface,
+        centroid_top=centroid_top,
+        bottom_flat=bottom_flat,
+        nodata=nodata,
+        top_sampling=sampling,
+        channel_mask=every_pixel,
+        label="Crossing-cell top sampling",
+        clamp_to_bottom=False,
+    )
 
 
 def _cell_area(support: RasterSupport) -> float:
@@ -332,17 +451,36 @@ def _build_extruded_solver_mesh_from_runtime_planar(
 
     # Optional zonal projection: reduce every DEM pixel inside a cell (thalweg on
     # channel pixels) instead of one centroid sample. Default 'centroid' leaves
-    # top_flat byte-identical. Only top is zonal; bottom stays on the centroid.
+    # top_flat byte-identical, except on the crossing cells of a river chain, which
+    # take their zonal minimum. Only top is zonal; bottom stays on the centroid.
+    centroid_top = top_flat
     if top_sampling is not None and top_sampling.mode == "zonal":
         top_flat = _zonal_top_flat(
             hydro_mesh=hydro_mesh,
             top_surface=top_surface,
-            centroid_top=top_flat,
+            centroid_top=centroid_top,
             bottom_flat=bottom_flat,
             nodata=nodata,
             top_sampling=top_sampling,
             channel_mask=channel_mask,
+            clamp_to_bottom=False,
         )
+    else:
+        top_flat = _lower_crossing_cells(
+            cell_mesh=cell_mesh,
+            top_surface=top_surface,
+            centroid_top=centroid_top,
+            bottom_flat=bottom_flat,
+            nodata=nodata,
+            top_sampling=top_sampling,
+        )
+    bottom_flat = _bottom_under_lowered_top(
+        top=top_flat,
+        centroid_top=centroid_top,
+        bottom=bottom_flat,
+        min_thickness_m=float((top_sampling or TopSamplingConfig()).min_thickness_m),
+        nodata=nodata,
+    )
 
     invalid = (
         ~np.isfinite(top_flat)

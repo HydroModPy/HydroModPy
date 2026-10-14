@@ -7,10 +7,11 @@ because ``flopy.mf6.utils.get_lak_connections`` does not support embedded /
 horizontal lakes on DISV (it raises for unstructured grids and only handles the
 trivial surface-lake case).
 
-The lake cells come from the cell mesh. On a mesh whose faces follow the lake
-shore (``exact_faces`` with a ``lakes`` face family), a lake owns the regions the
-shore faces enclose, each cell whole. On any other mesh it owns every cell its
-polygon overlaps by a positive area, credited with that overlap.
+The lake cells come from the cell mesh. On a mesh whose faces follow the whole
+lake shore (``exact_faces`` and a ``lakes`` face family that covers every shore
+line), a lake owns the regions the shore faces enclose, each cell whole. On any
+other mesh, including one that follows the shore only in part, it owns every cell
+its polygon overlaps by a positive area, credited with that overlap.
 
 Each lake cell gets:
 
@@ -110,6 +111,11 @@ _MIN_BEDLEAK = 0.0
 _BED_CLAMP_REPORT_TOL = 0.01
 
 
+# Share of the shore length the lakes faces must cover for the regions they enclose to
+# stand for the lakes. A mesh that follows every shore reports 1 to rounding.
+_CLOSED_SHORE_COVERAGE = 1.0 - 1e-6
+
+
 def resolve_lake_cells(
     model,
     *,
@@ -120,10 +126,10 @@ def resolve_lake_cells(
 ) -> list[int] | tuple[list[int], dict[int, float]]:
     """Return the sorted cell ids of one lake polygon on the cell mesh.
 
-    When the mesh faces follow the lake shores (the engine declares
-    ``exact_faces`` and the mesh carries a ``lakes`` face family), the lake
-    owns the regions those faces enclose that its polygon covers for most of
-    their area, and each cell counts with its whole area. Otherwise it owns
+    When the mesh faces follow the whole lake shore (the engine declares
+    ``exact_faces`` and the ``lakes`` face family covers every shore line), the
+    lake owns the regions those faces enclose that its polygon covers for most
+    of their area, and each cell counts with its whole area. Otherwise it owns
     every cell its polygon overlaps by a positive area, and each cell counts
     with that overlap, so the edge cells under-fill. An empty result means the
     polygon misses the mesh, almost always a CRS or extent mistake, so we fail
@@ -153,10 +159,16 @@ def resolve_lake_cells(
 
 
 def _follows_lake_shores(cell_mesh: PlanarCellMesh) -> bool:
-    """Whether the mesh faces follow the lake shores."""
-    return bool(cell_mesh.qa.declarations["exact_faces"]) and bool(
-        cell_mesh.face_rows("lakes").any()
-    )
+    """Whether the mesh faces close every lake shore.
+
+    A family that follows the shore only in part (a generated mesh yields the
+    shore where an arm is narrower than a cell) leaves the regions open, so the
+    lake falls back on the overlap rule.
+    """
+    if not cell_mesh.qa.declarations["exact_faces"] or not cell_mesh.face_rows("lakes").any():
+        return False
+    covered = cell_mesh.qa.families.get("lakes", {}).get("covered_length_rel", 0.0)
+    return covered >= _CLOSED_SHORE_COVERAGE
 
 
 def apply_lake_idomain_mask(

@@ -46,6 +46,14 @@ Pages
       callbacks, mesh-quality checks, and the boundary recovery
       that keeps geology and rivers honoured.
 
+   .. grid-item-card:: Voronoi engine
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: voronoi-engine
+      :link-type: doc
+
+      The ``voronoi`` engine: generated generators, mirror pairs on the
+      face lines, Lloyd relaxation, the blocking gates and the limits.
+
    .. grid-item-card:: The HydroMesh pivot
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: mesh-pivot
@@ -62,4 +70,5 @@ Pages
    catchment-mesh-architecture
    structured-grid-architecture
    gmsh-meshing
+   voronoi-engine
    mesh-pivot

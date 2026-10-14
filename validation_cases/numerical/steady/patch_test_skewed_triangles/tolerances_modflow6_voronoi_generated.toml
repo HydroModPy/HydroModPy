@@ -1,0 +1,14 @@
+[heads]
+rmse = 5.2e-8
+max_abs_error = 1.3e-7
+
+[doc]
+reason = """
+Twice the measurement: RMSE 2.58e-8 m, max error 6.35e-8 m. The engine
+generates the mesh of the 100 x 40 m strip (no triangulation read): its cells
+are orthogonal to their faces (a face bisects the two seeds it separates), so
+the two-point flux of a uniform gradient is exact. What is left is the solver
+closure (outer dvclose 1e-9 m) and the 2e-4 spread of the transmissivity across
+the strip. The contact at x = 50 m is a mirror-pair face between two zones of
+the same K, so it changes nothing. Measured 2026-10-14.
+"""

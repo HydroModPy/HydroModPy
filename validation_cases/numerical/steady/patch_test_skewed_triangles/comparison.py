@@ -6,7 +6,10 @@ aquifer the two differ by 5e-6 m. A consistent flux reproduces it at every cell
 centre, whatever the shape of the cells. The heads are held at the centroids of
 the triangles that own a west or an east edge, so the reference is anchored
 there. A Voronoi dual has one cell per mesh node and holds the heads on the
-nodes of the faces, so the reference is anchored at the face abscissae.
+nodes of the faces, so the reference is anchored at the face abscissae. A
+generated Voronoi mesh has no bundle: it puts a seed on each side, and the
+reference is anchored at the first and the last abscissa of its stored cell
+centres.
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ from validation_cases.shared import (
 )
 from validation_cases.shared.loaders import (
     bundle_cell_centers,
+    load_cell_centers,
     load_cell_polygons,
     load_last_cell_values,
     map_polygons_payload,
@@ -121,10 +125,12 @@ def build_patch_test_comparison(
     )
     bundle_dir = resolve_case_mesh_bundle_dir(CASE_DIR, case_metadata, solver_name)
     if bundle_dir is None:
-        raise ValueError(f"No mesh bundle for solver '{solver_name}'.")
-    centroids, kind = bundle_cell_centers(bundle_dir, heads.size)
-    west_x_m = _held_x(bundle_dir, centroids, side="west", kind=kind)
-    east_x_m = _held_x(bundle_dir, centroids, side="east", kind=kind)
+        centroids = load_cell_centers(store=result.store, sim_id=result.sim_id)
+        west_x_m, east_x_m = float(centroids[:, 0].min()), float(centroids[:, 0].max())
+    else:
+        centroids, kind = bundle_cell_centers(bundle_dir, heads.size)
+        west_x_m = _held_x(bundle_dir, centroids, side="west", kind=kind)
+        east_x_m = _held_x(bundle_dir, centroids, side="east", kind=kind)
     reference = uniform_flow_head(
         centroids[:, 0],
         west_x_m=west_x_m,

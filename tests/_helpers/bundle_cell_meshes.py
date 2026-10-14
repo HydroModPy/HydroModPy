@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
+
 from hydromodpy.spatial.mesh.adapters.cell_mesh import (
     cell_mesh_from_triangulation,
     cell_mesh_from_voronoi_dual,
@@ -24,7 +26,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     support_on_planar_mesh,
 )
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh, voronoi_dual_of_mesh
+from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh, voronoi_planar_mesh
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 
 BUNDLES = Path(__file__).resolve().parents[2] / "validation_cases" / "shared" / "mesh_bundles"
@@ -49,6 +51,8 @@ def bundle_dual(case: str) -> tuple[PlanarCellMesh, GmshSupportMetadata]:
     bundle = BUNDLES / case
     support = build_gmsh_support_metadata(load_catchment_mesh_bundle(bundle))
     triangles = load_planar_mesh(bundle / "mesh_2d.msh").to_hydro_mesh()
-    dual = voronoi_dual_of_mesh(triangles, domain_polygon_from_mesh(triangles))
+    dual = voronoi_planar_mesh(
+        np.asarray(triangles.vertices)[:, :2], domain_polygon_from_mesh(triangles)
+    )
     on_dual = support_on_planar_mesh(support, dual)
     return cell_mesh_from_voronoi_dual(dual, on_dual, crs_wkt=TEST_CRS_WKT), on_dual

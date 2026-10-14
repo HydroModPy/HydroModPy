@@ -22,6 +22,7 @@ from validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2
         pytest.param("modflow6", False, True, id="modflow6"),
         pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
         pytest.param("modflow6_voronoi", False, True, id="modflow6_voronoi"),
+        pytest.param("modflow6_voronoi_generated", False, True, id="modflow6_voronoi_generated"),
         pytest.param("boussinesq", False, False, id="boussinesq"),
         pytest.param("boussinesq_local", False, False, id="boussinesq_local"),
     ],

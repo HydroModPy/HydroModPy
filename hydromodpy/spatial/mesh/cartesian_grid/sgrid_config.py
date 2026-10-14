@@ -253,8 +253,11 @@ class TopSamplingConfig(HydroModelBase):
         default="centroid",
         description=(
             "Top-sampling strategy. 'centroid' samples the DEM at each cell "
-            "generator, or resamples it to a structured grid (fast, the current "
-            "behaviour, byte-identical default). 'zonal' reduces every DEM pixel "
+            "generator, or resamples it to a structured grid (fast, the default). "
+            "On a mesh that publishes a lateral offset for a river cell (the "
+            "river runs through the cell but beside its centre, as where a "
+            "contact line crosses it or two thalwegs share it), that cell takes "
+            "the lowest DEM pixel it covers. 'zonal' reduces every DEM pixel "
             "inside a cell with per-class stats."
         ),
     )
@@ -333,8 +336,11 @@ class TopSamplingConfig(HydroModelBase):
         default=0.1,
         ge=0.0,
         description=(
-            "Minimum layer-0 thickness (m) kept after zonal top lowering, so a carved "
-            "channel top never collides with the aquifer bottom."
+            "Minimum column thickness (m) kept under a zonal top lowered by a channel "
+            "or a crossing. On a mesh of polygons the bottom of a cell whose lowered top "
+            "leaves less than this, or less than a tenth of the column its centre sample "
+            "gave, moves down with it and keeps the thickness of the cell-centre sample; "
+            "on a regular grid the top is raised back instead."
         ),
     )
 

@@ -30,13 +30,14 @@ from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
     support_from_cell_mesh,
     support_on_planar_mesh,
 )
-from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh, voronoi_dual_of_mesh
+from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh, voronoi_planar_mesh
 from hydromodpy.spatial.mesh.request import (
     InputTriangulation,
     LineFamilySpec,
     MeshRequest,
     RasterGridSpec,
 )
+from tests._helpers.dual_of_triangles import dual_of_the_triangles
 
 WKT = 'PROJCS["RGF93 / Lambert-93"]'
 BUNDLES = Path(__file__).resolve().parents[3] / "validation_cases" / "shared" / "mesh_bundles"
@@ -116,7 +117,9 @@ def test_the_triangle_support_answers_like_the_bundle_support(case: str) -> None
 def test_the_dual_support_answers_like_the_bundle_support_on_the_dual(case: str) -> None:
     bundle = BUNDLES / case
     triangulation = load_planar_mesh(bundle / "mesh_2d.msh").to_hydro_mesh()
-    dual = voronoi_dual_of_mesh(triangulation, domain_polygon_from_mesh(triangulation))
+    dual = voronoi_planar_mesh(
+        np.asarray(triangulation.vertices)[:, :2], domain_polygon_from_mesh(triangulation)
+    )
     reference = support_on_planar_mesh(
         build_gmsh_support_metadata(load_catchment_mesh_bundle(bundle)), dual
     )
@@ -153,7 +156,7 @@ def test_a_river_reaches_the_support_of_both_engines() -> None:
         lines=(LineFamilySpec("rivers", "cell", (river,)),),
     )
     triangles = TriangleMeshEngine().build(request)
-    dual = VoronoiMeshEngine().build(request)
+    dual = dual_of_the_triangles(triangles, request)
     triangle_support = support_from_cell_mesh(triangles)
     reference = support_on_planar_mesh(triangle_support, dual.mesh)
 

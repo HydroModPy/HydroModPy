@@ -7,6 +7,8 @@ computed on, and the run that comes back from the crash is not the run that
 went into it.
 
 The mesh of a generated request lives under ``<project>/.hmp/mesh_cache/``. The
+``triangle`` engine is the one to resume: the ``voronoi`` engine draws its seeds from
+the request seed, is reproducible, and asks for no cache. The
 run below crashes after the mesh is complete, then resumes in a context that
 knows nothing, with the engine itself replaced by a bomb.
 """
@@ -65,7 +67,7 @@ compute_stream_links = true
 all_vertices = true
 
 [mesh]
-engine = "voronoi"
+engine = "triangle"
 cell_size = 350.0
 
 [mesh.families]
@@ -192,7 +194,7 @@ def test_a_resume_reloads_the_mesh_instead_of_generating_another(
     """The engine is a bomb: reaching it at all is the failure."""
     from hydromodpy.project.facade import Project
     from hydromodpy.spatial.mesh import registry
-    from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
+    from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
 
     root, _row, arrays_digest = meshed_then_crashed
 
@@ -200,14 +202,14 @@ def test_a_resume_reloads_the_mesh_instead_of_generating_another(
         raise AssertionError("the resume regenerated the mesh")
 
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(VoronoiMeshEngine, "build", _bomb)
-        assert registry.get("voronoi") is VoronoiMeshEngine
+        patch.setattr(TriangleMeshEngine, "build", _bomb)
+        assert registry.get("triangle") is TriangleMeshEngine
         project = Project(root / "project.toml", no_display=True)
         try:
             project.simulate(resume=RUN_NAME, until_step="setup_process")
             setup = project._ctx.setup
             assert setup.cell_mesh is not None, "the resume loaded no mesh"
-            assert setup.cell_mesh.identity.engine_id == "voronoi"
+            assert setup.cell_mesh.identity.engine_id == "triangle"
             assert setup.mesh_summary["cache_key"] is not None
         finally:
             project.close()

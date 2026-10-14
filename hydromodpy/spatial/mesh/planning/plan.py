@@ -9,12 +9,15 @@ domain.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, replace
 
+import numpy as np
 import shapely
 from shapely.geometry import LineString, Polygon
 from shapely.geometry.base import BaseGeometry
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
 from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_of
@@ -25,9 +28,12 @@ from hydromodpy.spatial.mesh.sizing.size_field import (
     OutsideCoarsening,
     SizeTerm,
     build_size_field,
+    sample_size_field,
 )
 
 __all__ = ["plan_mesh_request"]
+
+_logger = get_logger(__name__)
 
 
 def _pixel_size(grid: RasterGridSpec) -> float:
@@ -35,48 +41,131 @@ def _pixel_size(grid: RasterGridSpec) -> float:
     return max(grid.dx, grid.dy)
 
 
+@dataclass(frozen=True)
+class _Sizing:
+    """The families of a request as the engine meshes them, and the sizes they follow."""
+
+    families: tuple[LineFamilySpec, ...]
+    size_field: SizeField | None
+    nominal: float
+    notes: tuple[str, ...]
+
+    def size_at(self, xy: np.ndarray) -> np.ndarray:
+        """The local cell size [m] at points ``(k, 2)``: the size field, else the nominal size."""
+        if self.size_field is None:
+            return np.full(len(xy), self.nominal)
+        return sample_size_field(self.size_field, xy)
+
+
 def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshRequest:
-    """Return the request the engine of *mesh_cfg* meshes the project inputs with."""
+    """Return the request the engine of *mesh_cfg* meshes the project inputs with.
+
+    A hole of the domain, of a lake or of the catchment that is smaller than one
+    local cell squared is dropped first, for every engine: no cell fits in it, and
+    its ring only seeds cells a few metres apart. A triangulation read is meshed
+    as it is.
+    """
     graded = registry.get(mesh_cfg.engine).capabilities.graded
     triangulation = inputs.input_triangulation
-    domain = inputs.domain if triangulation is None else domain_polygon_of(triangulation)
-    families = _families(mesh_cfg, inputs, domain)
     pixel = _pixel_size(inputs.dem_grid)
-    size_field: SizeField | None = None
-    notes = list(inputs.notes)
-    if graded and triangulation is None:
-        h0 = max(mesh_cfg.cell_size or pixel, pixel)
-        size_field = build_size_field(
-            inputs.dem_grid,
-            h0=h0,
-            h_floor=pixel,
-            terms=_size_terms(mesh_cfg, inputs, families, h0=h0, pixel=pixel),
-            outside=_outside(mesh_cfg, inputs),
-            max_slope=mesh_cfg.max_slope,
-        )
-        resampled = resample_families(families, domain=domain, size_field=size_field)
-        if resampled.short_fixed_edges:
-            notes.append(
-                f"{resampled.short_fixed_edges} line edges between fixed nodes are shorter "
-                "than 0.8 local cell and were kept whole"
+    domain = inputs.domain if triangulation is None else domain_polygon_of(triangulation)
+    sizing = _sizing(mesh_cfg, inputs, domain, graded=graded, pixel=pixel)
+    hole_notes: tuple[str, ...] = ()
+    if triangulation is None:
+        inputs, dropped = _without_small_holes(inputs, sizing.size_at)
+        if dropped:
+            _logger.info("Dropped %d holes smaller than one local cell squared.", dropped)
+            hole_notes = (
+                f"{dropped} holes of the domain, the lakes and the catchment were smaller than "
+                "one local cell squared and were dropped",
             )
-        families = resampled.families
-        nominal = h0
-    else:
-        nominal = mesh_cfg.cell_size or pixel
-        notes.extend(_ignored_settings(mesh_cfg, graded=graded))
+            domain = inputs.domain
+            sizing = _sizing(mesh_cfg, inputs, domain, graded=graded, pixel=pixel)
     return MeshRequest(
         domain=domain,
         crs_wkt=inputs.crs_wkt,
         grid=inputs.dem_grid,
-        nominal_size_m=nominal,
-        lines=families,
-        size_field=size_field,
+        nominal_size_m=sizing.nominal,
+        lines=sizing.families,
+        size_field=sizing.size_field,
         seed=mesh_cfg.seed,
         options=_engine_options(mesh_cfg, inputs.dem_grid),
         input_triangulation=triangulation,
-        notes=tuple(notes),
+        notes=(*inputs.notes, *sizing.notes, *hole_notes),
     )
+
+
+def _sizing(
+    mesh_cfg: MeshConfig,
+    inputs: PlanningInputs,
+    domain: Polygon,
+    *,
+    graded: bool,
+    pixel: float,
+) -> _Sizing:
+    """The families, size field and nominal size of *inputs* on *domain*.
+
+    A graded engine gets the size field and the families resampled on it. A
+    triangulation read, and a non-graded engine, get the raw families and no field.
+    """
+    families = _families(mesh_cfg, inputs, domain)
+    if not graded or inputs.input_triangulation is not None:
+        return _Sizing(
+            families=families,
+            size_field=None,
+            nominal=mesh_cfg.cell_size or pixel,
+            notes=tuple(_ignored_settings(mesh_cfg, graded=graded)),
+        )
+    h0 = max(mesh_cfg.cell_size or pixel, pixel)
+    size_field = build_size_field(
+        inputs.dem_grid,
+        h0=h0,
+        h_floor=pixel,
+        terms=_size_terms(mesh_cfg, inputs, families, h0=h0, pixel=pixel),
+        outside=_outside(mesh_cfg, inputs),
+        max_slope=mesh_cfg.max_slope,
+    )
+    resampled = resample_families(families, domain=domain, size_field=size_field)
+    notes = ()
+    if resampled.short_fixed_edges:
+        notes = (
+            f"{resampled.short_fixed_edges} line edges between fixed nodes are shorter "
+            "than 0.8 local cell and were kept whole",
+        )
+    return _Sizing(families=resampled.families, size_field=size_field, nominal=h0, notes=notes)
+
+
+def _without_small_holes(
+    inputs: PlanningInputs, size_at: Callable[[np.ndarray], np.ndarray]
+) -> tuple[PlanningInputs, int]:
+    """The inputs without the holes whose area is under the squared local size, and their count.
+
+    The local size is read at the representative point of the hole. The domain,
+    the lakes and the catchment are cleaned; the lake keeps its polygon in the
+    flow model, only the ring that the mesh would follow goes.
+    """
+    dropped = 0
+
+    def cleaned(polygon: Polygon | None) -> Polygon | None:
+        nonlocal dropped
+        if polygon is None or polygon.geom_type != "Polygon" or not polygon.interiors:
+            return polygon
+        kept = []
+        for ring in polygon.interiors:
+            hole = Polygon(ring)
+            size = float(size_at(np.asarray(hole.representative_point().coords))[0])
+            if hole.area < size * size:
+                dropped += 1
+            else:
+                kept.append(ring)
+        return polygon if len(kept) == len(polygon.interiors) else Polygon(polygon.exterior, kept)
+
+    domain = cleaned(inputs.domain)
+    lakes = tuple(cleaned(lake) for lake in inputs.lakes)
+    watershed = cleaned(inputs.watershed)
+    if not dropped:
+        return inputs, 0
+    return replace(inputs, domain=domain, lakes=lakes, watershed=watershed), dropped
 
 
 def _ignored_settings(mesh_cfg: MeshConfig, *, graded: bool) -> list[str]:
@@ -271,5 +360,7 @@ def _engine_options(mesh_cfg: MeshConfig, grid: RasterGridSpec) -> Mapping[str, 
     if mesh_cfg.engine == "voronoi":
         voronoi = mesh_cfg.voronoi or MeshVoronoiConfig()
         seeds = voronoi.seeds or ("generated" if triangle.path is None else "triangulation")
-        return {"algorithm": triangle.algorithm, "seeds": seeds}
+        if seeds == "triangulation":
+            return {"seeds": seeds}
+        return {"seeds": seeds, "lloyd_tolerance": voronoi.lloyd_tolerance}
     return {}

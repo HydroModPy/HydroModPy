@@ -148,19 +148,25 @@ def cf_flag_meanings(names: tuple[str, ...]) -> str:
 def cell_family_rows(cell_mesh: PlanarCellMesh) -> list[dict[str, Any]]:
     """Return the rows of ``mesh_cell_families``: one per cell of every chain.
 
-    ``position`` counts from upstream. ``offset_m`` is left null until a chain
-    carries its centre-line offsets.
+    ``position`` counts from upstream. ``offset_m`` is the distance from the cell
+    centre to the family line, null for a chain that publishes no offset.
     """
     rows: list[dict[str, Any]] = []
     for chain in cell_mesh.cell_chains:
+        offsets = (
+            [None] * chain.cell_ids.size if chain.offset_m is None else chain.offset_m.tolist()
+        )
         rows.extend(
             {
                 "family": chain.family,
                 "chain_id": int(chain.chain_id),
                 "position": position,
                 "cell_id": int(cell_id),
+                "offset_m": offset,
             }
-            for position, cell_id in enumerate(chain.cell_ids.tolist())
+            for position, (cell_id, offset) in enumerate(
+                zip(chain.cell_ids.tolist(), offsets, strict=True)
+            )
         )
     return rows
 

@@ -66,16 +66,16 @@ The code decides once per run, in this order:
 |---|---|---|
 | {toml}`modflow6.runtime.mf6_enable_xt3d` is `true` or `false` | as written | your value wins; the code logs a warning when the checks below disagree |
 | Structured grid | off | the connections are orthogonal and the conductivity isotropic |
-| Horizontal conductivity anisotropic or turned | on | the tensor term of {ref}`xt3d-error` |
+| Triangle cells | on | the two-point flux between the vertex means of two triangles is not consistent, whatever the angle |
 | More than 5 % of the connections above 30 degrees, or a 95th percentile of $\varphi_{nm}$ above 30 degrees | on | the dropped term reaches 0.58 of the tangential gradient on a share of the faces |
 | Otherwise | off | the dropped term stays small, XT3D would add cost only |
 
 The two limits are the constants `_NONORTH_FRAC_GT30_TRIGGER` and
-`_NONORTH_P95_TRIGGER_DEG`. The anisotropy row does not fire today: the `NPF` package
-receives only a horizontal $K$ and a vertical $K_z$, so the horizontal plane is
-isotropic. The default Voronoi dual of a Gmsh mesh is orthogonal by construction
-({ref}`mesh-voronoi`), so XT3D stays off there; the triangles kept as cells with
-{toml}`modflow6.sgrid.grid_dual` are the usual case where it turns on.
+`_NONORTH_P95_TRIGGER_DEG`. The horizontal conductivity is isotropic in every case: the
+`NPF` package receives only a horizontal $K$ and a vertical $K_z$, so there is no
+tensor term to switch XT3D on. The Voronoi cells of the `voronoi` engine are orthogonal
+by construction ({ref}`mesh-voronoi`), so XT3D stays off there; a mesh of triangles,
+from the `triangle` engine, is the case where it turns on.
 
 When XT3D is on, a `SIMPLE` IMS preset is promoted to `COMPLEX`, because `SIMPLE`
 assumes a symmetric matrix ({ref}`solvers-newton-ims`).
@@ -106,7 +106,8 @@ triangles (right), where the rule above turns XT3D on. Drag the handle to compar
 
 - **MODFLOW 6 only.** MODFLOW-NWT runs on structured grids only. The Boussinesq solver
   has no correction for skewed cells.
-- **No horizontal anisotropy input.** The anisotropy branch of the rule never fires.
+- **No horizontal anisotropy input.** The rule has no tensor branch: a horizontal anisotropy
+  would need a new input first.
 - **Cost.** XT3D widens the stencil and makes the matrix non-symmetric. On a mesh near
   the trigger, a sweep of many runs pays for it on every run.
 
@@ -114,7 +115,7 @@ triangles (right), where the rule above turns XT3D on. Drag the handle to compar
 
 ```{hmp-params}
 modflow6.runtime.mf6_enable_xt3d
-modflow6.sgrid.grid_dual
+mesh.engine
 modflow6.runtime.mf6_ims_complexity
 ```
 

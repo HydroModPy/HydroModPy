@@ -162,7 +162,7 @@ longer the boundary of any cell.
 $\varphi_{nm} = 0$ on every connection whose two cells kept their seed as centre.
 {ref}`mesh-angle` says why this matters. As a check, 36 seeds on a $6 \times 6$ lattice
 (the 16 inner ones moved at random, $n_b = 20$) give 50 triangles, and
-`voronoi_dual_of_mesh` returns 36 cells with $0^\circ$ on every connection.
+`voronoi_planar_mesh` returns 36 cells with $0^\circ$ on every connection.
 
 **The features.** Wells and boundaries are placed on the dual cells, not on the
 triangles. A well goes in the cell that holds its point. A side boundary takes the
@@ -215,7 +215,7 @@ checked with `connection_nonorthogonality_deg`, and the four cells with
       centres and :math:`\mathbf{n}_{nm}` normal to the shared face; the angle comes from
       ``connection_nonorthogonality_deg``. Right: the 36 seeds of the check of
       :ref:`mesh-voronoi`, their 50 triangles (dotted) and the 36 cells of
-      ``voronoi_dual_of_mesh`` (blue). Look at the title: the triangles reach 35°, every
+      ``voronoi_planar_mesh`` (blue). Look at the title: the triangles reach 35°, every
       connection of the dual is at 0°.
 ```
 
@@ -500,7 +500,7 @@ hydromodpy.solver.modflow6.builders.solver_options
 | The centroid sample | `hydromodpy/spatial/surface_sampling.py` (`PreparedSurfaceSampler.sample`) |
 | The zonal top | `hydromodpy/spatial/mesh/ops/zonal_stats.py` (`zonal_top`), `discretization_spatial.py` (`_zonal_top_flat`, `_zonal_structured_top`) |
 | The channel mask | `hydromodpy/solver/modflow6/build.py` (`_resolve_channel_mask_for_zonal`) |
-| The Voronoi dual | `hydromodpy/spatial/mesh/ops/voronoi.py` (`voronoi_dual_of_mesh`, `voronoi_cells`, `domain_polygon_from_mesh`) |
+| The Voronoi dual | `hydromodpy/spatial/mesh/ops/voronoi.py` (`voronoi_planar_mesh`, `domain_polygon_from_mesh`) |
 | The angle of a connection | `hydromodpy/spatial/mesh/ops/mesh_orthogonality.py` (`connection_nonorthogonality_deg`, `nonorthogonality_summary`) |
 | The XT3D decision | `hydromodpy/solver/modflow6/builders/solver_options.py` (`resolve_xt3d_decision`) |
 | The Gmsh sizes | `hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_gmsh_fields.py`, `_gmsh_occ.py` (`apply_mesh_options`), `_build_context.py` (`compute_effective_max_size`), `config.py` (`ZoneMeshingSettings`) |
