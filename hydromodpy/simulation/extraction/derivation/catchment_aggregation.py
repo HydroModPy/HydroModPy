@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -17,6 +18,37 @@ logger = get_logger(__name__)
 _CATCHMENT_STATION = "_catchment"
 
 _SLAB_TARGET_BYTES = 64 * 1024 * 1024
+
+_BASIN_ARRAY = "descent_basin"
+_LARGEST_BASIN_RULE = "largest_basin"
+
+
+@dataclass(frozen=True, slots=True)
+class _StoredBasin:
+    """The basin of D a run stored under ``mesh/descent_basin``."""
+
+    mask: np.ndarray
+    area_m2: float
+    rule: str
+
+    @property
+    def is_catchment(self) -> bool:
+        """False for the largest basin of a domain with neither outlet nor polygon."""
+        return self.rule != _LARGEST_BASIN_RULE
+
+
+def _stored_basin(mesh: Any) -> _StoredBasin | None:
+    """The basin of D stored with the mesh, None for a run that stored none."""
+    if mesh is None or _BASIN_ARRAY not in mesh:
+        return None
+    node = mesh[_BASIN_ARRAY]
+    attrs = node.attrs
+    return _StoredBasin(
+        mask=np.asarray(node[:], dtype=bool).ravel(),
+        area_m2=float(attrs["basin_area_m2"]),
+        rule=str(attrs["basin_rule"]),
+    )
+
 
 VARIABLE_UNITS: dict[str, str] = {
     "discharge": "m3/s",
@@ -315,7 +347,7 @@ def _add_runoff_to_discharge_series(
             _RUNOFF_WARNING_EMITTED.add(sim_id)
         return discharge
 
-    catch_area_m2 = _read_catchment_area_m2(store, sim_id)
+    catch_area_m2 = _runoff_area_m2(store, sim_id, grp)
     if catch_area_m2 <= 0.0:
         logger.warning(
             "catchment discharge: catchment area unavailable for sim %s — "
@@ -358,6 +390,27 @@ def _add_runoff_to_discharge_series(
 
 
 _RUNOFF_WARNING_EMITTED: set[str] = set()
+
+
+def _runoff_area_m2(store: Any, sim_id: str, grp: Any) -> float:
+    """Area the runoff forcing is scaled by: the stored basin of D, else ``catch_area``.
+
+    The runoff is added to a discharge summed over the basin, so it covers the
+    same surface. A run that stored no basin keeps the old support
+    ``catch_area`` (the area of the delineated polygon raster) and says so.
+    """
+    basin = _stored_basin(grp.get("mesh"))
+    if basin is not None and basin.is_catchment:
+        return basin.area_m2
+    area_m2 = _read_catchment_area_m2(store, sim_id)
+    if basin is None:
+        logger.info(
+            "Catchment discharge for sim %s: the run stores no basin of D, so the runoff is "
+            "scaled by the old support 'catch_area' (%.3f km2).",
+            sim_id,
+            area_m2 / 1.0e6,
+        )
+    return area_m2
 
 
 def _read_catchment_area_m2(store: Any, sim_id: str) -> float:
@@ -620,7 +673,7 @@ def _build_active_mask(grp) -> np.ndarray | None:
 
 
 def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | None):
-    """Cells of the DELINEATED CATCHMENT, or the active domain when there is none.
+    """Cells of the catchment: the basin of D the run stored, else the delineated polygon.
 
     These series are written under the ``_catchment`` station, so the support
     has to be the catchment. It is not the same surface as the model domain:
@@ -630,13 +683,40 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
     outflow against 0.888 m3/s inside the basin: summed over the domain, a
     series compared to a gauge carries 2.4 times the water that gauge sees.
 
-    A run that carries no watershed keeps the active domain and says so with
-    both areas, because a synthetic domain legitimately has no catchment and
-    refusing would abort it.
+    The support is ``mesh/descent_basin`` restricted to the active cells. A
+    run that stored none (sealed before the basin was kept, or a solver that
+    builds no D) keeps the old support ``polygon_centroid``: the cells whose
+    centre the delineated watershed covers. A run that carries no watershed
+    either keeps the active domain and says so with both areas, because a
+    synthetic domain legitimately has no catchment and refusing would abort it.
     """
     mesh = grp.get("mesh")
+    basin = _stored_basin(mesh)
+    if basin is not None and basin.is_catchment:
+        mask = basin.mask
+        if active is not None and mask.size == active.size:
+            mask = mask & active
+        if not mask.any():
+            raise ExtractError(
+                f"the basin of D stored by run {sim_id} holds no active cell, so the "
+                "'_catchment' series have no support."
+            )
+        logger.info(
+            "Catchment timeseries for sim %s: the basin of D, %d of %d active cells (%.3f km2).",
+            sim_id,
+            int(mask.sum()),
+            int(active.sum()) if active is not None else int(mask.size),
+            basin.area_m2 / 1.0e6,
+        )
+        return mask
     if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
         return active
+    if basin is None:
+        logger.info(
+            "Catchment timeseries for sim %s: the run stores no basin of D, so the "
+            "'_catchment' series keep the old support 'polygon_centroid'.",
+            sim_id,
+        )
     try:
         watershed = store.read_geographic_feature(sim_id, "watershed")
     except Exception:

@@ -160,23 +160,26 @@ class RunArrayProvider:
         mesh = run.mesh
         verts = np.asarray(mesh.vertices, dtype=float)
         fnc = np.asarray(mesh.face_node_connectivity, dtype=int)
-        grid = xu.Ugrid2d(
-            node_x=verts[:, 0],
-            node_y=verts[:, 1],
-            fill_value=-1,
-            face_node_connectivity=fnc,
-        )
-        face_dim = grid.face_dimension
-
-        face_shapes = {
-            field_registry.SHAPE_FACE: (face_dim,),
-            field_registry.SHAPE_LAYER_FACE: ("layer", face_dim),
-            field_registry.SHAPE_TIME_FACE: ("time", face_dim),
-            field_registry.SHAPE_TIME_LAYER_FACE: ("time", "layer", face_dim),
-        }
 
         sz = run._catalog.open_zarr(run._sim_id)
         try:
+            edges = sz.root["mesh"].get("edge_node_connectivity")
+            grid = xu.Ugrid2d(
+                node_x=verts[:, 0],
+                node_y=verts[:, 1],
+                fill_value=-1,
+                face_node_connectivity=fnc,
+                # Stored edges keep the numbering of mesh/edge_*: edge_family and
+                # edge_face_connectivity then index the edge dimension of the grid.
+                edge_node_connectivity=None if edges is None else np.asarray(edges[:], dtype=int),
+            )
+            face_dim = grid.face_dimension
+            face_shapes = {
+                field_registry.SHAPE_FACE: (face_dim,),
+                field_registry.SHAPE_LAYER_FACE: ("layer", face_dim),
+                field_registry.SHAPE_TIME_FACE: ("time", face_dim),
+                field_registry.SHAPE_TIME_LAYER_FACE: ("time", "layer", face_dim),
+            }
             if variable is None:
                 names = [
                     n

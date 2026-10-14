@@ -95,6 +95,19 @@ which needs the catalog and is built once per request. ``one_layer`` refuses
 a field of several layers when no layer is given: a format of one layer
 never picks one silently.
 
+Several layers in one file
+--------------------------
+
+``plan_outputs`` gives each name its own file, with one exception: the mesh
+layers (``MESH_LAYERS`` in ``core/config_kit/export_spec.py``) of a GeoPackage
+share one file, ``<layer>.gpkg`` for a single layer and ``<run>_mesh.gpkg`` for
+several. ``results/exporters/mesh_layers.py`` writes them, one
+``gdf.to_file(..., layer=name)`` per layer, and states the CRS of the ``mesh/``
+group rather than the one of the run root. A run sealed before the cell-mesh
+layout states none, so ``list_exportable`` does not list the layers for it and
+``request.py`` gives the reason when one is asked. Follow that module for a
+data that is several layers of one file.
+
 Choose what to read
 -------------------
 

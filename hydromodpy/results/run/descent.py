@@ -1,8 +1,10 @@
 """The descent D of a run, read from its store or rebuilt for an old one.
 
-The solver build stores D under ``fields.zarr/mesh/`` (``descent_*`` arrays).
-A run sealed before that has none: its view rebuilds D from the stored top with
-:func:`hydromodpy.core.descent.descent_from_stored_mesh` and says so once.
+The solver build stores D under ``fields.zarr/mesh/`` (``descent_*`` arrays),
+with the basin of D at the catchment outlet (``descent_basin``). A run sealed
+before that has no D: its view rebuilds D from the stored top with
+:func:`hydromodpy.core.descent.descent_from_stored_mesh` and says so once. A run
+sealed with D but before the basin has D and no basin (``basin`` is ``None``).
 Display reaches D through ``run.descent`` and never imports ``spatial`` or
 ``solver``.
 """
@@ -26,6 +28,9 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+StoredBasin = tuple[np.ndarray, dict[str, object]]
+"""The basin of D (bool per face) and its stored attributes."""
+
 _REPORT_KEYS = (
     "n_raised",
     "max_raise_m",
@@ -33,6 +38,13 @@ _REPORT_KEYS = (
     "max_lake_flood_m",
     "n_pinned_raised",
     "max_pinned_raise_m",
+)
+_BASIN_ATTRS = (
+    "descent_outlet",
+    "basin_rule",
+    "basin_area_m2",
+    "basin_seeded_at_outlet",
+    "basin_version",
 )
 _VIEW_ATTRIBUTES = frozenset(item.name for item in fields(MeshDescent)) | {"diagonal_neighbors"}
 
@@ -48,16 +60,20 @@ class RunDescent:
         self,
         load: Callable[[], MeshDescent],
         load_dam_foot: Callable[[], np.ndarray] | None = None,
+        load_basin: Callable[[], StoredBasin | None] | None = None,
     ) -> None:
         self._load = load
         self._load_dam_foot = load_dam_foot
+        self._load_basin = load_basin
         self._view: MeshDescent | None = None
         self._dam_foot: np.ndarray | None = None
+        self._basin: StoredBasin | None = None
+        self._basin_read = False
 
     @classmethod
     def of_run(cls, run: Run) -> RunDescent:
         """The holder for ``run``: its stored D, else one rebuilt from its top."""
-        return cls(lambda: load_descent(run), lambda: read_dam_foot(run))
+        return cls(lambda: load_descent(run), lambda: read_dam_foot(run), lambda: read_basin(run))
 
     @property
     def dam_foot(self) -> np.ndarray:
@@ -73,6 +89,20 @@ class RunDescent:
         if self._dam_foot is None:
             self._dam_foot = self._load_dam_foot()
         return self._dam_foot
+
+    def stored_basin(self) -> StoredBasin | None:
+        """The stored basin of D with its attributes, read alone, ``None`` when the run has none.
+
+        D is neither loaded nor rebuilt, so a reader that only wants the
+        catchment of a run sealed without D does not pay for a rebuild.
+        """
+        if self._view is None and self._load_basin is not None:
+            if not self._basin_read:
+                self._basin = self._load_basin()
+                self._basin_read = True
+            return self._basin
+        view = self.view()
+        return None if view.basin is None else (view.basin, view.basin_attrs)
 
     def view(self) -> MeshDescent:
         """Return the loaded descent."""
@@ -106,6 +136,29 @@ def read_dam_foot(run: Run) -> np.ndarray:
         sz.close()
 
 
+def read_basin(run: Run) -> StoredBasin | None:
+    """Read ``mesh/descent_basin`` and its attributes alone, ``None`` when the run holds none.
+
+    D is neither loaded nor rebuilt, so a reader that only wants the catchment of
+    a run pays for one array.
+    """
+    sz = run._catalog.open_zarr(run._sim_id)
+    try:
+        mesh = sz.root.get("mesh")
+        if mesh is None or "descent_basin" not in mesh:
+            return None
+        return _stored_basin(mesh)
+    finally:
+        sz.close()
+
+
+def _stored_basin(mesh) -> StoredBasin:
+    """Return the read-only basin of the ``mesh/`` group and its attributes."""
+    array = mesh["descent_basin"]
+    attrs = dict(array.attrs)
+    return _read_only(array[:], bool), {key: attrs[key] for key in _BASIN_ATTRS if key in attrs}
+
+
 def _read_only(values: np.ndarray, dtype: str | type) -> np.ndarray:
     out = np.array(values, dtype=dtype)
     out.flags.writeable = False
@@ -130,6 +183,7 @@ def _read_stored(run: Run) -> MeshDescent | None:
             name: _read_only(mesh[f"descent_{name}"][:], bool)
             for name in ("base_level", "constant_head", "raised", "channel", "pinned")
         }
+        basin, basin_attrs = _stored_basin(mesh) if "descent_basin" in mesh else (None, {})
     finally:
         sz.close()
     epsilon = attrs.get("epsilon")
@@ -142,6 +196,8 @@ def _read_stored(run: Run) -> MeshDescent | None:
         report={key: float(attrs[key]) for key in _REPORT_KEYS if key in attrs},
         rebuilt=False,
         dam_foot=dam_foot,
+        basin=basin,
+        basin_attrs=basin_attrs,
         **masks,
     )
 
@@ -188,4 +244,4 @@ def rebuilt_view(
     )
 
 
-__all__ = ("RunDescent", "load_descent", "read_dam_foot", "rebuilt_view")
+__all__ = ("RunDescent", "load_descent", "read_basin", "read_dam_foot", "rebuilt_view")

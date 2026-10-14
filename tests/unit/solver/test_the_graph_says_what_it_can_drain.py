@@ -21,6 +21,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.core.descent import descent_basin
 from hydromodpy.core.field_routing import build_downhill_graph
 from hydromodpy.solver.modflow_common.discharge_routing import (
     largest_drainable_share,
@@ -123,4 +124,25 @@ def test_a_graph_that_drains_its_basin_does_not_warn(caplog):
     with caplog.at_level(logging.WARNING):
         upstream_area_m2(model, graph, catchment_mask=_mask())
 
+    assert not any(r.levelno >= logging.WARNING for r in caplog.records)
+
+
+def test_the_basin_of_d_as_the_mask_drains_to_exactly_its_area(caplog):
+    """The catchment is the basin of D: the largest accumulation is its area, ratio one."""
+    model = _diagonal_valley_model()
+    graph = routing_graph_for_model(model)
+    areas = np.asarray(model.solver_mesh.cell_areas(), dtype=float).reshape(-1)
+    talweg_cell = 10 * N + 10
+    basin = descent_basin(
+        model.descent,
+        cell_area_m2=areas,
+        near=tuple(model.solver_mesh.cell_centroids()[talweg_cell]),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        accumulated = upstream_area_m2(model, graph, catchment_mask=basin.mask)
+
+    assert 0 < int(basin.mask.sum()) < N * N
+    assert float(np.max(accumulated)) == pytest.approx(basin.area_m2, abs=1e-9)
+    assert last_largest_drainable_share() == pytest.approx(1.0, abs=1e-12)
     assert not any(r.levelno >= logging.WARNING for r in caplog.records)

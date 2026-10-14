@@ -123,6 +123,11 @@ _RUN_FORMAT_FILES: dict[ExportFormat, str] = {
     ExportFormat.prov: "prov.jsonld",
 }
 
+MESH_LAYERS: tuple[str, ...] = ("mesh_cells", "mesh_seeds", "mesh_family_faces")
+"""The vector layers of the cell mesh of a run: its cells, their seeds, the faces of its lines.
+
+In a GeoPackage they share one file, a layer each; a Shapefile holds one layer per file."""
+
 # The stem of a file that holds several names of one kind.
 _GROUP_STEM: dict[ExportKind, str] = {ExportKind.field: "fields", ExportKind.series: "series"}
 
@@ -211,8 +216,10 @@ class ExportRequest(HydroModelBase):
         description=(
             'What to export: a name, a list of names, or "all" for everything the run '
             "holds. One namespace covers the mesh fields (head, watertable_depth, "
-            "seepage_mask...), the series (discharge, discharge_obs...), the vector layers "
-            "(watershed, hydrographic_network_reference...), the raster layers "
+            'seepage_mask..., and mesh_cell_area, which "all" leaves out because '
+            "mesh_cells holds it), the series (discharge, discharge_obs...), the vector layers "
+            "(watershed, hydrographic_network_reference...), the three layers of the cell "
+            "mesh (mesh_cells, mesh_seeds, mesh_family_faces), the raster layers "
             "(watershed_dem...) and the table budget; 'hmp export <run> --list' prints what "
             "a run holds. A name no run can hold is refused before the solve."
         ),
@@ -247,7 +254,10 @@ class ExportRequest(HydroModelBase):
                 "netcdf": "A NetCDF file (.nc): fields and series over time.",
                 "geotiff": "A GeoTIFF raster (.tif), one file per date.",
                 "csv": "A CSV table (.csv): series and tables.",
-                "geopackage": "A GeoPackage vector file (.gpkg), one file per date.",
+                "geopackage": (
+                    "A GeoPackage vector file (.gpkg), one file per date. The mesh layers "
+                    "of a run share one file."
+                ),
                 "shapefile": "An ESRI Shapefile (.shp), one file per date.",
                 "vtu": "A VTK unstructured grid (.vtu) of the mesh, one file per date.",
                 "package": "The portable .hmp archive of the run.",
@@ -455,8 +465,13 @@ class ExportRequest(HydroModelBase):
         reasons: list[str] = []
         if self.variables == EXPORT_ALL:
             reasons.append('variables = "all" writes one file per name')
-        elif len(self.names) > 1:
-            reasons.append(f"{len(self.names)} names write one file each")
+        elif (count := _count_files(self.names, fmt)) > 1:
+            n_names = len(self.names)
+            reasons.append(
+                f"{n_names} names write one file each"
+                if count == n_names
+                else f"{n_names} names write {count} files"
+            )
         if len(self.times) > 1:
             reasons.append(f"{len(self.times)} dates write one file each")
         if reasons:
@@ -522,6 +537,31 @@ def _natural_format(kind: ExportKind, request: ExportRequest) -> ExportFormat:
     if kind is ExportKind.field:
         return ExportFormat.geotiff if len(request.times) == 1 else ExportFormat.netcdf
     return KIND_FORMATS[kind][0]
+
+
+def _count_files(names: Sequence[str], fmt: ExportFormat) -> int:
+    """Return how many files ``names`` write in a one-instant format, one each at most."""
+    mesh = sum(name in MESH_LAYERS for name in names)
+    if fmt is ExportFormat.geopackage and mesh:
+        return len(names) - mesh + 1
+    return len(names)
+
+
+def _files_of_names(
+    kind: ExportKind, fmt: ExportFormat, names: Sequence[str], run_label: str
+) -> list[tuple[str, tuple[str, ...]]]:
+    """Return the ``(stem, names)`` of each file that holds names of one kind.
+
+    One file per name, except the mesh layers of a GeoPackage: they are one
+    file, named after the layer when there is one and after the run when there
+    are several. A Shapefile holds a single layer, so it keeps a file each.
+    """
+    mesh = [name for name in names if name in MESH_LAYERS]
+    if kind is not ExportKind.vector or fmt is not ExportFormat.geopackage or not mesh:
+        return [(name, (name,)) for name in names]
+    files = [(name, (name,)) for name in names if name not in MESH_LAYERS]
+    files.append((mesh[0] if len(mesh) == 1 else f"{run_label}_mesh", tuple(mesh)))
+    return files
 
 
 def _posix(path: PurePath) -> PurePosixPath:
@@ -620,9 +660,10 @@ def plan_outputs(
             )
         else:
             token = span if kind is ExportKind.table else ""
+            files = _files_of_names(kind, out, kind_names, run_label)
             planned.extend(
-                PlannedFile(path=folder / f"{name}{token}{suffix}", format=out, variables=(name,))
-                for name in kind_names
+                PlannedFile(path=folder / f"{stem}{token}{suffix}", format=out, variables=group)
+                for stem, group in files
             )
 
     _check_plan(request, planned)
@@ -694,6 +735,7 @@ __all__ = [
     "EXPORT_ALL",
     "FORMAT_SUFFIX",
     "KIND_FORMATS",
+    "MESH_LAYERS",
     "NON_REPROJECTING_FORMATS",
     "RUN_FORMATS",
     "SINGLE_INSTANT_FORMATS",

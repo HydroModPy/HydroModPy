@@ -15,7 +15,7 @@ import numpy as np
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
-__all__ = ["DerivedGeometry", "derive_geometry"]
+__all__ = ["DerivedGeometry", "derive_geometry", "derive_geometry_from_rows"]
 
 _PLANAR_TYPES = frozenset({CellType.TRIANGLE, CellType.QUADRILATERAL, CellType.POLYGON})
 
@@ -165,23 +165,24 @@ def _csr_adjacency(edge_cells: np.ndarray, n_cells: int) -> tuple[np.ndarray, np
     return indptr, (keys % n_cells).astype(np.int64)
 
 
-def derive_geometry(mesh: HydroMesh) -> DerivedGeometry:
-    """Derive areas, centroids, edges and adjacency of a planar ``HydroMesh``.
+def derive_geometry_from_rows(vertices: np.ndarray, padded: np.ndarray) -> DerivedGeometry:
+    """Derive the geometry of cells given as rows of vertex ids padded with ``-1``.
 
-    Raises ``ValueError`` on a topology error: an edge shared by more than two
-    cells, or a cell that uses one edge twice.
+    ``vertices`` holds at least two columns (x, y); a third one is ignored. This
+    is the core of :func:`derive_geometry`, for a reader that holds the stored
+    connectivity and no ``HydroMesh``. Raises ``ValueError`` on a topology error.
     """
-    padded = _padded_rows(mesh)
-    vertices = np.asarray(mesh.vertices, dtype=np.float64)
-    next_col = _next_corner(padded)
-    areas, centroids = _areas_and_centroids(vertices, padded, next_col)
-    edge_nodes, edge_cells = _edge_table(padded, next_col, mesh.n_nodes)
-    start = vertices[edge_nodes[:, 0]]
-    stop = vertices[edge_nodes[:, 1]]
+    rows = np.asarray(padded, dtype=np.int64)
+    xy = np.asarray(vertices, dtype=np.float64)[:, :2]
+    next_col = _next_corner(rows)
+    areas, centroids = _areas_and_centroids(xy, rows, next_col)
+    edge_nodes, edge_cells = _edge_table(rows, next_col, xy.shape[0])
+    start = xy[edge_nodes[:, 0]]
+    stop = xy[edge_nodes[:, 1]]
     delta = stop - start
-    indptr, indices = _csr_adjacency(edge_cells, int(padded.shape[0]))
+    indptr, indices = _csr_adjacency(edge_cells, int(rows.shape[0]))
     return DerivedGeometry(
-        padded_connectivity=padded.astype(np.int32),
+        padded_connectivity=rows.astype(np.int32),
         areas=areas,
         area_centroids=centroids,
         edge_nodes=edge_nodes,
@@ -191,3 +192,12 @@ def derive_geometry(mesh: HydroMesh) -> DerivedGeometry:
         adjacency_indptr=indptr,
         adjacency_indices=indices,
     )
+
+
+def derive_geometry(mesh: HydroMesh) -> DerivedGeometry:
+    """Derive areas, centroids, edges and adjacency of a planar ``HydroMesh``.
+
+    Raises ``ValueError`` on a topology error: an edge shared by more than two
+    cells, or a cell that uses one edge twice.
+    """
+    return derive_geometry_from_rows(np.asarray(mesh.vertices), _padded_rows(mesh))

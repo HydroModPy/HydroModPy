@@ -4,9 +4,9 @@ D is seeded on the CHD cells, which keep their receiver while the SFR walks
 stop there, with or without SFR, and pinned on the generated network A
 whenever the run has A. An auxiliary model builds D only for its SFR walks
 and leaves no sidecar. ``resolve_sfr_networks`` traces
-a rectified channel on it and prunes its stubs on shared faces. The drainage
-basin closes on the snapped outlet, falls back on the watershed polygon, and
-warns on a large gap.
+a rectified channel on it and prunes its stubs on shared faces. The basin of
+D closes on the snapped outlet, falls back on the watershed polygon, warns on
+a large gap, and is left in the sidecar with D.
 """
 
 from __future__ import annotations
@@ -22,11 +22,13 @@ from rasterio.transform import from_origin
 from hydromodpy.physics.flow.sinks_sources.sfr import FlowReachConfig, FlowReachNetworkConfig
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow6.builders.sfr import resolve_sfr_networks
+from hydromodpy.solver.modflow_common import mesh_descent
 from hydromodpy.solver.modflow_common.mesh_descent import (
     ChannelTree,
     build_solver_mesh_descent,
     channel_tree_for_run,
     read_descent_sidecar,
+    run_basin,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
@@ -73,7 +75,8 @@ def test_a_run_without_sfr_builds_d_and_leaves_it_beside_the_model(tmp_path) -> 
     )
 
     descent = build._run_descent(model, mesh, {}, np.zeros(n * n, dtype=bool))
-    build._keep_dam_feet_and_leave_descent(model, descent, {})
+    basin = run_basin(None, mesh, descent)
+    build._keep_dam_feet_and_leave_descent(model, descent, {}, basin=basin)
 
     assert descent is not None
     assert model.dam_foot_cells == {}
@@ -139,8 +142,9 @@ def test_an_auxiliary_model_builds_no_d_unless_an_sfr_network_walks_it(tmp_path)
     assert build._run_descent(quiet, mesh, {}, none) is None
     walked = build._run_descent(walking, mesh, {}, none)
     assert walked is not None
-    build._keep_dam_feet_and_leave_descent(quiet, None, {})
-    build._keep_dam_feet_and_leave_descent(walking, walked, {"lake": 3})
+    build._keep_dam_feet_and_leave_descent(quiet, None, {}, basin=None)
+    walked_basin = run_basin(None, mesh, walked)
+    build._keep_dam_feet_and_leave_descent(walking, walked, {"lake": 3}, basin=walked_basin)
     assert quiet.dam_foot_cells == walking.dam_foot_cells == {}
     assert not list(tmp_path.rglob("*.descent.npz"))
 
@@ -222,66 +226,111 @@ def _xy(row: int, col: int, nrow: int = 10) -> tuple[float, float]:
 def test_the_drainage_basin_closes_on_the_snapped_outlet(monkeypatch) -> None:
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-    monkeypatch.setattr(build, "_watershed_polygon_mask", lambda model, centroids: None)
+    monkeypatch.setattr(mesh_descent, "polygon_cell_mask", lambda geographic, centroids: None)
     snapped, declared = _xy(9, 2), _xy(9, 7)
-    model = SimpleNamespace(
-        geographic=SimpleNamespace(
-            x_outlet=declared[0],
-            y_outlet=declared[1],
-            x_outlet_snapped=snapped[0],
-            y_outlet_snapped=snapped[1],
-        )
+    geographic = SimpleNamespace(
+        x_outlet=declared[0],
+        y_outlet=declared[1],
+        x_outlet_snapped=snapped[0],
+        y_outlet_snapped=snapped[1],
     )
 
-    basin = build._drainage_basin(model, descent, mesh)
+    basin = run_basin(geographic, mesh, descent)
 
-    assert basin[5 * 10 + 2]
-    assert not basin[5 * 10 + 7]
+    assert basin.rule == "near_point"
+    assert basin.mask[5 * 10 + 2]
+    assert not basin.mask[5 * 10 + 7]
 
 
 def test_without_a_snapped_outlet_the_declared_one_closes_the_basin(monkeypatch) -> None:
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-    monkeypatch.setattr(build, "_watershed_polygon_mask", lambda model, centroids: None)
+    monkeypatch.setattr(mesh_descent, "polygon_cell_mask", lambda geographic, centroids: None)
     declared = _xy(9, 7)
-    model = SimpleNamespace(geographic=SimpleNamespace(x_outlet=declared[0], y_outlet=declared[1]))
 
-    basin = build._drainage_basin(model, descent, mesh)
+    basin = run_basin(SimpleNamespace(x_outlet=declared[0], y_outlet=declared[1]), mesh, descent)
 
-    assert basin[5 * 10 + 7]
-    assert not basin[5 * 10 + 2]
+    assert basin.mask[5 * 10 + 7]
+    assert not basin.mask[5 * 10 + 2]
 
 
 def test_without_an_outlet_the_basin_closes_inside_the_polygon(monkeypatch, caplog) -> None:
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
     east = mesh.cell_centroids()[:, 0] > 50.0
-    monkeypatch.setattr(build, "_watershed_polygon_mask", lambda model, centroids: east)
-    model = SimpleNamespace(geographic=None)
+    monkeypatch.setattr(mesh_descent, "polygon_cell_mask", lambda geographic, centroids: east)
 
     with caplog.at_level(logging.INFO):
-        basin = build._drainage_basin(model, descent, mesh)
+        basin = run_basin(None, mesh, descent)
 
-    assert basin[5 * 10 + 7]
-    assert not basin[5 * 10 + 2]
-    assert "Drainage basin of D" in caplog.text
+    assert basin.rule == "within_polygon"
+    assert basin.mask[5 * 10 + 7]
+    assert not basin.mask[5 * 10 + 2]
+    assert "Watershed polygon and basin of D" in caplog.text
+    assert caplog.text.count("Basin of D:") == 1
 
 
 def test_a_basin_far_from_the_polygon_is_a_warning(monkeypatch, caplog) -> None:
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
     east = mesh.cell_centroids()[:, 0] > 50.0
-    monkeypatch.setattr(build, "_watershed_polygon_mask", lambda model, centroids: east)
+    monkeypatch.setattr(mesh_descent, "polygon_cell_mask", lambda geographic, centroids: east)
     snapped = _xy(9, 2)
-    model = SimpleNamespace(
-        geographic=SimpleNamespace(x_outlet_snapped=snapped[0], y_outlet_snapped=snapped[1])
-    )
+    geographic = SimpleNamespace(x_outlet_snapped=snapped[0], y_outlet_snapped=snapped[1])
 
     with caplog.at_level(logging.INFO):
-        build._drainage_basin(model, descent, mesh)
+        run_basin(geographic, mesh, descent)
 
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
-    assert any("Drainage basin of D" in r.getMessage() for r in warnings)
+    assert any("Watershed polygon and basin of D" in r.getMessage() for r in warnings)
+
+
+def test_without_outlet_or_polygon_routing_the_largest_basin_is_a_warning(
+    monkeypatch, caplog
+) -> None:
+    mesh = _two_valleys()
+    descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
+    monkeypatch.setattr(mesh_descent, "polygon_cell_mask", lambda geographic, centroids: None)
+
+    with caplog.at_level(logging.INFO):
+        basin = run_basin(None, mesh, descent)
+    assert basin.rule == "largest_basin"
+    assert not basin.is_catchment
+    assert not [r for r in caplog.records if r.levelno == logging.WARNING]
+
+    with caplog.at_level(logging.INFO):
+        mask = build._drainage_basin_mask(basin)
+    assert mask is basin.mask
+    assert any(
+        "largest basin of the descent" in r.getMessage()
+        for r in caplog.records
+        if r.levelno == logging.WARNING
+    )
+
+
+def test_the_build_keeps_the_basin_and_leaves_it_in_the_sidecar(tmp_path, monkeypatch) -> None:
+    mesh = _two_valleys()
+    monkeypatch.setattr(mesh_descent, "polygon_cell_mask", lambda geographic, centroids: None)
+    declared = _xy(9, 7)
+    model = SimpleNamespace(
+        flow=SimpleNamespace(active_bc=[], sinks_sources={}),
+        full_path=str(tmp_path),
+        model_output_name="model",
+        geographic=SimpleNamespace(x_outlet=declared[0], y_outlet=declared[1]),
+    )
+
+    descent, basin, seeds = build._build_descent_and_dam_feet(
+        model, mesh, {}, np.zeros(mesh.n_cells, dtype=bool), None
+    )
+
+    assert descent is not None and basin is not None and seeds == {}
+    record = read_descent_sidecar(tmp_path / "model.descent.npz")
+    assert record is not None
+    np.testing.assert_array_equal(record.basin, basin.mask)
+    assert record.basin_outlet == basin.outlet
+    assert record.basin_rule == "near_point"
+    assert record.basin_area_m2 == pytest.approx(basin.area_m2)
+    assert record.basin_seeded_at_outlet is False
 
 
 def _write_network_rasters(folder, shape: tuple[int, int], *, stale: bool = False) -> None:

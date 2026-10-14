@@ -76,7 +76,7 @@ def test_the_section_writes_the_sidecar_with_the_dam_feet(monkeypatch, tmp_path)
     _declare_spillway(monkeypatch, declared=True)
     model = _model(tmp_path)
 
-    descent, seeds = _build(model)
+    descent, _, seeds = _build(model)
 
     assert seeds == {"res": TOE}
     assert model.dam_foot_cells == {"res": TOE}
@@ -90,7 +90,7 @@ def test_the_section_hands_the_feet_to_the_sidecar_write(monkeypatch, tmp_path) 
     _declare_spillway(monkeypatch, declared=True)
     written = []
 
-    def spy(descent, folder, stem, *, dam_foot_cells=None):
+    def spy(descent, folder, stem, *, dam_foot_cells=None, basin=None):
         written.append(dict(dam_foot_cells))
 
     monkeypatch.setattr(build, "write_descent_sidecar", spy)
@@ -106,7 +106,7 @@ def test_a_lake_without_a_declared_spillway_has_no_foot_but_D_is_stored(
     _declare_spillway(monkeypatch, declared=False)
     model = _model(tmp_path)
 
-    _, seeds = _build(model)
+    _, _, seeds = _build(model)
 
     assert seeds == {}
     assert model.dam_foot_cells == {}

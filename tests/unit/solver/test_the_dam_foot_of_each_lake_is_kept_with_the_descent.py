@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from hydromodpy.core.descent import descent_basin
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow_common.mesh_descent import (
     read_descent_sidecar,
@@ -28,6 +29,11 @@ from tests.unit.core.test_a_lake_is_traversed_by_the_descent import (
 def _descent():
     top, lake_of = _valley()
     return grid_descent(top, lake_of=lake_of)
+
+
+def _keep(model, descent, feet) -> None:
+    basin = descent_basin(descent, cell_area_m2=np.ones(descent.receiver.size))
+    build._keep_dam_feet_and_leave_descent(model, descent, feet, basin=basin)
 
 
 def test_a_lake_without_a_declared_spillway_has_no_foot() -> None:
@@ -58,7 +64,7 @@ def test_a_foot_off_the_mesh_is_dropped() -> None:
 def test_the_build_keeps_the_feet_on_the_model_and_in_the_sidecar(tmp_path) -> None:
     model = SimpleNamespace(full_path=str(tmp_path), model_output_name="model")
 
-    build._keep_dam_feet_and_leave_descent(model, _descent(), {"reservoir": 3})
+    _keep(model, _descent(), {"reservoir": 3})
 
     assert model.dam_foot_cells == {"reservoir": 3}
     record = read_descent_sidecar(tmp_path / "model.descent.npz")
@@ -69,7 +75,7 @@ def test_the_build_keeps_the_feet_on_the_model_and_in_the_sidecar(tmp_path) -> N
 def test_a_lake_without_a_declared_spillway_leaves_an_empty_foot(tmp_path) -> None:
     model = SimpleNamespace(full_path=str(tmp_path), model_output_name="model")
 
-    build._keep_dam_feet_and_leave_descent(model, _descent(), {})
+    _keep(model, _descent(), {})
 
     assert model.dam_foot_cells == {}
     record = read_descent_sidecar(tmp_path / "model.descent.npz")
@@ -80,7 +86,7 @@ def test_a_lake_without_a_declared_spillway_leaves_an_empty_foot(tmp_path) -> No
 def test_an_auxiliary_model_keeps_no_foot_and_leaves_no_sidecar(tmp_path) -> None:
     model = SimpleNamespace(full_path=str(tmp_path), model_output_name="model", auxiliary=True)
 
-    build._keep_dam_feet_and_leave_descent(model, _descent(), {"reservoir": 3})
+    _keep(model, _descent(), {"reservoir": 3})
 
     assert model.dam_foot_cells == {}
     assert not list(tmp_path.glob("*.descent.npz"))

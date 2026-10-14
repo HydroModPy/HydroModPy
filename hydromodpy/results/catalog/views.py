@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from hydromodpy.results.catalog.constants import MESH_ENGINE_SQL
+
 if TYPE_CHECKING:
     import duckdb
 
@@ -93,6 +95,7 @@ SELECT
     sv.category AS solver_category,
     fr.code AS flow_regime,
     mt.code AS mesh_topology,
+    s.mesh_engine,
     s.study_area_name,
     s.scientific_objective,
     s.description,
@@ -108,7 +111,7 @@ SELECT
     s.updated_at,
     s.duration_s,
 {summary_metric_columns}
-FROM simulations s
+FROM (SELECT *, {mesh_engine_sql} AS mesh_engine FROM simulations s) s
 JOIN solvers sv ON s.solver_id = sv.id
 JOIN statuses st ON s.status_id = st.id
 LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id
@@ -123,6 +126,7 @@ GROUP BY
     sv.category,
     fr.code,
     mt.code,
+    s.mesh_engine,
     s.study_area_name,
     s.scientific_objective,
     s.description,
@@ -140,7 +144,7 @@ GROUP BY
 """.replace(
     "{summary_metric_columns}",
     ",\n".join(_summary_metric_column(name) for name in _SUMMARY_METRIC_NAMES),
-)
+).replace("{mesh_engine_sql}", MESH_ENGINE_SQL)
 
 _V_BEST_PER_PROJECT_DDL = """
 CREATE OR REPLACE VIEW v_best_per_project AS

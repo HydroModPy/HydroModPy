@@ -14,6 +14,7 @@ from hydromodpy.spatial.mesh.cache import (
     cache_dir,
     cache_key,
     has_cell_mesh,
+    library_versions,
     load_cell_mesh,
     save_cell_mesh,
 )
@@ -71,6 +72,7 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
         "engine_version": cell_mesh.identity.engine_version,
         "request_hash": request.canonical_hash(),
         "cache_key": key,
+        "library_versions": library_versions(),
         "qa": _qa_with_notes(cell_mesh, request),
     }
 

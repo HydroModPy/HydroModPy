@@ -484,16 +484,44 @@ def delineated_catchment_mask(
     planar_mesh: Any,
     face_node_connectivity: np.ndarray,
 ) -> np.ndarray | None:
-    """Project the catchment the geographic pipeline delineated onto the cells.
+    """Return the catchment of the run on the cells, the basin of its descent D.
 
-    The criterion does not score this polygon. It scores the cells upstream of
-    the outlet on its own conditioned graph, and reads this projection only to
-    close on it when no outlet point exists and to publish how far the two
-    differ (``catchment_mismatch``).
+    The criterion does not score this mask. It scores the cells upstream of
+    the outlet on its own conditioned graph, and reads this one only to close
+    on it when no outlet point exists and to publish how far the two differ
+    (``catchment_mismatch``). The reference is the basin the build kept on the
+    model (``model.descent_basin``), the same cells the budget zone and the
+    discharge observable sum.
+
+    A model that carries no basin of D keeps the old reference, the cells whose
+    centre the delineated polygon covers, and says so. The largest basin of a
+    synthetic domain is no catchment: the polygon is projected as before, and a
+    domain without one gives ``None``.
 
     Returns ``None`` when the run declares no watershed, which is the case for a
     synthetic domain; the caller then closes on the largest basin of its graph.
     """
+    model = run_ctx.model
+    basin = getattr(model, "descent_basin", None)
+    if basin is not None and basin.is_catchment:
+        return np.array(basin.mask, dtype=bool)
+    polygon = _polygon_catchment_mask(run_ctx, planar_mesh, face_node_connectivity)
+    if polygon is not None and basin is None:
+        # A model with no such attribute builds no D (Boussinesq): expected.
+        log = logger.warning if hasattr(model, "descent_basin") else logger.info
+        log(
+            "Network criterion: the model carries no basin of D, so the catchment mismatch "
+            "is measured against the old reference 'polygon_centroid'."
+        )
+    return polygon
+
+
+def _polygon_catchment_mask(
+    run_ctx: RunContext,
+    planar_mesh: Any,
+    face_node_connectivity: np.ndarray,
+) -> np.ndarray | None:
+    """Project the catchment polygon the geographic pipeline delineated onto the cells."""
     import geopandas as gpd
 
     setup = run_ctx.state.setup

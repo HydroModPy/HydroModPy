@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.core.config_kit.export_spec import (
+    MESH_LAYERS,
     RUN_FORMATS,
     STEP_DATE_TOKEN,
     ExportFormat,
@@ -38,6 +39,7 @@ from hydromodpy.core.config_kit.export_spec import (
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.selection import period_label
+from hydromodpy.results.derive.mesh_quality import MESH_QUALITY_DESCRIPTORS, mesh_quality_values
 from hydromodpy.results.derive.virtual_fields import (
     SIMULATED_ACTIVE_NETWORK,
     field_descriptor,
@@ -95,7 +97,7 @@ def export_request(
         return [_write_run_format(catalog, sim_id, request, fmt, label, target)]
 
     held = list_exportable(run)
-    names = list(held) if request.exports_all else request.names
+    names = _all_names(held) if request.exports_all else request.names
     _check_held(run, label, names, held)
     kinds = {name: held[name] for name in names}
     planned = plan_outputs(request, kinds, run_label=label, names=names)
@@ -105,6 +107,14 @@ def export_request(
         dest = _destination(item.path, request, label, target)
         written.extend(writer.write(item, dest))
     return written
+
+
+def _all_names(held: Mapping[str, Any]) -> list[str]:
+    """Return what ``variables = "all"`` writes: everything but the mesh quality fields.
+
+    ``mesh_cells`` already holds them as columns; they stay requestable by name.
+    """
+    return [name for name in held if name not in MESH_QUALITY_DESCRIPTORS]
 
 
 def _destination(
@@ -134,6 +144,12 @@ def _check_held(run: Run, label: str, names: Sequence[str], held: Mapping[str, A
     reasons = ""
     if SIMULATED_ACTIVE_NETWORK in missing:
         reasons = f"\n{SIMULATED_ACTIVE_NETWORK}: {_network_reason(run)}."
+    mesh_missing = [name for name in missing if name in MESH_LAYERS]
+    if mesh_missing:
+        from hydromodpy.results.exporters.mesh_layers import mesh_layer_reasons
+
+        why = mesh_layer_reasons(run._catalog, run.sim_id)
+        reasons += "".join(f"\n{name}: {why.get(name, 'not stored')}." for name in mesh_missing)
     raise ExportError(
         f"run {label!r} holds no {', '.join(repr(name) for name in missing)}.{reasons}\n"
         f"It can export:\n{describe_exportable(dict(held))}"
@@ -292,18 +308,33 @@ class _Writer:
         from hydromodpy.results.exporters.netcdf import export_netcdf
 
         steps = list(self.steps)
-        values = None
+        values: dict[str, np.ndarray] = {}
         if SIMULATED_ACTIVE_NETWORK in item.variables:
-            values = {SIMULATED_ACTIVE_NETWORK: self._network_values(steps)}
+            values[SIMULATED_ACTIVE_NETWORK] = self._network_values(steps)
+        values.update(self._quality_values(item.variables))
         return export_netcdf(
             self.zarr_path,
             self.sim_id,
             list(item.variables),
             dest,
             timesteps=steps,
-            values=values,
+            values=values or None,
             global_attrs=self._once("global_attrs", self.target.global_attrs),
         )
+
+    def _quality_values(self, names: Sequence[str]) -> dict[str, np.ndarray]:
+        """Return the mesh quality fields among ``names``, each one value per cell.
+
+        They are static: a NetCDF writes them once, whatever the number of dates.
+        """
+        wanted = [name for name in names if name in MESH_QUALITY_DESCRIPTORS]
+        if not wanted:
+            return {}
+        sz = self.catalog.open_zarr(self.sim_id)
+        try:
+            return {name: mesh_quality_values(sz.root, name) for name in wanted}
+        finally:
+            sz.close()
 
     def _field_instants(self, item: PlannedFile, dest: Path) -> list[Path]:
         """Write one field in a one-instant format: one file per date."""
@@ -467,6 +498,17 @@ class _Writer:
         )
 
     def _vector(self, item: PlannedFile, dest: Path) -> Path:
+        if item.variables[0] in MESH_LAYERS:
+            from hydromodpy.results.exporters.mesh_layers import export_mesh_layers
+
+            return export_mesh_layers(
+                self.catalog,
+                self.sim_id,
+                list(item.variables),
+                dest,
+                fmt=item.format.value,
+                crs=self.request.crs,
+            )
         from hydromodpy.results.exporters.vector_layer import export_geographic_feature
 
         return export_geographic_feature(

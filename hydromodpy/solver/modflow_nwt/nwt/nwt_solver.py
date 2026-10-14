@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 import flopy
 import numpy as np
 
-from hydromodpy.core.descent import Descent
+from hydromodpy.core.descent import Descent, DescentBasin
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
 from hydromodpy.physics.flow.regime import normalize_flow_regime
@@ -33,6 +33,7 @@ from hydromodpy.solver.modflow_common import (
 from hydromodpy.solver.modflow_common.mesh_descent import (
     build_solver_mesh_descent,
     channel_tree_for_run,
+    run_basin,
     write_descent_sidecar,
 )
 from hydromodpy.solver.modflow_common.options import (
@@ -153,6 +154,8 @@ class ModflowNwt:
         self.cell_mesh: PlanarCellMesh | None = None
         self.routing_ctx: SolverRoutingContext | None = None
         self.descent: Descent | None = None
+        # The basin of D at the catchment outlet, set with D.
+        self.descent_basin: DescentBasin | None = None
         # No lake package: the dam foot of the criterion stays empty.
         self.dam_foot_cells: dict[str, int] = {}
         # Set by the steady initialization: a model never extracted builds no D.
@@ -359,11 +362,14 @@ class ModflowNwt:
         ``ibound`` keeps active. NWT builds no lake, so none is traversed. D
         follows the generated network A whenever the run has A.
 
-        NWT has no SFR walk, so the model keeps D without its adjacency, and an
-        auxiliary model (the steady initialization) builds none.
+        The basin of D at the catchment outlet is computed once, before D drops
+        its adjacency, and kept with it. NWT has no SFR walk, so the model keeps
+        D without its adjacency, and an auxiliary model (the steady
+        initialization) builds none.
         """
         if self.auxiliary:
             self.descent = None
+            self.descent_basin = None
             return None
         ibound_cells = solver_mesh.flatten_from_grid(np.asarray(flow_inputs.ibound))
         constant_head = (ibound_cells == -1).any(axis=0)
@@ -379,8 +385,10 @@ class ModflowNwt:
             base_level_mask=constant_head,
             channel_tree=channel_tree_for_run(self.geographic, solver_mesh),
             active_column=(ibound_cells != 0).any(axis=0),
+            geographic=self.geographic,
         )
-        write_descent_sidecar(descent, self.full_path, self.model_name)
+        self.descent_basin = run_basin(self.geographic, solver_mesh, descent)
+        write_descent_sidecar(descent, self.full_path, self.model_name, basin=self.descent_basin)
         self.descent = descent.without_adjacency()
         return self.descent
 

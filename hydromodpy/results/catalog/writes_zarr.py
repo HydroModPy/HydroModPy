@@ -15,6 +15,8 @@ from uuid import UUID
 if TYPE_CHECKING:
     import numpy as np
 
+    from hydromodpy.results.zarr_store.mesh_layout import MeshLayout
+
 
 class WritesMixinZarr:
     """Zarr-backed write operations for the catalog facade."""
@@ -263,6 +265,9 @@ class WritesMixinZarr:
         z_interfaces: np.ndarray,
         layer_indices: np.ndarray | None = None,
         source_cell_indices: np.ndarray | None = None,
+        *,
+        structured_shape: tuple[int, int] | None = None,
+        layout: MeshLayout | None = None,
     ) -> None:
         """Store the mesh of a run (UGRID 1.0) in its field store.
 
@@ -284,6 +289,10 @@ class WritesMixinZarr:
             Layer of each face, when faces span several layers.
         source_cell_indices
             Index of each face in the solver grid.
+        structured_shape
+            ``(nrow, ncol)`` of a regular grid, ``None`` on any other mesh.
+        layout
+            Cell centres, family bit fields, edge tables and engine attributes.
         """
         if not self._persistence.save_zarr:
             return
@@ -295,6 +304,8 @@ class WritesMixinZarr:
                 z_interfaces,
                 layer_indices=layer_indices,
                 source_cell_indices=source_cell_indices,
+                structured_shape=structured_shape,
+                layout=layout,
             )
         finally:
             sz.close()

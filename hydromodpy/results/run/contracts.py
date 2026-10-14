@@ -8,7 +8,7 @@ to allocate, immutable for callers, attribute access only.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
@@ -18,14 +18,23 @@ if TYPE_CHECKING:
     from hydromodpy.core.field_routing import DownhillGraph
 
 __all__ = [
+    "LEGACY_MESH_NOTE",
     "Mesh",
     "MeshDescent",
+    "MeshStoreIdentity",
     "RasterField",
     "Stack",
     "UGridStack",
     "cell_centers",
     "polygon_areas",
 ]
+
+
+LEGACY_MESH_NOTE = (
+    "mesh stored before the cell-mesh layout: centres are vertex means; "
+    "families, edges and the mesh CRS are not stored"
+)
+"""What a run sealed before the cell-mesh layout lacks, as one sentence."""
 
 
 def cell_centers(
@@ -73,6 +82,17 @@ def polygon_areas(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
 
 
 @dataclass(frozen=True, slots=True)
+class MeshStoreIdentity:
+    """Who built the mesh of a run, as the ``mesh/`` group of its store says."""
+
+    engine: str
+    engine_version: str | None = None
+    request_hash: str | None = None
+    center_kind: str | None = None
+    seed: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class Mesh:
     """UGRID mesh payload for a single simulation."""
 
@@ -91,6 +111,20 @@ class Mesh:
     face_x: np.ndarray | None = None
     face_y: np.ndarray | None = None
     """Per-face centres, when the mesh group stores them."""
+    identity: MeshStoreIdentity | None = None
+    """Engine, version, request hash and centre rule, ``None`` for a run sealed
+    before the cell-mesh layout."""
+    crs_source: Literal["mesh", "catalog"] | None = None
+    """Where ``crs`` was read: the ``mesh/`` group, else the catalog, ``None`` when
+    neither says."""
+    layout: Literal["cell_mesh", "legacy"] = "legacy"
+    """``"cell_mesh"`` when the store carries the cell-mesh layout (centres,
+    families, edges, engine), ``"legacy"`` for a run sealed before it."""
+
+    @property
+    def layout_note(self) -> str:
+        """Say what the stored mesh lacks, empty when it carries the cell-mesh layout."""
+        return LEGACY_MESH_NOTE if self.layout == "legacy" else ""
 
     def cell_centers(self) -> np.ndarray:
         """Return the ``(n_faces, 2)`` centres the field arrays are indexed by.
@@ -133,7 +167,9 @@ class MeshDescent:
     accumulation crosses them; ``raised`` flags the cells D raised on its copy,
     where the routing departs from the model top. A run sealed before D was
     stored gets one rebuilt from its stored top (``rebuilt``): no channel pin,
-    no constant-head seed, no lake.
+    no constant-head seed, no lake. ``basin`` is the basin of D at the catchment
+    outlet, one flag per face, outlet included; it is ``None`` for a rebuilt D
+    and for a run sealed before the basin was stored.
     """
 
     receiver: np.ndarray
@@ -155,6 +191,12 @@ class MeshDescent:
     dam_foot: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
     """Cell ids below the dams, where the stream under a lake starts. Empty for a
     run with no lake, a run sealed before they were stored, or a rebuilt D."""
+    basin: np.ndarray | None = None
+    """Basin of D at the catchment outlet, a read-only bool per face, ``None`` when not stored."""
+    basin_attrs: dict[str, object] = field(default_factory=dict)
+    """Attributes of the stored basin: ``descent_outlet`` (the outlet cell), ``basin_rule`` (how
+    the outlet was found), ``basin_area_m2``, ``basin_seeded_at_outlet`` and ``basin_version``.
+    Empty when no basin is stored."""
 
     @property
     def diagonal_neighbors(self) -> bool:

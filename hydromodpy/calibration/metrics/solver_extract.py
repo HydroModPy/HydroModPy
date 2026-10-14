@@ -1149,8 +1149,10 @@ def extract_outputs(
             area_id = gauge_comparable[name]
             if area_id is None:
                 # The whole-catchment series: the runoff forcing is areal over
-                # that same basin, so it is added without a scaling area.
-                dated = add_runoff_to_discharge(dated, ctx)
+                # that same basin, so it is scaled by the area the series sums.
+                dated = add_runoff_to_discharge(
+                    dated, ctx, area_m2=catchment_area_the_discharge_sums(run_ctx, ctx)
+                )
             else:
                 area = float(np.asarray(results[area_id].values, dtype=float).reshape(-1)[0])
                 fraction = report_the_area_a_gauge_drains(
@@ -1170,6 +1172,36 @@ def extract_outputs(
     return ExtractedOutputs(
         observables=observables, values=simulated, series=series, diagnostics=diagnostics
     )
+
+
+def catchment_area_the_discharge_sums(run_ctx: RunContext, ctx: Any) -> float | None:
+    """Return the area the whole-catchment discharge sums, in m2, or ``None``.
+
+    The series sums the drain over the basin of D the build kept on the model
+    (``model.descent_basin``), so the runoff forcing is scaled by that basin's
+    area and the two terms of the score share one support. ``None`` leaves the
+    scaling to the old support, the area of the delineated catchment
+    (``catch_area``), which a model without a basin of D keeps and names: a
+    warning for a model that builds D and lost its basin, an info line for one
+    that builds no D at all.
+    """
+    model = run_ctx.model
+    basin = getattr(model, "descent_basin", None)
+    if basin is not None and basin.is_catchment:
+        return float(basin.area_m2)
+    if basin is None:
+        geo = getattr(getattr(ctx, "setup", None), "geographic", None)
+        catch_area_km2 = float(getattr(geo, "catch_area", 0.0) or 0.0)
+        if catch_area_km2 > 0.0:
+            # A model with no such attribute builds no D (Boussinesq): expected.
+            # One that has it set to None lost its basin: an anomaly.
+            log = logger.warning if hasattr(model, "descent_basin") else logger.info
+            log(
+                "Calibration discharge: the model carries no basin of D, so the runoff is "
+                "scaled by the old support 'catch_area' (%.3f km2).",
+                catch_area_km2,
+            )
+    return None
 
 
 def report_the_area_a_gauge_drains(
@@ -1394,6 +1426,7 @@ def find_cell_at_point(ctx: Any, x: float, y: float) -> tuple[int, int, int] | N
 
 __all__ = [
     "ExtractedOutputs",
+    "catchment_area_the_discharge_sums",
     "extract_outputs",
     "score_network_output",
     "find_cell_at_point",

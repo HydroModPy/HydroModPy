@@ -8,7 +8,9 @@ project-root dumping ground.
 
 from __future__ import annotations
 
+import dataclasses
 import uuid
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -36,6 +38,9 @@ from hydromodpy.results.storage.contract import (
     REQUIRED_RUN_ENTRIES,
     TABLES_DIRNAME,
 )
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain
+from hydromodpy.workflow.steps.prepare_solver.prepare import step_persist_mesh
+from tests._helpers.regular_cell_meshes import regular_cell_mesh
 
 RUN_NAME = "cheze_baseline"
 
@@ -270,3 +275,37 @@ def test_the_soil_budget_is_a_plain_parquet_file_of_the_run(solved_run):
     assert entries <= ALLOWED_RUN_ENTRIES, (
         f"unexpected run artefacts: {entries - ALLOWED_RUN_ENTRIES}"
     )
+
+
+def test_the_mesh_family_tables_are_plain_parquet_files_of_the_run(solved_run):
+    project, sim_id = solved_run
+    cell_mesh = dataclasses.replace(
+        regular_cell_mesh(xmin=0.0, ymin=0.0, dx=10.0, dy=10.0, nrow=2, ncol=2),
+        cell_chains=(CellChain(family="rivers", chain_id=0, cell_ids=[2, 0, 1]),),
+    )
+    ctx = SimpleNamespace(
+        setup=SimpleNamespace(
+            domain=SimpleNamespace(z_interfaces=np.array([0.0, -10.0])),
+            cell_mesh=cell_mesh,
+            mesh_summary=None,
+        )
+    )
+
+    assert {"mesh_cell_families", "mesh_face_families"} <= set(PARQUET_VIEW_NAMES)
+
+    with Catalog(project) as catalog:
+        step_persist_mesh(ctx, sim_id, store=catalog)
+
+    run_dir = project / RUNS_DIRNAME / RUN_NAME
+    tables_dir = run_dir / TABLES_DIRNAME
+    assert (tables_dir / f"mesh_cell_families{PARQUET_FILE_SUFFIX}").is_file()
+    # A mesh with no face-intent family writes no face table: nothing to say.
+    assert not (tables_dir / f"mesh_face_families{PARQUET_FILE_SUFFIX}").exists()
+    chain = pd.read_parquet(tables_dir / f"mesh_cell_families{PARQUET_FILE_SUFFIX}")
+    assert chain.sort_values("position")["cell_id"].tolist() == [2, 0, 1]
+    assert chain["offset_m"].isna().all()
+    assert {entry.name for entry in run_dir.iterdir()} <= ALLOWED_RUN_ENTRIES
+    # The fixture sealed (and consolidated) the store before the mesh was written.
+    mesh_dir = run_dir / FIELDS_STORE_NAME / "mesh"
+    assert zarr.open_group(str(mesh_dir), mode="r").attrs["engine"] == "regular"
+    assert zarr.open_array(str(mesh_dir / "face_x"), mode="r").shape == (4,)

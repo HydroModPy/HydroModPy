@@ -80,7 +80,7 @@ def _ctx(station_cells: dict[str, tuple[int, int, int]]) -> SimpleNamespace:
     )
 
 
-_RUN_CTX = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"))
+_RUN_CTX = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"), model=None)
 
 
 def test_a_station_with_a_cell_gets_its_own_routed_series():

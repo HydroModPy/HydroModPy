@@ -170,6 +170,21 @@ def _patch_area(monkeypatch, area_m2):
     monkeypatch.setattr(mod, "_read_catchment_area_m2", lambda store, sim_id: area_m2)
 
 
+def _with_mesh(get, *, area_m2, rule):
+    """Wrap a fake group's ``get`` so ``mesh`` holds a stored basin of D."""
+    import zarr
+
+    mesh = zarr.group().require_group("mesh")
+    node = mesh.create_array("descent_basin", data=np.ones(4, dtype=bool))
+    node.attrs["basin_rule"] = rule
+    node.attrs["basin_area_m2"] = area_m2
+
+    def wrapped(key):
+        return mesh if key == "mesh" else get(key)
+
+    return wrapped
+
+
 class TestAddRunoffToDischarge:
     def test_no_runoff_forcing_returns_unchanged(self):
         # grp.get("forcing") is None -> baseflow passed through untouched.
@@ -244,6 +259,69 @@ class TestAddRunoffToDischarge:
         out = _add_runoff_to_discharge_series(discharge, str(uuid4()), store=None, grp=grp)
 
         pd.testing.assert_series_equal(out, discharge)
+
+    def test_the_runoff_is_scaled_by_the_area_of_the_stored_basin(self, monkeypatch):
+        # catch_area would give 1 m3/s per mm/day; the basin is twice as large.
+        _patch_area(monkeypatch, 86_400_000.0)
+        idx = pd.date_range("2020-01-01", periods=2, freq="D")
+        discharge = pd.Series([0.0, 0.0], index=idx, name="discharge")
+        runoff_idx = pd.date_range("2019-12-31", periods=2, freq="D")
+        grp = _make_grp_with_runoff(values=[1.0, 1.0], timestamps=runoff_idx.values)
+        grp.get = _with_mesh(grp.get, area_m2=2 * 86_400_000.0, rule="near_point")
+
+        out = _add_runoff_to_discharge_series(discharge, str(uuid4()), store=None, grp=grp)
+
+        np.testing.assert_allclose(out.values, [2.0, 2.0])
+
+    def test_the_runoff_area_does_not_compute_the_basin_again(self, monkeypatch):
+        from hydromodpy.core import descent as core_descent
+        from hydromodpy.solver.modflow_common import mesh_descent
+
+        def refuse(*_args, **_kwargs):
+            raise AssertionError("the runoff area computed the basin of D again")
+
+        monkeypatch.setattr(core_descent, "descent_basin", refuse)
+        monkeypatch.setattr(mesh_descent, "descent_basin", refuse)
+        _patch_area(monkeypatch, 86_400_000.0)
+        idx = pd.date_range("2020-01-01", periods=2, freq="D")
+        discharge = pd.Series([0.0, 0.0], index=idx, name="discharge")
+        runoff_idx = pd.date_range("2019-12-31", periods=2, freq="D")
+        grp = _make_grp_with_runoff(values=[1.0, 1.0], timestamps=runoff_idx.values)
+        grp.get = _with_mesh(grp.get, area_m2=2 * 86_400_000.0, rule="near_point")
+
+        out = _add_runoff_to_discharge_series(discharge, str(uuid4()), store=None, grp=grp)
+
+        np.testing.assert_allclose(out.values, [2.0, 2.0])
+
+    def test_a_run_without_a_basin_scales_by_catch_area_and_says_so(self, monkeypatch, caplog):
+        _patch_area(monkeypatch, 86_400_000.0)
+        idx = pd.date_range("2020-01-01", periods=2, freq="D")
+        discharge = pd.Series([0.0, 0.0], index=idx, name="discharge")
+        runoff_idx = pd.date_range("2019-12-31", periods=2, freq="D")
+        grp = _make_grp_with_runoff(values=[1.0, 1.0], timestamps=runoff_idx.values)
+
+        with caplog.at_level("INFO"):
+            out = _add_runoff_to_discharge_series(discharge, "sim-x", store=None, grp=grp)
+
+        np.testing.assert_allclose(out.values, [1.0, 1.0])
+        assert (
+            "Catchment discharge for sim sim-x: the run stores no basin of D, so the runoff is "
+            "scaled by the old support 'catch_area' (86.400 km2)." in caplog.text
+        )
+
+    def test_the_largest_basin_keeps_catch_area_without_the_message(self, monkeypatch, caplog):
+        _patch_area(monkeypatch, 86_400_000.0)
+        idx = pd.date_range("2020-01-01", periods=2, freq="D")
+        discharge = pd.Series([0.0, 0.0], index=idx, name="discharge")
+        runoff_idx = pd.date_range("2019-12-31", periods=2, freq="D")
+        grp = _make_grp_with_runoff(values=[1.0, 1.0], timestamps=runoff_idx.values)
+        grp.get = _with_mesh(grp.get, area_m2=5.0e9, rule="largest_basin")
+
+        with caplog.at_level("INFO"):
+            out = _add_runoff_to_discharge_series(discharge, str(uuid4()), store=None, grp=grp)
+
+        np.testing.assert_allclose(out.values, [1.0, 1.0])
+        assert "stores no basin of D" not in caplog.text
 
     def test_alignment_when_runoff_index_offset(self, monkeypatch):
         # Runoff stamped a few hours into each day still falls in the period
@@ -513,6 +591,26 @@ class TestRoutedDischarge:
         ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
         # routed = sfr + lake per timestep; the |DRN| buffer field is excluded.
         np.testing.assert_allclose(ts.values, [1.5, 2.5, 4.0])
+
+    def test_the_discharge_is_summed_over_the_stored_basin(self, catalog):
+        n_ts, n_cells = 3, 4
+        sid = self._setup_sim(catalog, n_ts=n_ts, n_cells=n_cells)
+        sz = catalog.open_zarr(sid)
+        try:
+            mesh = sz.root.require_group("mesh")
+            mesh.create_array("topography", data=np.full(n_cells, 10.0))
+            basin = mesh.create_array("descent_basin", data=np.array([True, True, False, False]))
+            basin.attrs["basin_rule"] = "near_point"
+            basin.attrs["basin_area_m2"] = 2.0e6
+        finally:
+            sz.close()
+        for t in range(n_ts):
+            catalog.write_field(sid, "drain", t, np.array([[-1.0, -2.0, -4.0, -8.0]]))
+
+        aggregate_catchment_timeseries(sid, catalog)
+
+        ts = catalog.query_timeseries(sid, _CATCHMENT_STATION, "discharge")
+        np.testing.assert_allclose(ts.values, [3.0, 3.0, 3.0])
 
     def test_routed_branch_skips_lumped_runoff(self, catalog, monkeypatch):
         import hydromodpy.simulation.extraction.derivation.catchment_aggregation as mod
@@ -819,6 +917,97 @@ class TestTheCatchmentSeriesUseTheCatchment:
 
         assert mask is active
         assert "no cell" in " ".join(r.getMessage() for r in caplog.records)
+
+    def _with_basin(self, grp, mask, *, rule="within_polygon", area_m2=2.0e6):
+        node = grp["mesh"].create_array("descent_basin", data=np.asarray(mask, dtype=bool))
+        node.attrs["descent_outlet"] = 0
+        node.attrs["basin_rule"] = rule
+        node.attrs["basin_area_m2"] = area_m2
+        return grp
+
+    def test_the_stored_basin_is_the_support_not_the_polygon(self, caplog):
+        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+            _build_catchment_mask,
+        )
+
+        class _Store:
+            def read_geographic_feature(self, sim_id, name):
+                raise AssertionError("the polygon was read although the run stores a basin")
+
+        grp = self._with_basin(self._grp(6), [1, 1, 1, 0, 0, 1])
+        active = np.array([1, 1, 0, 1, 1, 1], dtype=bool)
+        with caplog.at_level("INFO"):
+            mask = _build_catchment_mask(_Store(), "sim", grp, active)
+
+        assert mask.tolist() == [True, True, False, False, False, True]
+        assert "the basin of D, 3 of 5 active cells (2.000 km2)" in caplog.text
+        assert "polygon_centroid" not in caplog.text
+
+    def test_a_basin_with_no_active_cell_is_refused(self):
+        from hydromodpy.core.exceptions import ExtractError
+        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+            _build_catchment_mask,
+        )
+
+        grp = self._with_basin(self._grp(4), [1, 1, 0, 0])
+        with pytest.raises(ExtractError, match="holds no active cell"):
+            _build_catchment_mask(None, "sim", grp, np.array([0, 0, 1, 1], dtype=bool))
+
+    def test_a_run_without_a_basin_keeps_the_polygon_and_says_so(self, caplog):
+        from shapely.geometry import box
+
+        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+            _build_catchment_mask,
+        )
+
+        with caplog.at_level("INFO"):
+            mask = _build_catchment_mask(
+                self._store_with_watershed(box(-0.1, -0.1, 2.0, 1.1)),
+                "sim",
+                self._grp(6),
+                np.ones(6, dtype=bool),
+            )
+
+        assert mask.tolist() == [True, True, False, False, False, False]
+        assert (
+            "Catchment timeseries for sim sim: the run stores no basin of D, so the "
+            "'_catchment' series keep the old support 'polygon_centroid'." in caplog.text
+        )
+
+    def test_the_largest_basin_of_a_synthetic_domain_keeps_the_domain(self, caplog):
+        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+            _build_catchment_mask,
+        )
+
+        class _Store:
+            def read_geographic_feature(self, sim_id, name):
+                raise KeyError(name)
+
+        grp = self._with_basin(self._grp(4), [1, 1, 1, 1], rule="largest_basin")
+        active = np.ones(4, dtype=bool)
+        with caplog.at_level("INFO"):
+            mask = _build_catchment_mask(_Store(), "sim", grp, active)
+
+        assert mask is active
+        assert "stores no basin of D" not in caplog.text
+
+    def test_no_series_computes_the_basin_again(self, monkeypatch):
+        from hydromodpy.core import descent as core_descent
+        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
+            _build_catchment_mask,
+        )
+        from hydromodpy.solver.modflow_common import mesh_descent
+
+        def refuse(*_args, **_kwargs):
+            raise AssertionError("the aggregation computed the basin of D again")
+
+        monkeypatch.setattr(core_descent, "descent_basin", refuse)
+        monkeypatch.setattr(mesh_descent, "descent_basin", refuse)
+        grp = self._with_basin(self._grp(4), [1, 0, 1, 0])
+
+        mask = _build_catchment_mask(None, "sim", grp, np.ones(4, dtype=bool))
+
+        assert mask.tolist() == [True, False, True, False]
 
 
 class TestLumpedBudgetPrefersTheCatchmentZone:

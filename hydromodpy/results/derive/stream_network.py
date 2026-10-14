@@ -354,6 +354,29 @@ def network_comparison_from_run(
 
 
 def _delineated_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.ndarray | None:
+    """Return the catchment of the run on the cells, the basin of D it stores.
+
+    That is the reference the trials of the run measured their
+    ``catchment_mismatch`` against. A run sealed before the basin was stored
+    keeps the old reference, the delineated watershed projected by the centre
+    of the cells, and says so. The largest basin of a synthetic domain is no
+    catchment: the watershed is looked up as before, and a domain without one
+    gives ``None``.
+    """
+    stored = sim.descent.stored_basin()
+    if stored is not None and stored[1].get("basin_rule") != "largest_basin":
+        return np.array(stored[0], dtype=bool)
+    polygon = _watershed_catchment(sim, polygons, mesh_crs)
+    if polygon is not None and stored is None:
+        logger.warning(
+            "Stream comparison: run %s stores no basin of D, so the catchment mismatch is "
+            "measured against the old reference 'polygon_centroid', as its trials were.",
+            sim.sim_id,
+        )
+    return polygon
+
+
+def _watershed_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.ndarray | None:
     """Project the delineated watershed onto the cells, by their centre."""
     from hydromodpy.spatial.mesh.ops.vector_cell_mask import vector_cell_mask
 

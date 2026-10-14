@@ -8,7 +8,10 @@ import shapely
 from shapely.geometry import Polygon
 
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
+from hydromodpy.spatial.mesh.model.derived_geometry import (
+    derive_geometry,
+    derive_geometry_from_rows,
+)
 from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.ops.voronoi import voronoi_planar_mesh
@@ -57,7 +60,7 @@ def _polygons(mesh: HydroMesh) -> np.ndarray:
 
 
 def _legacy_areas(mesh: HydroMesh) -> np.ndarray:
-    """The shoelace of ``SolverMesh.cell_areas`` before M3: a loop on the raw coordinates."""
+    """The former shoelace of ``SolverMesh.cell_areas``: a loop on the raw coordinates."""
     rows = mesh.flat_connectivity
     areas = np.zeros(mesh.n_cells)
     for cell, nodes in enumerate(rows):
@@ -200,3 +203,26 @@ def test_a_mesh_with_3d_vertices_raises() -> None:
 
     with pytest.raises(ValueError, match="2-column"):
         derive_geometry(mesh)
+
+
+@pytest.mark.parametrize("build", [_quads, _triangles, _voronoi])
+def test_the_geometry_of_stored_rows_is_the_geometry_of_the_mesh(build) -> None:
+    """A reader holding the padded int32 rows of a store derives what the mesh derived."""
+    mesh = build()
+    expected = derive_geometry(mesh)
+    vertices3 = np.column_stack([mesh.vertices, np.zeros(mesh.n_nodes)])
+
+    from_rows = derive_geometry_from_rows(vertices3, expected.padded_connectivity)
+
+    for name in (
+        "padded_connectivity",
+        "areas",
+        "area_centroids",
+        "edge_nodes",
+        "edge_cells",
+        "edge_length",
+        "edge_midpoint",
+        "adjacency_indptr",
+        "adjacency_indices",
+    ):
+        np.testing.assert_array_equal(getattr(from_rows, name), getattr(expected, name))

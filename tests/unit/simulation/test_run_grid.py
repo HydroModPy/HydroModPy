@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 import numpy as np
@@ -152,6 +153,76 @@ class TestCatchmentMask:
         run = Run(sid, catalog)
         mask_area = int(run.catchment_mask.sum()) * run.grid.cell_size**2
         assert mask_area == (3 * 2) * 2500.0
+
+
+class TestCatchmentMaskFromTheStoredBasin:
+    @staticmethod
+    def _store_basin(catalog, sid, cells, n=20, rule="near_point"):
+        descent_zeros = np.zeros(n, dtype=bool)
+        basin = descent_zeros.copy()
+        basin[cells] = True
+        sz = catalog.open_zarr(sid)
+        try:
+            sz.write_descent(
+                receiver=np.full(n, -1, dtype=np.int64),
+                surface=np.zeros(n),
+                base_level=descent_zeros,
+                constant_head=descent_zeros,
+                raised=descent_zeros,
+                channel=descent_zeros,
+                pinned=descent_zeros,
+                attrs={},
+                basin=basin,
+                basin_attrs={"descent_outlet": cells[0], "basin_rule": rule},
+            )
+        finally:
+            sz.close()
+
+    def test_mask_is_the_stored_basin_one_value_per_face(self, catalog, caplog):
+        sid = _register_sim(catalog, nrow=5, ncol=4)
+        self._store_basin(catalog, sid, [6, 7, 10])
+
+        with caplog.at_level("INFO"):
+            mask = Run(sid, catalog).catchment_mask
+
+        assert mask.shape == (20,)
+        assert mask.dtype == bool
+        assert np.flatnonzero(mask).tolist() == [6, 7, 10]
+        assert not mask.flags.writeable
+        assert "predates the stored basin" not in caplog.text
+
+    def test_the_largest_basin_of_a_synthetic_domain_is_no_catchment(self, catalog, caplog):
+        sid = _register_sim(catalog, nrow=5, ncol=4)
+        self._store_basin(catalog, sid, [6, 7, 10], rule="largest_basin")
+
+        with caplog.at_level("INFO"):
+            mask = Run(sid, catalog).catchment_mask
+
+        assert mask.shape == (5, 4)
+        assert "no catchment" in caplog.text
+        assert "'dem_raster'" in caplog.text
+
+    def test_mask_is_cached(self, catalog):
+        sid = _register_sim(catalog)
+        self._store_basin(catalog, sid, [6])
+        run = Run(sid, catalog)
+        assert run.catchment_mask is run.catchment_mask
+
+    def test_a_run_without_a_basin_falls_back_on_the_dem_and_says_so_once(self, catalog, caplog):
+        sid = _register_sim(catalog, nrow=5, ncol=4)
+        run = Run(sid, catalog)
+
+        with caplog.at_level("INFO"):
+            first = run.catchment_mask
+            second = run.catchment_mask
+
+        assert first is second
+        assert first.shape == (5, 4)
+        lines = [r for r in caplog.records if "predates the stored basin" in r.getMessage()]
+        assert len(lines) == 1
+        assert lines[0].levelno == logging.INFO
+        assert "'dem_raster'" in lines[0].getMessage()
+        assert "(5, 4)" in lines[0].getMessage()
 
 
 class TestDem:

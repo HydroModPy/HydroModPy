@@ -18,7 +18,13 @@ if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
 
-__all__ = ["DECLARATION_KEYS", "MeshQA", "compute_mesh_qa"]
+__all__ = [
+    "DECLARATION_KEYS",
+    "MeshQA",
+    "compute_mesh_qa",
+    "edge_nonorthogonality",
+    "edge_size_ratio",
+]
 
 DECLARATION_KEYS = frozenset({"graded", "exact_faces", "deterministic", "needs_cache"})
 """Engine statements every QA carries."""
@@ -94,10 +100,30 @@ def _n_duplicate_corners(padded: np.ndarray) -> int:
     return int(repeated.sum())
 
 
-def _nonorthogonality(
+def edge_size_ratio(geometry: DerivedGeometry) -> np.ndarray:
+    """Return, per mesh edge, the larger over the smaller side of its two cells.
+
+    The side of a cell is the square root of its area. The value is ``NaN`` on a
+    boundary edge, which has one cell only.
+    """
+    size = np.sqrt(geometry.areas)
+    interior = geometry.edge_cells[:, 1] >= 0
+    pairs = geometry.edge_cells[interior]
+    ratio = np.full(geometry.edge_cells.shape[0], np.nan)
+    ratio[interior] = np.maximum(size[pairs[:, 0]], size[pairs[:, 1]]) / np.minimum(
+        size[pairs[:, 0]], size[pairs[:, 1]]
+    )
+    return ratio
+
+
+def edge_nonorthogonality(
     centers: np.ndarray, vertices: np.ndarray, geometry: DerivedGeometry, keep: np.ndarray
 ) -> np.ndarray:
-    """Angle [deg] between the centre-to-centre vector and the face normal."""
+    """Return, per mesh edge, the angle [deg] between the centre-to-centre vector and the normal.
+
+    ``keep`` selects the edges measured, interior edges with two cells. The value
+    is ``NaN`` on every other edge and where the two centres coincide.
+    """
     cells = geometry.edge_cells[keep]
     nodes = geometry.edge_nodes[keep]
     tangent = vertices[nodes[:, 1]] - vertices[nodes[:, 0]]
@@ -106,7 +132,10 @@ def _nonorthogonality(
     along = np.abs(joint[:, 0] * tangent[:, 0] + joint[:, 1] * tangent[:, 1])
     across = np.abs(joint[:, 0] * tangent[:, 1] - joint[:, 1] * tangent[:, 0])
     seen = (along > 0.0) | (across > 0.0)
-    return np.degrees(np.arctan2(along[seen], across[seen]))
+    angles = np.full(keep.shape[0], np.nan)
+    measured = np.flatnonzero(keep)[seen]
+    angles[measured] = np.degrees(np.arctan2(along[seen], across[seen]))
+    return angles
 
 
 def _is_member(sorted_keys: np.ndarray, probe: np.ndarray) -> np.ndarray:
@@ -213,14 +242,12 @@ def compute_mesh_qa(
     threshold = face_tolerance if min_face_length_m is None else float(min_face_length_m)
 
     interior = geometry.edge_cells[:, 1] >= 0
-    pairs = geometry.edge_cells[interior]
-    ratio = np.maximum(size[pairs[:, 0]], size[pairs[:, 1]]) / np.minimum(
-        size[pairs[:, 0]], size[pairs[:, 1]]
-    )
+    ratio = edge_size_ratio(geometry)[interior]
     offset = np.hypot(*(centers - geometry.area_centroids).T) / size
-    angles = _nonorthogonality(
+    angles = edge_nonorthogonality(
         centers, vertices, geometry, interior & (geometry.edge_length > threshold)
     )
+    angles = angles[~np.isnan(angles)]
 
     neighbour = _stats(ratio, ("p50", "p95", "p99", "max"))
     neighbour["share_gt_1_5"] = float((ratio > 1.5).mean()) if ratio.size else float("nan")

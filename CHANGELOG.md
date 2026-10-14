@@ -83,8 +83,51 @@ Each release section includes the following standard categories:
   `tests/integration/test_one_cell_mesh_gives_every_solver_the_same_recharge_and_k.py` proves
   that MODFLOW 6, MODFLOW-NWT and Boussinesq get the same K, Sy and recharge, to the byte, from
   one mesh.
+- The cell mesh is written once, before the run, under `mesh/` of the Zarr store: vertices, cell
+  rows, cell centres (`face_x`, `face_y`), `face_family` and `edge_family` bit fields (CF
+  `flag_masks`), `face_zone`, and the UGRID edge tables (`edge_node_connectivity`,
+  `edge_face_connectivity`, dimensions `edge` and `two`, fill -1). Group attributes record the
+  engine, its version and seed, the CRS, the request hash, the QA and the gmsh, scipy, shapely
+  and GEOS versions. Two Parquet tables, `mesh_cell_families` and `mesh_face_families`, hold the
+  river and lake chains and the face families. `Run.array.dataset()` hands the stored edges to
+  xugrid; `Run.mesh` gains `identity`, `crs_source`, `layout` and `layout_note`;
+  `hydromodpy.results.run.mesh_families.mesh_families(run)` reads the two tables.
+- Four mesh quality fields, computed on read and never stored: `mesh_cell_area`,
+  `mesh_neighbour_ratio`, `mesh_center_offset`, `mesh_nonorthogonality`. A run sealed before the
+  layout serves the first two and refuses the other two with the reason. `hmp.read` serves them
+  like `Run.field`, one value per cell whatever `time` says.
+- `mesh_engine`, derived from the stored configuration, in `list_simulations`,
+  `v_simulation_summary`, `find(mesh_engine=...)` and the manifest (`geometry.mesh_engine`,
+  `geometry.mesh_engine_version`). NULL for a run sealed before the `[mesh]` section. No
+  migration: the index is rebuilt from `runs/`. `hmp catalog ls` prints it (`mesh=-` when NULL).
+- `hmp export` writes the GeoPackage layers `mesh_cells`, `mesh_seeds` and `mesh_family_faces`
+  in one file per request, in the CRS stored with the mesh. The four quality fields are
+  exportable by name and left out of `variables = "all"`, since `mesh_cells` holds them as
+  columns. A run sealed before the cell-mesh layout is refused with the reason.
+- The MODFLOW 6 extractor checks the solved DISV grid against the stored mesh, to half the
+  rounding step flopy writes, ring order and counts included; MODFLOW-NWT checks shape, ring
+  pattern and vertices (1e-6 of the largest side); Boussinesq checks the cell count. A grid that
+  is not the stored one raises `IncompatibleMeshError`.
+- `restart_from` refuses a source store solved on another mesh and names both mesh identities.
+- The characterization comparator accepts the closed list of members the cell-mesh layout adds
+  (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The catchment of a MODFLOW run is the basin of its descent D, computed once per build
+  (`core.descent.descent_basin`) and stored as `mesh/descent_basin` with its outlet and rule: the
+  budget zone `catchment`, the `_catchment` discharge and its runoff area, the discharge
+  observable and its runoff area in a calibration, the drainage routing, the `catchment_mismatch`
+  diagnostic of the network criterion and `Run.catchment_mask` read it. A run sealed before keeps
+  its old support and says so. `Run.catchment_mask` is one boolean per mesh face, no longer the
+  raster `watershed_dem > 0`. On a domain that is the catchment (`domain_extent = "watershed"`), D
+  is flooded from the outlet, so the basin holds the whole domain (99.89 % before on example 04).
+  Example 04: basin 64.77 km2 against the 64.62 km2 of the polygon, mean discharge +1.05 %, NSE
+  0.671 to 0.680, KGE 0.670 to 0.677. Flume d2 (2019): basin 91.54 km2 against 93.26 km2 for the
+  discharge observable, mean discharge +0.04 %. Heads, per-cell budgets and D do not move; the K
+  and the cost of the example 12 network calibration do not either. Discharge scores and
+  calibrated K from before are not comparable. Examples 03 `run_manual.py` and 10
+  `generate_nwt_flux_testbed_web_report.py` read `catchment_mask` as a raster and fail on a new
+  run.
 - The case-by-solver matrix of the Validation page shows how far each solver lands from the
   known reference: the error as a share of a scale of the case (head range, largest drawdown,
   initial discharge), in four classes, red when the test fails, a red mark when the error grew
@@ -132,8 +175,18 @@ Each release section includes the following standard categories:
   The Brutsaert recession case gives the same metrics under both presets, and the NWT
   validation profile keeps `"COMPLEX"`. On the fast example 12 regression the outputs move by
   0.02 % (0.12 % on one percentile), the mean water-table depth by 0.9 mm.
+- The run identity hash covers the mesh engine and its version (`__mesh_engine__`), and the mesh
+  cache key covers the gmsh, scipy, shapely and GEOS versions. The `config_hash` of every earlier
+  run changes once, so the first relaunch recomputes, and cached triangle meshes are regenerated
+  once. An unknown engine never matches a previous run.
+- `mesh/vertices` is the float64 coordinate of the cell mesh. It is no longer read back from the
+  MODFLOW 6 grid file, which flopy rounds to nine significant digits above 1e5 m: on a Lambert
+  project a vertex moves by up to 5e-3 m, and the island mesh area by 1.5 m2 in 131 650.
+- The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `watershed_drainage_cell_mask` (`solver/modflow6/builders`) and the polygon masks of the
+  MODFLOW 6 build: the drainage routing and the catchment readers take the basin of D.
 - `[mesh_catchment]`, `[mesh_catchment_batch]`, `[mesh_input]`, `[modflow6.sgrid.planar]`,
   `[modflownwt.sgrid.planar]`, `grid_dual`, `linear_constraint_snap_tolerance`,
   `rivers.snap_tolerance`: a TOML that declares one is refused with its replacement; a stored
@@ -145,6 +198,12 @@ Each release section includes the following standard categories:
   `Grid.cell_centers_xy`, `setup.mesh_support`, `SolverGridContext.mesh_support`,
   `model.solver_mesh_support` and the `river_trace` argument of `BoussinesqMesh.from_cell_mesh`.
   The solvers read the cell mesh instead.
+- The extractors no longer rewrite `mesh/` after a run (MODFLOW 6, MODFLOW-NWT): vertices,
+  connectivity and the synthesized NWT quad are gone, with `_padded_face_connectivity`,
+  `_structured_face_connectivity`, `_structured_shape_from_vertices` and
+  `_structured_mesh_geometry_from_shape`.
+- The `river::trace` fallback of the compact network (`gmsh_physical_lines`, the `.msh` read).
+  A run sealed before the family tables draws no reference line.
 
 ### Fixed
 - A gridded recharge or ETP (SIM2, several stations, the soil reservoir EVTA) on a regular

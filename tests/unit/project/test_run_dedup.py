@@ -17,7 +17,12 @@ from pydantic import BaseModel
 
 from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.project.dispatch.workflow import completed_identical_run
-from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
+from hydromodpy.results.catalog.registration import (
+    input_file_digests,
+    mesh_engine_identity,
+    run_identity_hash,
+)
+from hydromodpy.spatial.mesh import registry as mesh_registry
 from tests._helpers.fixtures_catalog import simulation_catalog
 
 
@@ -191,3 +196,44 @@ def test_inputs_that_cannot_be_walked_never_match(monkeypatch, tmp_path: Path) -
     monkeypatch.setattr("hydromodpy.core.tracking.collect_input_files", broken)
     config = _forced_project(tmp_path)
     assert input_file_digests(config) != input_file_digests(config)
+
+
+def _meshed(engine: str | None = None) -> dict:
+    config = _config()
+    if engine is not None:
+        config["mesh"] = {"engine": engine}
+    return config
+
+
+def test_a_new_build_of_the_mesh_engine_is_another_run(monkeypatch) -> None:
+    """An engine bumps its version when its mesh changes, so the old runs do not answer."""
+    config = _meshed("triangle")
+    base = run_identity_hash(config)
+    assert base == run_identity_hash(copy.deepcopy(config))
+    monkeypatch.setattr(mesh_registry.get("triangle"), "engine_version", "99.0.0")
+    assert run_identity_hash(config) != base
+
+
+def test_another_mesh_engine_is_another_run() -> None:
+    assert run_identity_hash(_meshed("triangle")) != run_identity_hash(_meshed("voronoi"))
+
+
+def test_a_config_without_a_mesh_section_is_meshed_by_the_default_engine() -> None:
+    default = mesh_registry.DEFAULT_ENGINE_ID
+    assert mesh_engine_identity(_meshed()) == mesh_engine_identity(_meshed(default))
+    assert mesh_engine_identity(_meshed())["engine"] == default
+
+
+def test_a_mesh_engine_nobody_serves_never_matches() -> None:
+    """The run goes on, and errs on the side of computing."""
+    config = _meshed("no_such_engine")
+    assert run_identity_hash(config) != run_identity_hash(config)
+
+
+def test_a_run_meshed_by_another_engine_build_is_not_skipped(monkeypatch, tmp_path: Path) -> None:
+    config = _forced_project(tmp_path)
+    sid = _register_as_a_run(config)
+    assert completed_identical_run(config, name="demo") == ("demo", sid)
+
+    monkeypatch.setattr(mesh_registry.get(), "engine_version", "99.0.0")
+    assert completed_identical_run(config, name="demo") is None

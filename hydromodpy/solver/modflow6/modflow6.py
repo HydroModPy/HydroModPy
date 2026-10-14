@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.core.descent import Descent
+from hydromodpy.core.descent import Descent, DescentBasin
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.api.api_runner import Mf6ApiContext
@@ -82,8 +82,10 @@ class Modflow6:
         self.dem_watershed_path = None
         self.grid_ctx: SolverGridContext | None = None
         self.routing_ctx: SolverRoutingContext | None = None
-        # The descent D of the build, set by build.run_pre_processing.
+        # The descent D of the build and its basin at the catchment outlet, set by
+        # build.run_pre_processing.
         self.descent: Descent | None = None
+        self.descent_basin: DescentBasin | None = None
         # The cell below each lake dam ({lake id: cell}), set with D by the build.
         self.dam_foot_cells: dict[str, int] = {}
         # Set by the steady initialization and the spin-up cycles: a model that

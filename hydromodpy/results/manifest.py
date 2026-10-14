@@ -39,6 +39,7 @@ simulations.period_start / period_end            run.timeseries index,         M
 simulations.crs_wkt / crs_epsg                   display.figure, exporters     M ``geometry``
 simulations.bbox_*                               display, exporters            M ``geometry.bbox``
 simulations.mesh_hash / mesh_topology            mesh reuse, comparison        M ``geometry``
+(none: attributes of fields.zarr/mesh)           engine of the mesh            M ``geometry.mesh_engine``
 simulations.zarr_path                            field reads                   fields.zarr in the run directory
 (none: attributes of fields.zarr/budget)         missing-field messages        M ``budget``
 simulations.config_hash / config_source          comparison, audit             M ``config``
@@ -391,7 +392,7 @@ def build_manifest(catalog: Catalog, sim_id: str | UUID) -> dict[str, Any]:
         "manifest_version": MANIFEST_SCHEMA_VERSION,
         "sealed_at": datetime.now(UTC).isoformat(),
         "run": _identity_block(row),
-        "geometry": _geometry_block(catalog, sid, row),
+        "geometry": _geometry_block(catalog, sid, row, run_dir),
         "period": {
             "start": _iso(row.get("period_start")),
             "end": _iso(row.get("period_end")),
@@ -632,18 +633,23 @@ def _identity_block(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _geometry_block(catalog: Catalog, sid: str, row: dict[str, Any]) -> dict[str, Any]:
+def _geometry_block(
+    catalog: Catalog, sid: str, row: dict[str, Any], run_dir: Path
+) -> dict[str, Any]:
     """Return the spatial identity of a run, catchment metadata included.
 
     ``declared_outlet`` is the outlet the user declared in the configuration;
     ``catchment.x_outlet`` / ``y_outlet`` is the pour point the delineation
     actually used. They are recorded separately because they can differ.
+    ``mesh_engine`` and ``mesh_engine_version`` come from the attributes of the
+    ``mesh/`` group, so they are absent for a run sealed before it stored them.
     """
     bbox = [row.get(f"bbox_{k}") for k in ("xmin", "ymin", "xmax", "ymax")]
     return {
         "n_cells": _int_or_none(row.get("n_cells")),
         "n_layers": _int_or_none(row.get("n_layers")),
         "mesh_topology": row.get("mesh_topology"),
+        **_mesh_engine_keys(run_dir),
         "mesh_hash": row.get("mesh_hash"),
         "crs_wkt": row.get("crs_wkt"),
         "crs_epsg": _int_or_none(row.get("crs_epsg")),
@@ -654,18 +660,41 @@ def _geometry_block(catalog: Catalog, sid: str, row: dict[str, Any]) -> dict[str
     }
 
 
+def _open_fields_root(run_dir: Path) -> zarr.Group | None:
+    """Return the root of the field store of a run, read-only; None when it has none."""
+    store_path = run_dir / FIELDS_STORE_NAME
+    if not store_path.is_dir():
+        return None
+    try:
+        return zarr.open_group(str(store_path), mode="r", use_consolidated=False)
+    except (FileNotFoundError, KeyError, ValueError, zarr.errors.GroupNotFoundError):
+        return None
+
+
+def _mesh_engine_keys(run_dir: Path) -> dict[str, str]:
+    """Return the engine and its version that the ``mesh/`` group names.
+
+    Empty for a run without a field store or sealed before the group named them.
+    """
+    root = _open_fields_root(run_dir)
+    mesh = None if root is None else root.get("mesh")
+    if mesh is None:
+        return {}
+    return {
+        f"mesh_{key}": str(mesh.attrs[key])
+        for key in ("engine", "engine_version")
+        if mesh.attrs.get(key) is not None
+    }
+
+
 def _budget_block(run_dir: Path) -> dict[str, Any] | None:
     """Return what the field store says it kept of the per-cell budget.
 
     None when the run has no field store or its ``budget/`` group carries no
     policy, which is a store written before the attributes existed.
     """
-    store_path = run_dir / FIELDS_STORE_NAME
-    if not store_path.is_dir():
-        return None
-    try:
-        root = zarr.open_group(str(store_path), mode="r", use_consolidated=False)
-    except (FileNotFoundError, KeyError, ValueError, zarr.errors.GroupNotFoundError):
+    root = _open_fields_root(run_dir)
+    if root is None:
         return None
     kept = kept_budget(root)
     if kept is None:

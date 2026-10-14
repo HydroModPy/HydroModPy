@@ -10,6 +10,7 @@ is owed on both routes or neither.
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 
 import numpy as np
@@ -20,6 +21,7 @@ from hydromodpy.calibration.config import CalibOutputPoint
 from hydromodpy.calibration.metrics import solver_extract as _solver_extract
 from hydromodpy.calibration.metrics.solver_extract import extract_outputs
 from hydromodpy.core.contracts.observables import ObservableResult
+from hydromodpy.core.descent import DescentBasin
 
 CELL = (0, 7)
 AREA_M2 = 6.4e7
@@ -27,6 +29,7 @@ TIMES = pd.date_range("2015-01-31", periods=3, freq="ME")
 BASEFLOW = np.array([1.0, 2.0, 3.0])
 RUNOFF_ADDED = 0.5
 CATCHMENT_KM2 = 64.6
+BASIN_M2 = 64.77e6
 
 
 class _Adapter:
@@ -57,10 +60,19 @@ class _Adapter:
 
 @pytest.fixture
 def wired(monkeypatch):
-    def _wire(*, includes_runoff: bool, observes: str | None, station_cell=CELL):
+    def _wire(
+        *,
+        includes_runoff: bool,
+        observes: str | None,
+        station_cell=CELL,
+        basin: DescentBasin | None = None,
+        builds_descent: bool = True,
+    ):
         adapter = _Adapter(includes_runoff=includes_runoff)
+        model = SimpleNamespace(descent_basin=basin) if builds_descent else SimpleNamespace()
+        run_ctx = SimpleNamespace(model=model)
         monkeypatch.setattr(
-            _solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, object())
+            _solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, run_ctx)
         )
         monkeypatch.setattr(_solver_extract, "find_cell_at_point", lambda *_: CELL)
         monkeypatch.setattr(_solver_extract, "cell_for_station", lambda *_a, **_k: station_cell)
@@ -133,6 +145,70 @@ def test_a_gauge_whose_cell_no_loader_placed_scores_the_catchment_series(wired) 
     assert seen["area_m2"] is None
     assert extracted.series["gauge"].to_numpy() == pytest.approx(BASEFLOW + RUNOFF_ADDED)
     assert "gauge.drained_fraction" not in extracted.diagnostics
+
+
+def _basin(rule: str) -> DescentBasin:
+    return DescentBasin(
+        mask=np.ones(4, dtype=bool),
+        outlet=3,
+        rule=rule,
+        area_m2=BASIN_M2,
+        seeded_at_outlet=False,
+    )
+
+
+def test_the_catchment_series_is_scaled_by_the_basin_it_sums(wired) -> None:
+    # The drain is summed over the basin of D, so its runoff covers that same area.
+    _adapter, seen, extracted = wired(
+        includes_runoff=False, observes="NANCON", station_cell=None, basin=_basin("near_point")
+    )
+    assert seen["area_m2"] == pytest.approx(BASIN_M2)
+    assert extracted.series["gauge"].to_numpy() == pytest.approx(BASEFLOW + RUNOFF_ADDED)
+
+
+def test_a_model_without_a_basin_names_the_old_runoff_area(wired, caplog) -> None:
+    with caplog.at_level(logging.WARNING):
+        _adapter, seen, _extracted = wired(
+            includes_runoff=False, observes="NANCON", station_cell=None
+        )
+    assert seen["area_m2"] is None
+    assert (
+        "Calibration discharge: the model carries no basin of D, so the runoff is scaled by "
+        "the old support 'catch_area' (64.600 km2)." in caplog.text
+    )
+
+
+def test_a_model_that_builds_no_d_names_the_old_runoff_area_without_a_warning(
+    wired, caplog
+) -> None:
+    # Boussinesq has no D, so no basin: expected, not an anomaly to warn about at each trial.
+    with caplog.at_level(logging.INFO):
+        _adapter, seen, _extracted = wired(
+            includes_runoff=False, observes="NANCON", station_cell=None, builds_descent=False
+        )
+    assert seen["area_m2"] is None
+    records = [r for r in caplog.records if "carries no basin of D" in r.getMessage()]
+    assert records
+    assert {r.levelno for r in records} == {logging.INFO}
+
+
+def test_the_largest_basin_of_a_synthetic_domain_keeps_the_old_area_silently(wired, caplog) -> None:
+    with caplog.at_level(logging.WARNING):
+        _adapter, seen, _extracted = wired(
+            includes_runoff=False,
+            observes="NANCON",
+            station_cell=None,
+            basin=_basin("largest_basin"),
+        )
+    assert seen["area_m2"] is None
+    assert "carries no basin of D" not in caplog.text
+
+
+def test_a_gauge_cell_keeps_the_area_it_drains_whatever_the_basin(wired) -> None:
+    _adapter, seen, _extracted = wired(
+        includes_runoff=False, observes="NANCON", basin=_basin("near_point")
+    )
+    assert seen["area_m2"] == pytest.approx(AREA_M2)
 
 
 def test_an_output_fitted_to_no_record_is_left_alone(wired) -> None:

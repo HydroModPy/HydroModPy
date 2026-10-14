@@ -23,6 +23,14 @@ when fields became compact by default: the head array is float32 rounded to
 gains the ``quantization_info`` container. The head values of this store are
 exact in float32, so the decoded field is unchanged.
 
+The store built without a mesh layout (``_build_legacy_store``) kept the digest of
+that fourth capture: ``layout=None`` writes the same bytes as before the layout
+existed. A fifth digest, ``EXPECTED_LAYOUT_DIGEST``, was captured for the store
+built with a ``MeshLayout`` (``_build_layout_store``): it adds the cell centres,
+the family bit fields, the zone codes, the edge tables and the engine attributes
+of ``mesh/``. The layout arrays are synthetic and only valid in shape, since the
+geometry of this golden (22 nodes, connectivity 0..39) has no real edges.
+
 Everything entering the digest is byte-identical on Linux and on Windows:
 
 * member names are ``as_posix()`` relatives, so no path separator and no
@@ -50,6 +58,7 @@ import pytest
 
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.results.zarr_store.mesh_layout import MeshLayout
 from hydromodpy.results.zarr_store.zarr_finalizer import lock_path_for_store
 
 _FROZEN_NOW = datetime(2026, 5, 16, 12, 0, 0, tzinfo=UTC)
@@ -59,6 +68,7 @@ _FROZEN_NOW = datetime(2026, 5, 16, 12, 0, 0, tzinfo=UTC)
 _VOLATILE_KEYS = frozenset({"history", "created_at", "date_modified"})
 
 EXPECTED_DIGEST = "cc89183efe10339d92dfa793c4e699614c458313940d26a8f95aa296a06cf358"
+EXPECTED_LAYOUT_DIGEST = "725c98e821229cb469ed1299c936abca62c9204cc4e11c8b13e8ebb6d93e99fa"
 
 STORE_MEMBERS: tuple[str, ...] = (
     "forcing/zarr.json",
@@ -83,6 +93,44 @@ STORE_MEMBERS: tuple[str, ...] = (
     "zarr.json",
 )
 """Every file the digest walks, in the order it hashes them."""
+
+LAYOUT_STORE_MEMBERS: tuple[str, ...] = (
+    "forcing/zarr.json",
+    "head/c/0/0/0",
+    "head/zarr.json",
+    "mesh/edge_face_connectivity/c/0/0",
+    "mesh/edge_face_connectivity/zarr.json",
+    "mesh/edge_family/c/0",
+    "mesh/edge_family/zarr.json",
+    "mesh/edge_node_connectivity/c/0/0",
+    "mesh/edge_node_connectivity/zarr.json",
+    "mesh/face_family/c/0",
+    "mesh/face_family/zarr.json",
+    "mesh/face_node_connectivity/c/0/0",
+    "mesh/face_node_connectivity/zarr.json",
+    "mesh/face_x/c/0",
+    "mesh/face_x/zarr.json",
+    "mesh/face_y/c/0",
+    "mesh/face_y/zarr.json",
+    "mesh/face_zone/c/0",
+    "mesh/face_zone/zarr.json",
+    "mesh/topography/c/0",
+    "mesh/topography/zarr.json",
+    "mesh/topology/zarr.json",
+    "mesh/vertices/c/0/0",
+    "mesh/vertices/zarr.json",
+    "mesh/z_interfaces/c/0",
+    "mesh/z_interfaces/zarr.json",
+    "mesh/zarr.json",
+    "meta/zarr.json",
+    "particles/zarr.json",
+    "quantization_info/zarr.json",
+    "state/zarr.json",
+    "time/c/0",
+    "time/zarr.json",
+    "zarr.json",
+)
+"""Every file the digest of the store written with a mesh layout walks."""
 
 
 class _FrozenDatetime(datetime):
@@ -141,7 +189,32 @@ def _content_digest(store_path: Path) -> str:
     return hasher.hexdigest()
 
 
-def _build_synthetic_store(path: Path) -> Path:
+def _synthetic_layout() -> MeshLayout:
+    """Return a layout valid in shape for the 10 cells and 22 nodes of the golden mesh."""
+    return MeshLayout(
+        face_x=np.linspace(0.5, 9.5, 10),
+        face_y=np.full(10, 0.5),
+        center_kind="cell_center",
+        face_family=np.array([1, 1, 3, 2, 0, 0, 0, 4, 4, 0], dtype="int32"),
+        family_names=("rivers", "lakes", "boundary:west"),
+        face_zone=np.array([0, 0, 0, 0, 1, 1, 1, 1, -1, -1], dtype="int32"),
+        zone_names=("zone_1", "zone_2"),
+        edge_node_connectivity=np.array([[0, 1], [1, 2], [2, 3], [3, 4]], dtype="int32"),
+        edge_face_connectivity=np.array([[0, -1], [0, 1], [1, 2], [2, -1]], dtype="int32"),
+        edge_family=np.array([4, 0, 2, 4], dtype="int32"),
+        edge_family_names=("lakes", "boundary:west", "boundary:east"),
+        attrs={
+            "engine": "regular",
+            "engine_version": "1.0.0",
+            "crs": 'LOCAL_CS["golden"]',
+            "mesh_request_hash": "0123456789abcdef",
+            "qa": {"n_cells": 10, "area_sum_m2": 10.0, "ratio": None},
+            "library_versions": {"shapely": "2.0.0"},
+        },
+    )
+
+
+def _build_store(path: Path, *, layout: MeshLayout | None) -> Path:
     """Create a tiny store (10 cells x 2 layers) and return its directory."""
     sz = SimulationZarr.create(
         path,
@@ -165,6 +238,7 @@ def _build_synthetic_store(path: Path) -> Path:
         start_index=0,
         grid_type="structured",
         structured_shape=(2, 5),
+        layout=layout,
     )
 
     sz.write_time(
@@ -217,29 +291,51 @@ def _build_synthetic_store(path: Path) -> Path:
     return path
 
 
+def _build_legacy_store(path: Path) -> Path:
+    """Create the store as it was written before the mesh layout existed."""
+    return _build_store(path, layout=None)
+
+
+def _build_layout_store(path: Path) -> Path:
+    """Create the same store with the mesh layout written under ``mesh/``."""
+    return _build_store(path, layout=_synthetic_layout())
+
+
+@pytest.fixture
+def pinned_versions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin the hydromodpy version label that bleeds into the root attrs.
+
+    The digest is then independent of the installed package version.
+    """
+    monkeypatch.setattr("hydromodpy.results.zarr_store.zarr_schema._HMP_VERSION", "test-version")
+    monkeypatch.setattr("hydromodpy.results.zarr_store.acdd._HMP_VERSION", "test-version")
+
+
 def test_simulation_zarr_store_is_byte_stable(
-    tmp_path: Path,
-    freeze_clock: None,
-    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path, freeze_clock: None, pinned_versions: None
 ) -> None:
     """The directory-store content must match the golden SHA-256."""
-    # Pin the hydromodpy version label that bleeds into root attrs so the
-    # digest is independent of the installed package version.
-    monkeypatch.setattr(
-        "hydromodpy.results.zarr_store.zarr_schema._HMP_VERSION",
-        "test-version",
-    )
-    monkeypatch.setattr(
-        "hydromodpy.results.zarr_store.acdd._HMP_VERSION",
-        "test-version",
-    )
-
-    store_path = _build_synthetic_store(tmp_path / FIELDS_STORE_NAME)
+    store_path = _build_legacy_store(tmp_path / FIELDS_STORE_NAME)
     digest = _content_digest(store_path)
 
     assert digest == EXPECTED_DIGEST, (
         "SimulationZarr store content drifted from the golden snapshot.\n"
         f"  expected: {EXPECTED_DIGEST}\n"
+        f"  actual:   {digest}\n"
+        "If the change is intentional, recompute the snapshot."
+    )
+
+
+def test_a_store_with_a_mesh_layout_is_byte_stable(
+    tmp_path: Path, freeze_clock: None, pinned_versions: None
+) -> None:
+    """The store written with a layout must match its own golden SHA-256."""
+    store_path = _build_layout_store(tmp_path / FIELDS_STORE_NAME)
+    digest = _content_digest(store_path)
+
+    assert digest == EXPECTED_LAYOUT_DIGEST, (
+        "The store written with a mesh layout drifted from the golden snapshot.\n"
+        f"  expected: {EXPECTED_LAYOUT_DIGEST}\n"
         f"  actual:   {digest}\n"
         "If the change is intentional, recompute the snapshot."
     )
@@ -252,9 +348,11 @@ def test_store_holds_only_zarr_hierarchy_members(tmp_path: Path) -> None:
     and the store stops being what a reader opens: ``zarr`` warns that the
     entry is not a component of the hierarchy.
     """
-    store_path = _build_synthetic_store(tmp_path / FIELDS_STORE_NAME)
+    legacy = _build_legacy_store(tmp_path / "legacy" / FIELDS_STORE_NAME)
+    layout = _build_layout_store(tmp_path / "layout" / FIELDS_STORE_NAME)
 
-    assert tuple(name for name, _ in _store_members(store_path)) == STORE_MEMBERS
+    assert tuple(name for name, _ in _store_members(legacy)) == STORE_MEMBERS
+    assert tuple(name for name, _ in _store_members(layout)) == LAYOUT_STORE_MEMBERS
 
 
 def test_the_write_lock_is_never_a_store_member(tmp_path: Path) -> None:

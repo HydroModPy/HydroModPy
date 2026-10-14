@@ -23,7 +23,6 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     remove_drain_cells,
     resolve_sfr_networks,
     sfr_drain_cells_to_drop,
-    watershed_drainage_cell_mask,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReachTrace
@@ -664,22 +663,3 @@ def test_inactive_sfr_returns_no_network() -> None:
     model.flow.active_bc = ["drainage"]
     assert resolve_sfr_networks(model, solver_mesh=mesh) == {}
     assert build_sfr_package_args(model, networks={}) is None
-
-
-def test_watershed_drainage_cell_mask_classifies_cells_by_centroid() -> None:
-    mesh = _mesh()
-    centroids = mesh.cell_centroids()
-    xs = np.unique(centroids[:, 0])
-    threshold = float((xs[2] + xs[3]) / 2.0)  # strictly between two cell columns
-    poly = box(
-        float(centroids[:, 0].min() - 1.0),
-        float(centroids[:, 1].min() - 1.0),
-        threshold,
-        float(centroids[:, 1].max() + 1.0),
-    )
-
-    mask = watershed_drainage_cell_mask(poly, centroids)
-
-    assert mask.dtype == bool and mask.shape == (mesh.n_cells,)
-    assert np.array_equal(mask, centroids[:, 0] < threshold)
-    assert mask.any() and not mask.all()  # genuinely partitions the grid

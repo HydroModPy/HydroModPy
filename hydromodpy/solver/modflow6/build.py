@@ -12,9 +12,8 @@ from typing import TYPE_CHECKING
 import flopy
 import numpy as np
 
-from hydromodpy.core.descent import Descent
+from hydromodpy.core.descent import Descent, DescentBasin
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.stream_geometry import CATCHMENT_MISMATCH_WARNING_SHARE, resolve_outlet
 from hydromodpy.core.units import to_modflow6_time_units
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
@@ -70,7 +69,6 @@ from hydromodpy.solver.modflow6.builders import (
     sfr_drain_cells_to_drop,
     sfr_routes_drainage,
     sto_period_settings,
-    watershed_drainage_cell_mask,
     xt3d_activation_mode,
     xt3d_requested_value,
 )
@@ -107,6 +105,7 @@ from hydromodpy.solver.modflow_common.mesh_descent import (
     build_solver_mesh_descent,
     channel_tree_for_run,
     resolve_dam_foot_cells,
+    run_basin,
     write_descent_sidecar,
 )
 from hydromodpy.solver.modflow_common.sink_mask import resolve_sink_mask
@@ -309,20 +308,6 @@ def _shared_recharge_dir(model) -> str | None:
     return None
 
 
-def _watershed_polygon_mask(model, cell_centroids: np.ndarray) -> np.ndarray | None:
-    """Cells whose centre lies in the delineated watershed polygon, or None without one."""
-    geographic = getattr(model, "geographic", None)
-    shp = getattr(geographic, "watershed_shp", None)
-    if not shp or not os.path.exists(str(shp)):
-        return None
-    import geopandas as gpd
-
-    gdf = gpd.read_file(str(shp))
-    if gdf.empty:
-        return None
-    return watershed_drainage_cell_mask(gdf.geometry.union_all(), cell_centroids)
-
-
 def _run_descent(
     model, solver_mesh, lake_cell_ids_by_lake, constant_head: np.ndarray
 ) -> Descent | None:
@@ -345,15 +330,17 @@ def _run_descent(
     """
     if getattr(model, "auxiliary", False) and not sfr_networks_walk_the_descent(model):
         return None
+    geographic = getattr(model, "geographic", None)
     return build_solver_mesh_descent(
         solver_mesh,
         lake_cells_by_lake=lake_cell_ids_by_lake,
         base_level_mask=constant_head,
         channel_tree=channel_tree_for_run(
-            getattr(model, "geographic", None),
+            geographic,
             solver_mesh,
             required=is_bc_active(model, "sfr") and sfr_networks_lie_on_the_river_network(model),
         ),
+        geographic=geographic,
     )
 
 
@@ -361,21 +348,31 @@ def _keep_dam_feet_and_leave_descent(
     model,
     descent: Descent | None,
     spillway_seed_by_lake: Mapping[str, int],
+    *,
+    basin: DescentBasin | None,
 ) -> None:
-    """Keep the dam foot of each lake on the model and leave D beside it.
+    """Keep the dam foot of each lake on the model and leave D and its basin beside it.
 
     The stream below a dam starts at the dam, so the heads rule of the network
     criterion takes the foot as a head of its own: a calibration reads
     ``model.dam_foot_cells`` (``{lake id: cell}``), and the run stores the same
-    cells with D through the sidecar for the redraw. An auxiliary model is never
-    extracted: it keeps no foot and leaves no sidecar.
+    cells with D through the sidecar for the redraw. The model keeps the basin
+    of D for the discharge observable. An auxiliary model is never extracted:
+    it keeps no foot and no basin, and leaves no sidecar. ``basin`` is None only
+    when ``descent`` is.
     """
     model.dam_foot_cells = {}
+    model.descent_basin = None
     if descent is None or getattr(model, "auxiliary", False):
         return
+    model.descent_basin = basin
     model.dam_foot_cells = resolve_dam_foot_cells(descent, spillway_seed_by_lake)
     write_descent_sidecar(
-        descent, model.full_path, model.model_output_name, dam_foot_cells=model.dam_foot_cells
+        descent,
+        model.full_path,
+        model.model_output_name,
+        dam_foot_cells=model.dam_foot_cells,
+        basin=basin,
     )
 
 
@@ -385,17 +382,28 @@ def _build_descent_and_dam_feet(
     lake_cell_ids_by_lake: Mapping[str, Sequence[int]],
     constant_head: np.ndarray,
     outlet_xy: tuple[float, float] | None,
-) -> tuple[Descent | None, dict[str, int]]:
-    """Build D, resolve the spillway seeds, keep the dam feet and leave D beside the model.
+) -> tuple[Descent | None, DescentBasin | None, dict[str, int]]:
+    """Build D and its basin, resolve the spillway seeds, keep the dam feet, leave D beside.
 
     The spillway seeds are the dam-toe cells of the lakes whose spillway routes
     to the downstream reach, so the SFR channel reaches the foot of the dam
     (mover.to_downstream_reach). They are resolved on the mesh, not a fixed
     cell number, so they survive remeshing. They are also the dam feet: the
     stream below a dam starts there, so the heads rule of the network criterion
-    takes each as a head of its own. Returns ``(D, {lake id: seed cell})``.
+    takes each as a head of its own.
+
+    The basin of D at the catchment outlet is computed here, once per build,
+    while D still holds its adjacency (:func:`run_basin`): the drainage routing,
+    the discharge observable and the stored run read it. Returns
+    ``(D, basin of D, {lake id: seed cell})``, D and its basin None when the
+    model builds no D.
     """
     descent = _run_descent(model, solver_mesh, lake_cell_ids_by_lake, constant_head)
+    basin = (
+        None
+        if descent is None
+        else run_basin(getattr(model, "geographic", None), solver_mesh, descent)
+    )
     spillway_seed_by_lake: dict[str, int] = {}
     if lake_cell_ids_by_lake:
         spillway_seed_by_lake = resolve_spillway_seed_cells(
@@ -407,8 +415,8 @@ def _build_descent_and_dam_feet(
             mesh_top=solver_mesh.top,
             outlet_xy=outlet_xy,
         )
-    _keep_dam_feet_and_leave_descent(model, descent, spillway_seed_by_lake)
-    return descent, spillway_seed_by_lake
+    _keep_dam_feet_and_leave_descent(model, descent, spillway_seed_by_lake, basin=basin)
+    return descent, basin, spillway_seed_by_lake
 
 
 def _constant_head_cells(
@@ -424,85 +432,20 @@ def _constant_head_cells(
     return cells
 
 
-def _drainage_basin(model, descent: Descent, solver_mesh) -> np.ndarray:
-    """Basin of D at the catchment outlet: the DRN cells routed to the streams.
+def _drainage_basin_mask(basin: DescentBasin | None) -> np.ndarray:
+    """The DRN cells routed to the streams: the basin of D the build computed.
 
-    The outlet follows the rule of the stream criterion: the most drained cell
-    near the outlet the catchment was closed on (the snapped point, else the
-    declared one), else inside the watershed polygon, else the largest basin of
-    the domain. The declared point can sit up to the snap distance away, on
-    another branch. The basin is read on D, so it agrees with the routing by
-    construction. The polygon is only compared with it: a gap above
-    ``CATCHMENT_MISMATCH_WARNING_SHARE`` of its area is a warning, as in the
-    criterion.
+    A run with neither outlet nor watershed polygon routes the largest basin of
+    the descent, which is an anomaly for a catchment model: a warning.
     """
-    centroids = solver_mesh.cell_centroids()
-    areas = np.asarray(solver_mesh.cell_areas(), dtype=float)
-    areas = np.where(np.isfinite(areas), areas, 0.0)
-    polygon = _watershed_polygon_mask(model, centroids)
-    if polygon is not None:
-        polygon = polygon & descent.routable
-        if not np.any(polygon):
-            polygon = None
-    near = _catchment_outlet_xy(getattr(model, "geographic", None))
-    if near is None and polygon is None:
+    if basin is None:
+        raise ValueError("drainage routing walks the descent D, and this build has none.")
+    if not basin.is_catchment:
         logger.warning(
             "Drainage routing: no outlet and no watershed polygon for this run. The "
             "hillslope DRN of the largest basin of the descent is routed to the streams."
         )
-    outlet = resolve_outlet(
-        descent.metric,
-        within=polygon,
-        near=near,
-        adjacency=descent.adjacency,
-        cell_area_m2=areas,
-    )
-    basin = descent.basin(outlet)
-    if polygon is None:
-        logger.info(
-            "Drainage basin of D: %d cells (%.3f km2), no watershed polygon to compare.",
-            int(basin.sum()),
-            float(areas[basin].sum()) / 1.0e6,
-        )
-        return basin
-    polygon_area = float(areas[polygon].sum())
-    outside = basin & ~polygon
-    missing = polygon & ~basin
-    outside_share = float(areas[outside].sum()) / polygon_area if polygon_area else 0.0
-    missing_share = float(areas[missing].sum()) / polygon_area if polygon_area else 0.0
-    mismatch = outside_share + missing_share
-    log = logger.warning if mismatch > CATCHMENT_MISMATCH_WARNING_SHARE else logger.info
-    log(
-        "Drainage basin of D: %d cells against %d in the watershed polygon; %d basin "
-        "cells outside the polygon (%.1f %% of its area), %d polygon cells outside "
-        "the basin (%.1f %%).%s",
-        int(basin.sum()),
-        int(polygon.sum()),
-        int(outside.sum()),
-        100.0 * outside_share,
-        int(missing.sum()),
-        100.0 * missing_share,
-        (
-            " The gap is above the warning share: the outlet may sit on another branch, "
-            "or the mesh is much coarser than the DEM the polygon came from."
-            if mismatch > CATCHMENT_MISMATCH_WARNING_SHARE
-            else ""
-        ),
-    )
-    return basin
-
-
-def _catchment_outlet_xy(geographic: object) -> tuple[float, float] | None:
-    """The point the catchment was closed on: the snapped outlet, else the declared one."""
-    for x_name, y_name in (("x_outlet_snapped", "y_outlet_snapped"), ("x_outlet", "y_outlet")):
-        x = getattr(geographic, x_name, None)
-        y = getattr(geographic, y_name, None)
-        if x is None or y is None:
-            continue
-        point = (float(x), float(y))
-        if np.all(np.isfinite(point)):
-            return point
-    return None
+    return basin.mask
 
 
 def _resolve_channel_mask_for_zonal(model) -> np.ndarray | None:
@@ -1095,7 +1038,7 @@ def run_pre_processing(  # noqa: PLR0915
     # of the dam, fed to the rectification below, so the overflow enters an SFR
     # reach at the dam foot instead of a gap of hillslope DRN cells. The same
     # cells are kept on the model and stored with D as the dam feet.
-    descent, spillway_seed_by_lake = _build_descent_and_dam_feet(
+    descent, basin, spillway_seed_by_lake = _build_descent_and_dam_feet(
         model,
         solver_mesh,
         lake_cell_ids_by_lake,
@@ -1362,7 +1305,7 @@ def run_pre_processing(  # noqa: PLR0915
                     sfr_networks,
                     drn_spd=drn_spd,
                     receiver=descent.stopping_receiver,
-                    basin_cell_mask=_drainage_basin(model, descent, solver_mesh),
+                    basin_cell_mask=_drainage_basin_mask(basin),
                     face_adjacency=solver_mesh.face_adjacency(),
                     mesh_top=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
                     lake_cells_by_number=lake_cells_by_number,

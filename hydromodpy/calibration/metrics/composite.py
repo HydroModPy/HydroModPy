@@ -43,6 +43,7 @@ from hydromodpy.calibration.metrics.series import (
     time_grid_boundaries,
 )
 from hydromodpy.calibration.metrics.solver_extract import (
+    catchment_area_the_discharge_sums,
     extract_outputs,
     report_the_area_a_gauge_drains,
     resolve_flow_adapter,
@@ -155,7 +156,11 @@ def _discharge_by_station(
     # reaches, so adding the forcing again would count it twice. Only a
     # drain-budget discharge is baseflow alone.
     if not whole.includes_runoff:
-        catchment = add_runoff_to_discharge(catchment, trial_ctx)
+        catchment = add_runoff_to_discharge(
+            catchment,
+            trial_ctx,
+            area_m2=catchment_area_the_discharge_sums(run_ctx, trial_ctx),
+        )
 
     out: dict[str, ObservableResult] = {}
     for obs_rec in observed:

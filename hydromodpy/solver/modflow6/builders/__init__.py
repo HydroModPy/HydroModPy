@@ -116,7 +116,6 @@ from hydromodpy.solver.modflow6.builders.sfr import (
     resolve_sfr_networks,
     sfr_drain_cells_to_drop,
     sfr_routes_drainage,
-    watershed_drainage_cell_mask,
 )
 from hydromodpy.solver.modflow6.builders.solver_options import (
     log_xt3d_resolution,
@@ -239,7 +238,6 @@ __all__ = [
     "sto_period_settings",
     "stream_chd_support_mask",
     "ts6_times_and_values",
-    "watershed_drainage_cell_mask",
     "well_cell_to_disv",
     "xt3d_activation_mode",
     "xt3d_is_enabled",

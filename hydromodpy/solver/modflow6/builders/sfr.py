@@ -44,7 +44,6 @@ from hydromodpy.solver.modflow6.builders._sfr_drainage import (
     remove_drain_cells,
     sfr_drain_cells_to_drop,
     sfr_routes_drainage,
-    watershed_drainage_cell_mask,
 )
 from hydromodpy.solver.modflow6.builders._sfr_network import (
     _active_sfr_definitions,
@@ -653,5 +652,4 @@ __all__ = [
     "sfr_networks_lie_on_the_river_network",
     "sfr_networks_walk_the_descent",
     "sfr_routes_drainage",
-    "watershed_drainage_cell_mask",
 ]

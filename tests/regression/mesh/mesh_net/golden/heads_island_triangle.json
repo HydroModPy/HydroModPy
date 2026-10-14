@@ -3,7 +3,7 @@
   "fixture": "island_triangle.toml",
   "values": {
     "n_cells": 1200,
-    "total_area": 131650.24191996362,
+    "total_area": 131648.717184587,
     "head": {
       "p5": 0.0,
       "p50": 2.1470918345653827,

@@ -107,6 +107,10 @@ def run(args: argparse.Namespace) -> None:
         name = row.get("name", "") or "(no name)"
         solver = row.get("solver", "")
         status = row.get("status", "")
+        mesh_engine = row.get("mesh_engine")
+        mesh = mesh_engine if isinstance(mesh_engine, str) else "-"
         dur = row.get("duration_s")
         dur_str = f" {dur:.1f}s" if dur else ""
-        print(f"  {name}  [{short_id(sim_id)}]  solver={solver}  status={status}{dur_str}")
+        print(
+            f"  {name}  [{short_id(sim_id)}]  solver={solver}  mesh={mesh}  status={status}{dur_str}"
+        )

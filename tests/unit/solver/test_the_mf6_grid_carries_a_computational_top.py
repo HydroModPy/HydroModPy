@@ -191,7 +191,6 @@ def _write_surface(tmp_path: Path, store: SimulationZarr) -> None:
         "flow",
         1,
         GROUND.size,
-        grid_shape=(1, GROUND.size),
     )
 
 

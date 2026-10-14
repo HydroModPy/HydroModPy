@@ -17,6 +17,7 @@ from this Protocol stay implementation-specific to ``Catalog``
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import UUID
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog.registration import RegistrationResult
     from hydromodpy.results.run import Run
     from hydromodpy.results.zarr_store import SimulationZarr
+    from hydromodpy.results.zarr_store.mesh_layout import MeshLayout
 
 
 @runtime_checkable
@@ -200,8 +202,19 @@ class SimulationStore(Protocol):
         z_interfaces: np.ndarray,
         layer_indices: np.ndarray | None = None,
         source_cell_indices: np.ndarray | None = None,
+        *,
+        structured_shape: tuple[int, int] | None = None,
+        layout: MeshLayout | None = None,
     ) -> None:
         """Persist the simulation mesh for ``sim_id``."""
+
+    def write_view(
+        self,
+        sim_id: str | UUID,
+        view_name: str,
+        records: Sequence[Mapping[str, Any]],
+    ) -> None:
+        """Persist one declared Parquet view of ``sim_id`` into its run directory."""
 
     def write_geographic_feature(
         self,

@@ -20,6 +20,8 @@ from uuid import UUID
 import numpy as np
 import pandas as pd
 
+from hydromodpy.results.catalog.constants import MESH_ENGINE_SQL
+
 if TYPE_CHECKING:
     import geopandas as gpd
 
@@ -59,13 +61,14 @@ _SIMULATION_DIRECT_FILTERS: frozenset[str] = frozenset(
     }
 )
 
-# Filter columns resolved via dim-table JOINs.
+# Filter columns resolved via dim-table JOINs, and the one derived from the config.
 _SIMULATION_DIM_FILTERS: dict[str, str] = {
     "solver": "sv.code",
     "solver_category": "sv.category",
     "flow_regime": "fr.code",
     "status": "st.code",
     "mesh_topology": "mt.code",
+    "mesh_engine": MESH_ENGINE_SQL,
 }
 
 _SIMULATION_FILTER_COLUMNS: frozenset[str] = _SIMULATION_DIRECT_FILTERS | frozenset(
@@ -116,7 +119,8 @@ _SIMULATIONS_VIEW_SELECT = (
     "sv.code AS solver, sv.category AS solver_category, "
     "st.code AS status, "
     "fr.code AS flow_regime, "
-    "mt.code AS mesh_topology "
+    "mt.code AS mesh_topology, "
+    f"{MESH_ENGINE_SQL} AS mesh_engine "
     "FROM simulations s "
     "JOIN solvers sv ON s.solver_id = sv.id "
     "JOIN statuses st ON s.status_id = st.id "

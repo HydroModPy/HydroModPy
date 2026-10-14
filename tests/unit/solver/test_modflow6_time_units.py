@@ -465,10 +465,15 @@ class TestTheDischargeSeriesIsTheCatchmentAndNotTheDomain:
         with pytest.raises(ValueError, match="holds no cell"):
             cal.extract_discharge_from_cbc(tmp_path, "flow", catchment_mask=np.zeros(3, dtype=bool))
 
-    def test_a_run_without_a_delineated_catchment_is_refused_by_name(self) -> None:
+    def test_a_model_without_basin_or_catchment_is_refused_by_name(self) -> None:
 
         from hydromodpy.solver.modflow_common.catchment_support import catchment_cell_mask
 
-        model = SimpleNamespace(geographic=SimpleNamespace(watershed_shp=None), solver_mesh=None)
+        model = SimpleNamespace(
+            model_name="flow",
+            descent_basin=None,
+            geographic=SimpleNamespace(watershed_shp=None),
+            solver_mesh=None,
+        )
         with pytest.raises(ValueError, match="which water the gauge closes on"):
             catchment_cell_mask(model)
