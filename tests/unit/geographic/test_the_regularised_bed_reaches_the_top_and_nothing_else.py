@@ -1,4 +1,4 @@
-"""Both geographic entry points sample the model top from the regularised bed, and only it.
+"""The geographic pipeline samples the model top from the regularised bed, and only it.
 
 The terrain engine, the network extraction and the clips are replaced by
 recorders that write the rasters of the bench valley, with a 1.5 m bump on the
@@ -27,7 +27,6 @@ from hydromodpy.spatial import Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.geographic import pipeline as runtime_pipeline
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
-from hydromodpy.spatial.geographic.core import domain_geographic_pipeline as domain_pipeline
 from hydromodpy.spatial.geographic.core.bed_regularization_raster import (
     GROUND_BED_FILENAME,
     GROUND_BED_REPORT_FILENAME,
@@ -165,18 +164,6 @@ def _structures(root: Path) -> dict:
     return {"crossings": {"enabled": True, "path": path}}
 
 
-def _domain(root: Path, monkeypatch, config: GeographicConfig):
-    terrain = _Terrain()
-    monkeypatch.setattr(domain_pipeline, "build_regional_flow_products", terrain.flow)
-    monkeypatch.setattr(domain_pipeline, "build_standard_catchment", terrain.catchment)
-    monkeypatch.setattr(domain_pipeline, "build_river_network_products", terrain.network)
-    monkeypatch.setattr(domain_pipeline, "clip_dem_to_box_buffer", terrain.clip)
-    workspace = SimpleNamespace(project_root=root / "results")
-    features = domain_pipeline.build_geographic_derived_features(config=config, workspace=workspace)
-    context = features.to_domain_geographic_context()
-    return terrain, context.watershed_box_buff_dem, context.surface_topo.as_array()
-
-
 def _runtime(root: Path, monkeypatch, config: GeographicConfig):
     terrain = _Terrain()
     tool = SimpleNamespace(delineation=SimpleNamespace(polygons_to_lines=lambda *a, **k: None))
@@ -196,9 +183,6 @@ def _runtime(root: Path, monkeypatch, config: GeographicConfig):
     terrain.context = context
     top = context.runtime_attributes()["watershed_box_buff_dem"]
     return terrain, top, _read(top)
-
-
-ENTRY_POINTS = pytest.mark.parametrize("run", [_domain, _runtime], ids=["domain", "runtime"])
 
 
 def _geographic(root: Path) -> Path:
@@ -222,13 +206,12 @@ def _read(path: str | Path) -> np.ndarray:
         return src.read(1)
 
 
-@ENTRY_POINTS
 def test_off_the_top_reads_the_clip_of_the_ground_and_nothing_is_written(
-    run, tmp_path, monkeypatch
+    tmp_path, monkeypatch
 ) -> None:
     config = _config(tmp_path, regularize=False)
 
-    _, top_path, top = run(tmp_path, monkeypatch, config)
+    _, top_path, top = _runtime(tmp_path, monkeypatch, config)
 
     assert Path(top_path) == _clip_path(tmp_path)
     assert (top == _read(_clip_path(tmp_path))).all()
@@ -236,12 +219,11 @@ def test_off_the_top_reads_the_clip_of_the_ground_and_nothing_is_written(
     assert not list(_correcflow(tmp_path).glob("*_bed*"))
 
 
-@ENTRY_POINTS
-def test_on_the_top_reads_the_regularised_copy(run, tmp_path, monkeypatch) -> None:
+def test_on_the_top_reads_the_regularised_copy(tmp_path, monkeypatch) -> None:
     off_root, on_root = tmp_path / "off", tmp_path / "on"
-    run(off_root, monkeypatch, _config(off_root, regularize=False))
+    _runtime(off_root, monkeypatch, _config(off_root, regularize=False))
 
-    _, top_path, top = run(on_root, monkeypatch, _config(on_root, regularize=True))
+    _, top_path, top = _runtime(on_root, monkeypatch, _config(on_root, regularize=True))
 
     clip = _clip_path(on_root)
     assert Path(top_path) == bed_dem_path(clip)
@@ -257,13 +239,12 @@ def test_on_the_top_reads_the_regularised_copy(run, tmp_path, monkeypatch) -> No
     assert abs(float(np.mean(bed - ground[:, channel_col]))) < 0.01
 
 
-@ENTRY_POINTS
 def test_the_routing_the_channel_tree_and_the_mesh_polygons_do_not_move(
-    run, tmp_path, monkeypatch
+    tmp_path, monkeypatch
 ) -> None:
     off_root, on_root = tmp_path / "off", tmp_path / "on"
-    off, _, _ = run(off_root, monkeypatch, _config(off_root, regularize=False))
-    on, _, _ = run(on_root, monkeypatch, _config(on_root, regularize=True))
+    off, _, _ = _runtime(off_root, monkeypatch, _config(off_root, regularize=False))
+    on, _, _ = _runtime(on_root, monkeypatch, _config(on_root, regularize=True))
 
     assert [Path(p).name for p in on.routing] == [Path(p).name for p in off.routing]
     for name in ("watershed.shp", "watershed_box_buff.shp"):
@@ -277,14 +258,13 @@ def test_the_routing_the_channel_tree_and_the_mesh_polygons_do_not_move(
     assert networks[1].geometry.geom_equals(networks[0].geometry).all()
 
 
-@ENTRY_POINTS
 def test_the_notch_footprint_is_a_gap_the_weir_a_cut_and_both_are_reported(
-    run, tmp_path, monkeypatch, caplog
+    tmp_path, monkeypatch, caplog
 ) -> None:
     config = _config(tmp_path, regularize=True, **_structures(tmp_path))
 
     with caplog.at_level("INFO"):
-        run(tmp_path, monkeypatch, config)
+        _runtime(tmp_path, monkeypatch, config)
 
     report = _report(tmp_path)
     assert report["gap_pixels"] == 1
@@ -417,12 +397,11 @@ def test_a_triangle_mesh_takes_its_modflow6_top_from_the_regularised_clip(
     np.testing.assert_allclose(top, [bed_top[row, col], bed_top[row, col - 4]], atol=1e-4)
 
 
-@ENTRY_POINTS
 def test_without_a_crossings_file_the_fit_has_no_cut_and_says_so(
-    run, tmp_path, monkeypatch, caplog
+    tmp_path, monkeypatch, caplog
 ) -> None:
     with caplog.at_level("INFO"):
-        run(tmp_path, monkeypatch, _config(tmp_path, regularize=True))
+        _runtime(tmp_path, monkeypatch, _config(tmp_path, regularize=True))
 
     lines = [r.getMessage() for r in caplog.records if "no crossings file" in r.getMessage()]
     assert len(lines) == 1

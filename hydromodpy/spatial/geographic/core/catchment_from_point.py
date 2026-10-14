@@ -139,9 +139,9 @@ def extract_catchment_from_point(
         except TerrainProductError as exc:
             # The engine knows rasters and windows; only this layer knows which
             # configuration keys the user would have to change. Re-raised as its
-            # own class and not as the base one: the breach-then-fill retry of
-            # the domain pipeline decides on EmptyCatchmentError, and widening
-            # the type here would turn that retry off without a word.
+            # own class and not as the base one: a caller that decides on
+            # EmptyCatchmentError would stop seeing it if the type were widened
+            # here.
             raise type(exc)(
                 f"{exc} Check geographic.catchment.x_outlet / y_outlet, increase "
                 "geographic.catchment.snap_dist, or verify that the corrected DEM and "

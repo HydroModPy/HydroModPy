@@ -52,8 +52,8 @@ def _regular() -> PlanarCellMesh:
 def _meshes() -> dict[str, PlanarCellMesh]:
     return {
         "regular": _regular(),
-        "triangles": bundle_triangles(_BUNDLE)[0],
-        "dual": bundle_dual(_BUNDLE)[0],
+        "triangles": bundle_triangles(_BUNDLE),
+        "dual": bundle_dual(_BUNDLE),
     }
 
 

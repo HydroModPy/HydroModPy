@@ -23,21 +23,20 @@ The backends
      - ``solver/modflow6/adapters/flow.py`` bridges a ``ProcessRun`` to
        ``Modflow6`` (``solver/modflow6/modflow6.py``). ``build.py`` wires the
        packages and ``builders/`` holds one module per package.
-     - The structured ``sgrid`` and runtime Gmsh meshes (``[mesh_catchment]``,
-       ``[mesh_input]``). The model is always written as DISV, through
-       ``to_disv_kwargs`` of ``SolverMesh``.
+     - The cell mesh of any engine (``[mesh] engine``). The model is always written as
+       DISV, through ``to_disv_kwargs`` of ``SolverMesh``.
    * - MODFLOW-NWT
      - ``("flow", "modflow_nwt")``
      - ``solver/modflow_nwt/adapters/flow.py`` bridges to ``ModflowNwt``
        (``solver/modflow_nwt/nwt/nwt_solver.py``). ``flow_to_modflow_adapter.py``
        turns the runtime state into package inputs.
-     - A structured grid it builds itself. It raises if the grid is not
-       structured and does not consume a runtime Gmsh mesh.
+     - The ``regular`` engine only, written as a DIS grid. A file whose ``[mesh] engine``
+       is another engine is refused when it is read.
    * - Boussinesq
      - ``("flow", "boussinesq")``
      - ``solver/boussinesq/adapters/flow.py`` bridges to ``Boussinesq``
        (``solver/boussinesq/boussinesq.py``).
-     - Triangular meshes from a Gmsh catchment bundle.
+     - Triangular cell meshes: the cell mesh of the run, or a mesh bundle read as one.
 
 MODFLOW 6 and MODFLOW-NWT also serve transport: MODPATH, MT3DMS, GWT and PRT
 adapters sit beside the flow adapter of their backend. MODFLOW-NWT builds no LAK and
@@ -60,7 +59,7 @@ The shortest reading path for one flow run is the one of
 ``flow_adapter_helpers.py``, then the model class of the table above. Configuration is
 validated by ``modflow6_config.py`` (``[modflow6.*]``) and ``nwt/nwt_config.py``
 (``[modflownwt.*]``). MODFLOW 6 reads the output back through
-``solver/modflow6/postprocess/pipeline.py``, and resolves HydroModPy properties into
+``solver/modflow6/extractors/``, and resolves HydroModPy properties into
 MF6 arrays in ``solver/modflow6/support/property_mapping.py``.
 
 MODFLOW contracts
@@ -339,12 +338,6 @@ Declared apart, each on its own surface:
   solver-grid DEM, conditioned by ``dem_correc_type``. Mass transfer and MT3DMS
   accumulation trace point sources down the Whitebox pointer and stay on it
   until they are migrated.
-- The Boussinesq extractor builds its own D from the Whitebox D8 pointer of the
-  filled top (``solver/boussinesq/extractors/descent.py``): a Boussinesq store
-  holds a top and no mesh connectivity, and D is stored only for a raster run.
-- ``solver/modflow6/postprocess/_unstructured.py``
-  (``accumulate_unstructured_cell_values``, the legacy GeoTIFF export on an
-  unstructured MODFLOW 6 mesh) accumulates on its own adjacency of the DEM.
 - ``modflow_common/sink_mask.py`` answers a different question, which cells
   have no outlet in the solver's own four-face connectivity, and stays on it.
 - The network criterion reads the model top T and fills its own copy on its own
@@ -354,7 +347,6 @@ See also
 --------
 
 - :doc:`boussinesq-uml-diagrams` for the structure of the Boussinesq backend.
-- :doc:`../mesh/structured-grid-architecture` for the grid object that feeds the
-  discretization contract.
-- :doc:`../mesh/catchment-mesh-architecture` for the runtime Gmsh meshes.
+- :doc:`../mesh/mesh-pivot` for the cell mesh that feeds the discretization contract.
+- :doc:`../mesh/mesh-engines` for the mesh engines.
 - :doc:`../contracts` for the adapter pattern that wraps these contracts.

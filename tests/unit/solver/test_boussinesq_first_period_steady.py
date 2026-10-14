@@ -32,6 +32,7 @@ from hydromodpy.solver.boussinesq.forcing.common import (
 )
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.runtime_contract import TransientStepInputs
+from tests._helpers.boussinesq_cell_meshes import placeholder_cell_mesh
 
 DAY_S = 86400.0
 N_CELLS = 6
@@ -74,6 +75,7 @@ def _row_mesh(n_cells: int = N_CELLS) -> BoussinesqMesh:
         edge_is_river=np.zeros(n_edges, dtype=bool),
         cell_index_by_id={i: i for i in range(n_cells)},
         node_index_by_id={i: i for i in range(n_cells + 1)},
+        cell_mesh=placeholder_cell_mesh(n_cells),
     )
 
 

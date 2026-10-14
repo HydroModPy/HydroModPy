@@ -39,7 +39,6 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
     from hydromodpy.spatial.domain.domain_config import DomainConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-    from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
     analysis_module.__dict__.update(
         RegionalLabConfig=RegionalLabConfig,
@@ -59,7 +58,6 @@ def _rebuild_forward_refs() -> None:
         "ModflowConfig": ModflowConfig,
         "DomainConfig": DomainConfig,
         "GeographicConfig": GeographicConfig,
-        "MeshCatchmentConfig": MeshCatchmentConfig,
         "OverviewConfig": OverviewConfig,
         "RegionalLabConfig": RegionalLabConfig,
         "CapabilityGalleryConfig": CapabilityGalleryConfig,

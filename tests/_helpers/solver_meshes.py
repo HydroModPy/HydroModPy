@@ -12,7 +12,6 @@ import numpy as np
 
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.adapters.cell_mesh import cell_mesh_from_regular_grid
-from hydromodpy.spatial.mesh.adapters.flopy_adapter import from_flopy_structured
 from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
 from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
@@ -20,6 +19,7 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     build_planar_cell_mesh,
 )
 from tests._helpers.cell_meshes import TEST_CRS_WKT
+from tests._helpers.regular_cell_meshes import from_flopy_structured
 
 
 def solver_mesh_from(

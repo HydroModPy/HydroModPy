@@ -26,7 +26,6 @@ dependencies:
   - plotly
   - pyproj
   - pyshp
-  - pyvista
   - python>=3.11,<3.14
   - rasterio
   - rioxarray

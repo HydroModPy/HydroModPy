@@ -86,7 +86,7 @@ class StructuredGridBuilder:
         2. Compute vertical layer proportions.
         3. Build `botm` and return a `StructuredGridSpec`.
         """
-        cfg = _coerce_vertical_config(vertical_config)
+        cfg = coerce_vertical_config(vertical_config)
 
         # 1) Horizontal compatibility checks.
         #    "Same geographic domain" means same CRS + same spatial extent.
@@ -115,10 +115,10 @@ class StructuredGridBuilder:
         top[invalid] = nodata
         bot[invalid] = nodata
 
-        self._assert_bottom_below_top(top=top, bot=bot, nodata=nodata)
+        assert_bottom_below_top(top=top, bot=bot, nodata=nodata)
 
         # 2) Vertical proportions from config.
-        allp, nlay = self._compute_layer_proportions(
+        allp, nlay = layer_proportions(
             genmtd_lay=cfg.genmtd_lay,
             nlay=cfg.nlay,
             lay_decay=cfg.lay_decay,
@@ -160,72 +160,6 @@ class StructuredGridBuilder:
         )
 
     @staticmethod
-    def _assert_bottom_below_top(top, bot, nodata):
-        """
-        Ensure vertical order is physically consistent: bottom < top on valid cells.
-        """
-        top = np.asarray(top, dtype=float)
-        bot = np.asarray(bot, dtype=float)
-        nodata_value = float(nodata)
-
-        valid = np.isfinite(top) & np.isfinite(bot) & (top > nodata_value) & (bot > nodata_value)
-        if not np.any(valid):
-            raise ValueError(
-                "No finite overlapping valid cells found between top and bottom surfaces."
-            )
-
-        violations = bot[valid] >= top[valid]
-        if np.any(violations):
-            n_bad = int(np.count_nonzero(violations))
-            total = int(violations.size)
-            max_delta = float(np.max(bot[valid] - top[valid]))
-            raise ValueError(
-                "Bottom surface must be strictly below top surface on valid cells "
-                f"({n_bad}/{total} violations, max(bot-top)={max_delta:.6g})."
-            )
-
-    @staticmethod
-    def _compute_layer_proportions(genmtd_lay, nlay=None, lay_decay=None, lay_proportions=None):
-        """
-        Compute cumulative vertical proportions (`allp`) and layer count (`nlay`).
-
-        Returned convention
-        -------------------
-        - `allp` is a 1D cumulative array in ]0, 1], one value per model layer.
-        - `allp[k]` is the fraction of total vertical distance `(top - bottom)`
-          reached at the bottom of layer `k`.
-        - The last value is always ~1.0, so the last computed layer bottom
-          matches the provided bottom surface.
-
-        Examples
-        --------
-        - `constant, nlay=4` -> `[0.25, 0.50, 0.75, 1.00]`
-        - `list, [0.1, 0.2, 0.3, 0.4]` -> cumulative `[0.1, 0.3, 0.6, 1.0]`
-        - `decay` -> increasing thickness with depth (for `lay_decay > 1`)
-        """
-        if genmtd_lay == "list":
-            # User provides explicit per-layer fractions that sum to 1.
-            # We convert them to cumulative proportions expected by `_build_botm`.
-            arr = np.asarray(lay_proportions, dtype=float)
-            return np.cumsum(arr), int(arr.size)
-
-        if genmtd_lay == "constant":
-            # Uniform layer thickness: each layer spans 1/nlay of total thickness.
-            nlay_int = int(nlay)
-            return np.arange(1, nlay_int + 1, dtype=float) / nlay_int, nlay_int
-
-        if genmtd_lay == "decay":
-            # Geometric-like cumulative profile:
-            # upper layers thinner, deeper layers thicker when `decay > 1`.
-            nlay_int = int(nlay)
-            decay = float(lay_decay)
-            idx = np.arange(1, nlay_int + 1, dtype=float)
-            allp = (1 - decay**idx) / (1 - decay**nlay_int)
-            return allp, nlay_int
-
-        raise ValueError(f"Unsupported genmtd_lay '{genmtd_lay}'. Allowed: list, constant, decay.")
-
-    @staticmethod
     def _build_botm(top, bot, nodata, allp):
         """
         Build layer-bottom array `botm` from top and bottom absolute surfaces.
@@ -256,9 +190,10 @@ class StructuredGridBuilder:
         return botm
 
 
-def _coerce_vertical_config(
+def coerce_vertical_config(
     vertical_config: VerticalGridConfig | Mapping[str, object] | None,
 ) -> VerticalGridConfig:
+    """Return the vertical config of a config object, a mapping or ``None`` (defaults)."""
     if vertical_config is None:
         return VerticalGridConfig()
     if isinstance(vertical_config, VerticalGridConfig):
@@ -266,6 +201,64 @@ def _coerce_vertical_config(
     if isinstance(vertical_config, Mapping):
         return VerticalGridConfig.from_mapping(vertical_config)
     raise TypeError("vertical_config must be None, VerticalGridConfig, or a mapping of values.")
+
+
+def layer_proportions(
+    *,
+    genmtd_lay: str,
+    nlay: int | None = None,
+    lay_decay: float | None = None,
+    lay_proportions: list[float] | None = None,
+) -> tuple[np.ndarray, int]:
+    """
+    Compute cumulative vertical proportions (`allp`) and layer count (`nlay`).
+
+    Returned convention
+    -------------------
+    - `allp` is a 1D cumulative array in ]0, 1], one value per model layer.
+    - `allp[k]` is the fraction of total vertical distance `(top - bottom)`
+      reached at the bottom of layer `k`.
+    - The last value is always ~1.0, so the last computed layer bottom
+      matches the provided bottom surface.
+
+    Examples
+    --------
+    - `constant, nlay=4` -> `[0.25, 0.50, 0.75, 1.00]`
+    - `list, [0.1, 0.2, 0.3, 0.4]` -> cumulative `[0.1, 0.3, 0.6, 1.0]`
+    - `decay` -> increasing thickness with depth (for `lay_decay > 1`)
+    """
+    if genmtd_lay == "list":
+        arr = np.asarray(lay_proportions, dtype=float)
+        return np.cumsum(arr), int(arr.size)
+
+    if genmtd_lay == "constant":
+        nlay_int = int(nlay)
+        return np.arange(1, nlay_int + 1, dtype=float) / nlay_int, nlay_int
+
+    if genmtd_lay == "decay":
+        nlay_int = int(nlay)
+        decay = float(lay_decay)
+        idx = np.arange(1, nlay_int + 1, dtype=float)
+        allp = (1 - decay**idx) / (1 - decay**nlay_int)
+        return allp, nlay_int
+
+    raise ValueError(f"Unsupported genmtd_lay '{genmtd_lay}'. Allowed: list, constant, decay.")
+
+
+def assert_bottom_below_top(*, top: np.ndarray, bot: np.ndarray, nodata: float) -> None:
+    """Ensure vertical order is physically consistent: bottom < top on valid cells."""
+    valid = np.isfinite(top) & np.isfinite(bot) & (top > float(nodata)) & (bot > float(nodata))
+    if not np.any(valid):
+        raise ValueError("No finite overlapping valid cells found between top and bottom surfaces.")
+    violations = bot[valid] >= top[valid]
+    if np.any(violations):
+        n_bad = int(np.count_nonzero(violations))
+        total = int(violations.size)
+        max_delta = float(np.max(bot[valid] - top[valid]))
+        raise ValueError(
+            "Bottom surface must be strictly below top surface on valid cells "
+            f"({n_bad}/{total} violations, max(bot-top)={max_delta:.6g})."
+        )
 
 
 def _structured_vertices(

@@ -10,7 +10,6 @@ from pyproj import CRS
 from shapely.geometry import LineString, box
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.spatial.mesh.adapters.flopy_adapter import from_flopy_structured
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
@@ -23,6 +22,7 @@ from hydromodpy.spatial.mesh.request import (
 )
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
+from tests._helpers.regular_cell_meshes import from_flopy_structured
 
 WKT = CRS.from_epsg(2154).to_wkt()
 

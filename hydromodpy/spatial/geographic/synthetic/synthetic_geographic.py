@@ -14,10 +14,10 @@ from rasterio.transform import from_origin
 from shapely.geometry import box
 
 from hydromodpy.spatial.geographic.core.derived_features import (
+    DomainGeographicContext,
     GeographicBoundaryFeatures,
     GeographicDerivedFeatures,
 )
-from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import DomainGeographicContext
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
 from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values

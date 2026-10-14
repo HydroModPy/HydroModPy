@@ -213,7 +213,7 @@ class SolverMesh:
 
     # -- Structured-grid compatibility properties ------------------------------
     # These properties allow SolverMesh to be passed where an sgrid-like
-    # object is expected (e.g. sgrid_mesh_adapter).
+    # object is expected.
     # They raise for unstructured meshes.
 
     @property

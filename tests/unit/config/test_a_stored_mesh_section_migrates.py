@@ -112,7 +112,7 @@ def test_an_enabled_lake_refinement_and_the_zones_are_kept() -> None:
     )
     doc = _doc(mesh_catchment=table)
     translate_retired_mesh_sections(doc)
-    assert doc["mesh"]["lake_refinement"]["cell_size"] == 30.0
+    assert doc["mesh"]["lake_refinement"] == {"cell_size": 30.0}
     assert doc["mesh"]["refinement_zone"] == [{"path": "zones.gpkg", "cell_size": 20.0}]
     assert MeshConfig.model_validate(doc["mesh"]).lake_refinement is not None
 
@@ -248,3 +248,52 @@ def test_the_snapshot_of_the_earlier_version_still_reloads() -> None:
     assert snapshot == before
     assert cfg.mesh is None
     assert cfg.solver.backend_name == "modflow_nwt"
+
+
+def test_a_stored_lake_refinement_switch_is_dropped_at_the_root_and_in_an_overlay(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    stored = {"enabled": True, "cell_size": 30.0}
+    doc = _doc(
+        mesh={"engine": "voronoi", "cell_size": 150.0, "lake_refinement": dict(stored)},
+        comparison={
+            "base_simulation_overlay": {"mesh": {"lake_refinement": dict(stored)}},
+            "simulation": [{"id": "a", "overlay": {"mesh": {"lake_refinement": dict(stored)}}}],
+        },
+    )
+    before = copy.deepcopy(doc)
+
+    with caplog.at_level("INFO", logger="hydromodpy"):
+        migrated = migrate_stored_config(doc, source="test")
+
+    assert doc == before
+    assert migrated["mesh"]["lake_refinement"] == {"cell_size": 30.0}
+    comparison = migrated["comparison"]
+    assert comparison["base_simulation_overlay"]["mesh"]["lake_refinement"] == {"cell_size": 30.0}
+    assert comparison["simulation"][0]["overlay"]["mesh"]["lake_refinement"] == {"cell_size": 30.0}
+    lines = [r.getMessage() for r in caplog.records if "migrated" in r.msg]
+    assert len(lines) == 1
+    assert "mesh.lake_refinement.enabled dropped" in lines[0]
+    assert "comparison.base_simulation_overlay.mesh.lake_refinement.enabled dropped" in lines[0]
+    assert "comparison.simulation[0].overlay.mesh.lake_refinement.enabled dropped" in lines[0]
+    assert MeshConfig.model_validate(migrated["mesh"]).lake_refinement is not None
+
+
+def test_a_stored_lake_switch_reloads_and_a_written_one_is_refused() -> None:
+    doc = _doc(mesh={"engine": "voronoi", "lake_refinement": {"enabled": True, "cell_size": 30.0}})
+
+    cfg = HydroModPyConfig.from_snapshot(doc)
+
+    assert cfg.mesh is not None and cfg.mesh.lake_refinement is not None
+    assert cfg.mesh.lake_refinement.cell_size == 30.0
+    with pytest.raises(ValueError, match=r"\[mesh\.lake_refinement\] has no 'enabled' key"):
+        HydroModPyConfig.model_validate(doc)
+
+
+def test_a_config_without_the_lake_refinement_switch_logs_nothing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    doc = _doc(mesh={"engine": "voronoi", "lake_refinement": {"cell_size": 30.0}})
+    with caplog.at_level("INFO", logger="hydromodpy"):
+        assert migrate_stored_config(doc) == doc
+    assert not [r for r in caplog.records if "migrated" in r.msg]

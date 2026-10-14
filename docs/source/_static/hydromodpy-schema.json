@@ -16738,16 +16738,6 @@
       "additionalProperties": false,
       "description": "Local mesh-refinement targets for the lake shoreline and the hydraulic structures.",
       "properties": {
-        "enabled": {
-          "default": false,
-          "description": "Refine the GMSH mesh on the lake shoreline band (+ hydraulic structures).",
-          "examples": [
-            false
-          ],
-          "title": "Enabled",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
         "cell_size": {
           "default": 40.0,
           "description": "Target cell size, in metres, in the lake shoreline band.",

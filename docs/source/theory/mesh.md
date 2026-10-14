@@ -2,19 +2,18 @@
 
 The solver does not see the DEM. It sees cells, and one top elevation, one bottom
 elevation and one centre for each of them. This page gives the rules that turn the
-DEM into those cells: how the cells are laid out, how the top of a cell is read from
+DEM into those cells: which engine lays the cells out, how the top of a cell is read from
 the DEM, how many cells a given size costs, and which checks the code runs on the
 result.
 
 :::{note}
 **Scope.** The cell layout below is the one of MODFLOW 6, which reads every grid as a
-DISV grid. MODFLOW-NWT builds a structured grid only and ignores a runtime mesh.
-Boussinesq uses the triangles of the Gmsh mesh as its cells, so the Voronoi dual of
-{ref}`mesh-voronoi` does not apply to it, and it ignores the top sampling of
-{ref}`mesh-top`. What the solver does with the cells is on {doc}`solvers`.
-The extra terms XT3D adds on a non-orthogonal mesh are on
+DISV grid. MODFLOW-NWT and Boussinesq read one engine each, and a file that pairs a solver with
+an engine it does not read is refused when it is read; the pairs are on
+{doc}`../contribute/architecture/mesh/mesh-engines`. Boussinesq ignores the top sampling of {ref}`mesh-top`. What the
+solver does with the cells is on {doc}`solvers`. The extra terms XT3D adds on a non-orthogonal mesh are on
 {doc}`solvers/xt3d-on-irregular-disv-meshes`. To set up a mesh, see
-{doc}`../reference/parameters/mesh_catchment`.
+{doc}`../reference/parameters/mesh`.
 :::
 
 ## The chain in one list
@@ -22,19 +21,26 @@ The extra terms XT3D adds on a non-orthogonal mesh are on
 The code builds the cells in this order. Each step is a section below.
 
 1. Two surfaces: the top from the DEM $Z$ and the bottom from the depth model.
-2. A planar support, from one of two sources: the pixels of the DEM (a structured
-   grid, {ref}`mesh-structured`), or a Gmsh triangulation built at run time
-   ({ref}`mesh-gmsh`), which MODFLOW 6 turns into its Voronoi dual by default
-   ({ref}`mesh-voronoi`).
+2. A planar mesh from one of three engines, chosen by {toml}`mesh.engine`: squares on the
+   DEM ({ref}`mesh-structured`), triangles ({ref}`mesh-triangle`) or Voronoi cells
+   ({ref}`mesh-voronoi`). The two engines that grade their cells follow one size field
+   ({ref}`mesh-size`).
 3. One top elevation per cell ({ref}`mesh-top`) and one bottom elevation per cell.
 4. A check of the thickness ({ref}`mesh-acceptance`), then the layers
    ({ref}`mesh-layers`).
 5. The export to MODFLOW 6 as a DISV grid. The cells that have no valid top or bottom
    are written inactive.
 
-Example 04 uses the first source: its files declare neither a `[mesh_catchment]` section
-nor a `[modflow6.sgrid]` section, so every cell is one DEM pixel. The header of
-`step1_minimal.toml` counts 21406 cells of 75 m for this domain.
+What each engine gives the solver:
+
+| Engine | Cells | Centre | Connections | Lines it follows |
+|---|---|---|---|---|
+| `regular` | squares, one per DEM pixel or larger | cell centre | orthogonal | rivers as chains of cells; contacts and shores as staircases |
+| `triangle` | triangles | mean of the vertices | not orthogonal, XT3D on by default | rivers, contacts and shores as edges |
+| `voronoi` | polygons | the generator | orthogonal | rivers as chains of cells; contacts and shores as faces |
+
+Example 04 uses the first engine: its files declare no `[mesh]` section, so every cell is one
+DEM pixel. The header of `step1_minimal.toml` counts 21406 cells of 75 m for this domain.
 
 ::::{dropdown} Notation of this page
 ```{hmp-notation}
@@ -42,11 +48,11 @@ nor a `[modflow6.sgrid]` section, so every cell is one DEM pixel. The header of
 ::::
 
 (mesh-structured)=
-## 1. A structured grid
+## 1. The regular engine
 
-With {toml}`modflow6.sgrid.planar.mode` at its default, the cells are the pixels of the
-top raster, with the same size and the same extent. A cell $(i,j)$ takes the value of
-pixel $(i,j)$, with no interpolation:
+With no `[mesh]` section, or with `engine = "regular"` and no {toml}`mesh.cell_size`, the
+cells are the pixels of the top raster, with the same size and the same extent. A cell
+$(i,j)$ takes the value of pixel $(i,j)$, with no interpolation:
 
 $$
 z_{\mathrm{top},ij} = Z_{ij}, \qquad N_S = n_{\mathrm{row}}\, n_{\mathrm{col}}, \qquad
@@ -56,126 +62,111 @@ $$
 A pixel that is nodata makes the cell inactive. The cell still exists in the grid, so
 $N_S$ counts the active and the inactive cells.
 
-With {toml}`modflow6.sgrid.planar.mode` set to resample the grid to a shape, top and
-bottom are resampled to $n_{\mathrm{row}} \times n_{\mathrm{col}}$ cells over the same
-extent, with the rule of {toml}`modflow6.sgrid.planar.resampling`
-(`project_surfaces_to_planar_grid`). If a cell then covers at least two DEM pixels, the
-top of the cell is the zonal statistic of {ref}`mesh-top` instead of the
-resampled value (`_cells_cover_pixels`, `_zonal_structured_top`). A grid whose cells are
-the pixels is never touched by the zonal top.
+With a {toml}`mesh.cell_size` coarser than the pixel, the grid covers the same extent with
+$\operatorname{round}(L_x / \ell_g)$ cells along an extent $L_x$, so the cells are a little
+larger or smaller than asked. Top and bottom are resampled to that shape with a bilinear
+rule. If a cell then covers at least two DEM pixels, the top of the cell is the zonal
+statistic of {ref}`mesh-top` instead of the resampled value. A grid whose cells are the
+pixels is never touched by the zonal top. A {toml}`mesh.cell_size` finer than the DEM is
+refused. The developer key {toml}`mesh.regular.shape` gives the number of rows and columns
+instead of a size.
+
+The engine does not grade its cells: it ignores {toml}`mesh.river_cell_size` and
+{toml}`mesh.river_band`, and its quality report says so. A river is the chain of cells its
+line crosses. A contact or a lake shore becomes a staircase of cell faces, and the report
+gives the distance between the staircase and the line.
 
 MODFLOW 6 reads this grid as a DISV grid. MODFLOW-NWT reads it as a DIS grid.
 
-(mesh-gmsh)=
-## 2. A runtime mesh from Gmsh
+(mesh-size)=
+## 2. The size field of the graded engines
 
-A `[mesh_catchment]` section makes the run build a triangulation of $\Omega$ with Gmsh
-before the solver is prepared (`run_mesh_phase`). The project refuses a file that has both a
-`[mesh_catchment]` and a `[mesh_input]` section (`Embedded [mesh_catchment] and external [mesh_input] are mutually`):
-they are two sources for the same mesh. A mesh that already exists is declared with
-{toml}`mesh_input.mesh_path` or {toml}`mesh_input.bundle_dir` instead, and goes through
-the steps below like a mesh the run built.
-
-The triangle sizes come from a size field, in the sense of the Gmsh manual
-({cite:p}`geuzaine2009gmsh`, [reference manual](https://gmsh.info/doc/texinfo/gmsh.html)):
-a Distance field to some curves, a Threshold field on it, and the minimum of all fields.
-Around the interface curves (rivers, geology interfaces, the catchment boundary), when
-{toml}`mesh_catchment.zone_meshing.refine_interfaces` is on, the code sets the lower
-distance of the Threshold to zero. With $\xi$ the distance to the nearest interface, the
-wanted size is linear between the two limits:
+The `triangle` and `voronoi` engines mesh under one size field $\ell(\mathbf{x})$, the
+wanted cell size at each point, computed on the grid of the DEM. The background size is
+$\ell_g$, {toml}`mesh.cell_size`, which is the DEM pixel when unset. A line the mesh refines
+is a term of the field: the cells have the size $\ell_s$ on it, and the size grows back to
+$\ell_g$ with the distance $\xi$ to the line. The rivers are such a line, with $\ell_s$ set
+by {toml}`mesh.river_cell_size` and the distance $\xi_s$ over which the size grows back
+set by {toml}`mesh.river_band`. The shore of a lake and the zones of
+{toml}`mesh.refinement_zone.cell_size` are others. A term grows at
+$\sigma_k = \min\bigl((\ell_g - \ell_{s,k}) / \xi_{s,k},\ \sigma_{\max}\bigr)$ per metre,
+and the field is the minimum of the background and of every term:
 
 $$
-\ell_0(\xi) = \ell_s + (\ell_g - \ell_s)\,\min\!\left(1, \frac{\xi}{\xi_s}\right).
+\ell(\mathbf{x}) = \min\Bigl(\ell_b(\mathbf{x}),\ \min_k\bigl[\ell_{s,k}
++ \sigma_k\, \xi_k(\mathbf{x})\bigr]\Bigr).
 $$ (eq-mesh-size)
 
-When the refinement policy is on, there is one such field per family of curves, with its
-own $\ell_s$ and $\xi_s$ (`apply_family_refinement_fields`). The size actually used is
-bounded by Gmsh options the code sets from the three keys of the section
-(`apply_mesh_options`):
+The distances $\xi_k$ are Euclidean distances between pixel centres. The field is kept above
+the DEM pixel $\Delta$, since a cell finer than the DEM adds no information. The background
+$\ell_b$ is $\ell_g$ inside the catchment and grows to $\kappa\,\ell_g$ outside it, with
+$\kappa$ = {toml}`mesh.outside_factor`, over at least {toml}`mesh.transition_distance`, so the cells
+far from the catchment are coarse.
 
-$$
-\ell(\mathbf{x}) = \min\!\bigl(\ell_{\max}',\ \max(\ell_{\min}',\ \ell_0(\mathbf{x}))\bigr),
-\qquad
-\ell_{\min}' = \begin{cases}\ell_{\min} & \text{if set,}\\ \ell_g & \text{otherwise,}\end{cases}
-\qquad
-\ell_{\max}' = \begin{cases}\ell_{\max} & \text{if set,}\\ \ell_g & \text{otherwise.}\end{cases}
-$$ (eq-mesh-size-bounds)
+Every term grows at most at $\sigma_{\max}$ = {toml}`mesh.max_slope` per metre, and so does their
+minimum. Two neighbouring cells, about one cell apart, then differ in size by a ratio of at most
+about $(1 + \sigma_{\max}/2)/(1 - \sigma_{\max}/2)$, which is 1.67 for the default 0.5. A smaller
+slope gives a smoother mesh and more cells. The `regular` engine ignores the field, and so does
+a triangulation read from a file.
 
-The fields of the lakes, of the refinement zones and of the coarsening outside the
-catchment join the interface fields (`set_background_mesh_from_fields`). The upper bound is
-raised to the largest size of such a regional field when the section declares one
-(`compute_effective_max_size`). The lower bound has a consequence that the keys do not
-announce: with no
-{toml}`mesh_catchment.zone_meshing.min_size`, $\ell_{\min}' = \ell_g$, and every size
-below $\ell_g$ is raised back to $\ell_g$. An {toml}`interface_size\|mesh_catchment.zone_meshing.interface_size`
-below the background size then changes nothing ({ref}`mesh-limits`).
+(mesh-triangle)=
+## 3. The triangle engine
 
-```{eval-rst}
-.. plot:: theory/figures/mesh_size.py
-   :alt: Cell size against the distance to an interface, with the lower bound unset and set to 20 m.
-   :caption: The size of :eq:`eq-mesh-size` (dotted) and the size Gmsh keeps under the
-      bounds that ``apply_mesh_options`` sets, for :math:`\ell_s = 20` m,
-      :math:`\ell_g = 100` m and :math:`\xi_s = 300` m. Look at the shaded band: without
-      ``min_size`` the refinement near the interface is lost.
-```
+The `triangle` engine builds a constrained Delaunay triangulation of $\Omega$ with Gmsh
+{cite:p}`geuzaine2009gmsh` under the size field of {ref}`mesh-size`. The river lines, the
+geology contacts and the lake shores are embedded as edges of the triangulation, so a
+contact or a shore is a chain of edges and no triangle holds two zones. The cells of a river
+are the triangles on one bank of its line.
 
-The 2D algorithm is the one named by {toml}`mesh_catchment.zone_meshing.algorithm`. The
-code knows four names and maps them to the Gmsh codes. Gmsh does not give the same
-triangulation twice for the same input. {toml}`mesh_catchment.cache` keeps the first one
-and reuses it while the inputs that shape the mesh are unchanged.
+The centre of a triangle is the mean of its three vertices. The line between two centres is
+then not perpendicular to the edge the triangles share: the connection has an angle
+({ref}`mesh-angle`), and MODFLOW 6 turns XT3D on by default for a triangle mesh (an explicit
+{toml}`modflow6.runtime.mf6_enable_xt3d` wins).
+
+Gmsh does not give the same triangulation twice for the same input. The engine keeps the first
+one in the project (`.hmp/mesh_cache/`) and reuses it while the request, the engine version and
+the builds of Gmsh and of the geometry libraries are the same. A triangulation that already
+exists is read with {toml}`mesh.triangle.path` instead of generated.
 
 (mesh-voronoi)=
-## 3. The Voronoi dual
+## 4. The Voronoi engine
 
-MODFLOW 6 does not take the triangles as cells by default. With
-{toml}`modflow6.sgrid.grid_dual` at its default, the code takes the vertices of the
-triangulation as seeds $\mathbf{s}_i$ and builds the Voronoi (PEBI) cell of each seed,
-that is the set of points closer to it than to any other seed, clipped to the outline
-$\Omega$ of the triangulation.
+The cells of the `voronoi` engine are the Voronoi (PEBI) cells of generators
+$\mathbf{s}_i$: the set of points closer to $\mathbf{s}_i$ than to any other generator,
+clipped to the outline $\Omega$ of the domain. The generator is the cell centre written to the
+DISV file. The engine places the generators itself:
 
-The cell centre written to the DISV file is the seed itself. Three rules complete the
-construction:
+- one generator on each vertex of a river line, so that the river runs through the centres of
+  a chain of cells;
+- a pair of mirror generators across each segment of a geology contact, of a lake shore or of
+  the catchment boundary, after {cite:t}`berge2019voronoi`, so that the segment is the perpendicular
+  bisector of the pair and a face of the mesh;
+- generators on the boundary of the domain;
+- free generators for the rest, drawn with the density $\ell^{-2}$ and moved by a Lloyd
+  relaxation weighted by $\ell^{-4}$ until the cells have the size of the field.
 
-- A seed whose cell falls entirely outside $\Omega$ is dropped.
-- When the clip splits a cell, the piece that contains the seed is kept.
-- If no piece contains the seed, the largest piece is kept and its representative point
-  becomes the centre.
+The construction, its gates and its limits are on
+{doc}`../contribute/architecture/mesh/voronoi-engine`. Three consequences follow.
 
-The outline $\Omega$ is rebuilt from the edges that belong to exactly one triangle. The
-coordinates of the vertices are rounded to 1 mm so
-that the corners shared by two cells are one vertex, which assumes a projected CRS in
-metres.
+**The number of cells.** The engine draws about $\int_\Omega \ell^{-2}\,\mathrm{d}A$
+generators, one per cell of area $\ell^2$. With a uniform size it gives $N_V = A_\Omega /
+\ell_g^2$ cells: as many as a grid of pixels of side $\ell_g$ ({ref}`mesh-budget`).
 
-Three consequences follow.
-
-**The number of cells.** The dual has one cell per seed, so $N_V = n_v$, the number of
-vertices. By Euler's formula a triangulation of a region without holes has
-$N_T = 2 n_v - n_b - 2$ triangles, $n_b$ being the vertices on its outline, so
-$N_V \approx N_T / 2$ when $n_b$ is small against $n_v$.
-
-**The faces.** The face between two cells is the perpendicular bisector of the segment
-between their seeds. The faces are not the edges of the triangulation. A river that was
-a chain of triangle edges runs through the middle of a chain of Voronoi cells: it is no
-longer the boundary of any cell.
+**The faces.** The face between two cells is the perpendicular bisector of the segment between
+their generators. A river is not a face: it runs through the middle of a chain of cells. A
+contact or a shore is a face, so the conductivity of a cell is the one of its zone, and the
+cells of a lake are the cells inside its shore. Where a river crosses a contact the river
+wins: the contact yields on a short segment, the pair joins the river chain a little off the
+line, and the top of such a cell is the minimum of its pixels ({ref}`mesh-top`).
 
 **The orthogonality.** The line between the two centres is perpendicular to the face, so
-$\varphi_{nm} = 0$ on every connection whose two cells kept their seed as centre.
-{ref}`mesh-angle` says why this matters. As a check, 36 seeds on a $6 \times 6$ lattice
-(the 16 inner ones moved at random, $n_b = 20$) give 50 triangles, and
-`voronoi_planar_mesh` returns 36 cells with $0^\circ$ on every connection.
-
-**The features.** Wells and boundaries are placed on the dual cells, not on the
-triangles. A well goes in the cell that holds its point. A side boundary takes the
-cells whose seed lies on that side, so the head is held on the boundary and not in a
-clipped inner cell that only touches it; a corner cell belongs to both sides. A side
-with no seed on it falls back to the cells with a face on it, with a warning. The
-stream boundary takes the cells the river runs through.
-
-With {toml}`modflow6.sgrid.grid_dual` set to `"triangle"`, the triangles are the cells
-and the centre of a cell is the mean of its three vertices.
+$\varphi_{nm} = 0$ on every connection whose two cells kept their generator as centre.
+{ref}`mesh-angle` says why this matters. As a check, 36 generators on a $6 \times 6$ lattice
+(the 16 inner ones moved at random) have 50 Delaunay triangles, and `voronoi_planar_mesh`
+returns 36 cells with $0^\circ$ on every connection.
 
 (mesh-angle)=
-## 4. Flow between two cells, and the angle
+## 5. Flow between two cells, and the angle
 
 MODFLOW 6 writes the flow between two cells with the two-point finite-difference term
 $G_{nm}\,(h_m - h_n)$ of {eq}`eq-cell-balance` {cite:p}`harbaugh2005,langevin2017`. It is
@@ -220,7 +211,7 @@ checked with `connection_nonorthogonality_deg`, and the four cells with
 ```
 
 (mesh-top)=
-## 5. The top of a cell
+## 6. The top of a cell
 
 The top of a cell is one number, read from the DEM $Z$. Two rules exist, set by
 {toml}`modflow6.sgrid.top_sampling.mode`. The bottom is always read by the first rule.
@@ -238,7 +229,10 @@ $$
 
 The result is undefined, and the cell inactive, when the centre is outside the raster or
 the four pixels are nodata. On an incised channel the centre of a
-cell often falls on a bank, not on the thalweg, and the cell is then too high.
+cell often falls on a bank, not on the thalweg, and the cell is then too high. On a `voronoi` mesh, a cell of
+a river chain whose centre lies off the river line (where a contact crosses the river,
+where two thalwegs share a cell, at the end of a river near the boundary) takes the
+minimum of the pixels it covers, also in this mode.
 
 ### Zonal
 
@@ -268,23 +262,38 @@ $$ (eq-zonal-top)
 
 A channel cell needs one channel pixel. A hillslope cell needs $n_{\min}$ pixels, and a
 cell finer than the DEM falls back to the centroid value. Two corrections follow, in this
-order:
+order. The first one guards against a nodata edge:
 
 $$
 \text{if } \lvert z_{\mathrm{top},c} - \tilde z_c \rvert > \varepsilon_z
-\text{ on a hillslope cell:}\quad z_{\mathrm{top},c} \leftarrow \tilde z_c,
+\text{ on a hillslope cell:}\quad z_{\mathrm{top},c} \leftarrow \tilde z_c.
 $$
+
+Channel cells are exempt, since they are lowered on purpose. It is off when
+$\varepsilon_z = 0$. The second one keeps a lowered top above the bottom. On the regular grid
+the top is raised:
 
 $$
 z_{\mathrm{top},c} \leftarrow \max\bigl(z_{\mathrm{top},c},\ z_{\mathrm{bot},c} + b_{\min}\bigr)
 \quad \text{on every active cell.}
 $$
 
-The first one guards against a nodata edge: channel cells are exempt, since they are
-lowered on purpose. It is off when $\varepsilon_z = 0$. The second one keeps a lowered top
-above the bottom. Only the top is zonal; the bottom keeps its centroid value, so a
-lowered top thins every layer of that column. The code logs, once per build, how many cells
-took a zonal value, how many are channel cells, and how far the tops were lowered.
+On a triangle or Voronoi mesh the top stays where the pixels put it, and the bottom follows
+it down when the lowered top leaves less than $b_{\min}$, or less than a tenth of the column
+of the centre sample:
+
+$$
+z_{\mathrm{bot},c} \leftarrow z_{\mathrm{top},c}
+- \max\bigl(\tilde z_c - z_{\mathrm{bot},c},\ b_{\min}\bigr).
+$$
+
+A coarse cell on the flank of a pit then keeps the thickness of its centre sample, where a
+raised top would leave a column of a few decimetres next to neighbours of tens of metres,
+which MODFLOW 6 cannot solve under Newton. A cell whose column stays thick enough is
+unchanged, and the bottom of every other cell keeps its centroid value, so a lowered top
+thins every layer of that column. The code logs, once per build, how many cells took a zonal
+value, how many are channel cells, how far the tops were lowered, and how many bottoms
+followed.
 
 ```{eval-rst}
 .. plot:: theory/figures/mesh_zonal_top.py
@@ -304,7 +313,7 @@ the channel class is then off), and a structured grid whose cells cover fewer th
 pixels (`Zonal top sampling skipped: a grid cell`). In the code: `zonal_top`.
 
 (mesh-layers)=
-## 6. Thickness and layers
+## 7. Thickness and layers
 
 The column of each cell is cut into layers by shares of its thickness, the same shares in
 every cell, set by {toml}`modflow6.sgrid.vertical.genmtd_lay`. The rule,
@@ -314,11 +323,12 @@ Every layer shares the cells of the plan: the mesh is a vertical extrusion. A ce
 not finite, or at or below the nodata value.
 
 (mesh-budget)=
-## 7. How many cells a size costs
+## 8. How many cells a size costs
 
 The cost of a run grows with the number of cells, so a structured grid and a mesh are
 compared at equal cell count. The ideal count below assumes cells of one uniform size over
-an area $A_\Omega$.
+an area $A_\Omega$. With a size field, $A_\Omega/\ell^2$ becomes
+$\int_\Omega \ell(\mathbf{x})^{-2}\,\mathrm{d}A$.
 
 For a structured grid of pixel side $\Delta$:
 
@@ -344,11 +354,19 @@ Equal counts then give the edge length that costs the same as a grid of side $\D
 | Voronoi cells | $\approx 1.15\,A_\Omega/\ell^2$ | $\ell = \Delta \sqrt{2/\sqrt3} \approx 1.07\,\Delta$ |
 | Triangles | $\approx 2.31\,A_\Omega/\ell^2$ | $\ell = \Delta \sqrt{4/\sqrt3} \approx 1.52\,\Delta$ |
 
+In the table, $\ell$ is the distance between two generators for the Voronoi cells and the side
+of a triangle. The two engines do not read {toml}`mesh.cell_size` the same way. For the
+`voronoi` engine it is the square root of the area of a cell: a size equal to the pixel gives
+the cell count of the grid, with generators $1.07$ sizes apart. For the `triangle` engine it
+is the side of a triangle, which Gmsh takes as its target: a size equal to the pixel gives about $2.3$
+times the cell count of the grid for equilateral triangles, and Gmsh makes about $2.6$ to $2.7$ times
+on a uniform field.
+
 **Worked example.** The 21406 cells of 75 m of the header of `step1_minimal.toml` (the file does not say if
 the count includes the inactive cells) cover
 $21406 \times 75^2\ \mathrm{m^2} \approx 120\ \mathrm{km^2}$. The same count on a
-Voronoi mesh means seeds about $81\ \mathrm{m}$ apart; on a triangle mesh, triangles of
-about $114\ \mathrm{m}$ side. These are ideal figures: a real mesh refines near the
+Voronoi mesh means generators about $81\ \mathrm{m}$ apart, a {toml}`mesh.cell_size` of
+$75\ \mathrm{m}$; on a triangle mesh, triangles of about $114\ \mathrm{m}$ side. These are ideal figures: a real mesh refines near the
 interfaces, and the count of a run is the number of cells ($\mathrm{ncpl}$) of its DISV
 file.
 
@@ -357,7 +375,7 @@ file.
    :alt: Number of cells against cell size for square pixels, Voronoi cells and triangles, on log axes.
    :caption: :eq:`eq-cell-count` for :math:`A_\Omega` = 120 km². The three lines are
       parallel: halving the size multiplies the count by four for every layout. Look at
-      the dots, 21406 cells each: 75 m pixels, Voronoi seeds 81 m apart, triangles of
+      the dots, 21406 cells each: 75 m pixels, Voronoi generators 81 m apart, triangles of
       114 m.
 ```
 
@@ -365,28 +383,34 @@ $N_S$ counts the cells of the whole raster box, active or not ({ref}`mesh-struct
 every cell of a mesh lies in $\Omega$.
 
 (mesh-acceptance)=
-## 8. The checks the code applies
+## 9. The checks the code applies
 
-The code does not compute a minimum angle, an aspect ratio, a skewness or a ratio of the
-areas of two neighbours, and it refuses no mesh for its shape. The table lists what it
-does check. Where a limit is a number, the table names the constant that holds it.
+The mesh is refused when its inputs are wrong, and a run stops when the grid it solves is not
+the mesh that was stored. The code does not compute a minimum angle, an aspect ratio or a
+skewness, and it refuses no mesh for its shape, with the exception of the build of the `voronoi`
+engine. The table lists what it does check. Where a limit is a number, the table names the
+constant that holds it.
 
 | What is checked | Rule | What happens | Where |
 |---|---|---|---|
-| Top and bottom overlap | at least one cell where both are valid | refused: `No finite overlapping valid cells found between top and bottom surfaces.` | `_assert_bottom_below_top` in `discretization_spatial.py`, and the same check in `sgrid_generation.py` |
-| Bottom below top | strictly, on every valid cell | refused: `Bottom surface must be strictly below top surface on valid cells` | the same two functions |
-| Cells much thicker than the rest | thickness above the larger of 10 times the median and 500 m | warning only, runtime mesh only: `Aquifer thickness outliers:` | `_warn_on_outlier_thickness`; constants `_THICKNESS_OUTLIER_FACTOR` and `_THICKNESS_OUTLIER_FLOOR_M` in `discretization_spatial.py` |
+| Solver and mesh | the solver reads the engine of `[mesh]` | refused when the file is read: `reads the meshes of the engines` | `accepted_meshes` of the flow adapters, checked by `HydroModPyConfig` |
+| Size of the regular grid | not finer than the DEM pixel | refused when the mesh is built: `the regular engine cannot mesh finer than the DEM` | `plan_layout` in `engines/regular/grid.py` |
+| Size of the rivers | {toml}`mesh.river_cell_size` at most {toml}`mesh.cell_size` | refused when the file is read | `MeshConfig` in `spatial/mesh/config/mesh.py` |
+| Voronoi build | every cell covers its generator, the conformal faces lie on their lines, each river chain is connected, the areas add up to the domain, no repeated vertex, no face under a micrometre | the build stops with `MeshGenerationError`, never a warning | `engines/voronoi/gates.py` |
+| Solved grid | the DISV or DIS grid of the solver is the stored mesh | the run stops with `IncompatibleMeshError` | the extractors of the solvers |
+| Top and bottom overlap | at least one cell where both are valid | refused: `No finite overlapping valid cells found between top and bottom surfaces.` | `assert_bottom_below_top` in `sgrid_generation.py` |
+| Bottom below top | strictly, on every valid cell | refused: `Bottom surface must be strictly below top surface on valid cells` | the same function |
+| Cells much thicker than the rest | thickness above the larger of 10 times the median and 500 m | warning only, triangle and Voronoi meshes only: `Aquifer thickness outliers:` | `_warn_on_outlier_thickness`; constants `_THICKNESS_OUTLIER_FACTOR` and `_THICKNESS_OUTLIER_FLOOR_M` in `discretization_spatial.py` |
 | Non-orthogonality | the trigger of {doc}`solvers/xt3d-on-irregular-disv-meshes` | XT3D switched on, not a refusal | `resolve_xt3d_decision` |
-| Zonal top | $n_{\min}$ pixels, $\varepsilon_z$, $b_{\min}$ | fallback or clamp, counted in the log | `zonal_top` in `zonal_stats.py`; the keys are on the cards below |
+| Zonal top | $n_{\min}$, $\varepsilon_z$, $b_{\min}$ and a tenth of the column | fallback, clamp or bottom moved, counted in the log | `zonal_top` in `zonal_stats.py`, `_bottom_under_lowered_top` in `discretization_spatial.py`; the keys are on the cards below |
 | Structured grid for the zonal top | each cell covers at least two DEM pixels | zonal top skipped, resampled top kept | `_cells_cover_pixels` (argument `min_pixels`) |
-| Size keys of the mesher | $\ell_s \leq \ell_g$, $\ell_{\min} \leq \ell_{\max}$ | refused when the file is read: `interface_size must be <= global_size when refine_interfaces=true`, `min_size must be <= max_size` | `ZoneMeshingSettings` in `zone_meshing/config.py` |
-| Geology | a geology section when the mode asks for geology | refused: `geology section is required when constraints_mode includes geology.` | `MeshCatchmentConfig` in `mesh/config/main.py` |
-| Zones that overlap | priorities must settle every overlap | refused: `Overlapping zones detected without priority resolution` | `resolve_zone_overlaps` in `_polygon_cleaning.py` |
-| Gap between the zones and the domain | the uncovered area is below a tolerance, and the constraint curves exist | recorded in the summary file of the mesh (`qa_checks`, `constraints_qa`), never enforced | `ZoneConformalQaChecks` in `_summary_sidecar.py`, `_build_constraints_qa_contract` in `reporting.py` |
 
-The last row matters for the reading of a mesh: the summary file says whether the
-constraints were embedded, and no code of `hydromodpy` reads that verdict. A mesh whose
-summary says `overall_pass: false` still runs.
+The quality report of a mesh, `MeshQA`, is stored with it (the attribute `qa` of `mesh/`). It
+holds the areas, the size ratio between neighbours, the offset of a centre from the centroid of
+its cell, the non-orthogonality and, for each line family, how much of the line the faces
+follow. Four fields give the same per cell, computed on read: `mesh_cell_area`,
+`mesh_neighbour_ratio`, `mesh_center_offset` and `mesh_nonorthogonality`. The report is not a
+verdict: a mesh with a poor report still runs.
 
 ## Assumptions
 
@@ -394,70 +418,77 @@ summary says `overall_pass: false` still runs.
 - A mesh is fixed for the run. It does not move with the water table.
 - The conductivity is isotropic in the plane. The code writes no input for horizontal
   anisotropy.
-- The coordinates are in a projected CRS in metres. The merge of the vertices of the dual
-  (1 mm) and every size of the mesher read this.
+- The coordinates are in a projected CRS in metres. The size field, the 1 mm merge of the
+  vertices of the Voronoi tessellation and every distance of the engines read this.
 - The zonal rule treats a channel pixel as a pixel of the stream raster of the
   delineation. It does not read the observed network.
 
 (mesh-limits)=
 ## Limits
 
-- **No refinement without `min_size`.** With {toml}`mesh_catchment.zone_meshing.refine_interfaces`
-  on and {toml}`mesh_catchment.zone_meshing.min_size` unset, the lower bound of the size is
-  $\ell_g$, and Gmsh raises every size to it (figure of {ref}`mesh-gmsh`). In a test with
-  Gmsh 4.15.2, on a $1000\ \mathrm{m}$ square refined along one side, the mesh had 250
-  triangles with the lower bound at $\ell_g$ and 602 with it at 20 m. Set `min_size` at
-  or below `interface_size`.
-
-- **The dual does not follow the constraints.** It keeps the outline of the domain, not
-  the river traces or the geology interfaces. A cell can hold both sides of an interface.
-- **A mesh bundle written for the triangles does not fit the dual.** The bundle holds one
-  conductivity per triangle, and the dual has about half as many cells. The code then
-  logs a warning that ends with `Configure K in [flow] or set grid_dual='triangle' to reuse the bundle.`
-  and ignores the bundle value.
-- **No shape check.** A sliver, an abrupt change of size or a high non-orthogonality does
-  not stop a run. The non-orthogonality is the only shape measure the code reads, and it
-  decides about XT3D, not about the mesh. `connection_nonorthogonality_deg` and
-  `nonorthogonality_summary` can be called on any planar `HydroMesh` for a closer look.
-- **MODFLOW-NWT is structured.** Its zonal top needs
+- **The regular grid does not refine.** Its cells have one size, a line becomes a staircase of
+  faces, and a side head applies half a cell inside the side. Use the `triangle` or the
+  `voronoi` engine for a mesh finer along the rivers.
+- **Some solvers read one engine.** Boussinesq cannot run on Voronoi cells, nor MODFLOW-NWT on a
+  refined mesh. The zonal top of MODFLOW-NWT needs
   {toml}`modflownwt.sgrid.top_sampling.channel_source` at `"none"`: the file is refused
   otherwise.
-- **Boussinesq ignores `grid_dual` and the top sampling.** It works on the triangles.
-- **Gmsh is not reproducible.** Two builds of the same input give meshes with different
-  cell counts. The mesh cache, {toml}`mesh_catchment.cache`, pins the first one
-  (`hydromodpy/spatial/mesh/mesh_cache.py`).
+- **Gmsh is not reproducible.** Two builds of the same input give meshes with different cell
+  counts. The cache of `.hmp/mesh_cache/` pins the first one; deleting it changes the mesh of
+  a resumed run, and `restart_from` refuses a run solved on another mesh.
+- **The Voronoi mesh is reproducible on one platform.** One request and one seed give one mesh
+  on one machine, GEOS and scipy build. Another build can give a mesh with the same quality
+  and another connectivity.
+- **The size ratio has a floor.** Where the field grows at its largest slope, two neighbouring
+  Voronoi cells differ by about $(1 + \sigma_{\max}/2)/(1 - \sigma_{\max}/2)$, and the centre of a
+  cell sits off its centroid by about a quarter of the slope times the cell size. The report
+  states both.
+- **Narrow lake arms are not followed.** A closed line whose arms are narrower than the local
+  cell cannot hold a pair of generators in each arm: the faces follow part of the shore, and
+  the cells of the lake are those the lake polygon overlaps.
+- **Side heads sit at different distances from the side.** A head imposed on a side applies to
+  the cells that have a face on it, at the distance of their centres: half a cell on a regular
+  grid, a third of the height on triangles, none on Voronoi cells. The report states it.
+- **A thin column is lengthened, not refused.** The tenth of the column that moves a bottom
+  with a lowered top is an empirical threshold, chosen so that the cells next to a quarry
+  stay solvable. It derives from nothing else.
+- **No shape check.** A sliver, an abrupt change of size or a high non-orthogonality does
+  not stop a run, except in the build of the `voronoi` engine. The non-orthogonality is the only
+  shape measure the code reads, and it decides about XT3D, not about the mesh.
+  `connection_nonorthogonality_deg` and `nonorthogonality_summary` can be called on any
+  planar `HydroMesh` for a closer look.
 - **Not a 3D mesh.** The layers are an extrusion of the plan. A footprint that changes
   from one layer to the next, or a refinement in depth, is not represented.
 - **An outlier thickness only warns.** A nodata value read as an elevation gives a cell
   that is kilometres deep, with a clean top, and the run converges. The warning of
   {ref}`mesh-acceptance` is the only sign, and a structured grid does not emit it.
 
-The keys of the structured grid are in {doc}`[modflow6] <../reference/parameters/modflow6>`
-and those of the runtime mesh in {doc}`[mesh_catchment] <../reference/parameters/mesh_catchment>`.
+The keys of the layers and of the top are in {doc}`[modflow6] <../reference/parameters/modflow6>`
+and those of the mesh in {doc}`[mesh] <../reference/parameters/mesh>`.
 
 ## Parameters of this page
 
-The keys that choose the layout, the size and the top. The cards show the defaults and the
-allowed values. The three keys of `[mesh_catchment.zone_meshing]` that bound the size are
-in the first group.
+The keys that choose the engine, the size and the top. The cards show the defaults and the
+allowed values. The developer keys are behind the developer button.
 
 ```{hmp-params}
-mesh_catchment.constraints_mode
-mesh_catchment.cache
-mesh_catchment.zone_meshing.algorithm
-mesh_catchment.zone_meshing.global_size
-mesh_catchment.zone_meshing.min_size
-mesh_catchment.zone_meshing.max_size
-mesh_catchment.zone_meshing.refine_interfaces
-mesh_catchment.zone_meshing.interface_size
-mesh_catchment.zone_meshing.interface_distance
-mesh_input.mesh_path
-mesh_input.bundle_dir
-modflow6.sgrid.planar.mode
-modflow6.sgrid.planar.nx
-modflow6.sgrid.planar.ny
-modflow6.sgrid.planar.resampling
-modflow6.sgrid.grid_dual
+mesh.engine
+mesh.cell_size
+mesh.river_cell_size
+mesh.river_band
+mesh.max_slope
+mesh.outside_factor
+mesh.transition_distance
+mesh.seed
+mesh.regular.shape
+mesh.families.rivers
+mesh.families.geology
+mesh.families.lakes
+mesh.families.watershed_boundary
+mesh.triangle.path
+mesh.triangle.algorithm
+mesh.voronoi.seeds
+mesh.voronoi.lloyd_tolerance
 modflow6.sgrid.top_sampling.mode
 modflow6.sgrid.top_sampling.hillslope_stat
 modflow6.sgrid.top_sampling.channel_stat
@@ -479,13 +510,12 @@ The tests that import the code of this page. The box is generated: a new test ap
 here on the next build.
 
 ```{hmp-tested-by}
+hydromodpy.spatial.mesh.engines
+hydromodpy.spatial.mesh.sizing
 hydromodpy.spatial.mesh.ops.voronoi
 hydromodpy.spatial.mesh.ops.zonal_stats
 hydromodpy.spatial.mesh.ops.mesh_orthogonality
 hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation
-hydromodpy.spatial.mesh.cartesian_grid.sgrid_config
-hydromodpy.spatial.mesh.gmsh_grid.zone_meshing
-hydromodpy.spatial.mesh.mesh_cache
 hydromodpy.solver.modflow_grid.discretization_spatial
 hydromodpy.solver.modflow6.builders.solver_options
 ```
@@ -494,23 +524,26 @@ hydromodpy.solver.modflow6.builders.solver_options
 
 | What | Where |
 |---|---|
-| The surfaces, the plan, the top, the layers | `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`, `resolve_domain_surfaces`, `project_surfaces_to_planar_grid`, `_build_extruded_solver_mesh_from_runtime_planar`, `_compute_layer_proportions`) |
-| The structured grid | `hydromodpy/spatial/mesh/cartesian_grid/sgrid_generation.py` (`StructuredGridBuilder.build_from_surfaces`) |
-| The keys of the grid | `hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py` |
+| The surfaces, the plan, the top, the layers | `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`, `resolve_domain_surfaces`), `hydromodpy/spatial/mesh/cartesian_grid/sgrid_generation.py` (`layer_proportions`) |
+| The keys of the layers and of the top | `hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py` |
+| The keys of the mesh | `hydromodpy/spatial/mesh/config/mesh.py` (`MeshConfig`) |
+| The engines and their registry | `hydromodpy/spatial/mesh/engines/` (`regular`, `triangle`, `voronoi`), `hydromodpy/spatial/mesh/registry.py` |
+| The request and the planner | `hydromodpy/spatial/mesh/request.py`, `hydromodpy/spatial/mesh/planning/plan.py` (`plan_mesh_request`) |
+| The size field | `hydromodpy/spatial/mesh/sizing/size_field.py` (`build_size_field`) |
 | The centroid sample | `hydromodpy/spatial/surface_sampling.py` (`PreparedSurfaceSampler.sample`) |
-| The zonal top | `hydromodpy/spatial/mesh/ops/zonal_stats.py` (`zonal_top`), `discretization_spatial.py` (`_zonal_top_flat`, `_zonal_structured_top`) |
+| The zonal top | `hydromodpy/spatial/mesh/ops/zonal_stats.py` (`zonal_top`), `discretization_spatial.py` (`_zonal_top_flat`, `_zonal_structured_top`, `_bottom_under_lowered_top`) |
 | The channel mask | `hydromodpy/solver/modflow6/build.py` (`_resolve_channel_mask_for_zonal`) |
-| The Voronoi dual | `hydromodpy/spatial/mesh/ops/voronoi.py` (`voronoi_planar_mesh`, `domain_polygon_from_mesh`) |
+| The Voronoi tessellation | `hydromodpy/spatial/mesh/engines/voronoi/tessellation.py`, `hydromodpy/spatial/mesh/ops/voronoi.py` (`voronoi_planar_mesh`) |
 | The angle of a connection | `hydromodpy/spatial/mesh/ops/mesh_orthogonality.py` (`connection_nonorthogonality_deg`, `nonorthogonality_summary`) |
 | The XT3D decision | `hydromodpy/solver/modflow6/builders/solver_options.py` (`resolve_xt3d_decision`) |
-| The Gmsh sizes | `hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_gmsh_fields.py`, `_gmsh_occ.py` (`apply_mesh_options`), `_build_context.py` (`compute_effective_max_size`), `config.py` (`ZoneMeshingSettings`) |
-| The mesh phase and its cache | `hydromodpy/workflow/steps/mesh.py` (`run_mesh_phase`), `hydromodpy/spatial/mesh/mesh_cache.py` |
+| The mesh step and its cache | `hydromodpy/workflow/steps/mesh.py` (`step_mesh`), `hydromodpy/spatial/mesh/cache.py` |
 | The DISV export | `hydromodpy/spatial/mesh/adapters/flopy_adapter.py` (`to_flopy_disv_args`), `hydromodpy/solver/modflow6/build.py` |
-| The QA summary of a mesh | `hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_summary_sidecar.py`, `orchestration/reporting.py` |
+| The quality report of a mesh | `hydromodpy/spatial/mesh/model/mesh_qa.py` (`compute_mesh_qa`) |
 
 ## See also
 
 - {doc}`solvers`: what the solvers do with the cells.
 - {doc}`solvers/xt3d-on-irregular-disv-meshes`: the XT3D terms and their trigger.
 - {doc}`groundwater-flow`: the equation the cells discretise.
-- {doc}`../reference/parameters/mesh_catchment`: the mesher section as a reference page.
+- {doc}`../reference/parameters/mesh`: the mesh section as a reference page.
+- {doc}`../contribute/architecture/mesh/mesh-engines`: the port, the planner and the three engines.

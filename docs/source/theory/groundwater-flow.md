@@ -96,7 +96,7 @@ calibrable, in log space. In the code: `Domain._build_surfaces`.
 The grid samples $z_\mathrm{top}$ and $z_\mathrm{bot}$ at the centre of each cell
 (the cell layout is on {doc}`mesh`). A cell with no finite value in either
 surface becomes inactive in every layer. The grid is refused when
-$z_\mathrm{bot} \ge z_\mathrm{top}$ on a valid cell. On a runtime mesh, a warning
+$z_\mathrm{bot} \ge z_\mathrm{top}$ on a valid cell. On a triangle or Voronoi mesh, a warning
 names the columns thicker than 500 m and than 10 times the median: a raster
 nodata value read as an elevation produces them ({ref}`mesh-acceptance`).
 
@@ -125,7 +125,7 @@ under `modflownwt.sgrid.vertical`.
 ```{eval-rst}
 .. plot:: theory/figures/gwf_layers.py
    :alt: Four columns of 100 m, each cut into four layers by one rule.
-   :caption: Four layers in a column of 100 m, from ``_compute_layer_proportions``. Look at
+   :caption: Four layers in a column of 100 m, from ``layer_proportions``. Look at
       the decay columns: the larger :math:`\rho`, the thinner the top layer and the thicker
       the bottom one.
 ```
@@ -138,7 +138,7 @@ interfaces cross the proportions, a layer that disappears, or a connection that
 changes from one layer to the next is not represented. MODFLOW 6 builds every
 grid, structured or not, as a vertex grid (`DISV`), never as `DISU`. The
 Boussinesq solver has no layers: it works on one triangle per column. In the
-code: `_compute_layer_proportions`.
+code: `layer_proportions`.
 
 (gwf-properties)=
 ## The properties
@@ -503,7 +503,7 @@ hydromodpy.solver.modflow_nwt.nwt
 |---|---|
 | The top, the bottom and the raster depth models | `hydromodpy/spatial/domain/domain.py` (`Domain._build_surfaces`, `Domain._substratum_from_raster`), `hydromodpy/spatial/domain/depth_model_config.py` |
 | Reading the substratum raster | `hydromodpy/spatial/domain/build.py` (`read_substratum_source`) |
-| Layers, the check bottom below top | `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`_compute_layer_proportions`, `_assert_bottom_below_top`, `build_spatial_discretization`) |
+| Layers, the check bottom below top | `hydromodpy/spatial/mesh/cartesian_grid/sgrid_generation.py` (`layer_proportions`, `assert_bottom_below_top`), `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`) |
 | The properties, per cell and per layer | `hydromodpy/solver/modflow6/support/property_mapping.py` (`resolve_k33_field`), `hydromodpy/solver/field_property_mapping.py`, `resolve_required_flow_properties` |
 | The depth factor | `hydromodpy/spatial/field/core/field_param.py` (`FieldParam.vertical_factor`), `SolverMesh.layer_center_depths` |
 | The MODFLOW 6 balance: `NPF`, `STO`, `IC`, Newton | `hydromodpy/solver/modflow6/build.py` (`run_pre_processing`, `newton_options`) |

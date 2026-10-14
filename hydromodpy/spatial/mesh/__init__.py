@@ -1,15 +1,17 @@
-"""Unified mesh pivot for HydroModPy.
+"""Mesh engines and the cell mesh of HydroModPy.
 
-This package defines the small public API that most callers should learn first
-when they need to move a mesh across subsystem boundaries.
+A ``MeshRequest`` goes to one of the registered engines (``regular``,
+``triangle``, ``voronoi``), which returns a ``PlanarCellMesh``: the cells, their
+centres, the cell and face families, the zones, the identity and the QA. Every
+consumer (forcings, properties, boundary conditions, solvers, storage) reads
+that cell mesh, whatever the engine.
 
-The package provides ``HydroMesh``, a single data container that represents
-both structured and unstructured grids in 2D and 3D.  Every mesh producer
-(``gmsh``, ``flopy``, field meshes) can convert to ``HydroMesh``, and every
-mesh consumer (plotting, solver adapters, I/O) can consume it.
+``HydroMesh`` is the plain vertex and cell-block container under it, used to
+exchange or serialize a mesh.
 
 The rule of thumb is:
 
+- build a mesh through ``registry.create(engine).build(request)`` ;
 - use ``HydroMesh`` to exchange or serialize meshes ;
 - use adapters to bridge specialized representations ;
 - use ``hydromodpy.spatial.mesh.plotting`` for quick QA plots ;
@@ -29,10 +31,6 @@ Adapters::
     from hydromodpy.spatial.mesh.adapters import from_meshio, to_meshio
     from hydromodpy.spatial.mesh.adapters import (
         from_gmsh_planar,
-        from_extruded_prism,
-    )
-    from hydromodpy.spatial.mesh.adapters import (
-        from_flopy_structured,
         to_flopy_disv_args,
     )
 
@@ -52,14 +50,10 @@ Plotting::
 
 More detailed usage notes and documentation entry points live in:
 
-- ``hydromodpy/spatial/mesh/README.md``
-- ``hydromodpy/spatial/mesh/UML.md``
-- ``docs/source/contribute/architecture/index.rst``
+- ``hydromodpy/spatial/mesh/README.md`` (package map)
 - ``docs/source/contribute/architecture/mesh/index.rst``
-
-On Read the Docs, the public technical documentation and UML pages live under
-the ``Architecture`` tab.  Scientific notes are documented separately under
-the ``Scientific documentation`` tab.
+- ``docs/source/contribute/architecture/mesh/mesh-pivot.rst``
+- ``docs/source/contribute/architecture/mesh/mesh-engines.rst``
 """
 
 from hydromodpy.spatial.mesh.model.cell_types import CellType

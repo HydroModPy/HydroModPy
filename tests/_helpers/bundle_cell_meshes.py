@@ -1,8 +1,8 @@
-"""Cell meshes of the committed validation mesh bundles, with the support they were read with.
+"""Cell meshes of the committed validation mesh bundles.
 
-``bundle_triangles`` and ``bundle_dual`` return a ``PlanarCellMesh`` through the adapters
-of the legacy producers, together with the ``GmshSupportMetadata`` the solvers read
-before the cell mesh: the oracle the family and location helpers are compared to.
+``bundle_triangles`` reads the triangles of a bundle as a ``PlanarCellMesh``;
+``bundle_dual`` is the Voronoi dual of those triangles, built by the engine. The
+committed bundles flag no river edge, so neither mesh has a ``rivers`` family.
 Not public API.
 """
 
@@ -12,21 +12,14 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.adapters.cell_mesh import (
-    cell_mesh_from_triangulation,
-    cell_mesh_from_voronoi_dual,
-)
+from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
+from hydromodpy.spatial.mesh.gmsh_grid.bundle_cell_mesh import cell_mesh_from_bundle
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     load_catchment_mesh_bundle,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.exchange_api import load_planar_mesh
-from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
-    GmshSupportMetadata,
-    build_gmsh_support_metadata,
-    support_on_planar_mesh,
-)
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh, voronoi_planar_mesh
+from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh
+from hydromodpy.spatial.mesh.request import InputTriangulation, MeshRequest, RasterGridSpec
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 
 BUNDLES = Path(__file__).resolve().parents[2] / "validation_cases" / "shared" / "mesh_bundles"
@@ -38,21 +31,33 @@ BUNDLE_CASES = (
 )
 
 
-def bundle_triangles(case: str) -> tuple[PlanarCellMesh, GmshSupportMetadata]:
-    """Return the triangles of one bundle as a cell mesh, and the support read from its files."""
-    bundle = BUNDLES / case
-    support = build_gmsh_support_metadata(load_catchment_mesh_bundle(bundle))
-    triangles = load_planar_mesh(bundle / "mesh_2d.msh").to_hydro_mesh()
-    return cell_mesh_from_triangulation(triangles, support, crs_wkt=TEST_CRS_WKT), support
+def bundle_triangles(case: str) -> PlanarCellMesh:
+    """Return the triangles of one bundle as a cell mesh."""
+    return cell_mesh_from_bundle(load_catchment_mesh_bundle(BUNDLES / case), crs_wkt=TEST_CRS_WKT)
 
 
-def bundle_dual(case: str) -> tuple[PlanarCellMesh, GmshSupportMetadata]:
-    """Return the Voronoi dual of one bundle as a cell mesh, and the support rebuilt on it."""
-    bundle = BUNDLES / case
-    support = build_gmsh_support_metadata(load_catchment_mesh_bundle(bundle))
-    triangles = load_planar_mesh(bundle / "mesh_2d.msh").to_hydro_mesh()
-    dual = voronoi_planar_mesh(
-        np.asarray(triangles.vertices)[:, :2], domain_polygon_from_mesh(triangles)
+def bundle_dual(case: str) -> PlanarCellMesh:
+    """Return the Voronoi dual of the triangles of one bundle as a cell mesh."""
+    triangles = bundle_triangles(case)
+    domain = domain_polygon_from_mesh(triangles.mesh)
+    xmin, ymin, xmax, ymax = domain.bounds
+    request = MeshRequest(
+        domain=domain,
+        crs_wkt=TEST_CRS_WKT,
+        grid=RasterGridSpec(
+            xmin=xmin,
+            xmax=xmax,
+            ymin=ymin,
+            ymax=ymax,
+            dx=xmax - xmin,
+            dy=ymax - ymin,
+            nrow=1,
+            ncol=1,
+            crs_wkt=TEST_CRS_WKT,
+        ),
+        nominal_size_m=float(np.sqrt(np.median(triangles.geometry.areas))),
+        input_triangulation=InputTriangulation(
+            triangles.mesh.vertices, np.asarray(triangles.mesh.flat_connectivity), {}
+        ),
     )
-    on_dual = support_on_planar_mesh(support, dual)
-    return cell_mesh_from_voronoi_dual(dual, on_dual, crs_wkt=TEST_CRS_WKT), on_dual
+    return VoronoiMeshEngine().build(request)

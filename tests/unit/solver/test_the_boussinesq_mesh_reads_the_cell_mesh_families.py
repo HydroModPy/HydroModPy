@@ -1,9 +1,9 @@
-"""A Boussinesq mesh built from a cell mesh reads its river, sides and cells from the families.
+"""A Boussinesq mesh reads its river, sides and cells from the face families of its cell mesh.
 
-The four committed mesh bundles are the oracle, with a river flagged along their
-middle. The mesh read from the bundle finds its river edges in the ``is_river``
-flags and its sides in the bounding box of the edge midpoints; the mesh built from the same bundle as a
-cell mesh must find the same edges and the same cells in the face families.
+The four committed mesh bundles are the oracle, with a river flagged along their middle.
+The river edges are the ``is_river`` flags of the bundle files and the sides are the
+boundary edges on the bounding box of the edge midpoints. A mesh built from the bundle and
+a mesh built from the same triangles as a cell mesh must find the same edges and cells.
 """
 
 from __future__ import annotations
@@ -18,15 +18,13 @@ import pytest
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
-from hydromodpy.spatial.mesh.adapters.cell_mesh import cell_mesh_from_triangulation
+from hydromodpy.spatial.mesh.gmsh_grid.bundle_cell_mesh import cell_mesh_from_bundle
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
     load_catchment_mesh_bundle,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.exchange_api import load_planar_mesh
-from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import build_gmsh_support_metadata
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.family_cells import SIDE_IDS
+from hydromodpy.spatial.mesh.ops.family_cells import SIDE_IDS, stream_cells
 from tests._helpers.bundle_cell_meshes import BUNDLE_CASES, BUNDLES
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 
@@ -84,12 +82,11 @@ def _bundle(case: str) -> CatchmentMeshBundle:
 
 @cache
 def _cell_mesh(case: str) -> PlanarCellMesh:
-    """The triangles of the bundle as a cell mesh, with the families of its support."""
-    triangles = load_planar_mesh(BUNDLES / case / "mesh_2d.msh").to_hydro_mesh()
-    support = build_gmsh_support_metadata(_bundle(case))
-    return cell_mesh_from_triangulation(triangles, support, crs_wkt=TEST_CRS_WKT)
+    """The triangles of the bundle as a cell mesh, with its river and side families."""
+    return cell_mesh_from_bundle(_bundle(case), crs_wkt=TEST_CRS_WKT)
 
 
+@cache
 def _from_cell_mesh(case: str) -> BoussinesqMesh:
     cell_mesh = _cell_mesh(case)
     domain = SimpleNamespace(
@@ -104,6 +101,7 @@ def _from_cell_mesh(case: str) -> BoussinesqMesh:
     )
 
 
+@cache
 def _from_bundle(case: str) -> BoussinesqMesh:
     return BoussinesqMesh.from_bundle(_bundle(case))
 
@@ -115,45 +113,70 @@ def _node_pairs(mesh: BoussinesqMesh, edges: np.ndarray) -> set[tuple[int, int]]
     return {(min(a, b), max(a, b)) for a, b in zip(node_a, node_b, strict=True)}
 
 
-@pytest.mark.parametrize("case", BUNDLE_CASES)
-def test_the_river_edges_are_those_the_bundle_files_flag(case: str) -> None:
-    ours, reference = _from_cell_mesh(case), _from_bundle(case)
+def _edges_on_side(mesh: BoussinesqMesh, side: str) -> np.ndarray:
+    """The boundary edges whose midpoint lies on a side of the bounding box of the nodes."""
+    span = max(mesh.x_max_m - mesh.x_min_m, mesh.y_max_m - mesh.y_min_m, 1.0)
+    tolerance = max(1.0e-9, 1.0e-8 * span)
+    midpoint, edge = {
+        "west_side": (mesh.edge_midpoint_x_m, mesh.x_min_m),
+        "east_side": (mesh.edge_midpoint_x_m, mesh.x_max_m),
+        "south_side": (mesh.edge_midpoint_y_m, mesh.y_min_m),
+        "north_side": (mesh.edge_midpoint_y_m, mesh.y_max_m),
+    }[side]
+    return np.flatnonzero(
+        mesh.boundary_edge_mask & np.isclose(midpoint, edge, atol=tolerance, rtol=0)
+    )
 
-    flagged = _node_pairs(reference, reference.river_edge_indices())
-    assert _node_pairs(ours, ours.river_edge_indices()) == flagged
+
+@pytest.mark.parametrize("case", BUNDLE_CASES)
+@pytest.mark.parametrize("build", [_from_bundle, _from_cell_mesh])
+def test_the_river_edges_and_cells_are_those_the_bundle_files_flag(case: str, build) -> None:
+    mesh, reference = build(case), _from_bundle(case)
+    flagged = reference.river_edge_indices()
+
+    assert flagged.size > 0
+    assert _node_pairs(mesh, mesh.river_edge_indices()) == _node_pairs(reference, flagged)
+    assert np.array_equal(mesh.family_edge_indices("rivers"), mesh.river_edge_indices())
+    assert np.array_equal(mesh.edge_indices_for_label("stream"), mesh.river_edge_indices())
+    both_banks = np.unique(
+        np.concatenate([reference.edge_cell_a[flagged], reference.edge_cell_b[flagged]])
+    )
+    assert np.array_equal(mesh.cell_indices_for_label("stream"), both_banks[both_banks >= 0])
     assert np.array_equal(
-        np.unique(ours.cell_indices_for_label("stream")),
-        np.unique(
-            np.concatenate(
-                [
-                    reference.edge_cell_a[reference.river_edge_indices()],
-                    reference.edge_cell_b[reference.river_edge_indices()][
-                        reference.edge_cell_b[reference.river_edge_indices()] >= 0
-                    ],
-                ]
-            )
-        ),
+        mesh.cell_indices_for_label("river"), mesh.cell_indices_for_label("stream")
     )
 
 
 @pytest.mark.parametrize("case", BUNDLE_CASES)
 @pytest.mark.parametrize("side", SIDE_IDS)
-def test_the_side_edges_and_cells_are_those_of_the_bounding_box_rule(case: str, side: str) -> None:
-    ours, reference = _from_cell_mesh(case), _from_bundle(case)
+@pytest.mark.parametrize("build", [_from_bundle, _from_cell_mesh])
+def test_the_side_edges_and_cells_are_those_of_the_bounding_box_rule(
+    case: str, side: str, build
+) -> None:
+    mesh, reference = build(case), _from_bundle(case)
 
-    edges = reference.boundary_edge_indices_for_side(side)
-    assert _node_pairs(ours, ours.boundary_edge_indices_for_side(side)) == _node_pairs(
+    edges = _edges_on_side(reference, side)
+    assert _node_pairs(mesh, mesh.boundary_edge_indices_for_side(side)) == _node_pairs(
         reference, edges
     )
+    owners = np.unique(reference.edge_cell_a[edges])
+    assert np.array_equal(mesh.boundary_cell_indices_for_side(side), owners)
     assert np.array_equal(
-        ours.boundary_cell_indices_for_side(side), reference.boundary_cell_indices_for_side(side)
+        mesh.cell_indices_for_label(side), mesh.boundary_cell_indices_for_side(side)
     )
     assert np.array_equal(
-        ours.cell_indices_for_label(side), ours.boundary_cell_indices_for_side(side)
+        mesh.edge_indices_for_label(side), mesh.boundary_edge_indices_for_side(side)
     )
-    assert np.array_equal(
-        ours.edge_indices_for_label(side), ours.boundary_edge_indices_for_side(side)
-    )
+
+
+@pytest.mark.parametrize("case", BUNDLE_CASES)
+def test_the_edge_indices_follow_the_order_of_the_bundle_edge_file(case: str) -> None:
+    bundle = _bundle(case)
+    mesh = _from_bundle(case)
+
+    assert np.array_equal(mesh.edge_ids, [edge.edge_id for edge in bundle.edges])
+    flagged = np.flatnonzero([edge.is_river for edge in bundle.edges])
+    assert np.array_equal(mesh.family_edge_indices("rivers"), flagged)
 
 
 @pytest.mark.parametrize("case", BUNDLE_CASES)
@@ -174,14 +197,14 @@ def test_the_edges_are_the_edges_of_the_cell_mesh(case: str) -> None:
 
 
 @pytest.mark.parametrize("case", BUNDLE_CASES)
-def test_a_point_is_located_in_the_cell_that_holds_it(case: str) -> None:
-    ours, reference = _from_cell_mesh(case), _from_bundle(case)
-    cells = np.random.default_rng(0).choice(ours.n_cells, 25, replace=False)
+@pytest.mark.parametrize("build", [_from_bundle, _from_cell_mesh])
+def test_a_point_is_located_in_the_cell_that_holds_it(case: str, build) -> None:
+    mesh = build(case)
+    cells = np.random.default_rng(0).choice(mesh.n_cells, 25, replace=False)
 
     for cell in cells.tolist():
-        x, y = float(ours.cell_centroid_x_m[cell]), float(ours.cell_centroid_y_m[cell])
-        assert ours.locate_cell_index_for_point(x, y) == cell
-        assert ours.locate_cell_index_for_point(x, y) == reference.locate_cell_index_for_point(x, y)
+        x, y = float(mesh.cell_centroid_x_m[cell]), float(mesh.cell_centroid_y_m[cell])
+        assert mesh.locate_cell_index_for_point(x, y) == cell
 
 
 def test_a_point_outside_the_mesh_takes_the_nearest_centre_or_is_refused() -> None:
@@ -196,13 +219,20 @@ def test_a_point_outside_the_mesh_takes_the_nearest_centre_or_is_refused() -> No
         mesh.locate_cell_index_for_point(far_x, far_y, allow_nearest=False)
 
 
-def test_a_mesh_read_from_a_bundle_has_no_families_to_answer_a_label() -> None:
-    reference = _from_bundle(BUNDLE_CASES[0])
+def test_a_bundle_mesh_keeps_the_cell_mesh_of_its_triangles() -> None:
+    mesh = _from_bundle(BUNDLE_CASES[0])
 
-    assert reference.cell_mesh is None
-    assert reference.planar_mesh is None
-    with pytest.raises(ValueError, match="face families"):
-        reference.cell_indices_for_label("west_side")
+    assert mesh.cell_mesh.n_cells == mesh.n_cells
+    assert mesh.planar_mesh is mesh.cell_mesh.mesh
+    assert mesh.cell_mesh.crs_wkt == _bundle(BUNDLE_CASES[0]).metadata_view.crs
+
+
+def test_a_bundle_that_declares_no_crs_is_refused() -> None:
+    bundle = _bundle(BUNDLE_CASES[0])
+    metadata = {key: value for key, value in bundle.metadata.items() if key != "crs"}
+
+    with pytest.raises(ValueError, match="no 'crs'"):
+        BoussinesqMesh.from_bundle(replace(bundle, metadata=metadata))
 
 
 def test_the_comparisons_are_not_vacuous() -> None:
@@ -227,15 +257,13 @@ def test_the_adapter_locates_a_cell_as_the_flat_selector_of_the_one_layer_mesh()
     assert BoussinesqFlowAdapter().locate_cell(ctx, x, y) == (0, 0, cell)
 
 
-def test_the_adapter_has_no_cell_to_give_on_a_mesh_read_from_a_bundle() -> None:
-    ctx = SimpleNamespace(model=SimpleNamespace(mesh=_from_bundle(BUNDLE_CASES[1])))
-
-    assert BoussinesqFlowAdapter().locate_cell(ctx, 0.0, 0.0) is None
+def test_the_adapter_has_no_cell_to_give_without_a_model() -> None:
     assert BoussinesqFlowAdapter().locate_cell(SimpleNamespace(model=None), 0.0, 0.0) is None
 
 
-def test_a_support_label_resolves_on_the_families_of_a_mesh_built_from_a_cell_mesh() -> None:
-    mesh = _from_cell_mesh(BUNDLE_CASES[1])
+@pytest.mark.parametrize("build", [_from_bundle, _from_cell_mesh])
+def test_a_support_label_resolves_on_the_families_of_the_mesh(build) -> None:
+    mesh = build(BUNDLE_CASES[1])
     resolver = BoussinesqForcingResolver(mesh=mesh, flow=SimpleNamespace(), time_grid=None)
 
     label, edges, cells = resolver.resolve_labelled_support(
@@ -247,9 +275,13 @@ def test_a_support_label_resolves_on_the_families_of_a_mesh_built_from_a_cell_me
     assert np.array_equal(cells, mesh.boundary_cell_indices_for_side("west_side"))
 
 
-def test_a_support_label_is_refused_where_no_family_and_no_support_exist() -> None:
-    mesh = _from_bundle(BUNDLE_CASES[1])
+@pytest.mark.parametrize("build", [_from_bundle, _from_cell_mesh])
+def test_the_stream_support_is_the_river_faces_and_the_cells_on_both_banks(build) -> None:
+    mesh = build(BUNDLE_CASES[1])
     resolver = BoussinesqForcingResolver(mesh=mesh, flow=SimpleNamespace(), time_grid=None)
 
-    with pytest.raises(ValueError, match="mesh support is unavailable"):
-        resolver.resolve_labelled_support(boundary={"support_label": "stream"}, bc_id="stream")
+    label, edges, cells = resolver.resolve_stream_dirichlet_support(boundary={})
+
+    assert label == "flow.bc.stream"
+    assert np.array_equal(edges, mesh.river_edge_indices())
+    assert np.array_equal(cells, stream_cells(mesh.cell_mesh))

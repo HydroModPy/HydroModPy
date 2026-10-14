@@ -23,8 +23,8 @@ A project root holds ``project.toml`` (the canonical config and the marker of th
 reports and ``.hmp`` packages) and ``.hmp/``. The ``.hmp/`` folder is disposable: the index
 (``index.duckdb``), the logs, the resolved workflow manifests used for resume, the heartbeats of
 live runs, the solver scratch and the ``gc`` quarantine. One entry is not: ``.hmp/mesh_cache/``
-holds the cell mesh of every request an engine cannot rebuild bit for bit (the gmsh engines,
-``triangle`` and ``voronoi``), one ``<key>/`` folder each with ``mesh.npz`` and ``mesh.json``.
+holds the cell mesh of every request an engine cannot rebuild bit for bit (the ``triangle``
+engine, which uses Gmsh), one ``<key>/`` folder each with ``mesh.npz`` and ``mesh.json``.
 A resume and ``restart_from`` read the mesh from there, so deleting it changes the mesh of a
 resumed run and makes ``restart_from`` refuse.
 
@@ -456,9 +456,8 @@ found it (``basin_rule``), the area (``basin_area_m2``), whether D was seeded at
 and its basin in the solver folder as ``<model>.descent.npz`` and the extractor copies them into
 the store right after the mesh. ``run.descent`` reads them back, and the flow direction map and ``accumulation_flux`` route on it
 (the contract of D is in :doc:`solver/backends`). A Boussinesq run stores the mesh of its
-setup like any other, and its extractor builds D from the Whitebox D8 pointer of the filled top and
-stores it once per run as ``descent_receiver`` and ``descent_surface``, for a raster run only. A
-Boussinesq run on a triangular mesh stores no D, and its accumulation fields are unavailable. The
+setup like any other and stores no D: its readers rebuild D from the stored top, as for a run
+sealed before D was stored. The
 arrays are new datasets, so ``zarr_schema_version`` does not change. A run sealed before D was stored has no
 ``descent_*`` array, and its readers rebuild D from the stored top, with no channel pin, no
 constant-head seed and no lake. A run sealed with D but before ``descent_basin`` has no basin, and

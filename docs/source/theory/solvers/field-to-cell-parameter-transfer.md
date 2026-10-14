@@ -17,10 +17,14 @@ conductivity, and a worked example. The keys of a value per zone are in
 A parameter with one value is spread over every cell. A parameter that points to a zone
 map through its `field_spatial_id` is mapped in three steps.
 
-1. **Sample the cell.** Each cell $c$ is covered by a regular set of sample points,
-   $n_s$ per axis of the cell. A point takes the zone that contains it.
-2. **Count the zones.** $F_{c,z}$ is the share of the points of $c$ that fall in zone
-   $z$, among the points that fall in a zone. A point outside every zone of a geology
+1. **Find the zones of the cell.** $F_{c,z}$ is the share of the area of $c$ that lies in
+   zone $z$, among the area that lies in a zone. It comes from the first of three sources
+   that applies. A mesh engine whose faces lie on the contacts gives each cell its zone
+   whole. A vector map gives the exact area of each zone polygon in the cell. Any other map
+   (a raster, the analytical bands and rings) is sampled: $n_s$ points per axis of the cell,
+   each taking the zone that contains it, and $F_{c,z}$ is the share of the points that
+   fall in $z$.
+2. **Leave out what no zone covers.** An area, or a point, outside every zone of a geology
    map or of a raster map is left out of the count.
 3. **Average, then scale with depth.** The value of the cell in layer $j$ is
 
@@ -33,14 +37,14 @@ with $v_z$ the value of zone $z$ and $f(d_j)$ the depth factor {eq}`eq-depth-fac
 the depth of the middle of layer $j$. A parameter with one value $v$ gives
 $u_{c,j} = f(d_j)\,v$.
 
-$F_{c,z}$ is an estimate of the share of the area of $c$ that lies in $z$. Its
+A sampled $F_{c,z}$ is an estimate of the share of the area of $c$ that lies in $z$. Its
 resolution is $1 / n_s^2$ of the cell: a zone that covers less than that may get no
 point. The same rule applies to every property, $K$, $S_y$, $S_s$ or the porosity. The
 two MODFLOW solvers apply it per layer; the Boussinesq solver applies it once, at the
 depth $d = 0$, because it has one layer. In the code: `FieldParam.to_mesh_field`.
 
 A zone of the map with no value in the parameter stops the run, with a message that
-names the missing keys. A cell where no point falls in any zone gets
+names the missing keys. A cell that no zone reaches gets
 $\sum_z F_{c,z} = 0$, so a value of zero, and a zero $K$ on an active cell is refused.
 
 (transfer-conductivity)=
@@ -93,8 +97,9 @@ faces with it, removes the mixed cell.
 
 - **Arithmetic mean only.** The aggregation is `weighted_average`; no geometric or
   harmonic option exists.
-- **A sampled share.** $F_{c,z}$ is counted on $n_s$ points per axis, not computed from
-  the exact intersection of the cell and the zone.
+- **A sampled share for a raster.** For a raster map and for the analytical bands and rings,
+  $F_{c,z}$ is counted on $n_s$ points per axis, not computed from the exact intersection of
+  the cell and the zone. A vector map gives the exact intersection.
 - **Same rule on every grid.** A coarse structured grid and a fine irregular mesh mix the
   zones differently, so two runs that share a zone map do not share their cell values.
   Compare them on the same grid, or report the grid with the result.
@@ -122,10 +127,10 @@ hydromodpy.solver.field_property_mapping
 | What | Where |
 |---|---|
 | The weighted average and the depth factor | `hydromodpy/spatial/field/core/field_param.py` (`FieldParam.to_mesh_field`, `FieldParam.vertical_factor`) |
-| The shares of each zone in a cell | `hydromodpy/spatial/domain/spatial_support.py` (`on_mesh`), `hydromodpy/spatial/field/geology/geology_field.py` (`GeologyField.on_mesh`) |
+| The shares of each zone in a cell | `hydromodpy/spatial/field/zone_fractions.py` (`zone_fractions`) |
+| The sampled shares | `hydromodpy/spatial/domain/spatial_support.py` (`on_mesh`), `hydromodpy/spatial/field/geology/geology_field.py` (`GeologyField.on_mesh`) |
 | The sample points of a cell | `hydromodpy/spatial/field/core/cell_sampling.py` (`sample_points_in_cell`) |
-| Per layer, for MODFLOW | `hydromodpy/solver/modflow6/support/property_mapping.py`, `hydromodpy/solver/modflow_common/property_mapping.py` |
-| Once, for Boussinesq | `hydromodpy/solver/boussinesq/property_mapping.py` |
+| The mapping, for the three solvers | `hydromodpy/solver/field_property_mapping.py` (`map_flow_properties`): per layer for MODFLOW, once for Boussinesq |
 
 ## See also
 

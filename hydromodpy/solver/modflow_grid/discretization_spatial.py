@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -20,7 +19,12 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     TopSamplingConfig,
     VerticalGridConfig,
 )
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
+from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import (
+    StructuredGridBuilder,
+    assert_bottom_below_top,
+    coerce_vertical_config,
+    layer_proportions,
+)
 from hydromodpy.spatial.mesh.ops.zonal_stats import regular_grid_cell_ids, zonal_top
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
@@ -57,60 +61,6 @@ def resolve_domain_surfaces(
 
     surface_topo.assert_same_geographic_domain(substratum)
     return surface_topo, substratum
-
-
-def _coerce_vertical_config(
-    vertical_config: VerticalGridConfig | Mapping[str, object] | None,
-) -> VerticalGridConfig:
-    if vertical_config is None:
-        return VerticalGridConfig()
-    if isinstance(vertical_config, VerticalGridConfig):
-        return vertical_config
-    if isinstance(vertical_config, Mapping):
-        return VerticalGridConfig.from_mapping(vertical_config)
-    raise TypeError("vertical_config must be None, VerticalGridConfig, or a mapping of values.")
-
-
-def _compute_layer_proportions(
-    *,
-    genmtd_lay: str,
-    nlay: int | None,
-    lay_decay: float | None,
-    lay_proportions: list[float] | None,
-) -> tuple[np.ndarray, int]:
-    if genmtd_lay == "list":
-        arr = np.asarray(lay_proportions, dtype=float)
-        return np.cumsum(arr), int(arr.size)
-    if genmtd_lay == "constant":
-        nlay_int = int(nlay)
-        return np.arange(1, nlay_int + 1, dtype=float) / nlay_int, nlay_int
-    if genmtd_lay == "decay":
-        nlay_int = int(nlay)
-        decay = float(lay_decay)
-        idx = np.arange(1, nlay_int + 1, dtype=float)
-        allp = (1 - decay**idx) / (1 - decay**nlay_int)
-        return allp, nlay_int
-    raise ValueError(f"Unsupported genmtd_lay '{genmtd_lay}'. Allowed: list, constant, decay.")
-
-
-def _assert_bottom_below_top(
-    *,
-    top: np.ndarray,
-    bot: np.ndarray,
-    nodata: float,
-) -> None:
-    valid = np.isfinite(top) & np.isfinite(bot) & (top > float(nodata)) & (bot > float(nodata))
-    if not np.any(valid):
-        raise ValueError("No finite overlapping valid cells found between top and bottom surfaces.")
-    violations = bot[valid] >= top[valid]
-    if np.any(violations):
-        n_bad = int(np.count_nonzero(violations))
-        total = int(violations.size)
-        max_delta = float(np.max(bot[valid] - top[valid]))
-        raise ValueError(
-            "Bottom surface must be strictly below top surface on valid cells "
-            f"({n_bad}/{total} violations, max(bot-top)={max_delta:.6g})."
-        )
 
 
 # A valid cell thicker than this multiple of the median, and thicker than the floor
@@ -443,7 +393,7 @@ def _build_extruded_solver_mesh_from_runtime_planar(
 
     # Sample top/botm at the cell centres (Voronoi generators or triangle centroids)
     # from the domain surfaces.
-    cfg = _coerce_vertical_config(vertical_config)
+    cfg = coerce_vertical_config(vertical_config)
     top_sampler = PreparedSurfaceSampler.from_surface(top_surface)
     bottom_sampler = PreparedSurfaceSampler.from_surface(bottom_surface)
     top_flat = np.asarray(top_sampler.sample(x_centers, y_centers), dtype=float).reshape(-1)
@@ -490,10 +440,10 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     )
     top_flat = np.where(invalid, float(nodata), top_flat)
     bottom_flat = np.where(invalid, float(nodata), bottom_flat)
-    _assert_bottom_below_top(top=top_flat, bot=bottom_flat, nodata=nodata)
+    assert_bottom_below_top(top=top_flat, bot=bottom_flat, nodata=nodata)
     _warn_on_outlier_thickness(top=top_flat, bot=bottom_flat, valid=~invalid)
 
-    allp, nlay = _compute_layer_proportions(
+    allp, nlay = layer_proportions(
         genmtd_lay=cfg.genmtd_lay,
         nlay=cfg.nlay,
         lay_decay=cfg.lay_decay,

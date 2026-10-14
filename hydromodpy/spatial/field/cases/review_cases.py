@@ -1,9 +1,8 @@
 """Sequential visual review launcher for the pedagogical `field/cases` examples.
 
-The goal is the same as for `gmsh_grid/cases/review_cases.py`: run a small set
-of representative examples one after another, keep the figure display blocking,
-and wait for the user to close the current window before moving to the next
-example.
+The goal is to run a small set of representative examples one after another, keep
+the figure display blocking, and wait for the user to close the current window
+before moving to the next example.
 
 For now the review set is built from the square-domain examples, with a few
 controlled variations of mesh type and field heterogeneity. This keeps the

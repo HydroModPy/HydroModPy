@@ -1,1 +1,1 @@
-"""Mesh data model and topology: HydroMesh container, Grid protocol, cell types."""
+"""Mesh data model and topology: HydroMesh container, cell types, planar cell mesh."""

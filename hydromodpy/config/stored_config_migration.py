@@ -34,6 +34,11 @@ What is migrated, and why it is safe:
   applies the translation table at the root and under every overlay; the stored
   grid shape of a ``resample_to_shape`` keeps its exact value as
   ``[mesh.regular] shape``;
+- ``mesh.lake_refinement.enabled``, at the root and under every overlay: the table
+  being present switches the refinement on, so the key carries nothing. A run made
+  since ``[mesh]`` stored it as true; the key is dropped and the table kept. A
+  retired ``[mesh_catchment]`` gives the table only when its ``lake_refinement``
+  was enabled, and the key is not copied;
 - the ``site_selection`` keys removed from the schema. Three of them did the
   job of another key, and move to it the way the selection read them:
   ``criteria.observations.flow_station_mode`` and
@@ -113,6 +118,7 @@ def migrate_stored_config(
     if dropped:
         changes.append(f"{', '.join(dropped)} dropped (every field is rebuilt on read)")
     changes.extend(translate_retired_mesh_sections(doc))
+    changes.extend(_drop_the_lake_refinement_switch(doc))
     changes.extend(_drop_the_stored_backend(doc))
     changes.extend(_drop_the_null_cell_ids(doc))
     changes.extend(_drop_the_unread_names(doc))
@@ -143,13 +149,36 @@ def translate_retired_mesh_sections(doc: dict[str, Any]) -> list[str]:
     null table is dropped, and a key no step of the new mesh reads is dropped.
     """
     changes = _translate_the_comparison_mesh_modes(doc)
-    scopes = [("", doc), *((f"{path}.", overlay) for path, overlay in _overlays(doc))]
+    for prefix, scope in _scopes_of(doc):
+        changes.extend(_translate_one_scope(scope, doc, prefix))
+    return changes
+
+
+def _scopes_of(doc: Mapping[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """Return the root and every overlay of *doc* as ``(path prefix, table)`` pairs."""
+    scopes: list[tuple[str, Any]] = [("", doc)]
+    scopes.extend((f"{path}.", overlay) for path, overlay in _overlays(doc))
     analysis = doc.get("analysis")
     if isinstance(analysis, Mapping):
         scopes.extend((f"analysis.{path}.", overlay) for path, overlay in _overlays(dict(analysis)))
-    for prefix, scope in scopes:
-        if isinstance(scope, dict):
-            changes.extend(_translate_one_scope(scope, doc, prefix))
+    return [(prefix, scope) for prefix, scope in scopes if isinstance(scope, dict)]
+
+
+def _drop_the_lake_refinement_switch(doc: Mapping[str, Any]) -> list[str]:
+    """Drop ``mesh.lake_refinement.enabled`` from the root and every overlay.
+
+    The model refuses the key, and the table alone switches the refinement on. A
+    run made since ``[mesh]`` stored it as true, so no run is read differently.
+    """
+    changes: list[str] = []
+    for prefix, scope in _scopes_of(doc):
+        mesh = scope.get("mesh")
+        lake = mesh.get("lake_refinement") if isinstance(mesh, Mapping) else None
+        if isinstance(lake, dict) and "enabled" in lake:
+            del lake["enabled"]
+            changes.append(
+                f"{prefix}mesh.lake_refinement.enabled dropped (the table switches the refinement on)"
+            )
     return changes
 
 
@@ -304,7 +333,7 @@ def _translate_mesh_catchment(table: Mapping[str, Any], mesh: dict[str, Any]) ->
         mesh["families"] = families
     lake = table.get("lake_refinement")
     if isinstance(lake, Mapping) and lake.get("enabled"):
-        mesh["lake_refinement"] = dict(lake)
+        mesh["lake_refinement"] = {key: value for key, value in lake.items() if key != "enabled"}
     zones = table.get("refinement_zone")
     if isinstance(zones, list) and zones:
         mesh["refinement_zone"] = list(zones)

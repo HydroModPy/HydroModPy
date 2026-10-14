@@ -27,7 +27,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PATH="/home/hmp/.local/bin:${PATH}"
 
-# libglu1-mesa is needed by gmsh / pyvista at import time.
+# libglu1-mesa is needed by gmsh at import time.
 # libexpat1 is needed by rasterio's runtime libraries.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libglu1-mesa libexpat1 \

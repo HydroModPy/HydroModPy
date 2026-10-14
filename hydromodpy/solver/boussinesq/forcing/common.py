@@ -24,10 +24,6 @@ from hydromodpy.physics.forcing.validation import (
     ensure_non_negative_numeric_payload,
     has_temporal_index,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
-    GmshSupportMetadata,
-    build_gmsh_support_metadata,
-)
 
 
 def first_period_is_steady(flow: object) -> bool:
@@ -65,40 +61,6 @@ class ForcingCommonMixin:
     mesh: object
     flow: object
     time_grid: object
-    mesh_bundle: object | None
-    planar_mesh_loader: object
-    support_metadata: GmshSupportMetadata | None
-
-    def runtime_mesh_support(self) -> GmshSupportMetadata | None:
-        """Return runtime support metadata when available."""
-        if self.support_metadata is not None:
-            return self.support_metadata
-        if self.mesh_bundle is not None:
-            return build_gmsh_support_metadata(self.mesh_bundle)
-        return None
-
-    def labelled_support_indices(
-        self, support_label: str, *, label: str
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Return the edge and cell indices of one support label.
-
-        A mesh bundle answers through its support metadata. A mesh built from a
-        cell mesh answers through the face families of that cell mesh.
-        """
-        support = self.runtime_mesh_support()
-        if support is not None:
-            return (
-                np.asarray(support.edge_indices_for_label(support_label), dtype=int).reshape(-1),
-                np.asarray(support.cell_indices_for_label(support_label), dtype=int).reshape(-1),
-            )
-        if getattr(self.mesh, "cell_mesh", None) is None:
-            raise ValueError(
-                f"{label} requires runtime gmsh support metadata but mesh support is unavailable."
-            )
-        return (
-            np.asarray(self.mesh.edge_indices_for_label(support_label), dtype=int).reshape(-1),
-            np.asarray(self.mesh.cell_indices_for_label(support_label), dtype=int).reshape(-1),
-        )
 
     @staticmethod
     def boundary_attr(boundary: object, field_name: str, default=None):
@@ -157,15 +119,7 @@ class ForcingCommonMixin:
 
     def planar_mesh_for_forcing(self):
         """Return the planar mesh used to discretize spatial forcings."""
-        planar_mesh = getattr(self.mesh, "planar_mesh", None)
-        if planar_mesh is not None:
-            return planar_mesh
-        if self.mesh_bundle is None:
-            raise RuntimeError(
-                "Spatial forcings require either one runtime planar mesh or one "
-                "mesh bundle exposing mesh_path."
-            )
-        return self.planar_mesh_loader(self.mesh_bundle.mesh_path)
+        return self.mesh.planar_mesh
 
     def boundary_value_series(
         self,

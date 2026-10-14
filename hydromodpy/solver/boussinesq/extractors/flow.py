@@ -12,11 +12,6 @@ from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import CF_EPOCH, CF_TIME_UNITS, cf_time_axis_seconds
 from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
-from hydromodpy.solver.boussinesq.extractors.descent import (
-    raster_grid_shape,
-    whitebox_d8_descent,
-    write_raster_descent,
-)
 
 logger = get_logger(__name__)
 
@@ -29,9 +24,6 @@ class BoussinesqOutputAdapter:
     (convergence metadata). ``Boussinesq.processing()`` writes both files at
     the end of the solve, mirroring the MODFLOW lifecycle where the run step
     is the only writer of solver outputs.
-
-    The extractor also stores the descent D of a raster run, so the
-    accumulation fluxes are routed on read as on MODFLOW.
     """
 
     solver_name = "boussinesq"
@@ -119,7 +111,7 @@ class BoussinesqOutputAdapter:
             self._write_budget_table(sim_id, store, components, n_timesteps=n_timesteps)
             self._write_budget_fields(sim_id, store, components, budget_terms=budget_terms)
 
-        z_top = self._write_surface_elevation(
+        self._write_surface_elevation(
             sim_id,
             store,
             solver_output_dir,
@@ -127,7 +119,6 @@ class BoussinesqOutputAdapter:
             z_top_m=z_top_m,
             z_bottom_m=z_bottom_m,
         )
-        self._write_descent(sim_id, store, z_top, cell_area_m2=cell_area_m2)
 
     @staticmethod
     def _persist_state_history(sim_id: str, store: Any, payload) -> None:
@@ -284,8 +275,8 @@ class BoussinesqOutputAdapter:
         *,
         z_top_m: np.ndarray | None,
         z_bottom_m: np.ndarray | None,
-    ) -> np.ndarray:
-        """Write mesh/topography from the Boussinesq payload or summary; return the top."""
+    ) -> None:
+        """Write mesh/topography from the Boussinesq payload or summary."""
         summary: dict[str, Any] = {}
         if z_top_m is None or z_bottom_m is None:
             summary_path = solver_output_dir / "_boussinesq_summary.json"
@@ -326,44 +317,3 @@ class BoussinesqOutputAdapter:
             )
         finally:
             sz.close()
-        return z_top
-
-    @staticmethod
-    def _write_descent(
-        sim_id: str,
-        store: Any,
-        z_top: np.ndarray,
-        *,
-        cell_area_m2: np.ndarray | None,
-    ) -> bool:
-        """Store the descent D of a raster run; return whether it was stored.
-
-        Without a raster shape or without Whitebox, no D is stored and the log
-        says why: the accumulation fluxes of the run are then unavailable on
-        read, never routed some other way.
-        """
-        metadata = store.read_geographic_metadata(sim_id)
-        shape, reason = raster_grid_shape(metadata, int(z_top.size), cell_area_m2)
-        if shape is None:
-            logger.info(
-                "Run %s stores no descent: %s. Its accumulation fluxes are unavailable.",
-                sim_id,
-                reason,
-            )
-            return False
-        try:
-            receiver, surface = whitebox_d8_descent(z_top, shape)
-        except Exception:
-            logger.warning(
-                "Run %s stores no descent: the Whitebox D8 pointer of its top failed. "
-                "Its accumulation fluxes are unavailable.",
-                sim_id,
-                exc_info=True,
-            )
-            return False
-        sz = store.open_zarr(sim_id)
-        try:
-            write_raster_descent(sz, top=z_top, receiver=receiver, surface=surface)
-        finally:
-            sz.close()
-        return True

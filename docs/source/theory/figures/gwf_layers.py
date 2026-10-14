@@ -1,9 +1,9 @@
-"""Layer interfaces of a 100 m column, drawn by _compute_layer_proportions."""
+"""Layer interfaces of a 100 m column, drawn by layer_proportions."""
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hydromodpy.solver.modflow_grid.discretization_spatial import _compute_layer_proportions
+from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import layer_proportions
 
 H = 100.0
 rules = [
@@ -16,7 +16,7 @@ rules = [
 fig, ax = plt.subplots(figsize=(6.4, 3.8))
 for i, (_label, keys) in enumerate(rules):
     keys = {"nlay": None, "lay_decay": None, "lay_proportions": None, **keys}
-    shares, nlay = _compute_layer_proportions(**keys)
+    shares, nlay = layer_proportions(**keys)
     bottoms = H * np.asarray(shares)
     tops = np.concatenate(([0.0], bottoms[:-1]))
     for j in range(nlay):

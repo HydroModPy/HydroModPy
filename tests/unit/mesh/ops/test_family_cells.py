@@ -1,9 +1,8 @@
-"""Side, river and label cells of a cell mesh equal what the legacy readers answered.
+"""Side, river and label cells of a cell mesh are read from its face families.
 
-Before the solvers read the cell mesh, a regular grid gave its sides by row and column
-arithmetic and an unstructured mesh gave them through ``GmshSupportMetadata``. The
-helpers must return the same cell sets on a 7 x 5 grid, on the island triangulation and
-its Voronoi dual, and on the other committed bundles.
+A regular grid gives its sides by row and column arithmetic. A triangulation and a
+Voronoi dual give the cells that own a face of the family. The helpers are checked on a
+7 x 5 grid, on the island triangulation and its dual, and on the other committed bundles.
 """
 
 from __future__ import annotations
@@ -19,7 +18,6 @@ from shapely.geometry import LineString, box
 
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
-from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import support_from_cell_mesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.ops.family_cells import (
     SIDE_IDS,
@@ -81,32 +79,44 @@ def test_the_sides_of_a_grid_are_its_border_rows_and_columns(grid, side) -> None
 
 
 @pytest.mark.parametrize("side", SIDE_IDS)
-def test_a_grid_answers_like_its_legacy_support(grid, side) -> None:
-    support = support_from_cell_mesh(grid)
-    assert np.array_equal(side_cells(grid, side), support.boundary_cell_indices_for_side(side))
-    assert np.array_equal(label_cells(grid, side), support.cell_indices_for_label(side))
+def test_a_grid_side_is_also_a_label(grid, side) -> None:
+    assert np.array_equal(label_cells(grid, side), side_cells(grid, side))
+
+
+def _cells_of_faces(cell_mesh: PlanarCellMesh, family: str) -> np.ndarray:
+    """The cells on either side of the faces of one family, read from the face table."""
+    table, rows = cell_mesh.face_families, cell_mesh.face_rows(family)
+    if table is None:
+        return np.empty(0, dtype=np.int64)
+    cells = np.concatenate([table.cell_a[rows], table.cell_b[rows]])
+    return np.unique(cells[cells >= 0])
+
+
+@pytest.mark.parametrize("case", BUNDLE_CASES)
+def test_a_triangulation_side_holds_the_cells_that_own_its_faces(case) -> None:
+    triangles = bundle_triangles(case)
+    for side in SIDE_IDS:
+        family = f"boundary:{side.removesuffix('_side')}"
+        assert np.array_equal(side_cells(triangles, side), _cells_of_faces(triangles, family))
+        assert np.array_equal(label_cells(triangles, side), side_cells(triangles, side))
 
 
 @pytest.mark.parametrize("case", BUNDLE_CASES)
 @pytest.mark.parametrize("producer", [bundle_triangles, bundle_dual])
-def test_a_bundle_mesh_answers_like_its_support(case, producer) -> None:
-    cell_mesh, support = producer(case)
-    legacy = support_from_cell_mesh(cell_mesh)
+def test_a_bundle_mesh_has_the_labels_of_its_sides_and_its_river(case, producer) -> None:
+    cell_mesh = producer(case)
     for side in SIDE_IDS:
-        assert np.array_equal(
-            side_cells(cell_mesh, side), support.boundary_cell_indices_for_side(side)
-        )
-        assert np.array_equal(
-            side_cells(cell_mesh, side), legacy.boundary_cell_indices_for_side(side)
-        )
-        assert np.array_equal(label_cells(cell_mesh, side), support.cell_indices_for_label(side))
-    assert np.array_equal(stream_cells(cell_mesh), support.river_cell_indices())
+        assert np.array_equal(label_cells(cell_mesh, side), side_cells(cell_mesh, side))
+    if cell_mesh.face_rows("rivers").any():
+        assert np.array_equal(stream_cells(cell_mesh), _cells_of_faces(cell_mesh, "rivers"))
+    else:
+        assert stream_cells(cell_mesh).size == 0
     for label in ("stream", "river"):
-        assert np.array_equal(label_cells(cell_mesh, label), support.cell_indices_for_label(label))
+        assert np.array_equal(label_cells(cell_mesh, label), stream_cells(cell_mesh))
 
 
 def test_a_dual_side_holds_the_cells_centred_on_it() -> None:
-    dual, _ = bundle_dual(RECTANGLE)
+    dual = bundle_dual(RECTANGLE)
     assert dual.center_kind == "generator"
     west = side_cells(dual, "west_side")
     xmin = dual.mesh.vertices[:, 0].min()
@@ -117,7 +127,7 @@ def test_a_dual_side_holds_the_cells_centred_on_it() -> None:
 
 
 def test_a_side_with_no_centred_cell_falls_back_to_the_cells_with_a_face_on_it(caplog) -> None:
-    dual, _ = bundle_dual(RECTANGLE)
+    dual = bundle_dual(RECTANGLE)
     shifted = replace(dual, centers=dual.centers + np.array([0.37, 0.0]))
     with caplog.at_level(logging.WARNING, logger="hydromodpy"):
         west = side_cells(shifted, "west_side")
@@ -128,7 +138,7 @@ def test_a_side_with_no_centred_cell_falls_back_to_the_cells_with_a_face_on_it(c
 
 
 def test_a_named_boundary_family_is_a_label(grid) -> None:
-    triangles, _ = bundle_triangles(RECTANGLE)
+    triangles = bundle_triangles(RECTANGLE)
     assert np.array_equal(
         label_cells(triangles, "boundary:west"), triangles.family_cells("boundary:west")
     )
@@ -191,7 +201,6 @@ def test_the_stream_of_a_cut_mesh_is_the_cells_on_both_sides_of_its_faces(build)
         lines=(LineFamilySpec("rivers", "cell", (river,)),),
     )
     cell_mesh = build(request)
-    legacy = support_from_cell_mesh(cell_mesh)
     assert stream_cells(cell_mesh).size > 0
-    assert np.array_equal(stream_cells(cell_mesh), legacy.river_cell_indices())
-    assert np.array_equal(label_cells(cell_mesh, "stream"), legacy.cell_indices_for_label("stream"))
+    assert np.array_equal(stream_cells(cell_mesh), _cells_of_faces(cell_mesh, "rivers"))
+    assert np.array_equal(label_cells(cell_mesh, "stream"), stream_cells(cell_mesh))

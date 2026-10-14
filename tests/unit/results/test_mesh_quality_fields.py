@@ -27,7 +27,6 @@ from hydromodpy.results.derive.virtual_fields import (
 )
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.mesh_layout import mesh_layout_from_cell_mesh
-from hydromodpy.spatial.mesh.adapters.flopy_adapter import from_flopy_structured
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     MeshIdentity,
     PlanarCellMesh,
@@ -35,6 +34,7 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
 )
 from tests._helpers.bundle_cell_meshes import bundle_dual
 from tests._helpers.cell_meshes import TEST_CRS_WKT
+from tests._helpers.regular_cell_meshes import from_flopy_structured
 
 WIDTHS = (10.0, 20.0, 80.0)
 HEIGHT = 10.0
@@ -174,7 +174,7 @@ def test_the_fields_are_static_and_read_whatever_the_step(tmp_path):
 
 
 def test_the_per_cell_extremes_of_a_voronoi_dual_are_the_qa_extremes(tmp_path):
-    cell_mesh, _ = bundle_dual("stream_depletion_glover_balmer_tri_refined_well")
+    cell_mesh = bundle_dual("stream_depletion_glover_balmer_tri_refined_well")
     qa = cell_mesh.qa
     store = _store(tmp_path / "fields.zarr", cell_mesh, qa=qa.as_dict())
 

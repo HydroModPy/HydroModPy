@@ -1,17 +1,8 @@
-"""Concrete implementations of the :class:`Grid` Protocol.
+"""The :class:`RegularGrid` wrapper of a DEM-aligned structured grid.
 
-Three wrappers cover the topologies HydroModPy recognises:
-
-* :class:`RegularGrid` - DIS / structured-in-plan grids built from a DEM
-  raster transform (uniform cell size, ``(nrow, ncol)`` shape).
-* :class:`IrregularGrid` - DISV planar meshes carrying explicit vertices and
-  face-node connectivity (typically Gmsh triangulations).
-* :class:`LumpedGrid` - sentinel for lumped models such as GR4J. A
-  :class:`HydroMesh` cannot be materialised: :meth:`to_hydro_mesh` raises.
-
-These are purely data-carrying wrappers around :class:`HydroMesh`. They expose
-the topology property required by downstream readers (``Run.grid`` /
-``Run.fields`` / ``Run.mesh``) without changing the storage layout.
+:class:`RegularGrid` describes DIS / structured-in-plan grids built from a DEM
+raster transform (uniform cell size, ``(nrow, ncol)`` shape). It is a purely
+data-carrying wrapper around :class:`HydroMesh`.
 """
 
 from __future__ import annotations
@@ -73,64 +64,4 @@ class RegularGrid:
         )
 
 
-@dataclass(frozen=True, slots=True)
-class IrregularGrid:
-    """Unstructured-in-plan grid (DISV) backed by an explicit :class:`HydroMesh`."""
-
-    mesh: HydroMesh
-    n_layers: int = 1
-    crs: str | None = None
-
-    @property
-    def topology(self) -> str:
-        return "irregular"
-
-    @property
-    def n_cells(self) -> int:
-        return int(self.mesh.n_cells)
-
-    @property
-    def bbox(self) -> tuple[float, float, float, float]:
-        b = self.mesh.bounds()
-        # bounds returns (xmin, ymin, xmax, ymax) in 2D
-        if len(b) == 4:
-            xmin, ymin, xmax, ymax = b
-        else:
-            xmin, ymin, _, xmax, ymax, _ = b
-        return (xmin, ymin, xmax, ymax)
-
-    def to_hydro_mesh(self) -> HydroMesh:
-        return self.mesh
-
-
-@dataclass(frozen=True, slots=True)
-class LumpedGrid:
-    """Single-cell sentinel for lumped catchment models (GR4J).
-
-    A lumped run has no spatial discretisation. Calling :meth:`to_hydro_mesh`
-    raises :class:`RuntimeError` to make the contract violation explicit.
-    """
-
-    crs: str | None = None
-
-    @property
-    def topology(self) -> str:
-        return "lumped"
-
-    @property
-    def n_cells(self) -> int:
-        return 1
-
-    @property
-    def n_layers(self) -> int:
-        return 1
-
-    @property
-    def bbox(self) -> tuple[float, float, float, float]:
-        raise RuntimeError("lumped simulation has no spatial bbox")
-
-    def to_hydro_mesh(self) -> HydroMesh:
-        raise RuntimeError("lumped simulation has no spatial grid")
-
-
-__all__ = ("IrregularGrid", "LumpedGrid", "RegularGrid")
+__all__ = ("RegularGrid",)

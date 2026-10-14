@@ -386,7 +386,7 @@ symbols:
     symbol: \Omega
     meaning: the meshed domain
     unit: "-"
-    set_by: "the catchment, its buffer and :toml:`kind|mesh_catchment.domain.kind`"
+    set_by: "the catchment and :toml:`domain_extent|geographic.domain_extent`"
     group: mesh
     pages: [mesh]
   - id: domain-area
@@ -412,14 +412,7 @@ symbols:
     pages: [mesh]
   - id: counts
     symbol: N_S, N_T, N_V
-    meaning: number of cells of a structured grid, of a triangle mesh, of its Voronoi dual
-    unit: "-"
-    set_by: derived
-    group: mesh
-    pages: [mesh]
-  - id: vertices
-    symbol: n_v, n_b
-    meaning: number of vertices of the triangulation, and of those on its outline
+    meaning: number of cells of a structured grid, of a triangle mesh, of a Voronoi mesh
     unit: "-"
     set_by: derived
     group: mesh
@@ -428,40 +421,75 @@ symbols:
     symbol: \ell_g
     meaning: background cell size
     unit: m
-    set_by: ":toml:`global_size|mesh_catchment.zone_meshing.global_size`"
+    set_by: ":toml:`cell_size|mesh.cell_size`"
     group: mesh
     pages: [mesh]
   - id: size-interface
     symbol: \ell_s
-    meaning: cell size on an interface
+    meaning: cell size on a refined line, such as a river
     unit: m
-    set_by: ":toml:`interface_size|mesh_catchment.zone_meshing.interface_size`"
+    set_by: ":toml:`river_cell_size|mesh.river_cell_size`"
     group: mesh
     pages: [mesh]
   - id: interface-distance
     symbol: \xi_s
     meaning: distance over which the size grows back to :math:`\ell_g`
     unit: m
-    set_by: ":toml:`interface_distance|mesh_catchment.zone_meshing.interface_distance`"
+    set_by: ":toml:`river_band|mesh.river_band`"
     group: mesh
     pages: [mesh]
   - id: distance-interface
     symbol: \xi
-    meaning: distance from a point to the nearest interface
+    meaning: distance from a point to a refined line
     unit: m
     set_by: derived
     group: mesh
     pages: [mesh]
-  - id: size-bounds
-    symbol: \ell_{\min}, \ell_{\max}
-    meaning: lower and upper bound of the size
+  - id: size-field
+    symbol: \ell(\mathbf{x})
+    meaning: wanted cell size at the point :math:`\mathbf{x}`, the size field of the graded engines
     unit: m
-    set_by: ":toml:`min_size|mesh_catchment.zone_meshing.min_size`, :toml:`max_size|mesh_catchment.zone_meshing.max_size`"
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: size-background
+    symbol: \ell_b
+    meaning: background cell size at a point, :math:`\ell_g` inside the catchment and larger outside it
+    unit: m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: size-outside
+    symbol: \kappa
+    meaning: growth factor of the background cell size outside the catchment
+    unit: "-"
+    set_by: ":toml:`outside_factor|mesh.outside_factor`"
+    group: mesh
+    pages: [mesh]
+  - id: term-slope
+    symbol: \sigma_k
+    meaning: growth of the cell size per metre of distance from refined line :math:`k`
+    unit: m/m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: extent
+    symbol: L_x
+    meaning: extent of the domain along one axis
+    unit: m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: size-slope
+    symbol: \sigma_{\max}
+    meaning: largest growth of the cell size per metre of distance
+    unit: m/m
+    set_by: ":toml:`max_slope|mesh.max_slope`"
     group: mesh
     pages: [mesh]
   - id: seed
     symbol: \mathbf{s}_i
-    meaning: seed of Voronoi cell :math:`i`, a vertex of the triangulation
+    meaning: generator of Voronoi cell :math:`i`, which is the centre of the cell
     unit: m
     set_by: derived
     group: mesh

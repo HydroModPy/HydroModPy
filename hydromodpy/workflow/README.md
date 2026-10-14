@@ -23,7 +23,7 @@ the twelve steps, and where to add what.
 | `phases.py` | the phase vocabulary that `Project` and `Pipeline` share |
 | `launcher_protocol.py` | the `Launcher` Protocol: what drives a plan against a state; `SimulationRunner` is the one in tree |
 | `run_catalog.py` | the writable catalog of a run, opened for the span of one caller |
-| `pipelines/` | two standalone launchers: `mesh.py` (`MeshCatchmentLauncher`) and `overview.py` (`DataOverviewLauncher`) |
+| `pipelines/` | one standalone launcher: `overview.py` (`DataOverviewLauncher`) |
 | `dispatch.py` | the workflow names (`KNOWN_WORKFLOWS`) and how a file's `[workflow]` mode is read and checked |
 | `site_selection.py`, `site_selection_data.py`, `_site_selection_*.py` | the site-selection workflow: plan, build from observed stations, from generated candidates or from a DEM area, or select from a CSV of delineated catchments |
 | `regional_lab_materialization.py` | the shared regional flow stack a regional lab materializes for several catchments |
@@ -39,7 +39,7 @@ on, so the graph is a chain and every cohort holds one step.
 | `resolve` | `steps/resolve.py` | workspace paths and the `WorkflowContext` |
 | `build_geographic` | `steps/setup.py` | the geographic context, the domain and the spatial supports |
 | `load_data` | `steps/data.py` | the data of `[data]`, bound to the runtime (`apply_*` of `physics` and `spatial`) |
-| `build_mesh` | `steps/mesh.py` | the catchment mesh, or an external one |
+| `build_mesh` | `steps/mesh.py` | the cell mesh of the engine of `[mesh]` |
 | `setup_process` | `steps/setup.py` | the process objects, `Flow` and `Transport` |
 | `prepare_solver` | `steps/prepare_solver/` | the simulation plan, the run registered in the catalog, the inputs frozen |
 | `run_solver` | `steps/run_solver.py` | the plan, executed by `SimulationRunner` |
@@ -86,7 +86,7 @@ hydromodpy/workflow/
   tracking/    journal.py  events.py  resume.py  heartbeat.py
   steps/       validate  resolve  setup  data  mesh  prepare_solver/  run_solver  extract  derive
                display  export  planning  calibration
-  pipelines/   mesh.py  overview.py
+  pipelines/   overview.py
   site_selection.py  site_selection_data.py  _site_selection_*.py  regional_lab_materialization.py
 ```
 

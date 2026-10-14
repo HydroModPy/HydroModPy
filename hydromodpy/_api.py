@@ -1114,7 +1114,6 @@ def doctor() -> dict:
         "gmsh",
         "whitebox_workflows",
         "geopandas",
-        "pyvista",
     ):
         try:
             mod = importlib.import_module(pkg)

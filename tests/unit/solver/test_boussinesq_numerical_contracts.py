@@ -11,9 +11,9 @@ from hydromodpy.core.budget_terms import BudgetKeep, kept_budget
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.solver.boussinesq.assembly import assemble_steady_residual
-from hydromodpy.solver.boussinesq.extractors.descent import decode_d8_pointer, raster_grid_shape
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from tests._helpers.boussinesq_cell_meshes import placeholder_cell_mesh
 
 
 def _two_cell_mesh() -> BoussinesqMesh:
@@ -46,6 +46,7 @@ def _two_cell_mesh() -> BoussinesqMesh:
         edge_is_river=np.asarray([False], dtype=bool),
         cell_index_by_id={0: 0, 1: 1},
         node_index_by_id={0: 0, 1: 1, 2: 2, 3: 3},
+        cell_mesh=placeholder_cell_mesh(2),
     )
 
 
@@ -171,7 +172,7 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
             # The seepage mask is rebuilt on read from budget/surface_excess.
             derived = zarr_store.root.get("derived")
             assert derived is None or not {"seepage_mask", "seepage_rate"} & set(derived)
-            # No grid metadata: the cells are no raster and no descent is stored.
+            # The extractor stores no descent: a reader rebuilds D from the stored top.
             assert "descent_receiver" not in mesh
         finally:
             zarr_store.close()
@@ -217,35 +218,6 @@ def test_boussinesq_extractor_declares_an_empty_budget_group(tmp_path: Path) -> 
         catalog.close()
 
 
-def test_raster_grid_shape_takes_the_metadata_raster_only() -> None:
-    uniform = np.full(6, 25.0)
-    assert raster_grid_shape({"nrow": "2", "ncol": "3"}, 6, uniform) == ((2, 3), "")
-    assert raster_grid_shape({"nrow": "2", "ncol": "3"}, 6, None)[0] == (2, 3)
-    # No metadata, a cell count that is not the raster's, a triangle mesh.
-    assert raster_grid_shape({}, 6, uniform)[0] is None
-    assert raster_grid_shape({"nrow": "3", "ncol": "3"}, 6, uniform)[0] is None
-    triangles = np.asarray([25.0, 24.0, 25.0, 26.0, 25.0, 25.0])
-    shape, reason = raster_grid_shape({"nrow": "2", "ncol": "3"}, 6, triangles)
-    assert shape is None
-    assert "area" in reason
-
-
-def test_decode_d8_pointer_reads_the_whitebox_codes() -> None:
-    # Whitebox's non-ESRI pointer: 1 NE, 2 E, 4 SE, 8 S, 16 SW, 32 W, 64 NW, 128 N.
-    pointer = np.asarray([[2, 4, 0], [128, 32, 16], [1, 1, 64]])
-    valid = np.ones(pointer.shape, dtype=bool)
-    valid[2, 2] = False
-    # Row-major ids 0 1 2 / 3 4 5 / 6 7 8. Cell 2 has no receiver, cell 7 (NE)
-    # points at 5, cell 8 is nodata.
-    np.testing.assert_array_equal(decode_d8_pointer(pointer, valid), [1, 5, -1, 0, 3, 7, 4, 5, -1])
-    # A cell pointing off the raster or at a nodata cell is an outlet.
-    pointer[0, 0] = 128
-    pointer[1, 1] = 4
-    receiver = decode_d8_pointer(pointer, valid)
-    assert receiver[0] == -1
-    assert receiver[4] == -1
-
-
 def test_boussinesq_extractor_raises_on_invalid_surface_metadata(tmp_path: Path) -> None:
     output_dir = tmp_path / "solver"
     output_dir.mkdir()
@@ -272,44 +244,5 @@ def test_boussinesq_extractor_raises_on_invalid_surface_metadata(tmp_path: Path)
     try:
         with pytest.raises(RuntimeError, match="Could not parse Boussinesq summary"):
             BoussinesqOutputAdapter().extract(sim_id, output_dir, catalog)
-    finally:
-        catalog.close()
-
-
-def test_boussinesq_extractor_stores_no_descent_when_whitebox_fails(
-    tmp_path: Path, monkeypatch, caplog
-) -> None:
-    """Without a pointer the run stores no D: its accumulation is unavailable, never local."""
-    from hydromodpy.solver.boussinesq.extractors import flow as flow_module
-
-    def fail(_top: np.ndarray, _shape: tuple[int, int]) -> tuple[np.ndarray, np.ndarray]:
-        raise RuntimeError("no Whitebox here")
-
-    monkeypatch.setattr(flow_module, "whitebox_d8_descent", fail)
-    output_dir = tmp_path / "solver"
-    _write_transient_payload(output_dir)
-    # Two cells of one area, laid out as a 1 x 2 raster.
-    with np.load(output_dir / "_boussinesq_state_history.npz") as payload:
-        arrays = dict(payload)
-    arrays["cell_area_m2"] = np.asarray([100.0, 100.0])
-    np.savez(output_dir / "_boussinesq_state_history.npz", **arrays)
-    catalog = Catalog(tmp_path / "workspace")
-    sim_id = str(uuid4())
-    registration = catalog.register_simulation(
-        sim_id, project="test", solver="boussinesq", n_cells=2, n_layers=1, n_timesteps=2
-    )
-    if registration.zarr is not None:
-        registration.zarr.close()
-    catalog.write_geographic_metadata(sim_id, {"nrow": 1, "ncol": 2})
-    try:
-        with caplog.at_level("WARNING"):
-            BoussinesqOutputAdapter().extract(sim_id, output_dir, catalog)
-        zarr_store = catalog.open_zarr(sim_id)
-        try:
-            assert "descent_receiver" not in zarr_store.root["mesh"]
-            assert "drain" in zarr_store.root["budget"]
-        finally:
-            zarr_store.close()
-        assert "stores no descent" in caplog.text
     finally:
         catalog.close()

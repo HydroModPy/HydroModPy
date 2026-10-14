@@ -48,9 +48,6 @@ class _FakeSolver:
         del options
         return True
 
-    def post_processing(self, options) -> None:
-        del options
-
 
 def _context(solver: str, *, tmp_path: Path, cell_mesh: object | None) -> RunContext:
     plan = SimulationPlan(
@@ -67,10 +64,6 @@ def _context(solver: str, *, tmp_path: Path, cell_mesh: object | None) -> RunCon
     )
     flow_off = SimpleNamespace(
         intermittency=SimpleNamespace(yearly=False, monthly=False, weekly=False, daily=False),
-        native_mesh_npz=False,
-        native_mesh_csv=False,
-        native_mesh_vtu=False,
-        native_mesh_png=False,
     )
     state = RunState(
         cfg=SimpleNamespace(

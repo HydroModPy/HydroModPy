@@ -133,7 +133,6 @@ ide = [
     "spyder>=6.0",
     "spyder-kernels",
 ]
-viewer3d = ["pyvista"]
 dev = [
     "ruff>=0.15",
     "pre-commit>=4.0",
@@ -389,7 +388,6 @@ module = [
     "whitebox_workflows.*",
     "vedo.*",
     "ultraplot.*",
-    "pyvista.*",
     "gmsh.*",
     "cma.*",
     "optuna.*",

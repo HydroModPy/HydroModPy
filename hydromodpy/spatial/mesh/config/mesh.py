@@ -7,7 +7,7 @@ algorithm setting is a DEV key with a fixed default. Without ``[mesh]`` the
 
 from __future__ import annotations
 
-from collections.abc import Collection, Mapping
+from collections.abc import Collection
 from typing import Annotated, Any, Literal
 
 from pydantic import Field, field_validator, model_validator
@@ -284,24 +284,9 @@ class MeshConfig(HydroModelBase):
             "entry-point group, without a patch to HydroModPy."
         )
 
-    @field_validator("lake_refinement", mode="before")
-    @classmethod
-    def _the_table_switches_lake_refinement_on(cls, value: Any) -> Any:
-        """``[mesh.lake_refinement]`` present means on; ``enabled`` need not be written."""
-        if isinstance(value, Mapping) and "enabled" not in value:
-            return {**value, "enabled": True}
-        if isinstance(value, LakeRefinementConfig) and "enabled" not in value.model_fields_set:
-            return value.model_copy(update={"enabled": True})
-        return value
-
     @model_validator(mode="after")
     def _check_engine_tables(self) -> MeshConfig:
         """Refuse a table, a size or a key that the chosen engine never reads."""
-        if self.lake_refinement is not None and not self.lake_refinement.enabled:
-            raise ValueError(
-                "[mesh.lake_refinement] with enabled = false: remove the table to mesh "
-                "without lake refinement."
-            )
         if self.regular is not None and self.engine != "regular":
             raise ValueError(
                 f'[mesh.regular] gives the grid shape of the "regular" engine, and mesh.engine '

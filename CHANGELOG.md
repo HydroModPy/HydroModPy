@@ -41,12 +41,33 @@ Each release section includes the following standard categories:
   turns the project into a `MeshRequest` (lines with a `cell` or `face` intent, resampled at the
   local step); the size field (`spatial/mesh/sizing/`) is a slope-bounded ramp from a distance
   transform on the DEM grid. The `triangle` engine is a new gmsh CDT driver with the lines
-  embedded; `voronoi` is still the dual of that triangulation (until the generator lands).
+  embedded.
+- The `voronoi` engine generates its own cell generators (engine version 2.0.0). It puts one
+  generator per river vertex (cell chains), Berge mirror pairs along the face lines (geology
+  contacts, lake shores, catchment boundary) so that a cell face lies on each line, generators
+  on the domain boundary, then fills the rest with a seeded draw weighted by the size field and
+  relaxes it with a weighted Lloyd iteration (25 iterations at most, developer key
+  `[mesh.voronoi] lloyd_tolerance`). GEOS tessellates in a local frame, so Lambert-93
+  magnitudes no longer reach the geometry code, and seven gates (one cell per seed, Berge balls, mirror
+  faces, chain continuity, area, degenerate cells, short faces) stop an invalid mesh instead of warning. One request and
+  one seed give one mesh, bit for bit; the engine asks for no cache. `[mesh.voronoi] seeds =
+  "triangulation"`, the default when `[mesh.triangle] path` is given, takes the generators from
+  that triangulation and keeps its dual, with the same faces as the former Voronoi mesh. At equal
+  size parameters the generator makes about half the cells of the dual of a triangulation. Flume
+  v2 size parameters: 21 655 cells instead of 36 697, neighbour pairs above a size ratio of 1.5
+  from 13 % to 4.8 %, the seed-to-centroid offset p50 at 0.095 of the cell size. Flume v2
+  weekly run against its gmsh reference: NSE 0.8350 to 0.8373, KGE 0.897 to 0.913, mean
+  discharge -3.66 %, layer-1 heads mean absolute difference 0.475 m, seepage area -11.8 %,
+  solver time 5 068 s to 2 927 s. 200 000 cells are generated in 47 s and built in 3 s.
+  Examples 06 and 10 give no seeds and so change mesh: 826 to 344 cells and 303 to 144 cells.
+  The cell count changes the shape of every per-cell field, so the comparison is by signature
+  statistic: head p50 relative difference 5.3e-2 on 06, head mean relative difference 2.1e-2 on
+  10.
 - `[mesh]` section: `engine`, `cell_size`, `river_cell_size`, `river_band`, `[mesh.families]`,
   `[mesh.triangle] path` (reads an existing `.msh`), `[[mesh.refinement_zone]]`,
   `[mesh.lake_refinement]`; developer keys `seed`, `outside_factor`, `transition_distance`,
-  `max_slope`, `[mesh.regular] shape`, `[mesh.triangle] algorithm`, `[mesh.voronoi] seeds`.
-  Without `[mesh]` the grid is the DEM pixels, as before.
+  `max_slope`, `[mesh.regular] shape`, `[mesh.triangle] algorithm`, `[mesh.voronoi] seeds`,
+  `[mesh.voronoi] lloyd_tolerance`. Without `[mesh]` the grid is the DEM pixels, as before.
 - Each flow adapter declares `accepted_meshes`; the configuration refuses a solver and mesh pair
   before any meshing (MODFLOW-NWT: `regular`; Boussinesq: `triangle`; MODFLOW 6: any planar
   engine).
@@ -56,12 +77,17 @@ Each release section includes the following standard categories:
   consumer (`centers`, `center_kind`), a required CRS, cell chains and face families, zone labels,
   the engine identity and a `MeshQA`. Its `DerivedGeometry` (areas, area centroids, edge table,
   CSR adjacency, -1 padded connectivity) is computed once and vectorised: 1.5 s for 200 000
-  Voronoi cells against 10.8 s for the per-consumer functions. Adapters build it from a regular
-  grid, a gmsh triangulation with its support, and the current Voronoi dual.
+  Voronoi cells against 10.8 s for the per-consumer functions. The engines return it; a regular
+  grid (`cell_mesh_from_regular_grid`) and a Boussinesq bundle (`cell_mesh_from_bundle`) are
+  read into it by an adapter.
 - A characterization net freezes the triangle and Voronoi meshes before the mesh refactor
-  (`tests/regression/mesh/mesh_net/`): cell count, areas and quality quantiles of the current
-  dual on two frozen bundles, and MF6 steady heads on the island with an asymmetric recharge;
-  bands in `tests/TOLERANCES.md` rows 162 to 169.
+  (`tests/regression/mesh/mesh_net/`): cell count, areas and quality quantiles of the triangle
+  mesh and of the Voronoi dual of its triangulation on two frozen bundles, and MF6 steady heads
+  on the island with an asymmetric recharge; bands in `tests/TOLERANCES.md` rows 162 to 169.
+- The patch test on skewed triangles and the piecewise-K circular island also run on a generated
+  Voronoi mesh (`voronoi_generated` variant), with their own tolerances at twice the measure
+  (rows 175 and 176 of `tests/TOLERANCES.md`); every existing Voronoi tolerance is unchanged,
+  the triangulation-seeded variants measure as before.
 - The validation page marks a solver that cannot run a case `n/a`, with the reason the test
   file declares in `NOT_APPLICABLE`; a unit gate refuses a matrix cell that is neither run nor
   declared.
@@ -83,14 +109,17 @@ Each release section includes the following standard categories:
   `tests/integration/test_one_cell_mesh_gives_every_solver_the_same_recharge_and_k.py` proves
   that MODFLOW 6, MODFLOW-NWT and Boussinesq get the same K, Sy and recharge, to the byte, from
   one mesh.
-- The cell mesh is written once, before the run, under `mesh/` of the Zarr store: vertices, cell
-  rows, cell centres (`face_x`, `face_y`), `face_family` and `edge_family` bit fields (CF
-  `flag_masks`), `face_zone`, and the UGRID edge tables (`edge_node_connectivity`,
-  `edge_face_connectivity`, dimensions `edge` and `two`, fill -1). Group attributes record the
-  engine, its version and seed, the CRS, the request hash, the QA and the gmsh, scipy, shapely
-  and GEOS versions. Two Parquet tables, `mesh_cell_families` and `mesh_face_families`, hold the
-  river and lake chains and the face families. `Run.array.dataset()` hands the stored edges to
-  xugrid; `Run.mesh` gains `identity`, `crs_source`, `layout` and `layout_note`;
+- The cell mesh is written once, before the run, under `mesh/` of the Zarr store: vertices
+  (float64, the coordinates of the cell mesh; they are no longer read back from the MODFLOW 6
+  grid file, which flopy rounds to nine significant digits above 1e5 m: on a Lambert project a
+  vertex moved by up to 5e-3 m, and the island mesh area by 1.5 m2 in 131 650), cell rows, cell
+  centres (`face_x`, `face_y`), `face_family` and `edge_family` bit fields (CF `flag_masks`),
+  `face_zone`, and the UGRID edge tables (`edge_node_connectivity`, `edge_face_connectivity`,
+  dimensions `edge` and `two`, fill -1). Group attributes record the engine, its version and
+  seed, the CRS, the request hash, the QA and the gmsh, scipy, shapely and GEOS versions. Two
+  Parquet tables, `mesh_cell_families` and `mesh_face_families`, hold the river and lake chains
+  and the face families. `Run.array.dataset()` hands the stored edges to xugrid; `Run.mesh`
+  gains `identity`, `crs_source`, `layout` and `layout_note`;
   `hydromodpy.results.run.mesh_families.mesh_families(run)` reads the two tables.
 - Four mesh quality fields, computed on read and never stored: `mesh_cell_area`,
   `mesh_neighbour_ratio`, `mesh_center_offset`, `mesh_nonorthogonality`. A run sealed before the
@@ -113,30 +142,43 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
-- The `voronoi` mesh engine generates its own cell generators instead of taking the vertices
-  of a gmsh triangulation (engine version 2.0.0). It puts one generator per river vertex (cell
-  chains), Berge mirror pairs along the face lines (geology contacts, lake shores, catchment
-  boundary) so that a cell face lies on each line, generators on the domain boundary, then fills
-  the rest with a seeded draw weighted by the size field and relaxes it with a weighted Lloyd
-  iteration (25 iterations at most, developer key `[mesh.voronoi] lloyd_tolerance`). GEOS
-  tessellates in a local frame, so Lambert-93 magnitudes no longer reach the geometry code, and
-  five gates (Berge balls, mirror faces, chain continuity, area, degenerate cells) stop an
-  invalid mesh instead of warning. One request and one seed give one mesh, bit for bit; the
-  engine asks for no cache. `[mesh.voronoi] seeds = "triangulation"`, the default when
-  `[mesh.triangle] path` is given, keeps the dual of that triangulation with the same faces as
-  before. Flume v2 size parameters: 21 655 cells instead of 36 697, neighbour pairs above a size
-  ratio of 1.5 from 13 % to 4.8 %, the seed-to-centroid offset p50 at 0.095 of the cell size.
-  Flume v2 weekly run against its gmsh reference: NSE 0.8350 to 0.8373, KGE 0.897 to 0.913, mean
-  discharge -3.66 %, layer-1 heads mean absolute difference 0.475 m, seepage area -11.8 %,
-  solver time 5 068 s to 2 927 s. 200 000 cells are generated in 47 s and built in 3 s.
+- `[mesh.lake_refinement] enabled` is refused: the table being present switches the refinement
+  on. Both `enabled = true` and `enabled = false` raise "[mesh.lake_refinement] has no
+  'enabled' key: the table being present switches the lake refinement on. Remove the key, or
+  remove the table to mesh without lake refinement." Migration: `migrate_stored_config` drops
+  `mesh.lake_refinement.enabled` at the root, in comparison overlays and in analysis overlays
+  (one log line per place), and the translation of a retired `[mesh_catchment]` keeps the lake
+  table without copying the key. A stored config that holds the key reloads through
+  `HydroModPyConfig.from_snapshot`; `HydroModPyConfig.model_validate` refuses it. The
+  `run_identity_hash` of a run that has a `[mesh.lake_refinement]` table changes once, because
+  the dump no longer holds `enabled = true`; a rerun of such a run is a new run.
+- `BoussinesqMesh` always holds a cell mesh. `BoussinesqMesh.from_bundle` reads a bundle as a
+  `PlanarCellMesh` through `gmsh_grid/bundle_cell_mesh.py::cell_mesh_from_bundle`; a bundle
+  must declare its CRS in its metadata (the 16 committed bundles do: EPSG:2154). No measured
+  difference: 495 validation metrics are bit-identical. The cell of a point lying on an edge to
+  rounding follows the exact GEOS predicate of `locate_cells`.
+- `spatial/domain/cases/run_domain_case.py` builds its context through the one geographic
+  pipeline (`CatchmentDelineation`, or `build_synthetic_geographic` for a synthetic config).
+- The three layering helpers are public in `cartesian_grid/sgrid_generation.py`
+  (`coerce_vertical_config`, `layer_proportions`, `assert_bottom_below_top`); the copy in
+  `solver/modflow_grid/discretization_spatial.py` is gone. The arithmetic is unchanged.
+- Spatial forcings (heterogeneous recharge) on a Boussinesq bundle are sampled at the cell
+  centres of `nodes.csv` rather than of the bundle's `mesh_2d.msh` (vertex means differ by at
+  most 5e-6 m; the 495 validation metrics are bit-identical).
+- The `viewer3d` extra (`pyvista`) is removed: the only reader, the interactive 3D viewer, left
+  with the prism stack. `hmp doctor` and `_api` no longer list `pyvista` as an optional
+  dependency.
+- Reading a configuration no longer imports the mesher: `import
+  hydromodpy.config.hydromodpy_config` loads neither `zone_meshing` nor a launcher.
 - The mesh planner drops a hole of the domain, of a lake or of the catchment whose area is
   below the square of the local cell size, for every engine, with one INFO line. A bathymetry
   polygonised from a 1 m raster no longer breaks the Voronoi tessellation. A larger hole that
   touches the outer ring or another hole at one point still stops the Voronoi engine at its
   area gate, which says so.
-- MODFLOW 6: XT3D is always on for triangle cells; other cells follow the non-orthogonality rule
-  as before. The top of a river-chain cell whose centre lies off the river line (a river crossing
-  a contact, a cell two thalwegs share, a river end near the boundary) is the zonal minimum of
+- MODFLOW 6: XT3D is on by default for triangle cells, and an explicit `mf6_enable_xt3d` wins
+  with a warning; other cells follow the non-orthogonality rule as before. On a `voronoi` mesh,
+  the top of a river-chain cell whose centre lies off the river line (a river crossing a
+  contact, a cell two thalwegs share, a river end near the boundary) is the zonal minimum of
   the DEM pixels it covers, also in `centroid` mode.
 - The contacts of the `generated_bands` and `generated_rings` supports are face lines for an
   engine that generates its mesh with exact faces, so no cell straddles two zones.
@@ -147,10 +189,6 @@ Each release section includes the following standard categories:
   QA reports `share_gt_30` of the non-orthogonality, `mixed_cells` of each face family and
   `size_fidelity`.
 - `shapely>=2.1,<3` is required (`voronoi_polygons(ordered=True)`).
-- Validation: the patch test on skewed triangles and the piecewise-K circular island gain a
-  `voronoi_generated` variant with its own tolerances at twice the measure (rows 175 and 176 of
-  `tests/TOLERANCES.md`); every existing Voronoi tolerance is unchanged, the triangulation-seeded
-  variants measure as before.
 - The catchment of a MODFLOW run is the basin of its descent D, computed once per build
   (`core.descent.descent_basin`) and stored as `mesh/descent_basin` with its outlet and rule: the
   budget zone `catchment`, the `_catchment` discharge and its runoff area, the discharge
@@ -184,11 +222,11 @@ Each release section includes the following standard categories:
   gmsh runs miss once. Example 02 `run_cellular.py` still reads `setup.mesh_planar` and fails.
 - Zone fractions of a cell are exact for a vector geology source (polygon areas, one function
   for all solvers); `generated_rings`, `generated_bands` and raster sources keep their sampling,
-  so `cell_samples_per_axis` applies to those only. Example 06 changes: the K of 207 of 826
-  cells moves (up to 98 %), head RMSE 0.11 m on a 7 to 215 m range, mean K +0.6 %. In example
-  10 the fractions move (up to 0.89) and K does not (uniform). Cell areas are computed relative
-  to the first vertex: up to 1e-5 relative less rounding on triangle and Voronoi meshes far from
-  the origin.
+  so `cell_samples_per_axis` applies to those only. Example 06 changes: the K of 207 of its 826
+  cells (the dual of a triangulation, before the Voronoi generator) moves (up to 98 %), head RMSE
+  0.11 m on a 7 to 215 m range, mean K +0.6 %. In example 10 the fractions move (up to 0.89) and
+  K does not (uniform). Cell areas are computed relative to the first vertex: up to 1e-5 relative
+  less rounding on triangle and Voronoi meshes far from the origin.
 - K, Sy and Ss reach MODFLOW 6, MODFLOW-NWT and Boussinesq through one mapping,
   `map_flow_properties` (`solver/field_property_mapping.py`). A `Kv` field is now mapped on a
   regular MODFLOW 6 grid (it was ignored and `k33 = hk / vka` used). A Boussinesq mesh bundle
@@ -217,12 +255,55 @@ Each release section includes the following standard categories:
   cache key covers the gmsh, scipy, shapely and GEOS versions. The `config_hash` of every earlier
   run changes once, so the first relaunch recomputes, and cached triangle meshes are regenerated
   once. An unknown engine never matches a previous run.
-- `mesh/vertices` is the float64 coordinate of the cell mesh. It is no longer read back from the
-  MODFLOW 6 grid file, which flopy rounds to nine significant digits above 1e5 m: on a Lambert
-  project a vertex moves by up to 5e-3 m, and the island mesh area by 1.5 m2 in 131 650.
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `[mesh_catchment]`, `[mesh_catchment_batch]`, `[mesh_input]`, `[modflow6.sgrid.planar]`,
+  `[modflownwt.sgrid.planar]`, `grid_dual`, `linear_constraint_snap_tolerance`,
+  `rivers.snap_tolerance`: a TOML that declares one is refused with its replacement (the message
+  of `[mesh_catchment]` and `[mesh_catchment_batch]` names `[mesh]`); a stored configuration is
+  migrated (`migrate_stored_config`). The K of a gmsh bundle no longer fills invalid cells: K
+  comes from `[flow.param.K]` only.
+- The batch mesh launcher and its configuration: `spatial/mesh/launcher/`,
+  `workflow/pipelines/mesh.py`,
+  `spatial/mesh/config/{main,batch,rivers,watershed,hydraulic}.py` (`MeshCatchmentConfig` and
+  its sub-models) and `spatial/mesh/runtime_description.py`.
+- The standalone Gmsh zone mesher `spatial/mesh/gmsh_grid/zone_meshing/` (42 modules: the
+  conformal planner, the hotspot policy and the embedded curves), its reference cases
+  `gmsh_grid/cases/` and `gmsh_grid/examples/`, the 3D extruded-prism stack (`extruded_*`,
+  `_prism_*`, `interactive_3d_viewer.py`), the catchment bundle exporter
+  (`catchment_mesh_bundle.py`, `bundle_export_contracts.py` and the geology, hydraulic
+  properties and river exporters), `trace.py`, `plotting_utils.py`. The bundle reader
+  (`catchment_mesh_bundle_reader`) and `load_catchment_mesh_bundle` stay, since the Boussinesq
+  validation cases read bundles.
+- The standalone Cartesian path of `cartesian_grid/`: `SGridConfig`, `PlanarGridConfig`, the
+  `Bottom*` and `Layering*` models, `load_sgrid_toml`, `validate_sgrid_config_data`,
+  `build_sgrid_from_config`, `sgrid_fieldparam_discretization`, `sgrid_mesh_adapter`,
+  `PlanarDiscretizer`, `cartesian_grid/examples/` and `utils/`. `SolverSGridConfig`,
+  `VerticalGridConfig`, `TopSamplingConfig`, `StructuredGridBuilder` and `StructuredGridSpec`
+  stay.
+- `GmshSupportMetadata`, `build_gmsh_support_metadata`, `support_on_planar_mesh`,
+  `support_from_cell_mesh` (`gmsh_grid/runtime_support.py`) and the adapters
+  `cell_mesh_from_triangulation` and `cell_mesh_from_voronoi_dual`.
+- `spatial/mesh/ops/mesh_flow.py`, the `Grid` and `GridTopology` protocols
+  (`model/protocol.py`), `from_flopy_structured` (it lives on as a test oracle in
+  `tests/_helpers/`) and `from_extruded_prism`. `RegularGrid` stays.
+- The legacy MODFLOW 6 post-processing, which had no caller: `solver/modflow6/postprocess/`,
+  `solver/modflow6/support/diagnostics.py`, `Modflow6.post_processing`,
+  `Modflow6Transport.post_processing`, `Modflow6._to_export_array`. The unused
+  `native_mesh_npz`, `native_mesh_csv`, `native_mesh_vtu` and `native_mesh_png` fields of
+  `ModflowPostprocessOptions` leave with it.
+- `spatial/geographic/core/domain_geographic_pipeline.py` (`build_domain_geographic_context`,
+  `build_geographic_derived_features`) and its `breach` to `fill` retry after an empty
+  catchment: `hmp run` uses the other pipeline. `DomainGeographicContext` now lives in
+  `spatial/geographic/core/derived_features.py`.
+- `BoussinesqMesh.river_cell_indices`, `support_metadata` and the bounding-box and
+  point-in-triangle branches; the Boussinesq extractor no longer stores `mesh/descent_receiver`
+  (no Boussinesq run has a raster mesh; readers rebuild D from the stored top).
+- Environment variables `HMP_MESH_TRACE_FILE`, `HMP_GMSH_VERBOSE` and `HMP_UPDATE_GOLDEN`.
+- Public names of the `gmsh_grid` facade (17 remain), of the `cartesian_grid` facade (4 remain)
+  and of `spatial.geographic` (`build_domain_geographic_context`,
+  `build_geographic_derived_features`), in this pre-release.
 - `ops/voronoi.voronoi_cells`, `ops/voronoi.voronoi_dual_of_mesh` (call
   `voronoi_planar_mesh(vertices, domain)` with the triangulation vertices) and the
   `vertex_decimals` argument: the tessellation merges vertices at 1 mm in `cell_topology`.
@@ -230,11 +311,6 @@ Each release section includes the following standard categories:
   anisotropy.
 - `watershed_drainage_cell_mask` (`solver/modflow6/builders`) and the polygon masks of the
   MODFLOW 6 build: the drainage routing and the catchment readers take the basin of D.
-- `[mesh_catchment]`, `[mesh_catchment_batch]`, `[mesh_input]`, `[modflow6.sgrid.planar]`,
-  `[modflownwt.sgrid.planar]`, `grid_dual`, `linear_constraint_snap_tolerance`,
-  `rivers.snap_tolerance`: a TOML that declares one is refused with its replacement; a stored
-  configuration is migrated (`migrate_stored_config`). The K of a gmsh bundle no longer fills
-  invalid cells: K comes from `[flow.param.K]` only.
 - `sgrid_field_discretization` and its four helpers, `planar_forcing_discretization`,
   `modflow6/support/forcing_discretization`, `builders/vertex_grid.py` and the `GridIntersect`
   calls of LAK and SFR, `spatial/mesh/model/cell_adjacency.py`, `SolverMesh.from_sgrid`,
@@ -260,10 +336,9 @@ Each release section includes the following standard categories:
   cell, 54 % on the two-lake Cheze at 80 m) resolves the lake cells by overlap, like a mesh
   without shore faces, instead of refusing the mesh.
 - A gridded recharge or ETP (SIM2, several stations, the soil reservoir EVTA) on a regular
-  grid read its values north-south mirrored: `cell_centers_from_sgrid` put row 0 at the south
-  when given a `SolverMesh`, which has no `xcellcenters`, while MODFLOW puts it at the north. Hit
-  MF6 on a regular grid and every NWT run with a heterogeneous recharge or ETP; triangles and
-  Voronoi were right. `SolverMesh.from_structured_arrays` is north-first too. Example 04
+  grid read its values north-south mirrored: the cell centres handed to the sampler put row 0 at
+  the south, while MODFLOW puts it at the north. Hit MF6 on a regular grid and every NWT run with
+  a heterogeneous recharge or ETP; triangles and Voronoi were right. Example 04
   `step6_soil_reservoir.toml`: 28.8 % of the cells change recharge, mean discharge -0.10 %, NSE
   0.75249 to 0.75248, heads |dh| mean 4.6 cm, max 0.68 m. Runs sealed before this fix on such a
   grid are not comparable to later ones.

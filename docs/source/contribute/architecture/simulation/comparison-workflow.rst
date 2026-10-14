@@ -78,9 +78,8 @@ The physics of the case must not drift by accident, so a child may overlay only 
 sections of the base file. The lists are in
 ``hydromodpy/analysis/comparison/child_materialization.py``:
 
-- top-level sections: ``simulation``, ``workspace``, ``solver``, ``mesh_catchment``,
-  ``mesh_input``, ``modflow6``, ``modflownwt``, ``display``, ``flow``, ``calibration``
-  and ``workflow``;
+- top-level sections: ``simulation``, ``workspace``, ``solver``, ``mesh``, ``modflow6``,
+  ``modflownwt``, ``display``, ``flow``, ``calibration`` and ``workflow``;
 - under ``simulation``: ``name``, ``tags``, ``description``, ``if_exists``,
   ``process`` and ``results``;
 - under ``flow``: ``bc``, ``ic``, ``param``, ``runtime_backend`` and the Boussinesq

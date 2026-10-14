@@ -71,7 +71,7 @@ class TestOnASolverMesh:
         from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
 
         # Triangle 0 holds the points under the diagonal y = x, triangle 1 those above it.
-        mesh, _ = _build_unstructured_runtime()
+        mesh = _build_unstructured_runtime()
 
         adapter = Modflow6FlowAdapter()
         assert adapter.locate_cell(_ctx(SimpleNamespace(solver_mesh=mesh)), 0.9, 0.2) == (0, 0, 0)

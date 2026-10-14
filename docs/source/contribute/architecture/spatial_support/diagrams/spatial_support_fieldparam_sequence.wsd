@@ -1,45 +1,50 @@
 @startuml
 title Spatial Support - FieldParam Mapping Sequence Diagram
 
-participant "Solver setup / property mapping" as Solver
-participant "resolve_flow_property_arrays" as PropertyMapping
+participant "Solver setup" as Solver
+participant "map_flow_properties" as PropertyMapping
 participant "Flow.parameters" as FlowParams
 participant "FieldParam" as Param
 participant "Domain" as Domain
+participant "zone_fractions" as Fractions
 participant "support Field" as SupportField
-participant "discretize_fieldparam_on_sgrid" as Discretizer
 participant "WeightedAverageFieldDiscretization" as FieldDisc
 
-Solver -> PropertyMapping: resolve_flow_property_arrays(flow, domain, sgrid)
-PropertyMapping -> FlowParams: select canonical parameter\n(K / Sy / Ss)
+Solver -> PropertyMapping: map_flow_properties(flow, domain,\ncell_mesh, layer_depths, properties)
+PropertyMapping -> FlowParams: select canonical parameter\n(K / Kv / Sy / Ss)
 FlowParams --> PropertyMapping: FieldParam
 
 alt Param.is_homogeneous
-  PropertyMapping -> Discretizer: discretize_fieldparam_on_sgrid(\nfield_param=Param,\nsupport_field=None,\nsgrid)
-  Discretizer -> Param: to_mesh_field(mesh=mesh, depth=0)
-  loop for each SGrid layer
-    Discretizer -> Param: to_mesh_field(mesh=mesh,\ndepth=layer_center_depth)
+  PropertyMapping -> Param: to_mesh_field(mesh, depth=0)
+  loop for each layer centre depth
+    PropertyMapping -> Param: to_mesh_field(mesh,\ndepth=layer_center_depth)
   end
 else Param.is_heterogeneous
-  PropertyMapping -> Domain: resolve_spatial_support(Param.field_spatial_id)
+  PropertyMapping -> Domain: resolve_spatial_support_from_domain(\nParam.field_spatial_id)
   Domain --> PropertyMapping: support Field
-  PropertyMapping -> Discretizer: discretize_fieldparam_on_sgrid(\nfield_param=Param,\nsupport_field=SupportField,\nsgrid)
-  Discretizer -> SupportField: on_mesh(mesh, cell_samples_per_axis)
-  SupportField --> Discretizer: WeightedAverageFieldDiscretization
-  Discretizer -> Param: to_mesh_field(FieldDisc, depth=0)
-  loop for each SGrid layer
-    Discretizer -> Param: to_mesh_field(FieldDisc,\ndepth=layer_center_depth)
+  PropertyMapping -> Fractions: zone_fractions(cell_mesh, support)
+  alt the engine gives each cell its zone
+    Fractions --> PropertyMapping: cell_zone, whole cells
+  else vector zones
+    Fractions --> PropertyMapping: exact polygon areas
+  else raster, bands, rings
+    Fractions -> SupportField: on_mesh(mesh, cell_samples_per_axis)
+    SupportField --> Fractions: sampled shares
+    Fractions --> PropertyMapping: sampled shares
+  end
+  PropertyMapping -> FieldDisc: WeightedAverageFieldDiscretization(\nmesh, zone_keys, fractions_by_zone)
+  loop for each layer centre depth
+    PropertyMapping -> Param: to_mesh_field(FieldDisc,\ndepth=layer_center_depth)
   end
 end
 
-Discretizer --> PropertyMapping: values_2d + values_3d
-PropertyMapping --> Solver: hk / sy / ss arrays
+PropertyMapping --> Solver: hk / kv / sy / ss\n(nlay, n_cells) and (n_cells,)
 
-note right of Discretizer
-Spatial support is discretized on the
-planar mesh first. Vertical variation is
-then evaluated layer by layer through
-FieldParam depth handling.
+note right of Fractions
+Spatial support is discretized on the cells of
+the cell mesh first. Vertical variation is then
+evaluated layer by layer through FieldParam
+depth handling.
 end note
 
 @enduml

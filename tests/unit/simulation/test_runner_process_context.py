@@ -305,9 +305,6 @@ def test_run_flow_model_raises_when_solver_fails() -> None:
             self.calls.append("processing")
             return False
 
-        def post_processing(self, options) -> None:
-            self.calls.append("post")
-
     model = _FailingFlowModel()
 
     with pytest.raises(SolverDivergedError, match="Flow solver 'modflow6' failed"):
@@ -344,10 +341,6 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
                         weekly=False,
                         daily=False,
                     ),
-                    native_mesh_npz=False,
-                    native_mesh_csv=False,
-                    native_mesh_vtu=False,
-                    native_mesh_png=False,
                 )
             )
         ),
@@ -374,9 +367,6 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
         def processing(self, options) -> bool:
             self.processing_options = options
             return True
-
-        def post_processing(self, options) -> None:
-            return None
 
     model = _SuccessfulFlowModel()
 

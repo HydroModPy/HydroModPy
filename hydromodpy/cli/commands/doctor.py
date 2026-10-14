@@ -31,7 +31,7 @@ _CORE_DEPS = (
     "matplotlib",
 )
 
-_OPTIONAL_DEPS = ("gmsh", "whitebox_workflows", "geopandas", "pyvista")
+_OPTIONAL_DEPS = ("gmsh", "whitebox_workflows", "geopandas")
 
 _SOLVER_BINARIES = ("mfnwt", "mf6", "mp6", "mp7", "mt3dusgs")
 

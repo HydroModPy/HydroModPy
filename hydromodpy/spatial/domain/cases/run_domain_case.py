@@ -32,16 +32,16 @@ if (repo_root / "hydromodpy").exists() and str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.spatial.domain import Domain
 from hydromodpy.spatial.domain.build import build_domain, read_substratum_source
-from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
-    DomainGeographicContext,
-    build_domain_geographic_context,
-)
+from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
+from hydromodpy.spatial.geographic.core.derived_features import DomainGeographicContext
 from hydromodpy.spatial.geographic.structure_binders import (
     build_catchment_zone_field_from_geographic,
 )
+from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
 from hydromodpy.spatial.mesh.plot_window_utils import maximize_figure_windows
 
 
@@ -136,10 +136,15 @@ def run_domain_case_from_toml(
     # 1) Load validated config and initialize workspace/geographic context.
     cfg = HydroModPyConfig.from_toml(config_toml)
     workspace = Workspace(config=cfg.workspace)
-    geographic_context = build_domain_geographic_context(
-        config=cfg.geographic,
-        workspace=workspace,
-    )
+    if cfg.geographic.uses_synthetic_geographic():
+        geographic = build_synthetic_geographic(
+            config=cfg.geographic.synthetic,
+            output_dir=preprocessing_dir(Path(workspace.project_root)) / "geographic",
+            workspace=workspace,
+        )
+    else:
+        geographic = CatchmentDelineation(cfg.geographic, workspace)
+    geographic_context = geographic.get_domain_geographic_context()
     try:
         (
             catchment_zone_field,

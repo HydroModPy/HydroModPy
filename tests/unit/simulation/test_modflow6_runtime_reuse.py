@@ -34,10 +34,6 @@ def _build_flow_run_context(*, flow_runtime_overrides: dict[str, object] | None)
                         weekly=False,
                         daily=False,
                     ),
-                    native_mesh_npz=False,
-                    native_mesh_csv=False,
-                    native_mesh_vtu=False,
-                    native_mesh_png=False,
                 )
             ),
         ),
@@ -77,9 +73,6 @@ def test_modflow6_flow_adapter_reuses_solver_instance(monkeypatch) -> None:
         def processing(self, options) -> bool:
             del options
             return True
-
-        def post_processing(self, options) -> None:
-            del options
 
     monkeypatch.setattr(
         "hydromodpy.solver.modflow6.adapters.flow.Modflow6",

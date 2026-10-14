@@ -1,11 +1,9 @@
 """Contract tests for the ``cases/review_cases.py`` visual-review launchers.
 
-Four spatial packages ship the same registry API (``CaseReviewSpec``,
+Three spatial packages ship the same registry API (``CaseReviewSpec``,
 ``available_case_review_names``, ``resolve_case_review_specs``,
-``list_case_reviews``, ``run_case_reviews``). The behaviour was only ever
-tested for ``field`` and ``gmsh_grid``, as two near-identical copies, and
-``domain`` had no test at all. This file is the single place the shared
-contract is asserted, so a new package re-runs the suite by adding one row
+``list_case_reviews``, ``run_case_reviews``). This file is the single place the
+shared contract is asserted, so a new package re-runs the suite by adding one row
 to ``REVIEW_MODULES``.
 
 Guards the selection rules that a copy-paste launcher gets wrong: selection
@@ -29,7 +27,6 @@ REVIEW_MODULES: tuple[tuple[str, str], ...] = (
     ("hydromodpy.spatial.domain.cases.review_cases", "Unknown domain/cases review case"),
     ("hydromodpy.spatial.field.cases.review_cases", "Unknown field/cases review case"),
     ("hydromodpy.spatial.geographic.cases.review_cases", "Unknown geographic review case"),
-    ("hydromodpy.spatial.mesh.gmsh_grid.cases.review_cases", "Unknown gmsh_grid review case"),
 )
 
 # Packages whose run_case_reviews() calls spec.runner() and needs no input data.
@@ -37,7 +34,6 @@ REVIEW_MODULES: tuple[tuple[str, str], ...] = (
 RUNNER_MODULES: tuple[str, ...] = (
     "hydromodpy.spatial.field.cases.review_cases",
     "hydromodpy.spatial.geographic.cases.review_cases",
-    "hydromodpy.spatial.mesh.gmsh_grid.cases.review_cases",
 )
 
 MODULE_IDS = [path.split(".")[2] for path, _ in REVIEW_MODULES]

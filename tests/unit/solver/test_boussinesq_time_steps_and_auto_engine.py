@@ -20,6 +20,7 @@ from hydromodpy.solver.boussinesq.solver_contract import (
     DENSE_ENGINE_MAX_CELLS,
     resolve_runtime_backend_name,
 )
+from tests._helpers.boussinesq_cell_meshes import placeholder_cell_mesh
 
 DAY_S = 86400.0
 
@@ -90,6 +91,7 @@ def _strip_mesh(nx: int, *, dx: float = 10.0) -> BoussinesqMesh:
         edge_is_river=np.zeros(len(keys), dtype=bool),
         cell_index_by_id={cell: cell for cell in range(n_cells)},
         node_index_by_id={node: node for node in range(len(node_xy))},
+        cell_mesh=placeholder_cell_mesh(n_cells),
     )
 
 

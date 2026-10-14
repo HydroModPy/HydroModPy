@@ -390,7 +390,6 @@ class Boussinesq:
             mesh=self.mesh,
             flow=self.flow,
             time_grid=self.time_grid,
-            mesh_bundle=self.mesh_bundle,
         )
 
     def _run_transient_runtime(self) -> bool:
