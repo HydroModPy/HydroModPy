@@ -1,67 +1,47 @@
-"""Fallback reference-network helpers (gmsh parsing + external-network metrics)."""
+"""Fallback reference-network helpers (river lines of the mesh families, external-network metrics)."""
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from .io import read_json_mapping, read_toml_mapping, resolve_recorded_path
+import numpy as np
+
+from hydromodpy.results.errors import FieldNotFoundError, RunNotFoundError
+
+from .io import read_json_mapping, resolve_recorded_path
+
+if TYPE_CHECKING:
+    from hydromodpy.results.run import Run
+
+RIVER_FAMILY = "rivers"
+"""Name of the cell family that holds the river chains of a mesh."""
 
 
-def gmsh_physical_lines(
-    mesh_path: Path,
-    *,
-    physical_name: str,
-) -> list[list[tuple[float, float]]]:
-    """Parse a gmsh .msh file and return polylines tagged with ``physical_name``."""
-    lines = mesh_path.read_text(encoding="utf-8", errors="ignore").splitlines()
-    physical_tag: int | None = None
-    nodes: dict[int, tuple[float, float]] = {}
-    out: list[list[tuple[float, float]]] = []
+def river_polylines(run: Run) -> list[np.ndarray]:
+    """Return one ``(n, 2)`` polyline per river chain of the mesh of ``run``.
 
-    index = 0
-    while index < len(lines):
-        line = lines[index].strip()
-        if line == "$PhysicalNames":
-            count = int(lines[index + 1].strip())
-            for raw in lines[index + 2 : index + 2 + count]:
-                match = re.match(r'(\d+)\s+(\d+)\s+"(.*)"', raw.strip())
-                if match and int(match.group(1)) == 1 and match.group(3) == physical_name:
-                    physical_tag = int(match.group(2))
-            index += count + 2
-            continue
-        if line == "$Nodes":
-            count = int(lines[index + 1].strip())
-            for raw in lines[index + 2 : index + 2 + count]:
-                parts = raw.split()
-                if len(parts) >= 4:
-                    nodes[int(parts[0])] = (float(parts[1]), float(parts[2]))
-            index += count + 2
-            continue
-        if line == "$Elements":
-            count = int(lines[index + 1].strip())
-            if physical_tag is None:
-                return []
-            for raw in lines[index + 2 : index + 2 + count]:
-                parts = raw.split()
-                if len(parts) < 6:
-                    continue
-                element_type = int(parts[1])
-                if element_type not in (1, 8):
-                    continue
-                tag_count = int(parts[2])
-                tags = [int(value) for value in parts[3 : 3 + tag_count]]
-                if not tags or tags[0] != physical_tag:
-                    continue
-                node_ids = [int(value) for value in parts[3 + tag_count :]]
-                coords = [nodes[node_id] for node_id in node_ids if node_id in nodes]
-                if len(coords) >= 2:
-                    out.append(coords)
-            index += count + 2
-            continue
-        index += 1
-    return out
+    A chain runs through the centres of its cells, upstream to downstream. A chain
+    of a single cell has no line and is left out.
+
+    Raises
+    ------
+    FieldNotFoundError
+        The run was sealed before the mesh stored its families.
+    """
+    from hydromodpy.results.run.mesh_families import mesh_families
+
+    cells = mesh_families(run).cells
+    rivers = cells[cells["family"] == RIVER_FAMILY].sort_values(["chain_id", "position"])
+    if rivers.empty:
+        return []
+    centres = run.mesh.cell_centers()
+    return [
+        centres[chain["cell_id"].to_numpy()]
+        for _, chain in rivers.groupby("chain_id", sort=True)
+        if len(chain) >= 2
+    ]
 
 
 def fallback_reference_network(
@@ -69,63 +49,47 @@ def fallback_reference_network(
     *,
     cache_ref: dict[str, object],
 ):
-    """Load a reference hydrographic network from any available mesh bundle."""
+    """Load a reference river network from the mesh families of the compared runs.
+
+    The first run whose mesh stored river chains gives the network, in the CRS of
+    its mesh. A run sealed before the families were stored gives none.
+    """
     import geopandas as gpd
     from shapely.geometry import LineString
+
+    from hydromodpy.results.catalog import Catalog
 
     cached = cache_ref.get("value")
     if cached is not None:
         return cached
 
-    def bundle_candidates() -> list[Path]:
-        manifest = read_json_mapping(comparison_root / "comparison_manifest.json")
-        candidates: list[Path] = []
-        simulations = manifest.get("simulations", [])
-        if isinstance(simulations, list):
-            for item in simulations:
-                if not isinstance(item, dict):
-                    continue
-                config_path_raw = str(item.get("config_path") or "")
-                if config_path_raw:
-                    config_path = resolve_recorded_path(config_path_raw)
-                    cfg = read_toml_mapping(config_path)
-                    mesh = cfg.get("mesh", {})
-                    triangle = mesh.get("triangle", {}) if isinstance(mesh, dict) else {}
-                    raw_mesh_file = (
-                        str(triangle.get("path") or "") if isinstance(triangle, dict) else ""
-                    )
-                    if raw_mesh_file:
-                        candidates.append(
-                            resolve_recorded_path(str(config_path.parent / raw_mesh_file)).parent
-                        )
-                run_folder_raw = str(item.get("run_folder") or "")
-                if run_folder_raw:
-                    run_folder = resolve_recorded_path(run_folder_raw)
-                    candidates.append(run_folder / "mesh" / "mesh_catchment_bundle")
-        return candidates
-
-    default_projection = "EPSG:2154"
-    for bundle_dir in bundle_candidates():
-        mesh_path = bundle_dir / "mesh_2d.msh"
-        metadata = read_json_mapping(bundle_dir / "metadata.json")
-        current_crs = str(metadata.get("crs") or default_projection)
-        files = metadata.get("files")
-        if isinstance(files, dict) and files.get("mesh"):
-            mesh_path = bundle_dir / str(files["mesh"])
-        if not mesh_path.exists():
+    manifest = read_json_mapping(comparison_root / "comparison_manifest.json")
+    simulations = manifest.get("simulations", [])
+    for item in simulations if isinstance(simulations, list) else []:
+        if not isinstance(item, dict) or not item.get("run_folder") or not item.get("sim_id"):
             continue
-        lines = gmsh_physical_lines(mesh_path, physical_name="river::trace")
-        if not lines:
+        catalog = Catalog(resolve_recorded_path(str(item["run_folder"])), read_only=True)
+        try:
+            try:
+                run = catalog[str(item["sim_id"])]
+                lines = river_polylines(run)
+            except (RunNotFoundError, FieldNotFoundError):
+                # A vanished run, or one sealed before the families: no line from it.
+                continue
+            crs = run.mesh.crs
+        finally:
+            catalog.close()
+        if not lines or crs is None:
             continue
         gdf = gpd.GeoDataFrame(
             {"role": ["reference"] * len(lines)},
             geometry=[LineString(line) for line in lines],
-            crs=current_crs,
+            crs=crs,
         )
         cache_ref["value"] = gdf
         return gdf
 
-    empty = gpd.GeoDataFrame(geometry=[], crs=default_projection)
+    empty = gpd.GeoDataFrame(geometry=[], crs=None)
     cache_ref["value"] = empty
     return empty
 

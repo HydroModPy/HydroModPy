@@ -10,7 +10,6 @@ from hydromodpy.reporting.comparison.compact_network.io import (
     SimulationRecord,
     resolve_recorded_path,
 )
-from hydromodpy.reporting.comparison.compact_network.network import gmsh_physical_lines
 from hydromodpy.reporting.comparison.compact_network.sections import (
     configuration_cell,
     figure_preview,
@@ -117,42 +116,6 @@ def test_resolve_recorded_path_normalizes_windows_and_relative_paths(tmp_path, m
     else:
         assert windows_path.as_posix() == "/mnt/c/tmp/run_a"
     assert relative_path == (tmp_path / "outputs" / "run_b").resolve()
-
-
-def test_gmsh_physical_lines_extracts_only_named_line_elements(tmp_path) -> None:
-    mesh = tmp_path / "mesh_2d.msh"
-    mesh.write_text(
-        "\n".join(
-            [
-                "$MeshFormat",
-                "2.2 0 8",
-                "$EndMeshFormat",
-                "$PhysicalNames",
-                "2",
-                '1 7 "river::trace"',
-                '1 8 "other"',
-                "$EndPhysicalNames",
-                "$Nodes",
-                "3",
-                "1 0.0 0.0 0.0",
-                "2 1.0 0.0 0.0",
-                "3 2.0 0.5 0.0",
-                "$EndNodes",
-                "$Elements",
-                "2",
-                "1 1 2 7 0 1 2",
-                "2 1 2 8 0 2 3",
-                "$EndElements",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    lines = gmsh_physical_lines(mesh, physical_name="river::trace")
-    missing = gmsh_physical_lines(mesh, physical_name="missing")
-
-    assert lines == [[(0.0, 0.0), (1.0, 0.0)]]
-    assert missing == []
 
 
 def test_compact_network_sections_escape_labels_and_render_missing_figures(tmp_path) -> None:

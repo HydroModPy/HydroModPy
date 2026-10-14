@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from hydromodpy.results.catalog.constants import (
+    MESH_ENGINE_SQL,
     OUTLET_STATION,
     UnrankedMetricError,
     metric_rank_sql,
@@ -409,6 +410,9 @@ class DiscoveryMixin:
             - ``solver``, ``solver_category``, ``status``, ``flow_regime``,
               ``mesh_topology``: their code, for example ``solver="modflow6"``
               or ``status="completed"``.
+            - ``mesh_engine``: the engine that built the mesh, for example
+              ``"voronoi"``, read from the stored configuration. A run sealed before
+              the ``[mesh]`` section existed has none and matches no engine.
             - ``tags``: one tag the run carries.
             - ``<metric>_gt``, ``<metric>_gte``, ``<metric>_lt``,
               ``<metric>_lte``: bound on an outlet metric, for example
@@ -516,6 +520,9 @@ class DiscoveryMixin:
             elif key == "mesh_topology":
                 clauses.append("mt.code = ?")
                 clause_params.append(val)
+            elif key == "mesh_engine":
+                clauses.append(f"{MESH_ENGINE_SQL} = ?")
+                clause_params.append(val)
             elif key in (
                 "project",
                 "name",
@@ -529,7 +536,7 @@ class DiscoveryMixin:
             else:
                 raise ValueError(
                     f"Unknown filter {key!r}. Valid: solver, solver_category, status, "
-                    "flow_regime, mesh_topology, project, name, name_stem, config_hash, "
+                    "flow_regime, mesh_topology, mesh_engine, project, name, name_stem, config_hash, "
                     "crs, tags, <metric>_gt, <metric>_lt, <metric>_gte, <metric>_lte"
                 )
 

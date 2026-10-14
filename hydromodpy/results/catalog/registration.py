@@ -62,6 +62,7 @@ IfExistsMode = Literal["replace", "fail", "version"]
 _RUN_OVERRIDES_KEY = "__run_overrides__"
 _RUN_INPUTS_KEY = "__run_inputs__"
 _RUN_VERSION_KEY = "__hydromodpy_version__"
+_RUN_MESH_ENGINE_KEY = "__mesh_engine__"
 
 
 def run_identity_hash(
@@ -79,8 +80,10 @@ def run_identity_hash(
     minus ``simulation.name``, plus the parameter overrides a
     ``Project.simulate`` call applied on top of the configuration, the
     digests of the input files the configuration names (``inputs``, from
-    :func:`input_file_digests`) and the HydroModPy version. A changed data
-    file or another release of the code is another computation.
+    :func:`input_file_digests`), the HydroModPy version and the mesh engine
+    with its version (:func:`mesh_engine_identity`). A changed data file,
+    another release of the code or another build of the mesh engine is another
+    computation.
 
     The run name is not part of the hash: it lives in its own column, which a
     rename and an index rebuild keep up to date. Overrides that do not
@@ -108,7 +111,32 @@ def run_identity_hash(
             payload[_RUN_OVERRIDES_KEY] = uuid.uuid4().hex
     payload[_RUN_INPUTS_KEY] = dict(sorted((inputs or {}).items()))
     payload[_RUN_VERSION_KEY] = __version__
+    payload[_RUN_MESH_ENGINE_KEY] = mesh_engine_identity(payload)
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
+def mesh_engine_identity(config: dict) -> dict[str, str]:
+    """Return ``{"engine": id, "version": engine_version}`` of the mesh engine ``config`` names.
+
+    The engine is ``[mesh] engine``, or the registry default when the section
+    or the key is absent. Its version bumps when its output changes, so a run
+    meshed by another build is another computation. An id no engine answers
+    to, or an engine that cannot be imported, gets a random salt: the run then
+    matches no other run, which errs on the side of computing.
+    """
+    import uuid
+
+    from hydromodpy.core.exceptions import MeshRequestError
+    from hydromodpy.spatial.mesh import registry as mesh_registry
+
+    section = config.get("mesh")
+    engine_id = section.get("engine") if isinstance(section, dict) else None
+    try:
+        engine_cls = mesh_registry.get(engine_id)
+    except (MeshRequestError, ImportError) as exc:
+        logger.warning("Mesh engine not hashed into the run identity: %s", exc)
+        return {"engine": str(engine_id), "version": uuid.uuid4().hex}
+    return {"engine": engine_cls.engine_id, "version": engine_cls.engine_version}
 
 
 def input_file_digests(config: Any) -> dict[str, str]:

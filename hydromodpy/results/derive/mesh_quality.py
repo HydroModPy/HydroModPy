@@ -1,0 +1,181 @@
+"""Quality of the stored mesh, one value per cell, rebuilt on read and never stored.
+
+Four static fields describe how good the cells of a run are: ``mesh_cell_area``,
+``mesh_neighbour_ratio``, ``mesh_center_offset`` and ``mesh_nonorthogonality``.
+They use the formulas of the mesh QA (:mod:`hydromodpy.spatial.mesh.model.mesh_qa`),
+by cell instead of by quantile, on the geometry derived from the stored vertices
+and connectivity.
+
+The area and the neighbour ratio need geometry only, so every run serves them.
+The offset and the non-orthogonality need the cell centres of the mesh, which a
+run stores since the cell-mesh layout (``mesh/face_x``, ``mesh/face_y``). A run
+sealed before has the vertex mean at best, not the centre the solver used: those
+two fields are refused with the reason rather than computed on a guess.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any
+
+import numpy as np
+
+from hydromodpy.results.field_registry import SHAPE_FACE, FieldDescriptor
+from hydromodpy.spatial.mesh.model.derived_geometry import (
+    DerivedGeometry,
+    derive_geometry_from_rows,
+)
+from hydromodpy.spatial.mesh.model.mesh_qa import (
+    RELATIVE_FACE_TOLERANCE,
+    edge_nonorthogonality,
+    edge_size_ratio,
+)
+
+__all__ = [
+    "MESH_QUALITY_DESCRIPTORS",
+    "mesh_quality_unavailable_reason",
+    "mesh_quality_values",
+]
+
+
+def _descriptor(name: str, long_name: str, units: str, cell_methods: str) -> FieldDescriptor:
+    return FieldDescriptor(
+        public_name=name,
+        zarr_path=f"mesh/{name}",
+        standard_name="",
+        long_name=long_name,
+        units=units,
+        shape=SHAPE_FACE,
+        cell_methods=cell_methods,
+        derived_by="core",
+    )
+
+
+MESH_QUALITY_DESCRIPTORS: dict[str, FieldDescriptor] = {
+    descriptor.public_name: descriptor
+    for descriptor in (
+        _descriptor("mesh_cell_area", "Plan area of the mesh cell", "m2", "area: sum"),
+        _descriptor(
+            "mesh_neighbour_ratio",
+            "Largest ratio of the side of the cell to the side of a neighbour, or the inverse",
+            "1",
+            "area: maximum",
+        ),
+        _descriptor(
+            "mesh_center_offset",
+            "Distance of the cell centre to the area centroid, over the side of the cell",
+            "1",
+            "area: point",
+        ),
+        _descriptor(
+            "mesh_nonorthogonality",
+            "Largest angle between the line joining two cell centres and the normal of "
+            "the face they share",
+            "degree",
+            "area: maximum",
+        ),
+    )
+}
+"""The descriptors of the quality fields, kept out of the field registry.
+
+The registry lists what a store can hold; these fields are only ever computed."""
+
+_NEEDS_CENTRES = frozenset({"mesh_center_offset", "mesh_nonorthogonality"})
+
+
+def mesh_quality_unavailable_reason(root: Any, name: str) -> str | None:
+    """Say why a quality field cannot be served from this store, ``None`` when it can."""
+    if name not in MESH_QUALITY_DESCRIPTORS:
+        raise KeyError(f"'{name}' is not a mesh quality field")
+    mesh = root.get("mesh")
+    if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
+        return "the run stored no mesh geometry"
+    if name in _NEEDS_CENTRES and not ("face_x" in mesh and "face_y" in mesh):
+        return (
+            "the run was sealed before the cell-mesh layout and stored no cell centres, "
+            "only the vertices: the solver centres are not recoverable"
+        )
+    return None
+
+
+def mesh_quality_values(root: Any, name: str) -> np.ndarray:
+    """Return the quality field ``name`` of the stored mesh, one value per cell.
+
+    Raises
+    ------
+    KeyError
+        The store cannot serve the field (see :func:`mesh_quality_unavailable_reason`).
+    """
+    reason = mesh_quality_unavailable_reason(root, name)
+    if reason is not None:
+        raise KeyError(f"{name} is not available for this run: {reason}")
+    mesh = root["mesh"]
+    geometry = derive_geometry_from_rows(
+        np.asarray(mesh["vertices"][:], dtype=np.float64),
+        np.asarray(mesh["face_node_connectivity"][:]),
+    )
+    return _COMPUTE[name](mesh, geometry)
+
+
+def _cell_area(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
+    return geometry.areas.copy()
+
+
+def _cell_max(geometry: DerivedGeometry, per_edge: np.ndarray) -> np.ndarray:
+    """Return the largest value of ``per_edge`` over the interior edges of each cell.
+
+    ``NaN`` for a cell with no valid edge.
+    """
+    valid = ~np.isnan(per_edge) & (geometry.edge_cells[:, 1] >= 0)
+    cells = geometry.edge_cells[valid]
+    values = per_edge[valid]
+    largest = np.full(geometry.n_cells, -np.inf)
+    np.maximum.at(largest, cells[:, 0], values)
+    np.maximum.at(largest, cells[:, 1], values)
+    largest[np.isinf(largest)] = np.nan
+    return largest
+
+
+def _neighbour_ratio(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
+    return _cell_max(geometry, edge_size_ratio(geometry))
+
+
+def _centres(mesh: Any) -> np.ndarray:
+    return np.column_stack(
+        (
+            np.asarray(mesh["face_x"][:], dtype=np.float64),
+            np.asarray(mesh["face_y"][:], dtype=np.float64),
+        )
+    )
+
+
+def _center_offset(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
+    gap = _centres(mesh) - geometry.area_centroids
+    return np.hypot(gap[:, 0], gap[:, 1]) / np.sqrt(geometry.areas)
+
+
+def _shortest_measured_face(mesh: Any, geometry: DerivedGeometry) -> float:
+    """Return the length [m] under which a face is too short for an angle to mean anything.
+
+    The threshold the QA of the run measured with when it stored one, else the
+    QA default: a thousandth of the median face length.
+    """
+    qa = mesh.attrs.get("qa")
+    if isinstance(qa, dict) and qa.get("min_face_length_m") is not None:
+        return float(qa["min_face_length_m"])
+    return RELATIVE_FACE_TOLERANCE * float(np.median(geometry.edge_length))
+
+
+def _nonorthogonality(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
+    interior = geometry.edge_cells[:, 1] >= 0
+    keep = interior & (geometry.edge_length > _shortest_measured_face(mesh, geometry))
+    vertices = np.asarray(mesh["vertices"][:], dtype=np.float64)[:, :2]
+    return _cell_max(geometry, edge_nonorthogonality(_centres(mesh), vertices, geometry, keep))
+
+
+_COMPUTE: dict[str, Callable[[Any, DerivedGeometry], np.ndarray]] = {
+    "mesh_cell_area": _cell_area,
+    "mesh_neighbour_ratio": _neighbour_ratio,
+    "mesh_center_offset": _center_offset,
+    "mesh_nonorthogonality": _nonorthogonality,
+}

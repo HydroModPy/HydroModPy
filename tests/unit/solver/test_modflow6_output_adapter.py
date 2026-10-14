@@ -5,11 +5,20 @@ from types import SimpleNamespace
 import numpy as np
 
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
+from hydromodpy.solver.modflow6.extractors.grid_check import grb_rings
+
+
+def _grid_file(verts: np.ndarray, closed_rings: list[list[int]]) -> SimpleNamespace:
+    return SimpleNamespace(
+        verts=verts,
+        iavert=np.concatenate([[0], np.cumsum([len(r) for r in closed_rings])]),
+        javert=np.concatenate(closed_rings),
+    )
 
 
 def test_modflow6_output_adapter_builds_ugrid_geometry_from_disv_grb_vertices() -> None:
-    fake_grid = SimpleNamespace(
-        verts=np.array(
+    fake_grid = _grid_file(
+        np.array(
             [
                 [0.0, 0.0],
                 [1.0, 0.0],
@@ -20,10 +29,7 @@ def test_modflow6_output_adapter_builds_ugrid_geometry_from_disv_grb_vertices() 
             ],
             dtype="float64",
         ),
-        iverts=[
-            [0, 1, 4, 3, 0],
-            [1, 2, 5, 4, 1],
-        ],
+        [[0, 1, 4, 3, 0], [1, 2, 5, 4, 1]],
     )
 
     geometry = Modflow6OutputAdapter._mesh_geometry_from_grid(fake_grid, n_cells=2)
@@ -44,13 +50,7 @@ def test_modflow6_output_adapter_builds_ugrid_geometry_from_disv_grb_vertices() 
 
 
 def test_modflow6_output_adapter_pads_mixed_face_connectivity() -> None:
-    connectivity = Modflow6OutputAdapter._padded_face_connectivity(
-        [
-            [0, 1, 2, 0],
-            [2, 3, 4, 5, 2],
-        ],
-        n_cells=2,
-    )
+    connectivity = grb_rings(_grid_file(np.zeros((6, 2)), [[0, 1, 2, 0], [2, 3, 4, 5, 2]]))
 
     np.testing.assert_array_equal(
         connectivity,
@@ -62,14 +62,3 @@ def test_modflow6_output_adapter_pads_mixed_face_connectivity() -> None:
             dtype="int32",
         ),
     )
-
-
-def test_modflow6_output_adapter_infers_structured_shape_from_vertices() -> None:
-    x_edges = np.arange(4, dtype="float64")
-    y_edges = np.arange(3, dtype="float64")
-    xx, yy = np.meshgrid(x_edges, y_edges)
-    vertices = np.column_stack([xx.ravel(), yy.ravel(), np.zeros(xx.size)])
-
-    shape = Modflow6OutputAdapter._structured_shape_from_vertices(vertices, n_cells=6)
-
-    assert shape == (2, 3)

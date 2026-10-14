@@ -99,8 +99,16 @@ def step_persist_params(
 
 
 def step_persist_mesh(ctx: WorkflowContext, sim_id: str, *, store: SimulationStore) -> None:
-    """Write mesh topology into the simulation's Zarr."""
-    import numpy as np
+    """Write the cell mesh into the simulation's Zarr and its two family tables.
+
+    This is the only write of the mesh geometry: the solver extractors check
+    their grid against it and add the vertical part, never the vertices.
+    """
+    from hydromodpy.results.zarr_store.mesh_layout import (
+        cell_family_rows,
+        face_family_rows,
+        mesh_layout_from_cell_mesh,
+    )
 
     domain = ctx.setup.domain
     if domain is None:
@@ -111,15 +119,26 @@ def step_persist_mesh(ctx: WorkflowContext, sim_id: str, *, store: SimulationSto
     cell_mesh = ctx.setup.cell_mesh
     if cell_mesh is None:
         raise MeshError("step_persist_mesh: the mesh step built no cell mesh")
-    vertices = cell_mesh.mesh.vertices
-    connectivity = cell_mesh.connectivity_rows
+    summary = ctx.setup.mesh_summary or {}
+    # Three columns with z = 0: ``node_coordinates`` is declared as "x y z".
+    xy = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
+    vertices = np.column_stack([xy, np.zeros(len(xy))])
 
     store.write_mesh(
         sim_id,
         vertices=vertices,
-        face_node_connectivity=connectivity,
+        face_node_connectivity=cell_mesh.connectivity_rows,
         z_interfaces=z_intf,
+        structured_shape=cell_mesh.structured_shape,
+        layout=mesh_layout_from_cell_mesh(
+            cell_mesh,
+            request_hash=summary.get("request_hash", ""),
+            qa=summary.get("qa"),
+            library_versions=summary.get("library_versions"),
+        ),
     )
+    store.write_view(sim_id, "mesh_cell_families", cell_family_rows(cell_mesh))
+    store.write_view(sim_id, "mesh_face_families", face_family_rows(cell_mesh))
 
 
 def step_persist_geographic(ctx: WorkflowContext, sim_id: str, *, store: SimulationStore) -> None:

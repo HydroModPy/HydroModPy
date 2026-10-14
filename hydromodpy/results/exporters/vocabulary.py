@@ -20,9 +20,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.core.config_kit.export_spec import ExportKind
+from hydromodpy.core.config_kit.export_spec import MESH_LAYERS, ExportKind
 from hydromodpy.results import field_registry
-from hydromodpy.results.derive.virtual_fields import SIMULATED_ACTIVE_NETWORK
+from hydromodpy.results.derive.mesh_quality import MESH_QUALITY_DESCRIPTORS
+from hydromodpy.results.derive.virtual_fields import (
+    SIMULATED_ACTIVE_NETWORK,
+    available_virtual_fields,
+)
+from hydromodpy.results.exporters.mesh_layers import available_mesh_layers
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
@@ -76,7 +81,8 @@ OBSERVED_SERIES: tuple[str, ...] = tuple(f"{name}_obs" for name in OBSERVED_VARI
 """Observed series, stored beside the simulated ones."""
 
 # spatial/geographic/store_ingestion.py (watershed layers), workflow/steps/
-# prepare_solver/prepare.py (reference networks).
+# prepare_solver/prepare.py (reference networks), results/exporters/mesh_layers.py
+# (the layers of the cell mesh).
 VECTOR_LAYERS: tuple[str, ...] = (
     "watershed",
     "watershed_contour",
@@ -84,8 +90,9 @@ VECTOR_LAYERS: tuple[str, ...] = (
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
+    *MESH_LAYERS,
 )
-"""Geographic vector layers a run stores."""
+"""Vector layers a run holds: the geographic ones it stores and the layers of its cell mesh."""
 
 # spatial/geographic/store_ingestion.py (_RASTER_ATTRS).
 RASTER_LAYERS: tuple[str, ...] = ("watershed_dem", "watershed_fill")
@@ -97,7 +104,9 @@ TABLES: tuple[str, ...] = ("budget",)
 
 def _field_names() -> list[str]:
     """Return the mesh fields, the virtual ones included."""
-    return sorted({*field_registry.all_names(), SIMULATED_ACTIVE_NETWORK})
+    return sorted(
+        {*field_registry.all_names(), SIMULATED_ACTIVE_NETWORK, *MESH_QUALITY_DESCRIPTORS}
+    )
 
 
 def static_export_names() -> dict[str, ExportKind]:
@@ -158,15 +167,19 @@ def list_exportable(run: Run) -> dict[str, ExportKind]:
     The dynamic side of :func:`static_export_names`: what this run holds, read
     from its store and its catalog rows. The fields are the registered ones
     the store holds or rebuilds on read, plus the simulated stream network
-    when the run carries what it is cut from. The series are the variables of
-    its ``timeseries`` rows, the layers what its geographic store holds, and
-    ``budget`` when it wrote budget rows. A name two groups hold takes the kind
+    when the run carries what it is cut from, and the mesh quality fields its
+    stored mesh can serve. The series are the variables of
+    its ``timeseries`` rows, the layers what its geographic store holds plus the
+    mesh layers of a run that states its mesh CRS, and ``budget`` when it wrote
+    budget rows. A name two groups hold takes the kind
     of the first, the order ``hmp.read`` resolves a name in.
     """
     catalog = run._catalog
     sim_id = run.sim_id
     names: dict[str, ExportKind] = {}
     for name in run.array.list_fields():
+        names.setdefault(name, ExportKind.field)
+    for name in _mesh_quality_available(catalog, sim_id):
         names.setdefault(name, ExportKind.field)
     if _simulated_network_available(run):
         names.setdefault(SIMULATED_ACTIVE_NETWORK, ExportKind.field)
@@ -176,6 +189,8 @@ def list_exportable(run: Run) -> dict[str, ExportKind]:
         names.setdefault(str(variable), ExportKind.series)
     for feature in catalog.list_geographic_features(sim_id):
         names.setdefault(str(feature), ExportKind.vector)
+    for layer in available_mesh_layers(catalog, sim_id):
+        names.setdefault(layer, ExportKind.vector)
     for raster in _stored_rasters(catalog, sim_id):
         names.setdefault(raster, ExportKind.raster)
     budget_row = catalog.backend.fetch_one(
@@ -194,6 +209,16 @@ def describe_exportable(names: dict[str, ExportKind]) -> str:
         if held:
             blocks.append(f"{label}:\n" + "\n".join(f"  {name}" for name in held))
     return "\n".join(blocks)
+
+
+def _mesh_quality_available(catalog: object, sim_id: str) -> list[str]:
+    """Return the mesh quality fields the stored mesh of a run can serve."""
+    store = catalog.open_zarr(sim_id)  # type: ignore[attr-defined]
+    try:
+        served = set(available_virtual_fields(store.root))
+    finally:
+        store.close()
+    return [name for name in MESH_QUALITY_DESCRIPTORS if name in served]
 
 
 def _simulated_network_available(run: Run) -> bool:

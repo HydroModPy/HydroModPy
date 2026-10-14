@@ -3,7 +3,7 @@
   "fixture": "island_voronoi.toml",
   "values": {
     "n_cells": 625,
-    "total_area": 131650.21667997594,
+    "total_area": 131648.71718460834,
     "head": {
       "p5": 0.0,
       "p50": 1.9214871445214903,

@@ -137,13 +137,14 @@ _LISTING_COLUMNS: tuple[str, ...] = (
     "duration_s",
     "n_cells",
     "n_layers",
+    "mesh_engine",
     "config_hash",
     "version_int",
 )
 
 
 def _stable_listing_projection(df: Any, *, drop_trashed: bool = True) -> Any:
-    """Return a scriptable 12-column projection (string ids, ISO dates).
+    """Return a scriptable 13-column projection (string ids, ISO dates).
 
     Keeps the listing cheap and JSON/CSV safe: ``sim_id`` and timestamps are
     cast to strings (raw ``uuid.UUID`` objects break ``DataFrame.to_json``) and

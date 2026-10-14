@@ -41,6 +41,11 @@ from hydromodpy.results.derive.accumulation import (
     release_accumulation_flux_available,
     release_accumulation_flux_rows,
 )
+from hydromodpy.results.derive.mesh_quality import (
+    MESH_QUALITY_DESCRIPTORS,
+    mesh_quality_unavailable_reason,
+    mesh_quality_values,
+)
 from hydromodpy.results.field_registry import SHAPE_TIME_FACE, FieldDescriptor
 from hydromodpy.results.zarr_store.zarr_reader import step_range_bounds
 
@@ -505,9 +510,15 @@ and this field is only ever computed, from the run and its catalog."""
 
 
 def field_descriptor(name: str) -> FieldDescriptor:
-    """Return the descriptor of a field, the rebuilt-only simulated network included."""
+    """Return the descriptor of a field, the rebuilt-only fields included.
+
+    The rebuilt-only fields are the simulated network and the four mesh quality
+    fields, none of which the registry lists.
+    """
     if name == SIMULATED_ACTIVE_NETWORK:
         return SIMULATED_ACTIVE_NETWORK_DESCRIPTOR
+    if name in MESH_QUALITY_DESCRIPTORS:
+        return MESH_QUALITY_DESCRIPTORS[name]
     return field_registry.get(name)
 
 
@@ -699,6 +710,8 @@ def available_virtual_fields(root: Any) -> list[str]:
     or rebuilt from the mesh topology. The solute chain needs the stored
     concentration: ``concentration_seepage`` also a seepage mask,
     ``mass_seepage`` also a budget group, ``mass_accumulated`` nothing more.
+    The mesh quality fields need the stored geometry, and the cell centres for
+    the offset and the non-orthogonality (:mod:`hydromodpy.results.derive.mesh_quality`).
     A field an older run stored under ``derived/`` stands in for its rebuild
     upstream. A store that declares the ``"consumers"`` budget policy serves a
     field built from budget terms only when it kept every term the field reads
@@ -728,6 +741,11 @@ def available_virtual_fields(root: Any) -> list[str]:
         name for name in names if name not in BUDGET_ONLY_FIELDS or budget_terms_kept(root, name)
     ]
     names.extend(_solute_fields_available(root, budget))
+    names.extend(
+        name
+        for name in MESH_QUALITY_DESCRIPTORS
+        if mesh_quality_unavailable_reason(root, name) is None
+    )
     return sorted(names)
 
 
@@ -761,6 +779,8 @@ def read_field_or_virtual(
     try:
         return sz.read_field(variable, timestep, layer=layer)
     except KeyError:
+        if variable in MESH_QUALITY_DESCRIPTORS:
+            return mesh_quality_values(sz.root, variable)
         rows = VIRTUAL_FIELD_ROWS.get(variable)
         if rows is not None and variable in available_virtual_fields(sz.root):
             # Rebuilt on the handle already open, not on a second opening.
@@ -788,7 +808,8 @@ def read_field_range_or_virtual(
     Row ``i`` of the stack is what :func:`read_field_or_virtual` returns at
     step ``start + i``, bit for bit. A stored array is sliced directly. A field
     of :data:`VIRTUAL_FIELD_ROWS` is rebuilt over the range in passes. The
-    simulated network builds its graph once for the range. Negative bounds
+    simulated network builds its graph once for the range. A mesh quality field
+    is static: every row is the same read-only view of one array. Negative bounds
     count from the end. Raises ``KeyError`` when the variable is neither
     persisted nor derivable, ``IndexError`` when the range leaves the time axis.
     """
@@ -816,6 +837,9 @@ def _virtual_range(
     n_steps = _time_axis_length(root)
     if n_steps is not None:
         first, last = step_range_bounds(start, stop, n_steps)
+    if variable in MESH_QUALITY_DESCRIPTORS:
+        values = mesh_quality_values(root, variable)
+        return np.broadcast_to(values, (max(0, last - first), values.size))
     rows = VIRTUAL_FIELD_ROWS.get(variable)
     if rows is not None:
         # A store that cannot serve the field raises the plan's own error, as a step read does.

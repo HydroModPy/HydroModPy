@@ -11,7 +11,7 @@ import numpy as np
 
 from hydromodpy.core import progress
 from hydromodpy.core.budget_terms import BudgetKeep
-from hydromodpy.core.exceptions import SolverInputError
+from hydromodpy.core.exceptions import MeshError, SolverInputError
 from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE, STREAM_CONSTANT_HEAD_BUDGET
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import (
@@ -23,6 +23,10 @@ from hydromodpy.core.units.time import (
 from hydromodpy.solver.modflow6.build import (
     FLOW_PROPERTY_SIDECAR_SUFFIX,
     mf6_safe_name,
+)
+from hydromodpy.solver.modflow6.extractors.grid_check import (
+    grb_geometry,
+    verify_grid_against_store,
 )
 from hydromodpy.solver.modflow6.extractors.sfr import (
     SfrObsSpec,
@@ -311,15 +315,12 @@ class Modflow6OutputAdapter:
 
         try:
             head0 = head_file.get_data(totim=times[0])
-            grid_shape: tuple[int, int] | None = None
             if head0.ndim == 3:
                 nlay, nrow, ncol = head0.shape
                 n_cells = nrow * ncol
-                grid_shape = (int(nrow), int(ncol))
             elif head0.ndim == 2:
                 nlay = 1
                 n_cells = int(head0.size)
-                grid_shape = tuple(int(v) for v in head0.shape)
             else:
                 nlay = 1
                 n_cells = head0.size
@@ -416,7 +417,6 @@ class Modflow6OutputAdapter:
             model_name,
             nlay,
             n_cells,
-            grid_shape=grid_shape,
         )
 
     def _extract_budget(
@@ -960,9 +960,9 @@ class Modflow6OutputAdapter:
     ) -> np.ndarray | None:
         """Cells of the delineated catchment, None when it cannot be placed.
 
-        Read from the GRB rather than from the persisted mesh: the mesh reaches
-        Zarr only in ``_write_surface_elevation``, which runs after the budget.
-        Both come from the same file, so the two masks agree cell for cell.
+        Read from the GRB rather than from the persisted mesh. The extractor
+        checks the two against each other afterwards, so the mask agrees with
+        the stored cells.
         A run without a watershed, without a CRS or on a synthetic domain keeps
         the domain-wide row alone, exactly as before.
         """
@@ -1023,14 +1023,16 @@ class Modflow6OutputAdapter:
         model_name: str,
         nlay: int,
         n_cells: int,
-        *,
-        grid_shape: tuple[int, int] | None = None,
     ) -> None:
-        """Write mesh topology and surface elevation for derived variables.
+        """Check the solved grid against the stored mesh and add the vertical geometry.
 
-        The top of the grid file is the computational top, so ``topography``,
-        ``z_interfaces`` and ``layer_thickness`` are built from the ground the
-        build left beside the model. A missing ground file is an error.
+        The mesh itself was written once, before the run. The grid file is
+        compared with it and a difference stops the run: nothing is sealed on
+        cells it does not belong to. What is added is what the solved model
+        knows, ``topography``, ``z_interfaces`` and ``layer_thickness``. The top
+        of the grid file is the computational top, so they are built from the
+        ground the build left beside the model; a missing ground file is an
+        error.
         """
         if not getattr(store, "save_zarr", True):
             return
@@ -1038,76 +1040,42 @@ class Modflow6OutputAdapter:
             grb_files = list(solver_output_dir.glob("*.dis.grb")) + list(
                 solver_output_dir.glob("*.disv.grb")
             )
-            grid_type = None
-            vertices = None
-            face_node_connectivity = None
-            if grb_files:
-                from flopy.mf6.utils import MfGrdFile
+            if not grb_files:
+                return
+            from flopy.mf6.utils import MfGrdFile
 
-                grd = MfGrdFile(str(grb_files[0]))
-                grid_type = str(getattr(grd, "grid_type", "") or "").lower() or None
-                top_raw = getattr(grd, "top1d", None)
-                if top_raw is None:
-                    top_raw = grd.top
-                bot_raw = getattr(grd, "bot1d", None)
-                if bot_raw is None:
-                    bot_raw = grd.bot
-                top = read_ground_sidecar(
-                    solver_output_dir,
-                    written_top=np.asarray(top_raw, dtype="float64").ravel()[:n_cells],
-                )
-                botm = np.asarray(bot_raw, dtype="float64")
-                botm_per_layer = (
-                    botm.reshape(nlay, n_cells) if botm.size == nlay * n_cells else None
-                )
-                if botm_per_layer is not None:
-                    z_flat = np.concatenate([top[:1], botm_per_layer[:, 0]])
-                else:
-                    z_flat = np.array([float(top.mean()), float(top.mean()) - 10.0])
-                geometry = self._mesh_geometry_from_grid(grd, n_cells=n_cells)
-                if geometry is not None:
-                    vertices, face_node_connectivity = geometry
+            grd = MfGrdFile(str(grb_files[0]))
+            grid_type = str(getattr(grd, "grid_type", "") or "").lower() or None
+            top_raw = getattr(grd, "top1d", None)
+            if top_raw is None:
+                top_raw = grd.top
+            bot_raw = getattr(grd, "bot1d", None)
+            if bot_raw is None:
+                bot_raw = grd.bot
+            top = read_ground_sidecar(
+                solver_output_dir,
+                written_top=np.asarray(top_raw, dtype="float64").ravel()[:n_cells],
+            )
+            botm = np.asarray(bot_raw, dtype="float64")
+            botm_per_layer = botm.reshape(nlay, n_cells) if botm.size == nlay * n_cells else None
+            if botm_per_layer is not None:
+                z_flat = np.concatenate([top[:1], botm_per_layer[:, 0]])
             else:
-                return
+                z_flat = np.array([float(top.mean()), float(top.mean()) - 10.0])
 
-            if face_node_connectivity is None:
-                geometry = self._structured_mesh_geometry_from_shape(
-                    store,
-                    sim_id,
-                    n_cells=n_cells,
-                    grid_shape=grid_shape,
-                )
-                if geometry is not None:
-                    vertices, face_node_connectivity = geometry
-
-            if vertices is None or face_node_connectivity is None:
-                return
-            structured_shape = self._structured_shape_from_vertices(vertices, n_cells=n_cells)
-            # Only fall back to a real 2D rectangle. For DISV the head array is
-            # (nlay, 1, ncpl), so grid_shape is the degenerate (1, ncpl); applying
-            # it would persist a bogus structured_shape=(1, ncpl) for genuinely
-            # unstructured meshes. Leaving it None makes them persist as null.
-            if (
-                structured_shape is None
-                and grid_shape is not None
-                and int(grid_shape[0]) > 1
-                and int(grid_shape[1]) > 1
-                and int(grid_shape[0]) * int(grid_shape[1]) == int(n_cells)
-            ):
-                structured_shape = (int(grid_shape[0]), int(grid_shape[1]))
             sz = store.open_zarr(sim_id)
             try:
+                verify_grid_against_store(grd, sz.root, sim_id=sim_id)
                 streambed = _streambed_face_arrays(solver_output_dir, model_name, n_cells)
-                sz.write_mesh(
-                    vertices=vertices,
-                    face_node_connectivity=face_node_connectivity,
-                    z_interfaces=z_flat,
+                sz.write_topography(
                     topography=top,
+                    z_interfaces=z_flat,
+                    n_cells=n_cells,
+                    n_layers=int(z_flat.size - 1),
                     layer_thickness=_layer_thickness(top, botm_per_layer),
                     streambed_top=None if streambed is None else streambed[0],
                     streambed_connection=None if streambed is None else streambed[1],
                     grid_type=grid_type,
-                    structured_shape=structured_shape,
                 )
                 _write_flow_properties(sz, solver_output_dir, n_cells=n_cells)
                 write_descent_sidecar_to_store(
@@ -1115,12 +1083,12 @@ class Modflow6OutputAdapter:
                 )
             finally:
                 sz.close()
-        except SolverInputError:
+        except (SolverInputError, MeshError):
             raise
         except Exception:
             logger.warning(
-                "Could not write the mesh and surface elevation for sim %s; every map, "
-                "section and water-table depth of this run reads them.",
+                "Could not write the surface elevation for sim %s; every map, "
+                "section and water-table depth of this run reads it.",
                 sim_id,
                 exc_info=True,
             )
@@ -1131,150 +1099,15 @@ class Modflow6OutputAdapter:
         *,
         n_cells: int,
     ) -> tuple[np.ndarray, np.ndarray] | None:
-        """Return UGRID vertices/connectivity from a FloPy MfGrdFile."""
-        verts = getattr(grid, "verts", None)
-        iverts = getattr(grid, "iverts", None)
-        if verts is not None and iverts is not None:
-            vertices = np.asarray(verts, dtype="float64")
-            if vertices.ndim == 2 and vertices.shape[1] == 2:
-                vertices = np.column_stack([vertices, np.zeros(vertices.shape[0])])
-            connectivity = Modflow6OutputAdapter._padded_face_connectivity(
-                iverts,
-                n_cells=n_cells,
-            )
-            if connectivity is not None:
-                return vertices, connectivity
-
+        """Return UGRID vertices and padded connectivity from a FloPy MfGrdFile, None if it has none."""
         try:
-            modelgrid = grid.modelgrid
-            xvertices = np.asarray(modelgrid.xvertices, dtype="float64")
-            yvertices = np.asarray(modelgrid.yvertices, dtype="float64")
-        except Exception:
+            vertices_xy, connectivity = grb_geometry(grid)
+        except MeshError:
             return None
-
-        if xvertices.ndim != 2 or yvertices.shape != xvertices.shape:
+        if connectivity.shape[0] != int(n_cells):
             return None
-        nrow = int(xvertices.shape[0] - 1)
-        ncol = int(xvertices.shape[1] - 1)
-        if nrow <= 0 or ncol <= 0 or nrow * ncol != int(n_cells):
-            return None
-        vertices = np.column_stack(
-            [
-                xvertices.ravel(),
-                yvertices.ravel(),
-                np.zeros(xvertices.size, dtype="float64"),
-            ]
-        )
-        return vertices, Modflow6OutputAdapter._structured_face_connectivity(nrow, ncol)
-
-    @staticmethod
-    def _padded_face_connectivity(
-        iverts: Any,
-        *,
-        n_cells: int,
-    ) -> np.ndarray | None:
-        """Convert ragged MF6 iverts lists to padded UGRID connectivity."""
-        rows: list[list[int]] = []
-        for row in list(iverts)[: int(n_cells)]:
-            cleaned = [int(node) for node in row if int(node) >= 0]
-            if len(cleaned) > 1 and cleaned[0] == cleaned[-1]:
-                cleaned = cleaned[:-1]
-            if len(cleaned) < 3:
-                rows.append([])
-            else:
-                rows.append(cleaned)
-        if len(rows) != int(n_cells) or not any(rows):
-            return None
-        width = max(len(row) for row in rows)
-        connectivity = np.full((int(n_cells), width), -1, dtype="int32")
-        for cell_id, row in enumerate(rows):
-            if row:
-                connectivity[cell_id, : len(row)] = row
-        return connectivity
-
-    @staticmethod
-    def _structured_face_connectivity(nrow: int, ncol: int) -> np.ndarray:
-        """Return quadrilateral face connectivity for a structured grid."""
-        nc = int(ncol) + 1
-        connectivity = np.empty((int(nrow) * int(ncol), 4), dtype="int32")
-        for row in range(int(nrow)):
-            for col in range(int(ncol)):
-                cell_id = row * int(ncol) + col
-                node_id = row * nc + col
-                connectivity[cell_id] = (
-                    node_id,
-                    node_id + 1,
-                    node_id + nc + 1,
-                    node_id + nc,
-                )
-        return connectivity
-
-    @staticmethod
-    def _structured_shape_from_vertices(
-        vertices: np.ndarray | None,
-        *,
-        n_cells: int,
-    ) -> tuple[int, int] | None:
-        """Infer a regular grid shape from rectangular UGRID vertices."""
-        if vertices is None:
-            return None
-        values = np.asarray(vertices, dtype="float64")
-        if values.ndim != 2 or values.shape[0] == 0 or values.shape[1] < 2:
-            return None
-        unique_x = np.unique(np.round(values[:, 0], decimals=9))
-        unique_y = np.unique(np.round(values[:, 1], decimals=9))
-        ncol = int(unique_x.size - 1)
-        nrow = int(unique_y.size - 1)
-        if nrow > 0 and ncol > 0 and nrow * ncol == int(n_cells):
-            return nrow, ncol
-        return None
-
-    @staticmethod
-    def _structured_mesh_geometry_from_shape(
-        store: Any,
-        sim_id: str,
-        *,
-        n_cells: int,
-        grid_shape: tuple[int, int] | None,
-    ) -> tuple[np.ndarray, np.ndarray] | None:
-        """Build rectangular UGRID geometry when the GRB lacks vertices."""
-        shape = grid_shape
-        if shape is None or int(shape[0]) * int(shape[1]) != int(n_cells):
-            side = int(np.sqrt(int(n_cells)))
-            shape = (side, side) if side * side == int(n_cells) else None
-        if shape is None:
-            return None
-
-        nrow, ncol = int(shape[0]), int(shape[1])
-        try:
-            sz = store.open_zarr(sim_id)
-            try:
-                _, meta = sz.read_geographic_raster("watershed_dem")
-            finally:
-                sz.close()
-            transform = meta["transform"]
-            geographic_metadata = store.read_geographic_metadata(sim_id)
-            geo_rows = int(geographic_metadata.get("nrow", nrow))
-            geo_cols = int(geographic_metadata.get("ncol", ncol))
-            xmin = float(transform[2])
-            xmax = xmin + geo_cols * float(transform[0])
-            ymax = float(transform[5])
-            ymin = ymax + geo_rows * float(transform[4])
-        except Exception:
-            xmin, xmax = 0.0, float(ncol)
-            ymin, ymax = 0.0, float(nrow)
-
-        x_edges = np.linspace(xmin, xmax, ncol + 1, dtype="float64")
-        y_edges = np.linspace(ymax, ymin, nrow + 1, dtype="float64")
-        xx, yy = np.meshgrid(x_edges, y_edges)
-        vertices = np.column_stack(
-            [
-                xx.ravel(),
-                yy.ravel(),
-                np.zeros(xx.size, dtype="float64"),
-            ]
-        )
-        return vertices, Modflow6OutputAdapter._structured_face_connectivity(nrow, ncol)
+        vertices = np.column_stack([vertices_xy, np.zeros(vertices_xy.shape[0])])
+        return vertices, connectivity
 
 
 def _write_flow_properties(sz: Any, solver_output_dir: Path, *, n_cells: int) -> None:

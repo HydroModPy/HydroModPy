@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.budget_terms import BudgetKeep
-from hydromodpy.core.exceptions import ExtractError
+from hydromodpy.core.exceptions import ExtractError, IncompatibleMeshError, MeshError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import (
     CF_EPOCH,
@@ -37,6 +37,71 @@ from hydromodpy.solver.modflow_common.time_units import (
 )
 
 logger = get_logger(__name__)
+
+
+# The DIS arrays are written with six significant digits (E15.6), so the grid the
+# solver read is the stored one to this share of the larger grid side.
+_DIS_GRID_TOLERANCE = 1e-6
+
+
+def verify_dis_grid(
+    modelgrid: Any,
+    root: Any,
+    *,
+    nrow: int,
+    ncol: int,
+    sim_id: str,
+) -> float | None:
+    """Compare the DIS grid the solver read with the regular mesh the run stored.
+
+    The shape, the cell rings (the pattern of the regular engine) and the
+    vertices are compared; a difference raises ``IncompatibleMeshError``. The
+    return value is the largest vertex shift in metres, ``None`` when the store
+    holds no geometry (a warning, and nothing is checked).
+    """
+    mesh = root["mesh"] if "mesh" in root else {}
+    if "vertices" not in mesh or "face_node_connectivity" not in mesh:
+        logger.warning(
+            "Run %s stores no mesh geometry: the solved grid is not checked and no vertex is written.",
+            sim_id,
+        )
+        return None
+    stored_shape = mesh.attrs.get("structured_shape")
+    if stored_shape is None or tuple(int(v) for v in stored_shape) != (int(nrow), int(ncol)):
+        raise IncompatibleMeshError(
+            f"Run {sim_id}: the solver grid is {nrow} x {ncol} cells, the stored mesh is "
+            f"{'not a regular grid' if stored_shape is None else tuple(stored_shape)}"
+        )
+    columns = int(ncol) + 1
+    first = (np.arange(nrow)[:, None] * columns + np.arange(ncol)[None, :]).ravel()
+    expected = np.column_stack([first, first + 1, first + columns + 1, first + columns])
+    stored_rows = np.asarray(mesh["face_node_connectivity"][:])
+    if stored_rows.shape != expected.shape or not np.array_equal(stored_rows, expected):
+        raise IncompatibleMeshError(
+            f"Run {sim_id}: the stored cell rings are not those of a regular {nrow} x {ncol} grid"
+        )
+    stored_xy = np.asarray(mesh["vertices"][:])[:, :2]
+    solved_x = np.asarray(modelgrid.xvertices, dtype=np.float64).ravel()
+    solved_y = np.asarray(modelgrid.yvertices, dtype=np.float64).ravel()
+    if solved_x.size != stored_xy.shape[0]:
+        raise IncompatibleMeshError(
+            f"Run {sim_id}: the solver grid has {solved_x.size} vertices, the stored mesh "
+            f"{stored_xy.shape[0]}"
+        )
+    shift = np.maximum(np.abs(solved_x - stored_xy[:, 0]), np.abs(solved_y - stored_xy[:, 1]))
+    span = float(np.ptp(stored_xy, axis=0).max())
+    if not (shift <= _DIS_GRID_TOLERANCE * span).all():
+        vertex = int(np.argmax(shift))
+        raise IncompatibleMeshError(
+            f"Run {sim_id}: vertex {vertex} of the solver grid is {float(shift[vertex]):.3g} m "
+            f"from the stored mesh (allowed {_DIS_GRID_TOLERANCE * span:.3g} m)"
+        )
+    logger.info(
+        "Run %s: the solver grid matches the stored mesh (largest vertex shift %.3g m).",
+        sim_id,
+        float(shift.max()),
+    )
+    return float(shift.max())
 
 
 def _write_time_coordinate(
@@ -419,7 +484,11 @@ class ModflowNwtOutputAdapter:
         nrow: int,
         ncol: int,
     ) -> None:
-        """Write mesh/topography array from DIS file for derived variable computation."""
+        """Check the DIS grid against the stored mesh, then add the topography and thicknesses.
+
+        The mesh was written once, before the run, from the regular grid. The
+        grid the solver read is compared with it and a difference stops the run.
+        """
         try:
             import warnings
 
@@ -454,42 +523,23 @@ class ModflowNwtOutputAdapter:
                 interfaces = np.vstack([top[None, :], botm_per_layer])
                 layer_thickness = -np.diff(interfaces, axis=0)
 
-            # Synthesize UGRID (vertices + face_node_connectivity) from the
-            # structured DIS grid so downstream readers (piezometric_map,
-            # exporters) can treat NWT runs the same way as DISV.
-            sg = m.modelgrid
-            x_edges = np.asarray(sg.xvertices, dtype="float64")
-            y_edges = np.asarray(sg.yvertices, dtype="float64")
-            vertices = np.column_stack(
-                [
-                    x_edges.ravel(),
-                    y_edges.ravel(),
-                    np.zeros(x_edges.size, dtype="float64"),
-                ]
-            )
-            nc = ncol + 1
-            fnc = np.empty((nrow * ncol, 4), dtype="int32")
-            for r in range(nrow):
-                for c in range(ncol):
-                    i = r * ncol + c
-                    n0 = r * nc + c
-                    fnc[i] = (n0, n0 + 1, n0 + nc + 1, n0 + nc)
-
             sz = store.open_zarr(sim_id)
             try:
-                sz.write_mesh(
-                    vertices=vertices,
-                    face_node_connectivity=fnc,
-                    z_interfaces=z_flat,
+                verify_dis_grid(m.modelgrid, sz.root, nrow=nrow, ncol=ncol, sim_id=sim_id)
+                sz.write_topography(
                     topography=top,
+                    z_interfaces=z_flat,
+                    n_cells=n_cells,
+                    n_layers=int(z_flat.size - 1),
                     layer_thickness=layer_thickness,
                     grid_type="dis",
-                    structured_shape=(int(nrow), int(ncol)),
                 )
                 write_descent_sidecar_to_store(
                     sz, solver_output_dir, sim_id=sim_id, n_cells=n_cells
                 )
             finally:
                 sz.close()
+        except MeshError:
+            raise
         except Exception:
             logger.debug("Could not write surface elevation for sim %s", sim_id)

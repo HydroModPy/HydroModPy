@@ -46,6 +46,8 @@ AXIS_RECORD = "record"
 AXIS_SOIL_COLUMN = "soil_column"
 AXIS_LAKE = "lake"
 AXIS_STAGE_LEVEL = "stage_level"
+AXIS_EDGE = "edge"
+AXIS_TWO = "two"
 
 _SHAPE_TO_DIMENSIONS: dict[str, tuple[str, ...]] = {
     SHAPE_TIME_LAYER_FACE: (AXIS_TIME, AXIS_LAYER, AXIS_FACE),
@@ -700,6 +702,7 @@ __all__ = [
     "SHAPE_FACE",
     "SHAPE_PARTICLES",
     "UGRID_MESH_VARIABLE",
+    "AXIS_EDGE",
     "AXIS_ENDPOINT",
     "AXIS_FACE",
     "AXIS_LAKE",
@@ -714,6 +717,7 @@ __all__ = [
     "AXIS_STAGE_LEVEL",
     "AXIS_TIME",
     "AXIS_TRACK_STEP",
+    "AXIS_TWO",
     "FieldDescriptor",
     "FIELD_REGISTRY",
     "get",

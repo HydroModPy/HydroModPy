@@ -7109,7 +7109,7 @@
               "type": "array"
             }
           ],
-          "description": "What to export: a name, a list of names, or \"all\" for everything the run holds. One namespace covers the mesh fields (head, watertable_depth, seepage_mask...), the series (discharge, discharge_obs...), the vector layers (watershed, hydrographic_network_reference...), the raster layers (watershed_dem...) and the table budget; 'hmp export <run> --list' prints what a run holds. A name no run can hold is refused before the solve.",
+          "description": "What to export: a name, a list of names, or \"all\" for everything the run holds. One namespace covers the mesh fields (head, watertable_depth, seepage_mask..., and mesh_cell_area, which \"all\" leaves out because mesh_cells holds it), the series (discharge, discharge_obs...), the vector layers (watershed, hydrographic_network_reference...), the three layers of the cell mesh (mesh_cells, mesh_seeds, mesh_family_faces), the raster layers (watershed_dem...) and the table budget; 'hmp export <run> --list' prints what a run holds. A name no run can hold is refused before the solve.",
           "examples": [
             "head",
             [
@@ -7188,7 +7188,7 @@
           "description": "The file format. Left out, each data takes its natural format, or the one the extension of 'file' names. 'package' writes the portable .hmp archive of the run; 'stac', 'rocrate' and 'prov' write its metadata. Those four describe the whole run and take variables = \"all\" only.",
           "value_docs": {
             "csv": "A CSV table (.csv): series and tables.",
-            "geopackage": "A GeoPackage vector file (.gpkg), one file per date.",
+            "geopackage": "A GeoPackage vector file (.gpkg), one file per date. The mesh layers of a run share one file.",
             "geotiff": "A GeoTIFF raster (.tif), one file per date.",
             "netcdf": "A NetCDF file (.nc): fields and series over time.",
             "package": "The portable .hmp archive of the run.",

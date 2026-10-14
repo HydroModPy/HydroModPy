@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from hydromodpy.core.exceptions import IncompatibleMeshError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.nodata import SENTINEL_ABS_THRESHOLD
 from hydromodpy.solver.initial_conditions import (
     build_head_initial_condition_array,
@@ -17,6 +19,10 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     resolve_stream_boundary_series,
     stream_chd_support_mask,
 )
+from hydromodpy.solver.modflow6.support.written_grid import reoriented_rows, written_step
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+
+logger = get_logger(__name__)
 
 
 def rewet_is_enabled(model) -> bool:
@@ -43,6 +49,84 @@ def _open_restart_zarr(path: str):
     if path.endswith(".zip"):
         return zarr.open(zarr.storage.ZipStore(path, mode="r"), mode="r")
     return zarr.open(path, mode="r")
+
+
+def _identity_text(engine: object, version: object, request_hash: object) -> str:
+    """One mesh identity as a phrase; attributes a store never recorded read ``unrecorded``."""
+    request = str(request_hash or "unrecorded")[:12]
+    return f"engine {engine or 'unrecorded'} {version or ''}, request {request}"
+
+
+def verify_restart_mesh(path: str, cell_mesh: PlanarCellMesh) -> None:
+    """Refuse a ``restart_from`` store that was solved on another mesh than ``cell_mesh``.
+
+    A hotstart copies heads cell by cell, so it needs the same cells in the
+    same order. The source ``mesh/`` group is compared with the current mesh:
+    ``face_node_connectivity`` exactly (a ring walked the other way is the same
+    cell, as MODFLOW 6 stores its DISV clockwise) and the vertices to half the
+    rounding step flopy writes (a finer difference never reaches the solver).
+    A source store that holds no mesh keeps the cell-count rule of
+    :func:`read_restart_heads` and a warning.
+
+    Raises
+    ------
+    IncompatibleMeshError
+        When the connectivity or a vertex differs. The message names the
+        engine, version and request hash of both meshes.
+    """
+    root = _open_restart_zarr(path)
+    if "mesh" not in root or "face_node_connectivity" not in root["mesh"]:
+        logger.warning(
+            "restart_from: %r stores no mesh, so only the cell count is checked; the heads are "
+            "copied cell by cell and are wrong if the cell order differs.",
+            path,
+        )
+        return
+    group = root["mesh"]
+    stored_rows = np.asarray(group["face_node_connectivity"][:], dtype=np.int64)
+    current_rows = np.asarray(cell_mesh.geometry.padded_connectivity, dtype=np.int64)
+    width = max(stored_rows.shape[1], current_rows.shape[1])
+    stored_rows, current_rows = (
+        np.pad(rows, ((0, 0), (0, width - rows.shape[1])), constant_values=-1)
+        for rows in (stored_rows, current_rows)
+    )
+    stored_xy = np.asarray(group["vertices"][:], dtype=float)[:, :2]
+    current_xy = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
+    reason = None
+    if stored_rows.shape != current_rows.shape or stored_xy.shape != current_xy.shape:
+        reason = (
+            f"{stored_rows.shape[0]} cells and {stored_xy.shape[0]} vertices stored, "
+            f"{current_rows.shape[0]} and {current_xy.shape[0]} in this run"
+        )
+    else:
+        same_ring = (stored_rows == current_rows).all(axis=1) | (
+            stored_rows == reoriented_rows(current_rows)
+        ).all(axis=1)
+        moved = np.abs(stored_xy - current_xy) > 0.505 * written_step(stored_xy)
+        if not same_ring.all():
+            first = int(np.flatnonzero(~same_ring)[0])
+            reason = f"the cell connectivity differs from cell {first}"
+        elif moved.any():
+            first = int(np.flatnonzero(moved.any(axis=1))[0])
+            shift = float(np.abs(stored_xy - current_xy)[moved].max())
+            reason = (
+                f"{int(moved.any(axis=1).sum())} vertices moved (first: {first}, "
+                f"up to {shift:.3g} m)"
+            )
+    if reason is None:
+        return
+    identity = cell_mesh.identity
+    prior = _identity_text(
+        group.attrs.get("engine"),
+        group.attrs.get("engine_version"),
+        group.attrs.get("mesh_request_hash"),
+    )
+    current = _identity_text(identity.engine_id, identity.engine_version, identity.request_hash)
+    raise IncompatibleMeshError(
+        f"restart_from: {path!r} was solved on another mesh than this run: {reason}. "
+        f"Prior run: {prior}. This run: {current}. "
+        "Restart from a run with the same [mesh] settings, on the same engine build."
+    )
 
 
 def read_restart_heads(path: str, *, nlay: int, ncpl: int, top_flat: np.ndarray) -> np.ndarray:
@@ -116,6 +200,7 @@ def build_start_heads(model, solver_mesh) -> np.ndarray:
 
     restart_source = resolve_restart_from(model)
     if restart_source:
+        verify_restart_mesh(restart_source, solver_mesh.cell_mesh)
         strt = read_restart_heads(
             restart_source, nlay=int(model.nlay), ncpl=int(ncpl), top_flat=top_flat
         )
@@ -181,4 +266,5 @@ __all__ = [
     "resolve_head_initial_condition",
     "resolve_rewet_npf_options",
     "rewet_is_enabled",
+    "verify_restart_mesh",
 ]

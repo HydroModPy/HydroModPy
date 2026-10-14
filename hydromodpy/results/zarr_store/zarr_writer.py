@@ -23,6 +23,7 @@ from hydromodpy.core.budget_terms import (
     POLICY_ALL,
     BudgetKeep,
 )
+from hydromodpy.core.exceptions import IncompatibleMeshError
 from hydromodpy.core.field_precision import (
     KEPT_MANTISSA_BITS,
     QUANTIZATION_ALGORITHM,
@@ -40,6 +41,7 @@ from hydromodpy.results.zarr_store.chunks import (
     should_use_sharding,
 )
 from hydromodpy.results.zarr_store.constants import BLOSC_ZSTD
+from hydromodpy.results.zarr_store.mesh_layout import MeshLayout, cf_flag_meanings
 from hydromodpy.results.zarr_store.zarr_schema import (
     child_zarr_path,
     ensure_local_zarr_node_dir,
@@ -240,6 +242,7 @@ def write_mesh(
     start_index: int = 0,
     grid_type: str | None = None,
     structured_shape: tuple[int, int] | None = None,
+    layout: MeshLayout | None = None,
 ) -> None:
     """Write the UGRID-1.0 mesh group, including the optional topography array.
 
@@ -248,6 +251,10 @@ def write_mesh(
     one reference cell, which is enough for metadata but not for a cross-section:
     the per-face thickness is what lets any figure rebuild the aquifer base
     under each cell.
+
+    ``layout`` adds the cell centres, the family bit fields, the zone codes, the
+    edge tables and the engine attributes. Without it the group holds exactly
+    what it held before the layout existed.
     """
     with store_obj._guard_write():
         mesh = store_obj._root.require_group("mesh")
@@ -309,36 +316,36 @@ def write_mesh(
                 dimension_names=(field_registry.AXIS_FACE,),
             )
             update_attrs(topo_arr, attrs_for_field("topography", topo_arr.dtype))
-        for name, values in (
-            ("streambed_top", streambed_top),
-            ("streambed_connection", streambed_connection),
-        ):
-            if values is None:
-                continue
-            arr = _write_array(
-                store_obj,
-                mesh,
-                name,
-                np.asarray(values, dtype="float64"),
-                dimension_names=(field_registry.AXIS_FACE,),
-            )
-            update_attrs(arr, attrs_for_field(name, arr.dtype))
-        if layer_thickness is not None:
-            thickness_arr = _write_array(
-                store_obj,
-                mesh,
-                "layer_thickness",
-                np.atleast_2d(np.asarray(layer_thickness, dtype="float64")),
-                dimension_names=field_registry.static_field_dimensions(2),
-            )
-            update_attrs(thickness_arr, attrs_for_field("layer_thickness", thickness_arr.dtype))
+        _write_vertical_arrays(
+            store_obj,
+            mesh,
+            layer_thickness=layer_thickness,
+            streambed_top=streambed_top,
+            streambed_connection=streambed_connection,
+        )
 
-        mesh_attrs: dict[str, object] = {
-            "start_index": int(start_index),
-            "n_nodes": int(np.asarray(vertices).shape[0]),
-            "n_cells": int(np.asarray(face_node_connectivity).shape[0]),
-            "n_layers": int(len(z_interfaces) - 1),
+        n_nodes = int(np.asarray(vertices).shape[0])
+        n_cells = int(np.asarray(face_node_connectivity).shape[0])
+        mesh_attrs: dict[str, object] = {}
+        topology_attrs: dict[str, object] = {
+            "cf_role": "mesh_topology",
+            "long_name": "UGRID 2D topology of the simulation mesh",
+            "topology_dimension": 2,
+            "node_coordinates": "vertices",
+            "face_node_connectivity": "face_node_connectivity",
         }
+        if layout is not None:
+            _check_layout(layout, n_nodes=n_nodes, n_cells=n_cells)
+            mesh_attrs.update(layout.attrs)
+            topology_attrs.update(_write_layout(store_obj, mesh, layout))
+        mesh_attrs.update(
+            {
+                "start_index": int(start_index),
+                "n_nodes": n_nodes,
+                "n_cells": n_cells,
+                "n_layers": int(len(z_interfaces) - 1),
+            }
+        )
         if grid_type:
             mesh_attrs["grid_type"] = str(grid_type)
         if structured_shape is not None:
@@ -355,14 +362,143 @@ def write_mesh(
             "topology",
             np.zeros((), dtype="int32"),
             dimension_names=(),
+            attrs=topology_attrs,
+        )
+
+
+def _write_vertical_arrays(
+    store_obj: SimulationZarr,
+    mesh: zarr.Group,
+    *,
+    layer_thickness: np.ndarray | None,
+    streambed_top: np.ndarray | None,
+    streambed_connection: np.ndarray | None,
+) -> None:
+    """Write the per-face arrays that depend on the solved model, when given."""
+    for name, values in (
+        ("streambed_top", streambed_top),
+        ("streambed_connection", streambed_connection),
+    ):
+        if values is None:
+            continue
+        arr = _write_array(
+            store_obj,
+            mesh,
+            name,
+            np.asarray(values, dtype="float64"),
+            dimension_names=(field_registry.AXIS_FACE,),
+        )
+        update_attrs(arr, attrs_for_field(name, arr.dtype))
+    if layer_thickness is not None:
+        thickness_arr = _write_array(
+            store_obj,
+            mesh,
+            "layer_thickness",
+            np.atleast_2d(np.asarray(layer_thickness, dtype="float64")),
+            dimension_names=field_registry.static_field_dimensions(2),
+        )
+        update_attrs(thickness_arr, attrs_for_field("layer_thickness", thickness_arr.dtype))
+
+
+def _check_layout(layout: MeshLayout, *, n_nodes: int, n_cells: int) -> None:
+    """Refuse a layout that does not describe the mesh it is written beside."""
+    if layout.face_x.shape[0] != n_cells:
+        raise IncompatibleMeshError(
+            f"the mesh layout describes {layout.face_x.shape[0]} cells, the connectivity {n_cells}"
+        )
+    edges = layout.edge_node_connectivity
+    if edges.size and int(edges.max()) >= n_nodes:
+        raise IncompatibleMeshError("an edge of the mesh layout names a node beyond the vertices")
+
+
+def _family_attrs(names: tuple[str, ...], *, long_name: str) -> dict[str, object]:
+    """Return the CF flag attributes of a family bit field."""
+    return {
+        "long_name": long_name,
+        "flag_masks": [1 << k for k in range(len(names))],
+        "flag_meanings": cf_flag_meanings(names),
+        "family_names": list(names),
+    }
+
+
+def _write_layout(
+    store_obj: SimulationZarr, mesh: zarr.Group, layout: MeshLayout
+) -> dict[str, object]:
+    """Write the additive arrays of a mesh layout and return the topology attrs they add."""
+    face = (field_registry.AXIS_FACE,)
+    edge_pair = (field_registry.AXIS_EDGE, field_registry.AXIS_TWO)
+    for name, values in (("face_x", layout.face_x), ("face_y", layout.face_y)):
+        _write_array(
+            store_obj,
+            mesh,
+            name,
+            values,
+            dimension_names=face,
             attrs={
-                "cf_role": "mesh_topology",
-                "long_name": "UGRID 2D topology of the simulation mesh",
-                "topology_dimension": 2,
-                "node_coordinates": "vertices",
-                "face_node_connectivity": "face_node_connectivity",
+                "long_name": f"{name[-1]} coordinate of the cell centre",
+                "units": "m",
+                "center_kind": layout.center_kind,
             },
         )
+    _write_array(
+        store_obj,
+        mesh,
+        "face_family",
+        layout.face_family,
+        dimension_names=face,
+        attrs=_family_attrs(layout.family_names, long_name="Line families each cell belongs to"),
+    )
+    if layout.face_zone is not None:
+        _write_array(
+            store_obj,
+            mesh,
+            "face_zone",
+            layout.face_zone,
+            dimension_names=face,
+            attrs={
+                "long_name": "Zone of each cell, an index into zone_names",
+                "zone_names": list(layout.zone_names),
+                "_FillValue": -1,
+            },
+        )
+    for name, values, role in (
+        ("edge_node_connectivity", layout.edge_node_connectivity, "edge_node_connectivity"),
+        ("edge_face_connectivity", layout.edge_face_connectivity, "edge_face_connectivity"),
+    ):
+        _write_array(
+            store_obj,
+            mesh,
+            name,
+            values,
+            dimension_names=edge_pair,
+            attrs={
+                "cf_role": role,
+                "long_name": (
+                    "Mapping from every edge to its two end nodes"
+                    if role == "edge_node_connectivity"
+                    else "Mapping from every edge to the cells on its two sides, -1 at the boundary"
+                ),
+                "start_index": 0,
+                "_FillValue": -1,
+            },
+        )
+    _write_array(
+        store_obj,
+        mesh,
+        "edge_family",
+        layout.edge_family,
+        dimension_names=(field_registry.AXIS_EDGE,),
+        attrs=_family_attrs(
+            layout.edge_family_names, long_name="Face families each mesh edge lies on"
+        ),
+    )
+    return {
+        "face_coordinates": "face_x face_y",
+        "edge_node_connectivity": "edge_node_connectivity",
+        "edge_face_connectivity": "edge_face_connectivity",
+        "face_dimension": field_registry.AXIS_FACE,
+        "edge_dimension": field_registry.AXIS_EDGE,
+    }
 
 
 def write_descent(
@@ -437,10 +573,26 @@ def write_topography(
     z_interfaces: np.ndarray | None = None,
     n_cells: int | None = None,
     n_layers: int | None = None,
+    layer_thickness: np.ndarray | None = None,
+    streambed_top: np.ndarray | None = None,
+    streambed_connection: np.ndarray | None = None,
+    grid_type: str | None = None,
 ) -> None:
-    """Write the mesh topography (and optional z_interfaces) only."""
+    """Write what the solved model adds to the mesh: topography and vertical geometry.
+
+    This is the one writer after a run. It never touches the vertices or the
+    connectivity. When ``mesh/face_node_connectivity`` is stored, ``n_cells`` is
+    compared to it and a different count raises ``IncompatibleMeshError``; a store
+    with no stored geometry takes ``n_cells`` as given.
+    """
     with store_obj._guard_write():
         mesh = store_obj._root.require_group("mesh")
+        if n_cells is not None and "face_node_connectivity" in mesh:
+            stored = int(mesh["face_node_connectivity"].shape[0])
+            if stored != int(n_cells):
+                raise IncompatibleMeshError(
+                    f"the solver grid has {int(n_cells)} cells, the stored mesh {stored}"
+                )
         topo_arr = _write_array(
             store_obj,
             mesh,
@@ -459,11 +611,20 @@ def write_topography(
                 dimension_names=_z_interface_dimensions(interfaces),
                 attrs=_Z_INTERFACE_ATTRS,
             )
+        _write_vertical_arrays(
+            store_obj,
+            mesh,
+            layer_thickness=layer_thickness,
+            streambed_top=streambed_top,
+            streambed_connection=streambed_connection,
+        )
         mesh_attrs: dict[str, object] = {}
         if n_cells is not None:
             mesh_attrs["n_cells"] = int(n_cells)
         if n_layers is not None:
             mesh_attrs["n_layers"] = int(n_layers)
+        if grid_type:
+            mesh_attrs["grid_type"] = str(grid_type)
         if mesh_attrs:
             update_attrs(mesh, mesh_attrs)
 

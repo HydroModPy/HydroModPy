@@ -14,8 +14,9 @@ from shapely.geometry import box
 
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.state.run_state import WorkflowContext
+from hydromodpy.spatial.mesh import cache as cache_module
 from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.cache import cache_dir
+from hydromodpy.spatial.mesh.cache import cache_dir, library_versions
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.spatial.mesh.model.cell_types import CellType
@@ -112,6 +113,17 @@ def test_a_run_without_mesh_section_gets_the_regular_grid_and_no_cache(tmp_path)
     assert not (tmp_path / ".hmp").exists()
 
 
+def test_the_summary_names_the_library_builds_the_mesh_depends_on(tmp_path) -> None:
+    ctx = _context(tmp_path, None)
+
+    step_mesh(ctx)
+
+    versions = ctx.setup.mesh_summary["library_versions"]
+    assert set(versions) == {"gmsh", "scipy", "shapely", "geos"}
+    assert versions == library_versions()
+    assert all(isinstance(value, str) and value for value in versions.values())
+
+
 def test_the_planner_notes_reach_the_qa_of_the_summary(tmp_path, monkeypatch) -> None:
     inputs = dataclasses.replace(
         mesh_module.planning_inputs(None, None), notes=("the geology map is a raster",)
@@ -161,6 +173,24 @@ def test_a_changed_request_is_meshed_again_under_its_own_key(tmp_path, cached_en
 
     assert cached_engine.builds == 2
     assert coarse.setup.mesh_summary["cache_key"] != fine.setup.mesh_summary["cache_key"]
+    assert len(list((tmp_path / ".hmp" / "mesh_cache").iterdir())) == 2
+
+
+@pytest.mark.parametrize("library", ["gmsh", "scipy", "shapely", "geos"])
+def test_a_new_build_of_a_library_is_meshed_again_under_its_own_key(
+    tmp_path, cached_engine, monkeypatch, library
+) -> None:
+    mesh_cfg = MeshConfig(engine=cached_engine.engine_id)
+    before = _context(tmp_path, mesh_cfg)
+    step_mesh(before)
+    bumped = {**library_versions(), library: "99.9.9"}
+    monkeypatch.setattr(cache_module, "library_versions", lambda: bumped)
+    after = _context(tmp_path, mesh_cfg)
+
+    step_mesh(after)
+
+    assert cached_engine.builds == 2
+    assert before.setup.mesh_summary["cache_key"] != after.setup.mesh_summary["cache_key"]
     assert len(list((tmp_path / ".hmp" / "mesh_cache").iterdir())) == 2
 
 

@@ -12,7 +12,11 @@ from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.mesh_qa import compute_mesh_qa
+from hydromodpy.spatial.mesh.model.mesh_qa import (
+    compute_mesh_qa,
+    edge_nonorthogonality,
+    edge_size_ratio,
+)
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
 
 X0, Y0 = 351_250.0, 6_789_500.0
@@ -175,3 +179,24 @@ def test_as_dict_is_json_ready() -> None:
     assert payload["notes"] == ["regular ignores river_cell_size"]
     assert payload["extras"] == {"x": 1.0}
     assert payload["declarations"] == DECLARATIONS
+
+
+def test_the_per_edge_helpers_give_the_numbers_the_qa_summarises() -> None:
+    """The QA quantiles are those of the per-edge values the quality fields reduce by cell."""
+    mesh, centers = _grid()
+    centers = centers + np.where(np.arange(centers.shape[0])[:, None] % 3 == 0, [3.0, 1.5], 0.0)
+    geometry = derive_geometry(mesh)
+    qa = compute_mesh_qa(mesh, centers, geometry, declarations=DECLARATIONS)
+
+    interior = geometry.edge_cells[:, 1] >= 0
+    ratio = edge_size_ratio(geometry)
+    keep = interior & (geometry.edge_length > qa.min_face_length_m)
+    angle = edge_nonorthogonality(centers, np.asarray(mesh.vertices), geometry, keep)
+
+    assert np.isnan(ratio[~interior]).all()
+    assert np.isnan(angle[~keep]).all()
+    assert qa.neighbour_ratio["max"] == np.nanmax(ratio)
+    assert qa.neighbour_ratio["p50"] == float(np.percentile(ratio[interior], 50))
+    assert qa.nonorthogonality_deg["max"] == np.nanmax(angle)
+    assert qa.nonorthogonality_deg["p95"] == float(np.nanpercentile(angle, 95))
+    assert qa.nonorthogonality_deg["max"] > 0.0

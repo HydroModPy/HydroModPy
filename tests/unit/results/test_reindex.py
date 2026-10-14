@@ -345,6 +345,94 @@ def test_a_malformed_trash_marker_is_reported_not_ignored(project):
     assert [entry.run for entry in report.skipped] == ["beta"]
 
 
+# -- the mesh engine is derived, so it is rebuilt with the index -------------
+
+
+def _seal_mesh_run(catalog: Catalog, name: str, engine: str | None) -> str:
+    """Seal a run on a 2 x 2 grid whose configuration names ``engine`` (none: no ``[mesh]``)."""
+    import dataclasses
+
+    import numpy as np
+
+    from hydromodpy.results.zarr_store.mesh_layout import (
+        cell_family_rows,
+        mesh_layout_from_cell_mesh,
+    )
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain
+    from tests._helpers.regular_cell_meshes import regular_cell_mesh
+
+    cell_mesh = regular_cell_mesh(xmin=0.0, ymin=0.0, dx=10.0, dy=10.0, nrow=2, ncol=2)
+    river = CellChain(family="rivers", chain_id=0, cell_ids=np.array([0, 1, 3]))
+    cell_mesh = dataclasses.replace(cell_mesh, cell_chains=(river,))
+    sid = str(uuid.uuid4())
+    snapshot = {"flow": {"hk": 1e-5}} | ({} if engine is None else {"mesh": {"engine": engine}})
+    registration = catalog.register_simulation(
+        sid, project="demo", solver="modflow6", name=name, config=snapshot, n_cells=4, n_layers=1
+    )
+    if registration.zarr is not None:
+        registration.zarr.close()
+    xy = cell_mesh.mesh.vertices
+    catalog.write_mesh(
+        sid,
+        [[x, y, 0.0] for x, y in xy],
+        cell_mesh.connectivity_rows,
+        [0.0, -10.0],
+        layout=None if engine is None else mesh_layout_from_cell_mesh(cell_mesh),
+    )
+    if engine is not None:
+        catalog.write_view(sid, "mesh_cell_families", cell_family_rows(cell_mesh))
+    (catalog.run_dir_for(sid) / RUN_CONFIG_FILENAME).write_text("[flow]\nhk = 1e-5\n")
+    catalog.finalize(sid, status="completed")
+    return sid
+
+
+def _engines(catalog: Catalog) -> dict[str, object]:
+    frame = catalog.list_simulations()
+    return {row["name"]: row["mesh_engine"] for row in frame.to_dict("records")}
+
+
+def test_the_mesh_engine_of_a_run_is_the_same_after_a_rebuild(tmp_path):
+    root = tmp_path / "demo"
+    with Catalog(root) as catalog:
+        _seal_mesh_run(catalog, "new", "voronoi")
+        _seal_mesh_run(catalog, "old", None)
+        before = _engines(catalog)
+        summary_before = dict(
+            catalog.backend.fetch_all("SELECT name, mesh_engine FROM v_simulation_summary")
+        )
+    catalog_path_for(root).unlink()
+
+    rebuild_index(root)
+
+    with Catalog(root, read_only=True) as catalog:
+        assert _engines(catalog) == before
+        assert before["new"] == "voronoi"
+        assert before["old"] is None
+        summary = dict(
+            catalog.backend.fetch_all("SELECT name, mesh_engine FROM v_simulation_summary")
+        )
+        assert summary == summary_before
+        assert catalog.find(mesh_engine="voronoi").sim_ids == [catalog.resolve("new")]
+        assert len(catalog.list_simulations(mesh_engine="voronoi")) == 1
+
+
+def test_the_family_views_of_a_run_are_read_again_after_a_rebuild(tmp_path):
+    from hydromodpy.results.run.mesh_families import mesh_families
+
+    root = tmp_path / "demo"
+    with Catalog(root) as catalog:
+        sid = _seal_mesh_run(catalog, "new", "regular")
+    catalog_path_for(root).unlink()
+
+    rebuild_index(root)
+
+    with Catalog(root, read_only=True) as catalog:
+        families = mesh_families(catalog[sid])
+        assert families.cells["cell_id"].tolist() == [0, 1, 3]
+        assert families.cells["position"].tolist() == [0, 1, 2]
+        assert families.faces.empty
+
+
 # -- the live index survives ------------------------------------------------
 #
 # The publish is one atomic rename, whatever the platform calls it: the index

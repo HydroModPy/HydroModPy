@@ -8,7 +8,7 @@ to allocate, immutable for callers, attribute access only.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
@@ -18,14 +18,23 @@ if TYPE_CHECKING:
     from hydromodpy.core.field_routing import DownhillGraph
 
 __all__ = [
+    "LEGACY_MESH_NOTE",
     "Mesh",
     "MeshDescent",
+    "MeshStoreIdentity",
     "RasterField",
     "Stack",
     "UGridStack",
     "cell_centers",
     "polygon_areas",
 ]
+
+
+LEGACY_MESH_NOTE = (
+    "mesh stored before the cell-mesh layout: centres are vertex means; "
+    "families, edges and the mesh CRS are not stored"
+)
+"""What a run sealed before the cell-mesh layout lacks, as one sentence."""
 
 
 def cell_centers(
@@ -73,6 +82,17 @@ def polygon_areas(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
 
 
 @dataclass(frozen=True, slots=True)
+class MeshStoreIdentity:
+    """Who built the mesh of a run, as the ``mesh/`` group of its store says."""
+
+    engine: str
+    engine_version: str | None = None
+    request_hash: str | None = None
+    center_kind: str | None = None
+    seed: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class Mesh:
     """UGRID mesh payload for a single simulation."""
 
@@ -91,6 +111,20 @@ class Mesh:
     face_x: np.ndarray | None = None
     face_y: np.ndarray | None = None
     """Per-face centres, when the mesh group stores them."""
+    identity: MeshStoreIdentity | None = None
+    """Engine, version, request hash and centre rule, ``None`` for a run sealed
+    before the cell-mesh layout."""
+    crs_source: Literal["mesh", "catalog"] | None = None
+    """Where ``crs`` was read: the ``mesh/`` group, else the catalog, ``None`` when
+    neither says."""
+    layout: Literal["cell_mesh", "legacy"] = "legacy"
+    """``"cell_mesh"`` when the store carries the cell-mesh layout (centres,
+    families, edges, engine), ``"legacy"`` for a run sealed before it."""
+
+    @property
+    def layout_note(self) -> str:
+        """Say what the stored mesh lacks, empty when it carries the cell-mesh layout."""
+        return LEGACY_MESH_NOTE if self.layout == "legacy" else ""
 
     def cell_centers(self) -> np.ndarray:
         """Return the ``(n_faces, 2)`` centres the field arrays are indexed by.

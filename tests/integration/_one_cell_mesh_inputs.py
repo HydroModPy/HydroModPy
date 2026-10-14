@@ -60,7 +60,7 @@ ISLAND_MSH = (
     / "dupuit_circular_island_ocean_irregular_tri_radial_48/mesh_2d.msh"
 )
 GRADIENT_TIF = REPO_ROOT / "tests/regression/fixtures/projects/mesh_net/recharge_gradient.tif"
-"""The M0 net's recharge raster: 10 x 10 pixels of 61 m over the island, row 0 north."""
+"""The mesh net's recharge raster: 10 x 10 pixels of 61 m over the island, row 0 north."""
 
 CRS_WKT = CRS.from_epsg(2154).to_wkt()
 NPER = 3
@@ -302,7 +302,7 @@ def raster_case(pair: MeshPair) -> RechargeCase:
     """A diagonal recharge gradient that is not symmetric, on pixels that miss the cells.
 
     The regular pair gets an analytic gradient on 23 x 31 pixels over the mesh
-    box; the triangle pair gets the raster of the M0 net, 10 x 10 pixels of 61 m.
+    box; the triangle pair gets the raster of the mesh net, 10 x 10 pixels of 61 m.
     """
     if pair.name == "triangle":
         with rasterio.open(GRADIENT_TIF) as source:

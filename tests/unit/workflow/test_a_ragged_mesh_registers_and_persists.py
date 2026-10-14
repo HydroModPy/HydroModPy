@@ -40,6 +40,7 @@ def _ctx(cell_mesh: object, z_interfaces: tuple[float, ...] = (0.0, -10.0)) -> S
         ),
         setup=SimpleNamespace(
             cell_mesh=cell_mesh,
+            mesh_summary=None,
             time_grid=None,
             domain=SimpleNamespace(z_interfaces=np.array(z_interfaces)),
         ),
@@ -65,6 +66,7 @@ def test_a_polygon_mesh_is_persisted_as_padded_rows(tmp_path: Path) -> None:
     store = SimulationZarr.create(tmp_path / "sim.zarr", n_cells=2, n_layers=1)
     writer = SimpleNamespace(
         write_mesh=lambda sim_id, **fields: store.write_mesh(**fields),
+        write_view=lambda sim_id, view_name, records: None,
     )
     try:
         prepare_module.step_persist_mesh(_ctx(cell_mesh), "sim-1", store=writer)

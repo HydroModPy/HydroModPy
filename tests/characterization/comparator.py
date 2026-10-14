@@ -24,6 +24,14 @@ Three comparison modes, chosen per array and reported:
     Falls back to ``count / mean / p50 / p95 / sum``, the same five statistics
     the regression tier already uses, compared on a looser band.
 
+A member only the newer run (B) holds is a drift, except the closed list
+``ADDITIVE_MEMBERS``: the arrays and tables the cell-mesh layout added. A
+run written before it cannot hold them, so their absence from A is held with its
+reason and listed in the report, but only when A predates the layout (its ``mesh``
+group names no ``engine``). When A was written by the layout, a member only B holds
+is a drift. Absent from B they are a drift, and a member both runs hold is compared
+like any other.
+
 Usage::
 
     python -m tests.characterization.comparator --frozen --report out.md
@@ -115,6 +123,28 @@ _VOLATILE_COLUMN_NAMES = frozenset(
         "config_source",
     }
 )
+
+ADDITIVE_MEMBERS: frozenset[str] = frozenset(
+    {
+        "fields.zarr/mesh/face_x",
+        "fields.zarr/mesh/face_y",
+        "fields.zarr/mesh/face_family",
+        "fields.zarr/mesh/face_zone",
+        "fields.zarr/mesh/edge_node_connectivity",
+        "fields.zarr/mesh/edge_face_connectivity",
+        "fields.zarr/mesh/edge_family",
+        "tables.parquet/mesh_cell_families.parquet",
+        "tables.parquet/mesh_face_families.parquet",
+    }
+)
+"""Members the cell-mesh layout added to a run directory.
+
+A run written before the layout does not hold them, and a run written after
+does: the comparator tolerates them absent from A, the older run, when A
+predates the layout. Absent from B, or any member not on this closed list, is a
+drift as before. A member both runs hold is compared like any other."""
+
+ADDITIVE_DETAIL = "added by the cell-mesh layout, absent from the older run"
 
 # Metric rows that record how long the machine took, not what the model
 # computed. Selected by metric NAME: the `runtime` variable bucket they sit in
@@ -345,6 +375,32 @@ def _walk_zarr(group: Any, prefix: str = "") -> dict[str, Any]:
     return found
 
 
+def _predates_cell_mesh(run_dir: Path) -> bool:
+    """Return True when the run stored its mesh before the cell-mesh layout.
+
+    The layout writes an ``engine`` attribute on the ``mesh`` group, the same
+    test ``Run.mesh`` applies.
+    """
+    import zarr
+
+    store = run_dir / "fields.zarr"
+    if not store.exists():
+        return True
+    group = zarr.open_group(str(store), mode="r")
+    return "mesh" not in group or "engine" not in group["mesh"].attrs
+
+
+def _only_in_b(target: str, *, older_predates_layout: bool) -> Verdict:
+    """Return the verdict for a member only the newer run holds.
+
+    Held when the member is on :data:`ADDITIVE_MEMBERS` and the older run
+    predates the layout, a drift otherwise.
+    """
+    if older_predates_layout and target in ADDITIVE_MEMBERS:
+        return Verdict(target, "structure", "presence", ADDITIVE_DETAIL, None, None, True)
+    return Verdict(target, "structure", "presence", "only in B", None, None, False)
+
+
 def compare_field_stores(a_dir: Path, b_dir: Path, comparison: RunComparison) -> None:
     """Compare the two ``fields.zarr`` stores array by array."""
     import zarr
@@ -364,11 +420,10 @@ def compare_field_stores(a_dir: Path, b_dir: Path, comparison: RunComparison) ->
                 f"fields.zarr/{missing}", "structure", "presence", "only in A", None, None, False
             )
         )
+    older_predates_layout = _predates_cell_mesh(a_dir)
     for missing in sorted(set(arrays_b) - set(arrays_a)):
         comparison.verdicts.append(
-            Verdict(
-                f"fields.zarr/{missing}", "structure", "presence", "only in B", None, None, False
-            )
+            _only_in_b(f"fields.zarr/{missing}", older_predates_layout=older_predates_layout)
         )
 
     for name in sorted(set(arrays_a) & set(arrays_b)):
@@ -417,11 +472,10 @@ def compare_tables(a_dir: Path, b_dir: Path, comparison: RunComparison) -> None:
                 f"tables.parquet/{missing}", "structure", "presence", "only in A", None, None, False
             )
         )
+    older_predates_layout = _predates_cell_mesh(a_dir)
     for missing in sorted(names_b - names_a):
         comparison.verdicts.append(
-            Verdict(
-                f"tables.parquet/{missing}", "structure", "presence", "only in B", None, None, False
-            )
+            _only_in_b(f"tables.parquet/{missing}", older_predates_layout=older_predates_layout)
         )
 
     for name in sorted(names_a & names_b):
@@ -553,6 +607,8 @@ def compare_manifests(a_dir: Path, b_dir: Path, comparison: RunComparison) -> No
         list_a, list_b = _dig(payload_a, keys), _dig(payload_b, keys)
         if not isinstance(list_a, list) or not isinstance(list_b, list):
             continue
+        if keys == ("artifacts",) and _predates_cell_mesh(a_dir):
+            list_b = _without_additive_artifacts(list_a, list_b)
         comparison.verdicts.append(
             Verdict(
                 target,
@@ -564,6 +620,24 @@ def compare_manifests(a_dir: Path, b_dir: Path, comparison: RunComparison) -> No
                 len(list_a) == len(list_b),
             )
         )
+
+
+def _without_additive_artifacts(older: list, newer: list) -> list:
+    """Return the newer artifact list without the additive members the older run lacks.
+
+    The manifest lists every table, so a table on :data:`ADDITIVE_MEMBERS` raises
+    the count of the newer run by one. It is held as a member, not read as drift.
+    """
+    known = {entry.get("path") for entry in older if isinstance(entry, dict)}
+    return [
+        entry
+        for entry in newer
+        if not (
+            isinstance(entry, dict)
+            and entry.get("path") in ADDITIVE_MEMBERS
+            and entry.get("path") not in known
+        )
+    ]
 
 
 def compare_run_dirs(run_a: Path, run_b: Path, *, label: str | None = None) -> RunComparison:
@@ -766,6 +840,17 @@ def render_markdown(comparisons: list[RunComparison], *, total_seconds: float) -
             lines.append("")
         else:
             lines.append("Every compared target is inside its band.")
+            lines.append("")
+        additive = [v for v in comparison.verdicts if v.detail == ADDITIVE_DETAIL]
+        if additive:
+            lines.append("### Additive members")
+            lines.append("")
+            lines.append(
+                "Held by the newer run only, on the closed list `ADDITIVE_MEMBERS` of the "
+                "comparator; they are not compared."
+            )
+            lines.append("")
+            lines.extend(f"- `{verdict.target}`" for verdict in additive)
             lines.append("")
         worst = sorted(
             (v for v in comparison.verdicts if v.max_abs is not None and v.within),

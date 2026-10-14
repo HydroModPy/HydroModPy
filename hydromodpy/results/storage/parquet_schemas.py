@@ -779,6 +779,127 @@ mode.
 """
 
 
+MESH_CELL_FAMILIES_SCHEMA: Final[pa.Schema] = pa.schema(
+    [
+        pa.field("sim_id", pa.string(), nullable=False),
+        pa.field(
+            "family",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="Name of the cell family, e.g. rivers"),
+        ),
+        pa.field(
+            "chain_id",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(description="Id of the chain inside its family"),
+        ),
+        pa.field(
+            "position",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(description="Rank of the cell along the chain, 0 upstream"),
+        ),
+        pa.field(
+            "cell_id",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(description="Cell, as its rank on the face axis of the fields"),
+        ),
+        pa.field(
+            "offset_m",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(
+                description="Distance from the cell centre to the family line, m; null when unknown"
+            ),
+        ),
+    ],
+    metadata=_schema_metadata(
+        "mesh_cell_families",
+        pk=("sim_id", "family", "chain_id", "position"),
+    ),
+)
+"""Ordered cells of every cell-intent family of the mesh (the rasterized river).
+
+The ``mesh/face_family`` bit field says which cells belong to a family; this table
+keeps the order along the line, which a bit field cannot. Absent when the mesh has
+no cell chain.
+"""
+
+MESH_FACE_FAMILIES_SCHEMA: Final[pa.Schema] = pa.schema(
+    [
+        pa.field("sim_id", pa.string(), nullable=False),
+        pa.field(
+            "face_row",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(description="Row of the face in the mesh family table"),
+        ),
+        pa.field(
+            "family",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="Name of the face family, e.g. rivers"),
+        ),
+        pa.field(
+            "edge_id",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(description="Rank of the face in the mesh/edge_* arrays"),
+        ),
+        pa.field(
+            "node_a",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(description="First vertex of the face"),
+        ),
+        pa.field(
+            "node_b",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(description="Second vertex of the face"),
+        ),
+        pa.field(
+            "cell_a",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(description="Cell on the left of the oriented family line"),
+        ),
+        pa.field(
+            "cell_b",
+            pa.int32(),
+            nullable=False,
+            metadata=_field_meta(
+                description="Cell on the right of the oriented family line, -1 on the boundary"
+            ),
+        ),
+        pa.field(
+            "zone_left",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Zone on the left of the line; null when unknown"),
+        ),
+        pa.field(
+            "zone_right",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Zone on the right of the line; null when unknown"),
+        ),
+    ],
+    metadata=_schema_metadata(
+        "mesh_face_families",
+        pk=("sim_id", "face_row"),
+    ),
+)
+"""Every mesh face that lies on a face-intent family line (lakes, geology, boundaries).
+
+A table absent from a run that stored its mesh in the cell-mesh layout means the
+mesh has no such face; a run sealed before that layout has neither table nor the
+``engine`` attribute on ``mesh/``.
+"""
+
+
 # Geographic vector files are NOT declared as a pa.Schema here: they are written
 # by ``geopandas.to_parquet`` (OGC GeoParquet 1.1) and carry every column of the
 # source GeoDataFrame plus the ``geo`` OGC metadata key, so no fixed pyarrow
@@ -797,6 +918,8 @@ VIEW_SCHEMAS: Final[dict[str, pa.Schema]] = {
     "observation_points": OBSERVATION_POINTS_SCHEMA,
     "sfr_reaches": SFR_REACHES_SCHEMA,
     "soil_budget": SOIL_BUDGET_SCHEMA,
+    "mesh_cell_families": MESH_CELL_FAMILIES_SCHEMA,
+    "mesh_face_families": MESH_FACE_FAMILIES_SCHEMA,
 }
 """Map of per-simulation view name to declared :class:`pa.Schema`."""
 
@@ -854,6 +977,8 @@ __all__ = [
     "BUDGETS_SCHEMA",
     "CF_CONVENTIONS",
     "MASS_BALANCE_SCHEMA",
+    "MESH_CELL_FAMILIES_SCHEMA",
+    "MESH_FACE_FAMILIES_SCHEMA",
     "METRICS_SCHEMA",
     "OBSERVATION_POINTS_SCHEMA",
     "PARAMETERS_SCHEMA",

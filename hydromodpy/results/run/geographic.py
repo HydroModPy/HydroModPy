@@ -10,16 +10,22 @@ into :class:`Run`; ``self`` is the :class:`Run` instance whose ``_sim_id``,
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
+from weakref import WeakSet
 
 import numpy as np
 import pandas as pd
 
 from hydromodpy.core.budget_terms import KeptBudget, kept_budget
+from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
+from hydromodpy.results.derive.mesh_quality import (
+    MESH_QUALITY_DESCRIPTORS,
+    mesh_quality_unavailable_reason,
+)
 from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.run.array import lookup_zarr_path
-from hydromodpy.results.run.contracts import Mesh, RasterField
+from hydromodpy.results.run.contracts import Mesh, MeshStoreIdentity, RasterField
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -28,6 +34,11 @@ if TYPE_CHECKING:
 
     from hydromodpy.results.grid import Grid
     from hydromodpy.results.run import Run
+
+logger = get_logger(__name__)
+
+_NOTED_LEGACY_MESH: WeakSet[Any] = WeakSet()
+"""Runs whose legacy mesh layout was already logged, so each is told once."""
 
 
 def crs_proj_from_metadata(metadata: Mapping[str, object]) -> str | None:
@@ -284,6 +295,10 @@ class RunGeographicMixin:
     def mesh(self) -> Mesh:
         """Unstructured simulation mesh used by field arrays.
 
+        A run sealed before the cell-mesh layout reads as ``layout == "legacy"``:
+        its centres are the vertex means, it stores no engine, family or edge, and
+        its CRS comes from the catalog. Reading it logs that once, at ``INFO``.
+
         Raises
         ------
         RuntimeError
@@ -291,15 +306,17 @@ class RunGeographicMixin:
         """
         if self._load_row().get("solver_category") == "lumped":
             raise RuntimeError("lumped simulation has no spatial grid")
-        crs = crs_proj_from_metadata(self._catalog.read_geographic_metadata(self._sim_id))
         sz = self._catalog.open_zarr(self._sim_id)
         try:
             mesh_grp = sz.root["mesh"]
+            attrs = mesh_grp.attrs
             topo = mesh_grp.get("topography")
             face_x = mesh_grp.get("face_x")
             face_y = mesh_grp.get("face_y")
-            raw_shape = mesh_grp.attrs.get("structured_shape")
-            return Mesh(
+            raw_shape = attrs.get("structured_shape")
+            crs, crs_source = self._mesh_crs(attrs.get("crs"))
+            identity = _store_identity(attrs, face_x)
+            mesh = Mesh(
                 vertices=mesh_grp["vertices"][:],
                 face_node_connectivity=mesh_grp["face_node_connectivity"][:],
                 z_interfaces=mesh_grp["z_interfaces"][:],
@@ -310,9 +327,47 @@ class RunGeographicMixin:
                 ),
                 face_x=None if face_x is None else face_x[:],
                 face_y=None if face_y is None else face_y[:],
+                identity=identity,
+                crs_source=crs_source,
+                layout="legacy" if identity is None else "cell_mesh",
             )
         finally:
             sz.close()
+        if mesh.layout == "legacy" and self not in _NOTED_LEGACY_MESH:
+            _NOTED_LEGACY_MESH.add(self)
+            logger.info("Run %s: %s.", self._sim_id[:8], mesh.layout_note)
+        return mesh
+
+    def _mesh_crs(self, stored: object) -> tuple[str | None, Literal["mesh", "catalog"] | None]:
+        """Return the projected CRS of the mesh and where it was read.
+
+        The ``mesh/`` group says it when the run wrote the cell-mesh layout; an
+        older run has the catalog's ``crs_proj`` only.
+        """
+        if stored not in (None, ""):
+            return str(stored), "mesh"
+        crs = crs_proj_from_metadata(self._catalog.read_geographic_metadata(self._sim_id))
+        return crs, None if crs is None else "catalog"
+
+
+def _store_identity(attrs: Mapping[str, Any], face_x: Any) -> MeshStoreIdentity | None:
+    """Return who built the mesh, from the attributes of ``mesh/``; ``None`` if it says nothing."""
+    engine = attrs.get("engine")
+    if engine is None:
+        return None
+    seed = attrs.get("engine_seed")
+    center_kind = None if face_x is None else face_x.attrs.get("center_kind")
+    return MeshStoreIdentity(
+        engine=str(engine),
+        engine_version=_text_or_none(attrs.get("engine_version")),
+        request_hash=_text_or_none(attrs.get("mesh_request_hash")),
+        center_kind=_text_or_none(center_kind),
+        seed=None if seed is None else int(seed),
+    )
+
+
+def _text_or_none(value: object) -> str | None:
+    return None if value is None else str(value)
 
 
 def field_range(
@@ -399,13 +454,25 @@ def _field_not_found(run: Run, variable: str) -> FieldNotFoundError:
     """Return the error a field read raises when nothing stores or rebuilds the field."""
     from hydromodpy.results.derive.config_flags import missing_field_explanation
 
-    explanation = missing_field_explanation([variable], run)
+    explanation = missing_field_explanation([variable], run) or _mesh_quality_reason(run, variable)
     hint = f" {explanation}" if explanation else ""
     return FieldNotFoundError(
         f"Field '{variable}' not found in simulation '{run.sim_id}'.{hint}",
         sim_id=run.sim_id,
         variable=variable,
     )
+
+
+def _mesh_quality_reason(run: Run, variable: str) -> str:
+    """Say why a mesh quality field is refused for ``run``, empty for any other field."""
+    if variable not in MESH_QUALITY_DESCRIPTORS:
+        return ""
+    sz = run._catalog.open_zarr(run.sim_id)
+    try:
+        reason = mesh_quality_unavailable_reason(sz.root, variable)
+    finally:
+        sz.close()
+    return "" if reason is None else f"{variable} is not available for this run: {reason}."
 
 
 def _apply_bbox_mask(

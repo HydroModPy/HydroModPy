@@ -167,7 +167,6 @@ def test_the_mf6_extractor_stores_the_descent_right_after_the_mesh(tmp_path, mon
             "m",
             1,
             N_CELLS,
-            grid_shape=(3, 3),
         )
 
         mesh = store.root["mesh"]

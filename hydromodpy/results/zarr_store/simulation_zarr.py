@@ -29,6 +29,7 @@ from upath import UPath
 from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.field_precision import DEFAULT_FIELD_PRECISION, FieldPrecision
 from hydromodpy.results.zarr_store import zarr_finalizer, zarr_reader, zarr_writer
+from hydromodpy.results.zarr_store.mesh_layout import MeshLayout
 from hydromodpy.results.zarr_store.zarr_finalizer import (
     LOCK_TIMEOUT_SECONDS,
     lock_path_for_store,
@@ -183,6 +184,7 @@ class SimulationZarr:
         start_index: int = 0,
         grid_type: str | None = None,
         structured_shape: tuple[int, int] | None = None,
+        layout: MeshLayout | None = None,
     ) -> None:
         """Write the UGRID-1.0 mesh group, including the optional topography array."""
         zarr_writer.write_mesh(
@@ -199,6 +201,7 @@ class SimulationZarr:
             start_index=start_index,
             grid_type=grid_type,
             structured_shape=structured_shape,
+            layout=layout,
         )
 
     def write_descent(
@@ -235,14 +238,22 @@ class SimulationZarr:
         z_interfaces: np.ndarray | None = None,
         n_cells: int | None = None,
         n_layers: int | None = None,
+        layer_thickness: np.ndarray | None = None,
+        streambed_top: np.ndarray | None = None,
+        streambed_connection: np.ndarray | None = None,
+        grid_type: str | None = None,
     ) -> None:
-        """Write the mesh topography (and optional z_interfaces) only."""
+        """Write the topography and the vertical geometry the solved model adds to the mesh."""
         zarr_writer.write_topography(
             self,
             topography,
             z_interfaces=z_interfaces,
             n_cells=n_cells,
             n_layers=n_layers,
+            layer_thickness=layer_thickness,
+            streambed_top=streambed_top,
+            streambed_connection=streambed_connection,
+            grid_type=grid_type,
         )
 
     # -- Time / CRS ----------------------------------------------------------

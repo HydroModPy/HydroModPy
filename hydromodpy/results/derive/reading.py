@@ -43,10 +43,12 @@ def read_variable(
     from the end), a date (``"2002-10-15"``, ``datetime.date``,
     ``pandas.Timestamp``) that resolves to the stress period holding it, or
     ``"first"`` / ``"last"``. A ``slice`` of indexes keeps several periods.
-    A series or a feature takes no ``time``: a series is windowed by
+    A mesh quality field has no time axis and reads as one value per cell, whatever
+    ``time`` says. A series or a feature takes no ``time``: a series is windowed by
     ``sel={"period": (start, end)}``.
     """
     from hydromodpy.results import field_registry
+    from hydromodpy.results.derive.mesh_quality import MESH_QUALITY_DESCRIPTORS
     from hydromodpy.results.errors import FieldNotFoundError
     from hydromodpy.results.run import Run
 
@@ -60,6 +62,9 @@ def read_variable(
 
         _refuse_time(var, time, "the particle paths", "no time selector")
         return particle_frame(run)
+
+    if var in MESH_QUALITY_DESCRIPTORS:
+        return run.field(var, layer=layer, bbox=bbox)
 
     if field_registry.has(var):
         return _read_field(run, var, time=_period_index(run, time), layer=layer, bbox=bbox)

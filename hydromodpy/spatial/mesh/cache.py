@@ -4,7 +4,8 @@ Gmsh draws from the system clock, so a mesh generated twice from one request
 differs. An engine that declares ``needs_cache`` is built once per request: the
 mesh is stored under ``<project>/.hmp/mesh_cache/<key>/`` and every later run,
 resume and ``restart_from`` of the project reads it back. The key names the
-request, the engine and its version, and the gmsh build.
+request, the engine and its version, and the builds of the libraries whose
+geometry it draws on (:func:`library_versions`).
 
 An entry is a directory holding ``mesh.npz`` (arrays) and ``mesh.json`` (the
 rest). It is written in a temporary directory and renamed, so a reader sees a
@@ -40,6 +41,7 @@ __all__ = [
     "cache_dir",
     "cache_key",
     "has_cell_mesh",
+    "library_versions",
     "load_cell_mesh",
     "save_cell_mesh",
 ]
@@ -54,24 +56,44 @@ SCHEMA_VERSION = "hydromodpy.mesh_cache.v1"
 _FACE_COLUMNS = ("family", "cell_a", "cell_b", "node_a", "node_b", "zone_left", "zone_right")
 
 
-def cache_key(request: MeshRequest, engine_cls: type) -> str:
-    """Return the sha256 hex key of one request meshed by one engine build.
+def library_versions() -> dict[str, str]:
+    """Return the versions of the libraries a mesh depends on, by name.
 
-    The key reads the request hash, the engine id and version, and the version
-    of gmsh, whose meshes change with it.
+    Shapely, the GEOS it wraps, scipy and gmsh: a new build of any of them can
+    move a vertex, so each one is part of the cache key and is stored with the
+    mesh of a run. ``"absent"`` stands for an uninstalled gmsh, which an engine
+    that needs none keys on.
     """
+    import scipy
+    import shapely
+
     try:
         gmsh_version = metadata.version("gmsh")
     except metadata.PackageNotFoundError:
-        gmsh_version = "absent"  # an engine that needs no gmsh keys on its absence
+        gmsh_version = "absent"
+    return {
+        "gmsh": gmsh_version,
+        "scipy": scipy.__version__,
+        "shapely": shapely.__version__,
+        "geos": shapely.geos_version_string,
+    }
+
+
+def cache_key(request: MeshRequest, engine_cls: type) -> str:
+    """Return the sha256 hex key of one request meshed by one engine build.
+
+    The key reads the request hash, the engine id and version, and every entry
+    of :func:`library_versions`.
+    """
     digest = hashlib.sha256()
-    for part in (
+    parts = [
         SCHEMA_VERSION,
         request.canonical_hash(),
         engine_cls.engine_id,
         engine_cls.engine_version,
-        gmsh_version,
-    ):
+        *(f"{name}={version}" for name, version in sorted(library_versions().items())),
+    ]
+    for part in parts:
         digest.update(part.encode())
         digest.update(b"\0")
     return digest.hexdigest()

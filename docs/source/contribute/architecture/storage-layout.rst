@@ -102,6 +102,9 @@ summaries. ``geometry.catchment`` is the important one: the catchment
 area and the outlet live there, and a discharge derived from runoff is
 scaled by that area, so losing it yields a silently wrong series rather
 than an error.
+``geometry.mesh_engine`` and ``geometry.mesh_engine_version`` name the engine that built
+the mesh, read from the ``engine`` and ``engine_version`` attributes of ``mesh/``; both are absent
+from a run sealed before the cell-mesh layout.
 
 A session folder
 ----------------
@@ -206,9 +209,13 @@ The frozen ``config.toml`` is not a table: it stays in the run directory,
 and ``hmp run --resume <ref>`` replays it straight from there.
 ``hmp catalog rerun`` goes through ``simulations.config_snapshot``, which
 comes back with ``simulation.parquet``. ``timeseries``, ``budgets``,
-``mass_balance``, ``observation_points``, ``sfr_reaches`` and
-``soil_budget`` are not tables either but DuckDB views over the Parquet
-payloads, so they come back with the files themselves.
+``mass_balance``, ``observation_points``, ``sfr_reaches``, ``soil_budget``,
+``mesh_cell_families`` and ``mesh_face_families`` are not tables either but DuckDB views over the
+Parquet payloads, so they come back with the files themselves. The engine of a run is not a column
+of ``simulations`` for the same reason: the ``mesh_engine`` column of the listings is derived from
+``config_snapshot`` (``MESH_ENGINE_SQL`` in ``hydromodpy/results/catalog/constants.py``), so it is
+rebuilt with the index and needs no migration. It is NULL for a run sealed before the ``[mesh]``
+section existed.
 
 Class 2: losable
 ~~~~~~~~~~~~~~~~
@@ -380,6 +387,64 @@ shapes and the meaning of every stored array are unchanged, the float width
 is declared by each array's own Zarr metadata, and both an old store and a
 new one read the same through every reader.
 
+**Cell mesh.** ``step_persist_mesh`` writes the mesh of a run once, before the solve, from the
+``PlanarCellMesh`` the mesh step built. The solver extractors then check their grid against it and
+add only what the solved model owns (topography, layer thickness, streambed levels, ``grid_type``)
+through ``write_topography``; none of them rewrites vertices or connectivity, and a grid whose
+cell count differs from the stored one raises ``IncompatibleMeshError``. Besides ``vertices``,
+``face_node_connectivity``, ``z_interfaces`` and ``topology``, ``mesh/`` holds:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 12 18 48
+
+   * - Array
+     - dtype
+     - Axes
+     - Content
+   * - ``face_x``, ``face_y``
+     - float64
+     - ``face``
+     - Cell centre, by the one centre rule of the mesh; the attribute ``center_kind`` says
+       ``generator``, ``cell_center`` or ``vertex_mean``
+   * - ``face_family``
+     - int32
+     - ``face``
+     - Bit field of the line families a cell belongs to; ``flag_masks``, ``flag_meanings``
+       (CF-safe names) and ``family_names`` (exact names) give the bit of each family
+   * - ``face_zone``
+     - int32
+     - ``face``
+     - Index into the attribute ``zone_names``, ``-1`` when unknown; written only when the mesh
+       has zones
+   * - ``edge_node_connectivity``
+     - int32
+     - ``edge``, ``two``
+     - The two end nodes of every mesh edge, smaller node first, sorted
+   * - ``edge_face_connectivity``
+     - int32
+     - ``edge``, ``two``
+     - The cells on the two sides of every edge, ``-1`` for the domain side of a boundary edge
+   * - ``edge_family``
+     - int32
+     - ``edge``
+     - Bit field of the face families an edge lies on; its own ``flag_masks``, ``flag_meanings``
+       and ``family_names`` attributes name the bits, which need not match those of ``face_family``
+
+The attributes of ``mesh/`` add the ``engine``, its ``engine_version``, its ``engine_seed`` when it
+draws random numbers, the ``mesh_request_hash``, the ``crs`` (WKT) the vertices are expressed in,
+the mesh ``qa`` (JSON, no ``NaN``), the ``library_versions`` the mesh depends on and, on a regular
+grid, ``structured_shape``. The edge arrays are the UGRID ones, with the same fill value as
+xugrid, so ``xugrid.Ugrid2d`` takes them as stored. A family has one bit, so a mesh holds at most 31
+families. The order along a river, which a bit field cannot keep, is in the ``mesh_cell_families``
+table (``family``, ``chain_id``, ``position`` from upstream, ``cell_id``, and ``offset_m``, null
+while no engine measures it); the faces of the face-intent families (lakes, geology, the
+``boundary:*`` sides) are in ``mesh_face_families`` (``face_row``, ``family``, ``edge_id``, the two
+nodes, the cell on each side and the zone names). A run whose mesh has no such family writes no
+table: an absent table is an empty one when the ``engine`` attribute is present. All of this is
+additive, so ``zarr_schema_version`` does not change. A run sealed before it has none of these
+arrays, no ``engine`` and no ``crs`` on ``mesh/``; its readers say so and do not rebuild them.
+
 **Routing descent.** A MODFLOW 6 or MODFLOW-NWT run stores the descent D it was built with under
 ``mesh/``, one value per face and none rounded: ``descent_receiver``, ``descent_surface``, the
 masks ``descent_base_level``, ``descent_constant_head``, ``descent_raised``, ``descent_channel``
@@ -387,11 +452,11 @@ and ``descent_pinned``, and the list ``descent_dam_foot``. The attributes of ``d
 name the neighbourhood and carry the build report. The solver build leaves D in the solver folder
 as ``<model>.descent.npz`` and the extractor copies it into the store right after the mesh.
 ``run.descent`` reads it back, and the flow direction map and ``accumulation_flux`` route on it
-(the contract of D is in :doc:`solver/backends`). Boussinesq has no mesh connectivity, so its
-extractor builds D from the Whitebox D8 pointer of the filled top and stores it once per run as
-``descent_receiver`` and ``descent_surface``, for a raster run only. A Boussinesq run on a
-triangular mesh stores no D, and its accumulation fields are unavailable. The arrays are new
-datasets, so ``zarr_schema_version`` does not change. A run sealed before D was stored has no
+(the contract of D is in :doc:`solver/backends`). A Boussinesq run stores the mesh of its
+setup like any other, and its extractor builds D from the Whitebox D8 pointer of the filled top and
+stores it once per run as ``descent_receiver`` and ``descent_surface``, for a raster run only. A
+Boussinesq run on a triangular mesh stores no D, and its accumulation fields are unavailable. The
+arrays are new datasets, so ``zarr_schema_version`` does not change. A run sealed before D was stored has no
 ``descent_*`` array, and its readers rebuild D from the stored top, with no channel pin, no
 constant-head seed and no lake.
 
@@ -426,7 +491,8 @@ The payloads are ``simulation``, ``parameters``, ``metrics``, ``timeseries``, ``
 ``mass_balance``, ``observation_points``, ``sfr_reaches`` (the resolved SFR reach geometry, the
 only record of which cell carries which reach, absent when the run built no stream network),
 ``soil_budget`` (one row per soil column and calendar year, absent outside soil mode),
-``provenance`` and the GeoParquet 1.1 layers ``geographic_*``. Their columns are generated in
+``mesh_cell_families`` and ``mesh_face_families`` (the line families of the mesh, see the cell
+mesh above), ``provenance`` and the GeoParquet 1.1 layers ``geographic_*``. Their columns are generated in
 :doc:`generated/storage-tree`.
 
 Project index DuckDB schema
@@ -450,8 +516,8 @@ Views. ``v_workflow_heartbeats`` comes from the DDL.
 ``v_params_wide`` are created at runtime by
 ``hydromodpy/results/catalog/views.py``. ``timeseries``, ``budgets``,
 ``mass_balance``, ``observation_points``, ``metrics_parquet``,
-``provenance_parquet``, ``sfr_reaches`` and ``soil_budget`` are views over
-the run's Parquet payloads, declared once in ``PARQUET_VIEW_NAMES``
+``provenance_parquet``, ``sfr_reaches``, ``soil_budget``, ``mesh_cell_families`` and
+``mesh_face_families`` are views over the run's Parquet payloads, declared once in ``PARQUET_VIEW_NAMES``
 (``hydromodpy/results/catalog/constants.py``).
 
 Backend abstraction

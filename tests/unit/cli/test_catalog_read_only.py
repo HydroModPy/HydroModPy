@@ -12,6 +12,7 @@ import pytest
 
 from hydromodpy.core.state.paths import catalog_path_for
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 
 
 def _run(monkeypatch, argv: list[str]) -> int:
@@ -94,3 +95,36 @@ def test_rendering_a_figure_never_creates_an_index(tmp_path) -> None:
         render_figure("alpha", "piezometric_map", workspace=empty)
 
     assert not catalog_path_for(empty).exists()
+
+
+def test_ls_shows_a_dash_for_a_run_with_no_mesh_engine(monkeypatch, project, capsys) -> None:
+    code = _run(monkeypatch, ["hmp", "catalog", "ls", "--workspace", str(project)])
+
+    assert code == 0
+    assert "mesh=-" in capsys.readouterr().out
+
+
+def test_ls_shows_the_mesh_engine_of_a_run(monkeypatch, tmp_path, capsys) -> None:
+    root = tmp_path / "demo"
+    root.mkdir()
+    (root / "project.toml").write_text("[workspace]\nproject_root = '.'\n")
+    with Catalog(root) as catalog:
+        sid = str(uuid.uuid4())
+        registration = catalog.register_simulation(
+            sid,
+            project="demo",
+            solver="modflow6",
+            name="beta",
+            n_cells=32,
+            n_layers=1,
+            config={"flow": {"hk": 1e-5}, "mesh": {"engine": "voronoi"}},
+        )
+        if registration.zarr is not None:
+            registration.zarr.close()
+        (catalog.run_dir_for(sid) / RUN_CONFIG_FILENAME).write_text("[flow]\nhk = 1e-5\n")
+        catalog.finalize(sid, status="completed")
+
+    code = _run(monkeypatch, ["hmp", "catalog", "ls", "--workspace", str(root)])
+
+    assert code == 0
+    assert "mesh=voronoi" in capsys.readouterr().out

@@ -8,6 +8,8 @@ category resolver. The DDL itself lives in the SQL migration scripts under
 
 from __future__ import annotations
 
+from hydromodpy.spatial.mesh.registry import DEFAULT_ENGINE_ID
+
 GLOBAL_ZONE = "__global__"
 """Sentinel parameter zone used when no spatial zoning applies."""
 
@@ -85,7 +87,24 @@ PARQUET_VIEW_NAMES: tuple[str, ...] = (
     "observation_points",
     "sfr_reaches",
     "soil_budget",
+    "mesh_cell_families",
+    "mesh_face_families",
 )
+
+
+MESH_ENGINE_SQL: str = (
+    "CASE WHEN json_exists(s.config_snapshot, '$.mesh') THEN "
+    f"COALESCE(json_extract_string(s.config_snapshot, '$.mesh.engine'), '{DEFAULT_ENGINE_ID}') "
+    "END"
+)
+"""SQL expression of the ``mesh_engine`` column of a run, derived from its config.
+
+The engine is not a column of ``simulations``: ``config_snapshot`` carries it, and
+it comes back with ``simulation.parquet`` when the index is rebuilt. A run
+sealed before the ``[mesh]`` section existed has no ``mesh`` key and gets NULL;
+a run whose ``[mesh]`` section is unset ran on the default engine. The
+expression reads the ``simulations`` table under the alias ``s``.
+"""
 
 
 # Canonical v2 solver codes, mirroring ``solvers.code`` rows in
@@ -235,6 +254,7 @@ __all__ = [
     "GLOBAL_ZONE",
     "METRIC_SENSE",
     "OUTLET_STATION",
+    "MESH_ENGINE_SQL",
     "PARQUET_VIEW_NAMES",
     "PER_SIM_TABLE_NAMES",
     "RETIRED_METRIC_NAMES",
